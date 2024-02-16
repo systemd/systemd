@@ -525,6 +525,26 @@ static const char* getenv_harder(pam_handle_t *handle, const char *key, const ch
         return fallback;
 }
 
+static bool getenv_harder_bool(pam_handle_t *handle, const char *key, bool fallback) {
+        const char *v;
+        int r;
+
+        assert(handle);
+        assert(key);
+
+        v = getenv_harder(handle, key, NULL);
+        if (isempty(v))
+                return fallback;
+
+        r = parse_boolean(v);
+        if (r < 0) {
+                pam_syslog(handle, LOG_ERR, "Boolean environment variable value of '%s' is not valid: %s", key, v);
+                return fallback;
+        }
+
+        return r;
+}
+
 static int update_environment(pam_handle_t *handle, const char *key, const char *value) {
         int r;
 
@@ -606,6 +626,7 @@ static int apply_user_record_settings(
                 bool debug,
                 uint64_t default_capability_bounding_set,
                 uint64_t default_capability_ambient_set) {
+        _cleanup_strv_free_ char **langs = NULL;
         int r;
 
         assert(handle);
@@ -617,48 +638,25 @@ static int apply_user_record_settings(
         }
 
         STRV_FOREACH(i, ur->environment) {
-                _cleanup_free_ char *n = NULL;
-                const char *e;
-
-                assert_se(e = strchr(*i, '=')); /* environment was already validated while parsing JSON record, this thus must hold */
-
-                n = strndup(*i, e - *i);
-                if (!n)
-                        return pam_log_oom(handle);
-
-                if (pam_getenv(handle, n)) {
-                        pam_debug_syslog(handle, debug,
-                                         "PAM environment variable $%s already set, not changing based on record.", *i);
-                        continue;
-                }
-
                 r = pam_putenv_and_log(handle, *i, debug);
                 if (r != PAM_SUCCESS)
                         return r;
         }
 
         if (ur->email_address) {
-                if (pam_getenv(handle, "EMAIL"))
-                        pam_debug_syslog(handle, debug,
-                                         "PAM environment variable $EMAIL already set, not changing based on user record.");
-                else {
-                        _cleanup_free_ char *joined = NULL;
+                _cleanup_free_ char *joined = NULL;
 
-                        joined = strjoin("EMAIL=", ur->email_address);
-                        if (!joined)
-                                return pam_log_oom(handle);
+                joined = strjoin("EMAIL=", ur->email_address);
+                if (!joined)
+                        return pam_log_oom(handle);
 
-                        r = pam_putenv_and_log(handle, joined, debug);
-                        if (r != PAM_SUCCESS)
-                                return r;
-                }
+                r = pam_putenv_and_log(handle, joined, debug);
+                if (r != PAM_SUCCESS)
+                        return r;
         }
 
         if (ur->time_zone) {
-                if (pam_getenv(handle, "TZ"))
-                        pam_debug_syslog(handle, debug,
-                                         "PAM environment variable $TZ already set, not changing based on user record.");
-                else if (!timezone_is_valid(ur->time_zone, LOG_DEBUG))
+                if (!timezone_is_valid(ur->time_zone, LOG_DEBUG))
                         pam_debug_syslog(handle, debug,
                                          "Time zone specified in user record is not valid locally, not setting $TZ.");
                 else {
@@ -674,21 +672,38 @@ static int apply_user_record_settings(
                 }
         }
 
-        if (ur->preferred_language) {
-                if (pam_getenv(handle, "LANG"))
-                        pam_debug_syslog(handle, debug,
-                                         "PAM environment variable $LANG already set, not changing based on user record.");
-                else if (locale_is_installed(ur->preferred_language) <= 0)
-                        pam_debug_syslog(handle, debug,
-                                         "Preferred language specified in user record is not valid or not installed, not setting $LANG.");
-                else {
-                        _cleanup_free_ char *joined = NULL;
+        r = user_record_languages(ur, &langs);
+        if (r < 0)
+                pam_syslog_errno(handle, LOG_ERR, r,
+                                 "Failed to acquire user's language preferences, ignoring: %m");
+        else if (strv_isempty(langs))
+                ; /* User has no preference set so we do nothing */
+        else if (locale_is_installed(langs[0]) <= 0)
+                pam_debug_syslog(handle, debug,
+                                 "Preferred languages specified in user record are not installed locally, not setting $LANG or $LANGUAGE.");
+        else {
+                _cleanup_free_ char *lang = NULL;
 
-                        joined = strjoin("LANG=", ur->preferred_language);
+                lang = strjoin("LANG=", langs[0]);
+                if (!lang)
+                        return pam_log_oom(handle);
+
+                r = pam_putenv_and_log(handle, lang, debug);
+                if (r != PAM_SUCCESS)
+                        return r;
+
+                if (strv_length(langs) > 1) {
+                        _cleanup_free_ char *joined = NULL, *language = NULL;
+
+                        joined = strv_join(langs, ":");
                         if (!joined)
                                 return pam_log_oom(handle);
 
-                        r = pam_putenv_and_log(handle, joined, debug);
+                        language = strjoin("LANGUAGE=", joined);
+                        if (!language)
+                                return pam_log_oom(handle);
+
+                        r = pam_putenv_and_log(handle, language, debug);
                         if (r != PAM_SUCCESS)
                                 return r;
                 }
@@ -802,13 +817,21 @@ typedef struct SessionContext {
         const char *runtime_max_sec;
 } SessionContext;
 
-static int create_session_message(sd_bus *bus, pam_handle_t *handle, const SessionContext *context, bool avoid_pidfd, sd_bus_message **ret) {
+static int create_session_message(
+                sd_bus *bus,
+                pam_handle_t *handle,
+                const SessionContext *context,
+                bool avoid_pidfd,
+                sd_bus_message **ret) {
+
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        int r, pidfd = -EBADFD;
+        _cleanup_close_ int pidfd = -EBADF;
+        int r;
 
         assert(bus);
         assert(handle);
         assert(context);
+        assert(ret);
 
         if (!avoid_pidfd) {
                 pidfd = pidfd_open(getpid_cached(), 0);
@@ -900,7 +923,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         int session_fd = -EBADF, existing, r;
-        bool debug = false, remote;
+        bool debug = false, remote, incomplete;
         uint32_t vtnr = 0;
         uid_t original_uid;
 
@@ -926,57 +949,39 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (!logind_running())
                 goto success;
 
-        /* Make sure we don't enter a loop by talking to
-         * systemd-logind when it is actually waiting for the
-         * background to finish start-up. If the service is
-         * "systemd-user" we simply set XDG_RUNTIME_DIR and
-         * leave. */
-
-        r = pam_get_item(handle, PAM_SERVICE, (const void**) &service);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM service: @PAMERR@");
-        if (streq_ptr(service, "systemd-user")) {
-                char rt[STRLEN("/run/user/") + DECIMAL_STR_MAX(uid_t)];
-
-                xsprintf(rt, "/run/user/"UID_FMT, ur->uid);
-                r = configure_runtime_directory(handle, ur, rt);
-                if (r != PAM_SUCCESS)
-                        return r;
-
-                goto success;
-        }
-
-        /* Otherwise, we ask logind to create a session for us */
-
-        r = pam_get_item(handle, PAM_XDISPLAY, (const void**) &display);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM_XDISPLAY: @PAMERR@");
-        r = pam_get_item(handle, PAM_TTY, (const void**) &tty);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM_TTY: @PAMERR@");
-        r = pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM_RUSER: @PAMERR@");
-        r = pam_get_item(handle, PAM_RHOST, (const void**) &remote_host);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM_RHOST: @PAMERR@");
+        r = pam_get_item_many(
+                        handle,
+                        PAM_SERVICE, &service,
+                        PAM_XDISPLAY, &display,
+                        PAM_TTY, &tty,
+                        PAM_RUSER, &remote_user,
+                        PAM_RHOST, &remote_host);
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM items: @PAMERR@");
 
         seat = getenv_harder(handle, "XDG_SEAT", NULL);
         cvtnr = getenv_harder(handle, "XDG_VTNR", NULL);
         type = getenv_harder(handle, "XDG_SESSION_TYPE", type_pam);
         class = getenv_harder(handle, "XDG_SESSION_CLASS", class_pam);
         desktop = getenv_harder(handle, "XDG_SESSION_DESKTOP", desktop_pam);
+        incomplete = getenv_harder_bool(handle, "XDG_SESSION_INCOMPLETE", false);
 
-        tty = strempty(tty);
+        if (streq_ptr(service, "systemd-user")) {
+                /* If we detect that we are running in the "systemd-user" PAM stack, then let's patch the class to
+                 * 'manager' if not set, simply for robustness reasons. */
+                type = "unspecified";
+                class = IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) ?
+                        "manager-early" : "manager";
+                tty = NULL;
 
-        if (strchr(tty, ':')) {
+        } else if (tty && strchr(tty, ':')) {
                 /* A tty with a colon is usually an X11 display, placed there to show up in utmp. We rearrange things
                  * and don't pretend that an X display was a tty. */
                 if (isempty(display))
                         display = tty;
                 tty = NULL;
 
-        } else if (streq(tty, "cron")) {
+        } else if (streq_ptr(tty, "cron")) {
                 /* cron is setting PAM_TTY to "cron" for some reason (the commit carries no information why, but
                  * probably because it wants to set it to something as pam_time/pam_access/… require PAM_TTY to be set
                  * (as they otherwise even try to update it!) — but cron doesn't actually allocate a TTY for its forked
@@ -985,10 +990,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 class = "background";
                 tty = NULL;
 
-        } else if (streq(tty, "ssh")) {
+        } else if (streq_ptr(tty, "ssh")) {
                 /* ssh has been setting PAM_TTY to "ssh" (for the same reason as cron does this, see above. For further
                  * details look for "PAM_TTY_KLUDGE" in the openssh sources). */
-                type ="tty";
+                type = "tty";
                 class = "user";
                 tty = NULL; /* This one is particularly sad, as this means that ssh sessions — even though usually
                              * associated with a pty — won't be tracked by their tty in logind. This is because ssh
@@ -996,7 +1001,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                              * much later (this is because it doesn't know yet if it needs one at all, as whether to
                              * register a pty or not is negotiated much later in the protocol). */
 
-        } else
+        } else if (tty)
                 /* Chop off leading /dev prefix that some clients specify, but others do not. */
                 tty = skip_dev_prefix(tty);
 
@@ -1021,7 +1026,16 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                            !isempty(tty) ? "tty" : "unspecified";
 
         if (isempty(class))
-                class = streq(type, "unspecified") ? "background" : "user";
+                class = streq(type, "unspecified") ? "background" :
+                        ((IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) &&
+                         streq(type, "tty")) ? "user-early" : "user");
+
+        if (incomplete) {
+                if (streq(class, "user"))
+                        class = "user-incomplete";
+                else
+                        pam_syslog_pam_error(handle, LOG_WARNING, 0, "PAM session of class '%s' is incomplete, which is not supported, ignoring.", class);
+        }
 
         remote = !isempty(remote_host) && !is_localhost(remote_host);
 
@@ -1083,39 +1097,39 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         r = create_session_message(bus,
                                    handle,
                                    &context,
-                                   false /* avoid_pidfd = */,
+                                   /* avoid_pidfd = */ false,
                                    &m);
         if (r < 0)
                 return pam_bus_log_create_error(handle, r);
 
         r = sd_bus_call(bus, m, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
+        if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
+                sd_bus_error_free(&error);
+                pam_debug_syslog(handle, debug,
+                                 "CreateSessionWithPIDFD() API is not available, retrying with CreateSession().");
+
+                m = sd_bus_message_unref(m);
+                r = create_session_message(bus,
+                                           handle,
+                                           &context,
+                                           /* avoid_pidfd = */ true,
+                                           &m);
+                if (r < 0)
+                        return pam_bus_log_create_error(handle, r);
+
+                r = sd_bus_call(bus, m, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
+        }
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_SESSION_BUSY)) {
+                        /* We are already in a session, don't do anything */
                         pam_debug_syslog(handle, debug,
                                          "Not creating session: %s", bus_error_message(&error, r));
-                        /* We are already in a session, don't do anything */
                         goto success;
-                } else if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
-                        pam_debug_syslog(handle, debug,
-                                         "CreateSessionWithPIDFD() API is not available, retrying with CreateSession().");
-
-                        m = sd_bus_message_unref(m);
-                        r = create_session_message(bus,
-                                                   handle,
-                                                   &context,
-                                                   true /* avoid_pidfd = */,
-                                                   &m);
-                        if (r < 0)
-                                return pam_bus_log_create_error(handle, r);
-
-                        sd_bus_error_free(&error);
-                        r = sd_bus_call(bus, m, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
                 }
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR,
-                                   "Failed to create session: %s", bus_error_message(&error, r));
-                        return PAM_SESSION_ERR;
-                }
+
+                pam_syslog(handle, LOG_ERR,
+                           "Failed to create session: %s", bus_error_message(&error, r));
+                return PAM_SESSION_ERR;
         }
 
         r = sd_bus_message_read(reply,
@@ -1135,6 +1149,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                          "Reply from logind: "
                          "id=%s object_path=%s runtime_path=%s session_fd=%d seat=%s vtnr=%u original_uid=%u",
                          id, object_path, runtime_path, session_fd, seat, vtnr, original_uid);
+
+        /* Please update manager_default_environment() in core/manager.c accordingly if more session envvars
+         * shall be added. */
 
         r = update_environment(handle, "XDG_SESSION_ID", id);
         if (r != PAM_SUCCESS)

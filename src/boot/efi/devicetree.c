@@ -33,8 +33,9 @@ static EFI_STATUS devicetree_fixup(struct devicetree_state *state, size_t len) {
         assert(state);
 
         err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_DT_FIXUP_PROTOCOL), NULL, (void **) &fixup);
+        /* Skip fixup if we cannot locate device tree fixup protocol */
         if (err != EFI_SUCCESS)
-                return log_error_status(EFI_SUCCESS, "Could not locate device tree fixup protocol, skipping.");
+                return EFI_SUCCESS;
 
         size = devicetree_allocated(state);
         err = fixup->Fixup(fixup, PHYSICAL_ADDRESS_TO_POINTER(state->addr), &size,

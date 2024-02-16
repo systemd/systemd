@@ -92,6 +92,7 @@ static int status_entries(
 
                 r = show_boot_entry(
                                 boot_config_default_entry(config),
+                                &config->global_addons,
                                 /* show_as_default= */ false,
                                 /* show_as_selected= */ false,
                                 /* show_discovered= */ false);
@@ -187,7 +188,6 @@ static int status_variables(void) {
 static int enumerate_binaries(
                 const char *esp_path,
                 const char *path,
-                const char *prefix,
                 char **previous,
                 bool *is_first) {
 
@@ -211,9 +211,6 @@ static int enumerate_binaries(
                 _cleanup_close_ int fd = -EBADF;
 
                 if (!endswith_no_case(de->d_name, ".efi"))
-                        continue;
-
-                if (prefix && !startswith_no_case(de->d_name, prefix))
                         continue;
 
                 filename = path_join(p, de->d_name);
@@ -272,11 +269,11 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
                 printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ")", SD_ID128_FORMAT_VAL(partition));
         printf("\n");
 
-        r = enumerate_binaries(esp_path, "EFI/systemd", NULL, &last, &is_first);
+        r = enumerate_binaries(esp_path, "EFI/systemd", &last, &is_first);
         if (r < 0)
                 goto fail;
 
-        k = enumerate_binaries(esp_path, "EFI/BOOT", "boot", &last, &is_first);
+        k = enumerate_binaries(esp_path, "EFI/BOOT", &last, &is_first);
         if (k < 0) {
                 r = k;
                 goto fail;
@@ -321,7 +318,13 @@ int verb_status(int argc, char *argv[], void *userdata) {
         dev_t esp_devid = 0, xbootldr_devid = 0;
         int r, k;
 
-        r = acquire_esp(/* unprivileged_mode= */ -1, /* graceful= */ false, NULL, NULL, NULL, &esp_uuid, &esp_devid);
+        r = acquire_esp(/* unprivileged_mode= */ -1,
+                        /* graceful= */ false,
+                        /* ret_part= */ NULL,
+                        /* ret_pstart= */ NULL,
+                        /* ret_psize= */ NULL,
+                        &esp_uuid,
+                        &esp_devid);
         if (arg_print_esp_path) {
                 if (r == -EACCES) /* If we couldn't acquire the ESP path, log about access errors (which is the only
                                    * error the find_esp_and_warn() won't log on its own) */
@@ -330,9 +333,13 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         return r;
 
                 puts(arg_esp_path);
+                return 0;
         }
 
-        r = acquire_xbootldr(/* unprivileged_mode= */ -1, &xbootldr_uuid, &xbootldr_devid);
+        r = acquire_xbootldr(
+                        /* unprivileged_mode= */ -1,
+                        &xbootldr_uuid,
+                        &xbootldr_devid);
         if (arg_print_dollar_boot_path) {
                 if (r == -EACCES)
                         return log_error_errno(r, "Failed to determine XBOOTLDR partition: %m");
@@ -344,10 +351,8 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EACCES), "Failed to determine XBOOTLDR location: %m");
 
                 puts(path);
-        }
-
-        if (arg_print_esp_path || arg_print_dollar_boot_path)
                 return 0;
+        }
 
         r = 0; /* If we couldn't determine the path, then don't consider that a problem from here on, just
                 * show what we can show */
@@ -378,14 +383,15 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         uint64_t flag;
                         const char *name;
                 } stub_flags[] = {
-                        { EFI_STUB_FEATURE_REPORT_BOOT_PARTITION,     "Stub sets ESP information"                            },
-                        { EFI_STUB_FEATURE_PICK_UP_CREDENTIALS,       "Picks up credentials from boot partition"             },
-                        { EFI_STUB_FEATURE_PICK_UP_SYSEXTS,           "Picks up system extension images from boot partition" },
-                        { EFI_STUB_FEATURE_THREE_PCRS,                "Measures kernel+command line+sysexts"                 },
-                        { EFI_STUB_FEATURE_RANDOM_SEED,               "Support for passing random seed to OS"                },
-                        { EFI_STUB_FEATURE_CMDLINE_ADDONS,            "Pick up .cmdline from addons"                         },
-                        { EFI_STUB_FEATURE_CMDLINE_SMBIOS,            "Pick up .cmdline from SMBIOS Type 11"                 },
-                        { EFI_STUB_FEATURE_DEVICETREE_ADDONS,         "Pick up .dtb from addons"                             },
+                        { EFI_STUB_FEATURE_REPORT_BOOT_PARTITION,     "Stub sets ESP information"                                   },
+                        { EFI_STUB_FEATURE_PICK_UP_CREDENTIALS,       "Picks up credentials from boot partition"                    },
+                        { EFI_STUB_FEATURE_PICK_UP_SYSEXTS,           "Picks up system extension images from boot partition"        },
+                        { EFI_STUB_FEATURE_PICK_UP_CONFEXTS,          "Picks up configuration extension images from boot partition" },
+                        { EFI_STUB_FEATURE_THREE_PCRS,                "Measures kernel+command line+sysexts"                        },
+                        { EFI_STUB_FEATURE_RANDOM_SEED,               "Support for passing random seed to OS"                       },
+                        { EFI_STUB_FEATURE_CMDLINE_ADDONS,            "Pick up .cmdline from addons"                                },
+                        { EFI_STUB_FEATURE_CMDLINE_SMBIOS,            "Pick up .cmdline from SMBIOS Type 11"                        },
+                        { EFI_STUB_FEATURE_DEVICETREE_ADDONS,         "Pick up .dtb from addons"                                    },
                 };
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
                 sd_id128_t loader_part_uuid = SD_ID128_NULL;
@@ -827,4 +833,59 @@ int verb_list(int argc, char *argv[], void *userdata) {
 
 int verb_unlink(int argc, char *argv[], void *userdata) {
         return verb_list(argc, argv, userdata);
+}
+
+int vl_method_list_boot_entries(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
+        dev_t esp_devid = 0, xbootldr_devid = 0;
+        int r;
+
+        assert(link);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        r = acquire_esp(/* unprivileged_mode= */ false,
+                        /* graceful= */ false,
+                        /* ret_part= */ NULL,
+                        /* ret_pstart= */ NULL,
+                        /* ret_psize= */ NULL,
+                        /* ret_uuid=*/ NULL,
+                        &esp_devid);
+        if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
+                return log_error_errno(r, "Failed to determine ESP location: %m");
+        if (r < 0)
+                return r;
+
+        r = acquire_xbootldr(
+                        /* unprivileged_mode= */ false,
+                        /* ret_uuid= */ NULL,
+                        &xbootldr_devid);
+        if (r == -EACCES)
+                return log_error_errno(r, "Failed to determine XBOOTLDR partition: %m");
+        if (r < 0)
+                return r;
+
+        r = boot_config_load_and_select(&config, arg_esp_path, esp_devid, arg_xbootldr_path, xbootldr_devid);
+        if (r < 0)
+                return r;
+
+        _cleanup_(json_variant_unrefp) JsonVariant *previous = NULL;
+        for (size_t i = 0; i < config.n_entries; i++) {
+                if (previous) {
+                        r = varlink_notifyb(link, JSON_BUILD_OBJECT(
+                                                            JSON_BUILD_PAIR_VARIANT("entry", previous)));
+                        if (r < 0)
+                                return r;
+
+                        previous = json_variant_unref(previous);
+                }
+
+                r = boot_entry_to_json(&config, i, &previous);
+                if (r < 0)
+                        return r;
+        }
+
+        return varlink_replyb(link, JSON_BUILD_OBJECT(
+                                              JSON_BUILD_PAIR_CONDITION(previous, "entry", JSON_BUILD_VARIANT(previous))));
 }

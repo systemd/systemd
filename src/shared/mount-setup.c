@@ -135,8 +135,8 @@ bool mount_point_is_api(const char *path) {
         /* Checks if this mount point is considered "API", and hence
          * should be ignored */
 
-        for (size_t i = 0; i < ELEMENTSOF(mount_table); i ++)
-                if (path_equal(path, mount_table[i].where))
+        FOREACH_ARRAY(i, mount_table, ELEMENTSOF(mount_table))
+                if (path_equal(path, i->where))
                         return true;
 
         return path_startswith(path, "/sys/fs/cgroup/");
@@ -177,7 +177,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
         if (relabel)
                 (void) label_fix(p->where, LABEL_IGNORE_ENOENT|LABEL_IGNORE_EROFS);
 
-        r = path_is_mount_point(p->where, NULL, AT_SYMLINK_FOLLOW);
+        r = path_is_mount_point_full(p->where, /* root = */ NULL, AT_SYMLINK_FOLLOW);
         if (r < 0 && r != -ENOENT) {
                 log_full_errno(priority, r, "Failed to determine whether %s is a mount point: %m", p->where);
                 return (p->mode & MNT_FATAL) ? r : 0;

@@ -3,6 +3,9 @@
 set -ex
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 at_exit() {
     # Since the soft-reboot drops the enqueued end.service, we won't shutdown
     # the test VM if the test fails and have to wait for the watchdog to kill
@@ -38,6 +41,10 @@ if [ -f /run/testsuite82.touch3 ]; then
     test "$(systemctl show -P ActiveState testsuite-82-survive-argv.service)" = "active"
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive-sigterm.service)" != "active"
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive.service)" != "active"
+
+    # Check journals
+    journalctl -o short-monotonic --no-hostname --grep '(will soft-reboot|KILL|corrupt)'
+    assert_eq "$(journalctl -q -o short-monotonic -u systemd-journald.service --grep 'corrupt')" ""
 
     # All succeeded, exit cleanly now
 
@@ -174,6 +181,11 @@ EOF
     systemd-run --collect --service-type=notify -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-nosurvive-sigterm.service "$survive_sigterm"
     systemd-run --collect --service-type=exec -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-nosurvive.service sleep infinity
 
+    # Ensure that the unit doesn't get deactivated by dependencies on the source file. Given it's a verity
+    # image that is already open, even if the tmpfs with the image goes away, the file will be pinned by the
+    # kernel and will keep working.
+    cp /usr/share/minimal_0.* /tmp/
+
     # Configure these transient units to survive the soft reboot - they will not conflict with shutdown.target
     # and it will be ignored on the isolate that happens in the next boot. The first will use argv[0][0] =
     # '@', and the second will use SurviveFinalKillSignal=yes. Both should survive.
@@ -186,6 +198,11 @@ EOF
         --property "Before=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
          "$survive_argv"
     systemd-run --service-type=exec --unit=testsuite-82-survive.service \
+        --property TemporaryFileSystem="/run /tmp /var" \
+        --property RootImage=/tmp/minimal_0.raw \
+        --property BindReadOnlyPaths=/dev/log \
+        --property BindReadOnlyPaths=/run/systemd/journal/socket \
+        --property BindReadOnlyPaths=/run/systemd/journal/stdout \
         --property SurviveFinalKillSignal=yes \
         --property IgnoreOnIsolate=yes \
         --property DefaultDependencies=no \

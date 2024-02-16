@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bitmap.h"
+#include "tests.h"
 
 int main(int argc, const char *argv[]) {
         _cleanup_bitmap_free_ Bitmap *b = NULL, *b2 = NULL;
         unsigned n = UINT_MAX, i = 0;
+
+        test_setup_logging(LOG_DEBUG);
 
         b = bitmap_new();
         assert_se(b);

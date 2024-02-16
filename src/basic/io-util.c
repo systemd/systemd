@@ -163,6 +163,7 @@ int loop_write_full(int fd, const void *buf, size_t nbytes, usec_t timeout) {
                                 return r;
                         if (r == 0)
                                 return -ETIME;
+                        continue;
                 }
 
                 if (_unlikely_(nbytes > 0 && k == 0)) /* Can't really happen */

@@ -81,11 +81,13 @@ static int load_etc_machine_info(void) {
         return 0;
 }
 
-static int load_etc_kernel_install_conf(void) {
+static int load_kernel_install_conf_one(const char *dir) {
         _cleanup_free_ char *layout = NULL, *p = NULL;
         int r;
 
-        p = path_join(arg_root, etc_kernel(), "install.conf");
+        assert(dir);
+
+        p = path_join(arg_root, dir, "install.conf");
         if (!p)
                 return log_oom();
 
@@ -98,6 +100,23 @@ static int load_etc_kernel_install_conf(void) {
         if (!isempty(layout)) {
                 log_debug("layout=%s is specified in %s.", layout, p);
                 free_and_replace(arg_install_layout, layout);
+        }
+
+        return 1;
+}
+
+static int load_kernel_install_conf(void) {
+        const char *conf_root;
+        int r;
+
+        conf_root = getenv("KERNEL_INSTALL_CONF_ROOT");
+        if (conf_root)
+                return load_kernel_install_conf_one(conf_root);
+
+        FOREACH_STRING(p, "/etc/kernel", "/usr/lib/kernel") {
+                r = load_kernel_install_conf_one(p);
+                if (r != 0)
+                        return r;
         }
 
         return 0;
@@ -120,7 +139,7 @@ static int settle_make_entry_directory(void) {
         if (r < 0)
                 return r;
 
-        r = load_etc_kernel_install_conf();
+        r = load_kernel_install_conf();
         if (r < 0)
                 return r;
 
@@ -318,6 +337,46 @@ static int create_subdirs(const char *root, const char * const *subdirs) {
         return 0;
 }
 
+static int update_efi_boot_binaries(const char *esp_path, const char *source_path) {
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_free_ char *p = NULL;
+        int r, ret = 0;
+
+        r = chase_and_opendir("/EFI/BOOT", esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &p, &d);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to open directory \"%s/EFI/BOOT\": %m", esp_path);
+
+        FOREACH_DIRENT(de, d, break) {
+                _cleanup_close_ int fd = -EBADF;
+                _cleanup_free_ char *v = NULL;
+
+                if (!endswith_no_case(de->d_name, ".efi"))
+                        continue;
+
+                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
+
+                r = get_file_version(fd, &v);
+                if (r == -ESRCH)
+                        continue;  /* No version information */
+                if (r < 0)
+                        return r;
+                if (startswith(v, "systemd-boot ")) {
+                        _cleanup_free_ char *dest_path = NULL;
+
+                        dest_path = path_join(p, de->d_name);
+                        if (!dest_path)
+                                return log_oom();
+
+                        RET_GATHER(ret, copy_file_with_version_check(source_path, dest_path, /* force = */ false));
+                }
+        }
+
+        return ret;
+}
 
 static int copy_one_file(const char *esp_path, const char *name, bool force) {
         char *root = IN_SET(arg_install_source, ARG_INSTALL_SOURCE_AUTO, ARG_INSTALL_SOURCE_IMAGE) ? arg_root : NULL;
@@ -371,9 +430,12 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve path %s under directory %s: %m", v, esp_path);
 
-                r = copy_file_with_version_check(source_path, default_dest_path, force);
-                if (r < 0 && ret == 0)
-                        ret = r;
+                RET_GATHER(ret, copy_file_with_version_check(source_path, default_dest_path, force));
+
+                /* If we were installed under any other name in /EFI/BOOT, make sure we update those binaries
+                 * as well. */
+                if (!force)
+                        RET_GATHER(ret, update_efi_boot_binaries(esp_path, source_path));
         }
 
         return ret;
@@ -514,7 +576,7 @@ static int install_entry_token(void) {
         if (!arg_make_entry_directory && arg_entry_token_type == BOOT_ENTRY_TOKEN_MACHINE_ID)
                 return 0;
 
-        p = path_join(arg_root, etc_kernel(), "entry-token");
+        p = path_join(arg_root, getenv("KERNEL_INSTALL_CONF_ROOT") ?: "/etc/kernel/", "entry-token");
         if (!p)
                 return log_oom();
 
@@ -845,9 +907,6 @@ static int remove_boot_efi(const char *esp_path) {
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
 
-                if (!startswith_no_case(de->d_name, "boot"))
-                        continue;
-
                 fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
@@ -978,7 +1037,7 @@ static int remove_loader_variables(void) {
                        EFI_LOADER_VARIABLE(LoaderEntryDefault),
                        EFI_LOADER_VARIABLE(LoaderEntryLastBooted),
                        EFI_LOADER_VARIABLE(LoaderEntryOneShot),
-                       EFI_LOADER_VARIABLE(LoaderSystemToken)){
+                       EFI_LOADER_VARIABLE(LoaderSystemToken)) {
 
                 int q;
 

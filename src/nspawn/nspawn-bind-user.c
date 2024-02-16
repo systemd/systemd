@@ -153,7 +153,7 @@ static int find_free_uid(const char *directory, uid_t max_uid, uid_t *current_ui
         assert(directory);
         assert(current_uid);
 
-        for (;; (*current_uid) ++) {
+        for (;; (*current_uid)++) {
                 if (*current_uid > MAP_UID_MAX || *current_uid > max_uid)
                         return log_error_errno(
                                         SYNTHETIC_ERRNO(EBUSY),
@@ -286,7 +286,7 @@ int bind_user_prepare(
                 if (!sd)
                         return log_oom();
 
-                cm = reallocarray(*custom_mounts, sizeof(CustomMount), *n_custom_mounts + 1);
+                cm = reallocarray(*custom_mounts, *n_custom_mounts + 1, sizeof(CustomMount));
                 if (!cm)
                         return log_oom();
 
@@ -388,9 +388,9 @@ int bind_user_setup(
         if (!c || c->n_data == 0)
                 return 0;
 
-        r = userns_mkdir(root, "/run/host", 0755, 0, 0);
+        r = make_run_host(root);
         if (r < 0)
-                return log_error_errno(r, "Failed to create /run/host: %m");
+                return r;
 
         r = userns_mkdir(root, "/run/host/home", 0755, 0, 0);
         if (r < 0)

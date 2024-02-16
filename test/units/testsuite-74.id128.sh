@@ -22,6 +22,13 @@ systemd-id128 show root-x86-64 --app-specific=4f68bce3e8cd4db196e7fbcaf984b709
 systemd-id128 show --pretty root-x86-64 --app-specific=4f68bce3e8cd4db196e7fbcaf984b709
 [[ "$(systemd-id128 show root-x86-64 --app-specific=4f68bce3e8cd4db196e7fbcaf984b709 -P)" = "8ee5535e7cb14c249e1d28b8dfbb939c" ]]
 
+systemd-id128 show -j
+systemd-id128 show --no-pager
+systemd-id128 show --json=short
+systemd-id128 show --no-legend
+systemd-id128 show --no-pager --no-legend
+systemd-id128 show root -P -u
+
 [[ "$(systemd-id128 new | wc -c)" -eq 33 ]]
 systemd-id128 new -p
 systemd-id128 new -u

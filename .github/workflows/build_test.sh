@@ -10,9 +10,9 @@ success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
 ARGS=(
     "--optimization=0 -Dopenssl=disabled -Dcryptolib=gcrypt -Ddns-over-tls=gnutls -Dtpm=true -Dtpm2=enabled"
     "--optimization=s -Dutmp=false"
+    "--optimization=2 -Dc_args=-Wmaybe-uninitialized -Ddns-over-tls=openssl"
     "--optimization=3 -Db_lto=true -Ddns-over-tls=false"
     "--optimization=3 -Db_lto=false -Dtpm2=disabled -Dlibfido2=disabled -Dp11kit=disabled"
-    "--optimization=3 -Ddns-over-tls=openssl"
     "--optimization=3 -Dfexecve=true -Dstandalone-binaries=true -Dstatic-libsystemd=true -Dstatic-libudev=true"
     "-Db_ndebug=true"
 )
@@ -130,6 +130,11 @@ ninja --version
 
 for args in "${ARGS[@]}"; do
     SECONDS=0
+
+    if [[ "$COMPILER" == clang && "$args" =~ Wmaybe-uninitialized ]]; then
+        # -Wmaybe-uninitialized is not implemented in clang
+        continue
+    fi
 
     info "Checking build with $args"
     # shellcheck disable=SC2086

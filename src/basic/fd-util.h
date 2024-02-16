@@ -32,8 +32,8 @@ static inline int safe_close_above_stdio(int fd) {
         return safe_close(fd);
 }
 
-void close_many(const int fds[], size_t n_fd);
-void close_many_unset(int fds[], size_t n_fd);
+void close_many(const int fds[], size_t n_fds);
+void close_many_unset(int fds[], size_t n_fds);
 void close_many_and_free(int *fds, size_t n_fds);
 
 int fclose_nointr(FILE *f);
@@ -52,6 +52,11 @@ static inline void fclosep(FILE **f) {
         safe_fclose(*f);
 }
 
+static inline void* close_fd_ptr(void *p) {
+        safe_close(PTR_TO_FD(p));
+        return NULL;
+}
+
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(FILE*, pclose, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(DIR*, closedir, NULL);
 
@@ -62,6 +67,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(DIR*, closedir, NULL);
 #define _cleanup_close_pair_ _cleanup_(close_pairp)
 
 int fd_nonblock(int fd, bool nonblock);
+int stdio_disable_nonblock(void);
+
 int fd_cloexec(int fd, bool cloexec);
 int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec);
 
@@ -116,6 +123,8 @@ static inline int dir_fd_is_root(int dir_fd) {
 static inline int dir_fd_is_root_or_cwd(int dir_fd) {
         return dir_fd == AT_FDCWD ? true : path_is_root_at(dir_fd, NULL);
 }
+
+int fds_are_same_mount(int fd1, int fd2);
 
 /* The maximum length a buffer for a /proc/self/fd/<fd> path needs */
 #define PROC_FD_PATH_MAX \

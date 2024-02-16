@@ -126,6 +126,17 @@ All tools:
 * `$SYSTEMD_NETLINK_DEFAULT_TIMEOUT` — specifies the default timeout of waiting
   replies for netlink messages from the kernel. Defaults to 25 seconds.
 
+* `$SYSTEMD_VERITY_SHARING=0` — if set, sharing dm-verity devices by
+  using a stable `<ROOTHASH>-verity` device mapper name will be disabled.
+
+* `$SYSTEMD_OPENSSL_KEY_LOADER`— when using OpenSSL to load a key via an engine
+  or a provider, can be used to force the usage of one or the other interface.
+  Set to 'engine' to force the usage of the old engine API, and to 'provider'
+  force the usage of the new provider API. If unset, the provider will be tried
+  first and the engine as a fallback if that fails. Providers are the new OpenSSL
+  3 API, but there are very few if any in a production-ready state, so engines
+  are still needed.
+
 `systemctl`:
 
 * `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID 1's private D-Bus
@@ -248,6 +259,21 @@ All tools:
 * `$SYSTEMD_DEVICE_VERIFY_SYSFS` — if set to "0", disables verification that
   devices sysfs path are actually backed by sysfs. Relaxing this verification
   is useful for testing purposes.
+
+* `$SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC=` — Specifies an extra timespan that the
+  udev manager process waits for a worker process kills slow programs specified
+  by IMPORT{program}=, PROGRAM=, or RUN=, and finalizes the processing event.
+  If the worker process cannot finalize the event within the specified timespan,
+  the worker process is killed by the manager process. Defaults to 10 seconds,
+  maximum allowed is 5 hours.
+
+`udevadm` and `systemd-hwdb`:
+
+* `SYSTEMD_HWDB_UPDATE_BYPASS=` — If set to "1", execution of hwdb updates is skipped
+  when `udevadm hwdb --update` or `systemd-hwdb update` are invoked. This can
+  be useful if either of these tools are invoked unconditionally as a child
+  process by another tool, such as package managers running either of these
+  tools in a postinstall script.
 
 `nss-systemd`:
 
@@ -472,7 +498,8 @@ disk images with `--image=` or similar:
 * `$SYSTEMD_CRYPTSETUP_TOKEN_PATH` – takes a path to a directory in the file
   system. If specified overrides where libcryptsetup will look for token
   modules (.so). This is useful for debugging token modules: set this
-  environment variable to the build directory and you are set.
+  environment variable to the build directory and you are set. This variable
+  is only supported when systemd is compiled in developer mode.
 
 Various tools that read passwords from the TTY, such as `systemd-cryptenroll`
 and `homectl`:
@@ -594,3 +621,14 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   latter two via the environment variable unless `systemd-storagetm` is invoked
   to expose a single device only, since those identifiers better should be kept
   unique.
+
+Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
+`busctl`):
+
+* `$SYSTEMD_SSH` – the ssh binary to invoke when the `ssh:` transport is
+  used. May be a filename (which is searched for in `$PATH`) or absolute path.
+
+* `$SYSTEMD_VARLINK_LISTEN` – interpreted by some tools that provide a Varlink
+  service. Takes a file system path: if specified the tool will listen on an
+  `AF_UNIX` stream socket on the specified path in addition to whatever else it
+  would listen on.

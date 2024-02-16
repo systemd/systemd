@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bpf-restrict-ifaces.h"
 #include "bpf-socket-bind.h"
 #include "bus-util.h"
 #include "dbus.h"
@@ -7,7 +8,6 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "parse-util.h"
-#include "restrict-ifaces.h"
 #include "serialize.h"
 #include "string-table.h"
 #include "unit-serialize.h"
@@ -140,6 +140,9 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) serialize_dual_timestamp(f, "condition-timestamp", &u->condition_timestamp);
         (void) serialize_dual_timestamp(f, "assert-timestamp", &u->assert_timestamp);
 
+        (void) serialize_ratelimit(f, "start-ratelimit", &u->start_ratelimit);
+        (void) serialize_ratelimit(f, "auto-start-stop-ratelimit", &u->auto_start_stop_ratelimit);
+
         if (dual_timestamp_is_set(&u->condition_timestamp))
                 (void) serialize_bool(f, "condition-result", u->condition_result);
 
@@ -188,7 +191,7 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) serialize_cgroup_mask(f, "cgroup-enabled-mask", u->cgroup_enabled_mask);
         (void) serialize_cgroup_mask(f, "cgroup-invalidated-mask", u->cgroup_invalidated_mask);
 
-        (void) bpf_serialize_socket_bind(u, f, fds);
+        (void) bpf_socket_bind_serialize(u, f, fds);
 
         (void) bpf_program_serialize_attachment(f, fds, "ip-bpf-ingress-installed", u->ip_bpf_ingress_installed);
         (void) bpf_program_serialize_attachment(f, fds, "ip-bpf-egress-installed", u->ip_bpf_egress_installed);
@@ -196,7 +199,7 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) bpf_program_serialize_attachment_set(f, fds, "ip-bpf-custom-ingress-installed", u->ip_bpf_custom_ingress_installed);
         (void) bpf_program_serialize_attachment_set(f, fds, "ip-bpf-custom-egress-installed", u->ip_bpf_custom_egress_installed);
 
-        (void) serialize_restrict_network_interfaces(u, f, fds);
+        (void) bpf_restrict_ifaces_serialize(u, f, fds);
 
         if (uid_is_valid(u->ref_uid))
                 (void) serialize_item_format(f, "ref-uid", UID_FMT, u->ref_uid);
@@ -343,6 +346,13 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                         (void) deserialize_dual_timestamp(v, &u->assert_timestamp);
                         continue;
 
+                } else if (streq(l, "start-ratelimit")) {
+                        deserialize_ratelimit(&u->start_ratelimit, l, v);
+                        continue;
+                } else if (streq(l, "auto-start-stop-ratelimit")) {
+                        deserialize_ratelimit(&u->auto_start_stop_ratelimit, l, v);
+                        continue;
+
                 } else if (MATCH_DESERIALIZE("condition-result", l, v, parse_boolean, u->condition_result))
                         continue;
 
@@ -435,7 +445,7 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
 
                         fd = deserialize_fd(fds, v);
                         if (fd >= 0)
-                                (void) restrict_network_interfaces_add_initial_link_fd(u, fd);
+                                (void) bpf_restrict_ifaces_add_initial_link_fd(u, fd);
 
                         continue;
 
@@ -821,21 +831,26 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 }
         }
 
-        if (!hashmap_isempty(u->requires_mounts_for)) {
-                UnitDependencyInfo di;
-                const char *path;
+        for (UnitMountDependencyType type = 0; type < _UNIT_MOUNT_DEPENDENCY_TYPE_MAX; type++)
+                if (!hashmap_isempty(u->mounts_for[type])) {
+                        UnitDependencyInfo di;
+                        const char *path;
 
-                HASHMAP_FOREACH_KEY(di.data, path, u->requires_mounts_for) {
-                        bool space = false;
+                        HASHMAP_FOREACH_KEY(di.data, path, u->mounts_for[type]) {
+                                bool space = false;
 
-                        fprintf(f, "%s\tRequiresMountsFor: %s (", prefix, path);
+                                fprintf(f,
+                                        "%s\t%s: %s (",
+                                        prefix,
+                                        unit_mount_dependency_type_to_string(type),
+                                        path);
 
-                        print_unit_dependency_mask(f, "origin", di.origin_mask, &space);
-                        print_unit_dependency_mask(f, "destination", di.destination_mask, &space);
+                                print_unit_dependency_mask(f, "origin", di.origin_mask, &space);
+                                print_unit_dependency_mask(f, "destination", di.destination_mask, &space);
 
-                        fputs(")\n", f);
+                                fputs(")\n", f);
+                        }
                 }
-        }
 
         if (u->load_state == UNIT_LOADED) {
 

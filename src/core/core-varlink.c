@@ -527,7 +527,7 @@ static int manager_varlink_init_system(Manager *m) {
                 }
         }
 
-        r = varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
+        r = varlink_server_attach_event(s, m->event, EVENT_PRIORITY_IPC);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
@@ -585,7 +585,7 @@ static int manager_varlink_init_user(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = varlink_attach_event(link, m->event, SD_EVENT_PRIORITY_NORMAL);
+        r = varlink_attach_event(link, m->event, EVENT_PRIORITY_IPC);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 

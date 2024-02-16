@@ -11,6 +11,154 @@
 #include "process-util.h"
 #include "strv.h"
 
+static int parse_newlink_message(
+                  sd_netlink_message *message,
+                  char **ret_name,
+                  char ***ret_altnames) {
+
+        _cleanup_strv_free_ char **altnames = NULL;
+        int r, ifindex;
+
+        assert(message);
+
+        uint16_t type;
+        r = sd_netlink_message_get_type(message, &type);
+        if (r < 0)
+                return r;
+        if (type != RTM_NEWLINK)
+                return -EPROTO;
+
+        r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
+        if (r < 0)
+                return r;
+        if (ifindex <= 0)
+                return -EPROTO;
+
+        if (ret_altnames) {
+                r = sd_netlink_message_read_strv(message, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &altnames);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+        }
+
+        if (ret_name) {
+                r = sd_netlink_message_read_string_strdup(message, IFLA_IFNAME, ret_name);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_altnames)
+                *ret_altnames = TAKE_PTR(altnames);
+
+        return ifindex;
+}
+
+int rtnl_get_ifname_full(sd_netlink **rtnl, int ifindex, char **ret_name, char ***ret_altnames) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        int r;
+
+        assert(ifindex > 0);
+
+        /* This is similar to if_indextoname(), but also optionally provides alternative names. */
+
+        if (!rtnl)
+                rtnl = &our_rtnl;
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, ifindex);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(*rtnl, message, 0, &reply);
+        if (r < 0)
+                return r;
+
+        return parse_newlink_message(reply, ret_name, ret_altnames);
+}
+
+int rtnl_resolve_ifname_full(
+                  sd_netlink **rtnl,
+                  ResolveInterfaceNameFlag flags,
+                  const char *name,
+                  char **ret_name,
+                  char ***ret_altnames) {
+
+        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        int r;
+
+        assert(name);
+        assert(flags > 0);
+
+        /* This is similar to if_nametoindex(), but also resolves alternative names and decimal formatted
+         * ifindex too. Returns ifindex, and optionally provides the main interface name and alternative
+         * names.*/
+
+        if (!rtnl)
+                rtnl = &our_rtnl;
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
+                if (r < 0)
+                        return r;
+        }
+
+        /* First, use IFLA_IFNAME */
+        if (FLAGS_SET(flags, RESOLVE_IFNAME_MAIN) && ifname_valid(name)) {
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+
+                r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, 0);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_string(message, IFLA_IFNAME, name);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_call(*rtnl, message, 0, &reply);
+                if (r >= 0)
+                        return parse_newlink_message(reply, ret_name, ret_altnames);
+                if (r != -ENODEV)
+                        return r;
+        }
+
+        /* Next, try IFLA_ALT_IFNAME */
+        if (FLAGS_SET(flags, RESOLVE_IFNAME_ALTERNATIVE) &&
+            ifname_valid_full(name, IFNAME_VALID_ALTERNATIVE)) {
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+
+                r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, 0);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_string(message, IFLA_ALT_IFNAME, name);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_call(*rtnl, message, 0, &reply);
+                if (r >= 0)
+                        return parse_newlink_message(reply, ret_name, ret_altnames);
+                /* The kernels older than 76c9ac0ee878f6693d398d3a95ccaf85e1f597a6 (v5.5) return -EINVAL. */
+                if (!IN_SET(r, -ENODEV, -EINVAL))
+                        return r;
+        }
+
+        /* Finally, assume the string is a decimal formatted ifindex. */
+        if (FLAGS_SET(flags, RESOLVE_IFNAME_NUMERIC)) {
+                int ifindex;
+
+                ifindex = parse_ifindex(name);
+                if (ifindex <= 0)
+                        return -ENODEV;
+
+                return rtnl_get_ifname_full(rtnl, ifindex, ret_name, ret_altnames);
+        }
+
+        return -ENODEV;
+}
+
 static int set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         int r;
@@ -20,6 +168,13 @@ static int set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         assert(name);
 
         /* Assign the requested name. */
+
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
+                if (r < 0)
+                        return r;
+        }
+
         r = sd_rtnl_message_new_link(*rtnl, &message, RTM_SETLINK, ifindex);
         if (r < 0)
                 return r;
@@ -29,6 +184,37 @@ static int set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
                 return r;
 
         return sd_netlink_call(*rtnl, message, 0, NULL);
+}
+
+int rtnl_rename_link(sd_netlink **rtnl, const char *orig_name, const char *new_name) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        int r, ifindex;
+
+        assert(orig_name);
+        assert(new_name);
+
+        /* This does not check alternative names. Callers must check the requested name is not used as an
+         * alternative name. */
+
+        if (streq(orig_name, new_name))
+                return 0;
+
+        if (!ifname_valid(new_name))
+                return -EINVAL;
+
+        if (!rtnl)
+                rtnl = &our_rtnl;
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
+                if (r < 0)
+                        return r;
+        }
+
+        ifindex = rtnl_resolve_ifname(rtnl, orig_name);
+        if (ifindex < 0)
+                return ifindex;
+
+        return set_link_name(rtnl, ifindex, new_name);
 }
 
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, char* const *alternative_names) {
@@ -204,38 +390,6 @@ int rtnl_set_link_properties(
         return 0;
 }
 
-int rtnl_get_link_alternative_names(sd_netlink **rtnl, int ifindex, char ***ret) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
-        _cleanup_strv_free_ char **names = NULL;
-        int r;
-
-        assert(rtnl);
-        assert(ifindex > 0);
-        assert(ret);
-
-        if (!*rtnl) {
-                r = sd_netlink_open(rtnl);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, ifindex);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_call(*rtnl, message, 0, &reply);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_read_strv(reply, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &names);
-        if (r < 0 && r != -ENODATA)
-                return r;
-
-        *ret = TAKE_PTR(names);
-
-        return 0;
-}
-
 static int rtnl_update_link_alternative_names(
                 sd_netlink **rtnl,
                 uint16_t nlmsg_type,
@@ -334,92 +488,6 @@ int rtnl_set_link_alternative_names_by_ifname(
                 return r;
 
         return 0;
-}
-
-int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, char **ret) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
-        int r, ifindex;
-
-        assert(name);
-
-        /* This returns ifindex and the main interface name. */
-
-        if (!ifname_valid_full(name, IFNAME_VALID_ALTERNATIVE))
-                return -EINVAL;
-
-        if (!rtnl)
-                rtnl = &our_rtnl;
-        if (!*rtnl) {
-                r = sd_netlink_open(rtnl);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, 0);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_append_string(message, IFLA_ALT_IFNAME, name);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_call(*rtnl, message, 0, &reply);
-        if (r == -EINVAL)
-                return -ENODEV; /* The device doesn't exist */
-        if (r < 0)
-                return r;
-
-        r = sd_rtnl_message_link_get_ifindex(reply, &ifindex);
-        if (r < 0)
-                return r;
-        assert(ifindex > 0);
-
-        if (ret) {
-                r = sd_netlink_message_read_string_strdup(message, IFLA_IFNAME, ret);
-                if (r < 0)
-                        return r;
-        }
-
-        return ifindex;
-}
-
-int rtnl_resolve_ifname(sd_netlink **rtnl, const char *name) {
-        int r;
-
-        /* Like if_nametoindex, but resolves "alternative names" too. */
-
-        assert(name);
-
-        r = if_nametoindex(name);
-        if (r > 0)
-                return r;
-
-        return rtnl_resolve_link_alternative_name(rtnl, name, NULL);
-}
-
-int rtnl_resolve_interface(sd_netlink **rtnl, const char *name) {
-        int r;
-
-        /* Like rtnl_resolve_ifname, but resolves interface numbers too. */
-
-        assert(name);
-
-        r = parse_ifindex(name);
-        if (r > 0)
-                return r;
-        assert(r < 0);
-
-        return rtnl_resolve_ifname(rtnl, name);
-}
-
-int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *name) {
-        int r;
-
-        r = rtnl_resolve_interface(rtnl, name);
-        if (r < 0)
-                return log_error_errno(r, "Failed to resolve interface \"%s\": %m", name);
-        return r;
 }
 
 int rtnl_get_link_info(
@@ -572,121 +640,6 @@ int rtattr_append_attribute(struct rtattr **rta, unsigned short type, const void
         /* update rta_len */
         (*rta)->rta_len = message_length;
 
-        return 0;
-}
-
-MultipathRoute *multipath_route_free(MultipathRoute *m) {
-        if (!m)
-                return NULL;
-
-        free(m->ifname);
-
-        return mfree(m);
-}
-
-int multipath_route_dup(const MultipathRoute *m, MultipathRoute **ret) {
-        _cleanup_(multipath_route_freep) MultipathRoute *n = NULL;
-        _cleanup_free_ char *ifname = NULL;
-
-        assert(m);
-        assert(ret);
-
-        if (m->ifname) {
-                ifname = strdup(m->ifname);
-                if (!ifname)
-                        return -ENOMEM;
-        }
-
-        n = new(MultipathRoute, 1);
-        if (!n)
-                return -ENOMEM;
-
-        *n = (MultipathRoute) {
-                .gateway = m->gateway,
-                .weight = m->weight,
-                .ifindex = m->ifindex,
-                .ifname = TAKE_PTR(ifname),
-        };
-
-        *ret = TAKE_PTR(n);
-
-        return 0;
-}
-
-int rtattr_read_nexthop(const struct rtnexthop *rtnh, size_t size, int family, OrderedSet **ret) {
-        _cleanup_ordered_set_free_free_ OrderedSet *set = NULL;
-        int r;
-
-        assert(rtnh);
-        assert(IN_SET(family, AF_INET, AF_INET6));
-
-        if (size < sizeof(struct rtnexthop))
-                return -EBADMSG;
-
-        for (; size >= sizeof(struct rtnexthop); ) {
-                _cleanup_(multipath_route_freep) MultipathRoute *m = NULL;
-
-                if (NLMSG_ALIGN(rtnh->rtnh_len) > size)
-                        return -EBADMSG;
-
-                if (rtnh->rtnh_len < sizeof(struct rtnexthop))
-                        return -EBADMSG;
-
-                m = new(MultipathRoute, 1);
-                if (!m)
-                        return -ENOMEM;
-
-                *m = (MultipathRoute) {
-                        .ifindex = rtnh->rtnh_ifindex,
-                        .weight = rtnh->rtnh_hops,
-                };
-
-                if (rtnh->rtnh_len > sizeof(struct rtnexthop)) {
-                        size_t len = rtnh->rtnh_len - sizeof(struct rtnexthop);
-
-                        for (struct rtattr *attr = RTNH_DATA(rtnh); RTA_OK(attr, len); attr = RTA_NEXT(attr, len)) {
-                                if (attr->rta_type == RTA_GATEWAY) {
-                                        if (attr->rta_len != RTA_LENGTH(FAMILY_ADDRESS_SIZE(family)))
-                                                return -EBADMSG;
-
-                                        m->gateway.family = family;
-                                        memcpy(&m->gateway.address, RTA_DATA(attr), FAMILY_ADDRESS_SIZE(family));
-                                        break;
-                                } else if (attr->rta_type == RTA_VIA) {
-                                        uint16_t gw_family;
-
-                                        if (family != AF_INET)
-                                                return -EINVAL;
-
-                                        if (attr->rta_len < RTA_LENGTH(sizeof(uint16_t)))
-                                                return -EBADMSG;
-
-                                        gw_family = *(uint16_t *) RTA_DATA(attr);
-
-                                        if (gw_family != AF_INET6)
-                                                return -EBADMSG;
-
-                                        if (attr->rta_len != RTA_LENGTH(FAMILY_ADDRESS_SIZE(gw_family) + sizeof(gw_family)))
-                                                return -EBADMSG;
-
-                                        memcpy(&m->gateway, RTA_DATA(attr), FAMILY_ADDRESS_SIZE(gw_family) + sizeof(gw_family));
-                                        break;
-                                }
-                        }
-                }
-
-                r = ordered_set_ensure_put(&set, NULL, m);
-                if (r < 0)
-                        return r;
-
-                TAKE_PTR(m);
-
-                size -= NLMSG_ALIGN(rtnh->rtnh_len);
-                rtnh = RTNH_NEXT(rtnh);
-        }
-
-        if (ret)
-                *ret = TAKE_PTR(set);
         return 0;
 }
 

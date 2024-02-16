@@ -642,7 +642,7 @@ int mount_all(const char *dest,
 
                 /* Skip this entry if it is not a remount. */
                 if (mount_table[k].what) {
-                        r = path_is_mount_point(where, NULL, 0);
+                        r = path_is_mount_point(where);
                         if (r < 0 && r != -ENOENT)
                                 return log_error_errno(r, "Failed to detect whether %s is a mount point: %m", where);
                         if (r > 0)
@@ -742,6 +742,8 @@ static int parse_mount_bind_options(const char *options, unsigned long *mount_fl
                         new_idmapping = REMOUNT_IDMAPPING_NONE;
                 else if (streq(word, "rootidmap"))
                         new_idmapping = REMOUNT_IDMAPPING_HOST_OWNER;
+                else if (streq(word, "owneridmap"))
+                        new_idmapping = REMOUNT_IDMAPPING_HOST_OWNER_TO_TARGET_OWNER;
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Invalid bind mount option: %s", word);
@@ -759,6 +761,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
         _cleanup_free_ char *mount_opts = NULL, *where = NULL;
         unsigned long mount_flags = MS_BIND | MS_REC;
         struct stat source_st, dest_st;
+        uid_t dest_uid = UID_INVALID;
         int r;
         RemountIdmapping idmapping = REMOUNT_IDMAPPING_NONE;
 
@@ -786,6 +789,8 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
 
                 if (stat(where, &dest_st) < 0)
                         return log_error_errno(errno, "Failed to stat %s: %m", where);
+
+                dest_uid = dest_st.st_uid;
 
                 if (S_ISDIR(source_st.st_mode) && !S_ISDIR(dest_st.st_mode))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -815,6 +820,8 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
 
                 if (chown(where, uid_shift, uid_shift) < 0)
                         return log_error_errno(errno, "Failed to chown %s: %m", where);
+
+                dest_uid = uid_shift;
         }
 
         r = mount_nofollow_verbose(LOG_ERR, m->source, where, NULL, mount_flags, mount_opts);
@@ -828,7 +835,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
         }
 
         if (idmapping != REMOUNT_IDMAPPING_NONE) {
-                r = remount_idmap(STRV_MAKE(where), uid_shift, uid_range, source_st.st_uid, idmapping);
+                r = remount_idmap(STRV_MAKE(where), uid_shift, uid_range, source_st.st_uid, dest_uid, idmapping);
                 if (r < 0)
                         return log_error_errno(r, "Failed to map ids for bind mount %s: %m", where);
         }
@@ -1388,17 +1395,30 @@ int wipe_fully_visible_fs(int mntns_fd) {
         _cleanup_close_ int orig_mntns_fd = -EBADF;
         int r, rr;
 
-        r = namespace_open(0, NULL, &orig_mntns_fd, NULL, NULL, NULL);
+        r = namespace_open(0,
+                           /* ret_pidns_fd = */ NULL,
+                           &orig_mntns_fd,
+                           /* ret_netns_fd = */ NULL,
+                           /* ret_userns_fd = */ NULL,
+                           /* ret_root_fd = */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to pin originating mount namespace: %m");
 
-        r = namespace_enter(-EBADF, mntns_fd, -EBADF, -EBADF, -EBADF);
+        r = namespace_enter(/* pidns_fd = */ -EBADF,
+                            mntns_fd,
+                            /* netns_fd = */ -EBADF,
+                            /* userns_fd = */ -EBADF,
+                            /* root_fd = */ -EBADF);
         if (r < 0)
                 return log_error_errno(r, "Failed to enter mount namespace: %m");
 
         rr = do_wipe_fully_visible_fs();
 
-        r = namespace_enter(-EBADF, orig_mntns_fd, -EBADF, -EBADF, -EBADF);
+        r = namespace_enter(/* pidns_fd = */ -EBADF,
+                            orig_mntns_fd,
+                            /* netns_fd = */ -EBADF,
+                            /* userns_fd = */ -EBADF,
+                            /* root_fd = */ -EBADF);
         if (r < 0)
                 return log_error_errno(r, "Failed to enter original mount namespace: %m");
 

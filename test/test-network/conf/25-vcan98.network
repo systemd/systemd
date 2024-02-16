@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=vcan98
+
+[Link]
+MTUBytes=16

@@ -5,4 +5,4 @@ Description=DML passthrough empty service
 [Service]
 Slice=dml-passthrough.slice
 Type=oneshot
-ExecStart=/bin/true
+ExecStart=true

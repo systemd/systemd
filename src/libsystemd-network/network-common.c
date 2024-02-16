@@ -3,6 +3,7 @@
 #include "env-util.h"
 #include "format-util.h"
 #include "network-common.h"
+#include "socket-util.h"
 #include "unaligned.h"
 
 int get_ifname(int ifindex, char **ifname) {
@@ -111,4 +112,15 @@ bool network_test_mode_enabled(void) {
         }
 
         return test_mode;
+}
+
+triple_timestamp* triple_timestamp_from_cmsg(triple_timestamp *t, struct msghdr *mh) {
+        assert(t);
+        assert(mh);
+
+        struct timeval *tv = CMSG_FIND_AND_COPY_DATA(mh, SOL_SOCKET, SCM_TIMESTAMP, struct timeval);
+        if (tv)
+                return triple_timestamp_from_realtime(t, timeval_load(tv));
+
+        return triple_timestamp_now(t);
 }

@@ -49,6 +49,7 @@ static bool arg_legend = true;
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 typedef enum Action {
@@ -132,9 +133,10 @@ static int context_copy(const Context *source, Context *ret) {
 
         assert(source);
         assert(ret);
+        assert(source->rfd >= 0 || source->rfd == AT_FDCWD);
 
         _cleanup_(context_done) Context copy = (Context) {
-                .rfd = -EBADF,
+                .rfd = AT_FDCWD,
                 .action = source->action,
                 .machine_id = source->machine_id,
                 .machine_id_is_random = source->machine_id_is_random,
@@ -143,9 +145,11 @@ static int context_copy(const Context *source, Context *ret) {
                 .entry_token_type = source->entry_token_type,
         };
 
-        copy.rfd = fd_reopen(source->rfd, O_CLOEXEC|O_DIRECTORY|O_PATH);
-        if (copy.rfd < 0)
-                return copy.rfd;
+        if (source->rfd >= 0) {
+                copy.rfd = fd_reopen(source->rfd, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                if (copy.rfd < 0)
+                        return copy.rfd;
+        }
 
         r = strdup_or_null(source->layout_other, &copy.layout_other);
         if (r < 0)
@@ -168,9 +172,9 @@ static int context_copy(const Context *source, Context *ret) {
         r = strdup_or_null(source->kernel, &copy.kernel);
         if (r < 0)
                 return r;
-        copy.initrds = strv_copy(source->initrds);
-        if (!copy.initrds)
-                return -ENOMEM;
+        r = strv_copy_unless_empty(source->initrds, &copy.initrds);
+        if (r < 0)
+                return r;
         r = strdup_or_null(source->initrd_generator, &copy.initrd_generator);
         if (r < 0)
                 return r;
@@ -180,15 +184,15 @@ static int context_copy(const Context *source, Context *ret) {
         r = strdup_or_null(source->staging_area, &copy.staging_area);
         if (r < 0)
                 return r;
-        copy.plugins = strv_copy(source->plugins);
-        if (!copy.plugins)
-                return -ENOMEM;
-        copy.argv = strv_copy(source->argv);
-        if (!copy.argv)
-                return -ENOMEM;
-        copy.envp = strv_copy(source->envp);
-        if (!copy.envp)
-                return -ENOMEM;
+        r = strv_copy_unless_empty(source->plugins, &copy.plugins);
+        if (r < 0)
+                return r;
+        r = strv_copy_unless_empty(source->argv, &copy.argv);
+        if (r < 0)
+                return r;
+        r = strv_copy_unless_empty(source->envp, &copy.envp);
+        if (r < 0)
+                return r;
 
         *ret = copy;
         copy = CONTEXT_NULL;
@@ -197,8 +201,19 @@ static int context_copy(const Context *source, Context *ret) {
 }
 
 static int context_open_root(Context *c) {
+        int r;
+
         assert(c);
         assert(c->rfd < 0);
+
+        if (isempty(arg_root))
+                return 0;
+
+        r = path_is_root(arg_root);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if '%s' is the root directory: %m", arg_root);
+        if (r > 0)
+                return 0;
 
         c->rfd = open(empty_to_root(arg_root), O_CLOEXEC | O_DIRECTORY | O_PATH);
         if (c->rfd < 0)
@@ -295,13 +310,13 @@ static int context_set_uki_generator(Context *c, const char *s, const char *sour
 static int context_set_version(Context *c, const char *s) {
         assert(c);
 
-        if (!filename_is_valid(s))
+        if (s && !filename_is_valid(s))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid version specified: %s", s);
 
         return context_set_string(s, "command line", "kernel version", &c->version);
 }
 
-static int context_set_path(Context *c, int rfd, const char *s, const char *source, const char *name, char **dest) {
+static int context_set_path(Context *c, const char *s, const char *source, const char *name, char **dest) {
         char *p;
         int r;
 
@@ -313,13 +328,17 @@ static int context_set_path(Context *c, int rfd, const char *s, const char *sour
         if (*dest || !s)
                 return 0;
 
-        if (rfd >= 0)
-                r = chaseat(rfd, s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd = */ NULL);
-        else
-                r = chase(s, /* root = */ NULL, 0, &p, /* ret_fd = */ NULL);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to chase path %s for %s specified via %s, ignoring: %m",
-                                         s, name, source);
+        if (c->rfd >= 0) {
+                r = chaseat(c->rfd, s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd = */ NULL);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to chase path %s for %s specified via %s, ignoring: %m",
+                                                 s, name, source);
+        } else {
+                r = path_make_absolute_cwd(s, &p);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to make path '%s' for %s specified via %s absolute, ignoring: %m",
+                                                 s, name, source);
+        }
 
         log_debug("%s (%s) set via %s.", name, p, source);
 
@@ -329,21 +348,20 @@ static int context_set_path(Context *c, int rfd, const char *s, const char *sour
 
 static int context_set_boot_root(Context *c, const char *s, const char *source) {
         assert(c);
-        return context_set_path(c, c->rfd, s, source, "BOOT_ROOT", &c->boot_root);
+        return context_set_path(c, s, source, "BOOT_ROOT", &c->boot_root);
 }
 
 static int context_set_conf_root(Context *c, const char *s, const char *source) {
         assert(c);
-        return context_set_path(c, c->rfd, s, source, "CONF_ROOT", &c->conf_root);
+        return context_set_path(c, s, source, "CONF_ROOT", &c->conf_root);
 }
 
 static int context_set_kernel(Context *c, const char *s) {
         assert(c);
-        /* The path specified via command line should be relative to CWD. */
-        return context_set_path(c, AT_FDCWD, s, "command line", "kernel image file", &c->kernel);
+        return context_set_path(c, s, "command line", "kernel image file", &c->kernel);
 }
 
-static int context_set_path_strv(Context *c, int rfd, char* const* strv, const char *source, const char *name, char ***dest) {
+static int context_set_path_strv(Context *c, char* const* strv, const char *source, const char *name, char ***dest) {
         _cleanup_strv_free_ char **w = NULL;
         int r;
 
@@ -358,14 +376,17 @@ static int context_set_path_strv(Context *c, int rfd, char* const* strv, const c
         STRV_FOREACH(s, strv) {
                 char *p;
 
-                if (rfd >= 0)
-                        r = chaseat(rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd = */ NULL);
-                else
-                        r = chase(*s, /* root = */ NULL, 0, &p, /* ret_fd = */ NULL);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to chase path %s for %s specified via %s: %m",
-                                                 *s, name, source);
-
+                if (c->rfd >= 0) {
+                        r = chaseat(c->rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd = */ NULL);
+                        if (r < 0)
+                                return log_warning_errno(r, "Failed to chase path %s for %s specified via %s: %m",
+                                                         *s, name, source);
+                } else {
+                        r = path_make_absolute_cwd(*s, &p);
+                        if (r < 0)
+                                return log_warning_errno(r, "Failed to make path '%s' for %s specified via %s absolute, ignoring: %m",
+                                                         *s, name, source);
+                }
                 r = strv_consume(&w, p);
                 if (r < 0)
                         return log_oom();
@@ -392,12 +413,12 @@ static int context_set_plugins(Context *c, const char *s, const char *source) {
         if (!v)
                 return log_oom();
 
-        return context_set_path_strv(c, c->rfd, v, source, "plugins", &c->plugins);
+        return context_set_path_strv(c, v, source, "plugins", &c->plugins);
 }
 
 static int context_set_initrds(Context *c, char* const* strv) {
         assert(c);
-        return context_set_path_strv(c, AT_FDCWD, strv, "command line", "initrds", &c->initrds);
+        return context_set_path_strv(c, strv, "command line", "initrds", &c->initrds);
 }
 
 static int context_load_environment(Context *c) {
@@ -407,21 +428,6 @@ static int context_load_environment(Context *c) {
         (void) context_set_boot_root(c, getenv("BOOT_ROOT"), "environment");
         (void) context_set_conf_root(c, getenv("KERNEL_INSTALL_CONF_ROOT"), "environment");
         (void) context_set_plugins(c, getenv("KERNEL_INSTALL_PLUGINS"), "environment");
-        return 0;
-}
-
-static int context_ensure_conf_root(Context *c) {
-        int r;
-
-        assert(c);
-
-        if (c->conf_root)
-                return 0;
-
-        r = chaseat(c->rfd, "/etc/kernel", CHASE_AT_RESOLVE_IN_ROOT, &c->conf_root, /* ret_fd = */ NULL);
-        if (r < 0)
-                log_debug_errno(r, "Failed to chase /etc/kernel, ignoring: %m");
-
         return 0;
 }
 
@@ -477,8 +483,8 @@ static int context_load_install_conf(Context *c) {
                         return r;
         }
 
-        STRV_FOREACH(p, STRV_MAKE("/etc/kernel", "/usr/lib/kernel")) {
-                r = context_load_install_conf_one(c, *p);
+        FOREACH_STRING(p, "/etc/kernel", "/usr/lib/kernel") {
+                r = context_load_install_conf_one(c, p);
                 if (r != 0)
                         return r;
         }
@@ -641,9 +647,15 @@ static int context_ensure_boot_root(Context *c) {
                 return r;
 
         /* If all else fails, use /boot. */
-        r = chaseat(c->rfd, "/boot", CHASE_AT_RESOLVE_IN_ROOT, &c->boot_root, /* ret_fd = */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to chase '/boot': %m");
+        if (c->rfd >= 0) {
+                r = chaseat(c->rfd, "/boot", CHASE_AT_RESOLVE_IN_ROOT, &c->boot_root, /* ret_fd = */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to chase '/boot': %m");
+        } else {
+                c->boot_root = strdup("/boot");
+                if (!c->boot_root)
+                        return log_oom();
+        }
 
         log_debug("KERNEL_INSTALL_BOOT_ROOT autodetection yielded no candidates, using \"%s\".", c->boot_root);
         return 0;
@@ -703,10 +715,6 @@ static int context_init(Context *c) {
                 return r;
 
         r = context_load_environment(c);
-        if (r < 0)
-                return r;
-
-        r = context_ensure_conf_root(c);
         if (r < 0)
                 return r;
 
@@ -970,11 +978,10 @@ static int context_build_arguments(Context *c) {
                         return log_oom();
 
         } else if (c->action == ACTION_INSPECT) {
-                r = strv_extend(&a, c->kernel ?: "[KERNEL_IMAGE]");
-                if (r < 0)
-                        return log_oom();
-
-                r = strv_extend(&a, "[INITRD...]");
+                r = strv_extend_many(
+                                &a,
+                                c->kernel ?: "[KERNEL_IMAGE]",
+                                "[INITRD...]");
                 if (r < 0)
                         return log_oom();
         }
@@ -1043,7 +1050,7 @@ static int context_prepare_execution(Context *c) {
 }
 
 static int context_execute(Context *c) {
-        int r;
+        int r, ret;
 
         assert(c);
 
@@ -1062,7 +1069,7 @@ static int context_execute(Context *c) {
                 log_debug("Plugin arguments: %s", strna(z));
         }
 
-        r = execute_strv(
+        ret = execute_strv(
                         /* name = */ NULL,
                         c->plugins,
                         /* root = */ NULL,
@@ -1072,14 +1079,13 @@ static int context_execute(Context *c) {
                         c->argv,
                         c->envp,
                         EXEC_DIR_SKIP_REMAINING);
-        if (r < 0)
-                return r;
 
         r = context_remove_entry_dir(c);
         if (r < 0)
                 return r;
 
-        return 0;
+        /* This returns 0 on success, positive exit code on plugin failure, negative errno on other failures. */
+        return ret;
 }
 
 static bool bypass(void) {
@@ -1159,7 +1165,7 @@ static int verb_add(int argc, char *argv[], void *userdata) {
         assert(argv);
 
         if (arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'add' does not support --root=.");
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'add' does not support --root= or --image=.");
 
         if (bypass())
                 return 0;
@@ -1198,14 +1204,17 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
+        if (arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'add-all' does not support --root= or --image=.");
+
         if (bypass())
                 return 0;
 
         c->action = ACTION_ADD;
 
-        fd = open("/usr/lib/modules", O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        fd = chase_and_openat(c->rfd, "/usr/lib/modules", CHASE_AT_RESOLVE_IN_ROOT, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
         if (fd < 0)
-                return log_error_errno(fd, "Failed to open /usr/lib/modules/: %m");
+                return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
 
         _cleanup_free_ DirectoryEntries *de = NULL;
         r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
@@ -1213,15 +1222,10 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to numerate /usr/lib/modules/ contents: %m");
 
         FOREACH_ARRAY(d, de->entries, de->n_entries) {
-
-                _cleanup_free_ char *j = path_join("/usr/lib/modules/", (*d)->d_name);
-                if (!j)
-                        return log_oom();
-
                 r = dirent_ensure_type(fd, *d);
                 if (r < 0) {
                         if (r != -ENOENT) /* don't log if just gone by now */
-                                log_debug_errno(r, "Failed to check if '%s' is a directory, ignoring: %m", j);
+                                log_debug_errno(r, "Failed to check if '%s/usr/lib/modules/%s' is a directory, ignoring: %m", strempty(arg_root), (*d)->d_name);
                         continue;
                 }
 
@@ -1234,7 +1238,7 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
 
                 if (faccessat(fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
                         if (errno != ENOENT)
-                                log_debug_errno(errno, "Failed to check if '/usr/lib/modules/%s/vmlinuz' exists, ignoring: %m", (*d)->d_name);
+                                log_debug_errno(errno, "Failed to check if '%s/usr/lib/modules/%s/vmlinuz' exists, ignoring: %m", strempty(arg_root), (*d)->d_name);
 
                         log_notice("Not adding version '%s', because kernel image not found.", (*d)->d_name);
                         continue;
@@ -1246,6 +1250,8 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy execution context: %m");
 
+                /* do_add() will look up the path in the correct root directory so we don't need to prefix it
+                 * with arg_root here. */
                 _cleanup_free_ char *full = path_join("/usr/lib/modules/", fn);
                 if (!full)
                         return log_oom();
@@ -1254,14 +1260,14 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
                            /* version= */ (*d)->d_name,
                            /* kernel= */ full,
                            /* initrds= */ NULL);
-                RET_GATHER(ret, r);
-
-                if (r >= 0)
+                if (r == 0)
                         n++;
+                else if (ret == 0)
+                        ret = r;
         }
 
         if (n > 0)
-                log_info("Installed %zu kernels.", n);
+                log_debug("Installed %zu kernel(s).", n);
         else if (ret == 0)
                 ret = log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No kernels to install found.");
 
@@ -1286,7 +1292,7 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         assert(argv);
 
         if (arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'remove' does not support --root=.");
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'remove' does not support --root= or --image=.");
 
         if (argc > 2)
                 log_debug("Too many arguments specified. 'kernel-install remove' takes only kernel version. "
@@ -1333,12 +1339,12 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
                 (argc > 1 ? empty_or_dash_to_null(argv[1]) : NULL);
         initrds = strv_skip(argv, 3);
 
-        if (!version) {
+        if (!version && !arg_root) {
                 assert_se(uname(&un) >= 0);
                 version = un.release;
         }
 
-        if (!kernel) {
+        if (!kernel && version) {
                 r = kernel_from_version(version, &vmlinuz);
                 if (r < 0)
                         return r;
@@ -1424,12 +1430,13 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_list(int argc, char *argv[], void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        fd = open("/usr/lib/modules", O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        fd = chase_and_openat(c->rfd, "/usr/lib/modules", CHASE_AT_RESOLVE_IN_ROOT, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
         if (fd < 0)
-                return log_error_errno(fd, "Failed to open /usr/lib/modules/: %m");
+                return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
 
         _cleanup_free_ DirectoryEntries *de = NULL;
         r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
@@ -1445,7 +1452,6 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
 
         FOREACH_ARRAY(d, de->entries, de->n_entries) {
-
                 _cleanup_free_ char *j = path_join("/usr/lib/modules/", (*d)->d_name);
                 if (!j)
                         return log_oom();
@@ -1453,7 +1459,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                 r = dirent_ensure_type(fd, *d);
                 if (r < 0) {
                         if (r != -ENOENT) /* don't log if just gone by now */
-                                log_debug_errno(r, "Failed to check if '%s' is a directory, ignoring: %m", j);
+                                log_debug_errno(r, "Failed to check if '%s/%s' is a directory, ignoring: %m", strempty(arg_root), j);
                         continue;
                 }
 
@@ -1467,7 +1473,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                 bool exists;
                 if (faccessat(fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
                         if (errno != ENOENT)
-                                log_debug_errno(errno, "Failed to check if '/usr/lib/modules/%s/vmlinuz' exists, ignoring: %m", (*d)->d_name);
+                                log_debug_errno(errno, "Failed to check if '%s/usr/lib/modules/%s/vmlinuz' exists, ignoring: %m", strempty(arg_root), (*d)->d_name);
 
                         exists = false;
                 } else
@@ -1668,7 +1674,7 @@ static int run(int argc, char* argv[]) {
                 {}
         };
         _cleanup_(context_done) Context c = {
-                .rfd = -EBADF,
+                .rfd = AT_FDCWD,
                 .action = _ACTION_INVALID,
                 .kernel_image_type = KERNEL_IMAGE_TYPE_UNKNOWN,
                 .layout = _LAYOUT_INVALID,
@@ -1715,4 +1721,4 @@ static int run(int argc, char* argv[]) {
         return dispatch_verb(argc, argv, verbs, &c);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

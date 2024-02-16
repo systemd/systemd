@@ -4,6 +4,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 # Make sure the unit's exec context matches its configuration
 # See: https://github.com/systemd/systemd/pull/29552
 
@@ -29,10 +32,19 @@ proc_supports_option() {
 # the transient stuff from systemd-run. Let's just skip the following tests
 # in that case instead of complicating the test setup even more */
 if [[ -z "${COVERAGE_BUILD_DIR:-}" ]]; then
+    if ! systemd-detect-virt -cq && command -v bootctl >/dev/null; then
+        boot_path="$(bootctl --print-boot-path)"
+        esp_path="$(bootctl --print-esp-path)"
+
+        # If the mount points are handled by automount units, make sure we trigger
+        # them before proceeding further
+        ls -l "$boot_path" "$esp_path"
+    fi
+
     systemd-run --wait --pipe -p ProtectSystem=yes \
-        bash -xec "test ! -w /usr; test ! -w /boot; test -w /etc; test -w /var"
+        bash -xec "test ! -w /usr; ${boot_path:+"test ! -w $boot_path; test ! -w $esp_path;"} test -w /etc; test -w /var"
     systemd-run --wait --pipe -p ProtectSystem=full \
-        bash -xec "test ! -w /usr; test ! -w /boot; test ! -w /etc; test -w /var"
+        bash -xec "test ! -w /usr; ${boot_path:+"test ! -w $boot_path; test ! -w $esp_path;"} test ! -w /etc; test -w /var"
     systemd-run --wait --pipe -p ProtectSystem=strict \
         bash -xec "test ! -w /; test ! -w /etc; test ! -w /var; test -w /dev; test -w /proc"
     systemd-run --wait --pipe -p ProtectSystem=no \
@@ -81,6 +93,13 @@ systemd-run --wait --pipe -p BindPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/u
     bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; ! mountpoint /usr"
 systemd-run --wait --pipe -p BindReadOnlyPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
     bash -xec "test ! -w /etc; test ! -w /mnt; ! mountpoint /usr"
+# Make sure we properly serialize/deserialize paths with spaces
+# See: https://github.com/systemd/systemd/issues/30747
+touch "/tmp/test file with spaces"
+systemd-run --wait --pipe -p TemporaryFileSystem="/tmp" -p BindPaths="/etc /home:/mnt:norbind /tmp/test\ file\ with\ spaces" \
+    bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; stat '/tmp/test file with spaces'"
+systemd-run --wait --pipe -p TemporaryFileSystem="/tmp" -p BindPaths="/etc /home:/mnt:norbind /tmp/test\ file\ with\ spaces:/tmp/destination\ wi\:th\ spaces" \
+    bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; stat '/tmp/destination wi:th spaces'"
 
 # Check if we correctly serialize, deserialize, and set directives that
 # have more complex internal handling
@@ -116,8 +135,9 @@ if ! systemd-detect-virt -cq; then
         -p IODeviceWeight="/foo/bar 999"
     )
 
+    systemctl set-property system.slice IOAccounting=yes
     # io.latency not available by default on Debian stable
-    if [ -e /sys/fs/cgroup/system.slice/io.latency ]; then
+    if [[ -e /sys/fs/cgroup/system.slice/io.latency ]]; then
         systemd-run --wait --pipe --unit "$SERVICE_NAME" "${ARGUMENTS[@]}" \
             bash -xec "diff <(echo $EXPECTED_IO_MAX) $CGROUP_PATH/io.max; diff <(echo $EXPECTED_IO_LATENCY) $CGROUP_PATH/io.latency"
     fi
@@ -193,18 +213,20 @@ fi
 
 # {Cache,Configuration,Logs,Runtime,State}Directory=
 ARGUMENTS=(
-    -p CacheDirectory="foo/bar/baz"
+    -p CacheDirectory="foo/bar/baz also\ with\ spaces"
     -p CacheDirectory="foo"
     -p CacheDirectory="context"
     -p CacheDirectoryMode="0123"
     -p CacheDirectoryMode="0666"
-    -p ConfigurationDirectory="context/foo also_context/bar context/nested/baz"
+    -p ConfigurationDirectory="context/foo also_context/bar context/nested/baz context/semi\:colon"
     -p ConfigurationDirectoryMode="0400"
     -p LogsDirectory="context/foo"
     -p LogsDirectory=""
     -p LogsDirectory="context/a/very/nested/logs/dir"
-    -p RuntimeDirectory="context"
-    -p RuntimeDirectory="also_context"
+    -p RuntimeDirectory="context/with\ spaces"
+    # Note: {Runtime,State,Cache,Logs}Directory= directives support the directory:symlink syntax, which
+    #       requires an additional level of escaping for the colon character
+    -p RuntimeDirectory="also_context:a\ symlink\ with\ \\\:\ col\\\:ons\ and\ \ spaces"
     -p RuntimeDirectoryPreserve=yes
     -p StateDirectory="context"
     -p StateDirectory="./././././././context context context"
@@ -213,21 +235,22 @@ ARGUMENTS=(
 
 rm -rf /run/context
 systemd-run --wait --pipe "${ARGUMENTS[@]}" \
-    bash -xec '[[ $CACHE_DIRECTORY == /var/cache/context:/var/cache/foo:/var/cache/foo/bar/baz ]];
-               [[ $(stat -c "%a" ${CACHE_DIRECTORY##*:}) == 666 ]]'
+    bash -xec '[[ $CACHE_DIRECTORY == "/var/cache/also with spaces:/var/cache/context:/var/cache/foo:/var/cache/foo/bar/baz" ]];
+               [[ $(stat -c "%a" "${CACHE_DIRECTORY##*:}") == 666 ]]'
 systemd-run --wait --pipe "${ARGUMENTS[@]}" \
-    bash -xec '[[ $CONFIGURATION_DIRECTORY == /etc/also_context/bar:/etc/context/foo:/etc/context/nested/baz ]];
-               [[ $(stat -c "%a" ${CONFIGURATION_DIRECTORY##*:}) == 400 ]]'
+    bash -xec '[[ $CONFIGURATION_DIRECTORY == /etc/also_context/bar:/etc/context/foo:/etc/context/nested/baz:/etc/context/semi:colon ]];
+               [[ $(stat -c "%a" "${CONFIGURATION_DIRECTORY%%:*}") == 400 ]]'
 systemd-run --wait --pipe "${ARGUMENTS[@]}" \
     bash -xec '[[ $LOGS_DIRECTORY == /var/log/context/a/very/nested/logs/dir:/var/log/context/foo ]];
-               [[ $(stat -c "%a" ${LOGS_DIRECTORY##*:}) == 755 ]]'
+               [[ $(stat -c "%a" "${LOGS_DIRECTORY##*:}") == 755 ]]'
 systemd-run --wait --pipe "${ARGUMENTS[@]}" \
-    bash -xec '[[ $RUNTIME_DIRECTORY == /run/also_context:/run/context ]];
-               [[ $(stat -c "%a" ${RUNTIME_DIRECTORY##*:}) == 755 ]];
-               [[ $(stat -c "%a" ${RUNTIME_DIRECTORY%%:*}) == 755 ]]'
+    bash -xec '[[ $RUNTIME_DIRECTORY == "/run/also_context:/run/context/with spaces" ]];
+               [[ $(stat -c "%a" "${RUNTIME_DIRECTORY##*:}") == 755 ]];
+               [[ $(stat -c "%a" "${RUNTIME_DIRECTORY%%:*}") == 755 ]]'
 systemd-run --wait --pipe "${ARGUMENTS[@]}" \
     bash -xec '[[ $STATE_DIRECTORY == /var/lib/context ]]; [[ $(stat -c "%a" $STATE_DIRECTORY) == 0 ]]'
-test -d /run/context
+test -d "/run/context/with spaces"
+test -s "/run/a symlink with : col:ons and  spaces"
 rm -rf /var/{cache,lib,log}/context /etc/{also_,}context
 
 # Limit*=
@@ -283,6 +306,70 @@ systemd-run --wait --pipe "${ARGUMENTS[@]}" \
                : RTPRIO;     [[ $(ulimit -Sr) -eq 8 ]];            [[ $(ulimit -Hr) -eq 8 ]];
                ulimit -R || exit 0;
                : RTTIME;     [[ $(ulimit -SR) -eq 666666 ]];       [[ $(ulimit -HR) -eq 666666 ]];'
+
+# RestrictFileSystems=
+#
+# Note: running instrumented binaries requires at least /proc to be accessible, so let's
+#       skip the test when we're running under sanitizers
+#
+# Note: $GCOV_ERROR_LOG is used during coverage runs to suppress errors when creating *.gcda files,
+#       since gcov can't access the restricted filesystem (as expected)
+if [[ ! -v ASAN_OPTIONS ]] && systemctl --version | grep "+BPF_FRAMEWORK" && kernel_supports_lsm bpf; then
+    ROOTFS="$(df --output=fstype /usr/bin | sed --quiet 2p)"
+    systemd-run --wait --pipe -p RestrictFileSystems="" ls /
+    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS foo bar" ls /
+    (! systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS" ls /proc)
+    (! systemd-run --wait --pipe -p GCOV_ERROR_LOG=/dev/null -p RestrictFileSystems="foo" ls /)
+    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS foo bar baz proc" ls /proc
+    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS @foo @basic-api" ls /proc
+    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS @foo @basic-api" ls /sys/fs/cgroup
+
+    systemd-run --wait --pipe -p RestrictFileSystems="~" ls /
+    systemd-run --wait --pipe -p RestrictFileSystems="~proc" ls /
+    systemd-run --wait --pipe -p RestrictFileSystems="~@basic-api" ls /
+    (! systemd-run --wait --pipe -p GCOV_ERROR_LOG=/dev/null -p RestrictFileSystems="~$ROOTFS" ls /)
+    (! systemd-run --wait --pipe -p RestrictFileSystems="~proc" ls /proc)
+    (! systemd-run --wait --pipe -p RestrictFileSystems="~@basic-api" ls /proc)
+    (! systemd-run --wait --pipe -p RestrictFileSystems="~proc foo @bar @basic-api" ls /proc)
+    (! systemd-run --wait --pipe -p RestrictFileSystems="~proc foo @bar @basic-api" ls /sys)
+    systemd-run --wait --pipe -p RestrictFileSystems="~proc devtmpfs sysfs" ls /
+    (! systemd-run --wait --pipe -p RestrictFileSystems="~proc devtmpfs sysfs" ls /proc)
+    (! systemd-run --wait --pipe -p RestrictFileSystems="~proc devtmpfs sysfs" ls /dev)
+    (! systemd-run --wait --pipe -p RestrictFileSystems="~proc devtmpfs sysfs" ls /sys)
+fi
+
+# Make sure we properly (de)serialize various string arrays, including whitespaces
+# See: https://github.com/systemd/systemd/issues/31214
+systemd-run --wait --pipe -p Environment="FOO='bar4    '" \
+            bash -xec '[[ $FOO == "bar4    " ]]'
+systemd-run --wait --pipe -p Environment="FOO='bar4    ' BAR='\n\n'" \
+            bash -xec "[[ \$FOO == 'bar4    ' && \$BAR == $'\n\n' ]]"
+systemd-run --wait --pipe -p Environment='FOO="bar4  \\  "' -p Environment="BAR='\n\t'" \
+            bash -xec "[[ \$FOO == 'bar4  \\  ' && \$BAR == $'\n\t' ]]"
+TEST_ENV_FILE="/tmp/test-env-file-$RANDOM-    "
+cat >"$TEST_ENV_FILE" <<EOF
+FOO="env file    "
+BAR="
+    "
+EOF
+systemd-run --wait --pipe cat "$TEST_ENV_FILE"
+systemd-run --wait --pipe -p ReadOnlyPaths="'$TEST_ENV_FILE'" \
+            bash -xec '[[ ! -w "$TEST_ENV_FILE" ]]'
+systemd-run --wait --pipe -p PrivateTmp=yes -p BindReadOnlyPaths="'$TEST_ENV_FILE':'/tmp/bar-    '" \
+            bash -xec '[[ -e "/tmp/bar-    " && ! -w "/tmp/bar-    " ]]'
+systemd-run --wait --pipe -p EnvironmentFile="$TEST_ENV_FILE" \
+            bash -xec "[[ \$FOO == 'env file    ' && \$BAR == $'\n    ' ]]"
+rm -f "$TEST_ENV_FILE"
+# manager_serialize()/manager_deserialize() uses similar machinery
+systemctl unset-environment FOO_WITH_SPACES
+systemctl set-environment FOO_WITH_SPACES="foo   " FOO_WITH_TABS="foo\t\t\t"
+systemctl show-environment
+systemctl show-environment | grep -F "FOO_WITH_SPACES=$'foo   '"
+systemctl show-environment | grep -F "FOO_WITH_TABS=$'foo\\\\t\\\\t\\\\t'"
+systemctl daemon-reexec
+systemctl show-environment
+systemctl show-environment | grep -F "FOO_WITH_SPACES=$'foo   '"
+systemctl show-environment | grep -F "FOO_WITH_TABS=$'foo\\\\t\\\\t\\\\t'"
 
 # Ensure that clean-up codepaths work correctly if activation ultimately fails
 touch /run/not-a-directory

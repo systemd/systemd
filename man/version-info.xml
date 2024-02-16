@@ -1,9 +1,11 @@
 <?xml version="1.0"?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+<!DOCTYPE refsect1 PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refsect1>
+  <title/>
+
   <para id="v183">Added in version 183.</para>
   <para id="v184">Added in version 184.</para>
   <para id="v185">Added in version 185.</para>

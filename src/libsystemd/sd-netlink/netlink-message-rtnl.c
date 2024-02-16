@@ -56,6 +56,10 @@ static bool rtnl_message_type_is_mdb(uint16_t type) {
         return IN_SET(type, RTM_NEWMDB, RTM_DELMDB, RTM_GETMDB);
 }
 
+static bool rtnl_message_type_is_nsid(uint16_t type) {
+        return IN_SET(type, RTM_NEWNSID, RTM_DELNSID, RTM_GETNSID);
+}
+
 int sd_rtnl_message_route_set_dst_prefixlen(sd_netlink_message *m, unsigned char prefixlen) {
         struct rtmsg *rtm;
 
@@ -88,6 +92,20 @@ int sd_rtnl_message_route_set_src_prefixlen(sd_netlink_message *m, unsigned char
                 return -ERANGE;
 
         rtm->rtm_src_len = prefixlen;
+
+        return 0;
+}
+
+int sd_rtnl_message_route_set_tos(sd_netlink_message *m, unsigned char tos) {
+        struct rtmsg *rtm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
+
+        rtm = NLMSG_DATA(m->hdr);
+
+        rtm->rtm_tos = tos;
 
         return 0;
 }
@@ -336,7 +354,7 @@ int sd_rtnl_message_new_nexthop(sd_netlink *rtnl, sd_netlink_message **ret,
                 return r;
 
         if (nlmsg_type == RTM_NEWNEXTHOP)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_APPEND;
+                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
 
         nhm = NLMSG_DATA((*ret)->hdr);
 
@@ -1199,6 +1217,27 @@ int sd_rtnl_message_new_mdb(
         bpm = NLMSG_DATA((*ret)->hdr);
         bpm->family = AF_BRIDGE;
         bpm->ifindex = mdb_ifindex;
+
+        return 0;
+}
+
+int sd_rtnl_message_new_nsid(
+                sd_netlink *rtnl,
+                sd_netlink_message **ret,
+                uint16_t nlmsg_type) {
+
+        struct rtgenmsg *rt;
+        int r;
+
+        assert_return(rtnl_message_type_is_nsid(nlmsg_type), -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = message_new(rtnl, ret, nlmsg_type);
+        if (r < 0)
+                return r;
+
+        rt = NLMSG_DATA((*ret)->hdr);
+        rt->rtgen_family = AF_UNSPEC;
 
         return 0;
 }

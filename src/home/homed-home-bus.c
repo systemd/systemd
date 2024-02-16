@@ -5,6 +5,7 @@
 #include "bus-common-errors.h"
 #include "bus-polkit.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "homed-bus.h"
 #include "homed-home-bus.h"
 #include "homed-home.h"
@@ -73,6 +74,35 @@ int bus_home_client_is_trusted(Home *h, sd_bus_message *message) {
 
         return euid == 0 || h->uid == euid;
 }
+
+static int home_verify_polkit_async(
+                Home *h,
+                sd_bus_message *message,
+                const char *action,
+                uid_t good_uid,
+                sd_bus_error *error) {
+
+        assert(h);
+        assert(message);
+        assert(action);
+        assert(error);
+
+        const char *details[] = {
+                "uid", FORMAT_UID(h->uid),
+                "username", h->user_name,
+                NULL
+        };
+
+        return bus_verify_polkit_async_full(
+                        message,
+                        action,
+                        details,
+                        /* interactive= */ false,
+                        good_uid,
+                        &h->manager->polkit_registry,
+                        error);
+}
+
 
 int bus_home_get_record_json(
                 Home *h,
@@ -144,15 +174,31 @@ int bus_home_method_activate(
 
         _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
         Home *h = ASSERT_PTR(userdata);
+        bool if_referenced;
         int r;
 
         assert(message);
+
+        if_referenced = endswith(sd_bus_message_get_member(message), "IfReferenced");
+
+        r = bus_verify_polkit_async_full(
+                        message,
+                        "org.freedesktop.home1.activate-home",
+                        /* details= */ NULL,
+                        /* interctive= */ false,
+                        h->uid,
+                        &h->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = bus_message_read_secret(message, &secret, error);
         if (r < 0)
                 return r;
 
-        r = home_activate(h, secret, error);
+        r = home_activate(h, if_referenced, secret, error);
         if (r < 0)
                 return r;
 
@@ -201,14 +247,11 @@ int bus_home_method_unregister(
 
         assert(message);
 
-        r = bus_verify_polkit_async(
+        r = home_verify_polkit_async(
+                        h,
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.home1.remove-home",
-                        NULL,
-                        true,
                         UID_INVALID,
-                        &h->manager->polkit_registry,
                         error);
         if (r < 0)
                 return r;
@@ -241,14 +284,11 @@ int bus_home_method_realize(
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(
+        r = home_verify_polkit_async(
+                        h,
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.home1.create-home",
-                        NULL,
-                        true,
                         UID_INVALID,
-                        &h->manager->polkit_registry,
                         error);
         if (r < 0)
                 return r;
@@ -281,14 +321,11 @@ int bus_home_method_remove(
 
         assert(message);
 
-        r = bus_verify_polkit_async(
+        r = home_verify_polkit_async(
+                        h,
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.home1.remove-home",
-                        NULL,
-                        true,
                         UID_INVALID,
-                        &h->manager->polkit_registry,
                         error);
         if (r < 0)
                 return r;
@@ -354,14 +391,11 @@ int bus_home_method_authenticate(
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(
+        r = home_verify_polkit_async(
+                        h,
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.home1.authenticate-home",
-                        NULL,
-                        true,
                         h->uid,
-                        &h->manager->polkit_registry,
                         error);
         if (r < 0)
                 return r;
@@ -393,14 +427,11 @@ int bus_home_method_update_record(Home *h, sd_bus_message *message, UserRecord *
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(
+        r = home_verify_polkit_async(
+                        h,
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.home1.update-home",
-                        NULL,
-                        true,
                         UID_INVALID,
-                        &h->manager->polkit_registry,
                         error);
         if (r < 0)
                 return r;
@@ -459,14 +490,11 @@ int bus_home_method_resize(
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(
+        r = home_verify_polkit_async(
+                        h,
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.home1.resize-home",
-                        NULL,
-                        true,
                         UID_INVALID,
-                        &h->manager->polkit_registry,
                         error);
         if (r < 0)
                 return r;
@@ -506,14 +534,11 @@ int bus_home_method_change_password(
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(
+        r = home_verify_polkit_async(
+                        h,
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.home1.passwd-home",
-                        NULL,
-                        true,
                         h->uid,
-                        &h->manager->polkit_registry,
                         error);
         if (r < 0)
                 return r;
@@ -612,7 +637,7 @@ int bus_home_method_acquire(
                 return r;
 
         /* This operation might not be something we can executed immediately, hence queue it */
-        fd = home_create_fifo(h, please_suspend);
+        fd = home_create_fifo(h, please_suspend ? HOME_FIFO_PLEASE_SUSPEND : HOME_FIFO_DONT_SUSPEND);
         if (fd < 0)
                 return sd_bus_reply_method_errnof(message, fd, "Failed to allocate FIFO for %s: %m", h->user_name);
 
@@ -637,33 +662,41 @@ int bus_home_method_ref(
 
         _cleanup_close_ int fd = -EBADF;
         Home *h = ASSERT_PTR(userdata);
-        HomeState state;
         int please_suspend, r;
+        bool unrestricted;
 
         assert(message);
+
+        /* In unrestricted mode we'll add a reference to the home even if it's not active */
+        unrestricted = strstr(sd_bus_message_get_member(message), "Unrestricted");
 
         r = sd_bus_message_read(message, "b", &please_suspend);
         if (r < 0)
                 return r;
 
-        state = home_get_state(h);
-        switch (state) {
-        case HOME_ABSENT:
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
-        case HOME_UNFIXATED:
-        case HOME_INACTIVE:
-        case HOME_DIRTY:
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_NOT_ACTIVE, "Home %s not active.", h->user_name);
-        case HOME_LOCKED:
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
-        default:
-                if (HOME_STATE_IS_ACTIVE(state))
-                        break;
+        if (!unrestricted) {
+                HomeState state;
 
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
+                state = home_get_state(h);
+
+                switch (state) {
+                case HOME_ABSENT:
+                        return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
+                case HOME_UNFIXATED:
+                case HOME_INACTIVE:
+                case HOME_DIRTY:
+                        return sd_bus_error_setf(error, BUS_ERROR_HOME_NOT_ACTIVE, "Home %s not active.", h->user_name);
+                case HOME_LOCKED:
+                        return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
+                default:
+                        if (HOME_STATE_IS_ACTIVE(state))
+                                break;
+
+                        return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
+                }
         }
 
-        fd = home_create_fifo(h, please_suspend);
+        fd = home_create_fifo(h, please_suspend ? HOME_FIFO_PLEASE_SUSPEND : HOME_FIFO_DONT_SUSPEND);
         if (fd < 0)
                 return sd_bus_reply_method_errnof(message, fd, "Failed to allocate FIFO for %s: %m", h->user_name);
 
@@ -690,6 +723,51 @@ int bus_home_method_release(
                 return r;
 
         return 1;
+}
+
+int bus_home_method_inhibit_suspend(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_close_ int fd = -EBADF;
+        Home *h = ASSERT_PTR(userdata);
+        HomeState state;
+        int r;
+
+        r = home_verify_polkit_async(
+                        h,
+                        message,
+                        "org.freedesktop.home1.inhibit-suspend",
+                        h->uid,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        state = home_get_state(h);
+        switch (state) {
+        case HOME_ABSENT:
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
+        case HOME_UNFIXATED:
+        case HOME_INACTIVE:
+        case HOME_DIRTY:
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_NOT_ACTIVE, "Home %s not active.", h->user_name);
+        case HOME_LOCKED:
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
+        default:
+                if (HOME_STATE_IS_ACTIVE(state))
+                        break;
+
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
+        }
+
+        fd = home_create_fifo(h, HOME_FIFO_INHIBIT_SUSPEND);
+        if (fd < 0)
+                return sd_bus_reply_method_errnof(message, fd, "Failed to allocate FIFO for %s: %m", h->user_name);
+
+        return sd_bus_reply_method_return(message, "h", fd);
 }
 
 /* We map a uid_t as uint32_t bus property, let's ensure this is safe. */
@@ -784,7 +862,12 @@ const sd_bus_vtable home_vtable[] = {
                                 SD_BUS_ARGS("s", secret),
                                 SD_BUS_NO_RESULT,
                                 bus_home_method_activate,
-                                SD_BUS_VTABLE_SENSITIVE),
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("ActivateIfReferenced",
+                                SD_BUS_ARGS("s", secret),
+                                SD_BUS_NO_RESULT,
+                                bus_home_method_activate,
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
         SD_BUS_METHOD("Deactivate", NULL, NULL, bus_home_method_deactivate, 0),
         SD_BUS_METHOD("Unregister", NULL, NULL, bus_home_method_unregister, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("Realize",
@@ -835,7 +918,17 @@ const sd_bus_vtable home_vtable[] = {
                                 SD_BUS_RESULT("h", send_fd),
                                 bus_home_method_ref,
                                 0),
+        SD_BUS_METHOD_WITH_ARGS("RefUnrestricted",
+                                SD_BUS_ARGS("b", please_suspend),
+                                SD_BUS_RESULT("h", send_fd),
+                                bus_home_method_ref,
+                                0),
         SD_BUS_METHOD("Release", NULL, NULL, bus_home_method_release, 0),
+        SD_BUS_METHOD_WITH_ARGS("InhibitSuspend",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("h", send_fd),
+                                bus_home_method_inhibit_suspend,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 

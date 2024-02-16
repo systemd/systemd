@@ -11,6 +11,12 @@
 #include "proc-cmdline.h"
 #include "efivars.h"
 
+typedef struct KernelHibernateLocation {
+        char *device;
+        uint64_t offset;
+        bool offset_set;
+} KernelHibernateLocation;
+
 static KernelHibernateLocation* kernel_hibernate_location_free(KernelHibernateLocation *k) {
         if (!k)
                 return NULL;
@@ -21,6 +27,19 @@ static KernelHibernateLocation* kernel_hibernate_location_free(KernelHibernateLo
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(KernelHibernateLocation*, kernel_hibernate_location_free);
+
+typedef struct EFIHibernateLocation {
+        char *device;
+
+        sd_id128_t uuid;
+        uint64_t offset;
+
+        char *kernel_version;
+        char *id;
+        char *image_id;
+        char *version_id;
+        char *image_version;
+} EFIHibernateLocation;
 
 static EFIHibernateLocation* efi_hibernate_location_free(EFIHibernateLocation *e) {
         if (!e)
@@ -173,7 +192,7 @@ static int get_efi_hibernate_location(EFIHibernateLocation **ret) {
         if (!e)
                 return log_oom();
 
-        r = json_dispatch(v, dispatch_table, JSON_LOG, e);
+        r = json_dispatch(v, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, e);
         if (r < 0)
                 return r;
 
@@ -204,12 +223,11 @@ void compare_hibernate_location_and_warn(const HibernateInfo *info) {
         int r;
 
         assert(info);
-        assert(info->from_efi || info->cmdline);
 
-        if (info->from_efi)
+        if (!info->cmdline || !info->efi)
                 return;
-        if (!info->efi)
-                return;
+
+        assert(info->device == info->cmdline->device);
 
         if (!path_equal(info->cmdline->device, info->efi->device)) {
                 r = devnode_same(info->cmdline->device, info->efi->device);
@@ -225,17 +243,6 @@ void compare_hibernate_location_and_warn(const HibernateInfo *info) {
         if (info->cmdline->offset != info->efi->offset)
                 log_warning("resume_offset=%" PRIu64 " doesn't match with EFI HibernateLocation offset %" PRIu64 ", proceeding anyway with resume_offset=.",
                             info->cmdline->offset, info->efi->offset);
-}
-
-void clear_efi_hibernate_location(void) {
-        int r;
-
-        if (!is_efi_boot())
-                return;
-
-        r = efi_set_variable(EFI_SYSTEMD_VARIABLE(HibernateLocation), NULL, 0);
-        if (r < 0)
-                log_warning_errno(r, "Failed to clear EFI variable HibernateLocation, ignoring: %m");
 }
 #endif
 
@@ -255,10 +262,10 @@ int acquire_hibernate_info(HibernateInfo *ret) {
 
         if (i.cmdline) {
                 i.device = i.cmdline->device;
-                i.from_efi = false;
+                i.offset = i.cmdline->offset;
         } else if (i.efi) {
                 i.device = i.efi->device;
-                i.from_efi = true;
+                i.offset = i.efi->offset;
         } else
                 return -ENODEV;
 

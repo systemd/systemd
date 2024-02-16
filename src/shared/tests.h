@@ -10,6 +10,27 @@
 #include "static-destruct.h"
 #include "strv.h"
 
+static inline void log_set_assert_return_is_criticalp(bool *p) {
+        log_set_assert_return_is_critical(*p);
+}
+
+#define _SAVE_ASSERT_RETURN_IS_CRITICAL(b)                              \
+        _unused_ _cleanup_(log_set_assert_return_is_criticalp) bool b = \
+                log_get_assert_return_is_critical()
+
+#define SAVE_ASSERT_RETURN_IS_CRITICAL                          \
+        _SAVE_ASSERT_RETURN_IS_CRITICAL(UNIQ_T(saved, UNIQ))
+
+#define ASSERT_RETURN_IS_CRITICAL(b, expr)                              \
+        ({                                                              \
+                SAVE_ASSERT_RETURN_IS_CRITICAL;                         \
+                log_set_assert_return_is_critical(b);                   \
+                expr;                                                   \
+        })
+
+#define ASSERT_RETURN_EXPECTED(expr) ASSERT_RETURN_IS_CRITICAL(false, expr)
+#define ASSERT_RETURN_EXPECTED_SE(expr) ASSERT_RETURN_EXPECTED(assert_se(expr));
+
 static inline bool manager_errno_skip_test(int r) {
         return IN_SET(abs(r),
                       EPERM,
@@ -58,7 +79,7 @@ bool can_memlock(void);
 #define DEFINE_HEX_PTR(name, hex)                                       \
         _cleanup_free_ void *name = NULL;                               \
         size_t name##_len = 0;                                          \
-        assert_se(unhexmem(hex, strlen_ptr(hex), &name, &name##_len) >= 0);
+        assert_se(unhexmem_full(hex, strlen_ptr(hex), false, &name, &name##_len) >= 0);
 
 #define TEST_REQ_RUNNING_SYSTEMD(x)                                 \
         if (sd_booted() > 0) {                                      \

@@ -107,7 +107,7 @@ ConditionKernelVersion=>1.0
 ConditionPathExists=/etc/os-release
 
 [Service]
-ExecStart=/bin/true
+ExecStart=true
 EOF
 systemctl daemon-reload
 systemd-analyze condition --unit="$UNIT_NAME"
@@ -180,6 +180,9 @@ if [[ ! -v ASAN_OPTIONS ]]; then
     # check that systemd-analyze cat-config paths work in a chroot
     mkdir -p /tmp/root
     mount --bind / /tmp/root
+    if mountpoint -q /usr; then
+        mount --bind /usr /tmp/root/usr
+    fi
     systemd-analyze cat-config systemd/system-preset >/tmp/out1
     chroot /tmp/root systemd-analyze cat-config systemd/system-preset >/tmp/out2
     diff /tmp/out{1,2}
@@ -295,6 +298,55 @@ EOF
 # The new overall exposure level assigned to the unit is less than the set thresholds
 # Verifies that the --offline= option works with --root=
 systemd-analyze security --threshold=90 --offline=true --root=/tmp/img/ testfile.service
+
+cat <<EOF >/tmp/foo@.service
+[Service]
+ExecStart=ls
+EOF
+
+cat <<EOF >/tmp/hoge@test.service
+[Service]
+ExecStart=ls
+EOF
+
+# issue #30357
+pushd /tmp
+systemd-analyze verify foo@bar.service
+systemd-analyze verify foo@.service
+systemd-analyze verify hoge@test.service
+(! systemd-analyze verify hoge@nonexist.service)
+(! systemd-analyze verify hoge@.service)
+popd
+pushd /
+systemd-analyze verify tmp/foo@bar.service
+systemd-analyze verify tmp/foo@.service
+systemd-analyze verify tmp/hoge@test.service
+(! systemd-analyze verify tmp/hoge@nonexist.service)
+(! systemd-analyze verify tmp/hoge@.service)
+popd
+pushd /usr
+systemd-analyze verify ../tmp/foo@bar.service
+systemd-analyze verify ../tmp/foo@.service
+systemd-analyze verify ../tmp/hoge@test.service
+(! systemd-analyze verify ../tmp/hoge@nonexist.service)
+(! systemd-analyze verify ../tmp/hoge@.service)
+popd
+systemd-analyze verify /tmp/foo@bar.service
+systemd-analyze verify /tmp/foo@.service
+systemd-analyze verify /tmp/hoge@test.service
+(! systemd-analyze verify /tmp/hoge@nonexist.service)
+(! systemd-analyze verify /tmp/hoge@.service)
+
+# test that all commands are verified.
+cat <<EOF >/tmp/multi-exec-start.service
+[Service]
+Type=oneshot
+ExecStart=true
+ExecStart=ls
+EOF
+systemd-analyze verify /tmp/multi-exec-start.service
+echo 'ExecStart=command-should-not-exist' >>/tmp/multi-exec-start.service
+(! systemd-analyze verify /tmp/multi-exec-start.service)
 
 # Added an additional "INVALID_ID" id to the .json to verify that nothing breaks when input is malformed
 # The PrivateNetwork id description and weight was changed to verify that 'security' is actually reading in
@@ -865,6 +917,13 @@ systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -q -e '^usr
 systemd-analyze pcrs
 systemd-analyze pcrs --json=pretty
 systemd-analyze pcrs 14 7 0 ima
+
+systemd-analyze architectures
+systemd-analyze architectures --json=pretty
+systemd-analyze architectures x86
+systemd-analyze architectures x86-64
+systemd-analyze architectures native
+systemd-analyze architectures uname
 
 systemd-analyze log-level info
 

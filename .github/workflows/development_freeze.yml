@@ -28,7 +28,7 @@ jobs:
 
     steps:
       - name: Download Pull Request Metadata artifact
-        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
         with:
           script: |
             const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
@@ -54,7 +54,7 @@ jobs:
       - run: unzip ${{ env.PULL_REQUEST_METADATA_FILE }}.zip
 
       - name: 'Get Pull Request number'
-        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -68,7 +68,7 @@ jobs:
           fetch-depth: 0
 
       - name: Development Freezer
-        uses: redhat-plumbers-in-action/devel-freezer@13b6551f19ade74ca79be4cab06b815a4ffffa64
+        uses: redhat-plumbers-in-action/devel-freezer@67aec4a153bd9fca5322e1c4dd4d7c419fb36362
         with:
           pr-number: ${{ env.pr_number }}
           token: ${{ secrets.GITHUB_TOKEN }}

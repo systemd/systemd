@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-stub" conditional='ENABLE_BOOTLOADER'
@@ -25,14 +25,18 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/usr/lib/systemd/boot/efi/linuxx64.efi.stub</filename></para>
-    <para><filename>/usr/lib/systemd/boot/efi/linuxia32.efi.stub</filename></para>
-    <para><filename>/usr/lib/systemd/boot/efi/linuxaa64.efi.stub</filename></para>
-    <para><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename></para>
-    <para><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.cred</filename></para>
-    <para><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.raw</filename></para>
-    <para><filename><replaceable>ESP</replaceable>/loader/addons/*.addon.efi</filename></para>
-    <para><filename><replaceable>ESP</replaceable>/loader/credentials/*.cred</filename></para>
+    <para><simplelist>
+      <member><filename>/usr/lib/systemd/boot/efi/linuxx64.efi.stub</filename></member>
+      <member><filename>/usr/lib/systemd/boot/efi/linuxia32.efi.stub</filename></member>
+      <member><filename>/usr/lib/systemd/boot/efi/linuxaa64.efi.stub</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.cred</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.raw</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.sysext.raw</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.confext.raw</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/loader/addons/*.addon.efi</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/loader/credentials/*.cred</filename></member>
+    </simplelist></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -55,38 +59,37 @@
       <!-- Let's keep this in the canonical order we also measure the sections by, i.e. as in
            src/fundamental/uki.h's UnifiedSection enum -->
 
-      <listitem><para>The ELF Linux kernel images will be looked for in the <literal>.linux</literal> PE
-      section of the executed image.</para></listitem>
+      <listitem><para>A <literal>.linux</literal> section with the ELF Linux kernel image.</para></listitem>
 
-      <listitem><para>OS release information, i.e. the
-      <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file of
-      the OS the kernel belongs to, in the <literal>.osrel</literal> PE section.</para></listitem>
+      <listitem><para>An <literal>.osrel</literal> section with OS release information, i.e. the contents of
+      the <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file
+      of the OS the kernel belongs to.</para></listitem>
 
-      <listitem><para>The kernel command line to pass to the invoked kernel will be looked for in the
-      <literal>.cmdline</literal> PE section.</para></listitem>
+      <listitem><para>A <literal>.cmdline</literal> section with the kernel command line to pass to the
+      invoked kernel.</para></listitem>
 
-      <listitem><para>The initrd will be loaded from the <literal>.initrd</literal> PE
+      <listitem><para>An <literal>.initrd</literal> section with the initrd.</para></listitem>
+
+      <listitem><para>A <literal>.splash</literal> section with an image (in the Windows
+      <filename>.BMP</filename> format) to show on screen before invoking the kernel.</para></listitem>
+
+      <listitem><para>A <literal>.dtb</literal> section with a compiled binary DeviceTree.</para></listitem>
+
+      <listitem><para>A <literal>.uname</literal> section with the kernel version information, i.e. the
+      output of <command>uname -r</command> for the kernel included in the <literal>.linux</literal>
       section.</para></listitem>
 
-      <listitem><para>A boot splash (in Windows <filename>.BMP</filename> format) to show on screen before
-      invoking the kernel will be looked for in the <literal>.splash</literal> PE section.</para></listitem>
+      <listitem><para>An <literal>.sbat</literal> section with
+      <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">SBAT</ulink> revocation
+      metadata.</para></listitem>
 
-      <listitem><para>A compiled binary DeviceTree will be looked for in the <literal>.dtb</literal> PE
-      section.</para></listitem>
+      <listitem><para>A <literal>.pcrsig</literal> section with a set of cryptographic signatures for the
+      expected TPM2 PCR values after the kernel has been booted, in JSON format. This is useful for
+      implementing TPM2 policies that bind disk encryption and similar to kernels that are signed by a
+      specific key.</para></listitem>
 
-      <listitem><para>Kernel version information, i.e. the output of <command>uname -r</command> for the
-      kernel included in the UKI, in the <literal>.uname</literal> PE section.</para></listitem>
-
-      <listitem><para><ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">SBAT</ulink> revocation
-      metadata, in the <literal>.sbat</literal> PE section.</para></listitem>
-
-      <listitem><para>A set of cryptographic signatures for expected TPM2 PCR values when this kernel is
-      booted, in JSON format, in the <literal>.pcrsig</literal> section. This is useful for implementing TPM2
-      policies that bind disk encryption and similar to kernels that are signed by a specific
-      key.</para></listitem>
-
-      <listitem><para>A public key in PEM format matching this TPM2 PCR signature data in the
-      <literal>.pcrpkey</literal> section.</para></listitem>
+      <listitem><para>A <literal>.pcrpkey</literal> section with a public key in the PEM format matching the
+      signature data in the the <literal>.pcrsig</literal> section.</para></listitem>
     </itemizedlist>
 
     <para>If UEFI SecureBoot is enabled and the <literal>.cmdline</literal> section is present in the executed
@@ -100,15 +103,14 @@
     DeviceTree in the corresponding EFI configuration table. systemd-stub will ask the firmware via the
     <literal>EFI_DT_FIXUP_PROTOCOL</literal> for hardware specific fixups to the DeviceTree.</para>
 
-    <para>The contents of seven of these eight PE sections are measured into TPM PCR 11, that is otherwise
-    not used. Thus, it can be pre-calculated without too much effort. The <literal>.pcrsig</literal> section
-    is not included in this PCR measurement, since it's supposed to contain signatures for the expected
-    results for these measurements, i.e. of the outputs of the measurement operation, and thus cannot also be
-    input to it.</para>
+    <para>The contents of eight of these nine sections are measured into TPM PCR 11. It is otherwise not used
+    and thus the result can be pre-calculated without too much effort. The <literal>.pcrsig</literal> section
+    is not included in this PCR measurement, since it is supposed to contain signatures for the output of the
+    measurement operation, and thus cannot also be input to it.</para>
 
-    <para>When <literal>.pcrsig</literal> and/or <literal>.pcrpkey</literal> are present in a unified kernel
-    image their contents are passed to the booted kernel in an synthetic initrd cpio archive that places them in the
-    <filename>/.extra/tpm2-pcr-signature.json</filename> and
+    <para>When <literal>.pcrsig</literal> and/or <literal>.pcrpkey</literal> sections are present in a
+    unified kernel image their contents are passed to the booted kernel in an synthetic initrd cpio archive
+    that places them in the <filename>/.extra/tpm2-pcr-signature.json</filename> and
     <filename>/.extra/tpm2-pcr-public-key.pem</filename> files. Typically, a
     <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> line then
     ensures they are copied into <filename>/run/systemd/tpm2-pcr-signature.json</filename> and
@@ -153,13 +155,27 @@
       details on encrypted credentials. The generated <command>cpio</command> archive is measured into TPM
       PCR 12 (if a TPM is present).</para></listitem>
 
-      <listitem><para>Similarly, files <filename><replaceable>foo</replaceable>.efi.extra.d/*.raw</filename>
-      are packed up in a <command>cpio</command> archive and placed in the <filename>/.extra/sysext/</filename>
-      directory in the initrd file hierarchy. This is supposed to be used to pass additional system extension
-      images to the initrd. See
+      <listitem><para>Similarly, files
+      <filename><replaceable>foo</replaceable>.efi.extra.d/*.sysext.raw</filename> are packed up in a
+      <command>cpio</command> archive and placed in the <filename>/.extra/sysext/</filename> directory in the
+      initrd file hierarchy. This is supposed to be used to pass additional system extension images to the
+      initrd. See
       <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
       details on system extension images. The generated <command>cpio</command> archive containing these
       system extension images is measured into TPM PCR 13 (if a TPM is present).</para></listitem>
+
+      <!-- Note: the actual suffix we look for for sysexts is just *.raw (not *.sysext.raw), for
+           compatibility reasons with old versions. But we want people to name their system extensions
+           properly, hence we document the *.sysext.raw suffix only. -->
+
+      <listitem><para>Similarly, files
+      <filename><replaceable>foo</replaceable>.efi.extra.d/*.confext.raw</filename> are packed up in a
+      <command>cpio</command> archive and placed in the <filename>/.extra/confext/</filename> directory in
+      the initrd file hierarchy. This is supposed to be used to pass additional configuration extension
+      images to the initrd. See
+      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+      details on configuration extension images. The generated <command>cpio</command> archive containing
+      these system extension images is measured into TPM PCR 12 (if a TPM is present).</para></listitem>
 
       <listitem><para>Similarly, files
       <filename><replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename> are loaded and verified as
@@ -218,9 +234,10 @@
 
     <para>Also note that the Linux kernel will measure all initrds it receives into TPM PCR 9. This means
     every type of initrd will be measured two or three times: the initrd embedded in the kernel image will be
-    measured to PCR 4, PCR 9 and PCR 11; the initrd synthesized from credentials will be measured to both PCR
-    9 and PCR 12; the initrd synthesized from system extensions will be measured to both PCR 4 and PCR
-    9. Let's summarize the OS resources and the PCRs they are measured to:</para>
+    measured to PCR 4, PCR 9 and PCR 11; the initrd synthesized from credentials (and the one synthesized
+    from configuration extensions) will be measured to both PCR 9 and PCR 12; the initrd synthesized from
+    system extensions will be measured to both PCR 4 and PCR 9. Let's summarize the OS resources and the PCRs
+    they are measured to:</para>
 
     <table>
       <title>OS Resource PCR Summary</title>
@@ -290,6 +307,11 @@
           <row>
             <entry>System Extensions (synthesized initrd from companion files)</entry>
             <entry>9 + 13</entry>
+          </row>
+
+          <row>
+            <entry>Configuration Extensions (synthesized initrd from companion files)</entry>
+            <entry>9 + 12</entry>
           </row>
         </tbody>
       </tgroup>
@@ -371,12 +393,23 @@
       <varlistentry>
         <term><varname>StubPcrInitRDSysExts</varname></term>
 
-        <listitem><para>The PCR register index the systemd extensions for the initrd, which are picked up
-        from the file system the kernel image is located on. Formatted as decimal ASCII string (e.g.
+        <listitem><para>The PCR register index the system extensions for the initrd, which are picked up from
+        the file system the kernel image is located on. Formatted as decimal ASCII string (e.g.
         <literal>13</literal>). This variable is set if a measurement was successfully completed, and remains
         unset otherwise.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubPcrInitRDConfExts</varname></term>
+
+        <listitem><para>The PCR register index the configuration extensions for the initrd, which are picked
+        up from the file system the kernel image is located on. Formatted as decimal ASCII string (e.g.
+        <literal>12</literal>). This variable is set if a measurement was successfully completed, and remains
+        unset otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -395,7 +428,8 @@
       <varlistentry>
         <term><filename>/</filename></term>
 
-        <listitem><para>The main initrd from the <literal>.initrd</literal> PE section of the unified kernel image.</para>
+        <listitem><para>The main initrd from the <literal>.initrd</literal> PE section of the unified kernel
+        image.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
@@ -412,8 +446,8 @@
 
       <varlistentry>
         <term><filename>/.extra/global_credentials/*.cred</filename></term>
-        <listitem><para>Similar, credential files in the <filename>/loader/credentials/</filename> directory
-        in the file system the unified kernel image is placed in are copied into the
+        <listitem><para>Similarly, credential files in the <filename>/loader/credentials/</filename>
+        directory in the file system the unified kernel image is placed in are copied into the
         <filename>/.extra/global_credentials/</filename> directory in the initrd execution
         environment.</para>
 
@@ -421,20 +455,28 @@
       </varlistentry>
 
       <varlistentry>
-        <term><filename>/.extra/sysext/*.raw</filename></term>
-        <listitem><para>System extension image files (suffix <literal>.raw</literal>) that are placed next to
-        the unified kernel image (as described above) are copied into the
+        <term><filename>/.extra/sysext/*.sysext.raw</filename></term>
+        <listitem><para>System extension image files (suffix <literal>.sysext.raw</literal>) that are placed
+        next to the unified kernel image (as described above) are copied into the
         <filename>/.extra/sysext/</filename> directory in the initrd execution environment.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
+        <term><filename>/.extra/confext/*.confext.raw</filename></term>
+        <listitem><para>Configuration extension image files (suffix <literal>.confext.raw</literal>) that are
+        placed next to the unified kernel image (as described above) are copied into the
+        <filename>/.extra/confext/</filename> directory in the initrd execution environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><filename>/.extra/tpm2-pcr-signature.json</filename></term>
         <listitem><para>The TPM2 PCR signature JSON object included in the <literal>.pcrsig</literal> PE
         section of the unified kernel image is copied into the
-        <filename>/.extra/tpm2-pcr-signature.json</filename> file in the initrd execution
-        environment.</para>
+        <filename>/.extra/tpm2-pcr-signature.json</filename> file in the initrd execution environment.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
@@ -485,16 +527,16 @@
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>,
-      <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>,
-      <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <ulink url="https://systemd.io/TPM2_PCR_MEASUREMENTS">TPM2 PCR Measurements Made by systemd</ulink>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink></member>
+      <member><ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink></member>
+      <member><citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><ulink url="https://systemd.io/TPM2_PCR_MEASUREMENTS">TPM2 PCR Measurements Made by systemd</ulink></member>
+    </simplelist></para>
   </refsect1>
 </refentry>

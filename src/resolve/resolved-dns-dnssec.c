@@ -1951,7 +1951,7 @@ found_closest_encloser:
 }
 
 static int dnssec_nsec_wildcard_equal(DnsResourceRecord *rr, const char *name) {
-        char label[DNS_LABEL_MAX];
+        char label[DNS_LABEL_MAX+1];
         const char *n;
         int r;
 
@@ -2564,6 +2564,7 @@ static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
         [DNSSEC_FAILED_AUXILIARY]      = "failed-auxiliary",
         [DNSSEC_NSEC_MISMATCH]         = "nsec-mismatch",
         [DNSSEC_INCOMPATIBLE_SERVER]   = "incompatible-server",
+        [DNSSEC_UPSTREAM_FAILURE]      = "upstream-failure",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_result, DnssecResult);
 

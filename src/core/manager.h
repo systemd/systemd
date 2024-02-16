@@ -137,6 +137,7 @@ typedef enum WatchdogType {
 #include "path-lookup.h"
 #include "show-status.h"
 #include "unit-name.h"
+#include "unit.h"
 
 typedef enum ManagerTestRunFlags {
         MANAGER_TEST_NORMAL                  = 0,       /* run normally */
@@ -438,10 +439,9 @@ struct Manager {
         /* This is true before and after switching root. */
         bool switching_root;
 
-        /* This maps all possible path prefixes to the units needing
-         * them. It's a hashmap with a path string as key and a Set as
-         * value where Unit objects are contained. */
-        Hashmap *units_requiring_mounts_for;
+        /* These map all possible path prefixes to the units needing them. They are hashmaps with a path
+         * string as key, and a Set as value where Unit objects are contained. */
+        Hashmap *units_needing_mounts_for[_UNIT_MOUNT_DEPENDENCY_TYPE_MAX];
 
         /* Used for processing polkit authorization responses */
         Hashmap *polkit_registry;
@@ -550,7 +550,7 @@ int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error 
 
 void manager_clear_jobs(Manager *m);
 
-void manager_unwatch_pidref(Manager *m, PidRef *pid);
+void manager_unwatch_pidref(Manager *m, const PidRef *pid);
 
 unsigned manager_dispatch_load_queue(Manager *m);
 
@@ -596,7 +596,7 @@ double manager_get_progress(Manager *m);
 
 void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) _printf_(4,5);
 
-Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
+Set* manager_get_units_needing_mounts_for(Manager *m, const char *path, UnitMountDependencyType t);
 
 ManagerState manager_state(Manager *m);
 
@@ -644,3 +644,25 @@ OOMPolicy oom_policy_from_string(const char *s) _pure_;
 
 void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope);
 void unit_defaults_done(UnitDefaults *defaults);
+
+enum {
+        /* most important … */
+        EVENT_PRIORITY_USER_LOOKUP      = SD_EVENT_PRIORITY_NORMAL-10,
+        EVENT_PRIORITY_MOUNT_TABLE      = SD_EVENT_PRIORITY_NORMAL-9,
+        EVENT_PRIORITY_SWAP_TABLE       = SD_EVENT_PRIORITY_NORMAL-9,
+        EVENT_PRIORITY_CGROUP_AGENT     = SD_EVENT_PRIORITY_NORMAL-8, /* cgroupv1 */
+        EVENT_PRIORITY_CGROUP_INOTIFY   = SD_EVENT_PRIORITY_NORMAL-8, /* cgroupv2 */
+        EVENT_PRIORITY_CGROUP_OOM       = SD_EVENT_PRIORITY_NORMAL-7,
+        EVENT_PRIORITY_EXEC_FD          = SD_EVENT_PRIORITY_NORMAL-6,
+        EVENT_PRIORITY_NOTIFY           = SD_EVENT_PRIORITY_NORMAL-5,
+        EVENT_PRIORITY_SIGCHLD          = SD_EVENT_PRIORITY_NORMAL-4,
+        EVENT_PRIORITY_SIGNALS          = SD_EVENT_PRIORITY_NORMAL-3,
+        EVENT_PRIORITY_CGROUP_EMPTY     = SD_EVENT_PRIORITY_NORMAL-2,
+        EVENT_PRIORITY_TIME_CHANGE      = SD_EVENT_PRIORITY_NORMAL-1,
+        EVENT_PRIORITY_TIME_ZONE        = SD_EVENT_PRIORITY_NORMAL-1,
+        EVENT_PRIORITY_IPC              = SD_EVENT_PRIORITY_NORMAL,
+        EVENT_PRIORITY_REWATCH_PIDS     = SD_EVENT_PRIORITY_IDLE,
+        EVENT_PRIORITY_SERVICE_WATCHDOG = SD_EVENT_PRIORITY_IDLE+1,
+        EVENT_PRIORITY_RUN_QUEUE        = SD_EVENT_PRIORITY_IDLE+2,
+        /* … to least important */
+};

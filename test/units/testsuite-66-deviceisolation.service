@@ -7,4 +7,4 @@ DevicePolicy=strict
 DeviceAllow=/dev/null r
 StandardOutput=file:/tmp/testsuite66serviceresults
 ExecStartPre=rm -f /tmp/testsuite66serviceresults
-ExecStart=/bin/bash -c "while true; do sleep 0.01 && echo meow >/dev/null && echo thisshouldnotbehere; done"
+ExecStart=bash -c "while true; do sleep 0.01 && echo meow >/dev/null && echo thisshouldnotbehere; done"

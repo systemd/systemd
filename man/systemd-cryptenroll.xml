@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <refentry id="systemd-cryptenroll" xmlns:xi="http://www.w3.org/2001/XInclude" conditional='HAVE_LIBCRYPTSETUP'>
 
@@ -36,8 +36,8 @@
     supports tokens and credentials of the following kind to be enrolled:</para>
 
     <orderedlist>
-      <listitem><para>PKCS#11 security tokens and smartcards that may carry an RSA key pair (e.g. various
-      YubiKeys)</para></listitem>
+      <listitem><para>PKCS#11 security tokens and smartcards that may carry an RSA or EC key pair (e.g.
+      various YubiKeys)</para></listitem>
 
       <listitem><para>FIDO2 security tokens that implement the <literal>hmac-secret</literal> extension (most
       FIDO2 keys, including YubiKeys)</para></listitem>
@@ -222,10 +222,10 @@
     <title>Limitations</title>
 
     <para>Note that currently when enrolling a new key of one of the five supported types listed above, it is
-    required to first provide a passphrase, a recovery key or a FIDO2 token. It's currently not supported to
-    unlock a device with a TPM2/PKCS#11 key in order to enroll a new TPM2/PKCS#11 key. Thus, if in future key
-    roll-over is desired it's generally recommended to ensure a passphrase, a recovery key or a FIDO2 token
-    is always enrolled.</para>
+    required to first provide a passphrase, a recovery key, a FIDO2 token, or a TPM2 key. It's currently not
+    supported to unlock a device with a PKCS#11 key in order to enroll a new PKCS#11 key. Thus, if in future
+    key roll-over is desired it's generally recommended to ensure a passphrase, a recovery key, a FIDO2
+    token, or a TPM2 key is always enrolled.</para>
 
     <para>Also note that support for enrolling multiple FIDO2 tokens is currently limited. When multiple FIDO2
     tokens are enrolled, <command>systemd-cryptseup</command> will perform pre-flight requests to attempt to
@@ -311,15 +311,36 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--unlock-tpm2-device=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Use a TPM2 device instead of a password/passhprase read from stdin to unlock the
+        volume. Expects a device node path referring to the TPM2 chip (e.g. <filename>/dev/tpmrm0</filename>).
+        Alternatively the special value <literal>auto</literal> may be specified, in order to automatically
+        determine the device node of a currently discovered TPM2 device (of which there must be exactly one).
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--pkcs11-token-uri=</option><replaceable>URI</replaceable></term>
 
-        <listitem><para>Enroll a PKCS#11 security token or smartcard (e.g. a YubiKey). Expects a PKCS#11
-        smartcard URI referring to the token. Alternatively the special value <literal>auto</literal> may
-        be specified, in order to automatically determine the URI of a currently plugged in security token
-        (of which there must be exactly one). The special value <literal>list</literal> may be used to
-        enumerate all suitable PKCS#11 tokens currently plugged in. The security token must contain an RSA
-        key pair which is used to encrypt the randomly generated key that is used to unlock the LUKS2
-        volume. The encrypted key is then stored in the LUKS2 JSON token header area.</para>
+        <listitem><para>Enroll a PKCS#11 security token or smartcard (e.g. a YubiKey). Expects a PKCS#11 URI
+        that allows to find an X.509 certificate or a public key on the token. The URI must also be suitable
+        to find a related private key after changing the type of object in it. Alternatively the special
+        value <literal>auto</literal> may be specified, in order to automatically determine the suitable URI
+        if a single security token containing a single key pair is plugged in. The special value
+        <literal>list</literal> may be used to enumerate all suitable PKCS#11 tokens currently plugged in.
+        </para>
+
+        <para>The PKCS#11 token must contain an RSA or EC key pair which will be used to unlock a LUKS2 volume.
+        For RSA, a randomly generated volume key is encrypted with a public key in the token, and stored in
+        the LUKS2 JSON token header area. To unlock a volume, the stored encrypted volume key will be decrypted
+        with a private key in the token. For ECC, ECDH algorithm is used: we generate a pair of EC keys in
+        the same EC group, then derive a shared secret using the generated private key and the public key
+        in the token. The derived shared secret is used as a volume key. The generated public key is
+        stored in the LUKS2 JSON token header area. The generated private key is erased. To unlock a volume,
+        we derive the shared secret with the stored public key and a private key in the token.</para>
 
         <para>In order to unlock a LUKS2 volume with an enrolled PKCS#11 security token, specify the
         <option>pkcs11-uri=</option> option in the respective <filename>/etc/crypttab</filename> line:</para>
@@ -486,7 +507,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-pcrs=</option><arg rep="repeat">PCR</arg></term>
+        <term><option>--tpm2-pcrs=</option><replaceable>PCR<optional>+PCR...</optional></replaceable></term>
 
         <listitem><para>Configures the TPM2 PCRs (Platform Configuration Registers) to bind to when
         enrollment is requested via <option>--tpm2-device=</option>. Takes a list of PCR entries, where each
@@ -532,9 +553,9 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-public-key=</option><arg>PATH</arg></term>
-        <term><option>--tpm2-public-key-pcrs=</option><arg rep="repeat">PCR</arg></term>
-        <term><option>--tpm2-signature=</option><arg>PATH</arg></term>
+        <term><option>--tpm2-public-key=</option><replaceable>PATH</replaceable></term>
+        <term><option>--tpm2-public-key-pcrs=</option><replaceable>PCR<optional>+PCR...</optional></replaceable></term>
+        <term><option>--tpm2-signature=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Configures a TPM2 signed PCR policy to bind encryption to. The
         <option>--tpm2-public-key=</option> option accepts a path to a PEM encoded RSA public key, to bind
@@ -572,7 +593,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-pcrlock=</option><arg>PATH</arg></term>
+        <term><option>--tpm2-pcrlock=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Configures a TPM2 pcrlock policy to bind encryption to. Expects a path to a pcrlock
         policy file as generated by the
@@ -586,7 +607,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--wipe-slot=</option><arg rep="repeat">SLOT</arg></term>
+        <term><option>--wipe-slot=</option><replaceable>SLOT<optional>,SLOT...</optional></replaceable></term>
 
         <listitem><para>Wipes one or more LUKS2 key slots. Takes a comma separated list of numeric slot
         indexes, or the special strings <literal>all</literal> (for wiping all key slots),
@@ -645,13 +666,13 @@
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-     </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+     </simplelist></para>
   </refsect1>
 
 </refentry>

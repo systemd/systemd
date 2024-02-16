@@ -8,6 +8,7 @@
 #include "ether-addr-util.h"
 
 int test_network_interfaces_initialized(char **iface_pairs);
+int resolve_network_interface_names(char **iface_pairs);
 
 int setup_veth(const char *machine_name, pid_t pid, char iface_name[IFNAMSIZ], bool bridge, const struct ether_addr *provided_mac);
 int setup_veth_extra(const char *machine_name, pid_t pid, char **pairs);
@@ -19,6 +20,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **iface_pairs);
 int setup_ipvlan(const char *machine_name, pid_t pid, char **iface_pairs);
 
 int move_network_interfaces(int netns_fd, char **iface_pairs);
+int move_back_network_interfaces(int child_netns_fd, char **interface_pairs);
 
 int veth_extra_parse(char ***l, const char *p);
 

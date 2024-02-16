@@ -47,8 +47,6 @@ option('sysvinit-path', type : 'string', value : '/etc/init.d',
        description : 'the directory where the SysV init scripts are located')
 option('sysvrcnd-path', type : 'string', value : '/etc/rc.d',
        description : 'the base directory for SysV rcN.d directories')
-option('telinit-path', type : 'string', value : '/lib/sysvinit/telinit',
-       description : 'path to telinit')
 option('rc-local', type : 'string',
        value : '/etc/rc.local')
 option('initrd', type : 'boolean',
@@ -211,6 +209,10 @@ option('pamlibdir', type : 'string',
        description : 'directory for PAM modules')
 option('pamconfdir', type : 'string',
        description : 'directory for PAM configuration ["no" disables]')
+option('sshconfdir', type : 'string',
+       description : 'directory for SSH client configuration ["no" disables]')
+option('sshdconfdir', type : 'string',
+       description : 'directory for SSH server configuration ["no" disables]')
 option('libcryptsetup-plugins-dir', type : 'string',
        description : 'directory for libcryptsetup plugins')
 option('docdir', type : 'string',
@@ -447,6 +449,8 @@ option('glib', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'd
        description : 'libglib support (for tests only)')
 option('dbus', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libdbus support (for tests only)')
+option('libarchive', type : 'feature',
+       description : 'libarchive support')
 
 option('bootloader', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'sd-boot/stub and userspace tools')

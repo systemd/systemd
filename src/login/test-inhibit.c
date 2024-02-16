@@ -9,6 +9,7 @@
 #include "bus-util.h"
 #include "fd-util.h"
 #include "macro.h"
+#include "tests.h"
 
 static int inhibit(sd_bus *bus, const char *what) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -56,6 +57,8 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int fd1, fd2;
         int r;
+
+        test_setup_logging(LOG_DEBUG);
 
         r = sd_bus_open_system(&bus);
         assert_se(r >= 0);

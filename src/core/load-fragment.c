@@ -16,8 +16,8 @@
 #include "all-units.h"
 #include "alloc-util.h"
 #include "bpf-firewall.h"
-#include "bpf-lsm.h"
 #include "bpf-program.h"
+#include "bpf-restrict-fs.h"
 #include "bpf-socket-bind.h"
 #include "bus-error.h"
 #include "bus-internal.h"
@@ -38,6 +38,7 @@
 #include "fileio.h"
 #include "firewall-util.h"
 #include "fs-util.h"
+#include "fstab-util.h"
 #include "hexdecoct.h"
 #include "iovec-util.h"
 #include "ioprio-util.h"
@@ -433,8 +434,9 @@ int config_parse_colon_separated_paths(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         char ***sv = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -574,17 +576,13 @@ int config_parse_socket_listen(
                 void *data,
                 void *userdata) {
 
+        Socket *s = ASSERT_PTR(SOCKET(data));
         _cleanup_free_ SocketPort *p = NULL;
-        SocketPort *tail;
-        Socket *s;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
-
-        s = SOCKET(data);
 
         if (isempty(rvalue)) {
                 /* An empty assignment removes all ports */
@@ -592,9 +590,14 @@ int config_parse_socket_listen(
                 return 0;
         }
 
-        p = new0(SocketPort, 1);
+        p = new(SocketPort, 1);
         if (!p)
                 return log_oom();
+
+        *p = (SocketPort) {
+                .socket = s,
+                .fd = -EBADF,
+        };
 
         if (ltype != SOCKET_SOCKET) {
                 _cleanup_free_ char *k = NULL;
@@ -605,7 +608,11 @@ int config_parse_socket_listen(
                         return 0;
                 }
 
-                r = path_simplify_and_warn(k, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                PathSimplifyWarnFlags flags = PATH_CHECK_ABSOLUTE;
+                if (ltype != SOCKET_SPECIAL)
+                        flags |= PATH_CHECK_NON_API_VFS;
+
+                r = path_simplify_and_warn(k, flags, unit, filename, line, lvalue);
                 if (r < 0)
                         return 0;
 
@@ -619,7 +626,7 @@ int config_parse_socket_listen(
                 p->type = ltype;
 
         } else if (streq(lvalue, "ListenNetlink")) {
-                _cleanup_free_ char  *k = NULL;
+                _cleanup_free_ char *k = NULL;
 
                 r = unit_path_printf(UNIT(s), rvalue, &k);
                 if (r < 0) {
@@ -644,7 +651,7 @@ int config_parse_socket_listen(
                         return 0;
                 }
 
-                if (k[0] == '/') { /* Only for AF_UNIX file system sockets… */
+                if (path_is_absolute(k)) { /* Only for AF_UNIX file system sockets… */
                         r = patch_var_run(unit, filename, line, lvalue, &k);
                         if (r < 0)
                                 return r;
@@ -674,16 +681,7 @@ int config_parse_socket_listen(
                 p->type = SOCKET_SOCKET;
         }
 
-        p->fd = -EBADF;
-        p->auxiliary_fds = NULL;
-        p->n_auxiliary_fds = 0;
-        p->socket = s;
-
-        tail = LIST_FIND_TAIL(port, s->ports);
-        LIST_INSERT_AFTER(port, s->ports, tail, p);
-
-        p = NULL;
-
+        LIST_APPEND(port, s->ports, TAKE_PTR(p));
         return 0;
 }
 
@@ -1254,7 +1252,7 @@ int config_parse_exec_input_data(
                 return 0;
         }
 
-        r = unbase64mem(rvalue, SIZE_MAX, &p, &sz);
+        r = unbase64mem(rvalue, &p, &sz);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to decode base64 data, ignoring: %s", rvalue);
@@ -1748,7 +1746,7 @@ int config_parse_exec_root_hash(
         }
 
         /* We have a roothash to decode, eg: RootHash=012345789abcdef */
-        r = unhexmem(rvalue, strlen(rvalue), &roothash_decoded, &roothash_decoded_size);
+        r = unhexmem(rvalue, &roothash_decoded, &roothash_decoded_size);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to decode RootHash=, ignoring: %s", rvalue);
                 return 0;
@@ -1816,7 +1814,7 @@ int config_parse_exec_root_hash_sig(
         }
 
         /* We have a roothash signature to decode, eg: RootHashSignature=base64:012345789abcdef */
-        r = unbase64mem(value, strlen(value), &roothash_sig_decoded, &roothash_sig_decoded_size);
+        r = unbase64mem(value, &roothash_sig_decoded, &roothash_sig_decoded_size);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to decode RootHashSignature=, ignoring: %s", rvalue);
                 return 0;
@@ -2659,7 +2657,7 @@ int config_parse_working_directory(
                         return missing_ok ? 0 : -ENOEXEC;
                 }
 
-                r = path_simplify_and_warn(k, PATH_CHECK_ABSOLUTE | (missing_ok ? 0 : PATH_CHECK_FATAL), unit, filename, line, lvalue);
+                r = path_simplify_and_warn(k, PATH_CHECK_ABSOLUTE|PATH_CHECK_NON_API_VFS|(missing_ok ? 0 : PATH_CHECK_FATAL), unit, filename, line, lvalue);
                 if (r < 0)
                         return missing_ok ? 0 : -ENOEXEC;
 
@@ -2697,7 +2695,7 @@ int config_parse_unit_env_file(const char *unit,
                 return 0;
         }
 
-        r = unit_full_printf_full(u, rvalue, PATH_MAX, &n);
+        r = unit_path_printf(u, rvalue, &n);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                 return 0;
@@ -3152,7 +3150,7 @@ int config_parse_unit_condition_string(
         return 0;
 }
 
-int config_parse_unit_requires_mounts_for(
+int config_parse_unit_mounts_for(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -3171,6 +3169,7 @@ int config_parse_unit_requires_mounts_for(
         assert(lvalue);
         assert(rvalue);
         assert(data);
+        assert(STR_IN_SET(lvalue, "RequiresMountsFor", "WantsMountsFor"));
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *resolved = NULL;
@@ -3196,9 +3195,9 @@ int config_parse_unit_requires_mounts_for(
                 if (r < 0)
                         continue;
 
-                r = unit_require_mounts_for(u, resolved, UNIT_DEPENDENCY_FILE);
+                r = unit_add_mounts_for(u, resolved, UNIT_DEPENDENCY_FILE, unit_mount_dependency_type_from_string(lvalue));
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to add required mount '%s', ignoring: %m", resolved);
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to add requested mount '%s', ignoring: %m", resolved);
                         continue;
                 }
         }
@@ -3695,7 +3694,7 @@ int config_parse_restrict_filesystems(
                         break;
                 }
 
-                r = lsm_bpf_parse_filesystem(
+                r = bpf_restrict_fs_parse_filesystem(
                               word,
                               &c->restrict_filesystems,
                               FILESYSTEM_PARSE_LOG|
@@ -3800,8 +3799,23 @@ int config_parse_allowed_cpuset(
                 void *userdata) {
 
         CPUSet *c = data;
+        const Unit *u = userdata;
+        _cleanup_free_ char *k = NULL;
+        int r;
 
-        (void) parse_cpu_set_extend(rvalue, c, true, unit, filename, line, lvalue);
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = unit_full_printf(u, rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to resolve unit specifiers in '%s', ignoring: %m",
+                           rvalue);
+                return 0;
+        }
+
+        (void) parse_cpu_set_extend(k, c, true, unit, filename, line, lvalue);
         return 0;
 }
 
@@ -4019,7 +4033,7 @@ int config_parse_delegate(
 
         } else if (r > 0) {
                 c->delegate = true;
-                c->delegate_controllers = _CGROUP_MASK_ALL;
+                c->delegate_controllers = CGROUP_MASK_DELEGATE;
         } else {
                 c->delegate = false;
                 c->delegate_controllers = 0;
@@ -5252,7 +5266,7 @@ int config_parse_bind_paths(
                 if (r == 0)
                         break;
 
-                r = unit_full_printf_full(u, source, PATH_MAX, &sresolved);
+                r = unit_path_printf(u, source, &sresolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to resolve unit specifiers in \"%s\", ignoring: %m", source);
@@ -5405,7 +5419,7 @@ int config_parse_mount_images(
                         continue;
                 }
 
-                r = path_simplify_and_warn(sresolved, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                r = path_simplify_and_warn(sresolved, PATH_CHECK_ABSOLUTE|PATH_CHECK_NON_API_VFS, unit, filename, line, lvalue);
                 if (r < 0)
                         continue;
 
@@ -5421,7 +5435,7 @@ int config_parse_mount_images(
                         continue;
                 }
 
-                r = path_simplify_and_warn(dresolved, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                r = path_simplify_and_warn(dresolved, PATH_CHECK_ABSOLUTE|PATH_CHECK_NON_API_VFS, unit, filename, line, lvalue);
                 if (r < 0)
                         continue;
 
@@ -5563,7 +5577,7 @@ int config_parse_extension_images(
                         continue;
                 }
 
-                r = path_simplify_and_warn(sresolved, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                r = path_simplify_and_warn(sresolved, PATH_CHECK_ABSOLUTE|PATH_CHECK_NON_API_VFS, unit, filename, line, lvalue);
                 if (r < 0)
                         continue;
 
@@ -5784,7 +5798,7 @@ int config_parse_pid_file(
                 return log_oom();
 
         /* Check that the result is a sensible path */
-        r = path_simplify_and_warn(n, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        r = path_simplify_and_warn(n, PATH_CHECK_ABSOLUTE|PATH_CHECK_NON_API_VFS, unit, filename, line, lvalue);
         if (r < 0)
                 return r;
 
@@ -6080,7 +6094,7 @@ int config_parse_restrict_network_interfaces(
                         break;
                 }
 
-                if (!ifname_valid(word)) {
+                if (!ifname_valid_full(word, IFNAME_VALID_ALTERNATIVE)) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid interface name, ignoring: %s", word);
                         continue;
                 }
@@ -6095,6 +6109,47 @@ int config_parse_restrict_network_interfaces(
         }
 
         return 0;
+}
+
+int config_parse_mount_node(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        const Unit *u = ASSERT_PTR(userdata);
+        _cleanup_free_ char *resolved = NULL, *path = NULL;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = unit_full_printf(u, rvalue, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        path = fstab_node_to_udev_node(resolved);
+        if (!path)
+                return log_oom();
+
+        /* The source passed is not necessarily something we understand, and we pass it as-is to mount/swapon,
+         * so path_is_valid is not used. But let's check for basic sanity, i.e. if the source is longer than
+         * PATH_MAX, you're likely doing something wrong. */
+        if (strlen(path) >= PATH_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Resolved mount path '%s' too long, ignoring.", path);
+                return 0;
+        }
+
+        return config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, path, data, userdata);
 }
 
 static int merge_by_names(Unit *u, Set *names, const char *id) {
@@ -6301,8 +6356,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_nsec,                  "NANOSECONDS" },
                 { config_parse_namespace_path_strv,   "PATH [...]" },
                 { config_parse_bind_paths,            "PATH[:PATH[:OPTIONS]] [...]" },
-                { config_parse_unit_requires_mounts_for,
-                                                      "PATH [...]" },
+                { config_parse_unit_mounts_for,       "PATH [...]" },
                 { config_parse_exec_mount_propagation_flag,
                                                       "MOUNTFLAG" },
                 { config_parse_unit_string_printf,    "STRING" },
@@ -6350,6 +6404,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_job_mode_isolate,      "BOOLEAN" },
                 { config_parse_personality,           "PERSONALITY" },
                 { config_parse_log_filter_patterns,   "REGEX" },
+                { config_parse_mount_node,            "NODE" },
         };
 
         const char *prev = NULL;

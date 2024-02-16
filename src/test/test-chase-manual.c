@@ -5,6 +5,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "tests.h"
 
 static char *arg_root = NULL;
 static int arg_flags = 0;
@@ -84,7 +85,7 @@ static int parse_argv(int argc, char *argv[]) {
 static int run(int argc, char **argv) {
         int r;
 
-        log_setup();
+        test_setup_logging(LOG_DEBUG);
 
         r = parse_argv(argc, argv);
         if (r <= 0)

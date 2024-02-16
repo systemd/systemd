@@ -4,4 +4,4 @@ Description=TEST-69-SHUTDOWN
 
 [Service]
 Type=oneshot
-ExecStart=/bin/true
+ExecStart=true

@@ -320,11 +320,8 @@ static int method_detach_image(sd_bus_message *message, void *userdata, sd_bus_e
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.portable1.attach-images",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -377,11 +374,8 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.portable1.manage-images",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)

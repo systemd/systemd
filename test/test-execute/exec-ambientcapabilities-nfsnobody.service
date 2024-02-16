@@ -3,7 +3,7 @@
 Description=Test for AmbientCapabilities
 
 [Service]
-ExecStart=/bin/sh -x -c 'c=$$(grep "CapAmb:" /proc/self/status); test "$$c" = "CapAmb:	0000000000002001"'
+ExecStart=sh -x -c 'c=$$(grep "CapAmb:" /proc/self/status); test "$$c" = "CapAmb:	0000000000002001"'
 Type=oneshot
 User=nfsnobody
 AmbientCapabilities=CAP_CHOWN CAP_NET_RAW

@@ -347,7 +347,7 @@ int bind_remount_recursive_with_mountinfo(
                                  * think autofs, NFS, FUSE, …), but let's generate useful debug messages at
                                  * the very least. */
 
-                                q = path_is_mount_point(x, NULL, 0);
+                                q = path_is_mount_point(x);
                                 if (IN_SET(q, 0, -ENOENT)) {
                                         /* Hmm, whaaaa? The mount point is not actually a mount point? Then
                                          * it is either obstructed by a later mount or somebody has been
@@ -457,10 +457,6 @@ static int mount_switch_root_pivot(int fd_newroot, const char *path) {
         assert(fd_newroot >= 0);
         assert(path);
 
-        /* Change into the new rootfs. */
-        if (fchdir(fd_newroot) < 0)
-                return log_debug_errno(errno, "Failed to chdir into new rootfs '%s': %m", path);
-
         /* Let the kernel tuck the new root under the old one. */
         if (pivot_root(".", ".") < 0)
                 return log_debug_errno(errno, "Failed to pivot root to new rootfs '%s': %m", path);
@@ -477,10 +473,6 @@ static int mount_switch_root_move(int fd_newroot, const char *path) {
         assert(fd_newroot >= 0);
         assert(path);
 
-        /* Change into the new rootfs. */
-        if (fchdir(fd_newroot) < 0)
-                return log_debug_errno(errno, "Failed to chdir into new rootfs '%s': %m", path);
-
         /* Move the new root fs */
         if (mount(".", "/", NULL, MS_MOVE, NULL) < 0)
                 return log_debug_errno(errno, "Failed to move new rootfs '%s': %m", path);
@@ -494,7 +486,7 @@ static int mount_switch_root_move(int fd_newroot, const char *path) {
 
 int mount_switch_root_full(const char *path, unsigned long mount_propagation_flag, bool force_ms_move) {
         _cleanup_close_ int fd_newroot = -EBADF;
-        int r;
+        int r, is_current_root;
 
         assert(path);
         assert(mount_propagation_flag_is_valid(mount_propagation_flag));
@@ -503,19 +495,31 @@ int mount_switch_root_full(const char *path, unsigned long mount_propagation_fla
         if (fd_newroot < 0)
                 return log_debug_errno(errno, "Failed to open new rootfs '%s': %m", path);
 
-        if (!force_ms_move) {
-                r = mount_switch_root_pivot(fd_newroot, path);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to pivot into new rootfs '%s', will try to use MS_MOVE instead: %m", path);
-                        force_ms_move = true;
+        is_current_root = path_is_root_at(fd_newroot, NULL);
+        if (is_current_root < 0)
+                return log_debug_errno(is_current_root, "Failed to determine if target dir is our root already: %m");
+
+        /* Change into the new rootfs. */
+        if (fchdir(fd_newroot) < 0)
+                return log_debug_errno(errno, "Failed to chdir into new rootfs '%s': %m", path);
+
+        /* Make this a NOP if we are supposed to switch to our current root fs. After all, both pivot_root()
+         * and MS_MOVE don't like that. */
+        if (!is_current_root) {
+                if (!force_ms_move) {
+                        r = mount_switch_root_pivot(fd_newroot, path);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to pivot into new rootfs '%s', will try to use MS_MOVE instead: %m", path);
+                                force_ms_move = true;
+                        }
                 }
-        }
-        if (force_ms_move) {
-                /* Failed to pivot_root() fallback to MS_MOVE. For example, this may happen if the rootfs is
-                 * an initramfs in which case pivot_root() isn't supported. */
-                r = mount_switch_root_move(fd_newroot, path);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to switch to new rootfs '%s' with MS_MOVE: %m", path);
+                if (force_ms_move) {
+                        /* Failed to pivot_root() fallback to MS_MOVE. For example, this may happen if the rootfs is
+                         * an initramfs in which case pivot_root() isn't supported. */
+                        r = mount_switch_root_move(fd_newroot, path);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to switch to new rootfs '%s' with MS_MOVE: %m", path);
+                }
         }
 
         /* Finally, let's establish the requested propagation flags. */
@@ -817,8 +821,8 @@ int mount_option_mangle(
 
                         if (!(ent->mask & MNT_INVERT))
                                 mount_flags |= ent->id;
-                        else if (mount_flags & ent->id)
-                                mount_flags ^= ent->id;
+                        else
+                                mount_flags &= ~ent->id;
 
                         break;
                 }
@@ -1096,7 +1100,7 @@ static int mount_in_namespace(
         if (!pidref_is_set(target))
                 return -ESRCH;
 
-        r = namespace_open(target->pid, &pidns_fd, &mntns_fd, NULL, NULL, &root_fd);
+        r = namespace_open(target->pid, &pidns_fd, &mntns_fd, /* ret_netns_fd = */ NULL, /* ret_userns_fd = */ NULL, &root_fd);
         if (r < 0)
                 return log_debug_errno(r, "Failed to retrieve FDs of the target process' namespace: %m");
 
@@ -1279,7 +1283,7 @@ int make_mount_point(const char *path) {
 
         /* If 'path' is already a mount point, does nothing and returns 0. If it is not it makes it one, and returns 1. */
 
-        r = path_is_mount_point(path, NULL, 0);
+        r = path_is_mount_point(path);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine whether '%s' is a mount point: %m", path);
         if (r > 0)
@@ -1310,7 +1314,7 @@ int fd_make_mount_point(int fd) {
         return 1;
 }
 
-int make_userns(uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping) {
+int make_userns(uid_t uid_shift, uid_t uid_range, uid_t source_owner, uid_t dest_owner, RemountIdmapping idmapping) {
         _cleanup_close_ int userns_fd = -EBADF;
         _cleanup_free_ char *line = NULL;
 
@@ -1345,8 +1349,20 @@ int make_userns(uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping 
         if (idmapping == REMOUNT_IDMAPPING_HOST_OWNER) {
                 /* Remap the owner of the bind mounted directory to the root user within the container. This
                  * way every file written by root within the container to the bind-mounted directory will
-                 * be owned by the original user. All other user will remain unmapped. */
-                if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", owner, uid_shift, 1u) < 0)
+                 * be owned by the original user from the host. All other users will remain unmapped. */
+                if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", source_owner, uid_shift, 1u) < 0)
+                        return log_oom_debug();
+        }
+
+        if (idmapping == REMOUNT_IDMAPPING_HOST_OWNER_TO_TARGET_OWNER) {
+                /* Remap the owner of the bind mounted directory to the owner of the target directory
+                 * within the container. This way every file written by target directory owner within the
+                 * container to the bind-mounted directory will be owned by the original host user.
+                 * All other users will remain unmapped. */
+                if (asprintf(
+                             &line,
+                             UID_FMT " " UID_FMT " " UID_FMT "\n",
+                             source_owner, dest_owner, 1u) < 0)
                         return log_oom_debug();
         }
 
@@ -1420,10 +1436,10 @@ int remount_idmap_fd(
         return 0;
 }
 
-int remount_idmap(char **p, uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping) {
+int remount_idmap(char **p, uid_t uid_shift, uid_t uid_range, uid_t source_owner, uid_t dest_owner,RemountIdmapping idmapping) {
         _cleanup_close_ int userns_fd = -EBADF;
 
-        userns_fd = make_userns(uid_shift, uid_range, owner, idmapping);
+        userns_fd = make_userns(uid_shift, uid_range, source_owner, dest_owner, idmapping);
         if (userns_fd < 0)
                 return userns_fd;
 
@@ -1586,7 +1602,7 @@ int bind_mount_submounts(
                 if (!t)
                         return -ENOMEM;
 
-                r = path_is_mount_point(t, NULL, 0);
+                r = path_is_mount_point(t);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to detect if '%s' already is a mount point, ignoring: %m", t);
                         continue;

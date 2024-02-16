@@ -1,0 +1,5 @@
+[DHCPv6]
+SendOption=1:string:\U
+SendVendorOption=123:1:string:\U
+[DHCPv4]
+SendOption=1:string:\U

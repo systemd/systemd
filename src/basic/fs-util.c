@@ -116,7 +116,11 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
 int readlinkat_malloc(int fd, const char *p, char **ret) {
         size_t l = PATH_MAX;
 
-        assert(p);
+        assert(fd >= 0 || fd == AT_FDCWD);
+
+        if (fd < 0 && isempty(p))
+                return -EISDIR; /* In this case, the fd points to the current working directory, and is
+                                 * definitely not a symlink. Let's return earlier. */
 
         for (;;) {
                 _cleanup_free_ char *c = NULL;
@@ -126,7 +130,7 @@ int readlinkat_malloc(int fd, const char *p, char **ret) {
                 if (!c)
                         return -ENOMEM;
 
-                n = readlinkat(fd, p, c, l);
+                n = readlinkat(fd, strempty(p), c, l);
                 if (n < 0)
                         return -errno;
 
@@ -1050,7 +1054,7 @@ int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
                 path = fname;
         }
 
-        fd = xopenat(dirfd, path, flags|O_CREAT|O_DIRECTORY|O_NOFOLLOW, /* xopen_flags = */ 0, mode);
+        fd = xopenat_full(dirfd, path, flags|O_CREAT|O_DIRECTORY|O_NOFOLLOW, /* xopen_flags = */ 0, mode);
         if (IN_SET(fd, -ELOOP, -ENOTDIR))
                 return -EEXIST;
         if (fd < 0)
@@ -1106,12 +1110,22 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
         }
 }
 
-int xopenat(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode) {
+int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode) {
         _cleanup_close_ int fd = -EBADF;
         bool made = false;
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        /* This is like openat(), but has a few tricks up its sleeves, extending behaviour:
+         *
+         *   • O_DIRECTORY|O_CREAT is supported, which causes a directory to be created, and immediately
+         *     opened. When used with the XO_SUBVOLUME flag this will even create a btrfs subvolume.
+         *
+         *   • If O_CREAT is used with XO_LABEL, any created file will be immediately relabelled.
+         *
+         *   • If the path is specified NULL or empty, behaves like fd_reopen().
+         */
 
         if (isempty(path)) {
                 assert(!FLAGS_SET(open_flags, O_CREAT|O_EXCL));
@@ -1177,7 +1191,7 @@ int xopenat(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags
         return TAKE_FD(fd);
 }
 
-int xopenat_lock(
+int xopenat_lock_full(
                 int dir_fd,
                 const char *path,
                 int open_flags,
@@ -1200,7 +1214,7 @@ int xopenat_lock(
         for (;;) {
                 struct stat st;
 
-                fd = xopenat(dir_fd, path, open_flags, xopen_flags, mode);
+                fd = xopenat_full(dir_fd, path, open_flags, xopen_flags, mode);
                 if (fd < 0)
                         return fd;
 

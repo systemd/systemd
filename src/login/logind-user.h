@@ -19,6 +19,13 @@ typedef enum UserState {
         _USER_STATE_INVALID = -EINVAL,
 } UserState;
 
+typedef enum UserGCMode {
+        USER_GC_BY_ANY,         /* any session pins this user */
+        USER_GC_BY_PIN,         /* only sessions with an explicitly pinning class pin this user */
+        _USER_GC_MODE_MAX,
+        _USER_GC_MODE_INVALID = -EINVAL,
+} UserGCMode;
+
 struct User {
         Manager *manager;
 
@@ -27,11 +34,17 @@ struct User {
         char *state_file;
         char *runtime_path;
 
-        char *slice;                     /* user-UID.slice */
-        char *service;                   /* user@UID.service */
-        char *runtime_dir_service;       /* user-runtime-dir@UID.service */
+        /* user-UID.slice */
+        char *slice;
 
-        char *service_job;
+        /* user-runtime-dir@UID.service */
+        char *runtime_dir_unit;
+        char *runtime_dir_job;
+
+        /* user@UID.service */
+        bool service_manager_started;
+        char *service_manager_unit;
+        char *service_manager_job;
 
         Session *display;
 
@@ -41,9 +54,11 @@ struct User {
         /* Set up when the last session of the user logs out */
         sd_event_source *timer_event_source;
 
+        UserGCMode gc_mode;
         bool in_gc_queue:1;
 
-        bool started:1;       /* Whenever the user being started, has been started or is being stopped again. */
+        bool started:1;       /* Whenever the user being started, has been started or is being stopped again
+                                 (tracked through user-runtime-dir@.service) */
         bool stopping:1;      /* Whenever the user is being stopped or has been stopped. */
 
         LIST_HEAD(Session, sessions);
@@ -55,9 +70,11 @@ User *user_free(User *u);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(User *, user_free);
 
+int user_start_service_manager(User *u);
+int user_start(User *u);
+
 bool user_may_gc(User *u, bool drop_not_started);
 void user_add_to_gc_queue(User *u);
-int user_start(User *u);
 int user_stop(User *u, bool force);
 int user_finalize(User *u);
 UserState user_get_state(User *u);
@@ -71,5 +88,8 @@ void user_update_last_session_timer(User *u);
 
 const char* user_state_to_string(UserState s) _const_;
 UserState user_state_from_string(const char *s) _pure_;
+
+const char* user_gc_mode_to_string(UserGCMode m) _const_;
+UserGCMode user_gc_mode_from_string(const char *s) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_compat_user_tasks_max);

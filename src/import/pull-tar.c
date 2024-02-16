@@ -192,7 +192,7 @@ static void tar_pull_report_progress(TarPull *i, TarProgress p) {
                 assert_not_reached();
         }
 
-        sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);
+        sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
         log_debug("Combined progress %u%%", percent);
 }
 
@@ -581,7 +581,6 @@ int tar_pull_start(
                 ImportVerify verify,
                 const char *checksum) {
 
-        PullJob *j;
         int r;
 
         assert(i);
@@ -656,11 +655,12 @@ int tar_pull_start(
                         return r;
         }
 
-        FOREACH_POINTER(j,
-                        i->tar_job,
-                        i->checksum_job,
-                        i->signature_job,
-                        i->settings_job) {
+        PullJob *j;
+        FOREACH_ARGUMENT(j,
+                         i->tar_job,
+                         i->checksum_job,
+                         i->signature_job,
+                         i->settings_job) {
 
                 if (!j)
                         continue;

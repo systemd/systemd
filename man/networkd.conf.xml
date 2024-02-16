@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1-or-later
@@ -27,17 +27,17 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/systemd/networkd.conf</filename></para>
-    <para><filename>/etc/systemd/networkd.conf.d/*.conf</filename></para>
-    <para><filename>/usr/lib/systemd/networkd.conf.d/*.conf</filename></para>
+    <para><simplelist>
+      <member><filename>/etc/systemd/networkd.conf</filename></member>
+      <member><filename>/etc/systemd/networkd.conf.d/*.conf</filename></member>
+      <member><filename>/usr/lib/systemd/networkd.conf.d/*.conf</filename></member>
+    </simplelist></para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para>These configuration files control global network parameters.
-    Currently the DHCP Unique Identifier (DUID).</para>
-
+    <para>These configuration files control global network parameters.</para>
   </refsect1>
 
   <xi:include href="standard-conf.xml" xpointer="main-conf" />
@@ -88,6 +88,17 @@
         Defaults to yes.</para>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ManageForeignNextHops=</varname></term>
+        <listitem><para>A boolean. When true, <command>systemd-networkd</command> will remove nexthops
+        that are not configured in .network files (except for routes with protocol
+        <literal>kernel</literal>). When false, it will
+        not remove any foreign nexthops, keeping them even if they are not configured in a .network file.
+        Defaults to yes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -244,13 +255,13 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
 
   <refsect1>
       <title>See Also</title>
-      <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_id128_get_machine_app_specific</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-      </para>
+      <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_id128_get_machine_app_specific</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      </simplelist></para>
   </refsect1>
 
 </refentry>

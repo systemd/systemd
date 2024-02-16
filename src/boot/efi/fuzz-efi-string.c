@@ -16,6 +16,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (outside_size_range(size, sizeof(size_t), 64 * 1024))
                 return 0;
 
+        fuzz_setup_logging();
+
         size_t len, len2;
         memcpy(&len, data, sizeof(len));
         data += sizeof(len);

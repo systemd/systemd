@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "efi-api.h"
 #include "efi-loader.h"
 #include "env-util.h"
 #include "parse-util.h"
@@ -101,7 +102,8 @@ int efi_loader_get_entries(char ***ret) {
         if (r < 0)
                 return r;
 
-        /* The variable contains a series of individually NUL terminated UTF-16 strings. */
+        /* The variable contains a series of individually NUL terminated UTF-16 strings. We gracefully
+         * consider the final NUL byte optional (i.e. the last string may or may not end in a NUL byte).*/
 
         for (size_t i = 0, start = 0;; i++) {
                 _cleanup_free_ char *decoded = NULL;
@@ -115,6 +117,11 @@ int efi_loader_get_entries(char ***ret) {
                 if (!end && entries[i] != 0)
                         continue;
 
+                /* Empty string at the end of variable? That's the trailer, we are done (i.e. we have a final
+                 * NUL terminator). */
+                if (end && start == i)
+                        break;
+
                 /* We reached the end of a string, let's decode it into UTF-8 */
                 decoded = utf16_to_utf8(entries + start, (i - start) * sizeof(char16_t));
                 if (!decoded)
@@ -127,7 +134,8 @@ int efi_loader_get_entries(char ***ret) {
                 } else
                         log_debug("Ignoring invalid loader entry '%s'.", decoded);
 
-                /* We reached the end of the variable */
+                /* Exit the loop if we reached the end of the variable (i.e. we do not have a final NUL
+                 * terminator) */
                 if (end)
                         break;
 
@@ -247,8 +255,8 @@ int efi_measured_uki(int log_level) {
         if (cached >= 0)
                 return cached;
 
-        /* Checks if we are booted on a kernel with sd-stub which measured the kernel into PCR 11. Or in
-         * other words, if we are running on a TPM enabled UKI.
+        /* Checks if we are booted on a kernel with sd-stub which measured the kernel into PCR 11 on a TPM2
+         * chip. Or in other words, if we are running on a TPM enabled UKI. (TPM 1.2 situations are ignored.)
          *
          * Returns == 0 and > 0 depending on the result of the test. Returns -EREMOTE if we detected a stub
          * being used, but it measured things into a different PCR than we are configured for in
@@ -261,7 +269,7 @@ int efi_measured_uki(int log_level) {
         if (r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_FORCE_MEASURE, ignoring: %m");
 
-        if (!is_efi_boot())
+        if (!efi_has_tpm2())
                 return (cached = 0);
 
         r = efi_get_variable_string(EFI_LOADER_VARIABLE(StubPcrKernelImage), &pcr_string);

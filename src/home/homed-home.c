@@ -38,7 +38,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "user-record-password-quality.h"
 #include "user-record-sign.h"
 #include "user-record-util.h"
@@ -211,6 +211,7 @@ Home *home_free(Home *h) {
 
         h->ref_event_source_please_suspend = sd_event_source_disable_unref(h->ref_event_source_please_suspend);
         h->ref_event_source_dont_suspend = sd_event_source_disable_unref(h->ref_event_source_dont_suspend);
+        h->inhibit_suspend_event_source = sd_event_source_disable_unref(h->inhibit_suspend_event_source);
 
         h->pending_operations = ordered_set_free(h->pending_operations);
         h->pending_event_source = sd_event_source_disable_unref(h->pending_event_source);
@@ -402,11 +403,9 @@ static void home_maybe_stop_retry_deactivate(Home *h, HomeState state) {
         /* Free the deactivation retry event source if we won't need it anymore. Specifically, we'll free the
          * event source whenever the home directory is already deactivated (and we thus where successful) or
          * if we start executing an operation that indicates that the home directory is going to be used or
-         * operated on again. Also, if the home is referenced again stop the timer */
+         * operated on again. Also, if the home is referenced again stop the timer. */
 
-        if (HOME_STATE_MAY_RETRY_DEACTIVATE(state) &&
-            !h->ref_event_source_dont_suspend &&
-            !h->ref_event_source_please_suspend)
+        if (HOME_STATE_MAY_RETRY_DEACTIVATE(state) && !home_is_referenced(h))
                 return;
 
         h->retry_deactivate_event_source = sd_event_source_disable_unref(h->retry_deactivate_event_source);
@@ -454,7 +453,7 @@ static void home_start_retry_deactivate(Home *h) {
                 return;
 
         /* If the home directory is being used now don't start the timer */
-        if (h->ref_event_source_dont_suspend || h->ref_event_source_please_suspend)
+        if (home_is_referenced(h))
                 return;
 
         r = sd_event_add_time_relative(
@@ -650,10 +649,16 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
         return 0;
 }
 
-static void home_count_bad_authentication(Home *h, bool save) {
+static void home_count_bad_authentication(Home *h, int error, bool save) {
         int r;
 
         assert(h);
+
+        if (!IN_SET(error,
+                    -ENOKEY,       /* Password incorrect */
+                    -EBADSLT,      /* Password incorrect and no token */
+                    -EREMOTEIO))   /* Recovery key incorrect */
+                return;
 
         r = user_record_bad_authentication(h->record);
         if (r < 0) {
@@ -680,8 +685,7 @@ static void home_fixate_finish(Home *h, int ret, UserRecord *hr) {
         secret = TAKE_PTR(h->secret); /* Take possession */
 
         if (ret < 0) {
-                if (ret == -ENOKEY)
-                        (void) home_count_bad_authentication(h, false);
+                (void) home_count_bad_authentication(h, ret, /* save= */ false);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_error_errno(ret, "Fixation failed: %m");
@@ -743,6 +747,27 @@ fail:
         home_set_state(h, HOME_UNFIXATED);
 }
 
+static bool error_is_bad_password(int ret) {
+        /* Tests for the various cases of bad passwords. We generally don't want to log so loudly about
+         * these, since everyone types in a bad password now and then. Moreover we usually try to start out
+         * with an empty set of passwords, so the first authentication will frequently fail, if not token is
+         * inserted. */
+
+        return IN_SET(ret,
+                      -ENOKEY,       /* Bad password, or insufficient */
+                      -EBADSLT,      /* Bad password, and no token */
+                      -EREMOTEIO,    /* Bad recovery key */
+                      -ENOANO,       /* PIN for security token needed */
+                      -ERFKILL,      /* "Protected Authentication Path" for token needed */
+                      -EMEDIUMTYPE,  /* Presence confirmation on token needed */
+                      -ENOCSI,       /* User verification on token needed */
+                      -ENOSTR,       /* Token action timeout */
+                      -EOWNERDEAD,   /* PIN locked of security token */
+                      -ENOLCK,       /* Bad PIN of security token */
+                      -ETOOMANYREFS, /* Bad PIN and few tries left */
+                      -EUCLEAN);     /* Bad PIN and one try left */
+}
+
 static void home_activate_finish(Home *h, int ret, UserRecord *hr) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -751,11 +776,11 @@ static void home_activate_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_ACTIVATING, HOME_ACTIVATING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                if (ret == -ENOKEY)
-                        home_count_bad_authentication(h, true);
+                (void) home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
-                r = log_error_errno(ret, "Activation failed: %m");
+                r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
+                                   ret, "Activation failed: %s", bus_error_message(&error, ret));
                 goto finish;
         }
 
@@ -912,11 +937,11 @@ static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         assert(h);
 
         if (ret < 0) {
-                if (ret == -ENOKEY)
-                        (void) home_count_bad_authentication(h, true);
+                (void) home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
-                r = log_error_errno(ret, "Change operation failed: %m");
+                r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
+                                   ret, "Change operation failed: %s", bus_error_message(&error, ret));
                 goto finish;
         }
 
@@ -982,11 +1007,11 @@ static void home_unlocking_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_UNLOCKING, HOME_UNLOCKING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                if (ret == -ENOKEY)
-                        (void) home_count_bad_authentication(h, true);
+                (void) home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
-                r = log_error_errno(ret, "Unlocking operation failed: %m");
+                r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
+                                   ret, "Unlocking operation failed: %s", bus_error_message(&error, ret));
 
                 /* Revert to locked state */
                 home_set_state(h, HOME_LOCKED);
@@ -1018,11 +1043,11 @@ static void home_authenticating_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_AUTHENTICATING, HOME_AUTHENTICATING_WHILE_ACTIVE, HOME_AUTHENTICATING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                if (ret == -ENOKEY)
-                        (void) home_count_bad_authentication(h, true);
+                (void) home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
-                r = log_error_errno(ret, "Authentication failed: %m");
+                r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
+                                   ret, "Authentication failed: %s", bus_error_message(&error, ret));
                 goto finish;
         }
 
@@ -1298,6 +1323,7 @@ static int home_fixate_internal(
         int r;
 
         assert(h);
+        assert(secret);
         assert(IN_SET(for_state, HOME_FIXATING, HOME_FIXATING_FOR_ACTIVATION, HOME_FIXATING_FOR_ACQUIRE));
 
         r = home_start_work(h, "inspect", h->record, secret);
@@ -1318,6 +1344,7 @@ int home_fixate(Home *h, UserRecord *secret, sd_bus_error *error) {
         int r;
 
         assert(h);
+        assert(secret);
 
         switch (home_get_state(h)) {
         case HOME_ABSENT:
@@ -1345,6 +1372,7 @@ static int home_activate_internal(Home *h, UserRecord *secret, HomeState for_sta
         int r;
 
         assert(h);
+        assert(secret);
         assert(IN_SET(for_state, HOME_ACTIVATING, HOME_ACTIVATING_FOR_ACQUIRE));
 
         r = home_start_work(h, "activate", h->record, secret);
@@ -1355,10 +1383,14 @@ static int home_activate_internal(Home *h, UserRecord *secret, HomeState for_sta
         return 0;
 }
 
-int home_activate(Home *h, UserRecord *secret, sd_bus_error *error) {
+int home_activate(Home *h, bool if_referenced, UserRecord *secret, sd_bus_error *error) {
         int r;
 
         assert(h);
+        assert(secret);
+
+        if (if_referenced && !home_is_referenced(h))
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_NOT_REFERENCED, "Home %s is currently not referenced.", h->user_name);
 
         switch (home_get_state(h)) {
         case HOME_UNFIXATED:
@@ -1392,6 +1424,7 @@ static int home_authenticate_internal(Home *h, UserRecord *secret, HomeState for
         int r;
 
         assert(h);
+        assert(secret);
         assert(IN_SET(for_state, HOME_AUTHENTICATING, HOME_AUTHENTICATING_WHILE_ACTIVE, HOME_AUTHENTICATING_FOR_ACQUIRE));
 
         r = home_start_work(h, "inspect", h->record, secret);
@@ -1407,6 +1440,7 @@ int home_authenticate(Home *h, UserRecord *secret, sd_bus_error *error) {
         int r;
 
         assert(h);
+        assert(secret);
 
         state = home_get_state(h);
         switch (state) {
@@ -1479,6 +1513,7 @@ int home_create(Home *h, UserRecord *secret, sd_bus_error *error) {
         int r;
 
         assert(h);
+        assert(secret);
 
         switch (home_get_state(h)) {
         case HOME_INACTIVE: {
@@ -1815,6 +1850,8 @@ int home_passwd(Home *h,
         int r;
 
         assert(h);
+        assert(new_secret);
+        assert(old_secret);
 
         if (h->signed_locally <= 0) /* Don't allow changing of records not signed only by us */
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_RECORD_SIGNED, "Home %s is signed and cannot be modified locally.", h->user_name);
@@ -1961,6 +1998,7 @@ static int home_unlock_internal(Home *h, UserRecord *secret, HomeState for_state
         int r;
 
         assert(h);
+        assert(secret);
         assert(IN_SET(for_state, HOME_UNLOCKING, HOME_UNLOCKING_FOR_ACQUIRE));
 
         r = home_start_work(h, "unlock", h->record, secret);
@@ -1973,7 +2011,9 @@ static int home_unlock_internal(Home *h, UserRecord *secret, HomeState for_state
 
 int home_unlock(Home *h, UserRecord *secret, sd_bus_error *error) {
         int r;
+
         assert(h);
+        assert(secret);
 
         r = home_ratelimit(h, error);
         if (r < 0)
@@ -2085,23 +2125,11 @@ int home_killall(Home *h) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                gid_t gid;
-
                 /* Child */
 
-                gid = user_record_gid(h->record);
-                if (setresgid(gid, gid, gid) < 0) {
-                        log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
-                        _exit(EXIT_FAILURE);
-                }
-
-                if (setgroups(0, NULL) < 0) {
-                        log_error_errno(errno, "Failed to reset auxiliary groups list: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                if (setresuid(h->uid, h->uid, h->uid) < 0) {
-                        log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", h->uid);
+                r = fully_set_uid_gid(h->uid, user_record_gid(h->record), /* supplementary_gids= */ NULL, /* n_supplementary_gids= */ 0);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to change UID/GID to " UID_FMT "/" GID_FMT ": %m", h->uid, user_record_gid(h->record));
                         _exit(EXIT_FAILURE);
                 }
 
@@ -2542,6 +2570,9 @@ int home_augment_status(
                        JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("state", JSON_BUILD_STRING(home_state_to_string(state))),
                                        JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home")),
+                                       JSON_BUILD_PAIR("useFallback", JSON_BUILD_BOOLEAN(!HOME_STATE_IS_ACTIVE(state))),
+                                       JSON_BUILD_PAIR("fallbackShell", JSON_BUILD_CONST_STRING(BINDIR "/systemd-home-fallback-shell")),
+                                       JSON_BUILD_PAIR("fallbackHomeDirectory", JSON_BUILD_CONST_STRING("/")),
                                        JSON_BUILD_PAIR_CONDITION(disk_size != UINT64_MAX, "diskSize", JSON_BUILD_UNSIGNED(disk_size)),
                                        JSON_BUILD_PAIR_CONDITION(disk_usage != UINT64_MAX, "diskUsage", JSON_BUILD_UNSIGNED(disk_usage)),
                                        JSON_BUILD_PAIR_CONDITION(disk_free != UINT64_MAX, "diskFree", JSON_BUILD_UNSIGNED(disk_free)),
@@ -2602,7 +2633,10 @@ static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *u
         if (h->ref_event_source_dont_suspend == s)
                 h->ref_event_source_dont_suspend = sd_event_source_disable_unref(h->ref_event_source_dont_suspend);
 
-        if (h->ref_event_source_dont_suspend || h->ref_event_source_please_suspend)
+        if (h->inhibit_suspend_event_source == s)
+                h->inhibit_suspend_event_source = sd_event_source_disable_unref(h->inhibit_suspend_event_source);
+
+        if (home_is_referenced(h))
                 return 0;
 
         log_info("Got notification that all sessions of user %s ended, deactivating automatically.", h->user_name);
@@ -2617,25 +2651,42 @@ static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *u
         return 0;
 }
 
-int home_create_fifo(Home *h, bool please_suspend) {
+int home_create_fifo(Home *h, HomeFifoType type) {
+        static const struct {
+                const char *suffix;
+                const char *description;
+                size_t event_source;
+        } table[_HOME_FIFO_TYPE_MAX] = {
+                [HOME_FIFO_PLEASE_SUSPEND] = {
+                        .suffix = ".please-suspend",
+                        .description = "acquire-ref",
+                        .event_source = offsetof(Home, ref_event_source_please_suspend),
+                },
+                [HOME_FIFO_DONT_SUSPEND] = {
+                        .suffix = ".dont-suspend",
+                        .description = "acquire-ref-dont-suspend",
+                        .event_source = offsetof(Home, ref_event_source_dont_suspend),
+                },
+                [HOME_FIFO_INHIBIT_SUSPEND] = {
+                        .suffix = ".inhibit-suspend",
+                        .description = "inhibit-suspend",
+                        .event_source = offsetof(Home, inhibit_suspend_event_source),
+                },
+        };
+
         _cleanup_close_ int ret_fd = -EBADF;
-        sd_event_source **ss;
-        const char *fn, *suffix;
+        sd_event_source **evt;
+        const char *fn;
         int r;
 
         assert(h);
+        assert(type >= 0 && type < _HOME_FIFO_TYPE_MAX);
 
-        if (please_suspend) {
-                suffix = ".please-suspend";
-                ss = &h->ref_event_source_please_suspend;
-        } else {
-                suffix = ".dont-suspend";
-                ss = &h->ref_event_source_dont_suspend;
-        }
+        evt = (sd_event_source**) ((uint8_t*) h + table[type].event_source);
 
-        fn = strjoina("/run/systemd/home/", h->user_name, suffix);
+        fn = strjoina("/run/systemd/home/", h->user_name, table[type].suffix);
 
-        if (!*ss) {
+        if (!*evt) {
                 _cleanup_close_ int ref_fd = -EBADF;
 
                 (void) mkdir("/run/systemd/home/", 0755);
@@ -2646,20 +2697,19 @@ int home_create_fifo(Home *h, bool please_suspend) {
                 if (ref_fd < 0)
                         return log_error_errno(errno, "Failed to open FIFO %s for reading: %m", fn);
 
-                r = sd_event_add_io(h->manager->event, ss, ref_fd, 0, on_home_ref_eof, h);
+                r = sd_event_add_io(h->manager->event, evt, ref_fd, 0, on_home_ref_eof, h);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate reference FIFO event source: %m");
 
-                (void) sd_event_source_set_description(*ss, "acquire-ref");
+                (void) sd_event_source_set_description(*evt, table[type].description);
 
-                r = sd_event_source_set_priority(*ss, SD_EVENT_PRIORITY_IDLE-1);
+                r = sd_event_source_set_priority(*evt, SD_EVENT_PRIORITY_IDLE-1);
                 if (r < 0)
                         return r;
 
-                r = sd_event_source_set_io_fd_own(*ss, true);
+                r = sd_event_source_set_io_fd_own(*evt, true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to pass ownership of FIFO event fd to event source: %m");
-
                 TAKE_FD(ref_fd);
         }
 
@@ -2730,6 +2780,21 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
         return 1;
 }
 
+bool home_is_referenced(Home *h) {
+        assert(h);
+
+        return h->ref_event_source_dont_suspend || h->ref_event_source_please_suspend;
+}
+
+bool home_shall_suspend(Home *h) {
+        assert(h);
+
+        /* We lock the home area on suspend if... */
+        return h->ref_event_source_please_suspend && /* at least one client supports suspend, and... */
+               !h->ref_event_source_dont_suspend && /* no clients lack support for suspend, and... */
+               !h->inhibit_suspend_event_source; /* no client is temporarily inhibiting suspend */
+}
+
 static int home_dispatch_release(Home *h, Operation *o) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -2738,7 +2803,7 @@ static int home_dispatch_release(Home *h, Operation *o) {
         assert(o);
         assert(o->type == OPERATION_RELEASE);
 
-        if (h->ref_event_source_dont_suspend || h->ref_event_source_please_suspend)
+        if (home_is_referenced(h))
                 /* If there's now a reference again, then let's abort the release attempt */
                 r = sd_bus_error_setf(&error, BUS_ERROR_HOME_BUSY, "Home %s is currently referenced.", h->user_name);
         else {
@@ -2875,7 +2940,7 @@ static int home_dispatch_pipe_eof(Home *h, Operation *o) {
         assert(o);
         assert(o->type == OPERATION_PIPE_EOF);
 
-        if (h->ref_event_source_please_suspend || h->ref_event_source_dont_suspend)
+        if (home_is_referenced(h))
                 return 1; /* Hmm, there's a reference again, let's cancel this */
 
         switch (home_get_state(h)) {
@@ -3144,7 +3209,7 @@ int home_wait_for_worker(Home *h) {
         r = wait_for_terminate_with_timeout(h->worker_pid, 30 * USEC_PER_SEC);
         if (r == -ETIMEDOUT)
                 log_warning_errno(r, "Waiting for worker process for home %s timed out. Ignoring.", h->user_name);
-        else
+        else if (r < 0)
                 log_warning_errno(r, "Failed to wait for worker process for home %s. Ignoring.", h->user_name);
 
         (void) hashmap_remove_value(h->manager->homes_by_worker_pid, PID_TO_PTR(h->worker_pid), h);

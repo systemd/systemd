@@ -15,8 +15,7 @@ compiler you want to use and which part of the test suite you want to run.
 
 ## mkosi
 
-To build with sanitizers in mkosi, create a file 20-local.conf in mkosi.conf.d/ and add the following
-contents:
+To build with sanitizers in mkosi, create a file `mkosi.local.conf` and add the following contents:
 
 ```
 [Content]

@@ -13,7 +13,7 @@
 #include "sd-dhcp6-client.h"
 #include "sd-event.h"
 
-#include "dhcp-identifier.h"
+#include "dhcp-duid-internal.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
@@ -25,6 +25,7 @@
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
+#include "unaligned.h"
 
 #define DHCP6_CLIENT_EVENT_TEST_ADVERTISED 77
 #define IA_ID_BYTES                                                     \

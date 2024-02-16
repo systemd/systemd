@@ -47,10 +47,6 @@
 #define DEFAULT_COMPRESS_THRESHOLD (512ULL)
 #define MIN_COMPRESS_THRESHOLD (8ULL)
 
-#define U64_KB UINT64_C(1024)
-#define U64_MB (UINT64_C(1024) * U64_KB)
-#define U64_GB (UINT64_C(1024) * U64_MB)
-
 /* This is the minimum journal file size */
 #define JOURNAL_FILE_SIZE_MIN (512 * U64_KB)             /* 512 KiB */
 #define JOURNAL_COMPACT_SIZE_MAX ((uint64_t) UINT32_MAX) /* 4 GiB */
@@ -284,6 +280,8 @@ JournalFile* journal_file_close(JournalFile *f) {
                 return NULL;
 
         assert(f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL);
+
+        sd_event_source_disable_unref(f->post_change_timer);
 
         if (f->cache_fd)
                 mmap_cache_fd_free(f->cache_fd);
@@ -736,8 +734,9 @@ int journal_file_fstat(JournalFile *f) {
                 return r;
 
         /* Refuse appending to files that are already deleted */
-        if (f->last_stat.st_nlink <= 0)
-                return -EIDRM;
+        r = stat_verify_linked(&f->last_stat);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -2248,7 +2247,6 @@ static int journal_file_link_entry(
         f->header->tail_entry_monotonic = o->entry.monotonic;
         if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset))
                 f->header->tail_entry_offset = htole64(offset);
-        f->newest_mtime = 0; /* we have a new tail entry now, explicitly invalidate newest boot id/timestamp info */
 
         /* Link up the items */
         for (uint64_t i = 0; i < n_items; i++) {
@@ -2464,6 +2462,11 @@ int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t)
         assert(e);
         assert(t);
 
+        /* If we are already going down, we cannot install the timer.
+         * In such case, the caller needs to call journal_file_post_change() explicitly. */
+        if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
+                return 0;
+
         r = sd_event_add_time(e, &timer, CLOCK_MONOTONIC, 0, 0, post_change_thunk, f);
         if (r < 0)
                 return r;
@@ -2475,7 +2478,7 @@ int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t)
         f->post_change_timer = TAKE_PTR(timer);
         f->post_change_timer_period = t;
 
-        return r;
+        return 1;
 }
 
 static int entry_item_cmp(const EntryItem *a, const EntryItem *b) {
@@ -2756,7 +2759,7 @@ static int generic_array_get(
                 Object **ret_object,    /* The found object. */
                 uint64_t *ret_offset) { /* The offset of the found object. */
 
-        uint64_t a, t = 0, k;
+        uint64_t a, t = 0, k = 0; /* Explicit initialization of k to appease gcc */
         ChainCacheItem *ci;
         Object *o = NULL;
         int r;
@@ -2913,9 +2916,19 @@ static int generic_array_bisect_step(
         if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
                 log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short.");
 
-                /* The first entry in the array is corrupted, let's go back to the previous array. */
-                if (i == 0)
+                if (i == *left) {
+                        /* This happens on two situations:
+                         *
+                         * a) i == 0 (hence, *left == 0):
+                         *    The first entry in the array is corrupted, let's go back to the previous array.
+                         *
+                         * b) *right == *left or *left + 1, and we are going to downwards:
+                         *    In that case, the (i-1)-th object has been already tested in the previous call,
+                         *    which returned TEST_LEFT. See below. So, there is no matching entry in this
+                         *    array nor in the whole entry array chain. */
+                        assert(i == 0 || (*right - *left <= 1 && direction == DIRECTION_DOWN));
                         return TEST_GOTO_PREVIOUS;
+                }
 
                 /* Otherwise, cutting the array short. So, here we limit the number of elements we will see
                  * in this array, and set the right boundary to the last possibly non-corrupted object. */
@@ -3006,10 +3019,11 @@ static int generic_array_bisect(
                  * check that first. */
 
                 r = test_object(f, ci->begin, needle);
-                if (r < 0)
+                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL))
+                        log_debug_errno(r, "Cached entry is corrupted, ignoring: %m");
+                else if (r < 0)
                         return r;
-
-                if (r == TEST_LEFT) {
+                else if (r == TEST_LEFT) {
                         /* OK, what we are looking for is right of the begin of this EntryArray, so let's
                          * jump straight to previously cached array in the chain */
 
@@ -3021,21 +3035,21 @@ static int generic_array_bisect(
         }
 
         while (a > 0) {
-                uint64_t left, right, k, m;
+                uint64_t left, right, k, m, m_original;
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
                 if (r < 0)
                         return r;
 
                 k = journal_file_entry_array_n_items(f, array);
-                m = MIN(k, n);
+                m = m_original = MIN(k, n);
                 if (m <= 0)
                         return 0;
 
                 left = 0;
                 right = m - 1;
 
-                if (direction == DIRECTION_UP) {
+                if (direction == DIRECTION_UP && left < right) {
                         /* If we're going upwards, the last entry of the previous array may pass the test,
                          * and the first entry of the current array may not pass. In that case, the last
                          * entry of the previous array must be returned. Hence, we need to test the first
@@ -3079,6 +3093,27 @@ static int generic_array_bisect(
 
                         for (;;) {
                                 if (left == right) {
+                                        /* We found one or more corrupted entries in generic_array_bisect_step().
+                                         * In that case, the entry pointed by 'right' may not be tested.
+                                         *
+                                         * When we are going to downwards, the entry object pointed by 'left'
+                                         * has not been tested yet, Hence, even if left == right, we still
+                                         * have to check the final entry to see if it actually matches.
+                                         *
+                                         * On the other hand, when we are going to upwards, the entry pointed
+                                         * by 'left' is always tested, So, it is not necessary to test the
+                                         * final entry again. */
+                                        if (m != m_original && direction == DIRECTION_DOWN) {
+                                                r = generic_array_bisect_step(f, array, left, needle, test_object, direction, &m, &left, &right);
+                                                if (r < 0)
+                                                        return r;
+                                                if (IN_SET(r, TEST_GOTO_PREVIOUS, TEST_GOTO_NEXT))
+                                                        return 0; /* The entry does not pass the test, or is corrupted */
+
+                                                assert(TEST_RIGHT);
+                                                assert(left == right);
+                                        }
+
                                         i = left;
                                         goto found;
                                 }
@@ -3091,6 +3126,8 @@ static int generic_array_bisect(
                                         return r;
                                 if (r == TEST_GOTO_PREVIOUS)
                                         goto previous;
+                                if (r == TEST_GOTO_NEXT)
+                                        return 0; /* Found a corrupt entry, and the array was cut short. */
                         }
                 }
 
@@ -3127,10 +3164,21 @@ previous:
         if (direction == DIRECTION_DOWN)
                 return 0;
 
-        /* Indicate to go to the previous array later. Note, do not move to the previous array here,
-         * as that may invalidate the current array object in the mmap cache and
-         * journal_file_entry_array_item() below may read invalid address. */
-        i = UINT64_MAX;
+        /* Get the last entry of the previous array. */
+        r = bump_entry_array(f, NULL, a, first, DIRECTION_UP, &a);
+        if (r <= 0)
+                return r;
+
+        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
+        if (r < 0)
+                return r;
+
+        p = journal_file_entry_array_n_items(f, array);
+        if (p == 0 || t < p)
+                return -EBADMSG;
+
+        t -= p;
+        i = p - 1;
 
 found:
         p = journal_file_entry_array_item(f, array, 0);
@@ -3139,27 +3187,6 @@ found:
 
         /* Let's cache this item for the next invocation */
         chain_cache_put(f->chain_cache, ci, first, a, p, t, i);
-
-        if (i == UINT64_MAX) {
-                uint64_t m;
-
-                /* Get the last entry of the previous array. */
-
-                r = bump_entry_array(f, NULL, a, first, DIRECTION_UP, &a);
-                if (r <= 0)
-                        return r;
-
-                r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
-                if (r < 0)
-                        return r;
-
-                m = journal_file_entry_array_n_items(f, array);
-                if (m == 0 || t < m)
-                        return -EBADMSG;
-
-                t -= m;
-                i = m - 1;
-        }
 
         p = journal_file_entry_array_item(f, array, i);
         if (p == 0)
@@ -3514,7 +3541,8 @@ int journal_file_next_entry(
                                  p,
                                  test_object_offset,
                                  direction,
-                                 ret_object ? &o : NULL, &q, &i);
+                                 NULL, &q, &i); /* Here, do not read entry object, as the result object
+                                                 * may not be the one we want, and it may be broken. */
         if (r <= 0)
                 return r;
 
@@ -3524,12 +3552,11 @@ int journal_file_next_entry(
          * the same offset, and the index needs to be shifted. Otherwise, use the found object as is,
          * as it is the nearest entry object from the input offset 'p'. */
 
-        if (p != q)
-                goto found;
-
-        r = bump_array_index(&i, direction, n);
-        if (r <= 0)
-                return r;
+        if (p == q) {
+                r = bump_array_index(&i, direction, n);
+                if (r <= 0)
+                        return r;
+        }
 
         /* And jump to it */
         r = generic_array_get(f, le64toh(f->header->entry_array_offset), i, direction, ret_object ? &o : NULL, &q);
@@ -3541,7 +3568,7 @@ int journal_file_next_entry(
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "%s: entry array not properly ordered at entry index %" PRIu64,
                                        f->path, i);
-found:
+
         if (ret_object)
                 *ret_object = o;
         if (ret_offset)
@@ -4334,11 +4361,9 @@ int journal_file_archive(JournalFile *f, char **ret_previous_path) {
         (void) fsync_directory_of_file(f->fd);
 
         if (ret_previous_path)
-                *ret_previous_path = f->path;
-        else
-                free(f->path);
+                *ret_previous_path = TAKE_PTR(f->path);
 
-        f->path = TAKE_PTR(p);
+        free_and_replace(f->path, p);
 
         /* Set as archive so offlining commits w/state=STATE_ARCHIVED. Previously we would set old_file->header->state
          * to STATE_ARCHIVED directly here, but journal_file_set_offline() short-circuits when state != STATE_ONLINE,

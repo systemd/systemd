@@ -2,8 +2,11 @@
 
 #include "machine.h"
 #include "test-tables.h"
+#include "tests.h"
 
 int main(int argc, char **argv) {
+        test_setup_logging(LOG_DEBUG);
+
         test_table(kill_who, KILL_WHO);
         test_table(machine_class, MACHINE_CLASS);
         test_table(machine_state, MACHINE_STATE);

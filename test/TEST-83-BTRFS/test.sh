@@ -17,6 +17,11 @@ if ! command -v btrfs >/dev/null || ! command -v mkfs.btrfs >/dev/null; then
     exit 0
 fi
 
+if ! btrfs filesystem mkswapfile --help >/dev/null; then
+    echo "TEST: $TEST_DESCRIPTION [SKIPPED]: 'btrfs filesystem' doesn't support 'mkswapfile' subcommand" >&2
+    exit 0
+fi
+
 test_append_files() {
     install_btrfs
     image_install sync

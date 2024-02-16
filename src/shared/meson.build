@@ -39,6 +39,7 @@ shared_sources = files(
         'chown-recursive.c',
         'clean-ipc.c',
         'clock-util.c',
+        'color-util.c',
         'common-signal.c',
         'compare-operator.c',
         'condition.c',
@@ -102,6 +103,7 @@ shared_sources = files(
         'keyring-util.c',
         'killall.c',
         'label-util.c',
+        'libarchive-util.c',
         'libcrypt-util.c',
         'libfido2-util.c',
         'libmount-util.c',
@@ -172,11 +174,16 @@ shared_sources = files(
         'varlink.c',
         'varlink-idl.c',
         'varlink-io.systemd.c',
+        'varlink-io.systemd.BootControl.c',
+        'varlink-io.systemd.Credentials.c',
+        'varlink-io.systemd.Hostname.c',
         'varlink-io.systemd.Journal.c',
         'varlink-io.systemd.ManagedOOM.c',
+        'varlink-io.systemd.Network.c',
         'varlink-io.systemd.PCRExtend.c',
-        'varlink-io.systemd.Resolve.Monitor.c',
+        'varlink-io.systemd.PCRLock.c',
         'varlink-io.systemd.Resolve.c',
+        'varlink-io.systemd.Resolve.Monitor.c',
         'varlink-io.systemd.UserDatabase.c',
         'varlink-io.systemd.oom.c',
         'varlink-io.systemd.service.c',
@@ -186,6 +193,7 @@ shared_sources = files(
         'verbs.c',
         'vlan-util.c',
         'volatile-util.c',
+        'vpick.c',
         'wall.c',
         'watchdog.c',
         'web-util.c',
@@ -194,9 +202,7 @@ shared_sources = files(
 )
 
 if get_option('tests') != 'false'
-        shared_sources += files(
-                'tests.c',
-        )
+        shared_sources += files('tests.c')
 endif
 
 generate_syscall_list = find_program('generate-syscall-list.py')
@@ -210,9 +216,7 @@ syscall_list_h = custom_target(
         capture : true)
 
 if conf.get('HAVE_ACL') == 1
-        shared_sources += files(
-                'devnode-acl.c',
-        )
+        shared_sources += files('devnode-acl.c')
 endif
 
 if conf.get('ENABLE_UTMP') == 1
@@ -229,9 +233,7 @@ if conf.get('HAVE_LIBIPTC') == 1
 endif
 
 if conf.get('HAVE_LIBBPF') == 1
-        shared_sources += files(
-                'bpf-link.c',
-        )
+        shared_sources += files('bpf-link.c')
 endif
 
 if conf.get('HAVE_KMOD') == 1
@@ -239,9 +241,7 @@ if conf.get('HAVE_KMOD') == 1
 endif
 
 if conf.get('HAVE_PAM') == 1
-        shared_sources += files(
-                'pam-util.c',
-        )
+        shared_sources += files('pam-util.c')
 endif
 
 if conf.get('ENABLE_NSCD') == 1
@@ -250,6 +250,10 @@ endif
 
 if conf.get('HAVE_LIBFIDO2') == 1 and conf.get('HAVE_LIBCRYPTSETUP') == 1
         shared_sources += files('cryptsetup-fido2.c')
+endif
+
+if conf.get('HAVE_TPM2') == 1 and conf.get('HAVE_LIBCRYPTSETUP') == 1
+        shared_sources += files('cryptsetup-tpm2.c')
 endif
 
 generate_ip_protocol_list = find_program('generate-ip-protocol-list.sh')
@@ -361,9 +365,7 @@ libshared = shared_library(
         install : true,
         install_dir : pkglibdir)
 
-shared_fdisk_sources = files(
-        'fdisk-util.c',
-)
+shared_fdisk_sources = files('fdisk-util.c')
 
 libshared_fdisk = static_library(
         'shared-fdisk',

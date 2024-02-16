@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "device-private.h"
+#include "device-util.h"
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -141,16 +142,15 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to open device '%s'", devpath);
 
-        assert_se(event = udev_event_new(dev, 0, NULL, log_get_max_level()));
+        assert_se(event = udev_event_new(dev, NULL));
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) >= 0);
 
         /* do what devtmpfs usually provides us */
         if (sd_device_get_devname(dev, &devname) >= 0) {
-                const char *subsystem;
                 mode_t mode = 0600;
 
-                if (sd_device_get_subsystem(dev, &subsystem) >= 0 && streq(subsystem, "block"))
+                if (device_in_subsystem(dev, "block"))
                         mode |= S_IFBLK;
                 else
                         mode |= S_IFCHR;
@@ -169,8 +169,8 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
-        udev_event_execute_rules(event, -1, 3 * USEC_PER_SEC, SIGKILL, NULL, rules);
-        udev_event_execute_run(event, 3 * USEC_PER_SEC, SIGKILL);
+        udev_event_execute_rules(event, rules);
+        udev_event_execute_run(event);
 
         return 0;
 }

@@ -33,12 +33,15 @@
 #include "swap.h"
 #include "target.h"
 #include "test-tables.h"
+#include "tests.h"
 #include "timer.h"
 #include "unit-name.h"
 #include "unit.h"
 #include "virt.h"
 
 int main(int argc, char **argv) {
+        test_setup_logging(LOG_DEBUG);
+
         test_table(architecture, ARCHITECTURE);
         test_table(assert_type, CONDITION_TYPE);
         test_table(automount_result, AUTOMOUNT_RESULT);

@@ -26,7 +26,8 @@ typedef enum {
         WRITE_STRING_FILE_NOFOLLOW                   = 1 << 8,
         WRITE_STRING_FILE_MKDIR_0755                 = 1 << 9,
         WRITE_STRING_FILE_MODE_0600                  = 1 << 10,
-        WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL = 1 << 11,
+        WRITE_STRING_FILE_MODE_0444                  = 1 << 11,
+        WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL = 1 << 12,
 
         /* And before you wonder, why write_string_file_atomic_label_ts() is a separate function instead of just one
            more flag here: it's about linking: we don't want to pull -lselinux into all users of write_string_file()
@@ -142,7 +143,7 @@ int fflush_sync_and_check(FILE *f);
 int write_timestamp_file_atomic(const char *fn, usec_t n);
 int read_timestamp_file(const char *fn, usec_t *ret);
 
-int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space);
+int fputs_with_separator(FILE *f, const char *s, const char *separator, bool *space);
 
 typedef enum ReadLineFlags {
         READ_LINE_ONLY_NUL  = 1 << 0,

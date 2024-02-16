@@ -60,7 +60,7 @@ static int start_loopback(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        s->n_messages ++;
+        s->n_messages++;
         return 0;
 }
 
@@ -95,7 +95,7 @@ static int add_ipv4_address(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        s->n_messages ++;
+        s->n_messages++;
         return 0;
 }
 
@@ -136,7 +136,7 @@ static int add_ipv6_address(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        s->n_messages ++;
+        s->n_messages++;
         return 0;
 }
 

@@ -22,6 +22,7 @@
 #include "clock-util.h"
 #include "conf-files.h"
 #include "constants.h"
+#include "daemon-util.h"
 #include "fd-util.h"
 #include "fileio-label.h"
 #include "fileio.h"
@@ -119,7 +120,7 @@ static void context_clear(Context *c) {
         assert(c);
 
         free(c->zone);
-        bus_verify_polkit_async_registry_free(c->polkit_registry);
+        hashmap_free(c->polkit_registry);
         sd_bus_message_unref(c->cache);
 
         sd_bus_slot_unref(c->slot_job_removed);
@@ -665,13 +666,12 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         if (streq_ptr(z, c->zone))
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         m,
-                        CAP_SYS_TIME,
                         "org.freedesktop.timedate1.set-timezone",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -740,13 +740,12 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         if (lrtc == c->local_rtc && !fix_system)
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         m,
-                        CAP_SYS_TIME,
                         "org.freedesktop.timedate1.set-local-rtc",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -860,13 +859,12 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         } else
                 timespec_store(&ts, (usec_t) utc);
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         m,
-                        CAP_SYS_TIME,
                         "org.freedesktop.timedate1.set-time",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -924,13 +922,12 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
         if (context_ntp_service_exists(c) <= 0)
                 return sd_bus_error_set(error, BUS_ERROR_NO_NTP_SUPPORT, "NTP not supported");
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         m,
-                        CAP_SYS_TIME,
                         "org.freedesktop.timedate1.set-ntp",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -1122,21 +1119,15 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
-
         r = sd_event_default(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
         (void) sd_event_set_watchdog(event, true);
 
-        r = sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+        r = sd_event_set_signal_exit(event, true);
         if (r < 0)
-                return log_error_errno(r, "Failed to install SIGINT handler: %m");
-
-        r = sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to install SIGTERM handler: %m");
+                return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
 
         r = connect_bus(&context, event, &bus);
         if (r < 0)
@@ -1151,6 +1142,10 @@ static int run(int argc, char *argv[]) {
         r = context_parse_ntp_services(&context);
         if (r < 0)
                 return r;
+
+        r = sd_notify(false, NOTIFY_READY);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 
         r = bus_event_loop_with_idle(event, bus, "org.freedesktop.timedate1", DEFAULT_EXIT_USEC, NULL, NULL);
         if (r < 0)

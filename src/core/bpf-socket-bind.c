@@ -212,7 +212,7 @@ int bpf_socket_bind_install(Unit *u) {
         return r;
 }
 
-int bpf_serialize_socket_bind(Unit *u, FILE *f, FDSet *fds) {
+int bpf_socket_bind_serialize(Unit *u, FILE *f, FDSet *fds) {
         int r;
 
         assert(u);
@@ -238,7 +238,7 @@ int bpf_socket_bind_install(Unit *u) {
                                     "bpf-socket-bind: Failed to install; BPF framework is not supported");
 }
 
-int bpf_serialize_socket_bind(Unit *u, FILE *f, FDSet *fds) {
+int bpf_socket_bind_serialize(Unit *u, FILE *f, FDSet *fds) {
         return 0;
 }
 #endif

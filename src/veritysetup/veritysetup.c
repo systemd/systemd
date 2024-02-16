@@ -205,7 +205,7 @@ static int parse_options(const char *options) {
                                 size_t l;
                                 void *m;
 
-                                r = unhexmem(val, strlen(val), &m, &l);
+                                r = unhexmem(val, &m, &l);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse salt '%s': %m", word);
 
@@ -312,7 +312,7 @@ static int run(int argc, char *argv[]) {
                 if (!filename_is_valid(volume))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
 
-                r = unhexmem(root_hash, SIZE_MAX, &m, &l);
+                r = unhexmem(root_hash, &m, &l);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse root hash: %m");
 
@@ -378,7 +378,7 @@ static int run(int argc, char *argv[]) {
                         char *value;
 
                         if ((value = startswith(arg_root_hash_signature, "base64:"))) {
-                                r = unbase64mem(value, strlen(value), (void *)&hash_sig, &hash_sig_size);
+                                r = unbase64mem(value, (void*) &hash_sig, &hash_sig_size);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse root hash signature '%s': %m", arg_root_hash_signature);
                         } else {

@@ -20,6 +20,18 @@ typedef enum BootEntryType {
         _BOOT_ENTRY_TYPE_INVALID = -EINVAL,
 } BootEntryType;
 
+typedef struct BootEntryAddon {
+        char *location;
+        char *cmdline;
+} BootEntryAddon;
+
+typedef struct BootEntryAddons {
+        BootEntryAddon *items;
+        size_t count;
+} BootEntryAddons;
+
+BootEntryAddon* boot_entry_addon_free(BootEntryAddon *t);
+
 typedef struct BootEntry {
         BootEntryType type;
         bool reported_by_loader;
@@ -34,6 +46,7 @@ typedef struct BootEntry {
         char *machine_id;
         char *architecture;
         char **options;
+        BootEntryAddons local_addons;
         char *kernel;        /* linux is #defined to 1, yikes! */
         char *efi;
         char **initrd;
@@ -65,6 +78,8 @@ typedef struct BootConfig {
 
         BootEntry *entries;
         size_t n_entries;
+
+        BootEntryAddons global_addons;
 
         ssize_t default_entry;
         ssize_t selected_entry;
@@ -119,6 +134,7 @@ static inline const char* boot_entry_title(const BootEntry *entry) {
 
 int show_boot_entry(
                 const BootEntry *e,
+                const BootEntryAddons *global_addons,
                 bool show_as_default,
                 bool show_as_selected,
                 bool show_reported);
@@ -127,3 +143,5 @@ int show_boot_entries(
                 JsonFormatFlags json_format);
 
 int boot_filename_extract_tries(const char *fname, char **ret_stripped, unsigned *ret_tries_left, unsigned *ret_tries_done);
+
+int boot_entry_to_json(const BootConfig *c, size_t i, JsonVariant **ret);

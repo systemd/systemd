@@ -283,7 +283,7 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overlo
         int r;
 
         while (offset < buflen) {
-                code = options[offset ++];
+                code = options[offset++];
 
                 switch (code) {
                 case SD_DHCP_OPTION_PAD:
@@ -296,7 +296,7 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overlo
                 if (buflen < offset + 1)
                         return -ENOBUFS;
 
-                len = options[offset ++];
+                len = options[offset++];
 
                 if (buflen < offset + len)
                         return -EINVAL;

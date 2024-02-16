@@ -3,7 +3,7 @@
 Description=Test for PrivateTmp=yes with prefix
 
 [Service]
-ExecStart=/bin/sh -x -c 'test ! -f /tmp/test-exec_privatetmp'
+ExecStart=sh -x -c 'test ! -f /tmp/test-exec_privatetmp'
 ExecStart=+/bin/sh -x -c 'test -f /tmp/test-exec_privatetmp'
 Type=oneshot
 PrivateTmp=yes

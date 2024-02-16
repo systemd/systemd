@@ -12,6 +12,7 @@
 #include "bus-polkit.h"
 #include "common-signal.h"
 #include "constants.h"
+#include "daemon-util.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "float.h"
@@ -527,7 +528,7 @@ static Manager *manager_unref(Manager *m) {
 
         hashmap_free(m->transfers);
 
-        bus_verify_polkit_async_registry_free(m->polkit_registry);
+        hashmap_free(m->polkit_registry);
 
         m->bus = sd_bus_flush_close_unref(m->bus);
         sd_event_unref(m->event);
@@ -598,7 +599,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
         r = parse_percent(p);
         if (r < 0) {
-                log_warning("Got invalid percent value, ignoring.");
+                log_warning("Got invalid percent value '%s', ignoring.", p);
                 return 0;
         }
 
@@ -704,11 +705,8 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
 
         r = bus_verify_polkit_async(
                         msg,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.import1.import",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -775,11 +773,8 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
 
         r = bus_verify_polkit_async(
                         msg,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.import1.import",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -843,11 +838,8 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
 
         r = bus_verify_polkit_async(
                         msg,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.import1.export",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -916,11 +908,8 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
 
         r = bus_verify_polkit_async(
                         msg,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.import1.pull",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -1036,11 +1025,8 @@ static int method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *erro
 
         r = bus_verify_polkit_async(
                         msg,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.import1.pull",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &t->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -1065,11 +1051,8 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
 
         r = bus_verify_polkit_async(
                         msg,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.import1.pull",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -1350,18 +1333,6 @@ static bool manager_check_idle(void *userdata) {
         return hashmap_isempty(m->transfers);
 }
 
-static int manager_run(Manager *m) {
-        assert(m);
-
-        return bus_event_loop_with_idle(
-                        m->event,
-                        m->bus,
-                        "org.freedesktop.import1",
-                        DEFAULT_EXIT_USEC,
-                        manager_check_idle,
-                        m);
-}
-
 static void manager_parse_env(Manager *m) {
         int r;
 
@@ -1412,7 +1383,17 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = manager_run(m);
+        r = sd_notify(false, NOTIFY_READY);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
+
+        r = bus_event_loop_with_idle(
+                        m->event,
+                        m->bus,
+                        "org.freedesktop.import1",
+                        DEFAULT_EXIT_USEC,
+                        manager_check_idle,
+                        m);
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 

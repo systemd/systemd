@@ -289,7 +289,7 @@ int config_parse_port_range(
         VxLan *v = ASSERT_PTR(userdata);
         int r;
 
-        r = parse_ip_port_range(rvalue, &v->port_range.low, &v->port_range.high);
+        r = parse_ip_port_range(rvalue, &v->port_range.low, &v->port_range.high, /* allow_zero = */ false);
         if (r < 0)
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse VXLAN port range '%s'. Port should be greater than 0 and less than 65535.", rvalue);

@@ -2,14 +2,17 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <linux/net_namespace.h>
 #include <net/if.h>
 #include <string.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "log.h"
 #include "memory-util.h"
+#include "namespace-util.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "socket-netlink.h"
@@ -406,4 +409,70 @@ const char *in_addr_full_to_string(struct in_addr_full *a) {
                                 &a->cached_server_string);
 
         return a->cached_server_string;
+}
+
+int netns_get_nsid(int netnsfd, uint32_t *ret) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_close_ int _netns_fd = -EBADF;
+        int r;
+
+        if (netnsfd < 0) {
+                r = namespace_open(
+                                0,
+                                /* ret_pidns_fd = */ NULL,
+                                /* ret_mntns_fd = */ NULL,
+                                &_netns_fd,
+                                /* ret_userns_fd = */ NULL,
+                                /* ret_root_fd = */ NULL);
+                if (r < 0)
+                        return r;
+
+                netnsfd = _netns_fd;
+        }
+
+        r = sd_netlink_open(&rtnl);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_new_nsid(rtnl, &req, RTM_GETNSID);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_s32(req, NETNSA_FD, netnsfd);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(rtnl, req, 0, &reply);
+        if (r < 0)
+                return r;
+
+        for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
+                uint16_t type;
+
+                r = sd_netlink_message_get_errno(m);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_get_type(m, &type);
+                if (r < 0)
+                        return r;
+                if (type != RTM_NEWNSID)
+                        continue;
+
+                uint32_t u;
+                r = sd_netlink_message_read_u32(m, NETNSA_NSID, &u);
+                if (r < 0)
+                        return r;
+
+                if (u == UINT32_MAX) /* no NSID assigned yet */
+                        return -ENODATA;
+
+                if (ret)
+                        *ret = u;
+
+                return 0;
+        }
+
+        return -ENXIO;
 }

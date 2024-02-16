@@ -32,11 +32,11 @@ RestrictRealtime=yes
 StateDirectory=systemd/home
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
-SystemCallFilter=@system-service @mount
+SystemCallFilter=@system-service @mount quotactl
 TimeoutStopSec=3min
 {{SERVICE_WATCHDOG}}
 
 [Install]
 WantedBy=multi-user.target
 Alias=dbus-org.freedesktop.home1.service
-Also=systemd-homed-activate.service systemd-userdbd.service
+Also=systemd-homed-activate.service systemd-homed-firstboot.service

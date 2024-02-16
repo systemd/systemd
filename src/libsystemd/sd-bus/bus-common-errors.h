@@ -111,6 +111,7 @@
 
 #define BUS_ERROR_SPEED_METER_INACTIVE         "org.freedesktop.network1.SpeedMeterInactive"
 #define BUS_ERROR_UNMANAGED_INTERFACE          "org.freedesktop.network1.UnmanagedInterface"
+#define BUS_ERROR_NETWORK_ALREADY_RELOADING    "org.freedesktop.network1.AlreadyReloading"
 
 #define BUS_ERROR_NO_SUCH_HOME                 "org.freedesktop.home1.NoSuchHome"
 #define BUS_ERROR_UID_IN_USE                   "org.freedesktop.home1.UIDInUse"
@@ -151,5 +152,6 @@
 #define BUS_ERROR_HOME_CANT_AUTHENTICATE       "org.freedesktop.home1.HomeCantAuthenticate"
 #define BUS_ERROR_HOME_IN_USE                  "org.freedesktop.home1.HomeInUse"
 #define BUS_ERROR_REBALANCE_NOT_NEEDED         "org.freedesktop.home1.RebalanceNotNeeded"
+#define BUS_ERROR_HOME_NOT_REFERENCED          "org.freedesktop.home1.HomeNotReferenced"
 
 BUS_ERROR_MAP_ELF_USE(bus_common_errors);

@@ -748,3 +748,23 @@ Compatibility support for System V services in systemd is deprecated. Please
 make sure to update the package in question to provide proper, native systemd
 unit files. Contact vendor if necessary. Compatibility support for System V
 services is deprecated and will be removed soon.
+
+-- 187c62eb1e7f463bb530394f52cb090f
+Subject: A Portable Service has been attached
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: https://systemd.io/PORTABLE_SERVICES/
+
+A new Portable Service @PORTABLE_ROOT@ (with extensions: @PORTABLE_EXTENSION@) has
+been attached to the system and is now available for use. The list of attached
+Portable Services can be queried with 'portablectl list'.
+
+-- 76c5c754d628490d8ecba4c9d042112b
+Subject: A Portable Service has been detached
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: https://systemd.io/PORTABLE_SERVICES/
+
+A Portable Service @PORTABLE_ROOT@ (with extensions: @PORTABLE_EXTENSION@) has been
+detached from the system and is no longer available for use. The list of attached
+Portable Services can be queried with 'portablectl list'.

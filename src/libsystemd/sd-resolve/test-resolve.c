@@ -13,6 +13,7 @@
 #include "macro.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "tests.h"
 #include "time-util.h"
 
 #define TEST_TIMEOUT_USEC (20*USEC_PER_SEC)
@@ -66,6 +67,8 @@ int main(int argc, char *argv[]) {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(80),
         };
+
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(sd_resolve_default(&resolve) >= 0);
 

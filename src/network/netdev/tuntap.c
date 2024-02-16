@@ -33,11 +33,6 @@ static TunTap* TUNTAP(NetDev *netdev) {
         }
 }
 
-static void *close_fd_ptr(void *p) {
-        safe_close(PTR_TO_FD(p));
-        return NULL;
-}
-
 DEFINE_PRIVATE_HASH_OPS_FULL(named_fd_hash_ops, char, string_hash_func, string_compare_func, free, void, close_fd_ptr);
 
 int manager_add_tuntap_fd(Manager *m, int fd, const char *name) {
@@ -136,6 +131,19 @@ static int netdev_create_tuntap(NetDev *netdev) {
 
         if (ioctl(fd, TUNSETIFF, &ifr) < 0)
                 return log_netdev_error_errno(netdev, errno, "TUNSETIFF failed: %m");
+
+        if (t->multi_queue) {
+                /* If we don't detach the queue, the kernel will send packets to our queue and they
+                 * will be dropped because we never read them, which is especially important in case
+                 * of KeepCarrier option which persists open FD. So detach our queue right after
+                 * device create/attach to make kernel not send the packets to it. The option is
+                 * available for multi-queue devices only.
+                 *
+                 * See https://github.com/systemd/systemd/pull/30504 for details. */
+                struct ifreq detach_request = { .ifr_flags = IFF_DETACH_QUEUE };
+                if (ioctl(fd, TUNSETQUEUE, &detach_request) < 0)
+                        return log_netdev_error_errno(netdev, errno, "TUNSETQUEUE failed: %m");
+        }
 
         if (t->user_name) {
                 const char *user = t->user_name;

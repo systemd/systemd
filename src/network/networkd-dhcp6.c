@@ -48,24 +48,21 @@ static DHCP6ClientStartMode link_get_dhcp6_client_start_mode(Link *link) {
 static int dhcp6_remove(Link *link, bool only_marked) {
         Address *address;
         Route *route;
-        int k, r = 0;
+        int ret = 0;
 
         assert(link);
+        assert(link->manager);
 
         if (!only_marked)
                 link->dhcp6_configured = false;
 
-        SET_FOREACH(route, link->routes) {
+        SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_DHCP6)
                         continue;
                 if (only_marked && !route_is_marked(route))
                         continue;
 
-                k = route_remove(route);
-                if (k < 0)
-                        r = k;
-
-                route_cancel_request(route, link);
+                RET_GATHER(ret, route_remove_and_cancel(route, link->manager));
         }
 
         SET_FOREACH(address, link->addresses) {
@@ -74,12 +71,10 @@ static int dhcp6_remove(Link *link, bool only_marked) {
                 if (only_marked && !address_is_marked(address))
                         continue;
 
-                k = address_remove_and_drop(address);
-                if (k < 0)
-                        r = k;
+                RET_GATHER(ret, address_remove_and_cancel(address, link));
         }
 
-        return r;
+        return ret;
 }
 
 static int dhcp6_address_ready_callback(Address *address) {
@@ -163,8 +158,7 @@ static int verify_dhcp6_address(Link *link, const Address *address) {
         } else
                 log_level = LOG_DEBUG;
 
-        if (address->prefixlen == existing->prefixlen)
-                /* Currently, only conflict in prefix length is reported. */
+        if (address_can_update(existing, address))
                 goto simple_log;
 
         if (existing->source == NETWORK_CONFIG_SOURCE_NDISC)
@@ -196,7 +190,7 @@ static int dhcp6_request_address(
                 usec_t lifetime_preferred_usec,
                 usec_t lifetime_valid_usec) {
 
-        _cleanup_(address_freep) Address *addr = NULL;
+        _cleanup_(address_unrefp) Address *addr = NULL;
         Address *existing;
         int r;
 
@@ -297,7 +291,7 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
         int r;
 
         link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP6);
-        link_mark_routes(link, NETWORK_CONFIG_SOURCE_DHCP6);
+        manager_mark_routes(link->manager, NULL, NETWORK_CONFIG_SOURCE_DHCP6);
 
         r = sd_dhcp6_client_get_lease(client, &lease);
         if (r < 0)
@@ -832,7 +826,7 @@ int link_serialize_dhcp6_client(Link *link, FILE *f) {
         if (r >= 0)
                 fprintf(f, "DHCP6_CLIENT_IAID=0x%x\n", iaid);
 
-        r = sd_dhcp6_client_duid_as_string(link->dhcp6_client, &duid);
+        r = sd_dhcp6_client_get_duid_as_string(link->dhcp6_client, &duid);
         if (r >= 0)
                 fprintf(f, "DHCP6_CLIENT_DUID=%s\n", duid);
 

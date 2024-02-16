@@ -14,7 +14,7 @@ typedef enum RecursiveErrors {
         _RECURSIVE_ERRORS_INVALID = -EINVAL,
 } RecursiveErrors;
 
-int verify_generate_path(char **var, char **filenames);
+int verify_set_unit_path(char **filenames);
 int verify_prepare_filename(const char *filename, char **ret);
 int verify_executable(Unit *u, const ExecCommand *exec, const char *root);
 int verify_units(char **filenames, RuntimeScope scope, bool check_man, bool run_generators, RecursiveErrors recursive_errors, const char *root);

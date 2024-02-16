@@ -60,7 +60,7 @@ static int acquire_first_emergency_log_message(char **ret) {
 
         assert(ret);
 
-        r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
+        r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY | (arg_continuous ? 0 : SD_JOURNAL_ASSUME_IMMUTABLE));
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal: %m");
 
@@ -103,7 +103,7 @@ static int acquire_first_emergency_log_message(char **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read journal message: %m");
 
-        message = memdup_suffix0((const char*)d + STRLEN("MESSAGE="), l - STRLEN("MESSAGE="));
+        message = memdup_suffix0((const char*)d + strlen("MESSAGE="), l - strlen("MESSAGE="));
         if (!message)
                 return log_oom();
 
@@ -285,7 +285,6 @@ static int run(int argc, char *argv[]) {
         log_parse_environment();
 
         sigbus_install();
-        assert_se(sigaction_many(&nop_sigaction, SIGTERM, SIGINT) >= 0);
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -299,6 +298,8 @@ static int run(int argc, char *argv[]) {
                 log_debug("No emergency-level entries");
                 return 0;
         }
+
+        assert_se(sigaction_many(&nop_sigaction, SIGTERM, SIGINT) >= 0);
 
         r = display_emergency_message_fullscreen((const char*) message);
         if (r < 0)

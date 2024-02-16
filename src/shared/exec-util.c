@@ -250,7 +250,7 @@ int execute_strv(
          * them to finish. Optionally a timeout is applied. If a file with the same name
          * exists in more than one directory, the earliest one wins. */
 
-        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &executor_pid);
+        r = safe_fork("(sd-exec-strv)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &executor_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -258,7 +258,7 @@ int execute_strv(
                 _exit(r < 0 ? EXIT_FAILURE : r);
         }
 
-        r = wait_for_terminate_and_check("(sd-executor)", executor_pid, 0);
+        r = wait_for_terminate_and_check("(sd-exec-strv)", executor_pid, 0);
         if (r < 0)
                 return r;
         if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)

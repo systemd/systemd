@@ -104,7 +104,6 @@ static int mangle_fat_label(const char *s, char **ret) {
 static int do_mcopy(const char *node, const char *root) {
         _cleanup_free_ char *mcopy = NULL;
         _cleanup_strv_free_ char **argv = NULL;
-        _cleanup_close_ int rfd = -EBADF;
         _cleanup_free_ DirectoryEntries *de = NULL;
         int r;
 
@@ -128,11 +127,7 @@ static int do_mcopy(const char *node, const char *root) {
         /* mcopy copies the top level directory instead of everything in it so we have to pass all
          * the subdirectories to mcopy instead to end up with the correct directory structure. */
 
-        rfd = open(root, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-        if (rfd < 0)
-                return log_error_errno(errno, "Failed to open directory '%s': %m", root);
-
-        r = readdir_all(rfd, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE, &de);
+        r = readdir_all_at(AT_FDCWD, root, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE, &de);
         if (r < 0)
                 return log_error_errno(r, "Failed to read '%s' contents: %m", root);
 
@@ -430,7 +425,7 @@ int make_filesystem(
                                 "-T", "default",
                                 node);
 
-                if (root && strv_extend_strv(&argv, STRV_MAKE("-d", root), false) < 0)
+                if (root && strv_extend_many(&argv, "-d", root) < 0)
                         return log_oom();
 
                 if (quiet && strv_extend(&argv, "-q") < 0)
@@ -455,7 +450,7 @@ int make_filesystem(
                 if (!discard && strv_extend(&argv, "--nodiscard") < 0)
                         return log_oom();
 
-                if (root && strv_extend_strv(&argv, STRV_MAKE("-r", root), false) < 0)
+                if (root && strv_extend_many(&argv, "-r", root) < 0)
                         return log_oom();
 
                 if (quiet && strv_extend(&argv, "-q") < 0)
@@ -519,7 +514,7 @@ int make_filesystem(
                         if (!protofile_with_opt)
                                 return -ENOMEM;
 
-                        if (strv_extend_strv(&argv, STRV_MAKE("-p", protofile_with_opt), false) < 0)
+                        if (strv_extend_many(&argv, "-p", protofile_with_opt) < 0)
                                 return log_oom();
                 }
 

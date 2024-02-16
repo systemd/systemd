@@ -2,8 +2,11 @@
 
 #include "alloc-util.h"
 #include "list.h"
+#include "tests.h"
 
 int main(int argc, const char *argv[]) {
+        test_setup_logging(LOG_DEBUG);
+
         size_t i;
         typedef struct list_item {
                 LIST_FIELDS(struct list_item, item_list);

@@ -3,6 +3,6 @@
 Description=Test for EnvironmentFile
 
 [Service]
-ExecStart=/bin/sh -x -c 'test "$$VAR1" = "word1 word2" && test "$$VAR2" = word3 && test "$$VAR3" = "\\$$word 5 6" && test "$$VAR4" = "new\nline" && test "$$VAR5" = passwordwithbackslashes'
+ExecStart=sh -x -c 'test "$$VAR1" = "word1 word2" && test "$$VAR2" = word3 && test "$$VAR3" = "\\$$word 5 6" && test "$$VAR4" = "new\nline" && test "$$VAR5" = passwordwithbackslashes'
 Type=oneshot
 EnvironmentFile=/tmp/test-exec_environmentfile.conf

@@ -29,7 +29,7 @@ int home_update_quota_btrfs(UserRecord *h, const char *path) {
 
         r = btrfs_qgroup_set_limit(path, 0, h->disk_size);
         if (r < 0)
-                return log_error_errno(r, "Faled to set disk quota on subvolume %s: %m", path);
+                return log_error_errno(r, "Failed to set disk quota on subvolume %s: %m", path);
 
         log_info("Set btrfs quota.");
 

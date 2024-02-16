@@ -3,7 +3,7 @@
 Description=Test for StandardInputText= and StandardInputData=
 
 [Service]
-ExecStart=/bin/sh -x -c 'd=$$(mktemp -d -p /tmp); echo -e "this is a test\nand this is more\nsomething encoded!\nsomething   in multiple lines\nand some more\nand a more bas64 data\nsomething with strange\nembedded\tcharacters\nand something with a exec-stdin-data.service specifier" >$d/text ; cmp $d/text ; rm -rf $d'
+ExecStart=sh -x -c 'd=$$(mktemp -d -p /tmp); echo -e "this is a test\nand this is more\nsomething encoded!\nsomething   in multiple lines\nand some more\nand a more bas64 data\nsomething with strange\nembedded\tcharacters\nand something with a exec-stdin-data.service specifier" >$d/text ; cmp $d/text ; rm -rf $d'
 Type=oneshot
 StandardInput=data
 StandardInputText=this is a test

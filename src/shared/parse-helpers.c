@@ -4,6 +4,7 @@
 #include "extract-word.h"
 #include "ip-protocol-list.h"
 #include "log.h"
+#include "mountpoint-util.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -11,46 +12,55 @@
 
 int path_simplify_and_warn(
                 char *path,
-                unsigned flag,
+                PathSimplifyWarnFlags flags,
                 const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *lvalue) {
 
-        bool fatal = flag & PATH_CHECK_FATAL;
+        bool fatal = flags & PATH_CHECK_FATAL;
+        int level = fatal ? LOG_ERR : LOG_WARNING;
 
-        assert(!FLAGS_SET(flag, PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE));
+        assert(path);
+        assert(!FLAGS_SET(flags, PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE));
+        assert(lvalue);
 
         if (!utf8_is_valid(path))
                 return log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, path);
 
-        if (flag & (PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE)) {
+        if (flags & (PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE)) {
                 bool absolute;
 
                 absolute = path_is_absolute(path);
 
-                if (!absolute && (flag & PATH_CHECK_ABSOLUTE))
-                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                if (!absolute && (flags & PATH_CHECK_ABSOLUTE))
+                        return log_syntax(unit, level, filename, line, SYNTHETIC_ERRNO(EINVAL),
                                           "%s= path is not absolute%s: %s",
                                           lvalue, fatal ? "" : ", ignoring", path);
 
-                if (absolute && (flag & PATH_CHECK_RELATIVE))
-                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                if (absolute && (flags & PATH_CHECK_RELATIVE))
+                        return log_syntax(unit, level, filename, line, SYNTHETIC_ERRNO(EINVAL),
                                           "%s= path is absolute%s: %s",
                                           lvalue, fatal ? "" : ", ignoring", path);
         }
 
-        path_simplify_full(path, flag & PATH_KEEP_TRAILING_SLASH ? PATH_SIMPLIFY_KEEP_TRAILING_SLASH : 0);
+        path_simplify_full(path, flags & PATH_KEEP_TRAILING_SLASH ? PATH_SIMPLIFY_KEEP_TRAILING_SLASH : 0);
 
         if (!path_is_valid(path))
-                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                return log_syntax(unit, level, filename, line, SYNTHETIC_ERRNO(EINVAL),
                                   "%s= path has invalid length (%zu bytes)%s.",
                                   lvalue, strlen(path), fatal ? "" : ", ignoring");
 
         if (!path_is_normalized(path))
-                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                return log_syntax(unit, level, filename, line, SYNTHETIC_ERRNO(EINVAL),
                                   "%s= path is not normalized%s: %s",
                                   lvalue, fatal ? "" : ", ignoring", path);
+
+        if (FLAGS_SET(flags, PATH_CHECK_NON_API_VFS) && path_below_api_vfs(path))
+                return log_syntax(unit, level, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "%s= path is below API VFS%s: %s",
+                                  lvalue, fatal ? ", refusing" : ", ignoring",
+                                  path);
 
         return 0;
 }
@@ -102,6 +112,8 @@ static int parse_ip_ports_token(
                 uint16_t *nr_ports,
                 uint16_t *port_min) {
 
+        int r;
+
         assert(token);
         assert(nr_ports);
         assert(port_min);
@@ -110,7 +122,7 @@ static int parse_ip_ports_token(
                 *nr_ports = *port_min = 0;
         else {
                 uint16_t mn = 0, mx = 0;
-                int r = parse_ip_port_range(token, &mn, &mx);
+                r = parse_ip_port_range(token, &mn, &mx, /* allow_zero = */ true);
                 if (r < 0)
                         return r;
 
@@ -194,6 +206,7 @@ int parse_socket_bind_item(
         *ip_protocol = proto;
         *nr_ports = nr;
         *port_min = mn;
+
         return 0;
 }
 

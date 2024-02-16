@@ -11,9 +11,14 @@
 # considered deprecated (though there is no plan to remove them). New names
 # shall have underscores.
 
-prefix={{PREFIX_NOSLASH}}
-root_prefix=${prefix}
-rootprefix=${prefix}
+# root_prefix and rootprefix are deprecated since we dropped support for split-usr
+# however we used to install units in root_prefix and a lot of downstream software
+# overrode this variable in their build system to support installing units elsewhere.
+# To stop those builds from silently breaking we keep root_prefix around but have
+# it as an alias for prefix
+root_prefix={{PREFIX_NOSLASH}}
+rootprefix=${root_prefix}
+prefix=${rootprefix}
 sysconf_dir={{SYSCONF_DIR}}
 sysconfdir=${sysconf_dir}
 

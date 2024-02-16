@@ -11,6 +11,7 @@
 Description=TPM2 PCR Extension (Varlink)
 Documentation=man:systemd-pcrphase.service(8)
 DefaultDependencies=no
+After=tpm2.target
 Conflicts=shutdown.target initrd-switch-root.target
 Before=shutdown.target initrd-switch-root.target
 

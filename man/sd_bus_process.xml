@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1-or-later
@@ -41,14 +41,14 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_process()</function> drives the connection between the client and the message bus. That is,
-    it handles connecting, authentication, and message processing. When invoked pending I/O work is executed, and
-    queued incoming messages are dispatched to registered callbacks. Each time it is invoked a single operation is
-    executed. It returns zero when no operations were pending and positive if a message was processed. When zero is
-    returned the caller should synchronously poll for I/O events before calling into
-    <function>sd_bus_process()</function> again. For that either use the simple, synchronous
-    <citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry> call, or hook up
-    the bus connection object to an external or manual event loop using
+    <para><function>sd_bus_process()</function> drives the connection between the client and the message bus.
+    That is, it handles connecting, authentication, and processing of messages. When invoked, pending I/O
+    work is executed, and queued incoming messages are dispatched to registered callbacks. Each time it is
+    invoked a single operation is executed. It returns zero when no operations were pending and positive if a
+    message was processed. When zero is returned the caller should poll for I/O events before calling into
+    <function>sd_bus_process()</function> again. For that either use the simple, blocking
+    <citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry> call, or
+    hook up the bus connection object to an external or manual event loop using
     <citerefentry><refentrytitle>sd_bus_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
@@ -124,15 +124,15 @@
   <refsect1>
     <title>See Also</title>
 
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_bus_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 
 </refentry>

@@ -42,3 +42,5 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct in_addr_full*, in_addr_full_free);
 int in_addr_full_new(int family, const union in_addr_union *a, uint16_t port, int ifindex, const char *server_name, struct in_addr_full **ret);
 int in_addr_full_new_from_string(const char *s, struct in_addr_full **ret);
 const char *in_addr_full_to_string(struct in_addr_full *a);
+
+int netns_get_nsid(int netnsfd, uint32_t *ret);

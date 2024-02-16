@@ -268,6 +268,15 @@ units = [
           'conditions' : ['ENABLE_BOOTLOADER'],
         },
         {
+          'file' : 'systemd-bootctl@.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER'],
+        },
+        {
+          'file' : 'systemd-bootctl.socket',
+          'conditions' : ['ENABLE_BOOTLOADER'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
           'file' : 'systemd-confext.service',
           'conditions' : ['ENABLE_SYSEXT'],
         },
@@ -280,6 +289,11 @@ units = [
           'file' : 'systemd-coredump@.service.in',
           'conditions' : ['ENABLE_COREDUMP'],
         },
+        {
+          'file' : 'systemd-creds.socket',
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        { 'file' : 'systemd-creds@.service' },
         { 'file' : 'systemd-exit.service' },
         {
           'file' : 'systemd-firstboot.service',
@@ -304,6 +318,10 @@ units = [
           'conditions' : ['ENABLE_HOMED'],
         },
         {
+          'file' : 'systemd-homed-firstboot.service',
+          'conditions' : ['ENABLE_HOMED'],
+        },
+        {
           'file' : 'systemd-homed.service.in',
           'conditions' : ['ENABLE_HOMED'],
         },
@@ -311,6 +329,11 @@ units = [
           'file' : 'systemd-hostnamed.service.in',
           'conditions' : ['ENABLE_HOSTNAMED'],
           'symlinks' : ['dbus-org.freedesktop.hostname1.service'],
+        },
+        {
+          'file' : 'systemd-hostnamed.socket',
+          'conditions' : ['ENABLE_HOSTNAMED'],
+          'symlinks' : ['sockets.target.wants/'],
         },
         {
           'file' : 'systemd-hwdb-update.service.in',
@@ -423,6 +446,10 @@ units = [
         },
         { 'file' : 'systemd-nspawn@.service.in' },
         {
+          'file' : 'systemd-vmspawn@.service.in',
+          'conditions' : ['ENABLE_VMSPAWN'],
+        },
+        {
           'file' : 'systemd-oomd.service.in',
           'conditions' : ['ENABLE_OOMD'],
         },
@@ -504,6 +531,15 @@ units = [
         {
           'file' : 'systemd-pcrlock-firmware-config.service.in',
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+        },
+        {
+          'file' : 'systemd-pcrlock@.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+        },
+        {
+          'file' : 'systemd-pcrlock.socket',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+          'symlinks' : ['sockets.target.wants/'],
         },
         {
           'file' : 'systemd-portabled.service.in',
@@ -691,6 +727,7 @@ units = [
           'file' : 'tmp.mount',
           'symlinks' : ['local-fs.target.wants/'],
         },
+        { 'file' : 'tpm2.target' },
         { 'file' : 'umount.target' },
         { 'file' : 'usb-gadget.target' },
         { 'file' : 'user-runtime-dir@.service.in' },

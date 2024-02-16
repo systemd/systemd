@@ -79,8 +79,30 @@ typedef struct LinkOperationalStateRange {
         LinkOperationalState max;
 } LinkOperationalStateRange;
 
-#define LINK_OPERSTATE_RANGE_DEFAULT (LinkOperationalStateRange) { LINK_OPERSTATE_DEGRADED, \
-                                                                   LINK_OPERSTATE_ROUTABLE }
+#define LINK_OPERSTATE_RANGE_DEFAULT            \
+        (const LinkOperationalStateRange) {     \
+                .min = LINK_OPERSTATE_DEGRADED, \
+                .max = LINK_OPERSTATE_ROUTABLE, \
+        }
 
-int parse_operational_state_range(const char *str, LinkOperationalStateRange *out);
+#define LINK_OPERSTATE_RANGE_INVALID            \
+        (const LinkOperationalStateRange) {     \
+                .min = _LINK_OPERSTATE_INVALID, \
+                .max = _LINK_OPERSTATE_INVALID, \
+        }
+
+int parse_operational_state_range(const char *s, LinkOperationalStateRange *ret);
 int network_link_get_operational_state(int ifindex, LinkOperationalState *ret);
+
+static inline bool operational_state_is_valid(LinkOperationalState s) {
+        return s >= 0 && s < _LINK_OPERSTATE_MAX;
+}
+static inline bool operational_state_range_is_valid(const LinkOperationalStateRange *range) {
+        return range &&
+                operational_state_is_valid(range->min) &&
+                operational_state_is_valid(range->max) &&
+                range->min <= range->max;
+}
+static inline bool operational_state_is_in_range(LinkOperationalState s, const LinkOperationalStateRange *range) {
+        return range && range->min <= s && s <= range->max;
+}

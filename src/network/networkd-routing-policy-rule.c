@@ -156,33 +156,35 @@ static int routing_policy_rule_dup(const RoutingPolicyRule *src, RoutingPolicyRu
 static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state) {
         assert(rule);
 
-        siphash24_compress(&rule->family, sizeof(rule->family), state);
+        siphash24_compress_typesafe(rule->family, state);
 
         switch (rule->family) {
         case AF_INET:
         case AF_INET6:
-                siphash24_compress(&rule->from, FAMILY_ADDRESS_SIZE(rule->family), state);
-                siphash24_compress(&rule->from_prefixlen, sizeof(rule->from_prefixlen), state);
+                in_addr_hash_func(&rule->from, rule->family, state);
+                siphash24_compress_typesafe(rule->from_prefixlen, state);
 
-                siphash24_compress(&rule->to, FAMILY_ADDRESS_SIZE(rule->family), state);
-                siphash24_compress(&rule->to_prefixlen, sizeof(rule->to_prefixlen), state);
+                siphash24_compress_boolean(rule->l3mdev, state);
+
+                in_addr_hash_func(&rule->to, rule->family, state);
+                siphash24_compress_typesafe(rule->to_prefixlen, state);
 
                 siphash24_compress_boolean(rule->invert_rule, state);
 
-                siphash24_compress(&rule->tos, sizeof(rule->tos), state);
-                siphash24_compress(&rule->type, sizeof(rule->type), state);
-                siphash24_compress(&rule->fwmark, sizeof(rule->fwmark), state);
-                siphash24_compress(&rule->fwmask, sizeof(rule->fwmask), state);
-                siphash24_compress(&rule->priority, sizeof(rule->priority), state);
-                siphash24_compress(&rule->table, sizeof(rule->table), state);
-                siphash24_compress(&rule->suppress_prefixlen, sizeof(rule->suppress_prefixlen), state);
-                siphash24_compress(&rule->suppress_ifgroup, sizeof(rule->suppress_ifgroup), state);
+                siphash24_compress_typesafe(rule->tos, state);
+                siphash24_compress_typesafe(rule->type, state);
+                siphash24_compress_typesafe(rule->fwmark, state);
+                siphash24_compress_typesafe(rule->fwmask, state);
+                siphash24_compress_typesafe(rule->priority, state);
+                siphash24_compress_typesafe(rule->table, state);
+                siphash24_compress_typesafe(rule->suppress_prefixlen, state);
+                siphash24_compress_typesafe(rule->suppress_ifgroup, state);
 
-                siphash24_compress(&rule->ipproto, sizeof(rule->ipproto), state);
-                siphash24_compress(&rule->protocol, sizeof(rule->protocol), state);
-                siphash24_compress(&rule->sport, sizeof(rule->sport), state);
-                siphash24_compress(&rule->dport, sizeof(rule->dport), state);
-                siphash24_compress(&rule->uid_range, sizeof(rule->uid_range), state);
+                siphash24_compress_typesafe(rule->ipproto, state);
+                siphash24_compress_typesafe(rule->protocol, state);
+                siphash24_compress_typesafe(rule->sport, state);
+                siphash24_compress_typesafe(rule->dport, state);
+                siphash24_compress_typesafe(rule->uid_range, state);
 
                 siphash24_compress_string(rule->iif, state);
                 siphash24_compress_string(rule->oif, state);
@@ -209,6 +211,10 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
                         return r;
 
                 r = memcmp(&a->from, &b->from, FAMILY_ADDRESS_SIZE(a->family));
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->l3mdev, b->l3mdev);
                 if (r != 0)
                         return r;
 
@@ -476,19 +482,19 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
                         return r;
         }
 
-        if (rule->table < 256) {
+        if (rule->l3mdev)
+                r = sd_rtnl_message_routing_policy_rule_set_table(m, RT_TABLE_UNSPEC);
+        else if (rule->table < 256)
                 r = sd_rtnl_message_routing_policy_rule_set_table(m, rule->table);
-                if (r < 0)
-                        return r;
-        } else {
+        else {
                 r = sd_rtnl_message_routing_policy_rule_set_table(m, RT_TABLE_UNSPEC);
                 if (r < 0)
                         return r;
 
                 r = sd_netlink_message_append_u32(m, FRA_TABLE, rule->table);
-                if (r < 0)
-                        return r;
         }
+        if (r < 0)
+                return r;
 
         if (rule->fwmark > 0) {
                 r = sd_netlink_message_append_u32(m, FRA_FWMARK, rule->fwmark);
@@ -540,6 +546,12 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
 
         if (rule->invert_rule) {
                 r = sd_rtnl_message_routing_policy_rule_set_flags(m, FIB_RULE_INVERT);
+                if (r < 0)
+                        return r;
+        }
+
+        if (rule->l3mdev) {
+                r = sd_netlink_message_append_u8(m, FRA_L3MDEV, 1);
                 if (r < 0)
                         return r;
         }
@@ -642,7 +654,7 @@ static void manager_mark_routing_policy_rules(Manager *m, bool foreign, const Li
                         continue;
 
                 /* When 'foreign' is true, mark only foreign rules, and vice versa. */
-                if (foreign != (rule->source == NETWORK_CONFIG_SOURCE_FOREIGN))
+                if (rule->source != (foreign ? NETWORK_CONFIG_SOURCE_FOREIGN : NETWORK_CONFIG_SOURCE_STATIC))
                         continue;
 
                 /* Ignore rules not assigned yet or already removing. */
@@ -853,19 +865,16 @@ int link_request_static_routing_policy_rules(Link *link) {
 
 static const RoutingPolicyRule kernel_rules[] = {
         { .family = AF_INET,  .priority_set = true, .priority = 0,     .table = RT_TABLE_LOCAL,   .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
+        { .family = AF_INET,  .priority_set = true, .priority = 1000,  .table = RT_TABLE_UNSPEC,  .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, .l3mdev = true },
         { .family = AF_INET,  .priority_set = true, .priority = 32766, .table = RT_TABLE_MAIN,    .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
         { .family = AF_INET,  .priority_set = true, .priority = 32767, .table = RT_TABLE_DEFAULT, .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
         { .family = AF_INET6, .priority_set = true, .priority = 0,     .table = RT_TABLE_LOCAL,   .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
+        { .family = AF_INET6, .priority_set = true, .priority = 1000,  .table = RT_TABLE_UNSPEC,  .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, .l3mdev = true },
         { .family = AF_INET6, .priority_set = true, .priority = 32766, .table = RT_TABLE_MAIN,    .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
 };
 
 static bool routing_policy_rule_is_created_by_kernel(const RoutingPolicyRule *rule) {
         assert(rule);
-
-        if (rule->l3mdev > 0)
-                /* Currently, [RoutingPolicyRule] does not explicitly set FRA_L3MDEV. So, if the flag
-                 * is set, it is safe to treat the rule as created by kernel. */
-                return true;
 
         for (size_t i = 0; i < ELEMENTSOF(kernel_rules); i++)
                 if (routing_policy_rule_equal(rule, &kernel_rules[i]))
@@ -1016,11 +1025,13 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
-        r = sd_netlink_message_read_u8(message, FRA_L3MDEV, &tmp->l3mdev);
+        uint8_t l3mdev = 0;
+        r = sd_netlink_message_read_u8(message, FRA_L3MDEV, &l3mdev);
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get FRA_L3MDEV attribute, ignoring: %m");
                 return 0;
         }
+        tmp->l3mdev = l3mdev != 0;
 
         r = sd_netlink_message_read(message, FRA_SPORT_RANGE, sizeof(tmp->sport), &tmp->sport);
         if (r < 0 && r != -ENODATA) {
@@ -1408,7 +1419,7 @@ int config_parse_routing_policy_rule_port_range(
         if (r < 0)
                 return log_oom();
 
-        r = parse_ip_port_range(rvalue, &low, &high);
+        r = parse_ip_port_range(rvalue, &low, &high, /* allow_zero = */ false);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse routing policy rule port range '%s'", rvalue);
                 return 0;
@@ -1497,6 +1508,44 @@ int config_parse_routing_policy_rule_invert(
         }
 
         n->invert_rule = r;
+
+        TAKE_PTR(n);
+        return 0;
+}
+
+int config_parse_routing_policy_rule_l3mdev(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        Network *network = userdata;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return log_oom();
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule l3mdev, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        n->l3mdev = r;
 
         TAKE_PTR(n);
         return 0;
@@ -1733,12 +1782,6 @@ static int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
                         rule->family = AF_INET6;
                 /* rule->family can be AF_UNSPEC only when Family=both. */
         }
-
-        /* Currently, [RoutingPolicyRule] does not have a setting to set FRA_L3MDEV flag. Please also
-         * update routing_policy_rule_is_created_by_kernel() when a new setting which sets the flag is
-         * added in the future. */
-        if (rule->l3mdev > 0)
-                assert_not_reached();
 
         return 0;
 }

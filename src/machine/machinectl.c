@@ -235,7 +235,7 @@ static int show_table(Table *table, const char *word) {
         assert(table);
         assert(word);
 
-        if (table_get_rows(table) > 1 || OUTPUT_MODE_IS_JSON(arg_output)) {
+        if (!table_isempty(table) || OUTPUT_MODE_IS_JSON(arg_output)) {
                 r = table_set_sort(table, (size_t) 0);
                 if (r < 0)
                         return table_log_sort_error(r);
@@ -251,10 +251,10 @@ static int show_table(Table *table, const char *word) {
         }
 
         if (arg_legend) {
-                if (table_get_rows(table) > 1)
-                        printf("\n%zu %s listed.\n", table_get_rows(table) - 1, word);
-                else
+                if (table_isempty(table))
                         printf("No %s.\n", word);
+                else
+                        printf("\n%zu %s listed.\n", table_get_rows(table) - 1, word);
         }
 
         return 0;
@@ -2740,7 +2740,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 /* If we already found the "shell" verb on the command line, and now found the next
                                  * non-option argument, then this is the machine name and we should stop processing
                                  * further arguments.  */
-                                optind --; /* don't process this argument, go one step back */
+                                optind--; /* don't process this argument, go one step back */
                                 goto done;
                         }
                         if (streq(optarg, "shell"))
@@ -2945,6 +2945,7 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "show-image",      VERB_ANY, VERB_ANY, 0,            show_image        },
                 { "terminate",       2,        VERB_ANY, 0,            terminate_machine },
                 { "reboot",          2,        VERB_ANY, 0,            reboot_machine    },
+                { "restart",         2,        VERB_ANY, 0,            reboot_machine    }, /* Convenience alias */
                 { "poweroff",        2,        VERB_ANY, 0,            poweroff_machine  },
                 { "stop",            2,        VERB_ANY, 0,            poweroff_machine  }, /* Convenience alias */
                 { "kill",            2,        VERB_ANY, 0,            kill_machine      },

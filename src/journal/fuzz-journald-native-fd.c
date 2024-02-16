@@ -10,7 +10,7 @@
 #include "tmpfile-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        Server s;
+        _cleanup_(server_freep) Server *s = NULL;
         _cleanup_close_ int sealed_fd = -EBADF, unsealed_fd = -EBADF;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/fuzz-journald-native-fd.XXXXXX";
         char *label = NULL;
@@ -20,7 +20,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        dummy_server_init(&s, NULL, 0);
+        assert_se(server_new(&s) >= 0);
+        dummy_server_init(s, NULL, 0);
 
         sealed_fd = memfd_new_and_seal(NULL, data, size);
         assert_se(sealed_fd >= 0);
@@ -29,15 +30,13 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 .uid = geteuid(),
                 .gid = getegid(),
         };
-        server_process_native_file(&s, sealed_fd, &ucred, tv, label, label_len);
+        server_process_native_file(s, sealed_fd, &ucred, tv, label, label_len);
 
         unsealed_fd = mkostemp_safe(name);
         assert_se(unsealed_fd >= 0);
         assert_se(write(unsealed_fd, data, size) == (ssize_t) size);
         assert_se(lseek(unsealed_fd, 0, SEEK_SET) == 0);
-        server_process_native_file(&s, unsealed_fd, &ucred, tv, label, label_len);
-
-        server_done(&s);
+        server_process_native_file(s, unsealed_fd, &ucred, tv, label, label_len);
 
         return 0;
 }

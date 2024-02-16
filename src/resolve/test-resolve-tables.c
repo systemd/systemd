@@ -4,9 +4,12 @@
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
 #include "test-tables.h"
+#include "tests.h"
 
 int main(int argc, char **argv) {
         uint16_t i;
+
+        test_setup_logging(LOG_DEBUG);
 
         test_table(dns_protocol, DNS_PROTOCOL);
         test_table(dnssec_result, DNSSEC_RESULT);

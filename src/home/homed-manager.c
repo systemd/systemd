@@ -268,7 +268,7 @@ Manager* manager_free(Manager *m) {
                 (void) home_wait_for_worker(h);
 
         m->bus = sd_bus_flush_close_unref(m->bus);
-        m->polkit_registry = bus_verify_polkit_async_registry_free(m->polkit_registry);
+        m->polkit_registry = hashmap_free(m->polkit_registry);
 
         m->device_monitor = sd_device_monitor_unref(m->device_monitor);
 
@@ -588,8 +588,8 @@ static int manager_acquire_uid(
         assert(ret);
 
         for (;;) {
-                struct passwd *pw;
-                struct group *gr;
+                _cleanup_free_ struct passwd *pw = NULL;
+                _cleanup_free_ struct group *gr = NULL;
                 uid_t candidate;
                 Home *other;
 
@@ -632,17 +632,25 @@ static int manager_acquire_uid(
                         continue;
                 }
 
-                pw = getpwuid(candidate);
-                if (pw) {
+                r = getpwuid_malloc(candidate, &pw);
+                if (r >= 0) {
                         log_debug("Candidate UID " UID_FMT " already registered by another user in NSS (%s), let's try another.",
                                   candidate, pw->pw_name);
                         continue;
                 }
+                if (r != -ESRCH) {
+                        log_debug_errno(r, "Failed to check if an NSS user is already registered for candidate UID " UID_FMT ", assuming there might be: %m", candidate);
+                        continue;
+                }
 
-                gr = getgrgid((gid_t) candidate);
-                if (gr) {
+                r = getgrgid_malloc((gid_t) candidate, &gr);
+                if (r >= 0) {
                         log_debug("Candidate UID " UID_FMT " already registered by another group in NSS (%s), let's try another.",
                                   candidate, gr->gr_name);
+                        continue;
+                }
+                if (r != -ESRCH) {
+                        log_debug_errno(r, "Failed to check if an NSS group is already registered for candidate UID " UID_FMT ", assuming there might be: %m", candidate);
                         continue;
                 }
 
@@ -715,7 +723,7 @@ static int manager_add_home_by_image(
                 }
         } else {
                 /* Check NSS, in case there's another user or group by this name */
-                if (getpwnam(user_name) || getgrnam(user_name)) {
+                if (getpwnam_malloc(user_name, /* ret= */ NULL) >= 0 || getgrnam_malloc(user_name, /* ret= */ NULL) >= 0) {
                         log_debug("Found an existing user or group by name '%s', ignoring image '%s'.", user_name, image_path);
                         return 0;
                 }
@@ -998,7 +1006,7 @@ static int manager_bind_varlink(Manager *m) {
         assert(m);
         assert(!m->varlink_server);
 
-        r = varlink_server_new(&m->varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        r = varlink_server_new(&m->varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA|VARLINK_SERVER_INPUT_SENSITIVE);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 

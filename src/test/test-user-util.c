@@ -342,7 +342,6 @@ static void test_get_user_creds_one(const char *id, const char *name, uid_t uid,
         assert_se(ruid == uid);
         assert_se(rgid == gid);
         assert_se(path_equal(rhome, home));
-        assert_se(path_equal(rshell, shell));
 }
 
 TEST(get_user_creds) {

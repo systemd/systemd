@@ -12,6 +12,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         char *value = UINT_TO_PTR(0x12345678U);
         char *endpos = UINT_TO_PTR(0x87654321U);
 
+        fuzz_setup_logging();
+
         assert_se(str = malloc(size + 1));
         memcpy(str, data, size);
         str[size] = '\0';

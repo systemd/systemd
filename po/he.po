@@ -1,0 +1,1041 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Yaron Shahrabani <sh.yaron@gmail.com>, 2023.
+msgid ""
+msgstr ""
+"Project-Id-Version: systemd\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-11-14 21:25+0000\n"
+"PO-Revision-Date: 2023-11-22 00:01+0000\n"
+"Last-Translator: Yaron Shahrabani <sh.yaron@gmail.com>\n"
+"Language-Team: Hebrew <https://translate.fedoraproject.org/projects/systemd/"
+"master/he/>\n"
+"Language: he\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n == 1) ? 0 : ((n == 2) ? 1 : ((n > 10 && "
+"n % 10 == 0) ? 2 : 3));\n"
+"X-Generator: Weblate 5.2\n"
+
+#: src/core/org.freedesktop.systemd1.policy.in:22
+msgid "Send passphrase back to system"
+msgstr "שליחת מילת הצופן בחזרה למערכת"
+
+#: src/core/org.freedesktop.systemd1.policy.in:23
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr "נדרש אימות כדי לשלוח את מילת הצופן בחזרה למערכת."
+
+#: src/core/org.freedesktop.systemd1.policy.in:33
+msgid "Manage system services or other units"
+msgstr "ניהול שירותי מערכת או יחידות אחרות"
+
+#: src/core/org.freedesktop.systemd1.policy.in:34
+msgid "Authentication is required to manage system services or other units."
+msgstr "נדרש אימות כדי לנהל שירותי מערכת או יחידות אחרות."
+
+#: src/core/org.freedesktop.systemd1.policy.in:43
+msgid "Manage system service or unit files"
+msgstr "ניהול שירותי מערכת או קובצי יחידות"
+
+#: src/core/org.freedesktop.systemd1.policy.in:44
+msgid "Authentication is required to manage system service or unit files."
+msgstr "נדרש אימות כדי לנהל שירותי מערכת או קובצי יחידות."
+
+#: src/core/org.freedesktop.systemd1.policy.in:54
+msgid "Set or unset system and service manager environment variables"
+msgstr "הגדרה או ביטול הגדרה של משתנים סביבתיים של המערכת ושל מנהל השירותים"
+
+#: src/core/org.freedesktop.systemd1.policy.in:55
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"נדרש אימות כדי להגדיר או לבטל הגדרה של משתנים סביבתיים של המערכת ושל מנהל "
+"השירותים."
+
+#: src/core/org.freedesktop.systemd1.policy.in:64
+msgid "Reload the systemd state"
+msgstr "רענון מצב המערכת"
+
+#: src/core/org.freedesktop.systemd1.policy.in:65
+msgid "Authentication is required to reload the systemd state."
+msgstr "נדרש אימות כדי לרענן את מצב המערכת."
+
+#: src/core/org.freedesktop.systemd1.policy.in:74
+msgid "Dump the systemd state without rate limits"
+msgstr "הטלת המצב של systemd ללא מגבלות קצב"
+
+#: src/core/org.freedesktop.systemd1.policy.in:75
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
+msgstr "נדרש אימות כדי להטיל את המצב של systemd ללא מגבלות קצב."
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr "יצירת אזור בית"
+
+#: src/home/org.freedesktop.home1.policy:14
+msgid "Authentication is required to create a user's home area."
+msgstr "נדרש אימות כדי ליצור אזור בית למשתמש."
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr "הסרת אזור בית"
+
+#: src/home/org.freedesktop.home1.policy:24
+msgid "Authentication is required to remove a user's home area."
+msgstr "נדרש אימות כדי להסיר אזור בית למשתמש."
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr "בדיקת פרטי גישה של אזור בית"
+
+#: src/home/org.freedesktop.home1.policy:34
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr "נדרש אימות כדי לבדוק את הרשאות הגישה כנגד אזור הבית של המשתמש."
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr "עדכון אזור בית"
+
+#: src/home/org.freedesktop.home1.policy:44
+msgid "Authentication is required to update a user's home area."
+msgstr "נדרש אימות כדי לעדכן אזור בית למשתמש."
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Resize a home area"
+msgstr "שינוי גודל אזור בית"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required to resize a user's home area."
+msgstr "נדרש אימות כדי לשנות גודל אזור בית למשתמש."
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Change password of a home area"
+msgstr "החלפת סיסמה של אזור בית"
+
+#: src/home/org.freedesktop.home1.policy:64
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr "נדרש אימות כדי להחליף סיסמה של אזור בית למשתמש."
+
+#: src/home/pam_systemd_home.c:287
+#, c-format
+msgid ""
+"Home of user %s is currently absent, please plug in the necessary storage "
+"device or backing file system."
+msgstr ""
+"למשתמש %s חסר בית, נא לחבר את התקן האחסון הנחוץ או את מערכת הקבצים שמגבה "
+"אותו."
+
+#: src/home/pam_systemd_home.c:292
+#, c-format
+msgid "Too frequent login attempts for user %s, try again later."
+msgstr "ניסיונות כניסה תכופים מדי למשתמש %s, נא לנסות שוב מאוחר יותר."
+
+#: src/home/pam_systemd_home.c:304
+msgid "Password: "
+msgstr "סיסמה: "
+
+#: src/home/pam_systemd_home.c:306
+#, c-format
+msgid "Password incorrect or not sufficient for authentication of user %s."
+msgstr "הסיסמה שגויה או בלתי הולמת לאימות המשתמש %s."
+
+#: src/home/pam_systemd_home.c:307
+msgid "Sorry, try again: "
+msgstr "מחילה, נא לנסות שוב: "
+
+#: src/home/pam_systemd_home.c:329
+msgid "Recovery key: "
+msgstr "מפתח שחזור: "
+
+#: src/home/pam_systemd_home.c:331
+#, c-format
+msgid ""
+"Password/recovery key incorrect or not sufficient for authentication of user "
+"%s."
+msgstr "סיסמה/מפתח שחזור שגויים או לא מספיקים לאימות המשתמש %s."
+
+#: src/home/pam_systemd_home.c:332
+msgid "Sorry, reenter recovery key: "
+msgstr "מחילה, נא לספק את מפתח השחזור מחדש: "
+
+#: src/home/pam_systemd_home.c:352
+#, c-format
+msgid "Security token of user %s not inserted."
+msgstr "לא סופק אסימון אבטחה למשתמש %s."
+
+#: src/home/pam_systemd_home.c:353 src/home/pam_systemd_home.c:356
+msgid "Try again with password: "
+msgstr "נא לנסות שוב עם סיסמה: "
+
+#: src/home/pam_systemd_home.c:355
+#, c-format
+msgid ""
+"Password incorrect or not sufficient, and configured security token of user "
+"%s not inserted."
+msgstr "הסיסמה שגויה או שאינה מספיקה, ואסימון האבטחה למשתמש %s לא סופק."
+
+#: src/home/pam_systemd_home.c:376
+msgid "Security token PIN: "
+msgstr "קוד אישי לאסימון אבטחה: "
+
+#: src/home/pam_systemd_home.c:393
+#, c-format
+msgid "Please authenticate physically on security token of user %s."
+msgstr "נא לבצע אימות פיזי באסימון האבטחה למשתמש %s."
+
+#: src/home/pam_systemd_home.c:404
+#, c-format
+msgid "Please confirm presence on security token of user %s."
+msgstr "נא לאשר את נוכחות אסימון האבטחה למשתמש %s."
+
+#: src/home/pam_systemd_home.c:415
+#, c-format
+msgid "Please verify user on security token of user %s."
+msgstr "נא לאמת את המשתמש באסימון האבטחה למשתמש %s."
+
+#: src/home/pam_systemd_home.c:424
+msgid ""
+"Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
+"insertion might suffice.)"
+msgstr ""
+"אסימון האבטחה נעול בקוד אישי (PIN), נא לשחרר אותו תחילה. (הסרה: ניתוק וחיבור "
+"מחדש אמורים להספיק.)"
+
+#: src/home/pam_systemd_home.c:432
+#, c-format
+msgid "Security token PIN incorrect for user %s."
+msgstr "הקוד האישי (PIN) למשתמש %s שגוי."
+
+#: src/home/pam_systemd_home.c:433 src/home/pam_systemd_home.c:452
+#: src/home/pam_systemd_home.c:471
+msgid "Sorry, retry security token PIN: "
+msgstr "מחילה, נא לנסות שוב קוד אסימון אבטחה אישי (PIN): "
+
+#: src/home/pam_systemd_home.c:451
+#, c-format
+msgid "Security token PIN of user %s incorrect (only a few tries left!)"
+msgstr ""
+"קוד אסימון אבטחה אישי (PIN) למשתמש %s שגוי (נותרו עוד מספר ניסיונות בודדים!)"
+
+#: src/home/pam_systemd_home.c:470
+#, c-format
+msgid "Security token PIN of user %s incorrect (only one try left!)"
+msgstr "קוד אסימון אבטחה אישי (PIN) למשתמש %s שגוי (נותר עוד ניסיון אחד!)"
+
+#: src/home/pam_systemd_home.c:616
+#, c-format
+msgid "Home of user %s is currently not active, please log in locally first."
+msgstr "הבית של המשתמש %s אינו פעיל כרגע, נא להיכנס מקומית תחילה."
+
+#: src/home/pam_systemd_home.c:618
+#, c-format
+msgid "Home of user %s is currently locked, please unlock locally first."
+msgstr "הבית של המשתמש %s נעול כרגע, נא לשחרר אותו מקומית תחילה."
+
+#: src/home/pam_systemd_home.c:645
+#, c-format
+msgid "Too many unsuccessful login attempts for user %s, refusing."
+msgstr "יותר מדי ניסיונות כניסה כושלים למשתמש %s, יסורב מעתה."
+
+#: src/home/pam_systemd_home.c:868
+msgid "User record is blocked, prohibiting access."
+msgstr "רשומת המשתמש חסומה, הגישה נמנעת."
+
+#: src/home/pam_systemd_home.c:872
+msgid "User record is not valid yet, prohibiting access."
+msgstr "רשומת המשתמש לא תקפה עדיין, הגישה נמנעת."
+
+#: src/home/pam_systemd_home.c:876
+msgid "User record is not valid anymore, prohibiting access."
+msgstr "רשומת המשתמש אינה תקפה עוד, הגישה נמנעת."
+
+#: src/home/pam_systemd_home.c:881 src/home/pam_systemd_home.c:932
+msgid "User record not valid, prohibiting access."
+msgstr "רשומת המשתמש אינה תקפה, הגישה נמנעת."
+
+#: src/home/pam_systemd_home.c:893
+#, c-format
+msgid "Too many logins, try again in %s."
+msgstr "יותר מדי ניסיונות כניסה, כדאי לנסות שוב בעוד %s."
+
+#: src/home/pam_systemd_home.c:904
+msgid "Password change required."
+msgstr "צריך לשנות את הסיסמה."
+
+#: src/home/pam_systemd_home.c:908
+msgid "Password expired, change required."
+msgstr "תוקף הסיסמה פג, צריך להחליף."
+
+#: src/home/pam_systemd_home.c:914
+msgid "Password is expired, but can't change, refusing login."
+msgstr "תוקף הסיסמה פג, אך אי אפשר להחליף, הכניסה מסורבת."
+
+#: src/home/pam_systemd_home.c:918
+msgid "Password will expire soon, please change."
+msgstr "תוקף הסיסמה יפוג בקרוב, נא להחליף."
+
+#: src/hostname/org.freedesktop.hostname1.policy:20
+msgid "Set hostname"
+msgstr "הגדרת שם מארח"
+
+#: src/hostname/org.freedesktop.hostname1.policy:21
+msgid "Authentication is required to set the local hostname."
+msgstr "נדרש אימות כדי להגדיר את שם המארח המקומי."
+
+#: src/hostname/org.freedesktop.hostname1.policy:30
+msgid "Set static hostname"
+msgstr "הגדרת שם מארח קבוע"
+
+#: src/hostname/org.freedesktop.hostname1.policy:31
+msgid ""
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
+msgstr "נדרש אימות כדי להגדיר שם מארח מקומי קבוע וגם את שם המארח היפה."
+
+#: src/hostname/org.freedesktop.hostname1.policy:41
+msgid "Set machine information"
+msgstr "הגדרת פרטי מכונה"
+
+#: src/hostname/org.freedesktop.hostname1.policy:42
+msgid "Authentication is required to set local machine information."
+msgstr "נדרש אימות כדי להגדיר את פרטי המכונה המקומית."
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr "משיכת מזהה מוצר ייחודי"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+msgid "Authentication is required to get product UUID."
+msgstr "נדרש אימות כדי למשוך מזהה מוצר ייחודי."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr "משיכת מספר חומרה סידורי"
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+msgid "Authentication is required to get hardware serial number."
+msgstr "נדרש אימות כדי למשוך מספר חומרה סידורי."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+msgid "Get system description"
+msgstr "משיכת תיאור המערכת"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+msgid "Authentication is required to get system description."
+msgstr "נדרש אימות כדי למשוך את תיאור המערכת."
+
+#: src/import/org.freedesktop.import1.policy:22
+msgid "Import a VM or container image"
+msgstr "לייבא מכונה וירטואלית או דמות של מכולה (container image)"
+
+#: src/import/org.freedesktop.import1.policy:23
+msgid "Authentication is required to import a VM or container image"
+msgstr "נדרש אימות כדי לייבא מכונה וירטואלית או דמות של מכולה (container image)"
+
+#: src/import/org.freedesktop.import1.policy:32
+msgid "Export a VM or container image"
+msgstr "ייצוא מכונה וירטואלית או דמות של מכולה (container image)"
+
+#: src/import/org.freedesktop.import1.policy:33
+msgid "Authentication is required to export a VM or container image"
+msgstr "נדרש אימות כדי לייצא מכונה וירטואלית או דמות של מכולה (container image)"
+
+#: src/import/org.freedesktop.import1.policy:42
+msgid "Download a VM or container image"
+msgstr "הורדת מכונה וירטואלית או דמות מכולה"
+
+#: src/import/org.freedesktop.import1.policy:43
+msgid "Authentication is required to download a VM or container image"
+msgstr "נדרש אימות כדי להוריד מכונה וירטואלית או דמות מכולה"
+
+#: src/locale/org.freedesktop.locale1.policy:22
+msgid "Set system locale"
+msgstr "הגדרת אזור ושפת המערכת"
+
+#: src/locale/org.freedesktop.locale1.policy:23
+msgid "Authentication is required to set the system locale."
+msgstr "נדרש אימות כדי להגדיר את האזור והשפה של המערכת."
+
+#: src/locale/org.freedesktop.locale1.policy:33
+msgid "Set system keyboard settings"
+msgstr "הגדרת תצורת מקלדת המערכת"
+
+#: src/locale/org.freedesktop.locale1.policy:34
+msgid "Authentication is required to set the system keyboard settings."
+msgstr "נדרש אימות כדי להגדיר את תצורת מקלדת המערכת."
+
+#: src/login/org.freedesktop.login1.policy:22
+msgid "Allow applications to inhibit system shutdown"
+msgstr "מתן אפשרות ליישומים לעכב את כיבוי המערכת"
+
+#: src/login/org.freedesktop.login1.policy:23
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
+msgstr "נדרש אימות כדי לאפשר ליישום לעכב את כיבוי המערכת."
+
+#: src/login/org.freedesktop.login1.policy:33
+msgid "Allow applications to delay system shutdown"
+msgstr "מתן אפשרות ליישומים להשהות את כיבוי המערכת"
+
+#: src/login/org.freedesktop.login1.policy:34
+msgid "Authentication is required for an application to delay system shutdown."
+msgstr "נדרש אימות כדי לאפשר ליישום להשהות את כיבוי המערכת."
+
+#: src/login/org.freedesktop.login1.policy:44
+msgid "Allow applications to inhibit system sleep"
+msgstr "מתן אפשרות ליישומים לעכב את שנת המערכת"
+
+#: src/login/org.freedesktop.login1.policy:45
+msgid "Authentication is required for an application to inhibit system sleep."
+msgstr "נדרש אימות כדי לאפשר ליישומים לעכב את שנת המערכת."
+
+#: src/login/org.freedesktop.login1.policy:55
+msgid "Allow applications to delay system sleep"
+msgstr "מתן אפשרות ליישומים להשהות את שנת המערכת"
+
+#: src/login/org.freedesktop.login1.policy:56
+msgid "Authentication is required for an application to delay system sleep."
+msgstr "נדרש אישור כדי לאפשר ליישומים להשהות את שנת המערכת."
+
+#: src/login/org.freedesktop.login1.policy:65
+msgid "Allow applications to inhibit automatic system suspend"
+msgstr "מתן אפשרות ליישומים לעכב את השהיית המערכת האוטומטית"
+
+#: src/login/org.freedesktop.login1.policy:66
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr "נדרש אימות כדי לאפשר ליישומים לעכב את השהיית המערכת האוטומטית."
+
+#: src/login/org.freedesktop.login1.policy:75
+msgid "Allow applications to inhibit system handling of the power key"
+msgstr "מתן אפשרות ליישומים לעכב את טיפול המערכת בכפתור הכיבוי"
+
+#: src/login/org.freedesktop.login1.policy:76
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr "נדרש אימות לאפשר ליישומים לעכב את טיפול המערכת בכפתור הכיבוי."
+
+#: src/login/org.freedesktop.login1.policy:86
+msgid "Allow applications to inhibit system handling of the suspend key"
+msgstr "מתן אפשרות ליישומים למנוע מהמערכת לטפל בכפתור ההשהיה"
+
+#: src/login/org.freedesktop.login1.policy:87
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr "נדרש אימות כדי לאפשר ליישומים למנוע מהמערכת לטפל בכפתור ההשהיה."
+
+#: src/login/org.freedesktop.login1.policy:97
+msgid "Allow applications to inhibit system handling of the hibernate key"
+msgstr "מתן האפשרות ליישומים למנוע מהמערכת לטפל בכפתור ההשהיה"
+
+#: src/login/org.freedesktop.login1.policy:98
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr "נדרש אימות כדי לאפשר ליישומים למנוע מהמערכת לטפל בכפתור ההרדמה."
+
+#: src/login/org.freedesktop.login1.policy:107
+msgid "Allow applications to inhibit system handling of the lid switch"
+msgstr "מתן אפשרות ליישומים למנוע מהמערכת לטפל במתג סגירת המסך"
+
+#: src/login/org.freedesktop.login1.policy:108
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr "נדרש אימות כדי לאפשר ליישומים למנוע מהמערכת לטפל במתג סגירת המסך."
+
+#: src/login/org.freedesktop.login1.policy:117
+msgid "Allow applications to inhibit system handling of the reboot key"
+msgstr "מתן אפשרות ליישומים לנוע מהמערכת לטפל בכפתור ההפעלה מחדש"
+
+#: src/login/org.freedesktop.login1.policy:118
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr "נדרש אימות כדי שיישום יוכל להשבית את טיפול המערכת בכפתור ההפעלה מחדש."
+
+#: src/login/org.freedesktop.login1.policy:128
+msgid "Allow non-logged-in user to run programs"
+msgstr "מתן אפשרות הרצת תוכניות על ידי משתמשים שלא נכנסו למערכת"
+
+#: src/login/org.freedesktop.login1.policy:129
+msgid "Explicit request is required to run programs as a non-logged-in user."
+msgstr "נדרשת בקשה מפורשת כדי להריץ תוכניות על ידי משתמשים שלא נכנסו למערכת."
+
+#: src/login/org.freedesktop.login1.policy:138
+msgid "Allow non-logged-in users to run programs"
+msgstr "מתן אפשרות למשתמשים שלא נכנסו למערכת להריץ תוכניות"
+
+#: src/login/org.freedesktop.login1.policy:139
+msgid "Authentication is required to run programs as a non-logged-in user."
+msgstr "נדרש אימות כדי לאפשר למשתמשים שלא נכנסו למערכת להריץ תוכניות."
+
+#: src/login/org.freedesktop.login1.policy:148
+msgid "Allow attaching devices to seats"
+msgstr "מן אפשרות להצמיד התקנים למושבים"
+
+#: src/login/org.freedesktop.login1.policy:149
+msgid "Authentication is required to attach a device to a seat."
+msgstr "נדרש אימות כדי לאפשר הצמדת התקנים למושבים."
+
+#: src/login/org.freedesktop.login1.policy:159
+msgid "Flush device to seat attachments"
+msgstr "איפוס הצמדות התקנים למושבים"
+
+#: src/login/org.freedesktop.login1.policy:160
+msgid "Authentication is required to reset how devices are attached to seats."
+msgstr "נדרש אימות כדי לאפס איך שהתקנים מוצמדים למושבים."
+
+#: src/login/org.freedesktop.login1.policy:169
+msgid "Power off the system"
+msgstr "כיבוי המערכת"
+
+#: src/login/org.freedesktop.login1.policy:170
+msgid "Authentication is required to power off the system."
+msgstr "נדרש אימות כדי לכבות את המערכת."
+
+#: src/login/org.freedesktop.login1.policy:180
+msgid "Power off the system while other users are logged in"
+msgstr "כיבוי המערכת בזמן שמשתמשים אחרים מחוברים"
+
+#: src/login/org.freedesktop.login1.policy:181
+msgid ""
+"Authentication is required to power off the system while other users are "
+"logged in."
+msgstr "נדרש אימות כדי לכבות את המערכת בזמן שמשתמשים אחרים מחוברים."
+
+#: src/login/org.freedesktop.login1.policy:191
+msgid "Power off the system while an application is inhibiting this"
+msgstr "כיבוי המערכת בזמן שיישום מונע את זה"
+
+#: src/login/org.freedesktop.login1.policy:192
+msgid ""
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
+msgstr "נדרש אימות כדי לכבות את המערכת בזמן שיישום מונע את זה."
+
+#: src/login/org.freedesktop.login1.policy:202
+msgid "Reboot the system"
+msgstr "הפעלת המערכת מחדש"
+
+#: src/login/org.freedesktop.login1.policy:203
+msgid "Authentication is required to reboot the system."
+msgstr "נדרש אימות כדי להפעיל את המערכת מחדש."
+
+#: src/login/org.freedesktop.login1.policy:213
+msgid "Reboot the system while other users are logged in"
+msgstr "הפעלת המערכת מחדש בזמן שמשתמשים אחרים משתמשים בה"
+
+#: src/login/org.freedesktop.login1.policy:214
+msgid ""
+"Authentication is required to reboot the system while other users are logged "
+"in."
+msgstr "נדרש אימות כדי להפעיל את המערכת מחדש בזמן שמשתמשים אחרים משתמשים בה."
+
+#: src/login/org.freedesktop.login1.policy:224
+msgid "Reboot the system while an application is inhibiting this"
+msgstr "הפעלת המערכת מחדש בזמן שיישום מעכב אותה"
+
+#: src/login/org.freedesktop.login1.policy:225
+msgid ""
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
+msgstr "נדרש אימות כדי להפעיל את המערכת מחדש בזמן שיישום מעכב אותה."
+
+#: src/login/org.freedesktop.login1.policy:235
+msgid "Halt the system"
+msgstr "עצירת המערכת"
+
+#: src/login/org.freedesktop.login1.policy:236
+msgid "Authentication is required to halt the system."
+msgstr "נדרש אימות כדי לעצור את המערכת."
+
+#: src/login/org.freedesktop.login1.policy:246
+msgid "Halt the system while other users are logged in"
+msgstr "עצירת המערכת בזמן שמשתמשים אחרים משתמשים בה"
+
+#: src/login/org.freedesktop.login1.policy:247
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr "נדרש אימות כדי לעצור את המערכת בזמן שמשתמשים אחרים משתמשים בה."
+
+#: src/login/org.freedesktop.login1.policy:257
+msgid "Halt the system while an application is inhibiting this"
+msgstr "עצירת המערכת בזמן שיישום מונע את זה"
+
+#: src/login/org.freedesktop.login1.policy:258
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr "נדרש אימות כדי לעצור את המערכת בזמן שיישום מונע את זה."
+
+#: src/login/org.freedesktop.login1.policy:268
+msgid "Suspend the system"
+msgstr "השהיית המערכת"
+
+#: src/login/org.freedesktop.login1.policy:269
+msgid "Authentication is required to suspend the system."
+msgstr "נדרש אימות כדי להשהות את המערכת."
+
+#: src/login/org.freedesktop.login1.policy:278
+msgid "Suspend the system while other users are logged in"
+msgstr "השהיית המערכת בזמן שמשתמשים אחרים מחוברים"
+
+#: src/login/org.freedesktop.login1.policy:279
+msgid ""
+"Authentication is required to suspend the system while other users are "
+"logged in."
+msgstr "נדרש אימות כדי להשהות את המערכת בזמן שמשתמשים אחרים מחוברים."
+
+#: src/login/org.freedesktop.login1.policy:289
+msgid "Suspend the system while an application is inhibiting this"
+msgstr "השהיית המערכת בזמן שיישום מונע זאת"
+
+#: src/login/org.freedesktop.login1.policy:290
+msgid ""
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
+msgstr "נדרשת הרשאה כדאי להשהות את המערכת בזמן שיישום מונע זאת."
+
+#: src/login/org.freedesktop.login1.policy:300
+msgid "Hibernate the system"
+msgstr "הרדמת המערכת"
+
+#: src/login/org.freedesktop.login1.policy:301
+msgid "Authentication is required to hibernate the system."
+msgstr "נדרשת הרשאה כדי להרדים את המערכת."
+
+#: src/login/org.freedesktop.login1.policy:310
+msgid "Hibernate the system while other users are logged in"
+msgstr "הרדמת המערכת בזמן שמשתמשים אחרים מחוברים"
+
+#: src/login/org.freedesktop.login1.policy:311
+msgid ""
+"Authentication is required to hibernate the system while other users are "
+"logged in."
+msgstr "נדרשת הרשאה כדי להרדים את המערכת בזמן שמשתמשים אחרים מחוברים."
+
+#: src/login/org.freedesktop.login1.policy:321
+msgid "Hibernate the system while an application is inhibiting this"
+msgstr "הרדמת המערכת בזמן שיישום מונע זאת"
+
+#: src/login/org.freedesktop.login1.policy:322
+msgid ""
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
+msgstr "נדרשת הרשאה כדי להרדים את המערכת בזמן שיישום מונע זאת."
+
+#: src/login/org.freedesktop.login1.policy:332
+msgid "Manage active sessions, users and seats"
+msgstr "ניהול הפעלות, משתמשים ומושבים פעילים"
+
+#: src/login/org.freedesktop.login1.policy:333
+msgid "Authentication is required to manage active sessions, users and seats."
+msgstr "נדרש אימות כדי לנהל הפעלות, משתמשים ומושבים פעילים."
+
+#: src/login/org.freedesktop.login1.policy:342
+msgid "Lock or unlock active sessions"
+msgstr "נעילה או שחרור של הפעלות פעילות"
+
+#: src/login/org.freedesktop.login1.policy:343
+msgid "Authentication is required to lock or unlock active sessions."
+msgstr "נדרש אימות כדי לנעול או לשחרר הפעלות פעילות."
+
+#: src/login/org.freedesktop.login1.policy:352
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr "הגדרת „סיבת” ההפעלה מחדש בליבה"
+
+#: src/login/org.freedesktop.login1.policy:353
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr "נדרשת הרשאה כדי להגדיר את „סיבת” ההפעלה מחדש בליבה."
+
+#: src/login/org.freedesktop.login1.policy:363
+msgid "Indicate to the firmware to boot to setup interface"
+msgstr "ציון לקושחה להיטען למנשק ההגדרות (setup)"
+
+#: src/login/org.freedesktop.login1.policy:364
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr "נדרש אימות כדי לציין לקושחה להיטען למנשק הגדרות (setup)."
+
+#: src/login/org.freedesktop.login1.policy:374
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr "ציון למנהל הטעינה לטעון את תפריט מנהל הטעינה"
+
+#: src/login/org.freedesktop.login1.policy:375
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr "נדרש אימות כדי לציין למנהל הטעינה לטעון את תפריט מנהל הטעינה."
+
+#: src/login/org.freedesktop.login1.policy:385
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr "ציון בפני מנגנון הטעינה לטעון רשומה מסוימת"
+
+#: src/login/org.freedesktop.login1.policy:386
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr "נדרש אימות כדי לציין בפני מנגנון הטעינה לטעון רשומה מסוימת."
+
+#: src/login/org.freedesktop.login1.policy:396
+msgid "Set a wall message"
+msgstr "הגדרת הודעת קיר"
+
+#: src/login/org.freedesktop.login1.policy:397
+msgid "Authentication is required to set a wall message"
+msgstr "נדרש אימות כדי להגדיר הודעת קיר"
+
+#: src/login/org.freedesktop.login1.policy:406
+msgid "Change Session"
+msgstr "החלפת הפעלה"
+
+#: src/login/org.freedesktop.login1.policy:407
+msgid "Authentication is required to change the virtual terminal."
+msgstr "נדרש אימות כדי להחליף את המסוף הווירטואלי."
+
+#: src/machine/org.freedesktop.machine1.policy:22
+msgid "Log into a local container"
+msgstr "כניסה למכולה מקומית"
+
+#: src/machine/org.freedesktop.machine1.policy:23
+msgid "Authentication is required to log into a local container."
+msgstr "נדרש אימות כדי להיכנס למכולה מקומית."
+
+#: src/machine/org.freedesktop.machine1.policy:32
+msgid "Log into the local host"
+msgstr "כניסה למארח המקומי"
+
+#: src/machine/org.freedesktop.machine1.policy:33
+msgid "Authentication is required to log into the local host."
+msgstr "נדרש אימות כדי להיכנס למארח המקומי."
+
+#: src/machine/org.freedesktop.machine1.policy:42
+msgid "Acquire a shell in a local container"
+msgstr "השגת מעטפת במכולה מקומית"
+
+#: src/machine/org.freedesktop.machine1.policy:43
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr "נדרש אימות כדי להשיג גישת מעטפת (shell) במכולה (container) מקומית."
+
+#: src/machine/org.freedesktop.machine1.policy:53
+msgid "Acquire a shell on the local host"
+msgstr "השגת מעטפת במארח המקומי"
+
+#: src/machine/org.freedesktop.machine1.policy:54
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr "נדרש אימות כדי להשיג מעטפת במארח המקומי."
+
+#: src/machine/org.freedesktop.machine1.policy:64
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "השגת TTY מדומה במכולה מקומית"
+
+#: src/machine/org.freedesktop.machine1.policy:65
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr "נדרש אימות כדי להשיג TTY מדומה במכולה (container) מקומית."
+
+#: src/machine/org.freedesktop.machine1.policy:74
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "השגת TTY מדומה במארח המקומי"
+
+#: src/machine/org.freedesktop.machine1.policy:75
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr "נדרש אימות כדי להשיג TTY מדומה במארח המקומי."
+
+#: src/machine/org.freedesktop.machine1.policy:84
+msgid "Manage local virtual machines and containers"
+msgstr "ניהול מכונות וירטואליות ומכולות מקומיות"
+
+#: src/machine/org.freedesktop.machine1.policy:85
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr "נדרש אימות כדי לנהל מכונות וירטואליות (VM) ומכולות (container) מקומיות."
+
+#: src/machine/org.freedesktop.machine1.policy:95
+msgid "Manage local virtual machine and container images"
+msgstr "ניהול דמויות של מכונות וירטואליות ומכולות"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr "נדרש אימות לניהול דמויות של מכונות וירטואליות (VM) ומכולות (container)."
+
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr "הגדרת שרתי NTP"
+
+#: src/network/org.freedesktop.network1.policy:23
+msgid "Authentication is required to set NTP servers."
+msgstr "נדרש אימות כדי להגדיר שרתי NTP."
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+msgid "Set DNS servers"
+msgstr "הגדרת שרתי DNS"
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+msgid "Authentication is required to set DNS servers."
+msgstr "נדרש אימות כדי להגדיר שרתי DNS."
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+msgid "Set domains"
+msgstr "הגדרת שמות תחום"
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+msgid "Authentication is required to set domains."
+msgstr "נדרש אימות כדי להגדיר שמות תחום."
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+msgid "Set default route"
+msgstr "הגדרת נתיב ברירת מחדל"
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+msgid "Authentication is required to set default route."
+msgstr "נדרש אימות כדי להגדיר נתיב ברירת מחדל."
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+msgid "Enable/disable LLMNR"
+msgstr "הפעלת/השבתת LLMNR"
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr "נדרש אימות כדי להפעיל/להשבית LLMNR."
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+msgid "Enable/disable multicast DNS"
+msgstr "הפעלת/השבתת DNS רב־נתיב"
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr "נדרש אימות כדי להפעיל או להשבית DNS רב־נתיב (multicast)."
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+msgid "Enable/disable DNS over TLS"
+msgstr "הפעלת/השבתת DNS על גבי TLS"
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr "נדרש אימות כדי להפעיל/להשבית DNS על גבי TLS."
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+msgid "Enable/disable DNSSEC"
+msgstr "הפעלת/השבתת DNSSEC"
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr "נדרש אימות כדי להפעיל או להשבית DNSSEC."
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr "הגדרת עוגני אמון שלילי ב־DNSSEC"
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr ""
+"נדרש אימות כדי להגדיר עוגני אמון שלילי (Negative Trust Anchors) ב־DNSSEC."
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr "החזרת הגדרות NTP לאחור"
+
+#: src/network/org.freedesktop.network1.policy:122
+msgid "Authentication is required to reset NTP settings."
+msgstr "נדרש אימות כדי לאפס הגדרות NTP."
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr "החזרת הגדרות DNS לאחור"
+
+#: src/network/org.freedesktop.network1.policy:133
+msgid "Authentication is required to reset DNS settings."
+msgstr "נדרש אימות כדי לאפס הגדרות DNS."
+
+#: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr "שרת DHCP שולח הודעת אילוץ חידוש"
+
+#: src/network/org.freedesktop.network1.policy:144
+msgid "Authentication is required to send force renew message."
+msgstr "נדרש אימות כדי לשלוח הודעת אילוץ חידוש."
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Renew dynamic addresses"
+msgstr "חידוש כתובות דינמיות"
+
+#: src/network/org.freedesktop.network1.policy:155
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "נדרש אימות כדי לחדש כתובות דינמיות."
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reload network settings"
+msgstr "רענון הגדרות רשת"
+
+#: src/network/org.freedesktop.network1.policy:166
+msgid "Authentication is required to reload network settings."
+msgstr "נדרש אימות כדי לרענן הגדרות רשת."
+
+#: src/network/org.freedesktop.network1.policy:176
+msgid "Reconfigure network interface"
+msgstr "הגדרת כרטיס רשת מחדש"
+
+#: src/network/org.freedesktop.network1.policy:177
+msgid "Authentication is required to reconfigure network interface."
+msgstr "נדרש אימות כדי להגדיר כרטיס רשת מחדש."
+
+#: src/portable/org.freedesktop.portable1.policy:13
+msgid "Inspect a portable service image"
+msgstr "חקירת דמות שירות נייד"
+
+#: src/portable/org.freedesktop.portable1.policy:14
+msgid "Authentication is required to inspect a portable service image."
+msgstr "נדרש אימות כדי לחקור דמות שירות נייד."
+
+#: src/portable/org.freedesktop.portable1.policy:23
+msgid "Attach or detach a portable service image"
+msgstr "הצמדה או ניתוק דמות של שירות נייד"
+
+#: src/portable/org.freedesktop.portable1.policy:24
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr "נדרש אישור כדי להצמיד או לנתק דמות של שירות נייד."
+
+#: src/portable/org.freedesktop.portable1.policy:34
+msgid "Delete or modify portable service image"
+msgstr "מחיקת או עריכת דמות של שירות נייד"
+
+#: src/portable/org.freedesktop.portable1.policy:35
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr "נדרש אימות כדי למחוק או לערוך דמות של שירות נייד."
+
+#: src/resolve/org.freedesktop.resolve1.policy:22
+msgid "Register a DNS-SD service"
+msgstr "רישום שירות DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:23
+msgid "Authentication is required to register a DNS-SD service"
+msgstr "נדרש אימות כדי לרשום שירות DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:33
+msgid "Unregister a DNS-SD service"
+msgstr "ביטול רישום שירות DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:34
+msgid "Authentication is required to unregister a DNS-SD service"
+msgstr "נדרש אימות כדי לבטל רישום של שירות DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr "החזרת הגדרות פתרון שמות"
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+msgid "Authentication is required to reset name resolution settings."
+msgstr "נדרש אימות כדי לאפס את הגדרות פתרון השמות."
+
+#: src/timedate/org.freedesktop.timedate1.policy:22
+msgid "Set system time"
+msgstr "הגדרת שעון המערכת"
+
+#: src/timedate/org.freedesktop.timedate1.policy:23
+msgid "Authentication is required to set the system time."
+msgstr "נדרש אימות כדי להגדיר את שעון המערכת."
+
+#: src/timedate/org.freedesktop.timedate1.policy:33
+msgid "Set system timezone"
+msgstr "הגדרת אזור הזמן של המערכת"
+
+#: src/timedate/org.freedesktop.timedate1.policy:34
+msgid "Authentication is required to set the system timezone."
+msgstr "נדרש אימות כדי להגדיר את אזור הזמן של המערכת."
+
+#: src/timedate/org.freedesktop.timedate1.policy:43
+msgid "Set RTC to local timezone or UTC"
+msgstr ""
+"הגדרת שעון זמן אמת (RTC) לאזור הזמן המקומי או לשעון המתואם האוניברסלי (UTC)"
+
+#: src/timedate/org.freedesktop.timedate1.policy:44
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr ""
+"נדרש אימות כדי להגדיר שעון זמן אמת (RTC) לאזור הזמן המקומי או לשעון המתואם "
+"האוניברסלי (UTC)."
+
+#: src/timedate/org.freedesktop.timedate1.policy:53
+msgid "Turn network time synchronization on or off"
+msgstr "הפעלת או כיבוי סנכרון שעון מהרשת"
+
+#: src/timedate/org.freedesktop.timedate1.policy:54
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr "נדרש אימות כדי להפעיל או לכבות סנכרון שעון מהרשת."
+
+#: src/core/dbus-unit.c:352
+msgid "Authentication is required to start '$(unit)'."
+msgstr "נדרש אימות כדי להפעיל את ‚$(unit)’."
+
+#: src/core/dbus-unit.c:353
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "נדרש אימות כדי לעצור את ‚$(unit)’."
+
+#: src/core/dbus-unit.c:354
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "נדרש אימות כדי לרענן את ‚$(unit)’."
+
+#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "נדרש אימות כדי להפעיל את ‚$(unit)’ מחדש."
+
+#: src/core/dbus-unit.c:553
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"'$(unit)'."
+msgstr "נדרש אימות כדי לשלוח אות יוניקס לתהליכים של ‚$(unit)’."
+
+#: src/core/dbus-unit.c:583
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr "נדרש אימות כדי לאפס את המצב „נכשל” של ‚$(unit)’."
+
+#: src/core/dbus-unit.c:615
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr "נדרש אימות כדי להגדיר מאפיינים על ‚$(unit)’."
+
+#: src/core/dbus-unit.c:716
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
+msgstr "נדרש אימות כדי למחוק קבצים ותיקיות שמשויכים אל ‚$(unit)’."
+
+#: src/core/dbus-unit.c:764
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr "נדרש אימות כדי להפשיר או להקפיא את התהליכים של ‚$(unit)’."

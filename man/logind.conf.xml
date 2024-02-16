@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
@@ -25,10 +25,12 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/systemd/logind.conf</filename></para>
-    <para><filename>/etc/systemd/logind.conf.d/*.conf</filename></para>
-    <para><filename>/run/systemd/logind.conf.d/*.conf</filename></para>
-    <para><filename>/usr/lib/systemd/logind.conf.d/*.conf</filename></para>
+    <para><simplelist>
+      <member><filename>/etc/systemd/logind.conf</filename></member>
+      <member><filename>/etc/systemd/logind.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/logind.conf.d/*.conf</filename></member>
+      <member><filename>/usr/lib/systemd/logind.conf.d/*.conf</filename></member>
+    </simplelist></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -143,18 +145,10 @@
         <term><varname>IdleAction=</varname></term>
 
         <listitem><para>Configures the action to take when the system
-        is idle. Takes one of
-        <literal>ignore</literal>,
-        <literal>poweroff</literal>,
-        <literal>reboot</literal>,
-        <literal>halt</literal>,
-        <literal>kexec</literal>,
-        <literal>suspend</literal>,
-        <literal>hibernate</literal>,
-        <literal>hybrid-sleep</literal>,
-        <literal>suspend-then-hibernate</literal>, and
-        <literal>lock</literal>.
-        Defaults to <literal>ignore</literal>.</para>
+        is idle. Takes one of <literal>ignore</literal>, <literal>poweroff</literal>, <literal>reboot</literal>,
+        <literal>halt</literal>, <literal>kexec</literal>, <literal>suspend</literal>, <literal>hibernate</literal>,
+        <literal>hybrid-sleep</literal>, <literal>suspend-then-hibernate</literal>, <literal>sleep</literal>,
+        and <literal>lock</literal>. Defaults to <literal>ignore</literal>.</para>
 
         <para>Note that this requires that user sessions correctly
         report the idle status to the system. The system will execute
@@ -201,6 +195,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>SleepOperation=</varname></term>
+
+        <listitem><para>Takes a list of sleep operations. Possible values are <literal>suspend</literal>,
+        <literal>hibernate</literal>, <literal>hybrid-sleep</literal>, and <literal>suspend-then-hibernate</literal>.
+        Controls the candidate sleep operations for the <literal>sleep</literal> action. When <literal>sleep</literal>
+        action is performed, the specified sleep operations are checked in a fixed order (<literal>suspend-then-hibernate</literal>
+        → <literal>hybrid-sleep</literal> → <literal>suspend</literal> → <literal>hibernate</literal>), and
+        the first one supported by the machine is used to put the system into sleep. Defaults to
+        <literal>suspend-then-hibernate suspend hibernate</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>HandlePowerKey=</varname></term>
         <term><varname>HandlePowerKeyLongPress=</varname></term>
         <term><varname>HandleRebootKey=</varname></term>
@@ -215,10 +223,9 @@
 
         <listitem><para>Controls how logind shall handle the system power, reboot and sleep keys and the lid
         switch to trigger actions such as system power-off, reboot or suspend. Can be one of
-        <literal>ignore</literal>, <literal>poweroff</literal>, <literal>reboot</literal>,
-        <literal>halt</literal>, <literal>kexec</literal>, <literal>suspend</literal>,
-        <literal>hibernate</literal>, <literal>hybrid-sleep</literal>,
-        <literal>suspend-then-hibernate</literal>, <literal>lock</literal>, and
+        <literal>ignore</literal>, <literal>poweroff</literal>, <literal>reboot</literal>, <literal>halt</literal>,
+        <literal>kexec</literal>, <literal>suspend</literal>, <literal>hibernate</literal>, <literal>hybrid-sleep</literal>,
+        <literal>suspend-then-hibernate</literal>, <literal>sleep</literal>, <literal>lock</literal>, and
         <literal>factory-reset</literal>.  If <literal>ignore</literal>, <command>systemd-logind</command>
         will never handle these keys. If <literal>lock</literal>, all running sessions will be screen-locked;
         otherwise, the specified action will be taken in the respective event. Only input devices with the
@@ -372,10 +379,11 @@
         <term><varname>StopIdleSessionSec=</varname></term>
 
         <listitem><para>Specifies a timeout in seconds, or a time span value after which
-        <filename>systemd-logind</filename> checks the idle state of all sessions. Every session that is idle for
-        longer then the timeout will be stopped. Defaults to <literal>infinity</literal>
-        (<filename>systemd-logind</filename> is not checking the idle state of sessions). For details about the syntax
-        of time spans, see
+        <filename>systemd-logind</filename> checks the idle state of all sessions. Every session that is idle
+        for longer than the timeout will be stopped. Note that this option doesn't apply to
+        <literal>greeter</literal> or <literal>lock-screen</literal> sessions. Defaults to
+        <literal>infinity</literal> (<filename>systemd-logind</filename> is not checking the idle state
+        of sessions). For details about the syntax of time spans, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         </para>
 
@@ -386,12 +394,12 @@
 
   <refsect1>
       <title>See Also</title>
-      <para>
-        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      </para>
+      <para><simplelist type="inline">
+        <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      </simplelist></para>
   </refsect1>
 
 </refentry>

@@ -71,6 +71,7 @@
 #include "path-lookup.h"
 #include "path-util.h"
 #include "plymouth-util.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "psi-util.h"
 #include "ratelimit.h"
@@ -180,42 +181,6 @@ static void manager_watch_jobs_in_progress(Manager *m) {
                 return;
 
         (void) sd_event_source_set_description(m->jobs_in_progress_event_source, "manager-jobs-in-progress");
-}
-
-#define CYLON_BUFFER_EXTRA (2*STRLEN(ANSI_RED) + STRLEN(ANSI_HIGHLIGHT_RED) + 2*STRLEN(ANSI_NORMAL))
-
-static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned pos) {
-        char *p = buffer;
-
-        assert(buflen >= CYLON_BUFFER_EXTRA + width + 1);
-        assert(pos <= width+1); /* 0 or width+1 mean that the center light is behind the corner */
-
-        if (pos > 1) {
-                if (pos > 2)
-                        p = mempset(p, ' ', pos-2);
-                if (log_get_show_color())
-                        p = stpcpy(p, ANSI_RED);
-                *p++ = '*';
-        }
-
-        if (pos > 0 && pos <= width) {
-                if (log_get_show_color())
-                        p = stpcpy(p, ANSI_HIGHLIGHT_RED);
-                *p++ = '*';
-        }
-
-        if (log_get_show_color())
-                p = stpcpy(p, ANSI_NORMAL);
-
-        if (pos < width) {
-                if (log_get_show_color())
-                        p = stpcpy(p, ANSI_RED);
-                *p++ = '*';
-                if (pos < width-1)
-                        p = mempset(p, ' ', width-1-pos);
-                if (log_get_show_color())
-                        strcpy(p, ANSI_NORMAL);
-        }
 }
 
 static void manager_flip_auto_status(Manager *m, bool enable, const char *reason) {
@@ -432,7 +397,7 @@ static int manager_setup_time_change(Manager *m) {
                 return log_error_errno(r, "Failed to create time change event source: %m");
 
         /* Schedule this slightly earlier than the .timer event sources */
-        r = sd_event_source_set_priority(m->time_change_event_source, SD_EVENT_PRIORITY_NORMAL-1);
+        r = sd_event_source_set_priority(m->time_change_event_source, EVENT_PRIORITY_TIME_CHANGE);
         if (r < 0)
                 return log_error_errno(r, "Failed to set priority of time change event sources: %m");
 
@@ -499,7 +464,7 @@ static int manager_setup_timezone_change(Manager *m) {
                 return log_error_errno(r, "Failed to create timezone change event source: %m");
 
         /* Schedule this slightly earlier than the .timer event sources */
-        r = sd_event_source_set_priority(new_event, SD_EVENT_PRIORITY_NORMAL-1);
+        r = sd_event_source_set_priority(new_event, EVENT_PRIORITY_TIME_ZONE);
         if (r < 0)
                 return log_error_errno(r, "Failed to set priority of timezone change event sources: %m");
 
@@ -627,7 +592,7 @@ static int manager_setup_signals(Manager *m) {
          * notify processing can still figure out to which process/service a message belongs, before we reap the
          * process. Also, process this before handling cgroup notifications, so that we always collect child exit
          * status information before detecting that there's no process in a cgroup. */
-        r = sd_event_source_set_priority(m->signal_event_source, SD_EVENT_PRIORITY_NORMAL-6);
+        r = sd_event_source_set_priority(m->signal_event_source, EVENT_PRIORITY_SIGNALS);
         if (r < 0)
                 return r;
 
@@ -676,8 +641,7 @@ static char** sanitize_environment(char **l) {
                         "TRIGGER_TIMER_REALTIME_USEC",
                         "TRIGGER_UNIT",
                         "WATCHDOG_PID",
-                        "WATCHDOG_USEC",
-                        NULL);
+                        "WATCHDOG_USEC");
 
         /* Let's order the environment alphabetically, just to make it pretty */
         return strv_sort(l);
@@ -703,7 +667,9 @@ int manager_default_environment(Manager *m) {
                 /* Import locale variables LC_*= from configuration */
                 (void) locale_setup(&m->transient_environment);
         } else {
-                /* The user manager passes its own environment along to its children, except for $PATH. */
+                /* The user manager passes its own environment along to its children, except for $PATH and
+                 * session envs. */
+
                 m->transient_environment = strv_copy(environ);
                 if (!m->transient_environment)
                         return log_oom();
@@ -711,6 +677,16 @@ int manager_default_environment(Manager *m) {
                 r = strv_env_replace_strdup(&m->transient_environment, "PATH=" DEFAULT_USER_PATH);
                 if (r < 0)
                         return log_oom();
+
+                /* Envvars set for our 'manager' class session are private and should not be propagated
+                 * to children. Also it's likely that the graphical session will set these on their own. */
+                strv_env_unset_many(m->transient_environment,
+                                    "XDG_SESSION_ID",
+                                    "XDG_SESSION_CLASS",
+                                    "XDG_SESSION_TYPE",
+                                    "XDG_SESSION_DESKTOP",
+                                    "XDG_SEAT",
+                                    "XDG_VTNR");
         }
 
         sanitize_environment(m->transient_environment);
@@ -771,7 +747,7 @@ static int manager_setup_run_queue(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_priority(m->run_queue_event_source, SD_EVENT_PRIORITY_IDLE);
+        r = sd_event_source_set_priority(m->run_queue_event_source, EVENT_PRIORITY_RUN_QUEUE);
         if (r < 0)
                 return r;
 
@@ -794,7 +770,7 @@ static int manager_setup_sigchld_event_source(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_priority(m->sigchld_event_source, SD_EVENT_PRIORITY_NORMAL-7);
+        r = sd_event_source_set_priority(m->sigchld_event_source, EVENT_PRIORITY_SIGCHLD);
         if (r < 0)
                 return r;
 
@@ -882,12 +858,12 @@ static int compare_job_priority(const void *a, const void *b) {
         return unit_compare_priority(x->unit, y->unit);
 }
 
-int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, Manager **_m) {
+int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
-        assert(_m);
         assert(IN_SET(runtime_scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER));
+        assert(ret);
 
         m = new(Manager, 1);
         if (!m)
@@ -927,10 +903,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 .first_boot = -1,
                 .test_run_flags = test_run_flags,
 
-                .dump_ratelimit = {
-                        .interval = 10 * USEC_PER_MINUTE,
-                        .burst = 10,
-                },
+                .dump_ratelimit = (const RateLimit) { .interval = 10 * USEC_PER_MINUTE, .burst = 10 },
 
                 .executor_fd = -EBADF,
         };
@@ -1030,8 +1003,8 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         return r;
 
 #if HAVE_LIBBPF
-                if (MANAGER_IS_SYSTEM(m) && lsm_bpf_supported(/* initialize = */ true)) {
-                        r = lsm_bpf_setup(m);
+                if (MANAGER_IS_SYSTEM(m) && bpf_restrict_fs_supported(/* initialize = */ true)) {
+                        r = bpf_restrict_fs_setup(m);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to setup LSM BPF, ignoring: %m");
                 }
@@ -1054,9 +1027,9 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
 
                 m->executor_fd = open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH);
                 if (m->executor_fd < 0)
-                        return log_warning_errno(errno,
-                                                 "Failed to open executor binary '%s': %m",
-                                                 SYSTEMD_EXECUTOR_BINARY_PATH);
+                        return log_emergency_errno(errno,
+                                                   "Failed to open executor binary '%s': %m",
+                                                   SYSTEMD_EXECUTOR_BINARY_PATH);
         } else if (!FLAGS_SET(test_run_flags, MANAGER_TEST_DONT_OPEN_EXECUTOR)) {
                 _cleanup_free_ char *self_exe = NULL, *executor_path = NULL;
                 _cleanup_close_ int self_dir_fd = -EBADF;
@@ -1068,31 +1041,31 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 if (r < 0)
                         return r;
 
-                self_dir_fd = open_parent(self_exe, O_CLOEXEC|O_DIRECTORY, 0);
+                self_dir_fd = open_parent(self_exe, O_CLOEXEC|O_PATH|O_DIRECTORY, 0);
                 if (self_dir_fd < 0)
-                        return -errno;
+                        return self_dir_fd;
 
-                m->executor_fd = openat(self_dir_fd, "systemd-executor", O_CLOEXEC|O_PATH);
-                if (m->executor_fd < 0 && errno == ENOENT)
-                        m->executor_fd = openat(AT_FDCWD, "systemd-executor", O_CLOEXEC|O_PATH);
-                if (m->executor_fd < 0 && errno == ENOENT) {
-                        m->executor_fd = open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH);
+                m->executor_fd = RET_NERRNO(openat(self_dir_fd, "systemd-executor", O_CLOEXEC|O_PATH));
+                if (m->executor_fd == -ENOENT)
+                        m->executor_fd = RET_NERRNO(openat(AT_FDCWD, "systemd-executor", O_CLOEXEC|O_PATH));
+                if (m->executor_fd == -ENOENT) {
+                        m->executor_fd = RET_NERRNO(open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH));
                         level = LOG_WARNING; /* Tests should normally use local builds */
                 }
                 if (m->executor_fd < 0)
-                        return -errno;
+                        return m->executor_fd;
 
                 r = fd_get_path(m->executor_fd, &executor_path);
                 if (r < 0)
                         return r;
 
-                log_full(level, "Using systemd-executor binary from '%s'", executor_path);
+                log_full(level, "Using systemd-executor binary from '%s'.", executor_path);
         }
 
         /* Note that we do not set up the notify fd here. We do that after deserialization,
          * since they might have gotten serialized across the reexec. */
 
-        *_m = TAKE_PTR(m);
+        *ret = TAKE_PTR(m);
 
         return 0;
 }
@@ -1151,7 +1124,7 @@ static int manager_setup_notify(Manager *m) {
 
                 /* Process notification messages a bit earlier than SIGCHLD, so that we can still identify to which
                  * service an exit message belongs. */
-                r = sd_event_source_set_priority(m->notify_event_source, SD_EVENT_PRIORITY_NORMAL-8);
+                r = sd_event_source_set_priority(m->notify_event_source, EVENT_PRIORITY_NOTIFY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set priority of notify event source: %m");
 
@@ -1225,7 +1198,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
                 /* Process cgroups notifications early. Note that when the agent notification is received
                  * we'll just enqueue the unit in the cgroup empty queue, hence pick a high priority than
                  * that. Also see handling of cgroup inotify for the unified cgroup stuff. */
-                r = sd_event_source_set_priority(m->cgroups_agent_event_source, SD_EVENT_PRIORITY_NORMAL-9);
+                r = sd_event_source_set_priority(m->cgroups_agent_event_source, EVENT_PRIORITY_CGROUP_AGENT);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set priority of cgroups agent event source: %m");
 
@@ -1278,7 +1251,7 @@ static int manager_setup_user_lookup_fd(Manager *m) {
 
                 /* Process even earlier than the notify event source, so that we always know first about valid UID/GID
                  * resolutions */
-                r = sd_event_source_set_priority(m->user_lookup_event_source, SD_EVENT_PRIORITY_NORMAL-11);
+                r = sd_event_source_set_priority(m->user_lookup_event_source, EVENT_PRIORITY_USER_LOOKUP);
                 if (r < 0)
                         return log_error_errno(errno, "Failed to set priority of user lookup event source: %m");
 
@@ -1729,8 +1702,10 @@ Manager* manager_free(Manager *m) {
 
         unit_defaults_done(&m->defaults);
 
-        assert(hashmap_isempty(m->units_requiring_mounts_for));
-        hashmap_free(m->units_requiring_mounts_for);
+        FOREACH_ARRAY(map, m->units_needing_mounts_for, _UNIT_MOUNT_DEPENDENCY_TYPE_MAX) {
+                assert(hashmap_isempty(*map));
+                hashmap_free(*map);
+        }
 
         hashmap_free(m->uid_refs);
         hashmap_free(m->gid_refs);
@@ -1746,7 +1721,7 @@ Manager* manager_free(Manager *m) {
         m->fw_ctx = fw_ctx_free(m->fw_ctx);
 
 #if BPF_FRAMEWORK
-        lsm_bpf_destroy(m->restrict_fs);
+        bpf_restrict_fs_destroy(m->restrict_fs);
 #endif
 
         safe_close(m->executor_fd);
@@ -1840,7 +1815,7 @@ static void manager_distribute_fds(Manager *m, FDSet *fds) {
 
         HASHMAP_FOREACH(u, m->units) {
 
-                if (fdset_size(fds) <= 0)
+                if (fdset_isempty(fds))
                         break;
 
                 if (!UNIT_VTABLE(u)->distribute_fds)
@@ -2441,7 +2416,7 @@ void manager_clear_jobs(Manager *m) {
                 job_finish_and_invalidate(j, JOB_CANCELED, false, false);
 }
 
-void manager_unwatch_pidref(Manager *m, PidRef *pid) {
+void manager_unwatch_pidref(Manager *m, const PidRef *pid) {
         assert(m);
 
         for (;;) {
@@ -2781,7 +2756,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         if (!found)
                 log_warning("Cannot find unit for notify message of PID "PID_FMT", ignoring.", ucred->pid);
 
-        if (fdset_size(fds) > 0)
+        if (!fdset_isempty(fds))
                 log_warning("Got extra auxiliary fds with notification message, closing them.");
 
         return 0;
@@ -3846,7 +3821,7 @@ void manager_check_finished(Manager *m) {
 
         manager_check_basic_target(m);
 
-        if (hashmap_size(m->jobs) > 0) {
+        if (!hashmap_isempty(m->jobs)) {
                 if (m->jobs_in_progress_event_source)
                         /* Ignore any failure, this is only for feedback */
                         (void) sd_event_source_set_time(m->jobs_in_progress_event_source,
@@ -4516,14 +4491,15 @@ void manager_status_printf(Manager *m, StatusType type, const char *status, cons
         va_end(ap);
 }
 
-Set* manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
+Set* manager_get_units_needing_mounts_for(Manager *m, const char *path, UnitMountDependencyType t) {
         assert(m);
         assert(path);
+        assert(t >= 0 && t < _UNIT_MOUNT_DEPENDENCY_TYPE_MAX);
 
         if (path_equal(path, "/"))
                 path = "";
 
-        return hashmap_get(m->units_requiring_mounts_for, path);
+        return hashmap_get(m->units_needing_mounts_for[t], path);
 }
 
 int manager_update_failed_units(Manager *m, Unit *u, bool failed) {
@@ -4580,7 +4556,7 @@ ManagerState manager_state(Manager *m) {
         }
 
         /* Are there any failed units? If so, we are in degraded mode */
-        if (set_size(m->failed_units) > 0)
+        if (!set_isempty(m->failed_units))
                 return MANAGER_DEGRADED;
 
         return MANAGER_RUNNING;
@@ -4802,7 +4778,7 @@ int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t re
 }
 
 static int short_uid_range(const char *path) {
-        _cleanup_(uid_range_freep) UidRange *p = NULL;
+        _cleanup_(uid_range_freep) UIDRange *p = NULL;
         int r;
 
         assert(path);

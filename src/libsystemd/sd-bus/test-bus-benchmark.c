@@ -12,6 +12,7 @@
 #include "fd-util.h"
 #include "missing_resource.h"
 #include "string-util.h"
+#include "tests.h"
 #include "time-util.h"
 
 #define MAX_SIZE (2*1024*1024)
@@ -220,6 +221,8 @@ int main(int argc, char *argv[]) {
         sd_bus *b;
         pid_t pid;
         int r;
+
+        test_setup_logging(LOG_DEBUG);
 
         for (i = 1; i < argc; i++) {
                 if (streq(argv[i], "chart")) {

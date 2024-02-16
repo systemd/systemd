@@ -45,11 +45,13 @@ int daemon_reload(enum action action, bool graceful) {
                 return 1;
         if (r < 0) {
                 if (graceful) { /* If graceful mode is selected, debug log, but don't fail */
-                        log_debug_errno(r, "Failed to reload daemon via the bus, ignoring: %s", bus_error_message(&error, r));
+                        log_debug_errno(r, "%s daemon failed via the bus, ignoring: %s",
+                                        method, bus_error_message(&error, r));
                         return 0;
                 }
 
-                return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "%s daemon failed: %s",
+                                       method, bus_error_message(&error, r));
         }
 
         return 1;

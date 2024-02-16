@@ -387,6 +387,13 @@ int main(int argc, char *argv[]) {
                 goto error;
         }
 
+        /* This is primarily useful when running systemd in a VM, as it provides the user running the VM with
+         * a mechanism to pick up systemd's exit status in the VM. Note that we execute this as early as
+         * possible since otherwise we might shut down the VM before the AF_VSOCK buffers have been flushed.
+         * While this doesn't guarantee the message will arrive, in practice we do enough work after this
+         * that the message should always arrive on the host */
+        (void) sd_notifyf(0, "EXIT_STATUS=%i", arg_exit_code);
+
         (void) cg_get_root_path(&cgroup);
         bool in_container = detect_container() > 0;
 
@@ -581,10 +588,6 @@ int main(int argc, char *argv[]) {
          * will result. */
         if (!in_container)
                 sync_with_progress();
-
-        /* This is primarily useful when running systemd in a VM, as it provides the user running the VM with
-         * a mechanism to pick up systemd's exit status in the VM. */
-        (void) sd_notifyf(0, "EXIT_STATUS=%i", arg_exit_code);
 
         if (streq(arg_verb, "exit")) {
                 if (in_container) {

@@ -103,6 +103,7 @@ bool arg_kill_value_set = false;
 char *arg_root = NULL;
 char *arg_image = NULL;
 usec_t arg_when = 0;
+bool arg_stdin = false;
 const char *arg_reboot_argument = NULL;
 enum action arg_action = ACTION_SYSTEMCTL;
 BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
@@ -249,6 +250,8 @@ static int systemctl_help(void) {
                "  soft-reboot                         Shut down and reboot userspace\n"
                "  exit [EXIT_CODE]                    Request user instance or container exit\n"
                "  switch-root [ROOT [INIT]]           Change to a different root file system\n"
+               "  sleep                               Put the system to sleep (through one of\n"
+               "                                      the operations below)\n"
                "  suspend                             Suspend the system\n"
                "  hibernate                           Hibernate the system\n"
                "  hybrid-sleep                        Hibernate and suspend the system\n"
@@ -335,6 +338,7 @@ static int systemctl_help(void) {
                "     --drop-in=NAME      Edit unit files using the specified drop-in file name\n"
                "     --when=TIME         Schedule halt/power-off/reboot/kexec action after\n"
                "                         a certain timestamp\n"
+               "     --stdin             Read contents of edited file from stdin\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -461,6 +465,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NO_WARN,
                 ARG_DROP_IN,
                 ARG_WHEN,
+                ARG_STDIN,
         };
 
         static const struct option options[] = {
@@ -527,6 +532,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "marked",              no_argument,       NULL, ARG_MARKED              },
                 { "drop-in",             required_argument, NULL, ARG_DROP_IN             },
                 { "when",                required_argument, NULL, ARG_WHEN                },
+                { "stdin",               no_argument,       NULL, ARG_STDIN               },
                 {}
         };
 
@@ -1017,6 +1023,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_STDIN:
+                        arg_stdin = true;
+                        break;
+
                 case '.':
                         /* Output an error mimicking getopt, and print a hint afterwards */
                         log_error("%s: invalid option -- '.'", program_invocation_name);
@@ -1067,7 +1077,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         }
 
         if (arg_image && arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Please specify either --root= or --image=, the combination of both is not supported.");
 
         return 1;
 }
@@ -1107,15 +1118,8 @@ int systemctl_dispatch_parse_argv(int argc, char *argv[]) {
                  *
                  * Also see redirect_telinit() in src/core/main.c. */
 
-                if (sd_booted() > 0) {
-                        arg_action = _ACTION_INVALID;
-                        return telinit_parse_argv(argc, argv);
-                } else {
-                        /* Hmm, so some other init system is running, we need to forward this request to it.
-                         */
-                        arg_action = ACTION_TELINIT;
-                        return 1;
-                }
+                arg_action = _ACTION_INVALID; /* telinit_parse_argv() will figure out the actual action we'll execute */
+                return telinit_parse_argv(argc, argv);
 
         } else if (invoked_as(argv, "runlevel")) {
                 arg_action = ACTION_RUNLEVEL;
@@ -1179,6 +1183,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "reboot",                VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
                 { "kexec",                 VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
                 { "soft-reboot",           VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
+                { "sleep",                 VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
                 { "suspend",               VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
                 { "hibernate",             VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
                 { "hybrid-sleep",          VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
@@ -1318,11 +1323,8 @@ static int run(int argc, char *argv[]) {
                 r = runlevel_main();
                 break;
 
-        case ACTION_TELINIT:
-                r = exec_telinit(argv);
-                break;
-
         case ACTION_EXIT:
+        case ACTION_SLEEP:
         case ACTION_SUSPEND:
         case ACTION_HIBERNATE:
         case ACTION_HYBRID_SLEEP:

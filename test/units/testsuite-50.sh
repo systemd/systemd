@@ -54,6 +54,17 @@ read -r SHA256SUM2 _ < <(systemd-dissect --read-only --with "${image}.raw" sha25
 test "$SHA256SUM2" != ""
 test "$SHA256SUM1" = "$SHA256SUM2"
 
+if systemctl --version | grep -qF -- "+LIBARCHIVE" ; then
+    # Make sure tarballs are reproducible
+    read -r SHA256SUM1 _ < <(systemd-dissect --make-archive "${image}.raw" | sha256sum)
+    test "$SHA256SUM1" != ""
+    read -r SHA256SUM2 _ < <(systemd-dissect --make-archive "${image}.raw" | sha256sum)
+    test "$SHA256SUM2" != ""
+    test "$SHA256SUM1" = "$SHA256SUM2"
+    # Also check that a file we expect to be there is there
+    systemd-dissect --make-archive "${image}.raw" | tar t | grep etc/os-release
+fi
+
 mv "${image}.verity" "${image}.fooverity"
 mv "${image}.roothash" "${image}.foohash"
 systemd-dissect --json=short "${image}.raw" --root-hash="${roothash}" --verity-data="${image}.fooverity" | grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"'
@@ -352,7 +363,7 @@ Type=notify
 RemainAfterExit=yes
 MountAPIVFS=yes
 PrivateTmp=yes
-ExecStart=/bin/sh -c ' \\
+ExecStart=sh -c ' \\
     systemd-notify --ready; \\
     while [ ! -f /tmp/img/usr/lib/os-release ] || ! grep -q -F MARKER /tmp/img/usr/lib/os-release; do \\
         sleep 0.1; \\
@@ -416,8 +427,8 @@ RootImage=${image}.raw
 ExtensionImages=/usr/share/app0.raw /usr/share/app1.raw:nosuid
 # Relevant only for sanitizer runs
 UnsetEnvironment=LD_PRELOAD
-ExecStart=/bin/bash -c '/opt/script0.sh | grep ID'
-ExecStart=/bin/bash -c '/opt/script1.sh | grep ID'
+ExecStart=bash -c '/opt/script0.sh | grep ID'
+ExecStart=bash -c '/opt/script1.sh | grep ID'
 Type=oneshot
 RemainAfterExit=yes
 EOF
@@ -449,8 +460,8 @@ RootImage=${image}.raw
 ExtensionDirectories=${image_dir}/app0 ${image_dir}/app1
 # Relevant only for sanitizer runs
 UnsetEnvironment=LD_PRELOAD
-ExecStart=/bin/bash -c '/opt/script0.sh | grep ID'
-ExecStart=/bin/bash -c '/opt/script1.sh | grep ID'
+ExecStart=bash -c '/opt/script0.sh | grep ID'
+ExecStart=bash -c '/opt/script1.sh | grep ID'
 Type=oneshot
 RemainAfterExit=yes
 EOF
@@ -492,6 +503,20 @@ test ! -e /usr/lib/systemd/system/other_file
 systemd-sysext unmerge
 rm -rf /run/extensions/app-reject
 rm /var/lib/extensions/app-nodistro.raw
+
+# Some super basic test that RootImage= works with .v/ dirs
+VBASE="vtest$RANDOM"
+VDIR="/tmp/${VBASE}.v"
+mkdir "$VDIR"
+
+ln -s "${image}.raw" "$VDIR/${VBASE}_33.raw"
+ln -s "${image}.raw" "$VDIR/${VBASE}_34.raw"
+ln -s "${image}.raw" "$VDIR/${VBASE}_35.raw"
+
+systemd-run -P -p RootImage="$VDIR" cat /usr/lib/os-release | grep -q -F "MARKER=1"
+
+rm "$VDIR/${VBASE}_33.raw" "$VDIR/${VBASE}_34.raw" "$VDIR/${VBASE}_35.raw"
+rmdir "$VDIR"
 
 mkdir -p /run/machines /run/portables /run/extensions
 touch /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw
@@ -677,11 +702,35 @@ if command -v mksquashfs >/dev/null 2>&1; then
     read -r X < /etc/waldo
     test "$X" = foobar50
 
-    rm /run/verity.d/test-50-cert.crt /run/confexts/waldo.confext.raw /tmp/test-50-cert.crt /tmp/test-50-privkey.key
+    rm /run/confexts/waldo.confext.raw
 
     systemd-confext refresh
 
-    (! test -f /tmp/test-50-confext/etc/waldo )
+    (! test -f /etc/waldo )
+
+    mkdir -p /tmp/test-50-sysext/usr/lib/extension-release.d/
+
+    # Make sure the sysext is big enough to not fit in the minimum partition size of repart so we know the
+    # Minimize= logic is working.
+    truncate --size=50M /tmp/test-50-sysext/usr/waldo
+
+    ( grep -e '^\(ID\|VERSION_ID\)=' /etc/os-release ; echo IMAGE_ID=waldo ; echo IMAGE_VERSION=7 ) > /tmp/test-50-sysext/usr/lib/extension-release.d/extension-release.waldo
+
+    mkdir -p /run/extensions
+
+    SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs systemd-repart -S -s /tmp/test-50-sysext --certificate=/tmp/test-50-cert.crt --private-key=/tmp/test-50-privkey.key /run/extensions/waldo.sysext.raw
+
+    systemd-dissect --mtree /run/extensions/waldo.sysext.raw
+
+    systemd-sysext refresh
+
+    test -f /usr/waldo
+
+    rm /run/verity.d/test-50-cert.crt /run/extensions/waldo.sysext.raw /tmp/test-50-cert.crt /tmp/test-50-privkey.key
+
+    systemd-sysext refresh
+
+    (! test -f /usr/waldo)
 fi
 
 # Sneak in a couple of expected-to-fail invocations to cover

@@ -8,5 +8,5 @@ IPv6AcceptRA=false
 
 [DHCPv4]
 # DenyList= will be ignored
-AllowList=192.168.5.0/24 192.168.6.0/24
+AllowList=192.168.6.0/24
 DenyList=192.168.5.0/24

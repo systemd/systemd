@@ -1,14 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <endian.h>
+
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
+#include "memory-util.h"
 #include "openssl-util.h"
+#include "random-util.h"
 #include "string-util.h"
 
 #if HAVE_OPENSSL
-/* For each error in the the OpenSSL thread error queue, log the provided message and the OpenSSL error
- * string. If there are no errors in the OpenSSL thread queue, this logs the message with "No openssl
+/* For each error in the OpenSSL thread error queue, log the provided message and the OpenSSL error
+ * string. If there are no errors in the OpenSSL thread queue, this logs the message with "No OpenSSL
  * errors." This logs at level debug. Returns -EIO (or -ENOMEM). */
 #define log_openssl_errors(fmt, ...) _log_openssl_errors(UNIQ, fmt, ##__VA_ARGS__)
 #define _log_openssl_errors(u, fmt, ...)                                \
@@ -523,7 +527,6 @@ int rsa_encrypt_bytes(
 
         *ret_encrypt_key = TAKE_PTR(b);
         *ret_encrypt_key_size = l;
-
         return 0;
 }
 
@@ -624,19 +627,47 @@ int rsa_pkey_to_suitable_key_size(
         return 0;
 }
 
-/* Generate RSA public key from provided "n" and "e" values. Note that if "e" is a number (e.g. uint32_t), it
- * must be provided here big-endian, e.g. wrap it with htobe32(). */
+/* Generate RSA public key from provided "n" and "e" values. Numbers "n" and "e" must be provided here
+ * in big-endian format, e.g. wrap it with htobe32() for uint32_t. */
 int rsa_pkey_from_n_e(const void *n, size_t n_size, const void *e, size_t e_size, EVP_PKEY **ret) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
 
         assert(n);
+        assert(n_size != 0);
         assert(e);
+        assert(e_size != 0);
         assert(ret);
 
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
         if (!ctx)
                 return log_openssl_errors("Failed to create new EVP_PKEY_CTX");
 
+        if (EVP_PKEY_fromdata_init(ctx) <= 0)
+                return log_openssl_errors("Failed to initialize EVP_PKEY_CTX");
+
+        OSSL_PARAM params[3];
+
+#if __BYTE_ORDER == __BIG_ENDIAN
+        params[0] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_N, (void*)n, n_size);
+        params[1] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_E, (void*)e, e_size);
+#else
+        _cleanup_free_ void *native_n = memdup_reverse(n, n_size);
+        if (!native_n)
+                return log_oom_debug();
+
+        _cleanup_free_ void *native_e = memdup_reverse(e, e_size);
+        if (!native_e)
+                return log_oom_debug();
+
+        params[0] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_N, native_n, n_size);
+        params[1] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_E, native_e, e_size);
+#endif
+        params[2] = OSSL_PARAM_construct_end();
+
+        if (EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
+                return log_openssl_errors("Failed to create RSA EVP_PKEY");
+#else
         _cleanup_(BN_freep) BIGNUM *bn_n = BN_bin2bn(n, n_size, NULL);
         if (!bn_n)
                 return log_openssl_errors("Failed to create BIGNUM for RSA n");
@@ -645,27 +676,6 @@ int rsa_pkey_from_n_e(const void *n, size_t n_size, const void *e, size_t e_size
         if (!bn_e)
                 return log_openssl_errors("Failed to create BIGNUM for RSA e");
 
-#if OPENSSL_VERSION_MAJOR >= 3
-        if (EVP_PKEY_fromdata_init(ctx) <= 0)
-                return log_openssl_errors("Failed to initialize EVP_PKEY_CTX");
-
-        _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = OSSL_PARAM_BLD_new();
-        if (!bld)
-                return log_openssl_errors("Failed to create new OSSL_PARAM_BLD");
-
-        if (!OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_RSA_N, bn_n))
-                return log_openssl_errors("Failed to set RSA OSSL_PKEY_PARAM_RSA_N");
-
-        if (!OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_RSA_E, bn_e))
-                return log_openssl_errors("Failed to set RSA OSSL_PKEY_PARAM_RSA_E");
-
-        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = OSSL_PARAM_BLD_to_param(bld);
-        if (!params)
-                return log_openssl_errors("Failed to build RSA OSSL_PARAM");
-
-        if (EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
-                return log_openssl_errors("Failed to create RSA EVP_PKEY");
-#else
         _cleanup_(RSA_freep) RSA *rsa_key = RSA_new();
         if (!rsa_key)
                 return log_openssl_errors("Failed to create new RSA");
@@ -989,7 +999,7 @@ int ecc_ecdh(const EVP_PKEY *private_pkey,
         if (EVP_PKEY_derive(ctx, NULL, &shared_secret_size) <= 0)
                 return log_openssl_errors("Failed to get ECC shared secret size");
 
-        _cleanup_free_ void *shared_secret = malloc(shared_secret_size);
+        _cleanup_(erase_and_freep) void *shared_secret = malloc(shared_secret_size);
         if (!shared_secret)
                 return log_oom_debug();
 
@@ -1109,7 +1119,7 @@ int string_hashsum(
 
         _cleanup_free_ void *hash = NULL;
         size_t hash_size;
-        _cleanup_free_ char *enc;
+        _cleanup_free_ char *enc = NULL;
         int r;
 
         assert(s || len == 0);
@@ -1128,6 +1138,267 @@ int string_hashsum(
         return 0;
 }
 #  endif
+
+static int ecc_pkey_generate_volume_keys(
+                EVP_PKEY *pkey,
+                void **ret_decrypted_key,
+                size_t *ret_decrypted_key_size,
+                void **ret_saved_key,
+                size_t *ret_saved_key_size) {
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_new = NULL;
+        _cleanup_(erase_and_freep) void *decrypted_key = NULL;
+        _cleanup_free_ unsigned char *saved_key = NULL;
+        size_t decrypted_key_size, saved_key_size;
+        int nid = NID_undef;
+        int r;
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_free_ char *curve_name = NULL;
+        size_t len = 0;
+
+        if (EVP_PKEY_get_group_name(pkey, NULL, 0, &len) != 1 || len == 0)
+                return log_openssl_errors("Failed to determine PKEY group name length");
+
+        len++;
+        curve_name = new(char, len);
+        if (!curve_name)
+                return log_oom_debug();
+
+        if (EVP_PKEY_get_group_name(pkey, curve_name, len, &len) != 1)
+                return log_openssl_errors("Failed to get PKEY group name");
+
+        nid = OBJ_sn2nid(curve_name);
+#else
+        EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
+        if (!ec_key)
+                return log_openssl_errors("PKEY doesn't have EC_KEY associated");
+
+        if (EC_KEY_check_key(ec_key) != 1)
+                return log_openssl_errors("EC_KEY associated with PKEY is not valid");
+
+        nid = EC_GROUP_get_curve_name(EC_KEY_get0_group(ec_key));
+#endif
+
+        r = ecc_pkey_new(nid, &pkey_new);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to generate a new EC keypair: %m");
+
+        r = ecc_ecdh(pkey_new, pkey, &decrypted_key, &decrypted_key_size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to derive shared secret: %m");
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        /* EVP_PKEY_get1_encoded_public_key() always returns uncompressed format of EC points.
+           See https://github.com/openssl/openssl/discussions/22835 */
+        saved_key_size = EVP_PKEY_get1_encoded_public_key(pkey_new, &saved_key);
+        if (saved_key_size == 0)
+                return log_openssl_errors("Failed to convert the generated public key to SEC1 format");
+#else
+        EC_KEY *ec_key_new = EVP_PKEY_get0_EC_KEY(pkey_new);
+        if (!ec_key_new)
+                return log_openssl_errors("The generated key doesn't have associated EC_KEY");
+
+        if (EC_KEY_check_key(ec_key_new) != 1)
+                return log_openssl_errors("EC_KEY associated with the generated key is not valid");
+
+        saved_key_size = EC_POINT_point2oct(EC_KEY_get0_group(ec_key_new),
+                                            EC_KEY_get0_public_key(ec_key_new),
+                                            POINT_CONVERSION_UNCOMPRESSED,
+                                            NULL, 0, NULL);
+        if (saved_key_size == 0)
+                return log_openssl_errors("Failed to determine size of the generated public key");
+
+        saved_key = malloc(saved_key_size);
+        if (!saved_key)
+                return log_oom_debug();
+
+        saved_key_size = EC_POINT_point2oct(EC_KEY_get0_group(ec_key_new),
+                                            EC_KEY_get0_public_key(ec_key_new),
+                                            POINT_CONVERSION_UNCOMPRESSED,
+                                            saved_key, saved_key_size, NULL);
+        if (saved_key_size == 0)
+                return log_openssl_errors("Failed to convert the generated public key to SEC1 format");
+#endif
+
+        *ret_decrypted_key = TAKE_PTR(decrypted_key);
+        *ret_decrypted_key_size = decrypted_key_size;
+        *ret_saved_key = TAKE_PTR(saved_key);
+        *ret_saved_key_size = saved_key_size;
+        return 0;
+}
+
+static int rsa_pkey_generate_volume_keys(
+                EVP_PKEY *pkey,
+                void **ret_decrypted_key,
+                size_t *ret_decrypted_key_size,
+                void **ret_saved_key,
+                size_t *ret_saved_key_size) {
+
+        _cleanup_(erase_and_freep) void *decrypted_key = NULL;
+        _cleanup_free_ void *saved_key = NULL;
+        size_t decrypted_key_size, saved_key_size;
+        int r;
+
+        r = rsa_pkey_to_suitable_key_size(pkey, &decrypted_key_size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine RSA public key size.");
+
+        log_debug("Generating %zu bytes random key.", decrypted_key_size);
+
+        decrypted_key = malloc(decrypted_key_size);
+        if (!decrypted_key)
+                return log_oom_debug();
+
+        r = crypto_random_bytes(decrypted_key, decrypted_key_size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to generate random key: %m");
+
+        r = rsa_encrypt_bytes(pkey, decrypted_key, decrypted_key_size, &saved_key, &saved_key_size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to encrypt random key: %m");
+
+        *ret_decrypted_key = TAKE_PTR(decrypted_key);
+        *ret_decrypted_key_size = decrypted_key_size;
+        *ret_saved_key = TAKE_PTR(saved_key);
+        *ret_saved_key_size = saved_key_size;
+        return 0;
+}
+
+int pkey_generate_volume_keys(
+                EVP_PKEY *pkey,
+                void **ret_decrypted_key,
+                size_t *ret_decrypted_key_size,
+                void **ret_saved_key,
+                size_t *ret_saved_key_size) {
+
+        assert(pkey);
+        assert(ret_decrypted_key);
+        assert(ret_decrypted_key_size);
+        assert(ret_saved_key);
+        assert(ret_saved_key_size);
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        int type = EVP_PKEY_get_base_id(pkey);
+#else
+        int type = EVP_PKEY_base_id(pkey);
+#endif
+        switch (type) {
+
+        case EVP_PKEY_RSA:
+                return rsa_pkey_generate_volume_keys(pkey, ret_decrypted_key, ret_decrypted_key_size, ret_saved_key, ret_saved_key_size);
+
+        case EVP_PKEY_EC:
+                return ecc_pkey_generate_volume_keys(pkey, ret_decrypted_key, ret_decrypted_key_size, ret_saved_key, ret_saved_key_size);
+
+        case NID_undef:
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine a type of public key");
+
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported public key type: %s", OBJ_nid2sn(type));
+        }
+}
+
+static int load_key_from_provider(const char *provider, const char *private_key_uri, EVP_PKEY **ret) {
+
+        assert(provider);
+        assert(private_key_uri);
+        assert(ret);
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        /* Load the provider so that this can work without any custom written configuration in /etc/.
+         * Also load the 'default' as that seems to be the recommendation. */
+        if (!OSSL_PROVIDER_try_load(/* ctx= */ NULL, provider, /* retain_fallbacks= */ true))
+                return log_openssl_errors("Failed to load OpenSSL provider '%s'", provider);
+        if (!OSSL_PROVIDER_try_load(/* ctx= */ NULL, "default", /* retain_fallbacks= */ true))
+                return log_openssl_errors("Failed to load OpenSSL provider 'default'");
+
+        _cleanup_(OSSL_STORE_closep) OSSL_STORE_CTX *store = OSSL_STORE_open(
+                        private_key_uri,
+                        /* ui_method= */ NULL,
+                        /* ui_data= */ NULL,
+                        /* post_process= */ NULL,
+                        /* post_process_data= */ NULL);
+        if (!store)
+                return log_openssl_errors("Failed to open OpenSSL store via '%s'", private_key_uri);
+
+        _cleanup_(OSSL_STORE_INFO_freep) OSSL_STORE_INFO *info = OSSL_STORE_load(store);
+        if (!info)
+                return log_openssl_errors("Failed to load OpenSSL store via '%s'", private_key_uri);
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = OSSL_STORE_INFO_get1_PKEY(info);
+        if (!private_key)
+                return log_openssl_errors("Failed to load private key via '%s'", private_key_uri);
+
+        *ret = TAKE_PTR(private_key);
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+static int load_key_from_engine(const char *engine, const char *private_key_uri, EVP_PKEY **ret) {
+
+        assert(engine);
+        assert(private_key_uri);
+        assert(ret);
+
+        DISABLE_WARNING_DEPRECATED_DECLARATIONS;
+        _cleanup_(ENGINE_freep) ENGINE *e = ENGINE_by_id(engine);
+        if (!e)
+                return log_openssl_errors("Failed to load signing engine '%s'", engine);
+
+        if (ENGINE_init(e) == 0)
+                return log_openssl_errors("Failed to initialize signing engine '%s'", engine);
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = ENGINE_load_private_key(
+                        e,
+                        private_key_uri,
+                        /* ui_method= */ NULL,
+                        /* callback_data= */ NULL);
+        if (!private_key)
+                return log_openssl_errors("Failed to load private key from '%s'", private_key_uri);
+        REENABLE_WARNING;
+
+        *ret = TAKE_PTR(private_key);
+
+        return 0;
+}
+
+int openssl_load_key_from_token(const char *private_key_uri, EVP_PKEY **ret) {
+        _cleanup_free_ char *provider = NULL;
+        const char *colon, *e;
+        int r;
+
+        assert(private_key_uri);
+
+        colon = strchr(private_key_uri, ':');
+        if (!colon)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid URI '%s'", private_key_uri);
+
+        provider = strndup(private_key_uri, colon - private_key_uri);
+        if (!provider)
+                return log_oom_debug();
+
+        e = secure_getenv("SYSTEMD_OPENSSL_KEY_LOADER");
+        if (e) {
+                if (streq(e, "provider"))
+                        r = load_key_from_provider(provider, private_key_uri, ret);
+                else if (streq(e, "engine"))
+                        r = load_key_from_engine(provider, private_key_uri, ret);
+                else
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value for SYSTEMD_OPENSSL_KEY_LOADER: %s", e);
+        } else {
+                r = load_key_from_provider(provider, private_key_uri, ret);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to load key from provider '%s', falling back to engine", provider);
+                        r = load_key_from_engine(provider, private_key_uri, ret);
+                }
+        }
+
+        return r;
+}
 #endif
 
 int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {

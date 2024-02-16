@@ -47,6 +47,16 @@ usb:v058Fp9540*
  ID_AUTOSUSPEND=1
 
 #########################################
+# Framework
+#########################################
+
+# HDMI Expansion Card
+usb:v32ACp0002*
+# DisplayPort Expansion Card
+usb:v32ACp0003*
+ ID_AUTOSUSPEND=1
+
+#########################################
 # Lenovo
 #########################################
 

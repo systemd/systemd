@@ -260,7 +260,7 @@ int parse_luks2_pkcs11_data(
         if (!w)
                 return -EINVAL;
 
-        r = unbase64mem(json_variant_string(w), SIZE_MAX, &key, &key_size);
+        r = unbase64mem(json_variant_string(w), &key, &key_size);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Failed to decode base64 encoded key: %m.");
 

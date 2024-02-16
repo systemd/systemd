@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: MIT-0
+#
+# This config file is installed as part of systemd.
+# It may be freely copied and edited (following the MIT No Attribution license).
+#
+# To make local modifications, one of the following methods may be used:
+# 1. add a drop-in file that extends this file by creating the
+#    /etc/systemd/network/99-default.link.d/ directory and creating a
+#    new .conf file there.
+# 2. copy this file into /etc/systemd/network or one of the other paths checked
+#    by systemd-udevd and edit it there.
+# This file should not be edited in place, because it'll be overwritten on upgrades.
+
+[Match]
+OriginalName=*
+
+[Link]
+NamePolicy=keep kernel database onboard slot path
+AlternativeNamesPolicy=database onboard slot path
+MACAddressPolicy=persistent

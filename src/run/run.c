@@ -18,9 +18,11 @@
 #include "bus-wait-for-jobs.h"
 #include "calendarspec.h"
 #include "env-util.h"
+#include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "hostname-util.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -30,6 +32,7 @@
 #include "ptyfwd.h"
 #include "signal-util.h"
 #include "spawn-polkit-agent.h"
+#include "special.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-def.h"
@@ -42,7 +45,7 @@ static bool arg_remain_after_exit = false;
 static bool arg_no_block = false;
 static bool arg_wait = false;
 static const char *arg_unit = NULL;
-static const char *arg_description = NULL;
+static char *arg_description = NULL;
 static const char *arg_slice = NULL;
 static bool arg_slice_inherit = false;
 static int arg_expand_environment = -1;
@@ -72,7 +75,11 @@ static bool arg_aggressive_gc = false;
 static char *arg_working_directory = NULL;
 static bool arg_shell = false;
 static char **arg_cmdline = NULL;
+static char *arg_exec_path = NULL;
+static bool arg_ignore_failure = false;
+static char *arg_background = NULL;
 
+STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_path_property, strv_freep);
@@ -80,6 +87,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_socket_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_timer_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_working_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cmdline, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_exec_path, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -89,8 +98,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND [ARGUMENTS...]\n"
-               "\n%sRun the specified command in a transient scope or service.%s\n\n"
+        printf("%1$s [OPTIONS...] COMMAND [ARGUMENTS...]\n"
+               "\n%5$sRun the specified command in a transient scope or service.%6$s\n\n"
                "  -h --help                       Show this help\n"
                "     --version                    Show package version\n"
                "     --no-ask-password            Do not prompt for password\n"
@@ -102,7 +111,7 @@ static int help(void) {
                "  -p --property=NAME=VALUE        Set service or scope unit property\n"
                "     --description=TEXT           Description for unit\n"
                "     --slice=SLICE                Run in the specified slice\n"
-               "     --slice-inherit              Inherit the slice\n"
+               "     --slice-inherit              Inherit the slice from the caller\n"
                "     --expand-environment=BOOL    Control expansion of environment variables\n"
                "     --no-block                   Do not wait until operation finished\n"
                "  -r --remain-after-exit          Leave service around until explicitly stopped\n"
@@ -120,12 +129,14 @@ static int help(void) {
                "  -P --pipe                       Pass STDIN/STDOUT/STDERR directly to service\n"
                "  -q --quiet                      Suppress information messages during runtime\n"
                "  -G --collect                    Unload unit after it ran, even when failed\n"
-               "  -S --shell                      Invoke a $SHELL interactively\n\n"
-               "Path options:\n"
-               "     --path-property=NAME=VALUE   Set path unit property\n\n"
-               "Socket options:\n"
-               "     --socket-property=NAME=VALUE Set socket unit property\n\n"
-               "Timer options:\n"
+               "  -S --shell                      Invoke a $SHELL interactively\n"
+               "     --ignore-failure             Ignore the exit status of the invoked process\n"
+               "     --background=COLOR           Set ANSI color for background\n"
+               "\n%3$sPath options:%4$s\n"
+               "     --path-property=NAME=VALUE   Set path unit property\n"
+               "\n%3$sSocket options:%4$s\n"
+               "     --socket-property=NAME=VALUE Set socket unit property\n"
+               "\n%3$sTimer options:%4$s\n"
                "     --on-active=SECONDS          Run after SECONDS delay\n"
                "     --on-boot=SECONDS            Run SECONDS after machine was booted up\n"
                "     --on-startup=SECONDS         Run SECONDS after systemd activation\n"
@@ -135,6 +146,40 @@ static int help(void) {
                "     --on-timezone-change         Run when the timezone changes\n"
                "     --on-clock-change            Run when the realtime clock jumps\n"
                "     --timer-property=NAME=VALUE  Set timer unit property\n"
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link,
+               ansi_underline(), ansi_normal(),
+               ansi_highlight(), ansi_normal());
+
+        return 0;
+}
+
+static int help_sudo_mode(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("uid0", "1", &link);
+        if (r < 0)
+                return log_oom();
+
+        printf("%s [OPTIONS...] COMMAND [ARGUMENTS...]\n"
+               "\n%sElevate privileges interactively.%s\n\n"
+               "  -h --help                       Show this help\n"
+               "  -V --version                    Show package version\n"
+               "     --no-ask-password            Do not prompt for password\n"
+               "     --machine=CONTAINER          Operate on local container\n"
+               "     --unit=UNIT                  Run under the specified unit name\n"
+               "     --property=NAME=VALUE        Set service or scope unit property\n"
+               "     --description=TEXT           Description for unit\n"
+               "     --slice=SLICE                Run in the specified slice\n"
+               "     --slice-inherit              Inherit the slice\n"
+               "  -u --user=USER                  Run as system user\n"
+               "  -g --group=GROUP                Run as system group\n"
+               "     --nice=NICE                  Nice level\n"
+               "  -D --chdir=PATH                 Set working directory\n"
+               "     --setenv=NAME[=VALUE]        Set environment variable\n"
+               "     --background=COLOR           Set ANSI color for background\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -142,6 +187,13 @@ static int help(void) {
                link);
 
         return 0;
+}
+
+static bool privileged_execution(void) {
+        if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
+                return false;
+
+        return !arg_exec_user || STR_IN_SET(arg_exec_user, "root", "0");
 }
 
 static int add_timer_property(const char *name, const char *val) {
@@ -158,6 +210,18 @@ static int add_timer_property(const char *name, const char *val) {
                 return log_oom();
 
         return 0;
+}
+
+static char **make_login_shell_cmdline(const char *shell) {
+        _cleanup_free_ char *argv0 = NULL;
+
+        assert(shell);
+
+        argv0 = strjoin("-", shell); /* The - is how shells determine if they shall be consider login shells */
+        if (!argv0)
+                return NULL;
+
+        return strv_new(argv0);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -192,6 +256,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WAIT,
                 ARG_WORKING_DIRECTORY,
                 ARG_SHELL,
+                ARG_IGNORE_FAILURE,
+                ARG_BACKGROUND,
         };
 
         static const struct option options[] = {
@@ -237,6 +303,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "working-directory",  required_argument, NULL, ARG_WORKING_DIRECTORY  },
                 { "same-dir",           no_argument,       NULL, 'd'                    },
                 { "shell",              no_argument,       NULL, 'S'                    },
+                { "ignore-failure",     no_argument,       NULL, ARG_IGNORE_FAILURE     },
+                { "background",         required_argument, NULL, ARG_BACKGROUND         },
                 {},
         };
 
@@ -280,7 +348,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DESCRIPTION:
-                        arg_description = optarg;
+                        r = free_and_strdup_warn(&arg_description, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_SLICE:
@@ -520,6 +590,16 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_shell = true;
                         break;
 
+                case ARG_IGNORE_FAILURE:
+                        arg_ignore_failure = true;
+                        break;
+
+                case ARG_BACKGROUND:
+                        r = free_and_strdup_warn(&arg_background, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -552,11 +632,8 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_error_errno(r, "Failed to get current working directory: %m");
                         }
 
-                        if (!arg_service_type) {
-                                arg_service_type = strdup("exec");
-                                if (!arg_service_type)
-                                        return log_oom();
-                        }
+                        if (!arg_service_type)
+                                arg_service_type = "exec";
 
                         arg_wait = true;
                 }
@@ -645,6 +722,241 @@ static int parse_argv(int argc, char *argv[]) {
                 if (arg_scope)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--wait may not be combined with --scope.");
+        }
+
+        return 1;
+}
+
+static int parse_argv_sudo_mode(int argc, char *argv[]) {
+
+        enum {
+                ARG_NO_ASK_PASSWORD = 0x100,
+                ARG_HOST,
+                ARG_MACHINE,
+                ARG_UNIT,
+                ARG_PROPERTY,
+                ARG_DESCRIPTION,
+                ARG_SLICE,
+                ARG_SLICE_INHERIT,
+                ARG_NICE,
+                ARG_SETENV,
+                ARG_BACKGROUND,
+        };
+
+        /* If invoked as "uid0" binary, let's expose a more sudo-like interface. We add various extensions
+         * though (but limit the extension to long options). */
+
+        static const struct option options[] = {
+                { "help",               no_argument,       NULL, 'h'                    },
+                { "version",            no_argument,       NULL, 'V'                    },
+                { "no-ask-password",    no_argument,       NULL, ARG_NO_ASK_PASSWORD    },
+                { "machine",            required_argument, NULL, ARG_MACHINE            },
+                { "unit",               required_argument, NULL, ARG_UNIT               },
+                { "property",           required_argument, NULL, ARG_PROPERTY           },
+                { "description",        required_argument, NULL, ARG_DESCRIPTION        },
+                { "slice",              required_argument, NULL, ARG_SLICE              },
+                { "slice-inherit",      no_argument,       NULL, ARG_SLICE_INHERIT      },
+                { "user",               required_argument, NULL, 'u'                    },
+                { "group",              required_argument, NULL, 'g'                    },
+                { "nice",               required_argument, NULL, ARG_NICE               },
+                { "chdir",              required_argument, NULL, 'D'                    },
+                { "setenv",             required_argument, NULL, ARG_SETENV             },
+                { "background",         required_argument, NULL, ARG_BACKGROUND         },
+                {},
+        };
+
+        int r, c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
+         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
+        optind = 0;
+        while ((c = getopt_long(argc, argv, "+hVu:g:D:", options, NULL)) >= 0)
+
+                switch (c) {
+
+                case 'h':
+                        return help_sudo_mode();
+
+                case 'V':
+                        return version();
+
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
+
+                case ARG_MACHINE:
+                        arg_transport = BUS_TRANSPORT_MACHINE;
+                        arg_host = optarg;
+                        break;
+
+                case ARG_UNIT:
+                        arg_unit = optarg;
+                        break;
+
+                case ARG_PROPERTY:
+                        if (strv_extend(&arg_property, optarg) < 0)
+                                return log_oom();
+
+                        break;
+
+                case ARG_DESCRIPTION:
+                        r = free_and_strdup_warn(&arg_description, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_SLICE:
+                        arg_slice = optarg;
+                        break;
+
+                case ARG_SLICE_INHERIT:
+                        arg_slice_inherit = true;
+                        break;
+
+                case 'u':
+                        arg_exec_user = optarg;
+                        break;
+
+                case 'g':
+                        arg_exec_group = optarg;
+                        break;
+
+                case ARG_NICE:
+                        r = parse_nice(optarg, &arg_nice);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse nice value: %s", optarg);
+
+                        arg_nice_set = true;
+                        break;
+
+                case 'D':
+                        r = parse_path_argument(optarg, true, &arg_working_directory);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_SETENV:
+                        r = strv_env_replace_strdup_passthrough(&arg_environment, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
+
+                        break;
+
+                case ARG_BACKGROUND:
+                        r = free_and_strdup_warn(&arg_background, optarg);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        assert_not_reached();
+                }
+
+        if (!arg_working_directory) {
+                if (arg_exec_user) {
+                        /* When switching to a specific user, also switch to its home directory. */
+                        arg_working_directory = strdup("~");
+                        if (!arg_working_directory)
+                                return log_oom();
+                } else {
+                        /* When switching to root without this being specified, then stay in the current directory */
+                        r = safe_getcwd(&arg_working_directory);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get current working directory: %m");
+                }
+        }
+
+        arg_service_type = "exec";
+        arg_quiet = true;
+        arg_wait = true;
+        arg_aggressive_gc = true;
+
+        arg_stdio = isatty(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ? ARG_STDIO_PTY : ARG_STDIO_DIRECT;
+        arg_expand_environment = false;
+        arg_send_sighup = true;
+
+        _cleanup_strv_free_ char **l = NULL;
+        if (argc > optind)
+                l = strv_copy(argv + optind);
+        else {
+                const char *e;
+
+                e = strv_env_get(arg_environment, "SHELL");
+                if (e)
+                        arg_exec_path = strdup(e);
+                else {
+                        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                                r = get_shell(&arg_exec_path);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to determine shell: %m");
+                        } else
+                                arg_exec_path = strdup("/bin/sh");
+                }
+                if (!arg_exec_path)
+                        return log_oom();
+
+                l = make_login_shell_cmdline(arg_exec_path);
+        }
+        if (!l)
+                return log_oom();
+
+        strv_free_and_replace(arg_cmdline, l);
+
+        if (!arg_slice) {
+                arg_slice = strdup(SPECIAL_USER_SLICE);
+                if (!arg_slice)
+                        return log_oom();
+        }
+
+        _cleanup_free_ char *un = NULL;
+        un = getusername_malloc();
+        if (!un)
+                return log_oom();
+
+        /* Set a bunch of environment variables in a roughly sudo-compatible way */
+        r = strv_env_assign(&arg_environment, "SUDO_USER", un);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set $SUDO_USER environment variable: %m");
+
+        r = strv_env_assignf(&arg_environment, "SUDO_UID", UID_FMT, getuid());
+        if (r < 0)
+                return log_error_errno(r, "Failed to set $SUDO_UID environment variable: %m");
+
+        r = strv_env_assignf(&arg_environment, "SUDO_GID", GID_FMT, getgid());
+        if (r < 0)
+                return log_error_errno(r, "Failed to set $SUDO_GID environment variable: %m");
+
+        if (strv_extendf(&arg_property, "LogExtraFields=ELEVATED_UID=" UID_FMT, getuid()) < 0)
+                return log_oom();
+
+        if (strv_extendf(&arg_property, "LogExtraFields=ELEVATED_GID=" GID_FMT, getgid()) < 0)
+                return log_oom();
+
+        if (strv_extendf(&arg_property, "LogExtraFields=ELEVATED_USER=%s", un) < 0)
+                return log_oom();
+
+        if (strv_extend(&arg_property, "PAMName=systemd-uid0") < 0)
+                return log_oom();
+
+        if (!arg_background && arg_stdio == ARG_STDIO_PTY) {
+                double hue;
+
+                if (privileged_execution())
+                        hue = 0; /* red */
+                else
+                        hue = 60 /* yellow */;
+
+                r = terminal_tint_color(hue, &arg_background);
+                if (r < 0)
+                        log_debug_errno(r, "Unable to get terminal background color, not tinting background: %m");
         }
 
         return 1;
@@ -898,7 +1210,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "s", arg_cmdline[0]);
+                r = sd_bus_message_append(m, "s", arg_exec_path ?: arg_cmdline[0]);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -909,9 +1221,10 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (use_ex_prop)
                         r = sd_bus_message_append_strv(
                                         m,
-                                        STRV_MAKE(arg_expand_environment > 0 ? NULL : "no-env-expand"));
+                                        STRV_MAKE(arg_expand_environment > 0 ? NULL : "no-env-expand",
+                                                  arg_ignore_failure ? "ignore-failure" : NULL));
                 else
-                        r = sd_bus_message_append(m, "b", false);
+                        r = sd_bus_message_append(m, "b", arg_ignore_failure);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1279,6 +1592,26 @@ static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret)
         return !sd_id128_is_null(*ret);
 }
 
+static void set_window_title(PTYForward *f) {
+        _cleanup_free_ char *hn = NULL, *cl = NULL, *dot = NULL;
+        assert(f);
+
+        if (!arg_host)
+                (void) gethostname_strict(&hn);
+
+        cl = strv_join(arg_cmdline, " ");
+        if (!cl)
+                return (void) log_oom();
+
+        if (emoji_enabled())
+                dot = strjoin(special_glyph(privileged_execution() ? SPECIAL_GLYPH_RED_CIRCLE : SPECIAL_GLYPH_YELLOW_CIRCLE), " ");
+
+        if (arg_host || hn)
+                (void) pty_forward_set_titlef(f, "%s%s on %s", strempty(dot), cl, arg_host ?: hn);
+        else
+                (void) pty_forward_set_titlef(f, "%s%s", strempty(dot), cl);
+}
+
 static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1375,7 +1708,10 @@ static int start_transient_service(sd_bus *bus) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = bus_wait_for_jobs_one(w, object, arg_quiet, arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
+                r = bus_wait_for_jobs_one(w,
+                                          object,
+                                          arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR,
+                                          arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
                 if (r < 0)
                         return r;
         }
@@ -1428,6 +1764,11 @@ static int start_transient_service(sd_bus *bus) {
 
                         /* Make sure to process any TTY events before we process bus events */
                         (void) pty_forward_set_priority(c.forward, SD_EVENT_PRIORITY_IMPORTANT);
+
+                        if (!isempty(arg_background))
+                                (void) pty_forward_set_background_color(c.forward, arg_background);
+
+                        set_window_title(c.forward);
                 }
 
                 path = unit_dbus_path_from_name(service);
@@ -1492,23 +1833,36 @@ static int start_transient_service(sd_bus *bus) {
                                 log_info("CPU time consumed: %s",
                                          FORMAT_TIMESPAN(DIV_ROUND_UP(c.cpu_usage_nsec, NSEC_PER_USEC), USEC_PER_MSEC));
 
-                        if (c.memory_peak != UINT64_MAX)
-                                log_info("Memory peak: %s", FORMAT_BYTES(c.memory_peak));
+                        if (c.memory_peak != UINT64_MAX) {
+                                const char *swap;
 
-                        if (c.memory_swap_peak != UINT64_MAX)
-                                log_info("Memory swap peak: %s", FORMAT_BYTES(c.memory_swap_peak));
+                                if (c.memory_swap_peak != UINT64_MAX)
+                                        swap = strjoina(" (swap: ", FORMAT_BYTES(c.memory_swap_peak), ")");
+                                else
+                                        swap = "";
 
-                        if (c.ip_ingress_bytes != UINT64_MAX)
-                                log_info("IP traffic received: %s", FORMAT_BYTES(c.ip_ingress_bytes));
+                                log_info("Memory peak: %s%s", FORMAT_BYTES(c.memory_peak), swap);
+                        }
 
-                        if (c.ip_egress_bytes != UINT64_MAX)
-                                log_info("IP traffic sent: %s", FORMAT_BYTES(c.ip_egress_bytes));
+                        const char *ip_ingress = NULL, *ip_egress = NULL;
 
-                        if (c.io_read_bytes != UINT64_MAX)
-                                log_info("IO bytes read: %s", FORMAT_BYTES(c.io_read_bytes));
+                        if (!IN_SET(c.ip_ingress_bytes, 0, UINT64_MAX))
+                                ip_ingress = strjoina(" received: ", FORMAT_BYTES(c.ip_ingress_bytes));
+                        if (!IN_SET(c.ip_egress_bytes, 0, UINT64_MAX))
+                                ip_egress = strjoina(" sent: ", FORMAT_BYTES(c.ip_egress_bytes));
 
-                        if (c.io_write_bytes != UINT64_MAX)
-                                log_info("IO bytes written: %s", FORMAT_BYTES(c.io_write_bytes));
+                        if (ip_ingress || ip_egress)
+                                log_info("IP traffic%s%s", strempty(ip_ingress), strempty(ip_egress));
+
+                        const char *io_read = NULL, *io_write = NULL;
+
+                        if (!IN_SET(c.io_read_bytes, 0, UINT64_MAX))
+                                io_read = strjoina(" read: ", FORMAT_BYTES(c.io_read_bytes));
+                        if (!IN_SET(c.io_write_bytes, 0, UINT64_MAX))
+                                io_write = strjoina(" written: ", FORMAT_BYTES(c.io_write_bytes));
+
+                        if (io_read || io_write)
+                                log_info("IO bytes%s%s", strempty(io_read), strempty(io_write));
                 }
 
                 /* Try to propagate the service's return value. But if the service defines
@@ -1609,7 +1963,8 @@ static int start_transient_scope(sd_bus *bus) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, arg_quiet, arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
+        r = bus_wait_for_jobs_one(w, object, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR,
+                                  arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
         if (r < 0)
                 return r;
 
@@ -1879,7 +2234,8 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, arg_quiet, arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
+        r = bus_wait_for_jobs_one(w, object, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR,
+                                  arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
         if (r < 0)
                 return r;
 
@@ -1893,6 +2249,8 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
 }
 
 static bool shall_make_executable_absolute(void) {
+        if (arg_exec_path)
+                return false;
         if (strv_isempty(arg_cmdline))
                 return false;
         if (arg_transport != BUS_TRANSPORT_LOCAL)
@@ -1907,14 +2265,16 @@ static bool shall_make_executable_absolute(void) {
 
 static int run(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_free_ char *description = NULL;
         int r;
 
         log_show_color(true);
         log_parse_environment();
         log_open();
 
-        r = parse_argv(argc, argv);
+        if (invoked_as(argv, "uid0"))
+                r = parse_argv_sudo_mode(argc, argv);
+        else
+                r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
 
@@ -1932,17 +2292,16 @@ static int run(int argc, char* argv[]) {
         }
 
         if (!arg_description) {
-                description = strv_join(arg_cmdline, " ");
-                if (!description)
+                char *t;
+
+                if (strv_isempty(arg_cmdline))
+                        t = strdup(arg_unit);
+                else
+                        t = quote_command_line(arg_cmdline, SHELL_ESCAPE_EMPTY);
+                if (!t)
                         return log_oom();
 
-                if (arg_unit && isempty(description)) {
-                        r = free_and_strdup(&description, arg_unit);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                arg_description = description;
+                free_and_replace(arg_description, t);
         }
 
         /* For backward compatibility reasons env var expansion is disabled by default for scopes, and
@@ -1957,9 +2316,11 @@ static int run(int argc, char* argv[]) {
                                     " Use --expand-environment=yes/no to explicitly control it as needed.");
         }
 
-        /* If --wait is used connect via the bus, unconditionally, as ref/unref is not supported via the limited direct
-         * connection */
-        if (arg_wait || arg_stdio != ARG_STDIO_NONE || (arg_runtime_scope == RUNTIME_SCOPE_USER && arg_transport != BUS_TRANSPORT_LOCAL))
+        /* If --wait is used connect via the bus, unconditionally, as ref/unref is not supported via the
+         * limited direct connection */
+        if (arg_wait ||
+            arg_stdio != ARG_STDIO_NONE ||
+            (arg_runtime_scope == RUNTIME_SCOPE_USER && arg_transport != BUS_TRANSPORT_LOCAL))
                 r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, &bus);
         else
                 r = bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, &bus);

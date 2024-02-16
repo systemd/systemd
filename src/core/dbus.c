@@ -232,6 +232,8 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
                 return 0;
 
         path = sd_bus_message_get_path(message);
+        if (!path)
+                return 0;
 
         if (object_path_startswith("/org/freedesktop/systemd1", path)) {
                 r = mac_selinux_access_check(message, verb, error);
@@ -241,25 +243,20 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
                 return 0;
         }
 
-        if (streq_ptr(path, "/org/freedesktop/systemd1/unit/self")) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-                pid_t pid;
+        if (streq(path, "/org/freedesktop/systemd1/unit/self")) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                r = bus_query_sender_pidref(message, &pidref);
                 if (r < 0)
                         return 0;
 
-                r = sd_bus_creds_get_pid(creds, &pid);
-                if (r < 0)
-                        return 0;
-
-                u = manager_get_unit_by_pid(m, pid);
+                u = manager_get_unit_by_pidref(m, &pidref);
         } else {
                 r = manager_get_job_from_dbus_path(m, path, &j);
                 if (r >= 0)
                         u = j->unit;
                 else
-                        manager_load_unit_from_dbus_path(m, path, NULL, &u);
+                        (void) manager_load_unit_from_dbus_path(m, path, NULL, &u);
         }
         if (!u)
                 return 0;
@@ -280,24 +277,19 @@ static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_
         assert(bus);
         assert(path);
 
-        if (streq_ptr(path, "/org/freedesktop/systemd1/unit/self")) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        if (streq(path, "/org/freedesktop/systemd1/unit/self")) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
                 sd_bus_message *message;
-                pid_t pid;
 
                 message = sd_bus_get_current_message(bus);
                 if (!message)
                         return 0;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                r = bus_query_sender_pidref(message, &pidref);
                 if (r < 0)
                         return r;
 
-                r = sd_bus_creds_get_pid(creds, &pid);
-                if (r < 0)
-                        return r;
-
-                u = manager_get_unit_by_pid(m, pid);
+                u = manager_get_unit_by_pidref(m, &pidref);
                 if (!u)
                         return 0;
         } else {
@@ -739,7 +731,7 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 log_debug("Accepting direct incoming connection from " PID_FMT " (%s) [%s]", pid, strna(comm), strna(description));
         }
 
-        r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_bus_attach_event(bus, m->event, EVENT_PRIORITY_IPC);
         if (r < 0) {
                 log_warning_errno(r, "Failed to attach new connection bus to event loop: %m");
                 return 0;
@@ -847,7 +839,7 @@ int bus_init_api(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to API bus: %m");
 
-                r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
+                r = sd_bus_attach_event(bus, m->event, EVENT_PRIORITY_IPC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to attach API bus to event loop: %m");
 
@@ -904,7 +896,7 @@ int bus_init_system(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to system bus: %m");
 
-                r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
+                r = sd_bus_attach_event(bus, m->event, EVENT_PRIORITY_IPC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to attach system bus to event loop: %m");
 
@@ -1073,7 +1065,7 @@ void bus_done(Manager *m) {
         assert(!m->subscribed);
 
         m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
-        bus_verify_polkit_async_registry_free(m->polkit_registry);
+        m->polkit_registry = hashmap_free(m->polkit_registry);
 }
 
 int bus_fdset_add_all(Manager *m, FDSet *fds) {
@@ -1189,22 +1181,46 @@ int bus_track_coldplug(Manager *m, sd_bus_track **t, bool recursive, char **l) {
 }
 
 int bus_verify_manage_units_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-units", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.manage-units",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
 }
 
 int bus_verify_manage_unit_files_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-unit-files", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.manage-unit-files",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
 }
 
 int bus_verify_reload_daemon_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.reload-daemon", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.reload-daemon",
+                        /* details= */ NULL,
+                        &m->polkit_registry, error);
 }
 
 int bus_verify_set_environment_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.set-environment", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.set-environment",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
 }
 int bus_verify_bypass_dump_ratelimit_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.bypass-dump-ratelimit", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.bypass-dump-ratelimit",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
 }
 
 uint64_t manager_bus_n_queued_write(Manager *m) {

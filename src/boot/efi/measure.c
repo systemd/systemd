@@ -5,6 +5,7 @@
 #include "macro-fundamental.h"
 #include "measure.h"
 #include "memory-util-fundamental.h"
+#include "proto/cc-measurement.h"
 #include "proto/tcg.h"
 #include "tpm2-pcr.h"
 #include "util.h"
@@ -123,6 +124,69 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
                         tcg_event);
 }
 
+static EFI_STATUS cc_measure_to_mr_and_event_log(
+                EFI_CC_MEASUREMENT_PROTOCOL *cc,
+                uint32_t pcrindex,
+                EFI_PHYSICAL_ADDRESS buffer,
+                uint64_t buffer_size,
+                const char16_t *description) {
+
+        _cleanup_free_ EFI_CC_EVENT *event = NULL;
+        uint32_t mr;
+        EFI_STATUS err;
+        size_t desc_len;
+
+        assert(cc);
+        assert(description);
+
+        /* MapPcrToMrIndex service provides callers information on
+         * how the TPM PCR registers are mapped to the CC measurement
+         * registers (MR) in the vendor implementation. */
+        err = cc->MapPcrToMrIndex(cc, pcrindex, &mr);
+        if (err != EFI_SUCCESS)
+                return EFI_NOT_FOUND;
+
+        desc_len = strsize16(description);
+        event = xmalloc(offsetof(EFI_CC_EVENT, Event) + desc_len);
+        *event = (EFI_CC_EVENT) {
+                .Size = offsetof(EFI_CC_EVENT, Event) + desc_len,
+                .Header.HeaderSize = sizeof(EFI_CC_EVENT_HEADER),
+                .Header.HeaderVersion = EFI_CC_EVENT_HEADER_VERSION,
+                .Header.MrIndex = mr,
+                .Header.EventType = EV_IPL,
+        };
+
+        memcpy(event->Event, description, desc_len);
+
+        return cc->HashLogExtendEvent(
+                        cc,
+                        0,
+                        buffer,
+                        buffer_size,
+                        event);
+}
+
+static EFI_CC_MEASUREMENT_PROTOCOL *cc_interface_check(void) {
+        EFI_CC_BOOT_SERVICE_CAPABILITY capability = {
+                .Size = sizeof(capability),
+        };
+        EFI_STATUS err;
+        EFI_CC_MEASUREMENT_PROTOCOL *cc;
+
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_CC_MEASUREMENT_PROTOCOL), NULL, (void **) &cc);
+        if (err != EFI_SUCCESS)
+                return NULL;
+
+        err = cc->GetCapability(cc, &capability);
+        if (err != EFI_SUCCESS)
+                return NULL;
+
+        if (!(capability.SupportedEventLogs & EFI_CC_EVENT_LOG_FORMAT_TCG_2))
+                return NULL;
+
+        return cc;
+}
+
 static EFI_TCG_PROTOCOL *tcg1_interface_check(void) {
         EFI_PHYSICAL_ADDRESS event_log_location, event_log_last_entry;
         EFI_TCG_BOOT_SERVICE_CAPABILITY capability = {
@@ -213,12 +277,19 @@ EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t 
                 if (tpm1)
                         err = tpm1_measure_to_pcr_and_event_log(tpm1, pcrindex, buffer, buffer_size, description);
                 else {
-                        /* No active TPM found, so don't return an error */
+                        EFI_CC_MEASUREMENT_PROTOCOL *cc;
 
-                        if (ret_measured)
-                                *ret_measured = false;
+                        cc = cc_interface_check();
+                        if (cc)
+                                err = cc_measure_to_mr_and_event_log(cc, pcrindex, buffer, buffer_size, description);
+                        else {
+                                /* No active TPM found, so don't return an error */
 
-                        return EFI_SUCCESS;
+                                if (ret_measured)
+                                        *ret_measured = false;
+
+                                return EFI_SUCCESS;
+                        }
                 }
         }
 

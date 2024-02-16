@@ -152,12 +152,7 @@ static void swap_init(Unit *u) {
 
 static void swap_unwatch_control_pid(Swap *s) {
         assert(s);
-
-        if (!pidref_is_set(&s->control_pid))
-                return;
-
-        unit_unwatch_pidref(UNIT(s), &s->control_pid);
-        pidref_done(&s->control_pid);
+        unit_unwatch_pidref_done(UNIT(s), &s->control_pid);
 }
 
 static void swap_done(Unit *u) {
@@ -321,7 +316,7 @@ static int swap_add_extras(Swap *s) {
                         return r;
         }
 
-        r = unit_require_mounts_for(UNIT(s), s->what, UNIT_DEPENDENCY_IMPLICIT);
+        r = unit_add_mounts_for(UNIT(s), s->what, UNIT_DEPENDENCY_IMPLICIT, UNIT_MOUNT_REQUIRES);
         if (r < 0)
                 return r;
 
@@ -635,7 +630,6 @@ static int swap_spawn(Swap *s, ExecCommand *c, PidRef *ret_pid) {
         _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(
                         EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN);
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        pid_t pid;
         int r;
 
         assert(s);
@@ -660,11 +654,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, PidRef *ret_pid) {
                        &exec_params,
                        s->exec_runtime,
                        &s->cgroup_context,
-                       &pid);
-        if (r < 0)
-                return r;
-
-        r = pidref_set_pid(&pidref, pid);
+                       &pidref);
         if (r < 0)
                 return r;
 
@@ -734,13 +724,7 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
         if (s->result == SWAP_SUCCESS)
                 s->result = f;
 
-        r = unit_kill_context(
-                        UNIT(s),
-                        &s->kill_context,
-                        state_to_kill_operation(s, state),
-                        /* main_pid= */ NULL,
-                        &s->control_pid,
-                        /* main_pid_alien= */ false);
+        r = unit_kill_context(UNIT(s), state_to_kill_operation(s, state));
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
                 goto fail;
@@ -1358,7 +1342,7 @@ static void swap_enumerate(Manager *m) {
                 /* Dispatch this before we dispatch SIGCHLD, so that
                  * we always get the events from /proc/swaps before
                  * the SIGCHLD of /sbin/swapon. */
-                r = sd_event_source_set_priority(m->swap_event_source, SD_EVENT_PRIORITY_NORMAL-10);
+                r = sd_event_source_set_priority(m->swap_event_source, EVENT_PRIORITY_SWAP_TABLE);
                 if (r < 0) {
                         log_error_errno(r, "Failed to change /proc/swaps priority: %m");
                         goto fail;

@@ -4,7 +4,7 @@ Description=Test for SystemCallFilter updating errno
 # test for issue #9939 which is fixed by a5404992cc7724ebf7572a0aa89d9fdb26ce0b62 (#9942)
 
 [Service]
-ExecStart=/usr/bin/python3 -c 'import os\ntry: os.uname()\nexcept Exception as e: exit(e.errno)'
+ExecStart=python3 -c 'import os\ntry: os.uname()\nexcept Exception as e: exit(e.errno)'
 Type=oneshot
 SystemCallFilter=~uname:ENOENT uname:EILSEQ
 SystemCallErrorNumber=EACCES

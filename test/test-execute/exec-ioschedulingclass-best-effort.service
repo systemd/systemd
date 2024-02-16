@@ -3,6 +3,6 @@
 Description=Test for IOSchedulingClass=best-effort
 
 [Service]
-ExecStart=/bin/sh -x -c 'c=$$(LC_ALL=C ionice); test "$${c%%:*}" = "best-effort"'
+ExecStart=sh -x -c 'c=$$(LC_ALL=C ionice); test "$${c%%:*}" = "best-effort"'
 Type=oneshot
 IOSchedulingClass=best-effort

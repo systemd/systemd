@@ -410,7 +410,7 @@ int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **_r
                 goto finish;
 
         for (;;) {
-                char label[DNS_LABEL_MAX];
+                char label[DNS_LABEL_MAX+1];
 
                 r = dns_label_unescape(&p, label, sizeof label, flags);
                 if (r < 0)
@@ -507,7 +507,7 @@ int dns_name_compare_func(const char *a, const char *b) {
         y = b + strlen(b);
 
         for (;;) {
-                char la[DNS_LABEL_MAX], lb[DNS_LABEL_MAX];
+                char la[DNS_LABEL_MAX+1], lb[DNS_LABEL_MAX+1];
 
                 if (x == NULL && y == NULL)
                         return 0;
@@ -543,7 +543,7 @@ int dns_name_equal(const char *x, const char *y) {
         assert(y);
 
         for (;;) {
-                char la[DNS_LABEL_MAX], lb[DNS_LABEL_MAX];
+                char la[DNS_LABEL_MAX+1], lb[DNS_LABEL_MAX+1];
 
                 r = dns_label_unescape(&x, la, sizeof la, 0);
                 if (r < 0)
@@ -574,7 +574,7 @@ int dns_name_endswith(const char *name, const char *suffix) {
         s = suffix;
 
         for (;;) {
-                char ln[DNS_LABEL_MAX], ls[DNS_LABEL_MAX];
+                char ln[DNS_LABEL_MAX+1], ls[DNS_LABEL_MAX+1];
 
                 r = dns_label_unescape(&n, ln, sizeof ln, 0);
                 if (r < 0)
@@ -612,7 +612,7 @@ int dns_name_startswith(const char *name, const char *prefix) {
         p = prefix;
 
         for (;;) {
-                char ln[DNS_LABEL_MAX], lp[DNS_LABEL_MAX];
+                char ln[DNS_LABEL_MAX+1], lp[DNS_LABEL_MAX+1];
 
                 r = dns_label_unescape(&p, lp, sizeof lp, 0);
                 if (r < 0)
@@ -644,7 +644,7 @@ int dns_name_change_suffix(const char *name, const char *old_suffix, const char 
         s = old_suffix;
 
         for (;;) {
-                char ln[DNS_LABEL_MAX], ls[DNS_LABEL_MAX];
+                char ln[DNS_LABEL_MAX+1], ls[DNS_LABEL_MAX+1];
 
                 if (!saved_before)
                         saved_before = n;
@@ -929,7 +929,7 @@ bool dns_srv_type_is_valid(const char *name) {
                 return false;
 
         for (;;) {
-                char label[DNS_LABEL_MAX];
+                char label[DNS_LABEL_MAX+1];
 
                 /* This more or less implements RFC 6335, Section 5.1 */
 
@@ -1227,7 +1227,7 @@ int dns_name_common_suffix(const char *a, const char *b, const char **ret) {
                 return m;
 
         for (;;) {
-                char la[DNS_LABEL_MAX], lb[DNS_LABEL_MAX];
+                char la[DNS_LABEL_MAX+1], lb[DNS_LABEL_MAX+1];
                 const char *x, *y;
 
                 if (k >= n || k >= m) {
@@ -1328,7 +1328,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
         assert(ret);
 
         for (;;) {
-                char label[DNS_LABEL_MAX];
+                char label[DNS_LABEL_MAX+1];
 
                 r = dns_label_unescape(&name, label, sizeof label, 0);
                 if (r < 0)

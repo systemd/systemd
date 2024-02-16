@@ -187,14 +187,12 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
         struct stat a, b;
 
         assert(fda >= 0 || fda == AT_FDCWD);
-        assert(filea);
         assert(fdb >= 0 || fdb == AT_FDCWD);
-        assert(fileb);
 
-        if (fstatat(fda, filea, &a, flags) < 0)
+        if (fstatat(fda, strempty(filea), &a, flags) < 0)
                 return log_debug_errno(errno, "Cannot stat %s: %m", filea);
 
-        if (fstatat(fdb, fileb, &b, flags) < 0)
+        if (fstatat(fdb, strempty(fileb), &b, flags) < 0)
                 return log_debug_errno(errno, "Cannot stat %s: %m", fileb);
 
         return stat_inode_same(&a, &b);
@@ -262,11 +260,31 @@ int path_is_network_fs(const char *path) {
         return is_network_fs(&s);
 }
 
+int stat_verify_linked(const struct stat *st) {
+        assert(st);
+
+        if (st->st_nlink <= 0)
+                return -EIDRM; /* recognizable error. */
+
+        return 0;
+}
+
+int fd_verify_linked(int fd) {
+        struct stat st;
+
+        assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        return stat_verify_linked(&st);
+}
+
 int stat_verify_regular(const struct stat *st) {
         assert(st);
 
-        /* Checks whether the specified stat() structure refers to a regular file. If not returns an appropriate error
-         * code. */
+        /* Checks whether the specified stat() structure refers to a regular file. If not returns an
+         * appropriate error code. */
 
         if (S_ISDIR(st->st_mode))
                 return -EISDIR;
@@ -470,7 +488,7 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(ret);
 
-        fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOCTTY, /* xopen_flags = */ 0, /* mode = */ 0);
+        fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
                 return fd;
 
@@ -478,8 +496,8 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
 }
 
 void inode_hash_func(const struct stat *q, struct siphash *state) {
-        siphash24_compress(&q->st_dev, sizeof(q->st_dev), state);
-        siphash24_compress(&q->st_ino, sizeof(q->st_ino), state);
+        siphash24_compress_typesafe(q->st_dev, state);
+        siphash24_compress_typesafe(q->st_ino, state);
 }
 
 int inode_compare_func(const struct stat *a, const struct stat *b) {
@@ -517,4 +535,26 @@ const char* inode_type_to_string(mode_t m) {
         }
 
         return NULL;
+}
+
+mode_t inode_type_from_string(const char *s) {
+        if (!s)
+                return MODE_INVALID;
+
+        if (streq(s, "reg"))
+                return S_IFREG;
+        if (streq(s, "dir"))
+                return S_IFDIR;
+        if (streq(s, "lnk"))
+                return S_IFLNK;
+        if (streq(s, "chr"))
+                return S_IFCHR;
+        if (streq(s, "blk"))
+                return S_IFBLK;
+        if (streq(s, "fifo"))
+                return S_IFIFO;
+        if (streq(s, "sock"))
+                return S_IFSOCK;
+
+        return MODE_INVALID;
 }

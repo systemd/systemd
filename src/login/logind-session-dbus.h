@@ -16,6 +16,7 @@ int session_send_lock(Session *s, bool lock);
 int session_send_lock_all(Manager *m, bool lock);
 
 int session_send_create_reply(Session *s, sd_bus_error *error);
+int session_send_upgrade_reply(Session *s, sd_bus_error *error);
 
 int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_error *error);

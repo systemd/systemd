@@ -258,7 +258,7 @@ int link_request_radv_addresses(Link *link) {
                         return r;
 
                 SET_FOREACH(a, addresses) {
-                        _cleanup_(address_freep) Address *address = NULL;
+                        _cleanup_(address_unrefp) Address *address = NULL;
 
                         r = address_new(&address);
                         if (r < 0)

@@ -2120,24 +2120,27 @@ static int hashmap_entry_compare(
         return compare((*a)->key, (*b)->key);
 }
 
-int _hashmap_dump_sorted(HashmapBase *h, void ***ret, size_t *ret_n) {
-        _cleanup_free_ struct hashmap_base_entry **entries = NULL;
+static int _hashmap_dump_entries_sorted(
+                HashmapBase *h,
+                void ***ret,
+                size_t *ret_n) {
+        _cleanup_free_ void **entries = NULL;
         Iterator iter;
         unsigned idx;
         size_t n = 0;
 
         assert(ret);
+        assert(ret_n);
 
         if (_hashmap_size(h) == 0) {
                 *ret = NULL;
-                if (ret_n)
-                        *ret_n = 0;
+                *ret_n = 0;
                 return 0;
         }
 
         /* We append one more element than needed so that the resulting array can be used as a strv. We
          * don't count this entry in the returned size. */
-        entries = new(struct hashmap_base_entry*, _hashmap_size(h) + 1);
+        entries = new(void*, _hashmap_size(h) + 1);
         if (!entries)
                 return -ENOMEM;
 
@@ -2147,13 +2150,47 @@ int _hashmap_dump_sorted(HashmapBase *h, void ***ret, size_t *ret_n) {
         assert(n == _hashmap_size(h));
         entries[n] = NULL;
 
-        typesafe_qsort_r(entries, n, hashmap_entry_compare, h->hash_ops->compare);
+        typesafe_qsort_r((struct hashmap_base_entry**) entries, n,
+                         hashmap_entry_compare, h->hash_ops->compare);
+
+        *ret = TAKE_PTR(entries);
+        *ret_n = n;
+        return 0;
+}
+
+int _hashmap_dump_keys_sorted(HashmapBase *h, void ***ret, size_t *ret_n) {
+        _cleanup_free_ void **entries = NULL;
+        size_t n;
+        int r;
+
+        r = _hashmap_dump_entries_sorted(h, &entries, &n);
+        if (r < 0)
+                return r;
 
         /* Reuse the array. */
         FOREACH_ARRAY(e, entries, n)
-                *e = entry_value(h, *e);
+                *e = (void*) (*(struct hashmap_base_entry**) e)->key;
 
-        *ret = (void**) TAKE_PTR(entries);
+        *ret = TAKE_PTR(entries);
+        if (ret_n)
+                *ret_n = n;
+        return 0;
+}
+
+int _hashmap_dump_sorted(HashmapBase *h, void ***ret, size_t *ret_n) {
+        _cleanup_free_ void **entries = NULL;
+        size_t n;
+        int r;
+
+        r = _hashmap_dump_entries_sorted(h, &entries, &n);
+        if (r < 0)
+                return r;
+
+        /* Reuse the array. */
+        FOREACH_ARRAY(e, entries, n)
+                *e = entry_value(h, *(struct hashmap_base_entry**) e);
+
+        *ret = TAKE_PTR(entries);
         if (ret_n)
                 *ret_n = n;
         return 0;

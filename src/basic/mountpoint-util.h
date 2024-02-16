@@ -3,6 +3,7 @@
 
 #include <fcntl.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <sys/types.h>
 
 /* The limit used for /dev itself. 4MB should be enough since device nodes and symlinks don't
@@ -44,7 +45,10 @@ static inline int path_get_mnt_id(const char *path, int *ret) {
 }
 
 int fd_is_mount_point(int fd, const char *filename, int flags);
-int path_is_mount_point(const char *path, const char *root, int flags);
+int path_is_mount_point_full(const char *path, const char *root, int flags);
+static inline int path_is_mount_point(const char *path) {
+        return path_is_mount_point_full(path, NULL, 0);
+}
 
 bool fstype_is_network(const char *fstype);
 bool fstype_needs_quota(const char *fstype);
@@ -69,3 +73,5 @@ bool mount_new_api_supported(void);
 unsigned long ms_nosymfollow_supported(void);
 
 int mount_option_supported(const char *fstype, const char *key, const char *value);
+
+bool path_below_api_vfs(const char *p);

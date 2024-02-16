@@ -799,7 +799,7 @@ static int dissect_image(
                         if (suuid) {
                                 /* blkid will return FAT's serial number as UUID, hence it is quite possible
                                  * that parsing this will fail. We'll ignore the ID, since it's just too
-                                 * short to be useful as tru identifier. */
+                                 * short to be useful as true identifier. */
                                 r = sd_id128_from_string(suuid, &uuid);
                                 if (r < 0)
                                         log_debug_errno(r, "Failed to parse file system UUID '%s', ignoring: %m", suuid);
@@ -1547,6 +1547,7 @@ int dissect_image_file(
 #if HAVE_BLKID
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_close_ int fd = -EBADF;
+        struct stat st;
         int r;
 
         assert(path);
@@ -1555,13 +1556,18 @@ int dissect_image_file(
         if (fd < 0)
                 return -errno;
 
-        r = fd_verify_regular(fd);
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        r = stat_verify_regular(&st);
         if (r < 0)
                 return r;
 
         r = dissected_image_new(path, &m);
         if (r < 0)
                 return r;
+
+        m->image_size = st.st_size;
 
         r = probe_sector_size(fd, &m->sector_size);
         if (r < 0)
@@ -1759,8 +1765,9 @@ static int fs_grow(const char *node_path, int mount_fd, const char *mount_path) 
         if (node_fd < 0)
                 return log_debug_errno(errno, "Failed to open node device %s: %m", node_path);
 
-        if (ioctl(node_fd, BLKGETSIZE64, &size) != 0)
-                return log_debug_errno(errno, "Failed to get block device size of %s: %m", node_path);
+        r = blockdev_get_device_size(node_fd, &size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get block device size of %s: %m", node_path);
 
         if (mount_fd < 0) {
                 assert(mount_path);
@@ -2137,7 +2144,7 @@ int dissected_image_mount(
 
         if (userns_fd < 0 && need_user_mapping(uid_shift, uid_range) && FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_IDMAPPED)) {
 
-                my_userns_fd = make_userns(uid_shift, uid_range, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
+                my_userns_fd = make_userns(uid_shift, uid_range, UID_INVALID, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
                 if (my_userns_fd < 0)
                         return my_userns_fd;
 
@@ -2179,7 +2186,7 @@ int dissected_image_mount(
                         if (r > 0)
                                 ok = true;
                 }
-                if (!ok && FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS_EXT)) {
+                if (!ok && FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS_EXT) && m->image_name) {
                         r = extension_has_forbidden_content(where);
                         if (r < 0)
                                 return r;
@@ -2787,7 +2794,9 @@ static int verity_partition(
                  * https://gitlab.com/cryptsetup/cryptsetup/-/merge_requests/96 */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         break;
-                if (r == -ENODEV) /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */
+                /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again if
+                 * sharing is enabled. */
+                if (r == -ENODEV && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         goto try_again;
                 if (!IN_SET(r,
                             -EEXIST, /* Volume has already been opened and ready to be used. */
@@ -2933,7 +2942,9 @@ int dissected_image_decrypt(
 
                 k = partition_verity_of(i);
                 if (k >= 0) {
-                        r = verity_partition(i, p, m->partitions + k, verity, flags | DISSECT_IMAGE_VERITY_SHARE, d);
+                        flags |= getenv_bool("SYSTEMD_VERITY_SHARING") != 0 ? DISSECT_IMAGE_VERITY_SHARE : 0;
+
+                        r = verity_partition(i, p, m->partitions + k, verity, flags, d);
                         if (r < 0)
                                 return r;
                 }
@@ -3159,7 +3170,7 @@ int verity_settings_load(
                 }
 
                 if (text) {
-                        r = unhexmem(text, strlen(text), &root_hash, &root_hash_size);
+                        r = unhexmem(text, &root_hash, &root_hash_size);
                         if (r < 0)
                                 return r;
                         if (root_hash_size < sizeof(sd_id128_t))
@@ -3313,7 +3324,7 @@ int dissected_image_load_verity_sig_partition(
         if (!json_variant_is_string(rh))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'rootHash' field of signature JSON object is not a string.");
 
-        r = unhexmem(json_variant_string(rh), SIZE_MAX, &root_hash, &root_hash_size);
+        r = unhexmem(json_variant_string(rh), &root_hash, &root_hash_size);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse root hash field: %m");
 
@@ -3334,7 +3345,7 @@ int dissected_image_load_verity_sig_partition(
         if (!json_variant_is_string(sig))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'signature' field of signature JSON object is not a string.");
 
-        r = unbase64mem(json_variant_string(sig), SIZE_MAX, &root_hash_sig, &root_hash_sig_size);
+        r = unbase64mem(json_variant_string(sig), &root_hash_sig, &root_hash_sig_size);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse signature field: %m");
 
@@ -3375,11 +3386,10 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         };
 
         _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **initrd_release = NULL, **sysext_release = NULL, **confext_release = NULL;
+        _cleanup_free_ char *hostname = NULL, *t = NULL;
         _cleanup_close_pair_ int error_pipe[2] = EBADF_PAIR;
-        _cleanup_(rmdir_and_freep) char *t = NULL;
         _cleanup_(sigkill_waitp) pid_t child = 0;
         sd_id128_t machine_id = SD_ID128_NULL;
-        _cleanup_free_ char *hostname = NULL;
         unsigned n_meta_initialized = 0;
         int fds[2 * _META_MAX], r, v;
         int has_init_system = -1;
@@ -3389,11 +3399,8 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
         assert(m);
 
-        for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
-                if (!paths[n_meta_initialized]) {
-                        fds[2*n_meta_initialized] = fds[2*n_meta_initialized+1] = -EBADF;
-                        continue;
-                }
+        for (; n_meta_initialized < _META_MAX; n_meta_initialized++) {
+                assert(paths[n_meta_initialized]);
 
                 if (pipe2(fds + 2*n_meta_initialized, O_CLOEXEC) < 0) {
                         r = -errno;
@@ -3401,7 +3408,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                 }
         }
 
-        r = mkdtemp_malloc("/tmp/dissect-XXXXXX", &t);
+        r = get_common_dissect_directory(&t);
         if (r < 0)
                 goto finish;
 
@@ -3435,14 +3442,16 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                 for (unsigned k = 0; k < _META_MAX; k++) {
                         _cleanup_close_ int fd = -ENOENT;
 
-                        if (!paths[k])
-                                continue;
+                        assert(paths[k]);
 
                         fds[2*k] = safe_close(fds[2*k]);
 
                         switch (k) {
 
                         case META_SYSEXT_RELEASE:
+                                if (!m->image_name)
+                                        goto next;
+
                                 /* As per the os-release spec, if the image is an extension it will have a
                                  * file named after the image name in extension-release.d/ - we use the image
                                  * name and try to resolve it with the extension-release helpers, as
@@ -3463,6 +3472,9 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                                 break;
 
                         case META_CONFEXT_RELEASE:
+                                if (!m->image_name)
+                                        goto next;
+
                                 /* As above */
                                 r = open_extension_release(
                                                 t,
@@ -3498,7 +3510,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                                 if (r < 0)
                                         goto inner_fail;
 
-                                continue;
+                                goto next;
                         }
 
                         default:
@@ -3511,14 +3523,14 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
                         if (fd < 0) {
                                 log_debug_errno(fd, "Failed to read %s file of image, ignoring: %m", paths[k]);
-                                fds[2*k+1] = safe_close(fds[2*k+1]);
-                                continue;
+                                goto next;
                         }
 
                         r = copy_bytes(fd, fds[2*k+1], UINT64_MAX, 0);
                         if (r < 0)
                                 goto inner_fail;
 
+                next:
                         fds[2*k+1] = safe_close(fds[2*k+1]);
                 }
 
@@ -3535,8 +3547,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         for (unsigned k = 0; k < _META_MAX; k++) {
                 _cleanup_fclose_ FILE *f = NULL;
 
-                if (!paths[k])
-                        continue;
+                assert(paths[k]);
 
                 fds[2*k+1] = safe_close(fds[2*k+1]);
 
@@ -3628,18 +3639,25 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         r = wait_for_terminate_and_check("(sd-dissect)", child, 0);
         child = 0;
         if (r < 0)
-                return r;
+                goto finish;
 
         n = read(error_pipe[0], &v, sizeof(v));
-        if (n < 0)
-                return -errno;
-        if (n == sizeof(v))
-                return v; /* propagate error sent to us from child */
-        if (n != 0)
-                return -EIO;
-
-        if (r != EXIT_SUCCESS)
-                return -EPROTO;
+        if (n < 0) {
+                r = -errno;
+                goto finish;
+        }
+        if (n == sizeof(v)) {
+                r = v; /* propagate error sent to us from child */
+                goto finish;
+        }
+        if (n != 0) {
+                r = -EIO;
+                goto finish;
+        }
+        if (r != EXIT_SUCCESS) {
+                r = -EPROTO;
+                goto finish;
+        }
 
         free_and_replace(m->hostname, hostname);
         m->machine_id = machine_id;
@@ -3690,6 +3708,7 @@ int dissect_loop_device(
                 return r;
 
         m->loop = loop_device_ref(loop);
+        m->image_size = m->loop->device_size;
         m->sector_size = m->loop->sector_size;
 
         r = dissect_image(m, loop->fd, loop->node, verity, mount_options, image_policy, flags);
@@ -4051,6 +4070,32 @@ int verity_dissect_and_mount(
 
         if (ret_image)
                 *ret_image = TAKE_PTR(dissected_image);
+
+        return 0;
+}
+
+int get_common_dissect_directory(char **ret) {
+        _cleanup_free_ char *t = NULL;
+        int r;
+
+        /* A common location we mount dissected images to. The assumption is that everyone who uses this
+         * function runs in their own private mount namespace (with mount propagation off on /run/systemd/,
+         * and thus can mount something here without affecting anyone else). */
+
+        t = strdup("/run/systemd/dissect-root");
+        if (!t)
+                return log_oom_debug();
+
+        r = mkdir_parents(t, 0755);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create parent dirs of mount point '%s': %m", t);
+
+        r = RET_NERRNO(mkdir(t, 0000)); /* It's supposed to be overmounted, hence let's make this inaccessible */
+        if (r < 0 && r != -EEXIST)
+                return log_debug_errno(r, "Failed to create mount point '%s': %m", t);
+
+        if (ret)
+                *ret = TAKE_PTR(t);
 
         return 0;
 }

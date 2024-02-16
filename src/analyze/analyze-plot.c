@@ -168,7 +168,7 @@ static void plot_tooltip(const UnitTimes *ut) {
         svg("%s:\n", ut->name);
 
         UnitDependency i;
-        VA_ARGS_FOREACH(i, UNIT_AFTER, UNIT_BEFORE, UNIT_REQUIRES, UNIT_REQUISITE, UNIT_WANTS, UNIT_CONFLICTS, UNIT_UPHOLDS)
+        FOREACH_ARGUMENT(i, UNIT_AFTER, UNIT_BEFORE, UNIT_REQUIRES, UNIT_REQUISITE, UNIT_WANTS, UNIT_CONFLICTS, UNIT_UPHOLDS)
                 if (!strv_isempty(ut->deps[i])) {
                         svg("\n%s:\n", unit_dependency_to_string(i));
                         STRV_FOREACH(s, ut->deps[i])
@@ -402,7 +402,7 @@ static int show_table(Table *table, const char *word) {
         assert(table);
         assert(word);
 
-        if (table_get_rows(table) > 1) {
+        if (!table_isempty(table)) {
                 table_set_header(table, arg_legend);
 
                 if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
@@ -414,10 +414,10 @@ static int show_table(Table *table, const char *word) {
         }
 
         if (arg_legend) {
-                if (table_get_rows(table) > 1)
-                        printf("\n%zu %s listed.\n", table_get_rows(table) - 1, word);
-                else
+                if (table_isempty(table))
                         printf("No %s.\n", word);
+                else
+                        printf("\n%zu %s listed.\n", table_get_rows(table) - 1, word);
         }
 
         return 0;

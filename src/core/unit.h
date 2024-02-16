@@ -1,12 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <errno.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
+
+/* Circular dependency with manager.h, needs to be defined before local includes */
+typedef enum UnitMountDependencyType {
+        UNIT_MOUNT_WANTS,
+        UNIT_MOUNT_REQUIRES,
+        _UNIT_MOUNT_DEPENDENCY_TYPE_MAX,
+        _UNIT_MOUNT_DEPENDENCY_TYPE_INVALID = -EINVAL,
+} UnitMountDependencyType;
 
 #include "bpf-program.h"
 #include "cgroup.h"
@@ -216,9 +225,9 @@ typedef struct Unit {
          * Hashmap(UnitDependency → Hashmap(Unit* → UnitDependencyInfo)) */
         Hashmap *dependencies;
 
-        /* Similar, for RequiresMountsFor= path dependencies. The key is the path, the value the
-         * UnitDependencyInfo type */
-        Hashmap *requires_mounts_for;
+        /* Similar, for RequiresMountsFor= and WantsMountsFor= path dependencies. The key is the path, the
+         * value the UnitDependencyInfo type */
+        Hashmap *mounts_for[_UNIT_MOUNT_DEPENDENCY_TYPE_MAX];
 
         char *description;
         char **documentation;
@@ -633,9 +642,9 @@ typedef struct UnitVTable {
         /* Clear out the various runtime/state/cache/logs/configuration data */
         int (*clean)(Unit *u, ExecCleanMask m);
 
-        /* Freeze the unit */
-        int (*freeze)(Unit *u);
-        int (*thaw)(Unit *u);
+        /* Freeze or thaw the unit. Returns > 0 to indicate that the request will be handled asynchronously; unit_frozen
+         * or unit_thawed should be called once the operation is done. Returns 0 if done successfully, or < 0 on error. */
+        int (*freezer_action)(Unit *u, FreezerAction a);
         bool (*can_freeze)(Unit *u);
 
         /* Return which kind of data can be cleaned */
@@ -722,10 +731,10 @@ typedef struct UnitVTable {
         /* Returns the start timeout of a unit */
         usec_t (*get_timeout_start_usec)(Unit *u);
 
-        /* Returns the main PID if there is any defined, or 0. */
-        PidRef* (*main_pid)(Unit *u);
+        /* Returns the main PID if there is any defined, or NULL. */
+        PidRef* (*main_pid)(Unit *u, bool *ret_is_alien);
 
-        /* Returns the control PID if there is any defined, or 0. */
+        /* Returns the control PID if there is any defined, or NULL. */
         PidRef* (*control_pid)(Unit *u);
 
         /* Returns true if the unit currently needs access to the console */
@@ -903,7 +912,6 @@ bool unit_has_name(const Unit *u, const char *name);
 
 UnitActiveState unit_active_state(Unit *u);
 FreezerState unit_freezer_state(Unit *u);
-int unit_freezer_state_kernel(Unit *u, FreezerState *ret);
 
 const char* unit_sub_state_to_string(Unit *u);
 
@@ -916,17 +924,18 @@ int unit_start(Unit *u, ActivationDetails *details);
 int unit_stop(Unit *u);
 int unit_reload(Unit *u);
 
-int unit_kill(Unit *u, KillWho w, int signo, int code, int value, sd_bus_error *error);
+int unit_kill(Unit *u, KillWho w, int signo, int code, int value, sd_bus_error *ret_error);
 
 void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success);
 
-int unit_watch_pidref(Unit *u, PidRef *pid, bool exclusive);
+int unit_watch_pidref(Unit *u, const PidRef *pid, bool exclusive);
 int unit_watch_pid(Unit *u, pid_t pid, bool exclusive);
-void unit_unwatch_pidref(Unit *u, PidRef *pid);
+void unit_unwatch_pidref(Unit *u, const PidRef *pid);
 void unit_unwatch_pid(Unit *u, pid_t pid);
 void unit_unwatch_all_pids(Unit *u);
+void unit_unwatch_pidref_done(Unit *u, PidRef *pidref);
 
 int unit_enqueue_rewatch_pids(Unit *u);
 void unit_dequeue_rewatch_pids(Unit *u);
@@ -997,11 +1006,11 @@ char* unit_concat_strv(char **l, UnitWriteFlags flags);
 int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const char *data);
 int unit_write_settingf(Unit *u, UnitWriteFlags mode, const char *name, const char *format, ...) _printf_(4,5);
 
-int unit_kill_context(Unit *u, KillContext *c, KillOperation k, PidRef *main_pid, PidRef *control_pid, bool main_pid_alien);
+int unit_kill_context(Unit *u, KillOperation k);
 
 int unit_make_transient(Unit *u);
 
-int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask);
+int unit_add_mounts_for(Unit *u, const char *path, UnitDependencyMask mask, UnitMountDependencyType type);
 
 bool unit_type_supported(UnitType t);
 
@@ -1012,7 +1021,10 @@ bool unit_is_upheld_by_active(Unit *u, Unit **ret_culprit);
 bool unit_is_bound_by_inactive(Unit *u, Unit **ret_culprit);
 
 PidRef* unit_control_pid(Unit *u);
-PidRef* unit_main_pid(Unit *u);
+PidRef* unit_main_pid_full(Unit *u, bool *ret_is_alien);
+static inline PidRef* unit_main_pid(Unit *u) {
+        return unit_main_pid_full(u, NULL);
+}
 
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
 int unit_fail_if_noncanonical(Unit *u, const char* where);
@@ -1046,7 +1058,7 @@ int unit_warn_leftover_processes(Unit *u, cg_kill_log_func_t log_func);
 
 bool unit_needs_console(Unit *u);
 
-int unit_pid_attachable(Unit *unit, PidRef *pid, sd_bus_error *error);
+int unit_pid_attachable(Unit *unit, const PidRef *pid, sd_bus_error *error);
 
 static inline bool unit_has_job_type(Unit *u, JobType type) {
         return u && u->job && u->job->type == type;
@@ -1086,20 +1098,20 @@ bool unit_can_stop_refuse_manual(Unit *u);
 bool unit_can_isolate_refuse_manual(Unit *u);
 
 bool unit_can_freeze(Unit *u);
-int unit_freeze(Unit *u);
+int unit_freezer_action(Unit *u, FreezerAction action);
+void unit_next_freezer_state(Unit *u, FreezerAction a, FreezerState *ret, FreezerState *ret_tgt);
 void unit_frozen(Unit *u);
-
-int unit_thaw(Unit *u);
 void unit_thawed(Unit *u);
-
-int unit_freeze_vtable_common(Unit *u);
-int unit_thaw_vtable_common(Unit *u);
 
 Condition *unit_find_failed_condition(Unit *u);
 
 int unit_arm_timer(Unit *u, sd_event_source **source, bool relative, usec_t usec, sd_event_time_handler_t handler);
 
 int unit_compare_priority(Unit *a, Unit *b);
+
+UnitMountDependencyType unit_mount_dependency_type_from_string(const char *s) _const_;
+const char* unit_mount_dependency_type_to_string(UnitMountDependencyType t) _const_;
+UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependencyType t) _pure_;
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

@@ -37,7 +37,7 @@ sleep 3.1
 
 cat >/run/systemd/system/testsuite-23-no-reload.service <<EOF
 [Service]
-ExecStart=/bin/sleep infinity
+ExecStart=sleep infinity
 EOF
 
 systemctl start testsuite-23-no-reload.service
@@ -53,7 +53,7 @@ sleep 3.1
 
 cat >/run/systemd/system/testsuite-23-no-reload.service <<EOF
 [Service]
-ExecStart=/bin/sleep infinity
+ExecStart=sleep infinity
 EOF
 
 # Start a non-existing unit first, so that the cache is reloaded for an unrelated
@@ -85,7 +85,7 @@ systemctl start testsuite-23-no-reload.target
 
 cat >/run/systemd/system/testsuite-23-no-reload.service <<EOF
 [Service]
-ExecStart=/bin/sleep infinity
+ExecStart=sleep infinity
 EOF
 
 systemctl restart testsuite-23-no-reload.target

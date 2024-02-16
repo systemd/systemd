@@ -3,6 +3,6 @@
 Description=Test for Personality=ppc64
 
 [Service]
-ExecStart=/bin/sh -c 'echo $(uname -m); exit $(test $(uname -m) = "ppc64")'
+ExecStart=sh -c 'echo $(uname -m); exit $(test $(uname -m) = "ppc64")'
 Type=oneshot
 Personality=ppc64

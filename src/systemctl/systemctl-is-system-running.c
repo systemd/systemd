@@ -29,7 +29,7 @@ int verb_is_system_running(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        if (running_in_chroot() > 0 || (arg_transport == BUS_TRANSPORT_LOCAL && !sd_booted())) {
+        if (!isempty(arg_root) || running_in_chroot() > 0 || (arg_transport == BUS_TRANSPORT_LOCAL && !sd_booted())) {
                 if (!arg_quiet)
                         puts("offline");
                 return EXIT_FAILURE;

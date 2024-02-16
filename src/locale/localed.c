@@ -15,6 +15,7 @@
 #include "bus-polkit.h"
 #include "bus-unit-util.h"
 #include "constants.h"
+#include "daemon-util.h"
 #include "kbd-util.h"
 #include "localed-util.h"
 #include "macro.h"
@@ -281,13 +282,12 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
                 return sd_bus_reply_method_return(m, NULL);
         }
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         m,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.locale1.set-locale",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -386,13 +386,12 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         if (vc_context_equal(&c->vc, &in) && !x_needs_update)
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         m,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.locale1.set-keyboard",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -506,13 +505,12 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
         if (x11_context_equal(&c->x11_from_vc, &in) && x11_context_equal(&c->x11_from_xorg, &in) && !convert)
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         m,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.locale1.set-keyboard",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -650,25 +648,23 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
-
         r = sd_event_default(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
         (void) sd_event_set_watchdog(event, true);
 
-        r = sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+        r = sd_event_set_signal_exit(event, true);
         if (r < 0)
-                return log_error_errno(r, "Failed to install SIGINT handler: %m");
-
-        r = sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to install SIGTERM handler: %m");
+                return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
 
         r = connect_bus(&context, event, &bus);
         if (r < 0)
                 return r;
+
+        r = sd_notify(false, NOTIFY_READY);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 
         r = bus_event_loop_with_idle(event, bus, "org.freedesktop.locale1", DEFAULT_EXIT_USEC, NULL, NULL);
         if (r < 0)

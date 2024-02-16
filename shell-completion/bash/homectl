@@ -146,6 +146,9 @@ _homectl() {
             --cifs-user-name)
                 comps=$(compgen -A user -- "$cur" )
                 ;;
+            --language)
+                comps=$(localectl list-locales 2>/dev/null)
+                ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
         return 0

@@ -1080,8 +1080,24 @@ static int add_syscall_filter_set(
         return 0;
 }
 
+static uint32_t override_default_action(uint32_t default_action) {
+        /* When the requested filter is an allow-list, and the default action is something critical, we
+         * install ENOSYS as the default action, but it will only apply to syscalls which are not in the
+         * @known set. */
+
+        if (default_action == SCMP_ACT_ALLOW)
+                return default_action;
+
+#ifdef SCMP_ACT_LOG
+        if (default_action == SCMP_ACT_LOG)
+                return default_action;
+#endif
+
+        return SCMP_ACT_ERRNO(ENOSYS);
+}
+
 int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilterSet *set, uint32_t action, bool log_missing) {
-        uint32_t arch;
+        uint32_t arch, default_action_override;
         int r;
 
         assert(set);
@@ -1089,18 +1105,46 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
         /* The one-stop solution: allocate a seccomp object, add the specified filter to it, and apply it. Once for
          * each local arch. */
 
+        default_action_override = override_default_action(default_action);
+
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+                _cleanup_strv_free_ char **added = NULL;
 
                 log_trace("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
-                r = seccomp_init_for_arch(&seccomp, arch, default_action);
+                r = seccomp_init_for_arch(&seccomp, arch, default_action_override);
                 if (r < 0)
                         return r;
 
-                r = add_syscall_filter_set(seccomp, set, action, NULL, log_missing, NULL);
+                r = add_syscall_filter_set(seccomp, set, action, NULL, log_missing, &added);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add filter set: %m");
+
+                if (default_action != default_action_override)
+                        NULSTR_FOREACH(name, syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].value) {
+                                int id;
+
+                                id = seccomp_syscall_resolve_name(name);
+                                if (id < 0)
+                                        continue;
+
+                                /* Ignore the syscall if it was already handled above */
+                                if (strv_contains(added, name))
+                                        continue;
+
+                                r = seccomp_rule_add_exact(seccomp, default_action, id, 0);
+                                if (r < 0 && r != -EDOM)  /* EDOM means that the syscall is not available for arch */
+                                        return log_debug_errno(r, "Failed to add rule for system call %s() / %d: %m",
+                                                               name, id);
+                        }
+
+#if (SCMP_VER_MAJOR == 2 && SCMP_VER_MINOR >= 5) || SCMP_VER_MAJOR > 2
+                /* We have a large filter here, so let's turn on the binary tree mode if possible. */
+                r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_OPTIMIZE, 2);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set SCMP_FLTATR_CTL_OPTIMIZE, ignoring: %m");
+#endif
 
                 r = seccomp_load(seccomp);
                 if (ERRNO_IS_NEG_SECCOMP_FATAL(r))
@@ -1114,7 +1158,7 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
 }
 
 int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* filter, uint32_t action, bool log_missing) {
-        uint32_t arch;
+        uint32_t arch, default_action_override;
         int r;
 
         /* Similar to seccomp_load_syscall_filter_set(), but takes a raw Hashmap* of syscalls, instead
@@ -1123,13 +1167,15 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* filter
         if (hashmap_isempty(filter) && default_action == SCMP_ACT_ALLOW)
                 return 0;
 
+        default_action_override = override_default_action(default_action);
+
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
                 void *syscall_id, *val;
 
                 log_trace("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
-                r = seccomp_init_for_arch(&seccomp, arch, default_action);
+                r = seccomp_init_for_arch(&seccomp, arch, default_action_override);
                 if (r < 0)
                         return r;
 
@@ -1163,6 +1209,31 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* filter
                                         return r;
                         }
                 }
+
+                if (default_action != default_action_override)
+                        NULSTR_FOREACH(name, syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].value) {
+                                int id;
+
+                                id = seccomp_syscall_resolve_name(name);
+                                if (id < 0)
+                                        continue;
+
+                                /* Ignore the syscall if it was already handled above */
+                                if (hashmap_contains(filter, INT_TO_PTR(id + 1)))
+                                        continue;
+
+                                r = seccomp_rule_add_exact(seccomp, default_action, id, 0);
+                                if (r < 0 && r != -EDOM)  /* EDOM means that the syscall is not available for arch */
+                                        return log_debug_errno(r, "Failed to add rule for system call %s() / %d: %m",
+                                                               name, id);
+                        }
+
+#if (SCMP_VER_MAJOR == 2 && SCMP_VER_MINOR >= 5) || SCMP_VER_MAJOR > 2
+                /* We have a large filter here, so let's turn on the binary tree mode if possible. */
+                r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_OPTIMIZE, 2);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set SCMP_FLTATR_CTL_OPTIMIZE, ignoring: %m");
+#endif
 
                 r = seccomp_load(seccomp);
                 if (ERRNO_IS_NEG_SECCOMP_FATAL(r))
@@ -1223,7 +1294,7 @@ int seccomp_parse_syscall_filter(
                                 return -EINVAL;
 
                         log_syntax(unit, FLAGS_SET(flags, SECCOMP_PARSE_LOG) ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
-                                   "Failed to parse system call, ignoring: %s", name);
+                                   "System call %s is not known, ignoring.", name);
                         return 0;
                 }
 
@@ -1981,7 +2052,7 @@ int seccomp_filter_set_add(Hashmap *filter, bool add, const SyscallFilterSet *se
 
                         id = seccomp_syscall_resolve_name(i);
                         if (id == __NR_SCMP_ERROR) {
-                                log_debug("Couldn't resolve system call, ignoring: %s", i);
+                                log_debug("System call %s is not known, ignoring.", i);
                                 continue;
                         }
 

@@ -310,9 +310,9 @@ static int process(
 
                         if (all_unified) {
                                 while (!isempty(l)) {
-                                        if (sscanf(l, "rbytes=%" SCNu64, &k))
+                                        if (sscanf(l, "rbytes=%" SCNu64, &k) == 1)
                                                 rd += k;
-                                        else if (sscanf(l, "wbytes=%" SCNu64, &k))
+                                        else if (sscanf(l, "wbytes=%" SCNu64, &k) == 1)
                                                 wr += k;
 
                                         l += strcspn(l, WHITESPACE);

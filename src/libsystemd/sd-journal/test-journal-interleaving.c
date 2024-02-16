@@ -14,6 +14,7 @@
 #include "log.h"
 #include "logs-show.h"
 #include "parse-util.h"
+#include "random-util.h"
 #include "rm-rf.h"
 #include "tests.h"
 
@@ -42,7 +43,7 @@ static JournalFile *test_open_internal(const char *name, JournalFileFlags flags)
         m = mmap_cache_new();
         assert_se(m != NULL);
 
-        assert_ret(journal_file_open(-1, name, O_RDWR|O_CREAT, flags, 0644, UINT64_MAX, NULL, m, NULL, &f));
+        assert_ret(journal_file_open(-EBADF, name, O_RDWR|O_CREAT, flags, 0644, UINT64_MAX, NULL, m, NULL, &f));
         return f;
 }
 
@@ -58,7 +59,21 @@ static void test_close(JournalFile *f) {
         (void) journal_file_offline_close(f);
 }
 
-static void append_number(JournalFile *f, int n, const sd_id128_t *boot_id, uint64_t *seqnum) {
+static void test_done(const char *t) {
+        log_info("Done...");
+
+        if (arg_keep)
+                log_info("Not removing %s", t);
+        else {
+                journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
+
+                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+        }
+
+        log_info("------------------------------------------------------------");
+}
+
+static void append_number(JournalFile *f, int n, const sd_id128_t *boot_id, uint64_t *seqnum, uint64_t *ret_offset) {
         _cleanup_free_ char *p = NULL, *q = NULL;
         dual_timestamp ts;
         struct iovec iovec[2];
@@ -82,7 +97,7 @@ static void append_number(JournalFile *f, int n, const sd_id128_t *boot_id, uint
                 iovec[n_iov++] = IOVEC_MAKE_STRING(q);
         }
 
-        assert_ret(journal_file_append_entry(f, &ts, boot_id, iovec, n_iov, seqnum, NULL, NULL, NULL));
+        assert_ret(journal_file_append_entry(f, &ts, boot_id, iovec, n_iov, seqnum, NULL, NULL, ret_offset));
 }
 
 static void append_unreferenced_data(JournalFile *f, const sd_id128_t *boot_id) {
@@ -154,19 +169,19 @@ static void setup_sequential(void) {
         f3 = test_open("three.journal");
         assert_se(sd_id128_randomize(&id) >= 0);
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
-        append_number(f1, 1, &id, NULL);
-        append_number(f1, 2, &id, NULL);
-        append_number(f1, 3, &id, NULL);
-        append_number(f2, 4, &id, NULL);
+        append_number(f1, 1, &id, NULL, NULL);
+        append_number(f1, 2, &id, NULL, NULL);
+        append_number(f1, 3, &id, NULL, NULL);
+        append_number(f2, 4, &id, NULL, NULL);
         assert_se(sd_id128_randomize(&id) >= 0);
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
-        append_number(f2, 5, &id, NULL);
-        append_number(f2, 6, &id, NULL);
-        append_number(f3, 7, &id, NULL);
-        append_number(f3, 8, &id, NULL);
+        append_number(f2, 5, &id, NULL, NULL);
+        append_number(f2, 6, &id, NULL, NULL);
+        append_number(f3, 7, &id, NULL, NULL);
+        append_number(f3, 8, &id, NULL, NULL);
         assert_se(sd_id128_randomize(&id) >= 0);
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
-        append_number(f3, 9, &id, NULL);
+        append_number(f3, 9, &id, NULL, NULL);
         test_close(f1);
         test_close(f2);
         test_close(f3);
@@ -181,15 +196,15 @@ static void setup_interleaved(void) {
         f3 = test_open("three.journal");
         assert_se(sd_id128_randomize(&id) >= 0);
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
-        append_number(f1, 1, &id, NULL);
-        append_number(f2, 2, &id, NULL);
-        append_number(f3, 3, &id, NULL);
-        append_number(f1, 4, &id, NULL);
-        append_number(f2, 5, &id, NULL);
-        append_number(f3, 6, &id, NULL);
-        append_number(f1, 7, &id, NULL);
-        append_number(f2, 8, &id, NULL);
-        append_number(f3, 9, &id, NULL);
+        append_number(f1, 1, &id, NULL, NULL);
+        append_number(f2, 2, &id, NULL, NULL);
+        append_number(f3, 3, &id, NULL, NULL);
+        append_number(f1, 4, &id, NULL, NULL);
+        append_number(f2, 5, &id, NULL, NULL);
+        append_number(f3, 6, &id, NULL, NULL);
+        append_number(f1, 7, &id, NULL, NULL);
+        append_number(f2, 8, &id, NULL, NULL);
+        append_number(f3, 9, &id, NULL, NULL);
         test_close(f1);
         test_close(f2);
         test_close(f3);
@@ -206,21 +221,21 @@ static void setup_unreferenced_data(void) {
         f3 = test_open_strict("three.journal");
         assert_se(sd_id128_randomize(&id) >= 0);
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
-        append_number(f1, 1, &id, NULL);
-        append_number(f1, 2, &id, NULL);
-        append_number(f1, 3, &id, NULL);
+        append_number(f1, 1, &id, NULL, NULL);
+        append_number(f1, 2, &id, NULL, NULL);
+        append_number(f1, 3, &id, NULL, NULL);
         assert_se(sd_id128_randomize(&id) >= 0);
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
         append_unreferenced_data(f1, &id);
-        append_number(f2, 4, &id, NULL);
-        append_number(f2, 5, &id, NULL);
-        append_number(f2, 6, &id, NULL);
+        append_number(f2, 4, &id, NULL, NULL);
+        append_number(f2, 5, &id, NULL, NULL);
+        append_number(f2, 6, &id, NULL, NULL);
         assert_se(sd_id128_randomize(&id) >= 0);
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
         append_unreferenced_data(f2, &id);
-        append_number(f3, 7, &id, NULL);
-        append_number(f3, 8, &id, NULL);
-        append_number(f3, 9, &id, NULL);
+        append_number(f3, 7, &id, NULL, NULL);
+        append_number(f3, 8, &id, NULL, NULL);
+        append_number(f3, 9, &id, NULL, NULL);
         test_close(f1);
         test_close(f2);
         test_close(f3);
@@ -245,14 +260,14 @@ static void test_skip_one(void (*setup)(void)) {
         setup();
 
         /* Seek to head, iterate down. */
-        assert_ret(sd_journal_open_directory(&j, t, 0));
+        assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
         assert_ret(sd_journal_seek_head(j));
         assert_se(sd_journal_next(j) == 1);     /* pointing to the first entry */
         test_check_numbers_down(j, 9);
         sd_journal_close(j);
 
         /* Seek to head, iterate down. */
-        assert_ret(sd_journal_open_directory(&j, t, 0));
+        assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
         assert_ret(sd_journal_seek_head(j));
         assert_se(sd_journal_next(j) == 1);     /* pointing to the first entry */
         assert_se(sd_journal_previous(j) == 0); /* no-op */
@@ -260,7 +275,7 @@ static void test_skip_one(void (*setup)(void)) {
         sd_journal_close(j);
 
         /* Seek to head twice, iterate down. */
-        assert_ret(sd_journal_open_directory(&j, t, 0));
+        assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
         assert_ret(sd_journal_seek_head(j));
         assert_se(sd_journal_next(j) == 1);     /* pointing to the first entry */
         assert_ret(sd_journal_seek_head(j));
@@ -269,7 +284,7 @@ static void test_skip_one(void (*setup)(void)) {
         sd_journal_close(j);
 
         /* Seek to head, move to previous, then iterate down. */
-        assert_ret(sd_journal_open_directory(&j, t, 0));
+        assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
         assert_ret(sd_journal_seek_head(j));
         assert_se(sd_journal_previous(j) == 0); /* no-op */
         assert_se(sd_journal_next(j) == 1);     /* pointing to the first entry */
@@ -277,7 +292,7 @@ static void test_skip_one(void (*setup)(void)) {
         sd_journal_close(j);
 
         /* Seek to head, walk several steps, then iterate down. */
-        assert_ret(sd_journal_open_directory(&j, t, 0));
+        assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
         assert_ret(sd_journal_seek_head(j));
         assert_se(sd_journal_previous(j) == 0); /* no-op */
         assert_se(sd_journal_previous(j) == 0); /* no-op */
@@ -289,14 +304,14 @@ static void test_skip_one(void (*setup)(void)) {
         sd_journal_close(j);
 
         /* Seek to tail, iterate up. */
-        assert_ret(sd_journal_open_directory(&j, t, 0));
+        assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
         assert_ret(sd_journal_seek_tail(j));
         assert_se(sd_journal_previous(j) == 1); /* pointing to the last entry */
         test_check_numbers_up(j, 9);
         sd_journal_close(j);
 
         /* Seek to tail twice, iterate up. */
-        assert_ret(sd_journal_open_directory(&j, t, 0));
+        assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
         assert_ret(sd_journal_seek_tail(j));
         assert_se(sd_journal_previous(j) == 1); /* pointing to the last entry */
         assert_ret(sd_journal_seek_tail(j));
@@ -305,7 +320,7 @@ static void test_skip_one(void (*setup)(void)) {
         sd_journal_close(j);
 
         /* Seek to tail, move to next, then iterate up. */
-        assert_ret(sd_journal_open_directory(&j, t, 0));
+        assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
         assert_ret(sd_journal_seek_tail(j));
         assert_se(sd_journal_next(j) == 0);     /* no-op */
         assert_se(sd_journal_previous(j) == 1); /* pointing to the last entry */
@@ -313,7 +328,7 @@ static void test_skip_one(void (*setup)(void)) {
         sd_journal_close(j);
 
         /* Seek to tail, walk several steps, then iterate up. */
-        assert_ret(sd_journal_open_directory(&j, t, 0));
+        assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
         assert_ret(sd_journal_seek_tail(j));
         assert_se(sd_journal_next(j) == 0);     /* no-op */
         assert_se(sd_journal_next(j) == 0);     /* no-op */
@@ -325,14 +340,14 @@ static void test_skip_one(void (*setup)(void)) {
         sd_journal_close(j);
 
         /* Seek to tail, skip to head, iterate down. */
-        assert_ret(sd_journal_open_directory(&j, t, 0));
+        assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
         assert_ret(sd_journal_seek_tail(j));
         assert_se(sd_journal_previous_skip(j, 9) == 9); /* pointing to the first entry. */
         test_check_numbers_down(j, 9);
         sd_journal_close(j);
 
         /* Seek to tail, skip to head in a more complex way, then iterate down. */
-        assert_ret(sd_journal_open_directory(&j, t, 0));
+        assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
         assert_ret(sd_journal_seek_tail(j));
         assert_se(sd_journal_next(j) == 0);
         assert_se(sd_journal_previous_skip(j, 4) == 4);
@@ -351,14 +366,14 @@ static void test_skip_one(void (*setup)(void)) {
         sd_journal_close(j);
 
         /* Seek to head, skip to tail, iterate up. */
-        assert_ret(sd_journal_open_directory(&j, t, 0));
+        assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
         assert_ret(sd_journal_seek_head(j));
         assert_se(sd_journal_next_skip(j, 9) == 9);
         test_check_numbers_up(j, 9);
         sd_journal_close(j);
 
         /* Seek to head, skip to tail in a more complex way, then iterate up. */
-        assert_ret(sd_journal_open_directory(&j, t, 0));
+        assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
         assert_ret(sd_journal_seek_head(j));
         assert_se(sd_journal_previous(j) == 0);
         assert_se(sd_journal_next_skip(j, 4) == 4);
@@ -376,17 +391,7 @@ static void test_skip_one(void (*setup)(void)) {
         test_check_numbers_up(j, 9);
         sd_journal_close(j);
 
-        log_info("Done...");
-
-        if (arg_keep)
-                log_info("Not removing %s", t);
-        else {
-                journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
-
-                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
-        }
-
-        puts("------------------------------------------------------------");
+        test_done(t);
 }
 
 TEST(skip) {
@@ -404,14 +409,14 @@ static void test_boot_id_one(void (*setup)(void), size_t n_boots_expected) {
 
         setup();
 
-        assert_ret(sd_journal_open_directory(&j, t, 0));
+        assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
         assert_se(journal_get_boots(j, &boots, &n_boots) >= 0);
         assert_se(boots);
         assert_se(n_boots == n_boots_expected);
         sd_journal_close(j);
 
         FOREACH_ARRAY(b, boots, n_boots) {
-                assert_ret(sd_journal_open_directory(&j, t, 0));
+                assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
                 assert_se(journal_find_boot_by_id(j, b->id) == 1);
                 sd_journal_close(j);
         }
@@ -419,7 +424,7 @@ static void test_boot_id_one(void (*setup)(void), size_t n_boots_expected) {
         for (int i = - (int) n_boots + 1; i <= (int) n_boots; i++) {
                 sd_id128_t id;
 
-                assert_ret(sd_journal_open_directory(&j, t, 0));
+                assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
                 assert_se(journal_find_boot_by_offset(j, i, &id) == 1);
                 if (i <= 0)
                         assert_se(sd_id128_equal(id, boots[n_boots + i - 1].id));
@@ -428,17 +433,7 @@ static void test_boot_id_one(void (*setup)(void), size_t n_boots_expected) {
                 sd_journal_close(j);
         }
 
-        log_info("Done...");
-
-        if (arg_keep)
-                log_info("Not removing %s", t);
-        else {
-                journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
-
-                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
-        }
-
-        puts("------------------------------------------------------------");
+        test_done(t);
 }
 
 TEST(boot_id) {
@@ -458,13 +453,13 @@ static void test_sequence_numbers_one(void) {
 
         mkdtemp_chdir_chattr(t);
 
-        assert_se(journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
+        assert_se(journal_file_open(-EBADF, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
                                     UINT64_MAX, NULL, m, NULL, &one) == 0);
 
-        append_number(one, 1, NULL, &seqnum);
+        append_number(one, 1, NULL, &seqnum, NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         assert_se(seqnum == 1);
-        append_number(one, 2, NULL, &seqnum);
+        append_number(one, 2, NULL, &seqnum, NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         assert_se(seqnum == 2);
 
@@ -475,7 +470,7 @@ static void test_sequence_numbers_one(void) {
 
         memcpy(&seqnum_id, &one->header->seqnum_id, sizeof(sd_id128_t));
 
-        assert_se(journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
+        assert_se(journal_file_open(-EBADF, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
                                     UINT64_MAX, NULL, m, one, &two) == 0);
 
         assert_se(two->header->state == STATE_ONLINE);
@@ -484,10 +479,10 @@ static void test_sequence_numbers_one(void) {
         assert_se(sd_id128_is_null(two->header->tail_entry_boot_id)); /* Not written yet. */
         assert_se(sd_id128_equal(two->header->seqnum_id, one->header->seqnum_id));
 
-        append_number(two, 3, NULL, &seqnum);
+        append_number(two, 3, NULL, &seqnum, NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         assert_se(seqnum == 3);
-        append_number(two, 4, NULL, &seqnum);
+        append_number(two, 4, NULL, &seqnum, NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         assert_se(seqnum == 4);
 
@@ -496,28 +491,28 @@ static void test_sequence_numbers_one(void) {
 
         test_close(two);
 
-        append_number(one, 5, NULL, &seqnum);
+        append_number(one, 5, NULL, &seqnum, NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         assert_se(seqnum == 5);
 
-        append_number(one, 6, NULL, &seqnum);
+        append_number(one, 6, NULL, &seqnum, NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         assert_se(seqnum == 6);
 
         test_close(one);
 
         /* If the machine-id is not initialized, the header file verification
-         * (which happens when re-opening a journal file) will fail. */
+         * (which happens when reopening a journal file) will fail. */
         if (sd_id128_get_machine(NULL) >= 0) {
                 /* restart server */
                 seqnum = 0;
 
-                assert_se(journal_file_open(-1, "two.journal", O_RDWR, JOURNAL_COMPRESS, 0,
+                assert_se(journal_file_open(-EBADF, "two.journal", O_RDWR, JOURNAL_COMPRESS, 0,
                                             UINT64_MAX, NULL, m, NULL, &two) == 0);
 
                 assert_se(sd_id128_equal(two->header->seqnum_id, seqnum_id));
 
-                append_number(two, 7, NULL, &seqnum);
+                append_number(two, 7, NULL, &seqnum, NULL);
                 printf("seqnum=%"PRIu64"\n", seqnum);
                 assert_se(seqnum == 5);
 
@@ -527,15 +522,7 @@ static void test_sequence_numbers_one(void) {
                 test_close(two);
         }
 
-        log_info("Done...");
-
-        if (arg_keep)
-                log_info("Not removing %s", t);
-        else {
-                journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
-
-                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
-        }
+        test_done(t);
 }
 
 TEST(sequence_numbers) {
@@ -544,6 +531,303 @@ TEST(sequence_numbers) {
 
         assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
         test_sequence_numbers_one();
+}
+
+static int expected_result(uint64_t needle, const uint64_t *candidates, const uint64_t *offset, size_t n, direction_t direction, uint64_t *ret) {
+        switch (direction) {
+        case DIRECTION_DOWN:
+                for (size_t i = 0; i < n; i++) {
+                        if (candidates[i] == 0) {
+                                *ret = 0;
+                                return 0;
+                        }
+                        if (needle <= candidates[i]) {
+                                *ret = offset[i];
+                                return 1;
+                        }
+                }
+                *ret = 0;
+                return 0;
+
+        case DIRECTION_UP:
+                for (size_t i = 0; i < n; i++)
+                        if (needle < candidates[i] || candidates[i] == 0) {
+                                if (i == 0) {
+                                        *ret = 0;
+                                        return 0;
+                                }
+                                *ret = offset[i - 1];
+                                return 1;
+                        }
+                *ret = offset[n - 1];
+                return 1;
+
+        default:
+                assert_not_reached();
+        }
+}
+
+static int expected_result_next(uint64_t needle, const uint64_t *candidates, const uint64_t *offset, size_t n, direction_t direction, uint64_t *ret) {
+        switch (direction) {
+        case DIRECTION_DOWN:
+                for (size_t i = 0; i < n; i++)
+                        if (needle < offset[i]) {
+                                *ret = candidates[i];
+                                return candidates[i] > 0;
+                        }
+                *ret = 0;
+                return 0;
+
+        case DIRECTION_UP:
+                for (size_t i = 0; i < n; i++)
+                        if (needle <= offset[i]) {
+                                n = i;
+                                break;
+                        }
+
+                for (; n > 0 && candidates[n - 1] == 0; n--)
+                        ;
+
+                if (n == 0) {
+                        *ret = 0;
+                        return 0;
+                }
+
+                *ret = candidates[n - 1];
+                return candidates[n - 1] > 0;
+
+        default:
+                assert_not_reached();
+        }
+}
+
+static void verify(JournalFile *f, const uint64_t *seqnum, const uint64_t *offset_candidates, const uint64_t *offset, size_t n) {
+        uint64_t p, q;
+        int r, e;
+
+        /* by seqnum (sequential) */
+        for (uint64_t i = 0; i < n + 2; i++) {
+                p = 0;
+                r = journal_file_move_to_entry_by_seqnum(f, i, DIRECTION_DOWN, NULL, &p);
+                e = expected_result(i, seqnum, offset, n, DIRECTION_DOWN, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_seqnum(f, i, DIRECTION_UP, NULL, &p);
+                e = expected_result(i, seqnum, offset, n, DIRECTION_UP, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+        }
+
+        /* by seqnum (random) */
+        for (size_t trial = 0; trial < 3 * n; trial++) {
+                uint64_t i = random_u64_range(n + 2);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_seqnum(f, i, DIRECTION_DOWN, NULL, &p);
+                e = expected_result(i, seqnum, offset, n, DIRECTION_DOWN, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+        }
+        for (size_t trial = 0; trial < 3 * n; trial++) {
+                uint64_t i = random_u64_range(n + 2);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_seqnum(f, i, DIRECTION_UP, NULL, &p);
+                e = expected_result(i, seqnum, offset, n, DIRECTION_UP, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+        }
+
+        /* by offset (sequential) */
+        for (size_t i = 0; i < n; i++) {
+                p = 0;
+                r = journal_file_move_to_entry_by_offset(f, offset[i] - 1, DIRECTION_DOWN, NULL, &p);
+                e = expected_result(offset[i] - 1, offset, offset, n, DIRECTION_DOWN, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_offset(f, offset[i], DIRECTION_DOWN, NULL, &p);
+                e = expected_result(offset[i], offset, offset, n, DIRECTION_DOWN, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_offset(f, offset[i] + 1, DIRECTION_DOWN, NULL, &p);
+                e = expected_result(offset[i] + 1, offset, offset, n, DIRECTION_DOWN, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_offset(f, offset[i] - 1, DIRECTION_UP, NULL, &p);
+                e = expected_result(offset[i] - 1, offset, offset, n, DIRECTION_UP, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_offset(f, offset[i], DIRECTION_UP, NULL, &p);
+                e = expected_result(offset[i], offset, offset, n, DIRECTION_UP, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_offset(f, offset[i] + 1, DIRECTION_UP, NULL, &p);
+                e = expected_result(offset[i] + 1, offset, offset, n, DIRECTION_UP, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+        }
+
+        /* by offset (random) */
+        for (size_t trial = 0; trial < 3 * n; trial++) {
+                uint64_t i = offset[0] - 1 + random_u64_range(offset[n-1] - offset[0] + 2);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_offset(f, i, DIRECTION_DOWN, NULL, &p);
+                e = expected_result(i, offset, offset, n, DIRECTION_DOWN, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+        }
+        for (size_t trial = 0; trial < 3 * n; trial++) {
+                uint64_t i = offset[0] - 1 + random_u64_range(offset[n-1] - offset[0] + 2);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_offset(f, i, DIRECTION_UP, NULL, &p);
+                e = expected_result(i, offset, offset, n, DIRECTION_UP, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+        }
+
+        /* by journal_file_next_entry() */
+        for (size_t i = 0; i < n; i++) {
+                p = 0;
+                r = journal_file_next_entry(f, offset[i] - 2, DIRECTION_DOWN, NULL, &p);
+                e = expected_result_next(offset[i] - 2, offset_candidates, offset, n, DIRECTION_DOWN, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_next_entry(f, offset[i] - 1, DIRECTION_DOWN, NULL, &p);
+                e = expected_result_next(offset[i] - 1, offset_candidates, offset, n, DIRECTION_DOWN, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_next_entry(f, offset[i], DIRECTION_DOWN, NULL, &p);
+                e = expected_result_next(offset[i], offset_candidates, offset, n, DIRECTION_DOWN, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_next_entry(f, offset[i] + 1, DIRECTION_DOWN, NULL, &p);
+                e = expected_result_next(offset[i] + 1, offset_candidates, offset, n, DIRECTION_DOWN, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_next_entry(f, offset[i] - 1, DIRECTION_UP, NULL, &p);
+                e = expected_result_next(offset[i] - 1, offset_candidates, offset, n, DIRECTION_UP, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_next_entry(f, offset[i], DIRECTION_UP, NULL, &p);
+                e = expected_result_next(offset[i], offset_candidates, offset, n, DIRECTION_UP, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_next_entry(f, offset[i] + 1, DIRECTION_UP, NULL, &p);
+                e = expected_result_next(offset[i] + 1, offset_candidates, offset, n, DIRECTION_UP, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_next_entry(f, offset[i] + 2, DIRECTION_UP, NULL, &p);
+                e = expected_result_next(offset[i] + 2, offset_candidates, offset, n, DIRECTION_UP, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+        }
+        for (size_t trial = 0; trial < 3 * n; trial++) {
+                uint64_t i = offset[0] - 1 + random_u64_range(offset[n-1] - offset[0] + 2);
+
+                p = 0;
+                r = journal_file_next_entry(f, i, DIRECTION_DOWN, NULL, &p);
+                e = expected_result_next(i, offset_candidates, offset, n, DIRECTION_DOWN, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+        }
+        for (size_t trial = 0; trial < 3 * n; trial++) {
+                uint64_t i = offset[0] - 1 + random_u64_range(offset[n-1] - offset[0] + 2);
+
+                p = 0;
+                r = journal_file_next_entry(f, i, DIRECTION_UP, NULL, &p);
+                e = expected_result_next(i, offset_candidates, offset, n, DIRECTION_UP, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+        }
+}
+
+static void test_generic_array_bisect_one(size_t n, size_t num_corrupted) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        char t[] = "/var/tmp/journal-seq-XXXXXX";
+        _cleanup_free_ uint64_t *seqnum = NULL, *offset = NULL, *offset_candidates = NULL;
+        JournalFile *f;
+
+        log_info("/* %s(%zu, %zu) */", __func__, n, num_corrupted);
+
+        assert_se(m = mmap_cache_new());
+
+        mkdtemp_chdir_chattr(t);
+
+        assert_se(journal_file_open(-EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
+                                    UINT64_MAX, NULL, m, NULL, &f) == 0);
+
+        assert_se(seqnum = new0(uint64_t, n));
+        assert_se(offset = new0(uint64_t, n));
+
+        for (size_t i = 0; i < n; i++) {
+                append_number(f, i, NULL, seqnum + i, offset + i);
+                if (i == 0) {
+                        assert_se(seqnum[i] > 0);
+                        assert_se(offset[i] > 0);
+                } else {
+                        assert_se(seqnum[i] > seqnum[i-1]);
+                        assert_se(offset[i] > offset[i-1]);
+                }
+        }
+
+        assert_se(offset_candidates = newdup(uint64_t, offset, n));
+
+        verify(f, seqnum, offset_candidates, offset, n);
+
+        /* Reset chain cache. */
+        assert_se(journal_file_move_to_entry_by_offset(f, offset[0], DIRECTION_DOWN, NULL, NULL) > 0);
+
+        /* make journal corrupted by clearing seqnum. */
+        for (size_t i = n - num_corrupted; i < n; i++) {
+                Object *o;
+
+                assert_se(journal_file_move_to_object(f, OBJECT_ENTRY, offset[i], &o) >= 0);
+                assert_se(o);
+                o->entry.seqnum = 0;
+                seqnum[i] = 0;
+                offset_candidates[i] = 0;
+        }
+
+        verify(f, seqnum, offset_candidates, offset, n);
+
+        test_close(f);
+        test_done(t);
+}
+
+TEST(generic_array_bisect) {
+        for (size_t n = 1; n < 10; n++)
+                for (size_t m = 1; m <= n; m++)
+                        test_generic_array_bisect_one(n, m);
+
+        test_generic_array_bisect_one(100, 40);
 }
 
 static int intro(void) {

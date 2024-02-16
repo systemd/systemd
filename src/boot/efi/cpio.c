@@ -305,6 +305,7 @@ EFI_STATUS pack_cpio(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char16_t *dropin_dir,
                 const char16_t *match_suffix,
+                const char16_t *exclude_suffix,
                 const char *target_dir_prefix,
                 uint32_t dir_mode,
                 uint32_t access_mode,
@@ -339,8 +340,11 @@ EFI_STATUS pack_cpio(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Unable to open root directory: %m");
 
-        if (!dropin_dir)
+        if (!dropin_dir) {
                 dropin_dir = rel_dropin_dir = get_extra_dir(loaded_image->FilePath);
+                if (!dropin_dir)
+                        goto nothing;
+        }
 
         err = open_directory(root, dropin_dir, &extra_dir);
         if (err == EFI_NOT_FOUND)
@@ -363,6 +367,8 @@ EFI_STATUS pack_cpio(
                 if (FLAGS_SET(dirent->Attribute, EFI_FILE_DIRECTORY))
                         continue;
                 if (match_suffix && !endswith_no_case(dirent->FileName, match_suffix))
+                        continue;
+                if (exclude_suffix && endswith_no_case(dirent->FileName, exclude_suffix))
                         continue;
                 if (!is_ascii(dirent->FileName))
                         continue;

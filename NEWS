@@ -1,6 +1,32 @@
 systemd System and Service Manager
 
-CHANGES WITH 255 in spe:
+CHANGES WITH 256 in spe:
+
+        Announcements of Future Feature Removals and Incompatible Changes:
+
+        * Support for flushing of the nscd user/group database caches will be
+          dropped in a future release.
+
+        * Previously, systemd-networkd did not explicitly remove any bridge VLAN
+          IDs assigned on bridge master and ports. Since v256, if a .network
+          file for an interface has at least one valid settings in [BridgeVLAN]
+          section, then all assigned VLAN IDs on the interface that are not
+          configured in the .network file are removed.
+
+        * systemd-gpt-auto-generator will stop generating units for ESP or
+          XBOOTLDR partitions if it finds mount entries in the /boot/ or /efi/
+          hierarchies in fstab. This is to prevent the generator from
+          interfering with systems where ESP is explicitly configured to be
+          mounted at some path, for example /boot/efi/ (this type of setup is
+          obsolete but is still commonly found).
+
+        Network Management:
+
+        * systemd-networkd's proxy support gained a new option to configure
+          a private VLAN variant of the proxy ARP supported by the kernel
+          under the name IPv4ProxyARPPrivateVLAN=.
+
+CHANGES WITH 255:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -68,7 +94,11 @@ CHANGES WITH 255 in spe:
           semantics via posix_spawn(3), and it immediately execs a new internal
           binary, systemd-executor, that receives the configuration to apply
           via memfd, and sets up the process before exec'ing the target
-          executable.
+          executable. The systemd-executor binary is pinned by file descriptor
+          by each manager instance (system and users), and the reference is
+          updated on daemon-reexec - it is thus important to reexec all running
+          manager instances when the systemd-executor and/or libsystemd*
+          libraries are updated on the filesystem.
 
         * Most of the internal process tracking is being changed to use PIDFDs
           instead of PIDs when the kernel supports it, to improve robustness
@@ -133,7 +163,7 @@ CHANGES WITH 255 in spe:
         * Units now have MemoryPeak, MemorySwapPeak, MemorySwapCurrent and
           MemoryZSwapCurrent properties, which respectively contain the values
           of the cgroup v2's memory.peak, memory.swap.peak, memory.swap.current
-          and memory.zswap.current properties. This information is also show in
+          and memory.zswap.current properties. This information is also shown in
           "systemctl status" output, if available.
 
         TPM2 Support + Disk Encryption & Authentication:
@@ -244,7 +274,7 @@ CHANGES WITH 255 in spe:
         * ukify gained a new verb inspect to describe the sections of a UKI and
           print the contents of the well-known sections.
 
-        * ukify gained a new verb genkey to generate a set of of key pairs for
+        * ukify gained a new verb genkey to generate a set of key pairs for
           signing UKIs and their PCR data.
 
         * The 90-loaderentry kernel-install hook now supports installing device
@@ -459,7 +489,8 @@ CHANGES WITH 255 in spe:
 
         * A new varlinkctl tool has been added to allow interfacing with
           Varlink services, and introspection has been added to all such
-          services.
+          services. This component is experimental and its public interface is
+          subject to change.
 
         * systemd-sysext and systemd-confext now expose a Varlink service
           at io.systemd.sysext.
@@ -516,11 +547,13 @@ CHANGES WITH 255 in spe:
           rd.systemd.unit=storage-target-mode.target on the kernel command
           line. This is intended to be used for installers and debugging to
           quickly get access to the local disk. It's inspired by MacOS "target
-          disk mode".
+          disk mode". This component is experimental and its public interface is
+          subject to change.
 
         * A new component "systemd-bsod" has been added, which can show logged
           error messages full screen, if they have a log level of LOG_EMERG log
-          level.
+          level. This component is experimental and its public interface is
+          subject to change.
 
         * The systemd-dissect tool's --with command will now set the
           $SYSTEMD_DISSECT_DEVICE environment variable to the block device it
@@ -576,45 +609,48 @@ CHANGES WITH 255 in spe:
 
         * coredumpctl now propagates SIGTERM to the debugger process.
 
-        Contributions from: 김인수, Abderrahim Kitouni, Adam Williamson,
-        Alexandre Peixoto Ferreira, Alex Hudspith, Alvin Alvarado,
-        André Paiusco, Antonio Alvarez Feijoo, Anton Lundin,
-        Arseny Maslennikov, Arthur Shau, Balázs Úr, beh_10257,
-        Benjamin Peterson, Bertrand Jacquin, Brian Norris,
-        Cheng-Chia Tseng, Chris Patterson, Christian Hergert,
-        Christian Hesse, Christian Kirbach, Clayton Craft, commondservice,
-        Curtis Klein, cvlc12, Daan De Meyer, Daniele Medri,
-        Daniel P. Berrangé, Daniel Rusek, Dan Nicholson, Dan Streetman,
-        David Rheinsberg, David Santamaría Rogado, David Tardon,
-        dependabot[bot], Diego Viola, Dmitry V. Levin,
-        Emanuele Giuseppe Esposito, Emil Renner Berthing, Emil Velikov,
-        Etienne Dechamps, Fabian Vogt, felixdoerre, Felix Dörre,
-        Florian Schmaus, Franck Bui, Frantisek Sumsal, G2-Games,
-        Gioele Barabucci, Hugo Carvalho, huyubiao, Iago López Galeiras,
-        IllusionMan1212, Jade Lovelace, janana, Jan Janssen, Jan Kuparinen,
-        Jan Macku, Jeremy Fleischman, Jin Liu, jjimbo137, Joerg Behrmann,
-        Johannes Segitz, Jordan Rome, Jordan Williams, Julien Malka,
-        Juno Computers, Khem Raj, khm, Kingbom Dou, Kiran Vemula,
-        Laszlo Gombos, Lennart Poettering, Luca Boccassi,
-        Lucas Adriano Salles, Lukas, Lukáš Nykrýn, Maanya Goenka,
-        Maarten, Malte Poll, Marc Pervaz Boocha, Martin Beneš,
-        Martin Wilck, Mathieu Tortuyaux, Matthias Schiffer,
-        Maxim Mikityanskiy, Max Kellermann, Michael A Cassaniti,
-        Michael Biebl, Michael Kuhn, Michael Vasseur, Michal Koutný,
-        Michal Sekletár, Mike Yuan, Milton D. Miller II, mordner,
-        msizanoen, NAHO, Nandakumar Raghavan, Nick Rosbrook, NRK,
-        Oğuz Ersen, Omojola Joshua, pelaufer, Peter Hutterer, PhylLu,
-        Pierre GRASSER, Piotr Drąg, Priit Laes, Rahil Bhimjiani,
-        Raito Bezarius, Raul Cheleguini, Reto Schneider, Richard Maw,
-        Robby Red, RoepLuke, Roland Hieber, Ronan Pigott, Sam James,
-        Sam Leonard, Sergey A, Susant Sahani, Sven Joachim, Tad Fisher,
-        Takashi Sakamoto, Thorsten Kukuk, Tj, Tomasz Świątek,
-        Topi Miettinen, Valentin David, Valentin Lefebvre,
-        Victor Westerhuis, Vincent Haupert, Vishal Chillara Srinivas,
-        Vito Caputo, Warren, Xiaotian Wu, xinpeng wang, Yu Watanabe,
-        Zbigniew Jędrzejewski-Szmek, zeroskyx, наб
+        Contributions from: 김인수, Abderrahim Kitouni, Adam Goldman,
+        Adam Williamson, Alexandre Peixoto Ferreira, Alex Hudspith,
+        Alvin Alvarado, André Paiusco, Antonio Alvarez Feijoo,
+        Anton Lundin, Arian van Putten, Arseny Maslennikov, Arthur Shau,
+        Balázs Úr, beh_10257, Benjamin Peterson, Bertrand Jacquin,
+        Brian Norris, Charles Lee, Cheng-Chia Tseng, Chris Patterson,
+        Christian Hergert, Christian Hesse, Christian Kirbach,
+        Clayton Craft, commondservice, cunshunxia, Curtis Klein, cvlc12,
+        Daan De Meyer, Daniele Medri, Daniel P. Berrangé, Daniel Rusek,
+        Daniel Thompson, Dan Nicholson, Dan Streetman, David Rheinsberg,
+        David Santamaría Rogado, David Tardon, dependabot[bot],
+        Diego Viola, Dmitry V. Levin, Emanuele Giuseppe Esposito,
+        Emil Renner Berthing, Emil Velikov, Etienne Dechamps, Fabian Vogt,
+        felixdoerre, Felix Dörre, Florian Schmaus, Franck Bui,
+        Frantisek Sumsal, G2-Games, Gioele Barabucci, Hugo Carvalho,
+        huyubiao, Iago López Galeiras, IllusionMan1212, Jade Lovelace,
+        janana, Jan Janssen, Jan Kuparinen, Jan Macku, Jeremy Fleischman,
+        Jin Liu, jjimbo137, Joerg Behrmann, Johannes Segitz, Jordan Rome,
+        Jordan Williams, Julien Malka, Juno Computers, Khem Raj, khm,
+        Kingbom Dou, Kiran Vemula, Krzesimir Nowak, Laszlo Gombos,
+        Lennart Poettering, linuxlion, Luca Boccassi, Lucas Adriano Salles,
+        Lukas, Lukáš Nykrýn, Maanya Goenka, Maarten, Malte Poll,
+        Marc Pervaz Boocha, Martin Beneš, Martin Joerg, Martin Wilck,
+        Mathieu Tortuyaux, Matthias Schiffer, Maxim Mikityanskiy,
+        Max Kellermann, Michael A Cassaniti, Michael Biebl, Michael Kuhn,
+        Michael Vasseur, Michal Koutný, Michal Sekletár, Mike Yuan,
+        Milton D. Miller II, mordner, msizanoen, NAHO, Nandakumar Raghavan,
+        Neil Wilson, Nick Rosbrook, Nils K, NRK, Oğuz Ersen,
+        Omojola Joshua, onenowy, Paul Meyer, Paymon MARANDI, pelaufer,
+        Peter Hutterer, PhylLu, Pierre GRASSER, Piotr Drąg, Priit Laes,
+        Rahil Bhimjiani, Raito Bezarius, Raul Cheleguini, Reto Schneider,
+        Richard Maw, Robby Red, RoepLuke, Roland Hieber, Roland Singer,
+        Ronan Pigott, Sam James, Sam Leonard, Sergey A, Susant Sahani,
+        Sven Joachim, Tad Fisher, Takashi Sakamoto, Thorsten Kukuk, Tj,
+        Tomasz Świątek, Topi Miettinen, Valentin David,
+        Valentin Lefebvre, Victor Westerhuis, Vincent Haupert,
+        Vishal Chillara Srinivas, Vito Caputo, Warren, Weblate,
+        Xiaotian Wu, xinpeng wang, Yaron Shahrabani, Yo-Jung Lin,
+        Yu Watanabe, Zbigniew Jędrzejewski-Szmek, zeroskyx,
+        Дамјан Георгиевски, наб
 
-        — Edinburgh, 2023-11-15
+        — Edinburgh, 2023-12-06
 
 CHANGES WITH 254:
 

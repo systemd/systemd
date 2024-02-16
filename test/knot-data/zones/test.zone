@@ -19,3 +19,6 @@ ns1.unsigned          AAAA fd00:dead:beef:cafe::1
 onlinesign            NS   ns1.unsigned
 signed                NS   ns1.unsigned
 unsigned              NS   ns1.unsigned
+
+svcb                  SVCB  1   .   alpn=dot ipv4hint=10.0.0.1 ipv6hint=fd00:dead:beef:cafe::1
+https                 HTTPS 1   .   alpn="h2,h3"

@@ -65,7 +65,7 @@ int btrfs_subvol_set_read_only_at(int dir_fd, const char *path, bool b) {
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        fd = xopenat(dir_fd, path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY, /* xopen_flags = */ 0, /* mode = */ 0);
+        fd = xopenat(dir_fd, path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
         if (fd < 0)
                 return fd;
 
@@ -113,7 +113,7 @@ int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
         assert(path);
         assert(ret);
 
-        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, /* xopen_flags = */ 0, /* mode = */ 0);
+        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return fd;
 
@@ -261,15 +261,25 @@ static int btrfs_ioctl_search_args_compare(const struct btrfs_ioctl_search_args 
         return CMP(args->key.min_offset, args->key.max_offset);
 }
 
-#define FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, args)                  \
-        for ((i) = 0,                                                   \
-             (sh) = (const struct btrfs_ioctl_search_header*) (args).buf; \
-             (i) < (args).key.nr_items;                                 \
-             (i)++,                                                     \
-             (sh) = (const struct btrfs_ioctl_search_header*) ((uint8_t*) (sh) + sizeof(struct btrfs_ioctl_search_header) + (sh)->len))
+typedef struct BtrfsForeachIterator {
+        const void *p;
+        size_t i;
+} BtrfsForeachIterator;
 
-#define BTRFS_IOCTL_SEARCH_HEADER_BODY(sh)                              \
-        ((void*) ((uint8_t*) sh + sizeof(struct btrfs_ioctl_search_header)))
+/* Iterates through a series of struct btrfs_file_extent_item elements. They are unfortunately not aligned,
+ * hence we copy out the header from them */
+#define FOREACH_BTRFS_IOCTL_SEARCH_HEADER(sh, body, args)               \
+        for (BtrfsForeachIterator iterator = {                          \
+                        .p = ({                                         \
+                               memcpy(&(sh), (args).buf, sizeof(struct btrfs_ioctl_search_header)); \
+                               (body) = (const void*) ((const uint8_t*) (args).buf + sizeof(struct btrfs_ioctl_search_header)); \
+                               (args).buf;                              \
+                        }),                                             \
+             };                                                         \
+             iterator.i < (args).key.nr_items;                          \
+             iterator.i++,                                              \
+             memcpy(&(sh), iterator.p = (const uint8_t*) iterator.p + sizeof(struct btrfs_ioctl_search_header) + (sh).len, sizeof(struct btrfs_ioctl_search_header)), \
+             (body) = (const void*) ((const uint8_t*) iterator.p + sizeof(struct btrfs_ioctl_search_header)))
 
 int btrfs_subvol_get_info_fd(int fd, uint64_t subvol_id, BtrfsSubvolInfo *ret) {
         struct btrfs_ioctl_search_args args = {
@@ -309,8 +319,8 @@ int btrfs_subvol_get_info_fd(int fd, uint64_t subvol_id, BtrfsSubvolInfo *ret) {
         args.key.min_objectid = args.key.max_objectid = subvol_id;
 
         while (btrfs_ioctl_search_args_compare(&args) <= 0) {
-                const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                struct btrfs_ioctl_search_header sh;
+                const void *body;
 
                 args.key.nr_items = 256;
                 if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
@@ -319,24 +329,20 @@ int btrfs_subvol_get_info_fd(int fd, uint64_t subvol_id, BtrfsSubvolInfo *ret) {
                 if (args.key.nr_items <= 0)
                         break;
 
-                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, args) {
-
-                        const struct btrfs_root_item *ri;
-
+                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(sh, body, args) {
                         /* Make sure we start the next search at least from this entry */
-                        btrfs_ioctl_search_args_set(&args, sh);
+                        btrfs_ioctl_search_args_set(&args, &sh);
 
-                        if (sh->objectid != subvol_id)
+                        if (sh.objectid != subvol_id)
                                 continue;
-                        if (sh->type != BTRFS_ROOT_ITEM_KEY)
+                        if (sh.type != BTRFS_ROOT_ITEM_KEY)
                                 continue;
 
                         /* Older versions of the struct lacked the otime setting */
-                        if (sh->len < offsetof(struct btrfs_root_item, otime) + sizeof(struct btrfs_timespec))
+                        if (sh.len < offsetof(struct btrfs_root_item, otime) + sizeof(struct btrfs_timespec))
                                 continue;
 
-                        ri = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
-
+                        const struct btrfs_root_item *ri = body;
                         ret->otime = (usec_t) le64toh(ri->otime.sec) * USEC_PER_SEC +
                                 (usec_t) le32toh(ri->otime.nsec) / NSEC_PER_USEC;
 
@@ -400,8 +406,8 @@ int btrfs_qgroup_get_quota_fd(int fd, uint64_t qgroupid, BtrfsQuotaInfo *ret) {
         args.key.min_offset = args.key.max_offset = qgroupid;
 
         while (btrfs_ioctl_search_args_compare(&args) <= 0) {
-                const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                struct btrfs_ioctl_search_header sh;
+                const void *body;
 
                 args.key.nr_items = 256;
                 if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0) {
@@ -414,26 +420,26 @@ int btrfs_qgroup_get_quota_fd(int fd, uint64_t qgroupid, BtrfsQuotaInfo *ret) {
                 if (args.key.nr_items <= 0)
                         break;
 
-                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, args) {
+                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(sh, body, args) {
 
                         /* Make sure we start the next search at least from this entry */
-                        btrfs_ioctl_search_args_set(&args, sh);
+                        btrfs_ioctl_search_args_set(&args, &sh);
 
-                        if (sh->objectid != 0)
+                        if (sh.objectid != 0)
                                 continue;
-                        if (sh->offset != qgroupid)
+                        if (sh.offset != qgroupid)
                                 continue;
 
-                        if (sh->type == BTRFS_QGROUP_INFO_KEY) {
-                                const struct btrfs_qgroup_info_item *qii = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
+                        if (sh.type == BTRFS_QGROUP_INFO_KEY) {
+                                const struct btrfs_qgroup_info_item *qii = body;
 
                                 ret->referenced = le64toh(qii->rfer);
                                 ret->exclusive = le64toh(qii->excl);
 
                                 found_info = true;
 
-                        } else if (sh->type == BTRFS_QGROUP_LIMIT_KEY) {
-                                const struct btrfs_qgroup_limit_item *qli = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
+                        } else if (sh.type == BTRFS_QGROUP_LIMIT_KEY) {
+                                const struct btrfs_qgroup_limit_item *qli = body;
 
                                 if (le64toh(qli->flags) & BTRFS_QGROUP_LIMIT_MAX_RFER)
                                         ret->referenced_max = le64toh(qli->max_rfer);
@@ -947,8 +953,8 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
         args.key.min_offset = args.key.max_offset = subvol_id;
 
         while (btrfs_ioctl_search_args_compare(&args) <= 0) {
-                const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                struct btrfs_ioctl_search_header sh;
+                const void *body;
 
                 args.key.nr_items = 256;
                 if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
@@ -957,20 +963,18 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
                 if (args.key.nr_items <= 0)
                         break;
 
-                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, args) {
+                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(sh, body, args) {
                         _cleanup_free_ char *p = NULL;
-                        const struct btrfs_root_ref *ref;
 
-                        btrfs_ioctl_search_args_set(&args, sh);
+                        btrfs_ioctl_search_args_set(&args, &sh);
 
-                        if (sh->type != BTRFS_ROOT_BACKREF_KEY)
+                        if (sh.type != BTRFS_ROOT_BACKREF_KEY)
                                 continue;
-                        if (sh->offset != subvol_id)
+                        if (sh.offset != subvol_id)
                                 continue;
 
-                        ref = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
-
-                        p = strndup((char*) ref + sizeof(struct btrfs_root_ref), le64toh(ref->name_len));
+                        const struct btrfs_root_ref *ref = body;
+                        p = memdup_suffix0((char*) ref + sizeof(struct btrfs_root_ref), le64toh(ref->name_len));
                         if (!p)
                                 return -ENOMEM;
 
@@ -993,7 +997,7 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
                         if (isempty(ino_args.name))
                                 /* Subvolume is in the top-level
                                  * directory of the subvolume. */
-                                r = subvol_remove_children(subvol_fd, p, sh->objectid, flags);
+                                r = subvol_remove_children(subvol_fd, p, sh.objectid, flags);
                         else {
                                 _cleanup_close_ int child_fd = -EBADF;
 
@@ -1005,7 +1009,7 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
                                 if (child_fd < 0)
                                         return -errno;
 
-                                r = subvol_remove_children(child_fd, p, sh->objectid, flags);
+                                r = subvol_remove_children(child_fd, p, sh.objectid, flags);
                         }
                         if (r < 0)
                                 return r;
@@ -1075,8 +1079,8 @@ int btrfs_qgroup_copy_limits(int fd, uint64_t old_qgroupid, uint64_t new_qgroupi
                 return -ENOTTY;
 
         while (btrfs_ioctl_search_args_compare(&args) <= 0) {
-                const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                struct btrfs_ioctl_search_header sh;
+                const void *body;
 
                 args.key.nr_items = 256;
                 if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0) {
@@ -1089,23 +1093,23 @@ int btrfs_qgroup_copy_limits(int fd, uint64_t old_qgroupid, uint64_t new_qgroupi
                 if (args.key.nr_items <= 0)
                         break;
 
-                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, args) {
-                        const struct btrfs_qgroup_limit_item *qli = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
+                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(sh, body, args) {
                         struct btrfs_ioctl_qgroup_limit_args qargs;
                         unsigned c;
 
                         /* Make sure we start the next search at least from this entry */
-                        btrfs_ioctl_search_args_set(&args, sh);
+                        btrfs_ioctl_search_args_set(&args, &sh);
 
-                        if (sh->objectid != 0)
+                        if (sh.objectid != 0)
                                 continue;
-                        if (sh->type != BTRFS_QGROUP_LIMIT_KEY)
+                        if (sh.type != BTRFS_QGROUP_LIMIT_KEY)
                                 continue;
-                        if (sh->offset != old_qgroupid)
+                        if (sh.offset != old_qgroupid)
                                 continue;
 
                         /* We found the entry, now copy things over. */
 
+                        const struct btrfs_qgroup_limit_item *qli = body;
                         qargs = (struct btrfs_ioctl_qgroup_limit_args) {
                                 .qgroupid = new_qgroupid,
 
@@ -1272,8 +1276,6 @@ static int subvol_snapshot_children(
         if (FLAGS_SET(flags, BTRFS_SNAPSHOT_LOCK_BSD)) {
                 subvolume_fd = xopenat_lock(new_fd, subvolume,
                                             O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW,
-                                            /* xopen_flags = */ 0,
-                                            /* mode = */ 0,
                                             LOCK_BSD,
                                             LOCK_EX);
                 if (subvolume_fd < 0)
@@ -1314,8 +1316,8 @@ static int subvol_snapshot_children(
         args.key.min_offset = args.key.max_offset = old_subvol_id;
 
         while (btrfs_ioctl_search_args_compare(&args) <= 0) {
-                const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                struct btrfs_ioctl_search_header sh;
+                const void *body;
 
                 args.key.nr_items = 256;
                 if (ioctl(old_fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
@@ -1324,28 +1326,25 @@ static int subvol_snapshot_children(
                 if (args.key.nr_items <= 0)
                         break;
 
-                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, args) {
+                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(sh, body, args) {
                         _cleanup_free_ char *p = NULL, *c = NULL, *np = NULL;
-                        const struct btrfs_root_ref *ref;
                         _cleanup_close_ int old_child_fd = -EBADF, new_child_fd = -EBADF;
 
-                        btrfs_ioctl_search_args_set(&args, sh);
+                        btrfs_ioctl_search_args_set(&args, &sh);
 
-                        if (sh->type != BTRFS_ROOT_BACKREF_KEY)
+                        if (sh.type != BTRFS_ROOT_BACKREF_KEY)
                                 continue;
 
-                        /* Avoid finding the source subvolume a second
-                         * time */
-                        if (sh->offset != old_subvol_id)
+                        /* Avoid finding the source subvolume a second time */
+                        if (sh.offset != old_subvol_id)
                                 continue;
 
-                        /* Avoid running into loops if the new
-                         * subvolume is below the old one. */
-                        if (sh->objectid == new_subvol_id)
+                        /* Avoid running into loops if the new subvolume is below the old one. */
+                        if (sh.objectid == new_subvol_id)
                                 continue;
 
-                        ref = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
-                        p = strndup((char*) ref + sizeof(struct btrfs_root_ref), le64toh(ref->name_len));
+                        const struct btrfs_root_ref *ref = body;
+                        p = memdup_suffix0((char*) ref + sizeof(struct btrfs_root_ref), le64toh(ref->name_len));
                         if (!p)
                                 return -ENOMEM;
 
@@ -1374,10 +1373,8 @@ static int subvol_snapshot_children(
                                 return -errno;
 
                         if (flags & BTRFS_SNAPSHOT_READ_ONLY) {
-                                /* If the snapshot is read-only we
-                                 * need to mark it writable
-                                 * temporarily, to put the subsnapshot
-                                 * into place. */
+                                /* If the snapshot is read-only we need to mark it writable temporarily, to
+                                 * put the subsnapshot into place. */
 
                                 if (subvolume_fd < 0) {
                                         subvolume_fd = openat(new_fd, subvolume, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
@@ -1390,10 +1387,8 @@ static int subvol_snapshot_children(
                                         return r;
                         }
 
-                        /* When btrfs clones the subvolumes, child
-                         * subvolumes appear as empty directories. Remove
-                         * them, so that we can create a new snapshot
-                         * in their place */
+                        /* When btrfs clones the subvolumes, child subvolumes appear as empty
+                         * directories. Remove them, so that we can create a new snapshot in their place */
                         if (unlinkat(new_child_fd, p, AT_REMOVEDIR) < 0) {
                                 int k = -errno;
 
@@ -1403,7 +1398,7 @@ static int subvol_snapshot_children(
                                 return k;
                         }
 
-                        r = subvol_snapshot_children(old_child_fd, new_child_fd, p, sh->objectid,
+                        r = subvol_snapshot_children(old_child_fd, new_child_fd, p, sh.objectid,
                                                      flags & ~(BTRFS_SNAPSHOT_FALLBACK_COPY|BTRFS_SNAPSHOT_LOCK_BSD));
 
                         /* Restore the readonly flag */
@@ -1448,7 +1443,7 @@ int btrfs_subvol_snapshot_at_full(
         assert(dir_fdt >= 0 || dir_fdt == AT_FDCWD);
         assert(to);
 
-        old_fd = xopenat(dir_fdf, from, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY, /* xopen_flags = */ 0, /* mode = */ 0);
+        old_fd = xopenat(dir_fdf, from, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
         if (old_fd < 0)
                 return old_fd;
 
@@ -1485,8 +1480,6 @@ int btrfs_subvol_snapshot_at_full(
                 if (FLAGS_SET(flags, BTRFS_SNAPSHOT_LOCK_BSD)) {
                         subvolume_fd = xopenat_lock(new_fd, subvolume,
                                                     O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW,
-                                                    /* xopen_flags = */ 0,
-                                                    /* mode = */ 0,
                                                     LOCK_BSD,
                                                     LOCK_EX);
                         if (subvolume_fd < 0)
@@ -1582,8 +1575,8 @@ int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret) {
         args.key.min_objectid = args.key.max_objectid = qgroupid;
 
         while (btrfs_ioctl_search_args_compare(&args) <= 0) {
-                const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                struct btrfs_ioctl_search_header sh;
+                _unused_ const void *body;
 
                 args.key.nr_items = 256;
                 if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0) {
@@ -1596,22 +1589,22 @@ int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret) {
                 if (args.key.nr_items <= 0)
                         break;
 
-                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, args) {
+                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(sh, body, args) {
 
                         /* Make sure we start the next search at least from this entry */
-                        btrfs_ioctl_search_args_set(&args, sh);
+                        btrfs_ioctl_search_args_set(&args, &sh);
 
-                        if (sh->type != BTRFS_QGROUP_RELATION_KEY)
+                        if (sh.type != BTRFS_QGROUP_RELATION_KEY)
                                 continue;
-                        if (sh->offset < sh->objectid)
+                        if (sh.offset < sh.objectid)
                                 continue;
-                        if (sh->objectid != qgroupid)
+                        if (sh.objectid != qgroupid)
                                 continue;
 
                         if (!GREEDY_REALLOC(items, n_items+1))
                                 return -ENOMEM;
 
-                        items[n_items++] = sh->offset;
+                        items[n_items++] = sh.offset;
                 }
 
                 /* Increase search key by one, to read the next item, if we can. */
@@ -1829,8 +1822,8 @@ int btrfs_subvol_get_parent(int fd, uint64_t subvol_id, uint64_t *ret) {
         args.key.min_objectid = args.key.max_objectid = subvol_id;
 
         while (btrfs_ioctl_search_args_compare(&args) <= 0) {
-                const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                struct btrfs_ioctl_search_header sh;
+                _unused_ const void *body = NULL;
 
                 args.key.nr_items = 256;
                 if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
@@ -1839,14 +1832,14 @@ int btrfs_subvol_get_parent(int fd, uint64_t subvol_id, uint64_t *ret) {
                 if (args.key.nr_items <= 0)
                         break;
 
-                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, args) {
+                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(sh, body, args) {
 
-                        if (sh->type != BTRFS_ROOT_BACKREF_KEY)
+                        if (sh.type != BTRFS_ROOT_BACKREF_KEY)
                                 continue;
-                        if (sh->objectid != subvol_id)
+                        if (sh.objectid != subvol_id)
                                 continue;
 
-                        *ret = sh->offset;
+                        *ret = sh.offset;
                         return 0;
                 }
         }
@@ -1936,8 +1929,8 @@ static int btrfs_read_chunk_tree_fd(int fd, BtrfsChunkTree *ret) {
         assert(ret);
 
         while (btrfs_ioctl_search_args_compare(&search_args) <= 0) {
-                const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                struct btrfs_ioctl_search_header sh;
+                const void *body;
 
                 search_args.key.nr_items = 256;
 
@@ -1947,25 +1940,23 @@ static int btrfs_read_chunk_tree_fd(int fd, BtrfsChunkTree *ret) {
                 if (search_args.key.nr_items == 0)
                         break;
 
-                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, search_args) {
+                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(sh, body, search_args) {
                         _cleanup_(btrfs_chunk_freep) BtrfsChunk *chunk = NULL;
-                        const struct btrfs_chunk *item;
 
-                        btrfs_ioctl_search_args_set(&search_args, sh);
+                        btrfs_ioctl_search_args_set(&search_args, &sh);
 
-                        if (sh->objectid != BTRFS_FIRST_CHUNK_TREE_OBJECTID)
+                        if (sh.objectid != BTRFS_FIRST_CHUNK_TREE_OBJECTID)
                                 continue;
-                        if (sh->type != BTRFS_CHUNK_ITEM_KEY)
+                        if (sh.type != BTRFS_CHUNK_ITEM_KEY)
                                 continue;
 
                         chunk = new(BtrfsChunk, 1);
                         if (!chunk)
                                 return -ENOMEM;
 
-                        item = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
-
+                        const struct btrfs_chunk *item = body;
                         *chunk = (BtrfsChunk) {
-                                .offset = sh->offset,
+                                .offset = sh.offset,
                                 .length = le64toh(item->length),
                                 .type = le64toh(item->type),
                                 .n_stripes = le16toh(item->num_stripes),
@@ -2030,19 +2021,20 @@ static BtrfsChunk* btrfs_find_chunk_from_logical_address(const BtrfsChunkTree *t
 }
 
 static int btrfs_is_nocow_fd(int fd) {
-        struct statfs sfs;
         unsigned flags;
+        int r;
 
         assert(fd >= 0);
 
-        if (fstatfs(fd, &sfs) < 0)
-                return -errno;
-
-        if (!is_fs_type(&sfs, BTRFS_SUPER_MAGIC))
+        r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -ENOTTY;
 
-        if (ioctl(fd, FS_IOC_GETFLAGS, &flags) < 0)
-                return -errno;
+        r = read_attr_fd(fd, &flags);
+        if (r < 0)
+                return r;
 
         return FLAGS_SET(flags, FS_NOCOW_FL) && !FLAGS_SET(flags, FS_COMPR_FL);
 }
@@ -2094,8 +2086,8 @@ int btrfs_get_file_physical_offset_fd(int fd, uint64_t *ret) {
         search_args.key.min_objectid = search_args.key.max_objectid = st.st_ino;
 
         while (btrfs_ioctl_search_args_compare(&search_args) <= 0) {
-                const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                struct btrfs_ioctl_search_header sh;
+                const void *body;
 
                 search_args.key.nr_items = 256;
 
@@ -2105,21 +2097,19 @@ int btrfs_get_file_physical_offset_fd(int fd, uint64_t *ret) {
                 if (search_args.key.nr_items == 0)
                         break;
 
-                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, search_args) {
-                        const struct btrfs_file_extent_item *item;
+                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(sh, body, search_args) {
                         uint64_t logical_offset;
                         BtrfsChunk *chunk;
 
-                        btrfs_ioctl_search_args_set(&search_args, sh);
+                        btrfs_ioctl_search_args_set(&search_args, &sh);
 
-                        if (sh->type != BTRFS_EXTENT_DATA_KEY)
+                        if (sh.type != BTRFS_EXTENT_DATA_KEY)
                                 continue;
 
-                        if (sh->objectid != st.st_ino)
+                        if (sh.objectid != st.st_ino)
                                 continue;
 
-                        item = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
-
+                        const struct btrfs_file_extent_item *item = body;
                         if (!IN_SET(item->type, BTRFS_FILE_EXTENT_REG, BTRFS_FILE_EXTENT_PREALLOC))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Cannot get physical address for btrfs extent: invalid type %" PRIu8,

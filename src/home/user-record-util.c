@@ -428,7 +428,7 @@ int user_record_test_home_directory(UserRecord *h) {
         if (r == 0)
                 return -ENOTDIR;
 
-        r = path_is_mount_point(hd, NULL, 0);
+        r = path_is_mount_point(hd);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -1155,6 +1155,7 @@ int user_record_merge_secret(UserRecord *h, UserRecord *secret) {
         int r;
 
         assert(h);
+        assert(secret);
 
         /* Merges the secrets from 'secret' into 'h'. */
 

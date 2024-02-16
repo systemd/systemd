@@ -747,7 +747,7 @@ static int remove_marked_symlinks(
         assert(config_path);
         assert(lp);
 
-        if (set_size(remove_symlinks_to) <= 0)
+        if (set_isempty(remove_symlinks_to))
                 return 0;
 
         fd = open(config_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC);
@@ -1810,7 +1810,7 @@ int unit_file_verify_alias(
                 _cleanup_free_ char *dir = NULL;
                 char *p;
 
-                path_alias ++; /* skip over slash */
+                path_alias++; /* skip over slash */
 
                 r = path_extract_directory(dst, &dir);
                 if (r < 0)
@@ -2271,13 +2271,13 @@ int unit_file_mask(
         if (!config_path)
                 return -ENXIO;
 
+        r = 0;
+
         STRV_FOREACH(name, names) {
                 _cleanup_free_ char *path = NULL;
-                int q;
 
                 if (!unit_name_is_valid(*name, UNIT_NAME_ANY)) {
-                        if (r == 0)
-                                r = -EINVAL;
+                        RET_GATHER(r, -EINVAL);
                         continue;
                 }
 
@@ -2285,9 +2285,7 @@ int unit_file_mask(
                 if (!path)
                         return -ENOMEM;
 
-                q = create_symlink(&lp, "/dev/null", path, flags & UNIT_FILE_FORCE, changes, n_changes);
-                if (q < 0 && r >= 0)
-                        r = q;
+                RET_GATHER(r, create_symlink(&lp, "/dev/null", path, flags & UNIT_FILE_FORCE, changes, n_changes));
         }
 
         return r;
@@ -2383,8 +2381,7 @@ int unit_file_unmask(
 
                 if (!dry_run && unlink(path) < 0) {
                         if (errno != ENOENT) {
-                                if (r >= 0)
-                                        r = -errno;
+                                RET_GATHER(r, -errno);
                                 install_changes_add(changes, n_changes, -errno, path, NULL);
                         }
 
@@ -2401,9 +2398,7 @@ int unit_file_unmask(
                         return q;
         }
 
-        q = remove_marked_symlinks(remove_symlinks_to, config_path, &lp, dry_run, changes, n_changes);
-        if (r >= 0)
-                r = q;
+        RET_GATHER(r, remove_marked_symlinks(remove_symlinks_to, config_path, &lp, dry_run, changes, n_changes));
 
         return r;
 }
@@ -2894,7 +2889,7 @@ static int normalize_linked_files(
                         return log_debug_errno(SYNTHETIC_ERRNO(EISDIR),
                                                "Unexpected path to a directory \"%s\", refusing.", *a);
 
-                if (!is_path(*a)) {
+                if (!is_path(*a) && !unit_name_is_valid(*a, UNIT_NAME_INSTANCE)) {
                         r = install_info_discover(&ctx, lp, n, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, &i, NULL, NULL);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to discover unit \"%s\", operating on name: %m", n);
@@ -3147,8 +3142,10 @@ int unit_file_get_state(
         return unit_file_lookup_state(scope, &lp, name, ret);
 }
 
-int unit_file_exists(RuntimeScope scope, const LookupPaths *lp, const char *name) {
-        _cleanup_(install_context_done) InstallContext c = { .scope = scope };
+int unit_file_exists_full(RuntimeScope scope, const LookupPaths *lp, const char *name, char **ret_path) {
+        _cleanup_(install_context_done) InstallContext c = {
+                .scope = scope,
+        };
         int r;
 
         assert(lp);
@@ -3157,11 +3154,32 @@ int unit_file_exists(RuntimeScope scope, const LookupPaths *lp, const char *name
         if (!unit_name_is_valid(name, UNIT_NAME_ANY))
                 return -EINVAL;
 
-        r = install_info_discover(&c, lp, name, 0, NULL, NULL, NULL);
-        if (r == -ENOENT)
+        InstallInfo *info = NULL;
+        r = install_info_discover(
+                        &c,
+                        lp,
+                        name,
+                        /* flags= */ 0,
+                        ret_path ? &info : NULL,
+                        /* changes= */ NULL,
+                        /* n_changes= */ NULL);
+        if (r == -ENOENT) {
+                if (ret_path)
+                        *ret_path = NULL;
                 return 0;
+        }
         if (r < 0)
                 return r;
+
+        if (ret_path) {
+                assert(info);
+
+                _cleanup_free_ char *p = strdup(info->path);
+                if (!p)
+                        return -ENOMEM;
+
+                *ret_path = TAKE_PTR(p);
+        }
 
         return 1;
 }

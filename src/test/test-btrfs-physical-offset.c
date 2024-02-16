@@ -8,6 +8,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "memory-util.h"
+#include "tests.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_close_ int fd = -EBADF;
@@ -16,6 +17,8 @@ int main(int argc, char *argv[]) {
 
         assert(argc == 2);
         assert(!isempty(argv[1]));
+
+        test_setup_logging(LOG_DEBUG);
 
         fd = open(argv[1], O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0) {

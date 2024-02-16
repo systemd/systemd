@@ -42,6 +42,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         const Input *i = (const Input *) data;
         size_t len = size - offsetof(Input, str);
 
+        fuzz_setup_logging();
+
         PRINTF_ONE(i->status, "%*.*s", i->field_width, (int) len, i->str);
         PRINTF_ONE(i->status, "%*.*ls", i->field_width, (int) (len / sizeof(wchar_t)), (const wchar_t *) i->str);
 

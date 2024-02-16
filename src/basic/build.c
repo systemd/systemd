@@ -138,6 +138,12 @@ const char* const systemd_features =
         " -LIBCRYPTSETUP"
 #endif
 
+#if HAVE_LIBCRYPTSETUP_PLUGINS
+        " +LIBCRYPTSETUP_PLUGINS"
+#else
+        " -LIBCRYPTSETUP_PLUGINS"
+#endif
+
 #if HAVE_LIBFDISK
         " +LIBFDISK"
 #else
@@ -232,6 +238,12 @@ const char* const systemd_features =
         " -SYSVINIT"
 #endif
 
+#if HAVE_LIBARCHIVE
+        " +LIBARCHIVE"
+#else
+        " -LIBARCHIVE"
+#endif
+
         " default-hierarchy=" DEFAULT_HIERARCHY_NAME
         ;
 
@@ -276,7 +288,7 @@ int version(void) {
         if (colors_enabled())
                 b = systemd_features_with_color();
 
-        printf("%ssystemd " STRINGIFY(PROJECT_VERSION) "%s (" GIT_VERSION ")\n%s\n",
+        printf("%ssystemd " PROJECT_VERSION_FULL "%s (" GIT_VERSION ")\n%s\n",
                ansi_highlight(), ansi_normal(),
                b ?: systemd_features);
         return 0;

@@ -133,6 +133,27 @@ TEST(strv_env_assign) {
         assert_se(streq(a[0], "a=A"));
 }
 
+TEST(strv_env_assignf) {
+        _cleanup_strv_free_ char **a = NULL;
+
+        assert_se(strv_env_assignf(&a, "a", "a") > 0);
+        assert_se(strv_env_assignf(&a, "a", "%c", 'a') == 0);
+
+        assert_se(strv_env_assignf(&a, "c", "xxx%iyyy", 5) > 0);
+        assert_se(strv_length(a) == 2);
+        assert_se(strv_equal(a, STRV_MAKE("a=a", "c=xxx5yyy")));
+        assert_se(strv_env_assignf(&a, "c", NULL) == 0);
+
+        assert_se(strv_env_assignf(&a, "b", "b") > 0);
+        assert_se(strv_env_assignf(&a, "a", "A") == 0);
+        assert_se(strv_env_assignf(&a, "b", NULL) == 0);
+
+        assert_se(strv_env_assignf(&a, "a=", "B") == -EINVAL);
+
+        assert_se(strv_length(a) == 1);
+        assert_se(streq(a[0], "a=A"));
+}
+
 TEST(strv_env_assign_many) {
         _cleanup_strv_free_ char **a = NULL;
 

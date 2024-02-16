@@ -217,6 +217,8 @@ static int verify_vc_allocation_byfd(int fd) {
 static int verify_vc_kbmode(int fd) {
         int curr_mode;
 
+        assert(fd >= 0);
+
         /*
          * Make sure we only adjust consoles in K_XLATE or K_UNICODE mode.
          * Otherwise we would (likely) interfere with X11's processing of the
@@ -229,6 +231,20 @@ static int verify_vc_kbmode(int fd) {
                 return -errno;
 
         return IN_SET(curr_mode, K_XLATE, K_UNICODE) ? 0 : -EBUSY;
+}
+
+static int verify_vc_display_mode(int fd) {
+        int mode;
+
+        assert(fd >= 0);
+
+        /* Similarly the vc is likely busy if it is in KD_GRAPHICS mode. If it's not the case and it's been
+         * left in graphics mode, the kernel will refuse to operate on the font settings anyway. */
+
+        if (ioctl(fd, KDGETMODE, &mode) < 0)
+                return -errno;
+
+        return mode != KD_TEXT ? -EBUSY : 0;
 }
 
 static int toggle_utf8_vc(const char *name, int fd, bool utf8) {
@@ -361,7 +377,16 @@ static int font_load_and_wait(const char *vc, Context *c) {
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_check(KBD_SETFONT, pid, WAIT_LOG);
+        /* setfont returns EX_OSERR when ioctl(KDFONTOP/PIO_FONTX/PIO_FONTX) fails.  This might mean various
+         * things, but in particular lack of a graphical console. Let's be generous and not treat this as an
+         * error. */
+        r = wait_for_terminate_and_check(KBD_SETFONT, pid, WAIT_LOG_ABNORMAL);
+        if (r == EX_OSERR)
+                log_notice(KBD_SETFONT " failed with a \"system error\" (EX_OSERR), ignoring.");
+        else if (r >= 0 && r != EXIT_SUCCESS)
+                log_error(KBD_SETFONT " failed with exit status %i.", r);
+
+        return r;
 }
 
 /*
@@ -461,24 +486,14 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                 if (cfo.op != KD_FONT_OP_SET)
                         continue;
 
-                r = ioctl(fd_d, KDFONTOP, &cfo);
+                r = verify_vc_display_mode(fd_d);
                 if (r < 0) {
-                        int last_errno, mode;
+                        log_debug_errno(r, "KD_FONT_OP_SET skipped: tty%u is not in text mode", i);
+                        continue;
+                }
 
-                        /* The fonts couldn't have been copied. It might be due to the
-                         * terminal being in graphical mode. In this case the kernel
-                         * returns -EINVAL which is too generic for distinguishing this
-                         * specific case. So we need to retrieve the terminal mode and if
-                         * the graphical mode is in used, let's assume that something else
-                         * is using the terminal and the failure was expected as we
-                         * shouldn't have tried to copy the fonts. */
-
-                        last_errno = errno;
-                        if (ioctl(fd_d, KDGETMODE, &mode) >= 0 && mode != KD_TEXT)
-                                log_debug("KD_FONT_OP_SET skipped: tty%u is not in text mode", i);
-                        else
-                                log_warning_errno(last_errno, "KD_FONT_OP_SET failed, fonts will not be copied to tty%u: %m", i);
-
+                if (ioctl(fd_d, KDFONTOP, &cfo) < 0) {
+                        log_warning_errno(errno, "KD_FONT_OP_SET failed, fonts will not be copied to tty%u: %m", i);
                         continue;
                 }
 
@@ -522,14 +537,19 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
 
                 fd = open_terminal(path, O_RDWR|O_CLOEXEC|O_NOCTTY);
                 if (fd < 0) {
-                        log_debug_errno(fd, "Failed to open terminal %s, ignoring: %m", path);
-                        RET_GATHER(err, r);
+                        RET_GATHER(err, log_debug_errno(fd, "Failed to open terminal %s, ignoring: %m", path));
                         continue;
                 }
+
                 r = verify_vc_kbmode(fd);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to check VC %s keyboard mode: %m", path);
-                        RET_GATHER(err, r);
+                        RET_GATHER(err, log_debug_errno(r, "Failed to check VC %s keyboard mode: %m", path));
+                        continue;
+                }
+
+                r = verify_vc_display_mode(fd);
+                if (r < 0) {
+                        RET_GATHER(err, log_debug_errno(r, "Failed to check VC %s display mode: %m", path));
                         continue;
                 }
 
@@ -562,6 +582,13 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
         r = verify_vc_kbmode(fd);
         if (r < 0)
                 return log_error_errno(r, "Virtual console %s is not in K_XLATE or K_UNICODE: %m", src_vc);
+
+        /* setfont(8) silently ignores when the font can't be applied due to the vc being in
+         * KD_GRAPHICS. Hence we continue to accept this case however we now let the user know that the vc
+         * will be initialized only partially.*/
+        r = verify_vc_display_mode(fd);
+        if (r < 0)
+                log_notice_errno(r, "Virtual console %s is not in KD_TEXT, font settings likely won't be applied.", src_vc);
 
         path = strdup(src_vc);
         if (!path)
@@ -597,14 +624,10 @@ static int run(int argc, char **argv) {
         /* Take lock around the remaining operation to avoid being interrupted by a tty reset operation
          * performed for services with TTYVHangup=yes. */
         lock_fd = lock_dev_console();
-        if (lock_fd < 0) {
-                log_full_errno(lock_fd == -ENOENT ? LOG_DEBUG : LOG_ERR,
-                               lock_fd,
-                               "Failed to lock /dev/console%s: %m",
-                               lock_fd == -ENOENT ? ", ignoring" : "");
-                if (lock_fd != -ENOENT)
-                        return lock_fd;
-        }
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(lock_fd))
+                log_debug_errno(lock_fd, "Device /dev/console does not exist, proceeding without locking it: %m");
+        else if (lock_fd < 0)
+                return log_error_errno(lock_fd, "Failed to lock /dev/console: %m");
 
         (void) toggle_utf8_sysfs(utf8);
         (void) toggle_utf8_vc(vc, fd, utf8);
@@ -615,13 +638,9 @@ static int run(int argc, char **argv) {
         if (idx > 0) {
                 if (r == 0)
                         setup_remaining_vcs(fd, idx, utf8);
-                else if (r == EX_OSERR)
-                        /* setfont returns EX_OSERR when ioctl(KDFONTOP/PIO_FONTX/PIO_FONTX) fails.
-                         * This might mean various things, but in particular lack of a graphical
-                         * console. Let's be generous and not treat this as an error. */
-                        log_notice("Setting fonts failed with a \"system error\", ignoring.");
                 else
-                        log_warning("Setting source virtual console failed, ignoring remaining ones");
+                        log_full(r == EX_OSERR ? LOG_NOTICE : LOG_WARNING,
+                                 "Setting source virtual console failed, ignoring remaining ones.");
         }
 
         return IN_SET(r, 0, EX_OSERR) && keyboard_ok ? EXIT_SUCCESS : EXIT_FAILURE;

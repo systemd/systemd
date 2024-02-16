@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 project('systemd', 'c',
-        version : '255',
+        version : files('meson.version'),
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu11',
@@ -18,8 +18,9 @@ libudev_version = '1.7.8'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
-conf.set('PROJECT_VERSION', meson.project_version(),
+conf.set('PROJECT_VERSION', meson.project_version().split('~')[0],
          description : 'Numerical project version (used where a simple number is expected)')
+conf.set_quoted('PROJECT_VERSION_FULL', meson.project_version(), description : 'Full project version')
 
 # This is to be used instead of meson.source_root(), as the latter will return
 # the wrong result when systemd is being built as a meson subproject
@@ -176,6 +177,7 @@ repartdefinitionsdir = libexecdir / 'repart/definitions'
 ntpservicelistdir = prefixdir / 'lib/systemd/ntp-units.d'
 credstoredir = prefixdir / 'lib/credstore'
 pcrlockdir = prefixdir / 'lib/pcrlock.d'
+mimepackagesdir = prefixdir / 'share/mime/packages'
 
 configfiledir = get_option('configfiledir')
 if configfiledir == ''
@@ -196,6 +198,16 @@ endif
 pamconfdir = get_option('pamconfdir')
 if pamconfdir == ''
         pamconfdir = prefixdir / 'lib/pam.d'
+endif
+
+sshconfdir = get_option('sshconfdir')
+if sshconfdir == ''
+        sshconfdir = sysconfdir / 'ssh/ssh_config.d'
+endif
+
+sshdconfdir = get_option('sshdconfdir')
+if sshdconfdir == ''
+        sshdconfdir = sysconfdir / 'ssh/sshd_config.d'
 endif
 
 libcryptsetup_plugins_dir = get_option('libcryptsetup-plugins-dir')
@@ -229,6 +241,8 @@ conf.set_quoted('PREFIX_NOSLASH',                             prefixdir_noslash)
 conf.set_quoted('RANDOM_SEED',                                randomseeddir / 'random-seed')
 conf.set_quoted('RANDOM_SEED_DIR',                            randomseeddir)
 conf.set_quoted('RC_LOCAL_PATH',                              get_option('rc-local'))
+conf.set_quoted('SSHCONFDIR',                                 sshconfdir)
+conf.set_quoted('SSHDCONFDIR',                                sshdconfdir)
 conf.set_quoted('SYSCONF_DIR',                                sysconfdir)
 conf.set_quoted('SYSCTL_DIR',                                 sysctldir)
 conf.set_quoted('SYSTEMCTL_BINARY_PATH',                      bindir / 'systemctl')
@@ -300,7 +314,7 @@ meson_build_sh = find_program('tools/meson-build.sh')
 want_tests = get_option('tests')
 slow_tests = want_tests != 'false' and get_option('slow-tests')
 fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
-install_tests = get_option('install-tests')
+install_tests = want_tests != 'false' and get_option('install-tests')
 
 if add_languages('cpp', native : false, required : fuzzer_build)
         #  Used only for tests
@@ -328,6 +342,7 @@ endif
 basic_disabled_warnings = [
         '-Wno-missing-field-initializers',
         '-Wno-unused-parameter',
+        '-Wno-nonnull-compare',
 ]
 
 possible_common_cc_flags = [
@@ -626,6 +641,7 @@ foreach ident : [
         ['fsconfig',          '''#include <sys/mount.h>'''],
         ['fsmount',           '''#include <sys/mount.h>'''],
         ['getdents64',        '''#include <dirent.h>'''],
+        ['pidfd_spawn',       '''#include <spawn.h>'''],
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
@@ -685,13 +701,11 @@ foreach prog : progs
         conf.set_quoted(name, path)
 endforeach
 
-conf.set_quoted('TELINIT', get_option('telinit-path'))
-
 if run_command(ln, '--relative', '--help', check : false).returncode() != 0
         error('ln does not support --relative (added in coreutils 8.16)')
 endif
 
-############################################################
+#####################################################################
 
 gperf = find_program('gperf')
 
@@ -717,7 +731,7 @@ message('gperf len type is @0@'.format(gperf_len_type))
 conf.set('GPERF_LEN_TYPE', gperf_len_type,
          description : 'The type of gperf "len" parameter')
 
-############################################################
+#####################################################################
 
 if not cc.has_header('sys/capability.h')
         error('POSIX caps headers not found')
@@ -737,7 +751,7 @@ foreach header : ['crypt.h',
                    cc.has_header(header))
 endforeach
 
-############################################################
+#####################################################################
 
 fallback_hostname = get_option('fallback-hostname')
 if fallback_hostname == '' or fallback_hostname[0] == '.' or fallback_hostname[0] == '-'
@@ -1245,7 +1259,8 @@ foreach ident : ['crypt_set_metadata_size',
                  'crypt_token_max',
                  'crypt_reencrypt_init_by_passphrase',
                  'crypt_reencrypt',
-                 'crypt_set_data_offset']
+                 'crypt_set_data_offset',
+                 'crypt_set_keyring_to_link']
         have_ident = have and cc.has_function(
                 ident,
                 prefix : '#include <libcryptsetup.h>',
@@ -1398,6 +1413,11 @@ elif compression == 'xz' and not libxz.found()
         error('default-compression=xz requires xz')
 endif
 conf.set('DEFAULT_COMPRESSION', 'COMPRESSION_@0@'.format(compression.to_upper()))
+
+libarchive = dependency('libarchive',
+                        version : '>= 3.0',
+                        required : get_option('libarchive'))
+conf.set10('HAVE_LIBARCHIVE', libarchive.found())
 
 libxkbcommon = dependency('xkbcommon',
                           version : '>= 0.3.0',
@@ -1650,15 +1670,18 @@ conf.set10('ENABLE_NSS', enable_nss)
 
 conf.set10('ENABLE_TIMEDATECTL', get_option('timedated') or get_option('timesyncd'))
 
+conf.set10('ENABLE_SSH_PROXY_CONFIG', sshconfdir != 'no')
+conf.set10('ENABLE_SSH_USERDB_CONFIG', conf.get('ENABLE_USERDB') == 1 and sshdconfdir != 'no')
+
 conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
 
-############################################################
+#####################################################################
 
 pymod = import('python')
 python = pymod.find_installation('python3', required : true, modules : ['jinja2'])
 python_39 = python.language_version().version_compare('>=3.9')
 
-############################################################
+#####################################################################
 
 if conf.get('BPF_FRAMEWORK') == 1
         bpf_clang_flags = [
@@ -1804,10 +1827,12 @@ if have and efi_arch == 'x64' and cc.links('''
         efi_cpu_family_alt = 'x86'
 endif
 
-want_ukify = get_option('ukify').require(python_39, error_message : 'Python >= 3.9 required').allowed()
+pefile = pymod.find_installation('python3', required: false, modules : ['pefile'])
+
+want_ukify = get_option('ukify').require(python_39 and (want_tests != 'true' or pefile.found()), error_message : 'Python >= 3.9 and pefile required').allowed()
 conf.set10('ENABLE_UKIFY', want_ukify)
 
-############################################################
+#####################################################################
 
 check_version_history_py = find_program('tools/check-version-history.py')
 elf2efi_py = find_program('tools/elf2efi.py')
@@ -1825,7 +1850,7 @@ update_man_rules_py = find_program('tools/update-man-rules.py')
 update_syscall_tables_sh = find_program('tools/update-syscall-tables.sh')
 xml_helper_py = find_program('tools/xml_helper.py')
 
-############################################################
+#####################################################################
 
 version_tag = get_option('version-tag')
 version_h = vcs_tag(
@@ -1833,22 +1858,21 @@ version_h = vcs_tag(
         output : 'version.h',
         command: [project_source_root / 'tools/meson-vcs-tag.sh',
                   project_source_root,
-                  meson.project_version(),
                   version_tag,
                  ])
 
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''
-        shared_lib_tag = meson.project_version()
+        shared_lib_tag = meson.project_version().split('~')[0]
 endif
 
-############################################################
+#####################################################################
 
 if get_option('b_coverage')
         userspace_c_args += ['-include', 'src/basic/coverage.h']
 endif
 
-############################################################
+#####################################################################
 
 config_h = configure_file(
         output : 'config.h',
@@ -1866,7 +1890,7 @@ userspace = declare_dependency(
 
 man_page_depends = []
 
-############################################################
+#####################################################################
 
 simple_tests = []
 libsystemd_tests = []
@@ -1999,7 +2023,7 @@ install_libudev_static = static_library(
         c_args : static_libudev_pic ? [] : ['-fno-PIC'],
         pic : static_libudev_pic)
 
-############################################################
+#####################################################################
 
 runtest_env = custom_target(
         'systemd-runtest.env',
@@ -2020,7 +2044,7 @@ if '-O2' in c_args and '-flto=auto' in c_args
         test_cflags += cc.first_supported_argument('-Wno-maybe-uninitialized')
 endif
 
-############################################################
+#####################################################################
 
 executable_template = {
         'include_directories' : includes,
@@ -2116,7 +2140,7 @@ module_additional_kwargs = {
         'dependencies' : userspace,
 }
 
-############################################################
+#####################################################################
 
 # systemd-analyze requires 'libcore'
 subdir('src/core')
@@ -2197,6 +2221,7 @@ subdir('src/shutdown')
 subdir('src/sleep')
 subdir('src/socket-activate')
 subdir('src/socket-proxy')
+subdir('src/ssh-generator')
 subdir('src/stdio-bridge')
 subdir('src/sulogin-shell')
 subdir('src/sysctl')
@@ -2221,6 +2246,7 @@ subdir('src/vconsole')
 subdir('src/veritysetup')
 subdir('src/vmspawn')
 subdir('src/volatile-root')
+subdir('src/vpick')
 subdir('src/xdg-autostart-generator')
 
 subdir('src/systemd')
@@ -2230,9 +2256,11 @@ subdir('src/fuzz')
 subdir('src/ukify/test')  # needs to be last for test_env variable
 subdir('test/fuzz')
 
+subdir('mime')
+
 alias_target('devel', libsystemd_pc, libudev_pc, systemd_pc, udev_pc)
 
-############################################################
+#####################################################################
 
 foreach test : simple_tests
         executables += test_template + { 'sources' : [test] }
@@ -2369,7 +2397,7 @@ endforeach
 
 alias_target('fuzzers', fuzzer_exes)
 
-############################################################
+#####################################################################
 
 test_dlopen = executables_by_name.get('test-dlopen')
 
@@ -2433,7 +2461,7 @@ foreach dict : modules
         endif
 endforeach
 
-############################################################
+#####################################################################
 
 ukify = custom_target(
         'ukify',
@@ -2452,12 +2480,12 @@ if want_ukify
                                              libexecdir / 'ukify'))
 endif
 
-############################################################
+#####################################################################
 
 subdir('rules.d')
 subdir('test')
 
-############################################################
+#####################################################################
 
 subdir('docs/sysvinit')
 subdir('docs/var-log')
@@ -2499,7 +2527,7 @@ install_subdir('LICENSES',
 
 install_emptydir(systemdstatedir)
 
-############################################################
+#####################################################################
 
 # Ensure that changes to the docs/ directory do not break the
 # basic Github pages build. But only run it in developer mode,
@@ -2515,7 +2543,7 @@ if get_option('mode') == 'developer' and want_tests != 'false' and jekyll.found(
                      '--destination', project_build_root / '_site'])
 endif
 
-############################################################
+#####################################################################
 
 check_help = find_program('tools/check-help.sh')
 check_version = find_program('tools/check-version.sh')
@@ -2529,11 +2557,17 @@ foreach exec : public_programs
                      args : exec.full_path(),
                      depends: exec)
 
+                version = meson.project_version()
+                if name == 'udevadm'
+                        # For compatibility reasons we can't use the full version in udevadm.
+                        version = version.split('~')[0]
+                endif
+
                 test('check-version-' + name,
                      check_version,
                      suite : 'dist',
                      args : [exec.full_path(),
-                             meson.project_version()],
+                             version],
                      depends: exec)
         endif
 endforeach
@@ -2584,7 +2618,7 @@ foreach tuple : fuzz_sanitizers
         endif
 endforeach
 
-############################################################
+#####################################################################
 
 if git.found()
         all_files = run_command(
@@ -2641,7 +2675,7 @@ if git.found()
                            'HEAD'])
 endif
 
-############################################################
+#####################################################################
 
 check_api_docs_sh = find_program('tools/check-api-docs.sh')
 run_target(
@@ -2661,7 +2695,7 @@ if not meson.is_cross_build()
                 command : [export_dbus_interfaces_py, '@OUTPUT@', dbus_programs])
 endif
 
-############################################################
+#####################################################################
 
 alt_time_epoch = run_command('date', '-Is', '-u', '-d', '@@0@'.format(time_epoch),
                              check : true).stdout().strip()
@@ -2676,6 +2710,8 @@ summary({
         'SysV rc?.d directories' :          sysvrcnd_path,
         'PAM modules directory' :           pamlibdir,
         'PAM configuration directory' :     pamconfdir,
+        'ssh server configuration directory' : sshdconfdir,
+        'ssh client configuration directory' : sshconfdir,
         'libcryptsetup plugins directory' : libcryptsetup_plugins_dir,
         'RPM macros directory' :            rpmmacrosdir,
         'modprobe.d directory' :            modprobedir,

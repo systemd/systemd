@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "device-private.h"
+#include "device-util.h"
 #include "log.h"
 #include "udev-builtin.h"
 #include "udevadm.h"
@@ -78,6 +80,7 @@ int builtin_main(int argc, char *argv[], void *userdata) {
         int r;
 
         log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -97,16 +100,28 @@ int builtin_main(int argc, char *argv[], void *userdata) {
                 goto finish;
         }
 
-        event = udev_event_new(dev, 0, NULL, LOG_DEBUG);
+        event = udev_event_new(dev, NULL);
         if (!event) {
                 r = log_oom();
                 goto finish;
         }
 
-        r = udev_builtin_run(event, cmd, arg_command, true);
-        if (r < 0)
-                log_debug_errno(r, "Builtin command '%s' fails: %m", arg_command);
+        if (arg_action != SD_DEVICE_REMOVE) {
+                /* For net_setup_link */
+                r = device_clone_with_db(dev, &event->dev_db_clone);
+                if (r < 0) {
+                        log_device_error_errno(dev, r, "Failed to clone device: %m");
+                        goto finish;
+                }
+        }
 
+        r = udev_builtin_run(event, cmd, arg_command, true);
+        if (r < 0) {
+                log_debug_errno(r, "Builtin command '%s' fails: %m", arg_command);
+                goto finish;
+        }
+
+        r = 0;
 finish:
         udev_builtin_exit();
         return r;

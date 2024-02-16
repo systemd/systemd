@@ -10,6 +10,7 @@
 #include "bpf-devices.h"
 #include "bpf-firewall.h"
 #include "bpf-foreign.h"
+#include "bpf-restrict-ifaces.h"
 #include "bpf-socket-bind.h"
 #include "btrfs-util.h"
 #include "bus-error.h"
@@ -32,7 +33,7 @@
 #include "percent-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
-#include "restrict-ifaces.h"
+#include "set.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -187,6 +188,318 @@ void cgroup_context_init(CGroupContext *c) {
                 .memory_pressure_watch = _CGROUP_PRESSURE_WATCH_INVALID,
                 .memory_pressure_threshold_usec = USEC_INFINITY,
         };
+}
+
+int cgroup_context_add_io_device_weight_dup(CGroupContext *c, const CGroupIODeviceWeight *w) {
+        _cleanup_free_ CGroupIODeviceWeight *n = NULL;
+
+        assert(c);
+        assert(w);
+
+        n = new(CGroupIODeviceWeight, 1);
+        if (!n)
+                return -ENOMEM;
+
+        *n = (CGroupIODeviceWeight) {
+                .path = strdup(w->path),
+                .weight = w->weight,
+        };
+        if (!n->path)
+                return -ENOMEM;
+
+        LIST_PREPEND(device_weights, c->io_device_weights, TAKE_PTR(n));
+        return 0;
+}
+
+int cgroup_context_add_io_device_limit_dup(CGroupContext *c, const CGroupIODeviceLimit *l) {
+        _cleanup_free_ CGroupIODeviceLimit *n = NULL;
+
+        assert(c);
+        assert(l);
+
+        n = new0(CGroupIODeviceLimit, 1);
+        if (!n)
+                return -ENOMEM;
+
+        n->path = strdup(l->path);
+        if (!n->path)
+                return -ENOMEM;
+
+        for (CGroupIOLimitType type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
+                n->limits[type] = l->limits[type];
+
+        LIST_PREPEND(device_limits, c->io_device_limits, TAKE_PTR(n));
+        return 0;
+}
+
+int cgroup_context_add_io_device_latency_dup(CGroupContext *c, const CGroupIODeviceLatency *l) {
+        _cleanup_free_ CGroupIODeviceLatency *n = NULL;
+
+        assert(c);
+        assert(l);
+
+        n = new(CGroupIODeviceLatency, 1);
+        if (!n)
+                return -ENOMEM;
+
+        *n = (CGroupIODeviceLatency) {
+                .path = strdup(l->path),
+                .target_usec = l->target_usec,
+        };
+        if (!n->path)
+                return -ENOMEM;
+
+        LIST_PREPEND(device_latencies, c->io_device_latencies, TAKE_PTR(n));
+        return 0;
+}
+
+int cgroup_context_add_block_io_device_weight_dup(CGroupContext *c, const CGroupBlockIODeviceWeight *w) {
+        _cleanup_free_ CGroupBlockIODeviceWeight *n = NULL;
+
+        assert(c);
+        assert(w);
+
+        n = new(CGroupBlockIODeviceWeight, 1);
+        if (!n)
+                return -ENOMEM;
+
+        *n = (CGroupBlockIODeviceWeight) {
+                .path = strdup(w->path),
+                .weight = w->weight,
+        };
+        if (!n->path)
+                return -ENOMEM;
+
+        LIST_PREPEND(device_weights, c->blockio_device_weights, TAKE_PTR(n));
+        return 0;
+}
+
+int cgroup_context_add_block_io_device_bandwidth_dup(CGroupContext *c, const CGroupBlockIODeviceBandwidth *b) {
+        _cleanup_free_ CGroupBlockIODeviceBandwidth *n = NULL;
+
+        assert(c);
+        assert(b);
+
+        n = new(CGroupBlockIODeviceBandwidth, 1);
+        if (!n)
+                return -ENOMEM;
+
+        *n = (CGroupBlockIODeviceBandwidth) {
+                .rbps = b->rbps,
+                .wbps = b->wbps,
+        };
+
+        LIST_PREPEND(device_bandwidths, c->blockio_device_bandwidths, TAKE_PTR(n));
+        return 0;
+}
+
+int cgroup_context_add_device_allow_dup(CGroupContext *c, const CGroupDeviceAllow *a) {
+        _cleanup_free_ CGroupDeviceAllow *n = NULL;
+
+        assert(c);
+        assert(a);
+
+        n = new(CGroupDeviceAllow, 1);
+        if (!n)
+                return -ENOMEM;
+
+        *n = (CGroupDeviceAllow) {
+                .path = strdup(a->path),
+                .permissions = a->permissions,
+        };
+        if (!n->path)
+                return -ENOMEM;
+
+        LIST_PREPEND(device_allow, c->device_allow, TAKE_PTR(n));
+        return 0;
+}
+
+static int cgroup_context_add_socket_bind_item_dup(CGroupContext *c, const CGroupSocketBindItem *i, CGroupSocketBindItem *h) {
+        _cleanup_free_ CGroupSocketBindItem *n = NULL;
+
+        assert(c);
+        assert(i);
+
+        n = new(CGroupSocketBindItem, 1);
+        if (!n)
+                return -ENOMEM;
+
+        *n = (CGroupSocketBindItem) {
+                .address_family = i->address_family,
+                .ip_protocol    = i->ip_protocol,
+                .nr_ports       = i->nr_ports,
+                .port_min       = i->port_min,
+        };
+
+        LIST_PREPEND(socket_bind_items, h, TAKE_PTR(n));
+        return 0;
+}
+
+int cgroup_context_add_socket_bind_item_allow_dup(CGroupContext *c, const CGroupSocketBindItem *i) {
+        return cgroup_context_add_socket_bind_item_dup(c, i, c->socket_bind_allow);
+}
+
+int cgroup_context_add_socket_bind_item_deny_dup(CGroupContext *c, const CGroupSocketBindItem *i) {
+        return cgroup_context_add_socket_bind_item_dup(c, i, c->socket_bind_deny);
+}
+
+int cgroup_context_copy(CGroupContext *dst, const CGroupContext *src) {
+        struct in_addr_prefix *i;
+        char *iface;
+        int r;
+
+        assert(src);
+        assert(dst);
+
+        dst->cpu_accounting = src->cpu_accounting;
+        dst->io_accounting = src->io_accounting;
+        dst->blockio_accounting = src->blockio_accounting;
+        dst->memory_accounting = src->memory_accounting;
+        dst->tasks_accounting = src->tasks_accounting;
+        dst->ip_accounting = src->ip_accounting;
+
+        dst->memory_oom_group = src->memory_oom_group;
+
+        dst->cpu_weight = src->cpu_weight;
+        dst->startup_cpu_weight = src->startup_cpu_weight;
+        dst->cpu_quota_per_sec_usec = src->cpu_quota_per_sec_usec;
+        dst->cpu_quota_period_usec = src->cpu_quota_period_usec;
+
+        dst->cpuset_cpus = src->cpuset_cpus;
+        dst->startup_cpuset_cpus = src->startup_cpuset_cpus;
+        dst->cpuset_mems = src->cpuset_mems;
+        dst->startup_cpuset_mems = src->startup_cpuset_mems;
+
+        dst->io_weight = src->io_weight;
+        dst->startup_io_weight = src->startup_io_weight;
+
+        LIST_FOREACH_BACKWARDS(device_weights, w, LIST_FIND_TAIL(device_weights, src->io_device_weights)) {
+                r = cgroup_context_add_io_device_weight_dup(dst, w);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH_BACKWARDS(device_limits, l, LIST_FIND_TAIL(device_limits, src->io_device_limits)) {
+                r = cgroup_context_add_io_device_limit_dup(dst, l);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH_BACKWARDS(device_latencies, l, LIST_FIND_TAIL(device_latencies, src->io_device_latencies)) {
+                r = cgroup_context_add_io_device_latency_dup(dst, l);
+                if (r < 0)
+                        return r;
+        }
+
+        dst->default_memory_min = src->default_memory_min;
+        dst->default_memory_low = src->default_memory_low;
+        dst->default_startup_memory_low = src->default_startup_memory_low;
+        dst->memory_min = src->memory_min;
+        dst->memory_low = src->memory_low;
+        dst->startup_memory_low = src->startup_memory_low;
+        dst->memory_high = src->memory_high;
+        dst->startup_memory_high = src->startup_memory_high;
+        dst->memory_max = src->memory_max;
+        dst->startup_memory_max = src->startup_memory_max;
+        dst->memory_swap_max = src->memory_swap_max;
+        dst->startup_memory_swap_max = src->startup_memory_swap_max;
+        dst->memory_zswap_max = src->memory_zswap_max;
+        dst->startup_memory_zswap_max = src->startup_memory_zswap_max;
+
+        dst->default_memory_min_set = src->default_memory_min_set;
+        dst->default_memory_low_set = src->default_memory_low_set;
+        dst->default_startup_memory_low_set = src->default_startup_memory_low_set;
+        dst->memory_min_set = src->memory_min_set;
+        dst->memory_low_set = src->memory_low_set;
+        dst->startup_memory_low_set = src->startup_memory_low_set;
+        dst->startup_memory_high_set = src->startup_memory_high_set;
+        dst->startup_memory_max_set = src->startup_memory_max_set;
+        dst->startup_memory_swap_max_set = src->startup_memory_swap_max_set;
+        dst->startup_memory_zswap_max_set = src->startup_memory_zswap_max_set;
+
+        SET_FOREACH(i, src->ip_address_allow) {
+                r = in_addr_prefix_add(&dst->ip_address_allow, i);
+                if (r < 0)
+                        return r;
+        }
+
+        SET_FOREACH(i, src->ip_address_deny) {
+                r = in_addr_prefix_add(&dst->ip_address_deny, i);
+                if (r < 0)
+                        return r;
+        }
+
+        dst->ip_address_allow_reduced = src->ip_address_allow_reduced;
+        dst->ip_address_deny_reduced = src->ip_address_deny_reduced;
+
+        if (!strv_isempty(src->ip_filters_ingress)) {
+                dst->ip_filters_ingress = strv_copy(src->ip_filters_ingress);
+                if (!dst->ip_filters_ingress)
+                        return -ENOMEM;
+        }
+
+        if (!strv_isempty(src->ip_filters_egress)) {
+                dst->ip_filters_egress = strv_copy(src->ip_filters_egress);
+                if (!dst->ip_filters_egress)
+                        return -ENOMEM;
+        }
+
+        LIST_FOREACH_BACKWARDS(programs, l, LIST_FIND_TAIL(programs, src->bpf_foreign_programs)) {
+                r = cgroup_context_add_bpf_foreign_program_dup(dst, l);
+                if (r < 0)
+                        return r;
+        }
+
+        SET_FOREACH(iface, src->restrict_network_interfaces) {
+                r = set_put_strdup(&dst->restrict_network_interfaces, iface);
+                if (r < 0)
+                        return r;
+        }
+        dst->restrict_network_interfaces_is_allow_list = src->restrict_network_interfaces_is_allow_list;
+
+        dst->cpu_shares = src->cpu_shares;
+        dst->startup_cpu_shares = src->startup_cpu_shares;
+
+        dst->blockio_weight = src->blockio_weight;
+        dst->startup_blockio_weight = src->startup_blockio_weight;
+
+        LIST_FOREACH_BACKWARDS(device_weights, l, LIST_FIND_TAIL(device_weights, src->blockio_device_weights)) {
+                r = cgroup_context_add_block_io_device_weight_dup(dst, l);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH_BACKWARDS(device_bandwidths, l, LIST_FIND_TAIL(device_bandwidths, src->blockio_device_bandwidths)) {
+                r = cgroup_context_add_block_io_device_bandwidth_dup(dst, l);
+                if (r < 0)
+                        return r;
+        }
+
+        dst->memory_limit = src->memory_limit;
+
+        dst->device_policy = src->device_policy;
+        LIST_FOREACH_BACKWARDS(device_allow, l, LIST_FIND_TAIL(device_allow, src->device_allow)) {
+                r = cgroup_context_add_device_allow_dup(dst, l);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH_BACKWARDS(socket_bind_items, l, LIST_FIND_TAIL(socket_bind_items, src->socket_bind_allow)) {
+                r = cgroup_context_add_socket_bind_item_allow_dup(dst, l);
+                if (r < 0)
+                        return r;
+
+        }
+
+        LIST_FOREACH_BACKWARDS(socket_bind_items, l, LIST_FIND_TAIL(socket_bind_items, src->socket_bind_deny)) {
+                r = cgroup_context_add_socket_bind_item_deny_dup(dst, l);
+                if (r < 0)
+                        return r;
+        }
+
+        dst->tasks_max = src->tasks_max;
+
+        return 0;
 }
 
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a) {
@@ -629,11 +942,12 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                         prefix, FORMAT_TIMESPAN(c->memory_pressure_threshold_usec, 1));
 
         LIST_FOREACH(device_allow, a, c->device_allow)
+                /* strna() below should be redundant, for avoiding -Werror=format-overflow= error. See #30223. */
                 fprintf(f,
                         "%sDeviceAllow: %s %s\n",
                         prefix,
                         a->path,
-                        cgroup_device_permissions_to_string(a->permissions));
+                        strna(cgroup_device_permissions_to_string(a->permissions)));
 
         LIST_FOREACH(device_weights, iw, c->io_device_weights)
                 fprintf(f,
@@ -1535,7 +1849,7 @@ static void cgroup_apply_socket_bind(Unit *u) {
 static void cgroup_apply_restrict_network_interfaces(Unit *u) {
         assert(u);
 
-        (void) restrict_network_interfaces_install(u);
+        (void) bpf_restrict_ifaces_install(u);
 }
 
 static int cgroup_apply_devices(Unit *u) {
@@ -1570,10 +1884,14 @@ static int cgroup_apply_devices(Unit *u) {
 
         bool allow_list_static = policy == CGROUP_DEVICE_POLICY_CLOSED ||
                 (policy == CGROUP_DEVICE_POLICY_AUTO && c->device_allow);
-        if (allow_list_static)
-                (void) bpf_devices_allow_list_static(prog, path);
 
-        bool any = allow_list_static;
+        bool any = false;
+        if (allow_list_static) {
+                r = bpf_devices_allow_list_static(prog, path);
+                if (r > 0)
+                        any = true;
+        }
+
         LIST_FOREACH(device_allow, a, c->device_allow) {
                 const char *val;
 
@@ -1591,7 +1909,7 @@ static int cgroup_apply_devices(Unit *u) {
                         continue;
                 }
 
-                if (r >= 0)
+                if (r > 0)
                         any = true;
         }
 
@@ -3130,10 +3448,14 @@ void unit_prune_cgroup(Unit *u) {
         if (!u->cgroup_path)
                 return;
 
-        (void) unit_get_cpu_usage(u, NULL); /* Cache the last CPU usage value before we destroy the cgroup */
+        /* Cache the last CPU and memory usage values before we destroy the cgroup */
+        (void) unit_get_cpu_usage(u, /* ret = */ NULL);
+
+        for (CGroupMemoryAccountingMetric metric = 0; metric <= _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST; metric++)
+                (void) unit_get_memory_accounting(u, metric, /* ret = */ NULL);
 
 #if BPF_FRAMEWORK
-        (void) lsm_bpf_cleanup(u); /* Remove cgroup from the global LSM BPF map */
+        (void) bpf_restrict_fs_cleanup(u); /* Remove cgroup from the global LSM BPF map */
 #endif
 
         unit_modify_nft_set(u, /* add = */ false);
@@ -3540,7 +3862,7 @@ static void unit_add_to_cgroup_oom_queue(Unit *u) {
                         return;
                 }
 
-                r = sd_event_source_set_priority(s, SD_EVENT_PRIORITY_NORMAL-8);
+                r = sd_event_source_set_priority(s, EVENT_PRIORITY_CGROUP_OOM);
                 if (r < 0) {
                         log_error_errno(r, "Failed to set priority of cgroup oom event source: %m");
                         return;
@@ -3579,8 +3901,10 @@ static int unit_check_cgroup_events(Unit *u) {
                         unit_add_to_cgroup_empty_queue(u);
         }
 
-        /* Disregard freezer state changes due to operations not initiated by us */
-        if (values[1] && IN_SET(u->freezer_state, FREEZER_FREEZING, FREEZER_THAWING)) {
+        /* Disregard freezer state changes due to operations not initiated by us.
+         * See: https://github.com/systemd/systemd/pull/13512/files#r416469963 and
+         *      https://github.com/systemd/systemd/pull/13512#issuecomment-573007207 */
+        if (values[1] && IN_SET(u->freezer_state, FREEZER_FREEZING, FREEZER_FREEZING_BY_PARENT, FREEZER_THAWING)) {
                 if (streq(values[1], "0"))
                         unit_thawed(u);
                 else
@@ -3669,7 +3993,7 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
                 mask |= CGROUP_MASK_BPF_SOCKET_BIND;
 
         /* BPF-based cgroup_skb/{egress|ingress} hooks */
-        r = restrict_network_interfaces_supported();
+        r = bpf_restrict_ifaces_supported();
         if (r < 0)
                 return r;
         if (r > 0)
@@ -3746,7 +4070,7 @@ int manager_setup_cgroup(Manager *m) {
         /* Schedule cgroup empty checks early, but after having processed service notification messages or
          * SIGCHLD signals, so that a cgroup running empty is always just the last safety net of
          * notification, and we collected the metadata the notification and SIGCHLD stuff offers first. */
-        r = sd_event_source_set_priority(m->cgroup_empty_event_source, SD_EVENT_PRIORITY_NORMAL-5);
+        r = sd_event_source_set_priority(m->cgroup_empty_event_source, EVENT_PRIORITY_CGROUP_EMPTY);
         if (r < 0)
                 return log_error_errno(r, "Failed to set priority of cgroup empty event source: %m");
 
@@ -3775,7 +4099,7 @@ int manager_setup_cgroup(Manager *m) {
                 /* Process cgroup empty notifications early. Note that when this event is dispatched it'll
                  * just add the unit to a cgroup empty queue, hence let's run earlier than that. Also see
                  * handling of cgroup agent notifications, for the classic cgroup hierarchy support. */
-                r = sd_event_source_set_priority(m->cgroup_inotify_event_source, SD_EVENT_PRIORITY_NORMAL-9);
+                r = sd_event_source_set_priority(m->cgroup_inotify_event_source, EVENT_PRIORITY_CGROUP_INOTIFY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set priority of inotify event source: %m");
 
@@ -3884,7 +4208,7 @@ Unit* manager_get_unit_by_cgroup(Manager *m, const char *cgroup) {
         }
 }
 
-Unit *manager_get_unit_by_pidref_cgroup(Manager *m, PidRef *pid) {
+Unit *manager_get_unit_by_pidref_cgroup(Manager *m, const PidRef *pid) {
         _cleanup_free_ char *cgroup = NULL;
 
         assert(m);
@@ -3895,7 +4219,7 @@ Unit *manager_get_unit_by_pidref_cgroup(Manager *m, PidRef *pid) {
         return manager_get_unit_by_cgroup(m, cgroup);
 }
 
-Unit *manager_get_unit_by_pidref_watching(Manager *m, PidRef *pid) {
+Unit *manager_get_unit_by_pidref_watching(Manager *m, const PidRef *pid) {
         Unit *u, **array;
 
         assert(m);
@@ -3914,7 +4238,7 @@ Unit *manager_get_unit_by_pidref_watching(Manager *m, PidRef *pid) {
         return NULL;
 }
 
-Unit *manager_get_unit_by_pidref(Manager *m, PidRef *pid) {
+Unit *manager_get_unit_by_pidref(Manager *m, const PidRef *pid) {
         Unit *u;
 
         assert(m);
@@ -4052,6 +4376,7 @@ int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uin
         };
 
         uint64_t bytes;
+        bool updated = false;
         int r;
 
         assert(u);
@@ -4062,7 +4387,8 @@ int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uin
                 return -ENODATA;
 
         if (!u->cgroup_path)
-                return -ENODATA;
+                /* If the cgroup is already gone, we try to find the last cached value. */
+                goto finish;
 
         /* The root cgroup doesn't expose this information. */
         if (unit_has_host_root_cgroup(u))
@@ -4078,19 +4404,23 @@ int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uin
                 return -ENODATA;
 
         r = cg_get_attribute_as_uint64("memory", u->cgroup_path, attributes_table[metric], &bytes);
-        if (r < 0 && (r != -ENODATA || metric > _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST))
+        if (r < 0 && r != -ENODATA)
                 return r;
+        updated = r >= 0;
 
+finish:
         if (metric <= _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST) {
                 uint64_t *last = &u->memory_accounting_last[metric];
 
-                if (r >= 0)
+                if (updated)
                         *last = bytes;
                 else if (*last != UINT64_MAX)
                         bytes = *last;
                 else
-                        return r;
-        }
+                        return -ENODATA;
+
+        } else if (!updated)
+                return -ENODATA;
 
         if (ret)
                 *ret = bytes;
@@ -4234,6 +4564,57 @@ int unit_get_ip_accounting(
         *ret = value + u->ip_accounting_extra[metric];
 
         return r;
+}
+
+static uint64_t unit_get_effective_limit_one(Unit *u, CGroupLimitType type) {
+        CGroupContext *cc;
+
+        assert(u);
+        assert(UNIT_HAS_CGROUP_CONTEXT(u));
+
+        if (unit_has_name(u, SPECIAL_ROOT_SLICE))
+                switch (type) {
+                        case CGROUP_LIMIT_MEMORY_MAX:
+                        case CGROUP_LIMIT_MEMORY_HIGH:
+                                return physical_memory();
+                        case CGROUP_LIMIT_TASKS_MAX:
+                                return system_tasks_max();
+                        default:
+                                assert_not_reached();
+                }
+
+        cc = ASSERT_PTR(unit_get_cgroup_context(u));
+        switch (type) {
+                /* Note: on legacy/hybrid hierarchies memory_max stays CGROUP_LIMIT_MAX unless configured
+                 * explicitly. Effective value of MemoryLimit= (cgroup v1) is not implemented. */
+                case CGROUP_LIMIT_MEMORY_MAX:
+                        return cc->memory_max;
+                case CGROUP_LIMIT_MEMORY_HIGH:
+                        return cc->memory_high;
+                case CGROUP_LIMIT_TASKS_MAX:
+                        return cgroup_tasks_max_resolve(&cc->tasks_max);
+                default:
+                        assert_not_reached();
+        }
+}
+
+int unit_get_effective_limit(Unit *u, CGroupLimitType type, uint64_t *ret) {
+        uint64_t infimum;
+
+        assert(u);
+        assert(ret);
+        assert(type >= 0);
+        assert(type < _CGROUP_LIMIT_TYPE_MAX);
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return -EINVAL;
+
+        infimum = unit_get_effective_limit_one(u, type);
+        for (Unit *slice = UNIT_GET_SLICE(u); slice; slice = UNIT_GET_SLICE(slice))
+                infimum = MIN(infimum, unit_get_effective_limit_one(slice, type));
+
+        *ret = infimum;
+        return 0;
 }
 
 static int unit_get_io_accounting_raw(Unit *u, uint64_t ret[static _CGROUP_IO_ACCOUNTING_METRIC_MAX]) {
@@ -4516,66 +4897,87 @@ void manager_invalidate_startup_units(Manager *m) {
                 unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_IO|CGROUP_MASK_BLKIO|CGROUP_MASK_CPUSET);
 }
 
-int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
-        _cleanup_free_ char *path = NULL;
-        FreezerState target, kernel = _FREEZER_STATE_INVALID;
-        int r, ret;
+static int unit_cgroup_freezer_kernel_state(Unit *u, FreezerState *ret) {
+        _cleanup_free_ char *val = NULL;
+        FreezerState s;
+        int r;
 
         assert(u);
-        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
+        assert(ret);
 
-        if (!cg_freezer_supported())
-                return 0;
+        r = cg_get_keyed_attribute(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "cgroup.events",
+                                   STRV_MAKE("frozen"), &val);
+        if (IN_SET(r, -ENOENT, -ENXIO))
+                return -ENODATA;
+        if (r < 0)
+                return r;
 
-        /* Ignore all requests to thaw init.scope or -.slice and reject all requests to freeze them */
-        if (unit_has_name(u, SPECIAL_ROOT_SLICE) || unit_has_name(u, SPECIAL_INIT_SCOPE))
-                return action == FREEZER_FREEZE ? -EPERM : 0;
-
-        if (!u->cgroup_realized)
-                return -EBUSY;
-
-        if (action == FREEZER_THAW) {
-                Unit *slice = UNIT_GET_SLICE(u);
-
-                if (slice) {
-                        r = unit_cgroup_freezer_action(slice, FREEZER_THAW);
-                        if (r < 0)
-                                return log_unit_error_errno(u, r, "Failed to thaw slice %s of unit: %m", slice->id);
-                }
+        if (streq(val, "0"))
+                s = FREEZER_RUNNING;
+        else if (streq(val, "1"))
+                s = FREEZER_FROZEN;
+        else {
+                log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL), "Unexpected cgroup frozen state: %s", val);
+                s = _FREEZER_STATE_INVALID;
         }
 
-        target = action == FREEZER_FREEZE ? FREEZER_FROZEN : FREEZER_RUNNING;
+        *ret = s;
+        return 0;
+}
 
-        r = unit_freezer_state_kernel(u, &kernel);
+int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
+        _cleanup_free_ char *path = NULL;
+        FreezerState target, current, next;
+        int r;
+
+        assert(u);
+        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_PARENT_FREEZE,
+                              FREEZER_THAW, FREEZER_PARENT_THAW));
+
+        if (!cg_freezer_supported() || !u->cgroup_realized)
+                return 0;
+
+        unit_next_freezer_state(u, action, &next, &target);
+
+        r = unit_cgroup_freezer_kernel_state(u, &current);
         if (r < 0)
-                log_unit_debug_errno(u, r, "Failed to obtain cgroup freezer state: %m");
+                return r;
 
-        if (target == kernel) {
-                u->freezer_state = target;
-                if (action == FREEZER_FREEZE)
-                        return 0;
-                ret = 0;
-        } else
-                ret = 1;
+        if (current == target)
+                next = freezer_state_finish(next);
+        else if (IN_SET(next, FREEZER_FROZEN, FREEZER_FROZEN_BY_PARENT, FREEZER_RUNNING)) {
+                /* We're transitioning into a finished state, which implies that the cgroup's
+                 * current state already matches the target and thus we'd return 0. But, reality
+                 * shows otherwise. This indicates that our freezer_state tracking has diverged
+                 * from the real state of the cgroup, which can happen if someone meddles with the
+                 * cgroup from underneath us. This really shouldn't happen during normal operation,
+                 * though. So, let's warn about it and fix up the state to be valid */
+
+                log_unit_warning(u, "Unit wants to transition to %s freezer state but cgroup is unexpectedly %s, fixing up.",
+                                 freezer_state_to_string(next), freezer_state_to_string(current) ?: "(invalid)");
+
+                if (next == FREEZER_FROZEN)
+                        next = FREEZER_FREEZING;
+                else if (next == FREEZER_FROZEN_BY_PARENT)
+                        next = FREEZER_FREEZING_BY_PARENT;
+                else if (next == FREEZER_RUNNING)
+                        next = FREEZER_THAWING;
+        }
 
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "cgroup.freeze", &path);
         if (r < 0)
                 return r;
 
-        log_unit_debug(u, "%s unit.", action == FREEZER_FREEZE ? "Freezing" : "Thawing");
+        log_unit_debug(u, "Unit freezer state was %s, now %s.",
+                       freezer_state_to_string(u->freezer_state),
+                       freezer_state_to_string(next));
 
-        if (target != kernel) {
-                if (action == FREEZER_FREEZE)
-                        u->freezer_state = FREEZER_FREEZING;
-                else
-                        u->freezer_state = FREEZER_THAWING;
-        }
-
-        r = write_string_file(path, one_zero(action == FREEZER_FREEZE), WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = write_string_file(path, one_zero(target == FREEZER_FROZEN), WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return r;
 
-        return ret;
+        u->freezer_state = next;
+        return target != current;
 }
 
 int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
@@ -4614,17 +5016,10 @@ static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] =
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_device_policy, CGroupDevicePolicy);
 
-static const char* const freezer_action_table[_FREEZER_ACTION_MAX] = {
-        [FREEZER_FREEZE] = "freeze",
-        [FREEZER_THAW] = "thaw",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(freezer_action, FreezerAction);
-
 static const char* const cgroup_pressure_watch_table[_CGROUP_PRESSURE_WATCH_MAX] = {
-        [CGROUP_PRESSURE_WATCH_OFF] = "off",
+        [CGROUP_PRESSURE_WATCH_OFF]  = "off",
         [CGROUP_PRESSURE_WATCH_AUTO] = "auto",
-        [CGROUP_PRESSURE_WATCH_ON] = "on",
+        [CGROUP_PRESSURE_WATCH_ON]   = "on",
         [CGROUP_PRESSURE_WATCH_SKIP] = "skip",
 };
 
@@ -4656,3 +5051,11 @@ static const char* const cgroup_memory_accounting_metric_table[_CGROUP_MEMORY_AC
 };
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_memory_accounting_metric, CGroupMemoryAccountingMetric);
+
+static const char *const cgroup_effective_limit_type_table[_CGROUP_LIMIT_TYPE_MAX] = {
+        [CGROUP_LIMIT_MEMORY_MAX]  = "EffectiveMemoryMax",
+        [CGROUP_LIMIT_MEMORY_HIGH] = "EffectiveMemoryHigh",
+        [CGROUP_LIMIT_TASKS_MAX]   = "EffectiveTasksMax",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(cgroup_effective_limit_type, CGroupLimitType);

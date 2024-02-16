@@ -3,6 +3,6 @@
 Description=Test for IOSchedulingClass=realtime
 
 [Service]
-ExecStart=/bin/sh -x -c 'c=$$(LC_ALL=C ionice); test "$${c%%:*}" = "realtime"'
+ExecStart=sh -x -c 'c=$$(LC_ALL=C ionice); test "$${c%%:*}" = "realtime"'
 Type=oneshot
 IOSchedulingClass=realtime

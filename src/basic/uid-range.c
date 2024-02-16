@@ -15,7 +15,7 @@
 #include "uid-range.h"
 #include "user-util.h"
 
-UidRange *uid_range_free(UidRange *range) {
+UIDRange *uid_range_free(UIDRange *range) {
         if (!range)
                 return NULL;
 
@@ -23,14 +23,14 @@ UidRange *uid_range_free(UidRange *range) {
         return mfree(range);
 }
 
-static bool uid_range_entry_intersect(const UidRangeEntry *a, const UidRangeEntry *b) {
+static bool uid_range_entry_intersect(const UIDRangeEntry *a, const UIDRangeEntry *b) {
         assert(a);
         assert(b);
 
         return a->start <= b->start + b->nr && a->start + a->nr >= b->start;
 }
 
-static int uid_range_entry_compare(const UidRangeEntry *a, const UidRangeEntry *b) {
+static int uid_range_entry_compare(const UIDRangeEntry *a, const UIDRangeEntry *b) {
         int r;
 
         assert(a);
@@ -43,7 +43,7 @@ static int uid_range_entry_compare(const UidRangeEntry *a, const UidRangeEntry *
         return CMP(a->nr, b->nr);
 }
 
-static void uid_range_coalesce(UidRange *range) {
+static void uid_range_coalesce(UIDRange *range) {
         assert(range);
 
         if (range->n_entries <= 0)
@@ -52,10 +52,10 @@ static void uid_range_coalesce(UidRange *range) {
         typesafe_qsort(range->entries, range->n_entries, uid_range_entry_compare);
 
         for (size_t i = 0; i < range->n_entries; i++) {
-                UidRangeEntry *x = range->entries + i;
+                UIDRangeEntry *x = range->entries + i;
 
                 for (size_t j = i + 1; j < range->n_entries; j++) {
-                        UidRangeEntry *y = range->entries + j;
+                        UIDRangeEntry *y = range->entries + j;
                         uid_t begin, end;
 
                         if (!uid_range_entry_intersect(x, y))
@@ -68,7 +68,7 @@ static void uid_range_coalesce(UidRange *range) {
                         x->nr = end - begin;
 
                         if (range->n_entries > j + 1)
-                                memmove(y, y + 1, sizeof(UidRangeEntry) * (range->n_entries - j - 1));
+                                memmove(y, y + 1, sizeof(UIDRangeEntry) * (range->n_entries - j - 1));
 
                         range->n_entries--;
                         j--;
@@ -76,9 +76,9 @@ static void uid_range_coalesce(UidRange *range) {
         }
 }
 
-int uid_range_add_internal(UidRange **range, uid_t start, uid_t nr, bool coalesce) {
-        _cleanup_(uid_range_freep) UidRange *range_new = NULL;
-        UidRange *p;
+int uid_range_add_internal(UIDRange **range, uid_t start, uid_t nr, bool coalesce) {
+        _cleanup_(uid_range_freep) UIDRange *range_new = NULL;
+        UIDRange *p;
 
         assert(range);
 
@@ -91,7 +91,7 @@ int uid_range_add_internal(UidRange **range, uid_t start, uid_t nr, bool coalesc
         if (*range)
                 p = *range;
         else {
-                range_new = new0(UidRange, 1);
+                range_new = new0(UIDRange, 1);
                 if (!range_new)
                         return -ENOMEM;
 
@@ -101,7 +101,7 @@ int uid_range_add_internal(UidRange **range, uid_t start, uid_t nr, bool coalesc
         if (!GREEDY_REALLOC(p->entries, p->n_entries + 1))
                 return -ENOMEM;
 
-        p->entries[p->n_entries++] = (UidRangeEntry) {
+        p->entries[p->n_entries++] = (UIDRangeEntry) {
                 .start = start,
                 .nr = nr,
         };
@@ -115,7 +115,7 @@ int uid_range_add_internal(UidRange **range, uid_t start, uid_t nr, bool coalesc
         return 0;
 }
 
-int uid_range_add_str(UidRange **range, const char *s) {
+int uid_range_add_str(UIDRange **range, const char *s) {
         uid_t start, end;
         int r;
 
@@ -129,7 +129,7 @@ int uid_range_add_str(UidRange **range, const char *s) {
         return uid_range_add_internal(range, start, end - start + 1, /* coalesce = */ true);
 }
 
-int uid_range_next_lower(const UidRange *range, uid_t *uid) {
+int uid_range_next_lower(const UIDRange *range, uid_t *uid) {
         uid_t closest = UID_INVALID, candidate;
 
         assert(range);
@@ -162,7 +162,7 @@ int uid_range_next_lower(const UidRange *range, uid_t *uid) {
         return 1;
 }
 
-bool uid_range_covers(const UidRange *range, uid_t start, uid_t nr) {
+bool uid_range_covers(const UIDRange *range, uid_t start, uid_t nr) {
         if (nr == 0) /* empty range? always covered... */
                 return true;
 
@@ -180,8 +180,32 @@ bool uid_range_covers(const UidRange *range, uid_t start, uid_t nr) {
         return false;
 }
 
-int uid_range_load_userns(UidRange **ret, const char *path) {
-        _cleanup_(uid_range_freep) UidRange *range = NULL;
+int uid_map_read_one(FILE *f, uid_t *ret_base, uid_t *ret_shift, uid_t *ret_range) {
+        uid_t uid_base, uid_shift, uid_range;
+        int r;
+
+        assert(f);
+        assert(ret_base);
+        assert(ret_shift);
+        assert(ret_range);
+
+        errno = 0;
+        r = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &uid_base, &uid_shift, &uid_range);
+        if (r == EOF)
+                return errno_or_else(ENOMSG);
+        assert(r >= 0);
+        if (r != 3)
+                return -EBADMSG;
+
+        *ret_base = uid_base;
+        *ret_shift = uid_shift;
+        *ret_range = uid_range;
+
+        return 0;
+}
+
+int uid_range_load_userns(UIDRange **ret, const char *path) {
+        _cleanup_(uid_range_freep) UIDRange *range = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -206,24 +230,18 @@ int uid_range_load_userns(UidRange **ret, const char *path) {
                 return r;
         }
 
-        range = new0(UidRange, 1);
+        range = new0(UIDRange, 1);
         if (!range)
                 return -ENOMEM;
 
         for (;;) {
                 uid_t uid_base, uid_shift, uid_range;
-                int k;
 
-                errno = 0;
-                k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &uid_base, &uid_shift, &uid_range);
-                if (k == EOF) {
-                        if (ferror(f))
-                                return errno_or_else(EIO);
-
+                r = uid_map_read_one(f, &uid_base, &uid_shift, &uid_range);
+                if (r == -ENOMSG)
                         break;
-                }
-                if (k != 3)
-                        return -EBADMSG;
+                if (r < 0)
+                        return r;
 
                 r = uid_range_add_internal(&range, uid_base, uid_range, /* coalesce = */ false);
                 if (r < 0)

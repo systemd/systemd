@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
@@ -25,52 +25,58 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename><replaceable>service</replaceable>.service</filename>,
-    <filename><replaceable>socket</replaceable>.socket</filename>,
-    <filename><replaceable>device</replaceable>.device</filename>,
-    <filename><replaceable>mount</replaceable>.mount</filename>,
-    <filename><replaceable>automount</replaceable>.automount</filename>,
-    <filename><replaceable>swap</replaceable>.swap</filename>,
-    <filename><replaceable>target</replaceable>.target</filename>,
-    <filename><replaceable>path</replaceable>.path</filename>,
-    <filename><replaceable>timer</replaceable>.timer</filename>,
-    <filename><replaceable>slice</replaceable>.slice</filename>,
-    <filename><replaceable>scope</replaceable>.scope</filename></para>
+    <para><simplelist type="inline">
+      <member><filename><replaceable>service</replaceable>.service</filename></member>
+      <member><filename><replaceable>socket</replaceable>.socket</filename></member>
+      <member><filename><replaceable>device</replaceable>.device</filename></member>
+      <member><filename><replaceable>mount</replaceable>.mount</filename></member>
+      <member><filename><replaceable>automount</replaceable>.automount</filename></member>
+      <member><filename><replaceable>swap</replaceable>.swap</filename></member>
+      <member><filename><replaceable>target</replaceable>.target</filename></member>
+      <member><filename><replaceable>path</replaceable>.path</filename></member>
+      <member><filename><replaceable>timer</replaceable>.timer</filename></member>
+      <member><filename><replaceable>slice</replaceable>.slice</filename></member>
+      <member><filename><replaceable>scope</replaceable>.scope</filename></member>
+    </simplelist></para>
 
     <refsect2>
       <title>System Unit Search Path</title>
 
-      <para><literallayout><filename>/etc/systemd/system.control/*</filename>
-<filename>/run/systemd/system.control/*</filename>
-<filename>/run/systemd/transient/*</filename>
-<filename>/run/systemd/generator.early/*</filename>
-<filename>/etc/systemd/system/*</filename>
-<filename>/etc/systemd/system.attached/*</filename>
-<filename>/run/systemd/system/*</filename>
-<filename>/run/systemd/system.attached/*</filename>
-<filename>/run/systemd/generator/*</filename>
-<filename index='false'>…</filename>
-<filename>/usr/lib/systemd/system/*</filename>
-<filename>/run/systemd/generator.late/*</filename></literallayout></para>
+      <para><simplelist>
+        <member><filename>/etc/systemd/system.control/*</filename></member>
+        <member><filename>/run/systemd/system.control/*</filename></member>
+        <member><filename>/run/systemd/transient/*</filename></member>
+        <member><filename>/run/systemd/generator.early/*</filename></member>
+        <member><filename>/etc/systemd/system/*</filename></member>
+        <member><filename>/etc/systemd/system.attached/*</filename></member>
+        <member><filename>/run/systemd/system/*</filename></member>
+        <member><filename>/run/systemd/system.attached/*</filename></member>
+        <member><filename>/run/systemd/generator/*</filename></member>
+        <member><filename index='false'>…</filename></member>
+        <member><filename>/usr/lib/systemd/system/*</filename></member>
+        <member><filename>/run/systemd/generator.late/*</filename></member>
+      </simplelist></para>
     </refsect2>
 
     <refsect2>
       <title>User Unit Search Path</title>
-      <para><literallayout><filename>~/.config/systemd/user.control/*</filename>
-<filename>$XDG_RUNTIME_DIR/systemd/user.control/*</filename>
-<filename>$XDG_RUNTIME_DIR/systemd/transient/*</filename>
-<filename>$XDG_RUNTIME_DIR/systemd/generator.early/*</filename>
-<filename>~/.config/systemd/user/*</filename>
-<filename>$XDG_CONFIG_DIRS/systemd/user/*</filename>
-<filename>/etc/systemd/user/*</filename>
-<filename>$XDG_RUNTIME_DIR/systemd/user/*</filename>
-<filename>/run/systemd/user/*</filename>
-<filename>$XDG_RUNTIME_DIR/systemd/generator/*</filename>
-<filename>$XDG_DATA_HOME/systemd/user/*</filename>
-<filename>$XDG_DATA_DIRS/systemd/user/*</filename>
-<filename index='false'>…</filename>
-<filename>/usr/lib/systemd/user/*</filename>
-<filename>$XDG_RUNTIME_DIR/systemd/generator.late/*</filename></literallayout></para>
+      <para><simplelist>
+        <member><filename>~/.config/systemd/user.control/*</filename></member>
+        <member><filename>$XDG_RUNTIME_DIR/systemd/user.control/*</filename></member>
+        <member><filename>$XDG_RUNTIME_DIR/systemd/transient/*</filename></member>
+        <member><filename>$XDG_RUNTIME_DIR/systemd/generator.early/*</filename></member>
+        <member><filename>~/.config/systemd/user/*</filename></member>
+        <member><filename>$XDG_CONFIG_DIRS/systemd/user/*</filename></member>
+        <member><filename>/etc/systemd/user/*</filename></member>
+        <member><filename>$XDG_RUNTIME_DIR/systemd/user/*</filename></member>
+        <member><filename>/run/systemd/user/*</filename></member>
+        <member><filename>$XDG_RUNTIME_DIR/systemd/generator/*</filename></member>
+        <member><filename>$XDG_DATA_HOME/systemd/user/*</filename></member>
+        <member><filename>$XDG_DATA_DIRS/systemd/user/*</filename></member>
+        <member><filename index='false'>…</filename></member>
+        <member><filename>/usr/lib/systemd/user/*</filename></member>
+        <member><filename>$XDG_RUNTIME_DIR/systemd/generator.late/*</filename></member>
+      </simplelist></para>
     </refsect2>
 
   </refsynopsisdiv>
@@ -920,6 +926,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>WantsMountsFor=</varname></term>
+
+        <listitem><para>Same as <varname>RequiresMountsFor=</varname>,
+        but adds dependencies of type <varname>Wants=</varname> instead
+        of <varname>Requires=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>OnSuccessJobMode=</varname></term>
         <term><varname>OnFailureJobMode=</varname></term>
 
@@ -1166,6 +1182,8 @@
         <para><replaceable>interval</replaceable> is a time span with the default unit of seconds, but other
         units may be specified, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        The special value <literal>infinity</literal> can be used to limit the total number of start
+        attempts, even if they happen at large time intervals.
         Defaults to <varname>DefaultStartLimitIntervalSec=</varname> in manager configuration file, and may
         be set to 0 to disable any kind of rate limiting. <replaceable>burst</replaceable> is a number and
         defaults to <varname>DefaultStartLimitBurst=</varname> in manager configuration file.</para>
@@ -1308,6 +1326,10 @@
           <literal>arc</literal>,
           <literal>arc-be</literal>, or
           <literal>native</literal>.</para>
+
+          <para>Use
+          <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          for the complete list of known architectures.</para>
 
           <para>The architecture is determined from the information returned by
           <citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
@@ -1632,11 +1654,19 @@
           whether the system is booting up for the first time. This roughly means that <filename>/etc/</filename>
           was unpopulated when the system started booting (for details, see "First Boot Semantics" in
           <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-          First boot is considered finished (this condition will evaluate as false) after the manager
+          First Boot is considered finished (this condition will evaluate as false) after the manager
           has finished the startup phase.</para>
 
           <para>This condition may be used to populate <filename>/etc/</filename> on the first boot after
           factory reset, or when a new system instance boots up for the first time.</para>
+
+          <para>Note that the service manager itself will perform setup steps during First Boot: it will
+          initialize
+          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+          preset all units, enabling or disabling them according to the
+          <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          settings. Additional setup may be performed via units with
+          <varname>ConditionFirstBoot=yes</varname>.</para>
 
           <para>For robustness, units with <varname>ConditionFirstBoot=yes</varname> should order themselves
           before <filename>first-boot-complete.target</filename> and pull in this passive target with
@@ -2281,6 +2311,11 @@
             <entry>This is the value of the <literal>$CREDENTIALS_DIRECTORY</literal> environment variable if available. See section "Credentials" in <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
           </row>
           <row>
+            <entry><literal>%D</literal></entry>
+            <entry>Shared data directory</entry>
+            <entry>This is either <filename>/usr/share/</filename> (for the system manager) or the path <literal>$XDG_DATA_HOME</literal> resolves to (for user managers).</entry>
+          </row>
+          <row>
             <entry><literal>%E</literal></entry>
             <entry>Configuration directory root</entry>
             <entry>This is either <filename>/etc/</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to (for user managers).</entry>
@@ -2627,28 +2662,28 @@ OnFailure=failure-handler@%N.service
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 
 </refentry>

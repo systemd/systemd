@@ -6,6 +6,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "build.h"
 #include "exec-invoke.h"
 #include "execute-serialize.h"
@@ -18,9 +19,10 @@
 #include "label-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "selinux-util.h"
 #include "static-destruct.h"
 
-static FILE* arg_serialization = NULL;
+static FILE *arg_serialization = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_serialization, fclosep);
 
@@ -132,24 +134,22 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DESERIALIZE: {
+                        _cleanup_close_ int fd = -EBADF;
                         FILE *f;
-                        int fd;
 
                         fd = parse_fd(optarg);
                         if (fd < 0)
-                                return log_error_errno(
-                                                fd,
-                                                "Failed to parse serialization fd \"%s\": %m",
-                                                optarg);
+                                return log_error_errno(fd,
+                                                       "Failed to parse serialization fd \"%s\": %m",
+                                                       optarg);
 
                         r = fd_cloexec(fd, /* cloexec= */ true);
                         if (r < 0)
-                                return log_error_errno(
-                                                r,
-                                                "Failed to set serialization fd \"%s\" to close-on-exec: %m",
-                                                optarg);
+                                return log_error_errno(r,
+                                                       "Failed to set serialization fd %d to close-on-exec: %m",
+                                                       fd);
 
-                        f = fdopen(fd, "r");
+                        f = take_fdopen(&fd, "r");
                         if (!f)
                                 return log_error_errno(errno, "Failed to open serialization fd %d: %m", fd);
 
@@ -167,15 +167,13 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (!arg_serialization)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No serialization fd specified.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No serialization fd specified.");
 
         return 1 /* work to do */;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_fdset_free_ FDSet *fdset = NULL;
-        int exit_status = EXIT_SUCCESS, r;
         _cleanup_(cgroup_context_done) CGroupContext cgroup_context = {};
         _cleanup_(exec_context_done) ExecContext context = {};
         _cleanup_(exec_command_done) ExecCommand command = {};
@@ -190,6 +188,7 @@ int main(int argc, char *argv[]) {
                 .shared = &shared,
                 .dynamic_creds = &dynamic_creds,
         };
+        int exit_status = EXIT_SUCCESS, r;
 
         exec_context_init(&context);
         cgroup_context_init(&cgroup_context);
@@ -199,19 +198,20 @@ int main(int argc, char *argv[]) {
         log_set_prohibit_ipc(true);
         log_setup();
 
-        r = fdset_new_fill(/* filter_cloexec= */ 0, &fdset);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create fd set: %m");
-
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
 
-        /* Now try again if we were told it's fine to use a different target */
-        if (log_get_target() != LOG_TARGET_KMSG) {
-                log_set_prohibit_ipc(false);
-                log_open();
-        }
+        /* Now that we know the intended log target, allow IPC and open the final log target. */
+        log_set_prohibit_ipc(false);
+        log_open();
+
+        /* This call would collect all passed fds and enable CLOEXEC. We'll unset it in exec_invoke (flag_fds)
+         * for fds that shall be passed to the child.
+         * The serialization fd is set to CLOEXEC in parse_argv, so it's also filtered. */
+        r = fdset_new_fill(/* filter_cloexec= */ 0, &fdset);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create fd set: %m");
 
         /* Initialize lazily. SMACK is just a few operations, but the SELinux is very slow as it requires
          * loading the entire database in memory, so we will do it lazily only if it is actually needed, to
@@ -219,10 +219,6 @@ int main(int argc, char *argv[]) {
         r = mac_init_lazy();
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize MAC layer: %m");
-
-        r = fdset_remove(fdset, fileno(arg_serialization));
-        if (r < 0)
-                return log_error_errno(r, "Failed to remove serialization fd from fd set: %m");
 
         r = exec_deserialize_invocation(arg_serialization,
                                         fdset,
@@ -257,4 +253,20 @@ int main(int argc, char *argv[]) {
                 assert(exit_status == EXIT_SUCCESS); /* When 'skip' is chosen in the confirm spawn prompt */
 
         return exit_status;
+}
+
+int main(int argc, char *argv[]) {
+        int r;
+
+        /* We use safe_fork() for spawning sd-pam helper process, which internally calls rename_process().
+         * As the last step of renaming, all saved argvs are memzero()-ed. Hence, we need to save the argv
+         * first to prevent showing "intense" cmdline. See #30352. */
+        save_argc_argv(argc, argv);
+
+        r = run(argc, argv);
+
+        mac_selinux_finish();
+        static_destruct();
+
+        return r < 0 ? EXIT_FAILURE : r;
 }

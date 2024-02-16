@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-sysusers"
@@ -40,17 +40,17 @@
     <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
-    <para>If invoked with no arguments, it applies all directives from all files found in the directories
+    <para>If invoked with no arguments, directives from the configuration files found in the directories
     specified by
     <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>. When
     invoked with positional arguments, if option <option>--replace=<replaceable>PATH</replaceable></option>
     is specified, arguments specified on the command line are used instead of the configuration file
     <replaceable>PATH</replaceable>. Otherwise, just the configuration specified by the command line
-    arguments is executed. The string <literal>-</literal> may be specified instead of a filename to instruct
-    <command>systemd-sysusers</command> to read the configuration from standard input. If the argument is a
-    relative path, all configuration directories are searched for a matching file and the file found that has
-    the highest priority is executed. If the argument is an absolute path, that file is used directly without
-    searching of the configuration directories.</para>
+    arguments is executed. If the string <literal>-</literal> is specified instead of a filename, the
+    configuration is read from standard input. If the argument is a file name (without any slashes), all
+    configuration directories are searched for a matching file and the file found that has the highest
+    priority is executed. If the argument is a path, that file is used directly without searching the
+    configuration directories for any other matching file.</para>
   </refsect1>
 
   <refsect1>
@@ -151,7 +151,7 @@
 
     <para><command>systemd-sysusers</command> supports the service credentials logic as implemented by
     <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
-    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
     details). The following credentials are used when passed in:</para>
 
     <variablelist class='system-credentials'>
@@ -226,13 +226,13 @@
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <ulink url="https://systemd.io/UIDS-GIDS">Users, Groups, UIDs and GIDs on systemd systems</ulink>,
-      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>mkpasswd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><ulink url="https://systemd.io/UIDS-GIDS">Users, Groups, UIDs and GIDs on systemd systems</ulink></member>
+      <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>mkpasswd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 
 </refentry>

@@ -12,7 +12,9 @@
 #include "sha256.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "sync-util.h"
+#include "virt.h"
 
 int id128_from_string_nonzero(const char *s, sd_id128_t *ret) {
         sd_id128_t t;
@@ -137,7 +139,7 @@ int id128_read_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t *ret) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(path);
 
-        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY, /* xopen_flags = */ 0, /* mode = */ 0);
+        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
                 return fd;
 
@@ -183,7 +185,7 @@ int id128_write_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t id) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(path);
 
-        fd = xopenat(dir_fd, path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC, /* xopen_flags = */ 0, 0444);
+        fd = xopenat_full(dir_fd, path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC, /* xopen_flags = */ 0, 0444);
         if (fd < 0)
                 return fd;
 
@@ -191,11 +193,11 @@ int id128_write_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t id) {
 }
 
 void id128_hash_func(const sd_id128_t *p, struct siphash *state) {
-        siphash24_compress(p, sizeof(sd_id128_t), state);
+        siphash24_compress_typesafe(*p, state);
 }
 
 int id128_compare_func(const sd_id128_t *a, const sd_id128_t *b) {
-        return memcmp(a, b, 16);
+        return memcmp(a, b, sizeof(sd_id128_t));
 }
 
 sd_id128_t id128_make_v4_uuid(sd_id128_t id) {
@@ -223,9 +225,22 @@ int id128_get_product(sd_id128_t *ret) {
         /* Reads the systems product UUID from DMI or devicetree (where it is located on POWER). This is
          * particularly relevant in VM environments, where VM managers typically place a VM uuid there. */
 
-        r = id128_read("/sys/class/dmi/id/product_uuid", ID128_FORMAT_UUID, &uuid);
-        if (r == -ENOENT)
-                r = id128_read("/proc/device-tree/vm,uuid", ID128_FORMAT_UUID, &uuid);
+        r = detect_container();
+        if (r < 0)
+                return r;
+        if (r > 0) /* Refuse returning this in containers, as this is not a property of our system then, but
+                    * of the host */
+                return -ENOENT;
+
+        FOREACH_STRING(i,
+                       "/sys/class/dmi/id/product_uuid", /* KVM */
+                       "/proc/device-tree/vm,uuid",      /* Device tree */
+                       "/sys/hypervisor/uuid") {         /* Xen */
+
+                r = id128_read(i, ID128_FORMAT_UUID, &uuid);
+                if (r != -ENOENT)
+                        break;
+        }
         if (r < 0)
                 return r;
 

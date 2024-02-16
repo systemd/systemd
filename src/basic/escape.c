@@ -471,6 +471,33 @@ char* octescape(const char *s, size_t len) {
         return buf;
 }
 
+char* decescape(const char *s, const char *bad, size_t len) {
+        char *buf, *t;
+
+        /* Escapes all chars in bad, in addition to \ and " chars, in \nnn decimal style escaping. */
+
+        assert(s || len == 0);
+
+        t = buf = new(char, len * 4 + 1);
+        if (!buf)
+                return NULL;
+
+        for (size_t i = 0; i < len; i++) {
+                uint8_t u = (uint8_t) s[i];
+
+                if (u < ' ' || u >= 127 || IN_SET(u, '\\', '"') || strchr(bad, u)) {
+                        *(t++) = '\\';
+                        *(t++) = '0' + (u / 100);
+                        *(t++) = '0' + ((u / 10) % 10);
+                        *(t++) = '0' + (u % 10);
+                } else
+                        *(t++) = u;
+        }
+
+        *t = 0;
+        return buf;
+}
+
 static char* strcpy_backslash_escaped(char *t, const char *s, const char *bad) {
         assert(bad);
         assert(t);

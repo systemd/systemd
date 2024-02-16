@@ -71,6 +71,7 @@ struct Manager {
         /* last sent packet */
         struct timespec trans_time_mon;
         struct timespec trans_time;
+        struct ntp_ts request_nonce;
         usec_t retry_interval;
         usec_t connection_retry_usec;
         bool pending;

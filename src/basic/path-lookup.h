@@ -59,6 +59,7 @@ int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs);
 int xdg_user_runtime_dir(char **ret, const char *suffix);
 int xdg_user_config_dir(char **ret, const char *suffix);
 int xdg_user_data_dir(char **ret, const char *suffix);
+int runtime_directory(char **ret, RuntimeScope scope, const char *suffix);
 
 bool path_is_user_data_dir(const char *path);
 bool path_is_user_config_dir(const char *path);

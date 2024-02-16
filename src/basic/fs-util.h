@@ -137,6 +137,12 @@ typedef enum XOpenFlags {
         XO_SUBVOLUME = 1 << 1,
 } XOpenFlags;
 
-int xopenat(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode);
+int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode);
+static inline int xopenat(int dir_fd, const char *path, int open_flags) {
+        return xopenat_full(dir_fd, path, open_flags, 0, 0);
+}
 
-int xopenat_lock(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode, LockType locktype, int operation);
+int xopenat_lock_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode, LockType locktype, int operation);
+static inline int xopenat_lock(int dir_fd, const char *path, int open_flags, LockType locktype, int operation) {
+        return xopenat_lock_full(dir_fd, path, open_flags, 0, 0, locktype, operation);
+}

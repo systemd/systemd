@@ -4,6 +4,10 @@
 #include "glyph-util.h"
 #include "terminal-util.h"
 
+#define CYLON_BUFFER_EXTRA (2*STRLEN(ANSI_RED) + STRLEN(ANSI_HIGHLIGHT_RED) + 2*STRLEN(ANSI_NORMAL))
+
+void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned pos);
+
 void print_separator(void);
 
 int file_url_from_path(const char *path, char **ret);
@@ -43,3 +47,5 @@ static inline const char *green_check_mark_internal(char buffer[static GREEN_CHE
 #define GREEN_CHECK_MARK() green_check_mark_internal((char[GREEN_CHECK_MARK_MAX]) {})
 
 #define COLOR_MARK_BOOL(b) ((b) ? GREEN_CHECK_MARK() : RED_CROSS_MARK())
+
+int terminal_tint_color(double hue, char **ret);

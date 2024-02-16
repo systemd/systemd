@@ -22,6 +22,7 @@ typedef struct RoutingPolicyRule {
 
         bool invert_rule;
         bool priority_set;
+        bool l3mdev; /* FRA_L3MDEV */
 
         uint8_t tos;
         uint8_t type;
@@ -29,7 +30,6 @@ typedef struct RoutingPolicyRule {
         uint8_t protocol; /* FRA_PROTOCOL */
         uint8_t to_prefixlen;
         uint8_t from_prefixlen;
-        uint8_t l3mdev; /* FRA_L3MDEV */
 
         uint32_t table;
         uint32_t fwmark;
@@ -66,7 +66,7 @@ int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const L
 static inline int manager_drop_foreign_routing_policy_rules(Manager *m) {
         return manager_drop_routing_policy_rules_internal(m, true, NULL);
 }
-static inline int link_drop_managed_routing_policy_rules(Link *link) {
+static inline int link_drop_static_routing_policy_rules(Link *link) {
         assert(link);
         return manager_drop_routing_policy_rules_internal(link->manager, false, link);
 }
@@ -80,6 +80,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_fwmark_mask);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_prefix);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_device);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_l3mdev);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_port_range);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_ip_protocol);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_invert);

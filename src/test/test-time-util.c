@@ -391,7 +391,7 @@ TEST(format_timestamp) {
 }
 
 static void test_format_timestamp_impl(usec_t x) {
-        bool success;
+        bool success, override;
         const char *xx, *yy;
         usec_t y;
 
@@ -402,9 +402,19 @@ static void test_format_timestamp_impl(usec_t x) {
         assert_se(yy);
 
         success = (x / USEC_PER_SEC == y / USEC_PER_SEC) && streq(xx, yy);
-        log_full(success ? LOG_DEBUG : LOG_ERR, "@" USEC_FMT " → %s → @" USEC_FMT " → %s", x, xx, y, yy);
-        assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
-        assert_se(streq(xx, yy));
+        /* Workaround for https://github.com/systemd/systemd/issues/28472 */
+        override = !success &&
+                   (STRPTR_IN_SET(tzname[0], "CAT", "EAT") ||
+                    STRPTR_IN_SET(tzname[1], "CAT", "EAT")) &&
+                   DIV_ROUND_UP(y - x, USEC_PER_SEC) == 3600; /* 1 hour, ignore fractional second */
+        log_full(success ? LOG_DEBUG : override ? LOG_WARNING : LOG_ERR,
+                 "@" USEC_FMT " → %s → @" USEC_FMT " → %s%s",
+                 x, xx, y, yy,
+                 override ? ", ignoring." : "");
+        if (!override) {
+                assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
+                assert_se(streq(xx, yy));
+        }
 }
 
 static void test_format_timestamp_loop(void) {
@@ -413,6 +423,10 @@ static void test_format_timestamp_loop(void) {
         test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX_32BIT);
         test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX-1);
         test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX);
+
+        /* Two cases which trigger https://github.com/systemd/systemd/issues/28472 */
+        test_format_timestamp_impl(1504938962980066);
+        test_format_timestamp_impl(1509482094632752);
 
         for (unsigned i = 0; i < TRIAL; i++) {
                 usec_t x;
@@ -1075,9 +1089,9 @@ TEST(map_clock_usec) {
         assert_se(nowr < USEC_INFINITY - USEC_PER_DAY*7); /* overflow check */
         x = nowr + USEC_PER_DAY*7; /* 1 week from now */
         y = map_clock_usec(x, CLOCK_REALTIME, CLOCK_MONOTONIC);
-        assert_se(y > 0 && y < USEC_INFINITY);
+        assert_se(timestamp_is_set(y));
         z = map_clock_usec(y, CLOCK_MONOTONIC, CLOCK_REALTIME);
-        assert_se(z > 0 && z < USEC_INFINITY);
+        assert_se(timestamp_is_set(z));
         assert_se((z > x ? z - x : x - z) < USEC_PER_HOUR);
 
         assert_se(nowr > USEC_PER_DAY * 7); /* underflow check */
@@ -1086,7 +1100,7 @@ TEST(map_clock_usec) {
         if (y != 0) { /* might underflow if machine is not up long enough for the monotonic clock to be beyond 1w */
                 assert_se(y < USEC_INFINITY);
                 z = map_clock_usec(y, CLOCK_MONOTONIC, CLOCK_REALTIME);
-                assert_se(z > 0 && z < USEC_INFINITY);
+                assert_se(timestamp_is_set(z));
                 assert_se((z > x ? z - x : x - z) < USEC_PER_HOUR);
         }
 }
@@ -1157,6 +1171,9 @@ TEST(timezone_offset_change) {
 }
 
 static int intro(void) {
+        /* Tests have hard-coded results that do not expect a specific timezone to be set by the caller */
+        assert_se(unsetenv("TZ") >= 0);
+
         log_info("realtime=" USEC_FMT "\n"
                  "monotonic=" USEC_FMT "\n"
                  "boottime=" USEC_FMT "\n",

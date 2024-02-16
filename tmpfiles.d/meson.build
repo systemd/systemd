@@ -34,6 +34,8 @@ in_files = [['etc.conf',                      ''],
             ['static-nodes-permissions.conf', ''],
             ['systemd.conf',                  ''],
             ['var.conf',                      ''],
+            ['20-systemd-userdb.conf',        'ENABLE_SSH_USERDB_CONFIG'],
+            ['20-systemd-ssh-generator.conf', 'ENABLE_SSH_PROXY_CONFIG'],
            ]
 
 foreach pair : in_files

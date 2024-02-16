@@ -730,6 +730,82 @@ int get_process_ppid(pid_t pid, pid_t *ret) {
         return 0;
 }
 
+int pid_get_start_time(pid_t pid, uint64_t *ret) {
+        _cleanup_free_ char *line = NULL;
+        const char *p;
+        int r;
+
+        assert(pid >= 0);
+
+        p = procfs_file_alloca(pid, "stat");
+        r = read_one_line_file(p, &line);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
+
+        /* Let's skip the pid and comm fields. The latter is enclosed in () but does not escape any () in its
+         * value, so let's skip over it manually */
+
+        p = strrchr(line, ')');
+        if (!p)
+                return -EIO;
+
+        p++;
+
+        unsigned long llu;
+
+        if (sscanf(p, " "
+                   "%*c "  /* state */
+                   "%*u " /* ppid */
+                   "%*u " /* pgrp */
+                   "%*u " /* session */
+                   "%*u " /* tty_nr */
+                   "%*u " /* tpgid */
+                   "%*u " /* flags */
+                   "%*u " /* minflt */
+                   "%*u " /* cminflt */
+                   "%*u " /* majflt */
+                   "%*u " /* cmajflt */
+                   "%*u " /* utime */
+                   "%*u " /* stime */
+                   "%*u " /* cutime */
+                   "%*u " /* cstime */
+                   "%*i " /* priority */
+                   "%*i " /* nice */
+                   "%*u " /* num_threads */
+                   "%*u " /* itrealvalue */
+                   "%lu ", /* starttime */
+                   &llu) != 1)
+                return -EIO;
+
+        if (ret)
+                *ret = llu;
+
+        return 0;
+}
+
+int pidref_get_start_time(const PidRef *pid, uint64_t *ret) {
+        uint64_t t;
+        int r;
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        r = pid_get_start_time(pid->pid, ret ? &t : NULL);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pid);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = t;
+
+        return 0;
+}
+
 int get_process_umask(pid_t pid, mode_t *ret) {
         _cleanup_free_ char *m = NULL;
         const char *p;
@@ -948,7 +1024,7 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         char *value = NULL;
         const char *path;
-        size_t l, sum = 0;
+        size_t sum = 0;
         int r;
 
         assert(pid >= 0);
@@ -983,9 +1059,9 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         if (r < 0)
                 return r;
 
-        l = strlen(field);
         for (;;) {
                 _cleanup_free_ char *line = NULL;
+                const char *match;
 
                 if (sum > ENVIRONMENT_BLOCK_MAX) /* Give up searching eventually */
                         return -ENOBUFS;
@@ -998,8 +1074,9 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
 
                 sum += r;
 
-                if (strneq(line, field, l) && line[l] == '=') {
-                        value = strdup(line + l + 1);
+                match = startswith(line, field);
+                if (match && *match == '=') {
+                        value = strdup(match + 1);
                         if (!value)
                                 return -ENOMEM;
 
@@ -1112,8 +1189,10 @@ int pidref_is_alive(const PidRef *pidref) {
                 return -ESRCH;
 
         result = pid_is_alive(pidref->pid);
-        if (result < 0)
+        if (result < 0) {
+                assert(result != -ESRCH);
                 return result;
+        }
 
         r = pidref_verify(pidref);
         if (r == -ESRCH)
@@ -1224,7 +1303,7 @@ int opinionated_personality(unsigned long *ret) {
         if (current < 0)
                 return current;
 
-        if (((unsigned long) current & 0xffff) == PER_LINUX32)
+        if (((unsigned long) current & OPINIONATED_PERSONALITY_MASK) == PER_LINUX32)
                 *ret = PER_LINUX32;
         else
                 *ret = PER_LINUX;
@@ -1462,10 +1541,11 @@ int safe_fork_full(
                 }
         }
 
-        if ((flags & (FORK_NEW_MOUNTNS|FORK_NEW_USERNS)) != 0)
+        if ((flags & (FORK_NEW_MOUNTNS|FORK_NEW_USERNS|FORK_NEW_NETNS)) != 0)
                 pid = raw_clone(SIGCHLD|
                                 (FLAGS_SET(flags, FORK_NEW_MOUNTNS) ? CLONE_NEWNS : 0) |
-                                (FLAGS_SET(flags, FORK_NEW_USERNS) ? CLONE_NEWUSER : 0));
+                                (FLAGS_SET(flags, FORK_NEW_USERNS) ? CLONE_NEWUSER : 0) |
+                                (FLAGS_SET(flags, FORK_NEW_NETNS) ? CLONE_NEWNET : 0));
         else
                 pid = fork();
         if (pid < 0)
@@ -1589,6 +1669,9 @@ int safe_fork_full(
                                 log_full_errno(prio, r, "Failed to rearrange stdio fds: %m");
                                 _exit(EXIT_FAILURE);
                         }
+
+                        /* Turn off O_NONBLOCK on the fdio fds, in case it was left on */
+                        stdio_disable_nonblock();
                 } else {
                         r = make_null_stdio();
                         if (r < 0) {
@@ -1648,6 +1731,30 @@ int safe_fork_full(
                 *ret_pid = getpid_cached();
 
         return 0;
+}
+
+int pidref_safe_fork_full(
+                const char *name,
+                const int stdio_fds[3],
+                const int except_fds[],
+                size_t n_except_fds,
+                ForkFlags flags,
+                PidRef *ret_pid) {
+
+        pid_t pid;
+        int r, q;
+
+        assert(!FLAGS_SET(flags, FORK_WAIT));
+
+        r = safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags, &pid);
+        if (r < 0)
+                return r;
+
+        q = pidref_set_pid(ret_pid, pid);
+        if (q < 0) /* Let's not fail for this, no matter what, the process exists after all, and that's key */
+                *ret_pid = PIDREF_MAKE_FROM_PID(pid);
+
+        return r;
 }
 
 int namespace_fork(
@@ -1927,49 +2034,109 @@ int make_reaper_process(bool b) {
         return 0;
 }
 
-int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, pid_t *ret_pid) {
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(posix_spawnattr_t*, posix_spawnattr_destroy, NULL);
+
+int posix_spawn_wrapper(
+                const char *path,
+                char * const *argv,
+                char * const *envp,
+                const char *cgroup,
+                PidRef *ret_pidref) {
+
+        short flags = POSIX_SPAWN_SETSIGMASK|POSIX_SPAWN_SETSIGDEF;
         posix_spawnattr_t attr;
         sigset_t mask;
-        pid_t pid;
         int r;
 
         /* Forks and invokes 'path' with 'argv' and 'envp' using CLONE_VM and CLONE_VFORK, which means the
          * caller will be blocked until the child either exits or exec's. The memory of the child will be
          * fully shared with the memory of the parent, so that there are no copy-on-write or memory.max
-         * issues. */
+         * issues.
+         *
+         * Also, move the newly-created process into 'cgroup' through POSIX_SPAWN_SETCGROUP (clone3())
+         * if available. Note that CLONE_INTO_CGROUP is only supported on cgroup v2.
+         * returns 1: We're already in the right cgroup
+         *         0: 'cgroup' not specified or POSIX_SPAWN_SETCGROUP is not supported. The caller
+         *            needs to call 'cg_attach' on their own */
 
         assert(path);
         assert(argv);
-        assert(ret_pid);
+        assert(ret_pidref);
 
         assert_se(sigfillset(&mask) >= 0);
 
         r = posix_spawnattr_init(&attr);
         if (r != 0)
                 return -r; /* These functions return a positive errno on failure */
-        r = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGMASK);
+
+        /* Initialization needs to succeed before we can set up a destructor. */
+        _unused_ _cleanup_(posix_spawnattr_destroyp) posix_spawnattr_t *attr_destructor = &attr;
+
+#if HAVE_PIDFD_SPAWN
+        _cleanup_close_ int cgroup_fd = -EBADF;
+
+        if (cgroup) {
+                _cleanup_free_ char *resolved_cgroup = NULL;
+
+                r = cg_get_path_and_check(
+                                SYSTEMD_CGROUP_CONTROLLER,
+                                cgroup,
+                                /* suffix= */ NULL,
+                                &resolved_cgroup);
+                if (r < 0)
+                        return r;
+
+                cgroup_fd = open(resolved_cgroup, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                if (cgroup_fd < 0)
+                        return -errno;
+
+                r = posix_spawnattr_setcgroup_np(&attr, cgroup_fd);
+                if (r != 0)
+                        return -r;
+
+                flags |= POSIX_SPAWN_SETCGROUP;
+        }
+#endif
+
+        r = posix_spawnattr_setflags(&attr, flags);
         if (r != 0)
-                goto fail;
-        r = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF); /* Set all signals to SIG_DFL */
-        if (r != 0)
-                goto fail;
+                return -r;
         r = posix_spawnattr_setsigmask(&attr, &mask);
         if (r != 0)
-                goto fail;
+                return -r;
 
+#if HAVE_PIDFD_SPAWN
+        _cleanup_close_ int pidfd = -EBADF;
+
+        r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
+        if (r == 0) {
+                r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
+                if (r < 0)
+                        return r;
+
+                return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
+        }
+        if (!(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r)))
+                return -r;
+
+        /* Compiled on a newer host, or seccomp&friends blocking clone3()? Fallback, but need to change the
+         * flags to remove the cgroup one, which is what redirects to clone3() */
+        flags &= ~POSIX_SPAWN_SETCGROUP;
+        r = posix_spawnattr_setflags(&attr, flags);
+        if (r != 0)
+                return -r;
+#endif
+
+        pid_t pid;
         r = posix_spawn(&pid, path, NULL, &attr, argv, envp);
         if (r != 0)
-                goto fail;
+                return -r;
 
-        *ret_pid = pid;
+        r = pidref_set_pid(ret_pidref, pid);
+        if (r < 0)
+                return r;
 
-        posix_spawnattr_destroy(&attr);
-        return 0;
-
-fail:
-        assert(r > 0);
-        posix_spawnattr_destroy(&attr);
-        return -r;
+        return 0; /* We did not use CLONE_INTO_CGROUP so return 0, the caller will have to move the child */
 }
 
 int proc_dir_open(DIR **ret) {

@@ -432,8 +432,7 @@ static void* client2(void *p) {
         if (r < 0)
                 log_debug("Failed to issue method call: %s", bus_error_message(&error, r));
         else {
-                log_error("Slow call unexpectedly succeed.");
-                r = -ENOANO;
+                r = log_error_errno(SYNTHETIC_ERRNO(ENOANO), "Slow call unexpectedly succeeded.");
                 goto finish;
         }
 

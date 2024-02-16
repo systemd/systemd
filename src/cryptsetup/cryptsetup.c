@@ -105,6 +105,9 @@ static bool arg_headless = false;
 static usec_t arg_token_timeout_usec = 30*USEC_PER_SEC;
 static unsigned arg_tpm2_measure_pcr = UINT_MAX; /* This and the following field is about measuring the unlocked volume key to the local TPM */
 static char **arg_tpm2_measure_banks = NULL;
+static char *arg_link_keyring = NULL;
+static char *arg_link_key_type = NULL;
+static char *arg_link_key_description = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -118,6 +121,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_measure_banks, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_pcrlock, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_link_keyring, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_link_key_type, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_link_key_description, freep);
 
 static const char* const passphrase_type_table[_PASSPHRASE_TYPE_MAX] = {
         [PASSPHRASE_REGULAR] = "passphrase",
@@ -368,7 +374,7 @@ static int parse_one_option(const char *option) {
                         _cleanup_free_ void *cid = NULL;
                         size_t cid_size;
 
-                        r = unbase64mem(val, SIZE_MAX, &cid, &cid_size);
+                        r = unbase64mem(val, &cid, &cid_size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to decode FIDO2 CID data: %m");
 
@@ -508,6 +514,56 @@ static int parse_one_option(const char *option) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
 
+        } else if ((val = startswith(option, "link-volume-key="))) {
+#ifdef HAVE_CRYPT_SET_KEYRING_TO_LINK
+                const char *sep, *c;
+                _cleanup_free_ char *keyring = NULL, *key_type = NULL, *key_description = NULL;
+
+                /* Stick with cryptsetup --link-vk-to-keyring format
+                 * <keyring_description>::%<key_type>:<key_description>,
+                 * where %<key_type> is optional and defaults to 'user'.
+                 */
+                if (!(sep = strstr(val, "::")))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse link-volume-key= option value: %m");
+
+                /* cryptsetup (cli) supports <keyring_description> passed in various formats:
+                 * - well-known keyrings prefixed with '@' (@u user, @s session, etc)
+                 * - text descriptions prefixed with "%:" or "%keyring:".
+                 * - text description with no prefix.
+                 * - numeric keyring id (ignored in current patch set). */
+                if (*val == '@' || *val == '%')
+                        keyring = strndup(val, sep - val);
+                else
+                        /* add type prefix if missing (crypt_set_keyring_to_link() expects it) */
+                        keyring = strnappend("%:", val, sep - val);
+                if (!keyring)
+                        return log_oom();
+
+                sep += 2;
+
+                /* %<key_type> is optional (and defaults to 'user') */
+                if (*sep == '%') {
+                        /* must be separated by colon */
+                        if (!(c = strchr(sep, ':')))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse link-volume-key= option value: %m");
+
+                        key_type = strndup(sep + 1, c - sep - 1);
+                        if (!key_type)
+                                return log_oom();
+
+                        sep = c + 1;
+                }
+
+                key_description = strdup(sep);
+                if (!key_description)
+                        return log_oom();
+
+                free_and_replace(arg_link_keyring, keyring);
+                free_and_replace(arg_link_key_type, key_type);
+                free_and_replace(arg_link_key_description, key_description);
+#else
+                log_error("Build lacks libcryptsetup support for linking volume keys in user specified kernel keyrings upon device activation, ignoring: %s", option);
+#endif
         } else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
@@ -1650,18 +1706,16 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 struct crypt_device *cd,
                 const char *name,
                 const char *key_file,
-                const void *key_data,
-                size_t key_data_size,
+                const struct iovec *key_data,
                 usec_t until,
                 uint32_t flags,
                 bool pass_volume_key) {
 
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
-        _cleanup_(erase_and_freep) void *decrypted_key = NULL;
+        _cleanup_(iovec_done_erase) struct iovec decrypted_key = {};
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_free_ char *friendly = NULL;
         int keyslot = arg_key_slot, r;
-        size_t decrypted_key_size;
 
         assert(cd);
         assert(name);
@@ -1672,7 +1726,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 return log_oom();
 
         for (;;) {
-                if (key_file || key_data) {
+                if (key_file || iovec_is_set(key_data)) {
                         /* If key data is specified, use that */
 
                         r = acquire_tpm2_key(
@@ -1680,21 +1734,22 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         arg_tpm2_device,
                                         arg_tpm2_pcr_mask == UINT32_MAX ? TPM2_PCR_MASK_DEFAULT : arg_tpm2_pcr_mask,
                                         UINT16_MAX,
-                                        /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                                        /* pubkey= */ NULL,
                                         /* pubkey_pcr_mask= */ 0,
                                         /* signature_path= */ NULL,
                                         /* pcrlock_path= */ NULL,
                                         /* primary_alg= */ 0,
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
-                                        key_data, key_data_size,
-                                        /* policy_hash= */ NULL, /* policy_hash_size= */ 0, /* we don't know the policy hash */
-                                        /* salt= */ NULL, /* salt_size= */ 0,
-                                        /* srk_buf= */ NULL, /* srk_buf_size= */ 0,
+                                        key_data,
+                                        /* policy_hash= */ NULL, /* we don't know the policy hash */
+                                        /* salt= */ NULL,
+                                        /* srk= */ NULL,
+                                        /* pcrlock_nv= */ NULL,
                                         arg_tpm2_pin ? TPM2_FLAGS_USE_PIN : 0,
                                         until,
                                         arg_headless,
                                         arg_ask_password_flags,
-                                        &decrypted_key, &decrypted_key_size);
+                                        &decrypted_key);
                         if (r >= 0)
                                 break;
                         if (IN_SET(r, -EACCES, -ENOLCK))
@@ -1725,8 +1780,6 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 }
 
                 if (r == -EOPNOTSUPP) { /* Plugin not available, let's process TPM2 stuff right here instead */
-                        _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
-                        size_t blob_size, policy_hash_size;
                         bool found_some = false;
                         int token = 0; /* first token to look at */
 
@@ -1735,8 +1788,8 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                          * works. */
 
                         for (;;) {
-                                _cleanup_free_ void *pubkey = NULL, *salt = NULL, *srk_buf = NULL;
-                                size_t pubkey_size = 0, salt_size = 0, srk_buf_size = 0;
+                                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                                _cleanup_(iovec_done) struct iovec blob = {}, policy_hash = {};
                                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                                 uint16_t pcr_bank, primary_alg;
                                 TPM2Flags tpm2_flags;
@@ -1747,13 +1800,14 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 token, /* search for the token with this index, or any later index than this */
                                                 &hash_pcr_mask,
                                                 &pcr_bank,
-                                                &pubkey, &pubkey_size,
+                                                &pubkey,
                                                 &pubkey_pcr_mask,
                                                 &primary_alg,
-                                                &blob, &blob_size,
-                                                &policy_hash, &policy_hash_size,
-                                                &salt, &salt_size,
-                                                &srk_buf, &srk_buf_size,
+                                                &blob,
+                                                &policy_hash,
+                                                &salt,
+                                                &srk,
+                                                &pcrlock_nv,
                                                 &tpm2_flags,
                                                 &keyslot,
                                                 &token);
@@ -1778,21 +1832,22 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 arg_tpm2_device,
                                                 hash_pcr_mask,
                                                 pcr_bank,
-                                                pubkey, pubkey_size,
+                                                &pubkey,
                                                 pubkey_pcr_mask,
                                                 arg_tpm2_signature,
                                                 arg_tpm2_pcrlock,
                                                 primary_alg,
                                                 /* key_file= */ NULL, /* key_file_size= */ 0, /* key_file_offset= */ 0, /* no key file */
-                                                blob, blob_size,
-                                                policy_hash, policy_hash_size,
-                                                salt, salt_size,
-                                                srk_buf, srk_buf_size,
+                                                &blob,
+                                                &policy_hash,
+                                                &salt,
+                                                &srk,
+                                                &pcrlock_nv,
                                                 tpm2_flags,
                                                 until,
                                                 arg_headless,
                                                 arg_ask_password_flags,
-                                                &decrypted_key, &decrypted_key_size);
+                                                &decrypted_key);
                                 if (IN_SET(r, -EACCES, -ENOLCK))
                                         return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed, falling back to traditional unlocking.");
                                 if (r != -EPERM)
@@ -1837,17 +1892,16 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
 
                 log_debug("Got one or more potentially relevant udev events, rescanning for TPM2...");
         }
-        assert(decrypted_key);
 
         if (pass_volume_key)
-                r = measured_crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
+                r = measured_crypt_activate_by_volume_key(cd, name, decrypted_key.iov_base, decrypted_key.iov_len, flags);
         else {
                 _cleanup_(erase_and_freep) char *base64_encoded = NULL;
                 ssize_t base64_encoded_size;
 
                 /* Before using this key as passphrase we base64 encode it, for compat with homed */
 
-                base64_encoded_size = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
+                base64_encoded_size = base64mem(decrypted_key.iov_base, decrypted_key.iov_len, &base64_encoded);
                 if (base64_encoded_size < 0)
                         return log_oom();
 
@@ -2045,7 +2099,7 @@ static int attach_luks_or_plain_or_bitlk(
                  crypt_get_device_name(cd));
 
         if (arg_tpm2_device || arg_tpm2_device_auto)
-                return attach_luks_or_plain_or_bitlk_by_tpm2(cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
+                return attach_luks_or_plain_or_bitlk_by_tpm2(cd, name, key_file, &IOVEC_MAKE(key_data, key_data_size), until, flags, pass_volume_key);
         if (arg_fido2_device || arg_fido2_device_auto)
                 return attach_luks_or_plain_or_bitlk_by_fido2(cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
         if (arg_pkcs11_uri || arg_pkcs11_uri_auto)
@@ -2288,6 +2342,15 @@ static int run(int argc, char *argv[]) {
                         r = crypt_load(cd, !arg_type || streq(arg_type, ANY_LUKS) ? CRYPT_LUKS : arg_type, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to load LUKS superblock on device %s: %m", crypt_get_device_name(cd));
+
+/* since cryptsetup 2.7.0 (Jan 2024) */
+#if HAVE_CRYPT_SET_KEYRING_TO_LINK
+                        if (arg_link_key_description) {
+                                r = crypt_set_keyring_to_link(cd, arg_link_key_description, NULL, arg_link_key_type, arg_link_keyring);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to set keyring or key description to link volume key in, ignoring: %m");
+                        }
+#endif
 
                         if (arg_header) {
                                 r = crypt_set_data_device(cd, source);

@@ -3,11 +3,16 @@
 if conf.get('ENABLE_NETWORKD') == 1
         install_data(
                 '80-6rd-tunnel.network',
+                '80-6rd-tunnel.link',
                 '80-container-host0.network',
                 '80-container-vb.network',
+                '80-container-vb.link',
                 '80-container-ve.network',
+                '80-container-ve.link',
                 '80-container-vz.network',
+                '80-container-vz.link',
                 '80-vm-vt.network',
+                '80-vm-vt.link',
                 '80-wifi-adhoc.network',
                 install_dir : networkdir)
 
@@ -18,6 +23,10 @@ if conf.get('ENABLE_NETWORKD') == 1
                 '80-wifi-station.network.example',
         )
 
+        install_data(
+                example_network_files,
+                install_dir : networkdir)
+
         if get_option('default-network')
                 foreach f : example_network_files
                         install_data(
@@ -25,12 +34,7 @@ if conf.get('ENABLE_NETWORKD') == 1
                                 rename : fs.replace_suffix(fs.name(f), ''),
                                 install_dir : networkdir)
                 endforeach
-        else
-                install_data(
-                        example_network_files,
-                        install_dir : networkdir)
         endif
-
 endif
 
 install_data('99-default.link',

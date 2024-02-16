@@ -8,6 +8,7 @@
 #include "firewall-util.h"
 #include "firewall-util-private.h"
 #include "log.h"
+#include "netlink-util.h"
 #include "string-table.h"
 
 static const char * const firewall_backend_table[_FW_BACKEND_MAX] = {
@@ -88,6 +89,13 @@ FirewallContext *fw_ctx_free(FirewallContext *ctx) {
         fw_nftables_exit(ctx);
 
         return mfree(ctx);
+}
+
+size_t fw_ctx_get_reply_callback_count(FirewallContext *ctx) {
+        if (!ctx || !ctx->nfnl)
+                return 0;
+
+        return netlink_get_reply_callback_count(ctx->nfnl);
 }
 
 int fw_add_masquerade(

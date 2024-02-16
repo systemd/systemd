@@ -7,4 +7,4 @@ Description=Test ProtectHome=tmpfs vs ProtectSystem=strict
 ProtectHome=tmpfs
 ProtectSystem=strict
 Type=oneshot
-ExecStart=/bin/sh -x -c 'test "$$(stat -fc %%T /home)" = "tmpfs"'
+ExecStart=sh -x -c 'test "$$(stat -fc %%T /home)" = "tmpfs"'

@@ -252,6 +252,7 @@ typedef struct UserRecord {
         char **environment;
         char *time_zone;
         char *preferred_language;
+        char **additional_languages;
         int nice_level;
         struct rlimit *rlimits[_RLIMIT_MAX];
 
@@ -292,6 +293,10 @@ typedef struct UserRecord {
         char *home_directory;
         char *home_directory_auto; /* when none is set explicitly, this is where we place the implicit home directory */
 
+        /* fallback shell and home dir */
+        char *fallback_shell;
+        char *fallback_home_directory;
+
         uid_t uid;
         gid_t gid;
 
@@ -320,6 +325,8 @@ typedef struct UserRecord {
         uint64_t disk_free;
         uint64_t disk_ceiling;
         uint64_t disk_floor;
+
+        bool use_fallback; /* if true → use fallback_shell + fallback_home_directory instead of the regular ones */
 
         char *state;
         char *service;
@@ -415,6 +422,7 @@ AutoResizeMode user_record_auto_resize_mode(UserRecord *h);
 uint64_t user_record_rebalance_weight(UserRecord *h);
 uint64_t user_record_capability_bounding_set(UserRecord *h);
 uint64_t user_record_capability_ambient_set(UserRecord *h);
+int user_record_languages(UserRecord *h, char ***ret);
 
 int user_record_build_image_path(UserStorage storage, const char *user_name_and_realm, char **ret);
 
@@ -438,6 +446,7 @@ int json_dispatch_user_disposition(const char *name, JsonVariant *variant, JsonD
 
 int per_machine_id_match(JsonVariant *ids, JsonDispatchFlags flags);
 int per_machine_hostname_match(JsonVariant *hns, JsonDispatchFlags flags);
+int per_machine_match(JsonVariant *entry, JsonDispatchFlags flags);
 int user_group_record_mangle(JsonVariant *v, UserRecordLoadFlags load_flags, JsonVariant **ret_variant, UserRecordMask *ret_mask);
 
 const char* user_storage_to_string(UserStorage t) _const_;

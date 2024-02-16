@@ -466,7 +466,7 @@ int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const s
                 return -ENOMEM;
 
         path_copy = strdup(path);
-        if (!path)
+        if (!path_copy)
                 return -ENOMEM;
 
         r = hashmap_put(*stats_by_path, path_copy, st_copy);
@@ -557,7 +557,7 @@ static int config_parse_many_files(
 
                         if (set_contains(inodes, &st)) {
                                 log_debug("%s: symlink to/symlinked as drop-in, will be read later.", *fn);
-                                continue;
+                                break;
                         }
                 }
 
@@ -571,6 +571,8 @@ static int config_parse_many_files(
                         if (r < 0)
                                 return r;
                 }
+
+                break;
         }
 
         /* Then read all the drop-ins. */
@@ -596,10 +598,11 @@ static int config_parse_many_files(
         return 0;
 }
 
-/* Parse one main config file located in /etc/systemd and its drop-ins, which is what all systemd daemons
+/* Parse one main config file located in /etc/$pkgdir and its drop-ins, which is what all systemd daemons
  * do. */
-int config_parse_config_file(
+int config_parse_config_file_full(
                 const char *conf_file,
+                const char *pkgdir,
                 const char *sections,
                 ConfigItemLookup lookup,
                 const void *table,
@@ -611,6 +614,7 @@ int config_parse_config_file(
         int r;
 
         assert(conf_file);
+        assert(pkgdir);
 
         /* build the dropin dir list */
         dropin_dirs = new0(char*, strv_length(conf_paths) + 1);
@@ -624,7 +628,7 @@ int config_parse_config_file(
         STRV_FOREACH(p, conf_paths) {
                 char *d;
 
-                d = strjoin(*p, "systemd/", conf_file, ".d");
+                d = strjoin(*p, pkgdir, "/", conf_file, ".d");
                 if (!d) {
                         if (flags & CONFIG_PARSE_WARN)
                                 return log_oom();
@@ -638,7 +642,7 @@ int config_parse_config_file(
         if (r < 0)
                 return r;
 
-        const char *sysconf_file = strjoina(PKGSYSCONFDIR, "/", conf_file);
+        const char *sysconf_file = strjoina(SYSCONF_DIR, "/", pkgdir, "/", conf_file);
 
         return config_parse_many_files(STRV_MAKE_CONST(sysconf_file), dropins,
                                        sections, lookup, table, flags, userdata, NULL);
@@ -793,12 +797,12 @@ bool stats_by_path_equal(Hashmap *a, Hashmap *b) {
         return true;
 }
 
-static void config_section_hash_func(const ConfigSection *c, struct siphash *state) {
+void config_section_hash_func(const ConfigSection *c, struct siphash *state) {
         siphash24_compress_string(c->filename, state);
-        siphash24_compress(&c->line, sizeof(c->line), state);
+        siphash24_compress_typesafe(c->line, state);
 }
 
-static int config_section_compare_func(const ConfigSection *x, const ConfigSection *y) {
+int config_section_compare_func(const ConfigSection *x, const ConfigSection *y) {
         int r;
 
         r = strcmp(x->filename, y->filename);
@@ -1060,7 +1064,7 @@ int config_parse_tristate(
 
         if (isempty(rvalue)) {
                 *t = -1;
-                return 0;
+                return 1;
         }
 
         r = parse_tristate(rvalue, t);
@@ -1070,7 +1074,7 @@ int config_parse_tristate(
                 return 0;
         }
 
-        return 0;
+        return 1;
 }
 
 int config_parse_string(
@@ -1086,6 +1090,7 @@ int config_parse_string(
                 void *userdata) {
 
         char **s = ASSERT_PTR(data);
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1093,7 +1098,7 @@ int config_parse_string(
 
         if (isempty(rvalue)) {
                 *s = mfree(*s);
-                return 0;
+                return 1;
         }
 
         if (FLAGS_SET(ltype, CONFIG_PARSE_STRING_SAFE) && !string_is_safe(rvalue)) {
@@ -1114,7 +1119,11 @@ int config_parse_string(
                 return 0;
         }
 
-        return free_and_strdup_warn(s, empty_to_null(rvalue));
+        r = free_and_strdup_warn(s, empty_to_null(rvalue));
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 int config_parse_dns_name(
@@ -1590,7 +1599,7 @@ int config_parse_mtu(
                 return 0;
         }
 
-        return 0;
+        return 1;
 }
 
 int config_parse_rlimit(

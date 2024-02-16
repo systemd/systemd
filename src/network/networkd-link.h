@@ -21,9 +21,11 @@
 #include "log-link.h"
 #include "netif-util.h"
 #include "network-util.h"
+#include "networkd-bridge-vlan.h"
 #include "networkd-ipv6ll.h"
 #include "networkd-util.h"
 #include "ordered-set.h"
+#include "ratelimit.h"
 #include "resolve-util.h"
 #include "set.h"
 
@@ -72,6 +74,11 @@ typedef struct Link {
         sd_device *dev;
         char *driver;
 
+        /* bridge vlan */
+        uint16_t bridge_vlan_pvid;
+        bool bridge_vlan_pvid_is_untagged;
+        uint32_t bridge_vlan_bitmap[BRIDGE_VLAN_BITMAP_LEN];
+
         /* to prevent multiple ethtool calls */
         bool ethtool_driver_read;
         bool ethtool_permanent_hw_addr_read;
@@ -100,6 +107,7 @@ typedef struct Link {
         LinkAddressState ipv4_address_state;
         LinkAddressState ipv6_address_state;
         LinkOnlineState online_state;
+        RateLimit automatic_reconfigure_ratelimit;
 
         unsigned static_address_messages;
         unsigned static_address_label_messages;
@@ -118,8 +126,6 @@ typedef struct Link {
 
         Set *addresses;
         Set *neighbors;
-        Set *routes;
-        Set *nexthops;
         Set *qdiscs;
         Set *tclasses;
 
@@ -149,6 +155,7 @@ typedef struct Link {
         bool activated:1;
         bool master_set:1;
         bool stacked_netdevs_created:1;
+        bool bridge_vlan_set:1;
 
         sd_dhcp_server *dhcp_server;
 
@@ -245,9 +252,13 @@ LinkState link_state_from_string(const char *s) _pure_;
 
 int link_reconfigure_impl(Link *link, bool force);
 int link_reconfigure(Link *link, bool force);
+int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message);
 
 int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t action);
 int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
 int link_flags_to_string_alloc(uint32_t flags, char **ret);
 const char *kernel_operstate_to_string(int t) _const_;
+
+void link_required_operstate_for_online(Link *link, LinkOperationalStateRange *ret);
+AddressFamily link_required_family_for_online(Link *link);

@@ -18,16 +18,17 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags) {
 }
 
 static int add_lease(sd_dhcp_server *server, const struct in_addr *server_address, uint8_t i) {
-        _cleanup_(dhcp_lease_freep) DHCPLease *lease = NULL;
+        _cleanup_(sd_dhcp_server_lease_unrefp) sd_dhcp_server_lease *lease = NULL;
         int r;
 
         assert(server);
 
-        lease = new(DHCPLease, 1);
+        lease = new(sd_dhcp_server_lease, 1);
         if (!lease)
                 return -ENOMEM;
 
-        *lease = (DHCPLease) {
+        *lease = (sd_dhcp_server_lease) {
+                .n_ref = 1,
                 .address = htobe32(UINT32_C(10) << 24 | i),
                 .chaddr = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 },
                 .expiration = UINT64_MAX,
@@ -35,23 +36,13 @@ static int add_lease(sd_dhcp_server *server, const struct in_addr *server_addres
                 .hlen = ETH_ALEN,
                 .htype = ARPHRD_ETHER,
 
-                .client_id.length = 2,
+                .client_id.size = 2,
         };
 
-        lease->client_id.data = new(uint8_t, lease->client_id.length);
-        if (!lease->client_id.data)
-                return -ENOMEM;
+        lease->client_id.raw[0] = 2;
+        lease->client_id.raw[1] = i;
 
-        lease->client_id.data[0] = 2;
-        lease->client_id.data[1] = i;
-
-        lease->server = server; /* This must be set just before hashmap_put(). */
-
-        r = hashmap_ensure_put(&server->bound_leases_by_client_id, &dhcp_lease_hash_ops, &lease->client_id, lease);
-        if (r < 0)
-                return r;
-
-        r = hashmap_ensure_put(&server->bound_leases_by_address, NULL, UINT32_TO_PTR(lease->address), lease);
+        r = dhcp_server_put_lease(server, lease, /* is_static = */ false);
         if (r < 0)
                 return r;
 

@@ -28,6 +28,15 @@ assert_eq() {(
     fi
 )}
 
+assert_le() {(
+    set +ex
+
+    if [[ "${1:?}" -gt "${2:?}" ]]; then
+        echo "FAIL: '$1' > '$2'" >&2
+        exit 1
+    fi
+)}
+
 assert_in() {(
     set +ex
 
@@ -196,4 +205,39 @@ openssl_supports_kdf() {
     # The arguments will need to be adjusted to make this work for other KDFs than SSKDF,
     # but let's do that when/if the need arises
     openssl kdf -keylen 16 -kdfopt digest:SHA2-256 -kdfopt key:foo -out /dev/null "$kdf"
+}
+
+kernel_supports_lsm() {
+    local lsm="${1:?}"
+    local items item
+
+    if [[ ! -e /sys/kernel/security/lsm ]]; then
+        echo "/sys/kernel/security/lsm doesn't exist, assuming $lsm is not supported"
+        return 1
+    fi
+
+    mapfile -t -d, items </sys/kernel/security/lsm
+    for item in "${items[@]}"; do
+        if [[ "$item" == "$lsm" ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+MOUNTED_USR_OVERLAY=false
+
+maybe_mount_usr_overlay() {
+    if [[ ! -w /usr ]]; then
+        mkdir -p /tmp/usr-overlay/{upperdir,workdir}
+        mount -t overlay -o lowerdir=/usr,upperdir=/tmp/usr-overlay/upperdir,workdir=/tmp/usr-overlay/workdir overlay /usr
+	MOUNTED_USR_OVERLAY=true
+    fi
+}
+
+maybe_umount_usr_overlay() {
+    if "$MOUNTED_USR_OVERLAY"; then
+        umount -l /usr
+    fi
 }

@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <sys/socket.h>
+
 #include "log-link.h"
 #include "sparse-endian.h"
 #include "time-util.h"
@@ -41,3 +43,7 @@ be16_t usec_to_be16_sec(usec_t t);
 usec_t time_span_to_stamp(usec_t span, usec_t base);
 
 bool network_test_mode_enabled(void);
+
+triple_timestamp* triple_timestamp_from_cmsg(triple_timestamp *t, struct msghdr *mh);
+#define TRIPLE_TIMESTAMP_FROM_CMSG(mh)          \
+        triple_timestamp_from_cmsg(&(triple_timestamp) {}, mh)

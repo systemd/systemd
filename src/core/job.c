@@ -633,16 +633,19 @@ static const char* job_done_message_format(Unit *u, JobType t, JobResult result)
                 [JOB_UNSUPPORTED] = "Starting of %s unsupported.",
                 [JOB_COLLECTED]   = "Unnecessary job was removed for %s.",
                 [JOB_ONCE]        = "Unit %s has been started before and cannot be started again.",
+                [JOB_FROZEN]      = "Cannot start frozen unit %s.",
         };
         static const char* const generic_finished_stop_job[_JOB_RESULT_MAX] = {
                 [JOB_DONE]        = "Stopped %s.",
                 [JOB_FAILED]      = "Stopped %s with error.",
                 [JOB_TIMEOUT]     = "Timed out stopping %s.",
+                [JOB_FROZEN]      = "Cannot stop frozen unit %s.",
         };
         static const char* const generic_finished_reload_job[_JOB_RESULT_MAX] = {
                 [JOB_DONE]        = "Reloaded %s.",
                 [JOB_FAILED]      = "Reload failed for %s.",
                 [JOB_TIMEOUT]     = "Timed out reloading %s.",
+                [JOB_FROZEN]      = "Cannot reload frozen unit %s.",
         };
         /* When verify-active detects the unit is inactive, report it.
          * Most likely a DEPEND warning from a requisiting unit will
@@ -704,6 +707,7 @@ static const struct {
         [JOB_UNSUPPORTED] = { LOG_WARNING, ANSI_HIGHLIGHT_YELLOW, "UNSUPP" },
         [JOB_COLLECTED]   = { LOG_INFO,                                    },
         [JOB_ONCE]        = { LOG_ERR,     ANSI_HIGHLIGHT_RED,    " ONCE " },
+        [JOB_FROZEN]      = { LOG_ERR,     ANSI_HIGHLIGHT_RED,    "FROZEN" },
 };
 
 static const char* job_done_mid(JobType type, JobResult result) {
@@ -833,13 +837,12 @@ static int job_perform_on_unit(Job **j) {
         Manager *m;
         JobType t;
         Unit *u;
+        bool wait_only;
         int r;
 
-        /* While we execute this operation the job might go away (for
-         * example: because it finishes immediately or is replaced by
-         * a new, conflicting job.) To make sure we don't access a
-         * freed job later on we store the id here, so that we can
-         * verify the job is still valid. */
+        /* While we execute this operation the job might go away (for example: because it finishes immediately
+         * or is replaced by a new, conflicting job). To make sure we don't access a freed job later on we
+         * store the id here, so that we can verify the job is still valid. */
 
         assert(j);
         assert(*j);
@@ -853,6 +856,7 @@ static int job_perform_on_unit(Job **j) {
         switch (t) {
                 case JOB_START:
                         r = unit_start(u, a);
+                        wait_only = r == -EBADR; /* If the unit type does not support starting, then simply wait. */
                         break;
 
                 case JOB_RESTART:
@@ -860,24 +864,28 @@ static int job_perform_on_unit(Job **j) {
                         _fallthrough_;
                 case JOB_STOP:
                         r = unit_stop(u);
+                        wait_only = r == -EBADR; /* If the unit type does not support stopping, then simply wait. */
                         break;
 
                 case JOB_RELOAD:
                         r = unit_reload(u);
+                        wait_only = false; /* A clear error is generated if reload is not supported. */
                         break;
 
                 default:
                         assert_not_reached();
         }
 
-        /* Log if the job still exists and the start/stop/reload function actually did something. Note that this means
-         * for units for which there's no 'activating' phase (i.e. because we transition directly from 'inactive' to
-         * 'active') we'll possibly skip the "Starting..." message. */
+        /* Log if the job still exists and the start/stop/reload function actually did something or we're
+         * only waiting for unit status change (common for device units). The latter ensures that job start
+         * messages for device units are correctly shown. Note that if the job disappears too quickly, e.g.
+         * for units for which there's no 'activating' phase (i.e. because we transition directly from
+         * 'inactive' to 'active'), we'll possibly skip the "Starting..." message. */
         *j = manager_get_job(m, id);
-        if (*j && r > 0)
+        if (*j && (r > 0 || wait_only))
                 job_emit_start_message(u, id, t);
 
-        return r;
+        return wait_only ? 0 : r;
 }
 
 int job_run_and_invalidate(Job *j) {
@@ -919,13 +927,6 @@ int job_run_and_invalidate(Job *j) {
                 case JOB_START:
                 case JOB_STOP:
                 case JOB_RESTART:
-                        r = job_perform_on_unit(&j);
-
-                        /* If the unit type does not support starting/stopping, then simply wait. */
-                        if (r == -EBADR)
-                                r = 0;
-                        break;
-
                 case JOB_RELOAD:
                         r = job_perform_on_unit(&j);
                         break;
@@ -957,6 +958,8 @@ int job_run_and_invalidate(Job *j) {
                         r = job_finish_and_invalidate(j, JOB_DEPENDENCY, true, false);
                 else if (r == -ESTALE)
                         r = job_finish_and_invalidate(j, JOB_ONCE, true, false);
+                else if (r == -EDEADLK)
+                        r = job_finish_and_invalidate(j, JOB_FROZEN, true, false);
                 else if (r < 0)
                         r = job_finish_and_invalidate(j, JOB_FAILED, true, false);
         }
@@ -1014,7 +1017,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
                 goto finish;
         }
 
-        if (IN_SET(result, JOB_FAILED, JOB_INVALID))
+        if (IN_SET(result, JOB_FAILED, JOB_INVALID, JOB_FROZEN))
                 j->manager->n_failed_jobs++;
 
         job_uninstall(j);
@@ -1648,6 +1651,7 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
         [JOB_UNSUPPORTED] = "unsupported",
         [JOB_COLLECTED]   = "collected",
         [JOB_ONCE]        = "once",
+        [JOB_FROZEN]      = "frozen",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);

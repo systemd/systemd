@@ -141,7 +141,7 @@ struct Network {
         bool dhcp_send_hostname_set;
         int dhcp_broadcast;
         int dhcp_ipv6_only_mode;
-        bool dhcp_use_rapid_commit;
+        int dhcp_use_rapid_commit;
         bool dhcp_use_dns;
         bool dhcp_use_dns_set;
         bool dhcp_routes_to_dns;
@@ -289,10 +289,9 @@ struct Network {
         MulticastRouter multicast_router;
 
         /* Bridge VLAN */
-        bool use_br_vlan;
-        uint16_t pvid;
-        uint32_t br_vid_bitmap[BRIDGE_VLAN_BITMAP_LEN];
-        uint32_t br_untagged_bitmap[BRIDGE_VLAN_BITMAP_LEN];
+        uint16_t bridge_vlan_pvid;
+        uint32_t bridge_vlan_bitmap[BRIDGE_VLAN_BITMAP_LEN];
+        uint32_t bridge_vlan_untagged_bitmap[BRIDGE_VLAN_BITMAP_LEN];
 
         /* CAN support */
         uint32_t can_bitrate;
@@ -325,7 +324,9 @@ struct Network {
         int ipv4_route_localnet;
         int ipv6_dad_transmits;
         uint8_t ipv6_hop_limit;
+        usec_t ipv6_retransmission_time;
         int proxy_arp;
+        int proxy_arp_pvlan;
         uint32_t ipv6_mtu;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
         IPReversePathFilter ipv4_rp_filter;
@@ -341,6 +342,7 @@ struct Network {
         bool ipv6_accept_ra_use_onlink_prefix;
         bool ipv6_accept_ra_use_mtu;
         bool ipv6_accept_ra_use_hop_limit;
+        bool ipv6_accept_ra_use_retransmission_time;
         bool ipv6_accept_ra_use_icmp6_ratelimit;
         bool ipv6_accept_ra_quickack;
         bool ipv6_accept_ra_use_captive_portal;
@@ -372,7 +374,7 @@ struct Network {
 
         OrderedHashmap *addresses_by_section;
         Hashmap *routes_by_section;
-        Hashmap *nexthops_by_section;
+        OrderedHashmap *nexthops_by_section;
         Hashmap *bridge_fdb_entries_by_section;
         Hashmap *bridge_mdb_entries_by_section;
         OrderedHashmap *neighbors_by_section;

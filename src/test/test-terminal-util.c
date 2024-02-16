@@ -165,4 +165,15 @@ TEST(get_ctty) {
                 log_notice("Not invoked with stdin == ctty, cutting get_ctty() test short");
 }
 
+TEST(get_default_background_color) {
+        double red, green, blue;
+        int r;
+
+        r = get_default_background_color(&red, &green, &blue);
+        if (r < 0)
+                log_notice_errno(r, "Can't get terminal default background color: %m");
+        else
+                log_notice("R=%g G=%g B=%g", red, green, blue);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);

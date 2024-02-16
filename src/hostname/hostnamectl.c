@@ -24,6 +24,7 @@
 #include "main-func.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
+#include "socket-util.h"
 #include "spawn-polkit-agent.h"
 #include "terminal-util.h"
 #include "verbs.h"
@@ -56,6 +57,9 @@ typedef struct StatusInfo {
         const char *hardware_model;
         const char *firmware_version;
         usec_t firmware_date;
+        sd_id128_t machine_id;
+        sd_id128_t boot_id;
+        uint32_t vsock_cid;
 } StatusInfo;
 
 static const char* chassis_string_to_glyph(const char *chassis) {
@@ -97,7 +101,6 @@ static const char *os_support_end_color(usec_t n, usec_t eol) {
 
 static int print_status_info(StatusInfo *i) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        sd_id128_t mid = {}, bid = {};
         TableCell *cell;
         int r;
 
@@ -174,20 +177,26 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        r = sd_id128_get_machine(&mid);
-        if (r >= 0) {
+        if (!sd_id128_is_null(i->machine_id)) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Machine ID",
-                                   TABLE_ID128, mid);
+                                   TABLE_ID128, i->machine_id);
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
-        r = sd_id128_get_boot(&bid);
-        if (r >= 0) {
+        if (!sd_id128_is_null(i->boot_id)) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Boot ID",
-                                   TABLE_ID128, bid);
+                                   TABLE_ID128, i->boot_id);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (i->vsock_cid != VMADDR_CID_ANY) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "AF_VSOCK CID",
+                                   TABLE_UINT32, i->vsock_cid);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -333,32 +342,35 @@ static int get_one_name(sd_bus *bus, const char* attr, char **ret) {
 }
 
 static int show_all_names(sd_bus *bus) {
-        StatusInfo info = {};
-
-        static const struct bus_properties_map hostname_map[]  = {
-                { "Hostname",                  "s", NULL, offsetof(StatusInfo, hostname)         },
-                { "StaticHostname",            "s", NULL, offsetof(StatusInfo, static_hostname)  },
-                { "PrettyHostname",            "s", NULL, offsetof(StatusInfo, pretty_hostname)  },
-                { "IconName",                  "s", NULL, offsetof(StatusInfo, icon_name)        },
-                { "Chassis",                   "s", NULL, offsetof(StatusInfo, chassis)          },
-                { "Deployment",                "s", NULL, offsetof(StatusInfo, deployment)       },
-                { "Location",                  "s", NULL, offsetof(StatusInfo, location)         },
-                { "KernelName",                "s", NULL, offsetof(StatusInfo, kernel_name)      },
-                { "KernelRelease",             "s", NULL, offsetof(StatusInfo, kernel_release)   },
-                { "OperatingSystemPrettyName", "s", NULL, offsetof(StatusInfo, os_pretty_name)   },
-                { "OperatingSystemCPEName",    "s", NULL, offsetof(StatusInfo, os_cpe_name)      },
-                { "OperatingSystemSupportEnd", "t", NULL, offsetof(StatusInfo, os_support_end)   },
-                { "HomeURL",                   "s", NULL, offsetof(StatusInfo, home_url)         },
-                { "HardwareVendor",            "s", NULL, offsetof(StatusInfo, hardware_vendor)  },
-                { "HardwareModel",             "s", NULL, offsetof(StatusInfo, hardware_model)   },
-                { "FirmwareVersion",           "s", NULL, offsetof(StatusInfo, firmware_version) },
-                { "FirmwareDate",              "t", NULL, offsetof(StatusInfo, firmware_date)    },
-                {}
+        StatusInfo info = {
+                .vsock_cid = VMADDR_CID_ANY,
         };
 
-        static const struct bus_properties_map manager_map[] = {
-                { "Virtualization",            "s", NULL, offsetof(StatusInfo, virtualization)  },
-                { "Architecture",              "s", NULL, offsetof(StatusInfo, architecture)    },
+        static const struct bus_properties_map hostname_map[]  = {
+                { "Hostname",                  "s",  NULL,          offsetof(StatusInfo, hostname)         },
+                { "StaticHostname",            "s",  NULL,          offsetof(StatusInfo, static_hostname)  },
+                { "PrettyHostname",            "s",  NULL,          offsetof(StatusInfo, pretty_hostname)  },
+                { "IconName",                  "s",  NULL,          offsetof(StatusInfo, icon_name)        },
+                { "Chassis",                   "s",  NULL,          offsetof(StatusInfo, chassis)          },
+                { "Deployment",                "s",  NULL,          offsetof(StatusInfo, deployment)       },
+                { "Location",                  "s",  NULL,          offsetof(StatusInfo, location)         },
+                { "KernelName",                "s",  NULL,          offsetof(StatusInfo, kernel_name)      },
+                { "KernelRelease",             "s",  NULL,          offsetof(StatusInfo, kernel_release)   },
+                { "OperatingSystemPrettyName", "s",  NULL,          offsetof(StatusInfo, os_pretty_name)   },
+                { "OperatingSystemCPEName",    "s",  NULL,          offsetof(StatusInfo, os_cpe_name)      },
+                { "OperatingSystemSupportEnd", "t",  NULL,          offsetof(StatusInfo, os_support_end)   },
+                { "HomeURL",                   "s",  NULL,          offsetof(StatusInfo, home_url)         },
+                { "HardwareVendor",            "s",  NULL,          offsetof(StatusInfo, hardware_vendor)  },
+                { "HardwareModel",             "s",  NULL,          offsetof(StatusInfo, hardware_model)   },
+                { "FirmwareVersion",           "s",  NULL,          offsetof(StatusInfo, firmware_version) },
+                { "FirmwareDate",              "t",  NULL,          offsetof(StatusInfo, firmware_date)    },
+                { "MachineID",                 "ay", bus_map_id128, offsetof(StatusInfo, machine_id)       },
+                { "BootID",                    "ay", bus_map_id128, offsetof(StatusInfo, boot_id)          },
+                { "VSockCID",                  "u",  NULL,          offsetof(StatusInfo, vsock_cid)        },
+                {}
+        }, manager_map[] = {
+                { "Virtualization",            "s",  NULL,          offsetof(StatusInfo, virtualization)   },
+                { "Architecture",              "s",  NULL,          offsetof(StatusInfo, architecture)     },
                 {}
         };
 
@@ -387,6 +399,14 @@ static int show_all_names(sd_bus *bus) {
                                    &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to query system properties: %s", bus_error_message(&error, r));
+
+        /* For older version of hostnamed. */
+        if (!arg_host) {
+                if (sd_id128_is_null(info.machine_id))
+                        (void) sd_id128_get_machine(&info.machine_id);
+                if (sd_id128_is_null(info.boot_id))
+                        (void) sd_id128_get_boot(&info.boot_id);
+        }
 
         return print_status_info(&info);
 }
@@ -596,6 +616,7 @@ static int help(void) {
                "     --pretty            Only set pretty hostname\n"
                "     --json=pretty|short|off\n"
                "                         Generate JSON output\n"
+               "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -638,7 +659,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hH:M:j", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -679,6 +700,10 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r <= 0)
                                 return r;
 
+                        break;
+
+                case 'j':
+                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
                         break;
 
                 case '?':

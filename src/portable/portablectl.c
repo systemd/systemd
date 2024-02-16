@@ -1030,7 +1030,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (table_get_rows(table) > 1) {
+        if (!table_isempty(table)) {
                 r = table_set_sort(table, (size_t) 0);
                 if (r < 0)
                         return table_log_sort_error(r);
@@ -1043,10 +1043,10 @@ static int list_images(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_legend) {
-                if (table_get_rows(table) > 1)
-                        printf("\n%zu images listed.\n", table_get_rows(table) - 1);
-                else
+                if (table_isempty(table))
                         printf("No images.\n");
+                else
+                        printf("\n%zu images listed.\n", table_get_rows(table) - 1);
         }
 
         return 0;
@@ -1372,12 +1372,13 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_COPY:
                         if (streq(optarg, "auto"))
                                 arg_copy_mode = NULL;
-                        else if (STR_IN_SET(optarg, "copy", "symlink"))
+                        else if (STR_IN_SET(optarg, "copy", "symlink", "mixed"))
                                 arg_copy_mode = optarg;
                         else if (streq(optarg, "help")) {
                                 puts("auto\n"
                                      "copy\n"
-                                     "symlink");
+                                     "symlink\n"
+                                     "mixed\n");
                                 return 0;
                         } else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

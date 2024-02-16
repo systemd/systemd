@@ -347,70 +347,53 @@ static void slice_enumerate_perpetual(Manager *m) {
                 (void) slice_make_perpetual(m, SPECIAL_SYSTEM_SLICE, NULL);
 }
 
-static bool slice_freezer_action_supported_by_children(Unit *s) {
+static bool slice_can_freeze(Unit *s) {
         Unit *member;
 
         assert(s);
 
-        UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_SLICE_OF) {
-
-                if (member->type == UNIT_SLICE &&
-                    !slice_freezer_action_supported_by_children(member))
+        UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_SLICE_OF)
+                if (!unit_can_freeze(member))
                         return false;
-
-                if (!UNIT_VTABLE(member)->freeze)
-                        return false;
-        }
-
         return true;
 }
 
 static int slice_freezer_action(Unit *s, FreezerAction action) {
+        FreezerAction child_action;
         Unit *member;
         int r;
 
         assert(s);
-        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
+        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_PARENT_FREEZE,
+                      FREEZER_THAW, FREEZER_PARENT_THAW));
 
-        if (action == FREEZER_FREEZE && !slice_freezer_action_supported_by_children(s)) {
+        if (action == FREEZER_FREEZE && !slice_can_freeze(s)) {
+                /* We're intentionally only checking for FREEZER_FREEZE here and ignoring the
+                 * _BY_PARENT variant. If we're being frozen by parent, that means someone has
+                 * already checked if we can be frozen further up the call stack. No point to
+                 * redo that work */
                 log_unit_warning(s, "Requested freezer operation is not supported by all children of the slice");
                 return 0;
         }
 
-        UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_SLICE_OF) {
-                if (!member->cgroup_realized)
-                        continue;
+        if (action == FREEZER_FREEZE)
+                child_action = FREEZER_PARENT_FREEZE;
+        else if (action == FREEZER_THAW)
+                child_action = FREEZER_PARENT_THAW;
+        else
+                child_action = action;
 
-                if (action == FREEZER_FREEZE)
-                        r = UNIT_VTABLE(member)->freeze(member);
-                else if (UNIT_VTABLE(member)->thaw)
-                        r = UNIT_VTABLE(member)->thaw(member);
+        UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_SLICE_OF) {
+                if (UNIT_VTABLE(member)->freezer_action)
+                        r = UNIT_VTABLE(member)->freezer_action(member, child_action);
                 else
-                        /* Thawing is requested but no corresponding method is available, ignore. */
+                        /* Only thawing will reach here, since freezing checks for a method in can_freeze */
                         r = 0;
                 if (r < 0)
                         return r;
         }
 
         return unit_cgroup_freezer_action(s, action);
-}
-
-static int slice_freeze(Unit *s) {
-        assert(s);
-
-        return slice_freezer_action(s, FREEZER_FREEZE);
-}
-
-static int slice_thaw(Unit *s) {
-        assert(s);
-
-        return slice_freezer_action(s, FREEZER_THAW);
-}
-
-static bool slice_can_freeze(Unit *s) {
-        assert(s);
-
-        return slice_freezer_action_supported_by_children(s);
 }
 
 const UnitVTable slice_vtable = {
@@ -436,8 +419,7 @@ const UnitVTable slice_vtable = {
         .start = slice_start,
         .stop = slice_stop,
 
-        .freeze = slice_freeze,
-        .thaw = slice_thaw,
+        .freezer_action = slice_freezer_action,
         .can_freeze = slice_can_freeze,
 
         .serialize = slice_serialize,

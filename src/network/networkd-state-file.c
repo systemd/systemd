@@ -537,7 +537,7 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, D
         assert(f);
 
         ORDERED_SET_FOREACH(p, static_domains)
-                fputs_with_space(f, p, NULL, &space);
+                fputs_with_separator(f, p, NULL, &space);
 
         if (use_domains == DHCP_USE_DOMAINS_NO)
                 return;
@@ -547,7 +547,7 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, D
                 char **domains;
 
                 if (sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname) >= 0)
-                        fputs_with_space(f, domainname, NULL, &space);
+                        fputs_with_separator(f, domainname, NULL, &space);
                 if (sd_dhcp_lease_get_search_domains(link->dhcp_lease, &domains) >= 0)
                         fputstrv(f, domains, NULL, &space);
         }
@@ -563,7 +563,7 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, D
                 NDiscDNSSL *dd;
 
                 SET_FOREACH(dd, link->ndisc_dnssl)
-                        fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
+                        fputs_with_separator(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
         }
 }
 
@@ -630,14 +630,14 @@ static int link_save(Link *link) {
                 fprintf(f, "REQUIRED_FOR_ONLINE=%s\n",
                         yes_no(link->network->required_for_online));
 
-                LinkOperationalStateRange st = link->network->required_operstate_for_online;
-                fprintf(f, "REQUIRED_OPER_STATE_FOR_ONLINE=%s%s%s\n",
-                        strempty(link_operstate_to_string(st.min)),
-                        st.max != LINK_OPERSTATE_RANGE_DEFAULT.max ? ":" : "",
-                        st.max != LINK_OPERSTATE_RANGE_DEFAULT.max ? strempty(link_operstate_to_string(st.max)) : "");
+                LinkOperationalStateRange st;
+                link_required_operstate_for_online(link, &st);
+
+                fprintf(f, "REQUIRED_OPER_STATE_FOR_ONLINE=%s:%s\n",
+                        link_operstate_to_string(st.min), link_operstate_to_string(st.max));
 
                 fprintf(f, "REQUIRED_FAMILY_FOR_ONLINE=%s\n",
-                        link_required_address_family_to_string(link->network->required_family_for_online));
+                        link_required_address_family_to_string(link_required_family_for_online(link)));
 
                 fprintf(f, "ACTIVATION_POLICY=%s\n",
                         activation_policy_to_string(link->network->activation_policy));
@@ -652,7 +652,7 @@ static int link_save(Link *link) {
                         if (!escaped)
                                 return -ENOMEM;
 
-                        fputs_with_space(f, escaped, ":", &space);
+                        fputs_with_separator(f, escaped, ":", &space);
                 }
                 fputs("\"\n", f);
 
@@ -782,7 +782,7 @@ static int link_save(Link *link) {
                         fputs("DNSSEC_NTA=", f);
                         space = false;
                         SET_FOREACH(n, nta_anchors)
-                                fputs_with_space(f, n, NULL, &space);
+                                fputs_with_separator(f, n, NULL, &space);
                         fputc('\n', f);
                 }
         }
@@ -860,4 +860,27 @@ int link_save_and_clean_full(Link *link, bool also_save_manager) {
 
         link_clean(link);
         return k;
+}
+
+int manager_clean_all(Manager *manager) {
+        int r, ret = 0;
+
+        assert(manager);
+
+        if (manager->dirty) {
+                r = manager_save(manager);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to update state file %s, ignoring: %m", manager->state_file);
+                RET_GATHER(ret, r);
+        }
+
+        Link *link;
+        SET_FOREACH(link, manager->dirty_links) {
+                r = link_save_and_clean(link);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to update link state file %s, ignoring: %m", link->state_file);
+                RET_GATHER(ret, r);
+        }
+
+        return ret;
 }

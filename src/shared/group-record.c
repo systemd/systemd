@@ -2,7 +2,7 @@
 
 #include "group-record.h"
 #include "strv.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "user-util.h"
 
 GroupRecord* group_record_new(void) {
@@ -102,33 +102,13 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
 
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
-                bool matching = false;
-                JsonVariant *m;
-
                 if (!json_variant_is_object(e))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of objects.", strna(name));
 
-                m = json_variant_by_key(e, "matchMachineId");
-                if (m) {
-                        r = per_machine_id_match(m, flags);
-                        if (r < 0)
-                                return r;
-
-                        matching = r > 0;
-                }
-
-                if (!matching) {
-                        m = json_variant_by_key(e, "matchHostname");
-                        if (m) {
-                                r = per_machine_hostname_match(m, flags);
-                                if (r < 0)
-                                        return r;
-
-                                matching = r > 0;
-                        }
-                }
-
-                if (!matching)
+                r = per_machine_match(e, flags);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
 
                 r = json_dispatch(e, per_machine_dispatch_table, flags, userdata);
@@ -230,7 +210,7 @@ int group_record_load(
         if (r < 0)
                 return r;
 
-        r = json_dispatch(h->json, group_dispatch_table, json_flags, h);
+        r = json_dispatch(h->json, group_dispatch_table, json_flags | JSON_ALLOW_EXTENSIONS, h);
         if (r < 0)
                 return r;
 

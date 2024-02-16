@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "macro.h"
 #include "mmap-cache.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 
 int main(int argc, char *argv[]) {
@@ -16,6 +17,8 @@ int main(int argc, char *argv[]) {
         char px[] = "/tmp/testmmapXXXXXXX", py[] = "/tmp/testmmapYXXXXXX", pz[] = "/tmp/testmmapZXXXXXX";
         MMapCache *m;
         void *p, *q;
+
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(m = mmap_cache_new());
 

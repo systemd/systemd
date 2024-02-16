@@ -6,5 +6,5 @@ After=testsuite-23-prop-stop-two.service
 StopPropagatedFrom=testsuite-23-prop-stop-two.service
 
 [Service]
-ExecStart=/bin/sleep infinity
+ExecStart=sleep infinity
 ExecStopPost=systemctl kill --kill-whom=main -sUSR2 testsuite-23.service

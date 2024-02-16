@@ -3,8 +3,8 @@
 Description=Test for RuntimeDirectoryMode
 
 [Service]
-ExecStart=/bin/sh -x -c 'mode=$$(stat -c %%a %t/test-exec_runtimedirectory-mode); test "$$mode" = "750"'
-ExecStart=/bin/sh -x -c 'test "$$RUNTIME_DIRECTORY" = "%t/test-exec_runtimedirectory-mode"'
+ExecStart=sh -x -c 'mode=$$(stat -c %%a %t/test-exec_runtimedirectory-mode); test "$$mode" = "750"'
+ExecStart=sh -x -c 'test "$$RUNTIME_DIRECTORY" = "%t/test-exec_runtimedirectory-mode"'
 Type=oneshot
 RuntimeDirectory=test-exec_runtimedirectory-mode
 RuntimeDirectoryMode=0750

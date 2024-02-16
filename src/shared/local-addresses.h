@@ -6,11 +6,15 @@
 #include "in-addr-util.h"
 
 struct local_address {
-        int family, ifindex;
+        int ifindex;
         unsigned char scope;
-        uint32_t metric;
+        uint32_t priority;
+        uint32_t weight;
+        int family;
         union in_addr_union address;
 };
+
+bool has_local_address(const struct local_address *addresses, size_t n_addresses, const struct local_address *needle);
 
 int local_addresses(sd_netlink *rtnl, int ifindex, int af, struct local_address **ret);
 

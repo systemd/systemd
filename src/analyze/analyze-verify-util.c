@@ -72,50 +72,90 @@ int verify_prepare_filename(const char *filename, char **ret) {
         return 0;
 }
 
-int verify_generate_path(char **ret, char **filenames) {
+static int find_unit_directory(const char *p, char **ret) {
+        _cleanup_free_ char *a = NULL, *u = NULL, *t = NULL, *d = NULL;
+        int r;
+
+        assert(p);
+        assert(ret);
+
+        r = path_make_absolute_cwd(p, &a);
+        if (r < 0)
+                return r;
+
+        if (access(a, F_OK) >= 0) {
+                r = path_extract_directory(a, &d);
+                if (r < 0)
+                        return r;
+
+                *ret = TAKE_PTR(d);
+                return 0;
+        }
+
+        r = path_extract_filename(a, &u);
+        if (r < 0)
+                return r;
+
+        if (!unit_name_is_valid(u, UNIT_NAME_INSTANCE))
+                return -ENOENT;
+
+        /* If the specified unit is an instance of a template unit, then let's try to find the template unit. */
+        r = unit_name_template(u, &t);
+        if (r < 0)
+                return r;
+
+        r = path_extract_directory(a, &d);
+        if (r < 0)
+                return r;
+
+        free(a);
+        a = path_join(d, t);
+        if (!a)
+                return -ENOMEM;
+
+        if (access(a, F_OK) < 0)
+                return -errno;
+
+        *ret = TAKE_PTR(d);
+        return 0;
+}
+
+int verify_set_unit_path(char **filenames) {
         _cleanup_strv_free_ char **ans = NULL;
         _cleanup_free_ char *joined = NULL;
         const char *old;
         int r;
 
         STRV_FOREACH(filename, filenames) {
-                _cleanup_free_ char *a = NULL;
-                char *t;
+                _cleanup_free_ char *t = NULL;
 
-                r = path_make_absolute_cwd(*filename, &a);
-                if (r < 0)
+                r = find_unit_directory(*filename, &t);
+                if (r == -ENOMEM)
                         return r;
-
-                r = path_extract_directory(a, &t);
                 if (r < 0)
-                        return r;
+                        continue;
 
-                r = strv_consume(&ans, t);
+                r = strv_consume(&ans, TAKE_PTR(t));
                 if (r < 0)
                         return r;
         }
 
-        strv_uniq(ans);
+        if (strv_isempty(ans))
+                return 0;
 
-        /* First, prepend our directories. Second, if some path was specified, use that, and
-         * otherwise use the defaults. Any duplicates will be filtered out in path-lookup.c.
-         * Treat explicit empty path to mean that nothing should be appended.
-         */
-        old = getenv("SYSTEMD_UNIT_PATH");
-        if (!streq_ptr(old, "")) {
-                if (!old)
-                        old = ":";
-
-                r = strv_extend(&ans, old);
-                if (r < 0)
-                        return r;
-        }
-
-        joined = strv_join(ans, ":");
+        joined = strv_join(strv_uniq(ans), ":");
         if (!joined)
                 return -ENOMEM;
 
-        *ret = TAKE_PTR(joined);
+        /* First, prepend our directories. Second, if some path was specified, use that, and
+         * otherwise use the defaults. Any duplicates will be filtered out in path-lookup.c.
+         * Treat explicit empty path to mean that nothing should be appended. */
+        old = getenv("SYSTEMD_UNIT_PATH");
+        if (!streq_ptr(old, "") &&
+            !strextend_with_separator(&joined, ":", strempty(old)))
+                return -ENOMEM;
+
+        assert_se(set_unit_path(joined) >= 0);
         return 0;
 }
 
@@ -161,19 +201,23 @@ static int verify_executables(Unit *u, const char *root) {
 
         assert(u);
 
-        ExecCommand *exec =
-                u->type == UNIT_SOCKET ? SOCKET(u)->control_command :
-                u->type == UNIT_MOUNT ? MOUNT(u)->control_command :
-                u->type == UNIT_SWAP ? SWAP(u)->control_command : NULL;
-        RET_GATHER(r, verify_executable(u, exec, root));
+        if (u->type == UNIT_MOUNT)
+                FOREACH_ARRAY(i, MOUNT(u)->exec_command, ELEMENTSOF(MOUNT(u)->exec_command))
+                        RET_GATHER(r, verify_executable(u, i, root));
 
         if (u->type == UNIT_SERVICE)
-                for (unsigned i = 0; i < ELEMENTSOF(SERVICE(u)->exec_command); i++)
-                        RET_GATHER(r, verify_executable(u, SERVICE(u)->exec_command[i], root));
+                FOREACH_ARRAY(i, SERVICE(u)->exec_command, ELEMENTSOF(SERVICE(u)->exec_command))
+                        LIST_FOREACH(command, j, *i)
+                                RET_GATHER(r, verify_executable(u, j, root));
 
         if (u->type == UNIT_SOCKET)
-                for (unsigned i = 0; i < ELEMENTSOF(SOCKET(u)->exec_command); i++)
-                        RET_GATHER(r, verify_executable(u, SOCKET(u)->exec_command[i], root));
+                FOREACH_ARRAY(i, SOCKET(u)->exec_command, ELEMENTSOF(SOCKET(u)->exec_command))
+                        LIST_FOREACH(command, j, *i)
+                                RET_GATHER(r, verify_executable(u, j, root));
+
+        if (u->type == UNIT_SWAP)
+                FOREACH_ARRAY(i, SWAP(u)->exec_command, ELEMENTSOF(SWAP(u)->exec_command))
+                        RET_GATHER(r, verify_executable(u, i, root));
 
         return r;
 }
@@ -225,7 +269,7 @@ static int verify_unit(Unit *u, bool check_man, const char *root) {
         return r;
 }
 
-static void set_destroy_ignore_pointer_max(Set** s) {
+static void set_destroy_ignore_pointer_max(Set **s) {
         if (*s == POINTER_MAX)
                 return;
         set_free_free(*s);
@@ -242,6 +286,7 @@ int verify_units(
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
+                MANAGER_TEST_DONT_OPEN_EXECUTOR |
                 (recursive_errors == RECURSIVE_ERRORS_NO) * MANAGER_TEST_RUN_IGNORE_DEPENDENCIES |
                 run_generators * MANAGER_TEST_RUN_GENERATORS;
 
@@ -249,7 +294,6 @@ int verify_units(
         _cleanup_(set_destroy_ignore_pointer_max) Set *s = NULL;
         _unused_ _cleanup_(clear_log_syntax_callback) dummy_t dummy;
         Unit *units[strv_length(filenames)];
-        _cleanup_free_ char *var = NULL;
         int r, k, count = 0;
 
         if (strv_isempty(filenames))
@@ -261,11 +305,9 @@ int verify_units(
         set_log_syntax_callback(log_syntax_callback, &s);
 
         /* set the path */
-        r = verify_generate_path(&var, filenames);
+        r = verify_set_unit_path(filenames);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate unit load path: %m");
-
-        assert_se(set_unit_path(var) >= 0);
+                return log_error_errno(r, "Failed to set unit load path: %m");
 
         r = manager_new(scope, flags, &m);
         if (r < 0)
@@ -302,8 +344,8 @@ int verify_units(
                 count++;
         }
 
-        for (int i = 0; i < count; i++)
-                RET_GATHER(r, verify_unit(units[i], check_man, root));
+        FOREACH_ARRAY(i, units, count)
+                RET_GATHER(r, verify_unit(*i, check_man, root));
 
         if (s == POINTER_MAX)
                 return log_oom();

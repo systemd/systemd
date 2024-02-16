@@ -12,16 +12,21 @@ at_exit() {
         rm -fvr "/usr/lib/systemd/system/$UNIT_NAME" "/etc/systemd/system/$UNIT_NAME.d" "+4"
     fi
 
+    maybe_umount_usr_overlay
+
     rm -f /etc/init.d/issue-24990
     return 0
 }
 
+maybe_mount_usr_overlay
 trap at_exit EXIT
 
 # Create a simple unit file for testing
 # Note: the service file is created under /usr on purpose to test
 #       the 'revert' verb as well
 export UNIT_NAME="systemctl-test-$RANDOM.service"
+export UNIT_NAME2="systemctl-test-$RANDOM.service"
+
 cat >"/usr/lib/systemd/system/$UNIT_NAME" <<\EOF
 [Unit]
 Description=systemctl test
@@ -55,6 +60,20 @@ printf '%s\n' '[Service]' 'ExecStart=' 'ExecStart=sleep 10d' | cmp - "/etc/syste
 printf '%b'   '[Service]\n' 'ExecStart=\n' 'ExecStart=sleep 10d' >"+4"
 EDITOR='mv' script -ec 'systemctl edit "$UNIT_NAME"' /dev/null
 printf '%s\n' '[Service]'   'ExecStart='   'ExecStart=sleep 10d' | cmp - "/etc/systemd/system/$UNIT_NAME.d/override.conf"
+
+systemctl edit "$UNIT_NAME" --stdin --drop-in=override2.conf <<EOF
+[Unit]
+Description=spectacular
+# this comment should remain
+
+EOF
+printf '%s\n' '[Unit]'   'Description=spectacular' '# this comment should remain' | \
+    cmp - "/etc/systemd/system/$UNIT_NAME.d/override2.conf"
+
+# Test simultaneous editing of two units and creation of drop-in for a nonexistent unit
+systemctl edit "$UNIT_NAME" "$UNIT_NAME2" --stdin --force --drop-in=override2.conf <<<'[X-Section]'
+printf '%s\n' '[X-Section]' | cmp - "/etc/systemd/system/$UNIT_NAME.d/override2.conf"
+printf '%s\n' '[X-Section]' | cmp - "/etc/systemd/system/$UNIT_NAME2.d/override2.conf"
 
 # Double free when editing a template unit (#26483)
 EDITOR='true' script -ec 'systemctl edit user@0' /dev/null
@@ -188,6 +207,24 @@ test_mask_unmask_revert() {
 test_mask_unmask_revert
 test_mask_unmask_revert --root=/
 
+# disable --now with template unit
+cat >/run/systemd/system/test-disable@.service <<EOF
+[Service]
+ExecStart=sleep infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable --now test-disable@1.service test-disable@2.service
+systemctl is-active test-disable@1.service
+systemctl is-active test-disable@2.service
+systemctl disable --now test-disable@.service
+for u in test-disable@{1,2}.service; do
+    (! systemctl is-active "$u")
+    (! systemctl is-enabled "$u")
+done
+rm /run/systemd/system/test-disable@.service
+
 # add-wants/add-requires
 (! systemctl show -P Wants "$UNIT_NAME" | grep "systemd-journald.service")
 systemctl add-wants "$UNIT_NAME" "systemd-journald.service"
@@ -306,7 +343,7 @@ done
 
 # Aux verbs & assorted checks
 systemctl is-active "*-journald.service"
-systemctl cat "*journal*"
+systemctl cat "*udevd*"
 systemctl cat "$UNIT_NAME"
 systemctl help "$UNIT_NAME"
 systemctl service-watchdogs

@@ -65,7 +65,7 @@ EOF
 chmod +x "$MYSCRIPT"
 
 MYUNIT="myunit$RANDOM.service"
-systemd-run -u "$MYUNIT" -p Type=notify -p StandardOutput=journal+console -p StandardError=journal+console -p FileDescriptorStoreMax=7 "$MYSCRIPT"
+systemd-run -u "$MYUNIT" -p Type=notify -p FileDescriptorStoreMax=7 "$MYSCRIPT"
 
 test "$(systemd-analyze fdstore "$MYUNIT" | wc -l)" -eq 2
 systemd-analyze fdstore "$MYUNIT" --json=short

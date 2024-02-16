@@ -390,22 +390,23 @@ static inline bool exec_context_with_rootfs(const ExecContext *c) {
 }
 
 typedef enum ExecFlags {
-        EXEC_APPLY_SANDBOXING      = 1 << 0,
-        EXEC_APPLY_CHROOT          = 1 << 1,
-        EXEC_APPLY_TTY_STDIN       = 1 << 2,
-        EXEC_PASS_LOG_UNIT         = 1 << 3, /* Whether to pass the unit name to the service's journal stream connection */
-        EXEC_CHOWN_DIRECTORIES     = 1 << 4, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
-        EXEC_NSS_DYNAMIC_BYPASS    = 1 << 5, /* Set the SYSTEMD_NSS_DYNAMIC_BYPASS environment variable, to disable nss-systemd blocking on PID 1, for use by dbus-daemon */
-        EXEC_CGROUP_DELEGATE       = 1 << 6,
-        EXEC_IS_CONTROL            = 1 << 7,
-        EXEC_CONTROL_CGROUP        = 1 << 8, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
-        EXEC_WRITE_CREDENTIALS     = 1 << 9, /* Set up the credential store logic */
+        EXEC_APPLY_SANDBOXING        = 1 << 0,
+        EXEC_APPLY_CHROOT            = 1 << 1,
+        EXEC_APPLY_TTY_STDIN         = 1 << 2,
+        EXEC_PASS_LOG_UNIT           = 1 << 3,  /* Whether to pass the unit name to the service's journal stream connection */
+        EXEC_CHOWN_DIRECTORIES       = 1 << 4,  /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
+        EXEC_NSS_DYNAMIC_BYPASS      = 1 << 5,  /* Set the SYSTEMD_NSS_DYNAMIC_BYPASS environment variable, to disable nss-systemd blocking on PID 1, for use by dbus-daemon */
+        EXEC_CGROUP_DELEGATE         = 1 << 6,
+        EXEC_IS_CONTROL              = 1 << 7,
+        EXEC_CONTROL_CGROUP          = 1 << 8,  /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
+        EXEC_SETUP_CREDENTIALS       = 1 << 9,  /* Set up the credential store logic */
+        EXEC_SETUP_CREDENTIALS_FRESH = 1 << 10, /* Set up a new credential store (disable reuse) */
 
         /* The following are not used by execute.c, but by consumers internally */
-        EXEC_PASS_FDS              = 1 << 10,
-        EXEC_SETENV_RESULT         = 1 << 11,
-        EXEC_SET_WATCHDOG          = 1 << 12,
-        EXEC_SETENV_MONITOR_RESULT = 1 << 13, /* Pass exit status to OnFailure= and OnSuccess= dependencies. */
+        EXEC_PASS_FDS                = 1 << 11,
+        EXEC_SETENV_RESULT           = 1 << 12,
+        EXEC_SET_WATCHDOG            = 1 << 13,
+        EXEC_SETENV_MONITOR_RESULT   = 1 << 14, /* Pass exit status to OnFailure= and OnSuccess= dependencies. */
 } ExecFlags;
 
 /* Parameters for a specific invocation of a command. This structure is put together right before a command is
@@ -453,7 +454,8 @@ struct ExecParameters {
 
         char **files_env;
         int user_lookup_fd;
-        int bpf_outer_map_fd;
+
+        int bpf_restrict_fs_map_fd;
 
         /* Used for logging in the executor functions */
         char *unit_id;
@@ -461,16 +463,16 @@ struct ExecParameters {
         char invocation_id_string[SD_ID128_STRING_MAX];
 };
 
-#define EXEC_PARAMETERS_INIT(_flags)        \
-        (ExecParameters) {                  \
-                .flags = (_flags),          \
-                .stdin_fd         = -EBADF, \
-                .stdout_fd        = -EBADF, \
-                .stderr_fd        = -EBADF, \
-                .exec_fd          = -EBADF, \
-                .bpf_outer_map_fd = -EBADF, \
-                .user_lookup_fd   = -EBADF, \
-        };
+#define EXEC_PARAMETERS_INIT(_flags)              \
+        (ExecParameters) {                        \
+                .flags = (_flags),                \
+                .stdin_fd               = -EBADF, \
+                .stdout_fd              = -EBADF, \
+                .stderr_fd              = -EBADF, \
+                .exec_fd                = -EBADF, \
+                .bpf_restrict_fs_map_fd = -EBADF, \
+                .user_lookup_fd         = -EBADF, \
+        }
 
 #include "unit.h"
 #include "dynamic-user.h"
@@ -481,7 +483,7 @@ int exec_spawn(Unit *unit,
                ExecParameters *exec_params,
                ExecRuntime *runtime,
                const CGroupContext *cgroup_context,
-               pid_t *ret);
+               PidRef *ret);
 
 void exec_command_done(ExecCommand *c);
 void exec_command_done_array(ExecCommand *c, size_t n);
@@ -527,6 +529,7 @@ int exec_context_get_nice(const ExecContext *c);
 int exec_context_get_cpu_sched_policy(const ExecContext *c);
 int exec_context_get_cpu_sched_priority(const ExecContext *c);
 uint64_t exec_context_get_timer_slack_nsec(const ExecContext *c);
+bool exec_context_get_set_login_environment(const ExecContext *c);
 char** exec_context_get_syscall_filter(const ExecContext *c);
 char** exec_context_get_syscall_archs(const ExecContext *c);
 char** exec_context_get_syscall_log(const ExecContext *c);

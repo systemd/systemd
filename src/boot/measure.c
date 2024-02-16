@@ -300,12 +300,11 @@ static int parse_argv(int argc, char *argv[]) {
         if (strv_isempty(arg_phase)) {
                 /* If no phases are specifically selected, pick everything from the beginning of the initrd
                  * to the beginning of shutdown. */
-                if (strv_extend_strv(&arg_phase,
-                                     STRV_MAKE("enter-initrd",
-                                               "enter-initrd:leave-initrd",
-                                               "enter-initrd:leave-initrd:sysinit",
-                                               "enter-initrd:leave-initrd:sysinit:ready"),
-                                     /* filter_duplicates= */ false) < 0)
+                if (strv_extend_many(&arg_phase,
+                                     "enter-initrd",
+                                     "enter-initrd:leave-initrd",
+                                     "enter-initrd:leave-initrd:sysinit",
+                                     "enter-initrd:leave-initrd:sysinit:ready") < 0)
                         return log_oom();
         } else {
                 strv_sort(arg_phase);
@@ -419,7 +418,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read '%s': %m", p);
 
-                        r = unhexmem(strstrip(s), SIZE_MAX, &v, &sz);
+                        r = unhexmem(strstrip(s), &v, &sz);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
 
@@ -995,7 +994,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read '%s': %m", p);
 
-                        r = unhexmem(strstrip(s), SIZE_MAX, &h, &l);
+                        r = unhexmem(strstrip(s), &h, &l);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
 

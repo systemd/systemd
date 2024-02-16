@@ -70,8 +70,8 @@ void dns_zone_flush(DnsZone *z) {
         while ((i = hashmap_first(z->by_key)))
                 dns_zone_item_remove_and_free(z, i);
 
-        assert(hashmap_size(z->by_key) == 0);
-        assert(hashmap_size(z->by_name) == 0);
+        assert(hashmap_isempty(z->by_key));
+        assert(hashmap_isempty(z->by_name));
 
         z->by_key = hashmap_free(z->by_key);
         z->by_name = hashmap_free(z->by_name);

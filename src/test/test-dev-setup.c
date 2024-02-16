@@ -14,6 +14,8 @@ int main(int argc, char *argv[]) {
         const char *f;
         struct stat st;
 
+        test_setup_logging(LOG_DEBUG);
+
         if (have_effective_cap(CAP_DAC_OVERRIDE) <= 0)
                 return log_tests_skipped("missing capability (CAP_DAC_OVERRIDE)");
 
@@ -23,6 +25,7 @@ int main(int argc, char *argv[]) {
         assert_se(mkdir_p(f, 0755) >= 0);
 
         assert_se(make_inaccessible_nodes(f, 1, 1) >= 0);
+        assert_se(make_inaccessible_nodes(f, 1, 1) >= 0); /* 2nd call should be a clean NOP */
 
         f = prefix_roota(p, "/run/systemd/inaccessible/reg");
         assert_se(stat(f, &st) >= 0);

@@ -3,5 +3,5 @@
 Description=Bad sched priority for Idle
 
 [Service]
-ExecStart=/bin/true
+ExecStart=true
 CPUSchedulingPriority=1

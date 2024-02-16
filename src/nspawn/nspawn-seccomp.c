@@ -169,7 +169,7 @@ static int add_syscall_filters(
         /* We have a large filter here, so let's turn on the binary tree mode if possible. */
         r = seccomp_attr_set(ctx, SCMP_FLTATR_CTL_OPTIMIZE, 2);
         if (r < 0)
-                return r;
+                log_warning_errno(r, "Failed to set SCMP_FLTATR_CTL_OPTIMIZE, ignoring: %m");
 #endif
 
         return 0;

@@ -273,7 +273,7 @@ int qcow2_convert(int qcow2_fd, int raw_fd) {
         if ((uint64_t) l != sz)
                 return -EIO;
 
-        for (i = 0; i < HEADER_L1_SIZE(&header); i ++) {
+        for (i = 0; i < HEADER_L1_SIZE(&header); i++) {
                 uint64_t l2_begin, j;
 
                 r = normalize_offset(&header, l1_table[i], &l2_begin, NULL, NULL);

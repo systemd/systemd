@@ -38,6 +38,8 @@ char** strv_copy_n(char * const *l, size_t n);
 static inline char** strv_copy(char * const *l) {
         return strv_copy_n(l, SIZE_MAX);
 }
+int strv_copy_unless_empty(char * const *l, char ***ret);
+
 size_t strv_length(char * const *l) _pure_;
 
 int strv_extend_strv(char ***a, char * const *b, bool filter_duplicates);
@@ -53,8 +55,10 @@ static inline int strv_extend(char ***l, const char *value) {
         return strv_extend_with_size(l, NULL, value);
 }
 
+int strv_extend_many_internal(char ***l, const char *value, ...);
+#define strv_extend_many(l, ...) strv_extend_many_internal(l, __VA_ARGS__, POINTER_MAX)
+
 int strv_extendf(char ***l, const char *format, ...) _printf_(2,3);
-int strv_extend_front(char ***l, const char *value);
 
 int strv_push_with_size(char ***l, size_t *n, char *value);
 static inline int strv_push(char ***l, char *value) {
@@ -159,6 +163,16 @@ static inline void strv_print(char * const *l) {
         strv_print_full(l, NULL);
 }
 
+char* startswith_strv(const char *s, char * const *l);
+
+#define STARTSWITH_SET(p, ...)                                  \
+        startswith_strv(p, STRV_MAKE(__VA_ARGS__))
+
+char* endswith_strv(const char *s, char * const *l);
+
+#define ENDSWITH_SET(p, ...)                                    \
+        endswith_strv(p, STRV_MAKE(__VA_ARGS__))
+
 #define strv_from_stdarg_alloca(first)                          \
         ({                                                      \
                 char **_l;                                      \
@@ -200,18 +214,6 @@ static inline void strv_print(char * const *l) {
         ({                                                       \
                 const char* _x = (x);                            \
                 _x && strv_contains_case(STRV_MAKE(__VA_ARGS__), _x); \
-        })
-
-#define ENDSWITH_SET(p, ...)                                    \
-        ({                                                      \
-                const char *_p = (p);                           \
-                char *_found = NULL;                            \
-                STRV_FOREACH(_i, STRV_MAKE(__VA_ARGS__)) {      \
-                        _found = endswith(_p, *_i);             \
-                        if (_found)                             \
-                                break;                          \
-                }                                               \
-                _found;                                         \
         })
 
 #define _FOREACH_STRING(uniq, x, y, ...)                                \

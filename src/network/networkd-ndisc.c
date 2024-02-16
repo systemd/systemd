@@ -139,7 +139,7 @@ static int ndisc_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request 
 
         assert(link);
 
-        r = route_configure_handler_internal(rtnl, m, link, "Could not set NDisc route");
+        r = route_configure_handler_internal(rtnl, m, link, route, "Could not set NDisc route");
         if (r <= 0)
                 return r;
 
@@ -172,8 +172,7 @@ static void ndisc_set_route_priority(Link *link, Route *route) {
         }
 }
 
-static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
-        _cleanup_(route_freep) Route *route = in;
+static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         struct in6_addr router;
         uint8_t hop_limit = 0;
         uint32_t mtu = 0;
@@ -182,6 +181,7 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
 
         assert(route);
         assert(link);
+        assert(link->manager);
         assert(link->network);
         assert(rt);
 
@@ -192,33 +192,79 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         if (link->network->ipv6_accept_ra_use_mtu) {
                 r = sd_ndisc_router_get_mtu(rt, &mtu);
                 if (r < 0 && r != -ENODATA)
-                        return log_link_warning_errno(link, r, "Failed to get default router MTU from RA: %m");
+                        return log_link_warning_errno(link, r, "Failed to get MTU from RA: %m");
         }
 
         if (link->network->ipv6_accept_ra_use_hop_limit) {
                 r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
                 if (r < 0 && r != -ENODATA)
-                        return log_link_warning_errno(link, r, "Failed to get default router hop limit from RA: %m");
+                        return log_link_warning_errno(link, r, "Failed to get hop limit from RA: %m");
         }
 
         route->source = NETWORK_CONFIG_SOURCE_NDISC;
         route->provider.in6 = router;
         if (!route->table_set)
                 route->table = link_get_ipv6_accept_ra_route_table(link);
-        ndisc_set_route_priority(link, route);
         if (!route->protocol_set)
                 route->protocol = RTPROT_RA;
-        if (route->quickack < 0)
-                route->quickack = link->network->ipv6_accept_ra_quickack;
-        if (route->mtu == 0)
-                route->mtu = mtu;
-        if (route->hop_limit == 0)
-                route->hop_limit = hop_limit;
+        r = route_metric_set(&route->metric, RTAX_MTU, mtu);
+        if (r < 0)
+                return r;
+        r = route_metric_set(&route->metric, RTAX_HOPLIMIT, hop_limit);
+        if (r < 0)
+                return r;
+        r = route_metric_set(&route->metric, RTAX_QUICKACK, link->network->ipv6_accept_ra_quickack);
+        if (r < 0)
+                return r;
 
-        is_new = route_get(NULL, link, route, NULL) < 0;
+        r = route_adjust_nexthops(route, link);
+        if (r < 0)
+                return r;
 
-        r = link_request_route(link, TAKE_PTR(route), true, &link->ndisc_messages,
-                               ndisc_route_handler, NULL);
+        uint8_t pref, pref_original = route->pref;
+        FOREACH_ARGUMENT(pref, SD_NDISC_PREFERENCE_LOW, SD_NDISC_PREFERENCE_MEDIUM, SD_NDISC_PREFERENCE_HIGH) {
+                Route *existing;
+                Request *req;
+
+                /* If the preference is specified by the user config (that is, for semi-static routes),
+                 * rather than RA, then only search conflicting routes that have the same preference. */
+                if (route->pref_set && pref != pref_original)
+                        continue;
+
+                route->pref = pref;
+                ndisc_set_route_priority(link, route);
+
+                /* Note, here do not call route_remove_and_cancel() with 'route' directly, otherwise
+                 * existing route(s) may be removed needlessly. */
+
+                if (route_get(link->manager, route, &existing) >= 0) {
+                        /* Found an existing route that may conflict with this route. */
+                        if (!route_can_update(existing, route)) {
+                                log_link_debug(link, "Found an existing route that conflicts with new route based on a received RA, removing.");
+                                r = route_remove_and_cancel(existing, link->manager);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                if (route_get_request(link->manager, route, &req) >= 0) {
+                        existing = ASSERT_PTR(req->userdata);
+                        if (!route_can_update(existing, route)) {
+                                log_link_debug(link, "Found a pending route request that conflicts with new request based on a received RA, cancelling.");
+                                r = route_remove_and_cancel(existing, link->manager);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+        }
+
+        /* The preference (and priority) may be changed in the above loop. Restore it. */
+        route->pref = pref_original;
+        ndisc_set_route_priority(link, route);
+
+        is_new = route_get(link->manager, route, NULL) < 0;
+
+        r = link_request_route(link, route, &link->ndisc_messages, ndisc_route_handler);
         if (r < 0)
                 return r;
         if (r > 0 && is_new)
@@ -243,8 +289,7 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
         return 1;
 }
 
-static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
-        _cleanup_(address_freep) Address *address = in;
+static int ndisc_request_address(Address *address, Link *link, sd_ndisc_router *rt) {
         struct in6_addr router;
         bool is_new;
         int r;
@@ -264,7 +309,26 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        is_new = address_get(link, address, NULL) < 0;
+        Address *existing;
+        if (address_get_harder(link, address, &existing) < 0)
+                is_new = true;
+        else if (address_can_update(existing, address))
+                is_new = false;
+        else if (existing->source == NETWORK_CONFIG_SOURCE_DHCP6) {
+                /* SLAAC address is preferred over DHCPv6 address. */
+                log_link_debug(link, "Conflicting DHCPv6 address %s exists, removing.",
+                               IN_ADDR_PREFIX_TO_STRING(existing->family, &existing->in_addr, existing->prefixlen));
+                r = address_remove(existing, link);
+                if (r < 0)
+                        return r;
+
+                is_new = true;
+        } else {
+                /* Conflicting static address is configured?? */
+                log_link_debug(link, "Conflicting address %s exists, ignoring request.",
+                               IN_ADDR_PREFIX_TO_STRING(existing->family, &existing->in_addr, existing->prefixlen));
+                return 0;
+        }
 
         r = link_request_address(link, address, &link->ndisc_messages,
                                  ndisc_address_handler, NULL);
@@ -307,10 +371,10 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
         r = sd_ndisc_router_get_preference(rt, &preference);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
+                return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
 
         if (link->network->ipv6_accept_ra_use_gateway) {
-                _cleanup_(route_freep) Route *route = NULL;
+                _cleanup_(route_unrefp) Route *route = NULL;
 
                 r = route_new(&route);
                 if (r < 0)
@@ -318,35 +382,35 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
                 route->family = AF_INET6;
                 route->pref = preference;
-                route->gw_family = AF_INET6;
-                route->gw.in6 = gateway;
+                route->nexthop.family = AF_INET6;
+                route->nexthop.gw.in6 = gateway;
                 route->lifetime_usec = lifetime_usec;
 
-                r = ndisc_request_route(TAKE_PTR(route), link, rt);
+                r = ndisc_request_route(route, link, rt);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request default route: %m");
         }
 
         Route *route_gw;
         HASHMAP_FOREACH(route_gw, link->network->routes_by_section) {
-                _cleanup_(route_freep) Route *route = NULL;
+                _cleanup_(route_unrefp) Route *route = NULL;
 
                 if (!route_gw->gateway_from_dhcp_or_ra)
                         continue;
 
-                if (route_gw->gw_family != AF_INET6)
+                if (route_gw->nexthop.family != AF_INET6)
                         continue;
 
-                r = route_dup(route_gw, &route);
+                r = route_dup(route_gw, NULL, &route);
                 if (r < 0)
                         return r;
 
-                route->gw.in6 = gateway;
+                route->nexthop.gw.in6 = gateway;
                 if (!route->pref_set)
                         route->pref = preference;
                 route->lifetime_usec = lifetime_usec;
 
-                r = ndisc_request_route(TAKE_PTR(route), link, rt);
+                r = ndisc_request_route(route, link, rt);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request gateway: %m");
         }
@@ -355,8 +419,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt) {
-        char buf[DECIMAL_STR_MAX(usec_t)];
-        usec_t icmp6_ratelimit;
+        usec_t icmp6_ratelimit, msec;
         int r;
 
         assert(link);
@@ -367,21 +430,91 @@ static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt)
                 return 0;
 
         r = sd_ndisc_router_get_icmp6_ratelimit(rt, &icmp6_ratelimit);
-        if (r < 0) {
-                log_link_debug(link, "Failed to get ICMP6 ratelimit from RA, ignoring: %m");
-                return 0;
-        }
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get ICMP6 ratelimit from RA: %m");
 
+        /* We do not allow 0 here. */
         if (!timestamp_is_set(icmp6_ratelimit))
+                return 0;
+
+        msec = DIV_ROUND_UP(icmp6_ratelimit, USEC_PER_MSEC);
+        if (msec <= 0 || msec > INT_MAX)
                 return 0;
 
         /* Limit the maximal rates for sending ICMPv6 packets. 0 to disable any limiting, otherwise the
          * minimal space between responses in milliseconds. Default: 1000. */
-        xsprintf(buf, USEC_FMT, DIV_ROUND_UP(icmp6_ratelimit, USEC_PER_MSEC));
-
-        r = sysctl_write_ip_property(AF_INET6, NULL, "icmp/ratelimit", buf);
+        r = sysctl_write_ip_property_int(AF_INET6, NULL, "icmp/ratelimit", (int) msec);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to apply ICMP6 ratelimit, ignoring: %m");
+
+        return 0;
+}
+
+static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router *rt) {
+        usec_t retrans_time, msec;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_retransmission_time)
+                return 0;
+
+        r = sd_ndisc_router_get_retransmission_time(rt, &retrans_time);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get retransmission time from RA: %m");
+
+        /* 0 is the unspecified value and must not be set (see RFC4861, 6.3.4) */
+        if (!timestamp_is_set(retrans_time))
+                return 0;
+
+        msec = DIV_ROUND_UP(retrans_time, USEC_PER_MSEC);
+        if (msec <= 0 || msec > UINT32_MAX) {
+                log_link_debug(link, "Failed to get retransmission time from RA - out of range (%"PRIu64"), ignoring", msec);
+                return 0;
+        }
+
+        /* Set the retransmission time for Neighbor Solicitations. */
+        r = sysctl_write_ip_neighbor_property_uint32(AF_INET6, link->ifname, "retrans_time_ms", (uint32_t) msec);
+        if (r < 0)
+                log_link_warning_errno(
+                        link, r, "Failed to apply neighbor retransmission time (%"PRIu64"), ignoring: %m", msec);
+
+        return 0;
+}
+
+static int ndisc_router_process_hop_limit(Link *link, sd_ndisc_router *rt) {
+        uint8_t hop_limit;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_hop_limit)
+                return 0;
+
+        r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get hop limit from RA: %m");
+
+        /* 0 is the unspecified value and must not be set (see RFC4861, 6.3.4):
+         *
+         * A Router Advertisement field (e.g., Cur Hop Limit, Reachable Time, and Retrans Timer) may contain
+         * a value denoting that it is unspecified. In such cases, the parameter should be ignored and the
+         * host should continue using whatever value it is already using. In particular, a host MUST NOT
+         * interpret the unspecified value as meaning change back to the default value that was in use before
+         * the first Router Advertisement was received.
+         *
+         * If the received Cur Hop Limit value is non-zero, the host SHOULD set
+         * its CurHopLimit variable to the received value.*/
+        if (hop_limit <= 0)
+                return 0;
+
+        r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "hop_limit", (uint32_t) hop_limit);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to apply hop_limit (%u), ignoring: %m", hop_limit);
 
         return 0;
 }
@@ -432,7 +565,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 return log_link_warning_errno(link, r, "Failed to generate SLAAC addresses: %m");
 
         SET_FOREACH(a, addresses) {
-                _cleanup_(address_freep) Address *address = NULL;
+                _cleanup_(address_unrefp) Address *address = NULL;
 
                 r = address_new(&address);
                 if (r < 0)
@@ -445,7 +578,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 address->lifetime_valid_usec = lifetime_valid_usec;
                 address->lifetime_preferred_usec = lifetime_preferred_usec;
 
-                r = ndisc_request_address(TAKE_PTR(address), link, rt);
+                r = ndisc_request_address(address, link, rt);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request SLAAC address: %m");
         }
@@ -454,7 +587,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 }
 
 static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         unsigned prefixlen, preference;
         usec_t lifetime_usec;
         struct in6_addr prefix;
@@ -482,7 +615,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         /* Prefix Information option does not have preference, hence we use the 'main' preference here */
         r = sd_ndisc_router_get_preference(rt, &preference);
         if (r < 0)
-                log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
+                return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
 
         r = route_new(&route);
         if (r < 0)
@@ -494,9 +627,72 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         route->pref = preference;
         route->lifetime_usec = lifetime_usec;
 
-        r = ndisc_request_route(TAKE_PTR(route), link, rt);
+        r = ndisc_request_route(route, link, rt);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not request prefix route: %m");
+
+        return 0;
+}
+
+static int ndisc_router_drop_onlink_prefix(Link *link, sd_ndisc_router *rt) {
+        _cleanup_(route_unrefp) Route *route = NULL;
+        unsigned prefixlen, preference;
+        struct in6_addr prefix;
+        usec_t lifetime_usec;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        /* RFC 4861 section 6.3.4.
+         * Note, however, that a Prefix Information option with the on-link flag set to zero conveys no
+         * information concerning on-link determination and MUST NOT be interpreted to mean that addresses
+         * covered by the prefix are off-link. The only way to cancel a previous on-link indication is to
+         * advertise that prefix with the L-bit set and the Lifetime set to zero. */
+
+        if (!link->network->ipv6_accept_ra_use_onlink_prefix)
+                return 0;
+
+        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_usec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get prefix lifetime: %m");
+
+        if (lifetime_usec != 0)
+                return 0;
+
+        r = sd_ndisc_router_prefix_get_address(rt, &prefix);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get prefix address: %m");
+
+        r = sd_ndisc_router_prefix_get_prefixlen(rt, &prefixlen);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get prefix length: %m");
+
+        /* Prefix Information option does not have preference, hence we use the 'main' preference here */
+        r = sd_ndisc_router_get_preference(rt, &preference);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
+
+        r = route_new(&route);
+        if (r < 0)
+                return log_oom();
+
+        route->family = AF_INET6;
+        route->dst.in6 = prefix;
+        route->dst_prefixlen = prefixlen;
+        route->table = link_get_ipv6_accept_ra_route_table(link);
+        route->pref = preference;
+        ndisc_set_route_priority(link, route);
+        route->protocol = RTPROT_RA;
+
+        r = route_adjust_nexthops(route, link);
+        if (r < 0)
+                return r;
+
+        r = route_remove_and_cancel(route, link->manager);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not remove prefix route: %m");
 
         return 0;
 }
@@ -540,11 +736,12 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get RA prefix flags: %m");
 
-        if (FLAGS_SET(flags, ND_OPT_PI_FLAG_ONLINK)) {
+        if (FLAGS_SET(flags, ND_OPT_PI_FLAG_ONLINK))
                 r = ndisc_router_process_onlink_prefix(link, rt);
-                if (r < 0)
-                        return r;
-        }
+        else
+                r = ndisc_router_drop_onlink_prefix(link, rt);
+        if (r < 0)
+                return r;
 
         if (FLAGS_SET(flags, ND_OPT_PI_FLAG_AUTO)) {
                 r = ndisc_router_process_autonomous_prefix(link, rt);
@@ -556,7 +753,7 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         unsigned preference, prefixlen;
         struct in6_addr gateway, dst;
         usec_t lifetime_usec;
@@ -608,12 +805,12 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         }
 
         r = sd_ndisc_router_route_get_preference(rt, &preference);
-        if (r == -ENOTSUP) {
+        if (r == -EOPNOTSUPP) {
                 log_link_debug_errno(link, r, "Received route prefix with unsupported preference, ignoring: %m");
                 return 0;
         }
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
+                return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
 
         r = route_new(&route);
         if (r < 0)
@@ -621,13 +818,13 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
 
         route->family = AF_INET6;
         route->pref = preference;
-        route->gw.in6 = gateway;
-        route->gw_family = AF_INET6;
+        route->nexthop.gw.in6 = gateway;
+        route->nexthop.family = AF_INET6;
         route->dst.in6 = dst;
         route->dst_prefixlen = prefixlen;
         route->lifetime_usec = lifetime_usec;
 
-        r = ndisc_request_route(TAKE_PTR(route), link, rt);
+        r = ndisc_request_route(route, link, rt);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not request additional route: %m");
 
@@ -635,7 +832,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
 }
 
 static void ndisc_rdnss_hash_func(const NDiscRDNSS *x, struct siphash *state) {
-        siphash24_compress(&x->address, sizeof(x->address), state);
+        siphash24_compress_typesafe(x->address, state);
 }
 
 static int ndisc_rdnss_compare_func(const NDiscRDNSS *a, const NDiscRDNSS *b) {
@@ -941,8 +1138,8 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
 static void ndisc_pref64_hash_func(const NDiscPREF64 *x, struct siphash *state) {
         assert(x);
 
-        siphash24_compress(&x->prefix_len, sizeof(x->prefix_len), state);
-        siphash24_compress(&x->prefix, sizeof(x->prefix), state);
+        siphash24_compress_typesafe(x->prefix_len, state);
+        siphash24_compress_typesafe(x->prefix, state);
 }
 
 static int ndisc_pref64_compare_func(const NDiscPREF64 *a, const NDiscPREF64 *b) {
@@ -1108,9 +1305,10 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
         NDiscPREF64 *p64;
         Address *address;
         Route *route;
-        int r = 0, k;
+        int r, ret = 0;
 
         assert(link);
+        assert(link->manager);
 
         /* If an address or friends is already assigned, but not valid anymore, then refuse to update it,
          * and let's immediately remove it.
@@ -1118,16 +1316,19 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
          * valid lifetimes to improve the reaction of SLAAC to renumbering events.
          * See draft-ietf-6man-slaac-renum-02, section 4.2. */
 
-        SET_FOREACH(route, link->routes) {
+        SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
+                        continue;
+
+                if (route->nexthop.ifindex != link->ifindex)
                         continue;
 
                 if (route->lifetime_usec >= timestamp_usec)
                         continue; /* the route is still valid */
 
-                k = route_remove_and_drop(route);
-                if (k < 0)
-                        r = log_link_warning_errno(link, k, "Failed to remove outdated SLAAC route, ignoring: %m");
+                r = route_remove_and_cancel(route, link->manager);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Failed to remove outdated SLAAC route, ignoring: %m"));
         }
 
         SET_FOREACH(address, link->addresses) {
@@ -1137,9 +1338,9 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
                 if (address->lifetime_valid_usec >= timestamp_usec)
                         continue; /* the address is still valid */
 
-                k = address_remove_and_drop(address);
-                if (k < 0)
-                        r = log_link_warning_errno(link, k, "Failed to remove outdated SLAAC address, ignoring: %m");
+                r = address_remove_and_cancel(address, link);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Failed to remove outdated SLAAC address, ignoring: %m"));
         }
 
         SET_FOREACH(rdnss, link->ndisc_rdnss) {
@@ -1178,7 +1379,7 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
         if (updated)
                 link_dirty(link);
 
-        return r;
+        return ret;
 }
 
 static int ndisc_setup_expire(Link *link);
@@ -1209,8 +1410,11 @@ static int ndisc_setup_expire(Link *link) {
         assert(link);
         assert(link->manager);
 
-        SET_FOREACH(route, link->routes) {
+        SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
+                        continue;
+
+                if (route->nexthop.ifindex != link->ifindex)
                         continue;
 
                 if (!route_exists(route))
@@ -1344,6 +1548,14 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return r;
 
         r = ndisc_router_process_icmp6_ratelimit(link, rt);
+        if (r < 0)
+                return r;
+
+        r = ndisc_router_process_retransmission_time(link, rt);
+        if (r < 0)
+                return r;
+
+        r = ndisc_router_process_hop_limit(link, rt);
         if (r < 0)
                 return r;
 
@@ -1507,7 +1719,8 @@ int ndisc_stop(Link *link) {
 void ndisc_flush(Link *link) {
         assert(link);
 
-        /* Remove all RDNSS, DNSSL, and Captive Portal entries, without exception. */
+        /* Remove all addresses, routes, RDNSS, DNSSL, and Captive Portal entries, without exception. */
+        (void) ndisc_drop_outdated(link, /* timestamp_usec = */ USEC_INFINITY);
 
         link->ndisc_rdnss = set_free(link->ndisc_rdnss);
         link->ndisc_dnssl = set_free(link->ndisc_dnssl);

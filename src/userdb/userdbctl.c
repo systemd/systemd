@@ -169,7 +169,7 @@ static const struct {
         },
 };
 
-static int table_add_uid_boundaries(Table *table, const UidRange *p) {
+static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
         int r;
 
         assert(table);
@@ -301,7 +301,7 @@ static int add_unavailable_uid(Table *table, uid_t start, uid_t end) {
 
 static int table_add_uid_map(
                 Table *table,
-                const UidRange *p,
+                const UIDRange *p,
                 int (*add_unavailable)(Table *t, uid_t start, uid_t end)) {
 
         uid_t focus = 0;
@@ -311,7 +311,7 @@ static int table_add_uid_map(
         assert(add_unavailable);
 
         for (size_t i = 0; p && i < p->n_entries; i++) {
-                UidRangeEntry *x = p->entries + i;
+                UIDRangeEntry *x = p->entries + i;
 
                 if (focus < x->start) {
                         r = add_unavailable(table, focus, x->start-1);
@@ -425,7 +425,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                _cleanup_(uid_range_freep) UidRange *uid_range = NULL;
+                _cleanup_(uid_range_freep) UIDRange *uid_range = NULL;
                 int boundary_lines, uid_map_lines;
 
                 r = uid_range_load_userns(&uid_range, "/proc/self/uid_map");
@@ -440,7 +440,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 if (uid_map_lines < 0)
                         return uid_map_lines;
 
-                if (table_get_rows(table) > 1) {
+                if (!table_isempty(table)) {
                         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                         if (r < 0)
                                 return table_log_print_error(r);
@@ -526,7 +526,7 @@ static int show_group(GroupRecord *gr, Table *table) {
         return 0;
 }
 
-static int table_add_gid_boundaries(Table *table, const UidRange *p) {
+static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
         int r;
 
         assert(table);
@@ -728,7 +728,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                _cleanup_(uid_range_freep) UidRange *gid_range = NULL;
+                _cleanup_(uid_range_freep) UIDRange *gid_range = NULL;
                 int boundary_lines, gid_map_lines;
 
                 r = uid_range_load_userns(&gid_range, "/proc/self/gid_map");
@@ -743,7 +743,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 if (gid_map_lines < 0)
                         return gid_map_lines;
 
-                if (table_get_rows(table) > 1) {
+                if (!table_isempty(table)) {
                         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                         if (r < 0)
                                 return table_log_print_error(r);
@@ -891,17 +891,17 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                if (table_get_rows(table) > 1) {
+                if (!table_isempty(table)) {
                         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                         if (r < 0)
                                 return table_log_print_error(r);
                 }
 
                 if (arg_legend) {
-                        if (table_get_rows(table) > 1)
-                                printf("\n%zu memberships listed.\n", table_get_rows(table) - 1);
-                        else
+                        if (table_isempty(table))
                                 printf("No memberships.\n");
+                        else
+                                printf("\n%zu memberships listed.\n", table_get_rows(table) - 1);
                 }
         }
 
@@ -956,17 +956,17 @@ static int display_services(int argc, char *argv[], void *userdata) {
                         return table_log_add_error(r);
         }
 
-        if (table_get_rows(t) > 1) {
+        if (!table_isempty(t)) {
                 r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
                         return table_log_print_error(r);
         }
 
         if (arg_legend && arg_output != OUTPUT_JSON) {
-                if (table_get_rows(t) > 1)
-                        printf("\n%zu services listed.\n", table_get_rows(t) - 1);
-                else
+                if (table_isempty(t))
                         printf("No services.\n");
+                else
+                        printf("\n%zu services listed.\n", table_get_rows(t) - 1);
         }
 
         return 0;

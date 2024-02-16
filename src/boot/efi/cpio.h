@@ -8,6 +8,7 @@ EFI_STATUS pack_cpio(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char16_t *dropin_dir,
                 const char16_t *match_suffix,
+                const char16_t *exclude_suffix,
                 const char *target_dir_prefix,
                 uint32_t dir_mode,
                 uint32_t access_mode,

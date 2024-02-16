@@ -184,6 +184,9 @@ static void print_source(uint64_t flags, usec_t rtt) {
         if (!arg_legend)
                 return;
 
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                return;
+
         if (flags == 0)
                 return;
 
@@ -249,6 +252,9 @@ static int resolve_host(sd_bus *bus, const char *name) {
         int r;
 
         assert(name);
+
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type=A or --type=AAAA to acquire address record information in JSON format.");
 
         log_debug("Resolving %s (family %s, interface %s).", name, af_to_name(arg_family) ?: "*", isempty(arg_ifname) ? "*" : arg_ifname);
 
@@ -348,6 +354,9 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(address);
 
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
+
         if (ifindex <= 0)
                 ifindex = arg_ifindex;
 
@@ -433,11 +442,23 @@ static int output_rr_packet(const void *d, size_t l, int ifindex) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         int r;
 
+        assert(d || l == 0);
+
         r = dns_resource_record_new_from_raw(&rr, d, l);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse RR: %m");
 
-        if (arg_raw == RAW_PAYLOAD) {
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
+                r = dns_resource_record_to_json(rr, &j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to convert RR to JSON: %m");
+
+                r = json_variant_dump(j, arg_json_format_flags, NULL, NULL);
+                if (r < 0)
+                        return r;
+
+        } else if (arg_raw == RAW_PAYLOAD) {
                 void *data;
                 ssize_t k;
 
@@ -946,6 +967,9 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
 static int verb_service(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
 
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
+
         if (argc == 2)
                 return resolve_service(bus, NULL, NULL, argv[1]);
         else if (argc == 3)
@@ -1005,6 +1029,9 @@ static int verb_openpgp(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         int q, r = 0;
 
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
+
         STRV_FOREACH(p, argv + 1) {
                 q = resolve_openpgp(bus, *p);
                 if (q < 0)
@@ -1056,6 +1083,9 @@ static int verb_tlsa(int argc, char **argv, void *userdata) {
         const char *family = "tcp";
         int q, r = 0;
 
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
+
         if (service_family_is_valid(argv[1])) {
                 family = argv[1];
                 args++;
@@ -1080,9 +1110,9 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_call(vl, "io.systemd.Resolve.Monitor.DumpStatistics", NULL, &reply, NULL, 0);
+        r = varlink_call_and_log(vl, "io.systemd.Resolve.Monitor.DumpStatistics", /* parameters= */ NULL, &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to issue DumpStatistics() varlink call: %m");
+                return r;
 
         if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
                 return json_variant_dump(reply, arg_json_format_flags, NULL, NULL);
@@ -1238,9 +1268,9 @@ static int reset_statistics(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_call(vl, "io.systemd.Resolve.Monitor.ResetStatistics", NULL, &reply, NULL, 0);
+        r = varlink_call_and_log(vl, "io.systemd.Resolve.Monitor.ResetStatistics", /* parameters= */ NULL, &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to issue ResetStatistics() varlink call: %m");
+                return r;
 
         if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
                 return json_variant_dump(reply, arg_json_format_flags, NULL, NULL);
@@ -2715,24 +2745,26 @@ static int print_answer(JsonVariant *answer) {
 
 static void monitor_query_dump(JsonVariant *v) {
         _cleanup_(json_variant_unrefp) JsonVariant *question = NULL, *answer = NULL, *collected_questions = NULL;
-        int rcode = -1, error = 0, r;
-        const char *state = NULL;
+        int rcode = -1, error = 0, ede_code = -1;
+        const char *state = NULL, *result = NULL, *ede_msg = NULL;
 
         assert(v);
 
         JsonDispatch dispatch_table[] = {
-                { "question",           JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&question),            JSON_MANDATORY },
-                { "answer",             JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&answer),              0              },
-                { "collectedQuestions", JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&collected_questions), 0              },
-                { "state",              JSON_VARIANT_STRING,        json_dispatch_const_string, PTR_TO_SIZE(&state),               JSON_MANDATORY },
-                { "rcode",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&rcode),               0              },
-                { "errno",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&error),               0              },
+                { "question",                JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&question),            JSON_MANDATORY },
+                { "answer",                  JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&answer),              0              },
+                { "collectedQuestions",      JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&collected_questions), 0              },
+                { "state",                   JSON_VARIANT_STRING,        json_dispatch_const_string, PTR_TO_SIZE(&state),               JSON_MANDATORY },
+                { "result",                  JSON_VARIANT_STRING,        json_dispatch_const_string, PTR_TO_SIZE(&result),              0              },
+                { "rcode",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&rcode),               0              },
+                { "errno",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&error),               0              },
+                { "extendedDNSErrorCode",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&ede_code),            0              },
+                { "extendedDNSErrorMessage", JSON_VARIANT_STRING,        json_dispatch_const_string, PTR_TO_SIZE(&ede_msg),             0              },
                 {}
         };
 
-        r = json_dispatch(v, dispatch_table, 0, NULL);
-        if (r < 0)
-                return (void) log_warning("Received malformed monitor message, ignoring.");
+        if (json_dispatch(v, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, NULL) < 0)
+                return;
 
         /* First show the current question */
         print_question('Q', ansi_highlight_cyan(), question);
@@ -2740,13 +2772,24 @@ static void monitor_query_dump(JsonVariant *v) {
         /* And then show the questions that led to this one in case this was a CNAME chain */
         print_question('C', ansi_highlight_grey(), collected_questions);
 
-        printf("%s%s S%s: %s\n",
+        printf("%s%s S%s: %s",
                streq_ptr(state, "success") ? ansi_highlight_green() : ansi_highlight_red(),
                special_glyph(SPECIAL_GLYPH_ARROW_LEFT),
                ansi_normal(),
                strna(streq_ptr(state, "errno") ? errno_to_name(error) :
                      streq_ptr(state, "rcode-failure") ? dns_rcode_to_string(rcode) :
                      state));
+
+        if (!isempty(result))
+                printf(": %s", result);
+
+        if (ede_code >= 0)
+                printf(" (%s%s%s)",
+                       FORMAT_DNS_EDE_RCODE(ede_code),
+                       !isempty(ede_msg) ? ": " : "",
+                       strempty(ede_msg));
+
+        puts("");
 
         print_answer(answer);
 }
@@ -2856,7 +2899,7 @@ static int dump_cache_item(JsonVariant *item) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *k = NULL;
         int r, c = 0;
 
-        r = json_dispatch(item, dispatch_table, JSON_LOG, &item_info);
+        r = json_dispatch(item, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, &item_info);
         if (r < 0)
                 return r;
 
@@ -2918,7 +2961,7 @@ static int dump_cache_scope(JsonVariant *scope) {
                 {},
         };
 
-        r = json_dispatch(scope, dispatch_table, JSON_LOG, &scope_info);
+        r = json_dispatch(scope, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, &scope_info);
         if (r < 0)
                 return r;
 
@@ -2959,9 +3002,9 @@ static int verb_show_cache(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_call(vl, "io.systemd.Resolve.Monitor.DumpCache", NULL, &reply, NULL, 0);
+        r = varlink_call_and_log(vl, "io.systemd.Resolve.Monitor.DumpCache", /* parameters= */ NULL, &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to issue DumpCache() varlink call: %m");
+                return r;
 
         d = json_variant_by_key(reply, "dump");
         if (!d)
@@ -3034,7 +3077,7 @@ static int dump_server_state(JsonVariant *server) {
                 {},
         };
 
-        r = json_dispatch(server, dispatch_table, JSON_LOG|JSON_PERMISSIVE, &server_state);
+        r = json_dispatch(server, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, &server_state);
         if (r < 0)
                 return r;
 
@@ -3133,9 +3176,9 @@ static int verb_show_server_state(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_call(vl, "io.systemd.Resolve.Monitor.DumpServerState", NULL, &reply, NULL, 0);
+        r = varlink_call_and_log(vl, "io.systemd.Resolve.Monitor.DumpServerState", /* parameters= */ NULL, &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to issue DumpServerState() varlink call: %m");
+                return r;
 
         d = json_variant_by_key(reply, "dump");
         if (!d)
@@ -3252,11 +3295,11 @@ static int native_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n"
                "\n"
-               "%sSend control commands to the network name resolution manager, or%s\n"
-               "%sresolve domain names, IPv4 and IPv6 addresses, DNS records, and services.%s\n"
-               "\nCommands:\n"
+               "%5$sSend control commands to the network name resolution manager, or%6$s\n"
+               "%5$sresolve domain names, IPv4 and IPv6 addresses, DNS records, and services.%6$s\n"
+               "\n%3$sCommands:%4$s\n"
                "  query HOSTNAME|ADDRESS...    Resolve domain names, IPv4 and IPv6 addresses\n"
                "  service [[NAME] TYPE] DOMAIN Resolve service (SRV)\n"
                "  openpgp EMAIL@DOMAIN...      Query OpenPGP public key\n"
@@ -3279,7 +3322,7 @@ static int native_help(void) {
                "  nta [LINK [DOMAIN...]]       Get/set per-interface DNSSEC NTA\n"
                "  revert LINK                  Revert per-interface configuration\n"
                "  log-level [LEVEL]            Get/set logging threshold for systemd-resolved\n"
-               "\nOptions:\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help                    Show this help\n"
                "     --version                 Show package version\n"
                "     --no-pager                Do not pipe output into a pager\n"
@@ -3308,13 +3351,13 @@ static int native_help(void) {
                "     --json=MODE               Output as JSON\n"
                "  -j                           Same as --json=pretty on tty, --json=short\n"
                "                               otherwise\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
+               link,
+               ansi_underline(),
                ansi_normal(),
                ansi_highlight(),
-               ansi_normal(),
-               link);
+               ansi_normal());
 
         return 0;
 }

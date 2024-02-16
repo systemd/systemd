@@ -703,16 +703,21 @@ static void print_status_info(
         if (i->n_fd_store > 0 || i->fd_store_max > 0)
                 printf("   FD Store: %u%s (limit: %u)%s\n", i->n_fd_store, ansi_grey(), i->fd_store_max, ansi_normal());
 
+        bool show_memory_peak = i->memory_peak != CGROUP_LIMIT_MAX,
+             show_memory_swap_peak = !IN_SET(i->memory_swap_peak, 0, CGROUP_LIMIT_MAX);
+
         if (i->memory_current != UINT64_MAX) {
                 printf("     Memory: %s", FORMAT_BYTES(i->memory_current));
 
                 /* Only show current swap if it ever was non-zero or is currently non-zero. In both cases
-                   memory_swap_peak will be non-zero (and not CGROUP_LIMIT_MAX). */
-                bool show_memory_swap = !IN_SET(i->memory_swap_peak, 0, CGROUP_LIMIT_MAX),
-                     show_memory_zswap_current = !IN_SET(i->memory_zswap_current, 0, CGROUP_LIMIT_MAX);
-                if (i->memory_peak != CGROUP_LIMIT_MAX ||
-                    show_memory_swap ||
+                   memory_swap_peak will be non-zero (and not CGROUP_LIMIT_MAX).
+                   Only show the available memory if it was artificially limited. */
+                bool show_memory_zswap_current = !IN_SET(i->memory_zswap_current, 0, CGROUP_LIMIT_MAX),
+                     show_memory_available = i->memory_high != CGROUP_LIMIT_MAX || i->memory_max != CGROUP_LIMIT_MAX;
+                if (show_memory_peak ||
+                    show_memory_swap_peak ||
                     show_memory_zswap_current ||
+                    show_memory_available ||
                     i->memory_min > 0 ||
                     i->memory_low > 0 || i->startup_memory_low > 0 ||
                     i->memory_high != CGROUP_LIMIT_MAX || i->startup_memory_high != CGROUP_LIMIT_MAX ||
@@ -772,15 +777,15 @@ static void print_status_info(
                                 printf("%slimit: %s", prefix, FORMAT_BYTES(i->memory_limit));
                                 prefix = " ";
                         }
-                        if (i->memory_available != CGROUP_LIMIT_MAX) {
+                        if (show_memory_available) {
                                 printf("%savailable: %s", prefix, FORMAT_BYTES(i->memory_available));
                                 prefix = " ";
                         }
-                        if (i->memory_peak != CGROUP_LIMIT_MAX) {
+                        if (show_memory_peak) {
                                 printf("%speak: %s", prefix, FORMAT_BYTES(i->memory_peak));
                                 prefix = " ";
                         }
-                        if (show_memory_swap) {
+                        if (show_memory_swap_peak) {
                                 printf("%sswap: %s swap peak: %s", prefix,
                                        FORMAT_BYTES(i->memory_swap_current), FORMAT_BYTES(i->memory_swap_peak));
                                 prefix = " ";
@@ -792,6 +797,14 @@ static void print_status_info(
                         printf(")");
                 }
                 printf("\n");
+
+        } else if (show_memory_peak) {
+                printf("   Mem peak: %s", FORMAT_BYTES(i->memory_peak));
+
+                if (show_memory_swap_peak)
+                        printf(" (swap: %s)", FORMAT_BYTES(i->memory_swap_peak));
+
+                putchar('\n');
         }
 
         if (i->cpu_usage_nsec != UINT64_MAX)
@@ -919,11 +932,7 @@ static int map_listen(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus
 
         while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0) {
 
-                r = strv_extend(p, type);
-                if (r < 0)
-                        return r;
-
-                r = strv_extend(p, path);
+                r = strv_extend_many(p, type, path);
                 if (r < 0)
                         return r;
         }
@@ -1993,6 +2002,7 @@ static int show_one(
                 bool *ellipsized) {
 
         static const struct bus_properties_map property_map[] = {
+                { "Id",                             "s",               NULL,           offsetof(UnitStatusInfo, id)                                },
                 { "LoadState",                      "s",               NULL,           offsetof(UnitStatusInfo, load_state)                        },
                 { "ActiveState",                    "s",               NULL,           offsetof(UnitStatusInfo, active_state)                      },
                 { "FreezerState",                   "s",               NULL,           offsetof(UnitStatusInfo, freezer_state)                     },

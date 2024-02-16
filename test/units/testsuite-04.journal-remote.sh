@@ -109,6 +109,11 @@ L = Brno
 O = Foo
 OU = Bar
 CN = Test CA
+
+[ v3_ca ]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer:always
+basicConstraints = CA:true
 EOF
 cat >/run/systemd/remote-pki/client.conf <<EOF
 [ req ]
@@ -136,9 +141,11 @@ CN = localhost
 EOF
 # Generate a dummy CA
 openssl req -x509 -nodes -newkey rsa:2048 -sha256 -days 7 \
+            -extensions v3_ca \
             -config /run/systemd/remote-pki/ca.conf \
             -keyout /run/systemd/remote-pki/ca.key \
             -out /run/systemd/remote-pki/ca.crt
+openssl x509 -in /run/systemd/remote-pki/ca.crt -noout -text
 echo 01 >/run/systemd/remote-pki/ca.srl
 # Generate a client key and signing request
 openssl req -nodes -newkey rsa:2048 -sha256 \
@@ -161,8 +168,8 @@ openssl x509 -req -days 7 \
              -CA /run/systemd/remote-pki/ca.crt \
              -CAkey /run/systemd/remote-pki/ca.key \
              -out /run/systemd/remote-pki/server.crt
-setfacl -R -m "u:systemd-journal-remote:rwX" /run/systemd/remote-pki
-setfacl -R -m "u:systemd-journal-upload:rwX" /run/systemd/remote-pki
+chown -R systemd-journal-remote:systemd-journal /run/systemd/remote-pki
+chmod -R g+rwX /run/systemd/remote-pki
 
 # Reconfigure journal-upload/journal remote with the new keys
 cat >/run/systemd/journal-remote.conf.d/99-test.conf <<EOF
@@ -215,7 +222,8 @@ cat >/run/systemd/system/systemd-journal-upload.service.d/99-test.conf <<EOF
 Restart=no
 EOF
 systemctl daemon-reload
-setfacl -R -m "u:systemd-journal-upload:rwX" /run/systemd/journal-remote-tls
+chgrp -R systemd-journal /run/systemd/journal-remote-tls
+chmod -R g+rwX /run/systemd/journal-remote-tls
 
 systemctl restart systemd-journal-upload
 timeout 10 bash -xec 'while [[ "$(systemctl show -P ActiveState systemd-journal-upload)" != failed ]]; do sleep 1; done'

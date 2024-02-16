@@ -12,6 +12,7 @@
 #include "random-util.h"
 #include "resolved-def.h"
 #include "string-util.h"
+#include "tests.h"
 #include "time-util.h"
 
 static void prefix_random(const char *name, char **ret) {
@@ -104,6 +105,8 @@ int main(int argc, char* argv[]) {
          *    A DNSSEC capable DNS server
          *    That zones contacted are still set up as they were when I wrote this.
          */
+
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(sd_bus_open_system(&bus) >= 0);
 

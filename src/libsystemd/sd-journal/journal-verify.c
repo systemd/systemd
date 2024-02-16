@@ -384,7 +384,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
 
 static int write_uint64(FILE *fp, uint64_t p) {
         if (fwrite(&p, sizeof(p), 1, fp) != 1)
-                return -errno;
+                return -EIO;
 
         return 0;
 }
@@ -925,7 +925,7 @@ int journal_file_verify(
                         goto fail;
                 }
 
-        if (!JOURNAL_HEADER_SEALED_CONTINUOUS(f->header))
+        if (JOURNAL_HEADER_SEALED(f->header) && !JOURNAL_HEADER_SEALED_CONTINUOUS(f->header))
                 warning(p,
                         "This log file was sealed with an old journald version where the sequence of seals might not be continuous. We cannot guarantee completeness.");
 

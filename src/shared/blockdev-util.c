@@ -56,23 +56,12 @@ static int fd_get_devnum(int fd, BlockDeviceLookupFlag flags, dev_t *ret) {
 }
 
 int block_device_is_whole_disk(sd_device *dev) {
-        const char *s;
-        int r;
-
         assert(dev);
 
-        r = sd_device_get_subsystem(dev, &s);
-        if (r < 0)
-                return r;
-
-        if (!streq(s, "block"))
+        if (!device_in_subsystem(dev, "block"))
                 return -ENOTBLK;
 
-        r = sd_device_get_devtype(dev, &s);
-        if (r < 0)
-                return r;
-
-        return streq(s, "disk");
+        return device_is_devtype(dev, "disk");
 }
 
 int block_device_get_whole_disk(sd_device *dev, sd_device **ret) {
@@ -774,6 +763,21 @@ int blockdev_get_sector_size(int fd, uint32_t *ret) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Block device reported invalid sector size %i.", ssz);
 
         *ret = ssz;
+        return 0;
+}
+
+int blockdev_get_device_size(int fd, uint64_t *ret) {
+        uint64_t sz = 0;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        /* This is just a type-safe wrapper around BLKGETSIZE64 that gets us around having to include messy linux/fs.h in various clients */
+
+        if (ioctl(fd, BLKGETSIZE64, &sz) < 0)
+                return -errno;
+
+        *ret = sz;
         return 0;
 }
 

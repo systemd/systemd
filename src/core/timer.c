@@ -141,7 +141,7 @@ static int timer_setup_persistent(Timer *t) {
 
         if (MANAGER_IS_SYSTEM(UNIT(t)->manager)) {
 
-                r = unit_require_mounts_for(UNIT(t), "/var/lib/systemd/timers", UNIT_DEPENDENCY_FILE);
+                r = unit_add_mounts_for(UNIT(t), "/var/lib/systemd/timers", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_REQUIRES);
                 if (r < 0)
                         return r;
 
@@ -192,9 +192,9 @@ static uint64_t timer_get_fixed_delay_hash(Timer *t) {
         }
 
         siphash24_init(&state, hash_key);
-        siphash24_compress(&machine_id, sizeof(sd_id128_t), &state);
+        siphash24_compress_typesafe(machine_id, &state);
         siphash24_compress_boolean(MANAGER_IS_SYSTEM(UNIT(t)->manager), &state);
-        siphash24_compress(&uid, sizeof(uid_t), &state);
+        siphash24_compress_typesafe(uid, &state);
         siphash24_compress_string(UNIT(t)->id, &state);
 
         return siphash24_finalize(&state);

@@ -3,10 +3,13 @@
 #include <stdio.h>
 
 #include "service.h"
+#include "tests.h"
 #include "unit.h"
 
 int main(int argc, char *argv[]) {
         const ServiceState test_states[] = { SERVICE_DEAD, SERVICE_RUNNING };
+
+        test_setup_logging(LOG_DEBUG);
 
         for (size_t i = 0; i < ELEMENTSOF(test_states); i++) {
                 /* fake a unit */

@@ -68,6 +68,9 @@ typedef enum TableDataType {
         TABLE_SET_COLOR,
         TABLE_SET_RGAP_COLOR,
         TABLE_SET_BOTH_COLORS,
+        TABLE_SET_UNDERLINE,
+        TABLE_SET_RGAP_UNDERLINE,
+        TABLE_SET_BOTH_UNDERLINES,
         TABLE_SET_URL,
         TABLE_SET_UPPERCASE,
 
@@ -111,6 +114,8 @@ int table_set_align_percent(Table *t, TableCell *cell, unsigned percent);
 int table_set_ellipsize_percent(Table *t, TableCell *cell, unsigned percent);
 int table_set_color(Table *t, TableCell *cell, const char *color);
 int table_set_rgap_color(Table *t, TableCell *cell, const char *color);
+int table_set_underline(Table *t, TableCell *cell, bool b);
+int table_set_rgap_underline(Table *t, TableCell *cell, bool b);
 int table_set_url(Table *t, TableCell *cell, const char *url);
 int table_set_uppercase(Table *t, TableCell *cell, bool b);
 
@@ -139,6 +144,12 @@ static inline TableCell* TABLE_HEADER_CELL(size_t i) {
 }
 
 size_t table_get_rows(Table *t);
+static inline bool table_isempty(Table *t) {
+        if (!t)
+                return true;
+
+        return table_get_rows(t) <= 1;
+}
 size_t table_get_columns(Table *t);
 
 size_t table_get_current_column(Table *t);

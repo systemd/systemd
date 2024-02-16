@@ -612,7 +612,7 @@ static void client_context_try_shrink_to(Server *s, size_t limit) {
                         if (pid_is_unwaited(c->pid) == 0)
                                 client_context_free(s, c);
                         else
-                                idx ++;
+                                idx++;
                 }
 
                 s->last_cache_pid_flush = t;
@@ -650,8 +650,8 @@ void client_context_flush_all(Server *s) {
 
         client_context_flush_regular(s);
 
-        assert(prioq_size(s->client_contexts_lru) == 0);
-        assert(hashmap_size(s->client_contexts) == 0);
+        assert(prioq_isempty(s->client_contexts_lru));
+        assert(hashmap_isempty(s->client_contexts));
 
         s->client_contexts_lru = prioq_free(s->client_contexts_lru);
         s->client_contexts = hashmap_free(s->client_contexts);

@@ -155,6 +155,7 @@ bool json_variant_equal(JsonVariant *a, JsonVariant *b);
 
 void json_variant_sensitive(JsonVariant *v);
 bool json_variant_is_sensitive(JsonVariant *v);
+bool json_variant_is_sensitive_recursive(JsonVariant *v);
 
 struct json_variant_foreach_state {
         JsonVariant *variant;
@@ -185,17 +186,18 @@ struct json_variant_foreach_state {
 int json_variant_get_source(JsonVariant *v, const char **ret_source, unsigned *ret_line, unsigned *ret_column);
 
 typedef enum JsonFormatFlags {
-        JSON_FORMAT_NEWLINE     = 1 << 0, /* suffix with newline */
-        JSON_FORMAT_PRETTY      = 1 << 1, /* add internal whitespace to appeal to human readers */
-        JSON_FORMAT_PRETTY_AUTO = 1 << 2, /* same, but only if connected to a tty (and JSON_FORMAT_NEWLINE otherwise) */
-        JSON_FORMAT_COLOR       = 1 << 3, /* insert ANSI color sequences */
-        JSON_FORMAT_COLOR_AUTO  = 1 << 4, /* insert ANSI color sequences if colors_enabled() says so */
-        JSON_FORMAT_SOURCE      = 1 << 5, /* prefix with source filename/line/column */
-        JSON_FORMAT_SSE         = 1 << 6, /* prefix/suffix with W3C server-sent events */
-        JSON_FORMAT_SEQ         = 1 << 7, /* prefix/suffix with RFC 7464 application/json-seq */
-        JSON_FORMAT_FLUSH       = 1 << 8, /* call fflush() after dumping JSON */
-        JSON_FORMAT_EMPTY_ARRAY = 1 << 9, /* output "[]" for empty input */
-        JSON_FORMAT_OFF         = 1 << 10, /* make json_variant_format() fail with -ENOEXEC */
+        JSON_FORMAT_NEWLINE          = 1 << 0, /* suffix with newline */
+        JSON_FORMAT_PRETTY           = 1 << 1, /* add internal whitespace to appeal to human readers */
+        JSON_FORMAT_PRETTY_AUTO      = 1 << 2, /* same, but only if connected to a tty (and JSON_FORMAT_NEWLINE otherwise) */
+        JSON_FORMAT_COLOR            = 1 << 3, /* insert ANSI color sequences */
+        JSON_FORMAT_COLOR_AUTO       = 1 << 4, /* insert ANSI color sequences if colors_enabled() says so */
+        JSON_FORMAT_SOURCE           = 1 << 5, /* prefix with source filename/line/column */
+        JSON_FORMAT_SSE              = 1 << 6, /* prefix/suffix with W3C server-sent events */
+        JSON_FORMAT_SEQ              = 1 << 7, /* prefix/suffix with RFC 7464 application/json-seq */
+        JSON_FORMAT_FLUSH            = 1 << 8, /* call fflush() after dumping JSON */
+        JSON_FORMAT_EMPTY_ARRAY      = 1 << 9, /* output "[]" for empty input */
+        JSON_FORMAT_OFF              = 1 << 10, /* make json_variant_format() fail with -ENOEXEC */
+        JSON_FORMAT_CENSOR_SENSITIVE = 1 << 11, /* Replace all sensitive elements with the string "<sensitive data>" */
 } JsonFormatFlags;
 
 int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret);
@@ -271,6 +273,7 @@ enum {
         _JSON_BUILD_IOVEC_BASE64,
         _JSON_BUILD_BASE32HEX,
         _JSON_BUILD_HEX,
+        _JSON_BUILD_IOVEC_HEX,
         _JSON_BUILD_OCTESCAPE,
         _JSON_BUILD_ID128,
         _JSON_BUILD_UUID,
@@ -315,6 +318,7 @@ typedef int (*JsonBuildCallback)(JsonVariant **ret, const char *name, void *user
 #define JSON_BUILD_IOVEC_BASE64(iov) _JSON_BUILD_IOVEC_BASE64, (const struct iovec*) { iov }
 #define JSON_BUILD_BASE32HEX(p, n) _JSON_BUILD_BASE32HEX, (const void*) { p }, (size_t) { n }
 #define JSON_BUILD_HEX(p, n) _JSON_BUILD_HEX, (const void*) { p }, (size_t) { n }
+#define JSON_BUILD_IOVEC_HEX(iov) _JSON_BUILD_IOVEC_HEX, (const struct iovec*) { iov }
 #define JSON_BUILD_OCTESCAPE(p, n) _JSON_BUILD_OCTESCAPE, (const void*) { p }, (size_t) { n }
 #define JSON_BUILD_ID128(id) _JSON_BUILD_ID128, (const sd_id128_t*) { &(id) }
 #define JSON_BUILD_UUID(id) _JSON_BUILD_UUID, (const sd_id128_t*) { &(id) }
@@ -345,6 +349,7 @@ typedef int (*JsonBuildCallback)(JsonVariant **ret, const char *name, void *user
 #define JSON_BUILD_PAIR_BASE64(name, p, n) JSON_BUILD_PAIR(name, JSON_BUILD_BASE64(p, n))
 #define JSON_BUILD_PAIR_IOVEC_BASE64(name, iov) JSON_BUILD_PAIR(name, JSON_BUILD_IOVEC_BASE64(iov))
 #define JSON_BUILD_PAIR_HEX(name, p, n) JSON_BUILD_PAIR(name, JSON_BUILD_HEX(p, n))
+#define JSON_BUILD_PAIR_IOVEC_HEX(name, iov) JSON_BUILD_PAIR(name, JSON_BUILD_IOVEC_HEX(iov))
 #define JSON_BUILD_PAIR_ID128(name, id) JSON_BUILD_PAIR(name, JSON_BUILD_ID128(id))
 #define JSON_BUILD_PAIR_UUID(name, id) JSON_BUILD_PAIR(name, JSON_BUILD_UUID(id))
 #define JSON_BUILD_PAIR_BYTE_ARRAY(name, v, n) JSON_BUILD_PAIR(name, JSON_BUILD_BYTE_ARRAY(v, n))
@@ -375,15 +380,16 @@ int json_buildv(JsonVariant **ret, va_list ap);
  * entry, as well the bitmask specified for json_log() calls */
 typedef enum JsonDispatchFlags {
         /* The following three may be set in JsonDispatch's .flags field or the json_dispatch() flags parameter  */
-        JSON_PERMISSIVE = 1 << 0, /* Shall parsing errors be considered fatal for this property? */
-        JSON_MANDATORY  = 1 << 1, /* Should existence of this property be mandatory? */
-        JSON_LOG        = 1 << 2, /* Should the parser log about errors? */
-        JSON_SAFE       = 1 << 3, /* Don't accept "unsafe" strings in json_dispatch_string() + json_dispatch_string() */
-        JSON_RELAX      = 1 << 4, /* Use relaxed user name checking in json_dispatch_user_group_name */
+        JSON_PERMISSIVE       = 1 << 0, /* Shall parsing errors be considered fatal for this field or object? */
+        JSON_MANDATORY        = 1 << 1, /* Should existence of this property be mandatory? */
+        JSON_LOG              = 1 << 2, /* Should the parser log about errors? */
+        JSON_SAFE             = 1 << 3, /* Don't accept "unsafe" strings in json_dispatch_string() + json_dispatch_string() */
+        JSON_RELAX            = 1 << 4, /* Use relaxed user name checking in json_dispatch_user_group_name */
+        JSON_ALLOW_EXTENSIONS = 1 << 5, /* Subset of JSON_PERMISSIVE: allow additional fields, but no other permissive handling */
 
         /* The following two may be passed into log_json() in addition to those above */
-        JSON_DEBUG      = 1 << 5, /* Indicates that this log message is a debug message */
-        JSON_WARNING    = 1 << 6, /* Indicates that this log message is a warning message */
+        JSON_DEBUG            = 1 << 6, /* Indicates that this log message is a debug message */
+        JSON_WARNING          = 1 << 7, /* Indicates that this log message is a warning message */
 } JsonDispatchFlags;
 
 typedef int (*JsonDispatchCallback)(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
@@ -420,12 +426,36 @@ int json_dispatch_user_group_name(const char *name, JsonVariant *variant, JsonDi
 int json_dispatch_id128(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_unsupported(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_unbase64_iovec(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
+int json_dispatch_byte_array_iovec(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
+int json_dispatch_in_addr(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 
 assert_cc(sizeof(uint32_t) == sizeof(unsigned));
 #define json_dispatch_uint json_dispatch_uint32
 
 assert_cc(sizeof(int32_t) == sizeof(int));
 #define json_dispatch_int json_dispatch_int32
+
+#define JSON_DISPATCH_ENUM_DEFINE(name, type, func)                     \
+        int name(const char *n, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) { \
+                type *c = ASSERT_PTR(userdata);                         \
+                                                                        \
+                assert(variant);                                        \
+                                                                        \
+                if (json_variant_is_null(variant)) {                    \
+                        *c = (type) -EINVAL;                            \
+                        return 0;                                       \
+                }                                                       \
+                                                                        \
+                if (!json_variant_is_string(variant))                   \
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(n)); \
+                                                                        \
+                type cc = func(json_variant_string(variant));           \
+                if (cc < 0)                                             \
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Value of JSON field '%s' not recognized.", strna(n)); \
+                                                                        \
+                *c = cc;                                                \
+                return 0;                                               \
+        }
 
 static inline int json_dispatch_level(JsonDispatchFlags flags) {
 
@@ -469,6 +499,14 @@ int json_log_internal(JsonVariant *variant, int level, int error, const char *fi
 
 int json_variant_unbase64(JsonVariant *v, void **ret, size_t *ret_size);
 int json_variant_unhex(JsonVariant *v, void **ret, size_t *ret_size);
+
+static inline int json_variant_unbase64_iovec(JsonVariant *v, struct iovec *ret) {
+        return json_variant_unbase64(v, ret ? &ret->iov_base : NULL, ret ? &ret->iov_len : NULL);
+}
+
+static inline int json_variant_unhex_iovec(JsonVariant *v, struct iovec *ret) {
+        return json_variant_unhex(v, ret ? &ret->iov_base : NULL, ret ? &ret->iov_len : NULL);
+}
 
 const char *json_variant_type_to_string(JsonVariantType t);
 JsonVariantType json_variant_type_from_string(const char *s);

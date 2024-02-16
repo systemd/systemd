@@ -219,7 +219,6 @@ static int fscrypt_setup(
                 _cleanup_free_ char *value = NULL;
                 size_t salt_size, encrypted_size;
                 const char *nr, *e;
-                char **list;
                 int n;
 
                 /* Check if this xattr has the format 'trusted.fscrypt_slot<nr>' where '<nr>' is a 32-bit unsigned integer */
@@ -239,29 +238,28 @@ static int fscrypt_setup(
                 if (!e)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "xattr %s lacks ':' separator: %m", xa);
 
-                r = unbase64mem(value, e - value, &salt, &salt_size);
+                r = unbase64mem_full(value, e - value, /* secure = */ false, &salt, &salt_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode salt of %s: %m", xa);
-                r = unbase64mem(e+1, n - (e - value) - 1, &encrypted, &encrypted_size);
+
+                r = unbase64mem_full(e + 1, n - (e - value) - 1, /* secure = */ false, &encrypted, &encrypted_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode encrypted key of %s: %m", xa);
 
                 r = -ENOANO;
-                FOREACH_POINTER(list, cache->pkcs11_passwords, cache->fido2_passwords, password) {
+                char **list;
+                FOREACH_ARGUMENT(list, cache->pkcs11_passwords, cache->fido2_passwords, password) {
                         r = fscrypt_slot_try_many(
                                         list,
                                         salt, salt_size,
                                         encrypted, encrypted_size,
                                         setup->fscrypt_key_descriptor,
                                         ret_volume_key, ret_volume_key_size);
-                        if (r != -ENOANO)
-                                break;
-                }
-                if (r < 0) {
+                        if (r >= 0)
+                                return 0;
                         if (r != -ENOANO)
                                 return r;
-                } else
-                        return 0;
+                }
         }
 
         return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Failed to set up home directory with provided passwords.");
@@ -319,23 +317,11 @@ int home_setup_fscrypt(
                 if (r < 0)
                         return log_error_errno(r, "Failed install encryption key in user's keyring: %m");
                 if (r == 0) {
-                        gid_t gid;
-
                         /* Child */
 
-                        gid = user_record_gid(h);
-                        if (setresgid(gid, gid, gid) < 0) {
-                                log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        if (setgroups(0, NULL) < 0) {
-                                log_error_errno(errno, "Failed to reset auxiliary groups list: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        if (setresuid(h->uid, h->uid, h->uid) < 0) {
-                                log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", h->uid);
+                        r = fully_set_uid_gid(h->uid, user_record_gid(h), /* supplementary_gids= */ NULL, /* n_supplementary_gids= */ 0);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to change UID/GID to " UID_FMT "/" GID_FMT ": %m", h->uid, user_record_gid(h));
                                 _exit(EXIT_FAILURE);
                         }
 

@@ -4230,6 +4230,9 @@ acpi:LKM*:
 acpi:LLL*:
  ID_VENDOR_FROM_DATABASE=L-3 Communications
 
+acpi:LLT*:
+ ID_VENDOR_FROM_DATABASE=LUMINO Licht Elektronik GmbH
+
 acpi:LMG*:
  ID_VENDOR_FROM_DATABASE=Lucent Technologies
 

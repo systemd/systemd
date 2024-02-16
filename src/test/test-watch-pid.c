@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
         if (getuid() != 0)
                 return log_tests_skipped("not root");
         r = enter_cgroup_subroot(NULL);
-        if (r == -ENOMEDIUM)
+        if (r < 0)
                 return log_tests_skipped("cgroupfs not available");
 
         _cleanup_free_ char *unit_dir = NULL;

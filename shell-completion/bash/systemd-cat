@@ -30,7 +30,7 @@ _systemd_cat() {
 
     local -A OPTS=(
         [STANDALONE]='-h --help --version'
-        [ARG]='-t --identifier -p --priority --level-prefix'
+        [ARG]='-t --identifier -p --priority --stderr-priority --level-prefix'
     )
 
     _init_completion || return
@@ -40,7 +40,7 @@ _systemd_cat() {
             --identifier|-t)
                 comps=''
                 ;;
-            --priority|-p)
+            --priority|-p|--stderr-priority)
                 comps='emerg alert crit err warning notice info debug'
                 ;;
             --level-prefix)

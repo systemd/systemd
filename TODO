@@ -16,10 +16,6 @@ External:
    - natively watch for dbus-*.service symlinks (PENDING)
    - teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
 
-* kernel: add device_type = "fb", "fbcon" to class "graphics"
-
-* /usr/bin/service should actually show the new command line
-
 * fedora: suggest auto-restart on failure, but not on success and not on coredump. also, ask people to think about changing the start limit logic. Also point people to RestartPreventExitStatus=, SuccessExitStatus=
 
 * neither pkexec nor sudo initialize environ[] from the PAM environment?
@@ -93,6 +89,9 @@ Janitorial Clean-ups:
   this up, and should probably always apply both, i.e. introduce
   unit_file_escape() or so, which applies both.
 
+* xopenat() should pin the parent dir of the inode it creates before doing its
+  thing, so that it can create, open, label somewhat atomically.
+
 Deprecations and removals:
 
 * Remove any support for booting without /usr pre-mounted in the initrd entirely.
@@ -132,6 +131,94 @@ Deprecations and removals:
 * remove remaining tpm1.2 support from sd-stub
 
 Features:
+
+* in os-release define a field that can be initialized at build time from
+  SOURCE_DATE_EPOCH (maybe even under that name?). Would then be used to
+  initialize the timestamp logic of ConditionNeedsUpdate=.
+
+* new systemd-analyze "join" verb or so, for debugging services. Would be
+  nsenter on steroids, i.e invoke a shell or command line in an environment as
+  close as we can make it for the MainPID of a service. Should be built around
+  pidfd, so that we can reasonably robustly do this. Would only cover the
+  execution environment like namespaces, but not the privilege settings.
+
+* add a generic client to importd called importctl, then make machinectl just
+  chain-exec() it. Make sure importd/importctl can be used for sysext images,
+  portable images too.
+
+* varlink: extend varlink IDL macros to include documentation strings
+
+* Get rid of the symlinks in /run/systemd/units/* and exclusively use cgroupfs
+  xattrs to convey info about invocation ids, logging settings and so on.
+  support for cgroupfs xattrs in the "trusted." namespace was added in linux
+  3.7, i.e. which we don't pretend to support anymore.
+
+* rewrite bpf-devices in libbpf/C code, rather than home-grown BPF assembly, to
+  match bpf-restrict-fs, bpf-restrict-ifaces, bpf-socket-bind
+
+* ditto: rewrite bpf-firewall in libbpf/C code
+
+* credentials: if we ever acquire a secure way to derive cgroup id of socket
+  peers (i.e. SO_PEERCGROUPID), then extend the "scoped" credential logic to
+  allow cgroup-scoped (i.e. app or service scoped) credentials. Then, as next
+  step use this to implement per-app/per-service encrypted directories, where
+  we set up fscrypt on the StateDirectory= with a randomized key which is
+  stored as xattr on the directory, encrypted as a credential.
+
+* credentials: optionally include a per-user secret in scoped user-credential
+  encryption keys. should come from homed in some way, derived from the luks
+  volume key or fscrypt directory key.
+
+* credentials: add a flag to the scoped credentials that if set require PK
+  reauthentication when unlocking a secret.
+
+* teach systemd --user to properly load credentials off disk, with
+  /etc/credstore equivalent and similar. Make sure that $CREDENTIALS_DIRECTORY=
+  actually works too when run with user privs.
+
+* extend the smbios11 logic for passing credentials so that instead of passing
+  the credential data literally it can also just reference an AF_VSOCK CID/port
+  to read them from. This way the data doesn't remain in the SMBIOS blob during
+  runtime, but only in the credentials fs.
+
+* machined: make machine registration available via varlink to simplify
+  nspawn/vmspawn, and to have an extensible way to register VM/machine metadata
+
+* ssh-proxy: add support for "ssh machine/foobar" to automatically connect to
+  machined registered machine "foobar". Requires updating machined to track CID
+  and unix-export dir of containers.
+
+* add a new ExecStart= flag that inserts the configured user's shell as first
+  word in the command line. (maybe use character '.'). Usecase: tool such as
+  uid0 can use that to spawn the target user's default shell.
+
+* varlink: figure out how to do docs for our varlink interfaces. Idea: install
+  interface files augmented with docs in /usr/share/ somewhere. And have
+  functionality in varlinkctl to merge interface info extracted from binaries
+  with interface info on disk. And store the doc strings only in the latter.
+
+* introduce mntid_t, and make it 64bit, as apparently the kernel switched to
+  64bit mount ids
+
+* use udev rule networkd ownership property to take ownership of network
+  interfaces nspawn creates
+
+* add a kernel cmdline switch (and cred?) for marking a system to be
+  "headless", in which case we never open /dev/console for reading, only for
+  writing. This would then mean: systemd-firstboot would process creds but not
+  ask interactively, getty would not be started and so on.
+
+* cryptsetup: new crypttab option to auto-grow a luks device to its backing
+  partition size. new crypttab option to reencrypt a luks device with a new
+  volume key.
+
+* we probably should have some infrastructure to acquire sysexts with
+  drivers/firmware for local hardware automatically. Idea: reuse the modalias
+  logic of the kernel for this: make the main OS image install a hwdb file
+  that matches against local modalias strings, and adds properties to relevant
+  devices listing names of sysexts needed to support the hw. Then provide some
+  tool that goes through all devices and tries to acquire/download the
+  specified images.
 
 * repart + cryptsetup: support file systems that are encrypted and use verity
   on top. Usecase: confexts that shall be signed by the admin but also be
@@ -211,13 +298,6 @@ Features:
   dir. Similar for $XDG_RUNTIME_DIR. Start project@%i.target. Use LogField= to
   add a field identifying the project.
 
-* logind: add a new dbus call Sleep() which automatically redirects to one of
-  Suspend(), Hibernate(), SuspendThenHibernate() depending on what is
-  available, and also subject to some local configuration in
-  logind.conf. Should default to SuspendThenHibernate() if available, and then
-  fallback to Suspend() and finally Hibernate() if not. Then expose this as
-  "systemctl sleep", and tell DEs to default to this.
-
 * in sd-boot and sd-stub measure the SMBIOS vendor strings to some PCR (at
   least some subset of them that look like systemd stuff), because apparently
   some firmware does not, but systemd honours it. avoid duplicate measurement
@@ -260,15 +340,6 @@ Features:
   the realized cgroup, to pin it (and later execute all cgroup operations over,
   once we drop cgroupv1 compat).
 
-* add new "systemd-ssh-generator", which allows basic ssh config via
-  credentials (host key). It generates sshd.socket for IP, but also
-  sshd-vsock.socket for listening on AF_VSOCK when running in a VM, and
-  sshd-unix.socket on AF_UNIX when running in a container. It also generates a
-  matching sshd.service file with a host key passed in on the cmdline via
-  credentials. Then, add a ssh_config drop-in that matches some suitable
-  hostname pattern and has a ProxyCommand set that allows connecting to any
-  local VM/container that way without any networking configured.
-
 * Varlinkification of the following command line tools, to open them up to
   other programs via IPC:
   - bootctl
@@ -276,15 +347,12 @@ Features:
   - coredumpcl
   - systemd-bless-boot
   - systemd-measure
-  - systemd-creds (allowing clients to encrypt credentials locally)
   - systemd-cryptenroll (to allow UIs to enroll FIDO2 keys and such)
   - systemd-dissect
   - systemd-sysupdate
   - systemd-analyze
   - kernel-install
-
-* Varlink: add glue code to allow varlink clients to be authenticated via
-  Polkit by passing client pidfd over.
+  - systemd-mount (with PK so that desktop environments could use it to mount disks)
 
 * in the service manager, pick up ERRNO= + BUSERROR= + VARLINKERROR= error
   identifiers, and store them along with the exit status of a server and report
@@ -333,10 +401,8 @@ Features:
   - actually wait for POLLIN on pidref's pidfd in service logic
   - exec_spawn() + safe_fork()
   - openpt_allocate_in_namespace()
-  - sd_bus_creds
   - unit_attach_pid_to_cgroup_via_bus()
   - cg_attach() – requires new kernel feature
-  - varlink_get_peer_pid()
 
 * ddi must be listed as block device fstype
 
@@ -441,6 +507,17 @@ Features:
   lo_file_name field for it to something recognizable derived from the fstab
   line, and then generate a mount unit for it using a udev generated symlink
   based on lo_file_name.
+
+* teach systemd-nspawn the boot assessment logic: hook up vpick's try counters
+  with success notifications from nspawn payloads. When this is enabled,
+  automatically support reverting back to older OS version images if newer ones
+  fail to boot.
+
+* implement new "systemd-fsrebind" tool that works like gpt-auto-generator but
+  looks at a root dir and then applies vpick on various dirs/images to pick a
+  root tree, a /usr/ tree, a /home/, a /srv/, a /var/ tree and so on. Dirs
+  could also be btrfs subvols (combine with btrfs auto-snapshort approach for
+  creating versions like these automatically).
 
 * remove tomoyo support, it's obsolete and unmaintained apparently
 
@@ -634,10 +711,6 @@ Features:
   - If run on every boot, should it use the sysupdate config from the host on
     subsequent boots?
 
-* provide an API (probably IPC) to apps to encrypt/decrypt
-  credentials. use case: allow bluez bluetooth daemon to pass pairings to initrd
-  that way, without shelling out to our tools.
-
 * revisit default PCR bindings in cryptenroll and systemd-creds. Currently they
   use PCR 7 which should contain secureboot state db/dbx. Which sounded like a
   safe bet, given that it should change only on policy changes, and not
@@ -672,17 +745,6 @@ Features:
 
 * automatic boot assessment: add one more default success check that just waits
   for a bit after boot, and blesses the boot if the system stayed up that long.
-
-* implement concept of "versioned" resources inside a dir, and write a spec for
-  it. Make all tools in systemd, in particular
-  RootImage=/RootDirectory=/--image=/--directory= implement this. Idea:
-  directories ending in ".v/" indicate a directory with versioned resources in
-  them. Versioned resources inside a .v dir are always named in the pattern
-  <prefix>_<version>[+<tries-left>[-<tries-done>]].<suffix>
-
-* add support for using this .v/ logic on the root fs itself: in the initrd,
-  after mounting the rootfs, look for root-<arch>.v/ in the root fs, and then
-  apply the logic, moving the switch root logic there.
 
 * systemd-repart: add support for generating ISO9660 images
 
@@ -792,10 +854,6 @@ Features:
   would just use the same public key specified with --public-key= (or the one
   automatically derived from --private-key=).
 
-* push people to use ".sysext.raw" as suffix for sysext DDIs (DDI =
-  discoverable disk images, i.e. the new name for gpt disk images following the
-  discoverable disk spec). [Also: just ".sysext/" for directory-based sysext]
-
 * Add "purpose" flag to partition flags in discoverable partition spec that
   indicate if partition is intended for sysext, for portable service, for
   booting and so on. Then, when dissecting DDI allow specifying a purpose to
@@ -889,8 +947,6 @@ Features:
   should probably also one you can use to get a remote attestation quote.
 
 * Process credentials in:
-  • networkd/udevd: add a way to define additional .link, .network, .netdev files
-    via the credentials logic.
   • crypttab-generator: allow defining additional crypttab-like volumes via
     credentials (similar: verity-generator, integrity-generator). Use
     fstab-generator logic as inspiration.
@@ -904,10 +960,6 @@ Features:
     file system paths to enable on start.
   • make systemd-fstab-generator look for a system credential encoding root= or
     usr=
-  • systemd-homed: when initializing, look for a credential
-    systemd.homed.register or so with JSON user records to automatically
-    register if not registered yet.  Use case: deploy a system, and add an
-    account one can directly log into.
   • in gpt-auto-generator: check partition uuids against such uuids supplied via
     sd-stub credentials. That way, we can support parallel OS installations with
     pre-built kernels.
@@ -980,9 +1032,6 @@ Features:
   container managers find it. the ~/.identity file is also a candidate for a
   file to move there, since it is managed by privileged code (i.e. homed) and
   not unprivileged code.
-
-* given that /etc/ssh/ssh_config.d/ is a thing now, ship a drop-in for that
-  that hooks up userdbctl ssh-key stuff.
 
 * maybe add support for binding and connecting AF_UNIX sockets in the file
   system outside of the 108ch limit. When connecting, open O_PATH fd to socket
@@ -1146,36 +1195,8 @@ Features:
   passwords, not just the first. i.e. if there are multiple defined, prefer
   unlocked over locked and prefer non-empty over empty.
 
-* maybe add a tool inspired by the GPT auto discovery spec that runs in the
-  initrd and rearranges the rootfs hierarchy via bind mounts, if
-  enabled. Specifically in some top-level dir /@auto/ it will look for
-  dirs/symlinks/subvolumes that are named after their purpose, and optionally
-  encode a version as well as assessment counters, and then mount them into the
-  file system tree to boot into, similar to how we do that for the gpt auto
-  logic. Maybe then bind mount the original root into /.superior or something
-  like that (so that update tools can look there). Further discussion in this
-  thread:
-  https://lists.freedesktop.org/archives/systemd-devel/2021-November/047059.html
-  The GPT dissection logic should automatically enable this tool whenever we
-  detect a specially marked root fs (i.e introduce a new generic root gpt type
-  for this, that is arch independent). The also implement this in the image
-  dissection logic, so that nspawn/RootImage= and so on grok it. Maybe make
-  generic enough so that it can also work for ostrees arrangements.
-
-* if a path ending in ".auto.d/" is set for RootDirectory=/RootImage= then do a
-  strverscmp() of everything inside that dir and use that. i.e. implement very
-  simple version control. Also use this in systemd-nspawn --image= and so on.
-
-* homed: while a home dir is not activated generate slightly different NSS
-  records for it, that reports the home dir as "/" and the shell as some binary
-  provided by us. Then, when an SSH login happens and SSH permits it our binary
-  is invoked. This binary can then talk to homed and activate the homedir if
-  it's not around yet, prompting the user for a password. Once that succeeded
-  we'll switch to the real user record, i.e. home dir and shell, and our tool
-  exec()s the latter. Net effect: ssh'ing into a homed account will just work:
-  we'll neatly prompt for the homedir's password if its needed. –– Building on
-  this we could take this even further: since this tool will potentially have
-  access to the client's ssh-agent (if ssh-agent forwarding is enabled) we
+* homed: if the homed shell fallback thing has access to an SSH agent, try to
+  use it to unlock home dir (if ssh-agent forwarding is enabled). We
   could implement SSH unlocking of a homedir with that: when enrolling a new
   ssh pubkey in a user record we'd ask the ssh-agent to sign some random value
   with the privkey, then use that as luks key to unlock the home dir. Will not
@@ -1208,14 +1229,6 @@ Features:
 * portabled: when extracting unit files and copying to system.attached, if a
   .p7s is available in the image, use it to protect the system.attached copy
   with fs-verity, so that it cannot be tampered with
-
-* logind introduce two types of sessions: "heavy" and "light". The former would
-  be our current sessions. But the latter would be a new type of session that
-  is mostly the same but does not pull in user@.service or wait for it. Then,
-  allow configuration which type of session is desired via pam_systemd
-  parameters, and then make user@.service's session one of these "light" ones.
-  People could then choose to make FTP sessions and suchlike "light" if they
-  don't want the service manager to be started for that.
 
 * /etc/veritytab: allow that the roothash column can be specified as fs path
   including a path to an AF_UNIX path, similar to how we do things with the
@@ -1316,14 +1329,10 @@ Features:
   - acquire + decrypt creds from pkcs11?
   - make systemd-cryptsetup acquire pw via creds logic
   - make PAMName= acquire pw via creds logic
-  - make macsec/wireguard code in networkd read key via creds logic
-  - make gatwayd/remote read key via creds logic
+  - make macsec code in networkd read key via creds logic (copy logic from
+    wireguard)
+  - make gatewayd/remote read key via creds logic
   - add sd_notify() command for flushing out creds not needed anymore
-  - make user manager instances create and use a user-specific key (the one in
-    /var/lib is root-only) and add --user switch to systemd-creds to use it
-
-* add tpm.target or so which is delayed until TPM2 device showed up in case
-  firmware indicates there is one.
 
 * TPM2: auto-reenroll in cryptsetup, as fallback for hosed firmware upgrades
   and such
@@ -1364,8 +1373,6 @@ Features:
 * make use of new glibc 2.32 APIs sigabbrev_np() and strerrorname_np().
 
 * if /usr/bin/swapoff fails due to OOM, log a friendly explanatory message about it
-
-* pid1: support new clone3() fork-into-cgroup feature
 
 * pid1: also remove PID files of a service when the service starts, not just
   when it exits
@@ -1441,21 +1448,6 @@ Features:
   https://bugs.freedesktop.org/show_bug.cgi?id=69447
 
 * teach parse_timestamp() timezones like the calendar spec already knows it
-
-* beef up s2h to implement a battery watch loop: instead of entering
-  hibernation unconditionally after coming back from resume make a decision
-  based on the battery load level: if battery level is above a specific
-  threshold, go to suspend again, only hibernate if below it. This means we'd
-  stick to suspend usually, but fall back to hibernation only when battery runs
-  empty (well, subject to our sampling interval). Related to this, check if we
-  can make ACPI _BTP (i.e. /sys/class/power_supply/*/alarm) work for us too,
-  i.e. see if it can wake up machines from suspend, so that we could resume
-  automatically when the system is low on power and move automatically to
-  hibernation mode. (see
-  https://uefi.org/sites/default/files/resources/ACPI%206_2_A_Sept29.pdf
-  section 10.2.2.8 and
-  https://docs.microsoft.com/en-us/windows-hardware/design/device-experiences/modern-standby-wake-sources
-  at the end).
 
 * We should probably replace /etc/rc.d/README with a symlink to doc
   content. After all it is constant vendor data.
@@ -1842,8 +1834,6 @@ Features:
 
 * man: the documentation of Restart= currently is very misleading and suggests the tools from ExecStartPre= might get restarted.
 
-* load .d/*.conf dropins for device units
-
 * There's currently no way to cancel fsck (used to be possible via C-c or c on the console)
 
 * add option to sockets to avoid activation. Instead just drop packets/connections, see http://cyberelk.net/tim/2012/02/15/portreserve-systemd-solution/
@@ -1872,8 +1862,6 @@ Features:
   - generate better errors when people try to set transient properties
     that are not supported...
     https://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
-  - maybe introduce WantsMountsFor=? Use case:
-    https://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
   - recreate systemd's D-Bus private socket file on SIGUSR2
   - move PAM code into its own binary
   - when we automatically restart a service, ensure we restart its rdeps, too.
@@ -2252,11 +2240,6 @@ Features:
   - support new FS_IOC_ADD_ENCRYPTION_KEY ioctl for setting up fscrypt
   - maybe pre-create ~/.cache as subvol so that it can have separate quota
     easily?
-  - add a switch to homectl (maybe called --first-boot) where it will check if
-    any non-system users exist, and if not prompts interactively for basic user
-    info, mimicking systemd-firstboot. Then, place this in a service that runs
-    after systemd-homed, but before gdm and friends, as a simple, barebones
-    fallback logic to get a regular user created on uninitialized systems.
   - store PKCS#11 + FIDO2 token info in LUKS2 header, compatible with
     systemd-cryptsetup, so that it can unlock homed volumes
   - maybe make all *.home files owned by `systemd-home` user or so, so that we
@@ -2345,14 +2328,10 @@ Features:
 * systemctl:
   - add systemctl switch to dump transaction without executing it
   - Add a verbose mode to "systemctl start" and friends that explains what is being done or not done
-  - "systemctl disable" on a static unit prints no message and does
-    nothing. "systemctl enable" does nothing, and gives a bad message
-    about it. Should fix both to print nice actionable messages.
   - print nice message from systemctl --failed if there are no entries shown, and hook that into ExecStartPre of rescue.service/emergency.service
   - add new command to systemctl: "systemctl system-reexec" which reexecs as many daemons as virtually possible
   - systemctl enable: fail if target to alias into does not exist? maybe show how many units are enabled afterwards?
   - systemctl: "Journal has been rotated since unit was started." message is misleading
-  - systemctl status output should include list of triggering units and their status
 
 * introduce an option (or replacement) for "systemctl show" that outputs all
   properties as JSON, similar to busctl's new JSON output. In contrast to that
@@ -2474,18 +2453,17 @@ Features:
 * support crash reporting operation modes (https://live.gnome.org/GnomeOS/Design/Whiteboards/ProblemReporting)
 
 * tmpfiles:
-  - apply "x" on "D" too (see patch from William Douglas)
   - allow time-based cleanup in r and R too
   - instead of ignoring unknown fields, reject them.
   - creating new directories/subvolumes/fifos/device nodes
     should not follow symlinks. None of the other adjustment or creation
     calls follow symlinks.
-  - add --test mode
   - teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
     project quota
   - teach tmpfiles.d m/M to move / atomic move + symlink old -> new
   - add new line type for setting btrfs subvolume attributes (i.e. rw/ro)
   - tmpfiles: add new line type for setting fcaps
+  - add -n as shortcut for --dry-run in tmpfiles & sysusers & possibly other places
 
 * udev-link-config:
    - Make sure ID_PATH is always exported and complete for

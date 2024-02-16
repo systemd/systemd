@@ -53,6 +53,7 @@ struct SocketPeer {
         Socket *socket;
         union sockaddr_union peer;
         socklen_t peer_salen;
+        struct ucred peer_cred;
 };
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
@@ -75,6 +76,20 @@ static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
 static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static void flush_ports(Socket *s);
+
+static bool SOCKET_STATE_WITH_PROCESS(SocketState state) {
+        return IN_SET(state,
+                      SOCKET_START_PRE,
+                      SOCKET_START_CHOWN,
+                      SOCKET_START_POST,
+                      SOCKET_STOP_PRE,
+                      SOCKET_STOP_PRE_SIGTERM,
+                      SOCKET_STOP_PRE_SIGKILL,
+                      SOCKET_STOP_POST,
+                      SOCKET_FINAL_SIGTERM,
+                      SOCKET_FINAL_SIGKILL,
+                      SOCKET_CLEANING);
+}
 
 static void socket_init(Unit *u) {
         Socket *s = SOCKET(u);
@@ -100,8 +115,7 @@ static void socket_init(Unit *u) {
         s->control_pid = PIDREF_NULL;
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 
-        s->trigger_limit.interval = USEC_INFINITY;
-        s->trigger_limit.burst = UINT_MAX;
+        s->trigger_limit = RATELIMIT_OFF;
 
         s->poll_limit_interval = USEC_INFINITY;
         s->poll_limit_burst = UINT_MAX;
@@ -109,12 +123,7 @@ static void socket_init(Unit *u) {
 
 static void socket_unwatch_control_pid(Socket *s) {
         assert(s);
-
-        if (!pidref_is_set(&s->control_pid))
-                return;
-
-        unit_unwatch_pidref(UNIT(s), &s->control_pid);
-        pidref_done(&s->control_pid);
+        unit_unwatch_pidref_done(UNIT(s), &s->control_pid);
 }
 
 static void socket_cleanup_fd_list(SocketPort *p) {
@@ -222,7 +231,7 @@ static int socket_add_mount_dependencies(Socket *s) {
                 if (!path)
                         continue;
 
-                r = unit_require_mounts_for(UNIT(s), path, UNIT_DEPENDENCY_FILE);
+                r = unit_add_mounts_for(UNIT(s), path, UNIT_DEPENDENCY_FILE, UNIT_MOUNT_REQUIRES);
                 if (r < 0)
                         return r;
         }
@@ -407,11 +416,13 @@ static void peer_address_hash_func(const SocketPeer *s, struct siphash *state) {
         assert(s);
 
         if (s->peer.sa.sa_family == AF_INET)
-                siphash24_compress(&s->peer.in.sin_addr, sizeof(s->peer.in.sin_addr), state);
+                siphash24_compress_typesafe(s->peer.in.sin_addr, state);
         else if (s->peer.sa.sa_family == AF_INET6)
-                siphash24_compress(&s->peer.in6.sin6_addr, sizeof(s->peer.in6.sin6_addr), state);
+                siphash24_compress_typesafe(s->peer.in6.sin6_addr, state);
         else if (s->peer.sa.sa_family == AF_VSOCK)
-                siphash24_compress(&s->peer.vm.svm_cid, sizeof(s->peer.vm.svm_cid), state);
+                siphash24_compress_typesafe(s->peer.vm.svm_cid, state);
+        else if (s->peer.sa.sa_family == AF_UNIX)
+                siphash24_compress_typesafe(s->peer_cred.uid, state);
         else
                 assert_not_reached();
 }
@@ -430,6 +441,8 @@ static int peer_address_compare_func(const SocketPeer *x, const SocketPeer *y) {
                 return memcmp(&x->peer.in6.sin6_addr, &y->peer.in6.sin6_addr, sizeof(x->peer.in6.sin6_addr));
         case AF_VSOCK:
                 return CMP(x->peer.vm.svm_cid, y->peer.vm.svm_cid);
+        case AF_UNIX:
+                return CMP(x->peer_cred.uid, y->peer_cred.uid);
         }
         assert_not_reached();
 }
@@ -458,8 +471,10 @@ static int socket_load(Unit *u) {
         return socket_verify(s);
 }
 
-static SocketPeer *socket_peer_new(void) {
+static SocketPeer *socket_peer_dup(const SocketPeer *q) {
         SocketPeer *p;
+
+        assert(q);
 
         p = new(SocketPeer, 1);
         if (!p)
@@ -467,7 +482,11 @@ static SocketPeer *socket_peer_new(void) {
 
         *p = (SocketPeer) {
                 .n_ref = 1,
+                .peer = q->peer,
+                .peer_salen = q->peer_salen,
+                .peer_cred = q->peer_cred,
         };
+
         return p;
 }
 
@@ -484,8 +503,9 @@ DEFINE_TRIVIAL_REF_UNREF_FUNC(SocketPeer, socket_peer, socket_peer_free);
 
 int socket_acquire_peer(Socket *s, int fd, SocketPeer **ret) {
         _cleanup_(socket_peer_unrefp) SocketPeer *remote = NULL;
-        SocketPeer sa = {
+        SocketPeer key = {
                 .peer_salen = sizeof(union sockaddr_union),
+                .peer_cred = UCRED_INVALID,
         }, *i;
         int r;
 
@@ -493,26 +513,35 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **ret) {
         assert(s);
         assert(ret);
 
-        if (getpeername(fd, &sa.peer.sa, &sa.peer_salen) < 0)
+        if (getpeername(fd, &key.peer.sa, &key.peer_salen) < 0)
                 return log_unit_error_errno(UNIT(s), errno, "getpeername() failed: %m");
 
-        if (!IN_SET(sa.peer.sa.sa_family, AF_INET, AF_INET6, AF_VSOCK)) {
+        switch (key.peer.sa.sa_family) {
+        case AF_INET:
+        case AF_INET6:
+        case AF_VSOCK:
+                break;
+
+        case AF_UNIX:
+                r = getpeercred(fd, &key.peer_cred);
+                if (r < 0)
+                        return log_unit_error_errno(UNIT(s), r, "Failed to get peer credentials of socket: %m");
+                break;
+
+        default:
                 *ret = NULL;
                 return 0;
         }
 
-        i = set_get(s->peers_by_address, &sa);
+        i = set_get(s->peers_by_address, &key);
         if (i) {
                 *ret = socket_peer_ref(i);
                 return 1;
         }
 
-        remote = socket_peer_new();
+        remote = socket_peer_dup(&key);
         if (!remote)
                 return log_oom();
-
-        remote->peer = sa.peer;
-        remote->peer_salen = sa.peer_salen;
 
         r = set_ensure_put(&s->peers_by_address, &peer_address_hash_ops, remote);
         if (r < 0)
@@ -1386,50 +1415,26 @@ int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
 }
 
 static int socket_determine_selinux_label(Socket *s, char **ret) {
+        Unit *service;
         int r;
 
         assert(s);
         assert(ret);
 
-        Unit *service;
-        ExecCommand *c;
-        const char *exec_context;
-        _cleanup_free_ char *path = NULL;
-
-        r = socket_load_service_unit(s, -1, &service);
-        if (r == -ENODATA)
-                goto no_label;
+        r = socket_load_service_unit(s, /* cfd= */ -EBADF, &service);
+        if (r == -ENODATA) {
+                *ret = NULL;
+                return 0;
+        }
         if (r < 0)
                 return r;
 
-        exec_context = SERVICE(service)->exec_context.selinux_context;
-        if (exec_context) {
-                char *con;
-
-                con = strdup(exec_context);
-                if (!con)
-                        return -ENOMEM;
-
-                *ret = TAKE_PTR(con);
+        r = service_determine_exec_selinux_label(SERVICE(service), ret);
+        if (r == -ENODATA) {
+                *ret = NULL;
                 return 0;
         }
-
-        c = SERVICE(service)->exec_command[SERVICE_EXEC_START];
-        if (!c)
-                goto no_label;
-
-        r = chase(c->path, SERVICE(service)->exec_context.root_directory, CHASE_PREFIX_ROOT, &path, NULL);
-        if (r < 0)
-                goto no_label;
-
-        r = mac_selinux_get_create_label_from_exe(path, ret);
-        if (IN_SET(r, -EPERM, -EOPNOTSUPP))
-                goto no_label;
         return r;
-
-no_label:
-        *ret = NULL;
-        return 0;
 }
 
 static int socket_address_listen_do(
@@ -1803,18 +1808,7 @@ static void socket_set_state(Socket *s, SocketState state) {
         old_state = s->state;
         s->state = state;
 
-        if (!IN_SET(state,
-                    SOCKET_START_PRE,
-                    SOCKET_START_CHOWN,
-                    SOCKET_START_POST,
-                    SOCKET_STOP_PRE,
-                    SOCKET_STOP_PRE_SIGTERM,
-                    SOCKET_STOP_PRE_SIGKILL,
-                    SOCKET_STOP_POST,
-                    SOCKET_FINAL_SIGTERM,
-                    SOCKET_FINAL_SIGKILL,
-                    SOCKET_CLEANING)) {
-
+        if (!SOCKET_STATE_WITH_PROCESS(state)) {
                 s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
                 socket_unwatch_control_pid(s);
                 s->control_command = NULL;
@@ -1853,17 +1847,7 @@ static int socket_coldplug(Unit *u) {
 
         if (pidref_is_set(&s->control_pid) &&
             pidref_is_unwaited(&s->control_pid) > 0 &&
-            IN_SET(s->deserialized_state,
-                   SOCKET_START_PRE,
-                   SOCKET_START_CHOWN,
-                   SOCKET_START_POST,
-                   SOCKET_STOP_PRE,
-                   SOCKET_STOP_PRE_SIGTERM,
-                   SOCKET_STOP_PRE_SIGKILL,
-                   SOCKET_STOP_POST,
-                   SOCKET_FINAL_SIGTERM,
-                   SOCKET_FINAL_SIGKILL,
-                   SOCKET_CLEANING)) {
+            SOCKET_STATE_WITH_PROCESS(s->deserialized_state)) {
 
                 r = unit_watch_pidref(UNIT(s), &s->control_pid, /* exclusive= */ false);
                 if (r < 0)
@@ -1916,7 +1900,6 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
         _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(
                         EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN);
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        pid_t pid;
         int r;
 
         assert(s);
@@ -1941,11 +1924,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
                        &exec_params,
                        s->exec_runtime,
                        &s->cgroup_context,
-                       &pid);
-        if (r < 0)
-                return r;
-
-        r = pidref_set_pid(&pidref, pid);
+                       &pidref);
         if (r < 0)
                 return r;
 
@@ -2095,13 +2074,7 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
         if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
-        r = unit_kill_context(
-                        UNIT(s),
-                        &s->kill_context,
-                        state_to_kill_operation(s, state),
-                        /* main_pid= */ NULL,
-                        &s->control_pid,
-                        /* main_pid_alien= */ false);
+        r = unit_kill_context(UNIT(s), state_to_kill_operation(s, state));
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
                 goto fail;
@@ -2348,7 +2321,10 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                         if (r > 0 && p->n_ref > s->max_connections_per_source) {
                                 _cleanup_free_ char *t = NULL;
 
-                                (void) sockaddr_pretty(&p->peer.sa, p->peer_salen, true, false, &t);
+                                if (p->peer.sa.sa_family == AF_UNIX)
+                                        (void) asprintf(&t, "UID " UID_FMT, p->peer_cred.uid);
+                                else
+                                        (void) sockaddr_pretty(&p->peer.sa, p->peer_salen, /* translate_ipv6= */ true, /* include_port= */ false, &t);
 
                                 log_unit_warning(UNIT(s),
                                                  "Too many incoming connections (%u) from source %s, dropping connection.",
@@ -2590,6 +2566,8 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                 }
         }
 
+        (void) serialize_ratelimit(f, "trigger-ratelimit", &s->trigger_limit);
+
         return 0;
 }
 
@@ -2824,7 +2802,10 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 if (!found)
                         log_unit_debug(u, "No matching ffs socket found: %s", value);
 
-        } else
+        } else if (streq(key, "trigger-ratelimit"))
+                deserialize_ratelimit(&s->trigger_limit, key, value);
+
+        else
                 log_unit_debug(UNIT(s), "Unknown serialization key: %s", key);
 
         return 0;

@@ -53,7 +53,7 @@ Documentation: man:journald.conf(5)
 Съобщенията от другите услуги не са засегнати.
 
 Настройките за максималния брой съобщения, които ще се обработят, се
-управляват чрез директивите „RateLimitInterval=“ и „RateLimitBurst=“ във
+управляват чрез директивите „RateLimitIntervalSec=“ и „RateLimitBurst=“ във
 файла „/etc/systemd/journald.conf“. За повече информация прегледайте
 „journald.conf(5)“ от ръководството.
 

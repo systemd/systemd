@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <refentry id="systemd.preset">
 
@@ -21,12 +21,14 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/systemd/system-preset/*.preset</filename></para>
-    <para><filename>/run/systemd/system-preset/*.preset</filename></para>
-    <para><filename>/usr/lib/systemd/system-preset/*.preset</filename></para>
-    <para><filename>/etc/systemd/user-preset/*.preset</filename></para>
-    <para><filename>/run/systemd/user-preset/*.preset</filename></para>
-    <para><filename>/usr/lib/systemd/user-preset/*.preset</filename></para>
+    <para><simplelist>
+      <member><filename>/etc/systemd/system-preset/*.preset</filename></member>
+      <member><filename>/run/systemd/system-preset/*.preset</filename></member>
+      <member><filename>/usr/lib/systemd/system-preset/*.preset</filename></member>
+      <member><filename>/etc/systemd/user-preset/*.preset</filename></member>
+      <member><filename>/run/systemd/user-preset/*.preset</filename></member>
+      <member><filename>/usr/lib/systemd/user-preset/*.preset</filename></member>
+    </simplelist></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -39,7 +41,7 @@
 
     <command>systemctl preset</command> is used by the post install scriptlets of rpm packages (or other OS
     package formats), to enable/disable specific units by default on package installation, enforcing
-    distribution, spin or administrator preset policy. This allows choosing a certain set of units to be
+    distribution, spin, or administrator preset policy. This allows choosing a certain set of units to be
     enabled/disabled even before installing the actual package. For more information, see
     <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
 
@@ -54,7 +56,9 @@
     <para>When the machine is booted for the first time,
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> will
     enable/disable all units according to preset policy, similarly to <command>systemctl
-    preset-all</command>. Also see "First Boot Semantics" in
+    preset-all</command>. Also see <varname>ConditionFirstBoot=</varname> in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+    "First Boot Semantics" in
     <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
   </refsect1>
@@ -205,11 +209,11 @@ disable *</programlisting>
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-delta</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
 
     <para><citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     has a discussion of packaging scriptlets.</para>

@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "escape.h"
 #include "hostname-util.h"
 #include "memory-util.h"
 #include "missing_network.h"
@@ -144,6 +145,7 @@ int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt) {
         rt->flags = a->nd_ra_flags_reserved; /* the first 8 bits */
         rt->lifetime_usec = be16_sec_to_usec(a->nd_ra_router_lifetime, /* max_as_infinity = */ false);
         rt->icmp6_ratelimit_usec = be32_msec_to_usec(a->nd_ra_retransmit, /* max_as_infinity = */ false);
+        rt->retransmission_time_usec = be32_msec_to_usec(a->nd_ra_retransmit, /* max_as_infinity = */ false);
 
         rt->preference = (rt->flags >> 3) & 3;
         if (!IN_SET(rt->preference, SD_NDISC_PREFERENCE_LOW, SD_NDISC_PREFERENCE_HIGH))
@@ -272,6 +274,14 @@ int sd_ndisc_router_get_hop_limit(sd_ndisc_router *rt, uint8_t *ret) {
         assert_return(ret, -EINVAL);
 
         *ret = rt->hop_limit;
+        return 0;
+}
+
+int sd_ndisc_router_get_retransmission_time(sd_ndisc_router *rt, uint64_t *ret) {
+        assert_return(rt, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        *ret = rt->retransmission_time_usec;
         return 0;
 }
 
@@ -707,8 +717,12 @@ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret) {
 
                                 e[n] = 0;
                                 r = dns_name_normalize(e, 0, &normalized);
-                                if (r < 0)
-                                        return r;
+                                if (r < 0) {
+                                        _cleanup_free_ char *escaped = cescape(e);
+                                        log_debug_errno(r, "Failed to normalize advertised domain name \"%s\": %m", strna(escaped));
+                                        /* Here, do not propagate error code from dns_name_normalize() except for ENOMEM. */
+                                        return r == -ENOMEM ? -ENOMEM : -EBADMSG;
+                                }
 
                                 /* Ignore the root domain name or "localhost" and friends */
                                 if (!is_localhost(normalized) &&
@@ -744,8 +758,12 @@ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret) {
                         e[n++] = '.';
 
                 r = dns_label_escape((char*) p+1, *p, e + n, DNS_LABEL_ESCAPED_MAX);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        _cleanup_free_ char *escaped = cescape_length((const char*) p+1, *p);
+                        log_debug_errno(r, "Failed to escape advertised domain name \"%s\": %m", strna(escaped));
+                        /* Here, do not propagate error code from dns_label_escape() except for ENOMEM. */
+                        return r == -ENOMEM ? -ENOMEM : -EBADMSG;
+                }
 
                 n += r;
 
