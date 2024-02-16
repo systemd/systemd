@@ -26,6 +26,7 @@ static inline int bind_remount_recursive(const char *prefix, unsigned long new_f
 }
 
 int bind_remount_one_with_mountinfo(const char *path, unsigned long new_flags, unsigned long flags_mask, FILE *proc_self_mountinfo);
+int bind_remount_one(const char *path, unsigned long new_flags, unsigned long flags_mask);
 
 int mount_switch_root_full(const char *path, unsigned long mount_propagation_flag, bool force_ms_move);
 static inline int mount_switch_root(const char *path, unsigned long mount_propagation_flag) {
