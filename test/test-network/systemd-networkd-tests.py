@@ -6603,6 +6603,23 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         self.check_dhcp6_prefix('veth99')
 
+    def test_dhcp6pd_no_assign(self):
+        # Similar to test_dhcp6pd_no_assign(), but in this case UseAddress=yes (default),
+        # However, the server does not provide IA_NA. For issue #31349.
+        copy_network_unit('25-veth.netdev', '25-dhcp6pd-server.network', '25-dhcp6pd-upstream-no-assign.network')
+
+        start_networkd()
+        self.wait_online('veth-peer:routable')
+        start_isc_dhcpd(conf_file='isc-dhcpd-dhcp6pd-no-range.conf', ipv='-6')
+        self.wait_online('veth99:degraded')
+
+        print('### ip -6 address show dev veth99 scope global')
+        output = check_output('ip -6 address show dev veth99 scope global')
+        print(output)
+        self.assertNotIn('inet6 3ffe:501:ffff', output)
+
+        self.check_dhcp6_prefix('veth99')
+
     def test_dhcp6pd(self):
         copy_network_unit('25-veth.netdev', '25-dhcp6pd-server.network', '25-dhcp6pd-upstream.network',
                           '25-veth-downstream-veth97.netdev', '25-dhcp-pd-downstream-veth97.network', '25-dhcp-pd-downstream-veth97-peer.network',
