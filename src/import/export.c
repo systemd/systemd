@@ -14,6 +14,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
+#include "import-common.h"
 #include "import-util.h"
 #include "main-func.h"
 #include "signal-util.h"
@@ -41,12 +42,6 @@ static void determine_compression_from_filename(const char *p) {
                 arg_compress = IMPORT_COMPRESS_BZIP2;
         else
                 arg_compress = IMPORT_COMPRESS_UNCOMPRESSED;
-}
-
-static int interrupt_signal_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        log_notice("Transfer aborted.");
-        sd_event_exit(sd_event_source_get_event(s), EINTR);
-        return 0;
 }
 
 static void on_tar_finished(TarExport *export, int error, void *userdata) {
@@ -101,13 +96,9 @@ static int export_tar(int argc, char *argv[], void *userdata) {
                 log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, strna(pretty), import_compress_type_to_string(arg_compress));
         }
 
-        r = sd_event_default(&event);
+        r = import_allocate_event_with_signals(&event);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate event loop: %m");
-
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT) >= 0);
-        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
-        (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
+                return r;
 
         r = tar_export_new(&export, event, on_tar_finished, event);
         if (r < 0)
@@ -177,13 +168,9 @@ static int export_raw(int argc, char *argv[], void *userdata) {
                 log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, strna(pretty), import_compress_type_to_string(arg_compress));
         }
 
-        r = sd_event_default(&event);
+        r = import_allocate_event_with_signals(&event);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate event loop: %m");
-
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT) >= 0);
-        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
-        (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
+                return r;
 
         r = raw_export_new(&export, event, on_raw_finished, event);
         if (r < 0)
