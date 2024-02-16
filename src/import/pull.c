@@ -213,7 +213,8 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
 
         if (!FLAGS_SET(arg_pull_flags, PULL_SYNC))
                 log_info("File system synchronization on completion is off.");
-         r = raw_pull_new(&pull, event, arg_image_root, on_raw_finished, event);
+
+        r = raw_pull_new(&pull, event, arg_image_root, on_raw_finished, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate puller: %m");
 
@@ -255,7 +256,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --roothash-signature=BOOL\n"
                "                              Download root hash signature file with image\n"
                "     --verity=BOOL            Download verity file with image\n"
-               "     --image-root=PATH        Image root directory\n\n"
+               "     --image-root=PATH        Image root directory\n"
                "     --read-only              Create a read-only image\n"
                "     --direct                 Download directly to specified file\n"
                "     --btrfs-subvol=BOOL      Controls whether to create a btrfs subvolume\n"
@@ -539,8 +540,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         parse_env();
 

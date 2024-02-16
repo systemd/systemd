@@ -160,7 +160,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
 
         fd = open_source(path, normalized, &open_fd);
         if (fd < 0)
-                return r;
+                return fd;
 
         r = import_allocate_event_with_signals(&event);
         if (r < 0)
@@ -475,8 +475,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         parse_env();
 
