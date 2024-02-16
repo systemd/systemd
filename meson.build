@@ -1853,13 +1853,27 @@ xml_helper_py = find_program('tools/xml_helper.py')
 #####################################################################
 
 version_tag = get_option('version-tag')
-version_h = vcs_tag(
-        input : 'src/version/version.h.in',
-        output : 'version.h',
-        command: [project_source_root / 'tools/meson-vcs-tag.sh',
-                  project_source_root,
-                  version_tag,
-                 ])
+if version_tag == ''
+        version_tag = meson.project_version()
+endif
+
+conf.set_quoted('VERSION_TAG', version_tag)
+
+vcs_tag = get_option('vcs-tag')
+if vcs_tag
+        version_h = vcs_tag(
+                input : 'src/version/version.h.in',
+                output : 'version.h',
+                fallback : '',
+                command : ['sh', '-c', 'echo " r$(git rev-parse --short HEAD)"'],
+        )
+else
+        version_h = configure_file(
+                input : 'src/version/version.h.in',
+                output : 'version.h',
+                configuration : configuration_data({'VCS_TAG' : ''}),
+        )
+endif
 
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''

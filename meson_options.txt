@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 option('version-tag', type : 'string',
-       description : 'override the git version string')
+       description : 'set the extended version string (defaults to project version)')
 option('shared-lib-tag', type : 'string',
        description : 'override the private shared library version tag (defaults to project version)')
+option('vcs-tag', type : 'boolean', value : true,
+       description : 'append current git commit to version output when git information is available')
 
 option('mode', type : 'combo', choices : ['developer', 'release'],
        description : 'autoenable features suitable for systemd development/release builds')
