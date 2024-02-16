@@ -20,6 +20,7 @@
 #include "networkd-route-util.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
+#include "sd-network.h"
 #include "sort-util.h"
 #include "udev-util.h"
 #include "user-util.h"
@@ -1076,6 +1077,20 @@ static int dhcp6_client_pd_append_json(Link *link, JsonVariant **v) {
         return json_variant_set_field_non_null(v, "Prefixes", array);
 }
 
+static int dhcp6_client_duid_append_json(Link *link, JsonVariant **v) {
+        _cleanup_free_ char *duid = NULL;
+        int r;
+
+        assert(link);
+        assert(v);
+
+        r = sd_network_link_get_dhcp6_client_duid_string(link->ifindex, &duid);
+        if (r < 0)
+                return r;
+
+        return json_variant_set_field_string(v, "DUID", duid);
+}
+
 static int dhcp6_client_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
         int r;
@@ -1095,6 +1110,10 @@ static int dhcp6_client_append_json(Link *link, JsonVariant **v) {
                 return r;
 
         r = dhcp6_client_vendor_options_append_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_client_duid_append_json(link, &w);
         if (r < 0)
                 return r;
 
