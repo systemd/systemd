@@ -240,6 +240,7 @@ static void mount_done(Unit *u) {
         mount_parameters_done(&m->parameters_fragment);
 
         m->exec_runtime = exec_runtime_free(m->exec_runtime);
+
         exec_command_done_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
         m->control_command = NULL;
 
@@ -815,8 +816,10 @@ static int mount_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(m->deserialized_state, MOUNT_DEAD, MOUNT_FAILED))
+        if (!IN_SET(m->deserialized_state, MOUNT_DEAD, MOUNT_FAILED)) {
                 (void) unit_setup_exec_runtime(u);
+                (void) unit_setup_cgroup_runtime(u);
+        }
 
         mount_set_state(m, m->deserialized_state);
         return 0;
@@ -1332,7 +1335,9 @@ static void mount_cycle_clear(Mount *m) {
         m->result = MOUNT_SUCCESS;
         m->reload_result = MOUNT_SUCCESS;
         exec_command_reset_status_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
-        UNIT(m)->reset_accounting = true;
+
+        if (m->cgroup_runtime)
+                m->cgroup_runtime->reset_accounting = true;
 }
 
 static int mount_start(Unit *u) {
@@ -2448,6 +2453,7 @@ const UnitVTable mount_vtable = {
         .cgroup_context_offset = offsetof(Mount, cgroup_context),
         .kill_context_offset = offsetof(Mount, kill_context),
         .exec_runtime_offset = offsetof(Mount, exec_runtime),
+        .cgroup_runtime_offset = offsetof(Mount, cgroup_runtime),
 
         .sections =
                 "Unit\0"
