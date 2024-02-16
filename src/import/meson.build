@@ -100,6 +100,12 @@ executables += [
                 'link_with' : common_libs,
                 'dependencies' : common_deps,
         },
+        executable_template + {
+                'name' : 'importctl',
+                'public' : true,
+                'conditions' : ['ENABLE_IMPORTD'],
+                'sources' : files('importctl.c'),
+        },
         test_template + {
                 'sources' : files(
                         'test-qcow2.c',
