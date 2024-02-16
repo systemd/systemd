@@ -55,33 +55,33 @@ TEST(config_compress) {
 }
 
 #define _FORWARD_TO_SOCKET_PARSE_CHECK_FAILS(str, addr, varname)             \
-        do {                                                               \
-                SocketAddress varname = {};                                \
+        do {                                                                 \
+                SocketAddress varname = {};                                  \
                 config_parse_forward_to_socket("", "", 0, "", 0, "", 0, str, \
-                                             &varname, NULL);              \
-                assert_se(socket_address_verify(&varname, true) < 0);      \
+                                               &varname, NULL);              \
+                assert_se(socket_address_verify(&varname, true) < 0);        \
         } while (0)
 
 #define FORWARD_TO_SOCKET_PARSE_CHECK_FAILS(str) \
         _FORWARD_TO_SOCKET_PARSE_CHECK_FAILS(str, addr, conf##__COUNTER__)
 
 #define _FORWARD_TO_SOCKET_PARSE_CHECK(str, addr, varname)                   \
-        do {                                                               \
-                SocketAddress varname = {};                                \
+        do {                                                                 \
+                SocketAddress varname = {};                                  \
                 config_parse_forward_to_socket("", "", 0, "", 0, "", 0, str, \
-                                      &varname, NULL);                     \
-                buf = mfree(buf); \
-                buf2 = mfree(buf2); \
-                socket_address_print(&varname, &buf);\
-                socket_address_print(&addr, &buf2);\
+                                               &varname, NULL);              \
+                buf = mfree(buf);                                            \
+                buf2 = mfree(buf2);                                          \
+                socket_address_print(&varname, &buf);                        \
+                socket_address_print(&addr, &buf2);                          \
                 log_info("\"%s\" parsed as \"%s\", should be \"%s\"", str, buf, buf2); \
                 log_info("socket_address_verify(&addr, false) = %d", socket_address_verify(&addr, false)); \
                 log_info("socket_address_verify(&varname, false) = %d", socket_address_verify(&varname, false)); \
                 log_info("socket_address_family(&addr) = %d", socket_address_family(&addr)); \
                 log_info("socket_address_family(&varname) = %d", socket_address_family(&varname)); \
-                log_info("addr.size = %u", addr.size); \
-                log_info("varname.size = %u", varname.size); \
-                assert_se(socket_address_equal(&varname, &addr));          \
+                log_info("addr.size = %u", addr.size);                       \
+                log_info("varname.size = %u", varname.size);                 \
+                assert_se(socket_address_equal(&varname, &addr));            \
         } while (0)
 
 #define FORWARD_TO_SOCKET_PARSE_CHECK(str, addr)                     \
