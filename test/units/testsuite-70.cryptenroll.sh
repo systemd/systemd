@@ -67,6 +67,15 @@ systemd-cryptenroll --unlock-tpm2-device=auto --tpm2-device=auto --wipe-slot=tpm
 # Add PIN to TPM2 enrollment
 NEWPIN=1234 systemd-cryptenroll --unlock-tpm2-device=auto --tpm2-device=auto --tpm2-with-pin=yes "$IMAGE"
 
+# Add PIN to TPM2 enrollment, through systemd-creds
+systemd-run -p SetCredential=NEWPIN:4321 \
+    -p DynamicUser=1 \
+    -E PIN=1234 \
+    --unit=testsuite-70-cryptenroll-creds.service \
+    --wait \
+    systemd-cryptenroll --unlock-tpm2-device=auto --tpm2-device=auto --tpm2-with-pin=yes "$IMAGE"
+PIN=4321 systemd-cryptenroll --unlock-tpm2-device=auto --recovery-key "$IMAGE"
+
 # Change PIN on TPM2 enrollment
 PIN=1234 NEWPIN=4321 systemd-cryptenroll --unlock-tpm2-device=auto --tpm2-device=auto --tpm2-with-pin=yes "$IMAGE"
 PIN=4321 systemd-cryptenroll --unlock-tpm2-device=auto --recovery-key "$IMAGE"
