@@ -1,0 +1,19 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+mkosi-install \
+    systemd \
+    systemd-userdbd \
+    systemd-oomd \
+    systemd-sysv \
+    systemd-tests \
+    systemd-timesyncd \
+    systemd-resolved \
+    systemd-homed \
+    systemd-coredump \
+    systemd-journal-remote \
+    systemd-container \
+    systemd-boot \
+    systemd-ukify \
+    udev
