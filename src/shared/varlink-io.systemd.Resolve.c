@@ -37,7 +37,9 @@ static VARLINK_DEFINE_STRUCT_TYPE(
                 VARLINK_DEFINE_FIELD(priority, VARLINK_INT, 0),
                 VARLINK_DEFINE_FIELD(weight, VARLINK_INT, 0),
                 VARLINK_DEFINE_FIELD(port, VARLINK_INT, 0),
-                VARLINK_DEFINE_FIELD(hostname, VARLINK_STRING, 0));
+                VARLINK_DEFINE_FIELD(hostname, VARLINK_STRING, 0),
+                VARLINK_DEFINE_FIELD(canonicalName, VARLINK_STRING, VARLINK_NULLABLE),
+                VARLINK_DEFINE_FIELD_BY_TYPE(addresses, ResolvedAddress, VARLINK_ARRAY|VARLINK_NULLABLE));
 
 static VARLINK_DEFINE_STRUCT_TYPE(
                 ResolvedCanonical,
@@ -47,17 +49,16 @@ static VARLINK_DEFINE_STRUCT_TYPE(
 
 static VARLINK_DEFINE_METHOD(
                 ResolveService,
-                VARLINK_DEFINE_INPUT(name, VARLINK_STRING, 0),
-                VARLINK_DEFINE_INPUT(type, VARLINK_STRING, 0),
+                VARLINK_DEFINE_INPUT(name, VARLINK_STRING, VARLINK_NULLABLE),
+                VARLINK_DEFINE_INPUT(type, VARLINK_STRING, VARLINK_NULLABLE),
                 VARLINK_DEFINE_INPUT(domain, VARLINK_STRING, 0),
                 VARLINK_DEFINE_INPUT(ifindex, VARLINK_INT, VARLINK_NULLABLE),
                 VARLINK_DEFINE_INPUT(family, VARLINK_INT, VARLINK_NULLABLE),
                 VARLINK_DEFINE_INPUT(flags, VARLINK_INT, VARLINK_NULLABLE),
-                VARLINK_DEFINE_OUTPUT_BY_TYPE(srv, ResolvedService, 0),
-                VARLINK_DEFINE_OUTPUT_BY_TYPE(addr, ResolvedAddress, VARLINK_ARRAY),
-                VARLINK_DEFINE_OUTPUT(txt, VARLINK_STRING, VARLINK_ARRAY),
-                VARLINK_DEFINE_OUTPUT(normalized, VARLINK_STRING, 0),
-                VARLINK_DEFINE_OUTPUT_BY_TYPE(canonical, ResolvedCanonical, 0));
+                VARLINK_DEFINE_OUTPUT_BY_TYPE(services, ResolvedService, VARLINK_ARRAY),
+                VARLINK_DEFINE_OUTPUT(txt, VARLINK_STRING, VARLINK_ARRAY|VARLINK_NULLABLE),
+                VARLINK_DEFINE_OUTPUT_BY_TYPE(canonical, ResolvedCanonical, 0),
+                VARLINK_DEFINE_OUTPUT(flags, VARLINK_INT, 0));
 
 static VARLINK_DEFINE_ERROR(NoNameServers);
 static VARLINK_DEFINE_ERROR(NoSuchResourceRecord);
