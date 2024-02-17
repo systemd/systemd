@@ -149,7 +149,7 @@ Features:
 * varlink: extend varlink IDL macros to include documentation strings
 
 * Introduce a CGroupRef structure, inspired by PidRef. Should contain cgroup
-  path, cgroup id, and cgroup fd. Use it to continously pin all v2 cgroups via
+  path, cgroup id, and cgroup fd. Use it to continuously pin all v2 cgroups via
   a cgroup_ref field in the CGroupRuntime structure. Eventually switch things
   over to do all cgroupfs access only via that structure's fd.
 
