@@ -5266,9 +5266,6 @@ CGroupRuntime *cgroup_runtime_free(CGroupRuntime *crt) {
         set_free(crt->ip_bpf_custom_egress);
         set_free(crt->ip_bpf_custom_egress_installed);
 
-        fdset_free(crt->initial_socket_bind_link_fds);
-        fdset_free(crt->initial_restric_ifaces_link_fds);
-
         free(crt->cgroup_path);
 
         return mfree(crt);

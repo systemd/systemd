@@ -5813,7 +5813,7 @@ int unit_prepare_exec(Unit *u) {
         (void) unit_realize_cgroup(u);
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (crt->reset_accounting) {
+        if (crt && crt->reset_accounting) {
                 (void) unit_reset_accounting(u);
                 crt->reset_accounting = false;
         }
