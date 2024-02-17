@@ -217,9 +217,7 @@
         <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         section "Files and Directories" for the precise search path.</para>
 
-        <para>In place of the directory path a <literal>.v/</literal> versioned directory may be specified, see
-        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details.</para>
+        <xi:include href="vpick.xml" xpointer="directory"/>
 
         <para>If neither <option>--directory=</option>, <option>--image=</option>, nor
         <option>--machine=</option> are specified, the current directory will be used. May not be specified
@@ -317,9 +315,7 @@
         <para>Any other partitions, such as foreign partitions or swap partitions are not mounted. May not be specified
         together with <option>--directory=</option>, <option>--template=</option>.</para>
 
-        <para>In place of the image path a <literal>.v/</literal> versioned directory may be specified, see
-        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details.</para>
+        <xi:include href="vpick.xml" xpointer="image"/>
 
         <xi:include href="version-info.xml" xpointer="v211"/></listitem>
       </varlistentry>

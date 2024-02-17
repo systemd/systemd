@@ -124,9 +124,7 @@
     project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>. For
     details see below.</para>
 
-    <para>In place of the image path a <literal>.v/</literal> versioned directory may be specified, see
-    <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-    details.</para>
+    <xi:include href="vpick.xml" xpointer="image"/>
   </refsect1>
 
   <refsect1>
