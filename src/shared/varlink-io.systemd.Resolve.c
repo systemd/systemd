@@ -41,7 +41,7 @@ static VARLINK_DEFINE_STRUCT_TYPE(
 
 static VARLINK_DEFINE_STRUCT_TYPE(
                 ResolvedCanonical,
-                VARLINK_DEFINE_FIELD(name, VARLINK_STRING, 0),
+                VARLINK_DEFINE_FIELD(name, VARLINK_STRING, VARLINK_NULLABLE),
                 VARLINK_DEFINE_FIELD(type, VARLINK_STRING, 0),
                 VARLINK_DEFINE_FIELD(domain, VARLINK_STRING, 0));
 
