@@ -69,6 +69,7 @@ elif [ -f /run/testsuite82.touch2 ]; then
     test "$(systemctl show -P ActiveState testsuite-82-survive.service)" = "active"
     test "$(systemctl show -P ActiveState testsuite-82-survive-argv.service)" = "active"
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive-sigterm.service)" != "active"
+    # Note: This may be racy and unable to find testsuite-82-nosurvive.service
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive.service)" != "active"
 
     # Test that we really are in the new overlayfs root fs
@@ -79,6 +80,11 @@ elif [ -f /run/testsuite82.touch2 ]; then
 
     # Switch back to the original root, away from the overlayfs
     mount --bind /original-root /run/nextroot
+    # If we need /usr, make the original-root rprivate so we can move /usr
+    if mountpoint -q /original-root/usr; then
+        mount -o remount --make-rprivate /original-root/
+        mount --move /original-root/usr /run/nextroot/usr
+    fi
     mount
 
     # Restart the unit that is not supposed to survive
@@ -133,9 +139,17 @@ elif [ -f /run/testsuite82.touch ]; then
     (! grep -q MARKER=1 /etc/os-release)
 
     mount -t overlay nextroot /run/nextroot -o lowerdir=/tmp/nextroot-lower:/,ro
+    if mountpoint -q /usr; then
+        mount -t overlay nextroot /run/nextroot/usr -o lowerdir=/tmp/nextroot-lower/usr:/usr,ro
+    fi
+    # Bind /var so the next boot can log to journal
+    mount --bind /var /run/nextroot/var
 
     # Bind our current root into the target so that we later can return to it
     mount --bind / /run/nextroot/original-root
+    if mountpoint -q /usr; then
+        mount --bind /usr /run/nextroot/original-root/usr
+    fi
 
     # Restart the unit that is not supposed to survive
     systemd-run --collect --service-type=exec --unit=testsuite-82-nosurvive.service sleep infinity
