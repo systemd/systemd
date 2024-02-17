@@ -23,7 +23,7 @@ typedef struct LookupParametersResolveService {
         const char *domain;
         int family;
         int ifindex;
-        uint64_t in_flags;
+        uint64_t flags;
 } LookupParametersResolveService;
 
 static void lookup_parameters_destroy(LookupParameters *p) {
@@ -577,7 +577,7 @@ static int append_txt(JsonVariant **txt, DnsResourceRecord *rr) {
                 if (i->length <= 0)
                         continue;
 
-                r = json_variant_new_base64(&entry, i->data, i->length);
+                r = json_variant_new_octescape(&entry, i->data, i->length);
                 if (r < 0)
                         return r;
 
@@ -589,20 +589,20 @@ static int append_txt(JsonVariant **txt, DnsResourceRecord *rr) {
         return 1;
 }
 
-static int append_srv(DnsQuery *q,
-                      JsonVariant **ret_srv,
-                      JsonVariant **ret_addr,
-                      char **ret_norm,
-                      DnsResourceRecord *rr) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
-        _cleanup_free_ char *normalized = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *srv = NULL, *addr = NULL;
+static int append_srv(
+                DnsQuery *q,
+                DnsResourceRecord *rr,
+                JsonVariant **array) {
 
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_free_ char *normalized = NULL;
         int r;
 
         assert(q);
         assert(rr);
         assert(rr->key);
+        assert(array);
 
         if (rr->key->type != DNS_TYPE_SRV)
                 return 0;
@@ -651,7 +651,7 @@ static int append_srv(DnsQuery *q,
         if (r < 0)
                 return r;
 
-        r = json_build(&srv,
+        r = json_build(&v,
                        JSON_BUILD_OBJECT(
                                         JSON_BUILD_PAIR("priority", JSON_BUILD_UNSIGNED(rr->srv.priority)),
                                         JSON_BUILD_PAIR("weight", JSON_BUILD_UNSIGNED(rr->srv.weight)),
@@ -660,7 +660,21 @@ static int append_srv(DnsQuery *q,
         if (r < 0)
                 return r;
 
+        if (canonical) {
+                normalized = mfree(normalized);
+
+                r = dns_name_normalize(dns_resource_key_name(canonical->key), 0, &normalized);
+                if (r < 0)
+                        return r;
+
+                r = json_variant_set_field_string(&v, "canonicalName", normalized);
+                if (r < 0)
+                        return r;
+        }
+
         if ((q->flags & SD_RESOLVED_NO_ADDRESS) == 0) {
+                _cleanup_(json_variant_unrefp) JsonVariant *addresses = NULL;
+
                 LIST_FOREACH(auxiliary_queries, aux, q->auxiliary_queries) {
                         DnsQuestion *question;
 
@@ -677,25 +691,21 @@ static int append_srv(DnsQuery *q,
                         if (r == 0)
                                 continue;
 
-                        r = find_addr_records(&addr, question, aux, NULL, NULL);
+                        r = find_addr_records(&addresses, question, aux, NULL, NULL);
                         if (r < 0)
                                 return r;
                 }
-        }
 
-        if (canonical) {
-                normalized = mfree(normalized);
-
-                r = dns_name_normalize(dns_resource_key_name(canonical->key), 0, &normalized);
+                r = json_variant_set_field(&v, "addresses", addresses);
                 if (r < 0)
                         return r;
         }
 
-        *ret_srv = TAKE_PTR(srv);
-        *ret_addr = TAKE_PTR(addr);
-        *ret_norm = TAKE_PTR(normalized);
+        r = json_variant_append_array(array, v);
+        if (r < 0)
+                return r;
 
-        return 1;
+        return 1; /* added */
 }
 
 static Varlink *get_vl_link_aux_query(DnsQuery *aux) {
@@ -710,12 +720,11 @@ static Varlink *get_vl_link_aux_query(DnsQuery *aux) {
 
 static void resolve_service_all_complete(DnsQuery *query) {
         _cleanup_(dns_query_freep) DnsQuery *q = query;
-        _cleanup_(json_variant_unrefp) JsonVariant *srv = NULL, *addr = NULL, *txt = NULL;
-        _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL, *norm = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *srv = NULL, *txt = NULL;
+        _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
         DnsQuestion *question;
         DnsResourceRecord *rr;
-        unsigned added = 0;
         int r;
 
         assert(q);
@@ -782,7 +791,7 @@ static void resolve_service_all_complete(DnsQuery *query) {
                 if (r == 0)
                         continue;
 
-                r = append_srv(q, &srv, &addr, &norm, rr);
+                r = append_srv(q, rr, &srv);
                 if (r < 0)
                         goto finish;
                 if (r == 0) /* not an SRV record */
@@ -790,11 +799,9 @@ static void resolve_service_all_complete(DnsQuery *query) {
 
                 if (!canonical)
                         canonical = dns_resource_record_ref(rr);
-
-                added++;
         }
 
-        if (added <= 0) {
+        if (json_variant_is_blank_object(srv)) {
                 r = varlink_error(query->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
                 goto finish;
         }
@@ -820,14 +827,13 @@ static void resolve_service_all_complete(DnsQuery *query) {
                 goto finish;
 
         r = varlink_replyb(query->varlink_request, JSON_BUILD_OBJECT(
-                                        JSON_BUILD_PAIR("srv", JSON_BUILD_VARIANT(srv)),
-                                        JSON_BUILD_PAIR("addr", JSON_BUILD_VARIANT(addr)),
-                                        JSON_BUILD_PAIR("txt", JSON_BUILD_VARIANT(txt)),
-                                        JSON_BUILD_PAIR("normalized", JSON_BUILD_STRING(norm)),
+                                        JSON_BUILD_PAIR("services", JSON_BUILD_VARIANT(srv)),
+                                        JSON_BUILD_PAIR_CONDITION(!json_variant_is_blank_object(txt), "txt", JSON_BUILD_VARIANT(txt)),
                                         JSON_BUILD_PAIR("canonical", JSON_BUILD_OBJECT(
                                                                         JSON_BUILD_PAIR("name", JSON_BUILD_STRING(name)),
                                                                         JSON_BUILD_PAIR("type", JSON_BUILD_STRING(type)),
-                                                                        JSON_BUILD_PAIR("domain", JSON_BUILD_STRING(domain))))));
+                                                                        JSON_BUILD_PAIR("domain", JSON_BUILD_STRING(domain)))),
+                                        JSON_BUILD_PAIR("flags", JSON_BUILD_UNSIGNED(dns_query_reply_flags_make(query)))));
 
 finish:
         if (r < 0) {
@@ -983,12 +989,12 @@ finish:
 
 static int vl_method_resolve_service(Varlink* link, JsonVariant* parameters, VarlinkMethodFlags flags, void* userdata) {
         static const JsonDispatch dispatch_table[] = {
-                { "name",    JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParametersResolveService, name),     JSON_MANDATORY },
-                { "type",    JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParametersResolveService, type),     JSON_MANDATORY },
-                { "domain",  JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(LookupParametersResolveService, domain),   JSON_MANDATORY },
-                { "ifindex", JSON_VARIANT_UNSIGNED, json_dispatch_int,          offsetof(LookupParametersResolveService, ifindex),  0              },
-                { "family",  JSON_VARIANT_INTEGER,  json_dispatch_int,          offsetof(LookupParametersResolveService, family),   0              },
-                { "flags",   JSON_VARIANT_UNSIGNED, json_dispatch_uint64,       offsetof(LookupParametersResolveService, in_flags), 0              },
+                { "name",    JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(LookupParametersResolveService, name),    0              },
+                { "type",    JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(LookupParametersResolveService, type),    0              },
+                { "domain",  JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(LookupParametersResolveService, domain),  JSON_MANDATORY },
+                { "ifindex", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          offsetof(LookupParametersResolveService, ifindex), 0              },
+                { "family",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          offsetof(LookupParametersResolveService, family),  0              },
+                { "flags",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,       offsetof(LookupParametersResolveService, flags),   0              },
                 {}
         };
 
@@ -1035,18 +1041,21 @@ static int vl_method_resolve_service(Varlink* link, JsonVariant* parameters, Var
         if (r == 0)
                 return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("domain"));
 
-        if (!validate_and_mangle_flags(p.name, &p.in_flags, 0))
+        if (p.name && !p.type) /* Service name cannot be specified without service type. */
+                return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("type"));
+
+        if (!validate_and_mangle_flags(p.name, &p.flags, SD_RESOLVED_NO_TXT|SD_RESOLVED_NO_ADDRESS))
                 return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
 
-        r = dns_question_new_service(&question_utf8, p.name, p.type, p.domain, !(p.in_flags & SD_RESOLVED_NO_TXT), false);
+        r = dns_question_new_service(&question_utf8, p.name, p.type, p.domain, !(p.flags & SD_RESOLVED_NO_TXT), false);
         if (r < 0)
                 return r;
 
-        r = dns_question_new_service(&question_idna, p.name, p.type, p.domain, !(p.in_flags & SD_RESOLVED_NO_TXT), true);
+        r = dns_question_new_service(&question_idna, p.name, p.type, p.domain, !(p.flags & SD_RESOLVED_NO_TXT), true);
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question_utf8, question_idna, NULL, p.ifindex, p.in_flags|SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new(m, &q, question_utf8, question_idna, NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH);
         if (r < 0)
                 return r;
 
