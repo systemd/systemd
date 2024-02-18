@@ -146,6 +146,7 @@ static bool arg_legend = true;
 static void *arg_key = NULL;
 static size_t arg_key_size = 0;
 static EVP_PKEY *arg_private_key = NULL;
+static char *arg_private_key_source = NULL;
 static X509 *arg_certificate = NULL;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_seal_key_handle = 0;
@@ -177,6 +178,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, EVP_PKEY_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, X509_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device_key, freep);
@@ -6806,8 +6808,14 @@ static int help(void) {
                "                          Specify disk image dissection policy\n"
                "     --definitions=DIR    Find partition definitions in specified directory\n"
                "     --key-file=PATH      Key to use when encrypting partitions\n"
-               "     --private-key=PATH   Private key to use when generating verity roothash\n"
-               "                          signatures\n"
+               "     --private-key=PATH|URI\n"
+               "                          Private key to use when generating verity roothash\n"
+               "                          signatures, or an engine or provider specific\n"
+               "                          designation if --private-key-source= is used.\n"
+               "     --private-key-source=file|provider:PROVIDER|engine:ENGINE\n"
+               "                          Specify how to use the --private-key=. Allows to use\n"
+               "                          an OpenSSL engine/provider when generating verity\n"
+               "                          roothash signatures\n"
                "     --certificate=PATH   PEM certificate to use when generating verity\n"
                "                          roothash signatures\n"
                "     --tpm2-device=PATH   Path to TPM2 device node to use\n"
@@ -6857,7 +6865,7 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        _cleanup_free_ char *private_key = NULL, *private_key_uri = NULL;
+        _cleanup_free_ char *private_key = NULL;
 
         enum {
                 ARG_VERSION = 0x100,
@@ -6878,7 +6886,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_KEY_FILE,
                 ARG_PRIVATE_KEY,
-                ARG_PRIVATE_KEY_URI,
+                ARG_PRIVATE_KEY_SOURCE,
                 ARG_CERTIFICATE,
                 ARG_TPM2_DEVICE,
                 ARG_TPM2_DEVICE_KEY,
@@ -6921,7 +6929,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "json",                 required_argument, NULL, ARG_JSON                 },
                 { "key-file",             required_argument, NULL, ARG_KEY_FILE             },
                 { "private-key",          required_argument, NULL, ARG_PRIVATE_KEY          },
-                { "private-key-uri",      required_argument, NULL, ARG_PRIVATE_KEY_URI      },
+                { "private-key-source",   required_argument, NULL, ARG_PRIVATE_KEY_SOURCE   },
                 { "certificate",          required_argument, NULL, ARG_CERTIFICATE          },
                 { "tpm2-device",          required_argument, NULL, ARG_TPM2_DEVICE          },
                 { "tpm2-device-key",      required_argument, NULL, ARG_TPM2_DEVICE_KEY      },
@@ -7115,12 +7123,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_PRIVATE_KEY_URI: {
-                        r = free_and_strdup_warn(&private_key_uri, optarg);
+                case ARG_PRIVATE_KEY_SOURCE:
+                        if (!STARTSWITH_SET(optarg, "file", "provider:", "engine:"))
+                                return log_error_errno(
+                                                SYNTHETIC_ERRNO(EINVAL),
+                                                "Invalid private key source '%s'",
+                                                optarg);
+
+                        r = free_and_strdup_warn(&arg_private_key_source, optarg);
                         if (r < 0)
                                 return r;
                         break;
-                }
 
                 case ARG_CERTIFICATE: {
                         _cleanup_free_ char *cert = NULL;
@@ -7465,12 +7478,7 @@ static int parse_argv(int argc, char *argv[]) {
                         *p = gpt_partition_type_override_architecture(*p, arg_architecture);
         }
 
-        if (private_key && private_key_uri)
-                return log_error_errno(
-                                SYNTHETIC_ERRNO(EINVAL),
-                                "Cannot specify both --private-key= and --private-key-uri=.");
-
-        if (private_key) {
+        if (private_key && (!arg_private_key_source || streq(arg_private_key_source, "file"))) {
                 _cleanup_(erase_and_freep) char *k = NULL;
                 size_t n = 0;
 
@@ -7485,16 +7493,17 @@ static int parse_argv(int argc, char *argv[]) {
                 r = parse_private_key(k, n, &arg_private_key);
                 if (r < 0)
                         return r;
-        } else if (private_key_uri) {
+        } else if (private_key && arg_private_key_source) {
                 /* This must happen after parse_x509_certificate() is called above, otherwise
                  * signing later will get stuck as the parsed private key won't have the
                  * certificate, so this block cannot be inline in ARG_PRIVATE_KEY. */
-                r = openssl_load_key_from_token(private_key_uri, &arg_private_key);
+                r = openssl_load_key_from_token(arg_private_key_source, private_key, &arg_private_key);
                 if (r < 0)
                         return log_error_errno(
                                         r,
-                                        "Failed to load key '%s' from OpenSSL provider: %m",
-                                        private_key);
+                                        "Failed to load key '%s' from OpenSSL key source %s: %m",
+                                        private_key,
+                                        arg_private_key_source);
         }
 
         return 1;

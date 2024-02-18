@@ -355,11 +355,13 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--private-key-uri=</option></term>
+        <term><option>--private-key-source=</option></term>
 
-        <listitem><para>Takes a URI-like string referring to a private key, that will be passed to OpenSSL's
-        "engine" or "provider" logic. Configures the signing key to use when creating verity signature
-        partitions with the <varname>Verity=signature</varname> setting in partition files.</para>
+        <listitem><para>Takes one of <literal>file</literal>, <literal>engine</literal> or
+        <literal>provider</literal>. In the latter two cases, it is followed by the name of a provider or
+        engine, separated by colon, that will be passed to OpenSSL's "engine" or "provider" logic.
+        Configures the signing mechanism to use when creating verity signature partitions with the
+        <varname>Verity=signature</varname> setting in partition files.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
@@ -662,7 +664,7 @@ VERSION_ID=38
 IMAGE_ID=my-foo
 IMAGE_VERSION=7
 EOF
-systemd-repart --make-ddi=sysext --private-key-uri="pkcs11:model=PKCS%2315%20emulated;manufacturer=piv_II;serial=0123456789abcdef;token=Some%20Cert" --certificate=cert.crt -s tree/ /var/lib/extensions/my-foo.sysext.raw
+systemd-repart --make-ddi=sysext --private-key-source=engine:pkcs11 --private-key="pkcs11:model=PKCS%2315%20emulated;manufacturer=piv_II;serial=0123456789abcdef;token=Some%20Cert" --certificate=cert.crt -s tree/ /var/lib/extensions/my-foo.sysext.raw
 systemd-sysext refresh</programlisting>
 
       <para>The DDI generated that way may be applied to the system with
