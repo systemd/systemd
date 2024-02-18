@@ -168,11 +168,24 @@ static int radv_send_router(sd_radv *ra, const struct in6_addr *dst, usec_t life
                 dst_addr.sin6_addr = *dst;
 
         adv.nd_ra_type = ND_ROUTER_ADVERT;
-        adv.nd_ra_curhoplimit = ra->hop_limit;
-        adv.nd_ra_retransmit = usec_to_be32_msec(ra->retransmit_usec);
-        adv.nd_ra_flags_reserved = ra->flags;
         assert_cc(RADV_MAX_ROUTER_LIFETIME_USEC <= UINT16_MAX * USEC_PER_SEC);
         adv.nd_ra_router_lifetime = usec_to_be16_sec(lifetime_usec);
+
+        if (lifetime_usec == 0) {
+                iov[msg.msg_iovlen++] = IOVEC_MAKE(&adv, sizeof(adv));
+
+                if (!ether_addr_is_null(&ra->mac_addr))
+                        iov[msg.msg_iovlen++] = IOVEC_MAKE(&opt_mac, sizeof(opt_mac));
+
+                if (sendmsg(ra->fd_router, &msg, 0) < 0)
+                        return -errno;
+
+                return 0;
+        }
+
+        adv.nd_ra_flags_reserved = ra->flags;
+        adv.nd_ra_curhoplimit = ra->hop_limit;
+        adv.nd_ra_retransmit = usec_to_be32_msec(ra->retransmit_usec);
         iov[msg.msg_iovlen++] = IOVEC_MAKE(&adv, sizeof(adv));
 
         /* MAC address is optional, either because the link does not use L2
