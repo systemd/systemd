@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "hexdecoct.h"
 #include "icmp6-util-unix.h"
+#include "ndisc-neighbor-internal.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -20,7 +21,7 @@ static struct ether_addr mac_addr = {
         .ether_addr_octet = { 0x78, 0x2b, 0xcb, 0xb3, 0x6d, 0x53 }
 };
 
-static bool test_stopped;
+static bool test_stopped, ra_received_on_stop;
 static struct {
         struct in6_addr address;
         unsigned char prefixlen;
@@ -316,6 +317,20 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
         buflen = next_datagram_size_fd(fd);
         assert_se(buflen >= 0);
+
+        if (ra_received_on_stop) {
+                _cleanup_(sd_ndisc_neighbor_unrefp) sd_ndisc_neighbor *na = NULL;
+
+                assert_se(na = ndisc_neighbor_new(buflen));
+                assert_se(read(fd, NDISC_NEIGHBOR_RAW(na), na->raw_size) == buflen);
+                assert_se(ndisc_neighbor_parse(NULL, na) >= 0);
+
+                assert_se(!sd_ndisc_neighbor_is_router(na));
+
+                assert_se(sd_event_exit(sd_radv_get_event(ra), 0) >= 0);
+                return 0;
+        }
+
         assert_se(buf = new0(uint8_t, buflen));
 
         assert_se(read(test_router_fd[0], buf, buflen) == buflen);
@@ -323,10 +338,8 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         dump_message(buf, buflen);
         verify_message(buf, buflen);
 
-        if (test_stopped) {
-                assert_se(sd_event_exit(sd_radv_get_event(ra), 0) >= 0);
-                return 0;
-        }
+        if (test_stopped)
+                ra_received_on_stop = true;
 
         assert_se(sd_radv_stop(ra) >= 0);
         test_stopped = true;
