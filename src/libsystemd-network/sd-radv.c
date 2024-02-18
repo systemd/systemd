@@ -25,6 +25,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sysctl-util.h"
 #include "unaligned.h"
 
 int sd_radv_new(sd_radv **ret) {
@@ -86,8 +87,25 @@ int sd_radv_is_running(sd_radv *ra) {
         return ra->state != RADV_STATE_IDLE;
 }
 
+static void radv_set_forwarding(sd_radv *ra, bool enable) {
+        int r;
+
+        assert(ra);
+
+        if (isempty(ra->ifname))
+                return;
+
+        r = sysctl_write_ip_property_boolean(AF_INET6, ra->ifname, "forwarding", enable);
+        if (r < 0 && r != -ENOENT)
+                log_radv_errno(ra, r, "Failed to %s IPv6 forwarding, ignoring: %m", enable_disable(enable));
+}
+
 static void radv_reset(sd_radv *ra) {
         assert(ra);
+
+        /* We will not receive any Router Solicitation. Disable forwarding attribute to make the kernel send
+         * Neighbor Advertisement messages with the IsRouter flag unset. */
+        radv_set_forwarding(ra, /* enable = */ false);
 
         (void) event_source_disable(ra->timeout_event_source);
 
@@ -397,6 +415,56 @@ fail:
         return 0;
 }
 
+static int radv_send_neighbor(
+                sd_radv *ra,
+                const struct in6_addr *dst,
+                uint32_t flags) {
+
+        assert(ra);
+
+        struct sockaddr_in6 dst_addr = {
+                .sin6_family = AF_INET6,
+                .sin6_addr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
+        };
+        struct nd_neighbor_advert adv = {
+                .nd_na_type = ND_NEIGHBOR_ADVERT,
+                .nd_na_flags_reserved = flags,
+                .nd_na_target = ra->address,
+        };
+        struct {
+                struct nd_opt_hdr opthdr;
+                struct ether_addr tlladdr;
+        } _packed_ opt_mac = {
+                .opthdr = {
+                        .nd_opt_type = ND_OPT_TARGET_LINKADDR,
+                        .nd_opt_len = DIV_ROUND_UP(sizeof(struct nd_opt_hdr) + sizeof(struct ether_addr), 8),
+                },
+                .tlladdr = ra->mac_addr,
+        };
+        /* Reserve iov space for RA header and target linkaddr. */
+        struct iovec iov[2];
+        struct msghdr msg = {
+                .msg_name = &dst_addr,
+                .msg_namelen = sizeof(dst_addr),
+                .msg_iov = iov,
+        };
+
+        assert(ra);
+
+        if (dst && in6_addr_is_set(dst))
+                dst_addr.sin6_addr = *dst;
+
+        iov[msg.msg_iovlen++] = IOVEC_MAKE(&adv, sizeof(adv));
+
+        if (!ether_addr_is_null(&ra->mac_addr))
+                iov[msg.msg_iovlen++] = IOVEC_MAKE(&opt_mac, sizeof(opt_mac));
+
+        if (sendmsg(ra->fd, &msg, 0) < 0)
+                return -errno;
+
+        return 0;
+}
+
 int sd_radv_stop(sd_radv *ra) {
         int r;
 
@@ -414,6 +482,13 @@ int sd_radv_stop(sd_radv *ra) {
         r = radv_send_router_on_stop(ra);
         if (r < 0)
                 log_radv_errno(ra, r, "Unable to send last Router Advertisement with router lifetime set to zero, ignoring: %m");
+
+        /* RFC 4861, Section 6.2.5:
+         * In addition, the host MUST ensure that subsequent Neighbor Advertisement messages sent from the
+         * interface have the Router flag set to zero. */
+        r = radv_send_neighbor(ra, NULL, ND_NA_FLAG_OVERRIDE);
+        if (r < 0)
+                log_radv_errno(ra, r, "Unable to send last Neighbor Advertisement without the router flag, ignoring: %m");
 
         radv_reset(ra);
         ra->fd = safe_close(ra->fd);
@@ -472,6 +547,9 @@ int sd_radv_start(sd_radv *ra) {
         if (r < 0)
                 goto fail;
 
+        /* To make the kernel send Neighbor Advertisement messages with the IsRouter flag set. */
+        radv_set_forwarding(ra, /* enable = */ true);
+
         ra->state = RADV_STATE_ADVERTISING;
 
         log_radv(ra, "Started IPv6 Router Advertisement daemon");
@@ -521,16 +599,59 @@ int sd_radv_get_ifname(sd_radv *ra, const char **ret) {
         return 0;
 }
 
+int sd_radv_set_address(sd_radv *ra, const struct in6_addr *addr) {
+        bool updated;
+        int r;
+
+        assert_return(ra, -EINVAL);
+        assert_return(addr, -EINVAL);
+        assert_return(in6_addr_is_link_local(addr), -EINVAL);
+
+        ra->address = *addr;
+
+        updated = in6_addr_equal(addr, &ra->address);
+        ra->address = *addr;
+
+        if (ra->state == RADV_STATE_IDLE)
+                return 0;
+
+        if (!updated)
+                return 0;
+
+        r = radv_send_neighbor(ra, NULL, ND_NA_FLAG_ROUTER | ND_NA_FLAG_OVERRIDE);
+        if (r < 0)
+                log_radv_errno(ra, r, "Unable to send Neighbor Advertisement for updated router address, ignoring: %m");
+        else
+                log_radv(ra, "Sent Neighbor Advertisement for updated router address.");
+
+        return 0;
+}
+
 int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr) {
+        bool updated;
+        int r;
+
         assert_return(ra, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
-        if (mac_addr)
+        if (mac_addr) {
+                updated = ether_addr_equal(mac_addr, &ra->mac_addr);
                 ra->mac_addr = *mac_addr;
-        else
+        } else {
+                updated = !ether_addr_is_null(&ra->mac_addr);
                 zero(ra->mac_addr);
+        }
+
+        if (ra->state == RADV_STATE_IDLE)
+                return 0;
+
+        if (!updated)
+                return 0;
+
+        r = radv_send_neighbor(ra, NULL, ND_NA_FLAG_ROUTER | ND_NA_FLAG_OVERRIDE);
+        if (r < 0)
+                log_radv_errno(ra, r, "Unable to send Neighbor Advertisement for updated link-layer address, ignoring: %m");
+        else
+                log_radv(ra, "Sent Neighbor Advertisement for updated link-layer address.");
 
         return 0;
 }
