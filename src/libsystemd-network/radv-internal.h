@@ -102,6 +102,7 @@ struct sd_radv {
         sd_event *event;
         int event_priority;
 
+        struct in6_addr address;
         struct ether_addr mac_addr;
         uint8_t hop_limit;
         uint8_t flags;
@@ -113,6 +114,9 @@ struct sd_radv {
         unsigned ra_sent;
         sd_event_source *recv_router_event_source;
         sd_event_source *timeout_event_source;
+
+        int fd_neighbor;
+        sd_event_source *recv_neighbor_event_source;
 
         unsigned n_prefixes;
         LIST_HEAD(sd_radv_prefix, prefixes);
