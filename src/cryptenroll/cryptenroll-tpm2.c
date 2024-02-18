@@ -75,8 +75,8 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
         assert(ret_pin_str);
         assert(ret_flags);
 
-        // try to get the pin from systemd-creds
-        r = read_credential("NEWPIN", (void**) &pin_str, NULL);
+        /* try to get the pin from systemd-creds */
+        r = read_credential("TPM2_PIN", (void**) &pin_str, NULL);
         if (r > 0)
                 flags |= TPM2_FLAGS_USE_PIN;
         else {
