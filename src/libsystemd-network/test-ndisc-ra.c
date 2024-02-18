@@ -294,8 +294,13 @@ static void verify_message(const uint8_t *buf, size_t len) {
         /* verify only up to known options, rest is not yet implemented */
         for (size_t i = 0, m = MIN(len, sizeof(advertisement)); i < m; i++) {
                 if (test_stopped)
+                        /* on stop, many header fields are zero */
                         switch (i) {
-                        case 6 ... 7: /* router lifetime must be zero on stop. */
+                        case 4: /* hop limit */
+                        case 5: /* flags */
+                        case 6 ... 7: /* router lifetime */
+                        case 8 ... 11: /* reachable time */
+                        case 12 ... 15: /* retrans timer */
                                 assert_se(buf[i] == 0);
                                 continue;
                         }
