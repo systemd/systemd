@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "hexdecoct.h"
 #include "icmp6-util-unix.h"
+#include "ndisc-neighbor-internal.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -20,7 +21,7 @@ static struct ether_addr mac_addr = {
         .ether_addr_octet = { 0x78, 0x2b, 0xcb, 0xb3, 0x6d, 0x53 }
 };
 
-static bool test_stopped;
+static bool test_stopped, ra_received_on_stop, na_received_on_stop;
 static struct {
         struct in6_addr address;
         unsigned char prefixlen;
@@ -324,6 +325,10 @@ static int radv_recv_ra(sd_event_source *s, int fd, uint32_t revents, void *user
         verify_ra_message(buf, buflen);
 
         if (test_stopped) {
+                ra_received_on_stop = true;
+                if (!na_received_on_stop)
+                        return 0;
+
                 assert_se(sd_event_exit(sd_radv_get_event(ra), 0) >= 0);
                 return 0;
         }
@@ -333,12 +338,39 @@ static int radv_recv_ra(sd_event_source *s, int fd, uint32_t revents, void *user
         return 0;
 }
 
+static int radv_recv_na(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        sd_radv *ra = ASSERT_PTR(userdata);
+        _cleanup_(sd_ndisc_neighbor_unrefp) sd_ndisc_neighbor *na = NULL;
+        ssize_t buflen;
+
+        buflen = next_datagram_size_fd(fd);
+        assert_se(buflen >= 0);
+        assert_se(na = ndisc_neighbor_new(buflen));
+        assert_se(read(fd, NDISC_NEIGHBOR_RAW(na), na->raw_size) == buflen);
+        assert_se(ndisc_neighbor_parse(NULL, na) >= 0);
+
+        assert_se(sd_ndisc_neighbor_is_router(na) == !test_stopped);
+
+        if (test_stopped) {
+                na_received_on_stop = true;
+                if (!ra_received_on_stop)
+                        return 0;
+                assert_se(sd_event_exit(sd_radv_get_event(ra), 0) >= 0);
+                return 0;
+        }
+
+        return 0;
+}
+
 TEST(ra) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *recv_router_advertisement = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source
+                *recv_router_advertisement = NULL,
+                *recv_neighbor_advertisement = NULL;
         _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;
 
         assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_router_fd) >= 0);
+        assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_neighbor_fd) >= 0);
 
         assert_se(sd_event_new(&e) >= 0);
 
@@ -379,6 +411,9 @@ TEST(ra) {
 
         assert_se(sd_event_add_io(e, &recv_router_advertisement, test_router_fd[0], EPOLLIN, radv_recv_ra, ra) >= 0);
         assert_se(sd_event_source_set_io_fd_own(recv_router_advertisement, true) >= 0);
+
+        assert_se(sd_event_add_io(e, &recv_neighbor_advertisement, test_neighbor_fd[0], EPOLLIN, radv_recv_na, ra) >= 0);
+        assert_se(sd_event_source_set_io_fd_own(recv_neighbor_advertisement, true) >= 0);
 
         assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              2 * USEC_PER_SEC, 0,
