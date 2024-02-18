@@ -7,7 +7,9 @@
 #include "icmp6-util-unix.h"
 
 send_ra_t send_ra_function = NULL;
-int test_fd[2] = EBADF_PAIR;
+send_na_t send_na_function = NULL;
+int test_router_fd[2] = EBADF_PAIR;
+int test_neighbor_fd[2] = EBADF_PAIR;
 
 static struct in6_addr dummy_link_local = {
         .s6_addr = {
@@ -16,22 +18,36 @@ static struct in6_addr dummy_link_local = {
         },
 };
 
-int icmp6_bind_router_solicitation(int ifindex) {
-        if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)
+int icmp6_bind_router_advertisement(int ifindex) {
+        if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_router_fd) < 0)
                 return -errno;
 
-        return test_fd[0];
+        return test_router_fd[0];
 }
 
-int icmp6_bind_router_advertisement(int ifindex) {
-        return test_fd[1];
+int icmp6_bind_router_solicitation(int ifindex) {
+        return test_router_fd[1];
+}
+
+int icmp6_bind_neighbor_advertisement(int ifindex) {
+        if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_neighbor_fd) < 0)
+                return -errno;
+
+        return test_neighbor_fd[0];
+}
+
+int icmp6_bind_neighbor_solicitation(int ifindex) {
+        return test_neighbor_fd[1];
 }
 
 int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
-        if (!send_ra_function)
-                return 0;
+        if (send_ra_function)
+                return send_ra_function(0);
 
-        return send_ra_function(0);
+        if (send_na_function)
+                return send_na_function(0);
+
+        return 0;
 }
 
 int icmp6_receive(
