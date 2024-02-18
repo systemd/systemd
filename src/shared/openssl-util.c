@@ -1366,38 +1366,19 @@ static int load_key_from_engine(const char *engine, const char *private_key_uri,
         return 0;
 }
 
-int openssl_load_key_from_token(const char *private_key_uri, EVP_PKEY **ret) {
-        _cleanup_free_ char *provider = NULL;
-        const char *colon, *e;
-        int r;
+int openssl_load_key_from_token(const char *private_key_source, const char *private_key, EVP_PKEY **ret) {
+        assert(private_key_source);
+        assert(private_key);
 
-        assert(private_key_uri);
+        const char *engine = startswith(private_key_source, "engine:");
+        if (engine)
+                return load_key_from_engine(engine, private_key, ret);
 
-        colon = strchr(private_key_uri, ':');
-        if (!colon)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid URI '%s'", private_key_uri);
+        const char *provider = startswith(private_key_source, "provider:");
+        if (provider)
+                return load_key_from_provider(provider, private_key, ret);
 
-        provider = strndup(private_key_uri, colon - private_key_uri);
-        if (!provider)
-                return log_oom_debug();
-
-        e = secure_getenv("SYSTEMD_OPENSSL_KEY_LOADER");
-        if (e) {
-                if (streq(e, "provider"))
-                        r = load_key_from_provider(provider, private_key_uri, ret);
-                else if (streq(e, "engine"))
-                        r = load_key_from_engine(provider, private_key_uri, ret);
-                else
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value for SYSTEMD_OPENSSL_KEY_LOADER: %s", e);
-        } else {
-                r = load_key_from_provider(provider, private_key_uri, ret);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to load key from provider '%s', falling back to engine", provider);
-                        r = load_key_from_engine(provider, private_key_uri, ret);
-                }
-        }
-
-        return r;
+        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid key source '%s'", private_key_source);
 }
 #endif
 
