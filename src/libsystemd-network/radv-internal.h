@@ -109,9 +109,9 @@ struct sd_radv {
         usec_t retransmit_usec;
         usec_t lifetime_usec; /* timespan */
 
-        int fd;
+        int fd_router;
         unsigned ra_sent;
-        sd_event_source *recv_event_source;
+        sd_event_source *recv_router_event_source;
         sd_event_source *timeout_event_source;
 
         unsigned n_prefixes;
