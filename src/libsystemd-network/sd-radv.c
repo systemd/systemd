@@ -128,6 +128,44 @@ static bool router_lifetime_is_valid(usec_t lifetime_usec) {
                  lifetime_usec <= RADV_MAX_ROUTER_LIFETIME_USEC);
 }
 
+static int radv_send_router_on_stop(sd_radv *ra) {
+        assert(ra);
+
+        struct sockaddr_in6 dst_addr = {
+                .sin6_family = AF_INET6,
+                .sin6_addr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
+        };
+        static const struct nd_router_advert adv = {
+                .nd_ra_type = ND_ROUTER_ADVERT,
+        };
+        struct {
+                struct nd_opt_hdr opthdr;
+                struct ether_addr slladdr;
+        } _packed_ opt_mac = {
+                .opthdr = {
+                        .nd_opt_type = ND_OPT_SOURCE_LINKADDR,
+                        .nd_opt_len = DIV_ROUND_UP(sizeof(struct nd_opt_hdr) + sizeof(struct ether_addr), 8),
+                },
+                .slladdr = ra->mac_addr,
+        };
+        struct iovec iov[2];
+        struct msghdr msg = {
+                .msg_name = &dst_addr,
+                .msg_namelen = sizeof(dst_addr),
+                .msg_iov = iov,
+        };
+
+        iov[msg.msg_iovlen++] = IOVEC_MAKE(&adv, sizeof(adv));
+
+        if (!ether_addr_is_null(&ra->mac_addr))
+                iov[msg.msg_iovlen++] = IOVEC_MAKE(&opt_mac, sizeof(opt_mac));
+
+        if (sendmsg(ra->fd, &msg, 0) < 0)
+                return -errno;
+
+        return 0;
+}
+
 static int radv_send_router(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_usec) {
         assert(ra);
         assert(router_lifetime_is_valid(lifetime_usec));
@@ -362,7 +400,7 @@ int sd_radv_stop(sd_radv *ra) {
         /* RFC 4861, Section 6.2.5:
          * the router SHOULD transmit one or more (but not more than MAX_FINAL_RTR_ADVERTISEMENTS) final
          * multicast Router Advertisements on the interface with a Router Lifetime field of zero. */
-        r = radv_send_router(ra, NULL, 0);
+        r = radv_send_router_on_stop(ra);
         if (r < 0)
                 log_radv_errno(ra, r, "Unable to send last Router Advertisement with router lifetime set to zero, ignoring: %m");
 
