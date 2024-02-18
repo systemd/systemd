@@ -5223,8 +5223,8 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         output = resolvectl('dns', 'veth99')
         print(output)
-        self.assertRegex(output, 'fe80::')
-        self.assertRegex(output, '2002:da8:1::1')
+        self.assertIn('fe80::', output)
+        self.assertIn('2002:da8:1::1', output)
 
         output = resolvectl('domain', 'veth99')
         print(output)
@@ -5242,6 +5242,26 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.check_nftset('network6', '2002:da8:1::/64')
         self.check_nftset('network6', '2002:da8:2::/64')
         self.check_nftset('ifindex', 'veth99')
+
+        # Stop radv on veth-peer. On stopping, radv sends NA message without the Router flag.
+        # Then, nodes (in this case, veth99) that receive the NA will drop the configurations
+        # based on the RAs sent from the router. See issue #28421.
+        with open(os.path.join(network_unit_dir, '25-ipv6-prefix.network'), mode='a', encoding='utf-8') as f:
+            f.write('[Network]\nIPv6SendRA=no\n')
+
+        networkctl_reload()
+        self.wait_online('veth99:degraded', 'veth-peer:degraded')
+
+        self.wait_address_dropped('veth99', '2002:da8:1:0', ipv='-6', timeout_sec=10)
+
+        output = resolvectl('dns', 'veth99')
+        print(output)
+        self.assertNotIn('fe80::', output)
+        self.assertNotIn('2002:da8:1::1', output)
+
+        output = resolvectl('domain', 'veth99')
+        print(output)
+        self.assertNotIn('hogehoge.test', output)
 
         self.teardown_nftset('addr6', 'network6', 'ifindex')
 
