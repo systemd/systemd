@@ -14,6 +14,7 @@
 #include "random-util.h"
 #include "sha256.h"
 #include "tpm2-util.h"
+#include "creds-util.h"
 
 static int search_policy_hash(
                 struct crypt_device *cd,
@@ -74,55 +75,61 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
         assert(ret_pin_str);
         assert(ret_flags);
 
-        r = getenv_steal_erase("NEWPIN", &pin_str);
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire PIN from environment: %m");
+        /* try to get the pin from systemd-creds */
+        r = read_credential("TPM2_PIN", (void**) &pin_str, NULL);
         if (r > 0)
                 flags |= TPM2_FLAGS_USE_PIN;
         else {
-                for (size_t i = 5;; i--) {
-                        _cleanup_strv_free_erase_ char **pin = NULL, **pin2 = NULL;
+                r = getenv_steal_erase("NEWPIN", &pin_str);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire PIN from environment: %m");
+                if (r > 0)
+                        flags |= TPM2_FLAGS_USE_PIN;
+                else {
+                        for (size_t i = 5;; i--) {
+                                _cleanup_strv_free_erase_ char **pin = NULL, **pin2 = NULL;
 
-                        if (i <= 0)
-                                return log_error_errno(
-                                                SYNTHETIC_ERRNO(ENOKEY), "Too many attempts, giving up.");
+                                if (i <= 0)
+                                        return log_error_errno(
+                                                        SYNTHETIC_ERRNO(ENOKEY), "Too many attempts, giving up.");
 
-                        pin = strv_free_erase(pin);
-                        r = ask_password_auto(
-                                        "Please enter TPM2 PIN:",
-                                        "drive-harddisk",
-                                        NULL,
-                                        "tpm2-pin",
-                                        "cryptenroll.tpm2-pin",
-                                        USEC_INFINITY,
-                                        0,
-                                        &pin);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to ask for user pin: %m");
-                        assert(strv_length(pin) == 1);
+                                pin = strv_free_erase(pin);
+                                r = ask_password_auto(
+                                                "Please enter TPM2 PIN:",
+                                                "drive-harddisk",
+                                                NULL,
+                                                "tpm2-pin",
+                                                "cryptenroll.tpm2-pin",
+                                                USEC_INFINITY,
+                                                0,
+                                                &pin);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to ask for user pin: %m");
+                                assert(strv_length(pin) == 1);
 
-                        r = ask_password_auto(
-                                        "Please enter TPM2 PIN (repeat):",
-                                        "drive-harddisk",
-                                        NULL,
-                                        "tpm2-pin",
-                                        "cryptenroll.tpm2-pin",
-                                        USEC_INFINITY,
-                                        0,
-                                        &pin2);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to ask for user pin: %m");
-                        assert(strv_length(pin) == 1);
+                                r = ask_password_auto(
+                                                "Please enter TPM2 PIN (repeat):",
+                                                "drive-harddisk",
+                                                NULL,
+                                                "tpm2-pin",
+                                                "cryptenroll.tpm2-pin",
+                                                USEC_INFINITY,
+                                                0,
+                                                &pin2);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to ask for user pin: %m");
+                                assert(strv_length(pin) == 1);
 
-                        if (strv_equal(pin, pin2)) {
-                                pin_str = strdup(*pin);
-                                if (!pin_str)
-                                        return log_oom();
-                                flags |= TPM2_FLAGS_USE_PIN;
-                                break;
+                                if (strv_equal(pin, pin2)) {
+                                        pin_str = strdup(*pin);
+                                        if (!pin_str)
+                                                return log_oom();
+                                        flags |= TPM2_FLAGS_USE_PIN;
+                                        break;
+                                }
+
+                                log_error("PINs didn't match, please try again!");
                         }
-
-                        log_error("PINs didn't match, please try again!");
                 }
         }
 

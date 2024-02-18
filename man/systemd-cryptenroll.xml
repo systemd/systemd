@@ -549,6 +549,9 @@
         project='mankier'><refentrytitle>tpm2_dictionarylockout</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         commands, respectively.</para>
 
+        <para>Note as well that the new pin can be provided through the TPM2_PIN system-cred. Otherwise it
+        will be interactively requested.</para>
+
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
