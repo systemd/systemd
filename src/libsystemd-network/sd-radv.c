@@ -129,6 +129,30 @@ static bool router_lifetime_is_valid(usec_t lifetime_usec) {
                  lifetime_usec <= RADV_MAX_ROUTER_LIFETIME_USEC);
 }
 
+static int radv_send_router_on_stop(sd_radv *ra) {
+        static const struct nd_router_advert adv = {
+                .nd_ra_type = ND_ROUTER_ADVERT,
+        };
+
+        _cleanup_set_free_ Set *options = NULL;
+        usec_t time_now;
+        int r;
+
+        assert(ra);
+
+        r = sd_event_now(ra->event, CLOCK_BOOTTIME, &time_now);
+        if (r < 0)
+                return r;
+
+        if (!ether_addr_is_null(&ra->mac_addr)) {
+                r = ndisc_option_set_link_layer_address(&options, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, &ra->mac_addr);
+                if (r < 0)
+                        return r;
+        }
+
+        return ndisc_send(ra->fd, &IN6_ADDR_ALL_NODES_MULTICAST, &adv.nd_ra_hdr, options, time_now);
+}
+
 static int radv_send_router(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_usec) {
         assert(ra);
         assert(router_lifetime_is_valid(lifetime_usec));
@@ -362,7 +386,7 @@ int sd_radv_stop(sd_radv *ra) {
         /* RFC 4861, Section 6.2.5:
          * the router SHOULD transmit one or more (but not more than MAX_FINAL_RTR_ADVERTISEMENTS) final
          * multicast Router Advertisements on the interface with a Router Lifetime field of zero. */
-        r = radv_send_router(ra, NULL, 0);
+        r = radv_send_router_on_stop(ra);
         if (r < 0)
                 log_radv_errno(ra, r, "Unable to send last Router Advertisement with router lifetime set to zero, ignoring: %m");
 
