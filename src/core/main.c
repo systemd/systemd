@@ -3011,16 +3011,16 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to redirect standard streams to /dev/null, ignoring: %m");
 
-                /* Load the kernel modules early. */
-                if (!skip_setup)
-                        (void) kmod_setup();
-
                 /* Mount /proc, /sys and friends, so that /proc/cmdline and /proc/$PID/fd is available. */
                 r = mount_setup(loaded_policy, skip_setup);
                 if (r < 0) {
                         error_message = "Failed to mount API filesystems";
                         goto finish;
                 }
+
+                /* Load the kernel modules early. */
+                if (!skip_setup)
+                        (void) kmod_setup();
 
                 /* The efivarfs is now mounted, let's lock down the system token. */
                 lock_down_efi_variables();
