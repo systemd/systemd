@@ -675,6 +675,7 @@ EOF
                            -U \
                            --user=testuser \
                            --bind=/tmp/owneridmap/bind:/home/testuser:owneridmap \
+                           ${COVERAGE_BUILD_DIR:+--bind="$COVERAGE_BUILD_DIR"} \
                            /usr/bin/bash -c "$cmd" |& tee nspawn.out; then
         if grep -q "Failed to map ids for bind mount.*: Function not implemented" nspawn.out; then
             echo "idmapped mounts are not supported, skipping the test..."
