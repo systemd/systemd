@@ -5,6 +5,8 @@ set -o pipefail
 
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
 
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
@@ -25,6 +27,7 @@ at_exit() {
     done < <(find "${IMAGE_DIR}" -mindepth 1 -maxdepth 1 -type d)
 
     rm -rf "$IMAGE_DIR"
+    maybe_umount_usr_overlay
 }
 
 trap at_exit EXIT
@@ -98,6 +101,9 @@ else
     echo "Unexpected uname -m: $machine in testsuite-50.sh, please fix me"
     exit 1
 fi
+
+# Needed for /usr/share/symlink-test
+maybe_mount_usr_overlay
 
 udevadm control --log-level=debug
 
