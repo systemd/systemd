@@ -294,10 +294,11 @@ int sd_ndisc_router_get_flags(sd_ndisc_router *rt, uint64_t *ret) {
 
 int sd_ndisc_router_get_lifetime(sd_ndisc_router *rt, uint64_t *ret) {
         assert_return(rt, -EINVAL);
-        assert_return(ret, -EINVAL);
 
-        *ret = rt->lifetime_usec;
-        return 0;
+        if (ret)
+                *ret = rt->lifetime_usec;
+
+        return rt->lifetime_usec > 0; /* Indicate if the router is still valid or not. */
 }
 
 int sd_ndisc_router_get_preference(sd_ndisc_router *rt, unsigned *ret) {
