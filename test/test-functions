@@ -47,13 +47,9 @@ KERNEL_VER="${KERNEL_VER-$(uname -r)}"
 QEMU_TIMEOUT="${QEMU_TIMEOUT:-1800}"
 NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-1800}"
 TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
+get_bool "$LOOKS_LIKE_SUSE" && FSTYPE="${FSTYPE:-btrfs}" || FSTYPE="${FSTYPE:-ext4}"
 UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
 EFI_MOUNT="${EFI_MOUNT:-$(bootctl -x 2>/dev/null || echo /boot)}"
-if get_bool "$LOOKS_LIKE_SUSE" || get_bool "$LOOKS_LIKE_ARCH"; then
-    FSTYPE="${FSTYPE:-btrfs}"
-else
-    FSTYPE="${FSTYPE:-ext4}"
-fi
 # Note that defining a different IMAGE_NAME in a test setup script will only result
 # in default.img being copied and renamed. It can then be extended by defining
 # a test_append_files() function. The $1 parameter will be the root directory.
