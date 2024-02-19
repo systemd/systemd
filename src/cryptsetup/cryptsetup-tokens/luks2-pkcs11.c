@@ -157,7 +157,7 @@ static int acquire_luks2_key_systemd(
         assert(params);
 
         data.friendly_name = params->friendly_name;
-        data.headless = params->headless;
+        data.askpw_credential = params->askpw_credential;
         data.askpw_flags = params->askpw_flags;
         data.until = params->until;
 
