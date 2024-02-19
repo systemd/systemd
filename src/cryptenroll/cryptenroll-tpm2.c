@@ -211,7 +211,7 @@ int load_volume_key_tpm2(
                                 tpm2_flags,
                                 /* until= */ 0,
                                 /* headless= */ false,
-                                /* ask_password_flags */ false,
+                                /* ask_password_flags= */ 0,
                                 &decrypted_key);
                 if (IN_SET(r, -EACCES, -ENOLCK))
                         return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed");
