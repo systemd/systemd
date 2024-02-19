@@ -167,6 +167,7 @@ units = [
         {
           'file' : 'rc-local.service.in',
           'conditions' : ['HAVE_SYSV_COMPAT'],
+          'verify' : 'no',
         },
         {
           'file' : 'reboot.target',
@@ -222,7 +223,10 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         { 'file' : 'sysinit.target' },
-        { 'file' : 'syslog.socket' },
+        {
+          'file' : 'syslog.socket',
+          'verify' : 'no',
+        },
         {
           'file' : 'system-systemd\\x2dcryptsetup.slice',
           'conditions' : ['HAVE_LIBCRYPTSETUP'],
@@ -749,6 +753,13 @@ units = [
         },
 ]
 
+path = run_command(sh, '-c', 'echo "$PATH"', check: true).stdout().strip()
+unit_test_env = environment()
+unit_test_env.set('PATH', project_build_root + ':' + path)
+unit_test_env.set('SYSTEMD_UNIT_PATH',
+                  '@0@:@1@'.format(project_source_root / 'units',
+                                   project_build_root / 'units'))
+
 foreach unit : units
         source = unit.get('file')
 
@@ -761,6 +772,7 @@ foreach unit : units
                 name = source
         endif
         source = files(source)
+        dest = source
 
         install = true
         foreach cond : unit.get('conditions', [])
@@ -771,7 +783,7 @@ foreach unit : units
         endforeach
 
         if needs_jinja
-                custom_target(
+                dest = custom_target(
                         name,
                         input : source,
                         output : name,
@@ -781,6 +793,15 @@ foreach unit : units
         elif install
                 install_data(source,
                              install_dir : systemunitdir)
+        endif
+
+        if want_tests != 'false' and conf.get('ENABLE_ANALYZE') == 1 and unit.get('verify', '') != 'no'
+                analyze_exe = executables_by_name.get('systemd-analyze')
+                test('verify-@0@'.format(name),
+                     analyze_exe,
+                     suite : 'unit-file',
+                     env : unit_test_env,
+                     args : ['--recursive-errors=no', '--man=no', 'verify', dest])
         endif
 
         if install
