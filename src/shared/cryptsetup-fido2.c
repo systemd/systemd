@@ -26,9 +26,10 @@ int acquire_fido2_key(
                 usec_t until,
                 bool headless,
                 Fido2EnrollFlags required,
+                const char *askpw_credential,
+                AskPasswordFlags askpw_flags,
                 void **ret_decrypted_key,
-                size_t *ret_decrypted_key_size,
-                AskPasswordFlags ask_password_flags) {
+                size_t *ret_decrypted_key_size) {
 
         _cleanup_(erase_and_freep) char *envpw = NULL;
         _cleanup_strv_free_erase_ char **pins = NULL;
@@ -42,7 +43,7 @@ int acquire_fido2_key(
                 return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
                                         "Local verification is required to unlock this volume, but the 'headless' parameter was set.");
 
-        ask_password_flags |= ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
+        askpw_flags |= ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
 
         assert(cid);
         assert(key_file || key_data);
@@ -126,11 +127,11 @@ int acquire_fido2_key(
                 };
 
                 pins = strv_free_erase(pins);
-                r = ask_password_auto(&req, until, ask_password_flags, &pins);
+                r = ask_password_auto(&req, until, askpw_flags, &pins);
                 if (r < 0)
                         return log_error_errno(r, "Failed to ask for user password: %m");
 
-                ask_password_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
+                askpw_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
         }
 }
 
@@ -141,9 +142,10 @@ int acquire_fido2_key_auto(
                 const char *fido2_device,
                 usec_t until,
                 bool headless,
+                const char *askpw_credential,
+                AskPasswordFlags askpw_flags,
                 void **ret_decrypted_key,
-                size_t *ret_decrypted_key_size,
-                AskPasswordFlags ask_password_flags) {
+                size_t *ret_decrypted_key_size) {
 
         _cleanup_free_ void *cid = NULL;
         size_t cid_size = 0;
@@ -263,8 +265,10 @@ int acquire_fido2_key_auto(
                                 until,
                                 headless,
                                 required,
-                                ret_decrypted_key, ret_decrypted_key_size,
-                                ask_password_flags);
+                                "cryptsetup.fido2-pin",
+                                askpw_flags,
+                                ret_decrypted_key,
+                                ret_decrypted_key_size);
                 if (ret == 0)
                         break;
         }

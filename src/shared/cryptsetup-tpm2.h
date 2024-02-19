@@ -32,7 +32,8 @@ int acquire_tpm2_key(
                 TPM2Flags flags,
                 usec_t until,
                 bool headless,
-                AskPasswordFlags ask_password_flags,
+                const char *askpw_credential,
+                AskPasswordFlags askpw_flags,
                 struct iovec *ret_decrypted_key);
 
 int find_tpm2_auto_data(
@@ -76,7 +77,8 @@ static inline int acquire_tpm2_key(
                 TPM2Flags flags,
                 usec_t until,
                 bool headless,
-                AskPasswordFlags ask_password_flags,
+                const char *askpw_credential,
+                AskPasswordFlags askpw_flags,
                 struct iovec *ret_decrypted_key) {
 
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
