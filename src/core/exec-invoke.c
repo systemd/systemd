@@ -4793,7 +4793,7 @@ int exec_invoke(
         r = find_executable_full(command->path, /* root= */ NULL, context->exec_search_path, false, &executable, &executable_fd);
         if (r < 0) {
                 *exit_status = EXIT_EXEC;
-                log_exec_struct_errno(context, params, LOG_INFO, r,
+                log_exec_struct_errno(context, params, LOG_NOTICE, r,
                                       "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                       LOG_EXEC_INVOCATION_ID(params),
                                       LOG_EXEC_MESSAGE(params,
