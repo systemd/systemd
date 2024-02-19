@@ -29,9 +29,9 @@ struct PartitionInfo {
         sd_id128_t type, uuid;
         char *label;
         char *device; /* Note that this might point to some non-existing path in case we operate on a loopback file */
-        bool no_auto:1;
-        bool read_only:1;
-        bool growfs:1;
+        bool no_auto;
+        bool read_only;
+        bool growfs;
 };
 
 #define PARTITION_INFO_NULL                     \

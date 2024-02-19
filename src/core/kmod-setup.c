@@ -113,12 +113,11 @@ static bool in_qemu(void) {
 
 int kmod_setup(void) {
 #if HAVE_KMOD
-
         static const struct {
                 const char *module;
                 const char *path;
-                bool warn_if_unavailable:1;
-                bool warn_if_module:1;
+                bool warn_if_unavailable;
+                bool warn_if_module;
                 bool (*condition_fn)(void);
         } kmod_table[] = {
                 /* This one we need to load explicitly, since auto-loading on use doesn't work
@@ -166,13 +165,12 @@ int kmod_setup(void) {
                 { "tpm",                        "/sys/class/tpmrm",          false, false, efi_has_tpm2       },
 #endif
         };
-        _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
-        unsigned i;
 
         if (have_effective_cap(CAP_SYS_MODULE) <= 0)
                 return 0;
 
-        for (i = 0; i < ELEMENTSOF(kmod_table); i++) {
+        _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        for (unsigned i = 0; i < ELEMENTSOF(kmod_table); i++) {
                 if (kmod_table[i].path && access(kmod_table[i].path, F_OK) >= 0)
                         continue;
 
