@@ -5249,7 +5249,7 @@ CGroupRuntime *cgroup_runtime_free(CGroupRuntime *crt) {
         bpf_link_free(crt->restrict_ifaces_ingress_bpf_link);
         bpf_link_free(crt->restrict_ifaces_egress_bpf_link);
 #endif
-        fdset_free(crt->initial_restric_ifaces_link_fds);
+        fdset_free(crt->initial_restrict_ifaces_link_fds);
 
         safe_close(crt->ipv4_allow_map_fd);
         safe_close(crt->ipv6_allow_map_fd);
