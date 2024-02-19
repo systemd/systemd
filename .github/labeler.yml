@@ -40,6 +40,9 @@ documentation:
 env-generator:
   - changed-files:
     - any-glob-to-any-file: '**/*environment*generator*'
+escape:
+  - changed-files:
+    - any-glob-to-any-file: '**/*escape*'
 debug-generator:
   - changed-files:
     - any-glob-to-any-file: '**/debug-generator*'
