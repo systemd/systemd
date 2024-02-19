@@ -15,7 +15,7 @@
 #include "missing_network.h"
 #include "ndisc-internal.h"
 #include "ndisc-protocol.h"
-#include "ndisc-router.h"
+#include "ndisc-router-internal.h"
 #include "strv.h"
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_router, sd_ndisc_router, mfree);
@@ -303,10 +303,11 @@ int sd_ndisc_router_get_flags(sd_ndisc_router *rt, uint64_t *ret) {
 
 int sd_ndisc_router_get_lifetime(sd_ndisc_router *rt, uint64_t *ret) {
         assert_return(rt, -EINVAL);
-        assert_return(ret, -EINVAL);
 
-        *ret = rt->lifetime_usec;
-        return 0;
+        if (ret)
+                *ret = rt->lifetime_usec;
+
+        return rt->lifetime_usec > 0; /* Indicate if the router is still valid or not. */
 }
 
 int sd_ndisc_router_get_preference(sd_ndisc_router *rt, unsigned *ret) {

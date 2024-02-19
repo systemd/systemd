@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "hexdecoct.h"
 #include "icmp6-util-unix.h"
+#include "ndisc-neighbor-internal.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -20,38 +21,7 @@ static struct ether_addr mac_addr = {
         .ether_addr_octet = { 0x78, 0x2b, 0xcb, 0xb3, 0x6d, 0x53 }
 };
 
-static uint8_t advertisement[] = {
-        /* ICMPv6 Router Advertisement, no checksum */
-        0x86, 0x00, 0x00, 0x00,  0x40, 0xc0, 0x00, 0xb4,
-        0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00,
-        /* Source Link Layer Address Option */
-        0x01, 0x01, 0x78, 0x2b,  0xcb, 0xb3, 0x6d, 0x53,
-        /* Prefix Information Option */
-        0x03, 0x04, 0x40, 0xc0,  0x00, 0x00, 0x01, 0xf4,
-        0x00, 0x00, 0x01, 0xb8,  0x00, 0x00, 0x00, 0x00,
-        0x20, 0x01, 0x0d, 0xb8,  0xde, 0xad, 0xbe, 0xef,
-        0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00,
-        /* Prefix Information Option */
-        0x03, 0x04, 0x40, 0xc0,  0x00, 0x00, 0x0e, 0x10,
-        0x00, 0x00, 0x07, 0x08,  0x00, 0x00, 0x00, 0x00,
-        0x20, 0x01, 0x0d, 0xb8,  0x0b, 0x16, 0xd0, 0x0d,
-        0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00,
-        /* Prefix Information Option */
-        0x03, 0x04, 0x30, 0xc0,  0x00, 0x00, 0x0e, 0x10,
-        0x00, 0x00, 0x07, 0x08,  0x00, 0x00, 0x00, 0x00,
-        0x20, 0x01, 0x0d, 0xb8,  0xc0, 0x01, 0x0d, 0xad,
-        0x00, 0x00, 0x00, 0x00,  0x00, 0x00, 0x00, 0x00,
-        /* Recursive DNS Server Option */
-        0x19, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3c,
-        0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-        /* DNS Search List Option */
-        0x1f, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3c,
-        0x03, 0x6c, 0x61, 0x62, 0x05, 0x69, 0x6e, 0x74,
-        0x72, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-};
-
-static bool test_stopped;
+static bool test_stopped, ra_received_on_stop, na_received_on_stop;
 static struct {
         struct in6_addr address;
         unsigned char prefixlen;
@@ -271,58 +241,136 @@ TEST(radv) {
         assert_se(!ra);
 }
 
-static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        sd_radv *ra = userdata;
-        unsigned char buf[168];
-        size_t i;
+static void dump_ra_message(const uint8_t *buf, size_t len) {
+        assert(len >= sizeof(struct nd_router_advert));
 
-        assert_se(read(test_fd[0], &buf, sizeof(buf)) == sizeof(buf));
+        printf("Received Router Advertisement with lifetime %i sec\n",
+               (buf[6] << 8) + buf[7]);
 
-        /* router lifetime must be zero when test is stopped */
-        if (test_stopped) {
-                advertisement[6] = 0x00;
-                advertisement[7] = 0x00;
-        }
-
-        printf ("Received Router Advertisement with lifetime %i\n",
-                (advertisement[6] << 8) + advertisement[7]);
-
-        /* test only up to buf size, rest is not yet implemented */
-        for (i = 0; i < sizeof(buf); i++) {
+        for (size_t i = 0; i < len; i++) {
                 if (!(i % 8))
                         printf("%3zu: ", i);
 
                 printf("0x%02x", buf[i]);
-
-                assert_se(buf[i] == advertisement[i]);
 
                 if ((i + 1) % 8)
                         printf(", ");
                 else
                         printf("\n");
         }
+}
+
+static void verify_ra_message(const uint8_t *buf, size_t len) {
+        static const uint8_t advertisement[] = {
+                /* ICMPv6 Router Advertisement, no checksum */
+                0x86, 0x00, 0x00, 0x00, 0x40, 0xc0, 0x00, 0xb4,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                /* Source Link Layer Address Option */
+                0x01, 0x01, 0x78, 0x2b, 0xcb, 0xb3, 0x6d, 0x53,
+                /* Prefix Information Option */
+                0x03, 0x04, 0x40, 0xc0, 0x00, 0x00, 0x01, 0xf4,
+                0x00, 0x00, 0x01, 0xb8, 0x00, 0x00, 0x00, 0x00,
+                0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                /* Prefix Information Option */
+                0x03, 0x04, 0x40, 0xc0, 0x00, 0x00, 0x0e, 0x10,
+                0x00, 0x00, 0x07, 0x08, 0x00, 0x00, 0x00, 0x00,
+                0x20, 0x01, 0x0d, 0xb8, 0x0b, 0x16, 0xd0, 0x0d,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                /* Prefix Information Option */
+                0x03, 0x04, 0x30, 0xc0, 0x00, 0x00, 0x0e, 0x10,
+                0x00, 0x00, 0x07, 0x08, 0x00, 0x00, 0x00, 0x00,
+                0x20, 0x01, 0x0d, 0xb8, 0xc0, 0x01, 0x0d, 0xad,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                /* Recursive DNS Server Option */
+                0x19, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3c,
+                0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+                /* DNS Search List Option */
+                0x1f, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3c,
+                0x03, 0x6c, 0x61, 0x62, 0x05, 0x69, 0x6e, 0x74,
+                0x72, 0x61, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        };
+
+        /* verify only up to known options, rest is not yet implemented */
+        for (size_t i = 0, m = MIN(len, sizeof(advertisement)); i < m; i++) {
+                if (test_stopped)
+                        /* on stop, many header fields are zero */
+                        switch (i) {
+                        case 4: /* hop limit */
+                        case 5: /* flags */
+                        case 6 ... 7: /* router lifetime */
+                        case 8 ... 11: /* reachable time */
+                        case 12 ... 15: /* retrans timer */
+                                assert_se(buf[i] == 0);
+                                continue;
+                        }
+
+                assert_se(buf[i] == advertisement[i]);
+        }
+}
+
+static int radv_recv_ra(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        sd_radv *ra = ASSERT_PTR(userdata);
+        _cleanup_free_ uint8_t *buf = NULL;
+        ssize_t buflen;
+
+        buflen = next_datagram_size_fd(fd);
+        assert_se(buflen >= 0);
+        assert_se(buf = new0(uint8_t, buflen));
+
+        assert_se(read(test_router_fd[0], buf, buflen) == buflen);
+
+        dump_ra_message(buf, buflen);
+        verify_ra_message(buf, buflen);
 
         if (test_stopped) {
-                sd_event *e;
+                ra_received_on_stop = true;
+                if (!na_received_on_stop)
+                        return 0;
 
-                e = sd_radv_get_event(ra);
-                sd_event_exit(e, 0);
-
+                assert_se(sd_event_exit(sd_radv_get_event(ra), 0) >= 0);
                 return 0;
         }
 
         assert_se(sd_radv_stop(ra) >= 0);
         test_stopped = true;
+        return 0;
+}
+
+static int radv_recv_na(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        sd_radv *ra = ASSERT_PTR(userdata);
+        _cleanup_(sd_ndisc_neighbor_unrefp) sd_ndisc_neighbor *na = NULL;
+        ssize_t buflen;
+
+        buflen = next_datagram_size_fd(fd);
+        assert_se(buflen >= 0);
+        assert_se(na = ndisc_neighbor_new(buflen));
+        assert_se(read(fd, NDISC_NEIGHBOR_RAW(na), na->raw_size) == buflen);
+        assert_se(ndisc_neighbor_parse(NULL, na) >= 0);
+
+        assert_se(sd_ndisc_neighbor_is_router(na) == !test_stopped);
+
+        if (test_stopped) {
+                na_received_on_stop = true;
+                if (!ra_received_on_stop)
+                        return 0;
+                assert_se(sd_event_exit(sd_radv_get_event(ra), 0) >= 0);
+                return 0;
+        }
 
         return 0;
 }
 
 TEST(ra) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *recv_router_advertisement = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source
+                *recv_router_advertisement = NULL,
+                *recv_neighbor_advertisement = NULL;
         _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;
 
-        assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) >= 0);
+        assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_router_fd) >= 0);
+        assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_neighbor_fd) >= 0);
 
         assert_se(sd_event_new(&e) >= 0);
 
@@ -361,8 +409,11 @@ TEST(ra) {
                 assert_se(!p);
         }
 
-        assert_se(sd_event_add_io(e, &recv_router_advertisement, test_fd[0], EPOLLIN, radv_recv, ra) >= 0);
+        assert_se(sd_event_add_io(e, &recv_router_advertisement, test_router_fd[0], EPOLLIN, radv_recv_ra, ra) >= 0);
         assert_se(sd_event_source_set_io_fd_own(recv_router_advertisement, true) >= 0);
+
+        assert_se(sd_event_add_io(e, &recv_neighbor_advertisement, test_neighbor_fd[0], EPOLLIN, radv_recv_na, ra) >= 0);
+        assert_se(sd_event_source_set_io_fd_own(recv_neighbor_advertisement, true) >= 0);
 
         assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              2 * USEC_PER_SEC, 0,
