@@ -113,12 +113,11 @@ static bool in_qemu(void) {
 
 int kmod_setup(void) {
 #if HAVE_KMOD
-
         static const struct {
                 const char *module;
                 const char *path;
-                bool warn_if_unavailable:1;
-                bool warn_if_module:1;
+                bool warn_if_unavailable;
+                bool warn_if_module;
                 bool (*condition_fn)(void);
         } kmod_table[] = {
                 /* This one we need to load explicitly, since auto-loading on use doesn't work
@@ -166,23 +165,23 @@ int kmod_setup(void) {
                 { "tpm",                        "/sys/class/tpmrm",          false, false, efi_has_tpm2       },
 #endif
         };
-        _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
-        unsigned i;
 
         if (have_effective_cap(CAP_SYS_MODULE) <= 0)
                 return 0;
 
-        for (i = 0; i < ELEMENTSOF(kmod_table); i++) {
-                if (kmod_table[i].path && access(kmod_table[i].path, F_OK) >= 0)
+        _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
+
+        FOREACH_ARRAY(kmod, kmod_table, ELEMENTSOF(kmod_table)) {
+                if (kmod->path && access(kmod->path, F_OK) >= 0)
                         continue;
 
-                if (kmod_table[i].condition_fn && !kmod_table[i].condition_fn())
+                if (kmod->condition_fn && !kmod->condition_fn())
                         continue;
 
-                if (kmod_table[i].warn_if_module)
+                if (kmod->warn_if_module)
                         log_debug("Your kernel apparently lacks built-in %s support. Might be "
                                   "a good idea to compile it in. We'll now try to work around "
-                                  "this by loading the module...", kmod_table[i].module);
+                                  "this by loading the module...", kmod->module);
 
                 if (!ctx) {
                         ctx = kmod_new(NULL, NULL);
@@ -193,7 +192,7 @@ int kmod_setup(void) {
                         kmod_load_resources(ctx);
                 }
 
-                (void) module_load_and_warn(ctx, kmod_table[i].module, kmod_table[i].warn_if_unavailable);
+                (void) module_load_and_warn(ctx, kmod->module, kmod->warn_if_unavailable);
         }
 
 #endif
