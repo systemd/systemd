@@ -97,6 +97,7 @@ int enroll_fido2(
                         /* user_display_name= */ node,
                         /* user_icon_name= */ NULL,
                         /* askpw_icon_name= */ "drive-harddisk",
+                        /* askpw_credential= */ "cryptenroll.fido2-pin",
                         lock_with,
                         cred_alg,
                         &cid, &cid_size,
