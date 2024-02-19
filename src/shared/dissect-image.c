@@ -2989,7 +2989,7 @@ int dissected_image_decrypt_interactively(
                         return log_error_errno(SYNTHETIC_ERRNO(EKEYREJECTED),
                                                "Too many retries.");
 
-                z = strv_free(z);
+                z = strv_free_erase(z);
 
                 static const AskPasswordRequest req = {
                         .message = "Please enter image passphrase:",
