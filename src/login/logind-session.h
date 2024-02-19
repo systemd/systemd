@@ -135,16 +135,16 @@ struct Session {
         sd_event_source *fifo_event_source;
         sd_event_source *leader_pidfd_event_source;
 
-        bool idle_hint;
-        dual_timestamp idle_hint_timestamp;
+        bool in_gc_queue;
+        bool started;
+        bool stopping;
+
+        bool was_active;
 
         bool locked_hint;
 
-        bool in_gc_queue:1;
-        bool started:1;
-        bool stopping:1;
-
-        bool was_active:1;
+        bool idle_hint;
+        dual_timestamp idle_hint_timestamp;
 
         sd_bus_message *create_message;   /* The D-Bus message used to create the session, which we haven't responded to yet */
         sd_bus_message *upgrade_message;  /* The D-Bus message used to upgrade the session class user-incomplete → user, which we haven't responded to yet */
