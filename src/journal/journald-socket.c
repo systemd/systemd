@@ -47,7 +47,7 @@ static int server_open_forward_socket(Server *s) {
         return 1;
 }
 
-static inline bool must_serialise(struct iovec iov) {
+static inline bool must_serialize(struct iovec iov) {
         /* checks an iovec of the form FIELD=VALUE to see if VALUE needs binary safe serialisation:
          * See https://systemd.io/JOURNAL_EXPORT_FORMATS/#journal-export-format for more information
          * on binary safe serialisation for the journal export format */
@@ -89,7 +89,7 @@ int server_forward_socket(
         if (r <= 0)
                 return r;
 
-        /* We need a newline after each iovec + 4 for each we have to serialise in a binary safe way
+        /* We need a newline after each iovec + 4 for each we have to serialize in a binary safe way
          * + 1 for the final __REALTIME_TIMESTAMP metadata field. */
         size_t n = n_iovec * 5 + 1;
 
@@ -113,7 +113,7 @@ int server_forward_socket(
         struct iovec nl = IOVEC_MAKE_STRING("\n");
         size_t iov_idx = 0, len_idx = 0;
         FOREACH_ARRAY(i, iovec, n_iovec) {
-                if (must_serialise(*i)) {
+                if (must_serialize(*i)) {
                         const uint8_t *c;
                         c = memchr(i->iov_base, '=', i->iov_len);
 
