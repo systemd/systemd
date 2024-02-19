@@ -4724,6 +4724,16 @@ static int verb_make_policy(int argc, char *argv[], void *userdata) {
         return make_policy(arg_force, arg_recovery_pin);
 }
 
+static int verb_can_make_policy(int argc, char *argv[], void *userdata) {
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
+        int r = tpm2_context_new(NULL, &tc);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate TPM2 context: %m");
+        if (!tpm2_supports_command(tc, TPM2_CC_PolicyAuthorizeNV))
+                return -1;
+        return 0;
+}
+
 static int undefine_policy_nv_index(
                 uint32_t nv_index,
                 const struct iovec *nv_blob,
@@ -4836,6 +4846,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  list-components             List defined .pcrlock components\n"
                "  predict                     Predict PCR values\n"
                "  make-policy                 Predict PCR values and generate TPM2 policy from it\n"
+               "  can-make-policy             Check whether the TPM supports PolicyAuthorizeNV\n"
                "  remove-policy               Remove TPM2 policy\n"
                "\n%3$sProtections:%4$s\n"
                "  lock-firmware-code          Generate a .pcrlock file from current firmware code\n"
@@ -5138,6 +5149,7 @@ static int pcrlock_main(int argc, char *argv[]) {
                 { "lock-raw",                    VERB_ANY, 2,        0,            verb_lock_raw                    },
                 { "unlock-raw",                  VERB_ANY, 1,        0,            verb_unlock_simple               },
                 { "make-policy",                 VERB_ANY, 1,        0,            verb_make_policy                 },
+                { "can-make-policy",             VERB_ANY, 1,        0,            verb_can_make_policy             },
                 { "remove-policy",               VERB_ANY, 1,        0,            verb_remove_policy               },
                 {}
         };
