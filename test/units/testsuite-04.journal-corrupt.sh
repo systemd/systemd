@@ -10,6 +10,7 @@ rm -f "/var/log/journal/$(</etc/machine-id)"/user-*@*.journal
 journalctl --header | grep path
 
 # Make sure the user instance is active when we rotate journals
+loginctl enable-linger testuser
 systemd-run --unit user-sleep.service --user -M testuser@ sleep infinity
 
 for _ in {0..9}; do
@@ -20,6 +21,7 @@ for _ in {0..9}; do
 done
 
 systemctl stop --user -M testuser@ user-sleep.service
+loginctl disable-linger testuser
 
 journalctl --sync
 journalctl --rotate --vacuum-files=1
