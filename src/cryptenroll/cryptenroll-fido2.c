@@ -33,7 +33,6 @@ int load_volume_key_fido2(
                         cd_node,
                         device,
                         /* until= */ 0,
-                        /* headless= */ false,
                         "cryptenroll.fido2-pin",
                         ASK_PASSWORD_PUSH_CACHE|ASK_PASSWORD_ACCEPT_CACHED,
                         &decrypted_key,
