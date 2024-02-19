@@ -710,13 +710,9 @@ static int add_mount(
         }
 
         if (flags & MOUNT_QUOTA) {
-                r = generator_hook_up_quotacheck(dest, what, where, target_unit, fstype);
+                r = generator_hook_up_quota(dest, what, where, target_unit, fstype);
                 if (r < 0) {
                         if (r != -EOPNOTSUPP)
-                                return r;
-                } else {
-                        r = generator_hook_up_quotaon(dest, where, target_unit);
-                        if (r < 0)
                                 return r;
                 }
         }

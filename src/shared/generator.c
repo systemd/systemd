@@ -709,14 +709,14 @@ int generator_hook_up_pcrfs(
         return generator_add_symlink_full(dir, where_unit, "wants", pcrfs_unit_path, instance);
 }
 
-int generator_hook_up_quotacheck(
+int generator_hook_up_quota(
                 const char *dir,
                 const char *what,
                 const char *where,
                 const char *target,
                 const char *fstype) {
 
-        _cleanup_free_ char *where_unit = NULL, *instance = NULL;
+        _cleanup_free_ char *where_unit = NULL, *instance = NULL; *quotaon_unit_instance = NULL;
         int r;
 
         assert(dir);
@@ -735,41 +735,27 @@ int generator_hook_up_quotacheck(
         if (path_equal(where, "/"))
                 return generator_add_symlink(dir, where_unit, "wants", SPECIAL_QUOTACHECK_ROOT_SERVICE);
 
+        r = unit_name_path_escape(where, &instance);
+        if (r < 0)
+                return log_error_errno(r, "Failed to escape path '%s': %m", where);
+
         if (target) {
                 r = generator_add_ordering(dir, target, "After", SPECIAL_QUOTACHECK_SERVICE, instance);
                 if (r < 0)
                         return r;
         }
 
-        return generator_add_symlink_full(dir, where_unit, "wants", SYSTEM_DATA_UNIT_DIR "/" SPECIAL_QUOTACHECK_SERVICE, instance);
-}
-
-int generator_hook_up_quotaon(
-                const char *dir,
-                const char *where,
-                const char *target) {
-
-        _cleanup_free_ char *where_unit = NULL, *instance = NULL, *quotaon_unit_instance = NULL;
-        int r;
-
-        assert(dir);
-        assert(where);
+        r = generator_add_symlink_full(dir, where_unit, "wants", SYSTEM_DATA_UNIT_DIR "/" SPECIAL_QUOTACHECK_SERVICE, instance);
+        if (r < 0)
+                return log_error_errno(r, "Failed add dependency '%s' for '%s': %m", instance, SPECIAL_QUOTACHECK_SERVICE);
 
         /* quotaon unit for system root is not instantiated */
         if (path_equal(where, "/"))
                 return 0;
 
-        r = unit_name_path_escape(where, &instance);
-        if (r < 0)
-                return log_error_errno(r, "Failed to escape path '%s': %m", where);
-
         r = unit_name_replace_instance(SPECIAL_QUOTAON_SERVICE, instance, &quotaon_unit_instance);
         if (r < 0)
                 return log_error_errno(r, "Failed to instantiate '%s' for '%s': %m", instance, SPECIAL_QUOTAON_SERVICE);
-
-       r = generator_add_ordering(dir, SPECIAL_QUOTACHECK_SERVICE, "Before", SPECIAL_QUOTAON_SERVICE, instance);
-       if (r < 0)
-               return r;
 
         return 0;
 }
