@@ -47,6 +47,7 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"
+#include "vpick.h"
 
 #define DEV_MOUNT_OPTIONS (MS_NOSUID|MS_STRICTATIME|MS_NOEXEC)
 
@@ -500,8 +501,23 @@ static int append_extensions(
         /* First, prepare a mount for each image, but these won't be visible to the unit, instead
          * they will be mounted in our propagate directory, and used as a source for the overlay. */
         for (size_t i = 0; i < n; i++) {
+                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                 _cleanup_free_ char *mount_point = NULL;
                 const MountImage *m = mount_images + i;
+
+                r = path_pick(/* toplevel_path= */ NULL,
+                              /* toplevel_fd= */ AT_FDCWD,
+                              m->source,
+                              &pick_filter_image_raw,
+                              PICK_ARCHITECTURE|PICK_TRIES,
+                              &result);
+                if (r < 0)
+                        return r;
+                if (!result.path)
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(ENOENT),
+                                        "No matching entry in .v/ directory %s found.",
+                                        m->source);
 
                 if (asprintf(&mount_point, "%s/%zu", extension_dir, i) < 0)
                         return -ENOMEM;
@@ -524,7 +540,7 @@ static int append_extensions(
                         .path_malloc = TAKE_PTR(mount_point),
                         .image_options_const = m->mount_options,
                         .ignore = m->ignore_enoent,
-                        .source_const = m->source,
+                        .source_malloc = TAKE_PTR(result.path),
                         .mode = MOUNT_EXTENSION_IMAGE,
                         .has_prefix = true,
                 };
@@ -534,7 +550,8 @@ static int append_extensions(
          * Bind mount them in the same location as the ExtensionImages, so that we
          * can check that they are valid trees (extension-release.d). */
         STRV_FOREACH(extension_directory, extension_directories) {
-                _cleanup_free_ char *mount_point = NULL, *source = NULL;
+                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                _cleanup_free_ char *mount_point = NULL;
                 const char *e = *extension_directory;
                 bool ignore_enoent = false;
 
@@ -551,9 +568,19 @@ static int append_extensions(
                 if (startswith(e, "+"))
                         e++;
 
-                source = strdup(e);
-                if (!source)
-                        return -ENOMEM;
+                r = path_pick(/* toplevel_path= */ NULL,
+                              /* toplevel_fd= */ AT_FDCWD,
+                              e,
+                              &pick_filter_image_dir,
+                              PICK_ARCHITECTURE|PICK_TRIES,
+                              &result);
+                if (r < 0)
+                        return r;
+                if (!result.path)
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(ENOENT),
+                                        "No matching entry in .v/ directory %s found.",
+                                        e);
 
                 for (size_t j = 0; hierarchies && hierarchies[j]; ++j) {
                         char *prefixed_hierarchy = path_join(mount_point, hierarchies[j]);
@@ -571,7 +598,7 @@ static int append_extensions(
 
                 *me = (MountEntry) {
                         .path_malloc = TAKE_PTR(mount_point),
-                        .source_malloc = TAKE_PTR(source),
+                        .source_malloc = TAKE_PTR(result.path),
                         .mode = MOUNT_EXTENSION_DIRECTORY,
                         .ignore = ignore_enoent,
                         .has_prefix = true,
