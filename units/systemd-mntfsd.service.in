@@ -1,0 +1,45 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=DDI File System Mounter
+Documentation=man:systemd-mntfsd.service(8)
+Requires=systemd-mntfsd.socket
+After=systemd-mntfsd.socket
+Before=sysinit.target
+DefaultDependencies=no
+
+[Service]
+#CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_RESOURCE CAP_BPF CAP_PERFMON CAP_SETGID CAP_SETUID
+ExecStart={{LIBEXECDIR}}/systemd-mntfsd
+IPAddressDeny=any
+LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+ProtectProc=invisible
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service @mount
+Type=notify
+NotifyAccess=all
+FileDescriptorStoreMax=4096
+{{SERVICE_WATCHDOG}}
+
+[Install]
+Also=systemd-mntfsd.socket

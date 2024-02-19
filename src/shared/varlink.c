@@ -2807,9 +2807,26 @@ int varlink_get_peer_uid(Varlink *v, uid_t *ret) {
                 return varlink_log_errno(v, r, "Failed to acquire credentials: %m");
 
         if (!uid_is_valid(v->ucred.uid))
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Peer uid is invalid.");
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Peer UID is invalid.");
 
         *ret = v->ucred.uid;
+        return 0;
+}
+
+int varlink_get_peer_gid(Varlink *v, gid_t *ret) {
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = varlink_acquire_ucred(v);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to acquire credentials: %m");
+
+        if (!gid_is_valid(v->ucred.gid))
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Peer GID is invalid.");
+
+        *ret = v->ucred.gid;
         return 0;
 }
 
@@ -3076,7 +3093,7 @@ int varlink_push_fd(Varlink *v, int fd) {
         return i;
 }
 
-int varlink_dup_fd(Varlink *v, int fd) {
+int varlink_push_dup_fd(Varlink *v, int fd) {
         _cleanup_close_ int dp = -1;
         int r;
 
@@ -3122,6 +3139,16 @@ int varlink_peek_fd(Varlink *v, size_t i) {
                 return -ENXIO;
 
         return v->input_fds[i];
+}
+
+int varlink_peek_dup_fd(Varlink *v, size_t i) {
+        int fd;
+
+        fd = varlink_peek_fd(v, i);
+        if (fd < 0)
+                return fd;
+
+        return RET_NERRNO(fcntl(fd, F_DUPFD_CLOEXEC, 3));
 }
 
 int varlink_take_fd(Varlink *v, size_t i) {
