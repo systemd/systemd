@@ -4795,7 +4795,6 @@ int exec_invoke(
                 *exit_status = EXIT_EXEC;
                 log_exec_struct_errno(context, params, LOG_NOTICE, r,
                                       "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                      LOG_EXEC_INVOCATION_ID(params),
                                       LOG_EXEC_MESSAGE(params,
                                                        "Unable to locate executable '%s': %m",
                                                        command->path),

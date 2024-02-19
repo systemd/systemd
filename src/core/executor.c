@@ -245,7 +245,6 @@ static int run(int argc, char *argv[]) {
 
                 log_exec_struct_errno(&context, &params, LOG_ERR, r,
                                       "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                      LOG_EXEC_INVOCATION_ID(&params),
                                       LOG_EXEC_MESSAGE(&params, "Failed at step %s spawning %s: %m",
                                                        status, command.path),
                                       "EXECUTABLE=%s", command.path);
