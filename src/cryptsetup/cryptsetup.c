@@ -1415,8 +1415,10 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                                 until,
                                                 arg_headless,
                                                 required,
-                                                &decrypted_key, &decrypted_key_size,
-                                                arg_ask_password_flags);
+                                                "cryptsetup.fido2-pin",
+                                                arg_ask_password_flags,
+                                                &decrypted_key,
+                                                &decrypted_key_size);
                         else
                                 r = acquire_fido2_key_auto(
                                                 cd,
@@ -1425,8 +1427,10 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                                 arg_fido2_device,
                                                 until,
                                                 arg_headless,
-                                                &decrypted_key, &decrypted_key_size,
-                                                arg_ask_password_flags);
+                                                "cryptsetup.fido2-pin",
+                                                arg_ask_password_flags,
+                                                &decrypted_key,
+                                                &decrypted_key_size);
                         if (r >= 0)
                                 break;
                 }
@@ -1774,6 +1778,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         arg_tpm2_pin ? TPM2_FLAGS_USE_PIN : 0,
                                         until,
                                         arg_headless,
+                                        "cryptsetup.tpm2-pin",
                                         arg_ask_password_flags,
                                         &decrypted_key);
                         if (r >= 0)
@@ -1872,6 +1877,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 tpm2_flags,
                                                 until,
                                                 arg_headless,
+                                                "cryptsetup.tpm2-pin",
                                                 arg_ask_password_flags,
                                                 &decrypted_key);
                                 if (IN_SET(r, -EACCES, -ENOLCK))
