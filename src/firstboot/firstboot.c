@@ -797,7 +797,11 @@ static int prompt_root_password(int rfd) {
                 _cleanup_strv_free_erase_ char **a = NULL, **b = NULL;
                 _cleanup_free_ char *error = NULL;
 
-                r = ask_password_tty(-1, msg1, NULL, 0, 0, NULL, &a);
+                AskPasswordRequest req = {
+                        .message = msg1,
+                };
+
+                r = ask_password_tty(-EBADF, &req, /* until= */ 0, /* flags= */ 0, /* flag_file= */ NULL, &a);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
                 if (strv_length(a) != 1)
@@ -817,7 +821,9 @@ static int prompt_root_password(int rfd) {
                 else if (r == 0)
                         log_warning("Password is weak, accepting anyway: %s", error);
 
-                r = ask_password_tty(-1, msg2, NULL, 0, 0, NULL, &b);
+                req.message = msg2;
+
+                r = ask_password_tty(-EBADF, &req, /* until= */ 0, /* flags= */ 0, /* flag_file= */ NULL, &b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
                 if (strv_length(b) != 1)

@@ -29,13 +29,16 @@ static int get_pin(usec_t until, AskPasswordFlags ask_password_flags, bool headl
                                         "PIN querying disabled via 'headless' option. "
                                         "Use the '$PIN' environment variable.");
 
+                static const AskPasswordRequest req = {
+                        .message = "Please enter TPM2 PIN:",
+                        .icon = "drive-harddisk",
+                        .keyring = "tpm2-pin",
+                        .credential = "cryptsetup.tpm2-pin",
+                };
+
                 pin = strv_free_erase(pin);
                 r = ask_password_auto(
-                                "Please enter TPM2 PIN:",
-                                "drive-harddisk",
-                                NULL,
-                                "tpm2-pin",
-                                "cryptsetup.tpm2-pin",
+                                &req,
                                 until,
                                 ask_password_flags,
                                 &pin);

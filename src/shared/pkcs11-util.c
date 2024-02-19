@@ -375,8 +375,16 @@ int pkcs11_token_login(
                         if (r < 0)
                                 return log_oom();
 
+                        AskPasswordRequest req = {
+                                .message = text,
+                                .icon = icon_name,
+                                .id = id,
+                                .keyring = key_name,
+                                .credential = credential_name,
+                        };
+
                         /* We never cache PINs, simply because it's fatal if we use wrong PINs, since usually there are only 3 tries */
-                        r = ask_password_auto(text, icon_name, id, key_name, credential_name, until, ask_password_flags, &passwords);
+                        r = ask_password_auto(&req, until, ask_password_flags, &passwords);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to query PIN for security token '%s': %m", token_label);
                 }

@@ -87,28 +87,29 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
                                 return log_error_errno(
                                                 SYNTHETIC_ERRNO(ENOKEY), "Too many attempts, giving up.");
 
+                        AskPasswordRequest req = {
+                                .message = "Please enter TPM2 PIN:",
+                                .icon = "drive-harddisk",
+                                .keyring = "tpm2-pin",
+                                .credential = "cryptenroll.tpm2-pin",
+                        };
+
                         pin = strv_free_erase(pin);
                         r = ask_password_auto(
-                                        "Please enter TPM2 PIN:",
-                                        "drive-harddisk",
-                                        NULL,
-                                        "tpm2-pin",
-                                        "cryptenroll.tpm2-pin",
-                                        USEC_INFINITY,
-                                        0,
+                                        &req,
+                                        /* until= */ USEC_INFINITY,
+                                        /* flags= */ 0,
                                         &pin);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to ask for user pin: %m");
                         assert(strv_length(pin) == 1);
 
+                        req.message = "Please enter TPM2 PIN (repeat):";
+
                         r = ask_password_auto(
-                                        "Please enter TPM2 PIN (repeat):",
-                                        "drive-harddisk",
-                                        NULL,
-                                        "tpm2-pin",
-                                        "cryptenroll.tpm2-pin",
+                                        &req,
                                         USEC_INFINITY,
-                                        0,
+                                        /* flags= */ 0,
                                         &pin2);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to ask for user pin: %m");
