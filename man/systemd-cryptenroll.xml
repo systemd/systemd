@@ -651,6 +651,51 @@
   </refsect1>
 
   <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-cryptenroll</command> supports the service credentials logic as implemented by
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>cryptenroll.passphrase</varname></term>
+        <term><varname>cryptenroll.new-passphrase</varname></term>
+
+        <listitem><para>May contain the passphrase to unlock the volume with/to newly enroll.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>cryptenroll.tpm2-pin</varname></term>
+        <term><varname>cryptenroll.new-tpm2-pin</varname></term>
+
+        <listitem><para>May contain the TPM2 PIN to unlock the volume with/to newly enroll.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>cryptenroll.fido2-pin</varname></term>
+
+        <listitem><para>If a FIDO2 token is enrolled this may contain the PIN of the token.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>cryptenroll.pkcs11-pin</varname></term>
+
+        <listitem><para>If a PKCS#11 token is enrolled this may contain the PIN of the token.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Exit status</title>
 
     <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
