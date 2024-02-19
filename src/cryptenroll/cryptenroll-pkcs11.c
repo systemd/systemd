@@ -55,7 +55,7 @@ int enroll_pkcs11(
 
         assert_se(node = crypt_get_device_name(cd));
 
-        r = pkcs11_acquire_public_key(uri, "volume enrollment operation", "drive-harddisk", &pkey, NULL);
+        r = pkcs11_acquire_public_key(uri, "volume enrollment operation", "drive-harddisk", "cryptenroll.pkcs11-pin", &pkey, NULL);
         if (r < 0)
                 return r;
 
