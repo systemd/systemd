@@ -153,7 +153,7 @@ int identity_add_pkcs11_key_data(JsonVariant **v, const char *uri) {
 
         assert(v);
 
-        r = pkcs11_acquire_public_key(uri, "home directory operation", "user-home", &pkey, &pin);
+        r = pkcs11_acquire_public_key(uri, "home directory operation", "user-home", "home.token-pin", &pkey, &pin);
         if (r < 0)
                 return r;
 

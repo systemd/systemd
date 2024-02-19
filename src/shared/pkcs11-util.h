@@ -71,7 +71,7 @@ typedef int (*pkcs11_find_token_callback_t)(CK_FUNCTION_LIST *m, CK_SESSION_HAND
 int pkcs11_find_token(const char *pkcs11_uri, pkcs11_find_token_callback_t callback, void *userdata);
 
 #if HAVE_OPENSSL
-int pkcs11_acquire_public_key(const char *uri, const char *askpw_friendly_name, const char *askpw_icon_name, EVP_PKEY **ret_pkey, char **ret_pin_used);
+int pkcs11_acquire_public_key(const char *uri, const char *askpw_friendly_name, const char *askpw_icon, const char *askpw_credential, EVP_PKEY **ret_pkey, char **ret_pin_used);
 #endif
 
 typedef struct {
@@ -83,6 +83,7 @@ typedef struct {
         size_t decrypted_key_size;
         bool free_encrypted_key;
         bool headless;
+        const char *askpw_credential;
         AskPasswordFlags askpw_flags;
 } pkcs11_crypt_device_callback_data;
 
