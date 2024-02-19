@@ -1956,6 +1956,19 @@ static const char *ansi_true_color(uint8_t r, uint8_t g, uint8_t b, char ret[sta
         return ret;
 }
 
+/* red and green colors usually have good/bad meaning. So exclude color ranges that look too red- or
+ * greenish. See https://en.wikipedia.org/wiki/Hue */
+static double map_pcr_to_hue(uint32_t pcr) {
+        double exclude_red_range = 60.0;
+        double exclude_green_range = 60.0;
+        double h = (360.0 - exclude_red_range - exclude_green_range) / (TPM2_PCRS_MAX - 1) * pcr;
+        h += exclude_red_range/2;
+        if (h > 120-exclude_green_range/2)
+                h += exclude_green_range;
+        assert(h <= 360-exclude_red_range/2);
+        return h;
+}
+
 static char *color_for_pcr(EventLog *el, uint32_t pcr) {
         char color[ANSI_TRUE_COLOR_MAX];
         uint8_t r, g, b;
@@ -1966,7 +1979,7 @@ static char *color_for_pcr(EventLog *el, uint32_t pcr) {
         if (el->registers[pcr].color)
                 return el->registers[pcr].color;
 
-        hsv_to_rgb(360.0 / (TPM2_PCRS_MAX - 1) * pcr, 100, 90, &r, &g, &b);
+        hsv_to_rgb(map_pcr_to_hue(pcr), 100, 90, &r, &g, &b);
         ansi_true_color(r, g, b, color);
 
         el->registers[pcr].color = strdup(color);
