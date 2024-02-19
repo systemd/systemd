@@ -23,6 +23,7 @@ static const char *arg_suffix = NULL;
 static const char *arg_template = NULL;
 static bool arg_path = false;
 static bool arg_instance = false;
+static bool arg_hashed = false;
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -66,6 +67,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "mangle",    no_argument,       NULL, 'm'           },
                 { "path",      no_argument,       NULL, 'p'           },
                 { "instance",  no_argument,       NULL, 'i'           },
+                { "hashed",    no_argument,       NULL, 'x'           },
                 {}
         };
 
@@ -74,7 +76,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hump", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "humpx", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -117,6 +119,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_instance = true;
                         break;
 
+                case 'x':
+                        arg_hashed = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -151,6 +157,9 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_instance && arg_template)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--instance may not be combined with --template.");
+        if (arg_hashed && arg_action == ACTION_UNESCAPE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--hashed is not compatible with --unescape.");
 
         return 1;
 }
@@ -269,6 +278,18 @@ static int run(int argc, char *argv[]) {
 
                 if (i != argv + optind)
                         fputc(' ', stdout);
+
+                if (arg_hashed) {
+                        if (strlen(e) >= UNIT_NAME_MAX) {
+                                _cleanup_free_ char *n = NULL;
+
+                                r = unit_name_hash_long(e, &n);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to hash name: %m");
+
+                                free_and_replace(e, n);
+                        }
+                }
 
                 fputs(e, stdout);
         }
