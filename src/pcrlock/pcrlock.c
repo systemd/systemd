@@ -1949,6 +1949,30 @@ static int event_log_map_components(EventLog *el) {
         return event_log_validate_fully_recognized(el);
 }
 
+static int tpm2_check_and_allocate(Tpm2Context** ret_tc) {
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
+        int r;
+
+        if (tpm2_support() != TPM2_SUPPORT_FULL)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Sorry, system lacks full TPM2 support.");
+
+        r = tpm2_context_new(NULL, &tc);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create TPM2 context: %m");
+
+        if (!tpm2_supports_command(tc, TPM2_CC_PolicyAuthorizeNV))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 does not support PolicyAuthorizeNV command, refusing.");
+
+        if (ret_tc)
+                *ret_tc = TAKE_PTR(tc);
+
+        return 0;
+}
+
+static int verb_is_supported(int argc, char *argv[], void *userdata) {
+        return tpm2_check_and_allocate(NULL);
+}
+
 #define ANSI_TRUE_COLOR_MAX (7U + 3U + 1U + 3U + 1U + 3U + 2U)
 
 static const char *ansi_true_color(uint8_t r, uint8_t g, uint8_t b, char ret[static ANSI_TRUE_COLOR_MAX]) {
@@ -4334,7 +4358,12 @@ static int write_boot_policy_file(const char *json_text) {
 }
 
 static int make_policy(bool force, bool recovery_pin) {
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
         int r;
+
+        r = tpm2_check_and_allocate(&tc);
+        if (r < 0)
+                return r;
 
         /* Here's how this all works: after predicting all possible PCR values for next boot (with
          * alternatives) we'll calculate a policy from it as a combination of PolicyPCR + PolicyOR
@@ -4415,14 +4444,6 @@ static int make_policy(bool force, bool recovery_pin) {
                         return 0; /* NOP */
                 }
         }
-
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
-        r = tpm2_context_new(NULL, &tc);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate TPM2 context: %m");
-
-        if (!tpm2_supports_command(tc, TPM2_CC_PolicyAuthorizeNV))
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 does not support PolicyAuthorizeNV command, refusing.");
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *srk_handle = NULL;
 
@@ -4856,6 +4877,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  list-components             List defined .pcrlock components\n"
                "  predict                     Predict PCR values\n"
                "  make-policy                 Predict PCR values and generate TPM2 policy from it\n"
+               "  is-supported                Check whether there's sufficient TPM supports PolicyAuthorizeNV\n"
                "  remove-policy               Remove TPM2 policy\n"
                "\n%3$sProtections:%4$s\n"
                "  lock-firmware-code          Generate a .pcrlock file from current firmware code\n"
@@ -5158,6 +5180,7 @@ static int pcrlock_main(int argc, char *argv[]) {
                 { "lock-raw",                    VERB_ANY, 2,        0,            verb_lock_raw                    },
                 { "unlock-raw",                  VERB_ANY, 1,        0,            verb_unlock_simple               },
                 { "make-policy",                 VERB_ANY, 1,        0,            verb_make_policy                 },
+                { "is-supported",                VERB_ANY, 1,        0,            verb_is_supported                },
                 { "remove-policy",               VERB_ANY, 1,        0,            verb_remove_policy               },
                 {}
         };
