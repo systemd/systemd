@@ -91,7 +91,7 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
                                 .message = "Please enter TPM2 PIN:",
                                 .icon = "drive-harddisk",
                                 .keyring = "tpm2-pin",
-                                .credential = "cryptenroll.tpm2-pin",
+                                .credential = "cryptenroll.new-tpm2-pin",
                         };
 
                         pin = strv_free_erase(pin);
