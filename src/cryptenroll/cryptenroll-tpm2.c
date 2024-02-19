@@ -210,7 +210,6 @@ int load_volume_key_tpm2(
                                 &pcrlock_nv,
                                 tpm2_flags,
                                 /* until= */ 0,
-                                /* headless= */ false,
                                 "cryptenroll.tpm2-pin",
                                 /* askpw_flags= */ 0,
                                 &decrypted_key);

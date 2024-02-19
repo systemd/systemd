@@ -14,7 +14,6 @@
 
 static int get_pin(
                 usec_t until,
-                bool headless,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
                 char **ret_pin_str) {
@@ -28,7 +27,7 @@ static int get_pin(
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire PIN from environment: %m");
         if (!r) {
-                if (headless)
+                if (FLAGS_SET(askpw_flags, ASK_PASSWORD_HEADLESS))
                         return log_error_errno(
                                         SYNTHETIC_ERRNO(ENOPKG),
                                         "PIN querying disabled via 'headless' option. "
@@ -42,11 +41,7 @@ static int get_pin(
                 };
 
                 pin = strv_free_erase(pin);
-                r = ask_password_auto(
-                                &req,
-                                until,
-                                askpw_flags,
-                                &pin);
+                r = ask_password_auto(&req, until, askpw_flags, &pin);
                 if (r < 0)
                         return log_error_errno(r, "Failed to ask for user pin: %m");
                 assert(strv_length(pin) == 1);
@@ -81,7 +76,6 @@ int acquire_tpm2_key(
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
                 usec_t until,
-                bool headless,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
                 struct iovec *ret_decrypted_key) {
@@ -179,7 +173,7 @@ int acquire_tpm2_key(
                 if (i <= 0)
                         return -EACCES;
 
-                r = get_pin(until, headless, askpw_credential, askpw_flags, &pin_str);
+                r = get_pin(until, askpw_credential, askpw_flags, &pin_str);
                 if (r < 0)
                         return r;
 
