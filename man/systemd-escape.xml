@@ -145,6 +145,18 @@
         <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--hashed</option></term>
+
+        <listitem><para>When systemd is generating unit name for a path
+        that exceeds 256 characters, it chops the end of the name and
+        appends just the hash of the end, so the whole name is 256
+        characters long. systemd-escape with <option>--hashed</option>
+        will mimic the same behavior.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
