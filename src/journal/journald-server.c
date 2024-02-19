@@ -1155,7 +1155,7 @@ static void server_dispatch_message_real(
         else
                 journal_uid = 0;
 
-        server_forward_socket(s, iovec, n, priority);
+        (void) server_forward_socket(s, iovec, n, priority);
 
         server_write_to_journal(s, journal_uid, iovec, n, priority);
 }
@@ -2488,16 +2488,12 @@ static void server_load_credentials(Server *s) {
         assert(s);
 
         /* if we already have a forward address from config don't load the credential */
-        if (s->forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC) {
-                log_debug("Socket forward address already set not loading journal.forward_to_socket");
-                return;
-        }
+        if (s->forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC)
+                return log_debug("Socket forward address already set not loading journal.forward_to_socket");
 
         r = read_credential("journal.forward_to_socket", &data, NULL);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to read credential journal.forward_to_socket, ignoring: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to read credential journal.forward_to_socket, ignoring: %m");
 
         r = socket_address_parse(&s->forward_to_socket, data);
         if (r < 0)
