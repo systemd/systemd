@@ -2695,6 +2695,14 @@ if not meson.is_cross_build()
                 command : [export_dbus_interfaces_py, '@OUTPUT@', dbus_programs])
 endif
 
+meson_extract_unit_files = find_program('tools/meson-extract-unit-files.py')
+custom_target('installed-unit-files.txt',
+              output : 'installed-unit-files.txt',
+              capture : true,
+              install : want_tests != 'no' and install_tests,
+              install_dir : testdata_dir,
+              command : [meson_extract_unit_files, project_build_root])
+
 #####################################################################
 
 alt_time_epoch = run_command('date', '-Is', '-u', '-d', '@@0@'.format(time_epoch),
