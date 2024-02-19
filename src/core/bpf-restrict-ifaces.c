@@ -159,7 +159,7 @@ int bpf_restrict_ifaces_install(Unit *u) {
                 return 0;
 
         r = restrict_ifaces_install_impl(u);
-        fdset_close(crt->initial_restric_ifaces_link_fds);
+        fdset_close(crt->initial_restrict_ifaces_link_fds);
         return r;
 }
 
@@ -189,13 +189,13 @@ int bpf_restrict_ifaces_add_initial_link_fd(Unit *u, int fd) {
         if (!crt)
                 return -EINVAL;
 
-        if (!crt->initial_restric_ifaces_link_fds) {
-                crt->initial_restric_ifaces_link_fds = fdset_new();
-                if (!crt->initial_restric_ifaces_link_fds)
+        if (!crt->initial_restrict_ifaces_link_fds) {
+                crt->initial_restrict_ifaces_link_fds = fdset_new();
+                if (!crt->initial_restrict_ifaces_link_fds)
                         return log_oom();
         }
 
-        r = fdset_put(crt->initial_restric_ifaces_link_fds, fd);
+        r = fdset_put(crt->initial_restrict_ifaces_link_fds, fd);
         if (r < 0)
                 return log_unit_error_errno(u, r,
                         "restrict-interfaces: Failed to put restrict-ifaces-bpf-fd %d to restored fdset: %m", fd);

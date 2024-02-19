@@ -358,7 +358,7 @@ typedef struct CGroupRuntime {
         struct bpf_link *ipv6_socket_bind_link;
 #endif
 
-        FDSet *initial_restric_ifaces_link_fds;
+        FDSet *initial_restrict_ifaces_link_fds;
 #if BPF_FRAMEWORK
         struct bpf_link *restrict_ifaces_ingress_bpf_link;
         struct bpf_link *restrict_ifaces_egress_bpf_link;
