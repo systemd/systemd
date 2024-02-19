@@ -518,6 +518,11 @@ static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt)
         if (!link->network->ipv6_accept_ra_use_icmp6_ratelimit)
                 return 0;
 
+        /* Ignore the hop limit field of the RA header if the lifetime is zero. */
+        r = sd_ndisc_router_get_lifetime(rt, NULL);
+        if (r <= 0)
+                return r;
+
         r = sd_ndisc_router_get_icmp6_ratelimit(rt, &icmp6_ratelimit);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get ICMP6 ratelimit from RA: %m");
@@ -549,6 +554,11 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
 
         if (!link->network->ipv6_accept_ra_use_retransmission_time)
                 return 0;
+
+        /* Ignore the hop limit field of the RA header if the lifetime is zero. */
+        r = sd_ndisc_router_get_lifetime(rt, NULL);
+        if (r <= 0)
+                return r;
 
         r = sd_ndisc_router_get_retransmission_time(rt, &retrans_time);
         if (r < 0)
@@ -583,6 +593,11 @@ static int ndisc_router_process_hop_limit(Link *link, sd_ndisc_router *rt) {
 
         if (!link->network->ipv6_accept_ra_use_hop_limit)
                 return 0;
+
+        /* Ignore the hop limit field of the RA header if the lifetime is zero. */
+        r = sd_ndisc_router_get_lifetime(rt, NULL);
+        if (r <= 0)
+                return r;
 
         r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
         if (r < 0)
@@ -1568,6 +1583,12 @@ static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
 
         assert(link);
         assert(link->network);
+
+        /* Do not start DHCPv6 client if the router lifetime is zero, as the message sent as a signal of
+         * that the router is e.g. shutting down, revoked, etc,. */
+        r = sd_ndisc_router_get_lifetime(rt, NULL);
+        if (r <= 0)
+                return r;
 
         switch (link->network->ipv6_accept_ra_start_dhcp6_client) {
         case IPV6_ACCEPT_RA_START_DHCP6_CLIENT_NO:
