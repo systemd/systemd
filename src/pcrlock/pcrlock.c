@@ -4447,7 +4447,7 @@ static int make_policy(bool force, bool recovery_pin) {
                         AskPasswordRequest req = {
                                 .message = "Recovery PIN",
                                 .id = "pcrlock-recovery-pin",
-                                .credential = "systemd-pcrlock.recovery-pin",
+                                .credential = "pcrlock.recovery-pin",
                         };
 
                         r = ask_password_auto(
