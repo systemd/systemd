@@ -4444,12 +4444,14 @@ static int make_policy(bool force, bool recovery_pin) {
                 if (r == 0) {
                         _cleanup_(strv_free_erasep) char **l = NULL;
 
+                        AskPasswordRequest req = {
+                                .message = "Recovery PIN",
+                                .id = "pcrlock-recovery-pin",
+                                .credential = "systemd-pcrlock.recovery-pin",
+                        };
+
                         r = ask_password_auto(
-                                        "Recovery PIN",
-                                        /* icon= */ NULL,
-                                        /* id= */ "pcrlock-recovery-pin",
-                                        /* key_name= */ NULL,
-                                        /* credential_name= */ "systemd-pcrlock.recovery-pin",
+                                        &req,
                                         /* until= */ 0,
                                         /* flags= */ 0,
                                         &l);

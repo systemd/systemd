@@ -5,10 +5,15 @@
 #include "tests.h"
 
 TEST(ask_password) {
-        int r;
         _cleanup_strv_free_ char **ret = NULL;
+        int r;
 
-        r = ask_password_tty(-1, "hello?", "da key", 0, ASK_PASSWORD_CONSOLE_COLOR, NULL, &ret);
+        static const AskPasswordRequest req = {
+                .message = "hello?",
+                .keyring = "da key",
+        };
+
+        r = ask_password_tty(-EBADF, &req, /* until= */ 0, /* flags= */ ASK_PASSWORD_CONSOLE_COLOR, /* flag_file= */ NULL, &ret);
         if (r == -ECANCELED)
                 assert_se(ret == NULL);
         else {
