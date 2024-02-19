@@ -146,9 +146,9 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_us
                 .nd_opt_mtu_type = ND_OPT_MTU,
                 .nd_opt_mtu_len = 1,
         };
-        /* Reserve iov space for RA header, linkaddr, MTU, N prefixes, N routes, RDNSS
-           and DNSSL */
-        struct iovec iov[5 + ra->n_prefixes + ra->n_route_prefixes];
+        /* Reserve iov space for RA header, linkaddr, MTU, N prefixes, N routes, N pref64 prefixes, RDNSS,
+         * DNSSL, and home agent. */
+        struct iovec iov[6 + ra->n_prefixes + ra->n_route_prefixes + ra->n_pref64_prefixes];
         struct msghdr msg = {
                 .msg_name = &dst_addr,
                 .msg_namelen = sizeof(dst_addr),
