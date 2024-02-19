@@ -34,9 +34,10 @@ int load_volume_key_fido2(
                         device,
                         /* until= */ 0,
                         /* headless= */ false,
+                        "cryptenroll.fido2-pin",
+                        ASK_PASSWORD_PUSH_CACHE|ASK_PASSWORD_ACCEPT_CACHED,
                         &decrypted_key,
-                        &decrypted_key_size,
-                        ASK_PASSWORD_PUSH_CACHE|ASK_PASSWORD_ACCEPT_CACHED);
+                        &decrypted_key_size);
         if (r == -EAGAIN)
                 return log_error_errno(r, "FIDO2 token does not exist, or UV is blocked. Please try again.");
         if (r < 0)

@@ -12,7 +12,12 @@
 #include "sha256.h"
 #include "tpm2-util.h"
 
-static int get_pin(usec_t until, AskPasswordFlags ask_password_flags, bool headless, char **ret_pin_str) {
+static int get_pin(
+                usec_t until,
+                bool headless,
+                const char *askpw_credential,
+                AskPasswordFlags askpw_flags,
+                char **ret_pin_str) {
         _cleanup_(erase_and_freep) char *pin_str = NULL;
         _cleanup_strv_free_erase_ char **pin = NULL;
         int r;
@@ -29,18 +34,18 @@ static int get_pin(usec_t until, AskPasswordFlags ask_password_flags, bool headl
                                         "PIN querying disabled via 'headless' option. "
                                         "Use the '$PIN' environment variable.");
 
-                static const AskPasswordRequest req = {
+                AskPasswordRequest req = {
                         .message = "Please enter TPM2 PIN:",
                         .icon = "drive-harddisk",
                         .keyring = "tpm2-pin",
-                        .credential = "cryptsetup.tpm2-pin",
+                        .credential = askpw_credential,
                 };
 
                 pin = strv_free_erase(pin);
                 r = ask_password_auto(
                                 &req,
                                 until,
-                                ask_password_flags,
+                                askpw_flags,
                                 &pin);
                 if (r < 0)
                         return log_error_errno(r, "Failed to ask for user pin: %m");
@@ -77,7 +82,8 @@ int acquire_tpm2_key(
                 TPM2Flags flags,
                 usec_t until,
                 bool headless,
-                AskPasswordFlags ask_password_flags,
+                const char *askpw_credential,
+                AskPasswordFlags askpw_flags,
                 struct iovec *ret_decrypted_key) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *signature_json = NULL;
@@ -173,7 +179,7 @@ int acquire_tpm2_key(
                 if (i <= 0)
                         return -EACCES;
 
-                r = get_pin(until, ask_password_flags, headless, &pin_str);
+                r = get_pin(until, headless, askpw_credential, askpw_flags, &pin_str);
                 if (r < 0)
                         return r;
 
