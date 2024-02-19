@@ -936,7 +936,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         else if (streq(key, "ro") && !value)
                 arg_root_rw = false;
         else if (proc_cmdline_key_streq(key, "systemd.image_policy"))
-                return parse_image_policy_argument(optarg, &arg_image_policy);
+                return parse_image_policy_argument(value, &arg_image_policy);
 
         else if (streq(key, "systemd.swap")) {
 
