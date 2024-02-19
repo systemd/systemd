@@ -104,6 +104,7 @@ typedef struct {
         const char *friendly_name;
         usec_t until;
         bool headless;
+        const char *askpw_credential;
         AskPasswordFlags askpw_flags;
 } systemd_pkcs11_plugin_params;
 

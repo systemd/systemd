@@ -1394,6 +1394,7 @@ static int attach_luks2_by_pkcs11_via_plugin(
                 const char *friendly_name,
                 usec_t until,
                 bool headless,
+                const char *askpw_credential,
                 uint32_t flags) {
 
 #if HAVE_LIBCRYPTSETUP_PLUGINS
@@ -1406,6 +1407,7 @@ static int attach_luks2_by_pkcs11_via_plugin(
                 .friendly_name = friendly_name,
                 .until = until,
                 .headless = headless,
+                .askpw_credential = askpw_credential,
                 .askpw_flags = arg_ask_password_flags,
         };
 
@@ -1469,7 +1471,14 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
 
         for (;;) {
                 if (use_libcryptsetup_plugin && arg_pkcs11_uri_auto)
-                        r = attach_luks2_by_pkcs11_via_plugin(cd, name, friendly, until, arg_headless, flags);
+                        r = attach_luks2_by_pkcs11_via_plugin(
+                                        cd,
+                                        name,
+                                        friendly,
+                                        until,
+                                        arg_headless,
+                                        "cryptsetup.pkcs11-pin",
+                                        flags);
                 else {
                         r = decrypt_pkcs11_key(
                                         name,
