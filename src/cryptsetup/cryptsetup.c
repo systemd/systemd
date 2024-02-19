@@ -798,11 +798,10 @@ static int get_password(
                 PassphraseType passphrase_type,
                 char ***ret) {
 
-        _cleanup_free_ char *friendly = NULL, *text = NULL, *disk_path = NULL;
+        _cleanup_free_ char *friendly = NULL, *text = NULL, *disk_path = NULL, *id = NULL;
         _cleanup_strv_free_erase_ char **passwords = NULL;
-        char *id;
-        int r = 0;
         AskPasswordFlags flags = arg_ask_password_flags | ASK_PASSWORD_PUSH_CACHE;
+        int r;
 
         assert(vol);
         assert(src);
@@ -822,11 +821,23 @@ static int get_password(
         if (!disk_path)
                 return log_oom();
 
-        id = strjoina("cryptsetup:", disk_path);
+        id = strjoin("cryptsetup:", disk_path);
+        if (!id)
+                return log_oom();
 
-        r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", "cryptsetup.passphrase", until,
-                              flags | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
-                              &passwords);
+        AskPasswordRequest req = {
+                .message = text,
+                .icon = "drive-harddisk",
+                .id = id,
+                .keyring = "cryptsetup",
+                .credential = "cryptsetup.passphrase",
+        };
+
+        r = ask_password_auto(
+                        &req,
+                        until,
+                        flags | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
+                        &passwords);
         if (r < 0)
                 return log_error_errno(r, "Failed to query password: %m");
 
@@ -835,12 +846,19 @@ static int get_password(
 
                 assert(strv_length(passwords) == 1);
 
+                text = mfree(text);
                 if (asprintf(&text, "Please enter %s for disk %s (verification):", passphrase_type_to_string(passphrase_type), friendly) < 0)
                         return log_oom();
 
-                id = strjoina("cryptsetup-verification:", disk_path);
+                free(id);
+                id = strjoin("cryptsetup-verification:", disk_path);
+                if (!id)
+                        return log_oom();
 
-                r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", "cryptsetup.passphrase", until, flags, &passwords2);
+                req.message = text;
+                req.id = id;
+
+                r = ask_password_auto(&req, until, flags, &passwords2);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query verification password: %m");
 
@@ -1252,8 +1270,8 @@ static int crypt_activate_by_token_pin_ask_password(
                 void *userdata,
                 uint32_t activation_flags,
                 const char *message,
-                const char *key_name,
-                const char *credential_name) {
+                const char *keyring,
+                const char *credential) {
 
 #if HAVE_LIBCRYPTSETUP_PLUGINS
         AskPasswordFlags flags = arg_ask_password_flags | ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
@@ -1283,7 +1301,15 @@ static int crypt_activate_by_token_pin_ask_password(
 
         for (;;) {
                 pins = strv_free_erase(pins);
-                r = ask_password_auto(message, "drive-harddisk", /* id= */ NULL, key_name, credential_name, until, flags, &pins);
+
+                AskPasswordRequest req = {
+                        .message = message,
+                        .icon = "drive-harddisk",
+                        .keyring = keyring,
+                        .credential = credential,
+                };
+
+                r = ask_password_auto(&req, until, flags, &pins);
                 if (r < 0)
                         return r;
 

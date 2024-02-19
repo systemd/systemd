@@ -239,7 +239,15 @@ static int run(int argc, char *argv[]) {
         else
                 timeout = 0;
 
-        r = ask_password_auto(arg_message, arg_icon, arg_id, arg_key_name, arg_credential_name ?: "password", timeout, arg_flags, &l);
+        AskPasswordRequest req = {
+                .message = arg_message,
+                .icon = arg_icon,
+                .id = arg_id,
+                .keyring = arg_key_name,
+                .credential = arg_credential_name ?: "password",
+        };
+
+        r = ask_password_auto(&req, timeout, arg_flags, &l);
         if (r < 0)
                 return log_error_errno(r, "Failed to query password: %m");
 
