@@ -138,6 +138,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>is-supported</command></term>
+
+        <listitem><para>Checks whether a TPM is present has has the necessary features to support creating a
+        pcrlock policy</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>make-policy</command></term>
 
         <listitem><para>This predicts the PCR state for future boots, much like the
