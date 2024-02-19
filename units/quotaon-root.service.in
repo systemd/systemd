@@ -14,11 +14,11 @@ Documentation=man:quotaon(8)
 ConditionPathExists={{QUOTAON}}
 
 DefaultDependencies=no
-After=systemd-quotacheck.service
-Before=remote-fs.target
+After=systemd-quotacheck-root.service
 Before=shutdown.target
+Conflicts=shutdown.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={{QUOTAON}} -aug
+ExecStart={{QUOTAON}} -ug /
