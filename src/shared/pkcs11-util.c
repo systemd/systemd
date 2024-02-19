@@ -291,9 +291,9 @@ int pkcs11_token_login(
                 CK_SLOT_ID slotid,
                 const CK_TOKEN_INFO *token_info,
                 const char *friendly_name,
-                const char *icon_name,
-                const char *key_name,
-                const char *credential_name,
+                const char *askpw_icon,
+                const char *askpw_keyring,
+                const char *askpw_credential,
                 usec_t until,
                 AskPasswordFlags ask_password_flags,
                 bool headless,
@@ -377,10 +377,10 @@ int pkcs11_token_login(
 
                         AskPasswordRequest req = {
                                 .message = text,
-                                .icon = icon_name,
+                                .icon = askpw_icon,
                                 .id = id,
-                                .keyring = key_name,
-                                .credential = credential_name,
+                                .keyring = askpw_keyring,
+                                .credential = askpw_credential,
                         };
 
                         /* We never cache PINs, simply because it's fatal if we use wrong PINs, since usually there are only 3 tries */
@@ -1651,7 +1651,7 @@ int pkcs11_find_token(
 struct pkcs11_acquire_public_key_callback_data {
         char *pin_used;
         EVP_PKEY *pkey;
-        const char *askpw_friendly_name, *askpw_icon_name;
+        const char *askpw_friendly_name, *askpw_icon, *askpw_credential;
         AskPasswordFlags askpw_flags;
         bool headless;
 };
@@ -1698,9 +1698,9 @@ static int pkcs11_acquire_public_key_callback(
                         slot_id,
                         token_info,
                         data->askpw_friendly_name,
-                        data->askpw_icon_name,
+                        data->askpw_icon,
                         "pkcs11-pin",
-                        "pkcs11-pin",
+                        data->askpw_credential,
                         UINT64_MAX,
                         data->askpw_flags,
                         data->headless,
@@ -1829,13 +1829,15 @@ success:
 int pkcs11_acquire_public_key(
                 const char *uri,
                 const char *askpw_friendly_name,
-                const char *askpw_icon_name,
+                const char *askpw_icon,
+                const char *askpw_credential,
                 EVP_PKEY **ret_pkey,
                 char **ret_pin_used) {
 
         _cleanup_(pkcs11_acquire_public_key_callback_data_release) struct pkcs11_acquire_public_key_callback_data data = {
                 .askpw_friendly_name = askpw_friendly_name,
-                .askpw_icon_name = askpw_icon_name,
+                .askpw_icon = askpw_icon,
+                .askpw_credential = askpw_credential,
         };
         int r;
 
@@ -2040,7 +2042,7 @@ int pkcs11_crypt_device_callback(
                         data->friendly_name,
                         "drive-harddisk",
                         "pkcs11-pin",
-                        "cryptsetup.pkcs11-pin",
+                        data->askpw_credential,
                         data->until,
                         data->askpw_flags,
                         data->headless,
