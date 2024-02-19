@@ -49,7 +49,7 @@ int load_volume_key_password(
                 if (!disk_path)
                         return log_oom();
 
-                id = strjoin("cryptsetup:", disk_path);
+                id = strjoin("cryptenroll:", disk_path);
                 if (!id)
                         return log_oom();
 
@@ -122,7 +122,7 @@ int enroll_password(
                 if (!disk_path)
                         return log_oom();
 
-                id = strjoin("cryptsetup:", disk_path);
+                id = strjoin("cryptenroll-new:", disk_path);
                 if (!id)
                         return log_oom();
 
