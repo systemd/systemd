@@ -2984,7 +2984,7 @@ int dissected_image_decrypt_interactively(
                         return log_error_errno(SYNTHETIC_ERRNO(EKEYREJECTED),
                                                "Too many retries.");
 
-                z = strv_free(z);
+                z = strv_free_erase(z);
 
                 r = ask_password_auto("Please enter image passphrase:", NULL, "dissect", "dissect", "dissect.passphrase", USEC_INFINITY, 0, &z);
                 if (r < 0)
