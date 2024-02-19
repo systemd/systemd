@@ -31,7 +31,6 @@ int acquire_tpm2_key(
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
                 usec_t until,
-                bool headless,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
                 struct iovec *ret_decrypted_key);
@@ -76,7 +75,6 @@ static inline int acquire_tpm2_key(
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
                 usec_t until,
-                bool headless,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
                 struct iovec *ret_decrypted_key) {

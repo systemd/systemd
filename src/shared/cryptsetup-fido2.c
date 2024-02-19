@@ -24,7 +24,6 @@ int acquire_fido2_key(
                 const void *key_data,
                 size_t key_data_size,
                 usec_t until,
-                bool headless,
                 Fido2EnrollFlags required,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
@@ -39,7 +38,7 @@ int acquire_fido2_key(
         size_t salt_size;
         int r;
 
-        if ((required & (FIDO2ENROLL_PIN | FIDO2ENROLL_UP | FIDO2ENROLL_UV)) && headless)
+        if ((required & (FIDO2ENROLL_PIN | FIDO2ENROLL_UP | FIDO2ENROLL_UV)) && FLAGS_SET(askpw_flags, ASK_PASSWORD_HEADLESS))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOPKG),
                                         "Local verification is required to unlock this volume, but the 'headless' parameter was set.");
 
@@ -116,7 +115,7 @@ int acquire_fido2_key(
                 device_exists = true; /* that a PIN is needed/wasn't correct means that we managed to
                                        * talk to a device */
 
-                if (headless)
+                if (FLAGS_SET(askpw_flags, ASK_PASSWORD_HEADLESS))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the '$PIN' environment variable.");
 
                 static const AskPasswordRequest req = {
@@ -141,7 +140,6 @@ int acquire_fido2_key_auto(
                 const char *friendly_name,
                 const char *fido2_device,
                 usec_t until,
-                bool headless,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
                 void **ret_decrypted_key,
@@ -263,7 +261,6 @@ int acquire_fido2_key_auto(
                                 /* key_file_offset= */ 0,
                                 salt, salt_size,
                                 until,
-                                headless,
                                 required,
                                 "cryptsetup.fido2-pin",
                                 askpw_flags,

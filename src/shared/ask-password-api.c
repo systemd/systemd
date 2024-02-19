@@ -224,6 +224,9 @@ int ask_password_plymouth(
 
         assert(ret);
 
+        if (FLAGS_SET(flags, ASK_PASSWORD_HEADLESS))
+                return -ENOEXEC;
+
         const char *message = req && req->message ? req->message : "Password:";
 
         if (flag_file) {
@@ -377,6 +380,9 @@ int ask_password_tty(
         int r;
 
         assert(ret);
+
+        if (FLAGS_SET(flags, ASK_PASSWORD_HEADLESS))
+                return -ENOEXEC;
 
         if (FLAGS_SET(flags, ASK_PASSWORD_NO_TTY))
                 return -EUNATCH;
@@ -699,6 +705,9 @@ int ask_password_agent(
         int r;
 
         assert(ret);
+
+        if (FLAGS_SET(flags, ASK_PASSWORD_HEADLESS))
+                return -ENOEXEC;
 
         if (FLAGS_SET(flags, ASK_PASSWORD_NO_AGENT))
                 return -EUNATCH;
