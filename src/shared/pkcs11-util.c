@@ -873,7 +873,7 @@ int pkcs11_token_find_private_key(
         uint_fast8_t n_objects = 0;
         bool found_class = false;
         _cleanup_free_ CK_ATTRIBUTE *attributes_buffer = NULL;
-        CK_OBJECT_HANDLE object, candidate;
+        CK_OBJECT_HANDLE object = 0, candidate;
         static const CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
         CK_BBOOL decrypt_value, derive_value;
         CK_ATTRIBUTE optional_attributes[] = {
