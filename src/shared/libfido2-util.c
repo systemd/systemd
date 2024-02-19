@@ -686,7 +686,8 @@ int fido2_generate_hmac_hash(
                 const char *user_name,
                 const char *user_display_name,
                 const char *user_icon,
-                const char *askpw_icon_name,
+                const char *askpw_icon,
+                const char *askpw_credential,
                 Fido2EnrollFlags lock_with,
                 int cred_alg,
                 void **ret_cid, size_t *ret_cid_size,
@@ -840,9 +841,9 @@ int fido2_generate_hmac_hash(
                         _cleanup_strv_free_erase_ char **pin = NULL;
                         AskPasswordRequest req = {
                                 .message = "Please enter security token PIN:",
-                                .icon = askpw_icon_name,
+                                .icon = askpw_icon,
                                 .keyring = "fido2-pin",
-                                .credential = "fido2-pin",
+                                .credential = askpw_credential,
                         };
 
                         r = ask_password_auto(&req, USEC_INFINITY, /* flags= */ 0, &pin);
