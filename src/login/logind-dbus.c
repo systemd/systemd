@@ -1777,6 +1777,26 @@ static int send_prepare_for(Manager *m, const HandleActionData *a, bool _active)
         return RET_GATHER(k, r);
 }
 
+static int strdup_job(sd_bus_message *reply, char **ret) {
+        const char *j;
+        char *job;
+        int r;
+
+        assert(reply);
+        assert(ret);
+
+        r = sd_bus_message_read_basic(reply, 'o', &job);
+        if (r < 0)
+                return r;
+
+        job = strdup(j);
+        if (!job)
+                return -ENOMEM;
+
+        *ret = job;
+        return 0;
+}
+
 static int execute_shutdown_or_sleep(
                 Manager *m,
                 const HandleActionData *a,
@@ -1801,17 +1821,11 @@ static int execute_shutdown_or_sleep(
                         &reply,
                         "ss", a->target, "replace-irreversibly");
         if (r < 0)
-                goto error;
+                goto fail;
 
-        r = sd_bus_message_read(reply, "o", &p);
+        r = strdup_job(reply, &m->action_job);
         if (r < 0)
-                goto error;
-
-        m->action_job = strdup(p);
-        if (!m->action_job) {
-                r = -ENOMEM;
-                goto error;
-        }
+                goto fail;
 
         m->delayed_action = a;
 
@@ -1820,7 +1834,7 @@ static int execute_shutdown_or_sleep(
 
         return 0;
 
-error:
+fail:
         /* Tell people that they now may take a lock again */
         (void) send_prepare_for(m, a, false);
 
@@ -4222,23 +4236,6 @@ int manager_send_changed(Manager *manager, const char *property, ...) {
                         l);
 }
 
-static int strdup_job(sd_bus_message *reply, char **job) {
-        const char *j;
-        char *copy;
-        int r;
-
-        r = sd_bus_message_read(reply, "o", &j);
-        if (r < 0)
-                return r;
-
-        copy = strdup(j);
-        if (!copy)
-                return -ENOMEM;
-
-        *job = copy;
-        return 1;
-}
-
 int manager_start_scope(
                 Manager *manager,
                 const char *scope,
@@ -4349,13 +4346,13 @@ int manager_start_scope(
         return strdup_job(reply, ret_job);
 }
 
-int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
+int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **ret_job) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         assert(manager);
         assert(unit);
-        assert(job);
+        assert(ret_job);
 
         r = bus_call_method(
                         manager->bus,
@@ -4367,11 +4364,18 @@ int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, 
         if (r < 0)
                 return r;
 
-        return strdup_job(reply, job);
+        return strdup_job(reply, ret_job);
 }
 
-int manager_stop_unit(Manager *manager, const char *unit, const char *job_mode, sd_bus_error *error, char **ret_job) {
+int manager_stop_unit(
+                Manager *manager,
+                const char *unit,
+                const char *job_mode,
+                sd_bus_error *ret_error,
+                char **ret_job) {
+
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(manager);
@@ -4386,18 +4390,20 @@ int manager_stop_unit(Manager *manager, const char *unit, const char *job_mode, 
                         &reply,
                         "ss", unit, job_mode ?: "fail");
         if (r < 0) {
-                if (sd_bus_error_has_names(error, BUS_ERROR_NO_SUCH_UNIT,
-                                                  BUS_ERROR_LOAD_FAILED)) {
-
+                if (sd_bus_error_has_names(&error, BUS_ERROR_NO_SUCH_UNIT, BUS_ERROR_LOAD_FAILED)) {
                         *ret_job = NULL;
-                        sd_bus_error_free(error);
                         return 0;
                 }
 
+                sd_bus_error_move(ret_error, &error);
                 return r;
         }
 
-        return strdup_job(reply, ret_job);
+        r = strdup_job(reply, ret_job);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *ret_error) {
@@ -4437,6 +4443,7 @@ int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *ret
 int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, sd_bus_error *error) {
         assert(manager);
         assert(unit);
+        assert(SIGNAL_VALID(signo));
 
         return bus_call_method(
                         manager->bus,
@@ -4444,7 +4451,10 @@ int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo
                         "KillUnit",
                         error,
                         NULL,
-                        "ssi", unit, who == KILL_LEADER ? "main" : "all", signo);
+                        "ssi",
+                        unit,
+                        who == KILL_LEADER ? "main" : "all",
+                        signo);
 }
 
 int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *ret_error) {
