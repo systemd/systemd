@@ -136,7 +136,7 @@ static int find_next_free_vt(int fd, int *ret_free_vt, int *ret_original_vt) {
                         return 0;
                 }
 
-        return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "No free VT found: %m");
+        return -ENOTTY;
 }
 
 static int display_emergency_message_fullscreen(const char *message) {
@@ -316,7 +316,7 @@ static int run(int argc, char *argv[]) {
 
         r = acquire_first_emergency_log_message(&message);
         if (r < 0)
-                return log_error_errno(r, "Failed to acquire first emergency log message: %m");
+                return r;
 
         if (!message) {
                 log_debug("No emergency-level entries");
@@ -325,11 +325,7 @@ static int run(int argc, char *argv[]) {
 
         assert_se(sigaction_many(&nop_sigaction, SIGTERM, SIGINT) >= 0);
 
-        r = display_emergency_message_fullscreen((const char*) message);
-        if (r < 0)
-                return log_error_errno(r, "Failed to display emergency message on terminal: %m");
-
-        return 0;
+        return display_emergency_message_fullscreen(message);
 }
 
 DEFINE_MAIN_FUNCTION(run);
