@@ -24,6 +24,7 @@ struct sd_ndisc_router {
         uint64_t flags;
         unsigned preference;
         uint64_t lifetime_usec;
+        usec_t reachable_time_usec;
         usec_t retransmission_time_usec;
 
         uint8_t hop_limit;
