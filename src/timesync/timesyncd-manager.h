@@ -45,10 +45,9 @@ struct Manager {
         LIST_HEAD(ServerName, runtime_servers);
         LIST_HEAD(ServerName, fallback_servers);
 
-        bool have_fallbacks:1;
-
         RateLimit ratelimit;
         bool exhausted_servers;
+        bool have_fallbacks;
 
         /* network */
         sd_event_source *network_event_source;
