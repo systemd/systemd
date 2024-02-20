@@ -34,19 +34,21 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s\n\n"
-               "%sFilter the journal to fetch the first message from the\n"
-               "current boot with an emergency log level and displays it\n"
-               "as a string and a QR code.\n\n%s"
+        printf("%1$s [OPTIONS...]\n\n"
+               "%5$sFilter the journal to fetch the first message from the current boot with an%6$s\n"
+               "%5$semergency log level and display it as a string and a QR code.%6$s\n"
+               "\n%3$sOptions:%4$s\n"
                "   -h --help            Show this help\n"
                "      --version         Show package version\n"
                "   -c --continuous      Make systemd-bsod wait continuously\n"
                "                        for changes in the journal\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
+               link,
+               ansi_underline(),
                ansi_normal(),
-               link);
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
