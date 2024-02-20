@@ -531,7 +531,7 @@
         <term><option>--avatar=</option><replaceable>PATH</replaceable></term>
         <term><option>--login-background=</option><replaceable>PATH</replaceable></term>
 
-        <listitem><para>Accept a file path. If set, the specifified file is used to overwrite the
+        <listitem><para>Accept a file path. If set, the specified file is used to overwrite the
         corresponding file in the user's blob directory. If blank, the corresponding file is deleted
         from the blob directory. Essentially, these options are shortcuts to
         <option>--blob=</option><replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable>

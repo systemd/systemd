@@ -119,7 +119,7 @@ int bus_message_read_blobs(sd_bus_message *m, Hashmap **ret, sd_bus_error *error
                         return -errno;
 
                 /* Refuse fds w/ unexpected flags set. In particular, we don't want to permit O_PATH FDs, since
-                 * those don't actually guarentee that the client has access to the file. */
+                 * those don't actually guarantee that the client has access to the file. */
                 if ((flags & ~(O_ACCMODE|RAW_O_LARGEFILE)) != 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "FD for %s has unexpected flags set", filename);
 
