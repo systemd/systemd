@@ -5,7 +5,7 @@ Name=client-peer
 [Network]
 Address=192.168.6.2/24
 DHCPServer=yes
-IPForward=ipv4
+IPv4Forwarding=yes
 IPv6AcceptRA=no
 
 [DHCPServer]
