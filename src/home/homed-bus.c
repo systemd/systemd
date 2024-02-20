@@ -3,7 +3,6 @@
 #include "fd-util.h"
 #include "home-util.h"
 #include "homed-bus.h"
-#include "missing_fcntl.h"
 #include "stat-util.h"
 #include "strv.h"
 
@@ -120,8 +119,10 @@ int bus_message_read_blobs(sd_bus_message *m, Hashmap **ret, sd_bus_error *error
 
                 /* Refuse fds w/ unexpected flags set. In particular, we don't want to permit O_PATH FDs, since
                  * those don't actually guarantee that the client has access to the file. */
-                if ((flags & ~(O_ACCMODE|RAW_O_LARGEFILE)) != 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "FD for %s has unexpected flags set", filename);
+                if (UNSAFE_FD_FLAGS(flags) != 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "FD for %s has unexpected flags set: 0%o",
+                                                 filename, UNSAFE_FD_FLAGS(flags));
 
                 r = hashmap_put(blobs, filename, FD_TO_PTR(fd));
                 if (r < 0)
