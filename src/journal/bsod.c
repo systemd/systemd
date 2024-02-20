@@ -17,6 +17,7 @@
 #include "log.h"
 #include "logs-show.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "pretty-print.h"
 #include "qrcode-util.h"
 #include "sigbus.h"
@@ -25,6 +26,9 @@
 #include "terminal-util.h"
 
 static bool arg_continuous = false;
+static char *arg_tty = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_tty, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -42,6 +46,7 @@ static int help(void) {
                "      --version         Show package version\n"
                "   -c --continuous      Make systemd-bsod wait continuously\n"
                "                        for changes in the journal\n"
+               "      --tty=TTY         Specify path to TTY to use\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -135,9 +140,9 @@ static int find_next_free_vt(int fd, int *ret_free_vt, int *ret_original_vt) {
 }
 
 static int display_emergency_message_fullscreen(const char *message) {
-        int r, ret = 0, free_vt = 0, original_vt = 0;
+        int r, ret = 0, free_vt = -1, original_vt = 0;
         unsigned qr_code_start_row = 1, qr_code_start_column = 1;
-        char tty[STRLEN("/dev/tty") + DECIMAL_STR_MAX(int) + 1];
+        char ttybuf[STRLEN("/dev/tty") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -EBADF;
         _cleanup_fclose_ FILE *stream = NULL;
         char read_character_buffer = '\0';
@@ -145,30 +150,36 @@ static int display_emergency_message_fullscreen(const char *message) {
                 .ws_col = 80,
                 .ws_row = 25,
         };
+        const char *tty;
 
         assert(message);
 
-        fd = open_terminal("/dev/tty1", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (arg_tty)
+                tty = arg_tty;
+        else {
+                fd = open_terminal("/dev/tty1", O_RDWR|O_NOCTTY|O_CLOEXEC);
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to open /dev/tty1: %m");
+
+                r = find_next_free_vt(fd, &free_vt, &original_vt);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find a free VT: %m");
+
+                xsprintf(ttybuf, "/dev/tty%d", free_vt + 1);
+                tty = ttybuf;
+
+                fd = safe_close(fd);
+        }
+
+        fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
-                return log_error_errno(fd, "Failed to open tty1: %m");
-
-        r = find_next_free_vt(fd, &free_vt, &original_vt);
-        if (r < 0)
-                return log_error_errno(r, "Failed to find a free VT: %m");
-
-        xsprintf(tty, "/dev/tty%d", free_vt + 1);
-
-        r = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (r < 0)
-                return log_error_errno(fd, "Failed to open tty: %m");
-
-        close_and_replace(fd, r);
+                return log_error_errno(fd, "Failed to open %s: %m", tty);
 
         if (ioctl(fd, TIOCGWINSZ, &w) < 0)
                 log_warning_errno(errno, "Failed to fetch tty size, ignoring: %m");
 
-        if (ioctl(fd, VT_ACTIVATE, free_vt + 1) < 0)
-                return log_error_errno(errno, "Failed to activate tty: %m");
+        if (free_vt >= 0 && ioctl(fd, VT_ACTIVATE, free_vt + 1) < 0)
+                return log_error_errno(errno, "Failed to activate tty, ignoring: %m");
 
         r = loop_write(fd, ANSI_BACKGROUND_BLUE ANSI_HOME_CLEAR, SIZE_MAX);
         if (r < 0)
@@ -221,7 +232,7 @@ static int display_emergency_message_fullscreen(const char *message) {
                 ret = log_error_errno(r, "Failed to read character: %m");
 
 cleanup:
-        if (ioctl(fd, VT_ACTIVATE, original_vt) < 0)
+        if (original_vt > 0 && ioctl(fd, VT_ACTIVATE, original_vt) < 0)
                 return log_error_errno(errno, "Failed to switch back to original VT: %m");
 
         return ret;
@@ -231,16 +242,18 @@ static int parse_argv(int argc, char * argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_TTY,
         };
 
         static const struct option options[] = {
-                { "help",       no_argument, NULL, 'h'         },
-                { "version",    no_argument, NULL, ARG_VERSION },
-                { "continuous", no_argument, NULL, 'c'         },
+                { "help",       no_argument,       NULL, 'h'         },
+                { "version",    no_argument,       NULL, ARG_VERSION },
+                { "continuous", no_argument,       NULL, 'c'         },
+                { "tty",        required_argument, NULL, ARG_TTY     },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -257,6 +270,13 @@ static int parse_argv(int argc, char * argv[]) {
 
                 case 'c':
                         arg_continuous = true;
+                        break;
+
+                case ARG_TTY:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tty);
+                        if (r < 0)
+                                return r;
+
                         break;
 
                 case '?':
