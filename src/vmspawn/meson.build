@@ -5,6 +5,7 @@ libvmspawn_core_sources = files(
         'vmspawn-util.c',
         'vmspawn-scope.c',
         'vmspawn-mount.c',
+        'vmspawn-register.c',
 )
 libvmspawn_core = static_library(
         'vmspawn-core',
