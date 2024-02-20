@@ -36,8 +36,8 @@ int manager_start_scope(
                 sd_bus_message *more_properties,
                 sd_bus_error *error,
                 char **ret_job);
-int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
-int manager_stop_unit(Manager *manager, const char *unit, const char *job_mode, sd_bus_error *error, char **job);
+int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **ret_job);
+int manager_stop_unit(Manager *manager, const char *unit, const char *job_mode, sd_bus_error *error, char **ret_job);
 int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *error);
 int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, sd_bus_error *error);
 int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *error);
