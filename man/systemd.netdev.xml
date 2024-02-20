@@ -571,6 +571,16 @@
           <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
+     <varlistentry>
+        <term><varname>BroadcastThreshold=</varname></term>
+        <listitem>
+          <para>Specifies the broadcast queueing threshold on macvlan devices. This controls which multicast
+          packets will be processed in a workqueue instead of inline. An integer in the range 0…2147483646.
+          Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
