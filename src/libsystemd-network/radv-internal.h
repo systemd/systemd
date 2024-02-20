@@ -102,6 +102,7 @@ struct sd_radv {
         sd_event *event;
         int event_priority;
 
+        struct in6_addr address;
         struct ether_addr mac_addr;
         uint8_t hop_limit;
         uint8_t flags;
