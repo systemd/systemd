@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 
 #include "macro.h"
+#include "missing_fcntl.h"
 #include "stdio-util.h"
 
 /* maximum length of fdname */
@@ -20,6 +21,20 @@
 /* Useful helpers for initializing pipe(), socketpair() or stdio fd arrays */
 #define EBADF_PAIR { -EBADF, -EBADF }
 #define EBADF_TRIPLET { -EBADF, -EBADF, -EBADF }
+
+/* Flags that are safe to have set on an FD given to a privileged service to operate on.
+ * This ensures that clients can't trick a privileged service into giving access to a file the client
+ * doesn't already have access to (especially via something like O_PATH).
+ *
+ * O_NOFOLLOW: For some reason the kernel will return this flag from fcntl; it doesn't go away immediately
+ *             after open(). It should have no effect whatsoever to an already-opened FD, but if it does
+ *             it's decreasing the risk to a privileged service since it disables symlink following.
+ *
+ * RAW_O_LARGEFILE: glibc secretly sets this and neglects to hide it from us if we call fcntl. See comment
+ *                  in missing_fcntl.h for more details about this.
+ */
+#define SAFE_FD_FLAGS (O_ACCMODE|O_NOFOLLOW|RAW_O_LARGEFILE)
+#define UNSAFE_FD_FLAGS(flags) ((unsigned)(flags) & ~SAFE_FD_FLAGS)
 
 int close_nointr(int fd);
 int safe_close(int fd);
