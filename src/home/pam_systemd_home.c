@@ -910,6 +910,10 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
                 int argc,
                 const char **argv) {
 
+        /* Let's release the D-Bus connection when this function fails. as we have
+         *     account sufficient pam_systemd_home.so
+         * and even if this fails, the whole authentication process may succeed. */
+        _cleanup_(pam_bus_data_disconnectp) PamBusData *d = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         AcquireHomeFlags flags = 0;
         bool debug = false;
@@ -931,11 +935,11 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = acquire_home(handle, flags, debug, /* bus_data= */ NULL);
+        r = acquire_home(handle, flags, debug, &d);
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = acquire_user_record(handle, NULL, debug, &ur, NULL);
+        r = acquire_user_record(handle, NULL, debug, &ur, &d);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1017,6 +1021,10 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
 
                 break;
         }
+
+        /* Hopefully, open_session() will be called, and the bus connection will be closed there. So, it is
+         * not necessary to close the connection here. */
+        TAKE_PTR(d);
 
         return PAM_SUCCESS;
 }
