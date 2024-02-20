@@ -81,6 +81,7 @@ static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_now = false;
 static bool arg_force = false;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
+static bool arg_use_vmspawn = false;
 static const char* arg_format = NULL;
 static const char *arg_uid = NULL;
 static char **arg_setenv = NULL;
@@ -1052,6 +1053,12 @@ static int kill_machine(int argc, char *argv[], void *userdata) {
 }
 
 static int reboot_machine(int argc, char *argv[], void *userdata) {
+        if (arg_use_vmspawn)
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                "%s only support supported for --virt-backend=nspawn",
+                                streq(argv[0], "reboot") ? "Reboot" : "Restart");
+
         arg_kill_whom = "leader";
         arg_signal = SIGINT; /* sysvinit + systemd */
 
@@ -1104,6 +1111,9 @@ static int copy_files(int argc, char *argv[], void *userdata) {
         host_path = copy_from ? dest : argv[2];
         container_path = copy_from ? argv[2] : dest;
 
+        if (arg_use_vmspawn)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Copy %s is only supported for --virt-backend=nspawn", copy_from ? "from" : "to");
+
         if (!path_is_absolute(host_path)) {
                 r = path_make_absolute_cwd(host_path, &abs_host_path);
                 if (r < 0)
@@ -1147,6 +1157,9 @@ static int bind_mount(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        if (arg_use_vmspawn)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Bind only supported for --virt-backend=nspawn");
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -1297,6 +1310,9 @@ static int login_machine(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Login only supported on local machines.");
 
+        if (arg_use_vmspawn)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Login only support supported for --virt-backend=nspawn");
+
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_event_default(&event);
@@ -1341,6 +1357,9 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         const char *match, *machine, *path;
         _cleanup_free_ char *uid = NULL;
+
+        if (arg_use_vmspawn)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Shell only supported for --virt-backend=nspawn");
 
         if (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -1462,6 +1481,9 @@ static int edit_settings(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Edit is only supported on the host machine.");
 
+        if (arg_use_vmspawn)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Edit is only supported for --virt-backend=nspawn");
+
         r = mac_init();
         if (r < 0)
                 return r;
@@ -1524,6 +1546,9 @@ static int cat_settings(int argc, char *argv[], void *userdata) {
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Cat is only supported on the host machine.");
+
+        if (arg_use_vmspawn)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Cat is only supported for --virt-backend=nspawn");
 
         pager_open(arg_pager_flags);
 
@@ -1687,7 +1712,7 @@ static int make_service_name(const char *name, char **ret) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Invalid machine name %s.", name);
 
-        r = unit_name_build("systemd-nspawn", name, ".service", ret);
+        r = unit_name_build(arg_use_vmspawn ? "systemd-vmspawn" : "systemd-nspawn", name, ".service", ret);
         if (r < 0)
                 return log_error_errno(r, "Failed to build unit name: %m");
 
@@ -2642,6 +2667,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --force                  Download image even if already exists\n"
                "     --now                    Start or power off container after enabling or\n"
                "                              disabling it\n"
+               "     --virt-backend=BACKEND   Select between nspawn and vmspawn as the backend\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -2665,6 +2691,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MKDIR,
                 ARG_NO_ASK_PASSWORD,
                 ARG_VERIFY,
+                ARG_VIRT_BACKEND,
                 ARG_NOW,
                 ARG_FORCE,
                 ARG_FORMAT,
@@ -2692,6 +2719,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "output",          required_argument, NULL, 'o'                 },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
                 { "verify",          required_argument, NULL, ARG_VERIFY          },
+                { "virt-backend",    required_argument, NULL, ARG_VIRT_BACKEND    },
                 { "now",             no_argument,       NULL, ARG_NOW             },
                 { "force",           no_argument,       NULL, ARG_FORCE           },
                 { "format",          required_argument, NULL, ARG_FORMAT          },
@@ -2873,6 +2901,14 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_verify = r;
                         break;
 
+                case ARG_VIRT_BACKEND:
+                        if (!STR_IN_SET(optarg, "nspawn", "vmspawn"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown virtualisation backend: %s", optarg);
+
+                        arg_use_vmspawn = streq(optarg, "vmspawn");
+                        break;
+
                 case ARG_NOW:
                         arg_now = true;
                         break;
@@ -3005,4 +3041,4 @@ static int run(int argc, char *argv[]) {
         return machinectl_main(argc, argv, bus);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run)
