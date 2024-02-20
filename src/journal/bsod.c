@@ -328,7 +328,7 @@ static int run(int argc, char *argv[]) {
 
         r = display_emergency_message_fullscreen((const char*) message);
         if (r < 0)
-                return log_error_errno(r, "Failed to display emergency message on terminal: %m");
+                return r;
 
         return 0;
 }
