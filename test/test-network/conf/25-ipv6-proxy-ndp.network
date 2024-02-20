@@ -9,7 +9,6 @@ IPv6ProxyNDPAddress=2607:5300:203:5215:3::1
 IPv6ProxyNDPAddress=2607:5300:203:5215:2::1
 IPv6ProxyNDPAddress=2607:5300:203:5215:1::1
 IPv6AcceptRA=no
-IPForward=yes
 Address=66.70.129.136/32
 Address=66.70.129.142/32
 Address=66.70.129.143/32
