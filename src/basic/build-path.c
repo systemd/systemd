@@ -184,6 +184,30 @@ static int find_build_dir_binary(const char *fn, char **ret) {
         return 0;
 }
 
+static int find_environment_binary(const char *fn, const char **ret) {
+
+        /* If a path such as /usr/lib/systemd/systemd-foobar is specified, then this will check for an
+         * environment variable SYSTEMD_FOOBAR_PATH and return it if set. */
+
+        _cleanup_free_ char *s = strdup(fn);
+        if (!s)
+                return -ENOMEM;
+
+        ascii_strupper(s);
+        string_replace_char(s, '-', '_');
+
+        if (!strextend(&s, "_PATH"))
+                return -ENOMEM;
+
+        const char *e;
+        e = secure_getenv(s);
+        if (!e)
+                return -ENXIO;
+
+        *ret = e;
+        return 0;
+}
+
 int invoke_callout_binary(const char *path, char *const argv[]) {
         int r;
 
@@ -197,6 +221,13 @@ int invoke_callout_binary(const char *path, char *const argv[]) {
                 return r;
         if (r == O_DIRECTORY) /* Uh? */
                 return -EISDIR;
+
+        const char *e;
+        if (find_environment_binary(fn, &e) >= 0) {
+                /* If there's an explicit environment variable set for this binary, prefer it */
+                execv(e, argv);
+                return -errno; /* The environment variable counts, let's fail otherwise */
+        }
 
         _cleanup_free_ char *np = NULL;
         if (find_build_dir_binary(fn, &np) >= 0)
