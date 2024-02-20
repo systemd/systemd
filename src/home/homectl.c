@@ -1481,7 +1481,7 @@ static int create_home_common(JsonVariant *input) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "t", 0);
+                r = sd_bus_message_append(m, "t", UINT64_C(0));
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1777,7 +1777,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "t", 0);
+                r = sd_bus_message_append(m, "t", UINT64_C(0));
                 if (r < 0)
                         return bus_log_create_error(r);
 
