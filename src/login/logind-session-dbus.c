@@ -451,7 +451,7 @@ static int method_set_class(sd_bus_message *message, void *userdata, sd_bus_erro
 
         session_set_class(s, class);
 
-        unref_and_replace_full(s->upgrade_message, message, sd_bus_message_ref, sd_bus_message_unref);
+        s->upgrade_message = sd_bus_message_ref(message);
 
         r = session_send_upgrade_reply(s, /* error= */ NULL);
         if (r < 0)
