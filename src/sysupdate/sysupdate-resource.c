@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
+#include "build-path.h"
 #include "chase.h"
 #include "device-util.h"
 #include "devnum-util.h"
@@ -300,7 +301,7 @@ static int download_manifest(
                 /* Child */
 
                 const char *cmdline[] = {
-                        "systemd-pull",
+                        SYSTEMD_PULL_PATH,
                         "raw",
                         "--direct",                        /* just download the specified URL, don't download anything else */
                         "--verify", verify_signature ? "signature" : "no", /* verify the manifest file */
@@ -309,8 +310,8 @@ static int download_manifest(
                         NULL
                 };
 
-                execv(pull_binary_path(), (char *const*) cmdline);
-                log_error_errno(errno, "Failed to execute %s tool: %m", pull_binary_path());
+                r = invoke_callout_binary(SYSTEMD_PULL_PATH, (char *const*) cmdline);
+                log_error_errno(r, "Failed to execute %s tool: %m", SYSTEMD_PULL_PATH);
                 _exit(EXIT_FAILURE);
         };
 
