@@ -62,6 +62,12 @@ static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_net
                         return r;
         }
 
+        if (m->bc_queue_threshold != INT32_MAX) {
+                r = sd_netlink_message_append_s32(req, IFLA_MACVLAN_BC_CUTOFF, m->bc_queue_threshold);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
@@ -96,6 +102,45 @@ int config_parse_macvlan_broadcast_queue_size(
                         &m->bc_queue_length);
 }
 
+int config_parse_macvlan_broadcast_queue_threshold(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        MacVlan *m = ASSERT_PTR(userdata);
+        int32_t v;
+        int r;
+
+        if (isempty(rvalue)) {
+                m->bc_queue_threshold = INT32_MAX;
+                return 0;
+        }
+
+        r = safe_atoi32(rvalue, &v);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        m->bc_queue_threshold = v;
+        return 0;
+}
+
 static void macvlan_done(NetDev *netdev) {
         MacVlan *m = ASSERT_PTR(netdev)->kind == NETDEV_KIND_MACVLAN ? MACVLAN(netdev) : MACVTAP(netdev);
 
@@ -107,6 +152,7 @@ static void macvlan_init(NetDev *netdev) {
 
         m->mode = _NETDEV_MACVLAN_MODE_INVALID;
         m->bc_queue_length = UINT32_MAX;
+        m->bc_queue_threshold = INT32_MAX;
 }
 
 const NetDevVTable macvtap_vtable = {
