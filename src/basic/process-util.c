@@ -510,7 +510,7 @@ static int get_process_link_contents(pid_t pid, const char *proc_file, char **re
         p = procfs_file_alloca(pid, proc_file);
 
         r = readlink_malloc(p, ret);
-        return r == -ENOENT ? -ESRCH : r;
+        return (r == -ENOENT && proc_mounted() > 0) ? -ESRCH : r;
 }
 
 int get_process_exe(pid_t pid, char **ret) {
