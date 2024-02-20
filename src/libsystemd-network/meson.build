@@ -12,7 +12,6 @@ sources = files(
         'lldp-neighbor.c',
         'lldp-network.c',
         'ndisc-protocol.c',
-        'ndisc-router.c',
         'network-common.c',
         'network-internal.c',
         'sd-dhcp-client-id.c',
@@ -28,6 +27,8 @@ sources = files(
         'sd-lldp-rx.c',
         'sd-lldp-tx.c',
         'sd-ndisc.c',
+        'sd-ndisc-neighbor.c',
+        'sd-ndisc-router.c',
         'sd-radv.c',
 )
 
