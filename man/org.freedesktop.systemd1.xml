@@ -4821,6 +4821,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PassCredentials = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b PassFileDescriptorsToExec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PassSecurity = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PassPacketInfo = ...;
@@ -5488,6 +5490,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property PassCredentials is not documented!-->
 
+    <!--property PassFileDescriptorsToExec is not documented!-->
+
     <!--property PassSecurity is not documented!-->
 
     <!--property PassPacketInfo is not documented!-->
@@ -6099,6 +6103,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="Broadcast"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PassCredentials"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PassFileDescriptorsToExec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PassSecurity"/>
 
