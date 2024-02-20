@@ -254,6 +254,9 @@ struct EventLog {
 
         /* PCRs mask indicating all PCRs touched by unrecognized components */
         uint32_t missing_component_pcrs;
+
+        /* PCRs mask indicating component found for the pcr */
+        uint32_t has_component_pcrs;
 };
 
 static EventLogRecordBank *event_log_record_bank_free(EventLogRecordBank *bank) {
@@ -2048,6 +2051,8 @@ static int event_log_map_components(EventLog *el) {
                                 continue;
                         }
 
+                        el->has_component_pcrs |= event_log_component_variant_pcrs(*ii);
+
                         r = event_log_match_component_variant(el, 0, i, 0, n_matching + n_empty == 0);
                         if (r < 0)
                                 return r;
@@ -2380,14 +2385,23 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
                 /* Whether all records in this PCR have a matching component */
                 bool fully_recognized = el->registers[pcr].fully_recognized;
 
+                bool seen = el->registers[pcr].n_measurements > 0;
+
                 /* Whether any unmatched components touch this PCR */
                 bool missing_components = BIT_SET(el->missing_component_pcrs, pcr);
+                bool has_components = BIT_SET(el->has_component_pcrs, pcr);
 
-                const char *emoji = glyph(
-                                !hash_match ? GLYPH_DEPRESSED_SMILEY :
-                                !fully_recognized ? GLYPH_UNHAPPY_SMILEY :
-                                missing_components ?  GLYPH_SLIGHTLY_HAPPY_SMILEY :
-                                GLYPH_HAPPY_SMILEY);
+                const char *emoji = "";
+                if (seen || has_components) {
+                        if (!hash_match)
+                                emoji = glyph(GLYPH_DEPRESSED_SMILEY);
+                        else if (!fully_recognized)
+                                emoji = glyph(GLYPH_UNHAPPY_SMILEY);
+                        else if (!missing_components)
+                                emoji = glyph(GLYPH_HAPPY_SMILEY);
+                        else
+                                emoji = glyph(GLYPH_SLIGHTLY_HAPPY_SMILEY);
+                }
 
                 r = table_add_many(table,
                                    TABLE_UINT32, pcr,
@@ -2405,13 +2419,19 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                r = table_add_many(table,
-                                   TABLE_BOOLEAN_CHECKMARK, hash_match,
-                                   TABLE_SET_COLOR, ansi_highlight_green_red(hash_match),
-                                   TABLE_BOOLEAN_CHECKMARK, fully_recognized,
-                                   TABLE_SET_COLOR, ansi_highlight_green_red(fully_recognized),
-                                   TABLE_BOOLEAN_CHECKMARK, !missing_components,
-                                   TABLE_SET_COLOR, ansi_highlight_green_red(!missing_components));
+                if (sd_json_format_enabled(arg_json_format_flags))
+                        r = table_add_many(table,
+                                           TABLE_BOOLEAN_CHECKMARK, hash_match,
+                                           TABLE_BOOLEAN_CHECKMARK, fully_recognized,
+                                           TABLE_BOOLEAN_CHECKMARK, !missing_components);
+                else
+                        r = table_add_many(table,
+                                           TABLE_STRING, seen ? glyph_check_mark(hash_match) : " ",
+                                           TABLE_SET_COLOR, ansi_highlight_green_red(hash_match),
+                                           TABLE_STRING, seen ? glyph_check_mark(fully_recognized) : " ",
+                                           TABLE_SET_COLOR, ansi_highlight_green_red(fully_recognized),
+                                           TABLE_STRING, has_components ? glyph_check_mark(!missing_components) : " ",
+                                           TABLE_SET_COLOR, ansi_highlight_green_red(!missing_components));
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -2479,7 +2499,7 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
                 printf("\n"
                        "%sLegend: H → PCR hash value matches event log%s\n"
                        "%s        R → All event log records for this PCR have a matching component%s\n"
-                       "%s        C → No components that couldn't be matched with log records affect this PCR%s\n",
+                       "%s        C → Component exists and found in event log%s\n",
                        ansi_grey(), ansi_normal(), /* less on small screens automatically resets the color after long lines, hence we set it anew for each line */
                        ansi_grey(), ansi_normal(),
                        ansi_grey(), ansi_normal());
