@@ -120,6 +120,9 @@ int sd_dhcp_client_set_max_attempts(
 int sd_dhcp_client_set_client_port(
                 sd_dhcp_client *client,
                 uint16_t port);
+int sd_dhcp_client_set_port(
+                sd_dhcp_client *client,
+                uint16_t port);
 int sd_dhcp_client_set_hostname(
                 sd_dhcp_client *client,
                 const char *hostname);
