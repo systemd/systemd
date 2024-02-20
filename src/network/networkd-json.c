@@ -1220,6 +1220,29 @@ static int dhcp_client_private_options_append_json(Link *link, JsonVariant **v) 
         return json_variant_set_field_non_null(v, "PrivateOptions", array);
 }
 
+static int dhcp_client_id_append_json(Link *link, JsonVariant **v) {
+        const sd_dhcp_client_id *client_id;
+        const void *data;
+        size_t l;
+        int r;
+
+        assert(link);
+        assert(v);
+
+        if (!link->dhcp_client)
+                return 0;
+
+        r = sd_dhcp_client_get_client_id(link->dhcp_client, &client_id);
+        if (r < 0)
+                return 0;
+
+        r = sd_dhcp_client_id_get_raw(client_id, &data, &l);
+        if (r < 0)
+                return 0;
+
+        return json_variant_merge_objectb(v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_BYTE_ARRAY("ClientIdentifier", data, l)));
+}
+
 static int dhcp_client_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
         int r;
@@ -1239,6 +1262,10 @@ static int dhcp_client_append_json(Link *link, JsonVariant **v) {
                 return r;
 
         r = dhcp_client_private_options_append_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = dhcp_client_id_append_json(link, &w);
         if (r < 0)
                 return r;
 
