@@ -6,6 +6,7 @@
 
 #include "build-path.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -206,4 +207,25 @@ int invoke_callout_binary(const char *path, char *const argv[]) {
 
         execv(path, argv);
         return -errno;
+}
+
+int pin_callout_binary(const char *path) {
+        int r;
+
+        assert(path);
+
+        /* Similar to invoke_callout_binary(), but pins (i.e. O_PATH opens) the binary instead of executing it. */
+
+        const char *e;
+        if (find_environment_binary(path, &e) >= 0)
+                return RET_NERRNO(open(e, O_CLOEXEC|O_PATH));
+
+        _cleanup_free_ char *np = NULL;
+        if (find_build_dir_binary(path, &np) >= 0) {
+                r = RET_NERRNO(open(np, O_CLOEXEC|O_PATH));
+                if (r >= 0)
+                        return r;
+        }
+
+        return RET_NERRNO(open(path, O_CLOEXEC|O_PATH));
 }
