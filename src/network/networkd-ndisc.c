@@ -20,6 +20,7 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-state-file.h"
+#include "networkd-sysctl.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -52,8 +53,16 @@ bool link_ipv6_accept_ra_enabled(Link *link) {
         if (!link_may_have_ipv6ll(link, /* check_multicast = */ true))
                 return false;
 
-        assert(link->network->ipv6_accept_ra >= 0);
-        return link->network->ipv6_accept_ra;
+        if (link->network->ipv6_accept_ra >= 0)
+                return link->network->ipv6_accept_ra;
+
+        /* Accept RAs if IPv6 forwarding is disabled, and ignore RAs if IPv6 forwarding is enabled. */
+        int t = link_get_ip_forwarding(link, AF_INET6);
+        if (t >= 0)
+                return !t;
+
+        /* Otherwise, defaults to true. */
+        return true;
 }
 
 void network_adjust_ipv6_accept_ra(Network *network) {
@@ -65,10 +74,6 @@ void network_adjust_ipv6_accept_ra(Network *network) {
                                     "Disabling IPv6AcceptRA=.", network->filename);
                 network->ipv6_accept_ra = false;
         }
-
-        if (network->ipv6_accept_ra < 0)
-                /* default to accept RA if ip_forward is disabled and ignore RA if ip_forward is enabled */
-                network->ipv6_accept_ra = !FLAGS_SET(network->ip_forward, ADDRESS_FAMILY_IPV6);
 
         /* When RouterAllowList=, PrefixAllowList= or RouteAllowList= are specified, then
          * RouterDenyList=, PrefixDenyList= or RouteDenyList= are ignored, respectively. */
