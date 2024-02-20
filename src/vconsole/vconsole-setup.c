@@ -522,7 +522,7 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
         assert(ret_idx);
 
         /* This function returns an fd when it finds a candidate. When it fails, it returns the first error
-         * that occured when the VC was being opened or -EBUSY when it finds some VCs but all are busy
+         * that occurred when the VC was being opened or -EBUSY when it finds some VCs but all are busy
          * otherwise -ENOENT when there is no allocated VC. */
 
         for (unsigned i = 1; i <= 63; i++) {
@@ -640,7 +640,7 @@ static int run(int argc, char **argv) {
 
         if (fd < 0) {
                 /* We found only busy VCs, which might happen during the boot process when the boot splash is
-                 * displayed on the only allocated VC. In this case we don't interfer and avoid initializing
+                 * displayed on the only allocated VC. In this case we don't interfere and avoid initializing
                  * the VC partially as some operations are likely to fail. */
                 log_notice("All allocated VCs are currently busy, skipping initialization of font and keyboard settings.");
                 return EXIT_SUCCESS;
