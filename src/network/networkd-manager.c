@@ -577,6 +577,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
                 .duid_product_uuid.type = DUID_TYPE_UUID,
+                .ip_forwarding = { -1, -1, },
         };
 
         *ret = TAKE_PTR(m);
@@ -658,6 +659,8 @@ int manager_start(Manager *m) {
         int r;
 
         assert(m);
+
+        manager_set_sysctl(m);
 
         r = manager_start_speed_meter(m);
         if (r < 0)
