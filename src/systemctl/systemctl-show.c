@@ -204,7 +204,7 @@ typedef struct UnitStatusInfo {
         pid_t control_pid;
         const char *status_text;
         const char *pid_file;
-        bool running:1;
+        bool running;
         int status_errno;
 
         uint32_t fd_store_max;
