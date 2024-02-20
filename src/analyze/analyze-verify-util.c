@@ -201,10 +201,6 @@ static int verify_executables(Unit *u, const char *root) {
 
         assert(u);
 
-        if (u->type == UNIT_MOUNT)
-                FOREACH_ARRAY(i, MOUNT(u)->exec_command, ELEMENTSOF(MOUNT(u)->exec_command))
-                        RET_GATHER(r, verify_executable(u, i, root));
-
         if (u->type == UNIT_SERVICE)
                 FOREACH_ARRAY(i, SERVICE(u)->exec_command, ELEMENTSOF(SERVICE(u)->exec_command))
                         LIST_FOREACH(command, j, *i)
@@ -214,10 +210,6 @@ static int verify_executables(Unit *u, const char *root) {
                 FOREACH_ARRAY(i, SOCKET(u)->exec_command, ELEMENTSOF(SOCKET(u)->exec_command))
                         LIST_FOREACH(command, j, *i)
                                 RET_GATHER(r, verify_executable(u, j, root));
-
-        if (u->type == UNIT_SWAP)
-                FOREACH_ARRAY(i, SWAP(u)->exec_command, ELEMENTSOF(SWAP(u)->exec_command))
-                        RET_GATHER(r, verify_executable(u, i, root));
 
         return r;
 }
