@@ -283,7 +283,7 @@ int sd_dhcp_client_set_mac(
         return 0;
 }
 
-int sd_dhcp_client_get_client_id(sd_dhcp_client *client, const sd_dhcp_client_id **ret) {
+int sd_dhcp_client_get_client_id(sd_dhcp_client *client, sd_dhcp_client_id **ret) {
         assert_return(client, -EINVAL);
         assert_return(ret, -EINVAL);
 

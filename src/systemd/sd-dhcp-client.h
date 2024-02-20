@@ -78,7 +78,7 @@ int sd_dhcp_client_set_mac(
                 uint16_t arp_type);
 int sd_dhcp_client_get_client_id(
                 sd_dhcp_client *client,
-                const sd_dhcp_client_id **ret);
+                sd_dhcp_client_id **ret);
 int sd_dhcp_client_set_client_id(
                 sd_dhcp_client *client,
                 uint8_t type,
