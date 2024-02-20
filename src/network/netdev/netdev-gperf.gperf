@@ -64,6 +64,7 @@ VLAN.IngressQOSMaps,                      config_parse_vlan_qos_maps,           
 MACVLAN.Mode,                             config_parse_macvlan_mode,                 0,                             offsetof(MacVlan, mode)
 MACVLAN.SourceMACAddress,                 config_parse_ether_addrs,                  0,                             offsetof(MacVlan, match_source_mac)
 MACVLAN.BroadcastMulticastQueueLength,    config_parse_macvlan_broadcast_queue_size, 0,                             offsetof(MacVlan, bc_queue_length)
+MACVLAN.BroadcastQueueThreshold,          config_parse_macvlan_broadcast_queue_threshold, 0,                        offsetof(MacVlan, bc_queue_threshold)
 MACVTAP.Mode,                             config_parse_macvlan_mode,                 0,                             offsetof(MacVlan, mode)
 MACVTAP.SourceMACAddress,                 config_parse_ether_addrs,                  0,                             offsetof(MacVlan, match_source_mac)
 IPVLAN.Mode,                              config_parse_ipvlan_mode,                  0,                             offsetof(IPVlan, mode)

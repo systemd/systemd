@@ -14,6 +14,7 @@ struct MacVlan {
         Set *match_source_mac;
 
         uint32_t bc_queue_length;
+        int32_t bc_queue_threshold;
 };
 
 DEFINE_NETDEV_CAST(MACVLAN, MacVlan);
@@ -23,3 +24,4 @@ extern const NetDevVTable macvtap_vtable;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_macvlan_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_macvlan_broadcast_queue_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_macvlan_broadcast_queue_threshold);

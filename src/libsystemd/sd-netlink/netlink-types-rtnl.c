@@ -308,6 +308,7 @@ static const NLAPolicy rtnl_link_info_data_macvlan_policies[] = {
         [IFLA_MACVLAN_MACADDR_COUNT]     = BUILD_POLICY(U32),
         [IFLA_MACVLAN_BC_QUEUE_LEN]      = BUILD_POLICY(U32),
         [IFLA_MACVLAN_BC_QUEUE_LEN_USED] = BUILD_POLICY(U32),
+        [IFLA_MACVLAN_BC_CUTOFF]         = BUILD_POLICY(S32),
 };
 
 static const NLAPolicy rtnl_link_info_data_tun_policies[] = {
