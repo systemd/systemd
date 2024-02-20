@@ -3348,6 +3348,17 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UseReachableTime=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the reachable time received in the Router Advertisement will be
+          set on the interface receiving the advertisement. It is used as the base timespan of the validity
+          of a neighbor entry. Defaults to true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UseRetransmissionTime=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, the retransmission time received in the Router Advertisement will be set

@@ -544,6 +544,44 @@ static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt)
         return 0;
 }
 
+static int ndisc_router_process_reachable_time(Link *link, sd_ndisc_router *rt) {
+        usec_t reachable_time, msec;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_reachable_time)
+                return 0;
+
+        /* Ignore the reachable time field of the RA header if the lifetime is zero. */
+        r = sd_ndisc_router_get_lifetime(rt, NULL);
+        if (r <= 0)
+                return r;
+
+        r = sd_ndisc_router_get_reachable_time(rt, &reachable_time);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get reachable time from RA: %m");
+
+        /* 0 is the unspecified value and must not be set (see RFC4861, 6.3.4) */
+        if (!timestamp_is_set(reachable_time))
+                return 0;
+
+        msec = DIV_ROUND_UP(reachable_time, USEC_PER_MSEC);
+        if (msec <= 0 || msec > UINT32_MAX) {
+                log_link_debug(link, "Failed to get reachable time from RA - out of range (%"PRIu64"), ignoring", msec);
+                return 0;
+        }
+
+        /* Set the reachable time for Neighbor Solicitations. */
+        r = sysctl_write_ip_neighbor_property_uint32(AF_INET6, link->ifname, "base_reachable_time_ms", (uint32_t) msec);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to apply neighbor reachable time (%"PRIu64"), ignoring: %m", msec);
+
+        return 0;
+}
+
 static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router *rt) {
         usec_t retrans_time, msec;
         int r;
@@ -1657,6 +1695,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return r;
 
         r = ndisc_router_process_icmp6_ratelimit(link, rt);
+        if (r < 0)
+                return r;
+
+        r = ndisc_router_process_reachable_time(link, rt);
         if (r < 0)
                 return r;
 
