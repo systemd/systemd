@@ -222,7 +222,7 @@ static int display_emergency_message_fullscreen(const char *message) {
         if (r < 0)
                 log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
 
-        r = loop_write(fd, "Press any key to exit...", SIZE_MAX);
+        r = loop_write(fd, ANSI_BACKGROUND_BLUE "Press any key to exit...", SIZE_MAX);
         if (r < 0) {
                 ret = log_warning_errno(r, "Failed to write to terminal: %m");
                 goto cleanup;
