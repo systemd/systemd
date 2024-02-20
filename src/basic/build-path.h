@@ -4,3 +4,5 @@
 int get_build_exec_dir(char **ret);
 
 int invoke_callout_binary(const char *path, char *const argv[]);
+
+int pin_callout_binary(const char *path);
