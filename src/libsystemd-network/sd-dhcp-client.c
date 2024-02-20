@@ -62,6 +62,7 @@ struct sd_dhcp_client {
 
         int fd;
         uint16_t port;
+        uint16_t server_port;
         union sockaddr_union link;
         sd_event_source *receive_message;
         bool request_broadcast;
@@ -516,6 +517,18 @@ int sd_dhcp_client_set_client_port(
         return 0;
 }
 
+int sd_dhcp_client_set_port(
+                sd_dhcp_client *client,
+                uint16_t port) {
+
+        assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
+
+        client->server_port = port;
+
+        return 0;
+}
+
 int sd_dhcp_client_set_mtu(sd_dhcp_client *client, uint32_t mtu) {
         assert_return(client, -EINVAL);
         assert_return(mtu >= DHCP_MIN_PACKET_SIZE, -ERANGE);
@@ -891,7 +904,7 @@ static int dhcp_client_send_raw(
                 size_t len) {
 
         dhcp_packet_append_ip_headers(packet, INADDR_ANY, client->port,
-                                      INADDR_BROADCAST, DHCP_PORT_SERVER, len, client->ip_service_type);
+                                      INADDR_BROADCAST, client->server_port != 0 ? client->server_port : DHCP_PORT_SERVER , len, client->ip_service_type);
 
         return dhcp_network_send_raw_socket(client->fd, &client->link,
                                             packet, len);
