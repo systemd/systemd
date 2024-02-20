@@ -261,14 +261,14 @@ static int acquire_existing_password(
                      user_name) < 0)
                 return log_oom();
 
-        r = ask_password_auto(question,
-                              /* icon= */ "user-home",
-                              NULL,
-                              /* key_name= */ "home-password",
-                              /* credential_name= */ "home.password",
-                              USEC_INFINITY,
-                              flags,
-                              &password);
+        AskPasswordRequest req = {
+                .message = question,
+                .icon = "user-home",
+                .keyring = "home-password",
+                .credential = "home.password",
+        };
+
+        r = ask_password_auto(&req, USEC_INFINITY, flags, &password);
         if (r == -EUNATCH) { /* EUNATCH is returned if no password was found and asking interactively was
                               * disabled via the flags. Not an error for us. */
                 log_debug_errno(r, "No passwords acquired.");
@@ -319,14 +319,14 @@ static int acquire_recovery_key(
         if (asprintf(&question, "Please enter recovery key for user %s:", user_name) < 0)
                 return log_oom();
 
-        r = ask_password_auto(question,
-                              /* icon= */ "user-home",
-                              NULL,
-                              /* key_name= */ "home-recovery-key",
-                              /* credential_name= */ "home.recovery-key",
-                              USEC_INFINITY,
-                              flags,
-                              &recovery_key);
+        AskPasswordRequest req = {
+                .message = question,
+                .icon = "user-home",
+                .keyring = "home-recovery-key",
+                .credential = "home.recovery-key",
+        };
+
+        r = ask_password_auto(&req, USEC_INFINITY, flags, &recovery_key);
         if (r == -EUNATCH) { /* EUNATCH is returned if no recovery key was found and asking interactively was
                               * disabled via the flags. Not an error for us. */
                 log_debug_errno(r, "No recovery keys acquired.");
@@ -373,15 +373,14 @@ static int acquire_token_pin(
         if (asprintf(&question, "Please enter security token PIN for user %s:", user_name) < 0)
                 return log_oom();
 
-        r = ask_password_auto(
-                        question,
-                        /* icon= */ "user-home",
-                        NULL,
-                        /* key_name= */ "token-pin",
-                        /* credential_name= */ "home.token-pin",
-                        USEC_INFINITY,
-                        flags,
-                        &pin);
+        AskPasswordRequest req = {
+                .message = question,
+                .icon = "user-home",
+                .keyring = "token-pin",
+                .credential = "home.token-pin",
+        };
+
+        r = ask_password_auto(&req, USEC_INFINITY, flags, &pin);
         if (r == -EUNATCH) { /* EUNATCH is returned if no PIN was found and asking interactively was disabled
                               * via the flags. Not an error for us. */
                 log_debug_errno(r, "No security token PINs acquired.");
@@ -1228,14 +1227,17 @@ static int acquire_new_password(
                 if (asprintf(&question, "Please enter new password for user %s:", user_name) < 0)
                         return log_oom();
 
+                AskPasswordRequest req = {
+                        .message = question,
+                        .icon = "user-home",
+                        .keyring = "home-password",
+                        .credential = "home.new-password",
+                };
+
                 r = ask_password_auto(
-                                question,
-                                /* icon= */ "user-home",
-                                NULL,
-                                /* key_name= */ "home-password",
-                                /* credential_name= */ "home.new-password",
+                                &req,
                                 USEC_INFINITY,
-                                0, /* no caching, we want to collect a new password here after all */
+                                /* flags= */ 0, /* no caching, we want to collect a new password here after all */
                                 &first);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire password: %m");
@@ -1244,14 +1246,12 @@ static int acquire_new_password(
                 if (asprintf(&question, "Please enter new password for user %s (repeat):", user_name) < 0)
                         return log_oom();
 
+                req.message = question;
+
                 r = ask_password_auto(
-                                question,
-                                /* icon= */ "user-home",
-                                NULL,
-                                /* key_name= */ "home-password",
-                                /* credential_name= */ "home.new-password",
+                                &req,
                                 USEC_INFINITY,
-                                0, /* no caching */
+                                /* flags= */ 0, /* no caching */
                                 &second);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire password: %m");

@@ -101,7 +101,6 @@ static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_signature = NULL;
 static bool arg_tpm2_pin = false;
 static char *arg_tpm2_pcrlock = NULL;
-static bool arg_headless = false;
 static usec_t arg_token_timeout_usec = 30*USEC_PER_SEC;
 static unsigned arg_tpm2_measure_pcr = UINT_MAX; /* This and the following field is about measuring the unlocked volume key to the local TPM */
 static char **arg_tpm2_measure_banks = NULL;
@@ -504,9 +503,9 @@ static int parse_one_option(const char *option) {
                         return 0;
                 }
 
-                arg_headless = r;
+                SET_FLAG(arg_ask_password_flags, ASK_PASSWORD_HEADLESS, r);
         } else if (streq(option, "headless"))
-                arg_headless = true;
+                arg_ask_password_flags |= ASK_PASSWORD_HEADLESS;
 
         else if ((val = startswith(option, "token-timeout="))) {
 
@@ -798,17 +797,16 @@ static int get_password(
                 PassphraseType passphrase_type,
                 char ***ret) {
 
-        _cleanup_free_ char *friendly = NULL, *text = NULL, *disk_path = NULL;
+        _cleanup_free_ char *friendly = NULL, *text = NULL, *disk_path = NULL, *id = NULL;
         _cleanup_strv_free_erase_ char **passwords = NULL;
-        char *id;
-        int r = 0;
         AskPasswordFlags flags = arg_ask_password_flags | ASK_PASSWORD_PUSH_CACHE;
+        int r;
 
         assert(vol);
         assert(src);
         assert(ret);
 
-        if (arg_headless)
+        if (FLAGS_SET(arg_ask_password_flags, ASK_PASSWORD_HEADLESS))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "Password querying disabled via 'headless' option.");
 
         friendly = friendly_disk_name(src, vol);
@@ -822,11 +820,23 @@ static int get_password(
         if (!disk_path)
                 return log_oom();
 
-        id = strjoina("cryptsetup:", disk_path);
+        id = strjoin("cryptsetup:", disk_path);
+        if (!id)
+                return log_oom();
 
-        r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", "cryptsetup.passphrase", until,
-                              flags | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
-                              &passwords);
+        AskPasswordRequest req = {
+                .message = text,
+                .icon = "drive-harddisk",
+                .id = id,
+                .keyring = "cryptsetup",
+                .credential = "cryptsetup.passphrase",
+        };
+
+        r = ask_password_auto(
+                        &req,
+                        until,
+                        flags | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
+                        &passwords);
         if (r < 0)
                 return log_error_errno(r, "Failed to query password: %m");
 
@@ -835,12 +845,19 @@ static int get_password(
 
                 assert(strv_length(passwords) == 1);
 
+                text = mfree(text);
                 if (asprintf(&text, "Please enter %s for disk %s (verification):", passphrase_type_to_string(passphrase_type), friendly) < 0)
                         return log_oom();
 
-                id = strjoina("cryptsetup-verification:", disk_path);
+                free(id);
+                id = strjoin("cryptsetup-verification:", disk_path);
+                if (!id)
+                        return log_oom();
 
-                r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", "cryptsetup.passphrase", until, flags, &passwords2);
+                req.message = text;
+                req.id = id;
+
+                r = ask_password_auto(&req, until, flags, &passwords2);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query verification password: %m");
 
@@ -1248,12 +1265,11 @@ static int crypt_activate_by_token_pin_ask_password(
                 const char *name,
                 const char *type,
                 usec_t until,
-                bool headless,
                 void *userdata,
                 uint32_t activation_flags,
                 const char *message,
-                const char *key_name,
-                const char *credential_name) {
+                const char *keyring,
+                const char *credential) {
 
 #if HAVE_LIBCRYPTSETUP_PLUGINS
         AskPasswordFlags flags = arg_ask_password_flags | ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
@@ -1278,12 +1294,20 @@ static int crypt_activate_by_token_pin_ask_password(
                         return r;
         }
 
-        if (headless)
+        if (FLAGS_SET(arg_ask_password_flags, ASK_PASSWORD_HEADLESS))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the '$PIN' environment variable.");
 
         for (;;) {
                 pins = strv_free_erase(pins);
-                r = ask_password_auto(message, "drive-harddisk", /* id= */ NULL, key_name, credential_name, until, flags, &pins);
+
+                AskPasswordRequest req = {
+                        .message = message,
+                        .icon = "drive-harddisk",
+                        .keyring = keyring,
+                        .credential = credential,
+                };
+
+                r = ask_password_auto(&req, until, flags, &pins);
                 if (r < 0)
                         return r;
 
@@ -1307,7 +1331,6 @@ static int attach_luks2_by_fido2_via_plugin(
                 struct crypt_device *cd,
                 const char *name,
                 usec_t until,
-                bool headless,
                 void *userdata,
                 uint32_t activation_flags) {
 
@@ -1316,7 +1339,6 @@ static int attach_luks2_by_fido2_via_plugin(
                         name,
                         "systemd-fido2",
                         until,
-                        headless,
                         userdata,
                         activation_flags,
                         "Please enter security token PIN:",
@@ -1371,7 +1393,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
 
         for (;;) {
                 if (use_libcryptsetup_plugin && !arg_fido2_cid) {
-                        r = attach_luks2_by_fido2_via_plugin(cd, name, until, arg_headless, arg_fido2_device, flags);
+                        r = attach_luks2_by_fido2_via_plugin(cd, name, until, arg_fido2_device, flags);
                         if (IN_SET(r, -ENOTUNIQ, -ENXIO, -ENOENT))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                        "Automatic FIDO2 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
@@ -1387,10 +1409,11 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                                 key_file, arg_keyfile_size, arg_keyfile_offset,
                                                 key_data, key_data_size,
                                                 until,
-                                                arg_headless,
                                                 required,
-                                                &decrypted_key, &decrypted_key_size,
-                                                arg_ask_password_flags);
+                                                "cryptsetup.fido2-pin",
+                                                arg_ask_password_flags,
+                                                &decrypted_key,
+                                                &decrypted_key_size);
                         else
                                 r = acquire_fido2_key_auto(
                                                 cd,
@@ -1398,9 +1421,10 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                                                 friendly,
                                                 arg_fido2_device,
                                                 until,
-                                                arg_headless,
-                                                &decrypted_key, &decrypted_key_size,
-                                                arg_ask_password_flags);
+                                                "cryptsetup.fido2-pin",
+                                                arg_ask_password_flags,
+                                                &decrypted_key,
+                                                &decrypted_key_size);
                         if (r >= 0)
                                 break;
                 }
@@ -1461,7 +1485,7 @@ static int attach_luks2_by_pkcs11_via_plugin(
                 const char *name,
                 const char *friendly_name,
                 usec_t until,
-                bool headless,
+                const char *askpw_credential,
                 uint32_t flags) {
 
 #if HAVE_LIBCRYPTSETUP_PLUGINS
@@ -1473,7 +1497,7 @@ static int attach_luks2_by_pkcs11_via_plugin(
         systemd_pkcs11_plugin_params params = {
                 .friendly_name = friendly_name,
                 .until = until,
-                .headless = headless,
+                .askpw_credential = askpw_credential,
                 .askpw_flags = arg_ask_password_flags,
         };
 
@@ -1537,7 +1561,13 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
 
         for (;;) {
                 if (use_libcryptsetup_plugin && arg_pkcs11_uri_auto)
-                        r = attach_luks2_by_pkcs11_via_plugin(cd, name, friendly, until, arg_headless, flags);
+                        r = attach_luks2_by_pkcs11_via_plugin(
+                                        cd,
+                                        name,
+                                        friendly,
+                                        until,
+                                        "cryptsetup.pkcs11-pin",
+                                        flags);
                 else {
                         r = decrypt_pkcs11_key(
                                         name,
@@ -1546,7 +1576,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
                                         key_data, key_data_size,
                                         until,
-                                        arg_headless,
+                                        arg_ask_password_flags,
                                         &decrypted_key, &decrypted_key_size);
                         if (r >= 0)
                                 break;
@@ -1671,7 +1701,6 @@ static int attach_luks2_by_tpm2_via_plugin(
                 struct crypt_device *cd,
                 const char *name,
                 usec_t until,
-                bool headless,
                 uint32_t flags) {
 
 #if HAVE_LIBCRYPTSETUP_PLUGINS
@@ -1691,7 +1720,6 @@ static int attach_luks2_by_tpm2_via_plugin(
                         name,
                         "systemd-tpm2",
                         until,
-                        headless,
                         &params,
                         flags,
                         "Please enter TPM2 PIN:",
@@ -1747,7 +1775,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         /* pcrlock_nv= */ NULL,
                                         arg_tpm2_pin ? TPM2_FLAGS_USE_PIN : 0,
                                         until,
-                                        arg_headless,
+                                        "cryptsetup.tpm2-pin",
                                         arg_ask_password_flags,
                                         &decrypted_key);
                         if (r >= 0)
@@ -1762,7 +1790,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                 return -EAGAIN; /* Mangle error code: let's make any form of TPM2 failure non-fatal. */
                         }
                 } else {
-                        r = attach_luks2_by_tpm2_via_plugin(cd, name, until, arg_headless, flags);
+                        r = attach_luks2_by_tpm2_via_plugin(cd, name, until, flags);
                         if (r >= 0)
                                 return 0;
                         /* EAGAIN     means: no tpm2 chip found
@@ -1845,7 +1873,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &pcrlock_nv,
                                                 tpm2_flags,
                                                 until,
-                                                arg_headless,
+                                                "cryptsetup.tpm2-pin",
                                                 arg_ask_password_flags,
                                                 &decrypted_key);
                                 if (IN_SET(r, -EACCES, -ENOLCK))
@@ -2365,7 +2393,6 @@ static int run(int argc, char *argv[]) {
                                                 volume,
                                                 /* type= */ NULL,
                                                 until,
-                                                arg_headless,
                                                 /* userdata= */ NULL,
                                                 flags,
                                                 "Please enter LUKS2 token PIN:",
