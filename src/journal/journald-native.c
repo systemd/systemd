@@ -22,7 +22,6 @@
 #include "journald-wall.h"
 #include "memfd-util.h"
 #include "memory-util.h"
-#include "missing_fcntl.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -363,8 +362,10 @@ void server_process_native_file(
                 return;
         }
 
-        if ((flags & ~(O_ACCMODE|RAW_O_LARGEFILE)) != 0) {
-                log_ratelimit_error(JOURNAL_LOG_RATELIMIT, "Unexpected flags of passed memory fd, ignoring message: %m");
+        if (UNSAFE_FD_FLAGS(flags) != 0) {
+                log_ratelimit_error(JOURNAL_LOG_RATELIMIT,
+                                    "Unexpected flags of passed memory fd (0%o), ignoring message: %m",
+                                    UNSAFE_FD_FLAGS(flags));
                 return;
         }
 
