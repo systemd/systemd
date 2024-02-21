@@ -69,7 +69,7 @@ option('loadkeys-path', type : 'string', description : 'path to loadkeys')
 option('setfont-path', type : 'string', description : 'path to setfont')
 option('nologin-path', type : 'string', description : 'path to nologin')
 
-option('debug-shell', type : 'string', value : '/usr/bin/sh',
+option('debug-shell', type : 'string', value : '/bin/sh',
        description : 'path to debug shell binary')
 option('debug-tty', type : 'string', value : '/dev/tty9',
        description : 'specify the tty device for debug shell')
@@ -240,7 +240,7 @@ option('time-epoch', type : 'integer', value : 0,
        description : 'time epoch for time clients')
 option('clock-valid-range-usec-max', type : 'integer', value : 473364000000000, # 15 years
        description : 'maximum value in microseconds for the difference between RTC and epoch, exceeding which is considered an RTC error ["0" disables]')
-option('default-user-shell', type : 'string', value : '/usr/bin/bash',
+option('default-user-shell', type : 'string', value : '/bin/bash',
        description : 'default interactive shell')
 
 option('system-alloc-uid-min', type : 'integer', value : 0,
