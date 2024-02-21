@@ -319,7 +319,7 @@ struct Network {
         int ipoib_umcast;
 
         /* sysctl settings */
-        AddressFamily ip_forward;
+        int ip_forwarding[2];
         int ipv4_accept_local;
         int ipv4_route_localnet;
         int ipv6_dad_transmits;

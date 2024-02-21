@@ -107,6 +107,9 @@ struct Manager {
         Hashmap *tuntap_fds_by_name;
 
         unsigned reloading;
+
+        /* sysctl */
+        int ip_forwarding[2];
 };
 
 int manager_new(Manager **ret, bool test_mode);
