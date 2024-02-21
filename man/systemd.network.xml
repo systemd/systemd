@@ -3973,6 +3973,18 @@ ServerAddress=192.168.0.1/24</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ReachableTimeSec=</varname></term>
+
+        <listitem>
+          <para>Configures the reachable time, used by by the Neighbor Unreachability Detection algorithm
+          that clients assume a neighbor is reachable after having received a reachability confirmation.
+          Takes a timespan in the range 0…4294967295 msec. Defaults to 0.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RetransmitSec=</varname></term>
 
         <listitem><para>Takes a timespan. Configures the retransmit time, used by clients to retransmit Neighbor
