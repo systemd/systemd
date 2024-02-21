@@ -431,64 +431,59 @@ static int context_load_environment(Context *c) {
         return 0;
 }
 
-static int context_load_install_conf_one(Context *c, const char *path) {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char
-                *conf = NULL, *machine_id = NULL, *boot_root = NULL, *layout = NULL,
-                *initrd_generator = NULL, *uki_generator = NULL;
-        int r;
-
-        assert(c);
-        assert(path);
-
-        conf = path_join(path, "install.conf");
-        if (!conf)
-                return log_oom();
-
-        r = chase_and_fopenat_unlocked(c->rfd, conf, CHASE_AT_RESOLVE_IN_ROOT, "re", NULL, &f);
-        if (r == -ENOENT)
-                return 0;
-        if (r < 0)
-                return log_error_errno(r, "Failed to chase %s: %m", conf);
-
-        log_debug("Loading %s…", conf);
-
-        r = parse_env_file(f, conf,
-                           "MACHINE_ID",       &machine_id,
-                           "BOOT_ROOT",        &boot_root,
-                           "layout",           &layout,
-                           "initrd_generator", &initrd_generator,
-                           "uki_generator",    &uki_generator);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse '%s': %m", conf);
-
-        (void) context_set_machine_id(c, machine_id, conf);
-        (void) context_set_boot_root(c, boot_root, conf);
-        (void) context_set_layout(c, layout, conf);
-        (void) context_set_initrd_generator(c, initrd_generator, conf);
-        (void) context_set_uki_generator(c, uki_generator, conf);
-
-        log_debug("Loaded %s.", conf);
-        return 1;
-}
-
 static int context_load_install_conf(Context *c) {
+        _cleanup_free_ char *machine_id = NULL, *boot_root = NULL, *layout = NULL,
+                            *initrd_generator = NULL, *uki_generator = NULL;
+        const ConfigTableItem items[] = {
+                { NULL, "MACHINE_ID",       config_parse_string, 0, &machine_id       },
+                { NULL, "BOOT_ROOT",        config_parse_string, 0, &boot_root        },
+                { NULL, "layout",           config_parse_string, 0, &layout           },
+                { NULL, "initrd_generator", config_parse_string, 0, &initrd_generator },
+                { NULL, "uki_generator",    config_parse_string, 0, &uki_generator    },
+                {}
+        };
         int r;
 
         assert(c);
 
         if (c->conf_root) {
-                r = context_load_install_conf_one(c, c->conf_root);
-                if (r != 0)
-                        return r;
-        }
+                _cleanup_free_ char *conf = NULL;
 
-        FOREACH_STRING(p, "/etc/kernel", "/usr/lib/kernel") {
-                r = context_load_install_conf_one(c, p);
-                if (r != 0)
-                        return r;
-        }
+                conf = path_join(c->conf_root, "install.conf");
+                if (!conf)
+                        return log_oom();
 
+                r = config_parse_many(
+                                STRV_MAKE_CONST(conf),
+                                STRV_MAKE_CONST(c->conf_root),
+                                "install.conf.d",
+                                /* root= */ NULL, /* $KERNEL_INSTALL_CONF_ROOT and --root are independent */
+                                /* sections= */ NULL,
+                                config_item_table_lookup, items,
+                                CONFIG_PARSE_WARN,
+                                /* userdata = */ NULL,
+                                /* ret_stats_by_path= */ NULL,
+                                /* ret_dropin_files= */ NULL);
+        } else
+                r = config_parse_standard_file_with_dropins_full(
+                                arg_root,
+                                "kernel/install.conf",
+                                /* sections= */ NULL,
+                                config_item_table_lookup, items,
+                                CONFIG_PARSE_WARN,
+                                /* userdata = */ NULL,
+                                /* ret_stats_by_path= */ NULL,
+                                /* ret_dropin_files= */ NULL);
+        if (r < 0)
+                return r == -ENOENT ? 0 : r;
+
+        (void) context_set_machine_id(c, machine_id, "config");
+        (void) context_set_boot_root(c, boot_root, "config");
+        (void) context_set_layout(c, layout, "config");
+        (void) context_set_initrd_generator(c, initrd_generator, "config");
+        (void) context_set_uki_generator(c, uki_generator, "config");
+
+        log_debug("Loaded config.");
         return 0;
 }
 
@@ -511,7 +506,7 @@ static int context_load_machine_info(Context *c) {
         if (r < 0 && r != -ENXIO)
                 log_warning_errno(r, "Failed to read $KERNEL_INSTALL_READ_MACHINE_INFO, assuming yes: %m");
         if (r == 0) {
-                log_debug("Skipping to read /etc/machine-info.");
+                log_debug("Skipping reading of /etc/machine-info.");
                 return 0;
         }
 
