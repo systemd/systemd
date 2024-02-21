@@ -342,6 +342,7 @@ struct Network {
         bool ipv6_accept_ra_use_onlink_prefix;
         bool ipv6_accept_ra_use_mtu;
         bool ipv6_accept_ra_use_hop_limit;
+        bool ipv6_accept_ra_use_reachable_time;
         bool ipv6_accept_ra_use_retransmission_time;
         bool ipv6_accept_ra_use_icmp6_ratelimit;
         bool ipv6_accept_ra_quickack;
