@@ -2241,6 +2241,15 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ServerPort=</varname></term>
+        <listitem>
+          <para>Set the port on which the DHCP server is listening.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DenyList=</varname></term>
         <listitem>
           <para>A whitespace-separated list of IPv4 addresses. Each address can optionally take a

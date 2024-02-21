@@ -130,6 +130,7 @@ struct Network {
         usec_t dhcp_fallback_lease_lifetime_usec;
         uint32_t dhcp_route_mtu;
         uint16_t dhcp_client_port;
+        uint16_t dhcp_port;
         int dhcp_critical;
         int dhcp_ip_service_type;
         int dhcp_socket_priority;
