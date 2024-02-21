@@ -449,6 +449,12 @@ is suppressed by default.
   operation. If not set, defaults to true. If disabled installation of images
   will be quicker, but not as safe.
 
+* `$SYSTEMD_IMPORT_COMPRESS_LEVEL_ZSTD` — takes a (possibly negative) integer,
+  which controls the compression level for machine images exported with zstd
+  compression (`machinectl export-{tar,raw} --format zstd`). The default is `3`.
+  The range of accepted values is from `1` to `22`, or from `-1` to an
+  undetermined negative value (dependent on the Zstd library version).
+
 `systemd-dissect`, `systemd-nspawn` and all other tools that may operate on
 disk images with `--image=` or similar:
 

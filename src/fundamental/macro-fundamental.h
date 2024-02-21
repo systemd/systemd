@@ -304,6 +304,17 @@
                                         UNIQ_T(X, xq);                  \
         })
 
+#undef IN_RANGE
+#define IN_RANGE(x, low, high) __IN_RANGE(UNIQ, (x), UNIQ, (low), UNIQ, (high))
+#define __IN_RANGE(xq, x, lowq, low, highq, high)                       \
+        ({                                                              \
+                const typeof(x) UNIQ_T(X, xq) = (x);                    \
+                const typeof(low) UNIQ_T(LOW, lowq) = (low);            \
+                const typeof(high) UNIQ_T(HIGH, highq) = (high);        \
+                        UNIQ_T(X, xq) <= UNIQ_T(HIGH, highq) &&         \
+                        UNIQ_T(X, xq) >= UNIQ_T(LOW, lowq);             \
+        })
+
 /* [(x + y - 1) / y] suffers from an integer overflow, even though the
  * computation should be possible in the given type. Therefore, we use
  * [x / y + !!(x % y)]. Note that on "Real CPUs" a division returns both the
