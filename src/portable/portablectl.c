@@ -1171,7 +1171,7 @@ static int is_image_attached(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (!strv_isempty(arg_extension_images)) {
-                r = sd_bus_message_append(m, "t", 0);
+                r = sd_bus_message_append(m, "t", UINT64_C(0));
                 if (r < 0)
                         return bus_log_create_error(r);
         }

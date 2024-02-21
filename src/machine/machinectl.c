@@ -1130,7 +1130,7 @@ static int copy_files(int argc, char *argv[], void *userdata) {
                 return bus_log_create_error(r);
 
         if (arg_force) {
-                r = sd_bus_message_append(m, "t", MACHINE_COPY_REPLACE);
+                r = sd_bus_message_append(m, "t", (uint64_t) MACHINE_COPY_REPLACE);
                 if (r < 0)
                         return bus_log_create_error(r);
         }
