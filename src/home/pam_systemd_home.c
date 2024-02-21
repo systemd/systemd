@@ -105,7 +105,6 @@ static int acquire_user_record(
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *homed_field = NULL;
         const char *json = NULL;
         int r;
@@ -148,6 +147,7 @@ static int acquire_user_record(
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_free_ char *generic_field = NULL, *json_copy = NULL;
+                _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
 
                 r = pam_acquire_bus_connection(handle, "pam-systemd-home", &bus, bus_data);
                 if (r != PAM_SUCCESS)
@@ -501,7 +501,6 @@ static int acquire_home(
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL, *secret = NULL;
         bool do_auth = FLAGS_SET(flags, ACQUIRE_MUST_AUTHENTICATE), home_not_active = false, home_locked = false, unrestricted = false;
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int acquired_fd = -EBADF;
         _cleanup_free_ char *fd_field = NULL;
         const void *home_fd_ptr = NULL;
@@ -552,10 +551,6 @@ static int acquire_home(
         if (r == PAM_SUCCESS && PTR_TO_FD(home_fd_ptr) >= 0)
                 return PAM_SUCCESS;
 
-        r = pam_acquire_bus_connection(handle, "pam-systemd-home", &bus, bus_data);
-        if (r != PAM_SUCCESS)
-                return r;
-
         r = acquire_user_record(handle, username, debug, &ur, bus_data);
         if (r != PAM_SUCCESS)
                 return r;
@@ -566,6 +561,11 @@ static int acquire_home(
          * that case it will happen that the LUKS password and the host password are different, and we handle
          * that by collecting and passing multiple passwords in that case. Hence we treat bad passwords as a
          * request to collect one more password and pass the new all all previously used passwords again. */
+
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        r = pam_acquire_bus_connection(handle, "pam-systemd-home", &bus, bus_data);
+        if (r != PAM_SUCCESS)
+                return r;
 
         for (;;) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
@@ -826,6 +826,12 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return r;
 
+        /* Explicitly get saved PamBusData here. Otherwise, this function may succeed without setting 'd'
+         * even if there is an opened sd-bus connection, and it will be leaked. See issue #31375. */
+        r = pam_get_bus_data(handle, "pam-systemd-home", &d);
+        if (r != PAM_SUCCESS)
+                return r;
+
         r = acquire_home(handle, flags, debug, &d);
         if (r == PAM_USER_UNKNOWN) /* Not managed by us? Don't complain. */
                 return PAM_SUCCESS;
@@ -852,7 +858,6 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         const char *username = NULL;
         bool debug = false;
         int r;
@@ -880,6 +885,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if (r != PAM_SUCCESS)
                 return r;
 
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         r = pam_acquire_bus_connection(handle, "pam-systemd-home", &bus, NULL);
         if (r != PAM_SUCCESS)
                 return r;
@@ -1029,7 +1035,6 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL, *old_secret = NULL, *new_secret = NULL;
         const char *old_password = NULL, *new_password = NULL;
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         unsigned n_attempts = 0;
         bool debug = false;
         int r;
@@ -1041,10 +1046,6 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
                 return PAM_AUTH_ERR;
 
         pam_debug_syslog(handle, debug, "pam-systemd-homed account management");
-
-        r = pam_acquire_bus_connection(handle, "pam-systemd-home", &bus, NULL);
-        if (r != PAM_SUCCESS)
-                return r;
 
         r = acquire_user_record(handle, NULL, debug, &ur, NULL);
         if (r != PAM_SUCCESS)
@@ -1101,6 +1102,11 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
         r = user_record_set_password(new_secret, STRV_MAKE(new_password), true);
         if (r < 0)
                 return pam_syslog_errno(handle, LOG_ERR, r, "Failed to store new password: %m");
+
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        r = pam_acquire_bus_connection(handle, "pam-systemd-home", &bus, NULL);
+        if (r != PAM_SUCCESS)
+                return r;
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
