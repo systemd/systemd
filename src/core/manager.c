@@ -25,6 +25,7 @@
 #include "alloc-util.h"
 #include "audit-fd.h"
 #include "boot-timestamps.h"
+#include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-kernel.h"
@@ -1024,42 +1025,19 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
 
                 if (r < 0 && r != -EEXIST)
                         return r;
+        }
 
-                m->executor_fd = open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH);
+        if (!FLAGS_SET(test_run_flags, MANAGER_TEST_DONT_OPEN_EXECUTOR)) {
+                m->executor_fd = pin_callout_binary(SYSTEMD_EXECUTOR_BINARY_PATH);
                 if (m->executor_fd < 0)
-                        return log_emergency_errno(errno,
-                                                   "Failed to open executor binary '%s': %m",
-                                                   SYSTEMD_EXECUTOR_BINARY_PATH);
-        } else if (!FLAGS_SET(test_run_flags, MANAGER_TEST_DONT_OPEN_EXECUTOR)) {
-                _cleanup_free_ char *self_exe = NULL, *executor_path = NULL;
-                _cleanup_close_ int self_dir_fd = -EBADF;
-                int level = LOG_DEBUG;
+                        return log_debug_errno(m->executor_fd, "Failed to pin executor binary: %m");
 
-                /* Prefer sd-executor from the same directory as the test, e.g.: when running unit tests from the
-                * build directory. Fallback to working directory and then the installation path. */
-                r = readlink_and_make_absolute("/proc/self/exe", &self_exe);
-                if (r < 0)
-                        return r;
-
-                self_dir_fd = open_parent(self_exe, O_CLOEXEC|O_PATH|O_DIRECTORY, 0);
-                if (self_dir_fd < 0)
-                        return self_dir_fd;
-
-                m->executor_fd = RET_NERRNO(openat(self_dir_fd, "systemd-executor", O_CLOEXEC|O_PATH));
-                if (m->executor_fd == -ENOENT)
-                        m->executor_fd = RET_NERRNO(openat(AT_FDCWD, "systemd-executor", O_CLOEXEC|O_PATH));
-                if (m->executor_fd == -ENOENT) {
-                        m->executor_fd = RET_NERRNO(open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH));
-                        level = LOG_WARNING; /* Tests should normally use local builds */
-                }
-                if (m->executor_fd < 0)
-                        return m->executor_fd;
-
+                _cleanup_free_ char *executor_path = NULL;
                 r = fd_get_path(m->executor_fd, &executor_path);
                 if (r < 0)
                         return r;
 
-                log_full(level, "Using systemd-executor binary from '%s'.", executor_path);
+                log_debug("Using systemd-executor binary from '%s'.", executor_path);
         }
 
         /* Note that we do not set up the notify fd here. We do that after deserialization,
