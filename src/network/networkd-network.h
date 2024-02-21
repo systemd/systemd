@@ -242,6 +242,7 @@ struct Network {
         RADVPrefixDelegation router_prefix_delegation;
         usec_t router_lifetime_usec;
         uint8_t router_preference;
+        usec_t router_reachable_usec;
         usec_t router_retransmit_usec;
         uint8_t router_hop_limit;
         bool router_managed;
