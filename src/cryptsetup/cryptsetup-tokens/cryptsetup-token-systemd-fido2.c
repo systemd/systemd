@@ -87,7 +87,7 @@ _public_ void cryptsetup_token_buffer_free(void *buffer, size_t buffer_len) {
  */
 _public_ void cryptsetup_token_dump(
                 struct crypt_device *cd /* is always LUKS2 context */,
-                const char *json /* validated 'systemd-tpm2' token if cryptsetup_token_validate is defined */) {
+                const char *json /* validated 'systemd-fido2' token if cryptsetup_token_validate is defined */) {
 
         int r;
         Fido2EnrollFlags required;
@@ -154,7 +154,7 @@ _public_ void cryptsetup_token_dump(
  */
 _public_ int cryptsetup_token_validate(
                 struct crypt_device *cd, /* is always LUKS2 context */
-                const char *json /* contains valid 'type' and 'keyslots' fields. 'type' is 'systemd-tpm2' */) {
+                const char *json /* contains valid 'type' and 'keyslots' fields. 'type' is 'systemd-fido2' */) {
 
         int r;
         JsonVariant *w;
