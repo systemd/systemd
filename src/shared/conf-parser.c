@@ -8,6 +8,7 @@
 #include <sys/types.h>
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -480,6 +481,7 @@ int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const s
 }
 
 static int config_parse_many_files(
+                const char *root,
                 const char* const* conf_files,
                 char **files,
                 const char *sections,
@@ -502,19 +504,16 @@ static int config_parse_many_files(
         }
 
         STRV_FOREACH(fn, files) {
-                _cleanup_free_ struct stat *st_dropin = NULL;
                 _cleanup_fclose_ FILE *f = NULL;
-                int fd;
+                _cleanup_free_ char *fname = NULL;
 
-                f = fopen(*fn, "re");
-                if (!f) {
-                        if (errno == ENOENT)
-                                continue;
+                r = chase_and_fopen_unlocked(*fn, root, CHASE_AT_RESOLVE_IN_ROOT, "re", &fname, &f);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
 
-                        return -errno;
-                }
-
-                fd = fileno(f);
+                int fd = fileno(f);
 
                 r = ordered_hashmap_ensure_put(&dropins, &config_file_hash_ops_fclose, *fn, f);
                 if (r < 0) {
@@ -527,7 +526,7 @@ static int config_parse_many_files(
                 /* Get inodes for all drop-ins. Later we'll verify if main config is a symlink to or is
                  * symlinked as one of them. If so, we skip reading main config file directly. */
 
-                st_dropin = new(struct stat, 1);
+                _cleanup_free_ struct stat *st_dropin = new(struct stat, 1);
                 if (!st_dropin)
                         return -ENOMEM;
 
@@ -543,13 +542,11 @@ static int config_parse_many_files(
         STRV_FOREACH(fn, conf_files) {
                 _cleanup_fclose_ FILE *f = NULL;
 
-                f = fopen(*fn, "re");
-                if (!f) {
-                        if (errno == ENOENT)
-                                continue;
-
-                        return -errno;
-                }
+                r = chase_and_fopen_unlocked(*fn, root, CHASE_AT_RESOLVE_IN_ROOT, "re", NULL, &f);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
 
                 if (inodes) {
                         if (fstat(fileno(f), &st) < 0)
@@ -642,7 +639,7 @@ int config_parse_config_file(
 
         const char *sysconf_file = strjoina(SYSCONF_DIR, "/", conf_file);
 
-        return config_parse_many_files(STRV_MAKE_CONST(sysconf_file), dropins,
+        return config_parse_many_files(NULL, STRV_MAKE_CONST(sysconf_file), dropins,
                                        sections, lookup, table, flags, userdata, NULL);
 }
 
@@ -672,7 +669,7 @@ int config_parse_many(
         if (r < 0)
                 return r;
 
-        r = config_parse_many_files(conf_files, files, sections, lookup, table, flags, userdata, ret_stats_by_path);
+        r = config_parse_many_files(root, conf_files, files, sections, lookup, table, flags, userdata, ret_stats_by_path);
         if (r < 0)
                 return r;
 
