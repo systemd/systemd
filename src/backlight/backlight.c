@@ -175,7 +175,7 @@ static int validate_device(sd_device *device) {
 
         /* Verify whether we should actually care for a specific backlight device. For backlight devices
          * there might be multiple ways to access the same control: "firmware" (i.e. ACPI), "platform"
-         * (i.e. via the machine's EC) and "raw" (via the graphics card). In general we should prefer
+         * (i.e. via the machine's EC), and "raw" (via the graphics card). In general we should prefer
          * "firmware" (i.e. ACPI) or "platform" access over "raw" access, in order not to confuse the
          * BIOS/EC, and compatibility with possible low-level hotkey handling of screen brightness. The
          * kernel will already make sure to expose only one of "firmware" and "platform" for the same
@@ -239,8 +239,8 @@ static int validate_device(sd_device *device) {
                         /* If the system has multiple graphics cards, then we cannot associate platform
                          * devices on non-PCI bus (especially WMI bus) with PCI devices. Let's ignore all
                          * backlight devices that do not have the same parent PCI device. */
-                        log_debug("Found multiple graphics cards on PCI bus. "
-                                  "Skipping to associate platform backlight devices on non-PCI bus.");
+                        log_debug("Found multiple graphics cards on PCI bus; "
+                                  "skipping deduplication of platform backlight devices not on PCI bus.");
 
                         r = sd_device_enumerator_add_match_parent(enumerate, parent);
                         if (r < 0)
