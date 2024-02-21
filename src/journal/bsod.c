@@ -131,7 +131,7 @@ static int find_next_free_vt(int fd, int *ret_free_vt, int *ret_original_vt) {
 
         for (size_t i = 0; i < sizeof(terminal_status.v_state) * 8; i++)
                 if ((terminal_status.v_state & (1 << i)) == 0) {
-                        *ret_free_vt = i;
+                        *ret_free_vt = i + 1;
                         *ret_original_vt = terminal_status.v_active;
                         return 0;
                 }
@@ -140,7 +140,7 @@ static int find_next_free_vt(int fd, int *ret_free_vt, int *ret_original_vt) {
 }
 
 static int display_emergency_message_fullscreen(const char *message) {
-        int r, ret = 0, free_vt = -1, original_vt = 0;
+        int r, ret = 0, free_vt = 0, original_vt = 0;
         unsigned qr_code_start_row = 1, qr_code_start_column = 1;
         char ttybuf[STRLEN("/dev/tty") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -EBADF;
@@ -165,7 +165,7 @@ static int display_emergency_message_fullscreen(const char *message) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to find a free VT: %m");
 
-                xsprintf(ttybuf, "/dev/tty%d", free_vt + 1);
+                xsprintf(ttybuf, "/dev/tty%d", free_vt);
                 tty = ttybuf;
 
                 fd = safe_close(fd);
@@ -178,9 +178,9 @@ static int display_emergency_message_fullscreen(const char *message) {
         if (ioctl(fd, TIOCGWINSZ, &w) < 0)
                 log_warning_errno(errno, "Failed to fetch tty size, ignoring: %m");
 
-        if (free_vt >= 0)
-                if (ioctl(fd, VT_ACTIVATE, free_vt + 1) < 0)
-                        return log_error_errno(errno, "Failed to activate tty, ignoring: %m");
+        if (free_vt > 0)
+                if (ioctl(fd, VT_ACTIVATE, free_vt) < 0)
+                        return log_error_errno(errno, "Failed to activate /dev/tty%i, ignoring: %m", free_vt);
 
         r = loop_write(fd, ANSI_BACKGROUND_BLUE ANSI_HOME_CLEAR, SIZE_MAX);
         if (r < 0)
@@ -235,7 +235,7 @@ static int display_emergency_message_fullscreen(const char *message) {
 cleanup:
         if (original_vt > 0)
                 if (ioctl(fd, VT_ACTIVATE, original_vt) < 0)
-                        return log_error_errno(errno, "Failed to switch back to original VT: %m");
+                        return log_error_errno(errno, "Failed to switch back to original VT /dev/tty%i: %m", original_vt);
 
         return ret;
 }
