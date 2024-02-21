@@ -3,3 +3,6 @@
 Name=macvlan99
 Kind=macvlan
 MTUBytes=2000
+
+[MACVLAN]
+BroadcastQueueThreshold=2147483647
