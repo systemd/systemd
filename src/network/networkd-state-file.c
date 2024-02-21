@@ -114,7 +114,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
         }
 
         if (link->dhcp_lease && network_dhcp_use_dnr(link->network)) {
-                ResolverData *resolvers;
+                sd_dns_resolver *resolvers;
 
                 r = sd_dhcp_lease_get_dnr(link->dhcp_lease, &resolvers);
                 if (r >= 0) {
@@ -122,7 +122,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                         size_t n = 0;
                         CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
 
-                        r = dns_resolvers_to_dot_addrs(resolvers, &dot_servers, &n);
+                        r = sd_dns_resolvers_to_dot_addrs(resolvers, r, &dot_servers, &n);
                         if (r < 0)
                                 return r;
                         r = ordered_set_put_dns_servers(s, link->ifindex, dot_servers, n);
@@ -564,7 +564,7 @@ static void serialize_resolvers(
                 fprintf(f, "%s=", lvalue);
 
         if (lease && conditional) {
-                ResolverData *resolvers;
+                sd_dns_resolver *resolvers;
                 _cleanup_strv_free_ char **names = NULL;
                 int r;
 
@@ -572,7 +572,7 @@ static void serialize_resolvers(
                 if (r < 0)
                         return;
 
-                r = dns_resolvers_to_dot_strv(resolvers, &names);
+                r = sd_dns_resolvers_to_dot_strv(resolvers, r, &names);
                 if (r > 0)
                         fputstrv(f, names, NULL, space);
         }
@@ -761,7 +761,7 @@ static int link_save(Link *link) {
                         }
 
                         if (network_ipv6_accept_ra_use_dnr(link->network))
-                                serialize_dnr(f, link->ndisc_resolvers, &space);
+                                serialize_dnr(f, link->ndisc_resolvers, 0, &space);
                 }
 
                 fputc('\n', f);
