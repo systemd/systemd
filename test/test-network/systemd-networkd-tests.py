@@ -5221,6 +5221,9 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online('veth99:routable', 'veth-peer:degraded')
 
+        # IPv6SendRA=yes implies IPv6Forwarding.
+        self.check_ipv6_sysctl_attr('veth-peer', 'forwarding', '1')
+
         output = resolvectl('dns', 'veth99')
         print(output)
         self.assertRegex(output, 'fe80::')
