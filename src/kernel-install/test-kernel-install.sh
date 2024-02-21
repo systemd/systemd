@@ -125,7 +125,8 @@ grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
 
 # Install UKI
 if [ -f "$ukify" ]; then
-    cat >>"$D/sources/install.conf" <<EOF
+    mkdir "$D/sources/install.conf.d"
+    cat >>"$D/sources/install.conf.d/override.conf" <<EOF
 layout=uki
 uki_generator=ukify
 EOF
@@ -146,6 +147,8 @@ EOF
     "$ukify" inspect "$uki" | grep -qE '^.initrd'
     "$ukify" inspect "$uki" | grep -qE '^.linux'
     "$ukify" inspect "$uki" | grep -qE '^.dtb'
+
+    rm "$D/sources/install.conf.d/override.conf"
 fi
 
 # Test bootctl
