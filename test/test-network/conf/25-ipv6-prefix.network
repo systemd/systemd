@@ -10,6 +10,8 @@ IPv6SendRA=yes
 DNS=_link_local 2002:da8:1:0::1
 DNSLifetimeSec=1min
 Domains=hogehoge.test
+ReachableTimeSec=42
+RetransmitSec=500ms
 
 [IPv6Prefix]
 Prefix=2002:da8:1:0::/64
