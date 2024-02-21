@@ -826,6 +826,12 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return r;
 
+        /* Explicitly get saved PamBusData here. Otherwise, this function may succeed without setting 'd'
+         * even if there is an opened sd-bus connection, and it will be leaked. See issue #31375. */
+        r = pam_get_bus_data(handle, "pam-systemd-home", &d);
+        if (r != PAM_SUCCESS)
+                return r;
+
         r = acquire_home(handle, flags, debug, &d);
         if (r == PAM_USER_UNKNOWN) /* Not managed by us? Don't complain. */
                 return PAM_SUCCESS;

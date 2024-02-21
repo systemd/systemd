@@ -209,6 +209,32 @@ int pam_release_bus_connection(pam_handle_t *handle, const char *module_name) {
         return PAM_SUCCESS;
 }
 
+int pam_get_bus_data(
+                pam_handle_t *handle,
+                const char *module_name,
+                PamBusData **ret) {
+
+        PamBusData *d = NULL;
+        _cleanup_free_ char *cache_id = NULL;
+        int r;
+
+        assert(handle);
+        assert(module_name);
+        assert(ret);
+
+        cache_id = pam_make_bus_cache_id(module_name);
+        if (!cache_id)
+                return pam_log_oom(handle);
+
+        /* We cache the bus connection so that we can share it between the session and the authentication hooks */
+        r = pam_get_data(handle, cache_id, (const void**) &d);
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get bus connection: @PAMERR@");
+
+        *ret = d;
+        return PAM_SUCCESS;
+}
+
 void pam_cleanup_free(pam_handle_t *handle, void *data, int error_status) {
         /* A generic destructor for pam_set_data() that just frees the specified data */
         free(data);
