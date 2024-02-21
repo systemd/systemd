@@ -104,7 +104,7 @@
 
       <variablelist>
         <varlistentry>
-          <term><option>--qemu-smp=</option><replaceable>SMP</replaceable></term>
+          <term><option>--cpus=</option><replaceable>CPUS</replaceable></term>
 
           <listitem><para>Configures the number of CPUs to start the virtual machine with.
           Defaults to 1.</para>
@@ -114,7 +114,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--qemu-mem=</option><replaceable>MEM</replaceable></term>
+          <term><option>--ram=</option><replaceable>BYTES</replaceable></term>
 
           <listitem><para>Configures the amount of memory to start the virtual machine with.
           Defaults to 2G.</para>
@@ -124,7 +124,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--qemu-kvm=</option><replaceable>BOOL</replaceable></term>
+          <term><option>--kvm=</option><replaceable>BOOL</replaceable></term>
 
           <listitem><para>Configures whether to use KVM. If the option is not specified KVM support will be
           detected automatically. If true, KVM is always used, and if false, KVM is never used.</para>
@@ -133,7 +133,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--qemu-vsock=</option><replaceable>BOOL</replaceable></term>
+          <term><option>--vsock=</option><replaceable>BOOL</replaceable></term>
 
           <listitem>
             <para>Configure whether to use VSOCK networking.</para>
@@ -163,7 +163,7 @@
           <term><option>--tpm=</option><replaceable>BOOL</replaceable></term>
 
           <listitem>
-            <para>Configure whether to use qemu with a virtual TPM or not.</para>
+            <para>Configure whether to use VM with a virtual TPM or not.</para>
 
             <para>If the option is not specified vmspawn will detect the presence of <citerefentry project='man-pages'>
             <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> and use it if available.
@@ -235,7 +235,7 @@
         <varlistentry>
           <term><option>--network-user-mode</option></term>
 
-          <listitem><para>Use user mode networking with QEMU.</para>
+          <listitem><para>Use user mode networking.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>

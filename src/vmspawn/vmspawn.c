@@ -65,16 +65,16 @@ static PagerFlags arg_pager_flags = 0;
 static char *arg_directory = NULL;
 static char *arg_image = NULL;
 static char *arg_machine = NULL;
-static char *arg_qemu_smp = NULL;
-static uint64_t arg_qemu_mem = UINT64_C(2) * U64_GB;
-static int arg_qemu_kvm = -1;
-static int arg_qemu_vsock = -1;
+static char *arg_cpus = NULL;
+static uint64_t arg_ram = UINT64_C(2) * U64_GB;
+static int arg_kvm = -1;
+static int arg_vsock = -1;
 static unsigned arg_vsock_cid = VMADDR_CID_ANY;
 static int arg_tpm = -1;
 static char *arg_linux = NULL;
 static char **arg_initrds = NULL;
 static bool arg_qemu_gui = false;
-static QemuNetworkStack arg_network_stack = QEMU_NET_NONE;
+static NetworkStack arg_network_stack = NETWORK_STACK_NONE;
 static int arg_secure_boot = -1;
 static MachineCredentialContext arg_credentials = {};
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
@@ -91,7 +91,7 @@ static char **arg_extra_drives = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_qemu_smp, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_cpus, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_runtime_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_firmware, freep);
@@ -122,17 +122,17 @@ static int help(void) {
                "  -D --directory=PATH      Root directory for the VM\n"
                "  -i --image=FILE|DEVICE   Root file system disk image or device for the VM\n"
                "\n%3$sHost Configuration:%4$s\n"
-               "     --qemu-smp=SMP        Configure guest's SMP settings\n"
-               "     --qemu-mem=MEM        Configure guest's RAM size\n"
-               "     --qemu-kvm=BOOL       Enable use of KVM\n"
-               "     --qemu-vsock=BOOL     Override autodetection of VSock support in QEMU\n"
-               "     --vsock-cid=CID       Specify the CID to use for the qemu guest's VSock\n"
+               "     --cpus=CPUS           Configure guest's SMP settings\n"
+               "     --ram=BYTES           Configure guest's RAM size\n"
+               "     --kvm=BOOL            Enable use of KVM\n"
+               "     --vsock=BOOL          Override autodetection of VSOCK support\n"
+               "     --vsock-cid=CID       Specify the CID to use for the guest's VSOCK support\n"
                "     --tpm=BOOL            Enable use of a virtual TPM\n"
                "     --linux=PATH          Specify the linux kernel for direct kernel boot\n"
                "     --initrd=PATH         Specify the initrd for direct kernel boot\n"
                "     --qemu-gui            Start QEMU in graphical mode\n"
-               "  -n --network-tap         Create a TAP device for networking with QEMU\n"
-               "     --network-user-mode   Use user mode networking with QEMU\n"
+               "  -n --network-tap         Create a TAP device for networking\n"
+               "     --network-user-mode   Use user mode networking\n"
                "     --secure-boot=BOOL    Enable searching for firmware supporting SecureBoot\n"
                "     --firmware=PATH|list  Select firmware definition file (or list available)\n"
                "\n%3$sSystem Identity:%4$s\n"
@@ -171,10 +171,10 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
-                ARG_QEMU_SMP,
-                ARG_QEMU_MEM,
-                ARG_QEMU_KVM,
-                ARG_QEMU_VSOCK,
+                ARG_CPUS,
+                ARG_RAM,
+                ARG_KVM,
+                ARG_VSOCK,
                 ARG_VSOCK_CID,
                 ARG_TPM,
                 ARG_LINUX,
@@ -200,10 +200,14 @@ static int parse_argv(int argc, char *argv[]) {
                 { "image",             required_argument, NULL, 'i'                   },
                 { "directory",         required_argument, NULL, 'D'                   },
                 { "machine",           required_argument, NULL, 'M'                   },
-                { "qemu-smp",          required_argument, NULL, ARG_QEMU_SMP          },
-                { "qemu-mem",          required_argument, NULL, ARG_QEMU_MEM          },
-                { "qemu-kvm",          required_argument, NULL, ARG_QEMU_KVM          },
-                { "qemu-vsock",        required_argument, NULL, ARG_QEMU_VSOCK        },
+                { "cpus",              required_argument, NULL, ARG_CPUS              },
+                { "qemu-smp",          required_argument, NULL, ARG_CPUS              }, /* Compat alias */
+                { "ram",               required_argument, NULL, ARG_RAM               },
+                { "qemu-mem",          required_argument, NULL, ARG_RAM               }, /* Compat alias */
+                { "kvm",               required_argument, NULL, ARG_KVM               },
+                { "qemu-kvm",          required_argument, NULL, ARG_KVM               }, /* Compat alias */
+                { "vsock",             required_argument, NULL, ARG_VSOCK             },
+                { "qemu-vsock",        required_argument, NULL, ARG_VSOCK             }, /* Compat alias */
                 { "vsock-cid",         required_argument, NULL, ARG_VSOCK_CID         },
                 { "tpm",               required_argument, NULL, ARG_TPM               },
                 { "linux",             required_argument, NULL, ARG_LINUX             },
@@ -275,28 +279,28 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_QEMU_SMP:
-                        r = free_and_strdup_warn(&arg_qemu_smp, optarg);
+                case ARG_CPUS:
+                        r = free_and_strdup_warn(&arg_cpus, optarg);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_QEMU_MEM:
-                        r = parse_size(optarg, 1024, &arg_qemu_mem);
+                case ARG_RAM:
+                        r = parse_size(optarg, 1024, &arg_ram);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --qemu-mem=%s: %m", optarg);
+                                return log_error_errno(r, "Failed to parse --ram=%s: %m", optarg);
                         break;
 
-                case ARG_QEMU_KVM:
-                        r = parse_tristate(optarg, &arg_qemu_kvm);
+                case ARG_KVM:
+                        r = parse_tristate(optarg, &arg_kvm);
                         if (r < 0)
-                            return log_error_errno(r, "Failed to parse --qemu-kvm=%s: %m", optarg);
+                            return log_error_errno(r, "Failed to parse --kvm=%s: %m", optarg);
                         break;
 
-                case ARG_QEMU_VSOCK:
-                        r = parse_tristate(optarg, &arg_qemu_vsock);
+                case ARG_VSOCK:
+                        r = parse_tristate(optarg, &arg_vsock);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --qemu-vsock=%s: %m", optarg);
+                                return log_error_errno(r, "Failed to parse --vsock=%s: %m", optarg);
                         break;
 
                 case ARG_VSOCK_CID:
@@ -345,11 +349,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'n':
-                        arg_network_stack = QEMU_NET_TAP;
+                        arg_network_stack = NETWORK_STACK_TAP;
                         break;
 
                 case ARG_NETWORK_USER_MODE:
-                        arg_network_stack = QEMU_NET_USER;
+                        arg_network_stack = NETWORK_STACK_USER;
                         break;
 
                 case ARG_BIND:
@@ -1035,8 +1039,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
-        bool use_kvm = arg_qemu_kvm > 0;
-        if (arg_qemu_kvm < 0) {
+        bool use_kvm = arg_kvm > 0;
+        if (arg_kvm < 0) {
                 r = qemu_check_kvm_support();
                 if (r < 0)
                         return log_error_errno(r, "Failed to check for KVM support: %m");
@@ -1082,13 +1086,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find QEMU binary: %m");
 
-        if (asprintf(&mem, "%" PRIu64 "M", DIV_ROUND_UP(arg_qemu_mem, U64_MB)) < 0)
+        if (asprintf(&mem, "%" PRIu64 "M", DIV_ROUND_UP(arg_ram, U64_MB)) < 0)
                 return log_oom();
 
         cmdline = strv_new(
                 qemu_binary,
                 "-machine", machine,
-                "-smp", arg_qemu_smp ?: "1",
+                "-smp", arg_cpus ?: "1",
                 "-m", mem,
                 "-object", "rng-random,filename=/dev/urandom,id=rng0",
                 "-device", "virtio-rng-pci,rng=rng0,id=rng-device0"
@@ -1110,9 +1114,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        if (arg_network_stack == QEMU_NET_TAP)
+        if (arg_network_stack == NETWORK_STACK_TAP)
                 r = strv_extend_many(&cmdline, "-nic", "tap,script=no,model=virtio-net-pci");
-        else if (arg_network_stack == QEMU_NET_USER)
+        else if (arg_network_stack == NETWORK_STACK_USER)
                 r = strv_extend_many(&cmdline, "-nic", "user,model=virtio-net-pci");
         else
                 r = strv_extend_many(&cmdline, "-nic", "none");
@@ -1130,8 +1134,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        bool use_vsock = arg_qemu_vsock > 0 && ARCHITECTURE_SUPPORTS_SMBIOS;
-        if (arg_qemu_vsock < 0) {
+        bool use_vsock = arg_vsock > 0 && ARCHITECTURE_SUPPORTS_SMBIOS;
+        if (arg_vsock < 0) {
                 r = qemu_check_vsock_support();
                 if (r < 0)
                         return log_error_errno(r, "Failed to check for VSOCK support: %m");
@@ -1694,7 +1698,7 @@ static int determine_names(void) {
 }
 
 static int verify_arguments(void) {
-        if (arg_network_stack == QEMU_NET_TAP && !arg_privileged)
+        if (arg_network_stack == NETWORK_STACK_TAP && !arg_privileged)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "--network-tap requires root privileges, refusing.");
 
         if (!strv_isempty(arg_initrds) && !arg_linux)
