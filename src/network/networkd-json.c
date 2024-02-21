@@ -1092,7 +1092,7 @@ static int dhcp6_client_duid_append_json(Link *link, JsonVariant **v) {
         if (r < 0)
                 return 0;
 
-        r = sd_dhcp_duid_get_raw(&link->dhcp6_client->duid, &data, &data_size);
+        r = sd_dhcp_duid_get_raw(duid, &data, &data_size);
         if (r < 0)
                 return 0;
 
