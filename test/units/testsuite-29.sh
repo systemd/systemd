@@ -183,6 +183,26 @@ status="$(portablectl is-attached --extension app1 minimal_0)"
 
 portablectl detach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_0.raw app1
 
+# Ensure vpick works, including reattaching to a new image
+mkdir -p /tmp/app1.v/
+cp /usr/share/app1.raw /tmp/app1.v/app1_1.0.raw
+cp /tmp/app1_2.raw /tmp/app1.v/app1_2.0.raw
+portablectl "${ARGS[@]}" attach --now --runtime --extension /tmp/app1.v/ /usr/share/minimal_1.raw app1
+
+systemctl is-active app1.service
+status="$(portablectl is-attached --extension app1_2.0.raw minimal_1)"
+[[ "${status}" == "running-runtime" ]]
+
+rm -f /tmp/app1.v/app1_2.0.raw
+portablectl "${ARGS[@]}" reattach --now --runtime --extension /tmp/app1.v/ /usr/share/minimal_1.raw app1
+
+systemctl is-active app1.service
+status="$(portablectl is-attached --extension app1_1.0.raw minimal_1)"
+[[ "${status}" == "running-runtime" ]]
+
+portablectl detach --now --runtime --extension /tmp/app1.v/ /usr/share/minimal_0.raw app1
+rm -f /tmp/app1.v/app1_1.0.raw
+
 # Ensure that the combination of read-only images, state directory and dynamic user works, and that
 # state is retained. Check after detaching, as on slow systems (eg: sanitizers) it might take a while
 # after the service is attached before the file appears.
