@@ -1239,7 +1239,7 @@ static int property_get_cgroup_id(
         assert(reply);
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        return sd_bus_message_append(reply, "t", crt ? crt->cgroup_id : 0);
+        return sd_bus_message_append(reply, "t", crt ? crt->cgroup_id : UINT64_C(0));
 }
 
 static int append_process(sd_bus_message *reply, const char *p, PidRef *pid, Set *pids) {
