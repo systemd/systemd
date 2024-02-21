@@ -18,6 +18,7 @@
 #include "macro.h"
 #include "main-func.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -38,6 +39,7 @@ static bool arg_ask_password = true;
 static bool arg_force = false;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static const char* arg_format = NULL;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
 static int match_log_message(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         const char **our_path = userdata, *line;
@@ -537,28 +539,11 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
-typedef struct TransferInfo {
-        uint32_t id;
-        const char *type;
-        const char *remote;
-        const char *local;
-        double progress;
-} TransferInfo;
-
-static int compare_transfer_info(const TransferInfo *a, const TransferInfo *b) {
-        return strcmp(a->local, b->local);
-}
-
 static int list_transfers(int argc, char *argv[], void *userdata) {
-        size_t max_type = STRLEN("TYPE"), max_local = STRLEN("LOCAL"), max_remote = STRLEN("REMOTE");
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ TransferInfo *transfers = NULL;
-        const char *type, *remote, *local;
-        sd_bus *bus = userdata;
-        uint32_t id, max_id = 0;
-        size_t n_transfers = 0;
-        double progress;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(table_unrefp) Table *t = NULL;
+        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
         pager_open(arg_pager_flags);
@@ -571,72 +556,66 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_read(reply, "(usssdo)", &id, &type, &remote, &local, &progress, NULL)) > 0) {
-                size_t l;
+        t = table_new("id", "progress", "type", "local", "remote");
+        if (!t)
+                return log_oom();
 
-                if (!GREEDY_REALLOC(transfers, n_transfers + 1))
-                        return log_oom();
+        (void) table_set_sort(t, (size_t) 3, (size_t) 0);
+        table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
 
-                transfers[n_transfers].id = id;
-                transfers[n_transfers].type = type;
-                transfers[n_transfers].remote = remote;
-                transfers[n_transfers].local = local;
-                transfers[n_transfers].progress = progress;
+        for (;;) {
+                const char *type, *remote, *local;
+                double progress;
+                uint32_t id;
 
-                l = strlen(type);
-                if (l > max_type)
-                        max_type = l;
+                r = sd_bus_message_read(reply, "(usssdo)", &id, &type, &remote, &local, &progress, NULL);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
 
-                l = strlen(remote);
-                if (l > max_remote)
-                        max_remote = l;
+                r = table_add_many(
+                                t,
+                                TABLE_UINT32, id,
+                                TABLE_SET_ALIGN_PERCENT, 100);
+                if (r < 0)
+                        return table_log_add_error(r);
 
-                l = strlen(local);
-                if (l > max_local)
-                        max_local = l;
-
-                if (id > max_id)
-                        max_id = id;
-
-                n_transfers++;
+                if (progress < 0)
+                        r = table_add_many(
+                                        t,
+                                        TABLE_EMPTY,
+                                        TABLE_SET_ALIGN_PERCENT, 100);
+                else
+                        r = table_add_many(
+                                        t,
+                                        TABLE_PERCENT, (int) (progress * 100),
+                                        TABLE_SET_ALIGN_PERCENT, 100);
+                if (r < 0)
+                        return table_log_add_error(r);
+                r = table_add_many(
+                                t,
+                                TABLE_STRING, type,
+                                TABLE_STRING, local,
+                                TABLE_STRING, remote,
+                                TABLE_SET_URL, remote);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        typesafe_qsort(transfers, n_transfers, compare_transfer_info);
-
-        if (arg_legend && n_transfers > 0)
-                printf("%-*s %-*s %-*s %-*s %-*s\n",
-                       (int) MAX(2U, DECIMAL_STR_WIDTH(max_id)), "ID",
-                       (int) 7, "PERCENT",
-                       (int) max_type, "TYPE",
-                       (int) max_local, "LOCAL",
-                       (int) max_remote, "REMOTE");
-
-        for (size_t j = 0; j < n_transfers; j++)
-
-                if (transfers[j].progress < 0)
-                        printf("%*" PRIu32 " %*s %-*s %-*s %-*s\n",
-                               (int) MAX(2U, DECIMAL_STR_WIDTH(max_id)), transfers[j].id,
-                               (int) 7, "n/a",
-                               (int) max_type, transfers[j].type,
-                               (int) max_local, transfers[j].local,
-                               (int) max_remote, transfers[j].remote);
-                else
-                        printf("%*" PRIu32 " %*u%% %-*s %-*s %-*s\n",
-                               (int) MAX(2U, DECIMAL_STR_WIDTH(max_id)), transfers[j].id,
-                               (int) 6, (unsigned) (transfers[j].progress * 100),
-                               (int) max_type, transfers[j].type,
-                               (int) max_local, transfers[j].local,
-                               (int) max_remote, transfers[j].remote);
+        if (!table_isempty(t)) {
+                r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to output table: %m");
+        }
 
         if (arg_legend) {
-                if (n_transfers > 0)
-                        printf("\n%zu transfers listed.\n", n_transfers);
+                if (!table_isempty(t))
+                        printf("\n%zu transfers listed.\n", table_get_rows(t) - 1);
                 else
                         printf("No transfers.\n");
         }
@@ -698,6 +677,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -M --machine=CONTAINER      Operate on local container\n"
                "     --read-only              Create read-only bind mount\n"
                "  -q --quiet                  Suppress output\n"
+               "     --json=pretty|short|off  Generate JSON output\n"
+               "  -j                          Equvilant to --json=pretty on TTY, --json=short\n"
+               "                              otherwise\n"
                "     --verify=MODE            Verification mode for downloaded images (no,\n"
                "                               checksum, signature)\n"
                "     --format=xz|gzip|bzip2   Desired output format for export\n"
@@ -721,6 +703,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
                 ARG_NO_ASK_PASSWORD,
                 ARG_READ_ONLY,
+                ARG_JSON,
                 ARG_VERIFY,
                 ARG_FORCE,
                 ARG_FORMAT,
@@ -735,6 +718,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "host",            required_argument, NULL, 'H'                 },
                 { "machine",         required_argument, NULL, 'M'                 },
                 { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
+                { "json",            required_argument, NULL, ARG_JSON            },
                 { "quiet",           no_argument,       NULL, 'q'                 },
                 { "verify",          required_argument, NULL, ARG_VERIFY          },
                 { "force",           no_argument,       NULL, ARG_FORCE           },
@@ -748,7 +732,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         for (;;) {
-                c = getopt_long(argc, argv, "hH:M:q", options, NULL);
+                c = getopt_long(argc, argv, "hH:M:jq", options, NULL);
                 if (c < 0)
                         break;
 
@@ -812,6 +796,19 @@ static int parse_argv(int argc, char *argv[]) {
                                                        "Unknown format: %s", optarg);
 
                         arg_format = optarg;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        arg_legend = false;
+                        break;
+
+                case 'j':
+                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        arg_legend = false;
                         break;
 
                 case '?':
