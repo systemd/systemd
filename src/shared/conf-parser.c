@@ -662,7 +662,6 @@ int config_parse_many(
 
         assert(conf_file_dirs);
         assert(dropin_dirname);
-        assert(sections);
         assert(table);
 
         r = conf_files_list_dropins(&files, dropin_dirname, root, conf_file_dirs);
@@ -677,6 +676,50 @@ int config_parse_many(
                 *ret_dropin_files = TAKE_PTR(files);
 
         return 0;
+}
+
+int config_parse_standard_file_with_dropins_full(
+                const char *root,
+                const char *main_file,    /* A path like "systemd/frobnicator.conf" */
+                const char *sections,
+                ConfigItemLookup lookup,
+                const void *table,
+                ConfigParseFlags flags,
+                void *userdata,
+                Hashmap **ret_stats_by_path,
+                char ***ret_dropin_files) {
+
+        const char* const *conf_paths = (const char* const*) CONF_PATHS_STRV("");
+        _cleanup_strv_free_ char **configs = NULL;
+        int r;
+
+        /* Build the list of main config files */
+        r = strv_extend_strv_biconcat(&configs, root, conf_paths, main_file);
+        if (r < 0) {
+                if (flags & CONFIG_PARSE_WARN)
+                        log_oom();
+                return r;
+        }
+
+        _cleanup_free_ char *dropin_dirname = strjoin(main_file, ".d");
+        if (!dropin_dirname) {
+                if (flags & CONFIG_PARSE_WARN)
+                        log_oom();
+                return -ENOMEM;
+        }
+
+        return config_parse_many(
+                        (const char* const*) configs,
+                        conf_paths,
+                        dropin_dirname,
+                        root,
+                        sections,
+                        lookup,
+                        table,
+                        flags,
+                        userdata,
+                        ret_stats_by_path,
+                        ret_dropin_files);
 }
 
 static int dropins_get_stats_by_path(
