@@ -3,8 +3,10 @@
 #include "conf-parser.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "fileio.h"
 #include "log.h"
 #include "macro.h"
+#include "mkdir.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -388,6 +390,104 @@ static void test_config_parse_one(unsigned i, const char *s) {
 TEST(config_parse) {
         for (unsigned i = 0; i < ELEMENTSOF(config_file); i++)
                 test_config_parse_one(i, config_file[i]);
+}
+
+TEST(config_parse_standard_file_with_dropins_full) {
+        _cleanup_(rmdir_and_freep) char *root = NULL;
+        _cleanup_close_ int rfd = -EBADF;
+        int r;
+
+        assert_se(mkdtemp_malloc(NULL, &root) >= 0);
+        assert_se(mkdir_p_root(root, "/etc/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
+        assert_se(mkdir_p_root(root, "/run/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
+        assert_se(mkdir_p_root(root, "/usr/lib/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
+        assert_se(mkdir_p_root(root, "/usr/local/lib/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
+
+        rfd = open(root, O_CLOEXEC|O_DIRECTORY);
+        assert_se(rfd >= 0);
+
+        assert_se(write_string_file_at(rfd, "usr/lib/kernel/install.conf",         /* this one is ignored */
+                                       "A=!!!", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file_at(rfd, "usr/local/lib/kernel/install.conf",
+                                       "A=aaa", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file_at(rfd, "usr/local/lib/kernel/install.conf.d/drop1.conf",
+                                       "B=bbb", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file_at(rfd, "usr/local/lib/kernel/install.conf.d/drop2.conf",
+                                       "C=c1", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file_at(rfd, "usr/lib/kernel/install.conf.d/drop2.conf",   /* this one is ignored */
+                                       "C=c2", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file_at(rfd, "run/kernel/install.conf.d/drop3.conf",
+                                       "D=ddd", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file_at(rfd, "etc/kernel/install.conf.d/drop4.conf",
+                                       "E=eee", WRITE_STRING_FILE_CREATE) == 0);
+
+        _cleanup_free_ char *A = NULL, *B = NULL, *C = NULL, *D = NULL, *E = NULL, *F = NULL;
+        _cleanup_strv_free_ char **dropins = NULL;
+
+        const ConfigTableItem items[] = {
+                { NULL, "A",  config_parse_string,   0, &A},
+                { NULL, "B",  config_parse_string,   0, &B},
+                { NULL, "C",  config_parse_string,   0, &C},
+                { NULL, "D",  config_parse_string,   0, &D},
+                { NULL, "E",  config_parse_string,   0, &E},
+                { NULL, "F",  config_parse_string,   0, &F},
+                {}
+        };
+
+        r = config_parse_standard_file_with_dropins_full(
+                        root, "kernel/install.conf",
+                        /* sections= */ NULL,
+                        config_item_table_lookup, items,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ NULL,
+                        /* ret_stats_by_path= */ NULL,
+                        /* ret_dropin_files= */ &dropins);
+        assert_se(r >= 0);
+        assert_se(streq_ptr(A, "aaa"));
+        assert_se(streq_ptr(B, "bbb"));
+        assert_se(streq_ptr(C, "c1"));
+        assert_se(streq_ptr(D, "ddd"));
+        assert_se(streq_ptr(E, "eee"));
+        assert_se(streq_ptr(F, NULL));
+
+        A = mfree(A);
+        B = mfree(B);
+        C = mfree(C);
+        D = mfree(D);
+        E = mfree(E);
+
+        assert_se(strv_length(dropins) == 4);
+
+        /* Make sure that we follow symlinks */
+        assert_se(mkdir_p_root(root, "/etc/kernel/install2.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
+        assert_se(mkdir_p_root(root, "/run/kernel/install2.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
+        assert_se(mkdir_p_root(root, "/usr/lib/kernel/install2.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
+        assert_se(mkdir_p_root(root, "/usr/local/lib/kernel/install2.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
+
+        /* (Those symlinks are only useful relative to <root>. */
+        assert_se(symlinkat("/usr/lib/kernel/install.conf", rfd, "usr/lib/kernel/install2.conf") == 0);
+        assert_se(symlinkat("/usr/local/lib/kernel/install.conf", rfd, "usr/local/lib/kernel/install2.conf") == 0);
+        assert_se(symlinkat("/usr/local/lib/kernel/install.conf.d/drop1.conf", rfd, "usr/local/lib/kernel/install2.conf.d/drop1.conf") == 0);
+        assert_se(symlinkat("/usr/local/lib/kernel/install.conf.d/drop2.conf", rfd, "usr/local/lib/kernel/install2.conf.d/drop2.conf") == 0);
+        assert_se(symlinkat("/usr/lib/kernel/install.conf.d/drop2.conf", rfd, "usr/lib/kernel/install2.conf.d/drop2.conf") == 0);
+        assert_se(symlinkat("/run/kernel/install.conf.d/drop3.conf", rfd, "run/kernel/install2.conf.d/drop3.conf") == 0);
+        assert_se(symlinkat("/etc/kernel/install.conf.d/drop4.conf", rfd, "etc/kernel/install2.conf.d/drop4.conf") == 0);
+
+        r = config_parse_standard_file_with_dropins_full(
+                        root, "kernel/install2.conf",
+                        /* sections= */ NULL,
+                        config_item_table_lookup, items,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ NULL,
+                        /* ret_stats_by_path= */ NULL,
+                        /* ret_dropin_files= */ NULL);
+        assert_se(r >= 0);
+        assert_se(streq_ptr(A, "aaa"));
+        assert_se(streq_ptr(B, "bbb"));
+        assert_se(streq_ptr(C, "c1"));
+        assert_se(streq_ptr(D, "ddd"));
+        assert_se(streq_ptr(E, "eee"));
+        assert_se(streq_ptr(F, NULL));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
