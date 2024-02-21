@@ -483,6 +483,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv6_accept_ra_use_onlink_prefix = true,
                 .ipv6_accept_ra_use_mtu = true,
                 .ipv6_accept_ra_use_hop_limit = true,
+                .ipv6_accept_ra_use_reachable_time = true,
                 .ipv6_accept_ra_use_retransmission_time = true,
                 .ipv6_accept_ra_use_icmp6_ratelimit = true,
                 .ipv6_accept_ra_route_table = RT_TABLE_MAIN,
