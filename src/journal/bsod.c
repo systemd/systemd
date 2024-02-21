@@ -73,16 +73,16 @@ static int acquire_first_emergency_log_message(char **ret) {
 
         r = add_match_this_boot(j, NULL);
         if (r < 0)
-                return log_warning_errno(r, "Failed to add boot ID filter: %m");
+                return log_error_errno(r, "Failed to add boot ID filter: %m");
 
         r = sd_journal_add_match(j, "_UID=0", 0);
         if (r < 0)
-                return log_warning_errno(r, "Failed to add User ID filter: %m");
+                return log_error_errno(r, "Failed to add User ID filter: %m");
 
         assert_cc(0 == LOG_EMERG);
         r = sd_journal_add_match(j, "PRIORITY=0", 0);
         if (r < 0)
-                return log_warning_errno(r, "Failed to add Emergency filter: %m");
+                return log_error_errno(r, "Failed to add Emergency filter: %m");
 
         r = sd_journal_seek_head(j);
         if (r < 0)
@@ -191,7 +191,7 @@ static int display_emergency_message_fullscreen(const char *message) {
 
         r = loop_write(fd, "The current boot has failed!", SIZE_MAX);
         if (r < 0) {
-                ret = log_warning_errno(r, "Failed to write to terminal: %m");
+                ret = log_error_errno(r, "Failed to write to terminal: %m");
                 goto cleanup;
         }
 
@@ -203,7 +203,7 @@ static int display_emergency_message_fullscreen(const char *message) {
 
         r = loop_write(fd, message, SIZE_MAX);
         if (r < 0) {
-                ret = log_warning_errno(r, "Failed to write emergency message to terminal: %m");
+                ret = log_error_errno(r, "Failed to write emergency message to terminal: %m");
                 goto cleanup;
         }
 
@@ -223,7 +223,7 @@ static int display_emergency_message_fullscreen(const char *message) {
 
         r = loop_write(fd, ANSI_BACKGROUND_BLUE "Press any key to exit...", SIZE_MAX);
         if (r < 0) {
-                ret = log_warning_errno(r, "Failed to write to terminal: %m");
+                ret = log_error_errno(r, "Failed to write to terminal: %m");
                 goto cleanup;
         }
 
