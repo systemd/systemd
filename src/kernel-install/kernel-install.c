@@ -511,7 +511,7 @@ static int context_load_machine_info(Context *c) {
         if (r < 0 && r != -ENXIO)
                 log_warning_errno(r, "Failed to read $KERNEL_INSTALL_READ_MACHINE_INFO, assuming yes: %m");
         if (r == 0) {
-                log_debug("Skipping to read /etc/machine-info.");
+                log_debug("Skipping reading of /etc/machine-info.");
                 return 0;
         }
 
