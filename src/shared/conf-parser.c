@@ -597,48 +597,6 @@ static int config_parse_many_files(
         return 0;
 }
 
-/* Parse one main config file located in one of the config paths, and its drop-ins.
- * This is what all systemd daemons are supposed to do. */
-int config_parse_config_file(
-                const char *conf_file,
-                const char *sections,
-                ConfigItemLookup lookup,
-                const void *table,
-                ConfigParseFlags flags,
-                void *userdata) {
-
-        _cleanup_strv_free_ char **configs = NULL, **dropin_dirs = NULL, **dropins = NULL;
-        char **conf_paths = CONF_PATHS_STRV("");
-        int r;
-
-        assert(conf_file);
-
-        /* Build the list of main config files */
-        r = strv_extend_strv_append(&configs, conf_paths, conf_file);
-        if (r < 0) {
-                if (flags & CONFIG_PARSE_WARN)
-                        log_oom();
-                return r;
-        }
-
-        /* Build the dropin dir list */
-        const char *conf_file_d = strjoina(conf_file, ".d");
-        r = strv_extend_strv_append(&dropin_dirs, conf_paths, conf_file_d);
-        if (r < 0) {
-                if (flags & CONFIG_PARSE_WARN)
-                        log_oom();
-                return r;
-        }
-
-        /* Find dropins */
-        r = conf_files_list_strv(&dropins, ".conf", NULL, 0, (const char**) dropin_dirs);
-        if (r < 0)
-                return r;
-
-        return config_parse_many_files(NULL, (const char* const*) configs, dropins,
-                                       sections, lookup, table, flags, userdata, NULL);
-}
-
 /* Parse each config file in the directories specified as strv. */
 int config_parse_many(
                 const char* const* conf_files,
