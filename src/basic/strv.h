@@ -43,7 +43,10 @@ int strv_copy_unless_empty(char * const *l, char ***ret);
 size_t strv_length(char * const *l) _pure_;
 
 int strv_extend_strv(char ***a, char * const *b, bool filter_duplicates);
-int strv_extend_strv_append(char ***a, char * const *b, const char *suffix);
+int strv_extend_strv_prepend_append(char ***a, const char *prefix, char * const *b, const char *suffix);
+static inline int strv_extend_strv_append(char ***a, char * const *b, const char *suffix) {
+        return strv_extend_strv_prepend_append(a, NULL, b, suffix);
+}
 int strv_prepend(char ***l, const char *value);
 
 /* _with_size() are lower-level functions where the size can be provided externally,

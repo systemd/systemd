@@ -242,13 +242,13 @@ rollback:
         return -ENOMEM;
 }
 
-int strv_extend_strv_append(char ***a, char * const *b, const char *suffix) {
+int strv_extend_strv_prepend_append(char ***a, const char *prefix, char * const *b, const char *suffix) {
         int r;
 
         STRV_FOREACH(s, b) {
                 char *v;
 
-                v = strjoin(*s, suffix);
+                v = strjoin(strempty(prefix), *s, suffix);
                 if (!v)
                         return -ENOMEM;
 
