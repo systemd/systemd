@@ -140,7 +140,7 @@ static int find_next_free_vt(int fd, int *ret_free_vt, int *ret_original_vt) {
 }
 
 static int display_emergency_message_fullscreen(const char *message) {
-        int r, ret = 0, free_vt = 0, original_vt = 0;
+        int r, free_vt = 0, original_vt = 0;
         unsigned qr_code_start_row = 1, qr_code_start_column = 1;
         char ttybuf[STRLEN("/dev/tty") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -EBADF;
@@ -192,7 +192,7 @@ static int display_emergency_message_fullscreen(const char *message) {
 
         r = loop_write(fd, "The current boot has failed!", SIZE_MAX);
         if (r < 0) {
-                ret = log_error_errno(r, "Failed to write to terminal: %m");
+                log_error_errno(r, "Failed to write to terminal: %m");
                 goto cleanup;
         }
 
@@ -204,13 +204,13 @@ static int display_emergency_message_fullscreen(const char *message) {
 
         r = loop_write(fd, message, SIZE_MAX);
         if (r < 0) {
-                ret = log_error_errno(r, "Failed to write emergency message to terminal: %m");
+                log_error_errno(r, "Failed to write emergency message to terminal: %m");
                 goto cleanup;
         }
 
         r = fdopen_independent(fd, "r+", &stream);
         if (r < 0) {
-                ret = log_error_errno(errno, "Failed to open output file: %m");
+                r = log_error_errno(errno, "Failed to open output file: %m");
                 goto cleanup;
         }
 
@@ -224,20 +224,22 @@ static int display_emergency_message_fullscreen(const char *message) {
 
         r = loop_write(fd, ANSI_BACKGROUND_BLUE "Press any key to exit...", SIZE_MAX);
         if (r < 0) {
-                ret = log_error_errno(r, "Failed to write to terminal: %m");
+                log_error_errno(r, "Failed to write to terminal: %m");
                 goto cleanup;
         }
 
         r = read_one_char(stream, &read_character_buffer, USEC_INFINITY, NULL);
         if (r < 0 && r != -EINTR)
-                ret = log_error_errno(r, "Failed to read character: %m");
+                log_error_errno(r, "Failed to read character: %m");
+
+        r = 0;
 
 cleanup:
         if (original_vt > 0)
                 if (ioctl(fd, VT_ACTIVATE, original_vt) < 0)
                         return log_error_errno(errno, "Failed to switch back to original VT /dev/tty%i: %m", original_vt);
 
-        return ret;
+        return r;
 }
 
 static int parse_argv(int argc, char * argv[]) {
