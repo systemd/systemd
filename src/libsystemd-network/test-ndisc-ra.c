@@ -205,6 +205,11 @@ TEST(radv) {
         assert_se(sd_radv_set_other_information(ra, true) >= 0);
         assert_se(sd_radv_set_other_information(ra, false) >= 0);
 
+        ASSERT_RETURN_EXPECTED_SE(sd_radv_set_reachable_time(NULL, 10 * USEC_PER_MSEC) < 0);
+        assert_se(sd_radv_set_reachable_time(ra, 10 * USEC_PER_MSEC) >= 0);
+        assert_se(sd_radv_set_reachable_time(ra, 0) >= 0);
+        assert_se(sd_radv_set_reachable_time(ra, usec_add(UINT32_MAX * USEC_PER_MSEC, USEC_PER_MSEC)) < 0);
+
         ASSERT_RETURN_EXPECTED_SE(sd_radv_set_retransmit(NULL, 10 * USEC_PER_MSEC) < 0);
         assert_se(sd_radv_set_retransmit(ra, 10 * USEC_PER_MSEC) >= 0);
         assert_se(sd_radv_set_retransmit(ra, 0) >= 0);
