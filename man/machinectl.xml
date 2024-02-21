@@ -279,7 +279,7 @@
         trigger a reboot by sending SIGINT to the container's init
         process, which is roughly equivalent to pressing Ctrl+Alt+Del
         on a non-containerized system, and is compatible with
-        containers running any system manager. Use <command>restart</command> as alias 
+        containers running any system manager. Use <command>restart</command> as alias
         for <command>reboot</command>.</para>
 
         <xi:include href="version-info.xml" xpointer="v209"/></listitem>
@@ -885,6 +885,21 @@
         <literal>signature</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--virt-backend=</option><option>nspawn</option>|<option>vmspawn</option></term>
+
+        <listitem><para>When operating on machines choose whether to use
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        or
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        By default
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        is used.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
