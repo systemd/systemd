@@ -231,14 +231,14 @@ int sd_dhcp_lease_get_captive_portal(sd_dhcp_lease *lease, const char **ret) {
         return 0;
 }
 
-int sd_dhcp_lease_get_dnr(sd_dhcp_lease *lease, ResolverData **ret_resolvers) {
+int sd_dhcp_lease_get_dnr(sd_dhcp_lease *lease, sd_dns_resolver **ret_resolvers) {
         assert_return(ret_resolvers, -EINVAL);
 
-        if (!lease->resolvers)
+        if (!lease->dnr)
                 return -ENODATA;
 
-        *ret_resolvers = lease->resolvers;
-        return !!lease->resolvers;
+        *ret_resolvers = lease->dnr;
+        return lease->n_dnr;
 }
 
 int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, const struct in_addr **addr) {
@@ -431,6 +431,7 @@ static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
                 free(lease->servers[i].addr);
 
         dnr_resolver_data_free_all(lease->resolvers);
+        sd_dns_resolver_array_free(lease->dnr, lease->n_dnr);
         free(lease->static_routes);
         free(lease->classless_routes);
         free(lease->vendor_specific);
@@ -589,7 +590,7 @@ static int lease_parse_dns_name(const uint8_t *optval, size_t optlen, char **ret
         return r;
 }
 
-static int lease_parse_dnr(const uint8_t *option, size_t len, ResolverData **resolvers) {
+static int lease_parse_dnr(const uint8_t *option, size_t len, sd_dns_resolver **dnr, size_t *n_dnr) {
         int r;
         _cleanup_(dnr_resolver_data_free_allp) ResolverData *res_list = NULL;
         size_t n_resolvers = 0;
@@ -1013,6 +1014,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         log_warning_errno(r, "Failed to parse network-designated resolvers, ignoring: %m");
                         return 0;
                 }
+                lease->n_resolvers = r;
 
                 break;
 
