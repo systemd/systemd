@@ -303,7 +303,7 @@ static int run(int argc, char *argv[]) {
                                   /* uid_shift= */ UID_INVALID,
                                   /* uid_range= */ UID_INVALID,
                                   /* usernfs_fd= */ -EBADF,
-                                  0) >= 0);
+                                  DISSECT_IMAGE_MKDIR_MOUNTPOINTS) >= 0);
 
         /* Now we mounted everything, the partitions are pinned. Now it's fine to release the lock
          * fully. This means udev could now issue BLKRRPART again, but that's OK given this will fail because

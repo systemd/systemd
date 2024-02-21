@@ -2124,6 +2124,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                 DISSECT_IMAGE_FSCK |
                 DISSECT_IMAGE_USR_NO_ROOT |
                 DISSECT_IMAGE_GROWFS |
+                DISSECT_IMAGE_MKDIR_MOUNTPOINTS |
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES;
         int r;

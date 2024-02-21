@@ -1964,10 +1964,13 @@ static int mount_partition(
 
         if (where) {
                 if (directory) {
-                        /* Automatically create missing mount points inside the image, if necessary. */
-                        r = mkdir_p_root(where, directory, uid_shift, (gid_t) uid_shift, 0755, NULL);
-                        if (r < 0 && r != -EROFS)
-                                return r;
+                        /* Automatically create missing mount points inside the image, if necessary and we're
+                         * allowed to so. */
+                        if (FLAGS_SET(flags, DISSECT_IMAGE_MKDIR_MOUNTPOINTS)) {
+                                r = mkdir_p_root(where, directory, uid_shift, (gid_t) uid_shift, 0755, NULL);
+                                if (r < 0 && r != -EROFS)
+                                        return r;
+                        }
 
                         r = chase(directory, where, CHASE_PREFIX_ROOT, &chased, NULL);
                         if (r < 0)
@@ -2224,13 +2227,17 @@ int dissected_image_mount(
         if (r < 0)
                 return r;
 
-        int slash_boot_is_available = 0;
-        if (where) {
-                r = slash_boot_is_available = mount_point_is_available(where, "/boot", /* missing_ok = */ true);
-                if (r < 0)
-                        return r;
-        }
-        if (!where || slash_boot_is_available) {
+        bool slash_boot_is_available = true;
+        if (m->partitions[PARTITION_XBOOTLDR].found) {
+
+                if (where) {
+                        r = mount_point_is_available(where, "/boot", /* missing_ok = */ true);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -ENOTEMPTY; /* /boot is not empty */
+                }
+
                 r = mount_partition(PARTITION_XBOOTLDR, m->partitions + PARTITION_XBOOTLDR, where, "/boot", uid_shift, uid_range, userns_fd, flags);
                 if (r < 0)
                         return r;
@@ -2241,24 +2248,37 @@ int dissected_image_mount(
                 const char *esp_path = NULL;
 
                 if (where) {
+                        bool missing_ok = false;
+
                         /* Mount the ESP to /boot/ if it exists and is empty and we didn't already mount the
-                         * XBOOTLDR partition into it. Otherwise, use /efi instead, but only if it exists
-                         * and is empty. */
+                         * XBOOTLDR partition into it. Otherwise, try with /efi and /boot/efi (in that
+                         * order). If that fails it's likely none of the previous paths exist. Try again but
+                         * don't make the existence of the directory mandatory this time, the directory (/efi
+                         * by default) will be created when mounting ESP. If that fails again then the
+                         * directories exist but are not empty. */
+again:
+                        FOREACH_STRING(dir, "/boot", "/efi", "/boot/efi") {
 
-                        if (slash_boot_is_available) {
-                                r = mount_point_is_available(where, "/boot", /* missing_ok = */ false);
+                                /* If we already mounted XBOOTLDR in /boot, don't consider /boot/efi. Having
+                                 * ESP nested below XBOOTLDR is not something we want to support. */
+                                if (!slash_boot_is_available &&
+                                    STR_IN_SET(dir, "/boot", "/boot/efi"))
+                                        continue;
+
+                                r = mount_point_is_available(where, dir, missing_ok);
                                 if (r < 0)
                                         return r;
-                                if (r > 0)
-                                        esp_path = "/boot";
+                                if (r > 0) {
+                                        esp_path = dir;
+                                        break;
+                                }
                         }
-
                         if (!esp_path) {
-                                r = mount_point_is_available(where, "/efi", /* missing_ok = */ true);
-                                if (r < 0)
-                                        return r;
-                                if (r > 0)
-                                        esp_path = "/efi";
+                                if (!missing_ok) {
+                                        missing_ok = true;
+                                        goto again;
+                                }
+                                return -ENOTEMPTY; /* None of the supported directories are empty. */
                         }
                 }
 
@@ -2284,6 +2304,10 @@ int dissected_image_mount_and_warn(
         assert(m);
 
         r = dissected_image_mount(m, where, uid_shift, uid_range, userns_fd, flags);
+        if (r == -ENOENT)
+                return log_error_errno(r, "A mount point directory in the image is missing.");
+        if (r == -ENOTEMPTY)
+                return log_error_errno(r, "A mount point directory in the image is not empty.");
         if (r == -ENXIO)
                 return log_error_errno(r, "Not root file system found in image.");
         if (r == -EMEDIUMTYPE)
@@ -3841,7 +3865,8 @@ int mount_image_privately_interactively(
         assert(ret_loop_device);
 
         /* We intend to mount this right-away, hence add the partitions if needed and pin them. */
-        flags |= DISSECT_IMAGE_ADD_PARTITION_DEVICES |
+        flags |= DISSECT_IMAGE_MKDIR_MOUNTPOINTS |
+                DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES;
 
         r = verity_settings_load(&verity, image, NULL, NULL);
