@@ -107,6 +107,7 @@ struct sd_radv {
         uint8_t flags;
         uint8_t preference;
         uint32_t mtu;
+        usec_t reachable_usec;
         usec_t retransmit_usec;
         usec_t lifetime_usec; /* timespan */
 
