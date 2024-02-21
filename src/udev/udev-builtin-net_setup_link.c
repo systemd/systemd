@@ -26,7 +26,7 @@ static int builtin_net_setup_link(UdevEvent *event, int argc, char **argv, bool 
                 return log_device_error_errno(dev, r, "Failed to get action: %m");
 
         if (!IN_SET(action, SD_DEVICE_ADD, SD_DEVICE_BIND, SD_DEVICE_MOVE)) {
-                log_device_debug(dev, "Skipping to apply .link settings on '%s' uevent.",
+                log_device_debug(dev, "Not applying .link settings on '%s' uevent.",
                                  device_action_to_string(action));
 
                 /* Import previously assigned .link file name. */
