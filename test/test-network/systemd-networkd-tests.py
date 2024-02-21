@@ -1640,6 +1640,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                 print(output)
                 self.assertRegex(output, ' mtu 2000 ')
                 self.assertRegex(output, 'macvlan mode ' + mode + ' ')
+                self.assertRegex(output, ' bclim 2147483647 ')
 
     @expectedFailureIfModuleIsNotAvailable('ipvlan')
     def test_ipvlan(self):
