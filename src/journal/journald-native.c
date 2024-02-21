@@ -356,18 +356,13 @@ void server_process_native_file(
         if (st.st_size <= 0)
                 return;
 
-        int flags = fcntl(fd, F_GETFL);
-        if (flags < 0) {
-                log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT, "Failed to get flags of passed file, ignoring: %m");
-                return;
-        }
-
-        if (UNSAFE_FD_FLAGS(flags) != 0) {
-                log_ratelimit_error(JOURNAL_LOG_RATELIMIT,
-                                    "Unexpected flags of passed memory fd (0%o), ignoring message: %m",
-                                    UNSAFE_FD_FLAGS(flags));
-                return;
-        }
+        r = fd_verify_safe_flags(fd);
+        if (r == -EREMOTEIO)
+                return (void) log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                        "Unexpected flags of passed memory fd, ignoring message.");
+        if (r < 0)
+                return (void) log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                        "Failed to get flags of passed file: %m");
 
         /* If it's a memfd, check if it is sealed. If so, we can just mmap it and use it, and do not need to
          * copy the data out. */
