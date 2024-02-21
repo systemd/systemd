@@ -55,6 +55,17 @@
 
          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--tty=</option><replaceable></replaceable></term>
+
+        <listitem><para>Specify the TTY to output to. By default <command>systemd-bsod</command> will
+        automatically find a free VT to display the message on. If this option is specified a TTY may be
+        selected explicitly. Use <option>--tty=/dev/tty</option> to direct output to the terminal the command
+        is invoked on.</para>
+
+         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
     </variablelist>
 
   </refsect1>
