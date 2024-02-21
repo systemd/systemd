@@ -1666,7 +1666,6 @@ int portable_attach(
 
 static bool marker_matches_images(const char *marker, const char *name_or_path, char **extension_image_paths) {
         _cleanup_strv_free_ char **root_and_extensions = NULL;
-        const char *a;
         int r;
 
         assert(marker);
@@ -1687,7 +1686,7 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
                 return r;
 
         STRV_FOREACH(image_name_or_path, root_and_extensions) {
-                _cleanup_free_ char *image = NULL;
+                _cleanup_free_ char *image = NULL, *base_image = NULL, *base_image_name_or_path = NULL;
 
                 r = extract_first_word(&marker, &image, ":", EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                 if (r < 0)
@@ -1695,58 +1694,16 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
                 if (r == 0)
                         return false;
 
-                a = last_path_component(image);
+                r = path_extract_image_name(image, &base_image);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", image);
 
-                if (image_name_is_valid(*image_name_or_path)) {
-                        const char *e, *underscore;
+                r = path_extract_image_name(*image_name_or_path, &base_image_name_or_path);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", *image_name_or_path);
 
-                        /* We shall match against an image name. In that case let's compare the last component, and optionally
-                        * allow either a suffix of ".raw" or a series of "/".
-                        * But allow matching on a different version of the same image, when a "_" is used as a separator. */
-                        underscore = strchr(*image_name_or_path, '_');
-                        if (underscore) {
-                                if (strneq(a, *image_name_or_path, underscore - *image_name_or_path))
-                                        continue;
-                                return false;
-                        }
-
-                        e = startswith(a, *image_name_or_path);
-                        if (!e)
-                                return false;
-
-                        if(!(e[strspn(e, "/")] == 0 || streq(e, ".raw")))
-                                return false;
-                } else {
-                        const char *b, *underscore;
-                        size_t l;
-
-                        /* We shall match against a path. Let's ignore any prefix here though, as often there are many ways to
-                         * reach the same file. However, in this mode, let's validate any file suffix.
-                         * But also ensure that we don't fail if both components don't have a '/' at all
-                         * (strcspn returns the full length of the string in that case, which might not
-                         * match as the versions might differ). */
-
-                        l = strcspn(a, "/");
-                        b = last_path_component(*image_name_or_path);
-
-                        if ((a[l] != '/') != !strchr(b, '/')) /* One is a directory, the other is not */
-                                return false;
-
-                        if (a[l] != 0 && strcspn(b, "/") != l)
-                                return false;
-
-                        underscore = strchr(b, '_');
-                        if (underscore)
-                                l = underscore - b;
-                        else { /* Either component could be versioned */
-                                underscore = strchr(a, '_');
-                                if (underscore)
-                                        l = underscore - a;
-                        }
-
-                        if (!strneq(a, b, l))
-                                return false;
-                }
+                if (!streq(base_image, base_image_name_or_path))
+                        return false;
         }
 
         return true;

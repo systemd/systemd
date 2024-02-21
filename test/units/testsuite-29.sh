@@ -139,6 +139,19 @@ grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app" /run/systemd
 
 portablectl detach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_1.raw app0
 
+# Ensure versioned images are accepted without needing to use --force to override the extension-release
+# matching
+
+cp /usr/share/app0.raw /tmp/app0_1.0.raw
+portablectl "${ARGS[@]}" attach --now --runtime --extension /tmp/app0_1.0.raw /usr/share/minimal_0.raw app0
+
+systemctl is-active app0.service
+status="$(portablectl is-attached --extension app0_1 minimal_0)"
+[[ "${status}" == "running-runtime" ]]
+
+portablectl detach --now --runtime --extension /tmp/app0_1.0.raw /usr/share/minimal_1.raw app0
+rm -f /tmp/app0_1.0.raw
+
 portablectl "${ARGS[@]}" attach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_0.raw app1
 
 systemctl is-active app1.service
