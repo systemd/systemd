@@ -131,7 +131,7 @@ int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {
         return size;
 }
 
-int serialize_dnr(FILE *f, const ResolverData *resolvers, bool *with_leading_space) {
+int serialize_dnr(FILE *f, const sd_dns_resolver *dnr, size_t n_dnr, bool *with_leading_space) {
         int r;
 
         bool _space = false;
@@ -139,27 +139,28 @@ int serialize_dnr(FILE *f, const ResolverData *resolvers, bool *with_leading_spa
                 with_leading_space = &_space;
 
         int n = 0;
-        LIST_FOREACH(resolvers, i, resolvers) {
-                _cleanup_strv_free_ char **names = NULL;
-                r = dns_resolvers_to_dot_strv(resolvers, &names);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        fputstrv(f, names, NULL, with_leading_space);
-                n += r;
-        }
+        _cleanup_strv_free_ char **names = NULL;
+        r = sd_dns_resolvers_to_dot_strv(dnr, n_dnr, &names);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                fputstrv(f, names, NULL, with_leading_space);
+        n += r;
         return n;
 }
 
 /* Deserialized resolvers are assumed to offer DoT service. */
-int deserialize_dnr(ResolverData **ret, const char *string) {
+int deserialize_dnr(sd_dns_resolver **ret, const char *string) {
         int r;
 
         assert(ret);
         assert(string);
 
-        _cleanup_(dnr_resolver_data_free_allp) ResolverData *resolvers = NULL;
-        int n = 0;
+        sd_dns_resolver *dnr = NULL;
+        size_t n = 0;
+        CLEANUP_ARRAY(dnr, n, sd_dns_resolver_array_free);
+
+        sd_dns_resolver resolver = {};
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
@@ -181,7 +182,7 @@ int deserialize_dnr(ResolverData **ret, const char *string) {
 
                 /* coalesce resolvers. Since DoT is assumed, no need to compare transports/dohpath/etc. */
                 bool found = false;
-                LIST_FOREACH(resolvers, res, resolvers) {
+                FOREACH_ARRAY(res, dnr, n) {
                         if (family == res->family && streq(auth_name, res->auth_name)) {
                                 if (!GREEDY_REALLOC(res->addrs, res->n_addrs+1))
                                         return -ENOMEM;
@@ -193,11 +194,7 @@ int deserialize_dnr(ResolverData **ret, const char *string) {
                 if (found)
                         continue;
 
-                _cleanup_(dnr_resolver_data_free_allp) ResolverData *resolver = new(ResolverData, 1);
-                if (!resolver)
-                        return -ENOMEM;
-
-                *resolver = (ResolverData) {
+                resolver = (sd_dns_resolver) {
                         .priority = n+1, /* not serialized, but this will preserve the order */
                         .auth_name = TAKE_PTR(auth_name),
                         .family = family,
@@ -209,10 +206,12 @@ int deserialize_dnr(ResolverData **ret, const char *string) {
                         /* list fields are zero-initialized */
                 };
 
-                LIST_APPEND(resolvers, resolvers, TAKE_PTR(resolver));
-                n++;
+                if (!GREEDY_REALLOC(dnr, n+1))
+                        return -ENOMEM;
+
+                dnr[n++] = TAKE_STRUCT(resolver);
         }
-        *ret = TAKE_PTR(resolvers);
+        *ret = TAKE_PTR(dnr);
         return n;
 }
 
