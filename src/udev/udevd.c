@@ -33,16 +33,15 @@ static int arg_daemonize = false;
 
 static int listen_fds(int *ret_ctrl, int *ret_netlink) {
         int ctrl_fd = -EBADF, netlink_fd = -EBADF;
-        int fd, n;
 
         assert(ret_ctrl);
         assert(ret_netlink);
 
-        n = sd_listen_fds(true);
+        int n = sd_listen_fds(true);
         if (n < 0)
                 return n;
 
-        for (fd = SD_LISTEN_FDS_START; fd < n + SD_LISTEN_FDS_START; fd++) {
+        for (int fd = SD_LISTEN_FDS_START; fd < n + SD_LISTEN_FDS_START; fd++) {
                 if (sd_is_socket(fd, AF_UNIX, SOCK_SEQPACKET, -1) > 0) {
                         if (ctrl_fd >= 0)
                                 return -EINVAL;
