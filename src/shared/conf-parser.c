@@ -615,7 +615,7 @@ int config_parse_config_file(
         assert(conf_file);
 
         /* Build the list of main config files */
-        r = strv_extend_strv_concat(&configs, conf_paths, conf_file);
+        r = strv_extend_strv_append(&configs, conf_paths, conf_file);
         if (r < 0) {
                 if (flags & CONFIG_PARSE_WARN)
                         log_oom();
@@ -624,7 +624,7 @@ int config_parse_config_file(
 
         /* Build the dropin dir list */
         const char *conf_file_d = strjoina(conf_file, ".d");
-        r = strv_extend_strv_concat(&dropin_dirs, conf_paths, conf_file_d);
+        r = strv_extend_strv_append(&dropin_dirs, conf_paths, conf_file_d);
         if (r < 0) {
                 if (flags & CONFIG_PARSE_WARN)
                         log_oom();
