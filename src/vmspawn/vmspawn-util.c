@@ -7,6 +7,7 @@
 #include "architecture.h"
 #include "conf-files.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "json.h"
@@ -432,4 +433,37 @@ int vsock_fix_child_cid(int vhost_device_fd, unsigned *machine_cid, const char *
         }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "Failed to assign a CID to the guest vsock");
+}
+
+char* escape_qemu_value(const char *s) {
+        const char *f;
+        char *e, *t;
+        size_t n;
+
+        assert(s);
+
+        /* QEMU requires that commas in arguments be escaped by doubling up the commas.
+         * See https://www.qemu.org/docs/master/system/qemu-manpage.html#options
+         * for more information.
+         *
+         * This function performs this escaping, returning an allocated string with the escaped value, or NULL if allocation failed. */
+
+        n = strlen(s);
+
+        if (n > (SIZE_MAX - 1) / 2)
+                return NULL;
+
+        e = new(char, n*2 + 1);
+        if (!e)
+                return NULL;
+
+        for (f = s, t = e; f < s + n; f++) {
+                *t++ = *f;
+                if (*f == ',')
+                        *t++ = ',';
+        }
+
+        *t = 0;
+
+        return e;
 }
