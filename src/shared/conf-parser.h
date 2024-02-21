@@ -114,6 +114,17 @@ int config_parse_many(
                 Hashmap **ret_stats_by_path,  /* possibly NULL */
                 char ***ret_drop_in_files);   /* possibly NULL */
 
+int config_parse_standard_file_with_dropins_full(
+                const char *root,
+                const char *main_file,        /* A path like "systemd/frobnicator.conf" */
+                const char *sections,
+                ConfigItemLookup lookup,
+                const void *table,
+                ConfigParseFlags flags,
+                void *userdata,
+                Hashmap **ret_stats_by_path,  /* possibly NULL */
+                char ***ret_dropin_files);    /* possibly NULL */
+
 int config_get_stats_by_path(
                 const char *suffix,
                 const char *root,
