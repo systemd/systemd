@@ -1634,6 +1634,11 @@ static int dhcp4_configure(Link *link) {
                 if (r < 0)
                         return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set listen port: %m");
         }
+        if (link->network->dhcp_port > 0) {
+                r = sd_dhcp_client_set_port(link->dhcp_client, link->network->dhcp_port);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set server port: %m");
+        }
 
         if (link->network->dhcp_max_attempts > 0) {
                 r = sd_dhcp_client_set_max_attempts(link->dhcp_client, link->network->dhcp_max_attempts);
