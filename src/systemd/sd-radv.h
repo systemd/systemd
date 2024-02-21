@@ -55,6 +55,7 @@ int sd_radv_get_ifname(sd_radv *ra, const char **ret);
 int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr);
 int sd_radv_set_mtu(sd_radv *ra, uint32_t mtu);
 int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit);
+int sd_radv_set_reachable_time(sd_radv *ra, uint64_t usec);
 int sd_radv_set_retransmit(sd_radv *ra, uint64_t usec);
 int sd_radv_set_router_lifetime(sd_radv *ra, uint64_t usec);
 int sd_radv_set_managed_information(sd_radv *ra, int managed);
