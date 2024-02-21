@@ -42,7 +42,8 @@
     file descriptors must be passed with the names <literal>kvm</literal> and <literal>vhost-vsock</literal>
     respectively.</para>
 
-    <para>Note: on Ubuntu/Debian derivatives systemd-vmspawn requires the user to be in the <literal>kvm</literal> group to use the VSock options.</para>
+    <para>Note: on Ubuntu/Debian derivatives systemd-vmspawn requires the user to be in the
+    <literal>kvm</literal> group to use the VSOCK options.</para>
   </refsect1>
 
   <refsect1>
@@ -135,10 +136,10 @@
           <term><option>--qemu-vsock=</option><replaceable>BOOL</replaceable></term>
 
           <listitem>
-            <para>Configure whether to use VSock networking.</para>
+            <para>Configure whether to use VSOCK networking.</para>
 
-            <para>If the option is not specified VSock support will be detected automatically.
-            If yes is specified VSocks are always used, and vice versa if no is set VSocks are never used.</para>
+            <para>If the option is not specified VSOCK support will be detected automatically.  If yes is
+            specified VSOCK is always used, and vice versa if no is set VSOCK are never used.</para>
             <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>

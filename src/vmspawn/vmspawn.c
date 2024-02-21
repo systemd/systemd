@@ -467,11 +467,11 @@ static int open_vsock(void) {
 
         r = bind(vsock_fd, &bind_addr.sa, sizeof(bind_addr.vm));
         if (r < 0)
-                return log_error_errno(errno, "Failed to bind to vsock to address %u:%u: %m", bind_addr.vm.svm_cid, bind_addr.vm.svm_port);
+                return log_error_errno(errno, "Failed to bind to VSOCK address %u:%u: %m", bind_addr.vm.svm_cid, bind_addr.vm.svm_port);
 
         r = listen(vsock_fd, SOMAXCONN_DELUXE);
         if (r < 0)
-                return log_error_errno(errno, "Failed to listen on vsock: %m");
+                return log_error_errno(errno, "Failed to listen on VSOCK: %m");
 
         return TAKE_FD(vsock_fd);
 }
@@ -545,13 +545,13 @@ static int vmspawn_dispatch_vsock_connections(sd_event_source *source, int fd, u
         assert(userdata);
 
         if (revents != EPOLLIN) {
-                log_warning("Got unexpected poll event for vsock fd.");
+                log_warning("Got unexpected poll event for VSOCK fd.");
                 return 0;
         }
 
         conn_fd = accept4(fd, NULL, NULL, SOCK_CLOEXEC|SOCK_NONBLOCK);
         if (conn_fd < 0) {
-                log_warning_errno(errno, "Failed to accept connection from vsock fd (%m), ignoring...");
+                log_warning_errno(errno, "Failed to accept connection from VSOCK fd (%m), ignoring...");
                 return 0;
         }
 
@@ -1134,7 +1134,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (arg_qemu_vsock < 0) {
                 r = qemu_check_vsock_support();
                 if (r < 0)
-                        return log_error_errno(r, "Failed to check for VSock support: %m");
+                        return log_error_errno(r, "Failed to check for VSOCK support: %m");
 
                 use_vsock = r;
         }
@@ -1185,7 +1185,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 r = vsock_fix_child_cid(device_fd, &child_cid, arg_machine);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to fix CID for the guest vsock socket: %m");
+                        return log_error_errno(r, "Failed to fix CID for the guest VSOCK socket: %m");
 
                 r = strv_extend(&cmdline, "-device");
                 if (r < 0)
@@ -1549,13 +1549,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (use_vsock) {
                 notify_sock_fd = open_vsock();
                 if (notify_sock_fd < 0)
-                        return log_error_errno(notify_sock_fd, "Failed to open vsock: %m");
+                        return log_error_errno(notify_sock_fd, "Failed to open VSOCK: %m");
 
                 r = cmdline_add_vsock(&cmdline, notify_sock_fd);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
-                        return log_error_errno(r, "Failed to call getsockname on vsock: %m");
+                        return log_error_errno(r, "Failed to call getsockname on VSOCK: %m");
         }
 
         if (DEBUG_LOGGING) {
@@ -1606,7 +1606,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (use_vsock) {
                 r = setup_notify_parent(event, notify_sock_fd, &exit_status, &notify_event_source);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to setup event loop to handle vsock notify events: %m");
+                        return log_error_errno(r, "Failed to setup event loop to handle VSOCK notify events: %m");
         }
 
         /* shutdown qemu when we are shutdown */
@@ -1624,7 +1624,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (use_vsock) {
                 if (exit_status == INT_MAX) {
-                        log_debug("Couldn't retrieve inner EXIT_STATUS from vsock");
+                        log_debug("Couldn't retrieve inner EXIT_STATUS from VSOCK");
                         return EXIT_SUCCESS;
                 }
                 if (exit_status != 0)
