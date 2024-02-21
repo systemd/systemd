@@ -49,6 +49,7 @@
 #include "sleep-config.h"
 #include "special.h"
 #include "serialize.h"
+#include "signal-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -70,9 +71,7 @@
 
 #define SHUTDOWN_SCHEDULE_FILE "/run/systemd/shutdown/scheduled"
 
-static int update_schedule_file(Manager *m);
 static void reset_scheduled_shutdown(Manager *m);
-static int manager_setup_shutdown_timers(Manager* m);
 
 static int get_sender_session(
                 Manager *m,
@@ -1781,13 +1780,32 @@ static int send_prepare_for(Manager *m, const HandleActionData *a, bool _active)
         return RET_GATHER(k, r);
 }
 
+static int strdup_job(sd_bus_message *reply, char **ret) {
+        const char *j;
+        char *job;
+        int r;
+
+        assert(reply);
+        assert(ret);
+
+        r = sd_bus_message_read_basic(reply, 'o', &j);
+        if (r < 0)
+                return r;
+
+        job = strdup(j);
+        if (!job)
+                return -ENOMEM;
+
+        *ret = job;
+        return 0;
+}
+
 static int execute_shutdown_or_sleep(
                 Manager *m,
                 const HandleActionData *a,
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *p;
         int r;
 
         assert(m);
@@ -1805,17 +1823,11 @@ static int execute_shutdown_or_sleep(
                         &reply,
                         "ss", a->target, "replace-irreversibly");
         if (r < 0)
-                goto error;
+                goto fail;
 
-        r = sd_bus_message_read(reply, "o", &p);
+        r = strdup_job(reply, &m->action_job);
         if (r < 0)
-                goto error;
-
-        m->action_job = strdup(p);
-        if (!m->action_job) {
-                r = -ENOMEM;
-                goto error;
-        }
+                goto fail;
 
         m->delayed_action = a;
 
@@ -1824,7 +1836,7 @@ static int execute_shutdown_or_sleep(
 
         return 0;
 
-error:
+fail:
         /* Tell people that they now may take a lock again */
         (void) send_prepare_for(m, a, false);
 
@@ -2278,7 +2290,7 @@ static int nologin_timeout_handler(
                         uint64_t usec,
                         void *userdata) {
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
 
         log_info("Creating /run/nologin, blocking further logins...");
 
@@ -2291,6 +2303,153 @@ static int nologin_timeout_handler(
 static usec_t nologin_timeout_usec(usec_t elapse) {
         /* Issue /run/nologin five minutes before shutdown */
         return LESS_BY(elapse, 5 * USEC_PER_MINUTE);
+}
+
+static void reset_scheduled_shutdown(Manager *m) {
+        assert(m);
+
+        m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
+        m->wall_message_timeout_source = sd_event_source_unref(m->wall_message_timeout_source);
+        m->nologin_timeout_source = sd_event_source_unref(m->nologin_timeout_source);
+
+        m->scheduled_shutdown_action = _HANDLE_ACTION_INVALID;
+        m->scheduled_shutdown_timeout = USEC_INFINITY;
+        m->scheduled_shutdown_uid = UID_INVALID;
+        m->scheduled_shutdown_tty = mfree(m->scheduled_shutdown_tty);
+        m->shutdown_dry_run = false;
+
+        if (m->unlink_nologin) {
+                (void) unlink_or_warn("/run/nologin");
+                m->unlink_nologin = false;
+        }
+
+        (void) unlink(SHUTDOWN_SCHEDULE_FILE);
+}
+
+static int update_schedule_file(Manager *m) {
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(m);
+        assert(handle_action_valid(m->scheduled_shutdown_action));
+
+        r = mkdir_parents_label(SHUTDOWN_SCHEDULE_FILE, 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create shutdown subdirectory: %m");
+
+        r = fopen_temporary(SHUTDOWN_SCHEDULE_FILE, &f, &temp_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to save information about scheduled shutdowns: %m");
+
+        (void) fchmod(fileno(f), 0644);
+
+        serialize_usec(f, "USEC", m->scheduled_shutdown_timeout);
+        serialize_item_format(f, "WARN_WALL", "%s", one_zero(m->enable_wall_messages));
+        serialize_item_format(f, "MODE", "%s", handle_action_to_string(m->scheduled_shutdown_action));
+        serialize_item_format(f, "UID", UID_FMT, m->scheduled_shutdown_uid);
+
+        if (m->scheduled_shutdown_tty)
+                serialize_item_format(f, "TTY", "%s", m->scheduled_shutdown_tty);
+
+        if (!isempty(m->wall_message)) {
+                r = serialize_item_escaped(f, "WALL_MESSAGE", m->wall_message);
+                if (r < 0)
+                        goto fail;
+        }
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                goto fail;
+
+        if (rename(temp_path, SHUTDOWN_SCHEDULE_FILE) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        temp_path = mfree(temp_path);
+        return 0;
+
+fail:
+        (void) unlink(SHUTDOWN_SCHEDULE_FILE);
+
+        return log_error_errno(r, "Failed to write information about scheduled shutdowns: %m");
+}
+
+static int manager_scheduled_shutdown_handler(
+                        sd_event_source *s,
+                        uint64_t usec,
+                        void *userdata) {
+
+        Manager *m = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        const HandleActionData *a;
+        int r;
+
+        assert_se(a = handle_action_lookup(m->scheduled_shutdown_action));
+
+        /* Don't allow multiple jobs being executed at the same time */
+        if (m->delayed_action) {
+                r = log_error_errno(SYNTHETIC_ERRNO(EALREADY),
+                                    "Scheduled shutdown to %s failed: shutdown or sleep operation already in progress.",
+                                    a->target);
+                goto error;
+        }
+
+        if (m->shutdown_dry_run) {
+                /* We do not process delay inhibitors here.  Otherwise, we
+                 * would have to be considered "in progress" (like the check
+                 * above) for some seconds after our admin has seen the final
+                 * wall message. */
+
+                bus_manager_log_shutdown(m, a);
+                log_info("Running in dry run, suppressing action.");
+                reset_scheduled_shutdown(m);
+
+                return 0;
+        }
+
+        r = bus_manager_shutdown_or_sleep_now_or_later(m, a, &error);
+        if (r < 0) {
+                log_error_errno(r, "Scheduled shutdown to %s failed: %m", a->target);
+                goto error;
+        }
+
+        return 0;
+
+error:
+        reset_scheduled_shutdown(m);
+        return r;
+}
+
+static int manager_setup_shutdown_timers(Manager* m) {
+        int r;
+
+        assert(m);
+
+        r = event_reset_time(m->event, &m->scheduled_shutdown_timeout_source,
+                             CLOCK_REALTIME,
+                             m->scheduled_shutdown_timeout, 0,
+                             manager_scheduled_shutdown_handler, m,
+                             0, "scheduled-shutdown-timeout", true);
+        if (r < 0)
+                goto fail;
+
+        r = event_reset_time(m->event, &m->nologin_timeout_source,
+                             CLOCK_REALTIME,
+                             nologin_timeout_usec(m->scheduled_shutdown_timeout), 0,
+                             nologin_timeout_handler, m,
+                             0, "nologin-timeout", true);
+        if (r < 0)
+                goto fail;
+
+        return 0;
+
+fail:
+        m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
+        m->nologin_timeout_source = sd_event_source_unref(m->nologin_timeout_source);
+
+        return r;
 }
 
 void manager_load_scheduled_shutdown(Manager *m) {
@@ -2306,12 +2465,12 @@ void manager_load_scheduled_shutdown(Manager *m) {
         assert(m);
 
         r = parse_env_file(f, SHUTDOWN_SCHEDULE_FILE,
-                        "USEC", &usec,
-                        "WARN_WALL", &warn_wall,
-                        "MODE", &mode,
-                        "WALL_MESSAGE", &wall_message,
-                        "UID", &uid,
-                        "TTY", &tty);
+                           "USEC", &usec,
+                           "WARN_WALL", &warn_wall,
+                           "MODE", &mode,
+                           "WALL_MESSAGE", &wall_message,
+                           "UID", &uid,
+                           "TTY", &tty);
 
         /* reset will delete the file */
         reset_scheduled_shutdown(m);
@@ -2368,123 +2527,6 @@ void manager_load_scheduled_shutdown(Manager *m) {
         return;
 }
 
-static int update_schedule_file(Manager *m) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        int r;
-
-        assert(m);
-        assert(handle_action_valid(m->scheduled_shutdown_action));
-
-        r = mkdir_parents_label(SHUTDOWN_SCHEDULE_FILE, 0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create shutdown subdirectory: %m");
-
-        r = fopen_temporary(SHUTDOWN_SCHEDULE_FILE, &f, &temp_path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to save information about scheduled shutdowns: %m");
-
-        (void) fchmod(fileno(f), 0644);
-
-        serialize_usec(f, "USEC", m->scheduled_shutdown_timeout);
-        serialize_item_format(f, "WARN_WALL", "%s", one_zero(m->enable_wall_messages));
-        serialize_item_format(f, "MODE", "%s", handle_action_to_string(m->scheduled_shutdown_action));
-        serialize_item_format(f, "UID", UID_FMT, m->scheduled_shutdown_uid);
-
-        if (m->scheduled_shutdown_tty)
-                serialize_item_format(f, "TTY", "%s", m->scheduled_shutdown_tty);
-
-        if (!isempty(m->wall_message)) {
-                r = serialize_item_escaped(f, "WALL_MESSAGE", m->wall_message);
-                if (r < 0)
-                        goto fail;
-        }
-
-        r = fflush_and_check(f);
-        if (r < 0)
-                goto fail;
-
-        if (rename(temp_path, SHUTDOWN_SCHEDULE_FILE) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        temp_path = mfree(temp_path);
-        return 0;
-
-fail:
-        (void) unlink(SHUTDOWN_SCHEDULE_FILE);
-
-        return log_error_errno(r, "Failed to write information about scheduled shutdowns: %m");
-}
-
-static void reset_scheduled_shutdown(Manager *m) {
-        assert(m);
-
-        m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
-        m->wall_message_timeout_source = sd_event_source_unref(m->wall_message_timeout_source);
-        m->nologin_timeout_source = sd_event_source_unref(m->nologin_timeout_source);
-
-        m->scheduled_shutdown_action = _HANDLE_ACTION_INVALID;
-        m->scheduled_shutdown_timeout = USEC_INFINITY;
-        m->scheduled_shutdown_uid = UID_INVALID;
-        m->scheduled_shutdown_tty = mfree(m->scheduled_shutdown_tty);
-        m->shutdown_dry_run = false;
-
-        if (m->unlink_nologin) {
-                (void) unlink_or_warn("/run/nologin");
-                m->unlink_nologin = false;
-        }
-
-        (void) unlink(SHUTDOWN_SCHEDULE_FILE);
-}
-
-static int manager_scheduled_shutdown_handler(
-                        sd_event_source *s,
-                        uint64_t usec,
-                        void *userdata) {
-
-        Manager *m = ASSERT_PTR(userdata);
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        const HandleActionData *a;
-        int r;
-
-        assert_se(a = handle_action_lookup(m->scheduled_shutdown_action));
-
-        /* Don't allow multiple jobs being executed at the same time */
-        if (m->delayed_action) {
-                r = log_error_errno(SYNTHETIC_ERRNO(EALREADY),
-                                    "Scheduled shutdown to %s failed: shutdown or sleep operation already in progress.",
-                                    a->target);
-                goto error;
-        }
-
-        if (m->shutdown_dry_run) {
-                /* We do not process delay inhibitors here.  Otherwise, we
-                 * would have to be considered "in progress" (like the check
-                 * above) for some seconds after our admin has seen the final
-                 * wall message. */
-
-                bus_manager_log_shutdown(m, a);
-                log_info("Running in dry run, suppressing action.");
-                reset_scheduled_shutdown(m);
-
-                return 0;
-        }
-
-        r = bus_manager_shutdown_or_sleep_now_or_later(m, a, &error);
-        if (r < 0) {
-                log_error_errno(r, "Scheduled shutdown to %s failed: %m", a->target);
-                goto error;
-        }
-
-        return 0;
-
-error:
-        reset_scheduled_shutdown(m);
-        return r;
-}
-
 static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = ASSERT_PTR(userdata);
         HandleAction handle;
@@ -2534,34 +2576,6 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         }
 
         return sd_bus_reply_method_return(message, NULL);
-}
-
-static int manager_setup_shutdown_timers(Manager* m) {
-        int r;
-
-        r = event_reset_time(m->event, &m->scheduled_shutdown_timeout_source,
-                             CLOCK_REALTIME,
-                             m->scheduled_shutdown_timeout, 0,
-                             manager_scheduled_shutdown_handler, m,
-                             0, "scheduled-shutdown-timeout", true);
-        if (r < 0)
-                goto fail;
-
-        r = event_reset_time(m->event, &m->nologin_timeout_source,
-                             CLOCK_REALTIME,
-                             nologin_timeout_usec(m->scheduled_shutdown_timeout), 0,
-                             nologin_timeout_handler, m,
-                             0, "nologin-timeout", true);
-        if (r < 0)
-                goto fail;
-
-        return 0;
-
-fail:
-        m->scheduled_shutdown_timeout_source = sd_event_source_unref(m->scheduled_shutdown_timeout_source);
-        m->nologin_timeout_source = sd_event_source_unref(m->nologin_timeout_source);
-
-        return r;
 }
 
 static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -4224,23 +4238,6 @@ int manager_send_changed(Manager *manager, const char *property, ...) {
                         l);
 }
 
-static int strdup_job(sd_bus_message *reply, char **job) {
-        const char *j;
-        char *copy;
-        int r;
-
-        r = sd_bus_message_read(reply, "o", &j);
-        if (r < 0)
-                return r;
-
-        copy = strdup(j);
-        if (!copy)
-                return -ENOMEM;
-
-        *job = copy;
-        return 1;
-}
-
 int manager_start_scope(
                 Manager *manager,
                 const char *scope,
@@ -4351,13 +4348,13 @@ int manager_start_scope(
         return strdup_job(reply, ret_job);
 }
 
-int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
+int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **ret_job) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         assert(manager);
         assert(unit);
-        assert(job);
+        assert(ret_job);
 
         r = bus_call_method(
                         manager->bus,
@@ -4369,11 +4366,18 @@ int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, 
         if (r < 0)
                 return r;
 
-        return strdup_job(reply, job);
+        return strdup_job(reply, ret_job);
 }
 
-int manager_stop_unit(Manager *manager, const char *unit, const char *job_mode, sd_bus_error *error, char **ret_job) {
+int manager_stop_unit(
+                Manager *manager,
+                const char *unit,
+                const char *job_mode,
+                sd_bus_error *ret_error,
+                char **ret_job) {
+
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(manager);
@@ -4384,22 +4388,24 @@ int manager_stop_unit(Manager *manager, const char *unit, const char *job_mode, 
                         manager->bus,
                         bus_systemd_mgr,
                         "StopUnit",
-                        error,
+                        &error,
                         &reply,
                         "ss", unit, job_mode ?: "fail");
         if (r < 0) {
-                if (sd_bus_error_has_names(error, BUS_ERROR_NO_SUCH_UNIT,
-                                                  BUS_ERROR_LOAD_FAILED)) {
-
+                if (sd_bus_error_has_names(&error, BUS_ERROR_NO_SUCH_UNIT, BUS_ERROR_LOAD_FAILED)) {
                         *ret_job = NULL;
-                        sd_bus_error_free(error);
                         return 0;
                 }
 
+                sd_bus_error_move(ret_error, &error);
                 return r;
         }
 
-        return strdup_job(reply, ret_job);
+        r = strdup_job(reply, ret_job);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *ret_error) {
@@ -4439,6 +4445,7 @@ int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *ret
 int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, sd_bus_error *error) {
         assert(manager);
         assert(unit);
+        assert(SIGNAL_VALID(signo));
 
         return bus_call_method(
                         manager->bus,
@@ -4446,7 +4453,10 @@ int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo
                         "KillUnit",
                         error,
                         NULL,
-                        "ssi", unit, who == KILL_LEADER ? "main" : "all", signo);
+                        "ssi",
+                        unit,
+                        who == KILL_LEADER ? "main" : "all",
+                        signo);
 }
 
 int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *ret_error) {
