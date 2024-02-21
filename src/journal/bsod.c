@@ -237,7 +237,7 @@ static int display_emergency_message_fullscreen(const char *message) {
 cleanup:
         if (original_vt > 0)
                 if (ioctl(fd, VT_ACTIVATE, original_vt) < 0)
-                        return log_error_errno(errno, "Failed to switch back to original VT /dev/tty%i: %m", original_vt);
+                        log_warning_errno(errno, "Failed to switch back to original VT /dev/tty%i: %m", original_vt);
 
         return r;
 }
