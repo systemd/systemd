@@ -225,9 +225,6 @@ int network_verify(Network *network) {
             network->ipv6ll_address_gen_mode < 0)
                 network->ipv6ll_address_gen_mode = IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY;
 
-        /* IPMasquerade implies IPForward */
-        network->ip_forward |= network->ip_masquerade;
-
         network_adjust_ipv6_proxy_ndp(network);
         network_adjust_ipv6_accept_ra(network);
         network_adjust_dhcp(network);
@@ -465,6 +462,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .link_local = _ADDRESS_FAMILY_INVALID,
                 .ipv6ll_address_gen_mode = _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID,
 
+                .ip_forwarding = { -1, -1, },
                 .ipv4_accept_local = -1,
                 .ipv4_route_localnet = -1,
                 .ipv6_privacy_extensions = _IPV6_PRIVACY_EXTENSIONS_INVALID,
@@ -483,6 +481,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv6_accept_ra_use_onlink_prefix = true,
                 .ipv6_accept_ra_use_mtu = true,
                 .ipv6_accept_ra_use_hop_limit = true,
+                .ipv6_accept_ra_use_reachable_time = true,
                 .ipv6_accept_ra_use_retransmission_time = true,
                 .ipv6_accept_ra_use_icmp6_ratelimit = true,
                 .ipv6_accept_ra_route_table = RT_TABLE_MAIN,

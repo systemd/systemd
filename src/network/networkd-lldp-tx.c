@@ -8,6 +8,7 @@
 #include "networkd-link.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-manager.h"
+#include "networkd-sysctl.h"
 #include "parse-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -69,9 +70,8 @@ int link_lldp_tx_configure(Link *link) {
                                         SD_LLDP_SYSTEM_CAPABILITIES_STATION |
                                         SD_LLDP_SYSTEM_CAPABILITIES_BRIDGE |
                                         SD_LLDP_SYSTEM_CAPABILITIES_ROUTER,
-                                        (link->network->ip_forward != ADDRESS_FAMILY_NO) ?
-                                        SD_LLDP_SYSTEM_CAPABILITIES_ROUTER :
-                                        SD_LLDP_SYSTEM_CAPABILITIES_STATION);
+                                        (link_get_ip_forwarding(link, AF_INET) > 0 || link_get_ip_forwarding(link, AF_INET6) > 0) ?
+                                        SD_LLDP_SYSTEM_CAPABILITIES_ROUTER : SD_LLDP_SYSTEM_CAPABILITIES_STATION);
         if (r < 0)
                 return r;
 
