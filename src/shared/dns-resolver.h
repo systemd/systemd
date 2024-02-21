@@ -57,11 +57,22 @@ struct ResolverData {
         usec_t lifetime_usec; /* ndisc ra lifetime */
         LIST_FIELDS(ResolverData, resolvers);
 };
+typedef struct ResolverData sd_dns_resolver;
 
 ResolverData *dnr_resolver_data_free_all(ResolverData *first);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ResolverData *, dnr_resolver_data_free_all);
 
-int dnr_parse_svc_params(const uint8_t *option, size_t len, ResolverData *resolver);
+void sd_dns_resolver_done(sd_dns_resolver *res);
+void sd_dns_resolver_clear(sd_dns_resolver *res);
+sd_dns_resolver *sd_dns_resolver_free(sd_dns_resolver *res);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dns_resolver *, sd_dns_resolver_free);
+void sd_dns_resolver_array_free(sd_dns_resolver resolvers[], size_t n);
+
+int sd_dns_resolver_prio_compare(const sd_dns_resolver *a, const sd_dns_resolver *b);
+
+int dnr_parse_svc_params(const uint8_t *option, size_t len, sd_dns_resolver *resolver);
 
 int dns_resolvers_to_dot_addrs(const ResolverData *resolvers, struct in_addr_full ***ret_addrs, size_t *ret_n_addrs);
+int sd_dns_resolvers_to_dot_addrs(const sd_dns_resolver *resolvers, size_t n_resolvers, struct in_addr_full ***ret_addrs, size_t *ret_n_addrs);
 int dns_resolvers_to_dot_strv(const ResolverData *resolvers, char ***ret_names);
+int sd_dns_resolvers_to_dot_strv(const sd_dns_resolver *resolvers, size_t n_resolvers, char ***ret_names);

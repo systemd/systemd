@@ -19,6 +19,36 @@ ResolverData *dnr_resolver_data_free_all(ResolverData *first) {
         return NULL;
 }
 
+void sd_dns_resolver_done(sd_dns_resolver *res) {
+        free(res->auth_name);
+        free(res->addrs);
+        free(res->dohpath);
+}
+
+void sd_dns_resolver_clear(sd_dns_resolver *res) {
+        res->auth_name = mfree(res->auth_name);
+        res->addrs = mfree(res->addrs);
+        res->dohpath = mfree(res->dohpath);
+}
+
+sd_dns_resolver *sd_dns_resolver_free(sd_dns_resolver *res) {
+        sd_dns_resolver_done(res);
+        return mfree(res);
+}
+
+void sd_dns_resolver_array_free(sd_dns_resolver resolvers[], size_t n) {
+        assert(resolvers || n == 0);
+
+        FOREACH_ARRAY(res, resolvers, n)
+                sd_dns_resolver_done(res);
+
+        free(resolvers);
+}
+
+int sd_dns_resolver_prio_compare(const sd_dns_resolver *a, const sd_dns_resolver *b) {
+        return a->priority - b->priority;
+}
+
 static const char* const dns_svc_param_key_table[_DNS_SVC_PARAM_KEY_MAX_DEFINED] = {
         [DNS_SVC_PARAM_KEY_MANDATORY]       = "mandatory",
         [DNS_SVC_PARAM_KEY_ALPN]            = "alpn",
@@ -40,7 +70,7 @@ const char *format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX
         return snprintf_ok(buf, DECIMAL_STR_MAX(uint16_t)+3, "key%i", i);
 }
 
-int dnr_parse_svc_params(const uint8_t *option, size_t len, ResolverData *resolver) {
+int dnr_parse_svc_params(const uint8_t *option, size_t len, sd_dns_resolver *resolver) {
         size_t offset = 0;
         int r;
 
@@ -193,6 +223,45 @@ int dns_resolvers_to_dot_addrs(const ResolverData *resolvers, struct in_addr_ful
         return n;
 }
 
+int sd_dns_resolvers_to_dot_addrs(const sd_dns_resolver *resolvers, size_t n_resolvers,
+                struct in_addr_full ***ret_addrs, size_t *ret_n_addrs) {
+        assert(ret_addrs);
+        assert(ret_n_addrs);
+
+        struct in_addr_full **addrs = NULL;
+        size_t n = 0;
+        CLEANUP_ARRAY(addrs, n, in_addr_full_array_free);
+
+        FOREACH_ARRAY(res, resolvers, n_resolvers) {
+                if (!FLAGS_SET(res->transports, SD_DNS_ALPN_DOT))
+                        continue;
+
+                FOREACH_ARRAY(i, res->addrs, res->n_addrs) {
+                        _cleanup_(in_addr_full_freep) struct in_addr_full *addr = NULL;
+                        int r;
+
+                        addr = new0(struct in_addr_full, 1);
+                        if (!addr)
+                                return -ENOMEM;
+                        if (!GREEDY_REALLOC(addrs, n+1))
+                                return -ENOMEM;
+
+                        r = free_and_strdup(&addr->server_name, res->auth_name);
+                        if (r < 0)
+                                return r;
+                        addr->family = res->family;
+                        addr->port = res->port;
+                        addr->address = *i;
+
+                        addrs[n++] = TAKE_PTR(addr);
+                }
+        }
+
+        *ret_addrs = TAKE_PTR(addrs);
+        *ret_n_addrs = n;
+        return n;
+}
+
 int dns_resolvers_to_dot_strv(const ResolverData *resolvers, char ***ret_names) {
         assert(ret_names);
         int r;
@@ -205,6 +274,35 @@ int dns_resolvers_to_dot_strv(const ResolverData *resolvers, char ***ret_names) 
         CLEANUP_ARRAY(addrs, n, in_addr_full_array_free);
 
         r = dns_resolvers_to_dot_addrs(resolvers, &addrs, &n);
+        if (r < 0)
+                return r;
+
+        FOREACH_ARRAY(addr, addrs, n) {
+                const char *name = in_addr_full_to_string(*addr);
+                if (!name)
+                        return -ENOMEM;
+                r = strv_extend_with_size(&names, &len, name);
+                if (r < 0)
+                        return r;
+
+        }
+
+        *ret_names = TAKE_PTR(names);
+        return len;
+}
+
+int sd_dns_resolvers_to_dot_strv(const sd_dns_resolver *resolvers, size_t n_resolvers, char ***ret_names) {
+        assert(ret_names);
+        int r;
+
+        _cleanup_strv_free_ char **names = NULL;
+        size_t len = 0;
+
+        struct in_addr_full **addrs = NULL;
+        size_t n = 0;
+        CLEANUP_ARRAY(addrs, n, in_addr_full_array_free);
+
+        r = sd_dns_resolvers_to_dot_addrs(resolvers, n_resolvers, &addrs, &n);
         if (r < 0)
                 return r;
 
