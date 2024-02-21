@@ -22,20 +22,6 @@
 #define EBADF_PAIR { -EBADF, -EBADF }
 #define EBADF_TRIPLET { -EBADF, -EBADF, -EBADF }
 
-/* Flags that are safe to have set on an FD given to a privileged service to operate on.
- * This ensures that clients can't trick a privileged service into giving access to a file the client
- * doesn't already have access to (especially via something like O_PATH).
- *
- * O_NOFOLLOW: For some reason the kernel will return this flag from fcntl; it doesn't go away immediately
- *             after open(). It should have no effect whatsoever to an already-opened FD, but if it does
- *             it's decreasing the risk to a privileged service since it disables symlink following.
- *
- * RAW_O_LARGEFILE: glibc secretly sets this and neglects to hide it from us if we call fcntl. See comment
- *                  in missing_fcntl.h for more details about this.
- */
-#define SAFE_FD_FLAGS (O_ACCMODE|O_NOFOLLOW|RAW_O_LARGEFILE)
-#define UNSAFE_FD_FLAGS(flags) ((unsigned)(flags) & ~SAFE_FD_FLAGS)
-
 int close_nointr(int fd);
 int safe_close(int fd);
 void safe_close_pair(int p[static 2]);
@@ -126,7 +112,10 @@ static inline int make_null_stdio(void) {
 
 int fd_reopen(int fd, int flags);
 int fd_reopen_condition(int fd, int flags, int mask, int *ret_new_fd);
+
 int fd_is_opath(int fd);
+int fd_extrinsic_flags_safe(int fd);
+
 int read_nr_open(void);
 int fd_get_diskseq(int fd, uint64_t *ret);
 
