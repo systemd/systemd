@@ -389,7 +389,8 @@ DHCPPrefixDelegation.RouteMetric,            config_parse_uint32,               
 DHCPPrefixDelegation.NetLabel,               config_parse_string,                                      CONFIG_PARSE_STRING_SAFE,      offsetof(Network, dhcp_pd_netlabel)
 DHCPPrefixDelegation.NFTSet,                 config_parse_nft_set,                                     NFT_SET_PARSE_NETWORK,         offsetof(Network, dhcp_pd_nft_set_context)
 IPv6SendRA.RouterLifetimeSec,                config_parse_router_lifetime,                             0,                             offsetof(Network, router_lifetime_usec)
-IPv6SendRA.RetransmitSec,                    config_parse_router_retransmit,                           0,                             offsetof(Network, router_retransmit_usec)
+IPv6SendRA.ReachableTimeSec,                 config_parse_router_uint32_msec,                          0,                             offsetof(Network, router_reachable_usec)
+IPv6SendRA.RetransmitSec,                    config_parse_router_uint32_msec,                          0,                             offsetof(Network, router_retransmit_usec)
 IPv6SendRA.Managed,                          config_parse_bool,                                        0,                             offsetof(Network, router_managed)
 IPv6SendRA.OtherInformation,                 config_parse_bool,                                        0,                             offsetof(Network, router_other_information)
 IPv6SendRA.RouterPreference,                 config_parse_router_preference,                           0,                             0
