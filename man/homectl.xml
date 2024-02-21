@@ -963,6 +963,27 @@
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--session=</option><replaceable>SESSION</replaceable></term>
+
+        <listitem><para>Takes a string argument. Configures the user's preferred session
+        (i.e. <literal>gnome</literal>, <literal>plasma</literal>, and so on). This is read by
+        the display manager to pick the default session the user is logged into.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--session-type=</option><replaceable>TYPE</replaceable></term>
+
+        <listitem><para>Takes a string argument. Configures the user's preferred session type
+        (i.e. <literal>x11</literal>, <literal>wayland</literal>, and other values accepted by
+        <varname>$XDG_SESSION_TYPE</varname>). This is read by the display manage to pick the
+        default session type the user is logged into.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
