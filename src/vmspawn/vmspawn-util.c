@@ -37,7 +37,7 @@ OvmfConfig* ovmf_config_free(OvmfConfig *config) {
         return mfree(config);
 }
 
-DEFINE_STRING_TABLE_LOOKUP(qemu_network_stack, QemuNetworkStack);
+DEFINE_STRING_TABLE_LOOKUP(network_stack, NetworkStack);
 
 int qemu_check_kvm_support(void) {
         if (access("/dev/kvm", F_OK) >= 0)
