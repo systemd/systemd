@@ -622,6 +622,16 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   to expose a single device only, since those identifiers better should be kept
   unique.
 
+`systemd-pcrlock`, `systemd-pcrextend`:
+
+* `$SYSTEMD_MEASURE_LOG_USERSPACE` – the path to the `tpm2-measure.log` file
+  (containing userspace measurement data) to read. This allows overriding the
+  default of `/run/log/systemd/tpm2-measure.log`.
+
+* `$SYSTEMD_MEASURE_LOG_FIRMWARE` – the path to the `binary_bios_measurements`
+  file (containing firmware measurement data) to read. This allows overriding
+  the default of `/sys/kernel/security/tpm0/binary_bios_measurements`.
+
 Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 `busctl`):
 
