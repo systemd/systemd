@@ -26,6 +26,7 @@
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "recurse-dir.h"
 #include "set.h"
 #include "smack-util.h"
@@ -107,16 +108,6 @@ static const MountPoint mount_table[] = {
           cg_is_unified_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
         { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
           cg_is_unified_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
-        { "tmpfs",       "/sys/fs/cgroup",            "tmpfs",      "mode=0755" TMPFS_LIMITS_SYS_FS_CGROUP,     MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
-          cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
-        { "cgroup2",     "/sys/fs/cgroup/unified",    "cgroup2",    "nsdelegate",                               MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_hybrid_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
-        { "cgroup2",     "/sys/fs/cgroup/unified",    "cgroup2",    NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_hybrid_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
-        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd,xattr",                  MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_legacy_wanted, MNT_IN_CONTAINER     },
-        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd",                        MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
 #if ENABLE_PSTORE
         { "pstore",      "/sys/fs/pstore",            "pstore",     NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,          MNT_NONE                   },
@@ -167,8 +158,11 @@ static int mount_one(const MountPoint *p, bool relabel) {
         int r, priority;
 
         assert(p);
+        assert(p->what);
+        assert(p->where);
+        assert(p->type);
 
-        priority = (p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG;
+        priority = FLAGS_SET(p->mode, MNT_FATAL) ? LOG_ERR : LOG_DEBUG;
 
         if (p->condition_fn && !p->condition_fn())
                 return 0;
@@ -180,13 +174,13 @@ static int mount_one(const MountPoint *p, bool relabel) {
         r = path_is_mount_point_full(p->where, /* root = */ NULL, AT_SYMLINK_FOLLOW);
         if (r < 0 && r != -ENOENT) {
                 log_full_errno(priority, r, "Failed to determine whether %s is a mount point: %m", p->where);
-                return (p->mode & MNT_FATAL) ? r : 0;
+                return FLAGS_SET(p->mode, MNT_FATAL) ? r : 0;
         }
         if (r > 0)
                 return 0;
 
         /* Skip securityfs in a container */
-        if (!(p->mode & MNT_IN_CONTAINER) && detect_container() > 0)
+        if (!FLAGS_SET(p->mode, MNT_IN_CONTAINER) && detect_container() > 0)
                 return 0;
 
         /* The access mode here doesn't really matter too much, since
@@ -207,39 +201,35 @@ static int mount_one(const MountPoint *p, bool relabel) {
         else
                 r = mount_nofollow_verbose(priority, p->what, p->where, p->type, p->flags, p->options);
         if (r < 0)
-                return (p->mode & MNT_FATAL) ? r : 0;
+                return FLAGS_SET(p->mode, MNT_FATAL) ? r : 0;
 
         /* Relabel again, since we now mounted something fresh here */
         if (relabel)
                 (void) label_fix(p->where, 0);
 
-        if (p->mode & MNT_CHECK_WRITABLE) {
+        if (FLAGS_SET(p->mode, MNT_CHECK_WRITABLE))
                 if (access(p->where, W_OK) < 0) {
                         r = -errno;
 
                         (void) umount2(p->where, UMOUNT_NOFOLLOW);
                         (void) rmdir(p->where);
 
-                        log_full_errno(priority, r, "Mount point %s not writable after mounting, undoing: %m", p->where);
-                        return (p->mode & MNT_FATAL) ? r : 0;
+                        log_full_errno(priority, r, "Mount point '%s' not writable after mounting, undoing: %m", p->where);
+                        return FLAGS_SET(p->mode, MNT_FATAL) ? r : 0;
                 }
-        }
 
         return 1;
 }
 
 static int mount_points_setup(size_t n, bool loaded_policy) {
-        int ret = 0, r;
+        int r = 0;
 
         assert(n <= ELEMENTSOF(mount_table));
 
-        FOREACH_ARRAY(mp, mount_table, n) {
-                r = mount_one(mp, loaded_policy);
-                if (r != 0 && ret >= 0)
-                        ret = r;
-        }
+        FOREACH_ARRAY(mp, mount_table, n)
+                RET_GATHER(r, mount_one(mp, loaded_policy));
 
-        return ret;
+        return r;
 }
 
 int mount_setup_early(void) {
@@ -297,12 +287,24 @@ static int symlink_controller(const char *target, const char *alias) {
         return 0;
 }
 
-int mount_cgroup_controllers(void) {
+static const MountPoint cgroupv1_mount_table[] = {
+        { "tmpfs",       "/sys/fs/cgroup",            "tmpfs",      "mode=0755" TMPFS_LIMITS_SYS_FS_CGROUP,     MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
+          cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
+        { "cgroup2",     "/sys/fs/cgroup/unified",    "cgroup2",    "nsdelegate",                               MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          cg_is_hybrid_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
+        { "cgroup2",     "/sys/fs/cgroup/unified",    "cgroup2",    NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          cg_is_hybrid_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
+        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd,xattr",                  MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          cg_is_legacy_wanted, MNT_IN_CONTAINER     },
+        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd",                        MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
+};
+
+static int mount_cgroup_legacy_controllers(void) {
         _cleanup_set_free_ Set *controllers = NULL;
         int r;
 
-        if (!cg_is_legacy_wanted())
-                return 0;
+        assert(cg_is_legacy_wanted());
 
         /* Mount all available cgroup controllers that are built into the kernel. */
         r = cg_kernel_controllers(&controllers);
@@ -519,6 +521,26 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
         if (r < 0)
                 return r;
 
+        if (cg_is_legacy_wanted()) {
+                if (detect_container() <= 0) {
+                        bool force;
+
+                        r = proc_cmdline_get_bool("SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE", /* flags = */ 0, &force);
+                        if (r < 0 || !force)
+                                return -ERFKILL;
+                }
+
+                FOREACH_ARRAY(mp, cgroupv1_mount_table, ELEMENTSOF(cgroupv1_mount_table)) {
+                        r = mount_one(mp, loaded_policy);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = mount_cgroup_legacy_controllers();
+                if (r < 0)
+                        return r;
+        }
+
 #if HAVE_SELINUX || ENABLE_SMACK
         /* Nodes in devtmpfs and /run need to be manually updated for
          * the appropriate labels, after mounting. The other virtual
@@ -539,8 +561,10 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
 
                 after_relabel = now(CLOCK_MONOTONIC);
 
-                log_info("Relabeled /dev, /dev/shm, /run, /sys/fs/cgroup%s in %s.",
-                         n_extra > 0 ? ", additional files" : "",
+                // FIXME: we don't mention /sys/fs/cgroup/ here, since relabling is only done on cgroup v1
+                // systems, the support for which will soon be dropped.
+                log_info("Relabeled /dev/, /dev/shm/, /run/%s in %s.",
+                         n_extra > 0 ? ", and additional files" : "",
                          FORMAT_TIMESPAN(after_relabel - before_relabel, 0));
         }
 #endif
