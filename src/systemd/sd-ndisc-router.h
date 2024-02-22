@@ -30,6 +30,7 @@ _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_ndisc_router sd_ndisc_router;
 typedef struct ResolverData ResolverData;
+typedef struct ResolverData sd_dns_resolver;
 
 sd_ndisc_router *sd_ndisc_router_ref(sd_ndisc_router *rt);
 sd_ndisc_router *sd_ndisc_router_unref(sd_ndisc_router *rt);
@@ -92,7 +93,7 @@ int sd_ndisc_router_prefix64_get_lifetime(sd_ndisc_router *rt, uint64_t *ret);
 int sd_ndisc_router_prefix64_get_lifetime_timestamp(sd_ndisc_router *rt, clockid_t clock, uint64_t *ret);
 
 /* Specific option access: SD_NDISC_OPTION_ENCRYPTED_DNS */
-int sd_ndisc_router_encrypted_dns_get_dnr(sd_ndisc_router *rt, ResolverData **ret);
+int sd_ndisc_router_encrypted_dns_get_dnr(sd_ndisc_router *rt, sd_dns_resolver *ret);
 int sd_ndisc_router_encrypted_dns_get_lifetime(sd_ndisc_router *rt, uint64_t *ret);
 int sd_ndisc_router_encrypted_dns_get_lifetime_timestamp(sd_ndisc_router *rt, clockid_t clock, uint64_t *ret);
 

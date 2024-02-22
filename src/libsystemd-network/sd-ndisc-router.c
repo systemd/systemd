@@ -869,10 +869,12 @@ static int ndisc_get_dns_name(const uint8_t *optval, size_t optlen, char **ret) 
         return r;
 }
 
-int sd_ndisc_router_encrypted_dns_get_dnr(sd_ndisc_router *rt, ResolverData **ret) {
+int sd_ndisc_router_encrypted_dns_get_dnr(sd_ndisc_router *rt, sd_dns_resolver *ret) {
         uint8_t *nd_opt_encrypted_dns = NULL;
         size_t length;
         int r;
+
+        _cleanup_(sd_dns_resolver_done) sd_dns_resolver res = {};
 
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
@@ -895,10 +897,7 @@ int sd_ndisc_router_encrypted_dns_get_dnr(sd_ndisc_router *rt, ResolverData **re
         size_t optlen = 8 * length - 2; /* units of octets */
         size_t offset = 0;
 
-        _cleanup_(dnr_resolver_data_free_allp) ResolverData *res = new0(ResolverData, 1);
-        if (!res)
-                return -ENOMEM;
-        res->priority = unaligned_read_be16(&optval[offset]);
+        res.priority = unaligned_read_be16(&optval[offset]);
         offset += sizeof(uint16_t);
         offset += sizeof(uint32_t); /* Lifetime field. Accessed with *lifetime_timestamp functions. */
 
@@ -911,10 +910,10 @@ int sd_ndisc_router_encrypted_dns_get_dnr(sd_ndisc_router *rt, ResolverData **re
         if (offset + ilen > optlen)
                 return -EBADMSG;
 
-        r = ndisc_get_dns_name(&optval[offset], ilen, &res->auth_name);
+        r = ndisc_get_dns_name(&optval[offset], ilen, &res.auth_name);
         if (r < 0)
                 return r;
-        if (dns_name_is_root(res->auth_name))
+        if (dns_name_is_root(res.auth_name))
                 return -EBADMSG;
         offset += ilen;
 
@@ -934,8 +933,8 @@ int sd_ndisc_router_encrypted_dns_get_dnr(sd_ndisc_router *rt, ResolverData **re
         size_t n_addrs = ilen / (sizeof(struct in6_addr));
         if (n_addrs == 0)
                 return -EBADMSG;
-        res->addrs = new(union in_addr_union, n_addrs);
-        if (!res->addrs)
+        res.addrs = new(union in_addr_union, n_addrs);
+        if (!res.addrs)
                 return -ENOMEM;
 
         for (size_t i = 0; i < n_addrs; i++) {
@@ -944,7 +943,7 @@ int sd_ndisc_router_encrypted_dns_get_dnr(sd_ndisc_router *rt, ResolverData **re
                 if (in_addr_is_multicast(AF_INET6, &addr) ||
                     in_addr_is_localhost(AF_INET, &addr))
                         return -EBADMSG;
-                res->addrs[i] = addr;
+                res.addrs[i] = addr;
                 offset += sizeof(struct in6_addr);
         }
 
@@ -962,11 +961,11 @@ int sd_ndisc_router_encrypted_dns_get_dnr(sd_ndisc_router *rt, ResolverData **re
                 if (*b != '\0')
                         return -EBADMSG;
 
-        r = dnr_parse_svc_params(&optval[offset], splen, res);
+        r = dnr_parse_svc_params(&optval[offset], splen, &res);
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(res);
+        *ret = TAKE_STRUCT(res);
         return 1;
 }
 

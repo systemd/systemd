@@ -761,7 +761,7 @@ static int link_save(Link *link) {
                         }
 
                         if (network_ipv6_accept_ra_use_dnr(link->network))
-                                serialize_dnr(f, link->ndisc_resolvers, 0, &space);
+                                serialize_dnr(f, link->ndisc_dnr, link->ndisc_n_dnr, &space);
                 }
 
                 fputc('\n', f);
