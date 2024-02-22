@@ -7,7 +7,7 @@ set -o pipefail
 # default to Debian testing
 DISTRO="${DISTRO:-debian}"
 RELEASE="${RELEASE:-bookworm}"
-BRANCH="${BRANCH:-upstream-ci}"
+BRANCH="${BRANCH:-debian/master}"
 ARCH="${ARCH:-amd64}"
 CONTAINER="${RELEASE}-${ARCH}"
 CACHE_DIR="${SEMAPHORE_CACHE_DIR:-/tmp}"
@@ -104,7 +104,9 @@ EOF
             rm -rf "$ARTIFACTS_DIR"
             # autopkgtest exits with 2 for "some tests skipped", accept that
             sudo "$AUTOPKGTEST_DIR/runner/autopkgtest" --env DEB_BUILD_OPTIONS=noudeb \
-                                                       --env TEST_UPSTREAM=1 ../systemd_*.dsc \
+                                                       --env DEB_BUILD_PROFILES=pkg.systemd.upstream \
+                                                       --env TEST_UPSTREAM=1 \
+                                                       ../systemd_*.dsc \
                                                        -o "$ARTIFACTS_DIR" \
                                                        -- lxc -s "$CONTAINER" \
                 || [ $? -eq 2 ]
