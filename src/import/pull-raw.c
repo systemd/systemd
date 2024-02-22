@@ -311,7 +311,7 @@ static int raw_pull_copy_auxiliary_file(
                 const char *suffix,
                 char **path /* input + output (!) */) {
 
-        const char *local;
+        _cleanup_free_ char *local = NULL;
         int r;
 
         assert(i);
@@ -322,21 +322,29 @@ static int raw_pull_copy_auxiliary_file(
         if (r < 0)
                 return r;
 
-        local = strjoina(i->image_root, "/", i->local, suffix);
+        local = strjoin(i->image_root, "/", i->local, suffix);
+        if (!local)
+                return log_oom();
 
-        r = copy_file_atomic(
-                        *path,
-                        local,
-                        0644,
-                        COPY_REFLINK |
-                        (FLAGS_SET(i->flags, IMPORT_FORCE) ? COPY_REPLACE : 0) |
-                        (FLAGS_SET(i->flags, IMPORT_SYNC) ? COPY_FSYNC_FULL : 0));
+        if (FLAGS_SET(i->flags, IMPORT_PULL_KEEP_DOWNLOAD))
+                r = copy_file_atomic(
+                                *path,
+                                local,
+                                0644,
+                                COPY_REFLINK |
+                                (FLAGS_SET(i->flags, IMPORT_FORCE) ? COPY_REPLACE : 0) |
+                                (FLAGS_SET(i->flags, IMPORT_SYNC) ? COPY_FSYNC_FULL : 0));
+        else
+                r = install_file(AT_FDCWD, *path,
+                                 AT_FDCWD, local,
+                                 (i->flags & IMPORT_FORCE ? INSTALL_REPLACE : 0) |
+                                 (i->flags & IMPORT_SYNC ? INSTALL_SYNCFS : 0));
         if (r == -EEXIST)
                 log_warning_errno(r, "File %s already exists, not replacing.", local);
         else if (r == -ENOENT)
                 log_debug_errno(r, "Skipping creation of auxiliary file, since none was found.");
         else if (r < 0)
-                log_warning_errno(r, "Failed to copy file %s, ignoring: %m", local);
+                log_warning_errno(r, "Failed to install file %s, ignoring: %m", local);
         else
                 log_info("Created new file %s.", local);
 
@@ -345,9 +353,7 @@ static int raw_pull_copy_auxiliary_file(
 
 static int raw_pull_make_local_copy(RawPull *i) {
         _cleanup_(unlink_and_freep) char *tp = NULL;
-        _cleanup_free_ char *f = NULL;
-        _cleanup_close_ int dfd = -EBADF;
-        const char *p;
+        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(i);
@@ -375,38 +381,49 @@ static int raw_pull_make_local_copy(RawPull *i) {
                         return log_error_errno(errno, "Failed to seek to beginning of vendor image: %m");
         }
 
-        p = strjoina(i->image_root, "/", i->local, ".raw");
-
-        r = tempfn_random(p, NULL, &f);
-        if (r < 0)
+        p = strjoin(i->image_root, "/", i->local, ".raw");
+        if (!p)
                 return log_oom();
 
-        dfd = open(f, O_WRONLY|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
-        if (dfd < 0)
-                return log_error_errno(errno, "Failed to create writable copy of image: %m");
+        const char *source;
+        if (FLAGS_SET(i->flags, IMPORT_PULL_KEEP_DOWNLOAD)) {
+                _cleanup_close_ int dfd = -EBADF;
+                _cleanup_free_ char *f = NULL;
 
-        tp = TAKE_PTR(f);
+                r = tempfn_random(p, NULL, &f);
+                if (r < 0)
+                        return log_oom();
 
-        /* Turn off COW writing. This should greatly improve performance on COW file systems like btrfs,
-         * since it reduces fragmentation caused by not allowing in-place writes. */
-        (void) import_set_nocow_and_log(dfd, tp);
+                dfd = open(f, O_WRONLY|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+                if (dfd < 0)
+                        return log_error_errno(errno, "Failed to create writable copy of image: %m");
 
-        r = copy_bytes(i->raw_job->disk_fd, dfd, UINT64_MAX, COPY_REFLINK);
-        if (r < 0)
-                return log_error_errno(r, "Failed to make writable copy of image: %m");
+                tp = TAKE_PTR(f);
 
-        (void) copy_times(i->raw_job->disk_fd, dfd, COPY_CRTIME);
-        (void) copy_xattr(i->raw_job->disk_fd, NULL, dfd, NULL, 0);
+                /* Turn off COW writing. This should greatly improve performance on COW file systems like btrfs,
+                 * since it reduces fragmentation caused by not allowing in-place writes. */
+                (void) import_set_nocow_and_log(dfd, tp);
 
-        dfd = safe_close(dfd);
+                r = copy_bytes(i->raw_job->disk_fd, dfd, UINT64_MAX, COPY_REFLINK);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make writable copy of image: %m");
 
-        r = install_file(AT_FDCWD, tp,
+                (void) copy_times(i->raw_job->disk_fd, dfd, COPY_CRTIME);
+                (void) copy_xattr(i->raw_job->disk_fd, NULL, dfd, NULL, 0);
+
+                dfd = safe_close(dfd);
+
+                source = tp;
+        } else
+                source = i->final_path;
+
+        r = install_file(AT_FDCWD, source,
                          AT_FDCWD, p,
                          (i->flags & IMPORT_FORCE ? INSTALL_REPLACE : 0) |
                          (i->flags & IMPORT_READ_ONLY ? INSTALL_READ_ONLY : 0) |
                          (i->flags & IMPORT_SYNC ? INSTALL_FSYNC_FULL : 0));
         if (r < 0)
-                return log_error_errno(errno, "Failed to move local image into place '%s': %m", p);
+                return log_error_errno(r, "Failed to move local image into place '%s': %m", p);
 
         tp = mfree(tp);
 
@@ -628,7 +645,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
 
                         r = install_file(AT_FDCWD, i->temp_path,
                                          AT_FDCWD, i->final_path,
-                                         INSTALL_READ_ONLY|
+                                         (i->flags & IMPORT_PULL_KEEP_DOWNLOAD ? INSTALL_READ_ONLY : 0) |
                                          (i->flags & IMPORT_SYNC ? INSTALL_FSYNC_FULL : 0));
                         if (r < 0) {
                                 log_error_errno(r, "Failed to move raw file to '%s': %m", i->final_path);

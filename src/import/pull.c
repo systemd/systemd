@@ -270,7 +270,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --offset=BYTES           Offset to seek to in destination\n"
                "     --size-max=BYTES         Maximum number of bytes to write to destination\n"
                "     --class=CLASS            Select image class (machine, sysext, confext,\n"
-               "                              portable)\n",
+               "                              portable)\n"
+               "     --keep-download=BOOL     Keep a copy pristine copy of the downloaded file\n"
+               "                              around\n",
                program_invocation_short_name,
                ansi_underline(),
                ansi_normal(),
@@ -300,6 +302,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_OFFSET,
                 ARG_SIZE_MAX,
                 ARG_CLASS,
+                ARG_KEEP_DOWNLOAD,
         };
 
         static const struct option options[] = {
@@ -321,11 +324,12 @@ static int parse_argv(int argc, char *argv[]) {
                 { "offset",             required_argument, NULL, ARG_OFFSET             },
                 { "size-max",           required_argument, NULL, ARG_SIZE_MAX           },
                 { "class",              required_argument, NULL, ARG_CLASS              },
+                { "keep-download",      required_argument, NULL, ARG_KEEP_DOWNLOAD      },
                 {}
         };
 
         int c, r;
-        bool auto_settings = true;
+        bool auto_settings = true, auto_keep_download = true;
 
         assert(argc >= 0);
         assert(argv);
@@ -492,6 +496,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_KEEP_DOWNLOAD:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --keep-download= argument: %s", optarg);
+
+                        SET_FLAG(arg_import_flags, IMPORT_PULL_KEEP_DOWNLOAD, r);
+                        auto_keep_download = false;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -517,6 +530,11 @@ static int parse_argv(int argc, char *argv[]) {
         /* .nspawn settings files only really make sense for machine images, not for sysext/confext/portable */
         if (auto_settings && arg_class != IMAGE_MACHINE)
                 arg_import_flags &= ~IMPORT_PULL_SETTINGS;
+
+        /* Keep the original pristine downloaded file as a copy only when dealing with machine images,
+         * because unlike sysext/confext/portable they are typically modified during runtime. */
+        if (auto_keep_download)
+                SET_FLAG(arg_import_flags, IMPORT_PULL_KEEP_DOWNLOAD, arg_class == IMAGE_MACHINE);
 
         return 1;
 }
