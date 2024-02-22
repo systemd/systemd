@@ -221,6 +221,7 @@ static int tar_pull_determine_path(
 static int tar_pull_make_local_copy(TarPull *i) {
         _cleanup_(rm_rf_subvolume_and_freep) char *t = NULL;
         _cleanup_free_ char *p = NULL;
+        const char *source;
         int r;
 
         assert(i);
@@ -235,24 +236,29 @@ static int tar_pull_make_local_copy(TarPull *i) {
         if (!p)
                 return log_oom();
 
-        r = tempfn_random(p, NULL, &t);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate temporary filename for %s: %m", p);
+        if (FLAGS_SET(i->flags, IMPORT_PULL_KEEP_DOWNLOAD)) {
+                r = tempfn_random(p, NULL, &t);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate temporary filename for %s: %m", p);
 
-        if (i->flags & IMPORT_BTRFS_SUBVOL)
-                r = btrfs_subvol_snapshot_at(
-                                AT_FDCWD, i->final_path,
-                                AT_FDCWD, t,
-                                (i->flags & IMPORT_BTRFS_QUOTA ? BTRFS_SNAPSHOT_QUOTA : 0)|
-                                BTRFS_SNAPSHOT_FALLBACK_COPY|
-                                BTRFS_SNAPSHOT_FALLBACK_DIRECTORY|
-                                BTRFS_SNAPSHOT_RECURSIVE);
-        else
-                r = copy_tree(i->final_path, t, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_HARDLINKS, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create local image: %m");
+                if (i->flags & IMPORT_BTRFS_SUBVOL)
+                        r = btrfs_subvol_snapshot_at(
+                                        AT_FDCWD, i->final_path,
+                                        AT_FDCWD, t,
+                                        (i->flags & IMPORT_BTRFS_QUOTA ? BTRFS_SNAPSHOT_QUOTA : 0)|
+                                        BTRFS_SNAPSHOT_FALLBACK_COPY|
+                                        BTRFS_SNAPSHOT_FALLBACK_DIRECTORY|
+                                        BTRFS_SNAPSHOT_RECURSIVE);
+                else
+                        r = copy_tree(i->final_path, t, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_HARDLINKS, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create local image: %m");
 
-        r = install_file(AT_FDCWD, t,
+                source = t;
+        } else
+                source = i->final_path;
+
+        r = install_file(AT_FDCWD, source,
                          AT_FDCWD, p,
                          (i->flags & IMPORT_FORCE ? INSTALL_REPLACE : 0) |
                          (i->flags & IMPORT_READ_ONLY ? INSTALL_READ_ONLY : 0) |
@@ -265,28 +271,36 @@ static int tar_pull_make_local_copy(TarPull *i) {
         log_info("Created new local image '%s'.", i->local);
 
         if (FLAGS_SET(i->flags, IMPORT_PULL_SETTINGS)) {
-                const char *local_settings;
+                _cleanup_free_ char *local_settings = NULL;
                 assert(i->settings_job);
 
                 r = tar_pull_determine_path(i, ".nspawn", &i->settings_path);
                 if (r < 0)
                         return r;
 
-                local_settings = strjoina(i->image_root, "/", i->local, ".nspawn");
+                local_settings = strjoin(i->image_root, "/", i->local, ".nspawn");
+                if (!local_settings)
+                        return log_oom();
 
-                r = copy_file_atomic(
-                                i->settings_path,
-                                local_settings,
-                                0664,
-                                COPY_REFLINK |
-                                (FLAGS_SET(i->flags, IMPORT_FORCE) ? COPY_REPLACE : 0) |
-                                (FLAGS_SET(i->flags, IMPORT_SYNC) ? COPY_FSYNC_FULL : 0));
+                if (FLAGS_SET(i->flags, IMPORT_PULL_KEEP_DOWNLOAD))
+                        r = copy_file_atomic(
+                                        i->settings_path,
+                                        local_settings,
+                                        0664,
+                                        COPY_REFLINK |
+                                        (FLAGS_SET(i->flags, IMPORT_FORCE) ? COPY_REPLACE : 0) |
+                                        (FLAGS_SET(i->flags, IMPORT_SYNC) ? COPY_FSYNC_FULL : 0));
+                else
+                        r = install_file(AT_FDCWD, i->settings_path,
+                                         AT_FDCWD, local_settings,
+                                         (i->flags & IMPORT_FORCE ? INSTALL_REPLACE : 0) |
+                                         (i->flags & IMPORT_SYNC ? INSTALL_SYNCFS : 0));
                 if (r == -EEXIST)
                         log_warning_errno(r, "Settings file %s already exists, not replacing.", local_settings);
                 else if (r == -ENOENT)
                         log_debug_errno(r, "Skipping creation of settings file, since none was found.");
                 else if (r < 0)
-                        log_warning_errno(r, "Failed to copy settings files %s, ignoring: %m", local_settings);
+                        log_warning_errno(r, "Failed to install settings files %s, ignoring: %m", local_settings);
                 else
                         log_info("Created new settings file %s.", local_settings);
         }
@@ -435,7 +449,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
                         r = install_file(
                                         AT_FDCWD, i->temp_path,
                                         AT_FDCWD, i->final_path,
-                                        INSTALL_READ_ONLY|
+                                        (i->flags & IMPORT_PULL_KEEP_DOWNLOAD ? INSTALL_READ_ONLY : 0) |
                                         (i->flags & IMPORT_SYNC ? INSTALL_SYNCFS : 0));
                         if (r < 0) {
                                 log_error_errno(r, "Failed to rename to final image name to %s: %m", i->final_path);
