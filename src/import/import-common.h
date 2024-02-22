@@ -27,6 +27,8 @@ typedef enum ImportFlags {
         /* The supported flags for the tar and the raw pulling */
         IMPORT_PULL_FLAGS_MASK_TAR     = IMPORT_FLAGS_MASK_TAR|IMPORT_PULL_SETTINGS,
         IMPORT_PULL_FLAGS_MASK_RAW     = IMPORT_FLAGS_MASK_RAW|IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY,
+
+        _IMPORT_FLAGS_INVALID = -EINVAL,
 } ImportFlags;
 
 int import_fork_tar_c(const char *path, pid_t *ret);
