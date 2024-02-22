@@ -8,6 +8,7 @@ sources = files(
         'dhcp6-network.c',
         'dhcp6-option.c',
         'dhcp6-protocol.c',
+        'icmp6-packet.c',
         'icmp6-util.c',
         'lldp-neighbor.c',
         'lldp-network.c',
