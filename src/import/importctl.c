@@ -9,14 +9,17 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
+#include "discover-image.h"
 #include "fd-util.h"
 #include "format-table.h"
 #include "hostname-util.h"
+#include "import-common.h"
 #include "import-util.h"
 #include "locale-util.h"
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
+#include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -33,13 +36,31 @@ static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
-static bool arg_read_only = false;
+static ImportFlags arg_import_flags = 0;
 static bool arg_quiet = false;
 static bool arg_ask_password = true;
-static bool arg_force = false;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static const char* arg_format = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static ImageClass arg_image_class = _IMAGE_CLASS_INVALID;
+
+static int settle_image_class(void) {
+
+        if (arg_image_class < 0) {
+                _cleanup_free_ char *j = NULL;
+
+                for (ImageClass class = 0; class < _IMAGE_CLASS_MAX; class++)
+                        if (strextendf_with_separator(&j, ", ", "%s (downloads to %s/)",
+                                                      image_class_to_string(class),
+                                                      image_root_to_string(class)) < 0)
+                                return log_oom();
+
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No image class specified, retry with --class= set to one of: %s.", j);
+        }
+
+        return 0;
+}
 
 static int match_log_message(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         const char **our_path = userdata, *line;
@@ -170,6 +191,10 @@ static int import_tar(int argc, char *argv[], void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
+        r = settle_image_class();
+        if (r < 0)
+                return r;
+
         if (argc >= 2)
                 path = empty_or_dash_to_null(argv[1]);
 
@@ -206,17 +231,31 @@ static int import_tar(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open %s: %m", path);
         }
 
-        r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportTar");
-        if (r < 0)
-                return bus_log_create_error(r);
+        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
+                r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportTar");
+                if (r < 0)
+                        return bus_log_create_error(r);
 
-        r = sd_bus_message_append(
-                        m,
-                        "hsbb",
-                        fd >= 0 ? fd : STDIN_FILENO,
-                        local,
-                        arg_force,
-                        arg_read_only);
+                r = sd_bus_message_append(
+                                m,
+                                "hsbb",
+                                fd >= 0 ? fd : STDIN_FILENO,
+                                local,
+                                FLAGS_SET(arg_import_flags, IMPORT_FORCE),
+                                FLAGS_SET(arg_import_flags, IMPORT_READ_ONLY));
+        } else {
+                r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportTarEx");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(
+                                m,
+                                "hsst",
+                                fd >= 0 ? fd : STDIN_FILENO,
+                                local,
+                                image_class_to_string(arg_image_class),
+                                (uint64_t) arg_import_flags & (IMPORT_FORCE|IMPORT_READ_ONLY));
+        }
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -230,6 +269,10 @@ static int import_raw(int argc, char *argv[], void *userdata) {
         _cleanup_close_ int fd = -EBADF;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = settle_image_class();
+        if (r < 0)
+                return r;
 
         if (argc >= 2)
                 path = empty_or_dash_to_null(argv[1]);
@@ -267,17 +310,31 @@ static int import_raw(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open %s: %m", path);
         }
 
-        r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportRaw");
-        if (r < 0)
-                return bus_log_create_error(r);
+        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
+                r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportRaw");
+                if (r < 0)
+                        return bus_log_create_error(r);
 
-        r = sd_bus_message_append(
-                        m,
-                        "hsbb",
-                        fd >= 0 ? fd : STDIN_FILENO,
-                        local,
-                        arg_force,
-                        arg_read_only);
+                r = sd_bus_message_append(
+                                m,
+                                "hsbb",
+                                fd >= 0 ? fd : STDIN_FILENO,
+                                local,
+                                FLAGS_SET(arg_import_flags, IMPORT_FORCE),
+                                FLAGS_SET(arg_import_flags, IMPORT_READ_ONLY));
+        } else {
+                r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportRawEx");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(
+                                m,
+                                "hsst",
+                                fd >= 0 ? fd : STDIN_FILENO,
+                                local,
+                                image_class_to_string(arg_image_class),
+                                (uint64_t) arg_import_flags & (IMPORT_FORCE|IMPORT_READ_ONLY));
+        }
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -291,6 +348,10 @@ static int import_fs(int argc, char *argv[], void *userdata) {
         _cleanup_close_ int fd = -EBADF;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = settle_image_class();
+        if (r < 0)
+                return r;
 
         if (argc >= 2)
                 path = empty_or_dash_to_null(argv[1]);
@@ -319,19 +380,34 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open directory '%s': %m", path);
         }
 
-        r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportFileSystem");
+        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
+                r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportFileSystem");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(
+                                m,
+                                "hsbb",
+                                fd >= 0 ? fd : STDIN_FILENO,
+                                local,
+                                FLAGS_SET(arg_import_flags, IMPORT_FORCE),
+                                FLAGS_SET(arg_import_flags, IMPORT_READ_ONLY));
+        } else {
+                r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportFileSystemEx");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(
+                                m,
+                                "hsst",
+                                fd >= 0 ? fd : STDIN_FILENO,
+                                local,
+                                image_class_to_string(arg_image_class),
+                                (uint64_t) arg_import_flags & (IMPORT_FORCE|IMPORT_READ_ONLY));
+        }
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append(
-                        m,
-                        "hsbb",
-                        fd >= 0 ? fd : STDIN_FILENO,
-                        local,
-                        arg_force,
-                        arg_read_only);
-        if (r < 0)
-                return bus_log_create_error(r);
 
         return transfer_image_common(bus, m);
 }
@@ -358,6 +434,10 @@ static int export_tar(int argc, char *argv[], void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
+        r = settle_image_class();
+        if (r < 0)
+                return r;
+
         local = argv[1];
         if (!hostname_is_valid(local, 0))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -375,16 +455,31 @@ static int export_tar(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open %s: %m", path);
         }
 
-        r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ExportTar");
-        if (r < 0)
-                return bus_log_create_error(r);
+        if (arg_image_class == IMAGE_MACHINE && arg_import_flags == 0) {
+                r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ExportTar");
+                if (r < 0)
+                        return bus_log_create_error(r);
 
-        r = sd_bus_message_append(
-                        m,
-                        "shs",
-                        local,
-                        fd >= 0 ? fd : STDOUT_FILENO,
-                        arg_format);
+                r = sd_bus_message_append(
+                                m,
+                                "shs",
+                                local,
+                                fd >= 0 ? fd : STDOUT_FILENO,
+                                arg_format);
+        } else {
+                r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ExportTarEx");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(
+                                m,
+                                "sshst",
+                                local,
+                                image_class_to_string(arg_image_class),
+                                fd >= 0 ? fd : STDOUT_FILENO,
+                                arg_format,
+                                /* flags= */ 0);
+        }
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -398,6 +493,10 @@ static int export_raw(int argc, char *argv[], void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
+        r = settle_image_class();
+        if (r < 0)
+                return r;
+
         local = argv[1];
         if (!hostname_is_valid(local, 0))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -415,16 +514,31 @@ static int export_raw(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open %s: %m", path);
         }
 
-        r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ExportRaw");
-        if (r < 0)
-                return bus_log_create_error(r);
+        if (arg_image_class == IMAGE_MACHINE && arg_import_flags == 0) {
+                r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ExportRaw");
+                if (r < 0)
+                        return bus_log_create_error(r);
 
-        r = sd_bus_message_append(
-                        m,
-                        "shs",
-                        local,
-                        fd >= 0 ? fd : STDOUT_FILENO,
-                        arg_format);
+                r = sd_bus_message_append(
+                                m,
+                                "shs",
+                                local,
+                                fd >= 0 ? fd : STDOUT_FILENO,
+                                arg_format);
+        } else {
+                r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ExportRawEx");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(
+                                m,
+                                "sshst",
+                                local,
+                                image_class_to_string(arg_image_class),
+                                fd >= 0 ? fd : STDOUT_FILENO,
+                                arg_format,
+                                /* flags= */ 0);
+        }
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -437,6 +551,10 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         const char *local, *remote;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = settle_image_class();
+        if (r < 0)
+                return r;
 
         remote = argv[1];
         if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
@@ -468,17 +586,32 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                                                local);
         }
 
-        r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullTar");
-        if (r < 0)
-                return bus_log_create_error(r);
+        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
+                r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullTar");
+                if (r < 0)
+                        return bus_log_create_error(r);
 
-        r = sd_bus_message_append(
-                        m,
-                        "sssb",
-                        remote,
-                        local,
-                        import_verify_to_string(arg_verify),
-                        arg_force);
+                r = sd_bus_message_append(
+                                m,
+                                "sssb",
+                                remote,
+                                local,
+                                import_verify_to_string(arg_verify),
+                                FLAGS_SET(arg_import_flags, IMPORT_FORCE));
+        } else {
+                r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullTarEx");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(
+                                m,
+                                "sssst",
+                                remote,
+                                local,
+                                image_class_to_string(arg_image_class),
+                                import_verify_to_string(arg_verify),
+                                (uint64_t) arg_import_flags & (IMPORT_FORCE|IMPORT_READ_ONLY));
+        }
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -491,6 +624,10 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         const char *local, *remote;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+
+        r = settle_image_class();
+        if (r < 0)
+                return r;
 
         remote = argv[1];
         if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
@@ -522,17 +659,32 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                                                local);
         }
 
-        r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullRaw");
-        if (r < 0)
-                return bus_log_create_error(r);
+        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
+                r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullRaw");
+                if (r < 0)
+                        return bus_log_create_error(r);
 
-        r = sd_bus_message_append(
-                        m,
-                        "sssb",
-                        remote,
-                        local,
-                        import_verify_to_string(arg_verify),
-                        arg_force);
+                r = sd_bus_message_append(
+                                m,
+                                "sssb",
+                                remote,
+                                local,
+                                import_verify_to_string(arg_verify),
+                                FLAGS_SET(arg_import_flags, IMPORT_FORCE));
+        } else {
+                r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullRawEx");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(
+                                m,
+                                "sssst",
+                                remote,
+                                local,
+                                image_class_to_string(arg_image_class),
+                                import_verify_to_string(arg_verify),
+                                (uint64_t) arg_import_flags & (IMPORT_FORCE|IMPORT_READ_ONLY));
+        }
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -548,27 +700,42 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
-        r = bus_call_method(bus, bus_import_mgr, "ListTransfers", &error, &reply, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Could not get transfers: %s", bus_error_message(&error, r));
+        bool ex;
+        r = bus_call_method(bus, bus_import_mgr, "ListTransfersEx", &error, &reply, NULL);
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
+                        sd_bus_error_free(&error);
 
-        r = sd_bus_message_enter_container(reply, 'a', "(usssdo)");
+                        r = bus_call_method(bus, bus_import_mgr, "ListTransfers", &error, &reply, NULL);
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Could not get transfers: %s", bus_error_message(&error, r));
+
+                ex = false;
+                r = sd_bus_message_enter_container(reply, 'a', "(usssdo)");
+        } else {
+                ex = true;
+                r = sd_bus_message_enter_container(reply, 'a', "(ussssdo)");
+        }
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        t = table_new("id", "progress", "type", "local", "remote");
+        t = table_new("id", "progress", "type", "class", "local", "remote");
         if (!t)
                 return log_oom();
 
-        (void) table_set_sort(t, (size_t) 3, (size_t) 0);
+        (void) table_set_sort(t, (size_t) 4, (size_t) 0);
         table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
 
         for (;;) {
-                const char *type, *remote, *local;
+                const char *type, *remote, *local, *class = "machine";
                 double progress;
                 uint32_t id;
 
-                r = sd_bus_message_read(reply, "(usssdo)", &id, &type, &remote, &local, &progress, NULL);
+                if (ex)
+                        r = sd_bus_message_read(reply, "(ussssdo)", &id, &type, &remote, &local, &class, &progress, NULL);
+                else
+                        r = sd_bus_message_read(reply, "(usssdo)", &id, &type, &remote, &local, &progress, NULL);
                 if (r < 0)
                         return bus_log_parse_error(r);
                 if (r == 0)
@@ -596,6 +763,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
                 r = table_add_many(
                                 t,
                                 TABLE_STRING, type,
+                                TABLE_STRING, class,
                                 TABLE_STRING, local,
                                 TABLE_STRING, remote,
                                 TABLE_SET_URL, remote);
@@ -656,8 +824,8 @@ static int help(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...] COMMAND ...\n\n"
-               "%5$sDownload machine images%6$s\n"
-               "\n%3$sImage Transfer Commands:%4$s\n"
+               "%5$sDownload, import or export disk images%6$s\n"
+               "\n%3$sCommands:%4$s\n"
                "  pull-tar URL [NAME]         Download a TAR container image\n"
                "  pull-raw URL [NAME]         Download a RAW container or VM image\n"
                "  import-tar FILE [NAME]      Import a local TAR container image\n"
@@ -665,8 +833,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  import-fs DIRECTORY [NAME]  Import a local directory container image\n"
                "  export-tar NAME [FILE]      Export a TAR container image locally\n"
                "  export-raw NAME [FILE]      Export a RAW container or VM image locally\n"
-               "  list-transfers              Show list of downloads in progress\n"
-               "  cancel-transfer             Cancel a download\n"
+               "  list-transfers              Show list of transfers in progress\n"
+               "  cancel-transfer [ID...]     Cancel a transfer\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
@@ -675,7 +843,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --no-ask-password        Do not ask for system passwords\n"
                "  -H --host=[USER@]HOST       Operate on remote host\n"
                "  -M --machine=CONTAINER      Operate on local container\n"
-               "     --read-only              Create read-only bind mount\n"
+               "     --read-only              Create read-only image\n"
                "  -q --quiet                  Suppress output\n"
                "     --json=pretty|short|off  Generate JSON output\n"
                "  -j                          Equvilant to --json=pretty on TTY, --json=short\n"
@@ -683,7 +851,11 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --verify=MODE            Verification mode for downloaded images (no,\n"
                "                               checksum, signature)\n"
                "     --format=xz|gzip|bzip2   Desired output format for export\n"
-               "     --force                  Download image even if already exists\n"
+               "     --force                  Install image even if already exists\n"
+               "  -m --class=machine          Install as machine image\n"
+               "  -P --class=portable         Install as portable service image\n"
+               "  -S --class=sysext           Install as system extension image\n"
+               "  -C --class=confext          Install as configuration extension image\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -707,6 +879,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERIFY,
                 ARG_FORCE,
                 ARG_FORMAT,
+                ARG_CLASS,
         };
 
         static const struct option options[] = {
@@ -723,6 +896,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "verify",          required_argument, NULL, ARG_VERIFY          },
                 { "force",           no_argument,       NULL, ARG_FORCE           },
                 { "format",          required_argument, NULL, ARG_FORMAT          },
+                { "class",           required_argument, NULL, ARG_CLASS           },
                 {}
         };
 
@@ -732,7 +906,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         for (;;) {
-                c = getopt_long(argc, argv, "hH:M:jq", options, NULL);
+                c = getopt_long(argc, argv, "hH:M:jqmPSC", options, NULL);
                 if (c < 0)
                         break;
 
@@ -767,7 +941,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_READ_ONLY:
-                        arg_read_only = true;
+                        arg_import_flags |= IMPORT_READ_ONLY;
                         break;
 
                 case 'q':
@@ -787,7 +961,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FORCE:
-                        arg_force = true;
+                        arg_import_flags |= IMPORT_FORCE;
                         break;
 
                 case ARG_FORMAT:
@@ -809,6 +983,28 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'j':
                         arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
                         arg_legend = false;
+                        break;
+
+                case ARG_CLASS:
+                        arg_image_class = image_class_from_string(optarg);
+                        if (arg_image_class < 0)
+                                return log_error_errno(arg_image_class, "Failed to parse --class= parameter: %s", optarg);
+                        break;
+
+                case 'm':
+                        arg_image_class = IMAGE_MACHINE;
+                        break;
+
+                case 'P':
+                        arg_image_class = IMAGE_PORTABLE;
+                        break;
+
+                case 'S':
+                        arg_image_class = IMAGE_SYSEXT;
+                        break;
+
+                case 'C':
+                        arg_image_class = IMAGE_CONFEXT;
                         break;
 
                 case '?':
