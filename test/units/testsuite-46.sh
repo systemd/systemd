@@ -305,7 +305,7 @@ homectl remove blob-user
 export PAGER=
 
 # Create a couple of user/group records to test io.systemd.DropIn
-# See docs/USER_RECORD.md and docs/GROUP_RECORD.md
+# See docs/_groups/USER_RECORD.md and docs/_groups/GROUP_RECORD.md
 mkdir -p /run/userdb/
 cat >"/run/userdb/dropingroup.group" <<\EOF
 {
