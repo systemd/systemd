@@ -37,6 +37,7 @@ static bool arg_legend = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
 static ImportFlags arg_import_flags = 0;
+static ImportFlags arg_import_flags_mask = 0; /* Indicates which flags have been explicitly set to on or to off */
 static bool arg_quiet = false;
 static bool arg_ask_password = true;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
@@ -58,6 +59,11 @@ static int settle_image_class(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "No image class specified, retry with --class= set to one of: %s.", j);
         }
+
+        /* Keep the original pristine downloaded file as a copy only when dealing with machine images,
+         * because unlike sysext/confext/portable they are typically modified during runtime. */
+        if (!FLAGS_SET(arg_import_flags_mask, IMPORT_PULL_KEEP_DOWNLOAD))
+                SET_FLAG(arg_import_flags, IMPORT_PULL_KEEP_DOWNLOAD, arg_image_class == IMAGE_MACHINE);
 
         return 0;
 }
@@ -586,7 +592,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                                                local);
         }
 
-        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
+        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~IMPORT_FORCE) == 0) {
                 r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullTar");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -610,7 +616,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                                 local,
                                 image_class_to_string(arg_image_class),
                                 import_verify_to_string(arg_verify),
-                                (uint64_t) arg_import_flags & (IMPORT_FORCE|IMPORT_READ_ONLY));
+                                (uint64_t) arg_import_flags & (IMPORT_FORCE|IMPORT_READ_ONLY|IMPORT_PULL_KEEP_DOWNLOAD));
         }
         if (r < 0)
                 return bus_log_create_error(r);
@@ -659,7 +665,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                                                local);
         }
 
-        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~(IMPORT_FORCE|IMPORT_READ_ONLY)) == 0) {
+        if (arg_image_class == IMAGE_MACHINE && (arg_image_class & ~IMPORT_FORCE) == 0) {
                 r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullRaw");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -683,7 +689,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                                 local,
                                 image_class_to_string(arg_image_class),
                                 import_verify_to_string(arg_verify),
-                                (uint64_t) arg_import_flags & (IMPORT_FORCE|IMPORT_READ_ONLY));
+                                (uint64_t) arg_import_flags & (IMPORT_FORCE|IMPORT_READ_ONLY|IMPORT_PULL_KEEP_DOWNLOAD));
         }
         if (r < 0)
                 return bus_log_create_error(r);
@@ -856,6 +862,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -P --class=portable         Install as portable service image\n"
                "  -S --class=sysext           Install as system extension image\n"
                "  -C --class=confext          Install as configuration extension image\n"
+               "     --keep-download=BOOL     Control whether to keep pristine copy of download\n"
+               "  -N                          Shortcut for --keep-download=no\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -880,6 +888,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORCE,
                 ARG_FORMAT,
                 ARG_CLASS,
+                ARG_KEEP_DOWNLOAD,
         };
 
         static const struct option options[] = {
@@ -897,6 +906,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "force",           no_argument,       NULL, ARG_FORCE           },
                 { "format",          required_argument, NULL, ARG_FORMAT          },
                 { "class",           required_argument, NULL, ARG_CLASS           },
+                { "keep-download",   required_argument, NULL, ARG_KEEP_DOWNLOAD   },
                 {}
         };
 
@@ -906,7 +916,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         for (;;) {
-                c = getopt_long(argc, argv, "hH:M:jqmPSC", options, NULL);
+                c = getopt_long(argc, argv, "hH:M:jqmPSCN", options, NULL);
                 if (c < 0)
                         break;
 
@@ -942,6 +952,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_READ_ONLY:
                         arg_import_flags |= IMPORT_READ_ONLY;
+                        arg_import_flags_mask |= IMPORT_READ_ONLY;
                         break;
 
                 case 'q':
@@ -962,6 +973,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FORCE:
                         arg_import_flags |= IMPORT_FORCE;
+                        arg_import_flags_mask |= IMPORT_FORCE;
                         break;
 
                 case ARG_FORMAT:
@@ -1005,6 +1017,20 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'C':
                         arg_image_class = IMAGE_CONFEXT;
+                        break;
+
+                case ARG_KEEP_DOWNLOAD:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --keep-download= value: %s", optarg);
+
+                        SET_FLAG(arg_import_flags, IMPORT_PULL_KEEP_DOWNLOAD, r);
+                        arg_import_flags_mask |= IMPORT_PULL_KEEP_DOWNLOAD;
+                        break;
+
+                case 'N':
+                        arg_import_flags_mask &= ~IMPORT_PULL_KEEP_DOWNLOAD;
+                        arg_import_flags_mask |= IMPORT_PULL_KEEP_DOWNLOAD;
                         break;
 
                 case '?':
