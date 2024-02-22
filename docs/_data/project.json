@@ -1,0 +1,42 @@
+[
+  {
+    "category": "Project",
+    "title": "mkosi Project - Build Bespoke OS Images",
+    "url": "https://mkosi.systemd.io/"
+  },
+  {
+    "collection": "project",
+    "title": "Brand",
+    "url": "https://brand.systemd.io/"
+  },
+  {
+    "collection": "project",
+    "title": "Mailing List",
+    "url": "https://lists.freedesktop.org/mailman/listinfo/systemd-devel"
+  },
+  {
+    "collection": "project",
+    "title": "Mastodon",
+    "url": "https://mastodon.social/@pid_eins"
+  },
+  {
+    "collection": "project",
+    "title": "Releases",
+    "url": "https://github.com/systemd/systemd/releases"
+  },
+  {
+    "collection": "project",
+    "title": "GitHub Project Page",
+    "url": "https://github.com/systemd/systemd"
+  },
+  {
+    "collection": "project",
+    "title": "Issues",
+    "url": "https://github.com/systemd/systemd/issues"
+  },
+  {
+    "collection": "project",
+    "title": "Pull Requests",
+    "url": "https://github.com/systemd/systemd/pulls"
+  }
+]

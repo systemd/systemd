@@ -26,13 +26,13 @@ Information about build requirements is provided in the [README file](README).
 
 Consult our [NEWS file](NEWS) for information about what's new in the most recent systemd versions.
 
-Please see the [Code Map](docs/ARCHITECTURE.md) for information about this repository's layout and content.
+Please see the [Code Map](docs/_contributing/ARCHITECTURE.md) for information about this repository's layout and content.
 
-Please see the [Hacking guide](docs/HACKING.md) for information on how to hack on systemd and test your modifications.
+Please see the [Hacking guide](docs/_contributing/HACKING.md) for information on how to hack on systemd and test your modifications.
 
-Please see our [Contribution Guidelines](docs/CONTRIBUTING.md) for more information about filing GitHub Issues and posting GitHub Pull Requests.
+Please see our [Contribution Guidelines](docs/_contributing/CONTRIBUTING.md) for more information about filing GitHub Issues and posting GitHub Pull Requests.
 
-When preparing patches for systemd, please follow our [Coding Style Guidelines](docs/CODING_STYLE.md).
+When preparing patches for systemd, please follow our [Coding Style Guidelines](docs/_contributing/CODING_STYLE.md).
 
 If you are looking for support, please contact our [mailing list](https://lists.freedesktop.org/mailman/listinfo/systemd-devel), join our [IRC channel #systemd on libera.chat](https://web.libera.chat/#systemd) or [Matrix channel](https://matrix.to/#/#systemd-project:matrix.org)
 

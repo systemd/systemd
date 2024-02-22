@@ -40,7 +40,7 @@ Arch Linux initrds.
   line options, for example `--log-level=` and similar.
 
 * Storage daemons run from the initrd should follow the guide on
-  [systemd and Storage Daemons for the Root File System](ROOT_STORAGE_DAEMONS.md)
+  [systemd and Storage Daemons for the Root File System](ROOT_STORAGE_DAEMONS)
   to survive properly from the boot initrd all the way to the point where
   systemd jumps back into the initrd for shutdown.
 
@@ -67,4 +67,4 @@ systemd. Here are a few terse notes:
 
 * The switch-root operation will result in a killing spree of all running
   processes. Some processes might need to be excluded from that, see the guide
-  on [systemd and Storage Daemons for the Root File System](ROOT_STORAGE_DAEMONS.md).
+  on [systemd and Storage Daemons for the Root File System](ROOT_STORAGE_DAEMONS).
