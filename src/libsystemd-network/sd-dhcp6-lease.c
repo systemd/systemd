@@ -9,6 +9,7 @@
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "network-common.h"
+#include "sort-util.h"
 #include "strv.h"
 #include "unaligned.h"
 
@@ -443,13 +444,14 @@ static int dhcp6_lease_add_dnr(sd_dhcp6_lease *lease, const uint8_t *optval, siz
 
         assert(lease);
 
-        _cleanup_(dnr_resolver_data_free_allp) ResolverData *res = new0(ResolverData, 1);
+        _cleanup_(sd_dns_resolver_done) sd_dns_resolver res = {};
+
         size_t offset = 0;
 
         /* priority */
         if (optlen - offset < sizeof(uint16_t))
                 return -EBADMSG;
-        res->priority = unaligned_read_be16(&optval[offset]);
+        res.priority = unaligned_read_be16(&optval[offset]);
         offset += sizeof(uint16_t);
 
         /* adn */
@@ -460,7 +462,7 @@ static int dhcp6_lease_add_dnr(sd_dhcp6_lease *lease, const uint8_t *optval, siz
         if (offset + ilen > optlen)
                 return -EBADMSG;
 
-        r = dhcp6_option_parse_domainname(&optval[offset], ilen, &res->auth_name);
+        r = dhcp6_option_parse_domainname(&optval[offset], ilen, &res.auth_name);
         if (r < 0)
                 return r;
         offset += ilen;
@@ -487,45 +489,43 @@ static int dhcp6_lease_add_dnr(sd_dhcp6_lease *lease, const uint8_t *optval, siz
                 return -EBADMSG;
         offset += ilen;
 
-        res->addrs = new(union in_addr_union, n_addrs);
+        res.addrs = new(union in_addr_union, n_addrs);
         for (size_t i = 0; i < n_addrs; i++) {
                 union in_addr_union addr = (union in_addr_union) {.in6 = addrs[i]};
                 /* RFC9463 § 6.2 client MUST discard multicast and host loopback addresses */
                 if (in_addr_is_multicast(AF_INET6, &addr) ||
                     in_addr_is_localhost(AF_INET6, &addr))
                         return -EBADMSG;
-                res->addrs[i] = addr;
+                res.addrs[i] = addr;
         }
-        res->n_addrs = n_addrs;
-        res->family = AF_INET6;
+        res.n_addrs = n_addrs;
+        res.family = AF_INET6;
 
         /* svc params */
-        r = dnr_parse_svc_params(&optval[offset], optlen-offset, res);
+        r = dnr_parse_svc_params(&optval[offset], optlen-offset, &res);
         if (r < 0)
                 return r;
 
-        /* Record resolvers in priority order */
-        LIST_FOREACH(resolvers, i, lease->resolvers) {
-                if (res->priority < i->priority) {
-                        LIST_INSERT_BEFORE(resolvers, lease->resolvers, i, TAKE_PTR(res));
-                        break;
-                }
-        }
-        if (res)
-                LIST_APPEND(resolvers, lease->resolvers, TAKE_PTR(res));
+        /* Append this resolver */
+        if (!GREEDY_REALLOC(lease->dnr, lease->n_dnr+1))
+                return -ENOMEM;
+
+        lease->dnr[lease->n_dnr++] = TAKE_STRUCT(res);
+
+        typesafe_qsort(lease->dnr, lease->n_dnr, sd_dns_resolver_prio_compare);
 
         return 1;
 }
 
-int sd_dhcp6_lease_get_dnr(sd_dhcp6_lease *lease, ResolverData **ret) {
+int sd_dhcp6_lease_get_dnr(sd_dhcp6_lease *lease, sd_dns_resolver **ret) {
         assert_return(lease, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        if (!lease->resolvers)
+        if (!lease->dnr)
                 return -ENODATA;
 
-        *ret = lease->resolvers;
-        return !!lease->resolvers;
+        *ret = lease->dnr;
+        return lease->n_dnr;
 }
 
 int dhcp6_lease_add_ntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
@@ -1001,7 +1001,7 @@ static sd_dhcp6_lease *dhcp6_lease_free(sd_dhcp6_lease *lease) {
         dhcp6_ia_free(lease->ia_na);
         dhcp6_ia_free(lease->ia_pd);
         free(lease->dns);
-        dnr_resolver_data_free_all(lease->resolvers);
+        sd_dns_resolver_array_free(lease->dnr, lease->n_dnr);
         free(lease->fqdn);
         free(lease->captive_portal);
         strv_free(lease->domains);

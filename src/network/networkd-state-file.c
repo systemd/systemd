@@ -578,7 +578,7 @@ static void serialize_resolvers(
         }
 
         if (lease6 && conditional6) {
-                ResolverData *resolvers;
+                sd_dns_resolver *resolvers;
                 _cleanup_strv_free_ char **names = NULL;
                 int r;
 
@@ -586,7 +586,7 @@ static void serialize_resolvers(
                 if (r < 0)
                         return;
 
-                r = dns_resolvers_to_dot_strv(resolvers, &names);
+                r = sd_dns_resolvers_to_dot_strv(resolvers, r, &names);
                 if (r > 0)
                         fputstrv(f, names, NULL, space);
         }
