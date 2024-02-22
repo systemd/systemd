@@ -595,54 +595,6 @@ static int config_parse_many_files(
         return 0;
 }
 
-/* Parse one main config file located in /etc/$pkgdir and its drop-ins, which is what all systemd daemons
- * do. */
-int config_parse_config_file(
-                const char *conf_file,
-                const char *sections,
-                ConfigItemLookup lookup,
-                const void *table,
-                ConfigParseFlags flags,
-                void *userdata) {
-
-        _cleanup_strv_free_ char **dropins = NULL, **dropin_dirs = NULL;
-        char **conf_paths = CONF_PATHS_STRV("");
-        int r;
-
-        assert(conf_file);
-
-        /* build the dropin dir list */
-        dropin_dirs = new0(char*, strv_length(conf_paths) + 1);
-        if (!dropin_dirs) {
-                if (flags & CONFIG_PARSE_WARN)
-                        return log_oom();
-                return -ENOMEM;
-        }
-
-        size_t i = 0;
-        STRV_FOREACH(p, conf_paths) {
-                char *d;
-
-                d = strjoin(*p, conf_file, ".d");
-                if (!d) {
-                        if (flags & CONFIG_PARSE_WARN)
-                                log_oom();
-                        return -ENOMEM;
-                }
-
-                dropin_dirs[i++] = d;
-        }
-
-        r = conf_files_list_strv(&dropins, ".conf", NULL, 0, (const char**) dropin_dirs);
-        if (r < 0)
-                return r;
-
-        const char *sysconf_file = strjoina(SYSCONF_DIR, "/", conf_file);
-
-        return config_parse_many_files(NULL, STRV_MAKE_CONST(sysconf_file), dropins,
-                                       sections, lookup, table, flags, userdata, NULL);
-}
-
 /* Parse each config file in the directories specified as strv. */
 int config_parse_many(
                 const char* const* conf_files,

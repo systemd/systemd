@@ -1893,9 +1893,12 @@ static int server_parse_config_file(Server *s) {
         else
                 conf_file = "systemd/journald.conf";
 
-        return config_parse_config_file(conf_file, "Journal\0",
-                                        config_item_perf_lookup, journald_gperf_lookup,
-                                        CONFIG_PARSE_WARN, s);
+        return config_parse_standard_file_with_dropins(
+                        conf_file,
+                        "Journal\0",
+                        config_item_perf_lookup, journald_gperf_lookup,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ s);
 }
 
 static int server_dispatch_sync(sd_event_source *es, usec_t t, void *userdata) {
