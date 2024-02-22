@@ -2231,6 +2231,10 @@ static int show_log_table(EventLog *el, sd_json_variant **ret_variant) {
         FOREACH_ARRAY(rr, el->records, el->n_records) {
                 EventLogRecord *record = *rr;
 
+                if (EVENT_LOG_RECORD_IS_PCR(record) &&
+                    arg_pcr_mask != 0 && !FLAGS_SET(arg_pcr_mask, UINT32_C(1) << record->pcr))
+                        continue;
+
                 if (EVENT_LOG_RECORD_IS_PCR(record))
                         r = table_add_many(table,
                                            TABLE_UINT32, record->pcr,
@@ -2380,6 +2384,9 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
         (void) table_set_json_field_name(table, 7, "noMissingComponents");
 
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
+                if (arg_pcr_mask != 0 && !FLAGS_SET(arg_pcr_mask, UINT32_C(1) << pcr))
+                        continue;
+
                 /* Check if the PCR hash value matches the event log data */
                 bool hash_match = event_log_pcr_checks_out(el, el->registers + pcr);
 
