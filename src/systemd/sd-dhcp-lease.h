@@ -25,8 +25,7 @@
 #include <sys/types.h>
 
 /* #include "dns-resolver.h" FIXME: whynot? */
-typedef struct ResolverData ResolverData;
-typedef struct ResolverData sd_dns_resolver;
+typedef struct sd_dns_resolver sd_dns_resolver;
 #include "sd-dhcp-client-id.h"
 
 #include "_sd-common.h"

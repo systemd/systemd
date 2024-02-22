@@ -29,8 +29,7 @@
 _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_ndisc_router sd_ndisc_router;
-typedef struct ResolverData ResolverData;
-typedef struct ResolverData sd_dns_resolver;
+typedef struct sd_dns_resolver sd_dns_resolver;
 
 sd_ndisc_router *sd_ndisc_router_ref(sd_ndisc_router *rt);
 sd_ndisc_router *sd_ndisc_router_unref(sd_ndisc_router *rt);
