@@ -308,7 +308,7 @@ void print_separator(void) {
                 fputs("\n\n", stdout);
 }
 
-static int guess_type(const char **name, char ***prefixes, bool *is_collection, const char **extension) {
+static int guess_type(const char **name, char ***ret_prefixes, bool *ret_is_collection, const char **ret_extension) {
         /* Try to figure out if name is like tmpfiles.d/ or systemd/system-presets/,
          * i.e. a collection of directories without a main config file.
          * Incidentally, all those formats don't use sections. So we return a single
@@ -355,9 +355,9 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
                 ext = ".preset";
         }
 
-        *prefixes = (char**) (run ? run_prefixes : std_prefixes);
-        *is_collection = coll;
-        *extension = ext;
+        *ret_prefixes = (char**) (run ? run_prefixes : std_prefixes);
+        *ret_is_collection = coll;
+        *ret_extension = ext;
         return 0;
 }
 
