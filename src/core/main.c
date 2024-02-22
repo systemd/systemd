@@ -2290,12 +2290,6 @@ static int initialize_runtime(
                 install_crash_handler();
 
                 if (!skip_setup) {
-                        r = mount_cgroup_controllers();
-                        if (r < 0) {
-                                *ret_error_message = "Failed to mount cgroup hierarchies";
-                                return r;
-                        }
-
                         /* Pull credentials from various sources into a common credential directory (we do
                          * this here, before setting up the machine ID, so that we can use credential info
                          * for setting up the machine ID) */
@@ -3018,7 +3012,12 @@ int main(int argc, char *argv[]) {
                 /* Mount /proc, /sys and friends, so that /proc/cmdline and /proc/$PID/fd is available. */
                 r = mount_setup(loaded_policy, skip_setup);
                 if (r < 0) {
-                        error_message = "Failed to mount API filesystems";
+                        /* Before we actually start deleting cgroup v1 code, make it harder to boot in
+                         * cgroupv1 mode first. See also #30852. */
+                        if (r == -ERFKILL)
+                                error_message = "Refusing to run under cgroup v1, SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1 not specified on kernel command line";
+                        else
+                                error_message = "Failed to mount API filesystems";
                         goto finish;
                 }
 
