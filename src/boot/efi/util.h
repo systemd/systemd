@@ -29,11 +29,7 @@ static inline void freep(void *p) {
 #define _cleanup_free_ _cleanup_(freep)
 
 _malloc_ _alloc_(1) _returns_nonnull_ _warn_unused_result_
-static inline void *xmalloc(size_t size) {
-        void *p;
-        assert_se(BS->AllocatePool(EfiLoaderData, size, &p) == EFI_SUCCESS);
-        return p;
-}
+void *xmalloc(size_t size);
 
 _malloc_ _alloc_(1, 2) _returns_nonnull_ _warn_unused_result_
 static inline void *xmalloc_multiply(size_t n, size_t size) {
