@@ -36,6 +36,11 @@ sys.path.append(os.path.dirname(__file__) + '/..')
 import ukify
 
 build_root = os.getenv('PROJECT_BUILD_ROOT')
+try:
+    slow_tests = bool(int(os.getenv('SYSTEMD_SLOW_TESTS', '1')))
+except ValueError:
+    slow_tests = True
+
 arg_tools = ['--tools', build_root] if build_root else []
 
 def systemd_measure():
@@ -531,6 +536,7 @@ def test_uname_scraping(kernel_initrd):
     uname = ukify.Uname.scrape(kernel_initrd[1])
     assert re.match(r'\d+\.\d+\.\d+', uname)
 
+@pytest.mark.skipif(not slow_tests, reason='slow')
 @pytest.mark.parametrize("days", [365*10, None])
 def test_efi_signing_sbsign(days, kernel_initrd, tmp_path):
     if kernel_initrd is None:
@@ -576,6 +582,7 @@ def test_efi_signing_sbsign(days, kernel_initrd, tmp_path):
 
     shutil.rmtree(tmp_path)
 
+@pytest.mark.skipif(not slow_tests, reason='slow')
 def test_efi_signing_pesign(kernel_initrd, tmp_path):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
@@ -635,16 +642,22 @@ def test_inspect(kernel_initrd, tmp_path, capsys):
     uname_arg='1.2.3'
     osrel_arg='Linux'
     cmdline_arg='ARG1 ARG2 ARG3'
-    opts = ukify.parse_args([
+
+    args = [
         'build',
         *kernel_initrd,
         f'--cmdline={cmdline_arg}',
         f'--os-release={osrel_arg}',
         f'--uname={uname_arg}',
         f'--output={output}',
-        f'--secureboot-certificate={cert.name}',
-        f'--secureboot-private-key={key.name}',
-    ])
+    ]
+    if slow_tests:
+        args += [
+            f'--secureboot-certificate={cert.name}',
+            f'--secureboot-private-key={key.name}',
+        ]
+
+    opts = ukify.parse_args(args)
 
     ukify.check_inputs(opts)
     ukify.make_uki(opts)
@@ -668,6 +681,7 @@ def test_inspect(kernel_initrd, tmp_path, capsys):
 
     shutil.rmtree(tmp_path)
 
+@pytest.mark.skipif(not slow_tests, reason='slow')
 def test_pcr_signing(kernel_initrd, tmp_path):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
@@ -734,6 +748,7 @@ def test_pcr_signing(kernel_initrd, tmp_path):
 
     shutil.rmtree(tmp_path)
 
+@pytest.mark.skipif(not slow_tests, reason='slow')
 def test_pcr_signing2(kernel_initrd, tmp_path):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
