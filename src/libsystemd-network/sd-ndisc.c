@@ -196,6 +196,8 @@ static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
+        (void) event_source_disable(nd->timeout_event_source);
+
         log_ndisc(nd, "Received Router Advertisement: flags %s preference %s lifetime %s",
                   rt->flags & ND_RA_FLAG_MANAGED ? "MANAGED" : rt->flags & ND_RA_FLAG_OTHER ? "OTHER" : "none",
                   rt->preference == SD_NDISC_PREFERENCE_HIGH ? "high" : rt->preference == SD_NDISC_PREFERENCE_LOW ? "low" : "medium",
@@ -250,10 +252,11 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
 
         /* The function icmp6_receive() accepts the null source address, but RFC 4861 Section 6.1.2 states
          * that hosts MUST discard messages with the null source address. */
-        if (in6_addr_is_null(&rt->address))
-                log_ndisc(nd, "Received RA from null address. Ignoring.");
+        if (in6_addr_is_null(&rt->address)) {
+                log_ndisc(nd, "Received an ICMPv6 packet from null address, ignoring.");
+                return 0;
+        }
 
-        (void) event_source_disable(nd->timeout_event_source);
         (void) ndisc_handle_datagram(nd, rt);
         return 0;
 }
