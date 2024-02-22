@@ -29,6 +29,7 @@ create_container() {
     # enable source repositories so that apt-get build-dep works
     sudo lxc-attach -n "$CONTAINER" -- sh -ex <<EOF
 sed 's/^deb/deb-src/' /etc/apt/sources.list >>/etc/apt/sources.list.d/sources.list
+echo "deb http://deb.debian.org/debian $RELEASE-backports main" >/etc/apt/sources.list.d/backports.list
 # We might attach the console too soon
 until systemctl --quiet --wait is-system-running; do sleep 1; done
 # Manpages database trigger takes a lot of time and is not useful in a CI
@@ -44,6 +45,8 @@ apt-get -y dist-upgrade
 apt-get install -y eatmydata
 # The following four are needed as long as these deps are not covered by Debian's own packaging
 apt-get install -y fdisk tree libfdisk-dev libp11-kit-dev libssl-dev libpwquality-dev rpm
+# autopkgtest doesn't consider backports
+apt-get install -y -t $RELEASE-backports debhelper libcurl4-openssl-dev libarchive-dev
 apt-get purge --auto-remove -y unattended-upgrades
 systemctl unmask systemd-networkd
 systemctl enable systemd-networkd
