@@ -3066,7 +3066,7 @@ static int verb_lock_secureboot_authority(int argc, char *argv[], void *userdata
          * checks, and that's what we should bind policy to. Moreover it's hard to predict, since extension
          * card firmware validation will result in additional records here. */
 
-        if (!is_efi_secure_boot()) {
+        if (!is_efi_secure_boot() && !arg_force) {
                 log_info("SecureBoot disabled, not generating authority .pcrlock file.");
                 return unlink_pcrlock(PCRLOCK_SECUREBOOT_AUTHORITY_PATH);
         }
