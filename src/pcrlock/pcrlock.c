@@ -2024,6 +2024,7 @@ static int add_algorithm_columns(
 
 static int show_log_table(EventLog *el, JsonVariant **ret_variant) {
         _cleanup_(table_unrefp) Table *table = NULL;
+        uint32_t pcr_mask = arg_pcr_mask ?: TPM2_PCRS_MASK;
         int r;
 
         assert(el);
@@ -2068,6 +2069,9 @@ static int show_log_table(EventLog *el, JsonVariant **ret_variant) {
 
         FOREACH_ARRAY(rr, el->records, el->n_records) {
                 EventLogRecord *record = *rr;
+
+                if (!FLAGS_SET(pcr_mask,  UINT32_C(1) << record->pcr))
+                        continue;
 
                 r = table_add_many(table,
                                    TABLE_UINT32, record->pcr,
@@ -2162,6 +2166,7 @@ static bool event_log_pcr_checks_out(const EventLog *el, const EventLogRegister 
 
 static int show_pcr_table(EventLog *el, JsonVariant **ret_variant) {
         _cleanup_(table_unrefp) Table *table = NULL;
+        uint32_t pcr_mask = arg_pcr_mask ?: TPM2_PCRS_MASK;
         int r;
 
         assert(el);
@@ -2207,6 +2212,10 @@ static int show_pcr_table(EventLog *el, JsonVariant **ret_variant) {
         (void) table_set_json_field_name(table, 7, "noMissingComponents");
 
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
+
+                if (!FLAGS_SET(pcr_mask,  UINT32_C(1) << pcr))
+                        continue;
+
                 /* Check if the PCR hash value matches the event log data */
                 bool hash_match = event_log_pcr_checks_out(el, el->registers + pcr);
 
