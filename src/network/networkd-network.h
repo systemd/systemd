@@ -145,6 +145,7 @@ struct Network {
         int dhcp_use_rapid_commit;
         bool dhcp_use_dns;
         bool dhcp_use_dns_set;
+        int dhcp_use_dnr;
         bool dhcp_routes_to_dns;
         bool dhcp_use_ntp;
         bool dhcp_use_ntp_set;
@@ -179,6 +180,7 @@ struct Network {
         bool dhcp6_send_hostname_set;
         bool dhcp6_use_dns;
         bool dhcp6_use_dns_set;
+        int  dhcp6_use_dnr;
         bool dhcp6_use_hostname;
         bool dhcp6_use_ntp;
         bool dhcp6_use_ntp_set;
@@ -336,6 +338,7 @@ struct Network {
 
         /* IPv6 accept RA */
         int ipv6_accept_ra;
+        int ipv6_accept_ra_use_dnr;
         bool ipv6_accept_ra_use_dns;
         bool ipv6_accept_ra_use_gateway;
         bool ipv6_accept_ra_use_route_prefix;
@@ -413,6 +416,18 @@ int network_load(Manager *manager, OrderedHashmap **networks);
 int network_reload(Manager *manager);
 int network_load_one(Manager *manager, OrderedHashmap **networks, const char *filename);
 int network_verify(Network *network);
+static inline int network_dhcp_use_dnr(Network *network) {
+        assert(network);
+        return network->dhcp_use_dnr < 0 ? network->dhcp_use_dns : network->dhcp_use_dnr;
+}
+static inline int network_dhcp6_use_dnr(Network *network) {
+        assert(network);
+        return network->dhcp6_use_dnr < 0 ? network->dhcp6_use_dns : network->dhcp6_use_dnr;
+}
+static inline int network_ipv6_accept_ra_use_dnr(Network *network) {
+        assert(network);
+        return network->ipv6_accept_ra_use_dnr < 0 ? network->ipv6_accept_ra_use_dns : network->ipv6_accept_ra_use_dnr;
+}
 
 int manager_build_dhcp_pd_subnet_ids(Manager *manager);
 
