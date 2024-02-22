@@ -386,6 +386,7 @@ static int transfer_start(Transfer *t) {
                         NULL, /* verify argument */
                         NULL, /* --class= */
                         NULL, /* class argument */
+                        NULL, /* --keep-download= */
                         NULL, /* maybe --force */
                         NULL, /* maybe --read-only */
                         NULL, /* if so: the actual URL */
@@ -465,6 +466,10 @@ static int transfer_start(Transfer *t) {
                         cmd[k++] = "--class";
                         cmd[k++] = image_class_to_string(t->class);
                 }
+
+                if (IN_SET(t->type, TRANSFER_PULL_TAR, TRANSFER_PULL_RAW))
+                        cmd[k++] = FLAGS_SET(t->flags, IMPORT_PULL_KEEP_DOWNLOAD) ?
+                                "--keep-download=yes" : "--keep-download=no";
 
                 if (FLAGS_SET(t->flags, IMPORT_FORCE))
                         cmd[k++] = "--force";
@@ -1041,7 +1046,7 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Image class '%s' not known", sclass);
 
-                if (flags & ~(IMPORT_FORCE|IMPORT_READ_ONLY))
+                if (flags & ~(IMPORT_FORCE|IMPORT_READ_ONLY|IMPORT_PULL_KEEP_DOWNLOAD))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Flags 0x%" PRIx64 " invalid", flags);
         } else {
