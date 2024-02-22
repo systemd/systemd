@@ -60,7 +60,7 @@ struct RawPull {
         void *userdata;
 
         char *local; /* In PULL_DIRECT mode the path we are supposed to place things in, otherwise the
-                      * machine name of the final copy we make */
+                      * image name of the final copy we make */
 
         char *final_path;
         char *temp_path;
@@ -127,8 +127,9 @@ int raw_pull_new(
         int r;
 
         assert(ret);
+        assert(image_root);
 
-        root = strdup(image_root ?: "/var/lib/machines");
+        root = strdup(image_root);
         if (!root)
                 return -ENOMEM;
 

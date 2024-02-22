@@ -37,10 +37,8 @@ int pull_find_old_etags(
         int r;
 
         assert(url);
+        assert(image_root);
         assert(etags);
-
-        if (!image_root)
-                image_root = "/var/lib/machines";
 
         _cleanup_free_ char *escaped_url = xescape(url, FILENAME_ESCAPE);
         if (!escaped_url)
@@ -128,10 +126,8 @@ int pull_make_path(const char *url, const char *etag, const char *image_root, co
         char *path;
 
         assert(url);
+        assert(image_root);
         assert(ret);
-
-        if (!image_root)
-                image_root = "/var/lib/machines";
 
         escaped_url = xescape(url, FILENAME_ESCAPE);
         if (!escaped_url)

@@ -26,11 +26,12 @@
 #include "verbs.h"
 #include "web-util.h"
 
-static const char *arg_image_root = "/var/lib/machines";
+static const char *arg_image_root = NULL;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static ImportFlags arg_import_flags = IMPORT_PULL_SETTINGS | IMPORT_PULL_ROOTHASH | IMPORT_PULL_ROOTHASH_SIGNATURE | IMPORT_PULL_VERITY | IMPORT_BTRFS_SUBVOL | IMPORT_BTRFS_QUOTA | IMPORT_CONVERT_QCOW2 | IMPORT_SYNC;
 static uint64_t arg_offset = UINT64_MAX, arg_size_max = UINT64_MAX;
 static char *arg_checksum = NULL;
+static ImageClass arg_class = IMAGE_MACHINE;
 
 STATIC_DESTRUCTOR_REGISTER(arg_checksum, freep);
 
@@ -64,7 +65,7 @@ static int normalize_local(const char *local, const char *url, char **ret) {
                                                local);
 
                 if (!FLAGS_SET(arg_import_flags, IMPORT_FORCE)) {
-                        r = image_find(IMAGE_MACHINE, local, NULL, NULL);
+                        r = image_find(arg_class, local, NULL, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
@@ -241,7 +242,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
 static int help(int argc, char *argv[], void *userdata) {
 
         printf("%1$s [OPTIONS...] {COMMAND} ...\n"
-               "\n%4$sDownload container or virtual machine images.%5$s\n"
+               "\n%4$sDownload disk images.%5$s\n"
                "\n%2$sCommands:%3$s\n"
                "  tar URL [NAME]              Download a TAR image\n"
                "  raw URL [NAME]              Download a RAW image\n"
@@ -267,7 +268,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              regular disk images\n"
                "     --sync=BOOL              Controls whether to sync() before completing\n"
                "     --offset=BYTES           Offset to seek to in destination\n"
-               "     --size-max=BYTES         Maximum number of bytes to write to destination\n",
+               "     --size-max=BYTES         Maximum number of bytes to write to destination\n"
+               "     --class=CLASS            Select image class (machine, sysext, confext,\n"
+               "                              portable)\n",
                program_invocation_short_name,
                ansi_underline(),
                ansi_normal(),
@@ -296,6 +299,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SYNC,
                 ARG_OFFSET,
                 ARG_SIZE_MAX,
+                ARG_CLASS,
         };
 
         static const struct option options[] = {
@@ -316,10 +320,12 @@ static int parse_argv(int argc, char *argv[]) {
                 { "sync",               required_argument, NULL, ARG_SYNC               },
                 { "offset",             required_argument, NULL, ARG_OFFSET             },
                 { "size-max",           required_argument, NULL, ARG_SIZE_MAX           },
+                { "class",              required_argument, NULL, ARG_CLASS              },
                 {}
         };
 
         int c, r;
+        bool auto_settings = true;
 
         assert(argc >= 0);
         assert(argv);
@@ -381,6 +387,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         SET_FLAG(arg_import_flags, IMPORT_PULL_SETTINGS, r);
+                        auto_settings = false;
                         break;
 
                 case ARG_ROOTHASH:
@@ -478,6 +485,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_CLASS:
+                        arg_class = image_class_from_string(optarg);
+                        if (arg_class < 0)
+                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", optarg);
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -496,6 +510,13 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_checksum && (arg_import_flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Literal checksum verification only supported if no associated files are downloaded.");
+
+        if (!arg_image_root)
+                arg_image_root = image_root_to_string(arg_class);
+
+        /* .nspawn settings files only really make sense for machine images, not for sysext/confext/portable */
+        if (auto_settings && arg_class != IMAGE_MACHINE)
+                arg_import_flags &= ~IMPORT_PULL_SETTINGS;
 
         return 1;
 }
