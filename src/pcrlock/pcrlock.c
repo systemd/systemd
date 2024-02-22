@@ -3756,20 +3756,26 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
         assert(el);
         assert(pcrs);
 
-        /* When we compile a new PCR policy we don't want to bind to PCRs which are fishy for one of three
+        /* When we compile a new PCR policy we don't want to bind to PCRs which are fishy for one of four
          * reasons:
          *
          * 1. The PCR value doesn't match the event log
          * 2. The event log for the PCR contains measurements we don't know responsible components for
          * 3. The event log for the PCR does not contain measurements for components we know
+         * 3. The PCR has no record in the event log and we have no component referring to the PCR
          *
-         * This function checks for the three conditions and drops the PCR from the mask.
+         * This function checks for the four conditions and drops the PCR from the mask.
          */
 
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
 
                 if (!FLAGS_SET(*pcrs, UINT32_C(1) << pcr))
                         continue;
+
+                if (!FLAGS_SET(el->has_component_pcrs, UINT32_C(1) << pcr)) {
+                        log_notice("PCR %" PRIu32 " (%s) has no component. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
+                        goto drop;
+                }
 
                 if (!event_log_pcr_checks_out(el, el->registers + pcr)) {
                         log_notice("PCR %" PRIu32 " (%s) value does not match event log. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
