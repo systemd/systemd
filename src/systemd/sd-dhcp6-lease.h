@@ -30,8 +30,7 @@
 _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_dhcp6_lease sd_dhcp6_lease;
-typedef struct ResolverData ResolverData;
-typedef struct ResolverData sd_dns_resolver;
+typedef struct sd_dns_resolver sd_dns_resolver;
 
 int sd_dhcp6_lease_get_timestamp(sd_dhcp6_lease *lease, clockid_t clock, uint64_t *ret);
 int sd_dhcp6_lease_get_t1(sd_dhcp6_lease *lease, uint64_t *ret);
