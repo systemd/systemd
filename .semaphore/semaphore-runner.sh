@@ -29,6 +29,7 @@ create_container() {
     # enable source repositories so that apt-get build-dep works
     sudo lxc-attach -n "$CONTAINER" -- sh -ex <<EOF
 sed 's/^deb/deb-src/' /etc/apt/sources.list >>/etc/apt/sources.list.d/sources.list
+echo "deb http://deb.debian.org/debian $RELEASE-backports main" >/etc/apt/sources.list.d/backports.list
 # We might attach the console too soon
 until systemctl --quiet --wait is-system-running; do sleep 1; done
 # Manpages database trigger takes a lot of time and is not useful in a CI
