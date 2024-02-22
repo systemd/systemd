@@ -91,7 +91,7 @@ static void router_dump(sd_ndisc_router *rt) {
                 case SD_NDISC_OPTION_SOURCE_LL_ADDRESS:
                 case SD_NDISC_OPTION_TARGET_LL_ADDRESS: {
                         _cleanup_free_ char *c = NULL;
-                        const void *p;
+                        const uint8_t *p;
                         size_t n;
 
                         assert_se(sd_ndisc_router_option_get_raw(rt, &p, &n) >= 0);
