@@ -17,6 +17,7 @@
 #include "log.h"
 #include "logs-show.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "pretty-print.h"
 #include "qrcode-util.h"
 #include "sigbus.h"
@@ -25,6 +26,9 @@
 #include "terminal-util.h"
 
 static bool arg_continuous = false;
+static char *arg_tty = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_tty, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -34,19 +38,22 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s\n\n"
-               "%sFilter the journal to fetch the first message from the\n"
-               "current boot with an emergency log level and displays it\n"
-               "as a string and a QR code.\n\n%s"
+        printf("%1$s [OPTIONS...]\n\n"
+               "%5$sFilter the journal to fetch the first message from the current boot with an%6$s\n"
+               "%5$semergency log level and display it as a string and a QR code.%6$s\n"
+               "\n%3$sOptions:%4$s\n"
                "   -h --help            Show this help\n"
                "      --version         Show package version\n"
                "   -c --continuous      Make systemd-bsod wait continuously\n"
                "                        for changes in the journal\n"
-               "\nSee the %s for details.\n",
+               "      --tty=TTY         Specify path to TTY to use\n"
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
+               link,
+               ansi_underline(),
                ansi_normal(),
-               link);
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
@@ -66,16 +73,16 @@ static int acquire_first_emergency_log_message(char **ret) {
 
         r = add_match_this_boot(j, NULL);
         if (r < 0)
-                return log_warning_errno(r, "Failed to add boot ID filter: %m");
+                return log_error_errno(r, "Failed to add boot ID filter: %m");
 
         r = sd_journal_add_match(j, "_UID=0", 0);
         if (r < 0)
-                return log_warning_errno(r, "Failed to add User ID filter: %m");
+                return log_error_errno(r, "Failed to add User ID filter: %m");
 
         assert_cc(0 == LOG_EMERG);
         r = sd_journal_add_match(j, "PRIORITY=0", 0);
         if (r < 0)
-                return log_warning_errno(r, "Failed to add Emergency filter: %m");
+                return log_error_errno(r, "Failed to add Emergency filter: %m");
 
         r = sd_journal_seek_head(j);
         if (r < 0)
@@ -124,18 +131,18 @@ static int find_next_free_vt(int fd, int *ret_free_vt, int *ret_original_vt) {
 
         for (size_t i = 0; i < sizeof(terminal_status.v_state) * 8; i++)
                 if ((terminal_status.v_state & (1 << i)) == 0) {
-                        *ret_free_vt = i;
+                        *ret_free_vt = i + 1;
                         *ret_original_vt = terminal_status.v_active;
                         return 0;
                 }
 
-        return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "No free VT found: %m");
+        return -ENOTTY;
 }
 
 static int display_emergency_message_fullscreen(const char *message) {
-        int r, ret = 0, free_vt = 0, original_vt = 0;
+        int r, free_vt = 0, original_vt = 0;
         unsigned qr_code_start_row = 1, qr_code_start_column = 1;
-        char tty[STRLEN("/dev/tty") + DECIMAL_STR_MAX(int) + 1];
+        char ttybuf[STRLEN("/dev/tty") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -EBADF;
         _cleanup_fclose_ FILE *stream = NULL;
         char read_character_buffer = '\0';
@@ -143,30 +150,36 @@ static int display_emergency_message_fullscreen(const char *message) {
                 .ws_col = 80,
                 .ws_row = 25,
         };
+        const char *tty;
 
         assert(message);
 
-        fd = open_terminal("/dev/tty1", O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if (arg_tty)
+                tty = arg_tty;
+        else {
+                fd = open_terminal("/dev/tty1", O_RDWR|O_NOCTTY|O_CLOEXEC);
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to open /dev/tty1: %m");
+
+                r = find_next_free_vt(fd, &free_vt, &original_vt);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find a free VT: %m");
+
+                xsprintf(ttybuf, "/dev/tty%d", free_vt);
+                tty = ttybuf;
+
+                fd = safe_close(fd);
+        }
+
+        fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
-                return log_error_errno(fd, "Failed to open tty1: %m");
-
-        r = find_next_free_vt(fd, &free_vt, &original_vt);
-        if (r < 0)
-                return log_error_errno(r, "Failed to find a free VT: %m");
-
-        xsprintf(tty, "/dev/tty%d", free_vt + 1);
-
-        r = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (r < 0)
-                return log_error_errno(fd, "Failed to open tty: %m");
-
-        close_and_replace(fd, r);
+                return log_error_errno(fd, "Failed to open %s: %m", tty);
 
         if (ioctl(fd, TIOCGWINSZ, &w) < 0)
                 log_warning_errno(errno, "Failed to fetch tty size, ignoring: %m");
 
-        if (ioctl(fd, VT_ACTIVATE, free_vt + 1) < 0)
-                return log_error_errno(errno, "Failed to activate tty: %m");
+        if (free_vt > 0 && ioctl(fd, VT_ACTIVATE, free_vt) < 0)
+                return log_error_errno(errno, "Failed to activate /dev/tty%i, ignoring: %m", free_vt);
 
         r = loop_write(fd, ANSI_BACKGROUND_BLUE ANSI_HOME_CLEAR, SIZE_MAX);
         if (r < 0)
@@ -178,7 +191,7 @@ static int display_emergency_message_fullscreen(const char *message) {
 
         r = loop_write(fd, "The current boot has failed!", SIZE_MAX);
         if (r < 0) {
-                ret = log_warning_errno(r, "Failed to write to terminal: %m");
+                log_error_errno(r, "Failed to write to terminal: %m");
                 goto cleanup;
         }
 
@@ -190,13 +203,13 @@ static int display_emergency_message_fullscreen(const char *message) {
 
         r = loop_write(fd, message, SIZE_MAX);
         if (r < 0) {
-                ret = log_warning_errno(r, "Failed to write emergency message to terminal: %m");
+                log_error_errno(r, "Failed to write emergency message to terminal: %m");
                 goto cleanup;
         }
 
         r = fdopen_independent(fd, "r+", &stream);
         if (r < 0) {
-                ret = log_error_errno(errno, "Failed to open output file: %m");
+                r = log_error_errno(errno, "Failed to open output file: %m");
                 goto cleanup;
         }
 
@@ -208,37 +221,41 @@ static int display_emergency_message_fullscreen(const char *message) {
         if (r < 0)
                 log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
 
-        r = loop_write(fd, "Press any key to exit...", SIZE_MAX);
+        r = loop_write(fd, ANSI_BACKGROUND_BLUE "Press any key to exit...", SIZE_MAX);
         if (r < 0) {
-                ret = log_warning_errno(r, "Failed to write to terminal: %m");
+                log_error_errno(r, "Failed to write to terminal: %m");
                 goto cleanup;
         }
 
         r = read_one_char(stream, &read_character_buffer, USEC_INFINITY, NULL);
         if (r < 0 && r != -EINTR)
-                ret = log_error_errno(r, "Failed to read character: %m");
+                log_error_errno(r, "Failed to read character: %m");
+
+        r = 0;
 
 cleanup:
-        if (ioctl(fd, VT_ACTIVATE, original_vt) < 0)
-                return log_error_errno(errno, "Failed to switch back to original VT: %m");
+        if (original_vt > 0 && ioctl(fd, VT_ACTIVATE, original_vt) < 0)
+                log_warning_errno(errno, "Failed to switch back to original VT /dev/tty%i: %m", original_vt);
 
-        return ret;
+        return r;
 }
 
 static int parse_argv(int argc, char * argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_TTY,
         };
 
         static const struct option options[] = {
-                { "help",       no_argument, NULL, 'h'         },
-                { "version",    no_argument, NULL, ARG_VERSION },
-                { "continuous", no_argument, NULL, 'c'         },
+                { "help",       no_argument,       NULL, 'h'         },
+                { "version",    no_argument,       NULL, ARG_VERSION },
+                { "continuous", no_argument,       NULL, 'c'         },
+                { "tty",        required_argument, NULL, ARG_TTY     },
                 {}
         };
 
-        int c;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -255,6 +272,13 @@ static int parse_argv(int argc, char * argv[]) {
 
                 case 'c':
                         arg_continuous = true;
+                        break;
+
+                case ARG_TTY:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tty);
+                        if (r < 0)
+                                return r;
+
                         break;
 
                 case '?':
@@ -292,7 +316,7 @@ static int run(int argc, char *argv[]) {
 
         r = acquire_first_emergency_log_message(&message);
         if (r < 0)
-                return log_error_errno(r, "Failed to acquire first emergency log message: %m");
+                return r;
 
         if (!message) {
                 log_debug("No emergency-level entries");
@@ -301,11 +325,7 @@ static int run(int argc, char *argv[]) {
 
         assert_se(sigaction_many(&nop_sigaction, SIGTERM, SIGINT) >= 0);
 
-        r = display_emergency_message_fullscreen((const char*) message);
-        if (r < 0)
-                return log_error_errno(r, "Failed to display emergency message on terminal: %m");
-
-        return 0;
+        return display_emergency_message_fullscreen(message);
 }
 
 DEFINE_MAIN_FUNCTION(run);
