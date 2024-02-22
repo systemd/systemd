@@ -42,7 +42,7 @@ struct RawPull {
         sd_event *event;
         CurlGlue *glue;
 
-        PullFlags flags;
+        ImportFlags flags;
         ImportVerify verify;
         char *image_root;
 
@@ -244,9 +244,9 @@ static int raw_pull_maybe_convert_qcow2(RawPull *i) {
 
         assert(i);
         assert(i->raw_job);
-        assert(!FLAGS_SET(i->flags, PULL_DIRECT));
+        assert(!FLAGS_SET(i->flags, IMPORT_DIRECT));
 
-        if (!FLAGS_SET(i->flags, PULL_CONVERT_QCOW2))
+        if (!FLAGS_SET(i->flags, IMPORT_CONVERT_QCOW2))
                 return 0;
 
         assert(i->final_path);
@@ -328,8 +328,8 @@ static int raw_pull_copy_auxiliary_file(
                         local,
                         0644,
                         COPY_REFLINK |
-                        (FLAGS_SET(i->flags, PULL_FORCE) ? COPY_REPLACE : 0) |
-                        (FLAGS_SET(i->flags, PULL_SYNC) ? COPY_FSYNC_FULL : 0));
+                        (FLAGS_SET(i->flags, IMPORT_FORCE) ? COPY_REPLACE : 0) |
+                        (FLAGS_SET(i->flags, IMPORT_SYNC) ? COPY_FSYNC_FULL : 0));
         if (r == -EEXIST)
                 log_warning_errno(r, "File %s already exists, not replacing.", local);
         else if (r == -ENOENT)
@@ -351,7 +351,7 @@ static int raw_pull_make_local_copy(RawPull *i) {
 
         assert(i);
         assert(i->raw_job);
-        assert(!FLAGS_SET(i->flags, PULL_DIRECT));
+        assert(!FLAGS_SET(i->flags, IMPORT_DIRECT));
 
         if (!i->local)
                 return 0;
@@ -401,9 +401,9 @@ static int raw_pull_make_local_copy(RawPull *i) {
 
         r = install_file(AT_FDCWD, tp,
                          AT_FDCWD, p,
-                         (i->flags & PULL_FORCE ? INSTALL_REPLACE : 0) |
-                         (i->flags & PULL_READ_ONLY ? INSTALL_READ_ONLY : 0) |
-                         (i->flags & PULL_SYNC ? INSTALL_FSYNC_FULL : 0));
+                         (i->flags & IMPORT_FORCE ? INSTALL_REPLACE : 0) |
+                         (i->flags & IMPORT_READ_ONLY ? INSTALL_READ_ONLY : 0) |
+                         (i->flags & IMPORT_SYNC ? INSTALL_FSYNC_FULL : 0));
         if (r < 0)
                 return log_error_errno(errno, "Failed to move local image into place '%s': %m", p);
 
@@ -411,25 +411,25 @@ static int raw_pull_make_local_copy(RawPull *i) {
 
         log_info("Created new local image '%s'.", i->local);
 
-        if (FLAGS_SET(i->flags, PULL_SETTINGS)) {
+        if (FLAGS_SET(i->flags, IMPORT_PULL_SETTINGS)) {
                 r = raw_pull_copy_auxiliary_file(i, ".nspawn", &i->settings_path);
                 if (r < 0)
                         return r;
         }
 
-        if (FLAGS_SET(i->flags, PULL_ROOTHASH)) {
+        if (FLAGS_SET(i->flags, IMPORT_PULL_ROOTHASH)) {
                 r = raw_pull_copy_auxiliary_file(i, ".roothash", &i->roothash_path);
                 if (r < 0)
                         return r;
         }
 
-        if (FLAGS_SET(i->flags, PULL_ROOTHASH_SIGNATURE)) {
+        if (FLAGS_SET(i->flags, IMPORT_PULL_ROOTHASH_SIGNATURE)) {
                 r = raw_pull_copy_auxiliary_file(i, ".roothash.p7s", &i->roothash_signature_path);
                 if (r < 0)
                         return r;
         }
 
-        if (FLAGS_SET(i->flags, PULL_VERITY)) {
+        if (FLAGS_SET(i->flags, IMPORT_PULL_VERITY)) {
                 r = raw_pull_copy_auxiliary_file(i, ".verity", &i->verity_path);
                 if (r < 0)
                         return r;
@@ -485,7 +485,7 @@ static int raw_pull_rename_auxiliary_file(
                         AT_FDCWD, *temp_path,
                         AT_FDCWD, *path,
                         INSTALL_READ_ONLY|
-                        (i->flags & PULL_SYNC ? INSTALL_FSYNC_FULL : 0));
+                        (i->flags & IMPORT_SYNC ? INSTALL_FSYNC_FULL : 0));
         if (r < 0)
                 return log_error_errno(r, "Failed to move '%s' into place: %m", *path);
 
@@ -588,7 +588,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
                         goto finish;
         }
 
-        if (i->flags & PULL_DIRECT) {
+        if (i->flags & IMPORT_DIRECT) {
                 assert(!i->settings_job);
                 assert(!i->roothash_job);
                 assert(!i->roothash_signature_job);
@@ -599,8 +599,8 @@ static void raw_pull_job_on_finished(PullJob *j) {
                 if (i->local) {
                         r = install_file(AT_FDCWD, i->local,
                                          AT_FDCWD, NULL,
-                                         ((i->flags & PULL_READ_ONLY) && i->offset == UINT64_MAX ? INSTALL_READ_ONLY : 0) |
-                                         (i->flags & PULL_SYNC ? INSTALL_FSYNC_FULL : 0));
+                                         ((i->flags & IMPORT_READ_ONLY) && i->offset == UINT64_MAX ? INSTALL_READ_ONLY : 0) |
+                                         (i->flags & IMPORT_SYNC ? INSTALL_FSYNC_FULL : 0));
                         if (r < 0) {
                                 log_error_errno(r, "Failed to finalize raw file to '%s': %m", i->local);
                                 goto finish;
@@ -628,7 +628,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
                         r = install_file(AT_FDCWD, i->temp_path,
                                          AT_FDCWD, i->final_path,
                                          INSTALL_READ_ONLY|
-                                         (i->flags & PULL_SYNC ? INSTALL_FSYNC_FULL : 0));
+                                         (i->flags & IMPORT_SYNC ? INSTALL_FSYNC_FULL : 0));
                         if (r < 0) {
                                 log_error_errno(r, "Failed to move raw file to '%s': %m", i->final_path);
                                 goto finish;
@@ -694,7 +694,7 @@ static int raw_pull_job_on_open_disk_generic(
         assert(extra);
         assert(temp_path);
 
-        assert(!FLAGS_SET(i->flags, PULL_DIRECT));
+        assert(!FLAGS_SET(i->flags, IMPORT_DIRECT));
 
         if (!*temp_path) {
                 r = tempfn_random_child(i->image_root, extra, temp_path);
@@ -722,7 +722,7 @@ static int raw_pull_job_on_open_disk_raw(PullJob *j) {
         assert(i->raw_job == j);
         assert(j->disk_fd < 0);
 
-        if (i->flags & PULL_DIRECT) {
+        if (i->flags & IMPORT_DIRECT) {
 
                 if (!i->local) { /* If no local name specified, the pull job will write its data to stdout */
                         j->disk_fd = STDOUT_FILENO;
@@ -816,7 +816,7 @@ int raw_pull_start(
                 const char *local,
                 uint64_t offset,
                 uint64_t size_max,
-                PullFlags flags,
+                ImportFlags flags,
                 ImportVerify verify,
                 const char *checksum) {
 
@@ -827,10 +827,10 @@ int raw_pull_start(
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
         assert((verify < 0) || !checksum);
-        assert(!(flags & ~PULL_FLAGS_MASK_RAW));
-        assert(offset == UINT64_MAX || FLAGS_SET(flags, PULL_DIRECT));
-        assert(!(flags & (PULL_SETTINGS|PULL_ROOTHASH|PULL_ROOTHASH_SIGNATURE|PULL_VERITY)) || !(flags & PULL_DIRECT));
-        assert(!(flags & (PULL_SETTINGS|PULL_ROOTHASH|PULL_ROOTHASH_SIGNATURE|PULL_VERITY)) || !checksum);
+        assert(!(flags & ~IMPORT_PULL_FLAGS_MASK_RAW));
+        assert(offset == UINT64_MAX || FLAGS_SET(flags, IMPORT_DIRECT));
+        assert(!(flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) || !(flags & IMPORT_DIRECT));
+        assert(!(flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) || !checksum);
 
         if (!http_url_is_valid(url) && !file_url_is_valid(url))
                 return -EINVAL;
@@ -880,7 +880,7 @@ int raw_pull_start(
         if (offset != UINT64_MAX)
                 i->raw_job->offset = i->offset = offset;
 
-        if (!FLAGS_SET(flags, PULL_DIRECT)) {
+        if (!FLAGS_SET(flags, IMPORT_DIRECT)) {
                 r = pull_find_old_etags(url, i->image_root, DT_REG, ".raw-", ".raw", &i->raw_job->old_etags);
                 if (r < 0)
                         return r;
@@ -898,7 +898,7 @@ int raw_pull_start(
         if (r < 0)
                 return r;
 
-        if (FLAGS_SET(flags, PULL_SETTINGS)) {
+        if (FLAGS_SET(flags, IMPORT_PULL_SETTINGS)) {
                 r = pull_make_auxiliary_job(
                                 &i->settings_job,
                                 url,
@@ -913,7 +913,7 @@ int raw_pull_start(
                         return r;
         }
 
-        if (FLAGS_SET(flags, PULL_ROOTHASH)) {
+        if (FLAGS_SET(flags, IMPORT_PULL_ROOTHASH)) {
                 r = pull_make_auxiliary_job(
                                 &i->roothash_job,
                                 url,
@@ -928,7 +928,7 @@ int raw_pull_start(
                         return r;
         }
 
-        if (FLAGS_SET(flags, PULL_ROOTHASH_SIGNATURE)) {
+        if (FLAGS_SET(flags, IMPORT_PULL_ROOTHASH_SIGNATURE)) {
                 r = pull_make_auxiliary_job(
                                 &i->roothash_signature_job,
                                 url,
@@ -943,7 +943,7 @@ int raw_pull_start(
                         return r;
         }
 
-        if (FLAGS_SET(flags, PULL_VERITY)) {
+        if (FLAGS_SET(flags, IMPORT_PULL_VERITY)) {
                 r = pull_make_auxiliary_job(
                                 &i->verity_job,
                                 url,
@@ -972,7 +972,7 @@ int raw_pull_start(
                         continue;
 
                 j->on_progress = raw_pull_job_on_progress;
-                j->sync = FLAGS_SET(flags, PULL_SYNC);
+                j->sync = FLAGS_SET(flags, IMPORT_SYNC);
 
                 r = pull_job_begin(j);
                 if (r < 0)
