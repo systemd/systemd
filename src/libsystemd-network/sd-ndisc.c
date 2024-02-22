@@ -252,8 +252,10 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
 
         /* The function icmp6_receive() accepts the null source address, but RFC 4861 Section 6.1.2 states
          * that hosts MUST discard messages with the null source address. */
-        if (in6_addr_is_null(&rt->address))
-                log_ndisc(nd, "Received RA from null address. Ignoring.");
+        if (in6_addr_is_null(&rt->address)) {
+                log_ndisc(nd, "Received an ICMPv6 packet from null address, ignoring.");
+                return 0;
+        }
 
         (void) ndisc_handle_datagram(nd, rt);
         return 0;
