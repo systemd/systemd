@@ -697,3 +697,10 @@ char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path) {
         remove_boot_count(file_path_str);
         return xasprintf("%ls.extra.d", file_path_str);
 }
+
+_malloc_ _alloc_(1) _returns_nonnull_ _warn_unused_result_
+void *xmalloc(size_t size) {
+        void *p = NULL;
+        assert_se(BS->AllocatePool(EfiLoaderData, size, &p) == EFI_SUCCESS);
+        return p;
+}
