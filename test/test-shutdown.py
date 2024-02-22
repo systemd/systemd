@@ -4,6 +4,7 @@
 
 import argparse
 import logging
+import os
 import signal
 import sys
 import time
@@ -12,6 +13,8 @@ import pexpect
 
 
 def run(args):
+    is_qemu = any("qemu" in arg for arg in args.arg)
+
     ret = 1
     logger = logging.getLogger("test-shutdown")
     logfile = None
@@ -25,19 +28,21 @@ def run(args):
     logger.info("spawning test")
     console = pexpect.spawn(args.command, args.arg, logfile=logfile, env={
             "TERM": "dumb",
-        }, encoding='utf-8', timeout=60)
+        }, encoding='utf-8', timeout=(None if is_qemu else 60))
 
     logger.debug("child pid %d", console.pid)
 
     try:
         logger.info("waiting for login prompt")
-        console.expect('H login: ', 10)
+        console.expect('H login: ', 60 if is_qemu else 10)
 
         logger.info("log in and start screen")
         console.sendline('root')
         console.expect('bash.*# ', 10)
         console.sendline('screen')
         console.expect('screen0 ', 10)
+        if is_qemu:
+            console.sendcontrol('a')
         console.sendcontrol('a')
         console.send('c')
         console.expect('screen1 ', 10)
@@ -59,6 +64,8 @@ def run(args):
         date = console.match.group('date')
         logger.info("reboot scheduled for %s", date)
 
+        if is_qemu:
+            console.sendcontrol('a')
         console.sendcontrol('a')
         console.send('0')
         logger.info("verify broadcast message")
@@ -71,12 +78,16 @@ def run(args):
 
         logger.info("cancel shutdown")
         console.sendline('shutdown -c')
+        if is_qemu:
+            console.sendcontrol('a')
         console.sendcontrol('a')
         console.send('1')
         console.expect('System shutdown has been cancelled', 2)
 
         logger.info("call for reboot")
         console.sendline('sleep 10; shutdown -r now')
+        if is_qemu:
+            console.sendcontrol('a')
         console.sendcontrol('a')
         console.send('0')
         console.expect("The system will reboot now!", 12)
