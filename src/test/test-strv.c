@@ -527,6 +527,22 @@ TEST(strv_sort) {
         assert_se(streq(input_table[4], "durian"));
 }
 
+TEST(strv_extend_strv_biconcat) {
+        _cleanup_strv_free_ char **a = NULL, **b = NULL;
+
+        a = strv_new("without", "suffix");
+        b = strv_new("with", "suffix");
+        assert_se(a);
+        assert_se(b);
+
+        assert_se(strv_extend_strv_biconcat(&a, "prefix_", b, "_suffix") >= 0);
+
+        assert_se(streq(a[0], "without"));
+        assert_se(streq(a[1], "suffix"));
+        assert_se(streq(a[2], "prefix_with_suffix"));
+        assert_se(streq(a[3], "prefix_suffix_suffix"));
+}
+
 TEST(strv_extend_strv_concat) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
