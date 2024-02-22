@@ -94,6 +94,8 @@ EOF
             sed -i '/# NOUPSTREAM/ q' debian/tests/control
             # enable more unit tests
             sed -i '/^CONFFLAGS =/ s/=/= --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dman=true /' debian/rules
+            # disable EFI, build fails due to compiler false positive, but only on semaphore
+            sed -i "s/option('efi', type : 'boolean',/option('efi', type : 'boolean', value : false,/" meson_options.txt
             # no orig tarball
             echo '1.0' >debian/source/format
 
