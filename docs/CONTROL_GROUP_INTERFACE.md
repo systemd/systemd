@@ -9,7 +9,17 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 > _aka "I want to make use of kernel cgroups, how do I do this in the new world order?"_
 
-Starting with version 205 systemd provides a number of interfaces that may be used to create and manage labelled groups of processes for the purpose of monitoring and controlling them and their resource usage. This is built on top of the Linux kernel Control Groups ("cgroups") facility. Previously, the kernel's cgroups API was exposed directly as shared application API, following the rules of the [Pax Control Groups](http://www.freedesktop.org/wiki/Software/systemd/PaxControlGroups/) document. However, the kernel cgroup interface has been reworked into an API that requires that each individual cgroup is managed by a single writer only. With this change the main cgroup tree becomes private property of that userspace component and is no longer a shared resource. On systemd systems PID 1 takes this role and hence needs to provide APIs for clients to take benefit of the control groups functionality of the kernel. Note that services running on systemd systems may manage their own subtrees of the cgroups tree, as long as they explicitly turn on delegation mode for them (see below).
+Starting with version 205 systemd provides a number of interfaces that may be used to create and manage labelled groups of processes for the purpose of monitoring and controlling them and their resource usage.
+This is built on top of the Linux kernel Control Groups ("cgroups") facility.
+
+Previously, the kernel's cgroups API was exposed directly as shared application API, following the rules of the [Pax Control Groups](PAX_CONTROL_GROUPS) document.
+However, the kernel cgroup interface has been reworked into an API that requires that each individual cgroup is managed by a single writer only.
+
+With this change the main cgroup tree becomes private property of that userspace component and is no longer a shared resource.
+
+On systemd systems PID 1 takes this role and hence needs to provide APIs for clients to take benefit of the control groups functionality of the kernel.
+
+Note that services running on systemd systems may manage their own subtrees of the cgroups tree, as long as they explicitly turn on delegation mode for them (see below).
 
 That means explicitly, that:
 
@@ -46,7 +56,7 @@ On systemd systems use the systemd APIs as described below. At this time we are 
 
 ### What's the timeframe of this? Do I need to care now?
 
-In the short-term future writing directly to the control group tree from applications should still be OK, as long as the [Pax Control Groups](http://www.freedesktop.org/wiki/Software/systemd/PaxControlGroups/) document is followed. In the medium-term future it will still be supported to alter/read individual attributes of cgroups directly, but no longer to create/delete cgroups without using the systemd API. In the longer-term future altering/reading attributes will also be unavailable to userspace applications, unless done via systemd's APIs (either D-Bus based IPC APIs or shared library APIs for _passive_ operations).
+In the short-term future writing directly to the control group tree from applications should still be OK, as long as the [Pax Control Groups](PAX_CONTROL_GROUPS) document is followed. In the medium-term future it will still be supported to alter/read individual attributes of cgroups directly, but no longer to create/delete cgroups without using the systemd API. In the longer-term future altering/reading attributes will also be unavailable to userspace applications, unless done via systemd's APIs (either D-Bus based IPC APIs or shared library APIs for _passive_ operations).
 
 It is recommended to use the new systemd APIs described below in any case. Note that the kernel cgroup interface is currently being reworked (available when the "sane_behaviour" kernel option is used). This will change the cgroupfs interface. By using systemd's APIs this change is abstracted away and invisible to applications.
 
