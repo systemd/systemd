@@ -27,6 +27,8 @@
   <refsynopsisdiv>
     <para><simplelist>
       <member><filename>/etc/systemd/logind.conf</filename></member>
+      <member><filename>/run/systemd/logind.conf</filename></member>
+      <member><filename>/usr/lib/systemd/logind.conf</filename></member>
       <member><filename>/etc/systemd/logind.conf.d/*.conf</filename></member>
       <member><filename>/run/systemd/logind.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/logind.conf.d/*.conf</filename></member>
