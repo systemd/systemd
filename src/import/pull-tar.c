@@ -41,7 +41,7 @@ struct TarPull {
         sd_event *event;
         CurlGlue *glue;
 
-        PullFlags flags;
+        ImportFlags flags;
         ImportVerify verify;
         char *image_root;
 
@@ -238,11 +238,11 @@ static int tar_pull_make_local_copy(TarPull *i) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate temporary filename for %s: %m", p);
 
-        if (i->flags & PULL_BTRFS_SUBVOL)
+        if (i->flags & IMPORT_BTRFS_SUBVOL)
                 r = btrfs_subvol_snapshot_at(
                                 AT_FDCWD, i->final_path,
                                 AT_FDCWD, t,
-                                (i->flags & PULL_BTRFS_QUOTA ? BTRFS_SNAPSHOT_QUOTA : 0)|
+                                (i->flags & IMPORT_BTRFS_QUOTA ? BTRFS_SNAPSHOT_QUOTA : 0)|
                                 BTRFS_SNAPSHOT_FALLBACK_COPY|
                                 BTRFS_SNAPSHOT_FALLBACK_DIRECTORY|
                                 BTRFS_SNAPSHOT_RECURSIVE);
@@ -253,9 +253,9 @@ static int tar_pull_make_local_copy(TarPull *i) {
 
         r = install_file(AT_FDCWD, t,
                          AT_FDCWD, p,
-                         (i->flags & PULL_FORCE ? INSTALL_REPLACE : 0) |
-                         (i->flags & PULL_READ_ONLY ? INSTALL_READ_ONLY : 0) |
-                         (i->flags & PULL_SYNC ? INSTALL_SYNCFS : 0));
+                         (i->flags & IMPORT_FORCE ? INSTALL_REPLACE : 0) |
+                         (i->flags & IMPORT_READ_ONLY ? INSTALL_READ_ONLY : 0) |
+                         (i->flags & IMPORT_SYNC ? INSTALL_SYNCFS : 0));
         if (r < 0)
                 return log_error_errno(r, "Failed to install local image '%s': %m", p);
 
@@ -263,7 +263,7 @@ static int tar_pull_make_local_copy(TarPull *i) {
 
         log_info("Created new local image '%s'.", i->local);
 
-        if (FLAGS_SET(i->flags, PULL_SETTINGS)) {
+        if (FLAGS_SET(i->flags, IMPORT_PULL_SETTINGS)) {
                 const char *local_settings;
                 assert(i->settings_job);
 
@@ -278,8 +278,8 @@ static int tar_pull_make_local_copy(TarPull *i) {
                                 local_settings,
                                 0664,
                                 COPY_REFLINK |
-                                (FLAGS_SET(i->flags, PULL_FORCE) ? COPY_REPLACE : 0) |
-                                (FLAGS_SET(i->flags, PULL_SYNC) ? COPY_FSYNC_FULL : 0));
+                                (FLAGS_SET(i->flags, IMPORT_FORCE) ? COPY_REPLACE : 0) |
+                                (FLAGS_SET(i->flags, IMPORT_SYNC) ? COPY_FSYNC_FULL : 0));
                 if (r == -EEXIST)
                         log_warning_errno(r, "Settings file %s already exists, not replacing.", local_settings);
                 else if (r == -ENOENT)
@@ -394,7 +394,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
                         goto finish;
         }
 
-        if (i->flags & PULL_DIRECT) {
+        if (i->flags & IMPORT_DIRECT) {
                 assert(!i->settings_job);
                 assert(i->local);
                 assert(!i->temp_path);
@@ -408,8 +408,8 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 r = install_file(
                                 AT_FDCWD, i->local,
                                 AT_FDCWD, NULL,
-                                (i->flags & PULL_READ_ONLY) ? INSTALL_READ_ONLY : 0 |
-                                (i->flags & PULL_SYNC ? INSTALL_SYNCFS : 0));
+                                (i->flags & IMPORT_READ_ONLY) ? INSTALL_READ_ONLY : 0 |
+                                (i->flags & IMPORT_SYNC ? INSTALL_SYNCFS : 0));
                 if (r < 0) {
                         log_error_errno(r, "Failed to finalize '%s': %m", i->local);
                         goto finish;
@@ -435,7 +435,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
                                         AT_FDCWD, i->temp_path,
                                         AT_FDCWD, i->final_path,
                                         INSTALL_READ_ONLY|
-                                        (i->flags & PULL_SYNC ? INSTALL_SYNCFS : 0));
+                                        (i->flags & IMPORT_SYNC ? INSTALL_SYNCFS : 0));
                         if (r < 0) {
                                 log_error_errno(r, "Failed to rename to final image name to %s: %m", i->final_path);
                                 goto finish;
@@ -462,7 +462,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
                                                 AT_FDCWD, i->settings_temp_path,
                                                 AT_FDCWD, i->settings_path,
                                                 INSTALL_READ_ONLY|
-                                                (i->flags & PULL_SYNC ? INSTALL_FSYNC_FULL : 0));
+                                                (i->flags & IMPORT_SYNC ? INSTALL_FSYNC_FULL : 0));
                                 if (r < 0) {
                                         log_error_errno(r, "Failed to rename settings file to %s: %m", i->settings_path);
                                         goto finish;
@@ -500,7 +500,7 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
         assert(i->tar_job == j);
         assert(i->tar_pid <= 0);
 
-        if (i->flags & PULL_DIRECT)
+        if (i->flags & IMPORT_DIRECT)
                 where = i->local;
         else {
                 if (!i->temp_path) {
@@ -514,20 +514,20 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
 
         (void) mkdir_parents_label(where, 0700);
 
-        if (FLAGS_SET(i->flags, PULL_DIRECT|PULL_FORCE))
+        if (FLAGS_SET(i->flags, IMPORT_DIRECT|IMPORT_FORCE))
                 (void) rm_rf(where, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
-        if (i->flags & PULL_BTRFS_SUBVOL)
+        if (i->flags & IMPORT_BTRFS_SUBVOL)
                 r = btrfs_subvol_make_fallback(AT_FDCWD, where, 0755);
         else
                 r = RET_NERRNO(mkdir(where, 0755));
-        if (r == -EEXIST && (i->flags & PULL_DIRECT)) /* EEXIST is OK if in direct mode, but not otherwise,
+        if (r == -EEXIST && (i->flags & IMPORT_DIRECT)) /* EEXIST is OK if in direct mode, but not otherwise,
                                                        * because in that case our temporary path collided */
                 r = 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to create directory/subvolume %s: %m", where);
-        if (r > 0 && (i->flags & PULL_BTRFS_QUOTA)) { /* actually btrfs subvol */
-                if (!(i->flags & PULL_DIRECT))
+        if (r > 0 && (i->flags & IMPORT_BTRFS_QUOTA)) { /* actually btrfs subvol */
+                if (!(i->flags & IMPORT_DIRECT))
                         (void) import_assign_pool_quota_and_warn(i->image_root);
                 (void) import_assign_pool_quota_and_warn(where);
         }
@@ -579,7 +579,7 @@ int tar_pull_start(
                 TarPull *i,
                 const char *url,
                 const char *local,
-                PullFlags flags,
+                ImportFlags flags,
                 ImportVerify verify,
                 const char *checksum) {
 
@@ -589,9 +589,9 @@ int tar_pull_start(
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
         assert((verify < 0) || !checksum);
-        assert(!(flags & ~PULL_FLAGS_MASK_TAR));
-        assert(!(flags & PULL_SETTINGS) || !(flags & PULL_DIRECT));
-        assert(!(flags & PULL_SETTINGS) || !checksum);
+        assert(!(flags & ~IMPORT_PULL_FLAGS_MASK_TAR));
+        assert(!(flags & IMPORT_PULL_SETTINGS) || !(flags & IMPORT_DIRECT));
+        assert(!(flags & IMPORT_PULL_SETTINGS) || !checksum);
 
         if (!http_url_is_valid(url) && !file_url_is_valid(url))
                 return -EINVAL;
@@ -622,7 +622,7 @@ int tar_pull_start(
         i->tar_job->on_open_disk = tar_pull_job_on_open_disk_tar;
         i->tar_job->calc_checksum = checksum || IN_SET(verify, IMPORT_VERIFY_CHECKSUM, IMPORT_VERIFY_SIGNATURE);
 
-        if (!FLAGS_SET(flags, PULL_DIRECT)) {
+        if (!FLAGS_SET(flags, IMPORT_DIRECT)) {
                 r = pull_find_old_etags(url, i->image_root, DT_DIR, ".tar-", NULL, &i->tar_job->old_etags);
                 if (r < 0)
                         return r;
@@ -642,7 +642,7 @@ int tar_pull_start(
                 return r;
 
         /* Set up download job for the settings file (.nspawn) */
-        if (FLAGS_SET(flags, PULL_SETTINGS)) {
+        if (FLAGS_SET(flags, IMPORT_PULL_SETTINGS)) {
                 r = pull_make_auxiliary_job(
                                 &i->settings_job,
                                 url,
@@ -668,7 +668,7 @@ int tar_pull_start(
                         continue;
 
                 j->on_progress = tar_pull_job_on_progress;
-                j->sync = FLAGS_SET(flags, PULL_SYNC);
+                j->sync = FLAGS_SET(flags, IMPORT_SYNC);
 
                 r = pull_job_begin(j);
                 if (r < 0)

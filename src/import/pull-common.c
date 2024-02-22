@@ -643,9 +643,9 @@ int pull_job_restart_with_sha256sum(PullJob *j, char **ret) {
         return 1;
 }
 
-bool pull_validate_local(const char *name, PullFlags flags) {
+bool pull_validate_local(const char *name, ImportFlags flags) {
 
-        if (FLAGS_SET(flags, PULL_DIRECT))
+        if (FLAGS_SET(flags, IMPORT_DIRECT))
                 return path_is_valid(name);
 
         return hostname_is_valid(name, 0);
