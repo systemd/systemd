@@ -39,7 +39,8 @@ struct sd_dhcp6_lease {
 
         struct in6_addr *dns;
         size_t dns_count;
-        ResolverData *resolvers;
+        sd_dns_resolver *dnr;
+        size_t n_dnr;
         char **domains;
         struct in6_addr *ntp;
         size_t ntp_count;
