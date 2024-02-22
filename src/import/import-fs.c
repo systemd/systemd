@@ -133,7 +133,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                                                "Local path name '%s' is not valid.", final_path);
         } else {
                 if (local) {
-                        if (!hostname_is_valid(local, 0))
+                        if (!image_name_is_valid(local))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Local image name '%s' is not valid.", local);
                 } else
