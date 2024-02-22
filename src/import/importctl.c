@@ -220,9 +220,9 @@ static int import_tar(int argc, char *argv[], void *userdata) {
 
         local = ll;
 
-        if (!hostname_is_valid(local, 0))
+        if (!image_name_is_valid(local))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Local name %s is not a suitable machine name.",
+                                       "Local name %s is not a suitable image name.",
                                        local);
 
         if (path) {
@@ -299,9 +299,9 @@ static int import_raw(int argc, char *argv[], void *userdata) {
 
         local = ll;
 
-        if (!hostname_is_valid(local, 0))
+        if (!image_name_is_valid(local))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Local name %s is not a suitable machine name.",
+                                       "Local name %s is not a suitable image name.",
                                        local);
 
         if (path) {
@@ -369,9 +369,9 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Need either path or local name.");
 
-        if (!hostname_is_valid(local, 0))
+        if (!image_name_is_valid(local))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Local name %s is not a suitable machine name.",
+                                       "Local name %s is not a suitable image name.",
                                        local);
 
         if (path) {
@@ -439,9 +439,9 @@ static int export_tar(int argc, char *argv[], void *userdata) {
                 return r;
 
         local = argv[1];
-        if (!hostname_is_valid(local, 0))
+        if (!image_name_is_valid(local))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Machine name %s is not valid.", local);
+                                       "Image name %s is not valid.", local);
 
         if (argc >= 3)
                 path = argv[2];
@@ -498,9 +498,9 @@ static int export_raw(int argc, char *argv[], void *userdata) {
                 return r;
 
         local = argv[1];
-        if (!hostname_is_valid(local, 0))
+        if (!image_name_is_valid(local))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Machine name %s is not valid.", local);
+                                       "Image name %s is not valid.", local);
 
         if (argc >= 3)
                 path = argv[2];
@@ -580,9 +580,9 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
 
                 local = ll;
 
-                if (!hostname_is_valid(local, 0))
+                if (!image_name_is_valid(local))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Local name %s is not a suitable machine name.",
+                                               "Local name %s is not a suitable image name.",
                                                local);
         }
 
@@ -653,9 +653,9 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
 
                 local = ll;
 
-                if (!hostname_is_valid(local, 0))
+                if (!image_name_is_valid(local))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Local name %s is not a suitable machine name.",
+                                               "Local name %s is not a suitable image name.",
                                                local);
         }
 

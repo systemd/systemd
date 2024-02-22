@@ -54,7 +54,7 @@ static int normalize_local(const char *local, char **ret) {
                                                "Local path name '%s' is not valid.", local);
         } else {
                 if (local) {
-                        if (!hostname_is_valid(local, 0))
+                        if (!image_name_is_valid(local))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Local image name '%s' is not valid.",
                                                        local);
