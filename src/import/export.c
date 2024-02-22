@@ -63,12 +63,13 @@ static int export_tar(int argc, char *argv[], void *userdata) {
         _cleanup_close_ int open_fd = -EBADF;
         int r, fd;
 
-        if (hostname_is_valid(argv[1], 0)) {
-                r = image_find(arg_class, argv[1], NULL, &image);
+        local = argv[1];
+        if (image_name_is_valid(local)) {
+                r = image_find(arg_class, local, NULL, &image);
                 if (r == -ENOENT)
-                        return log_error_errno(r, "Machine image %s not found.", argv[1]);
+                        return log_error_errno(r, "Image %s not found.", local);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to look for machine %s: %m", argv[1]);
+                        return log_error_errno(r, "Failed to look for image %s: %m", local);
 
                 local = image->path;
         } else
@@ -135,12 +136,13 @@ static int export_raw(int argc, char *argv[], void *userdata) {
         _cleanup_close_ int open_fd = -EBADF;
         int r, fd;
 
-        if (hostname_is_valid(argv[1], 0)) {
-                r = image_find(arg_class, argv[1], NULL, &image);
+        local = argv[1];
+        if (image_name_is_valid(local)) {
+                r = image_find(arg_class, local, NULL, &image);
                 if (r == -ENOENT)
-                        return log_error_errno(r, "Machine image %s not found.", argv[1]);
+                        return log_error_errno(r, "Image %s not found.", local);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to look for machine %s: %m", argv[1]);
+                        return log_error_errno(r, "Failed to look for image %s: %m", local);
 
                 local = image->path;
         } else

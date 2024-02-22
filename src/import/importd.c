@@ -771,9 +771,9 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (!S_ISREG(st.st_mode) && !S_ISFIFO(st.st_mode))
                 return -EINVAL;
 
-        if (!hostname_is_valid(local, 0))
+        if (!image_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Local name %s is invalid", local);
+                                         "Local image name %s is invalid", local);
 
         if (class == IMAGE_MACHINE) {
                 r = setup_machine_directory(error, m->use_btrfs_subvol, m->use_btrfs_quota);
@@ -870,9 +870,9 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
         if (r < 0)
                 return r;
 
-        if (!hostname_is_valid(local, 0))
+        if (!image_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Local name %s is invalid", local);
+                                         "Local image name %s is invalid", local);
 
         if (class == IMAGE_MACHINE) {
                 r = setup_machine_directory(error, m->use_btrfs_subvol, m->use_btrfs_quota);
@@ -955,9 +955,9 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
                 flags = 0;
         }
 
-        if (!hostname_is_valid(local, 0))
+        if (!image_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Local name %s is invalid", local);
+                                         "Local image name %s is invalid", local);
 
         r = fd_verify_safe_flags(fd);
         if (r < 0)
@@ -1063,9 +1063,9 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
 
         if (isempty(local))
                 local = NULL;
-        else if (!hostname_is_valid(local, 0))
+        else if (!image_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Local name %s is invalid", local);
+                                         "Local image name %s is invalid", local);
 
         if (isempty(verify))
                 v = IMPORT_VERIFY_SIGNATURE;
