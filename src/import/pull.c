@@ -59,7 +59,7 @@ static int normalize_local(const char *local, const char *url, char **ret) {
 
         } else if (local) {
 
-                if (!hostname_is_valid(local, 0))
+                if (!image_name_is_valid(local))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Local image name '%s' is not valid.",
                                                local);

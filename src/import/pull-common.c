@@ -7,6 +7,7 @@
 #include "capability-util.h"
 #include "copy.h"
 #include "dirent-util.h"
+#include "discover-image.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "hostname-util.h"
@@ -644,7 +645,7 @@ bool pull_validate_local(const char *name, ImportFlags flags) {
         if (FLAGS_SET(flags, IMPORT_DIRECT))
                 return path_is_valid(name);
 
-        return hostname_is_valid(name, 0);
+        return image_name_is_valid(name);
 }
 
 int pull_url_needs_checksum(const char *url) {
