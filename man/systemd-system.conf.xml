@@ -28,12 +28,16 @@
 
   <refsynopsisdiv>
     <para><filename>/etc/systemd/system.conf</filename>,
+    <filename>/run/systemd/system.conf</filename>,
+    <filename>/usr/lib/systemd/system.conf</filename>,
     <filename>/etc/systemd/system.conf.d/*.conf</filename>,
     <filename>/run/systemd/system.conf.d/*.conf</filename>,
     <filename>/usr/lib/systemd/system.conf.d/*.conf</filename></para>
 
     <para><filename>~/.config/systemd/user.conf</filename>,
     <filename>/etc/systemd/user.conf</filename>,
+    <filename>/run/systemd/user.conf</filename>,
+    <filename>/usr/lib/systemd/user.conf</filename>,
     <filename>/etc/systemd/user.conf.d/*.conf</filename>,
     <filename>/run/systemd/user.conf.d/*.conf</filename>,
     <filename>/usr/lib/systemd/user.conf.d/*.conf</filename></para>
@@ -44,9 +48,10 @@
 
     <para>When run as a system instance, <command>systemd</command> interprets the configuration file
     <filename>system.conf</filename> and the files in <filename>system.conf.d</filename> directories; when
-    run as a user instance, it interprets the configuration file <filename>user.conf</filename> (either in
-    the home directory of the user, or if not found, under <filename>/etc/systemd/</filename>) and the files
-    in <filename>user.conf.d</filename> directories. These configuration files contain a few settings
+    run as a user instance, it interprets the configuration file <filename>user.conf</filename> (in order of
+    priority, in the home directory of the user and under <filename>/etc/systemd/</filename>,
+    <filename>/run/systemd/</filename>, and <filename>/usr/lib/systemd/</filename>) and the files in
+    <filename>user.conf.d</filename> directories. These configuration files contain a few settings
     controlling basic manager operations.</para>
 
     <para>See

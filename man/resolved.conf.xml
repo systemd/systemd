@@ -27,6 +27,8 @@
   <refsynopsisdiv>
     <para><simplelist>
       <member><filename>/etc/systemd/resolved.conf</filename></member>
+      <member><filename>/run/systemd/resolved.conf</filename></member>
+      <member><filename>/usr/lib/systemd/resolved.conf</filename></member>
       <member><filename>/etc/systemd/resolved.conf.d/*.conf</filename></member>
       <member><filename>/run/systemd/resolved.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/resolved.conf.d/*.conf</filename></member>
