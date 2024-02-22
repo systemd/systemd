@@ -23,6 +23,8 @@
 
   <refsynopsisdiv>
     <para><filename>/etc/systemd/journal-upload.conf</filename></para>
+    <para><filename>/run/systemd/journal-upload.conf</filename></para>
+    <para><filename>/usr/lib/systemd/journal-upload.conf</filename></para>
     <para><filename>/etc/systemd/journal-upload.conf.d/*.conf</filename></para>
     <para><filename>/run/systemd/journal-upload.conf.d/*.conf</filename></para>
     <para><filename>/usr/lib/systemd/journal-upload.conf.d/*.conf</filename></para>
