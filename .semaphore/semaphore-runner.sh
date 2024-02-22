@@ -72,7 +72,7 @@ for phase in "${PHASES[@]}"; do
         ;;
         RUN)
             # add current debian/ packaging
-            git fetch --depth=1 https://salsa.debian.org/systemd-team/systemd.git "$BRANCH"
+            git fetch --depth=1 https://salsa.debian.org/bluca/systemd.git "$BRANCH"
             git checkout FETCH_HEAD debian
 
             # craft changelog
