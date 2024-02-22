@@ -1502,12 +1502,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
                 output = check_output('ip -d link show test1')
                 print(output)
-                self.assertRegex(output, ' mtu 2000 ')
+                self.assertIn(' mtu 2000 ', output)
 
                 output = check_output('ip -d link show macvlan99')
                 print(output)
-                self.assertRegex(output, ' mtu 2000 ')
-                self.assertRegex(output, 'macvlan mode ' + mode + ' ')
+                self.assertIn(' mtu 2000 ', output)
+                self.assertIn(f' macvlan mode {mode} ', output)
 
                 remove_link('test1')
                 time.sleep(1)
@@ -1518,12 +1518,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
                 output = check_output('ip -d link show test1')
                 print(output)
-                self.assertRegex(output, ' mtu 2000 ')
+                self.assertIn(' mtu 2000 ', output)
 
                 output = check_output('ip -d link show macvlan99')
                 print(output)
-                self.assertRegex(output, ' mtu 2000 ')
-                self.assertRegex(output, 'macvlan mode ' + mode + ' ')
+                self.assertIn(' mtu 2000 ', output)
+                self.assertIn(f' macvlan mode {mode} ', output)
 
     @expectedFailureIfModuleIsNotAvailable('ipvlan')
     def test_ipvlan(self):
