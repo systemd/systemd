@@ -144,7 +144,6 @@ int icmp6_receive(
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
-        struct in6_addr addr = {};
         ssize_t len;
 
         iov = IOVEC_MAKE(buffer, size);
@@ -156,17 +155,11 @@ int icmp6_receive(
         if ((size_t) len != size)
                 return -EINVAL;
 
-        if (msg.msg_namelen == sizeof(struct sockaddr_in6) &&
-            sa.in6.sin6_family == AF_INET6)  {
-
-                addr = sa.in6.sin6_addr;
-                if (!in6_addr_is_link_local(&addr) && !in6_addr_is_null(&addr))
-                        return -EADDRNOTAVAIL;
-
-        } else if (msg.msg_namelen > 0)
+        if (msg.msg_namelen != sizeof(struct sockaddr_in6) || sa.in6.sin6_family != AF_INET6)
                 return -EPFNOSUPPORT;
 
-        /* namelen == 0 only happens when running the test-suite over a socketpair */
+        if (!in6_addr_is_link_local(&sa.in6.sin6_addr) && !in6_addr_is_null(&sa.in6.sin6_addr))
+                return -EADDRNOTAVAIL;
 
         assert(!(msg.msg_flags & MSG_TRUNC));
 
@@ -177,6 +170,6 @@ int icmp6_receive(
         if (ret_timestamp)
                 triple_timestamp_from_cmsg(ret_timestamp, &msg);
         if (ret_sender)
-                *ret_sender = addr;
+                *ret_sender = sa.in6.sin6_addr;
         return 0;
 }
