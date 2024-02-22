@@ -3760,6 +3760,11 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
                 if (!FLAGS_SET(*pcrs, UINT32_C(1) << pcr))
                         continue;
 
+                if (!FLAGS_SET(el->has_component_pcrs, UINT32_C(1) << pcr)) {
+                        log_notice("PCR %" PRIu32 " (%s) has no component. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
+                        goto drop;
+                }
+
                 if (!event_log_pcr_checks_out(el, el->registers + pcr)) {
                         log_notice("PCR %" PRIu32 " (%s) value does not match event log. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
                         goto drop;
