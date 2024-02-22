@@ -37,7 +37,7 @@ static int enumerate_xdg_autostart(Hashmap *all_services) {
         r = xdg_user_dirs(&config_dirs, &data_dirs);
         if (r < 0)
                 return r;
-        r = strv_extend_strv_concat(&autostart_dirs, config_dirs, "/autostart");
+        r = strv_extend_strv_concat(&autostart_dirs, (const char* const*) config_dirs, "/autostart");
         if (r < 0)
                 return r;
 

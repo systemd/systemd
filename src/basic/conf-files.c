@@ -369,7 +369,7 @@ int conf_files_list_dropins(
         assert(dirs);
 
         suffix = strjoina("/", dropin_dirname);
-        r = strv_extend_strv_concat(&dropin_dirs, (char**) dirs, suffix);
+        r = strv_extend_strv_concat(&dropin_dirs, dirs, suffix);
         if (r < 0)
                 return r;
 

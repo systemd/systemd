@@ -369,7 +369,7 @@ static int user_config_paths(char*** ret) {
         if (r < 0 && !ERRNO_IS_NOINFO(r))
                 return r;
 
-        r = strv_extend_strv_concat(&res, config_dirs, "/user-tmpfiles.d");
+        r = strv_extend_strv_concat(&res, (const char* const*) config_dirs, "/user-tmpfiles.d");
         if (r < 0)
                 return r;
 
@@ -381,7 +381,7 @@ static int user_config_paths(char*** ret) {
         if (r < 0)
                 return r;
 
-        r = strv_extend_strv_concat(&res, data_dirs, "/user-tmpfiles.d");
+        r = strv_extend_strv_concat(&res, (const char* const*) data_dirs, "/user-tmpfiles.d");
         if (r < 0)
                 return r;
 
