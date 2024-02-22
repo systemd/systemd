@@ -106,9 +106,10 @@ int tar_pull_new(
         _cleanup_free_ char *root = NULL;
         int r;
 
+        assert(image_root);
         assert(ret);
 
-        root = strdup(image_root ?: "/var/lib/machines");
+        root = strdup(image_root);
         if (!root)
                 return -ENOMEM;
 

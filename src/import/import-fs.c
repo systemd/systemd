@@ -31,7 +31,8 @@ static bool arg_btrfs_subvol = true;
 static bool arg_btrfs_quota = true;
 static bool arg_sync = true;
 static bool arg_direct = false;
-static const char *arg_image_root = "/var/lib/machines";
+static const char *arg_image_root = NULL;
+static ImageClass arg_class = IMAGE_MACHINE;
 
 typedef struct ProgressInfo {
         RateLimit limit;
@@ -143,7 +144,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                         return log_oom();
 
                 if (!arg_force) {
-                        r = image_find(IMAGE_MACHINE, local, NULL, NULL);
+                        r = image_find(arg_class, local, NULL, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
@@ -266,7 +267,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              instead of a directory\n"
                "     --btrfs-quota=BOOL       Controls whether to set up quota for btrfs\n"
                "                              subvolume\n"
-               "     --sync=BOOL              Controls whether to sync() before completing\n",
+               "     --sync=BOOL              Controls whether to sync() before completing\n"
+               "     --class=CLASS            Select image class (machine, sysext, confext,\n"
+               "                              portable)\n",
                program_invocation_short_name,
                ansi_underline(),
                ansi_normal(),
@@ -287,6 +290,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BTRFS_SUBVOL,
                 ARG_BTRFS_QUOTA,
                 ARG_SYNC,
+                ARG_CLASS,
         };
 
         static const struct option options[] = {
@@ -299,6 +303,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "btrfs-subvol",    required_argument, NULL, ARG_BTRFS_SUBVOL    },
                 { "btrfs-quota",     required_argument, NULL, ARG_BTRFS_QUOTA     },
                 { "sync",            required_argument, NULL, ARG_SYNC            },
+                { "class",           required_argument, NULL, ARG_CLASS           },
                 {}
         };
 
@@ -354,12 +359,22 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_CLASS:
+                        arg_class = image_class_from_string(optarg);
+                        if (arg_class < 0)
+                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", optarg);
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
                 default:
                         assert_not_reached();
                 }
+
+        if (!arg_image_root)
+                arg_image_root = image_root_to_string(arg_class);
 
         return 1;
 }
