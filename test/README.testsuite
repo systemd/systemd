@@ -170,7 +170,7 @@ places:
   if jobs are started and running but no status is visible on the PR, then it is
   likely that reporting back is not working
 
-For infrastructure help, reaching out to Canonical via the #ubuntu-devel channel
+For infrastructure help, reaching out to Canonical via the #ubuntu-quality channel
 on libera.chat is an effective way to receive support in general.
 
 Manually running a part of the Ubuntu CI test suite
