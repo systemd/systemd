@@ -25,9 +25,10 @@
 #include "terminal-util.h"
 #include "verbs.h"
 
-static const char *arg_image_root = "/var/lib/machines";
+static const char *arg_image_root = NULL;
 static ImportFlags arg_import_flags = IMPORT_BTRFS_SUBVOL | IMPORT_BTRFS_QUOTA | IMPORT_CONVERT_QCOW2 | IMPORT_SYNC;
 static uint64_t arg_offset = UINT64_MAX, arg_size_max = UINT64_MAX;
+static ImageClass arg_class = IMAGE_MACHINE;
 
 static int normalize_local(const char *local, char **ret) {
         _cleanup_free_ char *ll = NULL;
@@ -61,7 +62,7 @@ static int normalize_local(const char *local, char **ret) {
                         local = "imported";
 
                 if (!FLAGS_SET(arg_import_flags, IMPORT_FORCE)) {
-                        r = image_find(IMAGE_MACHINE, local, NULL, NULL);
+                        r = image_find(arg_class, local, NULL, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
@@ -266,7 +267,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
 static int help(int argc, char *argv[], void *userdata) {
 
         printf("%1$s [OPTIONS...] {COMMAND} ...\n"
-               "\n%4$sImport container or virtual machine images.%5$s\n"
+               "\n%4$sImport disk images.%5$s\n"
                "\n%2$sCommands:%3$s\n"
                "  tar FILE [NAME]             Import a TAR image\n"
                "  raw FILE [NAME]             Import a RAW image\n"
@@ -285,7 +286,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              regular disk images\n"
                "     --sync=BOOL              Controls whether to sync() before completing\n"
                "     --offset=BYTES           Offset to seek to in destination\n"
-               "     --size-max=BYTES         Maximum number of bytes to write to destination\n",
+               "     --size-max=BYTES         Maximum number of bytes to write to destination\n"
+               "     --class=CLASS            Select image class (machine, sysext, confext,\n"
+               "                              portable)\n",
                program_invocation_short_name,
                ansi_underline(),
                ansi_normal(),
@@ -309,6 +312,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SYNC,
                 ARG_OFFSET,
                 ARG_SIZE_MAX,
+                ARG_CLASS,
         };
 
         static const struct option options[] = {
@@ -324,6 +328,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "sync",            required_argument, NULL, ARG_SYNC            },
                 { "offset",          required_argument, NULL, ARG_OFFSET          },
                 { "size-max",        required_argument, NULL, ARG_SIZE_MAX        },
+                { "class",           required_argument, NULL, ARG_CLASS           },
                 {}
         };
 
@@ -416,6 +421,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_CLASS:
+                        arg_class = image_class_from_string(optarg);
+                        if (arg_class < 0)
+                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", optarg);
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -431,6 +443,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_offset != UINT64_MAX && !FLAGS_SET(arg_import_flags, IMPORT_DIRECT))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File offset only supported in --direct mode.");
+
+        if (!arg_image_root)
+                arg_image_root = image_root_to_string(arg_class);
 
         return 1;
 }

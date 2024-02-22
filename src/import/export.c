@@ -23,6 +23,7 @@
 #include "verbs.h"
 
 static ImportCompressType arg_compress = IMPORT_COMPRESS_UNKNOWN;
+static ImageClass arg_class = IMAGE_MACHINE;
 
 static void determine_compression_from_filename(const char *p) {
 
@@ -63,7 +64,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
         int r, fd;
 
         if (hostname_is_valid(argv[1], 0)) {
-                r = image_find(IMAGE_MACHINE, argv[1], NULL, &image);
+                r = image_find(arg_class, argv[1], NULL, &image);
                 if (r == -ENOENT)
                         return log_error_errno(r, "Machine image %s not found.", argv[1]);
                 if (r < 0)
@@ -135,7 +136,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
         int r, fd;
 
         if (hostname_is_valid(argv[1], 0)) {
-                r = image_find(IMAGE_MACHINE, argv[1], NULL, &image);
+                r = image_find(arg_class, argv[1], NULL, &image);
                 if (r == -ENOENT)
                         return log_error_errno(r, "Machine image %s not found.", argv[1]);
                 if (r < 0)
@@ -190,14 +191,16 @@ static int export_raw(int argc, char *argv[], void *userdata) {
 
 static int help(int argc, char *argv[], void *userdata) {
         printf("%1$s [OPTIONS...] {COMMAND} ...\n"
-               "\n%4$sExport container or virtual machine images.%5$s\n"
+               "\n%4$sExport disk images.%5$s\n"
                "\n%2$sCommands:%3$s\n"
                "  tar NAME [FILE]              Export a TAR image\n"
                "  raw NAME [FILE]              Export a RAW image\n"
                "\n%2$sOptions:%3$s\n"
                "  -h --help                    Show this help\n"
                "     --version                 Show package version\n"
-               "     --format=FORMAT           Select format\n",
+               "     --format=FORMAT           Select format\n"
+               "     --class=CLASS             Select image class (machine, sysext, confext,\n"
+               "                               portable)\n",
                program_invocation_short_name,
                ansi_underline(),
                ansi_normal(),
@@ -212,12 +215,14 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_FORMAT,
+                ARG_CLASS,
         };
 
         static const struct option options[] = {
                 { "help",    no_argument,       NULL, 'h'         },
                 { "version", no_argument,       NULL, ARG_VERSION },
                 { "format",  required_argument, NULL, ARG_FORMAT  },
+                { "class",   required_argument, NULL, ARG_CLASS   },
                 {}
         };
 
@@ -248,6 +253,13 @@ static int parse_argv(int argc, char *argv[]) {
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown format: %s", optarg);
+                        break;
+
+                case ARG_CLASS:
+                        arg_class = image_class_from_string(optarg);
+                        if (arg_class < 0)
+                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", optarg);
+
                         break;
 
                 case '?':
