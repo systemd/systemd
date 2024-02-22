@@ -107,16 +107,6 @@ static const MountPoint mount_table[] = {
           cg_is_unified_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
         { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
           cg_is_unified_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
-        { "tmpfs",       "/sys/fs/cgroup",            "tmpfs",      "mode=0755" TMPFS_LIMITS_SYS_FS_CGROUP,     MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
-          cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
-        { "cgroup2",     "/sys/fs/cgroup/unified",    "cgroup2",    "nsdelegate",                               MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_hybrid_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
-        { "cgroup2",     "/sys/fs/cgroup/unified",    "cgroup2",    NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_hybrid_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
-        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd,xattr",                  MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_legacy_wanted, MNT_IN_CONTAINER     },
-        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd",                        MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
 #if ENABLE_PSTORE
         { "pstore",      "/sys/fs/pstore",            "pstore",     NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,          MNT_NONE                   },
@@ -296,12 +286,24 @@ static int symlink_controller(const char *target, const char *alias) {
         return 0;
 }
 
-int mount_cgroup_controllers(void) {
+static const MountPoint cgroupv1_mount_table[] = {
+        { "tmpfs",       "/sys/fs/cgroup",            "tmpfs",      "mode=0755" TMPFS_LIMITS_SYS_FS_CGROUP,     MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
+          cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
+        { "cgroup2",     "/sys/fs/cgroup/unified",    "cgroup2",    "nsdelegate",                               MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          cg_is_hybrid_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
+        { "cgroup2",     "/sys/fs/cgroup/unified",    "cgroup2",    NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          cg_is_hybrid_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
+        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd,xattr",                  MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          cg_is_legacy_wanted, MNT_IN_CONTAINER     },
+        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd",                        MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
+};
+
+static int mount_cgroup_legacy_controllers(void) {
         _cleanup_set_free_ Set *controllers = NULL;
         int r;
 
-        if (!cg_is_legacy_wanted())
-                return 0;
+        assert(cg_is_legacy_wanted());
 
         /* Mount all available cgroup controllers that are built into the kernel. */
         r = cg_kernel_controllers(&controllers);
@@ -518,6 +520,21 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
         if (r < 0)
                 return r;
 
+        if (cg_is_legacy_wanted()) {
+                if (!cg_legacy_force_enabled())
+                        return -ERFKILL;
+
+                FOREACH_ARRAY(mp, cgroupv1_mount_table, ELEMENTSOF(cgroupv1_mount_table)) {
+                        r = mount_one(mp, loaded_policy);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = mount_cgroup_legacy_controllers();
+                if (r < 0)
+                        return r;
+        }
+
 #if HAVE_SELINUX || ENABLE_SMACK
         /* Nodes in devtmpfs and /run need to be manually updated for
          * the appropriate labels, after mounting. The other virtual
@@ -538,8 +555,10 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
 
                 after_relabel = now(CLOCK_MONOTONIC);
 
-                log_info("Relabeled /dev, /dev/shm, /run, /sys/fs/cgroup%s in %s.",
-                         n_extra > 0 ? ", additional files" : "",
+                // FIXME: we don't mention /sys/fs/cgroup/ here, since relabeling is only done on cgroup v1
+                // systems, the support for which will soon be dropped.
+                log_info("Relabeled /dev/, /dev/shm/, /run/%s in %s.",
+                         n_extra > 0 ? ", and additional files" : "",
                          FORMAT_TIMESPAN(after_relabel - before_relabel, 0));
         }
 #endif
