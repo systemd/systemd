@@ -30,7 +30,7 @@ static inline void freep(void *p) {
 
 _malloc_ _alloc_(1) _returns_nonnull_ _warn_unused_result_
 static inline void *xmalloc(size_t size) {
-        void *p;
+        void *p = NULL;
         assert_se(BS->AllocatePool(EfiLoaderData, size, &p) == EFI_SUCCESS);
         return p;
 }
