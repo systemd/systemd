@@ -99,6 +99,15 @@ static const char* image_class_suffix_table[_IMAGE_CLASS_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(image_class_suffix, ImageClass);
 
+static const char *const image_root_table[_IMAGE_CLASS_MAX] = {
+        [IMAGE_MACHINE]  = "/var/lib/machines",
+        [IMAGE_PORTABLE] = "/var/lib/portables",
+        [IMAGE_SYSEXT]   = "/var/lib/extensions",
+        [IMAGE_CONFEXT]  = "/var/lib/confexts",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(image_root, ImageClass);
+
 static Image *image_free(Image *i) {
         assert(i);
 

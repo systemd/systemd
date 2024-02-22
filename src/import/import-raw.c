@@ -95,8 +95,9 @@ int raw_import_new(
         int r;
 
         assert(ret);
+        assert(image_root);
 
-        root = strdup(image_root ?: "/var/lib/machines");
+        root = strdup(image_root);
         if (!root)
                 return -ENOMEM;
 
