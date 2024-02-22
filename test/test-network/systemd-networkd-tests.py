@@ -1524,6 +1524,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                 print(output)
                 self.assertIn(' mtu 2000 ', output)
                 self.assertIn(f' macvlan mode {mode} ', output)
+                self.assertIn(' bcqueuelen 1234 ', output)
+                self.assertIn(' bclim 2147483647 ', output)
 
     @expectedFailureIfModuleIsNotAvailable('ipvlan')
     def test_ipvlan(self):
