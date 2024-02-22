@@ -571,6 +571,19 @@
           <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>BroadcastQueueThreshold=</varname></term>
+        <listitem>
+          <para>Controls the threshold for broadcast queueing of the macvlan device. Takes the special value
+          <literal>no</literal>, or an integer in the range 0…2147483647. When <literal>no</literal> is
+          specified, the broadcast queueing is disabled altogether. When an integer is specified, a multicast
+          address will be queued as broadcast if the number of devices using it is greater than the given
+          value. Defaults to unset, and the kernel default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
