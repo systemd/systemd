@@ -336,6 +336,7 @@ struct Network {
 
         /* NDisc support */
         int ndisc;
+        bool ndisc_use_redirect;
         bool ndisc_use_dns;
         bool ndisc_use_gateway;
         bool ndisc_use_route_prefix;
