@@ -26,7 +26,8 @@
 
 #include "_sd-common.h"
 #include "sd-event.h"
-#include "sd-ndisc.h"
+#include "sd-ndisc-protocol.h"
+#include "sd-ndisc-router-solicit.h"
 
 _SD_BEGIN_DECLARATIONS;
 
