@@ -40,12 +40,12 @@ uint32_t link_get_dhcp4_route_table(Link *link) {
         return link_get_vrf_table(link);
 }
 
-uint32_t link_get_ipv6_accept_ra_route_table(Link *link) {
+uint32_t link_get_ndisc_route_table(Link *link) {
         assert(link);
         assert(link->network);
 
-        if (link->network->ipv6_accept_ra_route_table_set)
-                return link->network->ipv6_accept_ra_route_table;
+        if (link->network->ndisc_route_table_set)
+                return link->network->ndisc_route_table;
         return link_get_vrf_table(link);
 }
 
@@ -281,7 +281,7 @@ int link_get_captive_portal(Link *link, const char **ret) {
                         return r;
         }
 
-        if (link->network->ipv6_accept_ra_use_captive_portal) {
+        if (link->network->ndisc_use_captive_portal) {
                 NDiscCaptivePortal *cp;
                 usec_t usec = 0;
 
@@ -409,10 +409,10 @@ int config_parse_dhcp_route_metric(
                 /* For backward compatibility. */
                 if (!network->dhcp_route_metric_set)
                         network->dhcp_route_metric = metric;
-                if (!network->ipv6_accept_ra_route_metric_set) {
-                        network->ipv6_accept_ra_route_metric_high = metric;
-                        network->ipv6_accept_ra_route_metric_medium = metric;
-                        network->ipv6_accept_ra_route_metric_low = metric;
+                if (!network->ndisc_route_metric_set) {
+                        network->ndisc_route_metric_high = metric;
+                        network->ndisc_route_metric_medium = metric;
+                        network->ndisc_route_metric_low = metric;
                 }
                 break;
         default:
@@ -422,7 +422,7 @@ int config_parse_dhcp_route_metric(
         return 0;
 }
 
-int config_parse_ipv6_accept_ra_route_metric(
+int config_parse_ndisc_route_metric(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -472,10 +472,10 @@ int config_parse_ipv6_accept_ra_route_metric(
                 }
         }
 
-        network->ipv6_accept_ra_route_metric_high = metric_high;
-        network->ipv6_accept_ra_route_metric_medium = metric_medium;
-        network->ipv6_accept_ra_route_metric_low = metric_low;
-        network->ipv6_accept_ra_route_metric_set = true;
+        network->ndisc_route_metric_high = metric_high;
+        network->ndisc_route_metric_medium = metric_medium;
+        network->ndisc_route_metric_low = metric_low;
+        network->ndisc_route_metric_set = true;
 
         return 0;
 }
@@ -717,8 +717,8 @@ int config_parse_dhcp_or_ra_route_table(
                 network->dhcp_route_table_set = true;
                 break;
         case AF_INET6:
-                network->ipv6_accept_ra_route_table = rt;
-                network->ipv6_accept_ra_route_table_set = true;
+                network->ndisc_route_table = rt;
+                network->ndisc_route_table_set = true;
                 break;
         default:
                 assert_not_reached();
