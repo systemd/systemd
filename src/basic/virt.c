@@ -98,7 +98,7 @@ static Virtualization detect_vm_cpuid(void) {
 }
 
 static Virtualization detect_vm_device_tree(void) {
-#if defined(__arm__) || defined(__aarch64__) || defined(__powerpc__) || defined(__powerpc64__)
+#if defined(__arm__) || defined(__aarch64__) || defined(__powerpc__) || defined(__powerpc64__) || defined(__riscv)
         _cleanup_free_ char *hvtype = NULL;
         int r;
 
