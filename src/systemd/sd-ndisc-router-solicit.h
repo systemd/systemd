@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-#ifndef foosddhcpoptionhfoo
-#define foosddhcpoptionhfoo
+#ifndef foosdndiscroutersolicitfoo
+#define foosdndiscroutersolicitfoo
 
 /***
   systemd is free software; you can redistribute it and/or modify it
@@ -18,21 +18,22 @@
 ***/
 
 #include <inttypes.h>
+#include <net/ethernet.h>
+#include <netinet/in.h>
 #include <sys/types.h>
-
-#include "sd-dhcp-protocol.h"
 
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
 
-typedef struct sd_dhcp_option sd_dhcp_option;
+typedef struct sd_ndisc_router_solicit sd_ndisc_router_solicit;
 
-int sd_dhcp_option_new(uint8_t option, const void *data, size_t length, sd_dhcp_option **ret);
-sd_dhcp_option *sd_dhcp_option_ref(sd_dhcp_option *ra);
-sd_dhcp_option *sd_dhcp_option_unref(sd_dhcp_option *ra);
+sd_ndisc_router_solicit *sd_ndisc_router_solicit_ref(sd_ndisc_router_solicit *rs);
+sd_ndisc_router_solicit *sd_ndisc_router_solicit_unref(sd_ndisc_router_solicit *rs);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc_router_solicit, sd_ndisc_router_solicit_unref);
 
-_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_option, sd_dhcp_option_unref);
+int sd_ndisc_router_solicit_get_sender_address(sd_ndisc_router_solicit *rs, struct in6_addr *ret);
+int sd_ndisc_router_solicit_get_sender_mac(sd_ndisc_router_solicit *rs, struct ether_addr *ret);
 
 _SD_END_DECLARATIONS;
 
