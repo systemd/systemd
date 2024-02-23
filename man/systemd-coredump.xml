@@ -417,7 +417,7 @@ flags:   ...
         of the 'main' ELF module (ie: the executable) will be appended individually. The
         JSON-formatted content of all modules will be appended as a single JSON object, each with
         the module name as the key. For more information about this metadata format and content, see
-        <ulink url="https://systemd.io/COREDUMP_PACKAGE_METADATA/">the coredump metadata spec</ulink>.</para>
+        <ulink url="https://systemd.io/ELF_PACKAGE_METADATA">the coredump metadata spec</ulink>.</para>
 
         <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
