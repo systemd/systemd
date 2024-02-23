@@ -33,6 +33,7 @@ typedef enum AnsiColorState  {
         ANSI_COLOR_STATE_TEXT,
         ANSI_COLOR_STATE_ESC,
         ANSI_COLOR_STATE_CSI_SEQUENCE,
+        ANSI_COLOR_STATE_OSC_SEQUENCE,
         ANSI_COLOR_STATE_NEWLINE,
         ANSI_COLOR_STATE_CARRIAGE_RETURN,
         _ANSI_COLOR_STATE_MAX,
@@ -92,8 +93,10 @@ struct PTYForward {
         char *background_color;
         AnsiColorState ansi_color_state;
         char *csi_sequence;
+        char *osc_sequence;
 
-        char *title;
+        char *title;           /* Window title to show by default */
+        char *title_prefix;    /* If terminal client overrides window title, prefix this string */
 };
 
 #define ESCAPE_USEC (1*USEC_PER_SEC)
@@ -145,6 +148,7 @@ static void pty_forward_disconnect(PTYForward *f) {
         f->in_buffer_full = 0;
 
         f->csi_sequence = mfree(f->csi_sequence);
+        f->osc_sequence = mfree(f->osc_sequence);
         f->ansi_color_state = _ANSI_COLOR_STATE_INVALID;
 }
 
@@ -367,7 +371,9 @@ static int is_csi_background_reset_sequence(const char *seq) {
 
 static int insert_background_fix(PTYForward *f, size_t offset) {
         assert(f);
-        assert(f->background_color);
+
+        if (!f->background_color)
+                return 0;
 
         if (!is_csi_background_reset_sequence(strempty(f->csi_sequence)))
                 return 0;
@@ -380,13 +386,33 @@ static int insert_background_fix(PTYForward *f, size_t offset) {
         return insert_string(f, offset, s);
 }
 
+static int insert_window_title_fix(PTYForward *f, size_t offset) {
+        assert(f);
+
+        if (!f->title_prefix)
+                return 0;
+
+        if (!f->osc_sequence)
+                return 0;
+
+        const char *t = startswith(f->osc_sequence, "0;"); /* Set window title OSC sequence*/
+        if (!t)
+                return 0;
+
+        _cleanup_free_ char *joined = strjoin("\x1b]0;", f->title_prefix, t, "\a");
+        if (!joined)
+                return -ENOMEM;
+
+        return insert_string(f, offset, joined);
+}
+
 static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
         int r;
 
         assert(f);
         assert(offset <= f->out_buffer_full);
 
-        if (!f->background_color)
+        if (!f->background_color && !f->title_prefix)
                 return 0;
 
         if (FLAGS_SET(f->flags, PTY_FORWARD_DUMB_TERMINAL))
@@ -427,6 +453,9 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                         if (c == '[') {
                                 f->ansi_color_state = ANSI_COLOR_STATE_CSI_SEQUENCE;
                                 continue;
+                        } else if (c == ']') {
+                                f->ansi_color_state = ANSI_COLOR_STATE_OSC_SEQUENCE;
+                                continue;
                         }
 
                         break;
@@ -458,6 +487,33 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                 }
 
                                 f->csi_sequence = mfree(f->csi_sequence);
+                                f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
+                        }
+
+                        continue;
+                }
+
+                case ANSI_COLOR_STATE_OSC_SEQUENCE: {
+
+                        if ((uint8_t) c >= ' ') {
+                                if (strlen_ptr(f->osc_sequence) >= 64) {
+                                        /* Safety check: lets not accept unbounded OSC sequences */
+                                        f->osc_sequence = mfree(f->osc_sequence);
+                                        break;
+                                } else if (!strextend(&f->osc_sequence, CHAR_TO_STR(c)))
+                                        return -ENOMEM;
+                        } else {
+                                /* Otherwise, the OSC sequence is over */
+
+                                if (c == '\x07') {
+                                        r = insert_window_title_fix(f, i+1);
+                                        if (r < 0)
+                                                return r;
+
+                                        i += r;
+                                }
+
+                                f->osc_sequence = mfree(f->osc_sequence);
                                 f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
                         }
 
@@ -888,6 +944,7 @@ PTYForward *pty_forward_free(PTYForward *f) {
         pty_forward_disconnect(f);
         free(f->background_color);
         free(f->title);
+        free(f->title_prefix);
         return mfree(f);
 }
 
@@ -1059,4 +1116,10 @@ int pty_forward_set_titlef(PTYForward *f, const char *format, ...) {
                 return -ENOMEM;
 
         return free_and_replace(f->title, title);
+}
+
+int pty_forward_set_title_prefix(PTYForward *f, const char *title_prefix) {
+        assert(f);
+
+        return free_and_strdup(&f->title_prefix, title_prefix);
 }
