@@ -926,6 +926,8 @@ int fd_verify_safe_flags(int fd) {
          *
          * RAW_O_LARGEFILE: glibc secretly sets this and neglects to hide it from us if we call fcntl.
          *                  See comment in missing_fcntl.h for more details about this.
+         *
+         * O_DIRECTORY: this is set for directories, which are totally fine
          */
 
         assert(fd >= 0);
@@ -934,7 +936,7 @@ int fd_verify_safe_flags(int fd) {
         if (flags < 0)
                 return -errno;
 
-        unexpected_flags = flags & ~(O_ACCMODE|O_NOFOLLOW|RAW_O_LARGEFILE);
+        unexpected_flags = flags & ~(O_ACCMODE|O_NOFOLLOW|RAW_O_LARGEFILE|O_DIRECTORY);
         if (unexpected_flags != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EREMOTEIO),
                                        "Unexpected flags set for extrinsic fd: 0%o",
