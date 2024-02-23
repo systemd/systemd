@@ -3626,7 +3626,7 @@ CHANGES WITH 250:
         * systemd-analyze learnt a new inspect-elf verb that parses ELF core
           files, binaries and executables and prints metadata information,
           including the build-id and other info described on:
-          https://systemd.io/COREDUMP_PACKAGE_METADATA/
+          https://systemd.io/ELF_PACKAGE_METADATA
 
         * .network files gained a new UplinkInterface= in the [IPv6SendRA]
           section, for automatically propagating DNS settings from other
@@ -4279,7 +4279,7 @@ CHANGES WITH 249:
           common today in our containerized and sand-boxed world. For further
           information, see:
 
-          https://systemd.io/COREDUMP_PACKAGE_METADATA
+          https://systemd.io/ELF_PACKAGE_METADATA
 
         * A new udev hardware database has been added for FireWire devices
           (IEEE 1394).
@@ -7454,7 +7454,7 @@ CHANGES WITH 243:
           service configuration for systemd-timesyncd.
 
         * "localectl list-locales" won't list non-UTF-8 locales anymore. It's
-          2019. (You can set non-UTF-8 locales though, if you know their name.)
+          1.    (You can set non-UTF-8 locales though, if you know their name.)
 
         * If variable assignments in sysctl.d/ files are prefixed with "-" any
           failures to apply them are now ignored.
