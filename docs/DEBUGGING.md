@@ -209,4 +209,3 @@ Whenever possible, the following should be mentioned and attached to your bug re
   * ideally after booting with `systemd.log_level=debug systemd.log_target=kmsg log_buf_len=1M printk.devkmsg=on`
 * The output of a systemd dump: `systemd-analyze dump > systemd-dump.txt`
 * The output of `/usr/lib/systemd/systemd --test --system --log-level=debug > systemd-test.txt 2>&1`
-

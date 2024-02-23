@@ -112,4 +112,3 @@ A: That's a long story, and that's why we have a wiki page of its own about this
 **Q: My systemd system always comes up with `/tmp` as a tiny `tmpfs`. How do I get rid of this?**
 
 A: That's also a long story, please have a look on [API File Systems](../API_FILE_SYSTEMS)
-

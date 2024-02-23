@@ -120,4 +120,3 @@ It's possible to shut down the service and re-activate it using the web browser,
 sudo systemctl stop my-php-fpm-pool.socket my-php-fpm-pool.service
 sudo systemctl start my-php-fpm-pool.socket
 ```
-
