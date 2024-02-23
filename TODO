@@ -140,6 +140,16 @@ Features:
   SOURCE_DATE_EPOCH (maybe even under that name?). Would then be used to
   initialize the timestamp logic of ConditionNeedsUpdate=.
 
+* ptyfwd: look for window title ANSI sequences and insert colored dot in front
+  of it while passing it through, to indicate whether we are in privileged, VM,
+  container terminal sessions.
+
+* nspawn/vmspawn/pid1: add ability to easily insert fully booted VMs/FOSC into
+  shell pipelines, i.e. add easy to use switch that turns off console status
+  output, and generates the right credentials for systemd-run-generator so that
+  a program is invoked, and its output captured, with correct EOF handling and
+  exit code propagation
+
 * new systemd-analyze "join" verb or so, for debugging services. Would be
   nsenter on steroids, i.e invoke a shell or command line in an environment as
   close as we can make it for the MainPID of a service. Should be built around
