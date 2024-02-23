@@ -19,6 +19,7 @@
 #include "iovec-util.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "ndisc-router-solicit-internal.h"
 #include "network-common.h"
 #include "radv-internal.h"
 #include "random-util.h"
@@ -236,64 +237,52 @@ static int radv_send_router(sd_radv *ra, const struct in6_addr *dst, usec_t life
         return 0;
 }
 
+static int radv_process_packet(sd_radv *ra, ICMP6Packet *packet) {
+        int r;
+
+        assert(ra);
+        assert(packet);
+
+        if (icmp6_packet_get_type(packet) != ND_ROUTER_SOLICIT)
+                return log_radv_errno(ra, SYNTHETIC_ERRNO(EBADMSG), "Received ICMP6 packet with unexpected type, ignoring.");
+
+        _cleanup_(sd_ndisc_router_solicit_unrefp) sd_ndisc_router_solicit *rs = NULL;
+        rs = ndisc_router_solicit_new(packet);
+        if (!rs)
+                return log_oom_debug();
+
+        r = ndisc_router_solicit_parse(ra, rs);
+        if (r < 0)
+                return r;
+
+        struct in6_addr src = {};
+        r = sd_ndisc_router_solicit_get_sender_address(rs, &src);
+        if (r < 0 && r != -ENODATA) /* null address is allowed */
+                return log_radv_errno(ra, r, "Failed to get sender address of RS, ignoring: %m");
+
+        r = radv_send_router(ra, &src, ra->lifetime_usec);
+        if (r < 0)
+                return log_radv_errno(ra, r, "Unable to send solicited Router Advertisement to %s, ignoring: %m", IN6_ADDR_TO_STRING(&src));
+
+        log_radv(ra, "Sent solicited Router Advertisement to %s.", IN6_ADDR_TO_STRING(&src));
+        return 0;
+}
+
 static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
         sd_radv *ra = ASSERT_PTR(userdata);
-        struct in6_addr src;
-        triple_timestamp timestamp;
         int r;
 
         assert(s);
         assert(ra->event);
 
-        ssize_t buflen = next_datagram_size_fd(fd);
-        if (ERRNO_IS_NEG_TRANSIENT(buflen) || ERRNO_IS_NEG_DISCONNECT(buflen))
-                return 0;
-        if (buflen < 0) {
-                log_radv_errno(ra, buflen, "Failed to determine datagram size to read, ignoring: %m");
+        r = icmp6_packet_receive(fd, &packet);
+        if (r < 0) {
+                log_radv_errno(ra, r, "Failed to receive ICMPv6 packet, ignoring: %m");
                 return 0;
         }
 
-        _cleanup_free_ char *buf = new0(char, buflen);
-        if (!buf)
-                return -ENOMEM;
-
-        r = icmp6_receive(fd, buf, buflen, &src, &timestamp);
-        if (ERRNO_IS_NEG_TRANSIENT(r) || ERRNO_IS_NEG_DISCONNECT(r))
-                return 0;
-        if (r < 0)
-                switch (r) {
-                case -EADDRNOTAVAIL:
-                        log_radv(ra, "Received RS from neither link-local nor null address, ignoring.");
-                        return 0;
-
-                case -EMULTIHOP:
-                        log_radv(ra, "Received RS with invalid hop limit, ignoring.");
-                        return 0;
-
-                case -EPFNOSUPPORT:
-                        log_radv(ra, "Received invalid source address from ICMPv6 socket, ignoring.");
-                        return 0;
-
-                default:
-                        log_radv_errno(ra, r, "Unexpected error receiving from ICMPv6 socket, ignoring: %m");
-                        return 0;
-                }
-
-        if ((size_t) buflen < sizeof(struct nd_router_solicit)) {
-                log_radv(ra, "Too short packet received, ignoring");
-                return 0;
-        }
-
-        /* TODO: if the sender address is null, check that the message does not have the source link-layer
-         * address option. See RFC 4861 Section 6.1.1. */
-
-        const char *addr = IN6_ADDR_TO_STRING(&src);
-        r = radv_send_router(ra, &src, ra->lifetime_usec);
-        if (r < 0)
-                log_radv_errno(ra, r, "Unable to send solicited Router Advertisement to %s, ignoring: %m", addr);
-        else
-                log_radv(ra, "Sent solicited Router Advertisement to %s.", addr);
-
+        (void) radv_process_packet(ra, packet);
         return 0;
 }
 
