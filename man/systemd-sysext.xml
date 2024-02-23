@@ -69,8 +69,10 @@
     <filename>/var/</filename> included in a system extension image will <emphasis>not</emphasis> appear in
     the respective hierarchies after activation.</para>
 
-    <para>System extension images are strictly read-only, and the host <filename>/usr/</filename> and
-    <filename>/opt/</filename> hierarchies become read-only too while they are activated.</para>
+    <para>System extension images are strictly read-only by default. On mutable host file systems,
+    <filename>/usr/</filename> and <filename>/opt/</filename> hierarchies become read-only while extensions
+    are merged, unless mutability is enabled. Mutability may be enabled via the <option>--mutable=</option>
+    option; see "Mutability" below for more information.</para>
 
     <para>System extensions are supposed to be purely additive, i.e. they are supposed to include only files
     that do not exist in the underlying basic OS image. However, the underlying mechanism (overlayfs) also
@@ -158,6 +160,11 @@
     same as sysext images. The merged hierarchy will be mounted with <literal>nosuid</literal> and
     (if not disabled via <option>--noexec=false</option>) <literal>noexec</literal>.</para>
 
+    <para>Just like sysexts, confexts are strictly read-only by default. Merging confexts on mutable host
+    file systems will result in <filename>/etc/</filename> becoming read-only. As with sysexts, mutability
+    can be enabled via the <option>--mutable=</option> option. Refer to "Mutability" below for more
+    information.</para>
+
     <para>Confexts are looked for in the directories <filename>/run/confexts/</filename>,
     <filename>/var/lib/confexts/</filename>, <filename>/usr/lib/confexts/</filename> and
     <filename>/usr/local/lib/confexts/</filename>. The first listed directory is not suitable for
@@ -204,6 +211,55 @@
     service without deployment of new code or a complete OS deployment. In other words, we want to be able
     to tie the most frequently configured options to runtime updateable flags that can be changed without a
     system reboot. This will help reduce servicing times when there is a need for changing the OS configuration.</para></refsect1>
+
+  <refsect1>
+    <title>Mutability</title>
+    <para>By default, merging system extensions on mutable host file systems will render <filename>/usr/</filename>
+    and <filename>/opt/</filename> hierarchies read-only. Merging configuration extensions will have the same
+    effect on <filename>/etc/</filename>. Mutable mode allows writes to these locations when extensions are
+    merged.</para>
+
+    <para>The following modes are supported:
+    <orderedlist>
+      <listitem><para><option>disabled</option>: Force immutable mode even if write routing
+        directories exist below <filename>/var/lib/extensions.mutable/</filename>.
+        This is the default.</para></listitem>
+      <listitem><para><option>auto</option>: Automatic mode. Mutability is disabled by default
+        and only enabled if a corresponding write routing directory exists below
+        <filename>/var/lib/extensions.mutable/</filename>.</para></listitem>
+      <listitem><para><option>enabled</option>: Force mutable mode and automatically create write routing
+        directories below <filename>/var/lib/extensions.mutable/</filename> when required.</para></listitem>
+      <listitem><para><option>import</option>: Force immutable mode like <option>disabled</option> above, but
+        merge the contents of directories below <filename>/var/lib/extensions.mutable/</filename> into the host
+        file system.</para></listitem>
+    </orderedlist>
+    See "Options" below on specifying modes using the <option>--mutable=</option> command line option.</para>
+
+    <para>Mutable mode routes writes to subdirectories in <filename>/var/lib/extensions.mutable/</filename>.
+    <simplelist type="horiz">
+      <member>Writes to <filename>/usr/</filename> are directed to <filename>/var/lib/extensions.mutable/usr/</filename></member>,
+      <member>writes to <filename>/opt/</filename> are directed to <filename>/var/lib/extensions.mutable/opt/</filename>, and</member>
+      <member>writes to <filename>/etc/</filename> land in <filename>/var/lib/extensions.mutable/etc/</filename>.</member>
+    </simplelist></para>
+
+    <para>If <filename>usr/</filename>, <filename>opt/</filename>, or <filename>etc/</filename>
+    in <filename>/var/lib/extensions.mutable/</filename> are symlinks, then writes are directed to the
+    symlinks' targets.
+    Consequently, to retain mutability of a host file system, create symlinks
+    <simplelist type="horiz">
+      <member><filename>/var/lib/extensions.mutable/etc/</filename> → <filename>/etc/</filename></member>
+      <member><filename>/var/lib/extensions.mutable/usr/</filename> → <filename>/usr/</filename></member>
+      <member><filename>/var/lib/extensions.mutable/opt/</filename> → <filename>/opt/</filename></member>
+    </simplelist>
+    to route writes back to the original base directory hierarchy.</para>
+
+    <para> Alternatively, a temporary file system may be mounted to
+    <filename>/var/lib/extensions.mutable/</filename>, or symlinks in
+    <filename>/var/lib/extensions.mutable/</filename> may point to sub-directories on a temporary
+    file system (e.g. below <filename>/tmp/</filename>) to only allow ephemeral changes.</para>
+
+    <xi:include href="version-info.xml" xpointer="v256"/>
+  </refsect1>
 
   <refsect1>
     <title>Commands</title>
@@ -311,6 +367,45 @@
         see above for details.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--mutable=</option><replaceable>BOOL</replaceable>|<replaceable>auto</replaceable>|<replaceable>import</replaceable></term>
+        <listitem><para>Set mutable mode.</para>
+
+        <variablelist>
+          <varlistentry>
+            <term><option>no</option></term>
+            <listitem><para>force immutable mode even with write routing directories present.
+            This is the default.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>auto</option></term>
+            <listitem><para>enable mutable mode individually for <filename>/usr/</filename>,
+            <filename>/opt/</filename>, and <filename>/etc/</filename> if write routing sub-directories
+            or symlinks are present in <filename>/var/lib/extensions.mutable/</filename>; disable otherwise.
+            See "Mutability" above for more information on write routing.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>yes</option></term>
+            <listitem><para>force mutable mode. Write routing directories will be created in
+            <filename>/var/lib/extensions.mutable/</filename> if not present.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>import</option></term>
+            <listitem><para>immutable mode, but with contents of write routing directories in
+            <filename>/var/lib/extensions.mutable/</filename> also merged into the host file system.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+          </varlistentry>
+        </variablelist>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
