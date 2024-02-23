@@ -35,7 +35,7 @@
  * Not sure if the threshold is high enough. Let's adjust later if not. */
 #define NDISC_PREF64_MAX 64U
 
-bool link_ipv6_accept_ra_enabled(Link *link) {
+bool link_ndisc_enabled(Link *link) {
         assert(link);
 
         if (!socket_ipv6_is_supported())
@@ -53,8 +53,8 @@ bool link_ipv6_accept_ra_enabled(Link *link) {
         if (!link_may_have_ipv6ll(link, /* check_multicast = */ true))
                 return false;
 
-        if (link->network->ipv6_accept_ra >= 0)
-                return link->network->ipv6_accept_ra;
+        if (link->network->ndisc >= 0)
+                return link->network->ndisc;
 
         /* Accept RAs if IPv6 forwarding is disabled, and ignore RAs if IPv6 forwarding is enabled. */
         int t = link_get_ip_forwarding(link, AF_INET6);
@@ -65,14 +65,14 @@ bool link_ipv6_accept_ra_enabled(Link *link) {
         return true;
 }
 
-void network_adjust_ipv6_accept_ra(Network *network) {
+void network_adjust_ndisc(Network *network) {
         assert(network);
 
         if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
-                if (network->ipv6_accept_ra > 0)
+                if (network->ndisc > 0)
                         log_warning("%s: IPv6AcceptRA= is enabled but IPv6 link-local addressing is disabled or not supported. "
                                     "Disabling IPv6AcceptRA=.", network->filename);
-                network->ipv6_accept_ra = false;
+                network->ndisc = false;
         }
 
         /* When RouterAllowList=, PrefixAllowList= or RouteAllowList= are specified, then
@@ -164,13 +164,13 @@ static void ndisc_set_route_priority(Link *link, Route *route) {
 
         switch (route->pref) {
         case SD_NDISC_PREFERENCE_LOW:
-                route->priority = link->network->ipv6_accept_ra_route_metric_low;
+                route->priority = link->network->ndisc_route_metric_low;
                 break;
         case SD_NDISC_PREFERENCE_MEDIUM:
-                route->priority = link->network->ipv6_accept_ra_route_metric_medium;
+                route->priority = link->network->ndisc_route_metric_medium;
                 break;
         case SD_NDISC_PREFERENCE_HIGH:
-                route->priority = link->network->ipv6_accept_ra_route_metric_high;
+                route->priority = link->network->ndisc_route_metric_high;
                 break;
         default:
                 assert_not_reached();
@@ -194,13 +194,13 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        if (link->network->ipv6_accept_ra_use_mtu) {
+        if (link->network->ndisc_use_mtu) {
                 r = sd_ndisc_router_get_mtu(rt, &mtu);
                 if (r < 0 && r != -ENODATA)
                         return log_link_warning_errno(link, r, "Failed to get MTU from RA: %m");
         }
 
-        if (link->network->ipv6_accept_ra_use_hop_limit) {
+        if (link->network->ndisc_use_hop_limit) {
                 r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
                 if (r < 0 && r != -ENODATA)
                         return log_link_warning_errno(link, r, "Failed to get hop limit from RA: %m");
@@ -209,7 +209,7 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         route->source = NETWORK_CONFIG_SOURCE_NDISC;
         route->provider.in6 = router;
         if (!route->table_set)
-                route->table = link_get_ipv6_accept_ra_route_table(link);
+                route->table = link_get_ndisc_route_table(link);
         if (!route->protocol_set)
                 route->protocol = RTPROT_RA;
         r = route_metric_set(&route->metric, RTAX_MTU, mtu);
@@ -218,7 +218,7 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         r = route_metric_set(&route->metric, RTAX_HOPLIMIT, hop_limit);
         if (r < 0)
                 return r;
-        r = route_metric_set(&route->metric, RTAX_QUICKACK, link->network->ipv6_accept_ra_quickack);
+        r = route_metric_set(&route->metric, RTAX_QUICKACK, link->network->ndisc_quickack);
         if (r < 0)
                 return r;
 
@@ -288,7 +288,7 @@ static int ndisc_remove_route(Route *route, Link *link) {
         ndisc_set_route_priority(link, route);
 
         if (!route->table_set)
-                route->table = link_get_ipv6_accept_ra_route_table(link);
+                route->table = link_get_ndisc_route_table(link);
 
         r = route_adjust_nexthops(route, link);
         if (r < 0)
@@ -444,7 +444,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r == 0)
                 return ndisc_router_drop_default(link, rt);
 
-        if (!link->network->ipv6_accept_ra_use_gateway &&
+        if (!link->network->ndisc_use_gateway &&
             hashmap_isempty(link->network->routes_by_section))
                 return 0;
 
@@ -467,7 +467,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
 
-        if (link->network->ipv6_accept_ra_use_gateway) {
+        if (link->network->ndisc_use_gateway) {
                 _cleanup_(route_unrefp) Route *route = NULL;
 
                 r = route_new(&route);
@@ -520,7 +520,7 @@ static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt)
         assert(link->network);
         assert(rt);
 
-        if (!link->network->ipv6_accept_ra_use_icmp6_ratelimit)
+        if (!link->network->ndisc_use_icmp6_ratelimit)
                 return 0;
 
         /* Ignore the icmp6 ratelimit field of the RA header if the lifetime is zero. */
@@ -557,7 +557,7 @@ static int ndisc_router_process_reachable_time(Link *link, sd_ndisc_router *rt) 
         assert(link->network);
         assert(rt);
 
-        if (!link->network->ipv6_accept_ra_use_reachable_time)
+        if (!link->network->ndisc_use_reachable_time)
                 return 0;
 
         /* Ignore the reachable time field of the RA header if the lifetime is zero. */
@@ -595,7 +595,7 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
         assert(link->network);
         assert(rt);
 
-        if (!link->network->ipv6_accept_ra_use_retransmission_time)
+        if (!link->network->ndisc_use_retransmission_time)
                 return 0;
 
         /* Ignore the retransmission time field of the RA header if the lifetime is zero. */
@@ -633,7 +633,7 @@ static int ndisc_router_process_hop_limit(Link *link, sd_ndisc_router *rt) {
         assert(link->network);
         assert(rt);
 
-        if (!link->network->ipv6_accept_ra_use_hop_limit)
+        if (!link->network->ndisc_use_hop_limit)
                 return 0;
 
         /* Ignore the hop limit field of the RA header if the lifetime is zero. */
@@ -676,7 +676,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         assert(link->network);
         assert(rt);
 
-        if (!link->network->ipv6_accept_ra_use_autonomous_prefix)
+        if (!link->network->ndisc_use_autonomous_prefix)
                 return 0;
 
         r = sd_ndisc_router_prefix_get_address(rt, &prefix);
@@ -756,7 +756,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         assert(link->network);
         assert(rt);
 
-        if (!link->network->ipv6_accept_ra_use_onlink_prefix)
+        if (!link->network->ndisc_use_onlink_prefix)
                 return 0;
 
         r = sd_ndisc_router_prefix_get_valid_lifetime_timestamp(rt, CLOCK_BOOTTIME, &lifetime_usec);
@@ -810,7 +810,7 @@ static int ndisc_router_drop_onlink_prefix(Link *link, sd_ndisc_router *rt) {
          * covered by the prefix are off-link. The only way to cancel a previous on-link indication is to
          * advertise that prefix with the L-bit set and the Lifetime set to zero. */
 
-        if (!link->network->ipv6_accept_ra_use_onlink_prefix)
+        if (!link->network->ndisc_use_onlink_prefix)
                 return 0;
 
         r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_usec);
@@ -907,7 +907,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
 
         assert(link);
 
-        if (!link->network->ipv6_accept_ra_use_route_prefix)
+        if (!link->network->ndisc_use_route_prefix)
                 return 0;
 
         r = sd_ndisc_router_route_get_lifetime_timestamp(rt, CLOCK_BOOTTIME, &lifetime_usec);
@@ -1003,7 +1003,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         assert(link->network);
         assert(rt);
 
-        if (!link->network->ipv6_accept_ra_use_dns)
+        if (!link->network->ndisc_use_dns)
                 return 0;
 
         r = sd_ndisc_router_get_address(rt, &router);
@@ -1095,7 +1095,7 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         assert(link->network);
         assert(rt);
 
-        if (link->network->ipv6_accept_ra_use_domains == DHCP_USE_DOMAINS_NO)
+        if (link->network->ndisc_use_domains == DHCP_USE_DOMAINS_NO)
                 return 0;
 
         r = sd_ndisc_router_get_address(rt, &router);
@@ -1200,7 +1200,7 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
         assert(link->network);
         assert(rt);
 
-        if (!link->network->ipv6_accept_ra_use_captive_portal)
+        if (!link->network->ndisc_use_captive_portal)
                 return 0;
 
         r = sd_ndisc_router_get_address(rt, &router);
@@ -1320,7 +1320,7 @@ static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt) {
         assert(link->network);
         assert(rt);
 
-        if (!link->network->ipv6_accept_ra_use_pref64)
+        if (!link->network->ndisc_use_pref64)
                 return 0;
 
         r = sd_ndisc_router_get_address(rt, &router);
@@ -1614,7 +1614,7 @@ static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
         if (r <= 0)
                 return r;
 
-        switch (link->network->ipv6_accept_ra_start_dhcp6_client) {
+        switch (link->network->ndisc_start_dhcp6_client) {
         case IPV6_ACCEPT_RA_START_DHCP6_CLIENT_NO:
                 return 0;
 
@@ -1770,7 +1770,7 @@ static int ndisc_configure(Link *link) {
 
         assert(link);
 
-        if (!link_ipv6_accept_ra_enabled(link))
+        if (!link_ndisc_enabled(link))
                 return 0;
 
         if (link->ndisc)
@@ -1850,7 +1850,7 @@ int link_request_ndisc(Link *link) {
 
         assert(link);
 
-        if (!link_ipv6_accept_ra_enabled(link))
+        if (!link_ndisc_enabled(link))
                 return 0;
 
         if (link->ndisc)
@@ -1885,15 +1885,15 @@ void ndisc_flush(Link *link) {
         link->ndisc_pref64 = set_free(link->ndisc_pref64);
 }
 
-static const char* const ipv6_accept_ra_start_dhcp6_client_table[_IPV6_ACCEPT_RA_START_DHCP6_CLIENT_MAX] = {
+static const char* const ndisc_start_dhcp6_client_table[_IPV6_ACCEPT_RA_START_DHCP6_CLIENT_MAX] = {
         [IPV6_ACCEPT_RA_START_DHCP6_CLIENT_NO]     = "no",
         [IPV6_ACCEPT_RA_START_DHCP6_CLIENT_ALWAYS] = "always",
         [IPV6_ACCEPT_RA_START_DHCP6_CLIENT_YES]    = "yes",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(ipv6_accept_ra_start_dhcp6_client, IPv6AcceptRAStartDHCP6Client, IPV6_ACCEPT_RA_START_DHCP6_CLIENT_YES);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(ndisc_start_dhcp6_client, IPv6AcceptRAStartDHCP6Client, IPV6_ACCEPT_RA_START_DHCP6_CLIENT_YES);
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_ipv6_accept_ra_use_domains, dhcp_use_domains, DHCPUseDomains,
+DEFINE_CONFIG_PARSE_ENUM(config_parse_ndisc_use_domains, dhcp_use_domains, DHCPUseDomains,
                          "Failed to parse UseDomains= setting");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_ipv6_accept_ra_start_dhcp6_client, ipv6_accept_ra_start_dhcp6_client, IPv6AcceptRAStartDHCP6Client,
+DEFINE_CONFIG_PARSE_ENUM(config_parse_ndisc_start_dhcp6_client, ndisc_start_dhcp6_client, IPv6AcceptRAStartDHCP6Client,
                          "Failed to parse DHCPv6Client= setting");
