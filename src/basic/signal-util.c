@@ -18,7 +18,7 @@ int reset_all_signal_handlers(void) {
                 .sa_handler = SIG_DFL,
                 .sa_flags = SA_RESTART,
         };
-        int r = 0;
+        int ret = 0, r;
 
         for (int sig = 1; sig < _NSIG; sig++) {
 
@@ -26,14 +26,14 @@ int reset_all_signal_handlers(void) {
                 if (IN_SET(sig, SIGKILL, SIGSTOP))
                         continue;
 
-                /* On Linux the first two RT signals are reserved by
-                 * glibc, and sigaction() will return EINVAL for them. */
-                if (sigaction(sig, &sa, NULL) < 0)
-                        if (errno != EINVAL && r >= 0)
-                                r = -errno;
+                /* On Linux the first two RT signals are reserved by glibc, and sigaction() will return
+                 * EINVAL for them. */
+                r = RET_NERRNO(sigaction(sig, &sa, NULL));
+                if (r != -EINVAL)
+                        RET_GATHER(ret, r);
         }
 
-        return r;
+        return ret;
 }
 
 int reset_signal_mask(void) {
@@ -57,10 +57,7 @@ int sigaction_many_internal(const struct sigaction *sa, ...) {
                 if (sig == 0)
                         continue;
 
-                if (sigaction(sig, sa, NULL) < 0) {
-                        if (r >= 0)
-                                r = -errno;
-                }
+                RET_GATHER(r, RET_NERRNO(sigaction(sig, sa, NULL)));
         }
 
         va_end(ap);
@@ -113,10 +110,7 @@ int sigprocmask_many(int how, sigset_t *old, ...) {
         if (r < 0)
                 return r;
 
-        if (sigprocmask(how, &ss, old) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(sigprocmask(how, &ss, old));
 }
 
 static const char *const static_signal_table[] = {
