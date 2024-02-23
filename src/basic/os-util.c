@@ -230,9 +230,16 @@ int open_extension_release_at(
                         continue;
                 }
 
-                if (!relax_extension_release_check &&
-                    extension_release_strict_xattr_value(fd, dir_path, de->d_name) != 0)
-                        continue;
+                if (!relax_extension_release_check) {
+                        const char *underscore = strchr(extension, '_');
+
+                        /* If we have extension_release.app and app_1.0.raw, it is a valid combination and
+                         * we allow it, otherwise check for the xattr. */
+                        if (!(underscore && strlen(image_name) == (size_t) (underscore - extension) &&
+                              strneq(image_name, extension, underscore - extension)) &&
+                            extension_release_strict_xattr_value(fd, dir_path, image_name) != 0)
+                                continue;
+                }
 
                 /* We already found what we were looking for, but there's another candidate? We treat this as
                  * an error, as we want to enforce that there are no ambiguities in case we are in the
