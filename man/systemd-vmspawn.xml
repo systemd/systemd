@@ -206,14 +206,6 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--qemu-gui</option></term>
-
-          <listitem><para>Start QEMU in graphical mode.</para>
-
-          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><option>-n</option></term>
           <term><option>--network-tap</option></term>
 
@@ -354,6 +346,42 @@
           this journal is saved on the host and has the same semantics as
           <option>-o</option>/<option>--output</option> described in
           <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Input/Output Options</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--console=</option><replaceable>MODE</replaceable></term>
+
+          <listitem><para>Configures how to set up the console of the VM. Takes one of
+          <option>interactive</option>, <option>read-only</option>, <option>native</option>,
+          <option>gui</option>. Defaults to <option>interactive</option>. <option>interactive</option>
+          provides an interactive terminal interface to the VM. <option>read-only</option> is similar, but is
+          strictly read-only, i.e. does not accept any input from the user. <option>native</option> also
+          provides a TTY-based interface, but uses qemu native implementation (which means the qemu monitor
+          is available). <option>gui</option> shows the qemu graphical UI.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--background=<replaceable>COLOR</replaceable></option></term>
+
+          <listitem><para>Change the terminal background color to the specified ANSI color as long as the VM
+          runs. The color specified should be an ANSI X3.64 SGR background color, i.e. strings such as
+          <literal>40</literal>, <literal>41</literal>, …, <literal>47</literal>, <literal>48;2;…</literal>,
+          <literal>48;5;…</literal>. See <ulink
+          url="https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters">ANSI
+          Escape Code (Wikipedia)</ulink> for details. Assign an empty string to disable any coloring. This
+          only has an effect in <option>--console=interactive</option> and
+          <option>--console=read-only</option> modes.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
