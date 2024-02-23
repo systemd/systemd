@@ -145,7 +145,7 @@ as a normal executable and executed for each of the input samples under
 with sanitizers and invoked as part of the test suite (if `-Dfuzz-tests=true`
 is configured). Thirdly, fuzzers are executed through fuzzing engines that try
 to find new "interesting" inputs through coverage feedback and massive
-parallelization; see the links for oss-fuzz in [Code quality](CODE_QUALITY.md).
+parallelization; see the links for oss-fuzz in [Code quality](CODE_QUALITY).
 For testing and debugging, fuzzers can be executed as any other program,
 including under `valgrind` or `gdb`.
 
