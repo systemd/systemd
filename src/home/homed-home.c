@@ -10,6 +10,7 @@
 
 #include "blockdev-util.h"
 #include "btrfs-util.h"
+#include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-locator.h"
 #include "data-fd-util.h"
@@ -1276,7 +1277,7 @@ static int home_start_work(
                 return r;
         if (r == 0) {
                 _cleanup_free_ char *joined = NULL;
-                const char *homework, *suffix, *unix_path;
+                const char *suffix, *unix_path;
 
                 /* Child */
 
@@ -1320,12 +1321,8 @@ static int home_start_work(
                 if (r < 0)
                         log_warning_errno(r, "Failed to update $SYSTEMD_LOG_LEVEL, ignoring: %m");
 
-                /* Allow overriding the homework path via an environment variable, to make debugging
-                 * easier. */
-                homework = getenv("SYSTEMD_HOMEWORK_PATH") ?: SYSTEMD_HOMEWORK_PATH;
-
-                execl(homework, homework, verb, NULL);
-                log_error_errno(errno, "Failed to invoke %s: %m", homework);
+                r = invoke_callout_binary(SYSTEMD_HOMEWORK_PATH, STRV_MAKE(SYSTEMD_HOMEWORK_PATH, verb));
+                log_error_errno(r, "Failed to invoke %s: %m", SYSTEMD_HOMEWORK_PATH);
                 _exit(EXIT_FAILURE);
         }
 
