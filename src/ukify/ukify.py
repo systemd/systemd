@@ -333,7 +333,7 @@ class UKI:
     sections: list[Section] = dataclasses.field(default_factory=list, init=False)
 
     def add_section(self, section):
-        if section.name in [s.name for s in self.sections]:
+        if section.name in [s.name for s in self.sections] and section.name != '.dtb':
             raise ValueError(f'Duplicate section {section.name}')
 
         self.sections += [section]
@@ -614,7 +614,7 @@ def pe_add_sections(uki: UKI, output: str):
         # the one from the kernel to it. It should be small enough to fit in the existing section, so just
         # swap the data.
         for i, s in enumerate(pe.sections):
-            if s.Name.rstrip(b"\x00").decode() == section.name:
+            if s.Name.rstrip(b"\x00").decode() == section.name and section.name != '.dtb':
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
                     raise PEError(f'Not enough space in existing section {section.name} to append new data.')
 
@@ -784,7 +784,13 @@ def make_uki(opts):
         # name,      content,         measure?
         ('.osrel',   opts.os_release, True ),
         ('.cmdline', opts.cmdline,    True ),
-        ('.dtb',     opts.devicetree, True ),
+    ]
+
+    if opts.devicetree:
+        for dtb in opts.devicetree:
+            sections.append(('.dtb', dtb, True))
+
+    sections += [
         ('.uname',   opts.uname,      True ),
         ('.splash',  opts.splash,     True ),
         ('.pcrpkey', pcrpkey,         True ),
@@ -1146,10 +1152,8 @@ class ConfigItem:
         else:
             conv = lambda s:s
 
-        # This is a bit ugly, but --initrd is the only option which is specified
-        # with multiple args on the command line and a space-separated list in the
-        # config file.
-        if self.name == '--initrd':
+        # This is a bit ugly
+        if self.name == '--initrd' or self.name == '--devicetree':
             value = [conv(v) for v in value.split()]
         else:
             value = conv(value)
@@ -1233,8 +1237,10 @@ CONFIG_ITEMS = [
         '--devicetree',
         metavar = 'PATH',
         type = pathlib.Path,
+        action = 'append',
         help = 'Device Tree file [.dtb section]',
         config_key = 'UKI/DeviceTree',
+        config_push = ConfigItem.config_list_prepend,
     ),
     ConfigItem(
         '--splash',
