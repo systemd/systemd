@@ -452,7 +452,7 @@ int terminal_tint_color(double hue, char **ret) {
         else        /* otherwise pump it up */
                 s = 75;
 
-        v = MAX(30, v); /* Make sure we don't hide the color in black */
+        v = MAX(20, v); /* Make sure we don't hide the color in black */
 
         uint8_t r8, g8, b8;
         hsv_to_rgb(hue, s, v, &r8, &g8, &b8);
