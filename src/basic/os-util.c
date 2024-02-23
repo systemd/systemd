@@ -61,6 +61,26 @@ bool image_name_is_valid(const char *s) {
         return true;
 }
 
+int image_names_versioned_and_equivalent(const char *image_basename, const char *reference_basename) {
+        assert(image_basename);
+        assert(reference_basename);
+
+        /* image_basename takes a full versioned image filename, such as foo_1.2.3, while reference_basename
+         * takes only the name part, such as foo. */
+
+        const char *underscore = strchr(image_basename, '_');
+        if (!underscore)
+                return -EBADRQC; /* Not versioned */
+
+        assert(underscore - image_basename >= 0);
+        if (strlen(reference_basename) != (size_t) (underscore - image_basename))
+                return false; /* Not equivalent */
+
+        /* If we have app and app_1.0.raw, it is a valid combination and we allow it. If they match return
+         * 1, 0 otherwise. */
+        return memcmp(reference_basename, image_basename, underscore - image_basename);
+}
+
 int path_is_extension_tree(ImageClass image_class, const char *path, const char *extension, bool relax_extension_release_check) {
         int r;
 
@@ -231,7 +251,8 @@ int open_extension_release_at(
                 }
 
                 if (!relax_extension_release_check &&
-                    extension_release_strict_xattr_value(fd, dir_path, de->d_name) != 0)
+                    image_names_versioned_and_equivalent(extension, image_name) <= 0 &&
+                    extension_release_strict_xattr_value(fd, dir_path, image_name) != 0)
                         continue;
 
                 /* We already found what we were looking for, but there's another candidate? We treat this as

@@ -1687,19 +1687,16 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
                 a = last_path_component(image);
 
                 if (image_name_is_valid(*image_name_or_path)) {
-                        const char *e, *underscore;
-
                         /* We shall match against an image name. In that case let's compare the last component, and optionally
-                        * allow either a suffix of ".raw" or a series of "/".
-                        * But allow matching on a different version of the same image, when a "_" is used as a separator. */
-                        underscore = strchr(*image_name_or_path, '_');
-                        if (underscore) {
-                                if (strneq(a, *image_name_or_path, underscore - *image_name_or_path))
-                                        continue;
+                         * allow either a suffix of ".raw" or a series of "/".
+                         * But allow matching on a different version of the same image, when a "_" is used as a separator. */
+                        r = image_names_versioned_and_equivalent(*image_name_or_path, a);
+                        if (r == 0) /* versioned but different name portions */
                                 return false;
-                        }
+                        if (r > 0) /* versioned and name portions match */
+                                continue;
 
-                        e = startswith(a, *image_name_or_path);
+                        const char *e = startswith(a, *image_name_or_path);
                         if (!e)
                                 return false;
 
