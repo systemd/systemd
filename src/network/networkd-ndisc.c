@@ -1568,7 +1568,7 @@ static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t
                 if (route->nexthop.ifindex != link->ifindex)
                         continue;
 
-                if (route->lifetime_usec >= timestamp_usec)
+                if (route->lifetime_usec > timestamp_usec)
                         continue; /* the route is still valid */
 
                 if (router && !in6_addr_equal(&route->provider.in6, router))
@@ -1583,7 +1583,7 @@ static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t
                 if (address->source != NETWORK_CONFIG_SOURCE_NDISC)
                         continue;
 
-                if (address->lifetime_valid_usec >= timestamp_usec)
+                if (address->lifetime_valid_usec > timestamp_usec)
                         continue; /* the address is still valid */
 
                 if (router && !in6_addr_equal(&address->provider.in6, router))
@@ -1595,7 +1595,7 @@ static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t
         }
 
         SET_FOREACH(rdnss, link->ndisc_rdnss) {
-                if (rdnss->lifetime_usec >= timestamp_usec)
+                if (rdnss->lifetime_usec > timestamp_usec)
                         continue; /* the DNS server is still valid */
 
                 if (router && !in6_addr_equal(&rdnss->router, router))
@@ -1606,7 +1606,7 @@ static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t
         }
 
         SET_FOREACH(dnssl, link->ndisc_dnssl) {
-                if (dnssl->lifetime_usec >= timestamp_usec)
+                if (dnssl->lifetime_usec > timestamp_usec)
                         continue; /* the DNS domain is still valid */
 
                 if (router && !in6_addr_equal(&dnssl->router, router))
@@ -1617,7 +1617,7 @@ static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t
         }
 
         SET_FOREACH(cp, link->ndisc_captive_portals) {
-                if (cp->lifetime_usec >= timestamp_usec)
+                if (cp->lifetime_usec > timestamp_usec)
                         continue; /* the captive portal is still valid */
 
                 if (router && !in6_addr_equal(&cp->router, router))
@@ -1628,7 +1628,7 @@ static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t
         }
 
         SET_FOREACH(p64, link->ndisc_pref64) {
-                if (p64->lifetime_usec >= timestamp_usec)
+                if (p64->lifetime_usec > timestamp_usec)
                         continue; /* the pref64 prefix is still valid */
 
                 if (router && !in6_addr_equal(&p64->router, router))
