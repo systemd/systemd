@@ -42,6 +42,7 @@ _not_installed_headers = [
         'sd-ndisc-protocol.h',
         'sd-ndisc-redirect.h',
         'sd-ndisc-router.h',
+        'sd-ndisc-router-solicit.h',
         'sd-netlink.h',
         'sd-network.h',
         'sd-radv.h',
