@@ -77,6 +77,7 @@ const char *special_glyph_full(SpecialGlyph code, bool force_utf) {
                         [SPECIAL_GLYPH_RED_CIRCLE]              = "o",
                         [SPECIAL_GLYPH_YELLOW_CIRCLE]           = "o",
                         [SPECIAL_GLYPH_BLUE_CIRCLE]             = "o",
+                        [SPECIAL_GLYPH_GREEN_CIRCLE]            = "o",
                 },
 
                 /* UTF-8 */
@@ -143,6 +144,7 @@ const char *special_glyph_full(SpecialGlyph code, bool force_utf) {
                         [SPECIAL_GLYPH_RED_CIRCLE]              = u8"🔴",
                         [SPECIAL_GLYPH_YELLOW_CIRCLE]           = u8"🟡",
                         [SPECIAL_GLYPH_BLUE_CIRCLE]             = u8"🔵",
+                        [SPECIAL_GLYPH_GREEN_CIRCLE]            = u8"🟢",
                 },
         };
 
