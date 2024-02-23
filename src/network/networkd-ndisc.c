@@ -512,6 +512,99 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
+static int should_drop_outdated_router(sd_ndisc_router *rt, const struct in6_addr *router, usec_t timestamp_usec) {
+        usec_t lifetime_usec;
+        int r;
+
+        if (!rt)
+                return false;
+
+        if (router) {
+                struct in6_addr a;
+
+                r = sd_ndisc_router_get_address(rt, &a);
+                if (r < 0)
+                        return r;
+
+                if (!in6_addr_equal(&a, router))
+                        return false;
+        }
+
+        r = sd_ndisc_router_get_lifetime_timestamp(rt, CLOCK_BOOTTIME, &lifetime_usec);
+        if (r < 0)
+                return r;
+
+        return lifetime_usec <= timestamp_usec;
+}
+
+static int accept_default_router(sd_ndisc_router *new_router, sd_ndisc_router *existing_router) {
+        usec_t lifetime_usec;
+        struct in6_addr a, b;
+        unsigned p, q;
+        int r;
+
+        assert(new_router);
+
+        r = sd_ndisc_router_get_lifetime(new_router, &lifetime_usec);
+        if (r < 0)
+                return r;
+
+        if (lifetime_usec == 0)
+                return false; /* Received a new RA about revoking the router, ignoring. */
+
+        if (!existing_router)
+                return true;
+
+        /* lifetime of the existing router is already checked in ndisc_drop_outdated(). */
+
+        r = sd_ndisc_router_get_address(new_router, &a);
+        if (r < 0)
+                return r;
+
+        r = sd_ndisc_router_get_address(existing_router, &b);
+        if (r < 0)
+                return r;
+
+        if (in6_addr_equal(&a, &b))
+                return true; /* Received a new RA from the remembered router. Replace the remembered RA. */
+
+        r = sd_ndisc_router_get_preference(new_router, &p);
+        if (r < 0)
+                return r;
+
+        r = sd_ndisc_router_get_preference(existing_router, &q);
+        if (r < 0)
+                return r;
+
+        if (p == q)
+                return true;
+
+        if (p == SD_NDISC_PREFERENCE_HIGH)
+                return true;
+
+        if (p == SD_NDISC_PREFERENCE_MEDIUM && q == SD_NDISC_PREFERENCE_LOW)
+                return true;
+
+        return false;
+}
+
+static int ndisc_remember_default_router(Link *link, sd_ndisc_router *rt) {
+        int r;
+
+        assert(link);
+        assert(rt);
+
+        r = accept_default_router(rt, link->ndisc_default_router);
+        if (r <= 0)
+                return r;
+
+        sd_ndisc_router_ref(rt);
+        sd_ndisc_router_unref(link->ndisc_default_router);
+        link->ndisc_default_router = rt;
+
+        return 0;
+}
+
 static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt) {
         usec_t icmp6_ratelimit, msec;
         int r;
@@ -1462,6 +1555,12 @@ static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t
          * valid lifetimes to improve the reaction of SLAAC to renumbering events.
          * See draft-ietf-6man-slaac-renum-02, section 4.2. */
 
+        r = should_drop_outdated_router(link->ndisc_default_router, router, timestamp_usec);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Failed to determine if the remembered router should be dropped, ignoring: %m"));
+        if (r != 0)
+                link->ndisc_default_router = sd_ndisc_router_unref(link->ndisc_default_router);
+
         SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
                         continue;
@@ -1706,6 +1805,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return r;
 
         r = ndisc_drop_outdated(link, /* router = */ NULL, timestamp_usec);
+        if (r < 0)
+                return r;
+
+        r = ndisc_remember_default_router(link, rt);
         if (r < 0)
                 return r;
 
