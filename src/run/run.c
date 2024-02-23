@@ -1610,6 +1610,8 @@ static void set_window_title(PTYForward *f) {
                 (void) pty_forward_set_titlef(f, "%s%s on %s", strempty(dot), cl, arg_host ?: hn);
         else
                 (void) pty_forward_set_titlef(f, "%s%s", strempty(dot), cl);
+
+        (void) pty_forward_set_title_prefix(f, dot);
 }
 
 static int start_transient_service(sd_bus *bus) {
