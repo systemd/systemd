@@ -31,8 +31,11 @@ int sigaction_many_internal(const struct sigaction *sa, ...);
 #define sigaction_many(sa, ...)                                         \
         sigaction_many_internal(sa, __VA_ARGS__, -1)
 
-int sigset_add_many(sigset_t *ss, ...);
-int sigprocmask_many(int how, sigset_t *old, ...);
+int sigset_add_many_internal(sigset_t *ss, ...);
+#define sigset_add_many(...) sigset_add_many_internal(__VA_ARGS__, -1)
+
+int sigprocmask_many_internal(int how, sigset_t *old, ...);
+#define sigprocmask_many(...) sigprocmask_many_internal(__VA_ARGS__, -1)
 
 const char *signal_to_string(int i) _const_;
 int signal_from_string(const char *s) _pure_;
@@ -46,7 +49,7 @@ static inline void block_signals_reset(sigset_t *ss) {
 #define BLOCK_SIGNALS(...)                                                         \
         _cleanup_(block_signals_reset) _unused_ sigset_t _saved_sigset = ({        \
                 sigset_t _t;                                                       \
-                assert_se(sigprocmask_many(SIG_BLOCK, &_t, __VA_ARGS__, -1) >= 0); \
+                assert_se(sigprocmask_many(SIG_BLOCK, &_t, __VA_ARGS__) >= 0);     \
                 _t;                                                                \
         })
 

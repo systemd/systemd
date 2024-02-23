@@ -71,7 +71,7 @@ TEST(asynchronous_rm_rf) {
 
                 /* child */
 
-                assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
+                assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
                 assert_se(make_reaper_process(true) >= 0);
 
                 assert_se(mkdtemp_malloc(NULL, &tt) >= 0);

@@ -342,7 +342,7 @@ static int run(int argc, char *argv[]) {
          * make sure this check stays in. */
         (void) mkdir_label("/run/systemd/machines", 0755);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, SIGRTMIN+18, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, SIGRTMIN+18) >= 0);
 
         r = manager_new(&m);
         if (r < 0)

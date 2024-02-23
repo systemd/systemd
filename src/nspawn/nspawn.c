@@ -5994,7 +5994,7 @@ static int run(int argc, char *argv[]) {
                          special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, SIGRTMIN+18, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, SIGRTMIN+18) >= 0);
 
         r = make_reaper_process(true);
         if (r < 0) {

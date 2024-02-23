@@ -1570,7 +1570,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_debug("Executing: %s", joined);
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;

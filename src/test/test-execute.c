@@ -652,7 +652,7 @@ static int find_libraries(const char *exec, char ***ret) {
         assert_se(exec);
         assert_se(ret);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
         assert_se(pipe2(outpipe, O_NONBLOCK|O_CLOEXEC) == 0);
         assert_se(pipe2(errpipe, O_NONBLOCK|O_CLOEXEC) == 0);

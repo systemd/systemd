@@ -713,7 +713,7 @@ int ask_password_agent(
                 return -EUNATCH;
 
         assert_se(sigemptyset(&mask) >= 0);
-        assert_se(sigset_add_many(&mask, SIGINT, SIGTERM, -1) >= 0);
+        assert_se(sigset_add_many(&mask, SIGINT, SIGTERM) >= 0);
         assert_se(sigprocmask(SIG_BLOCK, &mask, &oldmask) >= 0);
 
         (void) mkdir_p_label("/run/systemd/ask-password", 0755);
