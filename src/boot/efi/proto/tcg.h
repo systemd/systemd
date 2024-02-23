@@ -3,12 +3,9 @@
 
 #include "efi.h"
 
-#define EFI_TCG_PROTOCOL_GUID \
-        GUID_DEF(0xf541796d, 0xa62e, 0x4954, 0xa7, 0x75, 0x95, 0x84, 0xf6, 0x1b, 0x9c, 0xdd)
 #define EFI_TCG2_PROTOCOL_GUID \
         GUID_DEF(0x607f766c, 0x7455, 0x42be, 0x93, 0x0b, 0xe4, 0xd7, 0x6d, 0xb2, 0x72, 0x0f)
 
-#define TCG_ALG_SHA 0x4
 #define EFI_TCG2_EVENT_HEADER_VERSION 1
 #define EV_IPL 13
 #define EV_EVENT_TAG UINT32_C(6)
@@ -49,16 +46,6 @@ typedef struct {
 } EFI_TCG2_BOOT_SERVICE_CAPABILITY;
 
 typedef struct {
-        uint32_t PCRIndex;
-        uint32_t EventType;
-        struct {
-                uint8_t Digest[20];
-        } Digest;
-        uint32_t EventSize;
-        uint8_t Event[];
-} _packed_ TCG_PCR_EVENT;
-
-typedef struct {
         uint32_t HeaderSize;
         uint16_t HeaderVersion;
         uint32_t PCRIndex;
@@ -76,27 +63,6 @@ typedef struct {
         uint32_t EventSize;
         uint8_t Event[];
 } _packed_ EFI_TCG2_TAGGED_EVENT;
-
-typedef struct EFI_TCG_PROTOCOL EFI_TCG_PROTOCOL;
-struct EFI_TCG_PROTOCOL {
-        EFI_STATUS (EFIAPI *StatusCheck)(
-                        EFI_TCG_PROTOCOL *This,
-                        EFI_TCG_BOOT_SERVICE_CAPABILITY *ProtocolCapability,
-                        uint32_t *TCGFeatureFlags,
-                        EFI_PHYSICAL_ADDRESS *EventLogLocation,
-                        EFI_PHYSICAL_ADDRESS *EventLogLastEntry);
-        void *HashAll;
-        void *LogEvent;
-        void *PassThroughToTpm;
-        EFI_STATUS (EFIAPI *HashLogExtendEvent)(
-                        EFI_TCG_PROTOCOL *This,
-                        EFI_PHYSICAL_ADDRESS HashData,
-                        uint64_t HashDataLen,
-                        uint32_t AlgorithmId,
-                        TCG_PCR_EVENT *TCGLogData,
-                        uint32_t *EventNumber,
-                        EFI_PHYSICAL_ADDRESS *EventLogLastEntry);
-};
 
 typedef struct EFI_TCG2_PROTOCOL EFI_TCG2_PROTOCOL;
 struct EFI_TCG2_PROTOCOL {
