@@ -4443,6 +4443,9 @@ static void set_window_title(PTYForward *f) {
                 (void) pty_forward_set_titlef(f, "%sContainer %s on %s", strempty(dot), arg_machine, hn);
         else
                 (void) pty_forward_set_titlef(f, "%sContainer %s", strempty(dot), arg_machine);
+
+        if (dot)
+                (void) pty_forward_set_title_prefix(f, dot);
 }
 
 static int merge_settings(Settings *settings, const char *path) {
