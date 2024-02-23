@@ -541,7 +541,7 @@ void link_check_ready(Link *link) {
          * Note, ignore NDisc when ConfigureWithoutCarrier= is enabled, as IPv6AcceptRA= is enabled by default. */
         if (!link_ipv4ll_enabled(link) && !link_dhcp4_enabled(link) &&
             !link_dhcp6_enabled(link) && !link_dhcp_pd_is_enabled(link) &&
-            (link->network->configure_without_carrier || !link_ipv6_accept_ra_enabled(link)))
+            (link->network->configure_without_carrier || !link_ndisc_enabled(link)))
                 goto ready;
 
         bool ipv4ll_ready =
@@ -559,8 +559,8 @@ void link_check_ready(Link *link) {
                 (!link->network->dhcp_pd_assign ||
                  link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_DHCP_PD));
         bool ndisc_ready =
-                link_ipv6_accept_ra_enabled(link) && link->ndisc_configured &&
-                (!link->network->ipv6_accept_ra_use_autonomous_prefix ||
+                link_ndisc_enabled(link) && link->ndisc_configured &&
+                (!link->network->ndisc_use_autonomous_prefix ||
                  link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_NDISC));
 
         /* If the uplink for PD is self, then request the corresponding DHCP protocol is also ready. */
