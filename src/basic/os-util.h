@@ -25,6 +25,7 @@ ImageClass image_class_from_string(const char *s) _pure_;
  * in accordance with the OS extension specification, rather than for /usr/lib/ or /etc/os-release. */
 
 bool image_name_is_valid(const char *s) _pure_;
+int image_names_versioned_and_equivalent(const char *image, const char *reference) _pure_;
 
 int path_is_extension_tree(ImageClass image_class, const char *path, const char *extension, bool relax_extension_release_check);
 static inline int path_is_os_tree(const char *path) {

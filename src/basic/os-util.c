@@ -61,6 +61,19 @@ bool image_name_is_valid(const char *s) {
         return true;
 }
 
+int image_names_versioned_and_equivalent(const char *image, const char *reference) {
+        assert(image);
+        assert(reference);
+
+        const char *underscore = strchr(image, '_');
+        if (!underscore)
+                return -1; /* Not versioned */
+
+        /* If we have extension_release.app and app_1.0.raw, it is a valid combination and
+         * we allow it. If they match return 1, 0 otherwise. */
+        return strneq(reference, image, underscore - image);
+}
+
 int path_is_extension_tree(ImageClass image_class, const char *path, const char *extension, bool relax_extension_release_check) {
         int r;
 
@@ -231,7 +244,8 @@ int open_extension_release_at(
                 }
 
                 if (!relax_extension_release_check &&
-                    extension_release_strict_xattr_value(fd, dir_path, de->d_name) != 0)
+                    image_names_versioned_and_equivalent(extension, image_name) <= 0 &&
+                    extension_release_strict_xattr_value(fd, dir_path, image_name) != 0)
                         continue;
 
                 /* We already found what we were looking for, but there's another candidate? We treat this as
