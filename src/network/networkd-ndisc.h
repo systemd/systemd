@@ -52,9 +52,9 @@ static inline char* NDISC_DNSSL_DOMAIN(const NDiscDNSSL *n) {
         return ((char*) n) + ALIGN(sizeof(NDiscDNSSL));
 }
 
-bool link_ipv6_accept_ra_enabled(Link *link);
+bool link_ndisc_enabled(Link *link);
 
-void network_adjust_ipv6_accept_ra(Network *network);
+void network_adjust_ndisc(Network *network);
 
 int ndisc_start(Link *link);
 int ndisc_stop(Link *link);
@@ -62,5 +62,5 @@ void ndisc_flush(Link *link);
 
 int link_request_ndisc(Link *link);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_accept_ra_start_dhcp6_client);
-CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_accept_ra_use_domains);
+CONFIG_PARSER_PROTOTYPE(config_parse_ndisc_start_dhcp6_client);
+CONFIG_PARSER_PROTOTYPE(config_parse_ndisc_use_domains);
