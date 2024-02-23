@@ -1170,7 +1170,7 @@ static int setup_pam(
 
         /* Block SIGTERM, so that we know that it won't get lost in the child */
 
-        assert_se(sigprocmask_many(SIG_BLOCK, &old_ss, SIGTERM, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, &old_ss, SIGTERM) >= 0);
 
         parent_pid = getpid_cached();
 

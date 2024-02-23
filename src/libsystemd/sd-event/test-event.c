@@ -92,7 +92,7 @@ static int signal_handler(sd_event_source *s, const struct signalfd_siginfo *si,
 
         assert_se(userdata == INT_TO_PTR('e'));
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGUSR2, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGUSR2) >= 0);
 
         pid = fork();
         assert_se(pid >= 0);
@@ -142,7 +142,7 @@ static int defer_handler(sd_event_source *s, void *userdata) {
 
         assert_se(userdata == INT_TO_PTR('d'));
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGUSR1, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGUSR1) >= 0);
 
         assert_se(sd_event_add_signal(sd_event_source_get_event(s), &p, SIGUSR1, signal_handler, INT_TO_PTR('e')) >= 0);
         assert_se(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT) >= 0);
@@ -254,7 +254,7 @@ static void test_basic_one(bool with_pidfd) {
         assert_se(sd_event_source_set_prepare(z, prepare_handler) >= 0);
 
         /* Test for floating event sources */
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN+1, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN+1) >= 0);
         assert_se(sd_event_add_signal(e, NULL, SIGRTMIN+1, NULL, NULL) >= 0);
 
         assert_se(write(a[1], &ch, 1) >= 0);
@@ -346,7 +346,7 @@ TEST(rtqueue) {
 
         assert_se(sd_event_default(&e) >= 0);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN+2, SIGRTMIN+3, SIGUSR2, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGRTMIN+2, SIGRTMIN+3, SIGUSR2) >= 0);
         assert_se(sd_event_add_signal(e, &u, SIGRTMIN+2, rtqueue_handler, NULL) >= 0);
         assert_se(sd_event_add_signal(e, &v, SIGRTMIN+3, rtqueue_handler, NULL) >= 0);
         assert_se(sd_event_add_signal(e, &s, SIGUSR2, rtqueue_handler, NULL) >= 0);
@@ -556,7 +556,7 @@ TEST(pidfd) {
         int pidfd;
         pid_t pid, pid2;
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
         pid = fork();
         if (pid == 0)
