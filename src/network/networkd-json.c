@@ -490,7 +490,7 @@ static int dns_append_json(Link *link, JsonVariant **v) {
                         }
                 }
 
-                if (link->network->ipv6_accept_ra_use_dns) {
+                if (link->network->ndisc_use_dns) {
                         NDiscRDNSS *a;
 
                         SET_FOREACH(a, link->ndisc_rdnss) {
@@ -730,7 +730,7 @@ static int domains_append_json(Link *link, bool is_route, JsonVariant **v) {
                                 }
                 }
 
-                if (link->network->ipv6_accept_ra_use_domains == use_domains) {
+                if (link->network->ndisc_use_domains == use_domains) {
                         NDiscDNSSL *a;
 
                         SET_FOREACH(a, link->ndisc_dnssl) {
@@ -869,7 +869,7 @@ static int pref64_append_json(Link *link, JsonVariant **v) {
         assert(link);
         assert(v);
 
-        if (!link->network || !link->network->ipv6_accept_ra_use_pref64)
+        if (!link->network || !link->network->ndisc_use_pref64)
                 return 0;
 
         SET_FOREACH(i, link->ndisc_pref64) {

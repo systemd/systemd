@@ -799,7 +799,7 @@ int link_request_dhcp6_client(Link *link) {
 
         assert(link);
 
-        if (!link_dhcp6_enabled(link) && !link_ipv6_accept_ra_enabled(link))
+        if (!link_dhcp6_enabled(link) && !link_ndisc_enabled(link))
                 return 0;
 
         if (link->dhcp6_client)
