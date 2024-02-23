@@ -5,12 +5,12 @@
 
 #include <netinet/icmp6.h>
 
+#include "sd-dns-resolver.h"
 #include "sd-ndisc.h"
 
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "escape.h"
-#include "dns-resolver.h"
 #include "hostname-util.h"
 #include "memory-util.h"
 #include "missing_network.h"

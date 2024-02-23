@@ -3,9 +3,10 @@
 
 #include <netinet/in.h>
 
+#include "sd-dns-resolver.h"
+
 #include "conf-parser.h"
 #include "dhcp-duid-internal.h"
-#include "dns-resolver.h"
 #include "in-addr-util.h"
 #include "set.h"
 #include "time-util.h"

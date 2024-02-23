@@ -57,6 +57,13 @@ struct sd_dns_resolver {
         usec_t lifetime_usec; /* ndisc ra lifetime */
 };
 
+int sd_dns_resolver_get_priority(const sd_dns_resolver *res, uint16_t *priority);
+int sd_dns_resolver_get_adn(const sd_dns_resolver *res, const char **adn);
+int sd_dns_resolver_get_addrs(const sd_dns_resolver *res, int *family, const union in_addr_union **addrs, size_t *n);
+int sd_dns_resolver_get_transports(const sd_dns_resolver *res, DNSALPNFlags *transports);
+int sd_dns_resolver_get_port(const sd_dns_resolver *res, uint16_t *port);
+int sd_dns_resolver_get_dohpath(const sd_dns_resolver *res, const char **dohpath);
+
 void sd_dns_resolver_done(sd_dns_resolver *res);
 void sd_dns_resolver_clear(sd_dns_resolver *res);
 sd_dns_resolver *sd_dns_resolver_free(sd_dns_resolver *res);
