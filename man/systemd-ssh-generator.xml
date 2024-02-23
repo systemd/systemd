@@ -63,6 +63,11 @@
     <citerefentry><refentrytitle>systemd-ssh-proxy</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
     details on how to connect to these sockets via the <command>ssh</command> client.</para>
 
+    <para>The <varname>ssh.authorized_keys.root</varname> credential can be used to allow specific public keys
+    to log in over SSH. See
+    <citerefentry><refentrytitle>systemd.systemd-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for more information.</para>
+
     <para>The generator will use a packaged <filename>sshd@.service</filename> service template file if one
     exists, and otherwise generate a suitable service template file.</para>
 
