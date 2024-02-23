@@ -2220,7 +2220,7 @@ static int get_unit_dbus_path_by_pid(
          * sends the numeric PID. */
 
         pidfd = pidfd_open(pid, 0);
-        if (pidfd < 0 && ERRNO_IS_NOT_SUPPORTED(errno))
+        if (pidfd < 0 && ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                 return get_unit_dbus_path_by_pid_fallback(bus, pid, ret_path, ret_unit);
         if (pidfd < 0)
                 return log_error_errno(errno, "Failed to open PID %"PRIu32": %m", pid);
