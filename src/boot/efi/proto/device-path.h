@@ -18,6 +18,7 @@ enum {
         MEDIA_DEVICE_PATH     = 0x04,
         BBS_DEVICE_PATH       = 0x05,
         END_DEVICE_PATH_TYPE  = 0x7f,
+        END_DEVICE_PATH2_TYPE = 0xff,
 };
 
 /* Device path sub-types. */

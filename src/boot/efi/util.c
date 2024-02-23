@@ -697,3 +697,92 @@ char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path) {
         remove_boot_count(file_path_str);
         return xasprintf("%ls.extra.d", file_path_str);
 }
+
+/*
+ * The EFI_LOAD_OPTION descriptor has the following layout:
+ *        u32 Attributes;
+ *        u16 FilePathListLength;
+ *        u16 Description[];
+ *        efi_device_path_protocol_t FilePathList[];
+ *        u8 OptionalData[];
+ *
+ * This function validates and unpacks the variable-size data fields.
+ */
+static bool efi_load_option_unpack(
+                EFI_LOAD_OPTION_UNPACKED *dest,
+                const EFI_LOAD_OPTION *src, size_t size) {
+        uintptr_t pos;
+        uint16_t c;
+        EFI_DEVICE_PATH header;
+        const char16_t *description;
+        const EFI_DEVICE_PATH *file_path_list;
+
+        if (size < offsetof(EFI_LOAD_OPTION, variable_data))
+                return false;
+        pos = (uintptr_t)src->variable_data;
+        size -= offsetof(EFI_LOAD_OPTION, variable_data);
+
+        if ((src->attributes & ~EFI_LOAD_OPTION_MASK) != 0)
+                return false;
+
+        /* Scan description. */
+        description = (void*)pos;
+        do {
+                if (size < sizeof(c))
+                        return false;
+                c = *(const uint16_t *)pos;
+                pos += sizeof(c);
+                size -= sizeof(c);
+        } while (c != L'\0');
+
+        /* Scan file_path_list. */
+        file_path_list = (void*)pos;
+        do {
+                if (size < sizeof(header))
+                        return false;
+                header = *(const EFI_DEVICE_PATH *)pos;
+                if (header.Length < sizeof(header))
+                        return false;
+                if (size < header.Length)
+                        return false;
+                pos += header.Length;
+                size -= header.Length;
+        } while ((header.Type != END_DEVICE_PATH_TYPE && header.Type != END_DEVICE_PATH2_TYPE) ||
+                 (header.SubType != END_ENTIRE_DEVICE_PATH_SUBTYPE));
+        if (pos != (uintptr_t)file_path_list + src->file_path_list_length)
+                return false;
+
+        dest->attributes = src->attributes;
+        dest->file_path_list_length = src->file_path_list_length;
+        dest->description = description;
+        dest->file_path_list = file_path_list;
+        dest->optional_data_size = size;
+        dest->optional_data = size ? (void*)pos : NULL;
+
+        return true;
+}
+
+/*
+ * At least some versions of Dell firmware pass the entire contents of the
+ * Boot#### variable, i.e. the EFI_LOAD_OPTION descriptor, rather than just the
+ * OptionalData field.
+ *
+ * Detect this case and extract OptionalData.
+ */
+void efi_apply_loadoptions_quirk(const void **load_options, uint32_t *load_options_size) {
+        const EFI_LOAD_OPTION *load_option = *load_options;
+        EFI_LOAD_OPTION_UNPACKED load_option_unpacked;
+
+        if (!load_option)
+                return;
+        if (*load_options_size < sizeof(*load_option))
+                return;
+        if ((load_option->attributes & ~EFI_LOAD_OPTION_BOOT_MASK) != 0)
+                return;
+
+        if (!efi_load_option_unpack(&load_option_unpacked, load_option, *load_options_size))
+                return;
+
+        *load_options = load_option_unpacked.optional_data;
+        *load_options_size = load_option_unpacked.optional_data_size;
+}

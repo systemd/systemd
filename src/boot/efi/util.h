@@ -215,3 +215,35 @@ static inline bool efi_guid_equal(const EFI_GUID *a, const EFI_GUID *b) {
 void *find_configuration_table(const EFI_GUID *guid);
 
 char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);
+
+typedef struct {
+	uint32_t attributes;
+	uint16_t file_path_list_length;
+	uint8_t variable_data[];
+	// efi_char16_t description[];
+	// efi_device_path_protocol_t file_path_list[];
+	// u8 optional_data[];
+} _packed_ EFI_LOAD_OPTION;
+
+typedef struct {
+	uint32_t attributes;
+	uint16_t file_path_list_length;
+	const char16_t *description;
+	const EFI_DEVICE_PATH *file_path_list;
+	uint32_t optional_data_size;
+	const void *optional_data;
+} EFI_LOAD_OPTION_UNPACKED;
+
+
+#define EFI_LOAD_OPTION_ACTIVE		0x0001U
+#define EFI_LOAD_OPTION_FORCE_RECONNECT	0x0002U
+#define EFI_LOAD_OPTION_HIDDEN		0x0008U
+#define EFI_LOAD_OPTION_CATEGORY	0x1f00U
+#define   EFI_LOAD_OPTION_CATEGORY_BOOT	0x0000U
+#define   EFI_LOAD_OPTION_CATEGORY_APP	0x0100U
+
+#define EFI_LOAD_OPTION_BOOT_MASK \
+	(EFI_LOAD_OPTION_ACTIVE|EFI_LOAD_OPTION_HIDDEN|EFI_LOAD_OPTION_CATEGORY)
+#define EFI_LOAD_OPTION_MASK (EFI_LOAD_OPTION_FORCE_RECONNECT|EFI_LOAD_OPTION_BOOT_MASK)
+
+void efi_apply_loadoptions_quirk(const void **load_options, uint32_t *load_options_size);
