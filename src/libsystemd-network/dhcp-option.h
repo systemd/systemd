@@ -4,9 +4,11 @@
 #include <stdint.h>
 
 #include "sd-dhcp-option.h"
+#include "sd-dns-resolver.h"
 
 #include "dhcp-protocol.h"
 #include "hash-funcs.h"
+#include "list.h"
 
 struct sd_dhcp_option {
         unsigned n_ref;
