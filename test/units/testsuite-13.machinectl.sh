@@ -20,6 +20,9 @@ at_exit() {
 
 trap at_exit EXIT
 
+systemctl service-log-level systemd-machined debug
+systemctl service-log-level systemd-importd debug
+
 # Mount tmpfs over /var/lib/machines to not pollute the image
 mkdir -p /var/lib/machines
 mount -t tmpfs tmpfs /var/lib/machines
