@@ -679,6 +679,15 @@ static int start_tpm(
         if (!ssp.listen_address)
                 return log_oom();
 
+        _cleanup_free_ char *swtpm_setup = NULL;
+        r = find_executable("swtpm_setup", &swtpm_setup);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find swtpm_setup binary: %m");
+
+        ssp.exec_start_pre = strv_new(swtpm_setup, "--tpm-state", state_dir, "--tpm2", "--pcr-banks", "sha256");
+        if (!ssp.exec_start_pre)
+                return log_oom();
+
         ssp.exec_start = strv_new(swtpm, "socket", "--tpm2", "--tpmstate");
         if (!ssp.exec_start)
                 return log_oom();
