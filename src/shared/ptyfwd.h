@@ -44,7 +44,10 @@ int pty_forward_set_priority(PTYForward *f, int64_t priority);
 int pty_forward_set_width_height(PTYForward *f, unsigned width, unsigned height);
 
 int pty_forward_set_background_color(PTYForward *f, const char *color);
+
 int pty_forward_set_title(PTYForward *f, const char *title);
 int pty_forward_set_titlef(PTYForward *f, const char *format, ...) _printf_(2,3);
+
+int pty_forward_set_title_prefix(PTYForward *f, const char *prefix);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(PTYForward*, pty_forward_free);
