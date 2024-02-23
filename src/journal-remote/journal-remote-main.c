@@ -540,7 +540,7 @@ static int setup_signals(RemoteServer *s) {
 
         assert(s);
 
-        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM) >= 0);
 
         r = sd_event_add_signal(s->events, &s->sigterm_event, SIGTERM, NULL, s);
         if (r < 0)

@@ -356,7 +356,7 @@ static int process_and_watch_password_files(bool watch) {
         (void) mkdir_p_label("/run/systemd/ask-password", 0755);
 
         assert_se(sigemptyset(&mask) >= 0);
-        assert_se(sigset_add_many(&mask, SIGTERM, -1) >= 0);
+        assert_se(sigset_add_many(&mask, SIGTERM) >= 0);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) >= 0);
 
         if (watch) {
@@ -556,7 +556,7 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, char **arguments
 
         assert_se(sigaction(SIGCHLD, &sigchld, NULL) >= 0);
         assert_se(sigaction(SIGHUP, &sighup, NULL) >= 0);
-        assert_se(sigprocmask_many(SIG_UNBLOCK, NULL, SIGHUP, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_UNBLOCK, NULL, SIGHUP, SIGCHLD) >= 0);
 
         r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, ret_pid);
         if (r < 0)

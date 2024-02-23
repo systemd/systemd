@@ -208,7 +208,7 @@ int monitor_main(int argc, char *argv[], void *userdata) {
                 goto finalize;
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT) >= 0);
         (void) sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
         (void) sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
 
