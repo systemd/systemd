@@ -3,8 +3,6 @@
 #define foosdndiscprotocolfoo
 
 /***
-  Copyright © 2014 Intel Corporation. All rights reserved.
-
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
   the Free Software Foundation; either version 2.1 of the License, or
@@ -29,6 +27,7 @@ enum {
         SD_NDISC_OPTION_SOURCE_LL_ADDRESS  = 1,
         SD_NDISC_OPTION_TARGET_LL_ADDRESS  = 2,
         SD_NDISC_OPTION_PREFIX_INFORMATION = 3,
+        SD_NDISC_OPTION_REDIRECTED_HEADER  = 4,
         SD_NDISC_OPTION_MTU                = 5,
         SD_NDISC_OPTION_ROUTE_INFORMATION  = 24,
         SD_NDISC_OPTION_RDNSS              = 25,
