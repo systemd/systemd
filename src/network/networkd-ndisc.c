@@ -1981,6 +1981,60 @@ static int ndisc_neighbor_handler(Link *link, sd_ndisc_neighbor *na) {
         return 0;
 }
 
+static int ndisc_redirect_handler(Link *link, sd_ndisc_redirect *rd) {
+        struct in6_addr sender, router, gateway, destination;
+        usec_t lifetime_usec;
+        int r;
+
+        assert(link);
+        assert(rd);
+
+        /* Ignore all Redirect messages from non-default router. */
+
+        if (!link->ndisc_default_router)
+                return 0;
+
+        r = sd_ndisc_redirect_get_sender_address(rd, &sender);
+        if (r < 0)
+                return r;
+
+        r = sd_ndisc_router_get_address(link->ndisc_default_router, &router);
+        if (r < 0)
+                return r;
+
+        if (!in6_addr_equal(&sender, &router))
+                return 0;
+
+        /* OK, the Redirect message is sent from the current default router. */
+
+        r = sd_ndisc_redirect_get_target_address(link->ndisc_default_router, &gateway);
+        if (r < 0)
+                return r;
+
+        r = sd_ndisc_redirect_get_destination_address(link->ndisc_default_router, &destination);
+        if (r < 0)
+                return r;
+
+        _cleanup_(route_unrefp) Route *route = NULL;
+        r = route_new(&route);
+        if (r < 0)
+                return r;
+
+        route->family = AF_INET6;
+        if (!in6_addr_equal(&gateway, &destination)) {
+                route->nexthop.gw.in6 = gateway;
+                route->nexthop.family = AF_INET6;
+        }
+        route->dst.in6 = dst;
+        route->dst_prefixlen = 128;
+
+        r = ndisc_request_route(route, link, link->ndisc_default_router);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not request route for the redirected node: %m");
+
+        return 0;
+}
+
 static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event_t event, void *message, void *userdata) {
         Link *link = ASSERT_PTR(userdata);
         int r;
@@ -2000,6 +2054,14 @@ static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event_t event, void *message, v
 
         case SD_NDISC_EVENT_NEIGHBOR:
                 r = ndisc_neighbor_handler(link, ASSERT_PTR(message));
+                if (r < 0 && r != -EBADMSG) {
+                        link_enter_failed(link);
+                        return;
+                }
+                break;
+
+        case SD_NDISC_EVENT_REDIRECT:
+                r = ndisc_redirect_handler(link, ASSERT_PTR(message));
                 if (r < 0 && r != -EBADMSG) {
                         link_enter_failed(link);
                         return;
