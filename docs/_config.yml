@@ -4,32 +4,7 @@ title: systemd
 baseurl: "" # the subpath of your site, e.g. /blog/
 url: "https://systemd.io" # the base hostname & protocol for your site
 
+permalink: /:title/
+
 # Build settings
 markdown: kramdown
-
-collections:
-  concepts:
-    title: 'Concepts'
-    output: true
-  contributing:
-    title: 'Contributing'
-    output: true
-  userdocs:
-    output: true
-    title: 'Documentation for Users and Administrators'
-  booting:
-    title: 'Booting'
-    output: true
-  interfaces:
-    title: 'Interfaces'
-    output: true
-  networking:
-    title: 'Networking'
-    output: true
-  groups:
-    title: 'Users, Groups and Home Directories'
-    output: true
-  devdocs:
-    title: 'Documentation for Developers'
-    output: true
-
