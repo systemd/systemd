@@ -26,6 +26,13 @@ CHANGES WITH 256 in spe:
           a private VLAN variant of the proxy ARP supported by the kernel
           under the name IPv4ProxyARPPrivateVLAN=.
 
+        * TPM 1.2 PCR measurement support has been removed from
+          systemd-stub. TPM 1.2 is obsolete and — due to the (by today's
+          standards) weak cryptographic algorithms it only supports — does not
+          actually provide the security benefits it's supposed to
+          provide. Given that the rest of systemd's codebase never supported
+          TPM 1.2 the support has now been removed from systemd-stub as well.
+
 CHANGES WITH 255:
 
         Announcements of Future Feature Removals and Incompatible Changes:
