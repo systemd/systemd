@@ -8,6 +8,7 @@ sources = files(
         'dhcp6-network.c',
         'dhcp6-option.c',
         'dhcp6-protocol.c',
+        'icmp6-packet.c',
         'icmp6-util.c',
         'lldp-neighbor.c',
         'lldp-network.c',
@@ -27,6 +28,8 @@ sources = files(
         'sd-lldp-rx.c',
         'sd-lldp-tx.c',
         'sd-ndisc.c',
+        'sd-ndisc-neighbor.c',
+        'sd-ndisc-redirect.c',
         'sd-ndisc-router.c',
         'sd-radv.c',
 )
