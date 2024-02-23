@@ -11,12 +11,12 @@
 #include <unistd.h>
 
 #include "sd-dhcp-lease.h"
+#include "dns-resolver-internal.h"
 
 #include "alloc-util.h"
 #include "dhcp-lease-internal.h"
 #include "dhcp-option.h"
 #include "dns-domain.h"
-#include "dns-resolver.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"

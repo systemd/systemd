@@ -24,8 +24,6 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
-/* #include "dns-resolver.h" FIXME: whynot? */
-typedef struct sd_dns_resolver sd_dns_resolver;
 #include "sd-dhcp-client-id.h"
 
 #include "_sd-common.h"
@@ -34,6 +32,7 @@ _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_dhcp_lease sd_dhcp_lease;
 typedef struct sd_dhcp_route sd_dhcp_route;
+typedef struct sd_dns_resolver sd_dns_resolver;
 
 sd_dhcp_lease *sd_dhcp_lease_ref(sd_dhcp_lease *lease);
 sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease);

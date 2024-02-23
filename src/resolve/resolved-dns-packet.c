@@ -4,9 +4,10 @@
 #  include <gcrypt.h>
 #endif
 
+#include "dns-resolver-internal.h"
+
 #include "alloc-util.h"
 #include "dns-domain.h"
-#include "dns-resolver.h"
 #include "escape.h"
 #include "memory-util.h"
 #include "resolved-dns-packet.h"

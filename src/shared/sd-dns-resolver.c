@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "dns-resolver.h"
+#include "dns-resolver-internal.h"
+
 #include "macro.h"
 #include "unaligned.h"
 #include "socket-netlink.h"
@@ -37,6 +38,77 @@ void sd_dns_resolver_array_free(sd_dns_resolver resolvers[], size_t n) {
 int sd_dns_resolver_prio_compare(const sd_dns_resolver *a, const sd_dns_resolver *b) {
         return a->priority - b->priority;
 }
+
+int sd_dns_resolver_get_priority(const sd_dns_resolver *res, uint16_t *priority) {
+        assert_return(res, -EINVAL);
+        assert_return(priority, -EINVAL);
+
+        *priority = res->priority;
+        return 0;
+}
+
+int sd_dns_resolver_get_adn(const sd_dns_resolver *res, const char **adn) {
+        assert_return(res, -EINVAL);
+        assert_return(adn, -EINVAL);
+
+        /* Without adn only Do53 can be supported */
+        if (!res->auth_name)
+                return -ENODATA;
+
+        *adn = res->auth_name;
+        return 0;
+}
+
+int sd_dns_resolver_get_addrs(const sd_dns_resolver *res, int *family, const struct in6_addr **addrs, size_t *n) {
+        assert_return(res, -EINVAL);
+        assert_return(family, -EINVAL);
+        assert_return(addrs, -EINVAL);
+        assert_return(n, -EINVAL);
+
+        /* ADN-only mode has no addrs */
+        if (res->n_addrs == 0)
+                return -ENODATA;
+
+        *family = res->family;
+        *addrs = (struct in6_addr *) res->addrs; //FIXME badness 10000
+        *n = res->n_addrs;
+
+        return 0;
+}
+
+int sd_dns_resolver_get_transports(const sd_dns_resolver *res, DNSALPNFlags *transports) {
+        assert_return(res, -EINVAL);
+        assert_return(transports, -EINVAL);
+
+        /* ADN-only mode has no transports */
+        if (!res->transports)
+                return -ENODATA;
+
+        *transports = res->transports;
+        return 0;
+}
+
+int sd_dns_resolver_get_port(const sd_dns_resolver *res, uint16_t *port) {
+        assert_return(res, -EINVAL);
+        assert_return(port, -EINVAL);
+
+        /* port = 0 is the default port */
+        *port = res->port;
+        return 0;
+}
+
+int sd_dns_resolver_get_dohpath(const sd_dns_resolver *res, const char **dohpath) {
+        assert_return(res, -EINVAL);
+        assert_return(dohpath, -EINVAL);
+
+        /* only present in DoH resolvers */
+        if (!res->dohpath)
+                return -ENODATA;
+
+        *dohpath = res->dohpath;
+        return 0;
+}
+
 
 static const char* const dns_svc_param_key_table[_DNS_SVC_PARAM_KEY_MAX_DEFINED] = {
         [DNS_SVC_PARAM_KEY_MANDATORY]       = "mandatory",
