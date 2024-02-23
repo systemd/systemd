@@ -374,7 +374,7 @@ static int transfer_start(Transfer *t) {
                         "(sd-transfer)",
                         (int[]) { t->stdin_fd, t->stdout_fd < 0 ? pipefd[1] : t->stdout_fd, pipefd[1] },
                         /* except_fds= */ NULL, /* n_except_fds= */ 0,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_REOPEN_LOG,
                         &t->pidref);
         if (r < 0)
                 return r;
@@ -493,6 +493,11 @@ static int transfer_start(Transfer *t) {
                 cmd[k] = NULL;
 
                 assert(k < ELEMENTSOF(cmd));
+
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *joined = strv_join((char**) cmd, " ");
+                        log_debug("Calling: %s", strnull(joined));
+                }
 
                 r = invoke_callout_binary(cmd[0], (char * const *) cmd);
                 log_error_errno(r, "Failed to execute %s tool: %m", cmd[0]);
