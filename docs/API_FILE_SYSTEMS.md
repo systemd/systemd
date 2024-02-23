@@ -50,4 +50,3 @@ You have three options:
 1. Disable any mounting on `/tmp` so that it resides on the same physical file system as the root directory. For that, execute `systemctl mask tmp.mount`
 2. Mount a different, physical file system to `/tmp`. For that, simply create an entry for it in `/etc/fstab` as you would do for any other file system.
 3. Keep `/tmp` but increase/decrease the size of it. For that, also just create an entry for it in `/etc/fstab` as you would do for any other `tmpfs` file system, and use the right `size=` option.
-

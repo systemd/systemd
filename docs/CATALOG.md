@@ -65,4 +65,3 @@ To add message catalog entries for log messages your application generates, plea
 * Use the [native Journal logging APIs](http://0pointer.de/blog/projects/journal-submit.html) to generate your messages, and define message IDs for all messages you want to add catalog entries for. You may use `journalctl --new-id128` to allocate new message IDs.
 * Write a catalog entry file for your messages and ship them in your package and install them to `/usr/lib/systemd/catalog/` (if you package your software with RPM use `%_journalcatalogdir`)
 * Ensure that after installation of your application's RPM/DEB "`journalctl --update-catalog`" is executed, in order to update the binary catalog index. (if you package your software with RPM use the `%journal_catalog_update` macro to achieve that.)
-

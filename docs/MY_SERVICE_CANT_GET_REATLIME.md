@@ -26,4 +26,3 @@ Of course, that's quite a limitation, so here's how you work around this:
 Note that this all only applies to services. By default, user applications run in the root cgroup of the "cpu" hierarchy, which avoids these problems for normal user applications.
 
 In the long run we hope that the kernel is fixed to not require an RT budget to be assigned for any cgroup created before a process can acquire RT (i.e. a process' RT budget should be derived from the nearest ancestor cgroup which has a budget assigned, rather than unconditionally its own uninitialized budget.) Ideally, we'd also like to create a per-user cgroup by default, so that users with many processes get roughly the same amount of CPU as users with very few.
-

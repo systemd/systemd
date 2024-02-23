@@ -38,4 +38,3 @@ On the Fedora distribution we have succeeded to clean up the situation and the c
 In this new definition of /usr, the directory can be mounted read-only by default, while the rootfs may be either read-write or read-only (for stateless systems) and contains only the empty mount point directories, compat-symlinks to /usr and the host-specific data like /etc, /root, /srv. In comparison to today's setups, the rootfs will be very small. The host-specific data will be properly separated from the installed operating system. The new /usr could also easily be shared read-only across several systems. Such a setup would be more efficient, can provide additional security, is more flexible to use, provides saner options for custom setups, and is much simpler to setup and maintain.
 
 For more information on this please continue to [The Case for the /usr Merge](../THE_CASE_FOR_THE_USR_MERGE).
-

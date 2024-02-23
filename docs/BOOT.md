@@ -109,4 +109,3 @@ Links:
 [https://github.com/systemd/systemd](https://github.com/systemd/systemd)
 
 [http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec/](http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec/)
-

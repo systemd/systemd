@@ -183,4 +183,3 @@ $ systemd --test --system --unit=foobar.target
 ```
 
 for a boot target foobar.target. Note that this is mostly a debugging tool that actually does a lot more than just calculate the initial transaction, so don't build scripts based on this.
-
