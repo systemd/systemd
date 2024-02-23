@@ -835,7 +835,7 @@ static int create_session_message(
 
         if (!avoid_pidfd) {
                 pidfd = pidfd_open(getpid_cached(), 0);
-                if (pidfd < 0 && !ERRNO_IS_NOT_SUPPORTED(errno))
+                if (pidfd < 0 && !ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                         return -errno;
         }
 
