@@ -46,6 +46,7 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "ptyfwd.h"
 #include "random-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
@@ -73,7 +74,7 @@ static unsigned arg_vsock_cid = VMADDR_CID_ANY;
 static int arg_tpm = -1;
 static char *arg_linux = NULL;
 static char **arg_initrds = NULL;
-static bool arg_qemu_gui = false;
+static ConsoleMode arg_console_mode = CONSOLE_INTERACTIVE;
 static NetworkStack arg_network_stack = NETWORK_STACK_NONE;
 static int arg_secure_boot = -1;
 static MachineCredentialContext arg_credentials = {};
@@ -87,6 +88,7 @@ static bool arg_runtime_directory_created = false;
 static bool arg_privileged = false;
 static char **arg_kernel_cmdline_extra = NULL;
 static char **arg_extra_drives = NULL;
+static char *arg_background = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -101,6 +103,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_runtime_mounts, runtime_mount_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_forward_journal, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_extra_drives, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -130,7 +133,6 @@ static int help(void) {
                "     --tpm=BOOL            Enable use of a virtual TPM\n"
                "     --linux=PATH          Specify the linux kernel for direct kernel boot\n"
                "     --initrd=PATH         Specify the initrd for direct kernel boot\n"
-               "     --qemu-gui            Start QEMU in graphical mode\n"
                "  -n --network-tap         Create a TAP device for networking\n"
                "     --network-user-mode   Use user mode networking\n"
                "     --secure-boot=BOOL    Enable searching for firmware supporting SecureBoot\n"
@@ -150,6 +152,9 @@ static int help(void) {
                "\n%3$sIntegration:%4$s\n"
                "     --forward-journal=FILE|DIR\n"
                "                           Forward the VM's journal to the host\n"
+               "\n%3$sInput/Output:%4$s\n"
+               "     --console=MODE        Console mode (interactive, native, gui)\n"
+               "     --background=COLOR    Set ANSI color for background\n"
                "\n%3$sCredentials:%4$s\n"
                "     --set-credential=ID:VALUE\n"
                "                           Pass a credential with literal value to the VM\n"
@@ -190,6 +195,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
                 ARG_FIRMWARE,
+                ARG_CONSOLE,
+                ARG_BACKGROUND,
         };
 
         static const struct option options[] = {
@@ -212,7 +219,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "tpm",               required_argument, NULL, ARG_TPM               },
                 { "linux",             required_argument, NULL, ARG_LINUX             },
                 { "initrd",            required_argument, NULL, ARG_INITRD            },
-                { "qemu-gui",          no_argument,       NULL, ARG_QEMU_GUI          },
+                { "console",           required_argument, NULL, ARG_CONSOLE           },
+                { "qemu-gui",          no_argument,       NULL, ARG_QEMU_GUI          }, /* compat option */
                 { "network-tap",       no_argument,       NULL, 'n'                   },
                 { "network-user-mode", no_argument,       NULL, ARG_NETWORK_USER_MODE },
                 { "bind",              required_argument, NULL, ARG_BIND              },
@@ -224,6 +232,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "set-credential",    required_argument, NULL, ARG_SET_CREDENTIAL    },
                 { "load-credential",   required_argument, NULL, ARG_LOAD_CREDENTIAL   },
                 { "firmware",          required_argument, NULL, ARG_FIRMWARE          },
+                { "background",        required_argument, NULL, ARG_BACKGROUND        },
                 {}
         };
 
@@ -344,8 +353,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_CONSOLE:
+                        arg_console_mode = console_mode_from_string(optarg);
+                        if (arg_console_mode < 0)
+                                return log_error_errno(arg_console_mode, "Failed to parse specified console mode: %s", optarg);
+
+                        break;
+
                 case ARG_QEMU_GUI:
-                        arg_qemu_gui = true;
+                        arg_console_mode = CONSOLE_GUI;
                         break;
 
                 case 'n':
@@ -436,6 +452,12 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                case ARG_BACKGROUND:
+                        r = free_and_strdup_warn(&arg_background, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
@@ -1017,6 +1039,22 @@ static int merge_initrds(char **ret) {
         return 0;
 }
 
+static void set_window_title(PTYForward *f) {
+        _cleanup_free_ char *hn = NULL, *dot = NULL;
+
+        assert(f);
+
+        (void) gethostname_strict(&hn);
+
+        if (emoji_enabled())
+                dot = strjoin(special_glyph(SPECIAL_GLYPH_GREEN_CIRCLE), " ");
+
+        if (hn)
+                (void) pty_forward_set_titlef(f, "%sVirtual Machine %s on %s", strempty(dot), arg_machine, hn);
+        else
+                (void) pty_forward_set_titlef(f, "%sVirtual Machine %s", strempty(dot), arg_machine);
+}
+
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1209,12 +1247,54 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_oom();
 
-        if (arg_qemu_gui)
+        _cleanup_close_ int master = -EBADF;
+        PTYForwardFlags ptyfwd_flags = 0;
+        switch (arg_console_mode) {
+
+        case CONSOLE_READ_ONLY:
+                ptyfwd_flags |= PTY_FORWARD_READ_ONLY;
+
+                _fallthrough_;
+
+        case CONSOLE_INTERACTIVE:  {
+                _cleanup_free_ char *pty_path = NULL;
+
+                master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+                if (master < 0)
+                        return log_error_errno(errno, "Failed to acquire pseudo tty: %m");
+
+                r = ptsname_malloc(master, &pty_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine tty name: %m");
+
+                if (unlockpt(master) < 0)
+                        return log_error_errno(errno, "Failed to unlock tty: %m");
+
+                if (strv_extend_many(
+                                &cmdline,
+                                "-nographic",
+                                "-nodefaults",
+                                "-chardev") < 0)
+                        return log_oom();
+
+                if (strv_extendf(&cmdline,
+                                 "serial,id=console,path=%s", pty_path) < 0)
+                        return log_oom();
+
+                r = strv_extend_many(
+                                &cmdline,
+                                "-serial", "chardev:console");
+                break;
+        }
+
+        case CONSOLE_GUI:
                 r = strv_extend_many(
                                 &cmdline,
                                 "-vga",
                                 "virtio");
-        else
+                break;
+
+        case CONSOLE_NATIVE:
                 r = strv_extend_many(
                                 &cmdline,
                                 "-nographic",
@@ -1222,6 +1302,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 "-chardev", "stdio,mux=on,id=console,signal=off",
                                 "-serial", "chardev:console",
                                 "-mon", "console");
+                break;
+
+        default:
+                assert_not_reached();
+        }
         if (r < 0)
                 return log_oom();
 
@@ -1570,7 +1655,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_debug("Executing: %s", joined);
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGWINCH, -1) >= 0);
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -1621,6 +1706,26 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Exit when the child exits */
         (void) event_add_child_pidref(event, NULL, &child_pidref, WEXITED, on_child_exit, NULL);
+
+        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
+        if (master >= 0) {
+                r = pty_forward_new(event, master, ptyfwd_flags, &forward);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create PTY forwarder: %m");
+
+                if (!arg_background) {
+                        _cleanup_free_ char *bg = NULL;
+
+                        r = terminal_tint_color(130 /* green */, &bg);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to determine terminal background color, not tinting.");
+                        else
+                                (void) pty_forward_set_background_color(forward, bg);
+                } else if (!isempty(arg_background))
+                        (void) pty_forward_set_background_color(forward, arg_background);
+
+                set_window_title(forward);
+        }
 
         r = sd_event_loop(event);
         if (r < 0)
@@ -1727,15 +1832,20 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        if (!arg_quiet) {
+        if (!arg_quiet && arg_console_mode != CONSOLE_GUI) {
                 _cleanup_free_ char *u = NULL;
                 const char *vm_path = arg_image ?: arg_directory;
                 (void) terminal_urlify_path(vm_path, vm_path, &u);
 
-                log_info("%s %sSpawning VM %s on %s.%s\n"
-                         "%s %sPress %sCtrl-a x%s to kill VM.%s",
-                         special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), arg_machine, u ?: vm_path, ansi_normal(),
-                         special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
+                log_info("%s %sSpawning VM %s on %s.%s",
+                         special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), arg_machine, u ?: vm_path, ansi_normal());
+
+                if (arg_console_mode == CONSOLE_INTERACTIVE)
+                        log_info("%s %sPress %sCtrl-]%s three times within 1s to kill VM.%s",
+                                 special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
+                else if (arg_console_mode == CONSOLE_NATIVE)
+                        log_info("%s %sPress %sCtrl-a x%s to kill VM.%s",
+                                 special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
         }
 
         r = sd_listen_fds_with_names(true, &names);
