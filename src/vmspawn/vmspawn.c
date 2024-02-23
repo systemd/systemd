@@ -639,7 +639,12 @@ static int cmdline_add_vsock(char ***cmdline, int vsock_fd) {
         return 0;
 }
 
-static int start_tpm(sd_bus *bus, const char *scope, const char *tpm, const char **ret_state_tempdir) {
+static int start_tpm(
+                sd_bus *bus,
+                const char *scope,
+                const char *swtpm,
+                char **ret_state_tempdir) {
+
         _cleanup_(rm_rf_physical_and_freep) char *state_dir = NULL;
         _cleanup_free_ char *scope_prefix = NULL;
         _cleanup_(socket_service_pair_done) SocketServicePair ssp = {
@@ -649,7 +654,7 @@ static int start_tpm(sd_bus *bus, const char *scope, const char *tpm, const char
 
         assert(bus);
         assert(scope);
-        assert(tpm);
+        assert(swtpm);
         assert(ret_state_tempdir);
 
         r = unit_name_to_prefix(scope, &scope_prefix);
@@ -674,7 +679,16 @@ static int start_tpm(sd_bus *bus, const char *scope, const char *tpm, const char
         if (!ssp.listen_address)
                 return log_oom();
 
-        ssp.exec_start = strv_new(tpm, "socket", "--tpm2", "--tpmstate");
+        _cleanup_free_ char *swtpm_setup = NULL;
+        r = find_executable("swtpm_setup", &swtpm_setup);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find swtpm_setup binary: %m");
+
+        ssp.exec_start_pre = strv_new(swtpm_setup, "--tpm-state", state_dir, "--tpm2", "--pcr-banks", "sha256");
+        if (!ssp.exec_start_pre)
+                return log_oom();
+
+        ssp.exec_start = strv_new(swtpm, "socket", "--tpm2", "--tpmstate");
         if (!ssp.exec_start)
                 return log_oom();
 
@@ -691,7 +705,6 @@ static int start_tpm(sd_bus *bus, const char *scope, const char *tpm, const char
                 return r;
 
         *ret_state_tempdir = TAKE_PTR(state_dir);
-
         return 0;
 }
 
@@ -1457,7 +1470,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        _cleanup_free_ const char *tpm_state_tempdir = NULL;
+        _cleanup_free_ char *tpm_state_tempdir = NULL;
         if (swtpm) {
                 _cleanup_free_ char *escaped_state_dir = NULL;
 

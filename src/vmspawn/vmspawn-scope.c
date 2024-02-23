@@ -175,6 +175,9 @@ static int message_add_commands(sd_bus_message *m, const char *exec_type, char *
 }
 
 void socket_service_pair_done(SocketServicePair *p) {
+        assert(p);
+
+        p->exec_start_pre = strv_free(p->exec_start_pre);
         p->exec_start = strv_free(p->exec_start);
         p->exec_stop_post = strv_free(p->exec_stop_post);
         p->unit_name_prefix = mfree(p->unit_name_prefix);
@@ -266,6 +269,12 @@ int start_socket_service_pair(sd_bus *bus, const char *scope, SocketServicePair 
                 r = sd_bus_message_append(m, "(sv)", "RuntimeDirectory", "as", 1, p->runtime_directory);
                 if (r < 0)
                         return bus_log_create_error(r);
+        }
+
+        if (p->exec_start_pre) {
+                r = message_add_commands(m, "ExecStartPre", &p->exec_start_pre, 1);
+                if (r < 0)
+                        return r;
         }
 
         r = message_add_commands(m, "ExecStart", &p->exec_start, 1);
