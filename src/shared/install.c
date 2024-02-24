@@ -385,61 +385,61 @@ void install_changes_dump(int r, const char *verb, const InstallChange *changes,
                         if (changes[i].source)
                                 err = log_error_errno(changes[i].type,
                                                       "Failed to %s unit, file \"%s\" already exists and is a symlink to \"%s\".",
-                                                      verb, changes[i].path, changes[i].source);
+                                                      strna(verb), changes[i].path, changes[i].source);
                         else
                                 err = log_error_errno(changes[i].type,
                                                       "Failed to %s unit, file \"%s\" already exists.",
-                                                      verb, changes[i].path);
+                                                      strna(verb), changes[i].path);
                         break;
                 case -ERFKILL:
                         err = log_error_errno(changes[i].type, "Failed to %s unit, unit %s is masked.",
-                                              verb, changes[i].path);
+                                              strna(verb), changes[i].path);
                         break;
                 case -EADDRNOTAVAIL:
                         err = log_error_errno(changes[i].type, "Failed to %s unit, unit %s is transient or generated.",
-                                              verb, changes[i].path);
+                                              strna(verb), changes[i].path);
                         break;
                 case -ETXTBSY:
                         err = log_error_errno(changes[i].type, "Failed to %s unit, file %s is under the systemd unit hierarchy already.",
-                                              verb, changes[i].path);
+                                              strna(verb), changes[i].path);
                         break;
                 case -EBADSLT:
                         err = log_error_errno(changes[i].type, "Failed to %s unit, invalid specifier in \"%s\".",
-                                              verb, changes[i].path);
+                                              strna(verb), changes[i].path);
                         break;
                 case -EIDRM:
                         err = log_error_errno(changes[i].type, "Failed to %s %s, destination unit %s is a non-template unit.",
-                                              verb, changes[i].source, changes[i].path);
+                                              strna(verb), changes[i].source, changes[i].path);
                         break;
                 case -EUCLEAN:
                         err = log_error_errno(changes[i].type,
                                               "Failed to %s unit, \"%s\" is not a valid unit name.",
-                                              verb, changes[i].path);
+                                              strna(verb), changes[i].path);
                         break;
                 case -ELOOP:
                         err = log_error_errno(changes[i].type, "Failed to %s unit, refusing to operate on linked unit file %s.",
-                                              verb, changes[i].path);
+                                              strna(verb), changes[i].path);
                         break;
                 case -EXDEV:
                         if (changes[i].source)
                                 err = log_error_errno(changes[i].type, "Failed to %s unit, cannot alias %s as %s.",
-                                                      verb, changes[i].source, changes[i].path);
+                                                      strna(verb), changes[i].source, changes[i].path);
                         else
                                 err = log_error_errno(changes[i].type, "Failed to %s unit, invalid unit reference \"%s\".",
-                                                      verb, changes[i].path);
+                                                      strna(verb), changes[i].path);
                         break;
                 case -ENOENT:
                         err = log_error_errno(changes[i].type, "Failed to %s unit, unit %s does not exist.",
-                                              verb, changes[i].path);
+                                              strna(verb), changes[i].path);
                         break;
                 case -EUNATCH:
                         err = log_error_errno(changes[i].type, "Failed to %s unit, cannot resolve specifiers in \"%s\".",
-                                              verb, changes[i].path);
+                                              strna(verb), changes[i].path);
                         break;
                 default:
                         assert(changes[i].type < 0);
                         err = log_error_errno(changes[i].type, "Failed to %s unit, file \"%s\": %m",
-                                              verb, changes[i].path);
+                                              strna(verb), changes[i].path);
                 }
         }
 
