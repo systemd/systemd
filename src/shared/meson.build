@@ -154,6 +154,7 @@ shared_sources = files(
         'resize-fs.c',
         'resolve-util.c',
         'rm-rf.c',
+        'sd-dns-resolver.c',
         'securebits-util.c',
         'selinux-util.c',
         'serialize.c',
