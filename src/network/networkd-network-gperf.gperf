@@ -300,6 +300,7 @@ IPv6AcceptRA.UseAutonomousPrefix,            config_parse_bool,                 
 IPv6AcceptRA.UseOnLinkPrefix,                config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_onlink_prefix)
 IPv6AcceptRA.UsePREF64,                      config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_pref64)
 IPv6AcceptRA.UseDNS,                         config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_dns)
+IPv6AcceptRA.UseDNR,                         config_parse_tristate,                                    0,                             offsetof(Network, ndisc_use_dnr)
 IPv6AcceptRA.UseDomains,                     config_parse_ndisc_use_domains,                           0,                             offsetof(Network, ndisc_use_domains)
 IPv6AcceptRA.UseMTU,                         config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_mtu)
 IPv6AcceptRA.UseHopLimit,                    config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_hop_limit)
