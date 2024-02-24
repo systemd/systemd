@@ -3,6 +3,8 @@
 #include <netinet/in.h>
 #include <linux/if.h>
 
+#include "dns-resolver-internal.h"
+
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "escape.h"
