@@ -759,9 +759,7 @@ int maybe_extend_with_unit_dependencies(sd_bus *bus, char ***list) {
         if (r < 0)
                 return log_error_errno(r, "Failed to append unit dependencies: %m");
 
-        strv_free(*list);
-        *list = TAKE_PTR(list_with_deps);
-        return 0;
+        return strv_free_and_replace(*list, list_with_deps);
 }
 
 int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret) {
