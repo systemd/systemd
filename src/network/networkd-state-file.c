@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "dns-resolver-internal.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
