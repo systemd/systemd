@@ -774,7 +774,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 - A corollary of the above is: never use `clone()` where a `fork()` would do
   too. Also consider using `posix_spawn()` which combines `clone()` +
   `execve()` into one and has nice properties since it avoids becoming a CoW
-  trap by using `CLONE_VORK` and `CLONE_VM` together.
+  trap by using `CLONE_VFORK` and `CLONE_VM` together.
 
 - While we avoid forking off threads on our own, writing thread-safe code is a
   good idea where it might end up running inside of libsystemd.so or
