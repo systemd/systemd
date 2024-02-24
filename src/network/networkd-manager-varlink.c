@@ -2,7 +2,10 @@
 
 #include <unistd.h>
 
+#include "bus-polkit.h"
+#include "networkd-dhcp-server.h"
 #include "networkd-manager-varlink.h"
+#include "user-util.h"
 #include "varlink.h"
 #include "varlink-io.systemd.Network.h"
 
@@ -56,6 +59,126 @@ static int vl_method_get_namespace_id(Varlink *link, JsonVariant *parameters, Va
                                               JSON_BUILD_PAIR_CONDITION(nsid != UINT32_MAX, "NamespaceNSID", JSON_BUILD_UNSIGNED(nsid))));
 }
 
+typedef struct InterfaceInfo {
+        int ifindex;
+        const char *ifname;
+} InterfaceInfo;
+
+static int dispatch_interface(Varlink *vlink, JsonVariant *parameters, Manager *manager, Link **ret) {
+        static const JsonDispatch dispatch_table[] = {
+                { "InterfaceIndex", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          offsetof(InterfaceInfo, ifindex), 0 },
+                { "InterfaceName",  JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(InterfaceInfo, ifname),  0 },
+                {}
+        };
+
+        InterfaceInfo info = {};
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+        assert(manager);
+
+        r = varlink_dispatch(vlink, parameters, dispatch_table, &info);
+        if (r != 0)
+                return r;
+
+        if (info.ifindex < 0)
+                return varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
+        if (info.ifindex > 0) {
+                if (info.ifname)
+                        return varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceName"));
+
+                if (link_get_by_index(manager, info.ifindex, &link) < 0)
+                        return varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
+        }
+
+        if (info.ifname && link_get_by_name(manager, info.ifname, &link) < 0)
+                return varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceName"));
+
+        *ret = link;
+        return 0;
+}
+
+static int vl_method_dhcp_server_one(Link *link, bool start, JsonVariant **v) {
+        int r;
+
+        assert(link);
+        assert(v);
+
+        link->dhcp_server_can_start = start;
+
+        if (start)
+                r = link_start_dhcp_server(link);
+        else
+                r = sd_dhcp_server_stop(link->dhcp_server);
+        if (r < 0) {
+                (void) json_variant_append_arrayb(v,
+                                        JSON_BUILD_OBJECT(
+                                                JSON_BUILD_PAIR_INTEGER("InterfaceIndex", link->ifindex),
+                                                JSON_BUILD_PAIR_STRING("InterfaceName", link->ifname),
+                                                JSON_BUILD_PAIR_INTEGER("ErrorCode", -r)));
+                return log_link_debug_errno(link, r, "Failed to %s DHCP server, ignoring: %m", start ? "start" : "stop");
+        }
+
+        return 0;
+}
+
+static int vl_method_dhcp_server(Varlink *vlink, JsonVariant *parameters, VarlinkMethodFlags flags, Manager *manager, const char *method) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        Link *link = NULL;
+        int r, ret = 0;
+
+        assert(vlink);
+        assert(manager);
+        assert(method);
+
+        bool start = streq(method, "io.systemd.Network.StartDHCPServer");
+
+        r = dispatch_interface(vlink, parameters, manager, &link);
+        if (r != 0)
+                return r;
+
+        if (link && !link_dhcp4_server_enabled(link))
+                return varlink_error(vlink, "io.systemd.Netowrk.NoDHCPServer", NULL);
+
+        r = varlink_verify_polkit_async(
+                                vlink,
+                                manager->bus,
+                                method,
+                                /* details= */ NULL,
+                                /* good_user= */ UID_INVALID,
+                                &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        if (link) {
+                r = vl_method_dhcp_server_one(link, start, &v);
+                if (r < 0)
+                        return varlink_errorb(vlink, "io.systemd.Network.DHCPServerError",
+                                              JSON_BUILD_OBJECT(JSON_BUILD_PAIR_VARIANT_NON_NULL("Results", v)));
+
+                return varlink_reply(vlink, NULL);
+        }
+
+        manager->dhcp_server_can_start = start;
+
+        HASHMAP_FOREACH(link, manager->links_by_index)
+                RET_GATHER(ret, vl_method_dhcp_server_one(link, start, &v));
+        if (ret < 0)
+                return varlink_errorb(vlink, "io.systemd.Network.DHCPServerError",
+                                      JSON_BUILD_OBJECT(JSON_BUILD_PAIR_VARIANT_NON_NULL("Results", v)));
+
+        return varlink_reply(vlink, NULL);
+}
+
+static int vl_method_start_dhcp_server(Varlink *vlink, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        return vl_method_dhcp_server(vlink, parameters, flags, userdata, "io.systemd.Network.StartDHCPServer");
+}
+
+static int vl_method_stop_dhcp_server(Varlink *vlink, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        return vl_method_dhcp_server(vlink, parameters, flags, userdata, "io.systemd.Network.StopDHCPServer");
+}
+
 int manager_connect_varlink(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         int r;
@@ -78,7 +201,9 @@ int manager_connect_varlink(Manager *m) {
         r = varlink_server_bind_method_many(
                         s,
                         "io.systemd.Network.GetStates", vl_method_get_states,
-                        "io.systemd.Network.GetNamespaceId", vl_method_get_namespace_id);
+                        "io.systemd.Network.GetNamespaceId", vl_method_get_namespace_id,
+                        "io.systemd.Network.StartDHCPServer", vl_method_start_dhcp_server,
+                        "io.systemd.Network.StopDHCPServer", vl_method_stop_dhcp_server);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
