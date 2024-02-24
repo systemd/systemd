@@ -264,7 +264,7 @@ ln -svf /etc/bind.keys /etc/bind/bind.keys
 
 # Start the services
 systemctl unmask systemd-networkd
-systemctl start systemd-networkd
+systemctl restart systemd-networkd
 /usr/lib/systemd/systemd-networkd-wait-online --interface=dns1:routable --timeout=60
 systemctl reload systemd-resolved
 systemctl start resolved-dummy-server
@@ -285,7 +285,7 @@ resolvectl log-level debug
 
 # Start monitoring queries
 systemd-run -u resolvectl-monitor.service -p Type=notify resolvectl monitor
-systemd-run -u resolvectl-monitor-json.service -p Type=notify resolvectl monitor --json=short
+systemd-run -u resolvectl-monitor-json.service -p Type=notify -p StandardError=journal resolvectl monitor --json=short
 
 # FIXME: knot, unfortunately, incorrectly complains about missing zone files for zones
 #        that are forwarded using the `dnsproxy` module. Until the issue is resolved,
@@ -313,6 +313,10 @@ knotc reload
 ### SETUP END ###
 
 : "--- nss-resolve/nss-myhostname tests"
+# Disable /etc/hosts localhost config to prevent interference
+if [[ -e /etc/hosts ]]; then
+    sed -i 's/^\(127.0.0.1\|::1\)/#\1/' /etc/hosts
+fi
 # Sanity check
 TIMESTAMP=$(date '+%F %T')
 # Issue: https://github.com/systemd/systemd/issues/23951
