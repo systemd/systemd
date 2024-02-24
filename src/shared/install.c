@@ -340,9 +340,12 @@ void install_changes_dump(int r, const char *verb, const InstallChange *changes,
         assert(verb || r >= 0);
 
         for (size_t i = 0; i < n_changes; i++) {
-                if (changes[i].type < 0)
-                        assert(verb);
                 assert(changes[i].path);
+                /* This tries to tell the compiler that it's safe to use 'verb' in a string format if there
+                 * was an error, but the compiler doesn't care and fails anyway, so strna(verb) is used
+                 * too. */
+                assert(verb || changes[i].type >= 0);
+                verb = strna(verb);
 
                 /* When making changes here, make sure to also change install_error() in dbus-manager.c. */
 
