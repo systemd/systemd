@@ -52,7 +52,7 @@ typedef enum LoaderType {
         LOADER_MORE,
 } LoaderType;
 
-struct ConfigEntry {
+struct BootEntry {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry) */
         char16_t *title_show; /* The string to actually display (this is made unique before showing) */
         char16_t *title;      /* The raw (human readable) title string of the entry (not necessarily unique) */
