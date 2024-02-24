@@ -196,6 +196,7 @@ Address=fd00:dead:beef:cafe::1/64
 DNSSEC=allow-downgrade
 DNS=10.0.0.1
 DNS=fd00:dead:beef:cafe::1
+Domains=test.
 EOF
 cat >/etc/systemd/network/10-dns1.netdev <<EOF
 [NetDev]
@@ -253,7 +254,7 @@ ln -svf /etc/bind.keys /etc/bind/bind.keys
 
 # Start the services
 systemctl unmask systemd-networkd
-systemctl start systemd-networkd
+systemctl restart systemd-networkd
 restart_resolved
 systemctl start resolved-dummy-server
 # Create knot's runtime dir, since from certain version it's provided only by
@@ -301,6 +302,10 @@ knotc reload
 ### SETUP END ###
 
 : "--- nss-resolve/nss-myhostname tests"
+# Disable /etc/hosts localhost config to prevent interference
+if [[ -e /etc/hosts ]]; then
+    sed -i 's/^\(127.0.0.1\|::1\)/#\1/' /etc/hosts
+fi
 # Sanity check
 TIMESTAMP=$(date '+%F %T')
 # Issue: https://github.com/systemd/systemd/issues/23951
