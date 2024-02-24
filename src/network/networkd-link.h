@@ -158,6 +158,7 @@ typedef struct Link {
         bool bridge_vlan_set:1;
 
         sd_dhcp_server *dhcp_server;
+        bool dhcp4_server_can_start;
 
         sd_ndisc *ndisc;
         sd_ndisc_router *ndisc_default_router;
