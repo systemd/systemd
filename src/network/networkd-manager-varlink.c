@@ -2,8 +2,11 @@
 
 #include <unistd.h>
 
+#include "bus-polkit.h"
 #include "lldp-rx-internal.h"
+#include "networkd-dhcp-server.h"
 #include "networkd-manager-varlink.h"
+#include "user-util.h"
 #include "varlink.h"
 #include "varlink-io.systemd.Network.h"
 
@@ -146,6 +149,61 @@ static int vl_method_get_lldp_neighbors(Varlink *vlink, JsonVariant *parameters,
         return varlink_replyb(vlink, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_VARIANT("NeighborsByInterface", v)));
 }
 
+static int vl_method_dhcp_server(Varlink *vlink, JsonVariant *parameters, VarlinkMethodFlags flags, Manager *manager, const char *method) {
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+        assert(manager);
+        assert(method);
+
+        bool start = streq(method, "io.systemd.Network.StartDHCPServer");
+
+        r = dispatch_interface(vlink, parameters, manager, &link);
+        if (r != 0)
+                return r;
+
+        if (link) {
+                if (!link_dhcp4_server_enabled(link))
+                        return varlink_error(vlink, "io.systemd.Netowrk.NoDHCPServer", NULL);
+
+                if (start && !link_dhcp4_server_is_ready_to_start(link))
+                        return varlink_error(vlink, "io.systemd.Netowrk.DHCPServerNotReady", NULL);
+        }
+
+        r = varlink_verify_polkit_async(
+                                vlink,
+                                manager->bus,
+                                method,
+                                /* details= */ NULL,
+                                /* good_user= */ UID_INVALID,
+                                &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        if (link) {
+                r = link_toggle_dhcp4_server_state(link, start);
+                if (r < 0)
+                        return r;
+
+                return varlink_reply(vlink, NULL);
+        }
+
+        manager->dhcp4_server_can_start = start;
+        HASHMAP_FOREACH(link, manager->links_by_index)
+                (void) link_toggle_dhcp4_server_state(link, start);
+
+        return varlink_reply(vlink, NULL);
+}
+
+static int vl_method_start_dhcp_server(Varlink *vlink, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        return vl_method_dhcp_server(vlink, parameters, flags, userdata, "io.systemd.Network.StartDHCPServer");
+}
+
+static int vl_method_stop_dhcp_server(Varlink *vlink, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        return vl_method_dhcp_server(vlink, parameters, flags, userdata, "io.systemd.Network.StopDHCPServer");
+}
+
 int manager_connect_varlink(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         int r;
@@ -169,7 +227,9 @@ int manager_connect_varlink(Manager *m) {
                         s,
                         "io.systemd.Network.GetStates", vl_method_get_states,
                         "io.systemd.Network.GetNamespaceId", vl_method_get_namespace_id,
-                        "io.systemd.Network.GetLLDPNeighbors", vl_method_get_lldp_neighbors);
+                        "io.systemd.Network.GetLLDPNeighbors", vl_method_get_lldp_neighbors,
+                        "io.systemd.Network.StartDHCPServer", vl_method_start_dhcp_server,
+                        "io.systemd.Network.StopDHCPServer", vl_method_stop_dhcp_server);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
