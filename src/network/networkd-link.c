@@ -714,11 +714,9 @@ static int link_acquire_dynamic_ipv4_conf(Link *link) {
                 log_link_debug(link, "Acquiring IPv4 link-local address.");
         }
 
-        if (link->dhcp_server) {
-                r = sd_dhcp_server_start(link->dhcp_server);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not start DHCP server: %m");
-        }
+        r = link_start_dhcp4_server(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not start DHCP server: %m");
 
         r = ipv4acd_start(link);
         if (r < 0)
@@ -2720,6 +2718,8 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .state_file = TAKE_PTR(state_file),
                 .lease_file = TAKE_PTR(lease_file),
                 .lldp_file = TAKE_PTR(lldp_file),
+
+                .dhcp4_server_can_start = manager->dhcp4_server_can_start,
 
                 .n_dns = UINT_MAX,
                 .dns_default_route = -1,
