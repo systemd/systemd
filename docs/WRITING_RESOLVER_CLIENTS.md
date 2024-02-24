@@ -39,7 +39,7 @@ This example specifies _AF_UNSPEC_ as address family for the requested address. 
 
 The example specifies a network interface index of "0", i.e. does not specify any at all, so that the request may be done on any. Note that the interface index is primarily relevant for LLMNR and MulticastDNS lookups, which distinguish different scopes for each network interface index.
 
-This examples makes no use of either the input flags parameter, nor the output flags parameter. See the _ResolveRecord()_ example below for information how to make use of the _SD_RESOLVED_AUTHENTICATED_ bit in the returned flags paramter.
+This examples makes no use of either the input flags parameter, nor the output flags parameter. See the _ResolveRecord()_ example below for information how to make use of the _SD_RESOLVED_AUTHENTICATED_ bit in the returned flags parameter.
 
 ```
 #include <arpa/inet.h>
@@ -135,7 +135,7 @@ Compile this with a command line like the following (under the assumption you sa
 gcc addrtest.c -o addrtest -Wall `pkg-config --cflags --libs libsystemd`
 ```
 
-## Resolving an Abitrary DNS Resource Record
+## Resolving an Arbitrary DNS Resource Record
 
 Use `ResolveRecord()` in order to resolve arbitrary resource records. The call will return the binary RRset data. This calls is useful to acquire resource records for which no high-level calls such as ResolveHostname(), ResolveAddress() and ResolveService() exist. In particular RRs such as MX, SSHFP, TLSA, CERT, OPENPGPKEY or IPSECKEY may be requested via this API.
 

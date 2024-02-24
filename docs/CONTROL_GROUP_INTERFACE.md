@@ -205,7 +205,7 @@ The [`systemctl set-property`](http://www.freedesktop.org/software/systemd/man/s
 
 ### Enumeration
 
-To acquire a list of currently running units, use the `ListUnits()` call on the Manager bus object. To determine the scope/service unit and slice unit a process is running in use [`sd_pid_get_unit()`](http://www.freedesktop.org/software/systemd/man/sd_pid_get_unit.html) and `sd_pid_get_slice()`. These two calls are implemented in `libsystemd-login.so`. These call bypass the system bus (which they can because they are passive and do not require privileges) and are hence very effecient to invoke.
+To acquire a list of currently running units, use the `ListUnits()` call on the Manager bus object. To determine the scope/service unit and slice unit a process is running in use [`sd_pid_get_unit()`](http://www.freedesktop.org/software/systemd/man/sd_pid_get_unit.html) and `sd_pid_get_slice()`. These two calls are implemented in `libsystemd-login.so`. These call bypass the system bus (which they can because they are passive and do not require privileges) and are hence very efficient to invoke.
 
 ### VM and Container Managers
 
