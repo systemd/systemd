@@ -659,7 +659,7 @@ static EFI_STATUS reboot_into_firmware(void) {
         return reboot_system();
 }
 
-static bool entry_is_visible(ConfigEntry *entry, ConfigEntry *visible_group) {
+static bool entry_is_visible(BootEntry *entry, BootEntry *visible_group) {
         assert(entry);
 
         if (!entry->group_entry)
@@ -669,7 +669,7 @@ static bool entry_is_visible(ConfigEntry *entry, ConfigEntry *visible_group) {
         return false;
 }
 
-static size_t get_entry_index(Config *config, size_t idx_highlight, ConfigEntry *visible_group) {
+static size_t get_entry_index(Config *config, size_t idx_highlight, BootEntry *visible_group) {
         assert(config);
 
         size_t idx = 0;
@@ -697,7 +697,7 @@ static size_t entries_count_visible(Config *config, BootEntry *visible_group) {
         size_t count = 0;
 
         for (size_t i = 0; i < config->n_entries; i++) {
-                ConfigEntry *entry = config->entries[i];
+                BootEntry *entry = config->entries[i];
 
                 if (!entry_is_visible(entry, visible_group))
                         continue;
@@ -737,7 +737,7 @@ static bool menu_run(
                 ACTION_RUN,            /* Execute a boot entry */
                 ACTION_QUIT,           /* Return to the firmware */
         } action = ACTION_CONTINUE;
-        ConfigEntry *visible_group = NULL;
+        BootEntry *visible_group = NULL;
         size_t entry_index = 0, visible_entries = 0;
 
         graphics_mode(false);
@@ -1988,10 +1988,10 @@ typedef struct {
 } Indices;
 
 static void config_copy_entries(
-                Config *config, ConfigEntry **entries, size_t start_index, size_t end_index, bool has_group_entry) {
+                Config *config, BootEntry **entries, size_t start_index, size_t end_index, bool has_group_entry) {
         assert(config);
         assert(entries);
-        _cleanup_(config_entry_freep) ConfigEntry *group_entry = NULL;
+        _cleanup_(boot_entry_freep) BootEntry *group_entry = NULL;
         size_t old_default_index = IDX_INVALID;
 
         if (config->idx_default >= start_index && config->idx_default <= end_index) {
@@ -2004,8 +2004,8 @@ static void config_copy_entries(
                         has_group_entry = false;
         }
         if (has_group_entry) {
-                group_entry = xnew(ConfigEntry, 1);
-                *group_entry = (ConfigEntry){ .title = xstrdup16(u"More..."),
+                group_entry = xnew(BootEntry, 1);
+                *group_entry = (BootEntry){ .title = xstrdup16(u"More..."),
                                               .group_entry = NULL,
                                               .type = LOADER_MORE,
                                               .id = xstrdup16(u"More...") };
@@ -2023,8 +2023,8 @@ static void config_copy_entries(
 static void config_create_groups(Config *config, Indices *indices, size_t group_count) {
         assert(config);
 
-        ConfigEntry **old_entries = config->entries;
-        ConfigEntry **entries = NULL;
+        BootEntry **old_entries = config->entries;
+        BootEntry **entries = NULL;
         size_t old_n_entries = config->n_entries;
         config->entries = entries;
         config->n_entries = 0;
@@ -2844,12 +2844,12 @@ static void config_load_all_entries(
         sort_pointer_array(
                         (void **) config->entries,
                         config->n_entries,
-                        (compare_pointer_func_t) config_entry_compare);
+                        (compare_pointer_func_t) boot_entry_compare);
 
         /* if we find some well-known loaders, add them to the end of the list */
-        config_entry_add_osx(config);
-        config_entry_add_windows(config, loaded_image->DeviceHandle, root_dir);
-        config_entry_add_loader_auto(
+        config_add_entry_osx(config);
+        config_add_entry_windows(config, loaded_image->DeviceHandle, root_dir);
+        config_add_entry_loader_auto(
                         config,
                         loaded_image->DeviceHandle,
                         root_dir,
@@ -2914,9 +2914,6 @@ static void config_load_all_entries(
 
         if (config->n_entries == 0)
                 return;
-
-        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
-        config_default_entry_select(config);
 
         config_write_entries_to_variable(config);
 
