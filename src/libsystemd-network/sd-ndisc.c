@@ -368,7 +368,7 @@ int sd_ndisc_start(sd_ndisc *nd) {
 
         r = event_reset_time(nd->event, &nd->timeout_event_source,
                              CLOCK_BOOTTIME,
-                             time_now + USEC_PER_SEC / 2, 1 * USEC_PER_SEC, /* See RFC 8415 sec. 18.2.1 */
+                             0, 0,
                              ndisc_timeout, nd,
                              nd->event_priority, "ndisc-timeout", true);
         if (r < 0)
