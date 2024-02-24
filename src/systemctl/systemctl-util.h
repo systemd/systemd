@@ -58,3 +58,6 @@ int mangle_names(const char *operation, char * const *original_names, char ***re
 UnitFileFlags unit_file_flags_from_args(void);
 
 int halt_now(enum action a);
+
+int get_unit_by_pid(sd_bus *bus, pid_t pid, char **ret_unit, char **ret_path);
+int lookup_unit_by_pidref(sd_bus *bus, pid_t pid, char **ret_unit, char **ret_path);
