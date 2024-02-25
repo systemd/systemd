@@ -1169,6 +1169,7 @@ int dnssec_verify_rrset_search(
                 DnsResourceRecord **ret_rrsig) {
 
         bool found_rrsig = false, found_invalid = false, found_expired_rrsig = false, found_unsupported_algorithm = false;
+        int nvalidations = 0;
         DnsResourceRecord *rrsig;
         int r;
 
@@ -1184,6 +1185,10 @@ int dnssec_verify_rrset_search(
         DNS_ANSWER_FOREACH(rrsig, a) {
                 DnsResourceRecord *dnskey;
                 DnsAnswerFlags flags;
+
+                /* Have we seen an unreasonable number of invalid signaures? */
+                if (nvalidations > DNSSEC_INVALID_MAX)
+                        break;
 
                 /* Is this an RRSIG RR that applies to RRs matching our key? */
                 r = dnssec_key_match_rrsig(key, rrsig);
@@ -1223,6 +1228,8 @@ int dnssec_verify_rrset_search(
                         if (r < 0)
                                 return r;
 
+                        nvalidations++;
+
                         switch (one_result) {
 
                         case DNSSEC_VALIDATED:
@@ -1233,7 +1240,7 @@ int dnssec_verify_rrset_search(
                                         *ret_rrsig = rrsig;
 
                                 *result = one_result;
-                                return 0;
+                                return nvalidations;
 
                         case DNSSEC_INVALID:
                                 /* If the signature is invalid, let's try another
@@ -1280,7 +1287,7 @@ int dnssec_verify_rrset_search(
         if (ret_rrsig)
                 *ret_rrsig = NULL;
 
-        return 0;
+        return nvalidations;
 }
 
 int dnssec_has_rrsig(DnsAnswer *a, const DnsResourceKey *key) {
@@ -2565,6 +2572,7 @@ static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
         [DNSSEC_NSEC_MISMATCH]         = "nsec-mismatch",
         [DNSSEC_INCOMPATIBLE_SERVER]   = "incompatible-server",
         [DNSSEC_UPSTREAM_FAILURE]      = "upstream-failure",
+        [DNSSEC_TOO_MANY_VALIDATIONS]  = "too-many-validations",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_result, DnssecResult);
 
