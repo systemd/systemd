@@ -2290,12 +2290,6 @@ static int initialize_runtime(
                 install_crash_handler();
 
                 if (!skip_setup) {
-                        r = mount_cgroup_controllers();
-                        if (r < 0) {
-                                *ret_error_message = "Failed to mount cgroup hierarchies";
-                                return r;
-                        }
-
                         /* Pull credentials from various sources into a common credential directory (we do
                          * this here, before setting up the machine ID, so that we can use credential info
                          * for setting up the machine ID) */
@@ -3020,6 +3014,14 @@ int main(int argc, char *argv[]) {
                 if (r < 0) {
                         error_message = "Failed to mount API filesystems";
                         goto finish;
+                }
+
+                if (!skip_setup) {
+                        r = mount_cgroup_legacy_controllers(loaded_policy);
+                        if (r < 0) {
+                                error_message = "Failed to mount cgroup v1 hierarchy";
+                                goto finish;
+                        }
                 }
 
                 /* The efivarfs is now mounted, let's lock down the system token. */
