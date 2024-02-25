@@ -3239,6 +3239,7 @@ static int dnssec_validate_records(
 
         /* Returns negative on error, 0 if validation failed, 1 to restart validation, 2 when finished. */
 
+        int nvalidations = 0;
         DNS_ANSWER_FOREACH(rr, t->answer) {
                 _unused_ _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr_ref = dns_resource_record_ref(rr);
                 DnsResourceRecord *rrsig = NULL;
@@ -3278,6 +3279,12 @@ static int dnssec_validate_records(
                                 &rrsig);
                 if (r < 0)
                         return r;
+
+                nvalidations += r;
+                if (nvalidations > DNSSEC_VALIDATION_MAX) {
+                        t->answer_dnssec_result = DNSSEC_TOO_MANY_VALIDATIONS;
+                        return 0;
+                }
 
                 log_debug("Looking at %s: %s", strna(dns_resource_record_to_string(rr)), dnssec_result_to_string(result));
 
