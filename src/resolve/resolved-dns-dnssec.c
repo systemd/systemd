@@ -1168,7 +1168,8 @@ int dnssec_verify_rrset_search(
                 DnssecResult *result,
                 DnsResourceRecord **ret_rrsig) {
 
-        bool found_rrsig = false, found_invalid = false, found_expired_rrsig = false, found_unsupported_algorithm = false;
+        bool found_rrsig = false;
+        int found_invalid = 0, found_expired_rrsig = 0, found_unsupported_algorithm = 0;
         DnsResourceRecord *rrsig;
         int r;
 
@@ -1184,6 +1185,14 @@ int dnssec_verify_rrset_search(
         DNS_ANSWER_FOREACH(rrsig, a) {
                 DnsResourceRecord *dnskey;
                 DnsAnswerFlags flags;
+
+                /* Have we seen an unreasonable number of invalid signaures? */
+                if (found_invalid + found_expired_rrsig + found_unsupported_algorithm > DNSSEC_INVALID_MAX) {
+                        *result = DNSSEC_TOO_MANY_VALIDATIONS;
+                        if (*ret_rrsig)
+                                *ret_rrsig = NULL;
+                        return found_invalid + found_unsupported_algorithm + found_expired_rrsig;
+                }
 
                 /* Is this an RRSIG RR that applies to RRs matching our key? */
                 r = dnssec_key_match_rrsig(key, rrsig);
@@ -1233,14 +1242,14 @@ int dnssec_verify_rrset_search(
                                         *ret_rrsig = rrsig;
 
                                 *result = one_result;
-                                return 0;
+                                return found_invalid + found_unsupported_algorithm + found_expired_rrsig + 1;
 
                         case DNSSEC_INVALID:
                                 /* If the signature is invalid, let's try another
                                    key and/or signature. After all they
                                    key_tags and stuff are not unique, and
                                    might be shared by multiple keys. */
-                                found_invalid = true;
+                                found_invalid++;
                                 continue;
 
                         case DNSSEC_UNSUPPORTED_ALGORITHM:
@@ -1250,14 +1259,14 @@ int dnssec_verify_rrset_search(
                                    encountered this, so that we can
                                    return a proper error when we
                                    encounter nothing better. */
-                                found_unsupported_algorithm = true;
+                                found_unsupported_algorithm++;
                                 continue;
 
                         case DNSSEC_SIGNATURE_EXPIRED:
                                 /* If the signature is expired, try
                                    another one, but remember it, so
                                    that we can return this */
-                                found_expired_rrsig = true;
+                                found_expired_rrsig++;
                                 continue;
 
                         default:
@@ -1280,7 +1289,7 @@ int dnssec_verify_rrset_search(
         if (ret_rrsig)
                 *ret_rrsig = NULL;
 
-        return 0;
+        return found_invalid + found_unsupported_algorithm + found_expired_rrsig;
 }
 
 int dnssec_has_rrsig(DnsAnswer *a, const DnsResourceKey *key) {
@@ -2565,6 +2574,7 @@ static const char* const dnssec_result_table[_DNSSEC_RESULT_MAX] = {
         [DNSSEC_NSEC_MISMATCH]         = "nsec-mismatch",
         [DNSSEC_INCOMPATIBLE_SERVER]   = "incompatible-server",
         [DNSSEC_UPSTREAM_FAILURE]      = "upstream-failure",
+        [DNSSEC_TOO_MANY_VALIDATIONS]  = "too-many-validations",
 };
 DEFINE_STRING_TABLE_LOOKUP(dnssec_result, DnssecResult);
 
