@@ -4783,7 +4783,7 @@ static int unit_get_io_accounting_raw(Unit *u, uint64_t ret[static _CGROUP_IO_AC
         r = cg_all_unified();
         if (r < 0)
                 return r;
-        if (r == 0) /* TODO: support cgroupv1 */
+        if (r == 0)
                 return -ENODATA;
 
         if (!FLAGS_SET(crt->cgroup_realized_mask, CGROUP_MASK_IO))
