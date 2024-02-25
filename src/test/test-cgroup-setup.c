@@ -16,10 +16,8 @@ static void test_is_wanted_print_one(bool header) {
         log_info("-- %s --", __func__);
         assert_se(proc_cmdline(&cmdline) >= 0);
         log_info("cmdline: %s", cmdline);
-        if (header) {
-                log_info("default-hierarchy=" DEFAULT_HIERARCHY_NAME);
+        if (header)
                 (void) system("findmnt -n /sys/fs/cgroup");
-        }
 
         log_info("is_unified_wanted() → %s", yes_no(cg_is_unified_wanted()));
         log_info("is_hybrid_wanted() → %s", yes_no(cg_is_hybrid_wanted()));
