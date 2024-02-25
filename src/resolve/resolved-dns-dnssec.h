@@ -20,12 +20,13 @@ enum DnssecResult {
         DNSSEC_NO_SIGNATURE,
         DNSSEC_MISSING_KEY,
 
-        /* These five are added by the DnsTransaction logic */
+        /* These six are added by the DnsTransaction logic */
         DNSSEC_UNSIGNED,
         DNSSEC_FAILED_AUXILIARY,
         DNSSEC_NSEC_MISMATCH,
         DNSSEC_INCOMPATIBLE_SERVER,
         DNSSEC_UPSTREAM_FAILURE,
+        DNSSEC_TOO_MANY_VALIDATIONS,
 
         _DNSSEC_RESULT_MAX,
         _DNSSEC_RESULT_INVALID = -EINVAL,
@@ -45,6 +46,12 @@ enum DnssecVerdict {
 
 /* The longest digest we'll ever generate, of all digest algorithms we support */
 #define DNSSEC_HASH_SIZE_MAX (MAX(20, 32))
+
+/* The most invalid signatures we will tolerate for a single rrset */
+#define DNSSEC_INVALID_MAX 5
+
+/* The total number of signature validations we will tolerate for a single transaction */
+#define DNSSEC_VALIDATION_MAX 64
 
 int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnskey, bool revoked_ok);
 int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig);

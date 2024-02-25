@@ -3232,10 +3232,13 @@ static int dnssec_validate_records(
                 DnsTransaction *t,
                 Phase phase,
                 bool *have_nsec,
+                size_t *nvalidations,
                 DnsAnswer **validated) {
 
         DnsResourceRecord *rr;
         int r;
+
+        assert(nvalidations);
 
         /* Returns negative on error, 0 if validation failed, 1 to restart validation, 2 when finished. */
 
@@ -3278,6 +3281,7 @@ static int dnssec_validate_records(
                                 &rrsig);
                 if (r < 0)
                         return r;
+                *nvalidations += r;
 
                 log_debug("Looking at %s: %s", strna(dns_resource_record_to_string(rr)), dnssec_result_to_string(result));
 
@@ -3568,12 +3572,20 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 return r;
 
         phase = DNSSEC_PHASE_DNSKEY;
-        for (;;) {
+        for (size_t nvalidations = 0;;) {
                 bool have_nsec = false;
 
-                r = dnssec_validate_records(t, phase, &have_nsec, &validated);
+                r = dnssec_validate_records(t, phase, &have_nsec, &nvalidations, &validated);
                 if (r <= 0)
                         return r;
+
+                if (nvalidations > DNSSEC_VALIDATION_MAX) {
+                        /* This reply requires an onerous number of signature validations to verify. Let's
+                         * not waste our time trying, as this shouldn't happen for well-behaved domains
+                         * anyway. */
+                        t->answer_dnssec_result = DNSSEC_TOO_MANY_VALIDATIONS;
+                        return 0;
+                }
 
                 /* Try again as long as we managed to achieve something */
                 if (r == 1)
