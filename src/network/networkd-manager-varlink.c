@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include "bus-polkit.h"
+#include "lldp-rx-internal.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-manager-varlink.h"
 #include "user-util.h"
@@ -99,6 +100,55 @@ static int dispatch_interface(Varlink *vlink, JsonVariant *parameters, Manager *
         return 0;
 }
 
+static int vl_method_get_lldp_neighbors(Varlink *vlink, JsonVariant *parameters, VarlinkMethodFlags flags, Manager *manager) {
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+        assert(manager);
+
+        r = dispatch_interface(vlink, parameters, manager, &link);
+        if (r != 0)
+                return r;
+
+        if (link) {
+                _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+
+                if (link->lldp_rx) {
+                        r = lldp_rx_build_neighbors_json(link->lldp_rx, &w);
+                        if (r < 0)
+                                return r;
+                }
+
+                return varlink_replyb(vlink, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_VARIANT("Neighbors", w)));
+        }
+
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        HASHMAP_FOREACH(link, manager->links_by_index) {
+                _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+
+                if (!link->lldp_rx)
+                        continue;
+
+                r = lldp_rx_build_neighbors_json(link->lldp_rx, &w);
+                if (r < 0)
+                        return r;
+
+                if (json_variant_is_blank_array(w))
+                        continue;
+
+                r = json_variant_append_arrayb(&v,
+                        JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_INTEGER("InterfaceIndex", link->ifindex),
+                                JSON_BUILD_PAIR_STRING("InterfaceName", link->ifname),
+                                JSON_BUILD_PAIR_VARIANT("Neighbors", w)));
+                if (r < 0)
+                        return r;
+        }
+
+        return varlink_replyb(vlink, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_VARIANT("NeighborsByInterface", v)));
+}
+
 static int vl_method_dhcp_server(Varlink *vlink, JsonVariant *parameters, VarlinkMethodFlags flags, Manager *manager, const char *method) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         Link *link = NULL;
@@ -178,6 +228,7 @@ int manager_connect_varlink(Manager *m) {
                         s,
                         "io.systemd.Network.GetStates", vl_method_get_states,
                         "io.systemd.Network.GetNamespaceId", vl_method_get_namespace_id,
+                        "io.systemd.Network.GetLLDPNeighbors", vl_method_get_lldp_neighbors,
                         "io.systemd.Network.StartDHCPServer", vl_method_start_dhcp_server,
                         "io.systemd.Network.StopDHCPServer", vl_method_stop_dhcp_server);
         if (r < 0)
