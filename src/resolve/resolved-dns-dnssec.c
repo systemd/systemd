@@ -28,8 +28,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_KEY*, EC_KEY_free, NULL);
 /* Permit a maximum clock skew of 1h 10min. This should be enough to deal with DST confusion */
 #define SKEW_MAX (1*USEC_PER_HOUR + 10*USEC_PER_MINUTE)
 
-/* Maximum number of NSEC3 iterations we'll do. RFC5155 says 2500 shall be the maximum useful value */
-#define NSEC3_ITERATIONS_MAX 2500
+/* Maximum number of NSEC3 iterations we'll do. RFC5155 says 2500 shall be the maximum useful value, but
+ * RFC9276 § 3.2 says that we should reduce the acceptable iteration count */
+#define NSEC3_ITERATIONS_MAX 100
 
 /*
  * The DNSSEC Chain of trust:
