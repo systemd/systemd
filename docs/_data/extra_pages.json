@@ -462,7 +462,7 @@
   {
     "category": "The various distributions",
     "title": "Arch Linux bugtracker",
-    "url": "https://bugs.archlinux.org/?project=1&cat%5B%5D=31&string=systemd"
+    "url": "https://gitlab.archlinux.org/archlinux/packaging/packages/systemd/-/issues"
   },
   {
     "category": "The various distributions",
