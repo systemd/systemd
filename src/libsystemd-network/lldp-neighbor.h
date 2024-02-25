@@ -87,6 +87,7 @@ int lldp_neighbor_prioq_compare_func(const void *a, const void *b);
 
 sd_lldp_neighbor *lldp_neighbor_unlink(sd_lldp_neighbor *n);
 sd_lldp_neighbor *lldp_neighbor_new(size_t raw_size);
+void lldp_neighbor_unref_many(sd_lldp_neighbor **array, size_t n);
 int lldp_neighbor_parse(sd_lldp_neighbor *n);
 void lldp_neighbor_start_ttl(sd_lldp_neighbor *n);
 bool lldp_neighbor_equal(const sd_lldp_neighbor *a, const sd_lldp_neighbor *b);
