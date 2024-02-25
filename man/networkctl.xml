@@ -495,6 +495,23 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>dhcp-server</command>
+          start|stop
+          <replaceable>DEVICE</replaceable>
+        </term>
+        <listitem>
+          <para>Start or stop DHCP server. Optionally takes an interface name. In that case, the DHCP server
+          on the interface will be started or stopped. If no interface name is specified, DHCP servers
+          configured on all interfaces will be started or stopped. Note, even if the DHCP server on an
+          interface is not ready to be started, <command>dhcp-server start</command> will succeed and the
+          DHCP server will be started when it is ready.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
