@@ -29,7 +29,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_KEY*, EC_KEY_free, NULL);
 #define SKEW_MAX (1*USEC_PER_HOUR + 10*USEC_PER_MINUTE)
 
 /* Maximum number of NSEC3 iterations we'll do. RFC5155 says 2500 shall be the maximum useful value */
-#define NSEC3_ITERATIONS_MAX 2500
+#define NSEC3_ITERATIONS_MAX 100
 
 /*
  * The DNSSEC Chain of trust:
