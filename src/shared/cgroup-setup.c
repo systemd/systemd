@@ -154,6 +154,22 @@ bool cg_is_hybrid_wanted(void) {
         return (wanted = r > 0 ? !b : is_default);
 }
 
+bool cg_is_legacy_force_enabled(void) {
+        bool force;
+
+        if (!cg_is_legacy_wanted())
+                return false;
+
+        /* If in container, we have to follow host's cgroup hierarchy. */
+        if (detect_container() > 0)
+                return true;
+
+        if (proc_cmdline_get_bool("SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE", /* flags = */ 0, &force) < 0)
+                return false;
+
+        return force;
+}
+
 int cg_weight_parse(const char *s, uint64_t *ret) {
         uint64_t u;
         int r;
