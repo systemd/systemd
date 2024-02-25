@@ -913,6 +913,9 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitBurst", "u", bus_property_get_unsigned, offsetof(Unit, start_ratelimit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitAction", "s", bus_property_get_emergency_action, offsetof(Unit, start_limit_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CoredumpLimitInterval", "t", bus_property_get_usec, offsetof(Unit, coredump_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CoredumpLimitBurst", "u", bus_property_get_unsigned, offsetof(Unit, coredump_ratelimit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CoredumpLimitPerBoot", "u", bus_property_get_unsigned, offsetof(Unit, coredump_limit_per_boot), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FailureAction", "s", bus_property_get_emergency_action, offsetof(Unit, failure_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FailureActionExitStatus", "i", bus_property_get_int, offsetof(Unit, failure_action_exit_status), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SuccessAction", "s", bus_property_get_emergency_action, offsetof(Unit, success_action), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2248,6 +2251,15 @@ static int bus_unit_set_transient_property(
 
         if (streq(name, "StartLimitAction"))
                 return bus_set_transient_emergency_action(u, name, &u->start_limit_action, message, flags, error);
+
+        if (streq(name, "CoredumpLimitInterval"))
+                return bus_set_transient_usec(u, name, &u->coredump_ratelimit.interval, message, flags, error);
+
+        if (streq(name, "CoredumpLimitBurst"))
+                return bus_set_transient_unsigned(u, name, &u->coredump_ratelimit.burst, message, flags, error);
+
+        if (streq(name, "CoredumpLimitPerBoot"))
+                return bus_set_transient_unsigned(u, name, &u->coredump_limit_per_boot, message, flags, error);
 
         if (streq(name, "FailureAction"))
                 return bus_set_transient_emergency_action(u, name, &u->failure_action, message, flags, error);

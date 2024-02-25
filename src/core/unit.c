@@ -131,6 +131,16 @@ Unit* unit_new(Manager *m, size_t size) {
         unit_reset_memory_accounting_last(u);
         unit_reset_io_accounting_last(u);
 
+        u->coredump_ratelimit = (const RateLimit) {
+                m->defaults.coredump_limit_interval,
+                m->defaults.coredump_limit_burst,
+        };
+
+        u->coredump_limit_per_boot = m->defaults.coredump_limit_per_boot;
+
+        u->coredump_limit_hit = false;
+        u->coredump_limit_patched = false;
+
         return u;
 }
 

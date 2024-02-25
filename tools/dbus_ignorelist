@@ -558,6 +558,9 @@ org.freedesktop.systemd1.Manager.ConfirmSpawn
 org.freedesktop.systemd1.Manager.ControlGroup
 org.freedesktop.systemd1.Manager.CtrlAltDelBurstAction
 org.freedesktop.systemd1.Manager.DefaultBlockIOAccounting
+org.freedesktop.systemd1.Manager.DefaultCoredumpLimitInterval
+org.freedesktop.systemd1.Manager.DefaultCoredumpLimitBurst
+org.freedesktop.systemd1.Manager.DefaultCoredumpLimitPerBoot
 org.freedesktop.systemd1.Manager.DefaultCPUAccounting
 org.freedesktop.systemd1.Manager.DefaultLimitAS
 org.freedesktop.systemd1.Manager.DefaultLimitASSoft
@@ -2079,6 +2082,9 @@ org.freedesktop.systemd1.Unit.Conditions
 org.freedesktop.systemd1.Unit.ConflictedBy
 org.freedesktop.systemd1.Unit.Conflicts
 org.freedesktop.systemd1.Unit.ConsistsOf
+org.freedesktop.systemd1.Unit.CoredumpLimitInterval
+org.freedesktop.systemd1.Unit.CoredumpLimitBurst
+org.freedesktop.systemd1.Unit.CoredumpLimitPerBoot
 org.freedesktop.systemd1.Unit.DefaultDependencies
 org.freedesktop.systemd1.Unit.Description
 org.freedesktop.systemd1.Unit.Documentation

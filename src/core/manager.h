@@ -162,6 +162,10 @@ typedef struct UnitDefaults {
         usec_t start_limit_interval;
         unsigned start_limit_burst;
 
+        usec_t coredump_limit_interval;
+        unsigned coredump_limit_burst;
+        unsigned coredump_limit_per_boot;
+
         bool cpu_accounting;
         bool memory_accounting;
         bool io_accounting;

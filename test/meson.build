@@ -22,6 +22,7 @@ if install_tests
                 'testsuite-52.units',
                 'testsuite-63.units',
                 'testsuite-80.units',
+                'testsuite-85.units',
         ]
                 # install_subdir() does not handle symlinks correctly which causes a very ugly warning when
                 # installing, so if rsync is available we use that instead. TODO: switch to the new option

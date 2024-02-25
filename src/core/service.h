@@ -233,6 +233,8 @@ struct Service {
 
         int reload_signal;
         usec_t reload_begin_usec;
+
+        unsigned n_coredumps;
 };
 
 static inline usec_t service_timeout_abort_usec(Service *s) {
