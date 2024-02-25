@@ -87,6 +87,13 @@ sd_lldp_neighbor *sd_lldp_neighbor_unref(sd_lldp_neighbor *n) {
         return NULL;
 }
 
+void lldp_neighbor_unref_many(sd_lldp_neighbor **array, size_t n) {
+        FOREACH_ARRAY(i, array, n)
+                sd_lldp_neighbor_unref(*i);
+
+        free(array);
+}
+
 sd_lldp_neighbor *lldp_neighbor_unlink(sd_lldp_neighbor *n) {
 
         /* Removes the neighbor object from the LLDP object, and frees it if it also has no other reference. */
