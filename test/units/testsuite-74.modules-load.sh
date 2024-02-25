@@ -17,6 +17,8 @@ if systemd-detect-virt -cq; then
     exit 0
 fi
 
+ORIG_MODULES_LOAD_CONFIG="$(systemd-analyze cat-config modules-load.d)"
+
 # Check if we have required kernel modules
 modprobe --all --resolve-alias loop dummy
 
@@ -75,7 +77,7 @@ modprobe -v --all --remove loop dummy
 # Make sure we have no config files left over that might interfere with
 # following tests
 rm -fv "$CONFIG_FILE"
-[[ -z "$(systemd-analyze cat-config modules-load.d)" ]]
+[[ "$ORIG_MODULES_LOAD_CONFIG" == "$(systemd-analyze cat-config modules-load.d)" ]]
 CMDLINE="ro root= modules_load= modules_load=, / = modules_load=foo-bar-baz,dummy modules_load=loop,loop,loop"
 SYSTEMD_PROC_CMDLINE="$CMDLINE" "$MODULES_LOAD_BIN" |& tee /tmp/out.log
 grep -E "^Inserted module .*loop" /tmp/out.log
