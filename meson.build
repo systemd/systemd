@@ -776,17 +776,6 @@ if fallback_hostname == '' or fallback_hostname[0] == '.' or fallback_hostname[0
 endif
 conf.set_quoted('FALLBACK_HOSTNAME', fallback_hostname)
 
-default_hierarchy = get_option('default-hierarchy')
-conf.set_quoted('DEFAULT_HIERARCHY_NAME', default_hierarchy,
-                description : 'default cgroup hierarchy as string')
-if default_hierarchy == 'legacy'
-        conf.set('DEFAULT_HIERARCHY', 'CGROUP_UNIFIED_NONE')
-elif default_hierarchy == 'hybrid'
-        conf.set('DEFAULT_HIERARCHY', 'CGROUP_UNIFIED_SYSTEMD')
-else
-        conf.set('DEFAULT_HIERARCHY', 'CGROUP_UNIFIED_ALL')
-endif
-
 extra_net_naming_schemes = []
 extra_net_naming_map = []
 foreach scheme: get_option('extra-net-naming-schemes').split(',')
@@ -4889,7 +4878,6 @@ summary({
         'default LLMNR mode' :              default_llmnr,
         'default DNS servers' :             dns_servers.split(' '),
         'default NTP servers' :             ntp_servers.split(' '),
-        'default cgroup hierarchy' :        default_hierarchy,
         'default net.naming-scheme value' : default_net_naming_scheme,
         'default KillUserProcesses value' : kill_user_processes,
         'default locale' :                  default_locale,
