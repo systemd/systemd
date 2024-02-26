@@ -20,12 +20,13 @@
 #include "networkd-queue.h"
 #include "networkd-route-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "socket-netlink.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 
-static bool link_dhcp4_server_enabled(Link *link) {
+bool link_dhcp4_server_enabled(Link *link) {
         assert(link);
 
         if (link->flags & IFF_LOOPBACK)
@@ -522,11 +523,18 @@ static int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set DHCPv4 static lease for DHCP server: %m");
         }
 
-        r = sd_dhcp_server_start(link->dhcp_server);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not start DHCPv4 server instance: %m");
+        _cleanup_free_ char *lease_file = path_join("/var/lib/systemd/network/dhcp-server-lease/", link->ifname);
+        if (!lease_file)
+                return log_oom();
 
-        log_link_debug(link, "Offering DHCPv4 leases");
+        r = sd_dhcp_server_set_lease_file(link->dhcp_server, lease_file);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to load DHCPv4 server leases, ignoring: %m");
+
+        r = link_start_dhcp4_server(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could no start DHCPv4 server: %m");
+
         return 0;
 }
 
@@ -592,6 +600,54 @@ int link_request_dhcp_server(Link *link) {
         r = link_queue_request(link, REQUEST_TYPE_DHCP_SERVER, dhcp_server_process_request, NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request configuration of DHCP server: %m");
+
+        return 0;
+}
+
+bool link_dhcp4_server_is_ready_to_start(Link *link) {
+        assert(link);
+
+        if (!link->dhcp_server)
+                return false; /* Not configured yet. */
+
+        if (!link_has_carrier(link))
+                return false;
+
+        return true;
+}
+
+int link_start_dhcp4_server(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link_dhcp4_server_is_ready_to_start(link))
+                return 0;
+
+        if (!link->dhcp4_server_can_start)
+                return 0;
+
+        r = sd_dhcp_server_start(link->dhcp_server);
+        if (r < 0)
+                return r;
+
+        log_link_debug(link, "Offering DHCPv4 leases");
+        return 0;
+}
+
+int link_toggle_dhcp4_server_state(Link *link, bool start) {
+        int r;
+
+        assert(link);
+
+        link->dhcp4_server_can_start = start;
+
+        if (start)
+                r = link_start_dhcp4_server(link);
+        else
+                r = sd_dhcp_server_stop(link->dhcp_server);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to %s DHCP server, ignoring: %m", start ? "start" : "stop");
 
         return 0;
 }
