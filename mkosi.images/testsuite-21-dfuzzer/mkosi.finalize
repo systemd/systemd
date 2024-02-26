@@ -1,0 +1,7 @@
+#!/bin/sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -eu
+
+mkdir -p "$BUILDROOT"/usr/share/factory/mkosi
+cp --archive --recursive --no-target-directory --reflink=auto "$BUILDROOT"/etc "$BUILDROOT"/usr/share/factory/mkosi/etc
+cp --archive --recursive --no-target-directory --reflink=auto "$BUILDROOT"/var "$BUILDROOT"/usr/share/factory/mkosi/var
