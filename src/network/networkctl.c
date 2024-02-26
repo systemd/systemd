@@ -93,11 +93,11 @@ JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_drop_in, freep);
 
-static int check_netns_match(void) {
+static int varlink_connect_networkd(Varlink **ret) {
+        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        JsonVariant *reply;
         struct stat st;
         uint64_t id;
-        JsonVariant *reply = NULL;
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
         int r;
 
         r = varlink_connect_address(&vl, "/run/systemd/netif/io.systemd.Network");
@@ -119,7 +119,7 @@ static int check_netns_match(void) {
 
         if (id == 0) {
                 log_debug("systemd-networkd.service not running in a network namespace (?), skipping netns check.");
-                return 0;
+                goto pass;
         }
 
         if (stat("/proc/self/ns/net", &st) < 0)
@@ -128,7 +128,9 @@ static int check_netns_match(void) {
         if (id != st.st_ino)
                 return log_error_errno(SYNTHETIC_ERRNO(EREMOTE),
                                        "networkctl must be invoked in same network namespace as systemd-networkd.service.");
-
+pass:
+        if (ret)
+                *ret = TAKE_PTR(vl);
         return 0;
 }
 
@@ -162,7 +164,7 @@ int acquire_bus(sd_bus **ret) {
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
         if (networkd_is_running()) {
-                r = check_netns_match();
+                r = varlink_connect_networkd(NULL);
                 if (r < 0)
                         return r;
         } else
