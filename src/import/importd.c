@@ -83,6 +83,7 @@ struct Transfer {
 
         unsigned n_canceled;
         unsigned progress_percent;
+        unsigned progress_percent_sent;
 
         int stdin_fd;
         int stdout_fd;
@@ -166,7 +167,8 @@ static int transfer_new(Manager *m, Transfer **ret) {
                 .stdin_fd = -EBADF,
                 .stdout_fd = -EBADF,
                 .verify = _IMPORT_VERIFY_INVALID,
-                .progress_percent= UINT_MAX,
+                .progress_percent = UINT_MAX,
+                .progress_percent_sent = UINT_MAX,
         };
 
         id = m->current_transfer_id + 1;
@@ -217,7 +219,28 @@ static void transfer_send_log_line(Transfer *t, const char *line) {
                         line);
         if (r < 0)
                 log_warning_errno(r, "Cannot emit log message signal, ignoring: %m");
- }
+}
+
+static void transfer_send_progress_update(Transfer *t) {
+        int r;
+
+        assert(t);
+
+        if (t->progress_percent_sent == t->progress_percent)
+                return;
+
+        r = sd_bus_emit_signal(
+                        t->manager->bus,
+                        t->object_path,
+                        "org.freedesktop.import1.Transfer",
+                        "ProgressUpdate",
+                        "d",
+                        transfer_percent_as_double(t));
+        if (r < 0)
+                log_warning_errno(r, "Cannot emit progress update signal, ignoring: %m");
+
+        t->progress_percent_sent = t->progress_percent;
+}
 
 static void transfer_send_logs(Transfer *t, bool flush) {
         assert(t);
@@ -635,6 +658,8 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         t->progress_percent = (unsigned) r;
 
         log_debug("Got percentage from client: %u%%", t->progress_percent);
+
+        transfer_send_progress_update(t);
         return 0;
 }
 
@@ -1345,6 +1370,10 @@ static const sd_bus_vtable transfer_vtable[] = {
                                  "us",
                                  SD_BUS_PARAM(priority)
                                  SD_BUS_PARAM(line),
+                                 0),
+        SD_BUS_SIGNAL_WITH_NAMES("ProgressUpdate",
+                                 "d",
+                                 SD_BUS_PARAM(progress),
                                  0),
 
         SD_BUS_VTABLE_END,
