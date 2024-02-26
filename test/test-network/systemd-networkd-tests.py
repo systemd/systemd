@@ -5207,6 +5207,39 @@ class NetworkdLLDPTests(unittest.TestCase, Utilities):
         else:
             self.fail()
 
+        # With interface name
+        output = networkctl('lldp', 'veth99');
+        print(output)
+        self.assertRegex(output, r'veth99 .* veth-peer')
+
+        # With interface name pattern
+        output = networkctl('lldp', 've*9');
+        print(output)
+        self.assertRegex(output, r'veth99 .* veth-peer')
+
+        # json format
+        output = networkctl('--json=short', 'lldp')
+        print(output)
+        self.assertIn('"InterfaceName":"veth99"', output)
+        self.assertIn('"PortID":"veth-peer"', output)
+
+        # json format with interface name
+        output = networkctl('--json=short', 'lldp', 'veth99')
+        print(output)
+        self.assertIn('"InterfaceName":"veth99"', output)
+        self.assertIn('"PortID":"veth-peer"', output)
+
+        # json format with interface name pattern
+        output = networkctl('--json=short', 'lldp', 've*9')
+        print(output)
+        self.assertIn('"InterfaceName":"veth99"', output)
+        self.assertIn('"PortID":"veth-peer"', output)
+
+        # LLDP neighbors in status
+        output = networkctl_status('veth99')
+        print(output)
+        self.assertRegex(output, r'Connected To: .* on port veth-peer')
+
 class NetworkdRATests(unittest.TestCase, Utilities):
 
     def setUp(self):
