@@ -544,7 +544,7 @@ void link_check_ready(Link *link) {
                 goto ready;
 
         bool ipv4ll_ready =
-                link_ipv4ll_enabled(link) && link->ipv4ll_address_configured &&
+                link_ipv4ll_enabled(link) && link->ipv4ll_configured &&
                 link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_IPV4LL);
         bool dhcp4_ready =
                 link_dhcp4_enabled(link) && link->dhcp4_configured &&

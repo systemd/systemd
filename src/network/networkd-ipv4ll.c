@@ -10,6 +10,7 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
+#include "networkd-route.h"
 #include "parse-util.h"
 
 bool link_ipv4ll_enabled(Link *link) {
@@ -55,13 +56,44 @@ static int address_new_from_ipv4ll(Link *link, Address **ret) {
         return 0;
 }
 
-static int ipv4ll_address_lost(Link *link) {
-        _cleanup_(address_unrefp) Address *address = NULL;
+static int route_new_from_ipv4ll(Link *link, Route **ret) {
+        _cleanup_(route_unrefp) Route *route = NULL;
+        struct in_addr addr;
         int r;
 
         assert(link);
+        assert(link->ipv4ll);
+        assert(ret);
 
-        link->ipv4ll_address_configured = false;
+        r = sd_ipv4ll_get_address(link->ipv4ll, &addr);
+        if (r < 0)
+                return r;
+
+        r = route_new(&route);
+        if (r < 0)
+                return -ENOMEM;
+
+        route->source = NETWORK_CONFIG_SOURCE_IPV4LL;
+        route->family = AF_INET;
+        route->dst.in = addr;
+        route->dst_prefixlen = 32;
+        route->scope = RT_SCOPE_HOST;
+        route->type = RTN_LOCAL;
+        route->priority = 0;
+
+        *ret = TAKE_PTR(route);
+        return 0;
+}
+
+static int ipv4ll_address_lost(Link *link) {
+        _cleanup_(address_unrefp) Address *address = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+
+        link->ipv4ll_configured = false;
 
         r = address_new_from_ipv4ll(link, &address);
         if (r == -ENOENT)
@@ -69,47 +101,88 @@ static int ipv4ll_address_lost(Link *link) {
         if (r < 0)
                 return r;
 
-        log_link_debug(link, "IPv4 link-local release "IPV4_ADDRESS_FMT_STR,
-                       IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
+        log_link_debug(link, "IPv4 link-local release %s.", IN4_ADDR_TO_STRING(&address->in_addr.in));
 
-        return address_remove_and_cancel(address, link);
+        r = address_remove_and_cancel(address, link);
+        if (r < 0)
+                return r;
+
+        r = route_new_from_ipv4ll(link, &route);
+        if (r < 0)
+                return r;
+
+        r = route_remove_and_cancel(route, link->manager);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static void ipv4ll_check_ready(Link *link) {
+        assert(link);
+
+        if (link->ipv4ll_messages != 0)
+                return;
+
+        link->ipv4ll_configured = true;
+        link_check_ready(link);
 }
 
 static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Address *address) {
         int r;
 
         assert(link);
-        assert(!link->ipv4ll_address_configured);
 
         r = address_configure_handler_internal(rtnl, m, link, "Could not set ipv4ll address");
         if (r <= 0)
                 return r;
 
-        link->ipv4ll_address_configured = true;
-        link_check_ready(link);
-
+        ipv4ll_check_ready(link);
         return 1;
 }
 
-static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
-        _cleanup_(address_unrefp) Address *address = NULL;
+static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
         int r;
 
-        assert(ll);
         assert(link);
 
-        link->ipv4ll_address_configured = false;
+        r = route_configure_handler_internal(rtnl, m, link, route, "Could not set ipv4ll route");
+        if (r <= 0)
+                return r;
+
+        ipv4ll_check_ready(link);
+        return 1;
+}
+
+static int ipv4ll_address_claimed(Link *link) {
+        _cleanup_(address_unrefp) Address *address = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
+        int r;
+
+        assert(link);
+        assert(link->ipv4ll);
+
+        link->ipv4ll_configured = false;
 
         r = address_new_from_ipv4ll(link, &address);
-        if (r == -ENOENT)
-                return 0;
         if (r < 0)
                 return r;
 
-        log_link_debug(link, "IPv4 link-local claim "IPV4_ADDRESS_FMT_STR,
-                       IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
+        log_link_debug(link, "IPv4 link-local claim %s.", IN4_ADDR_TO_STRING(&address->in_addr.in));
 
-        return link_request_address(link, address, NULL, ipv4ll_address_handler, NULL);
+        r = link_request_address(link, address, &link->ipv4ll_messages, ipv4ll_address_handler, NULL);
+        if (r < 0)
+                return r;
+
+        r = route_new_from_ipv4ll(link, &route);
+        if (r < 0)
+                return r;
+
+        r = link_request_route(link, route, &link->ipv4ll_messages, ipv4ll_route_handler);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
@@ -143,7 +216,7 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
                         }
                         break;
                 case SD_IPV4LL_EVENT_BIND:
-                        r = ipv4ll_address_claimed(ll, link);
+                        r = ipv4ll_address_claimed(link);
                         if (r < 0) {
                                 log_link_error(link, "Failed to configure ipv4ll address: %m");
                                 link_enter_failed(link);

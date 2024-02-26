@@ -139,7 +139,8 @@ typedef struct Link {
         Hashmap *ipv4acd_by_address;
 
         sd_ipv4ll *ipv4ll;
-        bool ipv4ll_address_configured:1;
+        unsigned ipv4ll_messages;
+        bool ipv4ll_configured:1;
 
         bool static_addresses_configured:1;
         bool static_address_labels_configured:1;
