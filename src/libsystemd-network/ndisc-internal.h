@@ -24,6 +24,7 @@ struct sd_ndisc {
         sd_event *event;
         int event_priority;
 
+        struct in6_addr link_local_addr;
         struct ether_addr mac_addr;
 
         sd_event_source *recv_event_source;

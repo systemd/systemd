@@ -123,7 +123,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 }
         }
 
-        if (link->network->ipv6_accept_ra_use_dns) {
+        if (link->network->ndisc_use_dns) {
                 NDiscRDNSS *a;
 
                 SET_FOREACH(a, link->ndisc_rdnss) {
@@ -254,7 +254,7 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
                 }
         }
 
-        if (link->network->ipv6_accept_ra_use_domains == use_domains) {
+        if (link->network->ndisc_use_domains == use_domains) {
                 NDiscDNSSL *a;
 
                 SET_FOREACH(a, link->ndisc_dnssl) {
@@ -559,7 +559,7 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, D
                         fputstrv(f, domains, NULL, &space);
         }
 
-        if (link->network->ipv6_accept_ra_use_domains == use_domains) {
+        if (link->network->ndisc_use_domains == use_domains) {
                 NDiscDNSSL *dd;
 
                 SET_FOREACH(dd, link->ndisc_dnssl)
@@ -675,7 +675,7 @@ static int link_save(Link *link) {
                                             sd_dhcp6_lease_get_dns,
                                             NULL);
 
-                        if (link->network->ipv6_accept_ra_use_dns) {
+                        if (link->network->ndisc_use_dns) {
                                 NDiscRDNSS *dd;
 
                                 SET_FOREACH(dd, link->ndisc_rdnss)
