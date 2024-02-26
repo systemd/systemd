@@ -34,7 +34,6 @@ _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc_router, sd_ndisc_router_unref);
 
 int sd_ndisc_router_get_address(sd_ndisc_router *rt, struct in6_addr *ret);
 int sd_ndisc_router_get_timestamp(sd_ndisc_router *rt, clockid_t clock, uint64_t *ret);
-int sd_ndisc_router_get_raw(sd_ndisc_router *rt, const void **ret, size_t *ret_size);
 
 int sd_ndisc_router_get_hop_limit(sd_ndisc_router *rt, uint8_t *ret);
 int sd_ndisc_router_get_icmp6_ratelimit(sd_ndisc_router *rt, uint64_t *ret);
@@ -51,7 +50,7 @@ int sd_ndisc_router_option_rewind(sd_ndisc_router *rt);
 int sd_ndisc_router_option_next(sd_ndisc_router *rt);
 int sd_ndisc_router_option_get_type(sd_ndisc_router *rt, uint8_t *ret);
 int sd_ndisc_router_option_is_type(sd_ndisc_router *rt, uint8_t type);
-int sd_ndisc_router_option_get_raw(sd_ndisc_router *rt, const void **ret, size_t *ret_size);
+int sd_ndisc_router_option_get_raw(sd_ndisc_router *rt, const uint8_t **ret, size_t *ret_size);
 
 /* Specific option access: SD_NDISC_OPTION_PREFIX_INFORMATION */
 int sd_ndisc_router_prefix_get_valid_lifetime(sd_ndisc_router *rt, uint64_t *ret);
