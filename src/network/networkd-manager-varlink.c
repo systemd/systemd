@@ -47,7 +47,7 @@ static int vl_method_get_namespace_id(Varlink *link, JsonVariant *parameters, Va
 
         r = netns_get_nsid(/* netnsfd= */ -EBADF, &nsid);
         if (r < 0)
-                log_warning_errno(r, "Failed to query network nsid, ignoring: %m");
+                log_full_errno(r == -ENODATA ? LOG_DEBUG : LOG_WARNING, r, "Failed to query network nsid, ignoring: %m");
 
         return varlink_replyb(link,
                               JSON_BUILD_OBJECT(
