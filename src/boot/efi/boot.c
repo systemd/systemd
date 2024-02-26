@@ -2051,7 +2051,7 @@ static void config_group_entries(Config *config) {
         assert(config);
 
         size_t group_count = 0;
-        Indices *indices = NULL;
+        _cleanup_free_ Indices *indices = NULL;
         for (size_t i = 0; i < config->n_entries; i++) {
                 if (config->entries[i]->type == LOADER_MORE)
                         continue;
@@ -2080,7 +2080,6 @@ static void config_group_entries(Config *config) {
         if (group_count == 0)
                 return;
         config_create_groups(config, indices, group_count);
-        free(indices);
 }
 
 static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
