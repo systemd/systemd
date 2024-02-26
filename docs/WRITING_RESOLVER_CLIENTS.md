@@ -9,7 +9,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 _Or: How to look up hostnames and arbitrary DNS Resource Records via_ `systemd-resolved` _'s bus APIs_
 
-_(This is a longer explanation how to use some parts of_ `systemd-resolved` _bus API. If you are just looking for an API reference, consult the [bus API documentation](https://wiki.freedesktop.org/www/Software/systemd/resolved/) instead.)_
+_(This is a longer explanation how to use some parts of_ `systemd-resolved` _bus API. If you are just looking for an API reference, consult the [bus API documentation](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.resolve1.html) instead.)_
 
 _`systemd-resolved`_ provides a set of APIs on the bus for resolving DNS resource records. These are:
 
@@ -41,7 +41,7 @@ Any other D-Bus library, including the original _libdbus_ or _GDBus_ may be used
 
 ## Resolving a Hostname
 
-To resolve a hostname use the _ResolveHostname()_ call. For details on the function parameters see the [bus API documentation](https://wiki.freedesktop.org/www/Software/systemd/resolved/).
+To resolve a hostname use the _ResolveHostname()_ call. For details on the function parameters see the [bus API documentation](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.resolve1.html).
 
 This example specifies `AF_UNSPEC` as address family for the requested address.
 This means both an _AF\_INET_ (A) and an _AF\_INET6_ (AAAA) record is looked for, depending on whether the local system has configured IPv4 and/or IPv6 connectivity.
@@ -160,7 +160,7 @@ This example contains a simple MX record parser.
 Note that the data comes pre-validated from `systemd-resolved`, hence we allow the example to parse the record slightly sloppily, to keep the example brief.
 For details on the MX RR binary format, see [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035.txt).
 
-For details on the function parameters see the [bus API documentation](https://wiki.freedesktop.org/www/Software/systemd/resolved/).
+For details on the function parameters see the [bus API documentation](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.resolve1.html).
 
 ```c
 #include <assert.h>
