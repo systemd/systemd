@@ -1,0 +1,7 @@
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=echo foo
+
+[Install]
+WantedBy=multi-user.target
