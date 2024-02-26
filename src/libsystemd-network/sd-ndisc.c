@@ -96,6 +96,18 @@ int sd_ndisc_get_ifname(sd_ndisc *nd, const char **ret) {
         return 0;
 }
 
+int sd_ndisc_set_link_local_address(sd_ndisc *nd, const struct in6_addr *addr) {
+        assert_return(nd, -EINVAL);
+        assert_return(!addr || in6_addr_is_link_local(addr), -EINVAL);
+
+        if (addr)
+                nd->link_local_addr = *addr;
+        else
+                zero(nd->link_local_addr);
+
+        return 0;
+}
+
 int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
         assert_return(nd, -EINVAL);
 
@@ -230,6 +242,11 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
          * that hosts MUST discard messages with the null source address. */
         if (in6_addr_is_null(&packet->sender_address)) {
                 log_ndisc(nd, "Received an ICMPv6 packet from null address, ignoring.");
+                return 0;
+        }
+
+        if (in6_addr_equal(&packet->sender_address, &nd->link_local_addr)) {
+                log_ndisc(nd, "Received an ICMPv6 packet sent by the same interface, ignoring.");
                 return 0;
         }
 
