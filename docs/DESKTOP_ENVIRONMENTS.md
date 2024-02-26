@@ -59,21 +59,27 @@ desktop environments should adhere to the following conventions:
     - `app-KDE-org.kde.okular@12345.service`
     - `app-org.kde.amarok.service`
     - `app-org.gnome.Evince-12345.scope`
+
  * Using `.service` units instead of `.scope` units, i.e. allowing systemd to
    start the process on behalf of the caller,
    instead of the caller starting the process and letting systemd know about it,
    is encouraged.
+
  * The RANDOM should be a string of random characters to ensure that multiple instances
  of the application can be launched.
+
  It can be omitted in the case of a non-transient application services which can ensure
  multiple instances are not spawned, such as a DBus activated application.
+
  * If no application ID is available, the launcher should generate a reasonable
    name when possible (e.g. using `basename(argv[0])`). This name must not
    contain a `-` character.
 
 This has the following advantages:
+
  * Using the `app-<launcher>-` prefix means that the unit defaults can be
    adjusted using desktop environment specific drop-in files.
+
  * The application ID can be retrieved by stripping the prefix and postfix.
    This in turn should map to the corresponding `.desktop` file when available
 
@@ -82,8 +88,8 @@ This could be `app-<launcher>-<ApplicationID>-<RANDOM>.slice`.
 
 TODO: Does it really make sense to insert the `<launcher>`? In GNOME I am
 currently using a drop-in to configure `BindTo=graphical-session.target`,
-`CollectMode=inactive-or-failed` and `TimeoutSec=5s`. I feel that such a
-policy makes sense, but it may make much more sense to just define a
+`CollectMode=inactive-or-failed` and `TimeoutSec=5s`.
+I feel that such a policy makes sense, but it may make much more sense to just define a
 global default for all (graphical) applications.
 
  * Should application lifetime be bound to the session?
@@ -95,19 +101,17 @@ global default for all (graphical) applications.
 To allow XDG autostart integration, systemd ships a cross-desktop generator
 to create appropriate units for the autostart directory
 (`systemd-xdg-autostart-generator`).
-Desktop Environments can opt-in to using this by starting
-`xdg-desktop-autostart.target`. The systemd generator correctly handles
-`OnlyShowIn=` and `NotShowIn=`. It also handles the KDE and GNOME specific
-`X-KDE-autostart-condition=` and `AutostartCondition=` by using desktop-environment-provided
-binaries in an `ExecCondition=` line.
+Desktop Environments can opt-in to using this by starting `xdg-desktop-autostart.target`.
+The systemd generator correctly handles `OnlyShowIn=` and `NotShowIn=`.
+It also handles the KDE and GNOME specific `X-KDE-autostart-condition=` and `AutostartCondition=` by using desktop-environment-provided binaries in an `ExecCondition=` line.
 
-However, this generator is somewhat limited in what it supports. For example,
-all generated units will have `After=graphical-session.target` set on them,
+However, this generator is somewhat limited in what it supports.
+For example, all generated units will have `After=graphical-session.target` set on them,
 and therefore may not be useful to start session services.
 
 Desktop files can be marked to be explicitly excluded from the generator using the line
-`X-systemd-skip=true`. This should be set if an application provides its own
-systemd service file for startup.
+`X-systemd-skip=true`.
+This should be set if an application provides its own systemd service file for startup.
 
 ## Startup and shutdown best practices
 
