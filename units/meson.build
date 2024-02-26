@@ -429,6 +429,10 @@ units = [
         },
         { 'file' : 'systemd-network-generator.service.in' },
         {
+          'file' : 'systemd-networkd-dhcp-server.service',
+          'conditions' : ['ENABLE_NETWORKD'],
+        },
+        {
           'file' : 'systemd-networkd-wait-online.service.in',
           'conditions' : ['ENABLE_NETWORKD'],
         },

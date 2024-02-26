@@ -1180,8 +1180,8 @@ int address_remove(Address *address, Link *link) {
 }
 
 int address_remove_and_cancel(Address *address, Link *link) {
+        _cleanup_(request_unrefp) Request *req = NULL;
         bool waiting = false;
-        Request *req;
 
         assert(address);
         assert(link);
@@ -1193,6 +1193,7 @@ int address_remove_and_cancel(Address *address, Link *link) {
         /* Cancel the request for the address.  If the request is already called but we have not received the
          * notification about the request, then explicitly remove the address. */
         if (address_get_request(link, address, &req) >= 0) {
+                request_ref(req); /* avoid the request freed by request_detach() */
                 waiting = req->waiting_reply;
                 request_detach(req);
                 address_cancel_requesting(address);
