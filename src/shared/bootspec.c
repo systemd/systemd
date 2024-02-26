@@ -431,12 +431,6 @@ void boot_config_free(BootConfig *config) {
         assert(config);
 
         free(config->default_pattern);
-        free(config->timeout);
-        free(config->editor);
-        free(config->auto_entries);
-        free(config->auto_firmware);
-        free(config->console_mode);
-        free(config->beep);
 
         free(config->entry_oneshot);
         free(config->entry_default);
@@ -491,20 +485,10 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
 
                 if (streq(field, "default"))
                         r = free_and_strdup(&config->default_pattern, p);
-                else if (streq(field, "timeout"))
-                        r = free_and_strdup(&config->timeout, p);
-                else if (streq(field, "editor"))
-                        r = free_and_strdup(&config->editor, p);
-                else if (streq(field, "auto-entries"))
-                        r = free_and_strdup(&config->auto_entries, p);
-                else if (streq(field, "auto-firmware"))
-                        r = free_and_strdup(&config->auto_firmware, p);
-                else if (streq(field, "console-mode"))
-                        r = free_and_strdup(&config->console_mode, p);
-                else if (streq(field, "random-seed-mode"))
-                        log_syntax(NULL, LOG_WARNING, path, line, 0, "'random-seed-mode' has been deprecated, ignoring.");
-                else if (streq(field, "beep"))
-                        r = free_and_strdup(&config->beep, p);
+                else if (STR_IN_SET(field, "timeout", "editor", "auto-entries", "auto-firmware",
+                                    "auto-poweroff", "auto-reboot", "beep", "reboot-for-bitlocker",
+                                    "secure-boot-enroll", "console-mode"))
+                        r = 0; /* we don't parse these in userspace, but they are OK */
                 else {
                         log_syntax(NULL, LOG_WARNING, path, line, 0, "Unknown line '%s', ignoring.", field);
                         continue;

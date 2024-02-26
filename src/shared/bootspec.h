@@ -65,12 +65,6 @@ typedef struct BootEntry {
 
 typedef struct BootConfig {
         char *default_pattern;
-        char *timeout;
-        char *editor;
-        char *auto_entries;
-        char *auto_firmware;
-        char *console_mode;
-        char *beep;
 
         char *entry_oneshot;
         char *entry_default;
