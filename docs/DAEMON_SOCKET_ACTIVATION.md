@@ -7,7 +7,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 ## nginx
 
-nginx includes an undocumented, internal socket-passing mechanism based on the `NGINX` environmental variable. It uses this to perform reloads without having to close and reopen its sockets, but it's also useful for socket activation.
+nginx includes an undocumented, internal socket-passing mechanism based on the `NGINX` environmental variable.
+It uses this to perform reloads without having to close and reopen its sockets, but it's also useful for socket activation.
 
 **/etc/nginx/my-nginx.conf**
 
@@ -31,7 +32,6 @@ ExecStart=/usr/sbin/nginx -c/etc/nginx/my-nginx.conf
 PrivateNetwork=true
 ```
 
-
 **/etc/systemd/system/my-nginx.socket**
 
 ```
@@ -48,12 +48,13 @@ BindIPv6Only=ipv6-only
 WantedBy=sockets.target
 ```
 
-
 ## PHP-FPM
 
-Like nginx, PHP-FPM includes a socket-passing mechanism an environmental variable. In PHP-FPM's case, it's `FPM_SOCKETS`.
+Like nginx, PHP-FPM includes a socket-passing mechanism an environmental variable.
+In PHP-FPM's case, it's `FPM_SOCKETS`.
 
-This configuration is possible with any web server that supports FastCGI (like Apache, Lighttpd, or nginx). The web server does not need to know anything special about the socket; use a normal PHP-FPM configuration.
+This configuration is possible with any web server that supports FastCGI (like Apache, Lighttpd, or nginx).
+The web server does not need to know anything special about the socket; use a normal PHP-FPM configuration.
 
 Paths are based on a Fedora 19 system.
 
@@ -76,7 +77,6 @@ pm.max_children = 10
 slowlog = syslog
 ```
 
-
 **/etc/systemd/system/my-php-fpm-pool.service**
 
 ```
@@ -88,7 +88,6 @@ ExecStart=/usr/sbin/php-fpm --fpm-config=/etc/php-fpm.d/my-php-fpm-pool.conf
 KillMode=process
 ```
 
-
 **/etc/systemd/system/my-php-fpm-pool.socket**
 
 ```
@@ -99,7 +98,6 @@ ListenStream=/var/run/my-php-fpm-pool.socket
 WantedBy=sockets.target
 ```
 
-
 ### Second, the setup commands
 
 ```sh
@@ -108,15 +106,14 @@ sudo systemctl start my-php-fpm-pool.socket
 sudo systemctl enable my-php-fpm-pool.socket
 ```
 
-
 After accessing the web server, the service should be running.
 
 ```sh
 sudo systemctl status my-php-fpm-pool.service
 ```
 
-
-It's possible to shut down the service and re-activate it using the web browser, too. It's necessary to stop and start the socket to reset some shutdown PHP-FPM does that otherwise breaks reactivation.
+It's possible to shut down the service and re-activate it using the web browser, too.
+It's necessary to stop and start the socket to reset some shutdown PHP-FPM does that otherwise breaks reactivation.
 
 ```sh
 sudo systemctl stop my-php-fpm-pool.socket my-php-fpm-pool.service
