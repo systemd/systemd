@@ -429,6 +429,10 @@ static int transfer_start(Transfer *t) {
                         _exit(EXIT_FAILURE);
                 }
 
+                r = setenv_systemd_log_level();
+                if (r < 0)
+                        log_warning_errno(r, "Failed to update $SYSTEMD_LOG_LEVEL, ignoring: %m");
+
                 r = setenv_systemd_exec_pid(true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to update $SYSTEMD_EXEC_PID, ignoring: %m");
