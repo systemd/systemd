@@ -45,6 +45,8 @@ static const char* arg_format = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static ImageClass arg_image_class = _IMAGE_CLASS_INVALID;
 
+#define PROGRESS_PREFIX "Total: "
+
 static int settle_image_class(void) {
 
         if (arg_image_class < 0) {
@@ -68,13 +70,21 @@ static int settle_image_class(void) {
         return 0;
 }
 
+typedef struct Context {
+        const char *object_path;
+        double progress;
+} Context;
+
 static int match_log_message(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        const char **our_path = userdata, *line;
+        Context *c = ASSERT_PTR(userdata);
+        const char *line;
         unsigned priority;
         int r;
 
         assert(m);
-        assert(our_path);
+
+        if (!streq_ptr(c->object_path, sd_bus_message_get_path(m)))
+                return 0;
 
         r = sd_bus_message_read(m, "us", &priority, &line);
         if (r < 0) {
@@ -82,23 +92,51 @@ static int match_log_message(sd_bus_message *m, void *userdata, sd_bus_error *er
                 return 0;
         }
 
-        if (!streq_ptr(*our_path, sd_bus_message_get_path(m)))
-                return 0;
-
         if (arg_quiet && LOG_PRI(priority) >= LOG_INFO)
                 return 0;
 
+        if (!arg_quiet)
+                clear_progress_bar(PROGRESS_PREFIX);
+
         log_full(priority, "%s", line);
+
+        if (!arg_quiet)
+                draw_progress_bar(PROGRESS_PREFIX, c->progress * 100);
+
+        return 0;
+}
+
+static int match_progress_update(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(m);
+
+        if (!streq_ptr(c->object_path, sd_bus_message_get_path(m)))
+                return 0;
+
+        r = sd_bus_message_read(m, "d", &c->progress);
+        if (r < 0) {
+                bus_log_parse_error(r);
+                return 0;
+        }
+
+        if (!arg_quiet)
+                draw_progress_bar(PROGRESS_PREFIX, c->progress * 100);
+
         return 0;
 }
 
 static int match_transfer_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        const char **our_path = userdata, *path, *result;
+        Context *c = ASSERT_PTR(userdata);
+        const char *path, *result;
         uint32_t id;
         int r;
 
         assert(m);
-        assert(our_path);
+
+        if (!arg_quiet)
+                clear_progress_bar(PROGRESS_PREFIX);
 
         r = sd_bus_message_read(m, "uos", &id, &path, &result);
         if (r < 0) {
@@ -106,7 +144,7 @@ static int match_transfer_removed(sd_bus_message *m, void *userdata, sd_bus_erro
                 return 0;
         }
 
-        if (!streq_ptr(*our_path, path))
+        if (!streq_ptr(c->object_path, path))
                 return 0;
 
         sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), !streq_ptr(result, "done"));
@@ -118,6 +156,9 @@ static int transfer_signal_handler(sd_event_source *s, const struct signalfd_sig
         assert(si);
 
         if (!arg_quiet)
+                clear_progress_bar(PROGRESS_PREFIX);
+
+        if (!arg_quiet)
                 log_info("Continuing download in the background. Use \"%s cancel-transfer %" PRIu32 "\" to abort transfer.",
                          program_invocation_short_name,
                          PTR_TO_UINT32(userdata));
@@ -127,11 +168,11 @@ static int transfer_signal_handler(sd_event_source *s, const struct signalfd_sig
 }
 
 static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
-        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot_job_removed = NULL, *slot_log_message = NULL;
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot_job_removed = NULL, *slot_log_message = NULL, *slot_progress_update = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_event_unrefp) sd_event* event = NULL;
-        const char *path = NULL;
+        Context c = {};
         uint32_t id;
         int r;
 
@@ -153,7 +194,9 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
                         &slot_job_removed,
                         bus_import_mgr,
                         "TransferRemoved",
-                        match_transfer_removed, NULL, &path);
+                        match_transfer_removed,
+                        /* add_callback= */ NULL,
+                        &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match: %m");
 
@@ -161,10 +204,25 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
                         bus,
                         &slot_log_message,
                         "org.freedesktop.import1",
-                        NULL,
+                        /* object_path= */ NULL,
                         "org.freedesktop.import1.Transfer",
                         "LogMessage",
-                        match_log_message, NULL, &path);
+                        match_log_message,
+                        /* add_callback= */ NULL,
+                        &c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to request match: %m");
+
+        r = sd_bus_match_signal_async(
+                        bus,
+                        &slot_progress_update,
+                        "org.freedesktop.import1",
+                        /* object_path= */ NULL,
+                        "org.freedesktop.import1.Transfer",
+                        "ProgressUpdate",
+                        match_progress_update,
+                        /* add_callback= */ NULL,
+                        &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match: %m");
 
@@ -172,12 +230,15 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to transfer image: %s", bus_error_message(&error, r));
 
-        r = sd_bus_message_read(reply, "uo", &id, &path);
+        r = sd_bus_message_read(reply, "uo", &id, &c.object_path);
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (!arg_quiet)
+        if (!arg_quiet) {
+                clear_progress_bar(PROGRESS_PREFIX);
                 log_info("Enqueued transfer job %u. Press C-c to continue download in background.", id);
+                draw_progress_bar(PROGRESS_PREFIX, c.progress);
+        }
 
         (void) sd_event_add_signal(event, NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, transfer_signal_handler, UINT32_TO_PTR(id));
         (void) sd_event_add_signal(event, NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, transfer_signal_handler, UINT32_TO_PTR(id));

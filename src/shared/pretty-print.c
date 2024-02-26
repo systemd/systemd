@@ -462,3 +462,75 @@ int terminal_tint_color(double hue, char **ret) {
 
         return 0;
 }
+
+void draw_progress_bar(const char *prefix, double percentage) {
+
+        fputs("\r", stderr);
+        if (prefix)
+                fputs(prefix, stderr);
+
+        if (!terminal_is_dumb()) {
+                size_t cols = columns();
+                size_t prefix_length = strlen_ptr(prefix);
+                size_t length = cols > prefix_length + 6 ? cols - prefix_length - 6 : 0;
+
+                fputs(ansi_highlight_green(), stderr);
+
+                if (length > 5 && percentage >= 0.0 && percentage <= 100.0) {
+                        size_t p = (size_t) (length * percentage / 100.0);
+                        bool separator_done = false;
+
+                        for (size_t i = 0; i < length; i++) {
+
+                                if (i <= p) {
+                                        if (get_color_mode() == COLOR_24BIT) {
+                                                uint8_t r8, g8, b8;
+                                                double z = i == 0 ? 0 : (((double) i / p) * 100);
+                                                hsv_to_rgb(145 /* green */, z, 33 + z*2/3, &r8, &g8, &b8);
+                                                fprintf(stderr, "\x1B[38;2;%u;%u;%um", r8, g8, b8);
+                                        }
+
+                                        fputs(special_glyph(SPECIAL_GLYPH_HORIZONTAL_FAT), stderr);
+                                } else if (i+1 < length && !separator_done) {
+                                        fputs(ansi_normal(), stderr);
+                                        fputc(' ', stderr);
+                                        separator_done = true;
+                                        fputs(ansi_grey(), stderr);
+                                } else
+                                        fputs(special_glyph(SPECIAL_GLYPH_HORIZONTAL_DOTTED), stderr);
+                        }
+
+                        fputs(ansi_normal(), stderr);
+                        fputc(' ', stderr);
+                }
+        }
+
+        fprintf(stderr,
+                "%s%3.0f%%%s",
+                ansi_highlight(),
+                percentage,
+                ansi_normal());
+
+        if (!terminal_is_dumb())
+                fputs(ANSI_ERASE_TO_END_OF_LINE, stderr);
+
+        fputc('\r', stderr);
+        fflush(stderr);
+}
+
+void clear_progress_bar(const char *prefix) {
+
+        fputc('\r', stderr);
+
+        if (terminal_is_dumb()) {
+                size_t l = strlen_ptr(prefix);
+                for (size_t i = 0; i < l; i ++)
+                        fputc(' ', stderr);
+
+                fputs("    ", stderr);
+        } else
+                fputs(ANSI_ERASE_TO_END_OF_LINE, stderr);
+
+        fputc('\r', stderr);
+        fflush(stderr);
+}
