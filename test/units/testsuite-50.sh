@@ -6,6 +6,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 export SYSTEMD_LOG_LEVEL=debug
 
 # shellcheck disable=SC2317
@@ -20,7 +23,10 @@ cleanup() {(
     umount "${image_dir}/app-nodistro"
     umount "${image_dir}/service-scoped-test"
     rm -rf "${image_dir}"
+    maybe_umount_usr_overlay
 )}
+
+maybe_mount_usr_overlay
 
 udevadm control --log-level=debug
 

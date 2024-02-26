@@ -8,6 +8,7 @@ at_exit() {
     rm -rf /var/lib/machines/mymachine.raw.v
     rm -rf /var/lib/machines/mytree.v
     rm -rf /var/lib/machines/testroot.v
+    umount -l /tmp/dotvroot/usr
     umount -l /tmp/dotvroot
     rmdir /tmp/dotvroot
 }
@@ -88,6 +89,9 @@ fi
 
 mkdir /tmp/dotvroot
 mount --bind / /tmp/dotvroot
+if mountpoint -q /usr; then
+    mount --bind /usr /tmp/dotvroot/usr
+fi
 
 mkdir /var/lib/machines/testroot.v
 mkdir /var/lib/machines/testroot.v/testroot_32

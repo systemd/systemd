@@ -1,0 +1,6 @@
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/script1.sh
+StateDirectory=app1
+RuntimeDirectory=app1
