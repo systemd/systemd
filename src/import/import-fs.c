@@ -171,6 +171,8 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                 log_info("Importing '%s', saving as '%s'.", strempty(pretty), local);
         }
 
+        log_info("Operating on image directory '%s'.", arg_image_root);
+
         if (!arg_sync)
                 log_info("File system synchronization on completion is off.");
 
