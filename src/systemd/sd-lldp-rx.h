@@ -68,7 +68,6 @@ int sd_lldp_rx_set_filter_address(sd_lldp_rx *lldp_rx, const struct ether_addr *
 
 int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***neighbors);
 
-int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, size_t raw_size);
 sd_lldp_neighbor *sd_lldp_neighbor_ref(sd_lldp_neighbor *n);
 sd_lldp_neighbor *sd_lldp_neighbor_unref(sd_lldp_neighbor *n);
 
@@ -76,7 +75,6 @@ sd_lldp_neighbor *sd_lldp_neighbor_unref(sd_lldp_neighbor *n);
 int sd_lldp_neighbor_get_source_address(sd_lldp_neighbor *n, struct ether_addr* address);
 int sd_lldp_neighbor_get_destination_address(sd_lldp_neighbor *n, struct ether_addr* address);
 int sd_lldp_neighbor_get_timestamp(sd_lldp_neighbor *n, clockid_t clock, uint64_t *ret);
-int sd_lldp_neighbor_get_raw(sd_lldp_neighbor *n, const void **ret, size_t *size);
 
 /* High-level, direct, parsed out field access. These fields exist at most once, hence may be queried directly. */
 int sd_lldp_neighbor_get_chassis_id(sd_lldp_neighbor *n, uint8_t *type, const void **ret, size_t *size);
