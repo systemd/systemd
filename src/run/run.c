@@ -1751,9 +1751,9 @@ static int start_transient_service(sd_bus *bus) {
                         return log_error_errno(r, "Failed to get event loop: %m");
 
                 if (master >= 0) {
-                        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGWINCH, SIGTERM, SIGINT) >= 0);
-                        (void) sd_event_add_signal(c.event, NULL, SIGINT, NULL, NULL);
-                        (void) sd_event_add_signal(c.event, NULL, SIGTERM, NULL, NULL);
+                        assert_se(sigprocmask_many(SIG_BLOCK, /* old_sigset=*/ NULL, SIGWINCH) >= 0);
+
+                        (void) sd_event_set_signal_exit(c.event, true);
 
                         if (!arg_quiet)
                                 log_info("Press ^] three times within 1s to disconnect TTY.");
