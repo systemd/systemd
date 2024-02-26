@@ -1,4 +1,10 @@
 #!/bin/sh
 # SPDX-License-Identifier: LGPL-2.1-or-later
+set -eu
 
-cp --archive --recursive --no-target-directory --reflink=auto "$BUILDROOT"/etc "$BUILDROOT"/usr/share/factory/mkosi
+for f in "$BUILDROOT"/usr/share/*.verity.sig; do
+    jq --join-output '.rootHash' "$f" >"${f%.verity.sig}.roothash"
+done
+
+cp --archive --recursive --no-target-directory --reflink=auto "$BUILDROOT"/etc "$BUILDROOT"/usr/share/factory/mkosi/etc
+cp --archive --recursive --no-target-directory --reflink=auto "$BUILDROOT"/var "$BUILDROOT"/usr/share/factory/mkosi/var

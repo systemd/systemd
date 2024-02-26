@@ -89,10 +89,12 @@ if ! systemd-detect-virt -cq; then
         bash -xec "test -r /dev/kmsg"
 fi
 
-systemd-run --wait --pipe -p BindPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
-    bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; ! mountpoint /usr"
-systemd-run --wait --pipe -p BindReadOnlyPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
-    bash -xec "test ! -w /etc; test ! -w /mnt; ! mountpoint /usr"
+if ! mountpoint /usr; then
+    systemd-run --wait --pipe -p BindPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
+        bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; ! mountpoint /usr"
+    systemd-run --wait --pipe -p BindReadOnlyPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
+        bash -xec "test ! -w /etc; test ! -w /mnt; ! mountpoint /usr"
+fi
 # Make sure we properly serialize/deserialize paths with spaces
 # See: https://github.com/systemd/systemd/issues/30747
 touch "/tmp/test file with spaces"
@@ -315,19 +317,20 @@ systemd-run --wait --pipe "${ARGUMENTS[@]}" \
 # Note: $GCOV_ERROR_LOG is used during coverage runs to suppress errors when creating *.gcda files,
 #       since gcov can't access the restricted filesystem (as expected)
 if [[ ! -v ASAN_OPTIONS ]] && systemctl --version | grep "+BPF_FRAMEWORK" && kernel_supports_lsm bpf; then
-    ROOTFS="$(df --output=fstype /usr/bin | sed --quiet 2p)"
+    ROOTFS="$(df --output=fstype / | sed --quiet 2p)"
+    USRFS="$(df --output=fstype /usr/bin | sed --quiet 2p)"
     systemd-run --wait --pipe -p RestrictFileSystems="" ls /
-    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS foo bar" ls /
-    (! systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS" ls /proc)
+    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS $USRFS foo bar" ls /
+    (! systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS $USRFS" ls /proc)
     (! systemd-run --wait --pipe -p GCOV_ERROR_LOG=/dev/null -p RestrictFileSystems="foo" ls /)
-    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS foo bar baz proc" ls /proc
-    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS @foo @basic-api" ls /proc
-    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS @foo @basic-api" ls /sys/fs/cgroup
+    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS $USRFS foo bar baz proc" ls /proc
+    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS $USRFS @foo @basic-api" ls /proc
+    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS $USRFS @foo @basic-api" ls /sys/fs/cgroup
 
     systemd-run --wait --pipe -p RestrictFileSystems="~" ls /
     systemd-run --wait --pipe -p RestrictFileSystems="~proc" ls /
     systemd-run --wait --pipe -p RestrictFileSystems="~@basic-api" ls /
-    (! systemd-run --wait --pipe -p GCOV_ERROR_LOG=/dev/null -p RestrictFileSystems="~$ROOTFS" ls /)
+    (! systemd-run --wait --pipe -p GCOV_ERROR_LOG=/dev/null -p RestrictFileSystems="~$ROOTFS $USRFS" ls /)
     (! systemd-run --wait --pipe -p RestrictFileSystems="~proc" ls /proc)
     (! systemd-run --wait --pipe -p RestrictFileSystems="~@basic-api" ls /proc)
     (! systemd-run --wait --pipe -p RestrictFileSystems="~proc foo @bar @basic-api" ls /proc)
