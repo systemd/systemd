@@ -26,8 +26,7 @@ Arch Linux initrds.
 
 * It's highly recommended that the initrd also mounts `/usr/` (if split off) as
   appropriate and passes it pre-mounted to the main system, to avoid the
-  problems described in [Booting without /usr is
-  Broken](https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken).
+  problems described in [Booting without /usr is Broken](SEPARATE_USR_IS_BROKEN).
 
 * If the executable `/run/initramfs/shutdown` exists systemd will use it to
   jump back into the initrd on shutdown. `/run/initramfs/` should be a usable
@@ -36,7 +35,7 @@ Arch Linux initrds.
   example was needed to mount the root file system. It's the job of the initrd
   to set up this directory and executable in the right way so that this works
   correctly. The shutdown binary is invoked with the shutdown verb as `argv[1]`,
-  optionally followed (in `argv[2]`, `argv[3]`, … systemd's original command
+  optionally followed (in `argv[2]`, `argv[3]`, …) systemd's original command
   line options, for example `--log-level=` and similar.
 
 * Storage daemons run from the initrd should follow the guide on
