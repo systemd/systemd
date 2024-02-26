@@ -2338,7 +2338,7 @@
           <row>
             <entry><literal>%h</literal></entry>
             <entry>User home directory</entry>
-            <entry>This is the home directory of the <emphasis>user running the service manager instance</emphasis>. In case of the system manager this resolves to <literal>/root</literal>.
+            <entry>This is the home directory of the <emphasis>user running the service manager instance</emphasis>. In case of the system manager this resolves to <literal>/</literal>.
 
 Note that this setting is <emphasis>not</emphasis> influenced by the <varname>User=</varname> setting configurable in the [Service] section of the service unit.</entry>
           </row>
