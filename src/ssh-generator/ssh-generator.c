@@ -109,7 +109,8 @@ static int make_sshd_template_unit(
                         "Documentation=man:systemd-ssh-generator(8) man:sshd(8)\n"
                         "[Service]\n"
                         "ExecStart=-%s -i\n"
-                        "StandardInput=socket",
+                        "StandardInput=socket\n"
+                        "RuntimeDirectory=sshd\n",
                         sshd_binary);
 
                 r = fflush_and_check(f);
