@@ -8,8 +8,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 # Journal File Format
 
 _Note that this document describes the binary on-disk format of journals only.
-For interfacing with web technologies there's the [Journal JSON Format](JOURNAL_EXPORT_FORMATS.md#journal-json-format).
-For transfer of journal data across the network there's the [Journal Export Format](JOURNAL_EXPORT_FORMATS.md#journal-export-format)._
+For interfacing with web technologies there's the [Journal JSON Format](JOURNAL_EXPORT_FORMATS#journal-json-format).
+For transfer of journal data across the network there's the [Journal Export Format](JOURNAL_EXPORT_FORMATS#journal-export-format)._
 
 The systemd journal stores log data in a binary format with several features:
 
@@ -46,8 +46,8 @@ _Or, to put this in other words: this low-level document is probably not what
 you want to use as base of your project. You want our [C
 API](https://www.freedesktop.org/software/systemd/man/sd-journal.html) instead!
 And if you really don't want the C API, then you want the
-[Journal Export Format or Journal JSON Format](JOURNAL_EXPORT_FORMATS)
-instead! This document is primarily for your entertainment and education.
+[Journal Export Format or Journal JSON Format](JOURNAL_EXPORT_FORMATS) instead!
+This document is primarily for your entertainment and education.
 Thank you!_
 
 This document assumes you have a basic understanding of the journal concepts,
