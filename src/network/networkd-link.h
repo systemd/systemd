@@ -139,7 +139,8 @@ typedef struct Link {
         Hashmap *ipv4acd_by_address;
 
         sd_ipv4ll *ipv4ll;
-        bool ipv4ll_address_configured:1;
+        unsigned ipv4ll_messages;
+        bool ipv4ll_configured:1;
 
         bool static_addresses_configured:1;
         bool static_address_labels_configured:1;
@@ -158,8 +159,10 @@ typedef struct Link {
         bool bridge_vlan_set:1;
 
         sd_dhcp_server *dhcp_server;
+        bool dhcp4_server_can_start;
 
         sd_ndisc *ndisc;
+        sd_ndisc_router *ndisc_default_router;
         sd_event_source *ndisc_expire;
         Set *ndisc_rdnss;
         Set *ndisc_dnssl;
@@ -181,7 +184,6 @@ typedef struct Link {
 
         /* This is about LLDP reception */
         sd_lldp_rx *lldp_rx;
-        char *lldp_file;
 
         /* This is about LLDP transmission */
         sd_lldp_tx *lldp_tx;

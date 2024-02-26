@@ -272,7 +272,6 @@ static Link *link_free(Link *link) {
         free(link->driver);
 
         unlink_and_free(link->lease_file);
-        unlink_and_free(link->lldp_file);
         unlink_and_free(link->state_file);
 
         sd_device_unref(link->dev);
@@ -541,11 +540,11 @@ void link_check_ready(Link *link) {
          * Note, ignore NDisc when ConfigureWithoutCarrier= is enabled, as IPv6AcceptRA= is enabled by default. */
         if (!link_ipv4ll_enabled(link) && !link_dhcp4_enabled(link) &&
             !link_dhcp6_enabled(link) && !link_dhcp_pd_is_enabled(link) &&
-            (link->network->configure_without_carrier || !link_ipv6_accept_ra_enabled(link)))
+            (link->network->configure_without_carrier || !link_ndisc_enabled(link)))
                 goto ready;
 
         bool ipv4ll_ready =
-                link_ipv4ll_enabled(link) && link->ipv4ll_address_configured &&
+                link_ipv4ll_enabled(link) && link->ipv4ll_configured &&
                 link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_IPV4LL);
         bool dhcp4_ready =
                 link_dhcp4_enabled(link) && link->dhcp4_configured &&
@@ -559,8 +558,8 @@ void link_check_ready(Link *link) {
                 (!link->network->dhcp_pd_assign ||
                  link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_DHCP_PD));
         bool ndisc_ready =
-                link_ipv6_accept_ra_enabled(link) && link->ndisc_configured &&
-                (!link->network->ipv6_accept_ra_use_autonomous_prefix ||
+                link_ndisc_enabled(link) && link->ndisc_configured &&
+                (!link->network->ndisc_use_autonomous_prefix ||
                  link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_NDISC));
 
         /* If the uplink for PD is self, then request the corresponding DHCP protocol is also ready. */
@@ -714,11 +713,9 @@ static int link_acquire_dynamic_ipv4_conf(Link *link) {
                 log_link_debug(link, "Acquiring IPv4 link-local address.");
         }
 
-        if (link->dhcp_server) {
-                r = sd_dhcp_server_start(link->dhcp_server);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not start DHCP server: %m");
-        }
+        r = link_start_dhcp4_server(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not start DHCP server: %m");
 
         r = ipv4acd_start(link);
         if (r < 0)
@@ -2653,7 +2650,7 @@ static Link *link_drop_or_unref(Link *link) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_drop_or_unref);
 
 static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
-        _cleanup_free_ char *ifname = NULL, *kind = NULL, *state_file = NULL, *lease_file = NULL, *lldp_file = NULL;
+        _cleanup_free_ char *ifname = NULL, *kind = NULL, *state_file = NULL, *lease_file = NULL;
         _cleanup_(link_drop_or_unrefp) Link *link = NULL;
         unsigned short iftype;
         int r, ifindex;
@@ -2694,9 +2691,6 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
 
                 if (asprintf(&lease_file, "/run/systemd/netif/leases/%d", ifindex) < 0)
                         return log_oom_debug();
-
-                if (asprintf(&lldp_file, "/run/systemd/netif/lldp/%d", ifindex) < 0)
-                        return log_oom_debug();
         }
 
         link = new(Link, 1);
@@ -2719,7 +2713,8 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
 
                 .state_file = TAKE_PTR(state_file),
                 .lease_file = TAKE_PTR(lease_file),
-                .lldp_file = TAKE_PTR(lldp_file),
+
+                .dhcp4_server_can_start = manager->dhcp4_server_can_start,
 
                 .n_dns = UINT_MAX,
                 .dns_default_route = -1,
