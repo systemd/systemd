@@ -72,8 +72,7 @@ static int run(int argc, char *argv[]) {
          * to support old kernels not supporting AmbientCapabilities=. */
         FOREACH_STRING(p,
                        "/run/systemd/netif/links/",
-                       "/run/systemd/netif/leases/",
-                       "/run/systemd/netif/lldp/") {
+                       "/run/systemd/netif/leases/") {
                 r = mkdir_safe_label(p, 0755, UID_INVALID, GID_INVALID, MKDIR_WARN_MODE);
                 if (r < 0)
                         log_warning_errno(r, "Could not create directory '%s': %m", p);

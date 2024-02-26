@@ -52,8 +52,6 @@ static void lldp_rx_handler(sd_lldp_rx *lldp_rx, sd_lldp_rx_event_t event, sd_ll
         Link *link = ASSERT_PTR(userdata);
         int r;
 
-        (void) link_lldp_save(link);
-
         if (link->lldp_tx && event == SD_LLDP_RX_EVENT_ADDED) {
                 /* If we received information about a new neighbor, restart the LLDP "fast" logic */
 
@@ -103,71 +101,4 @@ int link_lldp_rx_configure(Link *link) {
                 return r;
 
         return 0;
-}
-
-int link_lldp_save(Link *link) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        sd_lldp_neighbor **l = NULL;
-        int n = 0, r, i;
-
-        assert(link);
-
-        if (isempty(link->lldp_file))
-                return 0; /* Do not update state file when running in test mode. */
-
-        if (!link->lldp_rx) {
-                (void) unlink(link->lldp_file);
-                return 0;
-        }
-
-        r = sd_lldp_rx_get_neighbors(link->lldp_rx, &l);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                (void) unlink(link->lldp_file);
-                return 0;
-        }
-
-        n = r;
-
-        r = fopen_temporary(link->lldp_file, &f, &temp_path);
-        if (r < 0)
-                goto finish;
-
-        (void) fchmod(fileno(f), 0644);
-
-        for (i = 0; i < n; i++) {
-                const void *p;
-                le64_t u;
-                size_t sz;
-
-                r = sd_lldp_neighbor_get_raw(l[i], &p, &sz);
-                if (r < 0)
-                        goto finish;
-
-                u = htole64(sz);
-                fwrite(&u, 1, sizeof(u), f);
-                fwrite(p, 1, sz, f);
-        }
-
-        r = fflush_and_check(f);
-        if (r < 0)
-                goto finish;
-
-        r = conservative_rename(temp_path, link->lldp_file);
-        if (r < 0)
-                goto finish;
-
-finish:
-        if (r < 0)
-                log_link_error_errno(link, r, "Failed to save LLDP data to %s: %m", link->lldp_file);
-
-        if (l) {
-                for (i = 0; i < n; i++)
-                        sd_lldp_neighbor_unref(l[i]);
-                free(l);
-        }
-
-        return r;
 }
