@@ -41,6 +41,7 @@ typedef struct Bond {
         usec_t downdelay;
         usec_t arp_interval;
         usec_t lp_interval;
+        usec_t peer_notify_delay;
 
         OrderedSet *arp_ip_targets;
 } Bond;
