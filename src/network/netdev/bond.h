@@ -29,6 +29,7 @@ typedef struct Bond {
         unsigned packets_per_slave;
         unsigned num_grat_arp;
         unsigned min_links;
+        unsigned peer_notify_delay;
 
         uint16_t ad_actor_sys_prio;
         uint16_t ad_user_port_key;

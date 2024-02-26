@@ -88,6 +88,12 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return r;
         }
 
+        if (b->peer_notify_delay != 0) {
+                r = sd_netlink_message_append_u32(m, IFLA_BOND_PEER_NOTIF_DELAY, b->peer_notify_delay / USEC_PER_MSEC);
+                if (r < 0)
+                        return r;
+        }
+
         if (b->downdelay != 0) {
                 r = sd_netlink_message_append_u32(m, IFLA_BOND_DOWNDELAY, b->downdelay / USEC_PER_MSEC);
                 if (r < 0)
