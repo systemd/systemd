@@ -2063,7 +2063,7 @@ static void config_group_entries(Config *config) {
                                 break;
                         if (!config->entries[k]->sort_key)
                                 break;
-                        if (strcmp(config->entries[i]->sort_key, config->entries[k]->sort_key) == 0)
+                        if (streq16(config->entries[i]->sort_key, config->entries[k]->sort_key))
                                 continue;
                         break;
                 }
