@@ -63,7 +63,7 @@ executables += [
                         libshared,
                 ],
                 'dependencies' : [
-                        liblz4,
+                        liblz4_cflags,
                         libselinux,
                         libxz,
                         libzstd,
@@ -95,7 +95,7 @@ executables += [
                 'link_with' : journalctl_link_with,
                 'dependencies' : [
                         libdl,
-                        liblz4,
+                        liblz4_cflags,
                         libxz,
                         libzstd,
                         threads,
@@ -104,7 +104,7 @@ executables += [
         journal_test_template + {
                 'sources' : files('test-journald-config.c'),
                 'dependencies' : [
-                        liblz4,
+                        liblz4_cflags,
                         libselinux,
                         libxz,
                 ],
@@ -112,7 +112,7 @@ executables += [
         journal_test_template + {
                 'sources' : files('test-journald-syslog.c'),
                 'dependencies' : [
-                        liblz4,
+                        liblz4_cflags,
                         libselinux,
                         libxz,
                         threads,

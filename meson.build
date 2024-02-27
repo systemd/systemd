@@ -1376,6 +1376,7 @@ liblz4 = dependency('liblz4',
                     version : '>= 1.3.0',
                     required : get_option('lz4'))
 conf.set10('HAVE_LZ4', liblz4.found())
+liblz4_cflags = liblz4.partial_dependency(includes: true, compile_args: true)
 
 libzstd = dependency('libzstd',
                      version : '>= 1.4.0',
@@ -1981,7 +1982,7 @@ install_libsystemd_static = static_library(
                         libcap,
                         libdl,
                         libgcrypt,
-                        liblz4,
+                        liblz4_cflags,
                         libmount,
                         libopenssl,
                         librt,
