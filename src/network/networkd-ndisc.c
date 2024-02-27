@@ -505,43 +505,6 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
-static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt) {
-        usec_t icmp6_ratelimit, msec;
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(rt);
-
-        if (!link->network->ndisc_use_icmp6_ratelimit)
-                return 0;
-
-        /* Ignore the icmp6 ratelimit field of the RA header if the lifetime is zero. */
-        r = sd_ndisc_router_get_lifetime(rt, NULL);
-        if (r <= 0)
-                return r;
-
-        r = sd_ndisc_router_get_icmp6_ratelimit(rt, &icmp6_ratelimit);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get ICMP6 ratelimit from RA: %m");
-
-        /* We do not allow 0 here. */
-        if (!timestamp_is_set(icmp6_ratelimit))
-                return 0;
-
-        msec = DIV_ROUND_UP(icmp6_ratelimit, USEC_PER_MSEC);
-        if (msec <= 0 || msec > INT_MAX)
-                return 0;
-
-        /* Limit the maximal rates for sending ICMPv6 packets. 0 to disable any limiting, otherwise the
-         * minimal space between responses in milliseconds. Default: 1000. */
-        r = sysctl_write_ip_property_int(AF_INET6, NULL, "icmp/ratelimit", (int) msec);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Failed to apply ICMP6 ratelimit, ignoring: %m");
-
-        return 0;
-}
-
 static int ndisc_router_process_reachable_time(Link *link, sd_ndisc_router *rt) {
         usec_t reachable_time, msec;
         int r;
@@ -1689,10 +1652,6 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return r;
 
         r = ndisc_router_process_default(link, rt);
-        if (r < 0)
-                return r;
-
-        r = ndisc_router_process_icmp6_ratelimit(link, rt);
         if (r < 0)
                 return r;
 
