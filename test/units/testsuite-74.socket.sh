@@ -9,21 +9,20 @@ set -o pipefail
 
 at_exit() {
     systemctl stop per-source-limit.socket
-    rm -f /run/systemd/system/per-source-limit.socket /run/systemd/system/per-source-limit@.service
-    rm -f /tmp/foo.conn1 /tmp/foo.conn2 /tmp/foo.conn3 /tmp/foo.conn4
+    rm -f /run/systemd/system/per-source-limit{@.service,.socket} /run/foo.conn{1..4}
     systemctl daemon-reload
 }
 
 trap at_exit EXIT
 
-cat > /run/systemd/system/per-source-limit.socket <<EOF
+cat >/run/systemd/system/per-source-limit.socket <<EOF
 [Socket]
 ListenStream=/run/per-source-limit.sk
 MaxConnectionsPerSource=2
 Accept=yes
 EOF
 
-cat > /run/systemd/system/per-source-limit@.service <<EOF
+cat >/run/systemd/system/per-source-limit@.service <<EOF
 [Unit]
 BindsTo=per-source-limit.socket
 After=per-source-limit.socket
@@ -36,17 +35,27 @@ EOF
 
 systemctl daemon-reload
 systemctl start per-source-limit.socket
+systemctl status per-source-limit.socket
 
 # So these two should take up the first two connection slots
-socat - UNIX-CONNECT:/run/per-source-limit.sk > /tmp/foo.conn1 &
+socat -U - UNIX-CONNECT:/run/per-source-limit.sk | tee /tmp/foo.conn1 &
 J1="$!"
-socat - UNIX-CONNECT:/run/per-source-limit.sk > /tmp/foo.conn2 &
+socat -U - UNIX-CONNECT:/run/per-source-limit.sk | tee /tmp/foo.conn2 &
 J2="$!"
 
 waitfor() {
-    while ! grep -q "waldo" "$1" ; do
-        sleep .2
+    local file="${1:?}"
+
+    for _ in {0..20}; do
+        if grep -q waldo "$file"; then
+            return 0
+        fi
+
+        sleep .5
     done
+
+    echo >&2 "Timeout while waiting for the expected output"
+    return 1
 }
 
 # Wait until the word "waldo" shows in the output files
@@ -54,11 +63,11 @@ waitfor /tmp/foo.conn1
 waitfor /tmp/foo.conn2
 
 # The next connection should fail, because the limit is hit
-socat - UNIX-CONNECT:/run/per-source-limit.sk > /tmp/foo.conn3 &
+socat -U - UNIX-CONNECT:/run/per-source-limit.sk | tee /tmp/foo.conn3 &
 J3="$!"
 
 # But this one should work, because done under a different UID
-setpriv --reuid=1 socat - UNIX-CONNECT:/run/per-source-limit.sk > /tmp/foo.conn4 &
+setpriv --reuid=1 socat -U - UNIX-CONNECT:/run/per-source-limit.sk | tee /tmp/foo.conn4 &
 J4="$!"
 
 waitfor /tmp/foo.conn4
