@@ -1877,10 +1877,6 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_bool_elide(f, "exec-context-cpu-sched-reset-on-fork", c->cpu_sched_reset_on_fork);
-        if (r < 0)
-                return r;
-
         r = serialize_bool(f, "exec-context-ignore-sigpipe", c->ignore_sigpipe);
         if (r < 0)
                 return r;
@@ -2774,11 +2770,6 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->same_pgrp = r;
-                } else if ((val = startswith(l, "exec-context-cpu-sched-reset-on-fork="))) {
-                        r = parse_boolean(val);
-                        if (r < 0)
-                                return r;
-                        c->cpu_sched_reset_on_fork = r;
                 } else if ((val = startswith(l, "exec-context-non-blocking="))) {
                         r = parse_boolean(val);
                         if (r < 0)
