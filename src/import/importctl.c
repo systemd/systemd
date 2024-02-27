@@ -884,6 +884,98 @@ static int cancel_transfer(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int list_images(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(table_unrefp) Table *t = NULL;
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        pager_open(arg_pager_flags);
+
+        r = bus_call_method(bus, bus_import_mgr, "ListImages", &error, &reply, "st", image_class_to_string(arg_image_class), UINT64_C(0));
+        if (r < 0)
+                return log_error_errno(r, "Could not list images: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, 'a', "(ssssbtttttt)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        t = table_new("class", "name", "type", "path", "ro", "crtime", "mtime", "usage", "usage-exclusive", "limit", "limit-exclusive");
+        if (!t)
+                return log_oom();
+
+        (void) table_set_sort(t, (size_t) 0, (size_t) 1);
+        table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
+
+        /* Hide the exclusive columns for now */
+        (void) table_hide_column_from_display(t, 8);
+        (void) table_hide_column_from_display(t, 10);
+
+        for (;;) {
+                uint64_t crtime, mtime, usage, usage_exclusive, limit, limit_exclusive;
+                const char *class, *name, *type, *path;
+                int read_only;
+
+                r = sd_bus_message_read(reply, "(ssssbtttttt)", &class, &name, &type, &path, &read_only, &crtime, &mtime, &usage, &usage_exclusive, &limit, &limit_exclusive);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                r = table_add_many(
+                                t,
+                                TABLE_STRING, class,
+                                TABLE_STRING, name,
+                                TABLE_STRING, type,
+                                TABLE_PATH, path);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                        r = table_add_many(
+                                        t,
+                                        TABLE_STRING, read_only ? "ro" : "rw",
+                                        TABLE_SET_COLOR, read_only ? ANSI_HIGHLIGHT_RED : ANSI_HIGHLIGHT_GREEN);
+                else
+                        r = table_add_many(
+                                        t,
+                                        TABLE_BOOLEAN, read_only);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_many(
+                                t,
+                                TABLE_TIMESTAMP, crtime,
+                                TABLE_TIMESTAMP, mtime,
+                                TABLE_SIZE, usage,
+                                TABLE_SIZE, usage_exclusive,
+                                TABLE_SIZE, limit,
+                                TABLE_SIZE, limit_exclusive);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (!table_isempty(t)) {
+                r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to output table: %m");
+        }
+
+        if (arg_legend) {
+                if (!table_isempty(t))
+                        printf("\n%zu images listed.\n", table_get_rows(t) - 1);
+                else
+                        printf("No images.\n");
+        }
+
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -906,6 +998,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  export-raw NAME [FILE]      Export a RAW container or VM image locally\n"
                "  list-transfers              Show list of transfers in progress\n"
                "  cancel-transfer [ID...]     Cancel a transfer\n"
+               "  list-images                 Show list of installed images\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
@@ -1122,6 +1215,7 @@ static int importctl_main(int argc, char *argv[], sd_bus *bus) {
                 { "pull-raw",        2,        3,        0,            pull_raw          },
                 { "list-transfers",  VERB_ANY, 1,        VERB_DEFAULT, list_transfers    },
                 { "cancel-transfer", 2,        VERB_ANY, 0,            cancel_transfer   },
+                { "list-images",     VERB_ANY, 1,        0,            list_images       },
                 {}
         };
 
