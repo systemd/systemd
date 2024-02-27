@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "bpf-dlopen.h"
+#include "compress.h"
 #include "cryptsetup-util.h"
 #include "elf-util.h"
 #include "idn-util.h"
@@ -73,6 +74,10 @@ static int run(int argc, char **argv) {
 
 #if HAVE_LIBARCHIVE
         assert_se(dlopen_libarchive() >= 0);
+#endif
+
+#if HAVE_LZ4
+        assert_se(dlopen_lz4() >= 0);
 #endif
 
         return 0;
