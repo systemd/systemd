@@ -144,7 +144,6 @@ int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt) {
         rt->hop_limit = a->nd_ra_curhoplimit;
         rt->flags = a->nd_ra_flags_reserved; /* the first 8 bits */
         rt->lifetime_usec = be16_sec_to_usec(a->nd_ra_router_lifetime, /* max_as_infinity = */ false);
-        rt->icmp6_ratelimit_usec = be32_msec_to_usec(a->nd_ra_retransmit, /* max_as_infinity = */ false);
         rt->reachable_time_usec = be32_msec_to_usec(a->nd_ra_reachable, /* mas_as_infinity = */ false);
         rt->retransmission_time_usec = be32_msec_to_usec(a->nd_ra_retransmit, /* max_as_infinity = */ false);
 
@@ -291,14 +290,6 @@ int sd_ndisc_router_get_retransmission_time(sd_ndisc_router *rt, uint64_t *ret) 
         assert_return(ret, -EINVAL);
 
         *ret = rt->retransmission_time_usec;
-        return 0;
-}
-
-int sd_ndisc_router_get_icmp6_ratelimit(sd_ndisc_router *rt, uint64_t *ret) {
-        assert_return(rt, -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        *ret = rt->icmp6_ratelimit_usec;
         return 0;
 }
 
