@@ -1273,6 +1273,61 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
         return sd_bus_reply_method_return(msg, NULL);
 }
 
+static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int r;
+
+        assert(msg);
+
+        r = sd_bus_message_new_method_return(msg, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(ssssbtttttt)");
+        if (r < 0)
+                return r;
+
+        for (ImageClass c = 0; c < _IMAGE_CLASS_MAX; c++) {
+                _cleanup_(hashmap_freep) Hashmap *h = NULL;
+
+                h = hashmap_new(&image_hash_ops);
+                if (!h)
+                        return -ENOMEM;
+
+                r = image_discover(c, /* root= */ NULL, h);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to discover images of type %s: %m", image_class_to_string(c));
+                        continue;
+                }
+
+                Image *i;
+                HASHMAP_FOREACH(i, h) {
+                        r = sd_bus_message_append(
+                                        reply,
+                                        "(ssssbtttttt)",
+                                        image_class_to_string(i->class),
+                                        i->name,
+                                        image_type_to_string(i->type),
+                                        i->path,
+                                        i->read_only,
+                                        i->crtime,
+                                        i->mtime,
+                                        i->usage,
+                                        i->usage_exclusive,
+                                        i->limit,
+                                        i->limit_exclusive);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 static int property_get_progress(
                 sd_bus *bus,
                 const char *path,
@@ -1566,6 +1621,12 @@ static const sd_bus_vtable manager_vtable[] = {
                                  SD_BUS_PARAM(transfer_id),
                                  NULL,,
                                  method_cancel_transfer,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ListImages",
+                                 NULL,,
+                                 "a(ssssbtttttt)",
+                                 SD_BUS_PARAM(images),
+                                 method_list_images,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL_WITH_NAMES("TransferNew",
