@@ -107,16 +107,6 @@ static const MountPoint mount_table[] = {
           cg_is_unified_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
         { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
           cg_is_unified_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
-        { "tmpfs",       "/sys/fs/cgroup",            "tmpfs",      "mode=0755" TMPFS_LIMITS_SYS_FS_CGROUP,     MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
-          cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
-        { "cgroup2",     "/sys/fs/cgroup/unified",    "cgroup2",    "nsdelegate",                               MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_hybrid_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
-        { "cgroup2",     "/sys/fs/cgroup/unified",    "cgroup2",    NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_hybrid_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
-        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd,xattr",                  MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_legacy_wanted, MNT_IN_CONTAINER     },
-        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd",                        MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
 #if ENABLE_PSTORE
         { "pstore",      "/sys/fs/pstore",            "pstore",     NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,          MNT_NONE                   },
@@ -167,8 +157,11 @@ static int mount_one(const MountPoint *p, bool relabel) {
         int r, priority;
 
         assert(p);
+        assert(p->what);
+        assert(p->where);
+        assert(p->type);
 
-        priority = (p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG;
+        priority = FLAGS_SET(p->mode, MNT_FATAL) ? LOG_ERR : LOG_DEBUG;
 
         if (p->condition_fn && !p->condition_fn())
                 return 0;
@@ -180,13 +173,13 @@ static int mount_one(const MountPoint *p, bool relabel) {
         r = path_is_mount_point_full(p->where, /* root = */ NULL, AT_SYMLINK_FOLLOW);
         if (r < 0 && r != -ENOENT) {
                 log_full_errno(priority, r, "Failed to determine whether %s is a mount point: %m", p->where);
-                return (p->mode & MNT_FATAL) ? r : 0;
+                return FLAGS_SET(p->mode, MNT_FATAL) ? r : 0;
         }
         if (r > 0)
                 return 0;
 
         /* Skip securityfs in a container */
-        if (!(p->mode & MNT_IN_CONTAINER) && detect_container() > 0)
+        if (!FLAGS_SET(p->mode, MNT_IN_CONTAINER) && detect_container() > 0)
                 return 0;
 
         /* The access mode here doesn't really matter too much, since
@@ -207,39 +200,35 @@ static int mount_one(const MountPoint *p, bool relabel) {
         else
                 r = mount_nofollow_verbose(priority, p->what, p->where, p->type, p->flags, p->options);
         if (r < 0)
-                return (p->mode & MNT_FATAL) ? r : 0;
+                return FLAGS_SET(p->mode, MNT_FATAL) ? r : 0;
 
         /* Relabel again, since we now mounted something fresh here */
         if (relabel)
                 (void) label_fix(p->where, 0);
 
-        if (p->mode & MNT_CHECK_WRITABLE) {
+        if (FLAGS_SET(p->mode, MNT_CHECK_WRITABLE))
                 if (access(p->where, W_OK) < 0) {
                         r = -errno;
 
                         (void) umount2(p->where, UMOUNT_NOFOLLOW);
                         (void) rmdir(p->where);
 
-                        log_full_errno(priority, r, "Mount point %s not writable after mounting, undoing: %m", p->where);
-                        return (p->mode & MNT_FATAL) ? r : 0;
+                        log_full_errno(priority, r, "Mount point '%s' not writable after mounting, undoing: %m", p->where);
+                        return FLAGS_SET(p->mode, MNT_FATAL) ? r : 0;
                 }
-        }
 
         return 1;
 }
 
 static int mount_points_setup(size_t n, bool loaded_policy) {
-        int ret = 0, r;
+        int r = 0;
 
         assert(n <= ELEMENTSOF(mount_table));
 
-        FOREACH_ARRAY(mp, mount_table, n) {
-                r = mount_one(mp, loaded_policy);
-                if (r != 0 && ret >= 0)
-                        ret = r;
-        }
+        FOREACH_ARRAY(mp, mount_table, n)
+                RET_GATHER(r, mount_one(mp, loaded_policy));
 
-        return ret;
+        return r;
 }
 
 int mount_setup_early(void) {
@@ -297,81 +286,6 @@ static int symlink_controller(const char *target, const char *alias) {
         return 0;
 }
 
-int mount_cgroup_controllers(void) {
-        _cleanup_set_free_ Set *controllers = NULL;
-        int r;
-
-        if (!cg_is_legacy_wanted())
-                return 0;
-
-        /* Mount all available cgroup controllers that are built into the kernel. */
-        r = cg_kernel_controllers(&controllers);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enumerate cgroup controllers: %m");
-
-        for (;;) {
-                _cleanup_free_ char *options = NULL, *controller = NULL, *where = NULL;
-                const char *other_controller;
-                MountPoint p = {
-                        .what = "cgroup",
-                        .type = "cgroup",
-                        .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                        .mode = MNT_IN_CONTAINER,
-                };
-
-                controller = set_steal_first(controllers);
-                if (!controller)
-                        break;
-
-                /* Check if we shall mount this together with another controller */
-                other_controller = join_with(controller);
-                if (other_controller) {
-                        _cleanup_free_ char *c = NULL;
-
-                        /* Check if the other controller is actually available in the kernel too */
-                        c = set_remove(controllers, other_controller);
-                        if (c) {
-
-                                /* Join the two controllers into one string, and maintain a stable ordering */
-                                if (strcmp(controller, other_controller) < 0)
-                                        options = strjoin(controller, ",", other_controller);
-                                else
-                                        options = strjoin(other_controller, ",", controller);
-                                if (!options)
-                                        return log_oom();
-                        }
-                }
-
-                /* The simple case, where there's only one controller to mount together */
-                if (!options)
-                        options = TAKE_PTR(controller);
-
-                where = path_join("/sys/fs/cgroup", options);
-                if (!where)
-                        return log_oom();
-
-                p.where = where;
-                p.options = options;
-
-                r = mount_one(&p, true);
-                if (r < 0)
-                        return r;
-
-                /* Create symlinks from the individual controller names, in case we have a joined mount */
-                if (controller)
-                        (void) symlink_controller(options, controller);
-                if (other_controller)
-                        (void) symlink_controller(options, other_controller);
-        }
-
-        /* Now that we mounted everything, let's make the tmpfs the cgroup file systems are mounted into read-only. */
-        (void) mount_nofollow("tmpfs", "/sys/fs/cgroup", "tmpfs",
-                              MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY,
-                              "mode=0755" TMPFS_LIMITS_SYS_FS_CGROUP);
-
-        return 0;
-}
-
 #if HAVE_SELINUX || ENABLE_SMACK
 static int relabel_cb(
                 RecurseDirEvent event,
@@ -413,34 +327,6 @@ static int relabel_tree(const char *path) {
                 log_debug_errno(r, "Failed to recursively relabel '%s': %m", path);
 
         return r;
-}
-
-static int relabel_cgroup_filesystems(void) {
-        int r;
-        struct statfs st;
-
-        r = cg_all_unified();
-        if (r == 0) {
-                /* Temporarily remount the root cgroup filesystem to give it a proper label. Do this
-                   only when the filesystem has been already populated by a previous instance of systemd
-                   running from initrd. Otherwise don't remount anything and leave the filesystem read-write
-                   for the cgroup filesystems to be mounted inside. */
-                if (statfs("/sys/fs/cgroup", &st) < 0)
-                        return log_error_errno(errno, "Failed to determine mount flags for /sys/fs/cgroup: %m");
-
-                if (st.f_flags & ST_RDONLY)
-                        (void) mount_nofollow(NULL, "/sys/fs/cgroup", NULL, MS_REMOUNT, NULL);
-
-                (void) label_fix("/sys/fs/cgroup", 0);
-                (void) relabel_tree("/sys/fs/cgroup");
-
-                if (st.f_flags & ST_RDONLY)
-                        (void) mount_nofollow(NULL, "/sys/fs/cgroup", NULL, MS_REMOUNT|MS_RDONLY, NULL);
-
-        } else if (r < 0)
-                return log_error_errno(r, "Failed to determine whether we are in all unified mode: %m");
-
-        return 0;
 }
 
 static int relabel_extra(void) {
@@ -533,14 +419,12 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
                 FOREACH_STRING(i, "/dev", "/dev/shm", "/run")
                         (void) relabel_tree(i);
 
-                (void) relabel_cgroup_filesystems();
-
                 n_extra = relabel_extra();
 
                 after_relabel = now(CLOCK_MONOTONIC);
 
-                log_info("Relabeled /dev, /dev/shm, /run, /sys/fs/cgroup%s in %s.",
-                         n_extra > 0 ? ", additional files" : "",
+                log_info("Relabeled /dev/, /dev/shm/, /run/%s in %s.",
+                         n_extra > 0 ? ", and additional files" : "",
                          FORMAT_TIMESPAN(after_relabel - before_relabel, 0));
         }
 #endif
@@ -588,4 +472,128 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
                 (void) symlink("../host/inaccessible", "/run/systemd/inaccessible");
 
         return 0;
+}
+
+static const MountPoint cgroupv1_mount_table[] = {
+        { "tmpfs",       "/sys/fs/cgroup",            "tmpfs",      "mode=0755" TMPFS_LIMITS_SYS_FS_CGROUP,     MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
+          cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
+        { "cgroup2",     "/sys/fs/cgroup/unified",    "cgroup2",    "nsdelegate",                               MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          cg_is_hybrid_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
+        { "cgroup2",     "/sys/fs/cgroup/unified",    "cgroup2",    NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          cg_is_hybrid_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
+        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd,xattr",                  MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          cg_is_legacy_wanted, MNT_IN_CONTAINER     },
+        { "cgroup",      "/sys/fs/cgroup/systemd",    "cgroup",     "none,name=systemd",                        MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          cg_is_legacy_wanted, MNT_FATAL|MNT_IN_CONTAINER },
+};
+
+static void relabel_cgroup_legacy_hierarchy(void) {
+#if HAVE_SELINUX || ENABLE_SMACK
+        struct statfs st;
+
+        assert(cg_is_legacy_wanted());
+
+        /* Temporarily remount the root cgroup filesystem to give it a proper label. Do this
+           only when the filesystem has been already populated by a previous instance of systemd
+           running from initrd. Otherwise don't remount anything and leave the filesystem read-write
+           for the cgroup filesystems to be mounted inside. */
+        if (statfs("/sys/fs/cgroup", &st) < 0)
+                return (void) log_error_errno(errno, "Failed to determine mount flags for /sys/fs/cgroup/: %m");
+
+        if (st.f_flags & ST_RDONLY)
+                (void) mount_nofollow(NULL, "/sys/fs/cgroup", NULL, MS_REMOUNT, NULL);
+
+        (void) label_fix("/sys/fs/cgroup", 0);
+        (void) relabel_tree("/sys/fs/cgroup");
+
+        if (st.f_flags & ST_RDONLY)
+                (void) mount_nofollow(NULL, "/sys/fs/cgroup", NULL, MS_REMOUNT|MS_RDONLY, NULL);
+#endif
+}
+
+int mount_cgroup_legacy_controllers(bool loaded_policy) {
+        _cleanup_set_free_ Set *controllers = NULL;
+        int r;
+
+        if (!cg_is_legacy_wanted())
+                return 0;
+
+        if (!cg_is_legacy_force_enabled())
+                return -ERFKILL;
+
+        FOREACH_ARRAY(mp, cgroupv1_mount_table, ELEMENTSOF(cgroupv1_mount_table)) {
+                r = mount_one(mp, loaded_policy);
+                if (r < 0)
+                        return r;
+        }
+
+        if (loaded_policy)
+                relabel_cgroup_legacy_hierarchy();
+
+        /* Mount all available cgroup controllers that are built into the kernel. */
+        r = cg_kernel_controllers(&controllers);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate cgroup controllers: %m");
+
+        for (;;) {
+                _cleanup_free_ char *options = NULL, *controller = NULL, *where = NULL;
+                const char *other_controller;
+                MountPoint p = {
+                        .what = "cgroup",
+                        .type = "cgroup",
+                        .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                        .mode = MNT_IN_CONTAINER,
+                };
+
+                controller = set_steal_first(controllers);
+                if (!controller)
+                        break;
+
+                /* Check if we shall mount this together with another controller */
+                other_controller = join_with(controller);
+                if (other_controller) {
+                        _cleanup_free_ char *c = NULL;
+
+                        /* Check if the other controller is actually available in the kernel too */
+                        c = set_remove(controllers, other_controller);
+                        if (c) {
+
+                                /* Join the two controllers into one string, and maintain a stable ordering */
+                                if (strcmp(controller, other_controller) < 0)
+                                        options = strjoin(controller, ",", other_controller);
+                                else
+                                        options = strjoin(other_controller, ",", controller);
+                                if (!options)
+                                        return log_oom();
+                        }
+                }
+
+                /* The simple case, where there's only one controller to mount together */
+                if (!options)
+                        options = TAKE_PTR(controller);
+
+                where = path_join("/sys/fs/cgroup", options);
+                if (!where)
+                        return log_oom();
+
+                p.where = where;
+                p.options = options;
+
+                r = mount_one(&p, true);
+                if (r < 0)
+                        return r;
+
+                /* Create symlinks from the individual controller names, in case we have a joined mount */
+                if (controller)
+                        (void) symlink_controller(options, controller);
+                if (other_controller)
+                        (void) symlink_controller(options, other_controller);
+        }
+
+        /* Now that we mounted everything, let's make the tmpfs the cgroup file systems are mounted into read-only. */
+        (void) mount_nofollow("tmpfs", "/sys/fs/cgroup", "tmpfs",
+                              MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY,
+                              "mode=0755" TMPFS_LIMITS_SYS_FS_CGROUP);
+
+        return 1;
 }
