@@ -31,7 +31,6 @@ exec-context-protect-home=
 exec-context-protect-system=
 exec-context-mount-api-vfs=
 exec-context-same-pgrp=
-exec-context-cpu-sched-reset-on-fork=
 exec-context-non-blocking=
 exec-context-ignore-sigpipe=
 exec-context-memory-deny-write-execute=
