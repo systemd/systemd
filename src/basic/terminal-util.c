@@ -1744,6 +1744,10 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
                 r = fd_wait_for_event(STDIN_FILENO, POLLIN, usec_sub_unsigned(end, n));
                 if (r < 0)
                         goto finish;
+                if (r == 0) {
+                        r = -EOPNOTSUPP;
+                        goto finish;
+                }
 
                 ssize_t l;
                 l = read(STDIN_FILENO, buf, sizeof(buf) - buf_full);
