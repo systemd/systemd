@@ -6,8 +6,8 @@ set -o pipefail
 
 (! journalctl -q -o short-monotonic --grep "didn't pass validation" >>/failed)
 
-# Here, the redundant '[.]' at the end is for making not the logged self command hit the grep.
-(! journalctl -q -o short-monotonic --grep 'Attempted to close sd-bus (.*) after fork whose connection is opened before the fork, this should not happen[.]' >>/failed)
+# Here, the redundant '[ ]' in the pattern is required in order not to match the logged command itself.
+(! journalctl -q -o short-monotonic --grep 'Warning: cannot close sd-bus connection[ ].*after fork' >>/failed)
 
 systemctl poweroff --no-block
 exit 0
