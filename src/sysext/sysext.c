@@ -619,7 +619,7 @@ static char *hierarchy_as_single_path_component(const char *hierarchy) {
          * could very well be like /foo/bar/baz/. So for a given hierarchy we generate a directory name by
          * stripping the leading and trailing separators and replacing the rest of separators with dots. This
          * makes the generated name to be the same for /foo/bar/baz and for /foo/bar.baz, but, again,
-         * speciyfing a different hierarchy is a debugging feature, so non-unique mapping should not be an
+         * specifying a different hierarchy is a debugging feature, so non-unique mapping should not be an
          * issue in general case. */
         const char *stripped = hierarchy;
         _cleanup_free_ char *dir_name = NULL;
