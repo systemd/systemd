@@ -21,6 +21,7 @@ basic_sources = files(
         'confidential-virt.c',
         'devnum-util.c',
         'dirent-util.c',
+        'dlfcn-util.c',
         'efivars.c',
         'env-file.c',
         'env-util.c',
