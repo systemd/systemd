@@ -12,4 +12,9 @@ executables += [
 if conf.get('ENABLE_SYSEXT') == 1
         meson.add_install_script(sh, '-c', ln_s.format(bindir / 'systemd-sysext',
                                                        bindir / 'systemd-confext'))
+
+        if install_sysconfdir_samples
+                install_data('extensions.conf',
+                             install_dir : pkgconfigfiledir)
+        endif
 endif
