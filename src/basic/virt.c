@@ -455,12 +455,12 @@ Virtualization detect_vm(void) {
 
         /* We have to use the correct order here:
          *
-         * → First, try to detect Oracle Virtualbox, Amazon EC2 Nitro, Parallels, and Google Compute Engine, even if they use KVM,
-         *   as well as Xen even if it cloaks as Microsoft Hyper-V. Attempt to detect uml at this stage also
-         *   since it runs as a user-process nested inside other VMs. Also check for Xen now, because Xen PV
-         *   mode does not override CPUID when nested inside another hypervisor.
+         * → First, try to detect Oracle Virtualbox, Amazon EC2 Nitro, Parallels, and Google Compute Engine,
+         *   even if they use KVM, as well as Xen, even if it cloaks as Microsoft Hyper-V. Attempt to detect
+         *   UML at this stage too, since it runs as a user-process nested inside other VMs. Also check for
+         *   Xen now, because Xen PV mode does not override CPUID when nested inside another hypervisor.
          *
-         * → Second, try to detect from CPUID, this will report KVM for whatever software is used even if
+         * → Second, try to detect from CPUID. This will report KVM for whatever software is used even if
          *   info in DMI is overwritten.
          *
          * → Third, try to detect from DMI. */
