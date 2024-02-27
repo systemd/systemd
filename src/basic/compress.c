@@ -23,6 +23,7 @@
 #endif
 
 #include "alloc-util.h"
+#include "dlfcn-util.h"
 #include "compress.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -34,8 +35,25 @@
 #include "unaligned.h"
 
 #if HAVE_LZ4
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(LZ4F_compressionContext_t, LZ4F_freeCompressionContext, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(LZ4F_decompressionContext_t, LZ4F_freeDecompressionContext, NULL);
+static void *lz4_dl = NULL;
+
+static DLSYM_FUNCTION(LZ4F_compressBegin);
+static DLSYM_FUNCTION(LZ4F_compressBound);
+static DLSYM_FUNCTION(LZ4F_compressEnd);
+static DLSYM_FUNCTION(LZ4F_compressUpdate);
+static DLSYM_FUNCTION(LZ4F_createCompressionContext);
+static DLSYM_FUNCTION(LZ4F_createDecompressionContext);
+static DLSYM_FUNCTION(LZ4F_decompress);
+static DLSYM_FUNCTION(LZ4F_freeCompressionContext);
+static DLSYM_FUNCTION(LZ4F_freeDecompressionContext);
+static DLSYM_FUNCTION(LZ4F_isError);
+static DLSYM_FUNCTION(LZ4_compress_default);
+static DLSYM_FUNCTION(LZ4_decompress_safe);
+static DLSYM_FUNCTION(LZ4_decompress_safe_partial);
+static DLSYM_FUNCTION(LZ4_versionNumber);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(LZ4F_compressionContext_t, sym_LZ4F_freeCompressionContext, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(LZ4F_decompressionContext_t, sym_LZ4F_freeDecompressionContext, NULL);
 #endif
 
 #if HAVE_ZSTD
@@ -113,24 +131,49 @@ int compress_blob_xz(const void *src, uint64_t src_size,
 #endif
 }
 
+#if HAVE_LZ4
+static int dlopen_lz4(void) {
+        return dlopen_many_sym_or_warn(
+                        &lz4_dl,
+                        "liblz4.so.1", LOG_DEBUG,
+                        DLSYM_ARG(LZ4F_compressBegin),
+                        DLSYM_ARG(LZ4F_compressBound),
+                        DLSYM_ARG(LZ4F_compressEnd),
+                        DLSYM_ARG(LZ4F_compressUpdate),
+                        DLSYM_ARG(LZ4F_createCompressionContext),
+                        DLSYM_ARG(LZ4F_createDecompressionContext),
+                        DLSYM_ARG(LZ4F_decompress),
+                        DLSYM_ARG(LZ4F_freeCompressionContext),
+                        DLSYM_ARG(LZ4F_freeDecompressionContext),
+                        DLSYM_ARG(LZ4F_isError),
+                        DLSYM_ARG(LZ4_compress_default),
+                        DLSYM_ARG(LZ4_decompress_safe),
+                        DLSYM_ARG(LZ4_decompress_safe_partial),
+                        DLSYM_ARG(LZ4_versionNumber));
+}
+#endif
+
 int compress_blob_lz4(const void *src, uint64_t src_size,
                       void *dst, size_t dst_alloc_size, size_t *dst_size) {
-#if HAVE_LZ4
-        int r;
-
         assert(src);
         assert(src_size > 0);
         assert(dst);
         assert(dst_alloc_size > 0);
         assert(dst_size);
 
+#if HAVE_LZ4
+        int r;
+
+        r = dlopen_lz4();
+        if (r < 0)
+                return r;
         /* Returns < 0 if we couldn't compress the data or the
          * compressed result is longer than the original */
 
         if (src_size < 9)
                 return -ENOBUFS;
 
-        r = LZ4_compress_default(src, (char*)dst + 8, src_size, (int) dst_alloc_size - 8);
+        r = sym_LZ4_compress_default(src, (char*)dst + 8, src_size, (int) dst_alloc_size - 8);
         if (r <= 0)
                 return -ENOBUFS;
 
@@ -234,15 +277,18 @@ int decompress_blob_lz4(
                 void **dst,
                 size_t* dst_size,
                 size_t dst_max) {
+        assert(src);
+        assert(src_size > 0);
+        assert(dst);
+        assert(dst_size);
 
 #if HAVE_LZ4
         char* out;
         int r, size; /* LZ4 uses int for size */
 
-        assert(src);
-        assert(src_size > 0);
-        assert(dst);
-        assert(dst_size);
+        r = dlopen_lz4();
+        if (r < 0)
+                return r;
 
         if (src_size <= 8)
                 return -EBADMSG;
@@ -254,7 +300,7 @@ int decompress_blob_lz4(
         if (!out)
                 return -ENOMEM;
 
-        r = LZ4_decompress_safe((char*)src + 8, out, src_size - 8, size);
+        r = sym_LZ4_decompress_safe((char*)src + 8, out, src_size - 8, size);
         if (r < 0 || r != size)
                 return -EBADMSG;
 
@@ -433,7 +479,7 @@ int decompress_startswith_lz4(
                 return -ENOMEM;
         allocated = MALLOC_SIZEOF_SAFE(*buffer);
 
-        r = LZ4_decompress_safe_partial(
+        r = sym_LZ4_decompress_safe_partial(
                         (char*)src + 8,
                         *buffer,
                         src_size - 8,
@@ -447,7 +493,7 @@ int decompress_startswith_lz4(
         if (r < 0 || (size_t) r < prefix_len + 1) {
                 size_t size;
 
-                if (LZ4_versionNumber() >= 10803)
+                if (sym_LZ4_versionNumber() >= 10803)
                         /* We trust that the newer lz4 decompresses the number of bytes we
                          * requested if available in the compressed string. */
                         return 0;
@@ -641,7 +687,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unco
 
 #if HAVE_LZ4
         LZ4F_errorCode_t c;
-        _cleanup_(LZ4F_freeCompressionContextp) LZ4F_compressionContext_t ctx = NULL;
+        _cleanup_(sym_LZ4F_freeCompressionContextp) LZ4F_compressionContext_t ctx = NULL;
         _cleanup_free_ void *in_buff = NULL;
         _cleanup_free_ char *out_buff = NULL;
         size_t out_allocsize, n, offset = 0, frame_size;
@@ -651,11 +697,15 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unco
                 .frameInfo.blockSizeID = 5,
         };
 
-        c = LZ4F_createCompressionContext(&ctx, LZ4F_VERSION);
-        if (LZ4F_isError(c))
+        r = dlopen_lz4();
+        if (r < 0)
+                return r;
+
+        c = sym_LZ4F_createCompressionContext(&ctx, LZ4F_VERSION);
+        if (sym_LZ4F_isError(c))
                 return -ENOMEM;
 
-        frame_size = LZ4F_compressBound(LZ4_BUFSIZE, &preferences);
+        frame_size = sym_LZ4F_compressBound(LZ4_BUFSIZE, &preferences);
         out_allocsize = frame_size + 64*1024; /* add some space for header and trailer */
         out_buff = malloc(out_allocsize);
         if (!out_buff)
@@ -665,8 +715,8 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unco
         if (!in_buff)
                 return -ENOMEM;
 
-        n = offset = total_out = LZ4F_compressBegin(ctx, out_buff, out_allocsize, &preferences);
-        if (LZ4F_isError(n))
+        n = offset = total_out = sym_LZ4F_compressBegin(ctx, out_buff, out_allocsize, &preferences);
+        if (sym_LZ4F_isError(n))
                 return -EINVAL;
 
         log_debug("Buffer size is %zu bytes, header size %zu bytes.", out_allocsize, n);
@@ -679,9 +729,9 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unco
                         return k;
                 if (k == 0)
                         break;
-                n = LZ4F_compressUpdate(ctx, out_buff + offset, out_allocsize - offset,
+                n = sym_LZ4F_compressUpdate(ctx, out_buff + offset, out_allocsize - offset,
                                         in_buff, k, NULL);
-                if (LZ4F_isError(n))
+                if (sym_LZ4F_isError(n))
                         return -ENOTRECOVERABLE;
 
                 total_in += k;
@@ -700,8 +750,8 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unco
                 }
         }
 
-        n = LZ4F_compressEnd(ctx, out_buff + offset, out_allocsize - offset, NULL);
-        if (LZ4F_isError(n))
+        n = sym_LZ4F_compressEnd(ctx, out_buff + offset, out_allocsize - offset, NULL);
+        if (sym_LZ4F_isError(n))
                 return -ENOTRECOVERABLE;
 
         offset += n;
@@ -801,15 +851,19 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
 int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
 #if HAVE_LZ4
         size_t c;
-        _cleanup_(LZ4F_freeDecompressionContextp) LZ4F_decompressionContext_t ctx = NULL;
+        _cleanup_(sym_LZ4F_freeDecompressionContextp) LZ4F_decompressionContext_t ctx = NULL;
         _cleanup_free_ char *buf = NULL;
         char *src;
         struct stat st;
-        int r = 0;
+        int r;
         size_t total_in = 0, total_out = 0;
 
-        c = LZ4F_createDecompressionContext(&ctx, LZ4F_VERSION);
-        if (LZ4F_isError(c))
+        r = dlopen_lz4();
+        if (r < 0)
+                return r;
+
+        c = sym_LZ4F_createDecompressionContext(&ctx, LZ4F_VERSION);
+        if (sym_LZ4F_isError(c))
                 return -ENOMEM;
 
         if (fstat(in, &st) < 0)
@@ -830,8 +884,8 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
                 size_t produced = LZ4_BUFSIZE;
                 size_t used = st.st_size - total_in;
 
-                c = LZ4F_decompress(ctx, buf, &produced, src + total_in, &used, NULL);
-                if (LZ4F_isError(c)) {
+                c = sym_LZ4F_decompress(ctx, buf, &produced, src + total_in, &used, NULL);
+                if (sym_LZ4F_isError(c)) {
                         r = -EBADMSG;
                         goto cleanup;
                 }
@@ -853,6 +907,7 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
         log_debug("LZ4 decompression finished (%zu -> %zu bytes, %.1f%%)",
                   total_in, total_out,
                   total_in > 0 ? (double) total_out / total_in * 100 : 0.0);
+        r = 0;
  cleanup:
         munmap(src, st.st_size);
         return r;
