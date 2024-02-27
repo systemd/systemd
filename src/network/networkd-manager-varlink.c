@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "lldp-rx-internal.h"
 #include "networkd-manager-varlink.h"
 #include "varlink.h"
 #include "varlink-io.systemd.Network.h"
@@ -56,6 +57,95 @@ static int vl_method_get_namespace_id(Varlink *link, JsonVariant *parameters, Va
                                               JSON_BUILD_PAIR_CONDITION(nsid != UINT32_MAX, "NamespaceNSID", JSON_BUILD_UNSIGNED(nsid))));
 }
 
+typedef struct InterfaceInfo {
+        int ifindex;
+        const char *ifname;
+} InterfaceInfo;
+
+static int dispatch_interface(Varlink *vlink, JsonVariant *parameters, Manager *manager, Link **ret) {
+        static const JsonDispatch dispatch_table[] = {
+                { "InterfaceIndex", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          offsetof(InterfaceInfo, ifindex), 0 },
+                { "InterfaceName",  JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(InterfaceInfo, ifname),  0 },
+                {}
+        };
+
+        InterfaceInfo info = {};
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+        assert(manager);
+
+        r = varlink_dispatch(vlink, parameters, dispatch_table, &info);
+        if (r != 0)
+                return r;
+
+        if (info.ifindex < 0)
+                return varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
+        if (info.ifindex > 0) {
+                if (info.ifname)
+                        return varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceName"));
+
+                if (link_get_by_index(manager, info.ifindex, &link) < 0)
+                        return varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
+        }
+
+        if (info.ifname && link_get_by_name(manager, info.ifname, &link) < 0)
+                return varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceName"));
+
+        *ret = link;
+        return 0;
+}
+
+static int vl_method_get_lldp_neighbors(Varlink *vlink, JsonVariant *parameters, VarlinkMethodFlags flags, Manager *manager) {
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+        assert(manager);
+
+        r = dispatch_interface(vlink, parameters, manager, &link);
+        if (r != 0)
+                return r;
+
+        if (link) {
+                _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+
+                if (link->lldp_rx) {
+                        r = lldp_rx_build_neighbors_json(link->lldp_rx, &w);
+                        if (r < 0)
+                                return r;
+                }
+
+                return varlink_replyb(vlink, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_VARIANT("Neighbors", w)));
+        }
+
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        HASHMAP_FOREACH(link, manager->links_by_index) {
+                _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+
+                if (!link->lldp_rx)
+                        continue;
+
+                r = lldp_rx_build_neighbors_json(link->lldp_rx, &w);
+                if (r < 0)
+                        return r;
+
+                if (json_variant_is_blank_array(w))
+                        continue;
+
+                r = json_variant_append_arrayb(&v,
+                        JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_INTEGER("InterfaceIndex", link->ifindex),
+                                JSON_BUILD_PAIR_STRING("InterfaceName", link->ifname),
+                                JSON_BUILD_PAIR_VARIANT("Neighbors", w)));
+                if (r < 0)
+                        return r;
+        }
+
+        return varlink_replyb(vlink, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_VARIANT("NeighborsByInterface", v)));
+}
+
 int manager_connect_varlink(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         int r;
@@ -78,7 +168,8 @@ int manager_connect_varlink(Manager *m) {
         r = varlink_server_bind_method_many(
                         s,
                         "io.systemd.Network.GetStates", vl_method_get_states,
-                        "io.systemd.Network.GetNamespaceId", vl_method_get_namespace_id);
+                        "io.systemd.Network.GetNamespaceId", vl_method_get_namespace_id,
+                        "io.systemd.Network.GetLLDPNeighbors", vl_method_get_lldp_neighbors);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 

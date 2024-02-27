@@ -302,8 +302,8 @@
           details.</para>
 
           <para>Produces output similar to:
-          <programlisting>LINK             CHASSIS ID        SYSTEM NAME      CAPS        PORT ID           PORT DESCRIPTION
-enp0s25          00:e0:4c:00:00:00 GS1900           ..b........ 2                 Port #2
+          <programlisting>LINK    CHASSIS-ID        PORT-ID PORT-DESCRIPTION SYSTEM-NAME SYSTEM-DESCRIPTION CAPS
+enp0s25 00:e0:4c:00:00:00 2       Port #2          GS1900      -                  ..b........ 2
 
 Capability Flags:
 o - Other; p - Repeater;  b - Bridge; w - WLAN Access Point; r - Router;
