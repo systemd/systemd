@@ -611,6 +611,13 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   `nftables`. Selects the firewall backend to use. If not specified tries to
   use `nftables` and falls back to `iptables` if that's not available.
 
+`systemd-networkd`:
+
+* `$SYSTEMD_NETWORK_DHCP_SERVER_CAN_START` – takes a boolean. If enabled,
+  DHCP servers on interfaces can be started before
+  systemd-networkd-dhcp-server.service is started. Once the service is started
+  or stopped, the environment variable will be ignored.
+
 `systemd-storagetm`:
 
 * `$SYSTEMD_NVME_MODEL`, `$SYSTEMD_NVME_FIRMWARE`, `$SYSTEMD_NVME_SERIAL`,
