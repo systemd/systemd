@@ -381,6 +381,9 @@ def setup_systemd_udev_rules():
                 continue
             cp(os.path.join(path, rule), udev_rules_dir)
 
+def clear_networkd_state_files():
+    rm_rf('/var/lib/systemd/network/')
+
 def copy_udev_rule(*rules):
     """Copy udev rules"""
     mkdir_p(udev_rules_dir)
@@ -824,6 +827,7 @@ def tear_down_common():
     # 6. remove configs
     clear_network_units()
     clear_networkd_conf_dropins()
+    clear_networkd_state_files()
 
     # 7. flush settings
     flush_fou_ports()
@@ -837,6 +841,7 @@ def setUpModule():
 
     clear_network_units()
     clear_networkd_conf_dropins()
+    clear_networkd_state_files()
     clear_udev_rules()
 
     setup_systemd_udev_rules()
@@ -891,6 +896,7 @@ def tearDownModule():
     clear_udev_rules()
     clear_network_units()
     clear_networkd_conf_dropins()
+    clear_networkd_state_files()
 
     restore_timezone()
 
@@ -5207,6 +5213,39 @@ class NetworkdLLDPTests(unittest.TestCase, Utilities):
         else:
             self.fail()
 
+        # With interface name
+        output = networkctl('lldp', 'veth99');
+        print(output)
+        self.assertRegex(output, r'veth99 .* veth-peer')
+
+        # With interface name pattern
+        output = networkctl('lldp', 've*9');
+        print(output)
+        self.assertRegex(output, r'veth99 .* veth-peer')
+
+        # json format
+        output = networkctl('--json=short', 'lldp')
+        print(output)
+        self.assertIn('"InterfaceName":"veth99"', output)
+        self.assertIn('"PortID":"veth-peer"', output)
+
+        # json format with interface name
+        output = networkctl('--json=short', 'lldp', 'veth99')
+        print(output)
+        self.assertIn('"InterfaceName":"veth99"', output)
+        self.assertIn('"PortID":"veth-peer"', output)
+
+        # json format with interface name pattern
+        output = networkctl('--json=short', 'lldp', 've*9')
+        print(output)
+        self.assertIn('"InterfaceName":"veth99"', output)
+        self.assertIn('"PortID":"veth-peer"', output)
+
+        # LLDP neighbors in status
+        output = networkctl_status('veth99')
+        print(output)
+        self.assertRegex(output, r'Connected To: .* on port veth-peer')
+
 class NetworkdRATests(unittest.TestCase, Utilities):
 
     def setUp(self):
@@ -5238,6 +5277,9 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         output = networkctl_status('veth99')
         print(output)
         self.assertRegex(output, '2002:da8:1:0')
+
+        self.check_ipv6_neigh_sysctl_attr('veth99', 'base_reachable_time_ms', '42000')
+        self.check_ipv6_neigh_sysctl_attr('veth99', 'retrans_time_ms', '500')
 
         self.check_netlabel('veth99', '2002:da8:1::/64')
         self.check_netlabel('veth99', '2002:da8:2::/64')
@@ -5485,7 +5527,23 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'NTP: 192.168.5.1\n *192.168.5.11')
 
         output = networkctl_status('veth-peer')
+        print(output)
         self.assertRegex(output, "Offered DHCP leases: 192.168.5.[0-9]*")
+
+        if 'veth-peer: DHCPv4 server: Failed to save leases, ignoring: Read-only file system' in read_networkd_log():
+            print('/var/lib/systemd/network is on a read-only filesystem, skipping the lease file tests.')
+            return
+
+        networkctl_reconfigure('veth-peer')
+        self.wait_online('veth-peer:routable')
+
+        for _ in range(10):
+            output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+            if 'Offered DHCP leases: 192.168.5.' in output:
+                break
+            time.sleep(.2)
+        else:
+            self.fail()
 
     def test_dhcp_server_null_server_address(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-null-server-address.network')
