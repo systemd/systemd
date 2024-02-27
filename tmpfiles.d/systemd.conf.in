@@ -9,7 +9,7 @@
 
 d /run/user 0755 root root -
 {% if ENABLE_UTMP %}
-F! /run/utmp 0664 root utmp -
+f+! /run/utmp 0664 root utmp -
 {% endif %}
 
 d /run/systemd/ask-password 0755 root root -
