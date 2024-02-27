@@ -270,7 +270,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --btrfs-quota=BOOL       Controls whether to set up quota for btrfs\n"
                "                              subvolume\n"
                "     --sync=BOOL              Controls whether to sync() before completing\n"
-               "     --class=CLASS            Select image class (machine, sysext, confext, portable)\n",
+               "     --class=CLASS            Select image class (machine, sysext, confext,\n"
+               "                              portable)\n",
                program_invocation_short_name,
                ansi_underline(),
                ansi_normal(),
