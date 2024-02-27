@@ -31,5 +31,8 @@ jobs:
         uses: redhat-plumbers-in-action/differential-shellcheck@91e2582e40236f831458392d905578d680baa138
         with:
           # exclude all `.in` files because they may contain unsupported syntax, and they have to be preprocessed first
-          exclude-path: '**/*.in'
+          # exclude zsh completion files, zsh is not supported by ShellCheck
+          exclude-path: |
+            '**/*.in'
+            'shell-completion/zsh/*'
           token: ${{ secrets.GITHUB_TOKEN }}
