@@ -7,9 +7,9 @@ executables += [
                 'sources' : files('pstore.c'),
                 'dependencies' : [
                         libacl,
-                        liblz4,
-                        libxz,
-                        libzstd,
+                        liblz4_cflags,
+                        libxz_cflags,
+                        libzstd_cflags,
                         threads,
                 ],
         },
