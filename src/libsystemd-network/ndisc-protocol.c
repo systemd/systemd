@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <netinet/icmp6.h>
+
 #include "ndisc-protocol.h"
 
 static const uint8_t prefix_length_code_to_prefix_length[_PREFIX_LENGTH_CODE_MAX] = {
@@ -31,4 +33,40 @@ int pref64_prefix_length_to_plc(uint8_t prefixlen, uint8_t *ret) {
                 }
 
         return -EINVAL;
+}
+
+int ndisc_option_parse(
+                ICMP6Packet *p,
+                size_t offset,
+                uint8_t *ret_type,
+                size_t *ret_len,
+                const uint8_t **ret_opt) {
+
+        assert(p);
+
+        if (offset == p->raw_size)
+                return -ESPIPE; /* end of the packet */
+
+        if (offset > p->raw_size)
+                return -EBADMSG;
+
+        if (p->raw_size - offset < sizeof(struct nd_opt_hdr))
+                return -EBADMSG;
+
+        const struct nd_opt_hdr *hdr = (const struct nd_opt_hdr*) (p->raw_packet + offset);
+        if (hdr->nd_opt_len == 0)
+                return -EBADMSG;
+
+        size_t len = hdr->nd_opt_len * 8;
+        if (p->raw_size - offset < len)
+                return -EBADMSG;
+
+        if (ret_type)
+                *ret_type = hdr->nd_opt_type;
+        if (ret_len)
+                *ret_len = len;
+        if (ret_opt)
+                *ret_opt = p->raw_packet + offset;
+
+        return 0;
 }
