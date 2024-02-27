@@ -26,11 +26,12 @@
 #include "verbs.h"
 #include "web-util.h"
 
-static const char *arg_image_root = "/var/lib/machines";
+static const char *arg_image_root = NULL;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
-static PullFlags arg_pull_flags = PULL_SETTINGS | PULL_ROOTHASH | PULL_ROOTHASH_SIGNATURE | PULL_VERITY | PULL_BTRFS_SUBVOL | PULL_BTRFS_QUOTA | PULL_CONVERT_QCOW2 | PULL_SYNC;
+static ImportFlags arg_import_flags = IMPORT_PULL_SETTINGS | IMPORT_PULL_ROOTHASH | IMPORT_PULL_ROOTHASH_SIGNATURE | IMPORT_PULL_VERITY | IMPORT_BTRFS_SUBVOL | IMPORT_BTRFS_QUOTA | IMPORT_CONVERT_QCOW2 | IMPORT_SYNC;
 static uint64_t arg_offset = UINT64_MAX, arg_size_max = UINT64_MAX;
 static char *arg_checksum = NULL;
+static ImageClass arg_class = IMAGE_MACHINE;
 
 STATIC_DESTRUCTOR_REGISTER(arg_checksum, freep);
 
@@ -38,7 +39,7 @@ static int normalize_local(const char *local, const char *url, char **ret) {
         _cleanup_free_ char *ll = NULL;
         int r;
 
-        if (arg_pull_flags & PULL_DIRECT) {
+        if (arg_import_flags & IMPORT_DIRECT) {
 
                 if (!local)
                         log_debug("Writing downloaded data to STDOUT.");
@@ -58,13 +59,13 @@ static int normalize_local(const char *local, const char *url, char **ret) {
 
         } else if (local) {
 
-                if (!hostname_is_valid(local, 0))
+                if (!image_name_is_valid(local))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Local image name '%s' is not valid.",
                                                local);
 
-                if (!FLAGS_SET(arg_pull_flags, PULL_FORCE)) {
-                        r = image_find(IMAGE_MACHINE, local, NULL, NULL);
+                if (!FLAGS_SET(arg_import_flags, IMPORT_FORCE)) {
+                        r = image_find(arg_class, local, NULL, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
@@ -88,6 +89,12 @@ static int normalize_local(const char *local, const char *url, char **ret) {
                         log_info("Pulling '%s', saving as '%s'.", url, ll);
         } else
                 log_info("Pulling '%s'.", url);
+
+        if (!FLAGS_SET(arg_import_flags, IMPORT_DIRECT))
+                log_info("Operating on image directory '%s'.", arg_image_root);
+
+        if (!FLAGS_SET(arg_import_flags, IMPORT_SYNC))
+                log_info("File system synchronization on completion is off.");
 
         *ret = TAKE_PTR(ll);
         return 0;
@@ -130,7 +137,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                 local = ll;
         }
 
-        if (!local && FLAGS_SET(arg_pull_flags, PULL_DIRECT))
+        if (!local && FLAGS_SET(arg_import_flags, IMPORT_DIRECT))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Pulling tar images to STDOUT is not supported.");
 
         r = normalize_local(local, url, &normalized);
@@ -141,9 +148,6 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(arg_pull_flags, PULL_SYNC))
-                log_info("File system synchronization on completion is off.");
-
         r = tar_pull_new(&pull, event, arg_image_root, on_tar_finished, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate puller: %m");
@@ -152,7 +156,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                         pull,
                         url,
                         normalized,
-                        arg_pull_flags & PULL_FLAGS_MASK_TAR,
+                        arg_import_flags & IMPORT_PULL_FLAGS_MASK_TAR,
                         arg_verify,
                         arg_checksum);
         if (r < 0)
@@ -211,9 +215,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(arg_pull_flags, PULL_SYNC))
-                log_info("File system synchronization on completion is off.");
-         r = raw_pull_new(&pull, event, arg_image_root, on_raw_finished, event);
+        r = raw_pull_new(&pull, event, arg_image_root, on_raw_finished, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate puller: %m");
 
@@ -223,7 +225,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                         normalized,
                         arg_offset,
                         arg_size_max,
-                        arg_pull_flags & PULL_FLAGS_MASK_RAW,
+                        arg_import_flags & IMPORT_PULL_FLAGS_MASK_RAW,
                         arg_verify,
                         arg_checksum);
         if (r < 0)
@@ -240,7 +242,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
 static int help(int argc, char *argv[], void *userdata) {
 
         printf("%1$s [OPTIONS...] {COMMAND} ...\n"
-               "\n%4$sDownload container or virtual machine images.%5$s\n"
+               "\n%4$sDownload disk images.%5$s\n"
                "\n%2$sCommands:%3$s\n"
                "  tar URL [NAME]              Download a TAR image\n"
                "  raw URL [NAME]              Download a RAW image\n"
@@ -255,7 +257,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --roothash-signature=BOOL\n"
                "                              Download root hash signature file with image\n"
                "     --verity=BOOL            Download verity file with image\n"
-               "     --image-root=PATH        Image root directory\n\n"
+               "     --image-root=PATH        Image root directory\n"
                "     --read-only              Create a read-only image\n"
                "     --direct                 Download directly to specified file\n"
                "     --btrfs-subvol=BOOL      Controls whether to create a btrfs subvolume\n"
@@ -266,7 +268,11 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              regular disk images\n"
                "     --sync=BOOL              Controls whether to sync() before completing\n"
                "     --offset=BYTES           Offset to seek to in destination\n"
-               "     --size-max=BYTES         Maximum number of bytes to write to destination\n",
+               "     --size-max=BYTES         Maximum number of bytes to write to destination\n"
+               "     --class=CLASS            Select image class (machine, sysext, confext,\n"
+               "                              portable)\n"
+               "     --keep-download=BOOL     Keep a copy pristine copy of the downloaded file\n"
+               "                              around\n",
                program_invocation_short_name,
                ansi_underline(),
                ansi_normal(),
@@ -295,6 +301,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SYNC,
                 ARG_OFFSET,
                 ARG_SIZE_MAX,
+                ARG_CLASS,
+                ARG_KEEP_DOWNLOAD,
         };
 
         static const struct option options[] = {
@@ -315,10 +323,13 @@ static int parse_argv(int argc, char *argv[]) {
                 { "sync",               required_argument, NULL, ARG_SYNC               },
                 { "offset",             required_argument, NULL, ARG_OFFSET             },
                 { "size-max",           required_argument, NULL, ARG_SIZE_MAX           },
+                { "class",              required_argument, NULL, ARG_CLASS              },
+                { "keep-download",      required_argument, NULL, ARG_KEEP_DOWNLOAD      },
                 {}
         };
 
         int c, r;
+        bool auto_settings = true, auto_keep_download = true;
 
         assert(argc >= 0);
         assert(argv);
@@ -334,7 +345,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_FORCE:
-                        arg_pull_flags |= PULL_FORCE;
+                        arg_import_flags |= IMPORT_FORCE;
                         break;
 
                 case ARG_IMAGE_ROOT:
@@ -366,7 +377,7 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_oom();
 
                                 free_and_replace(arg_checksum, hh);
-                                arg_pull_flags &= ~(PULL_SETTINGS|PULL_ROOTHASH|PULL_ROOTHASH_SIGNATURE|PULL_VERITY);
+                                arg_import_flags &= ~(IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY);
                                 arg_verify = _IMPORT_VERIFY_INVALID;
                         } else
                                 arg_verify = v;
@@ -379,7 +390,8 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        SET_FLAG(arg_pull_flags, PULL_SETTINGS, r);
+                        SET_FLAG(arg_import_flags, IMPORT_PULL_SETTINGS, r);
+                        auto_settings = false;
                         break;
 
                 case ARG_ROOTHASH:
@@ -387,11 +399,11 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        SET_FLAG(arg_pull_flags, PULL_ROOTHASH, r);
+                        SET_FLAG(arg_import_flags, IMPORT_PULL_ROOTHASH, r);
 
                         /* If we were asked to turn off the root hash, implicitly also turn off the root hash signature */
                         if (!r)
-                                SET_FLAG(arg_pull_flags, PULL_ROOTHASH_SIGNATURE, false);
+                                SET_FLAG(arg_import_flags, IMPORT_PULL_ROOTHASH_SIGNATURE, false);
                         break;
 
                 case ARG_ROOTHASH_SIGNATURE:
@@ -399,7 +411,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        SET_FLAG(arg_pull_flags, PULL_ROOTHASH_SIGNATURE, r);
+                        SET_FLAG(arg_import_flags, IMPORT_PULL_ROOTHASH_SIGNATURE, r);
                         break;
 
                 case ARG_VERITY:
@@ -407,16 +419,16 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        SET_FLAG(arg_pull_flags, PULL_VERITY, r);
+                        SET_FLAG(arg_import_flags, IMPORT_PULL_VERITY, r);
                         break;
 
                 case ARG_READ_ONLY:
-                        arg_pull_flags |= PULL_READ_ONLY;
+                        arg_import_flags |= IMPORT_READ_ONLY;
                         break;
 
                 case ARG_DIRECT:
-                        arg_pull_flags |= PULL_DIRECT;
-                        arg_pull_flags &= ~(PULL_SETTINGS|PULL_ROOTHASH|PULL_ROOTHASH_SIGNATURE|PULL_VERITY);
+                        arg_import_flags |= IMPORT_DIRECT;
+                        arg_import_flags &= ~(IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY);
                         break;
 
                 case ARG_BTRFS_SUBVOL:
@@ -424,7 +436,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        SET_FLAG(arg_pull_flags, PULL_BTRFS_SUBVOL, r);
+                        SET_FLAG(arg_import_flags, IMPORT_BTRFS_SUBVOL, r);
                         break;
 
                 case ARG_BTRFS_QUOTA:
@@ -432,7 +444,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        SET_FLAG(arg_pull_flags, PULL_BTRFS_QUOTA, r);
+                        SET_FLAG(arg_import_flags, IMPORT_BTRFS_QUOTA, r);
                         break;
 
                 case ARG_CONVERT_QCOW2:
@@ -440,7 +452,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        SET_FLAG(arg_pull_flags, PULL_CONVERT_QCOW2, r);
+                        SET_FLAG(arg_import_flags, IMPORT_CONVERT_QCOW2, r);
                         break;
 
                 case ARG_SYNC:
@@ -448,7 +460,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        SET_FLAG(arg_pull_flags, PULL_SYNC, r);
+                        SET_FLAG(arg_import_flags, IMPORT_SYNC, r);
                         break;
 
                 case ARG_OFFSET: {
@@ -477,6 +489,22 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_CLASS:
+                        arg_class = image_class_from_string(optarg);
+                        if (arg_class < 0)
+                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", optarg);
+
+                        break;
+
+                case ARG_KEEP_DOWNLOAD:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --keep-download= argument: %s", optarg);
+
+                        SET_FLAG(arg_import_flags, IMPORT_PULL_KEEP_DOWNLOAD, r);
+                        auto_keep_download = false;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -490,11 +518,23 @@ static int parse_argv(int argc, char *argv[]) {
              !FILE_SIZE_VALID(arg_offset + arg_size_max)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File offset und maximum size out of range.");
 
-        if (arg_offset != UINT64_MAX && !FLAGS_SET(arg_pull_flags, PULL_DIRECT))
+        if (arg_offset != UINT64_MAX && !FLAGS_SET(arg_import_flags, IMPORT_DIRECT))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File offset only supported in --direct mode.");
 
-        if (arg_checksum && (arg_pull_flags & (PULL_SETTINGS|PULL_ROOTHASH|PULL_ROOTHASH_SIGNATURE|PULL_VERITY)) != 0)
+        if (arg_checksum && (arg_import_flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Literal checksum verification only supported if no associated files are downloaded.");
+
+        if (!arg_image_root)
+                arg_image_root = image_root_to_string(arg_class);
+
+        /* .nspawn settings files only really make sense for machine images, not for sysext/confext/portable */
+        if (auto_settings && arg_class != IMAGE_MACHINE)
+                arg_import_flags &= ~IMPORT_PULL_SETTINGS;
+
+        /* Keep the original pristine downloaded file as a copy only when dealing with machine images,
+         * because unlike sysext/confext/portable they are typically modified during runtime. */
+        if (auto_keep_download)
+                SET_FLAG(arg_import_flags, IMPORT_PULL_KEEP_DOWNLOAD, arg_class == IMAGE_MACHINE);
 
         return 1;
 }
@@ -507,19 +547,19 @@ static void parse_env(void) {
 
         r = getenv_bool("SYSTEMD_IMPORT_BTRFS_SUBVOL");
         if (r >= 0)
-                SET_FLAG(arg_pull_flags, PULL_BTRFS_SUBVOL, r);
+                SET_FLAG(arg_import_flags, IMPORT_BTRFS_SUBVOL, r);
         else if (r != -ENXIO)
                 log_warning_errno(r, "Failed to parse $SYSTEMD_IMPORT_BTRFS_SUBVOL: %m");
 
         r = getenv_bool("SYSTEMD_IMPORT_BTRFS_QUOTA");
         if (r >= 0)
-                SET_FLAG(arg_pull_flags, PULL_BTRFS_QUOTA, r);
+                SET_FLAG(arg_import_flags, IMPORT_BTRFS_QUOTA, r);
         else if (r != -ENXIO)
                 log_warning_errno(r, "Failed to parse $SYSTEMD_IMPORT_BTRFS_QUOTA: %m");
 
         r = getenv_bool("SYSTEMD_IMPORT_SYNC");
         if (r >= 0)
-                SET_FLAG(arg_pull_flags, PULL_SYNC, r);
+                SET_FLAG(arg_import_flags, IMPORT_SYNC, r);
         else if (r != -ENXIO)
                 log_warning_errno(r, "Failed to parse $SYSTEMD_IMPORT_SYNC: %m");
 }
@@ -539,8 +579,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         parse_env();
 

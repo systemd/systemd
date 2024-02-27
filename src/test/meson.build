@@ -381,6 +381,10 @@ executables += [
                 'dependencies' : threads,
         },
         test_template + {
+                'sources' : files('test-progress-bar.c'),
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files('test-qrcode-util.c'),
                 'dependencies' : libdl,
         },

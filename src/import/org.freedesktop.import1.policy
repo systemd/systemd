@@ -19,8 +19,8 @@
         <vendor_url>https://systemd.io</vendor_url>
 
         <action id="org.freedesktop.import1.import">
-                <description gettext-domain="systemd">Import a VM or container image</description>
-                <message gettext-domain="systemd">Authentication is required to import a VM or container image</message>
+                <description gettext-domain="systemd">Import a disk image</description>
+                <message gettext-domain="systemd">Authentication is required to import an image</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -29,8 +29,8 @@
         </action>
 
         <action id="org.freedesktop.import1.export">
-                <description gettext-domain="systemd">Export a VM or container image</description>
-                <message gettext-domain="systemd">Authentication is required to export a VM or container image</message>
+                <description gettext-domain="systemd">Export a disk image</description>
+                <message gettext-domain="systemd">Authentication is required to export disk image</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -39,8 +39,18 @@
         </action>
 
         <action id="org.freedesktop.import1.pull">
-                <description gettext-domain="systemd">Download a VM or container image</description>
-                <message gettext-domain="systemd">Authentication is required to download a VM or container image</message>
+                <description gettext-domain="systemd">Download a disk image</description>
+                <message gettext-domain="systemd">Authentication is required to download a disk image</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.import1.cancel">
+                <description gettext-domain="systemd">Cancel transfer of a disk image</description>
+                <message gettext-domain="systemd">Authentication is required to cancel the ongoing transfer of a disk image</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>

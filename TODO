@@ -130,6 +130,12 @@ Deprecations and removals:
 
 Features:
 
+* importd/importctl
+  - import generator
+  - port tar handling to libarchive
+  - add varlink interface
+  - download images into .v/ dirs
+
 * in os-release define a field that can be initialized at build time from
   SOURCE_DATE_EPOCH (maybe even under that name?). Would then be used to
   initialize the timestamp logic of ConditionNeedsUpdate=.
@@ -149,10 +155,6 @@ Features:
   close as we can make it for the MainPID of a service. Should be built around
   pidfd, so that we can reasonably robustly do this. Would only cover the
   execution environment like namespaces, but not the privilege settings.
-
-* add a generic client to importd called importctl, then make machinectl just
-  chain-exec() it. Make sure importd/importctl can be used for sysext images,
-  portable images too.
 
 * varlink: extend varlink IDL macros to include documentation strings
 
@@ -1537,8 +1539,6 @@ Features:
   it is OK to include them in log strings. This would be particularly useful so
   that our log messages could contain clickable links for example for unit
   files and suchlike we operate on.
-
-* importd: add ability download images for portabled + sysext
 
 * add support for "portablectl attach http://foobar.com/waaa.raw (i.e. importd integration)
 

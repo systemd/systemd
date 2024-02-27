@@ -1800,19 +1800,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
   <refsect1>
     <title>Examples</title>
 
-    <example>
-      <title>Download a
-      <ulink url="https://getfedora.org">Fedora</ulink> image and start a shell in it</title>
-
-      <programlisting># machinectl pull-raw --verify=no \
-      https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz \
-      Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86-64
-# systemd-nspawn -M Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86-64</programlisting>
-
-      <para>This downloads an image using
-      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-      and opens a shell in it.</para>
-    </example>
+    <xi:include href="importctl.xml" xpointer="example-import-tar" />
 
     <example>
       <title>Build and boot a minimal Fedora distribution in a container</title>
@@ -1921,6 +1909,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       <member><citerefentry project='mankier'><refentrytitle>zypper</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs.html'>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
