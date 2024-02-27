@@ -65,9 +65,11 @@
     the exit code stored in the event loop object is updated, but
     otherwise no further operation is executed.</para>
 
-    <para><function>sd_event_get_exit_code()</function> may be used to
-    query the exit code passed into
-    <function>sd_event_exit()</function> earlier.</para>
+    <para><function>sd_event_get_exit_code()</function> may be used to query the exit code passed to an
+    earlier call of <function>sd_event_exit()</function>. The return parameter <parameter>code</parameter>
+    may be set to <constant>NULL</constant>, in order to simply check if <function>sd_event_exit()</function>
+    has been called before (as <function>sd_event_get_exit_code()</function> fails with
+    <constant>-ENODATA</constant> if that's not the case, see below).</para>
 
     <para>While the full positive and negative integer ranges may be used
     for the exit code, care should be taken not pick exit codes that
@@ -122,7 +124,8 @@
         <varlistentry>
           <term><constant>-ENODATA</constant></term>
 
-          <listitem><para>The event loop has not been requested to exit yet.</para></listitem>
+          <listitem><para>Returned by <function>sd_event_get_exit_code()</function> in case the event loop has not
+          been requested to exit yet.</para></listitem>
         </varlistentry>
 
       </variablelist>
