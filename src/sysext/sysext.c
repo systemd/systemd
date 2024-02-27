@@ -2015,6 +2015,8 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "\n%3$sOptions:%4$s\n"
+               "     --mutable=yes|no|auto|import\n"
+               "                          Specify a mutability mode of the merged hierarchy\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
                "     --root=PATH          Operate relative to root path\n"
