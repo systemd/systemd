@@ -16,6 +16,7 @@
 #include "bus-util.h"
 #include "capability-util.h"
 #include "chase.h"
+#include "conf-parser.h"
 #include "constants.h"
 #include "devnum-util.h"
 #include "discover-image.h"
@@ -90,6 +91,7 @@ static const struct {
         const char *level_env;
         const char *scope_env;
         const char *name_env;
+        const char *config_section;
         const ImagePolicy *default_image_policy;
         unsigned long default_mount_flags;
 } image_class_info[_IMAGE_CLASS_MAX] = {
@@ -102,6 +104,7 @@ static const struct {
                 .level_env = "SYSEXT_LEVEL",
                 .scope_env = "SYSEXT_SCOPE",
                 .name_env = "SYSTEMD_SYSEXT_HIERARCHIES",
+                .config_section = "Sysext",
                 .default_image_policy = &image_policy_sysext,
                 .default_mount_flags = MS_RDONLY|MS_NODEV,
         },
@@ -114,10 +117,47 @@ static const struct {
                 .level_env = "CONFEXT_LEVEL",
                 .scope_env = "CONFEXT_SCOPE",
                 .name_env = "SYSTEMD_CONFEXT_HIERARCHIES",
+                .config_section = "Confext",
                 .default_image_policy = &image_policy_confext,
                 .default_mount_flags = MS_RDONLY|MS_NODEV|MS_NOSUID|MS_NOEXEC,
         }
 };
+
+static int parse_mutable_mode(const char *p) {
+        assert(p);
+
+        if (streq(p, "auto"))
+                return MUTABLE_AUTO;
+
+        if (streq(p, "import"))
+                return MUTABLE_IMPORT;
+
+        int r = parse_boolean(p);
+        if (r < 0)
+                return r;
+
+        return r ? MUTABLE_YES : MUTABLE_NO;
+}
+
+static int config_parse_mutable_mode(CONFIG_PARSER_ARGUMENTS);
+DEFINE_CONFIG_PARSE(config_parse_mutable_mode, parse_mutable_mode, "Failed to parse mutable mode value");
+
+static int parse_config(ImageClass image_class) {
+        const ConfigTableItem items[] = {
+                { image_class_info[image_class].config_section, "Mutable", config_parse_mutable_mode, 0, &arg_mutable },
+        };
+
+        _cleanup_free_ char *sections = NULL;
+
+        if (asprintf(&sections, "%s#", image_class_info[image_class].config_section) < 0)
+                return log_oom ();
+        sections[strlen(sections) - 1] = '\0';
+
+        return config_parse_standard_file_with_dropins("systemd/extensions.conf", sections,
+                                                       config_item_table_lookup, items,
+                                                       CONFIG_PARSE_WARN | CONFIG_PARSE_RELAXED,
+                                                       /* userdata= */ NULL);
+}
 
 static int is_our_mount_point(
                 ImageClass image_class,
@@ -2109,16 +2149,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MUTABLE:
-                        if (streq(optarg, "auto"))
-                                arg_mutable = MUTABLE_AUTO;
-                        else if (streq(optarg, "import"))
-                                arg_mutable = MUTABLE_IMPORT;
-                        else {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse argument to --mutable=: %s", optarg);
-                                arg_mutable = r ? MUTABLE_YES : MUTABLE_NO;
-                        }
+                        r = parse_mutable_mode(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse argument to --mutable=: %s", optarg);
+                        arg_mutable = r;
                         break;
 
                 case '?':
@@ -2158,6 +2192,10 @@ static int run(int argc, char *argv[]) {
         log_setup();
 
         arg_image_class = invoked_as(argv, "systemd-confext") ? IMAGE_CONFEXT : IMAGE_SYSEXT;
+
+        r = parse_config(arg_image_class);
+        if (r < 0)
+                return r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
