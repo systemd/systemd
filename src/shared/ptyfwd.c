@@ -266,7 +266,9 @@ static int insert_newline_color_erase(PTYForward *f, size_t offset) {
         _cleanup_free_ char *s = NULL;
 
         assert(f);
-        assert(f->background_color);
+
+        if (!f->background_color)
+                return 0;
 
         /* When we see a newline (ASCII 10) then this sets the background color to the desired one, and erase the rest
          * of the line with it */
@@ -285,7 +287,9 @@ static int insert_carriage_return_color(PTYForward *f, size_t offset) {
         _cleanup_free_ char *s = NULL;
 
         assert(f);
-        assert(f->background_color);
+
+        if (!f->background_color)
+                return 0;
 
         /* When we see a carriage return (ASCII 13) this this sets only the background */
 
