@@ -18,46 +18,44 @@
 #include "ndisc-router-internal.h"
 #include "strv.h"
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_router, sd_ndisc_router, mfree);
-
-sd_ndisc_router *ndisc_router_new(size_t raw_size) {
-        sd_ndisc_router *rt;
-
-        if (raw_size > SIZE_MAX - ALIGN(sizeof(sd_ndisc_router)))
-                return NULL;
-
-        rt = malloc0(ALIGN(sizeof(sd_ndisc_router)) + raw_size);
+static sd_ndisc_router* ndisc_router_free(sd_ndisc_router *rt) {
         if (!rt)
                 return NULL;
 
-        rt->raw_size = raw_size;
-        rt->n_ref = 1;
+        icmp6_packet_unref(rt->packet);
+        return mfree(rt);
+}
+
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_router, sd_ndisc_router, ndisc_router_free);
+
+sd_ndisc_router* ndisc_router_new(ICMP6Packet *packet) {
+        sd_ndisc_router *rt;
+
+        assert(packet);
+
+        rt = new(sd_ndisc_router, 1);
+        if (!rt)
+                return NULL;
+
+        *rt = (sd_ndisc_router) {
+                .n_ref = 1,
+                .packet = icmp6_packet_ref(packet),
+        };
 
         return rt;
 }
 
 int sd_ndisc_router_get_address(sd_ndisc_router *rt, struct in6_addr *ret) {
         assert_return(rt, -EINVAL);
-        assert_return(ret, -EINVAL);
 
-        if (in6_addr_is_null(&rt->address))
-                return -ENODATA;
-
-        *ret = rt->address;
-        return 0;
+        return icmp6_packet_get_sender_address(rt->packet, ret);
 }
 
 int sd_ndisc_router_get_timestamp(sd_ndisc_router *rt, clockid_t clock, uint64_t *ret) {
         assert_return(rt, -EINVAL);
-        assert_return(TRIPLE_TIMESTAMP_HAS_CLOCK(clock), -EOPNOTSUPP);
-        assert_return(clock_supported(clock), -EOPNOTSUPP);
         assert_return(ret, -EINVAL);
 
-        if (!triple_timestamp_is_set(&rt->timestamp))
-                return -ENODATA;
-
-        *ret = triple_timestamp_by_clock(&rt->timestamp, clock);
-        return 0;
+        return icmp6_packet_get_timestamp(rt->packet, clock, ret);
 }
 
 #define DEFINE_GET_TIMESTAMP(name)                                      \
@@ -98,7 +96,7 @@ int sd_ndisc_router_get_raw(sd_ndisc_router *rt, const void **ret, size_t *ret_s
         assert_return(ret_size, -EINVAL);
 
         *ret = NDISC_ROUTER_RAW(rt);
-        *ret_size = rt->raw_size;
+        *ret_size = rt->packet->raw_size;
 
         return 0;
 }
@@ -119,27 +117,20 @@ static bool pref64_option_verify(const struct nd_opt_prefix64_info *p, size_t le
 }
 
 int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt) {
-        struct nd_router_advert *a;
-        const uint8_t *p;
+        const struct nd_router_advert *a;
         bool has_mtu = false, has_flag_extension = false;
-        size_t left;
+        int r;
 
         assert(rt);
+        assert(rt->packet);
 
-        if (rt->raw_size < sizeof(struct nd_router_advert))
+        if (rt->packet->raw_size < sizeof(struct nd_router_advert))
                 return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
                                        "Too small to be a router advertisement, ignoring.");
 
-        /* Router advertisement packets are neatly aligned to 64-bit boundaries, hence we can access them directly */
-        a = NDISC_ROUTER_RAW(rt);
-
-        if (a->nd_ra_type != ND_ROUTER_ADVERT)
-                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
-                                       "Received ND packet that is not a router advertisement, ignoring.");
-
-        if (a->nd_ra_code != 0)
-                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
-                                       "Received ND packet with wrong RA code, ignoring.");
+        a = (const struct nd_router_advert*) rt->packet->raw_packet;
+        assert(a->nd_ra_type == ND_ROUTER_ADVERT);
+        assert(a->nd_ra_code == 0);
 
         rt->hop_limit = a->nd_ra_curhoplimit;
         rt->flags = a->nd_ra_flags_reserved; /* the first 8 bits */
@@ -152,29 +143,13 @@ int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt) {
         if (!IN_SET(rt->preference, SD_NDISC_PREFERENCE_LOW, SD_NDISC_PREFERENCE_HIGH))
                 rt->preference = SD_NDISC_PREFERENCE_MEDIUM;
 
-        p = (const uint8_t*) NDISC_ROUTER_RAW(rt) + sizeof(struct nd_router_advert);
-        left = rt->raw_size - sizeof(struct nd_router_advert);
-
-        for (;;) {
+        for (size_t offset = sizeof(struct nd_router_advert), length; offset < rt->packet->raw_size; offset += length) {
                 uint8_t type;
-                size_t length;
+                const uint8_t *p;
 
-                if (left == 0)
-                        break;
-
-                if (left < 2)
-                        return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
-                                               "Option lacks header, ignoring datagram.");
-
-                type = p[0];
-                length = p[1] * 8;
-
-                if (length == 0)
-                        return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
-                                               "Zero-length option, ignoring datagram.");
-                if (left < length)
-                        return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
-                                               "Option truncated, ignoring datagram.");
+                r = ndisc_option_parse(rt->packet, offset, &type, &length, &p);
+                if (r < 0)
+                        return log_ndisc_errno(nd, r, "Failed to parse NDisc option header, ignoring: %m");
 
                 switch (type) {
 
@@ -262,8 +237,6 @@ int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt) {
                                                 "PREF64 prefix has invalid prefix length.");
                         break;
                 }}
-
-                p += length, left -= length;
         }
 
         rt->rindex = sizeof(struct nd_router_advert);
@@ -341,43 +314,30 @@ int sd_ndisc_router_get_mtu(sd_ndisc_router *rt, uint32_t *ret) {
 int sd_ndisc_router_option_rewind(sd_ndisc_router *rt) {
         assert_return(rt, -EINVAL);
 
-        assert(rt->raw_size >= sizeof(struct nd_router_advert));
-        rt->rindex = sizeof(struct nd_router_advert);
+        assert(rt->packet);
+        assert(rt->packet->raw_size >= sizeof(struct nd_router_advert));
 
-        return rt->rindex < rt->raw_size;
+        rt->rindex = sizeof(struct nd_router_advert);
+        return rt->rindex < rt->packet->raw_size;
 }
 
 int sd_ndisc_router_option_next(sd_ndisc_router *rt) {
         size_t length;
+        int r;
 
         assert_return(rt, -EINVAL);
 
-        if (rt->rindex == rt->raw_size) /* EOF */
-                return -ESPIPE;
-
-        if (rt->rindex + 2 > rt->raw_size) /* Truncated message */
-                return -EBADMSG;
-
-        length = NDISC_ROUTER_OPTION_LENGTH(rt);
-        if (rt->rindex + length > rt->raw_size)
-                return -EBADMSG;
+        r = ndisc_option_parse(rt->packet, rt->rindex, NULL, &length, NULL);
+        if (r < 0)
+                return r;
 
         rt->rindex += length;
-        return rt->rindex < rt->raw_size;
+        return rt->rindex < rt->packet->raw_size;
 }
 
 int sd_ndisc_router_option_get_type(sd_ndisc_router *rt, uint8_t *ret) {
         assert_return(rt, -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        if (rt->rindex == rt->raw_size) /* EOF */
-                return -ESPIPE;
-
-        if (rt->rindex + 2 > rt->raw_size) /* Truncated message */
-                return -EBADMSG;
-
-        *ret = NDISC_ROUTER_OPTION_TYPE(rt);
-        return 0;
+        return ndisc_option_parse(rt->packet, rt->rindex, ret, NULL, NULL);
 }
 
 int sd_ndisc_router_option_is_type(sd_ndisc_router *rt, uint8_t type) {
@@ -402,11 +362,11 @@ int sd_ndisc_router_option_get_raw(sd_ndisc_router *rt, const void **ret, size_t
 
         /* Note that this returns the full option, including the option header */
 
-        if (rt->rindex + 2 > rt->raw_size)
+        if (rt->rindex + 2 > rt->packet->raw_size)
                 return -EBADMSG;
 
         length = NDISC_ROUTER_OPTION_LENGTH(rt);
-        if (rt->rindex + length > rt->raw_size)
+        if (rt->rindex + length > rt->packet->raw_size)
                 return -EBADMSG;
 
         *ret = (uint8_t*) NDISC_ROUTER_RAW(rt) + rt->rindex;
