@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # kernel-install(8) completion                                   -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
