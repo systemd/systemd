@@ -23,6 +23,7 @@ manpages = [
  ['hostname', '5', [], ''],
  ['hostnamectl', '1', [], 'ENABLE_HOSTNAMED'],
  ['hwdb', '7', [], 'ENABLE_HWDB'],
+ ['importctl', '1', [], 'ENABLE_MACHINED'],
  ['integritytab', '5', [], 'HAVE_LIBCRYPTSETUP'],
  ['iocost.conf', '5', [], ''],
  ['journal-remote.conf', '5', ['journal-remote.conf.d'], 'HAVE_MICROHTTPD'],
