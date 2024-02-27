@@ -270,7 +270,9 @@ static int insert_newline_color_erase(PTYForward *f, size_t offset) {
         _cleanup_free_ char *s = NULL;
 
         assert(f);
-        assert(f->background_color);
+
+        if (!f->background_color)
+                return 0;
 
         /* When we see a newline (ASCII 10) then this sets the background color to the desired one, and erase the rest
          * of the line with it */
@@ -289,7 +291,9 @@ static int insert_carriage_return_color(PTYForward *f, size_t offset) {
         _cleanup_free_ char *s = NULL;
 
         assert(f);
-        assert(f->background_color);
+
+        if (!f->background_color)
+                return 0;
 
         /* When we see a carriage return (ASCII 13) this this sets only the background */
 
@@ -505,7 +509,8 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                         } else {
                                 /* Otherwise, the OSC sequence is over */
 
-                                if (c == '\x07') {
+                                bool is_string_terinator = (c == '\x1b' && (i + 1) < f->out_buffer_full && f->out_buffer[i + 1] == '\\');
+                                if (c == '\x07' || is_string_terinator) {
                                         r = insert_window_title_fix(f, i+1);
                                         if (r < 0)
                                                 return r;
