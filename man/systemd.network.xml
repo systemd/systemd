@@ -3395,16 +3395,6 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>UseICMP6RateLimit=</varname></term>
-        <listitem>
-          <para>Takes a boolean. When true, the ICMP6 rate limit received in the Router Advertisement will be set to ICMP6
-          rate limit based on the advertisement. Defaults to true.</para>
-
-          <xi:include href="version-info.xml" xpointer="v255"/>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>UseGateway=</varname></term>
         <listitem>
           <para>When true (the default), the router address will be configured as the default gateway.

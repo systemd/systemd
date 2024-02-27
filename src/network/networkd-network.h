@@ -345,7 +345,6 @@ struct Network {
         bool ndisc_use_hop_limit;
         bool ndisc_use_reachable_time;
         bool ndisc_use_retransmission_time;
-        bool ndisc_use_icmp6_ratelimit;
         bool ndisc_quickack;
         bool ndisc_use_captive_portal;
         bool ndisc_use_pref64;
