@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT-0 */
 
-/* Implements a D-Bus service that automatically reconnects when the system bus is restarted.
+/* A D-Bus service that automatically reconnects when the system bus is
+ * restarted.
  *
  * Compile with 'cc sd_bus_service_reconnect.c $(pkg-config --libs --cflags libsystemd)'
  *
@@ -10,18 +11,18 @@
 
 <?xml version="1.0"?> <!--*-nxml-*-->
 <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
-        "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+  "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
-        <policy user="root">
-                <allow own="org.freedesktop.ReconnectExample"/>
-                <allow send_destination="org.freedesktop.ReconnectExample"/>
-                <allow receive_sender="org.freedesktop.ReconnectExample"/>
-        </policy>
+  <policy user="root">
+    <allow own="org.freedesktop.ReconnectExample"/>
+    <allow send_destination="org.freedesktop.ReconnectExample"/>
+    <allow receive_sender="org.freedesktop.ReconnectExample"/>
+  </policy>
 
-        <policy context="default">
-                <allow send_destination="org.freedesktop.ReconnectExample"/>
-                <allow receive_sender="org.freedesktop.ReconnectExample"/>
-        </policy>
+  <policy context="default">
+    <allow send_destination="org.freedesktop.ReconnectExample"/>
+    <allow receive_sender="org.freedesktop.ReconnectExample"/>
+  </policy>
 </busconfig>
 
  *
@@ -31,7 +32,7 @@
  *                              /org/freedesktop/ReconnectExample \
  *                              org.freedesktop.ReconnectExample \
  *                              Example
- *   s "example"
+ * s "example"
  */
 
 #include <errno.h>
@@ -93,7 +94,8 @@ static int on_disconnect(sd_bus_message *message, void *userdata, sd_bus_error *
   return 0;
 }
 
-/* Ensure the event loop exits with a clear error if acquiring the well-known service name fails */
+/* Ensure the event loop exits with a clear error if acquiring the well-known
+ * service name fails */
 static int request_name_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
   if (!sd_bus_message_is_method_error(m, NULL))
     return 1;
@@ -111,8 +113,8 @@ static int request_name_callback(sd_bus_message *m, void *userdata, sd_bus_error
 }
 
 static int setup(object *o) {
-  /* If we are reconnecting, then the bus object needs to be closed, detached from
-   * the event loop and recreated.
+  /* If we are reconnecting, then the bus object needs to be closed, detached
+   * from the event loop and recreated.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_detach_event.html
    * https://www.freedesktop.org/software/systemd/man/sd_bus_close_unref.html
    */
@@ -121,9 +123,10 @@ static int setup(object *o) {
     *o->bus = sd_bus_close_unref(*o->bus);
   }
 
-  /* Set up a new bus object for the system bus, configure it to wait for D-Bus to be available
-   * instead of failing if it is not, and start it. All the following operations are asynchronous
-   * and will not block waiting for D-Bus to be available.
+  /* Set up a new bus object for the system bus, configure it to wait for D-Bus
+   * to be available instead of failing if it is not, and start it. All the
+   * following operations are asynchronous and will not block waiting for D-Bus
+   * to be available.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_new.html
    * https://www.freedesktop.org/software/systemd/man/sd_bus_set_address.html
    * https://www.freedesktop.org/software/systemd/man/sd_bus_set_bus_client.html
@@ -150,10 +153,10 @@ static int setup(object *o) {
                                  "org.freedesktop.ReconnectExample",
                                  vtable,
                                  o));
-  /* By default the service is only assigned an ephemeral name. Also add a well-known
-   * one, so that clients know whom to call. This needs to be asynchronous, as
-   * D-Bus might not be yet available. The callback will check whether the error is
-   * expected or not, in case it fails.
+  /* By default the service is only assigned an ephemeral name. Also add a
+   * well-known one, so that clients know whom to call. This needs to be
+   * asynchronous, as D-Bus might not be yet available. The callback will check
+   * whether the error is expected or not, in case it fails.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_request_name.html
    */
   check(sd_bus_request_name_async(*o->bus,
@@ -162,9 +165,9 @@ static int setup(object *o) {
                                   0,
                                   request_name_callback,
                                   o));
-  /* When D-Bus is disconnected this callback will be invoked, which will
-   * set up the connection again. This needs to be asynchronous, as D-Bus might not
-   * yet be available.
+  /* When D-Bus is disconnected this callback will be invoked, which will set up
+   * the connection again. This needs to be asynchronous, as D-Bus might not yet
+   * be available.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_match_signal_async.html
    */
   check(sd_bus_match_signal_async(*o->bus,
@@ -176,7 +179,8 @@ static int setup(object *o) {
                                   on_disconnect,
                                   NULL,
                                   o));
-  /* Attach the bus object to the event loop so that calls and signals are processed.
+  /* Attach the bus object to the event loop so that calls and signals are
+   * processed.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_attach_event.html
    */
   check(sd_bus_attach_event(*o->bus, *o->event, 0));
@@ -186,8 +190,7 @@ static int setup(object *o) {
 
 int main(int argc, char **argv) {
   /* The bus should be relinquished before the program terminates. The cleanup
-   * attribute allows us to do it nicely and cleanly whenever we exit the
-   * block.
+   * attribute allows us to do it nicely and cleanly whenever we exit the block.
    */
   _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
   _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -202,8 +205,8 @@ int main(int argc, char **argv) {
    */
   check(sd_event_default(&event));
 
-  /* By default the event loop will terminate when all sources have disappeared, so
-   * we have to keep it 'occupied'. Register signal handling to do so.
+  /* By default the event loop will terminate when all sources have disappeared,
+   * so we have to keep it 'occupied'. Register signal handling to do so.
    * https://www.freedesktop.org/software/systemd/man/sd_event_add_signal.html
    */
   check(sd_event_add_signal(event, NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, NULL, NULL));
