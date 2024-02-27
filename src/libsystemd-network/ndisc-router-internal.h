@@ -7,16 +7,13 @@
 
 #include "sd-ndisc.h"
 
+#include "icmp6-packet.h"
 #include "time-util.h"
 
 struct sd_ndisc_router {
         unsigned n_ref;
 
-        triple_timestamp timestamp;
-        struct in6_addr address;
-
-        /* The raw packet size. The data is appended to the object, accessible via NDIS_ROUTER_RAW() */
-        size_t raw_size;
+        ICMP6Packet *packet;
 
         /* The current read index for the iterative option interface */
         size_t rindex;
@@ -29,11 +26,10 @@ struct sd_ndisc_router {
 
         uint8_t hop_limit;
         uint32_t mtu;
-        uint64_t icmp6_ratelimit_usec;
 };
 
 static inline void* NDISC_ROUTER_RAW(const sd_ndisc_router *rt) {
-        return (uint8_t*) rt + ALIGN(sizeof(sd_ndisc_router));
+        return ASSERT_PTR(ASSERT_PTR(rt)->packet)->raw_packet;
 }
 
 static inline void *NDISC_ROUTER_OPTION_DATA(const sd_ndisc_router *rt) {
@@ -47,5 +43,5 @@ static inline size_t NDISC_ROUTER_OPTION_LENGTH(const sd_ndisc_router *rt) {
         return ((uint8_t*) NDISC_ROUTER_OPTION_DATA(rt))[1] * 8;
 }
 
-sd_ndisc_router *ndisc_router_new(size_t raw_size);
+sd_ndisc_router* ndisc_router_new(ICMP6Packet *packet);
 int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt);

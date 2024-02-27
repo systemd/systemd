@@ -33,6 +33,7 @@
 #include "network-internal.h"
 #include "networkd-address-pool.h"
 #include "networkd-address.h"
+#include "networkd-dhcp-server.h"
 #include "networkd-dhcp-server-bus.h"
 #include "networkd-dhcp6.h"
 #include "networkd-link-bus.h"
@@ -577,6 +578,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
                 .duid_product_uuid.type = DUID_TYPE_UUID,
+                .dhcp4_server_can_start = dhcp4_server_can_start(),
                 .ip_forwarding = { -1, -1, },
         };
 

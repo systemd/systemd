@@ -15,7 +15,6 @@
 #include "sd-device.h"
 #include "sd-dhcp-client.h"
 #include "sd-hwdb.h"
-#include "sd-lldp-rx.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
 
@@ -93,11 +92,11 @@ JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_drop_in, freep);
 
-static int check_netns_match(void) {
+static int varlink_connect_networkd(Varlink **ret) {
+        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        JsonVariant *reply;
         struct stat st;
         uint64_t id;
-        JsonVariant *reply = NULL;
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
         int r;
 
         r = varlink_connect_address(&vl, "/run/systemd/netif/io.systemd.Network");
@@ -119,7 +118,7 @@ static int check_netns_match(void) {
 
         if (id == 0) {
                 log_debug("systemd-networkd.service not running in a network namespace (?), skipping netns check.");
-                return 0;
+                goto pass;
         }
 
         if (stat("/proc/self/ns/net", &st) < 0)
@@ -128,7 +127,9 @@ static int check_netns_match(void) {
         if (id != st.st_ino)
                 return log_error_errno(SYNTHETIC_ERRNO(EREMOTE),
                                        "networkctl must be invoked in same network namespace as systemd-networkd.service.");
-
+pass:
+        if (ret)
+                *ret = TAKE_PTR(vl);
         return 0;
 }
 
@@ -162,7 +163,7 @@ int acquire_bus(sd_bus **ret) {
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
         if (networkd_is_running()) {
-                r = check_netns_match();
+                r = varlink_connect_networkd(NULL);
                 if (r < 0)
                         return r;
         } else
@@ -1311,87 +1312,34 @@ static int list_address_labels(int argc, char *argv[], void *userdata) {
         return dump_address_labels(rtnl);
 }
 
-static int open_lldp_neighbors(int ifindex, FILE **ret) {
-        _cleanup_fclose_ FILE *f = NULL;
-        char p[STRLEN("/run/systemd/netif/lldp/") + DECIMAL_STR_MAX(int)];
-
-        assert(ifindex >= 0);
-        assert(ret);
-
-        xsprintf(p, "/run/systemd/netif/lldp/%i", ifindex);
-
-        f = fopen(p, "re");
-        if (!f)
-                return -errno;
-
-        *ret = TAKE_PTR(f);
-        return 0;
-}
-
-static int next_lldp_neighbor(FILE *f, sd_lldp_neighbor **ret) {
-        _cleanup_free_ void *raw = NULL;
-        size_t l;
-        le64_t u;
-        int r;
-
-        assert(f);
-        assert(ret);
-
-        l = fread(&u, 1, sizeof(u), f);
-        if (l == 0 && feof(f))
-                return 0;
-        if (l != sizeof(u))
-                return -EBADMSG;
-
-        /* each LLDP packet is at most MTU size, but let's allow up to 4KiB just in case */
-        if (le64toh(u) >= 4096)
-                return -EBADMSG;
-
-        raw = new(uint8_t, le64toh(u));
-        if (!raw)
-                return -ENOMEM;
-
-        if (fread(raw, 1, le64toh(u), f) != le64toh(u))
-                return -EBADMSG;
-
-        r = sd_lldp_neighbor_from_raw(ret, raw, le64toh(u));
-        if (r < 0)
-                return r;
-
-        return 1;
-}
-
-static int dump_lldp_neighbors(Table *table, const char *prefix, int ifindex) {
+static int dump_lldp_neighbors(Varlink *vl, Table *table, int ifindex) {
         _cleanup_strv_free_ char **buf = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        JsonVariant *reply;
         int r;
 
+        assert(vl);
         assert(table);
-        assert(prefix);
         assert(ifindex > 0);
 
-        r = open_lldp_neighbors(ifindex, &f);
-        if (r == -ENOENT)
-                return 0;
+        r = varlink_callb_and_log(vl, "io.systemd.Network.GetLLDPNeighbors", &reply,
+                                  JSON_BUILD_OBJECT(JSON_BUILD_PAIR_INTEGER("InterfaceIndex", ifindex)));
         if (r < 0)
                 return r;
 
-        for (;;) {
-                const char *system_name = NULL, *port_id = NULL, *port_description = NULL;
-                _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
+        JsonVariant *neighbor;
+        JSON_VARIANT_ARRAY_FOREACH(neighbor, json_variant_by_key(reply, "Neighbors")) {
+                const char *system_name, *system_description, *port_id, *port_description;
 
-                r = next_lldp_neighbor(f, &n);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
+                port_id = json_variant_string(json_variant_by_key(neighbor, "PortID"));
+                port_description = json_variant_string(json_variant_by_key(neighbor, "PortDescription"));
+                system_name = json_variant_string(json_variant_by_key(neighbor, "SystemName"));
+                system_description = json_variant_string(json_variant_by_key(neighbor, "SystemDescription"));
 
-                (void) sd_lldp_neighbor_get_system_name(n, &system_name);
-                (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
-                (void) sd_lldp_neighbor_get_port_description(n, &port_description);
-
-                r = strv_extendf(&buf, "%s on port %s%s%s%s",
+                r = strv_extendf(&buf, "%s%s%s%s on port %s%s%s%s",
                                  strna(system_name),
+                                 isempty(system_description) ? "" : " (",
+                                 strempty(system_description),
+                                 isempty(system_description) ? "" : ")",
                                  strna(port_id),
                                  isempty(port_description) ? "" : " (",
                                  strempty(port_description),
@@ -1400,7 +1348,7 @@ static int dump_lldp_neighbors(Table *table, const char *prefix, int ifindex) {
                         return log_oom();
         }
 
-        return dump_list(table, prefix, buf);
+        return dump_list(table, "Connected To", buf);
 }
 
 static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const LinkInfo *link) {
@@ -1683,6 +1631,7 @@ static int link_status_one(
                 sd_bus *bus,
                 sd_netlink *rtnl,
                 sd_hwdb *hwdb,
+                Varlink *vl,
                 const LinkInfo *info) {
 
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL,
@@ -1698,6 +1647,7 @@ static int link_status_one(
 
         assert(bus);
         assert(rtnl);
+        assert(vl);
         assert(info);
 
         (void) sd_network_link_get_operational_state(info->ifindex, &operational_state);
@@ -2316,7 +2266,7 @@ static int link_status_one(
                         return table_log_add_error(r);
         }
 
-        r = dump_lldp_neighbors(table, "Connected To", info->ifindex);
+        r = dump_lldp_neighbors(vl, table, info->ifindex);
         if (r < 0)
                 return r;
 
@@ -2424,6 +2374,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         int r, c;
 
@@ -2448,6 +2399,10 @@ static int link_status(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 log_debug_errno(r, "Failed to open hardware database: %m");
 
+        r = varlink_connect_networkd(&vl);
+        if (r < 0)
+                return r;
+
         if (arg_all)
                 c = acquire_link_info(bus, rtnl, NULL, &links);
         else if (argc <= 1)
@@ -2464,7 +2419,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
                 if (!first)
                         putchar('\n');
 
-                RET_GATHER(r, link_status_one(bus, rtnl, hwdb, i));
+                RET_GATHER(r, link_status_one(bus, rtnl, hwdb, vl, i));
 
                 first = false;
         }
@@ -2472,7 +2427,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static char *lldp_capabilities_to_string(uint16_t x) {
+static char *lldp_capabilities_to_string(uint64_t x) {
         static const char characters[] = {
                 'o', 'p', 'b', 'w', 'r', 't', 'd', 'a', 'c', 's', 'm',
         };
@@ -2522,30 +2477,79 @@ static void lldp_capabilities_legend(uint16_t x) {
         puts("");
 }
 
-static int link_lldp_status(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
-        int r, c, m = 0;
-        uint16_t all = 0;
-        TableCell *cell;
+static bool json_interface_match_pattern(JsonVariant *v, char * const *patterns) {
+        assert(v);
 
-        r = sd_netlink_open(&rtnl);
+        if (strv_isempty(patterns))
+                return true;
+
+        int64_t ifindex = json_variant_integer(json_variant_by_key(v, "InterfaceIndex"));
+        const char *ifname = json_variant_string(json_variant_by_key(v, "InterfaceName"));
+
+        char str[DECIMAL_STR_MAX(int64_t)];
+        xsprintf(str, "%"PRIi64, ifindex);
+
+        return strv_fnmatch(patterns, str) || strv_fnmatch(patterns, ifname);
+}
+
+static int dump_lldp_neighbors_json(JsonVariant *reply, char * const *patterns) {
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL, *v = NULL;
+        int r;
+
+        assert(reply);
+
+        if (strv_isempty(patterns))
+                return json_variant_dump(reply, arg_json_format_flags, NULL, NULL);
+
+        /* Filter and dump the result. */
+
+        JsonVariant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, json_variant_by_key(reply, "NeighborsByInterface")) {
+                if (!json_interface_match_pattern(i, patterns))
+                        continue;
+
+                r = json_variant_append_array(&array, i);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append json variant to array: %m");
+        }
+
+        r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_VARIANT("NeighborsByInterface", array)));
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to netlink: %m");
+                return log_error_errno(r, "Failed to build json varinat: %m");
 
-        c = acquire_link_info(NULL, rtnl, argc > 1 ? argv + 1 : NULL, &links);
-        if (c < 0)
-                return c;
+        return json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+}
+
+static int link_lldp_status(int argc, char *argv[], void *userdata) {
+        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        JsonVariant *reply;
+        uint64_t all = 0;
+        TableCell *cell;
+        size_t m = 0;
+        int r;
+
+        r = varlink_connect_networkd(&vl);
+        if (r < 0)
+                return r;
+
+        r = varlink_call_and_log(vl, "io.systemd.Network.GetLLDPNeighbors", NULL, &reply);
+        if (r < 0)
+                return r;
+
+        if (arg_json_format_flags != JSON_FORMAT_OFF)
+                return dump_lldp_neighbors_json(reply, strv_skip(argv, 1));
 
         pager_open(arg_pager_flags);
 
-        table = table_new("link",
+        table = table_new("index",
+                          "link",
                           "chassis-id",
-                          "system-name",
-                          "caps",
                           "port-id",
-                          "port-description");
+                          "port-description",
+                          "system-name",
+                          "system-description",
+                          "caps");
         if (!table)
                 return log_oom();
 
@@ -2553,53 +2557,38 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                 table_set_width(table, 0);
 
         table_set_header(table, arg_legend);
-
-        assert_se(cell = table_get_cell(table, 0, 3));
-        table_set_minimum_width(table, cell, 11);
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_sort(table, (size_t) 0);
+        table_hide_column_from_display(table, (size_t) 0);
 
-        FOREACH_ARRAY(link, links, c) {
-                _cleanup_fclose_ FILE *f = NULL;
+        /* Make the capabilities not truncated */
+        assert_se(cell = table_get_cell(table, 0, 7));
+        table_set_minimum_width(table, cell, 11);
 
-                r = open_lldp_neighbors(link->ifindex, &f);
-                if (r == -ENOENT)
+        JsonVariant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, json_variant_by_key(reply, "NeighborsByInterface")) {
+                if (!json_interface_match_pattern(i, strv_skip(argv, 1)))
                         continue;
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to open LLDP data for %i, ignoring: %m", link->ifindex);
-                        continue;
-                }
 
-                for (;;) {
-                        const char *chassis_id = NULL, *port_id = NULL, *system_name = NULL, *port_description = NULL;
-                        _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
-                        _cleanup_free_ char *capabilities = NULL;
-                        uint16_t cc;
+                int64_t ifindex = json_variant_integer(json_variant_by_key(i, "InterfaceIndex"));
+                const char *ifname = json_variant_string(json_variant_by_key(i, "InterfaceName"));
 
-                        r = next_lldp_neighbor(f, &n);
-                        if (r < 0) {
-                                log_warning_errno(r, "Failed to read neighbor data: %m");
-                                break;
-                        }
-                        if (r == 0)
-                                break;
+                JsonVariant *neighbor;
+                JSON_VARIANT_ARRAY_FOREACH(neighbor, json_variant_by_key(i, "Neighbors")) {
+                        uint64_t caps = json_variant_unsigned(json_variant_by_key(neighbor, "EnabledCapabilities"));
+                        all |= caps;
 
-                        (void) sd_lldp_neighbor_get_chassis_id_as_string(n, &chassis_id);
-                        (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
-                        (void) sd_lldp_neighbor_get_system_name(n, &system_name);
-                        (void) sd_lldp_neighbor_get_port_description(n, &port_description);
-
-                        if (sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0) {
-                                capabilities = lldp_capabilities_to_string(cc);
-                                all |= cc;
-                        }
+                        _cleanup_free_ char *cap_str = lldp_capabilities_to_string(caps);
 
                         r = table_add_many(table,
-                                           TABLE_STRING, link->name,
-                                           TABLE_STRING, chassis_id,
-                                           TABLE_STRING, system_name,
-                                           TABLE_STRING, capabilities,
-                                           TABLE_STRING, port_id,
-                                           TABLE_STRING, port_description);
+                                           TABLE_INT64, ifindex,
+                                           TABLE_STRING, ifname,
+                                           TABLE_STRING, json_variant_string(json_variant_by_key(neighbor, "ChassisID")),
+                                           TABLE_STRING, json_variant_string(json_variant_by_key(neighbor, "PortID")),
+                                           TABLE_STRING, json_variant_string(json_variant_by_key(neighbor, "PortDescription")),
+                                           TABLE_STRING, json_variant_string(json_variant_by_key(neighbor, "SystemName")),
+                                           TABLE_STRING, json_variant_string(json_variant_by_key(neighbor, "SystemDescription")),
+                                           TABLE_STRING, cap_str);
                         if (r < 0)
                                 return table_log_add_error(r);
 
@@ -2613,7 +2602,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
 
         if (arg_legend) {
                 lldp_capabilities_legend(all);
-                printf("\n%i neighbors listed.\n", m);
+                printf("\n%zu neighbors listed.\n", m);
         }
 
         return 0;
@@ -2864,6 +2853,34 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_dhcp_server(int argc, char *argv[], void *userdata) {
+        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        const char *method;
+        int r;
+
+        assert(IN_SET(argc, 2, 3));
+
+        if (streq(argv[1], "start"))
+                method = "io.systemd.Network.StartDHCPServer";
+        else if (streq(argv[1], "stop"))
+                method = "io.systemd.Network.StopDHCPServer";
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid operation: %s", argv[1]);
+
+        r = varlink_connect_networkd(&vl);
+        if (r < 0)
+                return r;
+
+        if (argc == 3) {
+                r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("InterfaceName", argv[2])));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build json variant: %m");
+        }
+
+        return varlink_call_and_log(vl, method, v, NULL);
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -2890,6 +2907,8 @@ static int help(void) {
                "  cat FILES|DEVICES...   Show network configuration files\n"
                "  mask FILES...          Mask network configuration files\n"
                "  unmask FILES...        Unmask network configuration files\n"
+               "  dhcp-server start|stop [DEVICE]\n"
+               "                         Stat or stop DHCP server\n"
                "\nOptions:\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
@@ -3048,6 +3067,7 @@ static int networkctl_main(int argc, char *argv[]) {
                 { "cat",         2,        VERB_ANY, 0,                             verb_cat            },
                 { "mask",        2,        VERB_ANY, 0,                             verb_mask           },
                 { "unmask",      2,        VERB_ANY, 0,                             verb_unmask         },
+                { "dhcp-server", 2,        3,        0,                             verb_dhcp_server    },
                 {}
         };
 

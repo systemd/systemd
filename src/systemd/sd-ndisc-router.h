@@ -37,7 +37,6 @@ int sd_ndisc_router_get_timestamp(sd_ndisc_router *rt, clockid_t clock, uint64_t
 int sd_ndisc_router_get_raw(sd_ndisc_router *rt, const void **ret, size_t *ret_size);
 
 int sd_ndisc_router_get_hop_limit(sd_ndisc_router *rt, uint8_t *ret);
-int sd_ndisc_router_get_icmp6_ratelimit(sd_ndisc_router *rt, uint64_t *ret);
 int sd_ndisc_router_get_flags(sd_ndisc_router *rt, uint64_t *ret);
 int sd_ndisc_router_get_preference(sd_ndisc_router *rt, unsigned *ret);
 int sd_ndisc_router_get_lifetime(sd_ndisc_router *rt, uint64_t *ret);
