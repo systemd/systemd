@@ -65,7 +65,7 @@ executables += [
                 'conditions' : ['ENABLE_LOGIND'],
                 'sources' : loginctl_sources,
                 'dependencies' : [
-                        liblz4,
+                        liblz4_cflags,
                         libxz,
                         libzstd,
                         threads,

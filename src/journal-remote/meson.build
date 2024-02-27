@@ -22,7 +22,7 @@ libsystemd_journal_remote = static_library(
         libsystemd_journal_remote_sources,
         include_directories : includes,
         dependencies : [libgnutls,
-                        liblz4,
+                        liblz4_cflags,
                         libmicrohttpd,
                         libxz,
                         threads,
@@ -38,7 +38,7 @@ systemd_journal_gatewayd_sources = files(
 
 common_deps = [
         libgnutls,
-        liblz4,
+        liblz4_cflags,
         libxz,
         libzstd,
         threads,
