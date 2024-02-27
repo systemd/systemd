@@ -507,9 +507,15 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                 } else if (!strextend(&f->osc_sequence, CHAR_TO_STR(c)))
                                         return -ENOMEM;
                         } else {
-                                /* Otherwise, the OSC sequence is over */
+                                /* Otherwise, the OSC sequence is over
+                                 *
+                                 * There are two allowed ways to end an OSC sequence:
+                                 * BEL '\x07'
+                                 * String Terminator (ST): <Esc>\ - "\x1b\x5c"
+                                 * since we cannot lookahead to see if the Esc is followed by a \
+                                 * we cut a corner here and assume it will be \. */
 
-                                if (c == '\x07') {
+                                if (c == '\x07' || c == '\x1b') {
                                         r = insert_window_title_fix(f, i+1);
                                         if (r < 0)
                                                 return r;
