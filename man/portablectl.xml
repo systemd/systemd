@@ -45,12 +45,12 @@
     within the file system context of the image.</para>
 
     <para>Portable service images are an efficient way to bundle multiple related services and other units together,
-    and transfer them as a whole between systems. When these images are attached the local system the contained units
+    and transfer them as a whole between systems. When these images are attached to the local system, the contained units
     may run in most ways like regular system-provided units, either with full privileges or inside strict sandboxing,
     depending on the selected configuration. For more details, see
     <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services Documentation</ulink>.</para>
 
-    <para>Specifically portable service images may be of the following kind:</para>
+    <para>Portable service images may be of the following kinds:</para>
 
     <itemizedlist>
       <listitem><para>Directory trees containing an OS, including the top-level directories <filename>/usr/</filename>,
