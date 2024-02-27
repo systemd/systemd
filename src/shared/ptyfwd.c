@@ -509,7 +509,8 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                         } else {
                                 /* Otherwise, the OSC sequence is over */
 
-                                if (c == '\x07') {
+                                bool is_string_terinator = (c == '\x1b' && (i + 1) < f->out_buffer_full && f->out_buffer[i + 1] == '\\');
+                                if (c == '\x07' || is_string_terinator) {
                                         r = insert_window_title_fix(f, i+1);
                                         if (r < 0)
                                                 return r;
