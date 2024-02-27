@@ -222,7 +222,6 @@ BASICTOOLS=(
     rm
     rmdir
     rmmod
-    route
     script
     sed
     seq
