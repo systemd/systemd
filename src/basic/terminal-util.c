@@ -1581,6 +1581,7 @@ typedef enum BackgroundColorState {
         BACKGROUND_RED,
         BACKGROUND_GREEN,
         BACKGROUND_BLUE,
+        BACKGROUND_STRING_TERMINATOR,
 } BackgroundColorState;
 
 typedef struct BackgroundColorContext {
@@ -1672,7 +1673,9 @@ static int scan_background_color_response(
                                         return 1; /* success! */
 
                                 context->state = BACKGROUND_TEXT;
-                        } else {
+                        } else if (c == '\x1b')
+                                context->state = context->blue_bits > 0 ? BACKGROUND_STRING_TERMINATOR : BACKGROUND_TEXT;
+                        else {
                                 int d = unhexchar(c);
                                 if (d < 0 || context->blue_bits >= sizeof(context->blue)*8)
                                         context->state = BACKGROUND_TEXT;
@@ -1682,10 +1685,18 @@ static int scan_background_color_response(
                                 }
                         }
                         break;
+
+                case BACKGROUND_STRING_TERMINATOR:
+                        if (c == '\\')
+                                return 1; /* success! */
+
+                        context->state = c == ']' ? BACKGROUND_ESCAPE : BACKGROUND_TEXT;
+                        break;
+
                 }
 
                 /* Reset any colors we might have picked up */
-                if (context->state == BACKGROUND_TEXT) {
+                if (IN_SET(context->state, BACKGROUND_TEXT, BACKGROUND_ESCAPE)) {
                         /* reset color */
                         context->red = context->green = context->blue = 0;
                         context->red_bits = context->green_bits = context->blue_bits = 0;
@@ -1744,6 +1755,10 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
                 r = fd_wait_for_event(STDIN_FILENO, POLLIN, usec_sub_unsigned(end, n));
                 if (r < 0)
                         goto finish;
+                if (r == 0) {
+                        r = -EOPNOTSUPP;
+                        goto finish;
+                }
 
                 ssize_t l;
                 l = read(STDIN_FILENO, buf, sizeof(buf) - buf_full);
