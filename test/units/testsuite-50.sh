@@ -1323,7 +1323,7 @@ ln -sfTr "${real_ext_dir}" "${ext_data_path}"
 prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=auto merge || die "expected merge to fail"
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=auto merge && die "expected merge to fail"
 
 
 #
