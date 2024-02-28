@@ -609,6 +609,37 @@
         the <filename>/dev/</filename> prefix (e.g. <literal>systemd.tty.rows.ttyS0=80</literal>).
         </para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.battery_check=</varname></term>
+
+        <listitem><para>Accepts a boolean argument. If false the boot-time battery charge check implemented
+        by
+        <citerefentry><refentrytitle>systemd-battery-check.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        is disabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ifname=</varname></term>
+        <term><varname>net.ifname_policy=</varname></term>
+
+        <listitem><para>Controls interface naming policies, implemented by
+        <citerefentry><refentrytitle>systemd-network-generator.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.tpm2_wait=</varname></term>
+
+        <listitem><para>Controls whether to wait for a TPM2 device at boot, implemented by
+        <citerefentry><refentrytitle>systemd-tpm2-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
