@@ -2546,7 +2546,7 @@ static int validate_signature_userspace(const VeritySettings *verity, DissectIma
                 return 0;
         }
 
-        r = getenv_bool_secure("SYSTEMD_ALLOW_USERSPACE_VERITY");
+        r = secure_getenv_bool("SYSTEMD_ALLOW_USERSPACE_VERITY");
         if (r < 0 && r != -ENXIO) {
                 log_debug_errno(r, "Failed to parse $SYSTEMD_ALLOW_USERSPACE_VERITY environment variable, refusing userspace dm-verity signature authentication.");
                 return 0;
