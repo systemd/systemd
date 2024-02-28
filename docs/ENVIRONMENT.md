@@ -488,6 +488,12 @@ disk images with `--image=` or similar:
   devices when opening them. Defaults to on, set this to "0" to disable this
   feature.
 
+* `$SYSTEMD_ALLOW_USERSPACE_VERITY` — takes a boolean, which controls whether
+  to consider the userspace Verity public key store in `/etc/verity.d/` (and
+  related directories) to authenticate signatures on Verity hashes of disk
+  images. Defaults to true, i.e. userspace signature validation is allowed. If
+  false, authentication can be done only via the kernel's internal keyring.
+
 `systemd-cryptsetup`:
 
 * `$SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE` – takes a boolean, which controls

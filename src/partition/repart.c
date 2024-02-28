@@ -7952,7 +7952,8 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_GPT_ONLY |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                                 DISSECT_IMAGE_USR_NO_ROOT |
-                                DISSECT_IMAGE_REQUIRE_ROOT,
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
                                 &mounted_dir,
                                 /* ret_dir_fd= */ NULL,
                                 &loop_device);
