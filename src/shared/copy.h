@@ -30,6 +30,7 @@ typedef enum CopyFlags {
         COPY_GRACEFUL_WARN = 1 << 15, /* Skip copying file types that aren't supported by the target filesystem */
         COPY_TRUNCATE      = 1 << 16, /* Truncate to current file offset after copying */
         COPY_LOCK_BSD      = 1 << 17, /* Return a BSD exclusively locked file descriptor referring to the copied image/directory. */
+        COPY_VERIFY_LINKED = 1 << 18, /* Check the source file is still linked after copying. */
 } CopyFlags;
 
 typedef enum DenyType {
@@ -70,7 +71,7 @@ static inline int copy_file_atomic_at(int dir_fdf, const char *from, int dir_fdt
         return copy_file_atomic_at_full(dir_fdf, from, dir_fdt, to, mode, 0, 0, copy_flags, NULL, NULL);
 }
 static inline int copy_file_atomic_full(const char *from, const char *to, mode_t mode, unsigned chattr_flags, unsigned chattr_mask, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata) {
-        return copy_file_atomic_at_full(AT_FDCWD, from, AT_FDCWD, to, mode, 0, 0, copy_flags, NULL, NULL);
+        return copy_file_atomic_at_full(AT_FDCWD, from, AT_FDCWD, to, mode, chattr_flags, chattr_mask, copy_flags, progress, userdata);
 }
 static inline int copy_file_atomic(const char *from, const char *to, mode_t mode, CopyFlags copy_flags) {
         return copy_file_atomic_full(from, to, mode, 0, 0, copy_flags, NULL, NULL);

@@ -73,7 +73,7 @@ ACTION=="add", SUBSYSTEM=="net", KERNEL!="lo", RUN+="{{LIBEXECDIR}}/systemd-sysc
 # Pull in backlight save/restore for all backlight devices and
 # keyboard backlights
 SUBSYSTEM=="backlight", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@backlight:$name.service"
-SUBSYSTEM=="leds", KERNEL=="*kbd_backlight", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@leds:$name.service"
+SUBSYSTEM=="leds", KERNEL=="*kbd_backlight*", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@leds:$name.service"
 {% endif %}
 
 # Pull in rfkill save/restore for all rfkill devices
@@ -84,5 +84,8 @@ SUBSYSTEM=="misc", KERNEL=="rfkill", TAG+="systemd", ENV{SYSTEMD_WANTS}+="system
 # Asynchronously mount file systems implemented by these modules as soon as they are loaded.
 SUBSYSTEM=="module", KERNEL=="fuse", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-fs-fuse-connections.mount"
 SUBSYSTEM=="module", KERNEL=="configfs", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-kernel-config.mount"
+
+# Pull in tpm2.target whenever /dev/tpmrm* shows up
+SUBSYSTEM=="tpmrm", KERNEL=="tpmrm[0-9]*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="tpm2.target"
 
 LABEL="systemd_end"

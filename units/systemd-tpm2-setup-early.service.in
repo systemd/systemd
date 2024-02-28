@@ -15,6 +15,7 @@ Conflicts=shutdown.target
 Before=sysinit.target shutdown.target
 ConditionSecurity=measured-uki
 ConditionPathExists=!/run/systemd/tpm2-srk-public-key.pem
+After=tpm2.target
 
 [Service]
 Type=oneshot

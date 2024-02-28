@@ -92,6 +92,7 @@ struct Socket {
         CGroupContext cgroup_context;
 
         ExecRuntime *exec_runtime;
+        CGroupRuntime *cgroup_runtime;
 
         /* For Accept=no sockets refers to the one service we'll
          * activate. For Accept=yes sockets is either NULL, or filled

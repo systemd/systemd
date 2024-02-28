@@ -147,7 +147,7 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
 
         const char *path = exec_context_tty_path(context);
 
-        if (p && p->stdin_fd >= 0 && isatty(p->stdin_fd))
+        if (p && p->stdin_fd >= 0 && isatty_safe(p->stdin_fd))
                 fd = p->stdin_fd;
         else if (path && (context->tty_path || is_terminal_input(context->std_input) ||
                         is_terminal_output(context->std_output) || is_terminal_output(context->std_error))) {
@@ -161,9 +161,12 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
          * systemd-vconsole-setup.service also takes the lock to avoid being interrupted. We open a new fd
          * that will be closed automatically, and operate on it for convenience. */
         lock_fd = lock_dev_console();
-        if (lock_fd < 0)
-                return (void) log_debug_errno(lock_fd,
-                                              "Failed to lock /dev/console: %m");
+        if (ERRNO_IS_NEG_PRIVILEGE(lock_fd))
+                log_debug_errno(lock_fd, "No privileges to lock /dev/console, proceeding without: %m");
+        else if (ERRNO_IS_NEG_DEVICE_ABSENT(lock_fd))
+                log_debug_errno(lock_fd, "Device /dev/console does not exist, proceeding without locking it: %m");
+        else if (lock_fd < 0)
+                return (void) log_debug_errno(lock_fd, "Failed to lock /dev/console: %m");
 
         if (context->tty_vhangup)
                 (void) terminal_vhangup_fd(fd);
@@ -356,13 +359,13 @@ int exec_spawn(Unit *unit,
                ExecParameters *params,
                ExecRuntime *runtime,
                const CGroupContext *cgroup_context,
-               pid_t *ret) {
+               PidRef *ret) {
 
         char serialization_fd_number[DECIMAL_STR_MAX(int) + 1];
         _cleanup_free_ char *subcgroup_path = NULL, *log_level = NULL, *executor_path = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        pid_t pid;
         int r;
 
         assert(unit);
@@ -370,20 +373,16 @@ int exec_spawn(Unit *unit,
         assert(unit->manager->executor_fd >= 0);
         assert(command);
         assert(context);
-        assert(ret);
         assert(params);
         assert(params->fds || (params->n_socket_fds + params->n_storage_fds <= 0));
         assert(!params->files_env); /* We fill this field, ensure it comes NULL-initialized to us */
+        assert(ret);
 
         LOG_CONTEXT_PUSH_UNIT(unit);
 
         r = exec_context_load_environment(unit, context, &params->files_env);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to load environment files: %m");
-
-        /* Fork with up-to-date SELinux label database, so the child inherits the up-to-date db
-           and, until the next SELinux policy changes, we save further reloads in future children. */
-        mac_selinux_maybe_reload();
 
         /* We won't know the real executable path until we create the mount namespace in the child, but we
            want to log from the parent, so we use the possibly inaccurate path here. */
@@ -407,8 +406,8 @@ int exec_spawn(Unit *unit,
          * child's memory.max, serialize all the state needed to start the unit, and pass it to the
          * systemd-executor binary. clone() with CLONE_VM + CLONE_VFORK will pause the parent until the exec
          * and ensure all memory is shared. The child immediately execs the new binary so the delay should
-         * be minimal. Once glibc provides a clone3 wrapper we can switch to that, and clone directly in the
-         * target cgroup. */
+         * be minimal. If glibc 2.39 is available pidfd_spawn() is used in order to get a race-free pid fd
+         * and to clone directly into the target cgroup (if we booted with cgroupv2). */
 
         r = open_serialization_file("sd-executor-state", &f);
         if (r < 0)
@@ -433,7 +432,10 @@ int exec_spawn(Unit *unit,
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to set O_CLOEXEC on serialized fds: %m");
 
-        r = log_level_to_string_alloc(log_get_max_level(), &log_level);
+        /* If LogLevelMax= is specified, then let's use the specified log level at the beginning of the
+         * executor process. To achieve that the specified log level is passed as an argument, rather than
+         * the one for the manager process. */
+        r = log_level_to_string_alloc(context->log_level_max >= 0 ? context->log_level_max : log_get_max_level(), &log_level);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to convert log level to string: %m");
 
@@ -451,21 +453,23 @@ int exec_spawn(Unit *unit,
                                   "--log-level", log_level,
                                   "--log-target", log_target_to_string(manager_get_executor_log_target(unit->manager))),
                         environ,
-                        &pid);
+                        cg_unified() > 0 ? subcgroup_path : NULL,
+                        &pidref);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to spawn executor: %m");
-
-        log_unit_debug(unit, "Forked %s as "PID_FMT, command->path, pid);
-
         /* We add the new process to the cgroup both in the child (so that we can be sure that no user code is ever
          * executed outside of the cgroup) and in the parent (so that we can be sure that when we kill the cgroup the
          * process will be killed too). */
-        if (subcgroup_path)
-                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path, pid);
+        if (r == 0 && subcgroup_path)
+                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path, pidref.pid);
+        /* r > 0: Already in the right cgroup thanks to CLONE_INTO_CGROUP */
 
-        exec_status_start(&command->exec_status, pid);
+        log_unit_debug(unit, "Forked %s as " PID_FMT " (%s CLONE_INTO_CGROUP)",
+                       command->path, pidref.pid, r > 0 ? "via" : "without");
 
-        *ret = pid;
+        exec_status_start(&command->exec_status, pidref.pid);
+
+        *ret = TAKE_PIDREF(pidref);
         return 0;
 }
 
@@ -1453,7 +1457,7 @@ void exec_context_revert_tty(ExecContext *c) {
         assert(c);
 
         /* First, reset the TTY (possibly kicking everybody else from the TTY) */
-        exec_context_tty_reset(c, NULL);
+        exec_context_tty_reset(c, /* parameters= */ NULL);
 
         /* And then undo what chown_terminal() did earlier. Note that we only do this if we have a path
          * configured. If the TTY was passed to us as file descriptor we assume the TTY is opened and managed
@@ -1465,7 +1469,7 @@ void exec_context_revert_tty(ExecContext *c) {
         if (!path)
                 return;
 
-        fd = open(path, O_PATH|O_CLOEXEC);
+        fd = open(path, O_PATH|O_CLOEXEC); /* Pin the inode */
         if (fd < 0)
                 return (void) log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
                                              "Failed to open TTY inode of '%s' to adjust ownership/access mode, ignoring: %m",
@@ -1484,7 +1488,7 @@ void exec_context_revert_tty(ExecContext *c) {
 
         r = fchmod_and_chown(fd, TTY_MODE, 0, TTY_GID);
         if (r < 0)
-                log_warning_errno(r, "Failed to reset TTY ownership/access mode of %s, ignoring: %m", path);
+                log_warning_errno(r, "Failed to reset TTY ownership/access mode of %s to " UID_FMT ":" GID_FMT ", ignoring: %m", path, (uid_t) 0, (gid_t) TTY_GID);
 }
 
 int exec_context_get_clean_directories(
@@ -1658,6 +1662,15 @@ uint64_t exec_context_get_timer_slack_nsec(const ExecContext *c) {
                 log_debug_errno(r, "Failed to get timer slack, ignoring: %m");
 
         return (uint64_t) MAX(r, 0);
+}
+
+bool exec_context_get_set_login_environment(const ExecContext *c) {
+        assert(c);
+
+        if (c->set_login_environment >= 0)
+                return c->set_login_environment;
+
+        return c->user || c->dynamic_user || c->pam_name;
 }
 
 char** exec_context_get_syscall_filter(const ExecContext *c) {
@@ -1954,8 +1967,7 @@ static char *destroy_tree(char *path) {
 }
 
 void exec_shared_runtime_done(ExecSharedRuntime *rt) {
-        if (!rt)
-                return;
+        assert(rt);
 
         if (rt->manager)
                 (void) hashmap_remove(rt->manager->exec_shared_runtime_by_id, rt->id);
@@ -1968,8 +1980,10 @@ void exec_shared_runtime_done(ExecSharedRuntime *rt) {
 }
 
 static ExecSharedRuntime* exec_shared_runtime_free(ExecSharedRuntime *rt) {
-        exec_shared_runtime_done(rt);
+        if (!rt)
+                return NULL;
 
+        exec_shared_runtime_done(rt);
         return mfree(rt);
 }
 
@@ -2093,15 +2107,13 @@ static int exec_shared_runtime_make(
                         return r;
         }
 
-        if (exec_needs_network_namespace(c)) {
+        if (exec_needs_network_namespace(c))
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, netns_storage_socket) < 0)
                         return -errno;
-        }
 
-        if (exec_needs_ipc_namespace(c)) {
+        if (exec_needs_ipc_namespace(c))
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, ipcns_storage_socket) < 0)
                         return -errno;
-        }
 
         r = exec_shared_runtime_add(m, id, &tmp_dir, &var_tmp_dir, netns_storage_socket, ipcns_storage_socket, ret);
         if (r < 0)
@@ -2491,7 +2503,7 @@ void exec_params_shallow_clear(ExecParameters *p) {
         p->fds = mfree(p->fds);
         p->exec_fd = safe_close(p->exec_fd);
         p->user_lookup_fd = -EBADF;
-        p->bpf_outer_map_fd = -EBADF;
+        p->bpf_restrict_fs_map_fd = -EBADF;
         p->unit_id = mfree(p->unit_id);
         p->invocation_id = SD_ID128_NULL;
         p->invocation_id_string[0] = '\0';

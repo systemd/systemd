@@ -187,8 +187,8 @@ int network_verify(Network *network) {
                         log_warning("%s: Cannot set routes when Bond= is specified, ignoring routes.",
                                     network->filename);
 
-                network->addresses_by_section = ordered_hashmap_free_with_destructor(network->addresses_by_section, address_free);
-                network->routes_by_section = hashmap_free_with_destructor(network->routes_by_section, route_free);
+                network->addresses_by_section = ordered_hashmap_free(network->addresses_by_section);
+                network->routes_by_section = hashmap_free(network->routes_by_section);
         }
 
         if (network->link_local < 0) {
@@ -225,11 +225,8 @@ int network_verify(Network *network) {
             network->ipv6ll_address_gen_mode < 0)
                 network->ipv6ll_address_gen_mode = IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY;
 
-        /* IPMasquerade implies IPForward */
-        network->ip_forward |= network->ip_masquerade;
-
         network_adjust_ipv6_proxy_ndp(network);
-        network_adjust_ipv6_accept_ra(network);
+        network_adjust_ndisc(network);
         network_adjust_dhcp(network);
         network_adjust_radv(network);
         network_adjust_bridge_vlan(network);
@@ -274,10 +271,8 @@ int network_verify(Network *network) {
                 network->ignore_carrier_loss_usec = USEC_INFINITY;
         }
 
-        if (!network->ignore_carrier_loss_set) {
-                network->ignore_carrier_loss_set = true;
+        if (!network->ignore_carrier_loss_set) /* Set implied default. */
                 network->ignore_carrier_loss_usec = network->configure_without_carrier ? USEC_INFINITY : 0;
-        }
 
         if (IN_SET(network->activation_policy, ACTIVATION_POLICY_DOWN, ACTIVATION_POLICY_ALWAYS_DOWN, ACTIVATION_POLICY_MANUAL)) {
                 if (network->required_for_online < 0 ||
@@ -306,7 +301,9 @@ int network_verify(Network *network) {
         if (r < 0)
                 return r; /* network_drop_invalid_addresses() logs internally. */
         network_drop_invalid_routes(network);
-        network_drop_invalid_nexthops(network);
+        r = network_drop_invalid_nexthops(network);
+        if (r < 0)
+                return r;
         network_drop_invalid_bridge_fdb_entries(network);
         network_drop_invalid_bridge_mdb_entries(network);
         r = network_drop_invalid_neighbors(network);
@@ -372,7 +369,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .n_ref = 1,
 
                 .required_for_online = -1,
-                .required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT,
+                .required_operstate_for_online = LINK_OPERSTATE_RANGE_INVALID,
                 .activation_policy = _ACTIVATION_POLICY_INVALID,
                 .group = -1,
                 .arp = -1,
@@ -450,6 +447,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .priority = LINK_BRIDGE_PORT_PRIORITY_INVALID,
                 .multicast_router = _MULTICAST_ROUTER_INVALID,
 
+                .bridge_vlan_pvid = BRIDGE_VLAN_KEEP_PVID,
+
                 .lldp_mode = LLDP_MODE_ROUTERS_ONLY,
                 .lldp_multicast_mode = _SD_LLDP_MULTICAST_MODE_INVALID,
 
@@ -463,29 +462,33 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .link_local = _ADDRESS_FAMILY_INVALID,
                 .ipv6ll_address_gen_mode = _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID,
 
+                .ip_forwarding = { -1, -1, },
                 .ipv4_accept_local = -1,
                 .ipv4_route_localnet = -1,
                 .ipv6_privacy_extensions = _IPV6_PRIVACY_EXTENSIONS_INVALID,
                 .ipv6_dad_transmits = -1,
                 .ipv6_proxy_ndp = -1,
                 .proxy_arp = -1,
+                .proxy_arp_pvlan = -1,
                 .ipv4_rp_filter = _IP_REVERSE_PATH_FILTER_INVALID,
 
-                .ipv6_accept_ra = -1,
-                .ipv6_accept_ra_use_dns = true,
-                .ipv6_accept_ra_use_gateway = true,
-                .ipv6_accept_ra_use_captive_portal = true,
-                .ipv6_accept_ra_use_route_prefix = true,
-                .ipv6_accept_ra_use_autonomous_prefix = true,
-                .ipv6_accept_ra_use_onlink_prefix = true,
-                .ipv6_accept_ra_use_mtu = true,
-                .ipv6_accept_ra_use_hop_limit = true,
-                .ipv6_accept_ra_use_icmp6_ratelimit = true,
-                .ipv6_accept_ra_route_table = RT_TABLE_MAIN,
-                .ipv6_accept_ra_route_metric_high = IPV6RA_ROUTE_METRIC_HIGH,
-                .ipv6_accept_ra_route_metric_medium = IPV6RA_ROUTE_METRIC_MEDIUM,
-                .ipv6_accept_ra_route_metric_low = IPV6RA_ROUTE_METRIC_LOW,
-                .ipv6_accept_ra_start_dhcp6_client = IPV6_ACCEPT_RA_START_DHCP6_CLIENT_YES,
+                .ndisc = -1,
+                .ndisc_use_dns = true,
+                .ndisc_use_gateway = true,
+                .ndisc_use_captive_portal = true,
+                .ndisc_use_route_prefix = true,
+                .ndisc_use_autonomous_prefix = true,
+                .ndisc_use_onlink_prefix = true,
+                .ndisc_use_mtu = true,
+                .ndisc_use_hop_limit = true,
+                .ndisc_use_reachable_time = true,
+                .ndisc_use_retransmission_time = true,
+                .ndisc_use_icmp6_ratelimit = true,
+                .ndisc_route_table = RT_TABLE_MAIN,
+                .ndisc_route_metric_high = IPV6RA_ROUTE_METRIC_HIGH,
+                .ndisc_route_metric_medium = IPV6RA_ROUTE_METRIC_MEDIUM,
+                .ndisc_route_metric_low = IPV6RA_ROUTE_METRIC_LOW,
+                .ndisc_start_dhcp6_client = IPV6_ACCEPT_RA_START_DHCP6_CLIENT_YES,
 
                 .can_termination = -1,
 
@@ -632,7 +635,15 @@ int network_reload(Manager *manager) {
         ordered_hashmap_free_with_destructor(manager->networks, network_unref);
         manager->networks = new_networks;
 
-        return manager_build_dhcp_pd_subnet_ids(manager);
+        r = manager_build_dhcp_pd_subnet_ids(manager);
+        if (r < 0)
+                return r;
+
+        r = manager_build_nexthop_ids(manager);
+        if (r < 0)
+                return r;
+
+        return 0;
 
 failure:
         ordered_hashmap_free_with_destructor(new_networks, network_unref);
@@ -769,12 +780,12 @@ static Network *network_free(Network *network) {
 
         /* static configs */
         set_free_free(network->ipv6_proxy_ndp_addresses);
-        ordered_hashmap_free_with_destructor(network->addresses_by_section, address_free);
-        hashmap_free_with_destructor(network->routes_by_section, route_free);
-        hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
+        ordered_hashmap_free(network->addresses_by_section);
+        hashmap_free(network->routes_by_section);
+        ordered_hashmap_free(network->nexthops_by_section);
         hashmap_free_with_destructor(network->bridge_fdb_entries_by_section, bridge_fdb_free);
         hashmap_free_with_destructor(network->bridge_mdb_entries_by_section, bridge_mdb_free);
-        ordered_hashmap_free_with_destructor(network->neighbors_by_section, neighbor_free);
+        ordered_hashmap_free(network->neighbors_by_section);
         hashmap_free_with_destructor(network->address_labels_by_section, address_label_free);
         hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
         hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
@@ -1202,8 +1213,6 @@ int config_parse_required_for_online(
                 void *userdata) {
 
         Network *network = ASSERT_PTR(userdata);
-        LinkOperationalStateRange range;
-        bool required = true;
         int r;
 
         assert(filename);
@@ -1212,11 +1221,11 @@ int config_parse_required_for_online(
 
         if (isempty(rvalue)) {
                 network->required_for_online = -1;
-                network->required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT;
+                network->required_operstate_for_online = LINK_OPERSTATE_RANGE_INVALID;
                 return 0;
         }
 
-        r = parse_operational_state_range(rvalue, &range);
+        r = parse_operational_state_range(rvalue, &network->required_operstate_for_online);
         if (r < 0) {
                 r = parse_boolean(rvalue);
                 if (r < 0) {
@@ -1226,13 +1235,12 @@ int config_parse_required_for_online(
                         return 0;
                 }
 
-                required = r;
-                range = LINK_OPERSTATE_RANGE_DEFAULT;
+                network->required_for_online = r;
+                network->required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT;
+                return 0;
         }
 
-        network->required_for_online = required;
-        network->required_operstate_for_online = range;
-
+        network->required_for_online = true;
         return 0;
 }
 

@@ -3,6 +3,6 @@
 Description=Test for IgnoreSIGPIPE=no
 
 [Service]
-ExecStart=/bin/sh -x -c 'kill -PIPE 0'
+ExecStart=sh -x -c 'kill -PIPE 0'
 Type=oneshot
 IgnoreSIGPIPE=no

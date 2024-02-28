@@ -28,6 +28,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "sync-util.h"
+#include "terminal-util.h"
 #include "tmpfile-util.h"
 
 /* The maximum size of the file we'll read in one go in read_full_file() (64M). */
@@ -199,6 +200,19 @@ int write_string_stream_ts(
         return 0;
 }
 
+static mode_t write_string_file_flags_to_mode(WriteStringFileFlags flags) {
+
+        /* We support three different modes, that are the ones that really make sense for text files like this:
+         *
+         *     → 0600 (i.e. root-only)
+         *     → 0444 (i.e. read-only)
+         *     → 0644 (i.e. writable for root, readable for everyone else)
+         */
+
+        return FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0600) ? 0600 :
+                FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0444) ? 0444 : 0644;
+}
+
 static int write_string_file_atomic_at(
                 int dir_fd,
                 const char *fn,
@@ -224,7 +238,7 @@ static int write_string_file_atomic_at(
         if (r < 0)
                 goto fail;
 
-        r = fchmod_umask(fileno(f), FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0600) ? 0600 : 0644);
+        r = fchmod_umask(fileno(f), write_string_file_flags_to_mode(flags));
         if (r < 0)
                 goto fail;
 
@@ -287,7 +301,7 @@ int write_string_file_ts_at(
                     (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
                     (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
                     (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY),
-                    (FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0600) ? 0600 : 0666));
+                    write_string_file_flags_to_mode(flags));
         if (fd < 0) {
                 r = -errno;
                 goto fail;
@@ -1313,33 +1327,31 @@ int read_timestamp_file(const char *fn, usec_t *ret) {
         return 0;
 }
 
-int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space) {
-        int r;
-
+int fputs_with_separator(FILE *f, const char *s, const char *separator, bool *space) {
         assert(s);
+        assert(space);
 
-        /* Outputs the specified string with fputs(), but optionally prefixes it with a separator. The *space parameter
-         * when specified shall initially point to a boolean variable initialized to false. It is set to true after the
-         * first invocation. This call is supposed to be use in loops, where a separator shall be inserted between each
-         * element, but not before the first one. */
+        /* Outputs the specified string with fputs(), but optionally prefixes it with a separator.
+         * The *space parameter when specified shall initially point to a boolean variable initialized
+         * to false. It is set to true after the first invocation. This call is supposed to be use in loops,
+         * where a separator shall be inserted between each element, but not before the first one. */
 
         if (!f)
                 f = stdout;
 
-        if (space) {
-                if (!separator)
-                        separator = " ";
+        if (!separator)
+                separator = " ";
 
-                if (*space) {
-                        r = fputs(separator, f);
-                        if (r < 0)
-                                return r;
-                }
+        if (*space)
+                if (fputs(separator, f) < 0)
+                        return -EIO;
 
-                *space = true;
-        }
+        *space = true;
 
-        return fputs(s, f);
+        if (fputs(s, f) < 0)
+                return -EIO;
+
+        return 0;
 }
 
 /* A bitmask of the EOL markers we know */
@@ -1459,7 +1471,7 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
                                                      * and don't call isatty() on an invalid fd */
                                                 flags |= READ_LINE_NOT_A_TTY;
                                         else
-                                                flags |= isatty(fd) ? READ_LINE_IS_A_TTY : READ_LINE_NOT_A_TTY;
+                                                flags |= isatty_safe(fd) ? READ_LINE_IS_A_TTY : READ_LINE_NOT_A_TTY;
                                 }
                                 if (FLAGS_SET(flags, READ_LINE_IS_A_TTY))
                                         break;

@@ -248,7 +248,7 @@ int mac_selinux_access_check_internal(
                 tclass = "system";
         }
 
-        sd_bus_creds_get_cmdline(creds, &cmdline);
+        (void) sd_bus_creds_get_cmdline(creds, &cmdline);
         cl = strv_join(cmdline, " ");
 
         struct audit_info audit_info = {

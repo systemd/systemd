@@ -640,8 +640,8 @@ _public_ int sd_bus_set_property(
 }
 
 _public_ int sd_bus_query_sender_creds(sd_bus_message *call, uint64_t mask, sd_bus_creds **ret) {
+        uint64_t missing;
         sd_bus_creds *c;
-        int r;
 
         assert_return(call, -EINVAL);
         assert_return(call->sealed, -EPERM);
@@ -653,36 +653,22 @@ _public_ int sd_bus_query_sender_creds(sd_bus_message *call, uint64_t mask, sd_b
                 return -ENOTCONN;
 
         c = sd_bus_message_get_creds(call);
-
-        /* All data we need? */
-        if (c && (mask & ~SD_BUS_CREDS_AUGMENT & ~c->mask) == 0) {
+        if (c)
+                missing = mask & ~SD_BUS_CREDS_AUGMENT & ~c->mask;
+        else
+                missing = mask & ~SD_BUS_CREDS_AUGMENT;
+        if (missing == 0) { /* All data we need? */
                 *ret = sd_bus_creds_ref(c);
                 return 0;
         }
 
-        /* No data passed? Or not enough data passed to retrieve the missing bits? */
-        if (!c || !(c->mask & SD_BUS_CREDS_PID)) {
-                /* We couldn't read anything from the call, let's try
-                 * to get it from the sender or peer. */
+        /* There's a sender, use that */
+        if (call->sender && call->bus->bus_client)
+                return sd_bus_get_name_creds(call->bus, call->sender, mask, ret);
 
-                if (call->sender)
-                        /* There's a sender, but the creds are missing. */
-                        return sd_bus_get_name_creds(call->bus, call->sender, mask, ret);
-                else
-                        /* There's no sender. For direct connections
-                         * the credentials of the AF_UNIX peer matter,
-                         * which may be queried via sd_bus_get_owner_creds(). */
-                        return sd_bus_get_owner_creds(call->bus, mask, ret);
-        }
-
-        r = bus_creds_extend_by_pid(c, mask, ret);
-        if (r == -ESRCH) {
-                /* Process doesn't exist anymore? propagate the few things we have */
-                *ret = sd_bus_creds_ref(c);
-                return 0;
-        }
-
-        return r;
+        /* There's no sender. For direct connections the credentials of the AF_UNIX peer matter, which may be
+         * queried via sd_bus_get_owner_creds(). */
+        return sd_bus_get_owner_creds(call->bus, mask, ret);
 }
 
 _public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability) {

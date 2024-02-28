@@ -35,7 +35,7 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "tmpfile-util-label.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "uid-range.h"
 #include "user-util.h"
 #include "utf8.h"
@@ -117,7 +117,7 @@ typedef struct Context {
         Set *names;
 
         uid_t search_uid;
-        UidRange *uid_range;
+        UIDRange *uid_range;
 
         UGIDAllocationRange login_defs;
         bool login_defs_need_warning;
@@ -140,20 +140,6 @@ static void context_done(Context *c) {
         set_free_free(c->names);
         uid_range_free(c->uid_range);
 }
-
-static int errno_is_not_exists(int code) {
-        /* See getpwnam(3) and getgrnam(3): those codes and others can be returned if the user or group are
-         * not found. */
-        return IN_SET(code, 0, ENOENT, ESRCH, EBADF, EPERM);
-}
-
-/* Note: the lifetime of the compound literal is the immediately surrounding block,
- * see C11 §6.5.2.5, and
- * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks */
-#define FORMAT_UID(is_set, uid) \
-        ((is_set) ? snprintf_ok((char[DECIMAL_STR_MAX(uid_t)]){}, DECIMAL_STR_MAX(uid_t), UID_FMT, uid) : "(unset)")
-#define FORMAT_GID(is_set, gid) \
-        ((is_set) ? snprintf_ok((char[DECIMAL_STR_MAX(gid_t)]){}, DECIMAL_STR_MAX(gid_t), GID_FMT, gid) : "(unset)")
 
 static void maybe_emit_login_defs_warning(Context *c) {
         assert(c);
@@ -347,6 +333,7 @@ static int putgrent_with_members(
                 FILE *group) {
 
         char **a;
+        int r;
 
         assert(c);
         assert(gr);
@@ -365,15 +352,15 @@ static int putgrent_with_members(
                         if (strv_contains(l, *i))
                                 continue;
 
-                        if (strv_extend(&l, *i) < 0)
-                                return -ENOMEM;
+                        r = strv_extend(&l, *i);
+                        if (r < 0)
+                                return r;
 
                         added = true;
                 }
 
                 if (added) {
                         struct group t;
-                        int r;
 
                         strv_uniq(l);
                         strv_sort(l);
@@ -396,6 +383,7 @@ static int putsgent_with_members(
                 FILE *gshadow) {
 
         char **a;
+        int r;
 
         assert(sg);
         assert(gshadow);
@@ -413,15 +401,15 @@ static int putsgent_with_members(
                         if (strv_contains(l, *i))
                                 continue;
 
-                        if (strv_extend(&l, *i) < 0)
-                                return -ENOMEM;
+                        r = strv_extend(&l, *i);
+                        if (r < 0)
+                                return r;
 
                         added = true;
                 }
 
                 if (added) {
                         struct sgrp t;
-                        int r;
 
                         strv_uniq(l);
                         strv_sort(l);
@@ -1026,6 +1014,7 @@ static int uid_is_ok(
                 const char *name,
                 bool check_with_gid) {
 
+        int r;
         assert(c);
 
         /* Let's see if we already have assigned the UID a second time */
@@ -1056,24 +1045,21 @@ static int uid_is_ok(
 
         /* Let's also check via NSS, to avoid UID clashes over LDAP and such, just in case */
         if (!arg_root) {
-                struct passwd *p;
-                struct group *g;
+                _cleanup_free_ struct group *g = NULL;
 
-                errno = 0;
-                p = getpwuid(uid);
-                if (p)
+                r = getpwuid_malloc(uid, /* ret= */ NULL);
+                if (r >= 0)
                         return 0;
-                if (!IN_SET(errno, 0, ENOENT))
-                        return -errno;
+                if (r != -ESRCH)
+                        return r;
 
                 if (check_with_gid) {
-                        errno = 0;
-                        g = getgrgid((gid_t) uid);
-                        if (g) {
+                        r = getgrgid_malloc((gid_t) uid, &g);
+                        if (r >= 0) {
                                 if (!streq(g->gr_name, name))
                                         return 0;
-                        } else if (!IN_SET(errno, 0, ENOENT))
-                                return -errno;
+                        } else if (r != -ESRCH)
+                                return r;
                 }
         }
 
@@ -1162,12 +1148,11 @@ static int add_user(Context *c, Item *i) {
         }
 
         if (!arg_root) {
-                struct passwd *p;
+                _cleanup_free_ struct passwd *p = NULL;
 
                 /* Also check NSS */
-                errno = 0;
-                p = getpwnam(i->name);
-                if (p) {
+                r = getpwnam_malloc(i->name, &p);
+                if (r >= 0) {
                         log_debug("User %s already exists.", i->name);
                         i->uid = p->pw_uid;
                         i->uid_set = true;
@@ -1178,8 +1163,8 @@ static int add_user(Context *c, Item *i) {
 
                         return 0;
                 }
-                if (!errno_is_not_exists(errno))
-                        return log_error_errno(errno, "Failed to check if user %s already exists: %m", i->name);
+                if (r != -ESRCH)
+                        return log_error_errno(r, "Failed to check if user %s already exists: %m", i->name);
         }
 
         /* Try to use the suggested numeric UID */
@@ -1268,10 +1253,9 @@ static int gid_is_ok(
                 const char *groupname,
                 bool check_with_uid) {
 
-        struct group *g;
-        struct passwd *p;
         Item *user;
         char *username;
+        int r;
 
         assert(c);
         assert(groupname);
@@ -1296,20 +1280,18 @@ static int gid_is_ok(
         }
 
         if (!arg_root) {
-                errno = 0;
-                g = getgrgid(gid);
-                if (g)
+                r = getgrgid_malloc(gid, /* ret= */ NULL);
+                if (r >= 0)
                         return 0;
-                if (!IN_SET(errno, 0, ENOENT))
-                        return -errno;
+                if (r != -ESRCH)
+                        return r;
 
                 if (check_with_uid) {
-                        errno = 0;
-                        p = getpwuid((uid_t) gid);
-                        if (p)
+                        r = getpwuid_malloc(gid, /* ret= */ NULL);
+                        if (r >= 0)
                                 return 0;
-                        if (!IN_SET(errno, 0, ENOENT))
-                                return -errno;
+                        if (r != -ESRCH)
+                                return r;
                 }
         }
 
@@ -1322,6 +1304,7 @@ static int get_gid_by_name(
                 gid_t *ret_gid) {
 
         void *z;
+        int r;
 
         assert(c);
         assert(ret_gid);
@@ -1335,16 +1318,15 @@ static int get_gid_by_name(
 
         /* Also check NSS */
         if (!arg_root) {
-                struct group *g;
+                _cleanup_free_ struct group *g = NULL;
 
-                errno = 0;
-                g = getgrnam(name);
-                if (g) {
+                r = getgrnam_malloc(name, &g);
+                if (r >= 0) {
                         *ret_gid = g->gr_gid;
                         return 0;
                 }
-                if (!errno_is_not_exists(errno))
-                        return log_error_errno(errno, "Failed to check if group %s already exists: %m", name);
+                if (r != -ESRCH)
+                        return log_error_errno(r, "Failed to check if group %s already exists: %m", name);
         }
 
         return -ENOENT;
@@ -1630,7 +1612,8 @@ static int item_equivalent(Item *a, Item *b) {
             (a->uid_set && a->uid != b->uid)) {
                 log_syntax(NULL, LOG_DEBUG, a->filename, a->line, 0,
                            "Item not equivalent because UIDs differ (%s vs. %s)",
-                           FORMAT_UID(a->uid_set, a->uid), FORMAT_UID(b->uid_set, b->uid));
+                           a->uid_set ? FORMAT_UID(a->uid) : "(unset)",
+                           b->uid_set ? FORMAT_UID(b->uid) : "(unset)");
                 return false;
         }
 
@@ -1638,7 +1621,8 @@ static int item_equivalent(Item *a, Item *b) {
             (a->gid_set && a->gid != b->gid)) {
                 log_syntax(NULL, LOG_DEBUG, a->filename, a->line, 0,
                            "Item not equivalent because GIDs differ (%s vs. %s)",
-                           FORMAT_GID(a->gid_set, a->gid), FORMAT_GID(b->gid_set, b->gid));
+                           a->gid_set ? FORMAT_GID(a->gid) : "(unset)",
+                           b->gid_set ? FORMAT_GID(b->gid) : "(unset)");
                 return false;
         }
 
@@ -1690,11 +1674,13 @@ static int item_equivalent(Item *a, Item *b) {
 }
 
 static int parse_line(
-                Context *c,
                 const char *fname,
                 unsigned line,
-                const char *buffer) {
+                const char *buffer,
+                bool *invalid_config,
+                void *context) {
 
+        Context *c = ASSERT_PTR(context);
         _cleanup_free_ char *action = NULL,
                 *name = NULL, *resolved_name = NULL,
                 *id = NULL, *resolved_id = NULL,
@@ -1707,10 +1693,10 @@ static int parse_line(
         int r;
         const char *p;
 
-        assert(c);
         assert(fname);
         assert(line >= 1);
         assert(buffer);
+        assert(!invalid_config); /* We don't support invalid_config yet. */
 
         /* Parse columns */
         p = buffer;
@@ -1979,57 +1965,14 @@ static int parse_line(
 }
 
 static int read_config_file(Context *c, const char *fn, bool ignore_enoent) {
-        _cleanup_fclose_ FILE *rf = NULL;
-        _cleanup_free_ char *pp = NULL;
-        FILE *f = NULL;
-        unsigned v = 0;
-        int r = 0;
-
-        assert(c);
-        assert(fn);
-
-        if (streq(fn, "-"))
-                f = stdin;
-        else {
-                r = search_and_fopen(fn, "re", arg_root, (const char**) CONF_PATHS_STRV("sysusers.d"), &rf, &pp);
-                if (r < 0) {
-                        if (ignore_enoent && r == -ENOENT)
-                                return 0;
-
-                        return log_error_errno(r, "Failed to open '%s', ignoring: %m", fn);
-                }
-
-                f = rf;
-                fn = pp;
-        }
-
-        for (;;) {
-                _cleanup_free_ char *line = NULL;
-                int k;
-
-                k = read_stripped_line(f, LONG_LINE_MAX, &line);
-                if (k < 0)
-                        return log_error_errno(k, "Failed to read '%s': %m", fn);
-                if (k == 0)
-                        break;
-
-                v++;
-
-                if (IN_SET(line[0], 0, '#'))
-                        continue;
-
-                k = parse_line(c, fn, v, line);
-                if (k < 0 && r == 0)
-                        r = k;
-        }
-
-        if (ferror(f)) {
-                log_error_errno(errno, "Failed to read from file %s: %m", fn);
-                if (r == 0)
-                        r = -EIO;
-        }
-
-        return r;
+        return conf_file_read(
+                        arg_root,
+                        (const char**) CONF_PATHS_STRV("sysusers.d"),
+                        ASSERT_PTR(fn),
+                        parse_line,
+                        ASSERT_PTR(c),
+                        ignore_enoent,
+                        /* invalid_config= */ NULL);
 }
 
 static int cat_config(void) {
@@ -2150,10 +2093,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_REPLACE:
-                        if (!path_is_absolute(optarg) ||
-                            !endswith(optarg, ".conf"))
+                        if (!path_is_absolute(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "The argument to --replace= must an absolute path to a config file");
+                                                       "The argument to --replace= must be an absolute path.");
+                        if (!endswith(optarg, ".conf"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "The argument to --replace= must have the extension '.conf'.");
 
                         arg_replace = optarg;
                         break;
@@ -2201,7 +2146,7 @@ static int parse_arguments(Context *c, char **args) {
         STRV_FOREACH(arg, args) {
                 if (arg_inline)
                         /* Use (argument):n, where n==1 for the first positional arg */
-                        r = parse_line(c, "(argument)", pos, *arg);
+                        r = parse_line("(argument)", pos, *arg, /* invalid_config= */ NULL, c);
                 else
                         r = read_config_file(c, *arg, /* ignore_enoent= */ false);
                 if (r < 0)

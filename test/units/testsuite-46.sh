@@ -156,9 +156,7 @@ PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
 (! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz)
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- touch /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz
-PASSWORD=xEhErW0ndafV4s homectl with test-user -- rm /home/test-user/xyz
-PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
-(! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz)
+# CAREFUL adding more `homectl with` tests here. Auth can get rate-limited and cause the tests to fail.
 
 wait_for_state test-user inactive
 homectl remove test-user
@@ -169,6 +167,139 @@ if ! systemd-detect-virt -cq ; then
     wait_for_state test-user2 inactive
     homectl remove test-user2
 fi
+
+# blob directory tests
+# See docs/USER_RECORD_BLOB_DIRS.md
+checkblob() {
+        test -f "/var/cache/systemd/home/blob-user/$1"
+        stat -c "%u %#a" "/var/cache/systemd/home/blob-user/$1" | grep "^0 0644"
+        test -f "/home/blob-user/.identity-blob/$1"
+        stat -c "%u %#a" "/home/blob-user/.identity-blob/$1" | grep "^12345 0644"
+
+        diff "/var/cache/systemd/home/blob-user/$1" "$2"
+        diff "/var/cache/systemd/home/blob-user/$1" "/home/blob-user/.identity-blob/$1"
+}
+
+mkdir /tmp/blob1 /tmp/blob2
+echo data1 blob1 > /tmp/blob1/test1
+echo data1 blob2 > /tmp/blob2/test1
+echo data2 blob1 > /tmp/blob1/test2
+echo data2 blob2 > /tmp/blob2/test2
+echo invalid filename > /tmp/blob1/файл
+echo data3 > /tmp/external-test3
+echo avatardata > /tmp/external-avatar
+ln -s /tmp/external-avatar /tmp/external-avatar-lnk
+dd if=/dev/urandom of=/tmp/external-barely-fits bs=1M count=64
+dd if=/dev/urandom of=/tmp/external-toobig bs=1M count=65
+
+# create w/ prepopulated blob dir
+NEWPASSWORD=EMJuc3zQaMibJo homectl create blob-user \
+           --disk-size=min --luks-discard=yes \
+           --luks-pbkdf-type=pbkdf2 --luks-pbkdf-time-cost=1ms \
+           --uid=12345 \
+           --blob=/tmp/blob1
+inspect blob-user
+PASSWORD=EMJuc3zQaMibJo homectl activate blob-user
+inspect blob-user
+
+test -d /var/cache/systemd/home/blob-user
+stat -c "%u %#a" /var/cache/systemd/home/blob-user | grep "^0 0755"
+test -d /home/blob-user/.identity-blob
+stat -c "%u %#a" /home/blob-user/.identity-blob | grep "^12345 0700"
+
+checkblob test1 /tmp/blob1/test1
+(! checkblob test1 /tmp/blob2/test1 )
+checkblob test2 /tmp/blob1/test2
+(! checkblob test2 /tmp/blob2/test2 )
+(! checkblob фаил /tmp/blob1/фаил )
+(! checkblob test3 /tmp/external-test3 )
+(! checkblob avatar /tmp/external-avatar )
+
+# append files to existing blob, both well-known and other
+PASSWORD=EMJuc3zQaMibJo homectl update blob-user \
+        -b test3=/tmp/external-test3 --avatar=/tmp/external-avatar
+inspect blob-user
+checkblob test1 /tmp/blob1/test1
+(! checkblob test1 /tmp/blob2/test1 )
+checkblob test2 /tmp/blob1/test2
+(! checkblob test2 /tmp/blob2/test2 )
+(! checkblob фаил /tmp/blob1/фаил )
+checkblob test3 /tmp/external-test3
+checkblob avatar /tmp/external-avatar
+
+# delete files from existing blob, both well-known and other
+PASSWORD=EMJuc3zQaMibJo homectl update blob-user \
+        -b test3= --avatar=
+inspect blob-user
+checkblob test1 /tmp/blob1/test1
+(! checkblob test1 /tmp/blob2/test1 )
+checkblob test2 /tmp/blob1/test2
+(! checkblob test2 /tmp/blob2/test2 )
+(! checkblob фаил /tmp/blob1/фаил )
+(! checkblob test3 /tmp/external-test3 )
+(! checkblob avatar /tmp/external-avatar )
+
+# swap entire blob directory
+PASSWORD=EMJuc3zQaMibJo homectl update blob-user \
+        -b /tmp/blob2
+inspect blob-user
+(! checkblob test1 /tmp/blob1/test1 )
+checkblob test1 /tmp/blob2/test1
+(! checkblob test2 /tmp/blob1/test2 )
+checkblob test2 /tmp/blob2/test2
+(! checkblob фаил /tmp/blob1/фаил )
+(! checkblob test3 /tmp/external-test3 )
+(! checkblob avatar /tmp/external-avatar )
+
+# create and delete files while swapping blob directory. Also symlinks.
+PASSWORD=EMJuc3zQaMibJo homectl update blob-user \
+        -b /tmp/blob1 -b test2= -b test3=/tmp/external-test3 --avatar=/tmp/external-avatar-lnk
+inspect blob-user
+checkblob test1 /tmp/blob1/test1
+(! checkblob test1 /tmp/blob2/test1 )
+(! checkblob test2 /tmp/blob1/test2 )
+(! checkblob test2 /tmp/blob2/test2 )
+(! checkblob фаил /tmp/blob1/фаил )
+checkblob test3 /tmp/external-test3
+checkblob avatar /tmp/external-avatar # target of the link
+
+# clear the blob directory
+PASSWORD=EMJuc3zQaMibJo homectl update blob-user \
+        -b /tmp/blob2 -b test3=/tmp/external-test3 --blob=
+inspect blob-user
+(! checkblob test1 /tmp/blob1/test1 )
+(! checkblob test1 /tmp/blob2/test1 )
+(! checkblob test2 /tmp/blob1/test2 )
+(! checkblob test2 /tmp/blob2/test2 )
+(! checkblob фаил /tmp/blob1/фаил )
+(! checkblob test3 /tmp/external-test3 )
+(! checkblob avatar /tmp/external-avatar )
+
+# file that's exactly 64M still fits
+PASSWORD=EMJuc3zQaMibJo homectl update blob-user \
+        -b barely-fits=/tmp/external-barely-fits
+(! checkblob test1 /tmp/blob1/test1 )
+(! checkblob test1 /tmp/blob2/test1 )
+(! checkblob test2 /tmp/blob1/test2 )
+(! checkblob test2 /tmp/blob2/test2 )
+(! checkblob фаил /tmp/blob1/фаил )
+(! checkblob test3 /tmp/external-test3 )
+(! checkblob avatar /tmp/external-avatar )
+checkblob barely-fits /tmp/external-barely-fits
+
+# error out if the file is too big
+(! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b huge=/tmp/external-toobig )
+
+# error out if filenames are invalid
+(! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b .hidden=/tmp/external-test3 )
+(! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b "with spaces=/tmp/external-test3" )
+(! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b with=equals=/tmp/external-test3 )
+(! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b файл=/tmp/external-test3 )
+(! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b special@chars=/tmp/external-test3 )
+
+homectl deactivate blob-user
+wait_for_state blob-user inactive
+homectl remove blob-user
 
 # userdbctl tests
 export PAGER=
@@ -313,6 +444,89 @@ for opt in json multiplexer output synthesize with-dropin with-nss with-varlink;
     (! userdbctl "--$opt=foo")
     (! userdbctl "--$opt=foo" "--$opt=''" "--$opt=🐱")
 done
+
+# FIXME: sshd seems to crash inside asan currently, skip the actual ssh test hence
+if command -v ssh &> /dev/null && command -v sshd &> /dev/null && ! [[ -v ASAN_OPTIONS ]]; then
+
+    at_exit() {
+        systemctl stop mysshserver.socket
+        rm -f /tmp/homed.id_rsa /run/systemd/system/mysshserver.socket /run/systemd/system/mysshserver@.service
+        systemctl daemon-reload
+        homectl remove homedsshtest ||:
+        mv /etc/pam.d/sshd.save46 /etc/pam.d/sshd
+    }
+
+    trap at_exit EXIT
+
+    # Test that SSH logins work with delayed unlocking
+    ssh-keygen -N '' -C '' -t rsa -f /tmp/homed.id_rsa
+    NEWPASSWORD=hunter4711 homectl create \
+                       --disk-size=min \
+                       --luks-discard=yes \
+                       --luks-pbkdf-type=pbkdf2 \
+                       --luks-pbkdf-time-cost=1ms \
+                       --enforce-password-policy=no \
+                       --ssh-authorized-keys=@/tmp/homed.id_rsa.pub \
+                       --stop-delay=0 \
+                       homedsshtest
+
+    mkdir -p /etc/ssh
+    test -f /etc/ssh/ssh_host_rsa_key || ssh-keygen -t rsa -C '' -N '' -f /etc/ssh/ssh_host_rsa_key
+
+    # ssh wants this dir around, but distros cannot agree on a common name for it, let's just create all that are aware of distros use
+    mkdir -p /usr/share/empty.sshd /var/empty /var/empty/sshd
+
+    mv /etc/pam.d/sshd /etc/pam.d/sshd.save46
+
+    cat > /etc/pam.d/sshd <<EOF
+auth    sufficient pam_unix.so nullok
+auth    sufficient pam_systemd_home.so
+auth    required   pam_deny.so
+account sufficient pam_systemd_home.so
+account sufficient pam_unix.so
+account required   pam_permit.so
+session optional   pam_systemd_home.so
+session optional   pam_systemd.so
+session required   pam_unix.so
+EOF
+
+    cat >> /etc/ssh/sshd_config <<EOF
+AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u
+AuthorizedKeysCommandUser root
+UsePAM yes
+AcceptEnv PASSWORD
+LogLevel DEBUG3
+EOF
+
+    cat > /run/systemd/system/mysshserver.socket <<EOF
+[Socket]
+ListenStream=4711
+Accept=yes
+EOF
+
+    cat > /run/systemd/system/mysshserver@.service <<EOF
+[Service]
+ExecStart=-/usr/sbin/sshd -i -d -e
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal
+EOF
+
+    systemctl daemon-reload
+    systemctl start mysshserver.socket
+
+    userdbctl user -j homedsshtest
+
+    ssh -t -t -4 -p 4711 -i /tmp/homed.id_rsa -o "SetEnv PASSWORD=hunter4711" -o "StrictHostKeyChecking no" homedsshtest@localhost echo zzz | tail -n 1 | tr -d '\r' > /tmp/homedsshtest.out
+    cat /tmp/homedsshtest.out
+    test "$(cat /tmp/homedsshtest.out)" = "zzz"
+    rm /tmp/homedsshtest.out
+
+    ssh -t -t -4 -p 4711 -i /tmp/homed.id_rsa -o "SetEnv PASSWORD=hunter4711" -o "StrictHostKeyChecking no" homedsshtest@localhost env
+
+    wait_for_state homedsshtest inactive
+    homectl remove homedsshtest
+fi
 
 systemd-analyze log-level info
 

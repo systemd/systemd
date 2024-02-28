@@ -176,10 +176,7 @@ TEST(getpeercred_getpeergroups) {
                         test_gids = (gid_t*) gids;
                         n_test_gids = ELEMENTSOF(gids);
 
-                        assert_se(setgroups(n_test_gids, test_gids) >= 0);
-                        assert_se(setresgid(test_gid, test_gid, test_gid) >= 0);
-                        assert_se(setresuid(test_uid, test_uid, test_uid) >= 0);
-
+                        assert_se(fully_set_uid_gid(test_uid, test_gid, test_gids, n_test_gids) >= 0);
                 } else {
                         long ngroups_max;
 

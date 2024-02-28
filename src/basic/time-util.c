@@ -1517,7 +1517,7 @@ int get_timezones(char ***ret) {
         /* Always include UTC */
         r = strv_extend(&zones, "UTC");
         if (r < 0)
-                return -ENOMEM;
+                return r;
 
         strv_sort(zones);
         strv_uniq(zones);

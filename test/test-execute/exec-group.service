@@ -3,6 +3,6 @@
 Description=Test for Group (daemon)
 
 [Service]
-ExecStart=/bin/sh -x -c 'test "$$(id -n -g)" = "daemon"'
+ExecStart=sh -x -c 'test "$$(id -n -g)" = "daemon"'
 Type=oneshot
 Group=daemon

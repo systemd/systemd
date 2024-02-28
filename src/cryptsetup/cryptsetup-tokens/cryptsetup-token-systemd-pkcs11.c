@@ -18,7 +18,7 @@
 
 /* for libcryptsetup debug purpose */
 _public_ const char *cryptsetup_token_version(void) {
-        return TOKEN_VERSION_MAJOR "." TOKEN_VERSION_MINOR " systemd-v" STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")";
+        return TOKEN_VERSION_MAJOR "." TOKEN_VERSION_MINOR " systemd-v" PROJECT_VERSION_FULL " (" GIT_VERSION ")";
 }
 
 _public_ int cryptsetup_token_open_pin(
@@ -136,7 +136,7 @@ _public_ int cryptsetup_token_validate(
                 return 1;
         }
 
-        r = unbase64mem(json_variant_string(w), SIZE_MAX, NULL, NULL);
+        r = unbase64mem(json_variant_string(w), NULL, NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Failed to decode base64 encoded key: %m.");
 

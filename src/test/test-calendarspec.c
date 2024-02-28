@@ -254,4 +254,11 @@ TEST(calendar_spec_from_string) {
         assert_se(calendar_spec_from_string("*:4,30:*\n", &c) == -EINVAL);
 }
 
-DEFINE_TEST_MAIN(LOG_INFO);
+static int intro(void) {
+        /* Tests have hard-coded results that do not expect a specific timezone to be set by the caller */
+        assert_se(unsetenv("TZ") >= 0);
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);

@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
@@ -209,21 +209,19 @@
         <term><option>-D</option></term>
         <term><option>--directory=</option></term>
 
-        <listitem><para>Directory to use as file system root for the
-        container.</para>
+        <listitem><para>Directory to use as file system root for the container.</para>
 
-        <para>If neither <option>--directory=</option>, nor
-        <option>--image=</option> is specified the directory is
-        determined by searching for a directory named the same as the
-        machine name specified with <option>--machine=</option>. See
+        <para>If neither <option>--directory=</option>, nor <option>--image=</option> is specified the
+        directory is determined by searching for a directory named the same as the machine name specified
+        with <option>--machine=</option>. See
         <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         section "Files and Directories" for the precise search path.</para>
 
-        <para>If neither <option>--directory=</option>,
-        <option>--image=</option>, nor <option>--machine=</option>
-        are specified, the current directory will
-        be used. May not be specified together with
-        <option>--image=</option>.</para></listitem>
+        <xi:include href="vpick.xml" xpointer="directory"/>
+
+        <para>If neither <option>--directory=</option>, <option>--image=</option>, nor
+        <option>--machine=</option> are specified, the current directory will be used. May not be specified
+        together with <option>--image=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -316,6 +314,8 @@
 
         <para>Any other partitions, such as foreign partitions or swap partitions are not mounted. May not be specified
         together with <option>--directory=</option>, <option>--template=</option>.</para>
+
+        <xi:include href="vpick.xml" xpointer="image"/>
 
         <xi:include href="version-info.xml" xpointer="v211"/></listitem>
       </varlistentry>
@@ -1435,7 +1435,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         and the subdirectory is symlinked into the host at the same
         location. <literal>try-host</literal> and
         <literal>try-guest</literal> do the same but do not fail if
-        the host does not have persistent journaling enabled. If
+        the host does not have persistent journaling enabled, or if
+        the container is in the <option>--ephemeral</option> mode. If
         <literal>auto</literal> (the default), and the right
         subdirectory of <filename>/var/log/journal</filename> exists,
         it will be bind mounted into the container. If the
@@ -1486,12 +1487,12 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <para>Mount options are comma-separated. <option>rbind</option> and <option>norbind</option> control whether
         to create a recursive or a regular bind mount. Defaults to <option>rbind</option>. <option>noidmap</option>,
-        <option>idmap</option>, and <option>rootidmap</option> control ID mapping.</para>
+        <option>idmap</option>, <option>rootidmap</option> and <option>owneridmap</option> control ID mapping.</para>
 
-        <para>Using <option>idmap</option> or <option>rootidmap</option> requires support by the source filesystem
-        for user/group ID mapped mounts. Defaults to <option>noidmap</option>. With <option>x</option> being the container's UID range
-        offset, <option>y</option> being the length of the container's UID range, and <option>p</option> being the
-        owner UID of the bind mount source inode on the host:
+        <para>Using <option>idmap</option>, <option>rootidmap</option> or <option>owneridmap</option> requires support
+        by the source filesystem for user/group ID mapped mounts. Defaults to <option>noidmap</option>. With
+        <option>x</option> being the container's UID range offset, <option>y</option> being the length of the
+        container's UID range, and <option>p</option> being the owner UID of the bind mount source inode on the host:
 
         <itemizedlist>
           <listitem><para>If <option>noidmap</option> is used, any user <option>z</option> in the range
@@ -1507,10 +1508,15 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
           <listitem><para>If <option>rootidmap</option> is used, the user <option>0</option> seen from inside
           of the container is mapped to <option>p</option> on the host. Other host users are mapped to
           <option>nobody</option> inside the container.</para></listitem>
+
+          <listitem><para>If <option>owneridmap</option> is used, the owner of the target directory inside of the
+          container is mapped to <option>p</option> on the host. Other host users are mapped to
+          <option>nobody</option> inside the container.</para></listitem>
         </itemizedlist></para>
 
         <para>Whichever ID mapping option is used, the same mapping will be used for users and groups IDs. If
-        <option>rootidmap</option> is used, the group owning the bind mounted directory will have no effect.</para>
+        <option>rootidmap</option> or <option>owneridmap</option> are used, the group owning the bind mounted directory
+        will have no effect.</para>
 
         <para>Note that when this option is used in combination with <option>--private-users</option>, the resulting
         mount points will be owned by the <constant>nobody</constant> user. That's because the mount and its files and
@@ -1707,6 +1713,21 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--background=<replaceable>COLOR</replaceable></option></term>
+
+        <listitem><para>Change the terminal background color to the specified ANSI color as long as the
+        container runs. The color specified should be an ANSI X3.64 SGR background color, i.e. strings such
+        as <literal>40</literal>, <literal>41</literal>, …, <literal>47</literal>, <literal>48;2;…</literal>,
+        <literal>48;5;…</literal>. See <ulink
+        url="https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters">ANSI
+        Escape Code (Wikipedia)</ulink> for details. Assign an empty string to disable any coloring.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
 
     </refsect2>
@@ -1890,18 +1911,18 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='mankier'><refentrytitle>dnf</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry project='mankier'><refentrytitle>zypper</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs.html'>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='mankier'><refentrytitle>dnf</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='archlinux'><refentrytitle>pacman</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='mankier'><refentrytitle>zypper</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs.html'>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 
 </refentry>

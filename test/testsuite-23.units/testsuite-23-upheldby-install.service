@@ -3,7 +3,7 @@
 Description=Unit that sets UpheldBy= through [Install]
 
 [Service]
-ExecStart=/bin/sleep infinity
+ExecStart=sleep infinity
 
 [Install]
 UpheldBy=testsuite-23-retry-uphold.service

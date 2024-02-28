@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="varlinkctl"
@@ -71,11 +71,16 @@
 
     <itemizedlist>
       <listitem><para>A Varlink service reference starting with the <literal>unix:</literal> string, followed
-      by an absolute <constant>AF_UNIX</constant> path, or by <literal>@</literal> and an arbitrary string
+      by an absolute <constant>AF_UNIX</constant> socket path, or by <literal>@</literal> and an arbitrary string
       (the latter for referencing sockets in the abstract namespace).</para></listitem>
 
       <listitem><para>A Varlink service reference starting with the <literal>exec:</literal> string, followed
       by an absolute path of a binary to execute.</para></listitem>
+
+      <listitem><para>A Varlink service reference starting with the <literal>ssh:</literal> string, followed
+      by an SSH host specification, followed by <literal>:</literal>, followed by an absolute
+      <constant>AF_UNIX</constant> socket path. (This requires OpenSSH 9.4 or newer on the server side,
+      abstract namespace sockets are not supported.)</para></listitem>
     </itemizedlist>
 
     <para>For convenience these two simpler (redundant) service address syntaxes are also supported:</para>
@@ -177,6 +182,15 @@
         reply objects can be easily discerned.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--collect</option></term>
+
+        <listitem><para>This is similar to <option>--more</option> but collects all responses in a JSON
+        array, and prints it, rather than in JSON_SEQ mode.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -307,9 +321,9 @@ method Extend(
   <refsect1>
     <title>See Also</title>
 
-    <para>
-      <citerefentry><refentrytitle>busctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <ulink url="https://varlink.org/">Varlink</ulink>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>busctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><ulink url="https://varlink.org/">Varlink</ulink></member>
+    </simplelist></para>
   </refsect1>
 </refentry>

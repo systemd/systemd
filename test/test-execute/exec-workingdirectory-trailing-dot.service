@@ -3,6 +3,6 @@
 Description=Test for WorkingDirectory with trailing dot
 
 [Service]
-ExecStart=/bin/sh -x -c 'test "$$PWD" = "/tmp/test-exec_workingdirectory"'
+ExecStart=sh -x -c 'test "$$PWD" = "/tmp/test-exec_workingdirectory"'
 Type=oneshot
 WorkingDirectory=/tmp///./test-exec_workingdirectory/.

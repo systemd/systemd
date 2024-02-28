@@ -85,6 +85,7 @@ def main():
     pages = glob.glob(source_glob)
     pages = (p for p in pages
              if Path(p).name not in {
+                     'standard-conf.xml',
                      'systemd.directives.xml',
                      'systemd.index.xml',
                      'directives-template.xml'})

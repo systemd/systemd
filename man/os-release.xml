@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="os-release" xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -22,10 +22,12 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/os-release</filename></para>
-    <para><filename>/usr/lib/os-release</filename></para>
-    <para><filename>/etc/initrd-release</filename></para>
-    <para><filename>/usr/lib/extension-release.d/extension-release.<replaceable>IMAGE</replaceable></filename></para>
+    <para><simplelist>
+      <member><filename>/etc/os-release</filename></member>
+      <member><filename>/usr/lib/os-release</filename></member>
+      <member><filename>/etc/initrd-release</filename></member>
+      <member><filename>/usr/lib/extension-release.d/extension-release.<replaceable>IMAGE</replaceable></filename></member>
+    </simplelist></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -60,7 +62,7 @@
     compatibility with applications only looking at
     <filename>/etc/</filename>. A relative symlink instead of an
     absolute symlink is necessary to avoid breaking the link in a
-    chroot or initrd environment such as dracut.</para>
+    chroot or initrd environment.</para>
 
     <para><filename>os-release</filename> contains data that is
     defined by the operating system vendor and should generally not be
@@ -638,13 +640,13 @@ VERSION_ID=32</programlisting>
 
   <refsect1>
       <title>See Also</title>
-      <para>
-        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry project='die-net'><refentrytitle>lsb_release</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      </para>
+      <para><simplelist type="inline">
+        <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry project='die-net'><refentrytitle>lsb_release</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      </simplelist></para>
   </refsect1>
 
 </refentry>

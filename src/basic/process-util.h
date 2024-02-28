@@ -54,6 +54,8 @@ int get_process_cwd(pid_t pid, char **ret);
 int get_process_root(pid_t pid, char **ret);
 int get_process_environ(pid_t pid, char **ret);
 int get_process_ppid(pid_t pid, pid_t *ret);
+int pid_get_start_time(pid_t pid, uint64_t *ret);
+int pidref_get_start_time(const PidRef* pid, uint64_t *ret);
 int get_process_umask(pid_t pid, mode_t *ret);
 
 int container_get_leader(const char *machine, pid_t *pid);
@@ -99,11 +101,16 @@ bool is_main_thread(void);
 bool oom_score_adjust_is_valid(int oa);
 
 #ifndef PERSONALITY_INVALID
-/* personality(7) documents that 0xffffffffUL is used for querying the
+/* personality(2) documents that 0xFFFFFFFFUL is used for querying the
  * current personality, hence let's use that here as error
  * indicator. */
-#define PERSONALITY_INVALID 0xffffffffLU
+#define PERSONALITY_INVALID 0xFFFFFFFFUL
 #endif
+
+/* The personality() syscall returns a 32-bit value where the top three bytes are reserved for flags that
+ * emulate historical or architectural quirks, and only the least significant byte reflects the actual
+ * personality we're interested in. */
+#define OPINIONATED_PERSONALITY_MASK 0xFFUL
 
 unsigned long personality_from_string(const char *p);
 const char *personality_to_string(unsigned long);
@@ -152,11 +159,11 @@ int must_be_root(void);
 
 pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata);
 
-/* 💣 Note that FORK_NEW_USERNS + FORK_NEW_MOUNTNS should not be called in threaded programs, because they
- * cause us to use raw_clone() which does not synchronize the glibc malloc() locks, and thus will cause
- * deadlocks if the parent uses threads and the child does memory allocations. Hence: if the parent is
- * threaded these flags may not be used. These flags cannot be used if the parent uses threads or the child
- * uses malloc(). 💣 */
+/* 💣 Note that FORK_NEW_USERNS, FORK_NEW_MOUNTNS, or FORK_NEW_NETNS should not be called in threaded
+ * programs, because they cause us to use raw_clone() which does not synchronize the glibc malloc() locks,
+ * and thus will cause deadlocks if the parent uses threads and the child does memory allocations. Hence: if
+ * the parent is threaded these flags may not be used. These flags cannot be used if the parent uses threads
+ * or the child uses malloc(). 💣 */
 typedef enum ForkFlags {
         FORK_RESET_SIGNALS      = 1 <<  0, /* Reset all signal handlers and signal mask */
         FORK_CLOSE_ALL_FDS      = 1 <<  1, /* Close all open file descriptors in the child, except for 0,1,2 */
@@ -177,12 +184,14 @@ typedef enum ForkFlags {
         FORK_CLOEXEC_OFF        = 1 << 16, /* In the child: turn off O_CLOEXEC on all fds in except_fds[] */
         FORK_KEEP_NOTIFY_SOCKET = 1 << 17, /* Unless this specified, $NOTIFY_SOCKET will be unset. */
         FORK_DETACH             = 1 << 18, /* Double fork if needed to ensure PID1/subreaper is parent */
+        FORK_NEW_NETNS          = 1 << 19, /* Run child in its own network namespace                             💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
+        FORK_PACK_FDS           = 1 << 20, /* Rearrange the passed FDs to be FD 3,4,5,etc. Updates the array in place (combine with FORK_CLOSE_ALL_FDS!) */
 } ForkFlags;
 
 int safe_fork_full(
                 const char *name,
                 const int stdio_fds[3],
-                const int except_fds[],
+                int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
                 pid_t *ret_pid);
@@ -191,7 +200,30 @@ static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
         return safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
 }
 
-int namespace_fork(const char *outer_name, const char *inner_name, const int except_fds[], size_t n_except_fds, ForkFlags flags, int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd, pid_t *ret_pid);
+int pidref_safe_fork_full(
+                const char *name,
+                const int stdio_fds[3],
+                int except_fds[],
+                size_t n_except_fds,
+                ForkFlags flags,
+                PidRef *ret_pid);
+
+static inline int pidref_safe_fork(const char *name, ForkFlags flags, PidRef *ret_pid) {
+        return pidref_safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
+}
+
+int namespace_fork(
+                const char *outer_name,
+                const char *inner_name,
+                int except_fds[],
+                size_t n_except_fds,
+                ForkFlags flags,
+                int pidns_fd,
+                int mntns_fd,
+                int netns_fd,
+                int userns_fd,
+                int root_fd,
+                pid_t *ret_pid);
 
 int set_oom_score_adjust(int value);
 int get_oom_score_adjust(int *ret);
@@ -223,7 +255,12 @@ int get_process_threads(pid_t pid);
 int is_reaper_process(void);
 int make_reaper_process(bool b);
 
-int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, pid_t *ret_pid);
+int posix_spawn_wrapper(
+                const char *path,
+                char * const *argv,
+                char * const *envp,
+                const char *cgroup,
+                PidRef *ret_pidref);
 
 int proc_dir_open(DIR **ret);
 int proc_dir_read(DIR *d, pid_t *ret);

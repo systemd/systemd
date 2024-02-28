@@ -10,15 +10,18 @@
 #include "glyph-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
+#include "locale-util.h"
 #include "memory-util.h"
 #include "path-util.h"
 #include "pkcs11-util.h"
 #include "rlimit-util.h"
+#include "sha256.h"
 #include "string-table.h"
 #include "strv.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "user-record.h"
 #include "user-util.h"
+#include "utf8.h"
 
 #define DEFAULT_RATELIMIT_BURST 30
 #define DEFAULT_RATELIMIT_INTERVAL_USEC (1*USEC_PER_MINUTE)
@@ -141,11 +144,15 @@ static UserRecord* user_record_free(UserRecord *h) {
         free(h->location);
         free(h->icon_name);
 
+        free(h->blob_directory);
+        hashmap_free(h->blob_manifest);
+
         free(h->shell);
 
         strv_free(h->environment);
         free(h->time_zone);
         free(h->preferred_language);
+        strv_free(h->additional_languages);
         rlimit_free_all(h->rlimits);
 
         free(h->skeleton_directory);
@@ -164,6 +171,9 @@ static UserRecord* user_record_free(UserRecord *h) {
         free(h->image_path_auto);
         free(h->home_directory);
         free(h->home_directory_auto);
+
+        free(h->fallback_shell);
+        free(h->fallback_home_directory);
 
         strv_free(h->member_of);
         strv_free(h->capability_bounding_set);
@@ -535,43 +545,64 @@ static int json_dispatch_environment(const char *name, JsonVariant *variant, Jso
         return strv_free_and_replace(*l, n);
 }
 
-int json_dispatch_user_disposition(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        UserDisposition *disposition = userdata, k;
+static int json_dispatch_locale(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        char **s = userdata;
+        const char *n;
+        int r;
 
         if (json_variant_is_null(variant)) {
-                *disposition = _USER_DISPOSITION_INVALID;
+                *s = mfree(*s);
                 return 0;
         }
 
         if (!json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        k = user_disposition_from_string(json_variant_string(variant));
-        if (k < 0)
-                return json_log(variant, flags, k, "Disposition type '%s' not known.", json_variant_string(variant));
+        n = json_variant_string(variant);
 
-        *disposition = k;
+        if (!locale_is_valid(n))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid locale.", strna(name));
+
+        r = free_and_strdup(s, n);
+        if (r < 0)
+                return json_log(variant, flags, r, "Failed to allocate string: %m");
+
         return 0;
 }
 
-static int json_dispatch_storage(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        UserStorage *storage = userdata, k;
+static int json_dispatch_locales(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        _cleanup_strv_free_ char **n = NULL;
+        char ***l = userdata;
+        const char *locale;
+        JsonVariant *e;
+        int r;
 
         if (json_variant_is_null(variant)) {
-                *storage = _USER_STORAGE_INVALID;
+                *l = strv_free(*l);
                 return 0;
         }
 
-        if (!json_variant_is_string(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+        if (!json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of strings.", strna(name));
 
-        k = user_storage_from_string(json_variant_string(variant));
-        if (k < 0)
-                return json_log(variant, flags, k, "Storage type '%s' not known.", json_variant_string(variant));
+        JSON_VARIANT_ARRAY_FOREACH(e, variant) {
+                if (!json_variant_is_string(e))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of strings.", strna(name));
 
-        *storage = k;
-        return 0;
+                locale = json_variant_string(e);
+                if (!locale_is_valid(locale))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of valid locales.", strna(name));
+
+                r = strv_extend(&n, locale);
+                if (r < 0)
+                        return json_log_oom(variant, flags);
+        }
+
+        return strv_free_and_replace(*l, n);
 }
+
+JSON_DISPATCH_ENUM_DEFINE(json_dispatch_user_disposition, UserDisposition, user_disposition_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_user_storage, UserStorage, user_storage_from_string);
 
 static int json_dispatch_tasks_or_memory_max(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         uint64_t *limit = userdata, k;
@@ -746,7 +777,7 @@ static int dispatch_pkcs11_key_data(const char *name, JsonVariant *variant, Json
         if (!json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        r = unbase64mem(json_variant_string(variant), SIZE_MAX, &b, &l);
+        r = unbase64mem(json_variant_string(variant), &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode encrypted PKCS#11 key: %m");
 
@@ -813,7 +844,7 @@ static int dispatch_fido2_hmac_credential(const char *name, JsonVariant *variant
         if (!json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        r = unbase64mem(json_variant_string(variant), SIZE_MAX, &b, &l);
+        r = unbase64mem(json_variant_string(variant), &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode FIDO2 credential ID: %m");
 
@@ -843,7 +874,7 @@ static int dispatch_fido2_hmac_credential_array(const char *name, JsonVariant *v
                 if (!array)
                         return log_oom();
 
-                r = unbase64mem(json_variant_string(e), SIZE_MAX, &b, &l);
+                r = unbase64mem(json_variant_string(e), &b, &l);
                 if (r < 0)
                         return json_log(variant, flags, r, "Failed to decode FIDO2 credential ID: %m");
 
@@ -873,7 +904,7 @@ static int dispatch_fido2_hmac_salt_value(const char *name, JsonVariant *variant
         if (!json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
-        r = unbase64mem(json_variant_string(variant), SIZE_MAX, &b, &l);
+        r = unbase64mem(json_variant_string(variant), &b, &l);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode FIDO2 salt: %m");
 
@@ -1048,6 +1079,7 @@ static int dispatch_privileged(const char *name, JsonVariant *variant, JsonDispa
 static int dispatch_binding(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
 
         static const JsonDispatch binding_dispatch_table[] = {
+                { "blobDirectory",     JSON_VARIANT_STRING,        json_dispatch_path,           offsetof(UserRecord, blob_directory),       0         },
                 { "imagePath",         JSON_VARIANT_STRING,        json_dispatch_image_path,     offsetof(UserRecord, image_path),           0         },
                 { "homeDirectory",     JSON_VARIANT_STRING,        json_dispatch_home_directory, offsetof(UserRecord, home_directory),       0         },
                 { "partitionUuid",     JSON_VARIANT_STRING,        json_dispatch_id128,          offsetof(UserRecord, partition_uuid),       0         },
@@ -1055,7 +1087,7 @@ static int dispatch_binding(const char *name, JsonVariant *variant, JsonDispatch
                 { "fileSystemUuid",    JSON_VARIANT_STRING,        json_dispatch_id128,          offsetof(UserRecord, file_system_uuid),     0         },
                 { "uid",               JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,        offsetof(UserRecord, uid),                  0         },
                 { "gid",               JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,        offsetof(UserRecord, gid),                  0         },
-                { "storage",           JSON_VARIANT_STRING,        json_dispatch_storage,        offsetof(UserRecord, storage),              0         },
+                { "storage",           JSON_VARIANT_STRING,        json_dispatch_user_storage,   offsetof(UserRecord, storage),              0         },
                 { "fileSystemType",    JSON_VARIANT_STRING,        json_dispatch_string,         offsetof(UserRecord, file_system_type),     JSON_SAFE },
                 { "luksCipher",        JSON_VARIANT_STRING,        json_dispatch_string,         offsetof(UserRecord, luks_cipher),          JSON_SAFE },
                 { "luksCipherMode",    JSON_VARIANT_STRING,        json_dispatch_string,         offsetof(UserRecord, luks_cipher_mode),     JSON_SAFE },
@@ -1082,6 +1114,52 @@ static int dispatch_binding(const char *name, JsonVariant *variant, JsonDispatch
                 return 0;
 
         return json_dispatch(m, binding_dispatch_table, flags, userdata);
+}
+
+static int dispatch_blob_manifest(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        _cleanup_hashmap_free_ Hashmap *manifest = NULL;
+        Hashmap **ret = ASSERT_PTR(userdata);
+        JsonVariant *value;
+        const char *key;
+        int r;
+
+        if (!variant)
+                return 0;
+
+        if (!json_variant_is_object(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an object.", strna(name));
+
+        JSON_VARIANT_OBJECT_FOREACH(key, value, variant) {
+                _cleanup_free_ char *filename = NULL;
+                _cleanup_free_ uint8_t *hash = NULL;
+
+                if (!json_variant_is_string(value))
+                        return json_log(value, flags, SYNTHETIC_ERRNO(EINVAL), "Blob entry '%s' has invalid hash.", key);
+
+                if (!suitable_blob_filename(key))
+                        return json_log(value, flags, SYNTHETIC_ERRNO(EINVAL), "Blob entry '%s' has invalid filename.", key);
+
+                filename = strdup(key);
+                if (!filename)
+                        return json_log_oom(value, flags);
+
+                hash = malloc(SHA256_DIGEST_SIZE);
+                if (!hash)
+                        return json_log_oom(value, flags);
+
+                r = parse_sha256(json_variant_string(value), hash);
+                if (r < 0)
+                        return json_log(value, flags, r, "Blob entry '%s' has invalid hash: %s", filename, json_variant_string(value));
+
+                r = hashmap_ensure_put(&manifest, &path_hash_ops_free_free, filename, hash);
+                if (r < 0)
+                        return json_log(value, flags, r, "Failed to insert blob manifest entry '%s': %m", filename);
+                TAKE_PTR(filename); /* Ownership transfers to hashmap */
+                TAKE_PTR(hash);
+        }
+
+        hashmap_free_and_replace(*ret, manifest);
+        return 0;
 }
 
 int per_machine_id_match(JsonVariant *ids, JsonDispatchFlags flags) {
@@ -1168,24 +1246,54 @@ int per_machine_hostname_match(JsonVariant *hns, JsonDispatchFlags flags) {
         return false;
 }
 
+int per_machine_match(JsonVariant *entry, JsonDispatchFlags flags) {
+        JsonVariant *m;
+        int r;
+
+        assert(json_variant_is_object(entry));
+
+        m = json_variant_by_key(entry, "matchMachineId");
+        if (m) {
+                r = per_machine_id_match(m, flags);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return true;
+        }
+
+        m = json_variant_by_key(entry, "matchHostname");
+        if (m) {
+                r = per_machine_hostname_match(m, flags);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return true;
+        }
+
+        return false;
+}
+
 static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
 
         static const JsonDispatch per_machine_dispatch_table[] = {
                 { "matchMachineId",             _JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0         },
                 { "matchHostname",              _JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0         },
+                { "blobDirectory",              JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, blob_directory),                0         },
+                { "blobManifest",               JSON_VARIANT_OBJECT,        dispatch_blob_manifest,               offsetof(UserRecord, blob_manifest),                 0         },
                 { "iconName",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, icon_name),                     JSON_SAFE },
                 { "location",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, location),                      0         },
                 { "shell",                      JSON_VARIANT_STRING,        json_dispatch_filename_or_path,       offsetof(UserRecord, shell),                         0         },
                 { "umask",                      JSON_VARIANT_UNSIGNED,      json_dispatch_umask,                  offsetof(UserRecord, umask),                         0         },
                 { "environment",                JSON_VARIANT_ARRAY,         json_dispatch_environment,            offsetof(UserRecord, environment),                   0         },
                 { "timeZone",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, time_zone),                     JSON_SAFE },
-                { "preferredLanguage",          JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, preferred_language),            JSON_SAFE },
+                { "preferredLanguage",          JSON_VARIANT_STRING,        json_dispatch_locale,                 offsetof(UserRecord, preferred_language),            0         },
+                { "additionalLanguages",        JSON_VARIANT_ARRAY,         json_dispatch_locales,                offsetof(UserRecord, additional_languages),          0         },
                 { "niceLevel",                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_nice,                   offsetof(UserRecord, nice_level),                    0         },
                 { "resourceLimits",             _JSON_VARIANT_TYPE_INVALID, json_dispatch_rlimits,                offsetof(UserRecord, rlimits),                       0         },
                 { "locked",                     JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, locked),                        0         },
                 { "notBeforeUSec",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, not_before_usec),               0         },
                 { "notAfterUSec",               _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, not_after_usec),                0         },
-                { "storage",                    JSON_VARIANT_STRING,        json_dispatch_storage,                offsetof(UserRecord, storage),                       0         },
+                { "storage",                    JSON_VARIANT_STRING,        json_dispatch_user_storage,           offsetof(UserRecord, storage),                       0         },
                 { "diskSize",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, disk_size),                     0         },
                 { "diskSizeRelative",           _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, disk_size_relative),            0         },
                 { "skeletonDirectory",          JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, skeleton_directory),            0         },
@@ -1254,33 +1362,13 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
 
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
-                bool matching = false;
-                JsonVariant *m;
-
                 if (!json_variant_is_object(e))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of objects.", strna(name));
 
-                m = json_variant_by_key(e, "matchMachineId");
-                if (m) {
-                        r = per_machine_id_match(m, flags);
-                        if (r < 0)
-                                return r;
-
-                        matching = r > 0;
-                }
-
-                if (!matching) {
-                        m = json_variant_by_key(e, "matchHostname");
-                        if (m) {
-                                r = per_machine_hostname_match(m, flags);
-                                if (r < 0)
-                                        return r;
-
-                                matching = r > 0;
-                        }
-                }
-
-                if (!matching)
+                r = per_machine_match(e, flags);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
 
                 r = json_dispatch(e, per_machine_dispatch_table, flags, userdata);
@@ -1294,23 +1382,26 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
 static int dispatch_status(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
 
         static const JsonDispatch status_dispatch_table[] = {
-                { "diskUsage",                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, disk_usage),                    0         },
-                { "diskFree",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, disk_free),                     0         },
-                { "diskSize",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, disk_size),                     0         },
-                { "diskCeiling",                _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, disk_ceiling),                  0         },
-                { "diskFloor",                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, disk_floor),                    0         },
-                { "state",                      JSON_VARIANT_STRING,        json_dispatch_string,      offsetof(UserRecord, state),                         JSON_SAFE },
-                { "service",                    JSON_VARIANT_STRING,        json_dispatch_string,      offsetof(UserRecord, service),                       JSON_SAFE },
-                { "signedLocally",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_tristate,    offsetof(UserRecord, signed_locally),                0         },
-                { "goodAuthenticationCounter",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, good_authentication_counter),   0         },
-                { "badAuthenticationCounter",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, bad_authentication_counter),    0         },
-                { "lastGoodAuthenticationUSec", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, last_good_authentication_usec), 0         },
-                { "lastBadAuthenticationUSec",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, last_bad_authentication_usec),  0         },
-                { "rateLimitBeginUSec",         _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, ratelimit_begin_usec),          0         },
-                { "rateLimitCount",             _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, ratelimit_count),               0         },
-                { "removable",                  JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,     offsetof(UserRecord, removable),                     0         },
-                { "accessMode",                 JSON_VARIANT_UNSIGNED,      json_dispatch_access_mode, offsetof(UserRecord, access_mode),                   0         },
-                { "fileSystemType",             JSON_VARIANT_STRING,        json_dispatch_string,      offsetof(UserRecord, file_system_type),              JSON_SAFE },
+                { "diskUsage",                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, disk_usage),                    0         },
+                { "diskFree",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, disk_free),                     0         },
+                { "diskSize",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, disk_size),                     0         },
+                { "diskCeiling",                _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, disk_ceiling),                  0         },
+                { "diskFloor",                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, disk_floor),                    0         },
+                { "state",                      JSON_VARIANT_STRING,        json_dispatch_string,           offsetof(UserRecord, state),                         JSON_SAFE },
+                { "service",                    JSON_VARIANT_STRING,        json_dispatch_string,           offsetof(UserRecord, service),                       JSON_SAFE },
+                { "signedLocally",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_tristate,         offsetof(UserRecord, signed_locally),                0         },
+                { "goodAuthenticationCounter",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, good_authentication_counter),   0         },
+                { "badAuthenticationCounter",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, bad_authentication_counter),    0         },
+                { "lastGoodAuthenticationUSec", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, last_good_authentication_usec), 0         },
+                { "lastBadAuthenticationUSec",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, last_bad_authentication_usec),  0         },
+                { "rateLimitBeginUSec",         _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, ratelimit_begin_usec),          0         },
+                { "rateLimitCount",             _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, ratelimit_count),               0         },
+                { "removable",                  JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,          offsetof(UserRecord, removable),                     0         },
+                { "accessMode",                 JSON_VARIANT_UNSIGNED,      json_dispatch_access_mode,      offsetof(UserRecord, access_mode),                   0         },
+                { "fileSystemType",             JSON_VARIANT_STRING,        json_dispatch_string,           offsetof(UserRecord, file_system_type),              JSON_SAFE },
+                { "fallbackShell",              JSON_VARIANT_STRING,        json_dispatch_filename_or_path, offsetof(UserRecord, fallback_shell),                0         },
+                { "fallbackHomeDirectory",      JSON_VARIANT_STRING,        json_dispatch_home_directory,   offsetof(UserRecord, fallback_home_directory),       0         },
+                { "useFallback",                JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,          offsetof(UserRecord, use_fallback),                  0         },
                 {},
         };
 
@@ -1523,6 +1614,8 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
         static const JsonDispatch user_dispatch_table[] = {
                 { "userName",                   JSON_VARIANT_STRING,        json_dispatch_user_group_name,        offsetof(UserRecord, user_name),                     JSON_RELAX},
                 { "realm",                      JSON_VARIANT_STRING,        json_dispatch_realm,                  offsetof(UserRecord, realm),                         0         },
+                { "blobDirectory",              JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, blob_directory),                0         },
+                { "blobManifest",               JSON_VARIANT_OBJECT,        dispatch_blob_manifest,               offsetof(UserRecord, blob_manifest),                 0         },
                 { "realName",                   JSON_VARIANT_STRING,        json_dispatch_gecos,                  offsetof(UserRecord, real_name),                     0         },
                 { "emailAddress",               JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, email_address),                 JSON_SAFE },
                 { "iconName",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, icon_name),                     JSON_SAFE },
@@ -1534,13 +1627,14 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "umask",                      JSON_VARIANT_UNSIGNED,      json_dispatch_umask,                  offsetof(UserRecord, umask),                         0         },
                 { "environment",                JSON_VARIANT_ARRAY,         json_dispatch_environment,            offsetof(UserRecord, environment),                   0         },
                 { "timeZone",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, time_zone),                     JSON_SAFE },
-                { "preferredLanguage",          JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, preferred_language),            JSON_SAFE },
+                { "preferredLanguage",          JSON_VARIANT_STRING,        json_dispatch_locale,                 offsetof(UserRecord, preferred_language),            0         },
+                { "additionalLanguages",        JSON_VARIANT_ARRAY,         json_dispatch_locales,                offsetof(UserRecord, additional_languages),          0         },
                 { "niceLevel",                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_nice,                   offsetof(UserRecord, nice_level),                    0         },
                 { "resourceLimits",             _JSON_VARIANT_TYPE_INVALID, json_dispatch_rlimits,                offsetof(UserRecord, rlimits),                       0         },
                 { "locked",                     JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, locked),                        0         },
                 { "notBeforeUSec",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, not_before_usec),               0         },
                 { "notAfterUSec",               _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, not_after_usec),                0         },
-                { "storage",                    JSON_VARIANT_STRING,        json_dispatch_storage,                offsetof(UserRecord, storage),                       0         },
+                { "storage",                    JSON_VARIANT_STRING,        json_dispatch_user_storage,           offsetof(UserRecord, storage),                       0         },
                 { "diskSize",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, disk_size),                     0         },
                 { "diskSizeRelative",           _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, disk_size_relative),            0         },
                 { "skeletonDirectory",          JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, skeleton_directory),            0         },
@@ -1625,7 +1719,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
         if (r < 0)
                 return r;
 
-        r = json_dispatch(h->json, user_dispatch_table, json_flags, h);
+        r = json_dispatch(h->json, user_dispatch_table, json_flags | JSON_ALLOW_EXTENSIONS, h);
         if (r < 0)
                 return r;
 
@@ -1720,7 +1814,7 @@ mode_t user_record_access_mode(UserRecord *h) {
         return h->access_mode != MODE_INVALID ? h->access_mode : 0700;
 }
 
-const char* user_record_home_directory(UserRecord *h) {
+static const char *user_record_home_directory_real(UserRecord *h) {
         assert(h);
 
         if (h->home_directory)
@@ -1735,6 +1829,15 @@ const char* user_record_home_directory(UserRecord *h) {
         return "/";
 }
 
+const char* user_record_home_directory(UserRecord *h) {
+        assert(h);
+
+        if (h->use_fallback && h->fallback_home_directory)
+                return h->fallback_home_directory;
+
+        return user_record_home_directory_real(h);
+}
+
 const char *user_record_image_path(UserRecord *h) {
         assert(h);
 
@@ -1743,7 +1846,9 @@ const char *user_record_image_path(UserRecord *h) {
         if (h->image_path_auto)
                 return h->image_path_auto;
 
-        return IN_SET(user_record_storage(h), USER_CLASSIC, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT) ? user_record_home_directory(h) : NULL;
+        /* For some storage types the image is the home directory itself. (But let's ignore the fallback logic for it) */
+        return IN_SET(user_record_storage(h), USER_CLASSIC, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT) ?
+                user_record_home_directory_real(h) : NULL;
 }
 
 const char *user_record_cifs_user_name(UserRecord *h) {
@@ -1760,7 +1865,7 @@ unsigned long user_record_mount_flags(UserRecord *h) {
                 (h->nodev ? MS_NODEV : 0);
 }
 
-const char *user_record_shell(UserRecord *h) {
+static const char *user_record_shell_real(UserRecord *h) {
         assert(h);
 
         if (h->shell)
@@ -1773,6 +1878,21 @@ const char *user_record_shell(UserRecord *h) {
                 return DEFAULT_USER_SHELL;
 
         return NOLOGIN;
+}
+
+const char *user_record_shell(UserRecord *h) {
+        const char *shell;
+
+        assert(h);
+
+        shell = user_record_shell_real(h);
+
+        /* Return fallback shall if we are told so — except if the primary shell is already a nologin shell,
+         * then let's not risk anything. */
+        if (h->use_fallback && h->fallback_shell)
+                return is_nologin_shell(shell) ? NOLOGIN : h->fallback_shell;
+
+        return shell;
 }
 
 const char *user_record_real_name(UserRecord *h) {
@@ -2062,6 +2182,27 @@ uint64_t user_record_capability_ambient_set(UserRecord *h) {
         return parse_caps_strv(h->capability_ambient_set) & user_record_capability_bounding_set(h);
 }
 
+int user_record_languages(UserRecord *h, char ***ret) {
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(h);
+        assert(ret);
+
+        if (h->preferred_language) {
+                l = strv_new(h->preferred_language);
+                if (!l)
+                        return -ENOMEM;
+        }
+
+        r = strv_extend_strv(&l, h->additional_languages, /* filter_duplicates= */ true);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
 uint64_t user_record_ratelimit_next_try(UserRecord *h) {
         assert(h);
 
@@ -2286,6 +2427,13 @@ int user_record_test_password_change_required(UserRecord *h) {
 
         /* No password changing necessary */
         return change_permitted ? 0 : -EROFS;
+}
+
+int suitable_blob_filename(const char *name) {
+        /* Enforces filename requirements as described in docs/USER_RECORD_BULK_DIRS.md */
+        return filename_is_valid(name) &&
+               in_charset(name, URI_UNRESERVED) &&
+               name[0] != '.';
 }
 
 static const char* const user_storage_table[_USER_STORAGE_MAX] = {

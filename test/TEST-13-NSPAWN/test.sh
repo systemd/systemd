@@ -13,11 +13,16 @@ test_append_files() {
     local workspace="${1:?}"
     local container="$workspace/testsuite-13-container-template"
 
+    # For virtual wlan interface.
+    instmods mac80211_hwsim
+    generate_module_dependencies
+
     # Create a dummy container "template" with a minimal toolset, which we can
     # then use as a base for our nspawn/machinectl tests
     initdir="$container" setup_basic_dirs
     initdir="$container" image_install \
         bash \
+        env \
         cat \
         hostname \
         grep \

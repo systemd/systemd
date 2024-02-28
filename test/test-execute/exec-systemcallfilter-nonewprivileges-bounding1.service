@@ -3,7 +3,7 @@
 Description=Test bounding set is right with SystemCallFilter and non-root user
 
 [Service]
-ExecStart=/bin/sh -x -c 'c=$$(capsh --print | grep "Bounding set "); test "$$c" = "Bounding set =cap_net_bind_service"'
+ExecStart=sh -x -c 'c=$$(capsh --print | grep "Bounding set "); test "$$c" = "Bounding set =cap_net_bind_service"'
 Type=oneshot
 User=1
 SystemCallFilter=@system-service

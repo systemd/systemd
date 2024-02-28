@@ -14,6 +14,7 @@ test_env = environment()
 test_env.set('SYSTEMD_LANGUAGE_FALLBACK_MAP', language_fallback_map)
 test_env.set('PATH', project_build_root + ':' + path)
 test_env.set('PROJECT_BUILD_ROOT', project_build_root)
+test_env.set('SYSTEMD_SLOW_TESTS', slow_tests ? '1' : '0')
 
 if efi_addon != ''
         test_env.set('EFI_ADDON', efi_addon)
@@ -50,6 +51,7 @@ simple_tests += files(
         'test-bitmap.c',
         'test-blockdev-util.c',
         'test-bootspec.c',
+        'test-build-path.c',
         'test-bus-util.c',
         'test-calendarspec.c',
         'test-cgroup-setup.c',
@@ -57,6 +59,7 @@ simple_tests += files(
         'test-cgroup.c',
         'test-chase.c',
         'test-clock.c',
+        'test-color-util.c',
         'test-compare-operator.c',
         'test-condition.c',
         'test-conf-files.c',
@@ -106,6 +109,7 @@ simple_tests += files(
         'test-install-file.c',
         'test-install-root.c',
         'test-io-util.c',
+        'test-iovec-util.c',
         'test-journal-importer.c',
         'test-kbd-util.c',
         'test-limits-util.c',
@@ -133,6 +137,7 @@ simple_tests += files(
         'test-path-lookup.c',
         'test-path-util.c',
         'test-percent-util.c',
+        'test-pidref.c',
         'test-pretty-print.c',
         'test-prioq.c',
         'test-proc-cmdline.c',
@@ -169,7 +174,7 @@ simple_tests += files(
         'test-terminal-util.c',
         'test-tmpfile-util.c',
         'test-udev-util.c',
-        'test-uid-alloc-range.c',
+        'test-uid-classification.c',
         'test-uid-range.c',
         'test-umask-util.c',
         'test-unaligned.c',
@@ -177,6 +182,7 @@ simple_tests += files(
         'test-user-util.c',
         'test-utf8.c',
         'test-verbs.c',
+        'test-vpick.c',
         'test-web-util.c',
         'test-xattr-util.c',
         'test-xml.c',
@@ -474,7 +480,7 @@ executables += [
                 'sources' : files('test-bpf-foreign-programs.c'),
         },
         core_test_template + {
-                'sources' : files('test-bpf-lsm.c'),
+                'sources' : files('test-bpf-restrict-fs.c'),
                 'dependencies' : common_test_dependencies,
         },
         core_test_template + {
@@ -578,12 +584,18 @@ executables += [
         },
         test_template + {
                 'sources' : files('../libsystemd/sd-device/test-sd-device-thread.c'),
-                'link_with' : libsystemd,
+                'link_with' : [
+                        libbasic,
+                        libsystemd,
+                ],
                 'dependencies' : threads,
         },
         test_template + {
                 'sources' : files('../libudev/test-udev-device-thread.c'),
-                'link_with' : libudev,
+                'link_with' : [
+                        libbasic,
+                        libudev,
+                ],
                 'dependencies' : threads,
         },
         test_template + {
@@ -592,5 +604,9 @@ executables += [
                         libshared,
                         libudev_basic,
                 ],
+        },
+        test_template + {
+                'sources' : files('test-aux-scope.c'),
+                'type' : 'manual',
         },
 ]

@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-notify"
@@ -23,10 +23,10 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>systemd-notify <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">VARIABLE=VALUE</arg></command>
+      <command>systemd-notify</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">VARIABLE=VALUE</arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-notify --exec <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">VARIABLE=VALUE</arg> ; <arg rep="repeat">CMDLINE</arg></command>
+      <command>systemd-notify</command> <arg>--exec</arg> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">VARIABLE=VALUE</arg> <arg>;</arg> <arg rep="repeat">CMDLINE</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -119,12 +119,12 @@
       <varlistentry>
         <term><option>--pid=</option></term>
 
-        <listitem><para>Inform the service manager about the main PID of the service. Takes a PID as
-        argument. If the argument is specified as <literal>auto</literal> or omitted, the PID of the process
-        that invoked <command>systemd-notify</command> is used, except if that's the service manager. If the
+        <listitem><para>Inform the service manager about the main PID of the service. Takes a PID as argument.
+        If the argument is specified as <literal>auto</literal> or omitted, the PID of the process that
+        invoked <command>systemd-notify</command> is used, except if that's the service manager. If the
         argument is specified as <literal>self</literal>, the PID of the <command>systemd-notify</command>
         command itself is used, and if <literal>parent</literal> is specified the calling process' PID is
-        used — even if it is the service manager. The latter is equivalent to <command>systemd-notify
+        used — even if it is the service manager. <option>--pid=auto</option> is equivalent to <command>systemd-notify
         MAINPID=$PID</command>. For details about the semantics of this option see
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
@@ -270,13 +270,13 @@ done</programlisting>
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 </refentry>

@@ -35,7 +35,7 @@ _hostnamectl() {
     local i verb comps
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
-        [STANDALONE]='-h --help --version --transient --static --pretty --no-ask-password'
+        [STANDALONE]='-h --help --version --transient --static --pretty --no-ask-password -j'
         [ARG]='-H --host -M --machine --json'
     )
 

@@ -326,7 +326,7 @@ static int rm_rf_children_impl(
                         dirname = mfree(dirname);
 
                         /* And now let's back out one level up */
-                        n_todo --;
+                        n_todo--;
                         d = TAKE_PTR(todos[n_todo].dir);
                         dirname = TAKE_PTR(todos[n_todo].dirname);
                         old_mode = todos[n_todo].old_mode;

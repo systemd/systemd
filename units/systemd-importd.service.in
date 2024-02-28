@@ -13,6 +13,7 @@ Documentation=man:systemd-importd.service(8)
 Documentation=man:org.freedesktop.import1(5)
 
 [Service]
+Type=notify
 ExecStart={{LIBEXECDIR}}/systemd-importd
 BusName=org.freedesktop.import1
 KillMode=mixed

@@ -7,25 +7,16 @@
 #define DROPIN_MARKER_END "### Edits below this comment will be discarded"
 
 typedef struct EditFile EditFile;
-typedef struct EditFileContext EditFileContext;
 
-struct EditFile {
-        EditFileContext *context;
-        char *path;
-        char *original_path;
-        char **comment_paths;
-        char *temp;
-        unsigned line;
-};
-
-struct EditFileContext {
+typedef struct EditFileContext {
         EditFile *files;
         size_t n_files;
         const char *marker_start;
         const char *marker_end;
         bool remove_parent;
-        bool overwrite_with_origin; /* whether to always overwrite target with original file */
-};
+        bool overwrite_with_origin; /* Always overwrite target with original file. */
+        bool stdin;                 /* Read contents from stdin instead of launching an editor. */
+} EditFileContext;
 
 void edit_file_context_done(EditFileContext *context);
 

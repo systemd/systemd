@@ -80,6 +80,46 @@ output=$(systemctl list-jobs --no-legend)
 assert_not_in "test63-issue-24577.service" "$output"
 assert_in "test63-issue-24577-dep.service" "$output"
 
+# Test for race condition fixed by https://github.com/systemd/systemd/pull/30768
+# Here's the schedule of events that we to happen during this test:
+#       (This test)                     (The service)
+#                                       .path unit monitors /tmp/copyme for changes
+#       Take lock on /tmp/noexeit       ↓
+#       Write to /tmp/copyme            ↓
+#       Wait for deactivating           Started
+#       ↓                               Copies /tmp/copyme to /tmp/copied
+#       ↓                               Tells manager it's shutting down
+#       Ensure service did the copy     Tries to lock /tmp/noexit and blocks
+#       Write to /tmp/copyme            ↓
+#
+# Now at this point the test can diverge. If we regress, this second write is
+# missed and we'll see:
+#       ... (second write)              ... (blocked)
+#       Drop lock on /tmp/noexit        ↓
+#       Wait for service to do copy     Unblocks and exits
+#       ↓                               (dead)
+#       ↓
+#       (timeout)
+#       Test fails
+#
+# Otherwise, we'll see:
+#       ... (second write)              ... (blocked)
+#       Drop lock on /tmp/noexit        ↓ and .path unit queues a new start job
+#       Wait for service to do copy     Unblocks and exits
+#       ↓                               Starts again b/c of queued job
+#       ↓                               Copies again
+#       Test Passes
+systemctl start test63-pr-30768.path
+exec {lock}<>/tmp/noexit
+flock -e $lock
+echo test1 > /tmp/copyme
+# shellcheck disable=SC2016
+timeout 30 bash -c 'until test "$(systemctl show test63-pr-30768.service -P ActiveState)" = deactivating; do sleep .2; done'
+diff /tmp/copyme /tmp/copied
+echo test2 > /tmp/copyme
+exec {lock}<&-
+timeout 30 bash -c 'until diff /tmp/copyme /tmp/copied; do sleep .2; done'
+
 systemctl log-level info
 
 touch /testok

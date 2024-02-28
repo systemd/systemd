@@ -59,7 +59,7 @@
 #include "string-util.h"
 #include "tomoyo-util.h"
 #include "tpm2-util.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "user-util.h"
 #include "virt.h"
 
@@ -141,7 +141,6 @@ static int condition_test_kernel_command_line(Condition *c, char **env) {
 }
 
 static int condition_test_credential(Condition *c, char **env) {
-        int (*gd)(const char **ret);
         int r;
 
         assert(c);
@@ -155,7 +154,8 @@ static int condition_test_credential(Condition *c, char **env) {
         if (!credential_name_valid(c->parameter)) /* credentials with invalid names do not exist */
                 return false;
 
-        FOREACH_POINTER(gd, get_credentials_dir, get_encrypted_credentials_dir) {
+        int (*gd)(const char **ret);
+        FOREACH_ARGUMENT(gd, get_credentials_dir, get_encrypted_credentials_dir) {
                 _cleanup_free_ char *j = NULL;
                 const char *cd;
 
@@ -931,7 +931,7 @@ static int condition_test_path_is_mount_point(Condition *c, char **env) {
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_IS_MOUNT_POINT);
 
-        return path_is_mount_point(c->parameter, NULL, AT_SYMLINK_FOLLOW) > 0;
+        return path_is_mount_point_full(c->parameter, /* root = */ NULL, AT_SYMLINK_FOLLOW) > 0;
 }
 
 static int condition_test_path_is_read_write(Condition *c, char **env) {

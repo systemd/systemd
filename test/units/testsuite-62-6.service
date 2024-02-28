@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=TEST-62-RESTRICT-IFACES-altname
+[Service]
+ExecStart=/bin/sh -c 'ping -c 1 -W 0.2 192.168.113.1'
+ExecStart=/bin/sh -c 'ping -c 1 -W 0.2 192.168.113.5'
+ExecStart=/bin/sh -c '! ping -c 1 -W 0.2 192.168.113.9'
+RestrictNetworkInterfaces=veth0-altname-with-more-than-15-chars
+RestrictNetworkInterfaces=veth1-altname-with-more-than-15-chars
+Type=oneshot

@@ -579,10 +579,7 @@ _public_ int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat) 
         if (isempty(content))
                 return 0;
 
-        char t[DECIMAL_STR_MAX(uid_t)];
-        xsprintf(t, UID_FMT, uid);
-
-        return string_contains_word(content, NULL, t);
+        return string_contains_word(content, NULL, FORMAT_UID(uid));
 }
 
 static int uid_get_array(uid_t uid, const char *variable, char ***array) {
@@ -1081,7 +1078,7 @@ _public_ int sd_get_uids(uid_t **users) {
                                 uid_t *t;
 
                                 n = MAX(16, 2*r);
-                                t = reallocarray(l, sizeof(uid_t), n);
+                                t = reallocarray(l, n, sizeof(uid_t));
                                 if (!t)
                                         return -ENOMEM;
 
@@ -1275,7 +1272,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
 
 _public_ sd_login_monitor* sd_login_monitor_unref(sd_login_monitor *m) {
         if (m)
-                (void) close_nointr(MONITOR_TO_FD(m));
+                (void) close(MONITOR_TO_FD(m));
 
         return NULL;
 }

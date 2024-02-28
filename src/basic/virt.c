@@ -21,6 +21,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "uid-range.h"
 #include "virt.h"
 
 enum {
@@ -53,6 +54,7 @@ static Virtualization detect_vm_cpuid(void) {
                 { "ACRNACRNACRN", VIRTUALIZATION_ACRN      },
                 /* https://www.lockheedmartin.com/en-us/products/Hardened-Security-for-Intel-Processors.html */
                 { "SRESRESRESRE", VIRTUALIZATION_SRE       },
+                { "Apple VZ",     VIRTUALIZATION_APPLE     },
         };
 
         uint32_t eax, ebx, ecx, edx;
@@ -96,7 +98,7 @@ static Virtualization detect_vm_cpuid(void) {
 }
 
 static Virtualization detect_vm_device_tree(void) {
-#if defined(__arm__) || defined(__aarch64__) || defined(__powerpc__) || defined(__powerpc64__)
+#if defined(__arm__) || defined(__aarch64__) || defined(__powerpc__) || defined(__powerpc64__) || defined(__riscv)
         _cleanup_free_ char *hvtype = NULL;
         int r;
 
@@ -153,7 +155,7 @@ static Virtualization detect_vm_device_tree(void) {
 #endif
 }
 
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch_lp64)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch_lp64) || defined(__riscv)
 static Virtualization detect_vm_dmi_vendor(void) {
         static const char* const dmi_vendors[] = {
                 "/sys/class/dmi/id/product_name", /* Test this before sys_vendor to detect KVM over QEMU */
@@ -168,22 +170,23 @@ static Virtualization detect_vm_dmi_vendor(void) {
                 const char *vendor;
                 Virtualization id;
         } dmi_vendor_table[] = {
-                { "KVM",                  VIRTUALIZATION_KVM       },
-                { "OpenStack",            VIRTUALIZATION_KVM       }, /* Detect OpenStack instance as KVM in non x86 architecture */
-                { "KubeVirt",             VIRTUALIZATION_KVM       }, /* Detect KubeVirt instance as KVM in non x86 architecture */
-                { "Amazon EC2",           VIRTUALIZATION_AMAZON    },
-                { "QEMU",                 VIRTUALIZATION_QEMU      },
-                { "VMware",               VIRTUALIZATION_VMWARE    }, /* https://kb.vmware.com/s/article/1009458 */
-                { "VMW",                  VIRTUALIZATION_VMWARE    },
-                { "innotek GmbH",         VIRTUALIZATION_ORACLE    },
-                { "VirtualBox",           VIRTUALIZATION_ORACLE    },
-                { "Xen",                  VIRTUALIZATION_XEN       },
-                { "Bochs",                VIRTUALIZATION_BOCHS     },
-                { "Parallels",            VIRTUALIZATION_PARALLELS },
+                { "KVM",                   VIRTUALIZATION_KVM       },
+                { "OpenStack",             VIRTUALIZATION_KVM       }, /* Detect OpenStack instance as KVM in non x86 architecture */
+                { "KubeVirt",              VIRTUALIZATION_KVM       }, /* Detect KubeVirt instance as KVM in non x86 architecture */
+                { "Amazon EC2",            VIRTUALIZATION_AMAZON    },
+                { "QEMU",                  VIRTUALIZATION_QEMU      },
+                { "VMware",                VIRTUALIZATION_VMWARE    }, /* https://kb.vmware.com/s/article/1009458 */
+                { "VMW",                   VIRTUALIZATION_VMWARE    },
+                { "innotek GmbH",          VIRTUALIZATION_ORACLE    },
+                { "VirtualBox",            VIRTUALIZATION_ORACLE    },
+                { "Xen",                   VIRTUALIZATION_XEN       },
+                { "Bochs",                 VIRTUALIZATION_BOCHS     },
+                { "Parallels",             VIRTUALIZATION_PARALLELS },
                 /* https://wiki.freebsd.org/bhyve */
-                { "BHYVE",                VIRTUALIZATION_BHYVE     },
-                { "Hyper-V",              VIRTUALIZATION_MICROSOFT },
-                { "Apple Virtualization", VIRTUALIZATION_APPLE     },
+                { "BHYVE",                 VIRTUALIZATION_BHYVE     },
+                { "Hyper-V",               VIRTUALIZATION_MICROSOFT },
+                { "Apple Virtualization",  VIRTUALIZATION_APPLE     },
+                { "Google Compute Engine", VIRTUALIZATION_GOOGLE    }, /* https://cloud.google.com/run/docs/container-contract#sandbox */
         };
         int r;
 
@@ -452,12 +455,12 @@ Virtualization detect_vm(void) {
 
         /* We have to use the correct order here:
          *
-         * → First, try to detect Oracle Virtualbox, Amazon EC2 Nitro, and Parallels, even if they use KVM,
-         *   as well as Xen even if it cloaks as Microsoft Hyper-V. Attempt to detect uml at this stage also
-         *   since it runs as a user-process nested inside other VMs. Also check for Xen now, because Xen PV
-         *   mode does not override CPUID when nested inside another hypervisor.
+         * → First, try to detect Oracle Virtualbox, Amazon EC2 Nitro, Parallels, and Google Compute Engine,
+         *   even if they use KVM, as well as Xen, even if it cloaks as Microsoft Hyper-V. Attempt to detect
+         *   UML at this stage too, since it runs as a user-process nested inside other VMs. Also check for
+         *   Xen now, because Xen PV mode does not override CPUID when nested inside another hypervisor.
          *
-         * → Second, try to detect from CPUID, this will report KVM for whatever software is used even if
+         * → Second, try to detect from CPUID. This will report KVM for whatever software is used even if
          *   info in DMI is overwritten.
          *
          * → Third, try to detect from DMI. */
@@ -467,7 +470,8 @@ Virtualization detect_vm(void) {
                    VIRTUALIZATION_ORACLE,
                    VIRTUALIZATION_XEN,
                    VIRTUALIZATION_AMAZON,
-                   VIRTUALIZATION_PARALLELS)) {
+                   VIRTUALIZATION_PARALLELS,
+                   VIRTUALIZATION_GOOGLE)) {
                 v = dmi;
                 goto finish;
         }
@@ -814,7 +818,7 @@ Virtualization detect_virtualization(void) {
 
 static int userns_has_mapping(const char *name) {
         _cleanup_fclose_ FILE *f = NULL;
-        uid_t a, b, c;
+        uid_t base, shift, range;
         int r;
 
         f = fopen(name, "re");
@@ -823,26 +827,22 @@ static int userns_has_mapping(const char *name) {
                 return errno == ENOENT ? false : -errno;
         }
 
-        errno = 0;
-        r = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &a, &b, &c);
-        if (r == EOF) {
-                if (ferror(f))
-                        return log_debug_errno(errno_or_else(EIO), "Failed to read %s: %m", name);
-
-                log_debug("%s is empty, we're in an uninitialized user namespace", name);
+        r = uid_map_read_one(f, &base, &shift, &range);
+        if (r == -ENOMSG) {
+                log_debug("%s is empty, we're in an uninitialized user namespace.", name);
                 return true;
         }
-        if (r != 3)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse %s: %m", name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read %s: %m", name);
 
-        if (a == 0 && b == 0 && c == UINT32_MAX) {
+        if (base == 0 && shift == 0 && range == UINT32_MAX) {
                 /* The kernel calls mappings_overlap() and does not allow overlaps */
                 log_debug("%s has a full 1:1 mapping", name);
                 return false;
         }
 
         /* Anything else implies that we are in a user namespace */
-        log_debug("Mapping found in %s, we're in a user namespace", name);
+        log_debug("Mapping found in %s, we're in a user namespace.", name);
         return true;
 }
 
@@ -1000,7 +1000,7 @@ static bool real_has_cpu_with_flag(const char *flag) {
                         return true;
         }
 
-        if (__get_cpuid(7, &eax, &ebx, &ecx, &edx)) {
+        if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx)) {
                 if (given_flag_in_set(flag, leaf7_ebx, ELEMENTSOF(leaf7_ebx), ebx))
                         return true;
         }
@@ -1049,6 +1049,7 @@ static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_POWERVM]         = "powervm",
         [VIRTUALIZATION_APPLE]           = "apple",
         [VIRTUALIZATION_SRE]             = "sre",
+        [VIRTUALIZATION_GOOGLE]          = "google",
         [VIRTUALIZATION_VM_OTHER]        = "vm-other",
 
         [VIRTUALIZATION_SYSTEMD_NSPAWN]  = "systemd-nspawn",

@@ -90,7 +90,7 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                 /* If this is a symlink watch both the symlink inode and where it points to. If the inode is
                  * not a symlink both calls will install the same watch, which is redundant and doesn't
                  * hurt. */
-                for (int follow_symlink = 0; follow_symlink < 2; follow_symlink ++) {
+                for (int follow_symlink = 0; follow_symlink < 2; follow_symlink++) {
                         uint32_t f = flags;
 
                         SET_FLAG(f, IN_DONT_FOLLOW, !follow_symlink);
@@ -309,7 +309,7 @@ static int path_add_mount_dependencies(Path *p) {
         assert(p);
 
         LIST_FOREACH(spec, s, p->specs) {
-                r = unit_require_mounts_for(UNIT(p), s->path, UNIT_DEPENDENCY_FILE);
+                r = unit_add_mounts_for(UNIT(p), s->path, UNIT_DEPENDENCY_FILE, UNIT_MOUNT_REQUIRES);
                 if (r < 0)
                         return r;
         }
@@ -582,7 +582,7 @@ static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify) 
 
         /* If the triggered unit is already running, so are we */
         trigger = UNIT_TRIGGER(UNIT(p));
-        if (trigger && !UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(trigger))) {
+        if (trigger && !UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(trigger))) {
                 path_set_state(p, PATH_RUNNING);
                 path_unwatch(p);
                 return;
@@ -853,11 +853,11 @@ static void path_trigger_notify_impl(Unit *u, Unit *other, bool on_defer) {
                 return;
 
         if (p->state == PATH_RUNNING &&
-            UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
+            UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other))) {
                 if (!on_defer)
                         log_unit_debug(u, "Got notified about unit deactivation.");
         } else if (p->state == PATH_WAITING &&
-                   !UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
+                   !UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other))) {
                 if (!on_defer)
                         log_unit_debug(u, "Got notified about unit activation.");
         } else
@@ -994,11 +994,7 @@ static int activation_details_path_append_pair(ActivationDetails *details, char 
         if (isempty(p->trigger_path_filename))
                 return 0;
 
-        r = strv_extend(strv, "trigger_path");
-        if (r < 0)
-                return r;
-
-        r = strv_extend(strv, p->trigger_path_filename);
+        r = strv_extend_many(strv, "trigger_path", p->trigger_path_filename);
         if (r < 0)
                 return r;
 

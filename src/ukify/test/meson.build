@@ -16,5 +16,6 @@ if want_ukify and want_tests != 'false'
              files('test_ukify.py'),
              args: args,
              env : test_env,
+             timeout : 120,
              suite : 'ukify')
 endif

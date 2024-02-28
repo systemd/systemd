@@ -25,6 +25,7 @@ Login.KillOnlyUsers,                config_parse_strv,                  0, offse
 Login.KillExcludeUsers,             config_parse_strv,                  0, offsetof(Manager, kill_exclude_users)
 Login.InhibitDelayMaxSec,           config_parse_sec,                   0, offsetof(Manager, inhibit_delay_max)
 Login.UserStopDelaySec,             config_parse_sec,                   0, offsetof(Manager, user_stop_delay)
+Login.SleepOperation,               config_parse_handle_action_sleep,   0, offsetof(Manager, handle_action_sleep_mask)
 Login.HandlePowerKey,               config_parse_handle_action,         0, offsetof(Manager, handle_power_key)
 Login.HandlePowerKeyLongPress,      config_parse_handle_action,         0, offsetof(Manager, handle_power_key_long_press)
 Login.HandleRebootKey,              config_parse_handle_action,         0, offsetof(Manager, handle_reboot_key)

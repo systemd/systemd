@@ -15,20 +15,18 @@ bool boot_entry_token_valid(const char *p) {
         return utf8_is_valid(p) && string_is_safe(p) && filename_is_valid(p);
 }
 
-static int entry_token_load(int rfd, const char *etc_kernel, BootEntryTokenType *type, char **token) {
+static int entry_token_load_one(int rfd, const char *dir, BootEntryTokenType *type, char **token) {
         _cleanup_free_ char *buf = NULL, *p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(dir);
         assert(type);
         assert(*type == BOOT_ENTRY_TOKEN_AUTO);
         assert(token);
 
-        if (!etc_kernel)
-                return 0;
-
-        p = path_join(etc_kernel, "entry-token");
+        p = path_join(dir, "entry-token");
         if (!p)
                 return log_oom();
 
@@ -53,6 +51,26 @@ static int entry_token_load(int rfd, const char *etc_kernel, BootEntryTokenType 
         *token = TAKE_PTR(buf);
         *type = BOOT_ENTRY_TOKEN_LITERAL;
         return 1;
+}
+
+static int entry_token_load(int rfd, const char *conf_root, BootEntryTokenType *type, char **token) {
+        int r;
+
+        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(type);
+        assert(*type == BOOT_ENTRY_TOKEN_AUTO);
+        assert(token);
+
+        if (conf_root)
+                return entry_token_load_one(rfd, conf_root, type, token);
+
+        FOREACH_STRING(path, "/etc/kernel", "/usr/lib/kernel") {
+                r = entry_token_load_one(rfd, path, type, token);
+                if (r != 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int entry_token_from_machine_id(sd_id128_t machine_id, BootEntryTokenType *type, char **token) {
@@ -123,7 +141,7 @@ static int entry_token_from_os_release(int rfd, BootEntryTokenType *type, char *
 
 int boot_entry_token_ensure_at(
                 int rfd,
-                const char *etc_kernel,
+                const char *conf_root,
                 sd_id128_t machine_id,
                 bool machine_id_is_random,
                 BootEntryTokenType *type,
@@ -141,7 +159,7 @@ int boot_entry_token_ensure_at(
         switch (*type) {
 
         case BOOT_ENTRY_TOKEN_AUTO:
-                r = entry_token_load(rfd, etc_kernel, type, token);
+                r = entry_token_load(rfd, conf_root, type, token);
                 if (r != 0)
                         return r;
 
@@ -198,7 +216,7 @@ int boot_entry_token_ensure_at(
 
 int boot_entry_token_ensure(
                 const char *root,
-                const char *etc_kernel,
+                const char *conf_root,
                 sd_id128_t machine_id,
                 bool machine_id_is_random,
                 BootEntryTokenType *type,
@@ -215,7 +233,7 @@ int boot_entry_token_ensure(
         if (rfd < 0)
                 return -errno;
 
-        return boot_entry_token_ensure_at(rfd, etc_kernel, machine_id, machine_id_is_random, type, token);
+        return boot_entry_token_ensure_at(rfd, conf_root, machine_id, machine_id_is_random, type, token);
 }
 
 int parse_boot_entry_token_type(const char *s, BootEntryTokenType *type, char **token) {

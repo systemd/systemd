@@ -17,9 +17,6 @@
 
 #define GET_CONTAINER(m, i) ((struct rtattr*)((uint8_t*)(m)->hdr + (m)->containers[i].offset))
 
-#define RTA_TYPE(rta) ((rta)->rta_type & NLA_TYPE_MASK)
-#define RTA_FLAGS(rta) ((rta)->rta_type & ~NLA_TYPE_MASK)
-
 int message_new_empty(sd_netlink *nl, sd_netlink_message **ret) {
         sd_netlink_message *m;
 
@@ -777,32 +774,6 @@ int sd_netlink_message_read(sd_netlink_message *m, uint16_t attr_type, size_t si
 }
 
 int sd_netlink_message_read_data(sd_netlink_message *m, uint16_t attr_type, size_t *ret_size, void **ret_data) {
-        void *attr_data;
-        int r;
-
-        assert_return(m, -EINVAL);
-
-        r = netlink_message_read_internal(m, attr_type, &attr_data, NULL);
-        if (r < 0)
-                return r;
-
-        if (ret_data) {
-                void *data;
-
-                data = memdup(attr_data, r);
-                if (!data)
-                        return -ENOMEM;
-
-                *ret_data = data;
-        }
-
-        if (ret_size)
-                *ret_size = r;
-
-        return r;
-}
-
-int sd_netlink_message_read_data_suffix0(sd_netlink_message *m, uint16_t attr_type, size_t *ret_size, void **ret_data) {
         void *attr_data;
         int r;
 

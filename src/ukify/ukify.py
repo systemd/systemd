@@ -50,7 +50,7 @@ from typing import (Any,
 
 import pefile  # type: ignore
 
-__version__ = '{{PROJECT_VERSION}} ({{GIT_VERSION}})'
+__version__ = '{{PROJECT_VERSION_FULL}} ({{VERSION_TAG}})'
 
 EFI_ARCH_MAP = {
     # host_arch glob : [efi_arch, 32_bit_efi_arch if mixed mode is supported]
@@ -190,7 +190,7 @@ class Uname:
     @classmethod
     def scrape_x86(cls, filename, opts=None):
         # Based on https://gitlab.archlinux.org/archlinux/mkinitcpio/mkinitcpio/-/blob/master/functions#L136
-        # and https://www.kernel.org/doc/html/latest/x86/boot.html#the-real-mode-kernel-header
+        # and https://docs.kernel.org/arch/x86/boot.html#the-real-mode-kernel-header
         with open(filename, 'rb') as f:
             f.seek(0x202)
             magic = f.read(4)
@@ -773,7 +773,7 @@ def make_uki(opts):
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
             pcrpkey = opts.pcr_public_keys[0]
         elif opts.pcr_private_keys and len(opts.pcr_private_keys) == 1:
-            import cryptography.hazmat.primitives.serialization as serialization
+            from cryptography.hazmat.primitives import serialization
             privkey = serialization.load_pem_private_key(opts.pcr_private_keys[0].read_bytes(), password=None)
             pcrpkey = privkey.public_key().public_bytes(
                 encoding=serialization.Encoding.PEM,
@@ -846,9 +846,6 @@ uki,1,UKI,uki,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.ht
     print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}")
 
 
-ONE_DAY = datetime.timedelta(1, 0, 0)
-
-
 @contextlib.contextmanager
 def temporary_umask(mask: int):
     # Drop <mask> bits from umask
@@ -874,7 +871,7 @@ def generate_key_cert_pair(
     # supported/expected:
     # https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-secure-boot-key-creation-and-management-guidance?view=windows-11#12-public-key-cryptography
 
-    now = datetime.datetime.now(datetime.UTC)
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     key = rsa.generate_private_key(
         public_exponent=65537,
@@ -888,7 +885,7 @@ def generate_key_cert_pair(
     ).not_valid_before(
         now,
     ).not_valid_after(
-        now + ONE_DAY * valid_days
+        now + datetime.timedelta(days=valid_days)
     ).serial_number(
         x509.random_serial_number()
     ).public_key(
@@ -935,6 +932,8 @@ def generate_priv_pub_key_pair(keylength : int = 2048) -> tuple[bytes]:
 
 
 def generate_keys(opts):
+    work = False
+
     # This will generate keys and certificates and write them to the paths that
     # are specified as input paths.
     if opts.sb_key or opts.sb_cert:
@@ -950,6 +949,8 @@ def generate_keys(opts):
         print(f'Writing SecureBoot certificate to {opts.sb_cert}')
         opts.sb_cert.write_bytes(cert_pem)
 
+        work = True
+
     for priv_key, pub_key, _ in key_path_groups(opts):
         priv_key_pem, pub_key_pem = generate_priv_pub_key_pair()
 
@@ -959,6 +960,11 @@ def generate_keys(opts):
         if pub_key:
             print(f'Writing public key for PCR signing to {pub_key}')
             pub_key.write_bytes(pub_key_pem)
+
+        work = True
+
+    if not work:
+        raise ValueError('genkey: --secureboot-private-key=/--secureboot-certificate= or --pcr-private-key/--pcr-public-key must be specified')
 
 
 def inspect_section(opts, section):
@@ -1335,6 +1341,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--secureboot-certificate-validity',
         metavar = 'DAYS',
+        type = int,
         dest = 'sb_cert_validity',
         default = 365 * 10,
         help = "period of validity (in days) for a certificate created by 'genkey'",

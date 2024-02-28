@@ -339,6 +339,9 @@ static void test_hwdb(struct udev *udev, const char *modalias) {
         if (!hwdb)
                 log_warning_errno(errno, "Failed to open hwdb: %m");
 
+        SAVE_ASSERT_RETURN_IS_CRITICAL;
+        log_set_assert_return_is_critical(hwdb);
+
         udev_list_entry_foreach(entry, udev_hwdb_get_properties_list_entry(hwdb, modalias, 0))
                 log_info("'%s'='%s'", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
 

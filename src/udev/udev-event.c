@@ -14,10 +14,10 @@
 #include "udev-node.h"
 #include "udev-trace.h"
 #include "udev-util.h"
-#include "udev-watch.h"
 #include "user-util.h"
 
-UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl, int log_level) {
+UdevEvent *udev_event_new(sd_device *dev, UdevWorker *worker) {
+        int log_level = worker ? worker->log_level : log_get_max_level();
         UdevEvent *event;
 
         assert(dev);
@@ -27,10 +27,10 @@ UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rt
                 return NULL;
 
         *event = (UdevEvent) {
+                .worker = worker,
+                .rtnl = worker ? sd_netlink_ref(worker->rtnl) : NULL,
                 .dev = sd_device_ref(dev),
                 .birth_usec = now(CLOCK_MONOTONIC),
-                .exec_delay_usec = exec_delay_usec,
-                .rtnl = sd_netlink_ref(rtnl),
                 .uid = UID_INVALID,
                 .gid = GID_INVALID,
                 .mode = MODE_INVALID,
@@ -171,6 +171,12 @@ static int rename_netif(UdevEvent *event) {
                 goto revert;
         }
 
+        r = device_add_property(event->dev_db_clone, "ID_PROCESSING", "1");
+        if (r < 0) {
+                log_device_warning_errno(event->dev_db_clone, r, "Failed to add 'ID_PROCESSING' property: %m");
+                goto revert;
+        }
+
         r = device_update_db(event->dev_db_clone);
         if (r < 0) {
                 log_device_debug_errno(event->dev_db_clone, r, "Failed to update database under /run/udev/data/: %m");
@@ -197,6 +203,7 @@ static int rename_netif(UdevEvent *event) {
 revert:
         /* Restore 'dev_db_clone' */
         (void) device_add_property(event->dev_db_clone, "ID_RENAMING", NULL);
+        (void) device_add_property(event->dev_db_clone, "ID_PROCESSING", NULL);
         (void) device_update_db(event->dev_db_clone);
 
         /* Restore 'dev' */
@@ -276,14 +283,7 @@ static int update_devnode(UdevEvent *event) {
         return udev_node_update(dev, event->dev_db_clone);
 }
 
-static int event_execute_rules_on_remove(
-                UdevEvent *event,
-                int inotify_fd,
-                usec_t timeout_usec,
-                int timeout_signal,
-                Hashmap *properties_list,
-                UdevRules *rules) {
-
+static int event_execute_rules_on_remove(UdevEvent *event, UdevRules *rules) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         int r;
 
@@ -299,11 +299,7 @@ static int event_execute_rules_on_remove(
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to delete database under /run/udev/data/, ignoring: %m");
 
-        r = udev_watch_end(inotify_fd, dev);
-        if (r < 0)
-                log_device_warning_errno(dev, r, "Failed to remove inotify watch, ignoring: %m");
-
-        r = udev_rules_apply_to_event(rules, event, timeout_usec, timeout_signal, properties_list);
+        r = udev_rules_apply_to_event(rules, event);
 
         if (sd_device_get_devnum(dev, NULL) >= 0)
                 (void) udev_node_remove(dev);
@@ -328,14 +324,7 @@ static int copy_all_tags(sd_device *d, sd_device *s) {
         return 0;
 }
 
-int udev_event_execute_rules(
-                UdevEvent *event,
-                int inotify_fd, /* This may be negative */
-                usec_t timeout_usec,
-                int timeout_signal,
-                Hashmap *properties_list,
-                UdevRules *rules) {
-
+int udev_event_execute_rules(UdevEvent *event, UdevRules *rules) {
         sd_device_action_t action;
         sd_device *dev;
         int r;
@@ -348,12 +337,7 @@ int udev_event_execute_rules(
                 return log_device_error_errno(dev, r, "Failed to get ACTION: %m");
 
         if (action == SD_DEVICE_REMOVE)
-                return event_execute_rules_on_remove(event, inotify_fd, timeout_usec, timeout_signal, properties_list, rules);
-
-        /* Disable watch during event processing. */
-        r = udev_watch_end(inotify_fd, dev);
-        if (r < 0)
-                log_device_warning_errno(dev, r, "Failed to remove inotify watch, ignoring: %m");
+                return event_execute_rules_on_remove(event, rules);
 
         r = device_clone_with_db(dev, &event->dev_db_clone);
         if (r < 0)
@@ -371,9 +355,21 @@ int udev_event_execute_rules(
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to remove 'ID_RENAMING' property: %m");
 
+        /* If the database file already exists, append ID_PROCESSING property to the existing database,
+         * to indicate that the device is being processed by udevd. */
+        if (device_has_db(event->dev_db_clone) > 0) {
+                r = device_add_property(event->dev_db_clone, "ID_PROCESSING", "1");
+                if (r < 0)
+                        return log_device_warning_errno(event->dev_db_clone, r, "Failed to add 'ID_PROCESSING' property: %m");
+
+                r = device_update_db(event->dev_db_clone);
+                if (r < 0)
+                        return log_device_warning_errno(event->dev_db_clone, r, "Failed to update database under /run/udev/data/: %m");
+        }
+
         DEVICE_TRACE_POINT(rules_start, dev);
 
-        r = udev_rules_apply_to_event(rules, event, timeout_usec, timeout_signal, properties_list);
+        r = udev_rules_apply_to_event(rules, event);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to apply udev rules: %m");
 
@@ -400,6 +396,15 @@ int udev_event_execute_rules(
         r = device_tag_index(dev, event->dev_db_clone, true);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to update tags under /run/udev/tag/: %m");
+
+        /* If the database file for the device will be created below, add ID_PROCESSING=1 to indicate that
+         * the device is still being processed by udevd, as commands specified in RUN are invoked after
+         * the database is created. See issue #30056. */
+        if (device_should_have_db(dev) && !ordered_hashmap_isempty(event->run_list)) {
+                r = device_add_property(dev, "ID_PROCESSING", "1");
+                if (r < 0)
+                        return log_device_warning_errno(dev, r, "Failed to add 'ID_PROCESSING' property: %m");
+        }
 
         r = device_update_db(dev);
         if (r < 0)

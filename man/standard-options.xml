@@ -1,17 +1,15 @@
 <?xml version="1.0"?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+<!DOCTYPE variablelist PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<variablelist
-    xmlns:xi="http://www.w3.org/2001/XInclude">
-
+<variablelist>
   <varlistentry id='help'>
     <term><option>-h</option></term>
     <term><option>--help</option></term>
 
     <listitem id='help-text'>
-      <para>Print a short help text and exit.
+      <para id='help-para'>Print a short help text and exit.
     </para></listitem>
   </varlistentry>
 
@@ -28,16 +26,6 @@
 
     <listitem>
       <para>Do not pipe output into a pager.</para>
-    </listitem>
-  </varlistentry>
-
-  <varlistentry id='no-pager-255'>
-    <term><option>--no-pager</option></term>
-
-    <listitem>
-      <para>Do not pipe output into a pager.</para>
-
-      <xi:include href="version-info.xml" xpointer="v255"/>
     </listitem>
   </varlistentry>
 
@@ -91,6 +79,13 @@
     shortest possible output without any redundant whitespace or line breaks), <literal>pretty</literal>
     (for a pretty version of the same, with indentation and line breaks) or <literal>off</literal> (to turn
     off JSON output, the default).</para></listitem>
+  </varlistentry>
+
+  <varlistentry id='j'>
+    <term><option>-j</option></term>
+
+    <listitem><para>Equivalent to <option>--json=pretty</option> if running on a terminal, and
+    <option>--json=short</option> otherwise.</para></listitem>
   </varlistentry>
 
   <varlistentry id='signal'>

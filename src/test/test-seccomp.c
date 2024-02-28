@@ -937,7 +937,7 @@ TEST(native_syscalls_filtered) {
 }
 
 TEST(lock_personality) {
-        unsigned long current;
+        unsigned long current_opinionated;
         pid_t pid;
 
         if (!is_seccomp_available()) {
@@ -949,24 +949,21 @@ TEST(lock_personality) {
                 return;
         }
 
-        assert_se(opinionated_personality(&current) >= 0);
-        /* On ppc64le sanitizers disable ASLR (i.e. by setting ADDR_NO_RANDOMIZE),
-         * which opinionated_personality() doesn't return. Let's tweak the current
-         * personality ourselves in such cases.
-         * See: https://github.com/llvm/llvm-project/commit/78f7a6eaa601bfdd6ae70ffd3da2254c21ff77f9
-         */
-        if (FLAGS_SET(safe_personality(PERSONALITY_INVALID), ADDR_NO_RANDOMIZE))
-                current |= ADDR_NO_RANDOMIZE;
+        assert_se(opinionated_personality(&current_opinionated) >= 0);
 
-        log_info("current personality=0x%lX", current);
+        log_info("current personality=0x%lX", (unsigned long) safe_personality(PERSONALITY_INVALID));
+        log_info("current opinionated personality=0x%lX", current_opinionated);
 
         pid = fork();
         assert_se(pid >= 0);
 
         if (pid == 0) {
-                assert_se(seccomp_lock_personality(current) >= 0);
+                unsigned long current;
 
-                assert_se((unsigned long) safe_personality(current) == current);
+                assert_se(seccomp_lock_personality(current_opinionated) >= 0);
+
+                current = safe_personality(current_opinionated);
+                assert_se((current & OPINIONATED_PERSONALITY_MASK) == current_opinionated);
 
                 /* Note, we also test that safe_personality() works correctly, by checking whether errno is properly
                  * set, in addition to the return value */
@@ -981,14 +978,15 @@ TEST(lock_personality) {
                 assert_se(safe_personality(PER_LINUX_32BIT) == -EPERM);
                 assert_se(safe_personality(PER_SVR4) == -EPERM);
                 assert_se(safe_personality(PER_BSD) == -EPERM);
-                assert_se(safe_personality(current == PER_LINUX ? PER_LINUX32 : PER_LINUX) == -EPERM);
+                assert_se(safe_personality(current_opinionated == PER_LINUX ? PER_LINUX32 : PER_LINUX) == -EPERM);
                 assert_se(safe_personality(PER_LINUX32_3GB) == -EPERM);
                 assert_se(safe_personality(PER_UW7) == -EPERM);
                 assert_se(safe_personality(0x42) == -EPERM);
 
                 assert_se(safe_personality(PERSONALITY_INVALID) == -EPERM); /* maybe remove this later */
 
-                assert_se((unsigned long) personality(current) == current);
+                current = safe_personality(current_opinionated);
+                assert_se((current & OPINIONATED_PERSONALITY_MASK) == current_opinionated);
                 _exit(EXIT_SUCCESS);
         }
 

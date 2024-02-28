@@ -217,7 +217,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         /* And possibly check the third line, too */
         if (b->accept_fd) {
                 l = lines[i++];
-                b->can_fds = !!memory_startswith(l, lines[i] - l, "AGREE_UNIX_FD");
+                b->can_fds = memory_startswith(l, lines[i] - l, "AGREE_UNIX_FD");
         }
 
         assert(i == n);
@@ -266,7 +266,7 @@ static int verify_anonymous_token(sd_bus *b, const char *p, size_t l) {
         if (l % 2 != 0)
                 return 0;
 
-        r = unhexmem(p, l, (void **) &token, &len);
+        r = unhexmem_full(p, l, /* secure = */ false, (void**) &token, &len);
         if (r < 0)
                 return 0;
 
@@ -298,7 +298,7 @@ static int verify_external_token(sd_bus *b, const char *p, size_t l) {
         if (l % 2 != 0)
                 return 0;
 
-        r = unhexmem(p, l, (void**) &token, &len);
+        r = unhexmem_full(p, l, /* secure = */ false, (void**) &token, &len);
         if (r < 0)
                 return 0;
 
@@ -643,14 +643,20 @@ static void bus_get_peercred(sd_bus *b) {
         /* Get the SELinux context of the peer */
         r = getpeersec(b->input_fd, &b->label);
         if (r < 0 && !IN_SET(r, -EOPNOTSUPP, -ENOPROTOOPT))
-                log_debug_errno(r, "Failed to determine peer security context: %m");
+                log_debug_errno(r, "Failed to determine peer security context, ignoring: %m");
 
         /* Get the list of auxiliary groups of the peer */
         r = getpeergroups(b->input_fd, &b->groups);
         if (r >= 0)
                 b->n_groups = (size_t) r;
         else if (!IN_SET(r, -EOPNOTSUPP, -ENOPROTOOPT))
-                log_debug_errno(r, "Failed to determine peer's group list: %m");
+                log_debug_errno(r, "Failed to determine peer's group list, ignoring: %m");
+
+        r = getpeerpidfd(b->input_fd);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine peer pidfd, ignoring: %m");
+        else
+                close_and_replace(b->pidfd, r);
 
         /* Let's query the peers socket address, it might carry information such as the peer's comm or
          * description string */
@@ -735,12 +741,12 @@ static int bus_socket_inotify_setup(sd_bus *b) {
         assert(b->sockaddr.sa.sa_family == AF_UNIX);
         assert(b->sockaddr.un.sun_path[0] != 0);
 
-        /* Sets up an inotify fd in case watch_bind is enabled: wait until the configured AF_UNIX file system socket
-         * appears before connecting to it. The implemented is pretty simplistic: we just subscribe to relevant changes
-         * to all prefix components of the path, and every time we get an event for that we try to reconnect again,
-         * without actually caring what precisely the event we got told us. If we still can't connect we re-subscribe
-         * to all relevant changes of anything in the path, so that our watches include any possibly newly created path
-         * components. */
+        /* Sets up an inotify fd in case watch_bind is enabled: wait until the configured AF_UNIX file system
+         * socket appears before connecting to it. The implemented is pretty simplistic: we just subscribe to
+         * relevant changes to all components of the path, and every time we get an event for that we try to
+         * reconnect again, without actually caring what precisely the event we got told us. If we still
+         * can't connect we re-subscribe to all relevant changes of anything in the path, so that our watches
+         * include any possibly newly created path components. */
 
         if (b->inotify_fd < 0) {
                 b->inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
@@ -759,17 +765,17 @@ static int bus_socket_inotify_setup(sd_bus *b) {
         if (r < 0)
                 goto fail;
 
-        /* Watch all parent directories, and don't mind any prefix that doesn't exist yet. For the innermost directory
-         * that exists we want to know when files are created or moved into it. For all parents of it we just care if
-         * they are removed or renamed. */
+        /* Watch all components of the path, and don't mind any prefix that doesn't exist yet. For the
+         * innermost directory that exists we want to know when files are created or moved into it. For all
+         * parents of it we just care if they are removed or renamed. */
 
         if (!GREEDY_REALLOC(new_watches, n + 1)) {
                 r = -ENOMEM;
                 goto fail;
         }
 
-        /* Start with the top-level directory, which is a bit simpler than the rest, since it can't be a symlink, and
-         * always exists */
+        /* Start with the top-level directory, which is a bit simpler than the rest, since it can't be a
+         * symlink, and always exists */
         wd = inotify_add_watch(b->inotify_fd, "/", IN_CREATE|IN_MOVED_TO);
         if (wd < 0) {
                 r = log_debug_errno(errno, "Failed to add inotify watch on /: %m");

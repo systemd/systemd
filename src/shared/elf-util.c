@@ -348,7 +348,7 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
 
                 /* Package metadata is in PT_NOTE headers. */
                 program_header = sym_gelf_getphdr(elf, i, &mem);
-                if (!program_header || (program_header->p_type != PT_NOTE && program_header->p_type != PT_INTERP))
+                if (!program_header || !IN_SET(program_header->p_type, PT_NOTE, PT_INTERP))
                         continue;
 
                 if (program_header->p_type == PT_INTERP) {
@@ -540,7 +540,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
                         continue;
 
                 /* Check that the end of segment is a valid address. */
-                if (__builtin_add_overflow(program_header->p_vaddr, program_header->p_memsz, &end_of_segment)) {
+                if (!ADD_SAFE(&end_of_segment, program_header->p_vaddr, program_header->p_memsz)) {
                         log_error("Abort due to corrupted core dump, end of segment address %#zx + %#zx overflows", (size_t)program_header->p_vaddr, (size_t)program_header->p_memsz);
                         return DWARF_CB_ABORT;
                 }

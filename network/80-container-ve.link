@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: MIT-0
+#
+# This config file is installed as part of systemd.
+# It may be freely copied and edited (following the MIT No Attribution license).
+#
+# To make local modifications, one of the following methods may be used:
+# 1. add a drop-in file that extends this file by creating the
+#    /etc/systemd/network/80-container-ve.link.d/ directory and creating a
+#    new .conf file there.
+# 2. copy this file into /etc/systemd/network/ or one of the other paths checked
+#    by systemd-udevd and edit it there.
+# This file should not be edited in place, because it'll be overwritten on upgrades.
+
+# This .link file matches the host-side of the virtual Ethernet link
+# created by systemd-nspawn's --network-veth switch. See systemd-nspawn(1) for
+# details.
+
+[Match]
+Kind=veth
+OriginalName=ve-*
+
+[Link]
+NamePolicy=keep
+Property=ID_NET_MANAGED_BY=io.systemd.Network

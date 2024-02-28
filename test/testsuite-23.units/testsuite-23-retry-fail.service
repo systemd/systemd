@@ -5,5 +5,5 @@ Description=Failed Dependency Unit
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/sh -c "if [ -f /tmp/testsuite-23-retry-fail ]; then exit 0; else exit 1; fi"
+ExecStart=sh -c "if [ -f /tmp/testsuite-23-retry-fail ]; then exit 0; else exit 1; fi"
 Restart=no

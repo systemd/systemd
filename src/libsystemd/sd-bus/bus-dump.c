@@ -355,6 +355,8 @@ int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse) {
 
         if (c->mask & SD_BUS_CREDS_PID)
                 fprintf(f, "%sPID=%s"PID_FMT"%s", prefix, color, c->pid, suffix);
+        if (c->mask & SD_BUS_CREDS_PIDFD)
+                fprintf(f, "%sPIDFD=%syes%s", prefix, color, suffix);
         if (c->mask & SD_BUS_CREDS_TID)
                 fprintf(f, "%sTID=%s"PID_FMT"%s", prefix, color, c->tid, suffix);
         if (c->mask & SD_BUS_CREDS_PPID) {

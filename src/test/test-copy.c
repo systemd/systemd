@@ -253,6 +253,43 @@ TEST(copy_tree) {
         (void) rm_rf(original_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
+TEST(copy_tree_at_symlink) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_free_ char *p = NULL, *q = NULL;
+        const char *expect = "hgoehogefoobar";
+
+        tfd = mkdtemp_open(NULL, O_PATH, &t);
+        assert_se(tfd >= 0);
+
+        assert_se(symlinkat(expect, tfd, "from") >= 0);
+
+        assert_se(copy_tree_at(tfd, "from", tfd, "to_1", UID_INVALID, GID_INVALID, 0, NULL, NULL) >= 0);
+        assert_se(readlinkat_malloc(tfd, "to_1", &p) >= 0);
+        assert_se(streq(p, expect));
+        p = mfree(p);
+
+        assert_se(q = path_join(t, "from"));
+        assert_se(copy_tree_at(AT_FDCWD, q, tfd, "to_2", UID_INVALID, GID_INVALID, 0, NULL, NULL) >= 0);
+        assert_se(readlinkat_malloc(tfd, "to_2", &p) >= 0);
+        assert_se(streq(p, expect));
+        p = mfree(p);
+        q = mfree(q);
+
+        fd = openat(tfd, "from", O_CLOEXEC | O_PATH | O_NOFOLLOW);
+        assert_se(fd >= 0);
+        assert_se(copy_tree_at(fd, NULL, tfd, "to_3", UID_INVALID, GID_INVALID, 0, NULL, NULL) >= 0);
+        assert_se(readlinkat_malloc(tfd, "to_3", &p) >= 0);
+        assert_se(streq(p, expect));
+        p = mfree(p);
+
+        assert_se(copy_tree_at(fd, "", tfd, "to_4", UID_INVALID, GID_INVALID, 0, NULL, NULL) >= 0);
+        assert_se(readlinkat_malloc(tfd, "to_4", &p) >= 0);
+        assert_se(streq(p, expect));
+        p = mfree(p);
+        fd = safe_close(fd);
+}
+
 TEST(copy_bytes) {
         _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
         _cleanup_close_ int infd = -EBADF;
@@ -520,13 +557,35 @@ TEST(copy_lock) {
         assert_se((fd = copy_directory_at(tfd, "abc", tfd, "qed", COPY_LOCK_BSD)) >= 0);
         assert_se(faccessat(tfd, "qed", F_OK, 0) >= 0);
         assert_se(faccessat(tfd, "qed/def", F_OK, 0) >= 0);
-        assert_se(xopenat_lock(tfd, "qed", 0, 0, 0, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
+        assert_se(xopenat_lock(tfd, "qed", 0, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
         fd = safe_close(fd);
 
         assert_se((fd = copy_file_at(tfd, "abc/def", tfd, "poi", 0, 0644, COPY_LOCK_BSD)));
         assert_se(read_file_at_and_streq(tfd, "poi", "abc\n"));
-        assert_se(xopenat_lock(tfd, "poi", 0, 0, 0, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
+        assert_se(xopenat_lock(tfd, "poi", 0, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
         fd = safe_close(fd);
+}
+
+TEST(copy_verify_linked) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd_1 = -EBADF, fd_2 = -EBADF;
+
+        tfd = mkdtemp_open(NULL, O_PATH, &t);
+        assert_se(tfd >= 0);
+
+        assert_se(write_string_file_at(tfd, "hoge", "bar bar", WRITE_STRING_FILE_CREATE) >= 0);
+
+        fd_1 = openat(tfd, "hoge", O_CLOEXEC | O_NOCTTY | O_RDONLY);
+        assert_se(fd_1 >= 0);
+        fd_2 = openat(tfd, "hoge", O_CLOEXEC | O_NOCTTY | O_RDONLY);
+        assert_se(fd_2 >= 0);
+        assert_se(unlinkat(tfd, "hoge", 0) >= 0);
+
+        assert_se(copy_file_at(fd_1, NULL, tfd, "to_1", 0, 0644, 0) >= 0);
+        assert_se(read_file_at_and_streq(tfd, "to_1", "bar bar\n"));
+
+        assert_se(copy_file_at(fd_2, NULL, tfd, "to_2", O_EXCL, 0644, COPY_VERIFY_LINKED) == -EIDRM);
+        assert_se(faccessat(tfd, "to_2", F_OK, AT_SYMLINK_NOFOLLOW) < 0 && errno == ENOENT);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -248,7 +248,7 @@ static int builtin_usb_id(UdevEvent *event, int argc, char *argv[], bool test) {
         size_t l;
         char *s;
 
-        const char *syspath, *sysname, *devtype, *interface_syspath;
+        const char *syspath, *sysname, *interface_syspath;
         int r;
 
         r = sd_device_get_syspath(dev, &syspath);
@@ -260,7 +260,7 @@ static int builtin_usb_id(UdevEvent *event, int argc, char *argv[], bool test) {
                 return r;
 
         /* shortcut, if we are called directly for a "usb_device" type */
-        if (sd_device_get_devtype(dev, &devtype) >= 0 && streq(devtype, "usb_device")) {
+        if (device_is_devtype(dev, "usb_device")) {
                 dev_if_packed_info(dev, packed_if_str, sizeof(packed_if_str));
                 dev_usb = dev;
                 goto fallback;

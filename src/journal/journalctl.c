@@ -28,6 +28,7 @@
 #include "chattr-util.h"
 #include "constants.h"
 #include "devnum-util.h"
+#include "dirent-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -122,12 +123,14 @@ static bool arg_force = false;
 static usec_t arg_since = 0, arg_until = 0;
 static bool arg_since_set = false, arg_until_set = false;
 static char **arg_syslog_identifier = NULL;
+static char **arg_exclude_identifier = NULL;
 static char **arg_system_units = NULL;
 static char **arg_user_units = NULL;
 static const char *arg_field = NULL;
 static bool arg_catalog = false;
 static bool arg_reverse = false;
 static int arg_journal_type = 0;
+static int arg_journal_additional_open_flags = 0;
 static int arg_namespace_flags = 0;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
@@ -146,6 +149,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_facilities, set_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_verify_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_syslog_identifier, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_exclude_identifier, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_system_units, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_user_units, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -173,6 +177,7 @@ static enum {
         ACTION_ROTATE_AND_VACUUM,
         ACTION_LIST_FIELDS,
         ACTION_LIST_FIELD_NAMES,
+        ACTION_LIST_NAMESPACES,
 } arg_action = ACTION_SHOW;
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
@@ -365,7 +370,7 @@ static int help(void) {
                "  -M --machine=CONTAINER     Operate on local container\n"
                "  -m --merge                 Show entries from all available journals\n"
                "  -D --directory=PATH        Show journal files from directory\n"
-               "     --file=PATH             Show journal file\n"
+               "  -i --file=PATH             Show journal file\n"
                "     --root=PATH             Operate on an alternate filesystem root\n"
                "     --image=PATH            Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY   Specify disk image dissection policy\n"
@@ -380,6 +385,8 @@ static int help(void) {
                "  -u --unit=UNIT             Show logs from the specified unit\n"
                "     --user-unit=UNIT        Show logs from the specified user unit\n"
                "  -t --identifier=STRING     Show entries with the specified syslog identifier\n"
+               "  -T --exclude-identifier=STRING\n"
+               "                             Hide entries with the specified syslog identifier\n"
                "  -p --priority=RANGE        Show entries with the specified priority\n"
                "     --facility=FACILITY...  Show entries with the specified facilities\n"
                "  -g --grep=PATTERN          Show entries with MESSAGE matching PATTERN\n"
@@ -461,7 +468,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_HEADER,
                 ARG_FACILITY,
                 ARG_SETUP_KEYS,
-                ARG_FILE,
                 ARG_INTERVAL,
                 ARG_VERIFY,
                 ARG_VERIFY_KEY,
@@ -488,6 +494,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_HOSTNAME,
                 ARG_OUTPUT_FIELDS,
                 ARG_NAMESPACE,
+                ARG_LIST_NAMESPACES,
         };
 
         static const struct option options[] = {
@@ -514,12 +521,13 @@ static int parse_argv(int argc, char *argv[]) {
                 { "system",               no_argument,       NULL, ARG_SYSTEM               },
                 { "user",                 no_argument,       NULL, ARG_USER                 },
                 { "directory",            required_argument, NULL, 'D'                      },
-                { "file",                 required_argument, NULL, ARG_FILE                 },
+                { "file",                 required_argument, NULL, 'i'                      },
                 { "root",                 required_argument, NULL, ARG_ROOT                 },
                 { "image",                required_argument, NULL, ARG_IMAGE                },
                 { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
                 { "header",               no_argument,       NULL, ARG_HEADER               },
                 { "identifier",           required_argument, NULL, 't'                      },
+                { "exclude-identifier",   required_argument, NULL, 'T'                      },
                 { "priority",             required_argument, NULL, 'p'                      },
                 { "facility",             required_argument, NULL, ARG_FACILITY             },
                 { "grep",                 required_argument, NULL, 'g'                      },
@@ -557,6 +565,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-hostname",          no_argument,       NULL, ARG_NO_HOSTNAME          },
                 { "output-fields",        required_argument, NULL, ARG_OUTPUT_FIELDS        },
                 { "namespace",            required_argument, NULL, ARG_NAMESPACE            },
+                { "list-namespaces",      no_argument,       NULL, ARG_LIST_NAMESPACES      },
                 {}
         };
 
@@ -565,7 +574,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:u:NF:xrM:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:T:u:NF:xrM:i:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -723,11 +732,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_LIST_NAMESPACES:
+                        arg_action = ACTION_LIST_NAMESPACES;
+                        break;
+
                 case 'D':
                         arg_directory = optarg;
                         break;
 
-                case ARG_FILE:
+                case 'i':
                         if (streq(optarg, "-"))
                                 /* An undocumented feature: we can read journal files from STDIN. We don't document
                                  * this though, since after all we only support this for mmap-able, seekable files, and
@@ -959,6 +972,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
                         break;
 
+                case 'T':
+                        r = strv_extend(&arg_exclude_identifier, optarg);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
                 case 'u':
                         r = strv_extend(&arg_system_units, optarg);
                         if (r < 0)
@@ -1089,9 +1108,9 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--since= must be before --until=.");
 
-        if (!!arg_cursor + !!arg_after_cursor + !!arg_since_set > 1)
+        if (!!arg_cursor + !!arg_after_cursor + !!arg_cursor_file + !!arg_since_set > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Please specify only one of --since=, --cursor=, and --after-cursor=.");
+                                       "Please specify only one of --since=, --cursor=, --cursor-file=, and --after-cursor=.");
 
         if (arg_follow && arg_reverse)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1134,6 +1153,9 @@ static int parse_argv(int argc, char *argv[]) {
                 if (arg_lines_needs_seek_end() && !arg_follow)
                         arg_reverse = true;
         }
+
+        if (!arg_follow)
+                arg_journal_additional_open_flags = SD_JOURNAL_ASSUME_IMMUTABLE;
 
         return 1;
 }
@@ -1215,6 +1237,64 @@ static int add_matches(sd_journal *j, char **args) {
         if (!strv_isempty(args) && !have_term)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "\"+\" can only be used between terms");
+
+        return 0;
+}
+
+static int list_namespaces(const char *root) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        sd_id128_t machine;
+        char machine_id[SD_ID128_STRING_MAX];
+        int r;
+
+        r = sd_id128_get_machine(&machine);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get machine ID: %m");
+
+        sd_id128_to_string(machine, machine_id);
+
+        table = table_new("namespace");
+        if (!table)
+                return log_oom();
+
+        (void) table_set_sort(table, (size_t) 0);
+
+        FOREACH_STRING(dir, "/var/log/journal", "/run/log/journal") {
+                _cleanup_free_ char *path = NULL;
+                _cleanup_closedir_ DIR *dirp = NULL;
+
+                path = path_join(root, dir);
+                if (!path)
+                        return log_oom();
+
+                dirp = opendir(path);
+                if (!dirp) {
+                        log_debug_errno(errno, "Failed to open directory %s, ignoring: %m", path);
+                        continue;
+                }
+
+                FOREACH_DIRENT(de, dirp, return log_error_errno(errno, "Failed to iterate through %s: %m", path)) {
+                        char *dot;
+
+                        if (!startswith(de->d_name, machine_id))
+                                continue;
+
+                        dot = strchr(de->d_name, '.');
+                        if (!dot)
+                                continue;
+
+                        if (!log_namespace_name_valid(dot + 1))
+                                continue;
+
+                        r = table_add_cell(table, NULL, TABLE_STRING, dot + 1);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+        }
+
+        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, !arg_quiet);
+        if (r < 0)
+                return table_log_print_error(r);
 
         return 0;
 }
@@ -1573,6 +1653,19 @@ static int add_syslog_identifier(sd_journal *j) {
         return 0;
 }
 
+static int add_exclude_identifier(sd_journal *j) {
+        _cleanup_set_free_ Set *excludes = NULL;
+        int r;
+
+        assert(j);
+
+        r = set_put_strdupv(&excludes, arg_exclude_identifier);
+        if (r < 0)
+                return r;
+
+        return set_free_and_replace(j->exclude_syslog_identifiers, excludes);
+}
+
 #if HAVE_GCRYPT
 static int format_journal_url(
                 const void *seed,
@@ -1826,54 +1919,93 @@ static int verify(sd_journal *j, bool verbose) {
         return r;
 }
 
-static int simple_varlink_call(const char *option, const char *method) {
-        _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
-        const char *error, *fn;
+static int varlink_connect_journal(Varlink **ret_link) {
+        const char *address;
         int r;
 
-        if (arg_machine)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "%s is not supported in conjunction with --machine=.", option);
+        address = arg_namespace ?
+                  strjoina("/run/systemd/journal.", arg_namespace, "/io.systemd.journal") :
+                  "/run/systemd/journal/io.systemd.journal";
 
-        fn = arg_namespace ?
-                strjoina("/run/systemd/journal.", arg_namespace, "/io.systemd.journal") :
-                "/run/systemd/journal/io.systemd.journal";
-
-        r = varlink_connect_address(&link, fn);
+        r = varlink_connect_address(ret_link, address);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to %s: %m", fn);
+                return r;
 
-        (void) varlink_set_description(link, "journal");
-        (void) varlink_set_relative_timeout(link, USEC_INFINITY);
-
-        r = varlink_call(link, method, NULL, NULL, &error, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to execute varlink call: %m");
-        if (error)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOANO),
-                                       "Failed to execute varlink call: %s", error);
+        (void) varlink_set_description(*ret_link, "journal");
+        (void) varlink_set_relative_timeout(*ret_link, USEC_INFINITY);
 
         return 0;
 }
 
 static int flush_to_var(void) {
+        _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
+        int r;
+
+        if (arg_machine || arg_namespace)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "--flush is not supported in conjunction with %s.",
+                                       arg_machine ? "--machine=" : "--namespace=");
+
         if (access("/run/systemd/journal/flushed", F_OK) >= 0)
                 return 0; /* Already flushed, no need to contact journald */
         if (errno != ENOENT)
                 return log_error_errno(errno, "Unable to check for existence of /run/systemd/journal/flushed: %m");
 
-        return simple_varlink_call("--flush", "io.systemd.Journal.FlushToVar");
+        r = varlink_connect_journal(&link);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to Varlink socket: %m");
+
+        return varlink_call_and_log(link, "io.systemd.Journal.FlushToVar", /* parameters= */ NULL, /* ret_parameters= */ NULL);
 }
 
 static int relinquish_var(void) {
-        return simple_varlink_call("--relinquish-var/--smart-relinquish-var", "io.systemd.Journal.RelinquishVar");
+        _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
+        int r;
+
+        if (arg_machine || arg_namespace)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "--(smart-)relinquish-var is not supported in conjunction with %s.",
+                                       arg_machine ? "--machine=" : "--namespace=");
+
+        r = varlink_connect_journal(&link);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to Varlink socket: %m");
+
+        return varlink_call_and_log(link, "io.systemd.Journal.RelinquishVar", /* parameters= */ NULL, /* ret_parameters= */ NULL);
 }
 
 static int rotate(void) {
-        return simple_varlink_call("--rotate", "io.systemd.Journal.Rotate");
+        _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
+        int r;
+
+        if (arg_machine)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "--rotate is not supported in conjunction with --machine=.");
+
+        r = varlink_connect_journal(&link);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to Varlink socket: %m");
+
+        return varlink_call_and_log(link, "io.systemd.Journal.Rotate", /* parameters= */ NULL, /* ret_parameters= */ NULL);
 }
 
 static int sync_journal(void) {
-        return simple_varlink_call("--sync", "io.systemd.Journal.Synchronize");
+        _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
+        int r;
+
+        if (arg_machine)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "--sync is not supported in conjunction with --machine=.");
+
+        r = varlink_connect_journal(&link);
+        if (ERRNO_IS_NEG_DISCONNECT(r) && arg_namespace)
+                /* If the namespaced sd-journald instance was shut down due to inactivity, it should already
+                 * be synchronized */
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to Varlink socket: %m");
+
+        return varlink_call_and_log(link, "io.systemd.Journal.Synchronize", /* parameters= */ NULL, /* ret_parameters= */ NULL);
 }
 
 static int action_list_fields(sd_journal *j) {
@@ -2165,10 +2297,12 @@ static int setup_event(Context *c, int fd, sd_event **ret) {
 }
 
 static int run(int argc, char *argv[]) {
-        bool need_seek = false, since_seeked = false, use_cursor = false, after_cursor = false;
+        bool need_seek = false, since_seeked = false, after_cursor = false;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_free_ char *cursor_from_file = NULL;
+        const char *cursor = NULL;
         int n_shown, r, poll_fd = -EBADF;
 
         setlocale(LC_ALL, "");
@@ -2263,6 +2397,9 @@ static int run(int argc, char *argv[]) {
         case ACTION_ROTATE:
                 return rotate();
 
+        case ACTION_LIST_NAMESPACES:
+                return list_namespaces(arg_root);
+
         case ACTION_SHOW:
         case ACTION_PRINT_HEADER:
         case ACTION_VERIFY:
@@ -2280,21 +2417,21 @@ static int run(int argc, char *argv[]) {
         }
 
         if (arg_directory)
-                r = sd_journal_open_directory(&j, arg_directory, arg_journal_type);
+                r = sd_journal_open_directory(&j, arg_directory, arg_journal_type | arg_journal_additional_open_flags);
         else if (arg_root)
-                r = sd_journal_open_directory(&j, arg_root, arg_journal_type | SD_JOURNAL_OS_ROOT);
+                r = sd_journal_open_directory(&j, arg_root, arg_journal_type | arg_journal_additional_open_flags | SD_JOURNAL_OS_ROOT);
         else if (arg_file_stdin)
-                r = sd_journal_open_files_fd(&j, (int[]) { STDIN_FILENO }, 1, 0);
+                r = sd_journal_open_files_fd(&j, (int[]) { STDIN_FILENO }, 1, arg_journal_additional_open_flags);
         else if (arg_file)
-                r = sd_journal_open_files(&j, (const char**) arg_file, 0);
+                r = sd_journal_open_files(&j, (const char**) arg_file, arg_journal_additional_open_flags);
         else if (arg_machine)
-                r = journal_open_machine(&j, arg_machine);
+                r = journal_open_machine(&j, arg_machine, arg_journal_additional_open_flags);
         else
                 r = sd_journal_open_namespace(
                                 &j,
                                 arg_namespace,
                                 (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) |
-                                arg_namespace_flags | arg_journal_type);
+                                arg_namespace_flags | arg_journal_type | arg_journal_additional_open_flags);
         if (r < 0)
                 return log_error_errno(r, "Failed to open %s: %m", arg_directory ?: arg_file ? "files" : "journal");
 
@@ -2407,6 +2544,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add filter for syslog identifiers: %m");
 
+        r = add_exclude_identifier(j);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add exclude filter for syslog identifiers: %m");
+
         r = add_priorities(j);
         if (r < 0)
                 return r;
@@ -2445,8 +2586,7 @@ static int run(int argc, char *argv[]) {
         }
 
         if (arg_cursor || arg_after_cursor || arg_cursor_file) {
-                _cleanup_free_ char *cursor_from_file = NULL;
-                const char *cursor = arg_cursor ?: arg_after_cursor;
+                cursor = arg_cursor ?: arg_after_cursor;
 
                 if (arg_cursor_file) {
                         r = read_one_line_file(arg_cursor_file, &cursor_from_file);
@@ -2459,30 +2599,40 @@ static int run(int argc, char *argv[]) {
                         }
                 } else
                         after_cursor = arg_after_cursor;
-
-                if (cursor) {
-                        r = sd_journal_seek_cursor(j, cursor);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to seek to cursor: %m");
-
-                        use_cursor = true;
-                }
         }
 
-        if (use_cursor) {
-                if (!arg_reverse)
-                        r = sd_journal_next_skip(j, 1 + after_cursor);
-                else
-                        r = sd_journal_previous_skip(j, 1 + after_cursor);
+        if (cursor) {
+                r = sd_journal_seek_cursor(j, cursor);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seek to cursor: %m");
 
-                if (after_cursor && r < 2) {
+                r = sd_journal_step_one(j, !arg_reverse);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to iterate through journal: %m");
+
+                if (after_cursor && r > 0) {
+                        /* With --after-cursor=/--cursor-file= we want to skip the first entry only if it's
+                         * the entry the cursor is pointing at, otherwise, if some journal filters are used,
+                         * we might skip the first entry of the filter match, which leads to unexpectedly
+                         * missing journal entries. */
+                        int k;
+
+                        k = sd_journal_test_cursor(j, cursor);
+                        if (k < 0)
+                                return log_error_errno(k, "Failed to test cursor against current entry: %m");
+                        if (k > 0)
+                                /* Current entry matches the one our cursor is pointing at, so let's try
+                                 * to advance the next entry. */
+                                r = sd_journal_step_one(j, !arg_reverse);
+                }
+
+                if (r == 0) {
                         /* We couldn't find the next entry after the cursor. */
                         if (arg_follow)
                                 need_seek = true;
                         else
                                 arg_lines = 0;
                 }
-
         } else if (arg_until_set && (arg_reverse || arg_lines_needs_seek_end())) {
                 /* If both --until and any of --reverse and --lines=N is specified, things get
                  * a little tricky. We seek to the place of --until first. If only --reverse or
@@ -2580,19 +2730,12 @@ static int run(int argc, char *argv[]) {
                         return r;
                 sig = r;
 
-                /* unref signal event sources. */
-                e = sd_event_unref(e);
-
                 r = update_cursor(j);
                 if (r < 0)
                         return r;
 
                 /* re-send the original signal. */
-                assert(SIGNAL_VALID(sig));
-                if (raise(sig) < 0)
-                        log_error("Failed to raise the original signal SIG%s, ignoring: %m", signal_to_string(sig));
-
-                return 0;
+                return sig;
         }
 
         r = show(&c);
@@ -2617,4 +2760,4 @@ static int run(int argc, char *argv[]) {
         return 0;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_SIGNAL(run);

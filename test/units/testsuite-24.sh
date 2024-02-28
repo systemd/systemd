@@ -5,8 +5,6 @@ set -o pipefail
 
 # TODO:
 #   - /proc/cmdline parsing
-#   - figure out token support (apart from TPM2, as that's covered by TEST-70-TPM2)
-#       - this might help https://www.qemu.org/docs/master/system/devices/ccid.html
 #   - expect + interactive auth?
 
 # We set up an encrypted /var partition which should get mounted automatically
@@ -35,10 +33,16 @@ trap at_exit EXIT
 
 cryptsetup_start_and_check() {
     local expect_fail=0
+    local umount_header_and_key=0
     local ec volume unit
 
     if [[ "${1:?}" == "-f" ]]; then
         expect_fail=1
+        shift
+    fi
+
+    if [[ "${1:?}" == "-u" ]]; then
+        umount_header_and_key=1
         shift
     fi
 
@@ -62,6 +66,12 @@ cryptsetup_start_and_check() {
         if [[ "$ec" -ne 0 ]]; then
             echo >&2 "Unexpected fail when starting $unit"
             return 1
+        fi
+
+        if [[ "$umount_header_and_key" -ne 0 ]]; then
+            umount "$TMPFS_DETACHED_KEYFILE"
+            umount "$TMPFS_DETACHED_HEADER"
+            udevadm settle --timeout=30
         fi
 
         systemctl status "$unit"
@@ -148,6 +158,15 @@ mkfs.ext4 -L keyfile_store "/dev/disk/by-partlabel/keyfile_store"
 mount "/dev/disk/by-partlabel/keyfile_store" /mnt
 cp "$IMAGE_DETACHED_KEYFILE2" /mnt/keyfile
 umount /mnt
+
+# Also copy the key and header on a tmpfs that we will umount after unlocking
+TMPFS_DETACHED_KEYFILE="$(mktemp -d)"
+TMPFS_DETACHED_HEADER="$(mktemp -d)"
+mount -t tmpfs -o size=32M tmpfs "$TMPFS_DETACHED_KEYFILE"
+mount -t tmpfs -o size=32M tmpfs "$TMPFS_DETACHED_HEADER"
+cp "$IMAGE_DETACHED_KEYFILE" "$TMPFS_DETACHED_KEYFILE/keyfile"
+cp "$IMAGE_DETACHED_HEADER" "$TMPFS_DETACHED_HEADER/header"
+
 udevadm settle --timeout=30
 
 # Prepare our test crypttab
@@ -164,6 +183,7 @@ empty0               $IMAGE_EMPTY    -                               headless=1,
 empty1               $IMAGE_EMPTY    -                               headless=1,try-empty-password=1
 # This one expects the key to be under /{etc,run}/cryptsetup-keys.d/empty_nokey.key
 empty_nokey          $IMAGE_EMPTY    -                               headless=1
+empty_pkcs11_auto    $IMAGE_EMPTY    -                               headless=1,pkcs11-uri=auto
 
 detached             $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE         headless=1,header=$IMAGE_DETACHED_HEADER,keyfile-offset=32,keyfile-size=16
 detached_store0      $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE         headless=1,header=/header:LABEL=header_store,keyfile-offset=32,keyfile-size=16
@@ -177,6 +197,7 @@ detached_fail4       $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE         headless=1,
 detached_slot0       $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE2        headless=1,header=$IMAGE_DETACHED_HEADER
 detached_slot1       $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE2        headless=1,header=$IMAGE_DETACHED_HEADER,key-slot=8
 detached_slot_fail   $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE2        headless=1,header=$IMAGE_DETACHED_HEADER,key-slot=0
+detached_nofail      $IMAGE_DETACHED $TMPFS_DETACHED_KEYFILE/keyfile headless=1,header=$TMPFS_DETACHED_HEADER/header,keyfile-offset=32,keyfile-size=16,nofail
 EOF
 
 # Temporarily drop luks.name=/luks.uuid= from the kernel command line, as it makes
@@ -207,10 +228,46 @@ mkdir -p /run/cryptsetup-keys.d
 cp "$IMAGE_EMPTY_KEYFILE" /run/cryptsetup-keys.d/empty_nokey.key
 cryptsetup_start_and_check empty_nokey
 
+if [[ -r /etc/softhsm2.conf ]]; then
+    # Test unlocking with a PKCS#11 token
+    export SOFTHSM2_CONF="/etc/softhsm2.conf"
+
+    PIN="1234" systemd-cryptenroll --pkcs11-token-uri="pkcs11:token=TestToken;object=RSATestKey" --unlock-key-file="$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY"
+    cryptsetup_start_and_check empty_pkcs11_auto
+    cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 2
+    cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
+
+    PIN="1234" systemd-cryptenroll --pkcs11-token-uri="pkcs11:token=TestToken;object=RSATestKey;type=cert" --unlock-key-file="$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY"
+    cryptsetup_start_and_check empty_pkcs11_auto
+    cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 2
+    cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
+
+    PIN="1234" systemd-cryptenroll --pkcs11-token-uri="pkcs11:token=TestToken;object=RSATestKey;type=public" --unlock-key-file="$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY"
+    cryptsetup_start_and_check empty_pkcs11_auto
+    cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 2
+    cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
+
+    PIN="1234" systemd-cryptenroll --pkcs11-token-uri="pkcs11:token=TestToken;object=ECTestKey" --unlock-key-file="$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY"
+    cryptsetup_start_and_check empty_pkcs11_auto
+    cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 2
+    cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
+
+    PIN="1234" systemd-cryptenroll --pkcs11-token-uri="pkcs11:token=TestToken;object=ECTestKey;type=cert" --unlock-key-file="$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY"
+    cryptsetup_start_and_check empty_pkcs11_auto
+    cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 2
+    cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
+
+    PIN="1234" systemd-cryptenroll --pkcs11-token-uri="pkcs11:token=TestToken;object=ECTestKey;type=public" --unlock-key-file="$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY"
+    cryptsetup_start_and_check empty_pkcs11_auto
+    cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 2
+    cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
+fi
+
 cryptsetup_start_and_check detached
 cryptsetup_start_and_check detached_store{0..2}
 cryptsetup_start_and_check -f detached_fail{0..4}
 cryptsetup_start_and_check detached_slot{0..1}
 cryptsetup_start_and_check -f detached_slot_fail
+cryptsetup_start_and_check -u detached_nofail
 
 touch /testok

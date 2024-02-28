@@ -34,14 +34,14 @@ int decrypt_pkcs11_key(
                 const void *key_data,         /* … or key_data and key_data_size (for literal keys) */
                 size_t key_data_size,
                 usec_t until,
-                bool headless,
+                AskPasswordFlags askpw_flags,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 
         _cleanup_(pkcs11_crypt_device_callback_data_release) pkcs11_crypt_device_callback_data data = {
                 .friendly_name = friendly_name,
+                .askpw_flags = askpw_flags,
                 .until = until,
-                .headless = headless,
         };
         int r;
 
@@ -154,7 +154,7 @@ int find_pkcs11_auto_data(
 
                 assert(!key);
                 assert(key_size == 0);
-                r = unbase64mem(json_variant_string(w), SIZE_MAX, &key, &key_size);
+                r = unbase64mem(json_variant_string(w), &key, &key_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode base64 encoded key.");
         }

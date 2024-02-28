@@ -366,6 +366,8 @@ int bus_image_common_attach(
                 flags |= PORTABLE_PREFER_SYMLINK;
         else if (streq(copy_mode, "copy"))
                 flags |= PORTABLE_PREFER_COPY;
+        else if (streq(copy_mode, "mixed"))
+                flags |= PORTABLE_MIXED_COPY_LINK;
         else if (!isempty(copy_mode))
                 return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Unknown copy mode '%s'", copy_mode);
 
@@ -451,11 +453,8 @@ static int bus_image_method_detach(
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.portable1.attach-images",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -698,6 +697,8 @@ int bus_image_common_reattach(
                 flags |= PORTABLE_PREFER_SYMLINK;
         else if (streq(copy_mode, "copy"))
                 flags |= PORTABLE_PREFER_COPY;
+        else if (streq(copy_mode, "mixed"))
+                flags |= PORTABLE_MIXED_COPY_LINK;
         else if (!isempty(copy_mode))
                 return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Unknown copy mode '%s'", copy_mode);
 
@@ -1010,11 +1011,8 @@ int bus_image_acquire(
         if (mode == BUS_IMAGE_AUTHENTICATE_ALL) {
                 r = bus_verify_polkit_async(
                                 message,
-                                CAP_SYS_ADMIN,
                                 polkit_action,
-                                NULL,
-                                false,
-                                UID_INVALID,
+                                /* details= */ NULL,
                                 &m->polkit_registry,
                                 error);
                 if (r < 0)
@@ -1064,11 +1062,8 @@ int bus_image_acquire(
                 if (mode == BUS_IMAGE_AUTHENTICATE_BY_PATH) {
                         r = bus_verify_polkit_async(
                                         message,
-                                        CAP_SYS_ADMIN,
                                         polkit_action,
-                                        NULL,
-                                        false,
-                                        UID_INVALID,
+                                        /* details= */ NULL,
                                         &m->polkit_registry,
                                         error);
                         if (r < 0)

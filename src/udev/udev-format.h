@@ -14,7 +14,6 @@ size_t udev_event_apply_format(
                 char *dest,
                 size_t size,
                 bool replace_whitespace,
-                Hashmap *global_props,
                 bool *ret_truncated);
 int udev_check_format(const char *value, size_t *offset, const char **hint);
 

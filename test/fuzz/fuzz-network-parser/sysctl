@@ -7,4 +7,5 @@ IPv6PrivacyExtensions=true
 IPv6DuplicateAddressDetection=3
 IPv6HopLimit=5
 IPv4ProxyARP=true
+IPv4ProxyARPPrivateVLAN=true
 IPv6ProxyNDP=true

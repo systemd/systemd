@@ -3,7 +3,7 @@
 Description=Test for ExecSearchPath with EnvironmentFile where EnvironmentFile sets PATH
 
 [Service]
-ExecStart=/bin/sh -x -c 'test "$$VAR1" = "word1 word2" && test "$$VAR2" = word3 && test "$$VAR3" = "\\$$word 5 6" && test "$$VAR4" = "new\nline" && test "$$VAR5" = passwordwithbackslashes && test "$$PATH" = /usr'
+ExecStart=sh -x -c 'test "$$VAR1" = "word1 word2" && test "$$VAR2" = word3 && test "$$VAR3" = "\\$$word 5 6" && test "$$VAR4" = "new\nline" && test "$$VAR5" = passwordwithbackslashes && test "$$PATH" = /usr'
 Type=oneshot
 EnvironmentFile=/tmp/test-exec_execsearchpath_environmentfile-set.conf
 ExecSearchPath=/tmp:/bin

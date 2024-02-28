@@ -28,6 +28,15 @@ assert_eq() {(
     fi
 )}
 
+assert_le() {(
+    set +ex
+
+    if [[ "${1:?}" -gt "${2:?}" ]]; then
+        echo "FAIL: '$1' > '$2'" >&2
+        exit 1
+    fi
+)}
+
 assert_in() {(
     set +ex
 
@@ -215,4 +224,20 @@ kernel_supports_lsm() {
     done
 
     return 1
+}
+
+MOUNTED_USR_OVERLAY=false
+
+maybe_mount_usr_overlay() {
+    if [[ ! -w /usr ]]; then
+        mkdir -p /tmp/usr-overlay/{upperdir,workdir}
+        mount -t overlay -o lowerdir=/usr,upperdir=/tmp/usr-overlay/upperdir,workdir=/tmp/usr-overlay/workdir overlay /usr
+        MOUNTED_USR_OVERLAY=true
+    fi
+}
+
+maybe_umount_usr_overlay() {
+    if "$MOUNTED_USR_OVERLAY"; then
+        umount -l /usr
+    fi
 }

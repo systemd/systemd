@@ -3,27 +3,28 @@
 
 #include <stdint.h>
 
-enum {
-        PATH_CHECK_FATAL    =      1 << 0,  /* If not set, then error message is appended with 'ignoring'. */
-        PATH_CHECK_ABSOLUTE =      1 << 1,
-        PATH_CHECK_RELATIVE =      1 << 2,
+typedef enum PathSimplifyWarnFlags {
+        PATH_CHECK_FATAL         = 1 << 0,  /* If not set, then error message is appended with 'ignoring'. */
+        PATH_CHECK_ABSOLUTE      = 1 << 1,
+        PATH_CHECK_RELATIVE      = 1 << 2,
         PATH_KEEP_TRAILING_SLASH = 1 << 3,
-};
+        PATH_CHECK_NON_API_VFS   = 1 << 4,
+} PathSimplifyWarnFlags;
 
 int path_simplify_and_warn(
                 char *path,
-                unsigned flag,
+                PathSimplifyWarnFlags flags,
                 const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *lvalue);
 
 int parse_socket_bind_item(
-        const char *str,
-        int *address_family,
-        int *ip_protocol,
-        uint16_t *nr_ports,
-        uint16_t *port_min);
+                const char *str,
+                int *address_family,
+                int *ip_protocol,
+                uint16_t *nr_ports,
+                uint16_t *port_min);
 
 int config_parse_path_or_ignore(
                 const char *unit,

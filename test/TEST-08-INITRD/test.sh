@@ -3,6 +3,10 @@
 set -e
 
 TEST_DESCRIPTION="Test various scenarios involving transition from/to initrd"
+# Note: for debugging systemd.journald.max_level_console=debug might come in handy
+#       as well, but it's not used here since it's _very_ noisy and slows the test
+#       down a lot
+KERNEL_APPEND="${KERNEL_APPEND:-} systemd.journald.forward_to_console=1"
 TEST_NO_NSPAWN=1
 
 # shellcheck source=test/test-functions
@@ -44,7 +48,12 @@ EOF
 }
 
 check_result_qemu_hook() {
+    local workspace="${1:?}"
     local console_log="${TESTDIR:?}/console.log"
+
+    if [[ -e "$workspace/skipped" ]]; then
+        return 0
+    fi
 
     if [[ ! -e "$console_log" ]]; then
         dfatal "Missing console log - this shouldn't happen"

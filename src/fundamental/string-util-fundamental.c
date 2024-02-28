@@ -33,14 +33,14 @@ sd_char *startswith_no_case(const sd_char *s, const sd_char *prefix) {
         return (sd_char*) s + l;
 }
 
-sd_char* endswith(const sd_char *s, const sd_char *postfix) {
+sd_char* endswith(const sd_char *s, const sd_char *suffix) {
         size_t sl, pl;
 
         assert(s);
-        assert(postfix);
+        assert(suffix);
 
         sl = strlen(s);
-        pl = strlen(postfix);
+        pl = strlen(suffix);
 
         if (pl == 0)
                 return (sd_char*) s + sl;
@@ -48,20 +48,20 @@ sd_char* endswith(const sd_char *s, const sd_char *postfix) {
         if (sl < pl)
                 return NULL;
 
-        if (strcmp(s + sl - pl, postfix) != 0)
+        if (!streq(s + sl - pl, suffix))
                 return NULL;
 
         return (sd_char*) s + sl - pl;
 }
 
-sd_char* endswith_no_case(const sd_char *s, const sd_char *postfix) {
+sd_char* endswith_no_case(const sd_char *s, const sd_char *suffix) {
         size_t sl, pl;
 
         assert(s);
-        assert(postfix);
+        assert(suffix);
 
         sl = strlen(s);
-        pl = strlen(postfix);
+        pl = strlen(suffix);
 
         if (pl == 0)
                 return (sd_char*) s + sl;
@@ -69,7 +69,7 @@ sd_char* endswith_no_case(const sd_char *s, const sd_char *postfix) {
         if (sl < pl)
                 return NULL;
 
-        if (strcasecmp(s + sl - pl, postfix) != 0)
+        if (!strcaseeq(s + sl - pl, suffix))
                 return NULL;
 
         return (sd_char*) s + sl - pl;

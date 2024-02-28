@@ -6,31 +6,31 @@ Description=Test for TemporaryFileSystem with read-only mode
 Type=oneshot
 
 # Check directories exist
-ExecStart=/bin/sh -c 'test -d /var/test-exec-temporaryfilesystem/rw && test -d /var/test-exec-temporaryfilesystem/ro'
+ExecStart=sh -c 'test -d /var/test-exec-temporaryfilesystem/rw && test -d /var/test-exec-temporaryfilesystem/ro'
 
 # Check TemporaryFileSystem= are empty
-ExecStart=/bin/sh -c 'for i in $$(ls -A /var); do test $$i = test-exec-temporaryfilesystem || false; done'
+ExecStart=sh -c 'for i in $$(ls -A /var); do test $$i = test-exec-temporaryfilesystem || false; done'
 
 # Check default mode
 ExecStart=sh -x -c 'test "$$(stat -c %%a /var)" = "755"'
 
 # Cannot create a file in /var
-ExecStart=/bin/sh -c '! touch /var/hoge'
+ExecStart=sh -c '! touch /var/hoge'
 
 # Create a file in /var/test-exec-temporaryfilesystem/rw
-ExecStart=/bin/sh -c 'touch /var/test-exec-temporaryfilesystem/rw/thisisasimpletest-temporaryfilesystem'
+ExecStart=sh -c 'touch /var/test-exec-temporaryfilesystem/rw/thisisasimpletest-temporaryfilesystem'
 
 # Then, the file can be access through /tmp
-ExecStart=/bin/sh -c 'test -f /tmp/thisisasimpletest-temporaryfilesystem'
+ExecStart=sh -c 'test -f /tmp/thisisasimpletest-temporaryfilesystem'
 
 # Also, through /var/test-exec-temporaryfilesystem/ro
-ExecStart=/bin/sh -c 'test -f /var/test-exec-temporaryfilesystem/ro/thisisasimpletest-temporaryfilesystem'
+ExecStart=sh -c 'test -f /var/test-exec-temporaryfilesystem/ro/thisisasimpletest-temporaryfilesystem'
 
 # The file cannot modify through /var/test-exec-temporaryfilesystem/ro
-ExecStart=/bin/sh -c '! touch /var/test-exec-temporaryfilesystem/ro/thisisasimpletest-temporaryfilesystem'
+ExecStart=sh -c '! touch /var/test-exec-temporaryfilesystem/ro/thisisasimpletest-temporaryfilesystem'
 
 # Cleanup
-ExecStart=/bin/sh -c 'rm /tmp/thisisasimpletest-temporaryfilesystem'
+ExecStart=sh -c 'rm /tmp/thisisasimpletest-temporaryfilesystem'
 
 TemporaryFileSystem=/var:ro
 BindPaths=/tmp:/var/test-exec-temporaryfilesystem/rw

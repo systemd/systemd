@@ -495,7 +495,6 @@ static int raw_pull_rename_auxiliary_file(
 
 static void raw_pull_job_on_finished(PullJob *j) {
         RawPull *i;
-        PullJob *jj;
         int r;
 
         assert(j);
@@ -568,8 +567,9 @@ static void raw_pull_job_on_finished(PullJob *j) {
                 }
         }
 
+        PullJob *jj;
         /* Let's close these auxiliary files now, we don't need access to them anymore. */
-        FOREACH_POINTER(jj, i->settings_job, i->roothash_job, i->roothash_signature_job, i->verity_job)
+        FOREACH_ARGUMENT(jj, i->settings_job, i->roothash_job, i->roothash_signature_job, i->verity_job)
                 pull_job_close_disk_fd(jj);
 
         if (!i->raw_job->etag_exists) {
@@ -820,7 +820,6 @@ int raw_pull_start(
                 ImportVerify verify,
                 const char *checksum) {
 
-        PullJob *j;
         int r;
 
         assert(i);
@@ -959,14 +958,15 @@ int raw_pull_start(
                         return r;
         }
 
-        FOREACH_POINTER(j,
-                        i->raw_job,
-                        i->checksum_job,
-                        i->signature_job,
-                        i->settings_job,
-                        i->roothash_job,
-                        i->roothash_signature_job,
-                        i->verity_job) {
+        PullJob *j;
+        FOREACH_ARGUMENT(j,
+                         i->raw_job,
+                         i->checksum_job,
+                         i->signature_job,
+                         i->settings_job,
+                         i->roothash_job,
+                         i->roothash_signature_job,
+                         i->verity_job) {
 
                 if (!j)
                         continue;

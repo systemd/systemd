@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 option('version-tag', type : 'string',
-       description : 'override the git version string')
+       description : 'set the extended version string (defaults to project version)')
 option('shared-lib-tag', type : 'string',
        description : 'override the private shared library version tag (defaults to project version)')
+option('vcs-tag', type : 'boolean', value : true,
+       description : 'append current git commit to version output when git information is available')
 
 option('mode', type : 'combo', choices : ['developer', 'release'],
        description : 'autoenable features suitable for systemd development/release builds')
@@ -47,8 +49,6 @@ option('sysvinit-path', type : 'string', value : '/etc/init.d',
        description : 'the directory where the SysV init scripts are located')
 option('sysvrcnd-path', type : 'string', value : '/etc/rc.d',
        description : 'the base directory for SysV rcN.d directories')
-option('telinit-path', type : 'string', value : '/lib/sysvinit/telinit',
-       description : 'path to telinit')
 option('rc-local', type : 'string',
        value : '/etc/rc.local')
 option('initrd', type : 'boolean',
@@ -211,6 +211,10 @@ option('pamlibdir', type : 'string',
        description : 'directory for PAM modules')
 option('pamconfdir', type : 'string',
        description : 'directory for PAM configuration ["no" disables]')
+option('sshconfdir', type : 'string',
+       description : 'directory for SSH client configuration ["no" disables]')
+option('sshdconfdir', type : 'string',
+       description : 'directory for SSH server configuration ["no" disables]')
 option('libcryptsetup-plugins-dir', type : 'string',
        description : 'directory for libcryptsetup plugins')
 option('docdir', type : 'string',
@@ -223,8 +227,8 @@ option('configfiledir', type : 'string', value : '',
 option('fallback-hostname', type : 'string', value : 'localhost',
        description : 'the hostname used if none configured')
 option('default-hierarchy', type : 'combo',
-       choices : ['legacy', 'hybrid', 'unified'], value : 'unified',
-       description : 'default cgroup hierarchy')
+       choices : ['legacy', 'hybrid', 'unified'], deprecated : true,
+       description : '''This option is deprecated and will be removed in a future release''')
 option('extra-net-naming-schemes', type : 'string',
        description : 'comma-separated list of extra net.naming-scheme= definitions')
 option('default-net-naming-scheme', type : 'string', value : 'latest',
@@ -447,6 +451,8 @@ option('glib', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'd
        description : 'libglib support (for tests only)')
 option('dbus', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libdbus support (for tests only)')
+option('libarchive', type : 'feature',
+       description : 'libarchive support')
 
 option('bootloader', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'sd-boot/stub and userspace tools')

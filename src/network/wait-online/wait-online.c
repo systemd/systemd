@@ -19,7 +19,7 @@ static bool arg_quiet = false;
 static usec_t arg_timeout = 120 * USEC_PER_SEC;
 static Hashmap *arg_interfaces = NULL;
 static char **arg_ignore = NULL;
-static LinkOperationalStateRange arg_required_operstate = { _LINK_OPERSTATE_INVALID, _LINK_OPERSTATE_INVALID };
+static LinkOperationalStateRange arg_required_operstate = LINK_OPERSTATE_RANGE_INVALID;
 static AddressFamily arg_required_family = ADDRESS_FAMILY_NO;
 static bool arg_any = false;
 
@@ -71,12 +71,11 @@ static int parse_interface_with_operstate_range(const char *str) {
         if (p) {
                 r = parse_operational_state_range(p + 1, range);
                 if (r < 0)
-                         log_error_errno(r, "Invalid operational state range '%s'", p + 1);
+                        return log_error_errno(r, "Invalid operational state range: %s", p + 1);
 
                 ifname = strndup(optarg, p - optarg);
         } else {
-                range->min = _LINK_OPERSTATE_INVALID;
-                range->max = _LINK_OPERSTATE_INVALID;
+                *range = LINK_OPERSTATE_RANGE_INVALID;
                 ifname = strdup(str);
         }
         if (!ifname)
@@ -84,18 +83,19 @@ static int parse_interface_with_operstate_range(const char *str) {
 
         if (!ifname_valid(ifname))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid interface name '%s'", ifname);
+                                       "Invalid interface name: %s", ifname);
 
-        r = hashmap_ensure_put(&arg_interfaces, &string_hash_ops, ifname, TAKE_PTR(range));
+        r = hashmap_ensure_put(&arg_interfaces, &string_hash_ops, ifname, range);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
                 return log_error_errno(r, "Failed to store interface name: %m");
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Interface name %s is already specified", ifname);
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                       "Interface name %s is already specified.", ifname);
 
         TAKE_PTR(ifname);
+        TAKE_PTR(range);
         return 0;
 }
 
@@ -154,17 +154,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case 'o': {
-                        LinkOperationalStateRange range;
-
-                        r = parse_operational_state_range(optarg, &range);
+                case 'o':
+                        r = parse_operational_state_range(optarg, &arg_required_operstate);
                         if (r < 0)
                                 return log_error_errno(r, "Invalid operational state range '%s'", optarg);
-
-                        arg_required_operstate = range;
-
                         break;
-                }
 
                 case '4':
                         arg_required_family |= ADDRESS_FAMILY_IPV4;
@@ -210,7 +204,7 @@ static int run(int argc, char *argv[]) {
         if (arg_quiet)
                 log_set_max_level(LOG_ERR);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT) >= 0);
 
         r = manager_new(&m, arg_interfaces, arg_ignore, arg_required_operstate, arg_required_family, arg_any, arg_timeout);
         if (r < 0)

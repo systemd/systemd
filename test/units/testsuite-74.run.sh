@@ -80,11 +80,16 @@ systemd-run --wait --pipe --user --machine=testuser@ \
             bash -xec '[[ "$(id -nu)" == testuser && "$(id -ng)" == testuser ]]'
 systemd-run --wait --pipe --user --machine=testuser@ \
             bash -xec '[[ "$PWD" == /home/testuser && -n "$INVOCATION_ID" ]]'
-systemd-run --wait --pipe --user --machine=testuser@ \
-            --property=LimitCORE=1M:2M \
-            --property=LimitCORE=16M:32M \
-            --property=PrivateTmp=yes \
-            bash -xec '[[ "$(ulimit -c -S)" -eq 16384 && "$(ulimit -c -H)" -eq 32768 && ! -e /tmp/public-marker ]]'
+
+# PrivateTmp=yes implies PrivateUsers=yes for user manager, so skip this if we
+# don't have unprivileged user namespaces.
+if [[ "$(sysctl -ne kernel.apparmor_restrict_unprivileged_userns)" -ne 1 ]]; then
+    systemd-run --wait --pipe --user --machine=testuser@ \
+                --property=LimitCORE=1M:2M \
+                --property=LimitCORE=16M:32M \
+                --property=PrivateTmp=yes \
+                bash -xec '[[ "$(ulimit -c -S)" -eq 16384 && "$(ulimit -c -H)" -eq 32768 && ! -e /tmp/public-marker ]]'
+fi
 
 : "Transient scope (system daemon)"
 systemd-run --scope \
@@ -213,19 +218,28 @@ for opt in nice on-{active,boot,calendar,startup,unit-active,unit-inactive} prop
 done
 
 # Let's make sure that ProtectProc= properly moves submounts of the original /proc over to the new proc
+BOOT_ID="$(</proc/sys/kernel/random/boot_id)"
+UNIT_BOOT_ID="$(systemd-run -q --wait --pipe -p ProtectProc=invisible cat /proc/sys/kernel/random/boot_id)"
+assert_eq "$BOOT_ID" "$UNIT_BOOT_ID"
 
-A=$(cat /proc/sys/kernel/random/boot_id)
-B=$(systemd-run -q --wait --pipe -p ProtectProc=invisible cat /proc/sys/kernel/random/boot_id)
-assert_eq "$A" "$B"
-
-V="/tmp/version.$RANDOM"
-A="$(cat /proc/version).piff"
-echo "$A" > "$V"
-mount --bind "$V" /proc/version
-
-B=$(systemd-run -q --wait --pipe -p ProtectProc=invisible cat /proc/version)
-
-assert_eq "$A" "$B"
-
+TMP_KVER="/tmp/version.$RANDOM"
+KVER="$(</proc/version).piff"
+echo "$KVER" >"$TMP_KVER"
+mount --bind "$TMP_KVER" /proc/version
+UNIT_KVER="$(systemd-run -q --wait --pipe -p ProtectProc=invisible cat /proc/version)"
+assert_eq "$KVER" "$UNIT_KVER"
 umount /proc/version
-rm "$V"
+rm -f "$TMP_KVER"
+
+# Check that invoking the tool under the uid0 alias name works
+uid0 ls /
+assert_eq "$(uid0 echo foo)" "foo"
+# Check if we set some expected environment variables
+for arg in "" "--user=root" "--user=testuser"; do
+    assert_eq "$(uid0 ${arg:+"$arg"} bash -c 'echo $SUDO_USER')" "$USER"
+    assert_eq "$(uid0 ${arg:+"$arg"} bash -c 'echo $SUDO_UID')" "$(id -u "$USER")"
+    assert_eq "$(uid0 ${arg:+"$arg"} bash -c 'echo $SUDO_GID')" "$(id -u "$USER")"
+done
+# Let's chain a couple of uid0 calls together, for fun
+readarray -t cmdline < <(printf "%.0suid0\n" {0..31})
+assert_eq "$("${cmdline[@]}" bash -c 'echo $SUDO_USER')" "$USER"

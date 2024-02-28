@@ -12,3 +12,4 @@ static inline int link_save_and_clean(Link *link) {
 }
 
 int manager_save(Manager *m);
+int manager_clean_all(Manager *manager);

@@ -31,12 +31,12 @@ int main(int argc, char *argv[]) {
         (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 
         for (i = 0; i < I; i++) {
-                r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
+                r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_ASSUME_IMMUTABLE);
                 assert_se(r == 0);
 
                 sd_journal_close(j);
 
-                r = sd_journal_open_directory(&j, t, 0);
+                r = sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE);
                 assert_se(r == 0);
 
                 assert_se(sd_journal_seek_head(j) == 0);
@@ -45,8 +45,8 @@ int main(int argc, char *argv[]) {
                 r = safe_fork("(journal-fork-test)", FORK_WAIT|FORK_LOG, NULL);
                 if (r == 0) {
                         assert_se(j);
-                        assert_se(sd_journal_get_realtime_usec(j, NULL) == -ECHILD);
-                        assert_se(sd_journal_seek_tail(j) == -ECHILD);
+                        ASSERT_RETURN_EXPECTED_SE(sd_journal_get_realtime_usec(j, NULL) == -ECHILD);
+                        ASSERT_RETURN_EXPECTED_SE(sd_journal_seek_tail(j) == -ECHILD);
                         assert_se(j->current_location.type == LOCATION_HEAD);
                         sd_journal_close(j);
                         _exit(EXIT_SUCCESS);
@@ -57,8 +57,7 @@ int main(int argc, char *argv[]) {
                 sd_journal_close(j);
 
                 j = NULL;
-                r = sd_journal_open_directory(&j, t, SD_JOURNAL_LOCAL_ONLY);
-                assert_se(r == -EINVAL);
+                ASSERT_RETURN_EXPECTED(assert_se(sd_journal_open_directory(&j, t, SD_JOURNAL_LOCAL_ONLY) == -EINVAL));
                 assert_se(j == NULL);
         }
 

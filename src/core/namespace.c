@@ -47,6 +47,7 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"
+#include "vpick.h"
 
 #define DEV_MOUNT_OPTIONS (MS_NOSUID|MS_STRICTATIME|MS_NOEXEC)
 
@@ -500,8 +501,23 @@ static int append_extensions(
         /* First, prepare a mount for each image, but these won't be visible to the unit, instead
          * they will be mounted in our propagate directory, and used as a source for the overlay. */
         for (size_t i = 0; i < n; i++) {
+                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                 _cleanup_free_ char *mount_point = NULL;
                 const MountImage *m = mount_images + i;
+
+                r = path_pick(/* toplevel_path= */ NULL,
+                              /* toplevel_fd= */ AT_FDCWD,
+                              m->source,
+                              &pick_filter_image_raw,
+                              PICK_ARCHITECTURE|PICK_TRIES,
+                              &result);
+                if (r < 0)
+                        return r;
+                if (!result.path)
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(ENOENT),
+                                        "No matching entry in .v/ directory %s found.",
+                                        m->source);
 
                 if (asprintf(&mount_point, "%s/%zu", extension_dir, i) < 0)
                         return -ENOMEM;
@@ -524,7 +540,7 @@ static int append_extensions(
                         .path_malloc = TAKE_PTR(mount_point),
                         .image_options_const = m->mount_options,
                         .ignore = m->ignore_enoent,
-                        .source_const = m->source,
+                        .source_malloc = TAKE_PTR(result.path),
                         .mode = MOUNT_EXTENSION_IMAGE,
                         .has_prefix = true,
                 };
@@ -534,7 +550,8 @@ static int append_extensions(
          * Bind mount them in the same location as the ExtensionImages, so that we
          * can check that they are valid trees (extension-release.d). */
         STRV_FOREACH(extension_directory, extension_directories) {
-                _cleanup_free_ char *mount_point = NULL, *source = NULL;
+                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                _cleanup_free_ char *mount_point = NULL;
                 const char *e = *extension_directory;
                 bool ignore_enoent = false;
 
@@ -551,9 +568,19 @@ static int append_extensions(
                 if (startswith(e, "+"))
                         e++;
 
-                source = strdup(e);
-                if (!source)
-                        return -ENOMEM;
+                r = path_pick(/* toplevel_path= */ NULL,
+                              /* toplevel_fd= */ AT_FDCWD,
+                              e,
+                              &pick_filter_image_dir,
+                              PICK_ARCHITECTURE|PICK_TRIES,
+                              &result);
+                if (r < 0)
+                        return r;
+                if (!result.path)
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(ENOENT),
+                                        "No matching entry in .v/ directory %s found.",
+                                        e);
 
                 for (size_t j = 0; hierarchies && hierarchies[j]; ++j) {
                         char *prefixed_hierarchy = path_join(mount_point, hierarchies[j]);
@@ -571,7 +598,7 @@ static int append_extensions(
 
                 *me = (MountEntry) {
                         .path_malloc = TAKE_PTR(mount_point),
-                        .source_malloc = TAKE_PTR(source),
+                        .source_malloc = TAKE_PTR(result.path),
                         .mode = MOUNT_EXTENSION_DIRECTORY,
                         .ignore = ignore_enoent,
                         .has_prefix = true,
@@ -626,8 +653,7 @@ static int append_tmpfs_mounts(MountList *ml, const TemporaryFileSystem *tmpfs, 
                         return log_debug_errno(r, "Failed to parse mount option '%s': %m", str);
 
                 ro = flags & MS_RDONLY;
-                if (ro)
-                        flags ^= MS_RDONLY;
+                flags &= ~MS_RDONLY;
 
                 MountEntry *me = mount_list_extend(ml);
                 if (!me)
@@ -1070,11 +1096,6 @@ static int mount_private_dev(MountEntry *m, RuntimeScope scope) {
         if (r < 0)
                 log_debug_errno(r, "Failed to set up basic device tree at '%s', ignoring: %m", temporary_mount);
 
-        /* Make the bind mount read-only. */
-        r = mount_nofollow_verbose(LOG_DEBUG, NULL, dev, NULL, MS_REMOUNT|MS_BIND|MS_RDONLY, NULL);
-        if (r < 0)
-                return r;
-
         /* Create the /dev directory if missing. It is more likely to be missing when the service is started
          * with RootDirectory. This is consistent with mount units creating the mount points when missing. */
         (void) mkdir_p_label(mount_entry_path(m), 0755);
@@ -1123,7 +1144,7 @@ static int mount_bind_dev(const MountEntry *m) {
 
         (void) mkdir_p_label(mount_entry_path(m), 0755);
 
-        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        r = path_is_mount_point(mount_entry_path(m));
         if (r < 0)
                 return log_debug_errno(r, "Unable to determine whether /dev is already mounted: %m");
         if (r > 0) /* make this a NOP if /dev is already a mount point */
@@ -1143,7 +1164,7 @@ static int mount_bind_sysfs(const MountEntry *m) {
 
         (void) mkdir_p_label(mount_entry_path(m), 0755);
 
-        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        r = path_is_mount_point(mount_entry_path(m));
         if (r < 0)
                 return log_debug_errno(r, "Unable to determine whether /sys is already mounted: %m");
         if (r > 0) /* make this a NOP if /sys is already a mount point */
@@ -1190,7 +1211,7 @@ static int mount_private_apivfs(
                 /* When we do not have enough privileges to mount a new instance, fall back to use an
                  * existing mount. */
 
-                r = path_is_mount_point(entry_path, /* root = */ NULL, /* flags = */ 0);
+                r = path_is_mount_point(entry_path);
                 if (r < 0)
                         return log_debug_errno(r, "Unable to determine whether '%s' is already mounted: %m", entry_path);
                 if (r > 0)
@@ -1305,7 +1326,7 @@ static int mount_run(const MountEntry *m) {
 
         assert(m);
 
-        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        r = path_is_mount_point(mount_entry_path(m));
         if (r < 0 && r != -ENOENT)
                 return log_debug_errno(r, "Unable to determine whether /run is already mounted: %m");
         if (r > 0) /* make this a NOP if /run is already a mount point */
@@ -1474,7 +1495,7 @@ static int follow_symlink(
 
         mount_entry_consume_prefix(m, TAKE_PTR(target));
 
-        m->n_followed ++;
+        m->n_followed++;
 
         return 0;
 }
@@ -1539,7 +1560,7 @@ static int apply_one_mount(
         case MOUNT_READ_WRITE_IMPLICIT:
         case MOUNT_EXEC:
         case MOUNT_NOEXEC:
-                r = path_is_mount_point(mount_entry_path(m), root_directory, 0);
+                r = path_is_mount_point_full(mount_entry_path(m), root_directory, /* flags = */ 0);
                 if (r == -ENOENT && m->ignore)
                         return 0;
                 if (r < 0)
@@ -2543,7 +2564,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
         } else if (p->root_directory) {
 
                 /* A root directory is specified. Turn its directory into bind mount, if it isn't one yet. */
-                r = path_is_mount_point(root, NULL, AT_SYMLINK_FOLLOW);
+                r = path_is_mount_point_full(root, /* root = */ NULL, AT_SYMLINK_FOLLOW);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to detect that %s is a mount point or not: %m", root);
                 if (r == 0) {
@@ -2630,7 +2651,7 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
 
         *b = c;
 
-        c[(*n) ++] = (BindMount) {
+        c[(*n)++] = (BindMount) {
                 .source = TAKE_PTR(s),
                 .destination = TAKE_PTR(d),
                 .read_only = item->read_only,
@@ -2699,7 +2720,7 @@ int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
 
         *m = c;
 
-        c[(*n) ++] = (MountImage) {
+        c[(*n)++] = (MountImage) {
                 .source = TAKE_PTR(s),
                 .destination = TAKE_PTR(d),
                 .mount_options = TAKE_PTR(options),
@@ -2750,7 +2771,7 @@ int temporary_filesystem_add(
 
         *t = c;
 
-        c[(*n) ++] = (TemporaryFileSystem) {
+        c[(*n)++] = (TemporaryFileSystem) {
                 .path = TAKE_PTR(p),
                 .options = TAKE_PTR(o),
         };
@@ -2895,21 +2916,18 @@ int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
 
 int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag) {
         _cleanup_close_ int ns = -EBADF;
-        int r;
         const char *ns_name, *ns_path;
+        int r;
 
         assert(ns_storage_socket);
         assert(ns_storage_socket[0] >= 0);
         assert(ns_storage_socket[1] >= 0);
 
-        ns_name = namespace_single_flag_to_string(nsflag);
-        assert(ns_name);
+        ns_name = ASSERT_PTR(namespace_single_flag_to_string(nsflag));
 
-        /* We use the passed socketpair as a storage buffer for our
-         * namespace reference fd. Whatever process runs this first
-         * shall create a new namespace, all others should just join
-         * it. To serialize that we use a file lock on the socket
-         * pair.
+        /* We use the passed socketpair as a storage buffer for our namespace reference fd. Whatever process
+         * runs this first shall create a new namespace, all others should just join it. To serialize that we
+         * use a file lock on the socket pair.
          *
          * It's a bit crazy, but hey, works great! */
 
@@ -2937,7 +2955,8 @@ int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag) {
         if (unshare(nsflag) < 0)
                 return -errno;
 
-        (void) loopback_setup();
+        if (nsflag == CLONE_NEWNET)
+                (void) loopback_setup();
 
         ns_path = strjoina("/proc/self/ns/", ns_name);
         ns = open(ns_path, O_RDONLY|O_CLOEXEC|O_NOCTTY);

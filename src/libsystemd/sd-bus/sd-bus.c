@@ -30,6 +30,7 @@
 #include "constants.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "glyph-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
@@ -256,6 +257,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
                 .n_groups = SIZE_MAX,
                 .close_on_exit = true,
                 .ucred = UCRED_INVALID,
+                .pidfd = -EBADF,
                 .runtime_scope = _RUNTIME_SCOPE_INVALID,
         };
 
@@ -321,7 +323,7 @@ _public_ int sd_bus_set_bus_client(sd_bus *bus, int b) {
         assert_return(!bus->patch_sender, -EPERM);
         assert_return(!bus_origin_changed(bus), -ECHILD);
 
-        bus->bus_client = !!b;
+        bus->bus_client = b;
         return 0;
 }
 
@@ -331,7 +333,7 @@ _public_ int sd_bus_set_monitor(sd_bus *bus, int b) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_origin_changed(bus), -ECHILD);
 
-        bus->is_monitor = !!b;
+        bus->is_monitor = b;
         return 0;
 }
 
@@ -341,7 +343,7 @@ _public_ int sd_bus_negotiate_fds(sd_bus *bus, int b) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_origin_changed(bus), -ECHILD);
 
-        bus->accept_fd = !!b;
+        bus->accept_fd = b;
         return 0;
 }
 
@@ -353,7 +355,7 @@ _public_ int sd_bus_negotiate_timestamp(sd_bus *bus, int b) {
 
         /* This is not actually supported by any of our transports these days, but we do honour it for synthetic
          * replies, and maybe one day classic D-Bus learns this too */
-        bus->attach_timestamp = !!b;
+        bus->attach_timestamp = b;
 
         return 0;
 }
@@ -380,7 +382,7 @@ _public_ int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_origin_changed(bus), -ECHILD);
 
-        bus->is_server = !!b;
+        bus->is_server = b;
         bus->server_id = server_id;
         return 0;
 }
@@ -391,7 +393,7 @@ _public_ int sd_bus_set_anonymous(sd_bus *bus, int b) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_origin_changed(bus), -ECHILD);
 
-        bus->anonymous_auth = !!b;
+        bus->anonymous_auth = b;
         return 0;
 }
 
@@ -401,7 +403,7 @@ _public_ int sd_bus_set_trusted(sd_bus *bus, int b) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_origin_changed(bus), -ECHILD);
 
-        bus->trusted = !!b;
+        bus->trusted = b;
         return 0;
 }
 
@@ -419,7 +421,7 @@ _public_ int sd_bus_set_allow_interactive_authorization(sd_bus *bus, int b) {
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(!bus_origin_changed(bus), -ECHILD);
 
-        bus->allow_interactive_authorization = !!b;
+        bus->allow_interactive_authorization = b;
         return 0;
 }
 
@@ -437,7 +439,7 @@ _public_ int sd_bus_set_watch_bind(sd_bus *bus, int b) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_origin_changed(bus), -ECHILD);
 
-        bus->watch_bind = !!b;
+        bus->watch_bind = b;
         return 0;
 }
 
@@ -455,7 +457,7 @@ _public_ int sd_bus_set_connected_signal(sd_bus *bus, int b) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_origin_changed(bus), -ECHILD);
 
-        bus->connected_signal = !!b;
+        bus->connected_signal = b;
         return 0;
 }
 
@@ -640,7 +642,7 @@ int bus_start_running(sd_bus *bus) {
 
 static int parse_address_key(const char **p, const char *key, char **value) {
         _cleanup_free_ char *r = NULL;
-        size_t l, n = 0;
+        size_t n = 0;
         const char *a;
 
         assert(p);
@@ -648,17 +650,14 @@ static int parse_address_key(const char **p, const char *key, char **value) {
         assert(value);
 
         if (key) {
-                l = strlen(key);
-                if (strncmp(*p, key, l) != 0)
-                        return 0;
-
-                if ((*p)[l] != '=')
+                a = startswith(*p, key);
+                if (!a || *a != '=')
                         return 0;
 
                 if (*value)
                         return -EINVAL;
 
-                a = *p + l + 1;
+                a++;
         } else
                 a = *p;
 
@@ -1486,9 +1485,15 @@ interpret_port_as_machine_old_syntax:
                         return -ENOMEM;
         }
 
-        a = strjoin("unixexec:path=ssh,argv1=-xT", p ? ",argv2=-p,argv3=" : "", strempty(p),
-                                ",argv", p ? "4" : "2", "=--,argv", p ? "5" : "3", "=", e,
-                                ",argv", p ? "6" : "4", "=systemd-stdio-bridge", c);
+        const char *ssh = secure_getenv("SYSTEMD_SSH") ?: "ssh";
+        _cleanup_free_ char *ssh_escaped = bus_address_escape(ssh);
+        if (!ssh_escaped)
+                return -ENOMEM;
+
+        a = strjoin("unixexec:path=", ssh_escaped, ",argv1=-xT",
+                    p ? ",argv2=-p,argv3=" : "", strempty(p),
+                    ",argv", p ? "4" : "2", "=--,argv", p ? "5" : "3", "=", e,
+                    ",argv", p ? "6" : "4", "=systemd-stdio-bridge", c);
         if (!a)
                 return -ENOMEM;
 
@@ -1668,10 +1673,7 @@ static int user_and_machine_equivalent(const char *user_and_machine) {
                 return true;
 
         /* Otherwise, we have to figure out our user id and name, and compare things with that. */
-        char buf[DECIMAL_STR_MAX(uid_t)];
-        xsprintf(buf, UID_FMT, uid);
-
-        f = startswith(user_and_machine, buf);
+        f = startswith(user_and_machine, FORMAT_UID(uid));
         if (!f) {
                 un = getusername_malloc();
                 if (!un)
@@ -3084,7 +3086,7 @@ null_message:
         return r;
 }
 
-static int bus_exit_now(sd_bus *bus) {
+static int bus_exit_now(sd_bus *bus, sd_event *event) {
         assert(bus);
 
         /* Exit due to close, if this is requested. If this is bus object is attached to an event source, invokes
@@ -3101,8 +3103,11 @@ static int bus_exit_now(sd_bus *bus) {
 
         log_debug("Bus connection disconnected, exiting.");
 
-        if (bus->event)
-                return sd_event_exit(bus->event, EXIT_FAILURE);
+        if (!event)
+                event = bus->event;
+
+        if (event)
+                return sd_event_exit(event, EXIT_FAILURE);
         else
                 exit(EXIT_FAILURE);
 
@@ -3164,6 +3169,7 @@ static int process_closing_reply_callback(sd_bus *bus, struct reply_callback *c)
 
 static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         struct reply_callback *c;
         int r;
 
@@ -3198,6 +3204,10 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         if (r < 0)
                 return r;
 
+        /* sd_bus_close() will deref the event and set bus->event to NULL. But in bus_exit_now() we use
+         * bus->event to decide whether to return from the event loop or exit(), but given it's always NULL
+         * at that point, it always exit(). Ref it here and pass it through further down to avoid that. */
+        event = sd_event_ref(bus->event);
         sd_bus_close(bus);
 
         bus->current_message = m;
@@ -3213,7 +3223,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
 
         /* Nothing else to do, exit now, if the condition holds */
         bus->exit_triggered = true;
-        (void) bus_exit_now(bus);
+        (void) bus_exit_now(bus, event);
 
         if (ret)
                 *ret = TAKE_PTR(m);
@@ -4115,13 +4125,13 @@ _public_ int sd_bus_path_decode_many(const char *path, const char *path_template
 
         for (template_pos = path_template; *template_pos; ) {
                 const char *sep;
-                size_t length;
+                size_t length, path_length;
                 char *label;
 
                 /* verify everything until the next '%' matches verbatim */
                 sep = strchrnul(template_pos, '%');
                 length = sep - template_pos;
-                if (strncmp(path_pos, template_pos, length))
+                if (!strneq(path_pos, template_pos, length))
                         return 0;
 
                 path_pos += length;
@@ -4142,8 +4152,8 @@ _public_ int sd_bus_path_decode_many(const char *path, const char *path_template
 
                 /* verify the suffixes match */
                 sep = strchrnul(path_pos, '/');
-                if (sep - path_pos < (ssize_t)length ||
-                    strncmp(sep - length, template_pos, length))
+                path_length = sep - path_pos;
+                if (length > path_length || !strneq(sep - length, template_pos, length))
                         return 0;
 
                 template_pos += length; /* skip over matched label */
@@ -4309,7 +4319,7 @@ _public_ int sd_bus_set_exit_on_disconnect(sd_bus *bus, int b) {
         bus->exit_on_disconnect = b;
 
         /* If the exit condition was triggered already, exit immediately. */
-        return bus_exit_now(bus);
+        return bus_exit_now(bus, /* event= */ NULL);
 }
 
 _public_ int sd_bus_get_exit_on_disconnect(sd_bus *bus) {

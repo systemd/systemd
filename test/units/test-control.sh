@@ -86,6 +86,11 @@ run_subtests_with_signals() {
     _trap_with_sig _handle_signal "$@"
 
     for subtest in "${subtests[@]}"; do
+        if [[ -n "${TEST_MATCH_SUBTEST:-}" ]] && ! [[ "$subtest" =~ $TEST_MATCH_SUBTEST ]]; then
+            echo "Skipping $subtest (not matching '$TEST_MATCH_SUBTEST')"
+            continue
+        fi
+
         : "--- $subtest BEGIN ---"
         SECONDS=0
         "./$subtest" &

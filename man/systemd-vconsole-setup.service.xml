@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <refentry id="systemd-vconsole-setup.service" conditional='ENABLE_VCONSOLE'
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -58,7 +58,7 @@
 
     <para><command>systemd-vconsole-setup</command> supports the service credentials logic as implemented by
     <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
-    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
     details). The following credentials are used when passed in:</para>
 
     <variablelist class='system-credentials'>
@@ -97,13 +97,13 @@
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry project='mankier'><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='mankier'><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 
 </refentry>

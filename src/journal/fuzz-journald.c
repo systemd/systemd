@@ -6,17 +6,9 @@
 #include "sd-event.h"
 
 void dummy_server_init(Server *s, const uint8_t *buffer, size_t size) {
-        *s = (Server) {
-                .syslog_fd = -EBADF,
-                .native_fd = -EBADF,
-                .stdout_fd = -EBADF,
-                .dev_kmsg_fd = -EBADF,
-                .audit_fd = -EBADF,
-                .hostname_fd = -EBADF,
-                .notify_fd = -EBADF,
-                .storage = STORAGE_NONE,
-                .line_max = 64,
-        };
+        assert(s);
+
+        s->storage = STORAGE_NONE;
         assert_se(sd_event_default(&s->event) >= 0);
 
         if (buffer) {
@@ -30,7 +22,8 @@ void fuzz_journald_processing_function(
                 size_t size,
                 void (*f)(Server *s, const char *buf, size_t raw_len, const struct ucred *ucred, const struct timeval *tv, const char *label, size_t label_len)
         ) {
-        Server s;
+
+        _cleanup_(server_freep) Server *s = NULL;
         char *label = NULL;
         size_t label_len = 0;
         struct ucred *ucred = NULL;
@@ -39,7 +32,7 @@ void fuzz_journald_processing_function(
         if (size == 0)
                 return;
 
-        dummy_server_init(&s, data, size);
-        (*f)(&s, s.buffer, size, ucred, tv, label, label_len);
-        server_done(&s);
+        assert_se(server_new(&s) >= 0);
+        dummy_server_init(s, data, size);
+        (*f)(s, s->buffer, size, ucred, tv, label, label_len);
 }

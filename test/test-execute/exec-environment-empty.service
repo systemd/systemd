@@ -3,7 +3,7 @@
 Description=Test for Environment
 
 [Service]
-ExecStart=/bin/sh -x -c 'test "$${VAR1-unset}" = "unset" && test "$${VAR2-unset}" = "unset" && test "$${VAR3-unset}" = "unset"'
+ExecStart=sh -x -c 'test "$${VAR1-unset}" = "unset" && test "$${VAR2-unset}" = "unset" && test "$${VAR3-unset}" = "unset"'
 Type=oneshot
 Environment="VAR1=word1 word2" VAR2=word3 "VAR3=$word 5 6"
 Environment=

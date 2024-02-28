@@ -11,8 +11,8 @@ We welcome all contributions to systemd. If you notice a bug or a missing
 feature, please feel invited to fix it, and submit your work as a
 [GitHub Pull Request (PR)](https://github.com/systemd/systemd/pull/new).
 
-Please make sure to follow our [Coding Style](CODING_STYLE.md) when submitting
-patches. Also have a look at our [Contribution Guidelines](CONTRIBUTING.md).
+Please make sure to follow our [Coding Style](CODING_STYLE) when submitting
+patches. Also have a look at our [Contribution Guidelines](CONTRIBUTING).
 
 When adding new functionality, tests should be added. For shared functionality
 (in `src/basic/` and `src/shared/`) unit tests should be sufficient. The general
@@ -23,7 +23,7 @@ test executable. For features at a higher level, tests in `src/test/` are very
 strongly recommended. If that is not possible, integration tests in `test/` are
 encouraged.
 
-Please also have a look at our list of [code quality tools](CODE_QUALITY.md) we
+Please also have a look at our list of [code quality tools](CODE_QUALITY) we
 have setup for systemd, to ensure our codebase stays in good shape.
 
 Please always test your work before submitting a PR. For many of the components
@@ -55,6 +55,23 @@ $ mkosi qemu
 
 Every time you rerun the `mkosi` command a fresh image is built, incorporating
 all current changes you made to the project tree.
+
+By default a directory image is built. This requires `virtiofsd` to be installed
+on the host. To build a disk image instead which does not require `virtiofsd`,
+add the following to `mkosi.local.conf`:
+
+```conf
+[Output]
+Format=disk
+```
+
+To boot in UEFI mode instead of using QEMU's direct kernel boot, add the following
+to `mkosi.local.conf`:
+
+```conf
+[Host]
+QemuFirmware=uefi
+```
 
 Putting this all together, here's a series of commands for preparing a patch
 for systemd:
@@ -131,7 +148,7 @@ distribution and can be disabled by setting `-Dmode=release`.
 
 ## Sanitizers in mkosi
 
-See [Testing systemd using sanitizers](TESTING_WITH_SANITIZERS.md) for more information
+See [Testing systemd using sanitizers](TESTING_WITH_SANITIZERS) for more information
 on how to build with sanitizers enabled in mkosi.
 
 ## Fuzzers
@@ -194,7 +211,7 @@ done
 ```
 
 If you find a bug that impacts the security of systemd, please follow the
-guidance in [CONTRIBUTING.md](CONTRIBUTING.md) on how to report a security vulnerability.
+guidance in [CONTRIBUTING.md](CONTRIBUTING) on how to report a security vulnerability.
 
 For more details on building fuzzers and integrating with OSS-Fuzz, visit:
 

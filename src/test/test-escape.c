@@ -239,4 +239,22 @@ TEST(octescape) {
         test_octescape_one("\123\213\222", "\123\\213\\222");
 }
 
+static void test_decescape_one(const char *s, const char *bad, const char *expected) {
+        _cleanup_free_ char *ret = NULL;
+
+        assert_se(ret = decescape(s, bad, strlen_ptr(s)));
+        log_debug("decescape(\"%s\") → \"%s\" (expected: \"%s\")", strnull(s), ret, expected);
+        assert_se(streq(ret, expected));
+}
+
+TEST(decescape) {
+        test_decescape_one(NULL, "bad", "");
+        test_decescape_one("foo", "", "foo");
+        test_decescape_one("foo", "f", "\\102oo");
+        test_decescape_one("foo", "o", "f\\111\\111");
+        test_decescape_one("go\"bb\\ledyg\x03ook\r\n", "", "go\\034bb\\092ledyg\\003ook\\013\\010");
+        test_decescape_one("\\xff\xff" "f", "f", "\\092x\\102\\102\\255\\102");
+        test_decescape_one("all", "all", "\\097\\108\\108");
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

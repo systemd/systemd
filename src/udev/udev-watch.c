@@ -232,11 +232,8 @@ int udev_watch_end(int inotify_fd, sd_device *dev) {
         _cleanup_close_ int dirfd = -EBADF;
         int wd, r;
 
+        assert(inotify_fd >= 0);
         assert(dev);
-
-        /* This may be called by 'udevadm test'. In that case, inotify_fd is not initialized. */
-        if (inotify_fd < 0)
-                return 0;
 
         if (sd_device_get_devname(dev, NULL) < 0)
                 return 0;

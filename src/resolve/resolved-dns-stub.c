@@ -27,10 +27,10 @@ static int manager_dns_stub_fd(Manager *m, int family, const union in_addr_union
 static void dns_stub_listener_extra_hash_func(const DnsStubListenerExtra *a, struct siphash *state) {
         assert(a);
 
-        siphash24_compress(&a->mode, sizeof(a->mode), state);
-        siphash24_compress(&a->family, sizeof(a->family), state);
-        siphash24_compress(&a->address, FAMILY_ADDRESS_SIZE(a->family), state);
-        siphash24_compress(&a->port, sizeof(a->port), state);
+        siphash24_compress_typesafe(a->mode, state);
+        siphash24_compress_typesafe(a->family, state);
+        in_addr_hash_func(&a->address, a->family, state);
+        siphash24_compress_typesafe(a->port, state);
 }
 
 static int dns_stub_listener_extra_compare_func(const DnsStubListenerExtra *a, const DnsStubListenerExtra *b) {
@@ -94,11 +94,11 @@ DnsStubListenerExtra *dns_stub_listener_extra_free(DnsStubListenerExtra *p) {
 static void stub_packet_hash_func(const DnsPacket *p, struct siphash *state) {
         assert(p);
 
-        siphash24_compress(&p->protocol, sizeof(p->protocol), state);
-        siphash24_compress(&p->family, sizeof(p->family), state);
-        siphash24_compress(&p->sender, sizeof(p->sender), state);
-        siphash24_compress(&p->ipproto, sizeof(p->ipproto), state);
-        siphash24_compress(&p->sender_port, sizeof(p->sender_port), state);
+        siphash24_compress_typesafe(p->protocol, state);
+        siphash24_compress_typesafe(p->family, state);
+        siphash24_compress_typesafe(p->sender, state);
+        siphash24_compress_typesafe(p->ipproto, state);
+        siphash24_compress_typesafe(p->sender_port, state);
         siphash24_compress(DNS_PACKET_HEADER(p), sizeof(DnsPacketHeader), state);
 
         /* We don't bother hashing the full packet here, just the header */
@@ -775,7 +775,7 @@ static void dns_stub_query_complete(DnsQuery *query) {
 
                         cname_result = dns_query_process_cname_one(q);
                         if (cname_result == -ELOOP) { /* CNAME loop, let's send what we already have */
-                                log_debug_errno(r, "Detected CNAME loop, returning what we already have.");
+                                log_debug("Detected CNAME loop, returning what we already have.");
                                 (void) dns_stub_send_reply(q, q->answer_rcode);
                                 break;
                         }
@@ -929,7 +929,7 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 return;
         }
 
-        if (dns_type_is_zone_transer(dns_question_first_key(p->question)->type)) {
+        if (dns_type_is_zone_transfer(dns_question_first_key(p->question)->type)) {
                 log_debug("Got request for zone transfer, refusing.");
                 dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
                 return;

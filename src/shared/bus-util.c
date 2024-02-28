@@ -18,6 +18,7 @@
 #include "bus-internal.h"
 #include "bus-label.h"
 #include "bus-util.h"
+#include "daemon-util.h"
 #include "data-fd-util.h"
 #include "fd-util.h"
 #include "memstream-util.h"
@@ -128,8 +129,8 @@ int bus_event_loop_with_idle(
 
                 if (r == 0 && !exiting && idle) {
                         /* Inform the service manager that we are going down, so that it will queue all
-                         * further start requests, instead of assuming we are already running. */
-                        sd_notify(false, "STOPPING=1");
+                         * further start requests, instead of assuming we are still running. */
+                        (void) sd_notify(false, NOTIFY_STOPPING);
 
                         r = bus_async_unregister_and_exit(e, bus, name);
                         if (r < 0)
@@ -708,4 +709,48 @@ int bus_property_get_string_set(
         assert(reply);
 
         return bus_message_append_string_set(reply, *s);
+}
+
+int bus_creds_get_pidref(
+                sd_bus_creds *c,
+                PidRef *ret) {
+
+        int pidfd = -EBADF;
+        pid_t pid;
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        r = sd_bus_creds_get_pid(c, &pid);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_pidfd_dup(c, &pidfd);
+        if (r < 0 && r != -ENODATA)
+                return r;
+
+        *ret = (PidRef) {
+                .pid = pid,
+                .fd = pidfd,
+        };
+
+        return 0;
+}
+
+int bus_query_sender_pidref(
+                sd_bus_message *m,
+                PidRef *ret) {
+
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD, &creds);
+        if (r < 0)
+                return r;
+
+        return bus_creds_get_pidref(creds, ret);
 }

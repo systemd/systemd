@@ -132,6 +132,7 @@ struct Network {
         usec_t dhcp_fallback_lease_lifetime_usec;
         uint32_t dhcp_route_mtu;
         uint16_t dhcp_client_port;
+        uint16_t dhcp_port;
         int dhcp_critical;
         int dhcp_ip_service_type;
         int dhcp_socket_priority;
@@ -289,10 +290,9 @@ struct Network {
         MulticastRouter multicast_router;
 
         /* Bridge VLAN */
-        bool use_br_vlan;
-        uint16_t pvid;
-        uint32_t br_vid_bitmap[BRIDGE_VLAN_BITMAP_LEN];
-        uint32_t br_untagged_bitmap[BRIDGE_VLAN_BITMAP_LEN];
+        uint16_t bridge_vlan_pvid;
+        uint32_t bridge_vlan_bitmap[BRIDGE_VLAN_BITMAP_LEN];
+        uint32_t bridge_vlan_untagged_bitmap[BRIDGE_VLAN_BITMAP_LEN];
 
         /* CAN support */
         uint32_t can_bitrate;
@@ -320,41 +320,45 @@ struct Network {
         int ipoib_umcast;
 
         /* sysctl settings */
-        AddressFamily ip_forward;
+        int ip_forwarding[2];
         int ipv4_accept_local;
         int ipv4_route_localnet;
         int ipv6_dad_transmits;
         uint8_t ipv6_hop_limit;
+        usec_t ipv6_retransmission_time;
         int proxy_arp;
+        int proxy_arp_pvlan;
         uint32_t ipv6_mtu;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
         IPReversePathFilter ipv4_rp_filter;
         int ipv6_proxy_ndp;
         Set *ipv6_proxy_ndp_addresses;
 
-        /* IPv6 accept RA */
-        int ipv6_accept_ra;
-        bool ipv6_accept_ra_use_dns;
-        bool ipv6_accept_ra_use_gateway;
-        bool ipv6_accept_ra_use_route_prefix;
-        bool ipv6_accept_ra_use_autonomous_prefix;
-        bool ipv6_accept_ra_use_onlink_prefix;
-        bool ipv6_accept_ra_use_mtu;
-        bool ipv6_accept_ra_use_hop_limit;
-        bool ipv6_accept_ra_use_icmp6_ratelimit;
-        bool ipv6_accept_ra_quickack;
-        bool ipv6_accept_ra_use_captive_portal;
-        bool ipv6_accept_ra_use_pref64;
+        /* NDisc support */
+        int ndisc;
+        bool ndisc_use_dns;
+        bool ndisc_use_gateway;
+        bool ndisc_use_route_prefix;
+        bool ndisc_use_autonomous_prefix;
+        bool ndisc_use_onlink_prefix;
+        bool ndisc_use_mtu;
+        bool ndisc_use_hop_limit;
+        bool ndisc_use_reachable_time;
+        bool ndisc_use_retransmission_time;
+        bool ndisc_use_icmp6_ratelimit;
+        bool ndisc_quickack;
+        bool ndisc_use_captive_portal;
+        bool ndisc_use_pref64;
         bool active_slave;
         bool primary_slave;
-        DHCPUseDomains ipv6_accept_ra_use_domains;
-        IPv6AcceptRAStartDHCP6Client ipv6_accept_ra_start_dhcp6_client;
-        uint32_t ipv6_accept_ra_route_table;
-        bool ipv6_accept_ra_route_table_set;
-        uint32_t ipv6_accept_ra_route_metric_high;
-        uint32_t ipv6_accept_ra_route_metric_medium;
-        uint32_t ipv6_accept_ra_route_metric_low;
-        bool ipv6_accept_ra_route_metric_set;
+        DHCPUseDomains ndisc_use_domains;
+        IPv6AcceptRAStartDHCP6Client ndisc_start_dhcp6_client;
+        uint32_t ndisc_route_table;
+        bool ndisc_route_table_set;
+        uint32_t ndisc_route_metric_high;
+        uint32_t ndisc_route_metric_medium;
+        uint32_t ndisc_route_metric_low;
+        bool ndisc_route_metric_set;
         Set *ndisc_deny_listed_router;
         Set *ndisc_allow_listed_router;
         Set *ndisc_deny_listed_prefix;
@@ -372,7 +376,7 @@ struct Network {
 
         OrderedHashmap *addresses_by_section;
         Hashmap *routes_by_section;
-        Hashmap *nexthops_by_section;
+        OrderedHashmap *nexthops_by_section;
         Hashmap *bridge_fdb_entries_by_section;
         Hashmap *bridge_mdb_entries_by_section;
         OrderedHashmap *neighbors_by_section;

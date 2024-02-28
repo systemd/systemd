@@ -148,7 +148,7 @@ check_device_units() {(
         if ! check_device_unit "$log_level" "$path"; then
            return 1
         fi
-    done < <(systemctl list-units --all --type=device --no-legend dev-* | awk '$1 !~ /dev-tty.+/ { print $1 }' | sed -e 's/\.device$//')
+    done < <(systemctl list-units --all --type=device --no-legend dev-* | awk '$1 !~ /dev-tty.+/ && $4 == "plugged" { print $1 }' | sed -e 's/\.device$//')
 
     return 0
 )}
@@ -395,6 +395,11 @@ SUBSYSTEM=="block", KERNEL=="${devices[4]##*/}*|${devices[5]##*/}*", OPTIONS="li
 EOF
 
     udevadm control --reload
+
+    # initialize partition table
+    for disk in {0..9}; do
+        echo 'label: gpt' | udevadm lock --device="${devices[$disk]}" sfdisk -q "${devices[$disk]}"
+    done
 
     # Delete the partitions, immediately recreate them, wait for udev to settle
     # down, and then check if we have any dangling symlinks in /dev/disk/. Rinse

@@ -54,7 +54,7 @@ static void start_target(const char *target, const char *mode) {
         log_info("Requesting %s/start/%s", target, mode);
 
         /* Start this unit only if we can replace basic.target with it */
-        r = bus_call_method(bus, bus_systemd_mgr, "StartUnitReplace", &error, NULL, "sss", "basic.target", target, mode);
+        r = bus_call_method(bus, bus_systemd_mgr, "StartUnitReplace", &error, NULL, "sss", SPECIAL_BASIC_TARGET, target, mode);
 
         /* Don't print a warning if we aren't called during startup */
         if (r < 0 && !sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_JOB))
@@ -177,7 +177,7 @@ static int process_progress(int fd, FILE* console) {
                         else if (feof(f))
                                 r = 0;
                         else
-                                r = log_warning_errno(SYNTHETIC_ERRNO(errno), "Failed to parse progress pipe data");
+                                r = log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse progress pipe data.");
 
                         break;
                 }

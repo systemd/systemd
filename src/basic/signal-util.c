@@ -18,7 +18,7 @@ int reset_all_signal_handlers(void) {
                 .sa_handler = SIG_DFL,
                 .sa_flags = SA_RESTART,
         };
-        int r = 0;
+        int ret = 0, r;
 
         for (int sig = 1; sig < _NSIG; sig++) {
 
@@ -26,14 +26,14 @@ int reset_all_signal_handlers(void) {
                 if (IN_SET(sig, SIGKILL, SIGSTOP))
                         continue;
 
-                /* On Linux the first two RT signals are reserved by
-                 * glibc, and sigaction() will return EINVAL for them. */
-                if (sigaction(sig, &sa, NULL) < 0)
-                        if (errno != EINVAL && r >= 0)
-                                r = -errno;
+                /* On Linux the first two RT signals are reserved by glibc, and sigaction() will return
+                 * EINVAL for them. */
+                r = RET_NERRNO(sigaction(sig, &sa, NULL));
+                if (r != -EINVAL)
+                        RET_GATHER(ret, r);
         }
 
-        return r;
+        return ret;
 }
 
 int reset_signal_mask(void) {
@@ -57,10 +57,7 @@ int sigaction_many_internal(const struct sigaction *sa, ...) {
                 if (sig == 0)
                         continue;
 
-                if (sigaction(sig, sa, NULL) < 0) {
-                        if (r >= 0)
-                                r = -errno;
-                }
+                RET_GATHER(r, RET_NERRNO(sigaction(sig, sa, NULL)));
         }
 
         va_end(ap);
@@ -87,7 +84,7 @@ static int sigset_add_many_ap(sigset_t *ss, va_list ap) {
         return r;
 }
 
-int sigset_add_many(sigset_t *ss, ...) {
+int sigset_add_many_internal(sigset_t *ss, ...) {
         va_list ap;
         int r;
 
@@ -98,7 +95,7 @@ int sigset_add_many(sigset_t *ss, ...) {
         return r;
 }
 
-int sigprocmask_many(int how, sigset_t *old, ...) {
+int sigprocmask_many_internal(int how, sigset_t *old, ...) {
         va_list ap;
         sigset_t ss;
         int r;
@@ -113,46 +110,43 @@ int sigprocmask_many(int how, sigset_t *old, ...) {
         if (r < 0)
                 return r;
 
-        if (sigprocmask(how, &ss, old) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(sigprocmask(how, &ss, old));
 }
 
 static const char *const static_signal_table[] = {
-        [SIGHUP] = "HUP",
-        [SIGINT] = "INT",
-        [SIGQUIT] = "QUIT",
-        [SIGILL] = "ILL",
-        [SIGTRAP] = "TRAP",
-        [SIGABRT] = "ABRT",
-        [SIGBUS] = "BUS",
-        [SIGFPE] = "FPE",
-        [SIGKILL] = "KILL",
-        [SIGUSR1] = "USR1",
-        [SIGSEGV] = "SEGV",
-        [SIGUSR2] = "USR2",
-        [SIGPIPE] = "PIPE",
-        [SIGALRM] = "ALRM",
-        [SIGTERM] = "TERM",
+        [SIGHUP]    = "HUP",
+        [SIGINT]    = "INT",
+        [SIGQUIT]   = "QUIT",
+        [SIGILL]    = "ILL",
+        [SIGTRAP]   = "TRAP",
+        [SIGABRT]   = "ABRT",
+        [SIGBUS]    = "BUS",
+        [SIGFPE]    = "FPE",
+        [SIGKILL]   = "KILL",
+        [SIGUSR1]   = "USR1",
+        [SIGSEGV]   = "SEGV",
+        [SIGUSR2]   = "USR2",
+        [SIGPIPE]   = "PIPE",
+        [SIGALRM]   = "ALRM",
+        [SIGTERM]   = "TERM",
 #ifdef SIGSTKFLT
         [SIGSTKFLT] = "STKFLT",  /* Linux on SPARC doesn't know SIGSTKFLT */
 #endif
-        [SIGCHLD] = "CHLD",
-        [SIGCONT] = "CONT",
-        [SIGSTOP] = "STOP",
-        [SIGTSTP] = "TSTP",
-        [SIGTTIN] = "TTIN",
-        [SIGTTOU] = "TTOU",
-        [SIGURG] = "URG",
-        [SIGXCPU] = "XCPU",
-        [SIGXFSZ] = "XFSZ",
+        [SIGCHLD]   = "CHLD",
+        [SIGCONT]   = "CONT",
+        [SIGSTOP]   = "STOP",
+        [SIGTSTP]   = "TSTP",
+        [SIGTTIN]   = "TTIN",
+        [SIGTTOU]   = "TTOU",
+        [SIGURG]    = "URG",
+        [SIGXCPU]   = "XCPU",
+        [SIGXFSZ]   = "XFSZ",
         [SIGVTALRM] = "VTALRM",
-        [SIGPROF] = "PROF",
-        [SIGWINCH] = "WINCH",
-        [SIGIO] = "IO",
-        [SIGPWR] = "PWR",
-        [SIGSYS] = "SYS"
+        [SIGPROF]   = "PROF",
+        [SIGWINCH]  = "WINCH",
+        [SIGIO]     = "IO",
+        [SIGPWR]    = "PWR",
+        [SIGSYS]    = "SYS"
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(static_signal, int);

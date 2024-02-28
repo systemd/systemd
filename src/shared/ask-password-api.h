@@ -15,9 +15,19 @@ typedef enum AskPasswordFlags {
         ASK_PASSWORD_CONSOLE_COLOR = 1 << 6, /* Use color if /dev/console points to a console that supports color */
         ASK_PASSWORD_NO_CREDENTIAL = 1 << 7, /* never use $CREDENTIALS_DIRECTORY data */
         ASK_PASSWORD_HIDE_EMOJI    = 1 << 8, /* hide the lock and key emoji */
+        ASK_PASSWORD_HEADLESS      = 1 << 9, /* headless mode: never query interactively */
 } AskPasswordFlags;
 
-int ask_password_tty(int tty_fd, const char *message, const char *key_name, usec_t until, AskPasswordFlags flags, const char *flag_file, char ***ret);
-int ask_password_plymouth(const char *message, usec_t until, AskPasswordFlags flags, const char *flag_file, char ***ret);
-int ask_password_agent(const char *message, const char *icon, const char *id, const char *key_name, usec_t until, AskPasswordFlags flag, char ***ret);
-int ask_password_auto(const char *message, const char *icon, const char *id, const char *key_name, const char *credential_name, usec_t until, AskPasswordFlags flag, char ***ret);
+/* Encapsulates the mostly static fields of a password query */
+typedef struct AskPasswordRequest {
+        const char *message;         /* The human readable password prompt when asking interactively */
+        const char *keyring;         /* kernel keyring key name (key of "user" type) */
+        const char *icon;            /* freedesktop icon spec name */
+        const char *id;              /* some identifier used for this prompt for the "ask-password" protocol */
+        const char *credential;      /* $CREDENTIALS_DIRECTORY credential name */
+} AskPasswordRequest;
+
+int ask_password_tty(int tty_fd, const AskPasswordRequest *req, usec_t until, AskPasswordFlags flags, const char *flag_file, char ***ret);
+int ask_password_plymouth(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flags, const char *flag_file, char ***ret);
+int ask_password_agent(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flag, char ***ret);
+int ask_password_auto(const AskPasswordRequest *req, usec_t until, AskPasswordFlags flag, char ***ret);

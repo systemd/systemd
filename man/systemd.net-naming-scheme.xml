@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd.net-naming-scheme" xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -97,8 +97,8 @@
 
     <variablelist>
         <varlistentry>
-          <term><varname>ID_NET_NAME_ONBOARD=<replaceable>prefix</replaceable><constant>o</constant><replaceable>number</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_ONBOARD=<replaceable>prefix</replaceable><constant>d</constant><replaceable>number</replaceable></varname></term>
+          <term><varname>ID_NET_NAME_ONBOARD=</varname><replaceable>prefix</replaceable><constant>o</constant><replaceable>number</replaceable></term>
+          <term><varname>ID_NET_NAME_ONBOARD=</varname><replaceable>prefix</replaceable><constant>d</constant><replaceable>number</replaceable></term>
 
           <listitem><para>This name is set based on the numeric ordering information given by the firmware
           for on-board devices. Different schemes are used depending on the firmware type, as described in
@@ -135,7 +135,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>ID_NET_LABEL_ONBOARD=<replaceable>prefix</replaceable> <replaceable>label</replaceable></varname></term>
+          <term><varname>ID_NET_LABEL_ONBOARD=</varname><replaceable>prefix</replaceable> <replaceable>label</replaceable></term>
 
           <listitem><para>This property is set based on textual label given by the firmware for on-board
           devices. The name consists of the prefix concatenated with the label. This is only available for
@@ -147,7 +147,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>ID_NET_NAME_MAC=<replaceable>prefix</replaceable><constant>x</constant><replaceable>AABBCCDDEEFF</replaceable></varname></term>
+          <term><varname>ID_NET_NAME_MAC=</varname><replaceable>prefix</replaceable><constant>x</constant><replaceable>AABBCCDDEEFF</replaceable></term>
 
           <listitem><para>This name consists of the prefix, letter <constant>x</constant>, and 12 hexadecimal
           digits of the MAC address. It is available if the device has a fixed MAC address. Because this name
@@ -159,13 +159,13 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]</varname></term>
-          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable><constant>v</constant><replaceable>slot</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable><constant>x</constant><replaceable>slot</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>b</constant><replaceable>number</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>u</constant><replaceable>port</replaceable>…[<constant>c</constant><replaceable>config</replaceable>][<constant>i</constant><replaceable>interface</replaceable>]</varname></term>
-          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>v</constant><replaceable>slot</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>r</constant><replaceable>slot</replaceable></varname></term>
+          <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]</term>
+          <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable><constant>v</constant><replaceable>slot</replaceable></term>
+          <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable><constant>x</constant><replaceable>slot</replaceable></term>
+          <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>b</constant><replaceable>number</replaceable></term>
+          <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>u</constant><replaceable>port</replaceable>…[<constant>c</constant><replaceable>config</replaceable>][<constant>i</constant><replaceable>interface</replaceable>]</term>
+          <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>v</constant><replaceable>slot</replaceable></term>
+          <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>r</constant><replaceable>slot</replaceable></term>
 
           <listitem><para>This property describes the slot position. Different schemes are used depending on
           the bus type, as described in the table below. In case of USB, BCMA, and SR-VIO devices, the full
@@ -223,7 +223,7 @@
           </table>
 
           <para>The PCI domain is only prepended when it is not 0. All multi-function PCI devices will carry
-          the <constant>f<replaceable>function</replaceable></constant> number in the device name, including
+          the <constant>f</constant><replaceable>function</replaceable> number in the device name, including
           the function 0 device. For non-multi-function devices, the number is suppressed if 0. The port name
           <replaceable>port_name</replaceable> is used, or the port number
           <constant>d</constant><replaceable>dev_port</replaceable> if the name is not known.</para>
@@ -251,13 +251,13 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable><constant>c</constant><replaceable>bus_id</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable><constant>a</constant><replaceable>vendor</replaceable><replaceable>model</replaceable><constant>i</constant><replaceable>instance</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable><constant>i</constant><replaceable>address</replaceable><constant>n</constant><replaceable>port_name</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable><constant>u</constant><replaceable>port</replaceable>…</varname></term>
-          <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]</varname></term>
-          <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>b</constant><replaceable>number</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>u</constant><replaceable>port</replaceable>…[<constant>c</constant><replaceable>config</replaceable>][<constant>i</constant><replaceable>interface</replaceable>]</varname></term>
+          <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable><constant>c</constant><replaceable>bus_id</replaceable></term>
+          <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable><constant>a</constant><replaceable>vendor</replaceable><replaceable>model</replaceable><constant>i</constant><replaceable>instance</replaceable></term>
+          <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable><constant>i</constant><replaceable>address</replaceable><constant>n</constant><replaceable>port_name</replaceable></term>
+          <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable><constant>u</constant><replaceable>port</replaceable>…</term>
+          <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]</term>
+          <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>b</constant><replaceable>number</replaceable></term>
+          <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>u</constant><replaceable>port</replaceable>…[<constant>c</constant><replaceable>config</replaceable>][<constant>i</constant><replaceable>interface</replaceable>]</term>
 
           <listitem><para>This property describes the device installation location. Different schemes are
           used depending on the bus type, as described in the table below. For BCMA and USB devices, PCI path
@@ -532,6 +532,47 @@
   </refsect1>
 
   <refsect1>
+    <title>Limiting the use of specific sysfs attributes</title>
+
+    <para>When creating names for network cards, some naming schemes use data from sysfs populated
+    by the kernel. This means that although a specific naming scheme in udev is picked,
+    the network card's name can still change when a new kernel version adds a new sysfs attribute.
+    For example if kernel starts setting the <constant>phys_port_name</constant>, udev will append the
+    "<constant>n</constant><replaceable>phys_port_name</replaceable>" suffix to the device name.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>ID_NET_NAME_ALLOW=</varname><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>This udev property sets a fallback policy for reading a sysfs attribute.
+        If set to <constant>0</constant> udev will not read any sysfs attribute by default, unless it is
+        explicitly allowlisted, see below. If set to <constant>1</constant> udev can use any sysfs attribute
+        unless it is explicitly forbidden. The default value is <constant>1</constant>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ID_NET_NAME_ALLOW_<replaceable>sysfsattr</replaceable>=<replaceable>BOOL</replaceable></varname></term>
+
+        <listitem><para>This udev property explicitly states if udev shall use the specified
+        <replaceable>sysfsattr</replaceable>, when composing the device name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>With these options, users can set an allowlist or denylist for sysfs attributes. To create
+    an allowlist, the user needs to set <varname>ID_NET_NAME_ALLOW=0</varname> for the device and then list
+    the allowed attributes with the
+    <varname>ID_NET_NAME_ALLOW_<replaceable>sysfsattr</replaceable>=1</varname>
+    options. In case of a denylist, the user needs to provide the list of denied attributes with
+    the <varname>ID_NET_NAME_ALLOW_<replaceable>sysfsattr</replaceable>=0</varname> options.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Examples</title>
 
     <example>
@@ -617,16 +658,46 @@ ID_NET_NAME_PATH=enp0s29u1u2</programlisting>
 ID_NET_NAME_MAC=enx026d3c00000a
 ID_NET_NAME_PATH=encf5f0</programlisting>
     </example>
+
+    <example>
+      <title>Set an allowlist for reading sysfs attributes for network card naming</title>
+
+      <programlisting><filename>/etc/udev/hwdb.d/50-net-naming-allowlist.hwdb</filename>
+net:naming:drvirtio_net:*
+  ID_NET_NAME_ALLOW=0
+  ID_NET_NAME_ALLOW_ACPI_INDEX=1
+  ID_NET_NAME_ALLOW_ADDR_ASSIGN_TYPE=1
+  ID_NET_NAME_ALLOW_ADDRESS=1
+  ID_NET_NAME_ALLOW_ARI_ENABLED=1
+  ID_NET_NAME_ALLOW_DEV_PORT=1
+  ID_NET_NAME_ALLOW_FUNCTION_ID=1
+  ID_NET_NAME_ALLOW_IFLINK=1
+  ID_NET_NAME_ALLOW_INDEX=1
+  ID_NET_NAME_ALLOW_LABEL=1
+  ID_NET_NAME_ALLOW_PHYS_PORT_NAME=1
+  ID_NET_NAME_ALLOW_TYPE=1</programlisting>
+    </example>
+
+    <example>
+      <title>Set a denylist so that specified sysfs attribute are ignored</title>
+
+      <programlisting><filename>/etc/udev/hwdb.d/50-net-naming-denylist.hwdb</filename>
+net:naming:drvirtio_net:*
+  ID_NET_NAME_ALLOW=1
+  ID_NET_NAME_ALLOW_DEV_PORT=0
+  ID_NET_NAME_ALLOW_PHYS_PORT_NAME=0
+      </programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <ulink url="https://systemd.io/PREDICTABLE_INTERFACE_NAMES">Predictable Network Interface Names</ulink>,
-      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><ulink url="https://systemd.io/PREDICTABLE_INTERFACE_NAMES">Predictable Network Interface Names</ulink></member>
+      <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 
 </refentry>

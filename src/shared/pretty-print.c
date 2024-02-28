@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "color-util.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "env-util.h"
@@ -213,7 +214,7 @@ static int cat_file(const char *filename, bool newline, CatFlags flags) {
                         break;
 
                 LineType line_type = classify_line_type(line, flags);
-                if (flags & CAT_TLDR) {
+                if (FLAGS_SET(flags, CAT_TLDR)) {
                         if (line_type == LINE_SECTION) {
                                 /* The start of a section, let's not print it yet. */
                                 free_and_replace(section, line);
@@ -233,6 +234,28 @@ static int cat_file(const char *filename, bool newline, CatFlags flags) {
                                                ansi_normal());
 
                                 free_and_replace(old_section, section);
+                        }
+                }
+
+                /* Highlight the left side (directive) of a Foo=bar assignment */
+                if (FLAGS_SET(flags, CAT_FORMAT_HAS_SECTIONS) && line_type == LINE_NORMAL) {
+                        const char *p = strchr(line, '=');
+                        if (p) {
+                                _cleanup_free_ char *highlighted = NULL, *directive = NULL;
+
+                                directive = strndup(line, p - line);
+                                if (!directive)
+                                        return log_oom();
+
+                                highlighted = strjoin(ansi_highlight_green(),
+                                                      directive,
+                                                      "=",
+                                                      ansi_normal(),
+                                                      p + 1);
+                                if (!highlighted)
+                                        return log_oom();
+
+                                free_and_replace(line, highlighted);
                         }
                 }
 
@@ -271,14 +294,12 @@ void print_separator(void) {
          * one line filled with spaces with ANSI underline set, followed by a second (empty) line. */
 
         if (underline_enabled()) {
-                size_t i, c;
-
-                c = columns();
+                size_t c = columns();
 
                 flockfile(stdout);
                 fputs_unlocked(ANSI_UNDERLINE, stdout);
 
-                for (i = 0; i < c; i++)
+                for (size_t i = 0; i < c; i++)
                         fputc_unlocked(' ', stdout);
 
                 fputs_unlocked(ANSI_NORMAL "\n\n", stdout);
@@ -327,24 +348,17 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
 
         if (path_equal(n, "udev/hwdb.d"))
                 ext = ".hwdb";
-
-        if (path_equal(n, "udev/rules.d"))
+        else if (path_equal(n, "udev/rules.d"))
                 ext = ".rules";
-
-        if (path_equal(n, "kernel/install.d"))
+        else if (path_equal(n, "kernel/install.d"))
                 ext = ".install";
-
-        if (path_equal(n, "systemd/ntp-units.d")) {
+        else if (path_equal(n, "systemd/ntp-units.d")) {
                 coll = true;
                 ext = ".list";
-        }
-
-        if (path_equal(n, "systemd/relabel-extra.d")) {
+        } else if (path_equal(n, "systemd/relabel-extra.d")) {
                 coll = run = true;
                 ext = ".relabel";
-        }
-
-        if (PATH_IN_SET(n, "systemd/system-preset", "systemd/user-preset")) {
+        } else if (PATH_IN_SET(n, "systemd/system-preset", "systemd/user-preset")) {
                 coll = true;
                 ext = ".preset";
         }
@@ -418,4 +432,33 @@ int conf_files_cat(const char *root, const char *name, CatFlags flags) {
                 flags |= CAT_FORMAT_HAS_SECTIONS;
 
         return cat_files(path, files, flags);
+}
+
+int terminal_tint_color(double hue, char **ret) {
+        double red, green, blue;
+        int r;
+
+        assert(ret);
+
+        r = get_default_background_color(&red, &green, &blue);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to get terminal background color: %m");
+
+        double s, v;
+        rgb_to_hsv(red, green, blue, /* h= */ NULL, &s, &v);
+
+        if (v > 50) /* If the background is bright, then pull down saturation */
+                s = 25;
+        else        /* otherwise pump it up */
+                s = 75;
+
+        v = MAX(20, v); /* Make sure we don't hide the color in black */
+
+        uint8_t r8, g8, b8;
+        hsv_to_rgb(hue, s, v, &r8, &g8, &b8);
+
+        if (asprintf(ret, "48;2;%u;%u;%u", r8, g8, b8) < 0)
+                return -ENOMEM;
+
+        return 0;
 }

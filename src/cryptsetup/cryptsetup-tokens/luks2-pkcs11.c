@@ -157,7 +157,7 @@ static int acquire_luks2_key_systemd(
         assert(params);
 
         data.friendly_name = params->friendly_name;
-        data.headless = params->headless;
+        data.askpw_credential = params->askpw_credential;
         data.askpw_flags = params->askpw_flags;
         data.until = params->until;
 
@@ -260,7 +260,7 @@ int parse_luks2_pkcs11_data(
         if (!w)
                 return -EINVAL;
 
-        r = unbase64mem(json_variant_string(w), SIZE_MAX, &key, &key_size);
+        r = unbase64mem(json_variant_string(w), &key, &key_size);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Failed to decode base64 encoded key: %m.");
 

@@ -1,9 +1,10 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-soft-reboot.service">
+<refentry id="systemd-soft-reboot.service"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-soft-reboot.service</title>
@@ -136,6 +137,12 @@ ExecStart=sleep infinity
       attached, if configured to remain until the very end of the shutdown process. (Also achieved via
       <varname>DefaultDependencies=no</varname>, and by avoiding
       <varname>Conflicts=umount.target</varname>)</para></listitem>
+
+      <listitem><para>If the unit publishes a service over D-Bus, the connection needs to be re-established
+      after soft-reboot as the D-Bus broker will be stopped and then started again. When using the sd-bus
+      library this can be achieved by adapting the following example.
+      <programlisting><xi:include href="sd_bus_service_reconnect.c" parse="text"/></programlisting>
+      </para></listitem>
     </itemizedlist>
 
     <para>Even though passing resources from one soft reboot cycle to the next is possible this way, we
@@ -172,14 +179,14 @@ ExecStart=sleep infinity
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-poweroff.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-poweroff.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 
 </refentry>

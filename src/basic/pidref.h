@@ -38,7 +38,7 @@ int pidref_set_pidstr(PidRef *pidref, const char *pid);
 int pidref_set_pidfd(PidRef *pidref, int fd);
 int pidref_set_pidfd_take(PidRef *pidref, int fd); /* takes ownership of the passed pidfd on success*/
 int pidref_set_pidfd_consume(PidRef *pidref, int fd); /* takes ownership of the passed pidfd in both success and failure */
-
+int pidref_set_parent(PidRef *ret);
 static inline int pidref_set_self(PidRef *pidref) {
         return pidref_set_pid(pidref, 0);
 }
@@ -49,13 +49,26 @@ void pidref_done(PidRef *pidref);
 PidRef *pidref_free(PidRef *pidref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(PidRef*, pidref_free);
 
+int pidref_copy(const PidRef *pidref, PidRef *dest);
 int pidref_dup(const PidRef *pidref, PidRef **ret);
 
 int pidref_new_from_pid(pid_t pid, PidRef **ret);
 
 int pidref_kill(const PidRef *pidref, int sig);
 int pidref_kill_and_sigcont(const PidRef *pidref, int sig);
-int pidref_sigqueue(const PidRef *pidfref, int sig, int value);
+int pidref_sigqueue(const PidRef *pidref, int sig, int value);
+
+int pidref_wait(const PidRef *pidref, siginfo_t *siginfo, int options);
+int pidref_wait_for_terminate(const PidRef *pidref, siginfo_t *ret);
+
+static inline void pidref_done_sigkill_wait(PidRef *pidref) {
+        if (!pidref_is_set(pidref))
+                return;
+
+        (void) pidref_kill(pidref, SIGKILL);
+        (void) pidref_wait_for_terminate(pidref, NULL);
+        pidref_done(pidref);
+}
 
 int pidref_verify(const PidRef *pidref);
 

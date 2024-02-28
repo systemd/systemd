@@ -324,7 +324,7 @@ EOF
 }
 
 nspawn_settings_cleanup() {
-    for dev in sd-host-only sd-shared{1,2} sd-macvlan{1,2} sd-ipvlan{1,2}; do
+    for dev in sd-host-only sd-shared{1,2,3} sd-macvlan{1,2} sd-ipvlan{1,2}; do
         ip link del "$dev" || :
     done
 
@@ -332,7 +332,7 @@ nspawn_settings_cleanup() {
 }
 
 testcase_nspawn_settings() {
-    local root container dev private_users
+    local root container dev private_users wlan_names
 
     mkdir -p /run/systemd/nspawn
     root="$(mktemp -d /var/lib/machines/testsuite-13.nspawn-settings.XXX)"
@@ -341,10 +341,16 @@ testcase_nspawn_settings() {
     rm -f "/etc/systemd/nspawn/$container.nspawn"
     mkdir -p "$root/tmp" "$root"/opt/{tmp,inaccessible,also-inaccessible}
 
-    for dev in sd-host-only sd-shared{1,2} sd-macvlan{1,2} sd-macvlanloong sd-ipvlan{1,2} sd-ipvlanlooong; do
+    # add virtual wlan interfaces
+    if modprobe mac80211_hwsim radios=2; then
+        wlan_names="wlan0 wlan1:wl-renamed1"
+    fi
+
+    for dev in sd-host-only sd-shared{1,2,3} sd-macvlan{1,2} sd-macvlanloong sd-ipvlan{1,2} sd-ipvlanlooong; do
         ip link add "$dev" type dummy
     done
     udevadm settle
+    ip link property add dev sd-shared3 altname sd-altname3 altname sd-altname-tooooooooooooo-long
     ip link
     trap nspawn_settings_cleanup RETURN
 
@@ -394,7 +400,7 @@ Private=yes
 VirtualEthernet=yes
 VirtualEthernetExtra=my-fancy-veth1
 VirtualEthernetExtra=fancy-veth2:my-fancy-veth2
-Interface=sd-shared1 sd-shared2:sd-shared2
+Interface=sd-shared1 sd-shared2:sd-renamed2 sd-shared3:sd-altname3 ${wlan_names:-}
 MACVLAN=sd-macvlan1 sd-macvlan2:my-macvlan2 sd-macvlanloong
 IPVLAN=sd-ipvlan1 sd-ipvlan2:my-ipvlan2 sd-ipvlanlooong
 Zone=sd-zone0
@@ -404,7 +410,10 @@ Port=tcp:60
 Port=udp:60:61
 EOF
     cat >"$root/entrypoint.sh" <<\EOF
-#!/bin/bash -ex
+#!/bin/bash
+set -ex
+
+env
 
 [[ "$1" == "foo bar" ]]
 [[ "$2" == "bar baz" ]]
@@ -413,7 +422,7 @@ EOF
 [[ "$FOO" == bar ]]
 [[ "$BAZ" == "hello world" ]]
 [[ "$PWD" == /tmp ]]
-[[ "$(</etc/machine-id)" == f28f129b51874b1280a89421ec4b4ad4 ]]
+[[ "$container_uuid" == f28f129b-5187-4b12-80a8-9421ec4b4ad4 ]]
 [[ "$(ulimit -S -n)" -eq 1024 ]]
 [[ "$(ulimit -H -n)" -eq 2048 ]]
 [[ "$(ulimit -S -r)" -eq 8 ]]
@@ -437,12 +446,22 @@ ip link | grep host0@
 ip link | grep my-fancy-veth1@
 ip link | grep my-fancy-veth2@
 ip link | grep sd-shared1
-ip link | grep sd-shared2
+ip link | grep sd-renamed2
+ip link | grep sd-shared3
+ip link | grep sd-altname3
+ip link | grep sd-altname-tooooooooooooo-long
 ip link | grep mv-sd-macvlan1@
 ip link | grep my-macvlan2@
 ip link | grep iv-sd-ipvlan1@
 ip link | grep my-ipvlan2@
 EOF
+    if [[ -n "${wlan_names:-}" ]]; then
+        cat >>"$root/entrypoint.sh" <<\EOF
+ip link | grep wlan0
+ip link | grep wl-renamed1
+EOF
+    fi
+
     timeout 30 systemd-nspawn --directory="$root"
 
     # And now for stuff that needs to run separately
@@ -597,6 +616,76 @@ testcase_rootidmap() {
     fi
 
     permissions=$(stat -c "%u:%g" /tmp/rootidmap/bind/other_file)
+    if [[ $permissions != "$owner:$owner" ]]; then
+        echo "*** wrong permissions: $permissions"
+        [[ "$IS_USERNS_SUPPORTED" == "yes" ]] && return 1
+    fi
+}
+
+owneridmap_cleanup() {
+    local dir="${1:?}"
+
+    mountpoint -q "$dir/bind" && umount "$dir/bind"
+    rm -fr "$dir"
+}
+
+testcase_owneridmap() {
+    local root cmd permissions
+    local owner=1000
+
+    root="$(mktemp -d /var/lib/machines/testsuite-13.owneridmap-path.XXX)"
+    # Create ext4 image, as ext4 supports idmapped-mounts.
+    mkdir -p /tmp/owneridmap/bind
+    dd if=/dev/zero of=/tmp/owneridmap/ext4.img bs=4k count=2048
+    mkfs.ext4 /tmp/owneridmap/ext4.img
+    mount /tmp/owneridmap/ext4.img /tmp/owneridmap/bind
+    trap "owneridmap_cleanup /tmp/owneridmap/" RETURN
+
+    touch /tmp/owneridmap/bind/file
+    chown -R "$owner:$owner" /tmp/owneridmap/bind
+
+    # Allow users to read and execute / in order to execute binaries
+    chmod o+rx "$root"
+
+    create_dummy_container "$root"
+
+    # --user=
+    # "Fake" getent passwd's bare minimum, so we don't have to pull it in
+    # with all the DSO shenanigans
+    cat >"$root/bin/getent" <<\EOF
+#!/bin/bash
+
+if [[ $# -eq 0 ]]; then
+    :
+elif [[ $1 == passwd ]]; then
+    echo "testuser:x:1010:1010:testuser:/:/bin/sh"
+elif [[ $1 == initgroups ]]; then
+    echo "testuser"
+fi
+EOF
+    chmod +x "$root/bin/getent"
+
+    mkdir -p "$root/home/testuser"
+    chown 1010:1010 "$root/home/testuser"
+
+    cmd='PERMISSIONS=$(stat -c "%u:%g" /home/testuser/file); if [[ $PERMISSIONS != "1010:1010" ]]; then echo "*** wrong permissions: $PERMISSIONS"; return 1; fi; touch /home/testuser/other_file'
+    if ! SYSTEMD_LOG_TARGET=console \
+            systemd-nspawn --register=no \
+                           --directory="$root" \
+                           -U \
+                           --user=testuser \
+                           --bind=/tmp/owneridmap/bind:/home/testuser:owneridmap \
+                           ${COVERAGE_BUILD_DIR:+--bind="$COVERAGE_BUILD_DIR"} \
+                           /usr/bin/bash -c "$cmd" |& tee nspawn.out; then
+        if grep -q "Failed to map ids for bind mount.*: Function not implemented" nspawn.out; then
+            echo "idmapped mounts are not supported, skipping the test..."
+            return 0
+        fi
+
+        return 1
+    fi
+
+    permissions=$(stat -c "%u:%g" /tmp/owneridmap/bind/other_file)
     if [[ $permissions != "$owner:$owner" ]]; then
         echo "*** wrong permissions: $permissions"
         [[ "$IS_USERNS_SUPPORTED" == "yes" ]] && return 1

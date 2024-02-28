@@ -65,7 +65,7 @@ static Manager* manager_unref(Manager *m) {
 
         sd_event_source_unref(m->image_cache_defer_event);
 
-        bus_verify_polkit_async_registry_free(m->polkit_registry);
+        hashmap_free(m->polkit_registry);
 
         sd_bus_flush_close_unref(m->bus);
         sd_event_unref(m->event);
@@ -122,17 +122,6 @@ static bool check_idle(void *userdata) {
         return !m->operations;
 }
 
-static int manager_run(Manager *m) {
-        assert(m);
-
-        return bus_event_loop_with_idle(
-                        m->event,
-                        m->bus,
-                        "org.freedesktop.portable1",
-                        DEFAULT_EXIT_USEC,
-                        check_idle, m);
-}
-
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
@@ -152,7 +141,7 @@ static int run(int argc, char *argv[]) {
         if (argc != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, SIGRTMIN+18, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, SIGRTMIN+18) >= 0);
 
         r = manager_new(&m);
         if (r < 0)
@@ -162,16 +151,20 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fully start up daemon: %m");
 
-        log_debug("systemd-portabled running as pid " PID_FMT, getpid_cached());
         r = sd_notify(false, NOTIFY_READY);
         if (r < 0)
                 log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 
-        r = manager_run(m);
+        r = bus_event_loop_with_idle(
+                        m->event,
+                        m->bus,
+                        "org.freedesktop.portable1",
+                        DEFAULT_EXIT_USEC,
+                        check_idle, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run main loop: %m");
 
-        (void) sd_notify(false, NOTIFY_STOPPING);
-        log_debug("systemd-portabled stopped as pid " PID_FMT, getpid_cached());
-        return r;
+        return 0;
 }
 
 DEFINE_MAIN_FUNCTION(run);

@@ -213,6 +213,25 @@ TEST(bind_remount_one) {
                 _exit(EXIT_SUCCESS);
         }
 
+        assert_se(wait_for_terminate_and_check("test-remount-one-with-mountinfo", pid, WAIT_LOG) == EXIT_SUCCESS);
+
+        pid = fork();
+        assert_se(pid >= 0);
+
+        if (pid == 0) {
+                /* child */
+
+                assert_se(detach_mount_namespace() >= 0);
+
+                assert_se(bind_remount_one("/run", MS_RDONLY, MS_RDONLY) >= 0);
+                assert_se(bind_remount_one("/run", MS_NOEXEC, MS_RDONLY|MS_NOEXEC) >= 0);
+                assert_se(bind_remount_one("/proc/idontexist", MS_RDONLY, MS_RDONLY) == -ENOENT);
+                assert_se(bind_remount_one("/proc/self", MS_RDONLY, MS_RDONLY) == -EINVAL);
+                assert_se(bind_remount_one("/", MS_RDONLY, MS_RDONLY) >= 0);
+
+                _exit(EXIT_SUCCESS);
+        }
+
         assert_se(wait_for_terminate_and_check("test-remount-one", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
@@ -276,7 +295,17 @@ TEST(make_mount_switch_root) {
         assert_se(s);
         assert_se(touch(s) >= 0);
 
-        for (int force_ms_move = 0; force_ms_move < 2; force_ms_move++) {
+        struct {
+                const char *path;
+                bool force_ms_move;
+        } table[] = {
+                { t,   false },
+                { t,   true  },
+                { "/", false },
+                { "/", true  },
+        };
+
+        FOREACH_ARRAY(i, table, ELEMENTSOF(table)) {
                 r = safe_fork("(switch-root)",
                               FORK_RESET_SIGNALS |
                               FORK_CLOSE_ALL_FDS |
@@ -290,12 +319,14 @@ TEST(make_mount_switch_root) {
                 assert_se(r >= 0);
 
                 if (r == 0) {
-                        assert_se(make_mount_point(t) >= 0);
-                        assert_se(mount_switch_root_full(t, /* mount_propagation_flag= */ 0, force_ms_move) >= 0);
+                        assert_se(make_mount_point(i->path) >= 0);
+                        assert_se(mount_switch_root_full(i->path, /* mount_propagation_flag= */ 0, i->force_ms_move) >= 0);
 
-                        assert_se(access(ASSERT_PTR(strrchr(s, '/')), F_OK) >= 0);       /* absolute */
-                        assert_se(access(ASSERT_PTR(strrchr(s, '/')) + 1, F_OK) >= 0);   /* relative */
-                        assert_se(access(s, F_OK) < 0 && errno == ENOENT);               /* doesn't exist in our new environment */
+                        if (!path_equal(i->path, "/")) {
+                                assert_se(access(ASSERT_PTR(strrchr(s, '/')), F_OK) >= 0);       /* absolute */
+                                assert_se(access(ASSERT_PTR(strrchr(s, '/')) + 1, F_OK) >= 0);   /* relative */
+                                assert_se(access(s, F_OK) < 0 && errno == ENOENT);               /* doesn't exist in our new environment */
+                        }
 
                         _exit(EXIT_SUCCESS);
                 }
@@ -496,11 +527,11 @@ TEST(bind_mount_submounts) {
         free(x);
 
         assert_se(x = path_join(b, "x"));
-        assert_se(path_is_mount_point(x, NULL, 0) > 0);
+        assert_se(path_is_mount_point(x) > 0);
         free(x);
 
         assert_se(x = path_join(b, "y"));
-        assert_se(path_is_mount_point(x, NULL, 0) > 0);
+        assert_se(path_is_mount_point(x) > 0);
 
         assert_se(umount_recursive(a, 0) >= 0);
         assert_se(umount_recursive(b, 0) >= 0);

@@ -98,6 +98,8 @@ REQUIREMENTS:
           CONFIG_SECCOMP_FILTER (required for seccomp support)
           CONFIG_KCMP (for the kcmp() syscall, used to be under
                        CONFIG_CHECKPOINT_RESTORE before ~5.12)
+          CONFIG_NET_SCHED
+          CONFIG_NET_SCH_FQ_CODEL
 
         Required for CPUShares= in resource control unit settings:
           CONFIG_CGROUP_SCHED
@@ -217,7 +219,7 @@ REQUIREMENTS:
         pyelftools (optional, required for systemd-boot)
         meson >= 0.60.0
         ninja
-        gcc >= 4.7
+        gcc >= 8.4
         awk, sed, grep, and similar tools
         clang >= 10.0, llvm >= 10.0 (optional, required to build BPF programs
                 from source code in C)
@@ -231,7 +233,6 @@ REQUIREMENTS:
         dbus >= 1.4.0 (strictly speaking optional, but recommended)
                 NOTE: If using dbus < 1.9.18, you should override the default
                 policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).
-        dracut (optional)
         polkit (optional)
 
         To build in directory build/:

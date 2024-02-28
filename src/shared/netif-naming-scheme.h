@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 
+#include "sd-device.h"
+
 #include "macro.h"
 
 /* So here's the deal: net_id is supposed to be an exercise in providing stable names for network devices. However, we
@@ -95,3 +97,8 @@ NamePolicy name_policy_from_string(const char *p) _pure_;
 
 const char *alternative_names_policy_to_string(NamePolicy p) _const_;
 NamePolicy alternative_names_policy_from_string(const char *p) _pure_;
+
+int device_get_sysattr_int_filtered(sd_device *device, const char *sysattr, int *ret_value);
+int device_get_sysattr_unsigned_filtered(sd_device *device, const char *sysattr, unsigned *ret_value);
+int device_get_sysattr_bool_filtered(sd_device *device, const char *sysattr);
+int device_get_sysattr_value_filtered(sd_device *device, const char *sysattr, const char **ret_value);

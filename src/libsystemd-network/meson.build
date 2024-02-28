@@ -2,7 +2,6 @@
 
 sources = files(
         'arp-util.c',
-        'dhcp-identifier.c',
         'dhcp-network.c',
         'dhcp-option.c',
         'dhcp-packet.c',
@@ -13,11 +12,13 @@ sources = files(
         'lldp-neighbor.c',
         'lldp-network.c',
         'ndisc-protocol.c',
-        'ndisc-router.c',
         'network-common.c',
         'network-internal.c',
+        'sd-dhcp-client-id.c',
         'sd-dhcp-client.c',
+        'sd-dhcp-duid.c',
         'sd-dhcp-lease.c',
+        'sd-dhcp-server-lease.c',
         'sd-dhcp-server.c',
         'sd-dhcp6-client.c',
         'sd-dhcp6-lease.c',
@@ -26,6 +27,7 @@ sources = files(
         'sd-lldp-rx.c',
         'sd-lldp-tx.c',
         'sd-ndisc.c',
+        'sd-ndisc-router.c',
         'sd-radv.c',
 )
 

@@ -42,8 +42,8 @@ typedef enum UserCredsFlags {
         USER_CREDS_CLEAN         = 1 << 2,  /* try to clean up shell and home fields with invalid data */
 } UserCredsFlags;
 
-int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell, UserCredsFlags flags);
-int get_group_creds(const char **groupname, gid_t *gid, UserCredsFlags flags);
+int get_user_creds(const char **username, uid_t *ret_uid, gid_t *ret_gid, const char **ret_home, const char **ret_shell, UserCredsFlags flags);
+int get_group_creds(const char **groupname, gid_t *ret_gid, UserCredsFlags flags);
 
 char* uid_to_name(uid_t uid);
 char* gid_to_name(gid_t gid);
@@ -57,7 +57,10 @@ int getgroups_alloc(gid_t** gids);
 int get_home_dir(char **ret);
 int get_shell(char **ret);
 
-int reset_uid_gid(void);
+int fully_set_uid_gid(uid_t uid, gid_t gid, const gid_t supplementary_gids[], size_t n_supplementary_gids);
+static inline int reset_uid_gid(void) {
+        return fully_set_uid_gid(0, 0, NULL, 0);
+}
 
 int take_etc_passwd_lock(const char *root);
 
@@ -155,3 +158,9 @@ static inline bool hashed_password_is_locked_or_invalid(const char *password) {
  * Also see https://github.com/systemd/systemd/pull/24680#pullrequestreview-1439464325.
  */
 #define PASSWORD_UNPROVISIONED "!unprovisioned"
+
+int getpwuid_malloc(uid_t uid, struct passwd **ret);
+int getpwnam_malloc(const char *name, struct passwd **ret);
+
+int getgrnam_malloc(const char *name, struct group **ret);
+int getgrgid_malloc(gid_t gid, struct group **ret);

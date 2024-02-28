@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#if HAVE_OPENSSL
+#  include <openssl/evp.h>
+#  include <openssl/x509.h>
+#endif
 #include <stdbool.h>
 
 #if HAVE_P11KIT
@@ -10,7 +14,6 @@
 
 #include "ask-password-api.h"
 #include "macro.h"
-#include "openssl-util.h"
 #include "time-util.h"
 
 bool pkcs11_uri_valid(const char *uri);
@@ -24,6 +27,8 @@ extern const char *(*sym_p11_kit_strerror)(CK_RV rv);
 extern int (*sym_p11_kit_uri_format)(P11KitUri *uri, P11KitUriType uri_type, char **string);
 extern void (*sym_p11_kit_uri_free)(P11KitUri *uri);
 extern CK_ATTRIBUTE_PTR (*sym_p11_kit_uri_get_attributes)(P11KitUri *uri, CK_ULONG *n_attrs);
+extern CK_ATTRIBUTE_PTR (*sym_p11_kit_uri_get_attribute)(P11KitUri *uri, CK_ATTRIBUTE_TYPE attr_type);
+extern int (*sym_p11_kit_uri_set_attribute)(P11KitUri *uri, CK_ATTRIBUTE_PTR attr);
 extern CK_INFO_PTR (*sym_p11_kit_uri_get_module_info)(P11KitUri *uri);
 extern CK_SLOT_INFO_PTR (*sym_p11_kit_uri_get_slot_info)(P11KitUri *uri);
 extern CK_TOKEN_INFO_PTR (*sym_p11_kit_uri_get_token_info)(P11KitUri *uri);
@@ -48,10 +53,12 @@ char *pkcs11_token_manufacturer_id(const CK_TOKEN_INFO *token_info);
 char *pkcs11_token_model(const CK_TOKEN_INFO *token_info);
 
 int pkcs11_token_login_by_pin(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, const CK_TOKEN_INFO *token_info, const char *token_label, const void *pin, size_t pin_size);
-int pkcs11_token_login(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_SLOT_ID slotid, const CK_TOKEN_INFO *token_info, const char *friendly_name, const char *icon_name, const char *key_name, const char *credential_name, usec_t until, AskPasswordFlags ask_password_flags, bool headless, char **ret_used_pin);
+int pkcs11_token_login(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_SLOT_ID slotid, const CK_TOKEN_INFO *token_info, const char *friendly_name, const char *icon_name, const char *key_name, const char *credential_name, usec_t until, AskPasswordFlags ask_password_flags, char **ret_used_pin);
 
+int pkcs11_token_find_related_object(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_OBJECT_HANDLE prototype, CK_OBJECT_CLASS class, CK_OBJECT_HANDLE *ret_object);
 int pkcs11_token_find_x509_certificate(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, P11KitUri *search_uri, CK_OBJECT_HANDLE *ret_object);
 #if HAVE_OPENSSL
+int pkcs11_token_read_public_key(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_OBJECT_HANDLE object, EVP_PKEY **ret_pkey);
 int pkcs11_token_read_x509_certificate(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_OBJECT_HANDLE object, X509 **ret_cert);
 #endif
 
@@ -64,7 +71,7 @@ typedef int (*pkcs11_find_token_callback_t)(CK_FUNCTION_LIST *m, CK_SESSION_HAND
 int pkcs11_find_token(const char *pkcs11_uri, pkcs11_find_token_callback_t callback, void *userdata);
 
 #if HAVE_OPENSSL
-int pkcs11_acquire_certificate(const char *uri, const char *askpw_friendly_name, const char *askpw_icon_name, X509 **ret_cert, char **ret_pin_used);
+int pkcs11_acquire_public_key(const char *uri, const char *askpw_friendly_name, const char *askpw_icon, const char *askpw_credential, AskPasswordFlags askpw_flags, EVP_PKEY **ret_pkey, char **ret_pin_used);
 #endif
 
 typedef struct {
@@ -75,7 +82,7 @@ typedef struct {
         void *decrypted_key;
         size_t decrypted_key_size;
         bool free_encrypted_key;
-        bool headless;
+        const char *askpw_credential;
         AskPasswordFlags askpw_flags;
 } pkcs11_crypt_device_callback_data;
 
@@ -103,7 +110,7 @@ static inline int dlopen_p11kit(void) {
 typedef struct {
         const char *friendly_name;
         usec_t until;
-        bool headless;
+        const char *askpw_credential;
         AskPasswordFlags askpw_flags;
 } systemd_pkcs11_plugin_params;
 

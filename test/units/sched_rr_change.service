@@ -3,7 +3,7 @@
 Description=Change prio
 
 [Service]
-ExecStart=/bin/true
+ExecStart=true
 CPUSchedulingPriority=1
 CPUSchedulingPriority=2
 CPUSchedulingPriority=99

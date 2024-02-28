@@ -1,6 +1,46 @@
 systemd System and Service Manager
 
-CHANGES WITH 255 in spe:
+CHANGES WITH 256 in spe:
+
+        Announcements of Future Feature Removals and Incompatible Changes:
+
+        * Support for flushing of the nscd user/group database caches will be
+          dropped in a future release.
+
+        * Support for cgroup v1 ('legacy' and 'hybrid' hierarchies) is now
+          considered obsolete and systemd by default will refuse to boot under it.
+          To forcibly reenable cgroup v1 support, SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1
+          must be set on kernel command line. The meson option 'default-hierarchy='
+          is also deprecated, i.e. only cgroup v2 ('unified' hierarchy) can be
+          selected as build-time default.
+
+        * Previously, systemd-networkd did not explicitly remove any bridge VLAN
+          IDs assigned on bridge master and ports. Since v256, if a .network
+          file for an interface has at least one valid settings in [BridgeVLAN]
+          section, then all assigned VLAN IDs on the interface that are not
+          configured in the .network file are removed.
+
+        * systemd-gpt-auto-generator will stop generating units for ESP or
+          XBOOTLDR partitions if it finds mount entries in the /boot/ or /efi/
+          hierarchies in fstab. This is to prevent the generator from
+          interfering with systems where ESP is explicitly configured to be
+          mounted at some path, for example /boot/efi/ (this type of setup is
+          obsolete but is still commonly found).
+
+        Network Management:
+
+        * systemd-networkd's proxy support gained a new option to configure
+          a private VLAN variant of the proxy ARP supported by the kernel
+          under the name IPv4ProxyARPPrivateVLAN=.
+
+        * TPM 1.2 PCR measurement support has been removed from
+          systemd-stub. TPM 1.2 is obsolete and — due to the (by today's
+          standards) weak cryptographic algorithms it only supports — does not
+          actually provide the security benefits it's supposed to
+          provide. Given that the rest of systemd's codebase never supported
+          TPM 1.2 the support has now been removed from systemd-stub as well.
+
+CHANGES WITH 255:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -137,7 +177,7 @@ CHANGES WITH 255 in spe:
         * Units now have MemoryPeak, MemorySwapPeak, MemorySwapCurrent and
           MemoryZSwapCurrent properties, which respectively contain the values
           of the cgroup v2's memory.peak, memory.swap.peak, memory.swap.current
-          and memory.zswap.current properties. This information is also show in
+          and memory.zswap.current properties. This information is also shown in
           "systemctl status" output, if available.
 
         TPM2 Support + Disk Encryption & Authentication:
@@ -463,7 +503,8 @@ CHANGES WITH 255 in spe:
 
         * A new varlinkctl tool has been added to allow interfacing with
           Varlink services, and introspection has been added to all such
-          services.
+          services. This component is experimental and its public interface is
+          subject to change.
 
         * systemd-sysext and systemd-confext now expose a Varlink service
           at io.systemd.sysext.
@@ -520,11 +561,13 @@ CHANGES WITH 255 in spe:
           rd.systemd.unit=storage-target-mode.target on the kernel command
           line. This is intended to be used for installers and debugging to
           quickly get access to the local disk. It's inspired by MacOS "target
-          disk mode".
+          disk mode". This component is experimental and its public interface is
+          subject to change.
 
         * A new component "systemd-bsod" has been added, which can show logged
           error messages full screen, if they have a log level of LOG_EMERG log
-          level.
+          level. This component is experimental and its public interface is
+          subject to change.
 
         * The systemd-dissect tool's --with command will now set the
           $SYSTEMD_DISSECT_DEVICE environment variable to the block device it
@@ -611,17 +654,17 @@ CHANGES WITH 255 in spe:
         Omojola Joshua, onenowy, Paul Meyer, Paymon MARANDI, pelaufer,
         Peter Hutterer, PhylLu, Pierre GRASSER, Piotr Drąg, Priit Laes,
         Rahil Bhimjiani, Raito Bezarius, Raul Cheleguini, Reto Schneider,
-        Richard Maw, Robby Red, RoepLuke, Roland Hieber, Ronan Pigott,
-        Sam James, Sam Leonard, Sergey A, Susant Sahani, Sven Joachim,
-        Tad Fisher, Takashi Sakamoto, Thorsten Kukuk, Tj, Tomasz Świątek,
-        Topi Miettinen, Valentin David, Valentin Lefebvre,
-        Victor Westerhuis, Vincent Haupert, Vishal Chillara Srinivas,
-        Vito Caputo, Warren, Weblate, Xiaotian Wu, xinpeng wang,
-        Yaron Shahrabani, Yo-Jung Lin, Yu Watanabe,
-        Zbigniew Jędrzejewski-Szmek, zeroskyx,
+        Richard Maw, Robby Red, RoepLuke, Roland Hieber, Roland Singer,
+        Ronan Pigott, Sam James, Sam Leonard, Sergey A, Susant Sahani,
+        Sven Joachim, Tad Fisher, Takashi Sakamoto, Thorsten Kukuk, Tj,
+        Tomasz Świątek, Topi Miettinen, Valentin David,
+        Valentin Lefebvre, Victor Westerhuis, Vincent Haupert,
+        Vishal Chillara Srinivas, Vito Caputo, Warren, Weblate,
+        Xiaotian Wu, xinpeng wang, Yaron Shahrabani, Yo-Jung Lin,
+        Yu Watanabe, Zbigniew Jędrzejewski-Szmek, zeroskyx,
         Дамјан Георгиевски, наб
 
-        — Edinburgh, 2023-12-02
+        — Edinburgh, 2023-12-06
 
 CHANGES WITH 254:
 

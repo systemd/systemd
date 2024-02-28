@@ -8,6 +8,7 @@
 
 static int denylist_modules(const char *p, char ***denylist) {
         _cleanup_strv_free_ char **k = NULL;
+        int r;
 
         assert(p);
         assert(denylist);
@@ -16,8 +17,9 @@ static int denylist_modules(const char *p, char ***denylist) {
         if (!k)
                 return -ENOMEM;
 
-        if (strv_extend_strv(denylist, k, true) < 0)
-                return -ENOMEM;
+        r = strv_extend_strv(denylist, k, /* filter_duplicates= */ true);
+        if (r < 0)
+                return r;
 
         return 0;
 }

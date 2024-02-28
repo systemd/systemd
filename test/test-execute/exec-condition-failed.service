@@ -9,4 +9,4 @@ Type=oneshot
 ExecCondition=/bin/sh -c 'exit 255'
 
 # This should not get run
-ExecStart=/bin/sh -c 'true'
+ExecStart=sh -c 'true'

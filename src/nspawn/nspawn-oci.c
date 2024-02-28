@@ -1588,7 +1588,7 @@ static int oci_sysctl(const char *name, JsonVariant *v, JsonDispatchFlags flags,
                         return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "sysctl key invalid, refusing: %s", k);
 
-                r = strv_extend_strv(&s->sysctl, STRV_MAKE(k, m), false);
+                r = strv_extend_many(&s->sysctl, k, m);
                 if (r < 0)
                         return log_oom();
         }
@@ -1837,10 +1837,8 @@ static int oci_seccomp_syscalls(const char *name, JsonVariant *v, JsonDispatchFl
                 if (r < 0)
                         return r;
 
-                if (strv_isempty(rule.names)) {
-                        json_log(e, flags, 0, "System call name list is empty.");
-                        return -EINVAL;
-                }
+                if (strv_isempty(rule.names))
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "System call name list is empty.");
 
                 STRV_FOREACH(i, rule.names) {
                         int nr;
@@ -2082,7 +2080,7 @@ static int oci_hooks_array(const char *name, JsonVariant *v, JsonDispatchFlags f
                         return r;
                 }
 
-                (*n_array) ++;
+                (*n_array)++;
         }
 
         return 0;

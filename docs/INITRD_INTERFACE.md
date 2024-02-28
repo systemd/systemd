@@ -16,8 +16,9 @@ initrd and initrd-less boots. If an initrd is used, it is a good idea to pass a
 few bits of runtime information from the initrd to systemd in order to avoid
 duplicate work and to provide performance data to the administrator. In this
 page we attempt to roughly describe the interfaces that exist between the
-initrd and systemd. These interfaces are currently used by dracut and the
-ArchLinux initrds.
+initrd and systemd. These interfaces are currently used by
+[mkosi](https://github.com/systemd/mkosi)-generated initrds, dracut and the
+Arch Linux initrds.
 
 * The initrd should mount `/run/` as a tmpfs and pass it pre-mounted when
   jumping into the main system when executing systemd. The mount options should
@@ -39,7 +40,7 @@ ArchLinux initrds.
   line options, for example `--log-level=` and similar.
 
 * Storage daemons run from the initrd should follow the guide on
-  [systemd and Storage Daemons for the Root File System](ROOT_STORAGE_DAEMONS.md)
+  [systemd and Storage Daemons for the Root File System](ROOT_STORAGE_DAEMONS)
   to survive properly from the boot initrd all the way to the point where
   systemd jumps back into the initrd for shutdown.
 
@@ -48,10 +49,6 @@ describing any kind of early boot file system, regardless whether that might be
 implemented as an actual ramdisk, ramfs or tmpfs. We recommend using _initrd_
 in this sense as a term that is unrelated to the actual backing technologies
 used.
-
-Oh, and one last question before closing: instead of implementing these
-features in your own distro's initrd, may I suggest just using Dracut instead?
-It's all already implemented there!
 
 ## Using systemd inside an initrd
 
@@ -70,4 +67,4 @@ systemd. Here are a few terse notes:
 
 * The switch-root operation will result in a killing spree of all running
   processes. Some processes might need to be excluded from that, see the guide
-  on [systemd and Storage Daemons for the Root File System](ROOT_STORAGE_DAEMONS.md).
+  on [systemd and Storage Daemons for the Root File System](ROOT_STORAGE_DAEMONS).

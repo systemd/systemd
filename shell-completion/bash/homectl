@@ -106,7 +106,10 @@ _homectl() {
                         --cifs-service
                         --stop-delay
                         --kill-processes
-                        --auto-login'
+                        --auto-login
+                     -b --blob
+                        --avatar
+                        --login-background'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
@@ -117,7 +120,7 @@ _homectl() {
             --machine|-M)
                 comps=$( __get_machines )
                 ;;
-            --identity|--image-path)
+            --identity|--image-path|--avatar|--login-background)
                 comps=$(compgen -A file -- "$cur" )
                 compopt -o filenames
                 ;;
@@ -130,7 +133,7 @@ _homectl() {
             --locked|--enforce-password-policy|--password-change-now|--luks-discard|--luks-offline-discard|--nosuid|--nodev|--noexec|--kill-processes|--auto-login)
                 comps='yes no'
                 ;;
-            -d|--home-dir|--skel)
+            -d|--home-dir|--skel|-b|--blob)
                 comps=$(compgen -A directory -- "$cur" )
                 compopt -o dirnames
                 ;;
@@ -145,6 +148,9 @@ _homectl() {
                 ;;
             --cifs-user-name)
                 comps=$(compgen -A user -- "$cur" )
+                ;;
+            --language)
+                comps=$(localectl list-locales 2>/dev/null)
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

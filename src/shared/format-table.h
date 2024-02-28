@@ -68,6 +68,9 @@ typedef enum TableDataType {
         TABLE_SET_COLOR,
         TABLE_SET_RGAP_COLOR,
         TABLE_SET_BOTH_COLORS,
+        TABLE_SET_UNDERLINE,
+        TABLE_SET_RGAP_UNDERLINE,
+        TABLE_SET_BOTH_UNDERLINES,
         TABLE_SET_URL,
         TABLE_SET_UPPERCASE,
 
@@ -111,6 +114,8 @@ int table_set_align_percent(Table *t, TableCell *cell, unsigned percent);
 int table_set_ellipsize_percent(Table *t, TableCell *cell, unsigned percent);
 int table_set_color(Table *t, TableCell *cell, const char *color);
 int table_set_rgap_color(Table *t, TableCell *cell, const char *color);
+int table_set_underline(Table *t, TableCell *cell, bool b);
+int table_set_rgap_underline(Table *t, TableCell *cell, bool b);
 int table_set_url(Table *t, TableCell *cell, const char *url);
 int table_set_uppercase(Table *t, TableCell *cell, bool b);
 
@@ -129,7 +134,7 @@ int table_set_sort_internal(Table *t, size_t first_column, ...);
 #define table_set_sort(...) table_set_sort_internal(__VA_ARGS__, SIZE_MAX)
 int table_set_reverse(Table *t, size_t column, bool b);
 int table_hide_column_from_display_internal(Table *t, ...);
-#define table_hide_column_from_display(t, ...) table_hide_column_from_display_internal(t, __VA_ARGS__, (size_t) -1)
+#define table_hide_column_from_display(t, ...) table_hide_column_from_display_internal(t, __VA_ARGS__, SIZE_MAX)
 
 int table_print(Table *t, FILE *f);
 int table_format(Table *t, char **ret);
@@ -139,6 +144,12 @@ static inline TableCell* TABLE_HEADER_CELL(size_t i) {
 }
 
 size_t table_get_rows(Table *t);
+static inline bool table_isempty(Table *t) {
+        if (!t)
+                return true;
+
+        return table_get_rows(t) <= 1;
+}
 size_t table_get_columns(Table *t);
 
 size_t table_get_current_column(Table *t);

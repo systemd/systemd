@@ -12,6 +12,9 @@
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
+#include "copy.h"
+#include "creds-util.h"
+#include "dirent-util.h"
 #include "dns-domain.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -19,6 +22,7 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "hashmap.h"
 #include "home-util.h"
 #include "homectl-fido2.h"
 #include "homectl-pkcs11.h"
@@ -35,16 +39,21 @@
 #include "percent-util.h"
 #include "pkcs11-util.h"
 #include "pretty-print.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
+#include "recurse-dir.h"
 #include "rlimit-util.h"
+#include "rm-rf.h"
 #include "spawn-polkit-agent.h"
 #include "terminal-util.h"
-#include "uid-alloc-range.h"
+#include "tmpfile-util.h"
+#include "uid-classification.h"
 #include "user-record.h"
 #include "user-record-password-quality.h"
 #include "user-record-show.h"
 #include "user-record-util.h"
 #include "user-util.h"
+#include "userdb.h"
 #include "verbs.h"
 
 static PagerFlags arg_pager_flags = 0;
@@ -80,6 +89,10 @@ static enum {
 } arg_export_format = EXPORT_FORMAT_FULL;
 static uint64_t arg_capability_bounding_set = UINT64_MAX;
 static uint64_t arg_capability_ambient_set = UINT64_MAX;
+static bool arg_prompt_new_user = false;
+static char *arg_blob_dir = NULL;
+static bool arg_blob_clear = false;
+static Hashmap *arg_blob_files = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra, json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_this_machine, json_variant_unrefp);
@@ -89,6 +102,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_identity_filter, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_filter_rlimits, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_blob_dir, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_blob_files, hashmap_freep);
 
 static const BusLocator *bus_mgr;
 
@@ -102,7 +117,10 @@ static bool identity_properties_specified(void) {
                 !strv_isempty(arg_identity_filter) ||
                 !strv_isempty(arg_identity_filter_rlimits) ||
                 !strv_isempty(arg_pkcs11_token_uri) ||
-                !strv_isempty(arg_fido2_device);
+                !strv_isempty(arg_fido2_device) ||
+                arg_blob_dir ||
+                arg_blob_clear ||
+                !hashmap_isempty(arg_blob_files);
 }
 
 static int acquire_bus(sd_bus **bus) {
@@ -184,7 +202,7 @@ static int list_homes(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (table_get_rows(table) > 1 || !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+        if (!table_isempty(table) || !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
                 r = table_set_sort(table, (size_t) 0);
                 if (r < 0)
                         return table_log_sort_error(r);
@@ -194,11 +212,11 @@ static int list_homes(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        if (arg_legend && (arg_json_format_flags & JSON_FORMAT_OFF)) {
-                if (table_get_rows(table) > 1)
-                        printf("\n%zu home areas listed.\n", table_get_rows(table) - 1);
-                else
+        if (arg_legend && !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                if (table_isempty(table))
                         printf("No home areas.\n");
+                else
+                        printf("\n%zu home areas listed.\n", table_get_rows(table) - 1);
         }
 
         return 0;
@@ -243,14 +261,14 @@ static int acquire_existing_password(
                      user_name) < 0)
                 return log_oom();
 
-        r = ask_password_auto(question,
-                              /* icon= */ "user-home",
-                              NULL,
-                              /* key_name= */ "home-password",
-                              /* credential_name= */ "home.password",
-                              USEC_INFINITY,
-                              flags,
-                              &password);
+        AskPasswordRequest req = {
+                .message = question,
+                .icon = "user-home",
+                .keyring = "home-password",
+                .credential = "home.password",
+        };
+
+        r = ask_password_auto(&req, USEC_INFINITY, flags, &password);
         if (r == -EUNATCH) { /* EUNATCH is returned if no password was found and asking interactively was
                               * disabled via the flags. Not an error for us. */
                 log_debug_errno(r, "No passwords acquired.");
@@ -301,14 +319,14 @@ static int acquire_recovery_key(
         if (asprintf(&question, "Please enter recovery key for user %s:", user_name) < 0)
                 return log_oom();
 
-        r = ask_password_auto(question,
-                              /* icon= */ "user-home",
-                              NULL,
-                              /* key_name= */ "home-recovery-key",
-                              /* credential_name= */ "home.recovery-key",
-                              USEC_INFINITY,
-                              flags,
-                              &recovery_key);
+        AskPasswordRequest req = {
+                .message = question,
+                .icon = "user-home",
+                .keyring = "home-recovery-key",
+                .credential = "home.recovery-key",
+        };
+
+        r = ask_password_auto(&req, USEC_INFINITY, flags, &recovery_key);
         if (r == -EUNATCH) { /* EUNATCH is returned if no recovery key was found and asking interactively was
                               * disabled via the flags. Not an error for us. */
                 log_debug_errno(r, "No recovery keys acquired.");
@@ -355,15 +373,14 @@ static int acquire_token_pin(
         if (asprintf(&question, "Please enter security token PIN for user %s:", user_name) < 0)
                 return log_oom();
 
-        r = ask_password_auto(
-                        question,
-                        /* icon= */ "user-home",
-                        NULL,
-                        /* key_name= */ "token-pin",
-                        /* credential_name= */ "home.token-pin",
-                        USEC_INFINITY,
-                        flags,
-                        &pin);
+        AskPasswordRequest req = {
+                .message = question,
+                .icon = "user-home",
+                .keyring = "token-pin",
+                .credential = "home.token-pin",
+        };
+
+        r = ask_password_auto(&req, USEC_INFINITY, flags, &pin);
         if (r == -EUNATCH) { /* EUNATCH is returned if no PIN was found and asking interactively was disabled
                               * via the flags. Not an error for us. */
                 log_debug_errno(r, "No security token PINs acquired.");
@@ -735,7 +752,6 @@ static int inspect_home(int argc, char *argv[], void *userdata) {
                         r = bus_call_method(bus, bus_mgr, "GetUserRecordByName", &error, &reply, "s", *i);
                 } else
                         r = bus_call_method(bus, bus_mgr, "GetUserRecordByUID", &error, &reply, "u", (uint32_t) uid);
-
                 if (r < 0) {
                         log_error_errno(r, "Failed to inspect home: %s", bus_error_message(&error, r));
                         if (ret == 0)
@@ -1092,7 +1108,7 @@ static int add_disposition(JsonVariant **v) {
         return 1;
 }
 
-static int acquire_new_home_record(UserRecord **ret) {
+static int acquire_new_home_record(JsonVariant *input, UserRecord **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         int r;
@@ -1102,12 +1118,16 @@ static int acquire_new_home_record(UserRecord **ret) {
         if (arg_identity) {
                 unsigned line, column;
 
+                if (input)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Two identity records specified, refusing.");
+
                 r = json_parse_file(
                                 streq(arg_identity, "-") ? stdin : NULL,
                                 streq(arg_identity, "-") ? "<stdin>" : arg_identity, JSON_PARSE_SENSITIVE, &v, &line, &column);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse identity at %u:%u: %m", line, column);
-        }
+        } else
+                v = json_variant_ref(input);
 
         r = apply_identity_changes(&v);
         if (r < 0)
@@ -1146,7 +1166,18 @@ static int acquire_new_home_record(UserRecord **ret) {
         if (!hr)
                 return log_oom();
 
-        r = user_record_load(hr, v, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
+        r = user_record_load(
+                        hr,
+                        v,
+                        USER_RECORD_REQUIRE_REGULAR|
+                        USER_RECORD_ALLOW_SECRET|
+                        USER_RECORD_ALLOW_PRIVILEGED|
+                        USER_RECORD_ALLOW_PER_MACHINE|
+                        USER_RECORD_STRIP_BINDING|
+                        USER_RECORD_STRIP_STATUS|
+                        USER_RECORD_STRIP_SIGNATURE|
+                        USER_RECORD_LOG|
+                        USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
 
@@ -1196,14 +1227,17 @@ static int acquire_new_password(
                 if (asprintf(&question, "Please enter new password for user %s:", user_name) < 0)
                         return log_oom();
 
+                AskPasswordRequest req = {
+                        .message = question,
+                        .icon = "user-home",
+                        .keyring = "home-password",
+                        .credential = "home.new-password",
+                };
+
                 r = ask_password_auto(
-                                question,
-                                /* icon= */ "user-home",
-                                NULL,
-                                /* key_name= */ "home-password",
-                                /* credential_name= */ "home.new-password",
+                                &req,
                                 USEC_INFINITY,
-                                0, /* no caching, we want to collect a new password here after all */
+                                /* flags= */ 0, /* no caching, we want to collect a new password here after all */
                                 &first);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire password: %m");
@@ -1212,14 +1246,12 @@ static int acquire_new_password(
                 if (asprintf(&question, "Please enter new password for user %s (repeat):", user_name) < 0)
                         return log_oom();
 
+                req.message = question;
+
                 r = ask_password_auto(
-                                question,
-                                /* icon= */ "user-home",
-                                NULL,
-                                /* key_name= */ "home-password",
-                                /* credential_name= */ "home.new-password",
+                                &req,
                                 USEC_INFINITY,
-                                0, /* no caching */
+                                /* flags= */ 0, /* no caching */
                                 &second);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire password: %m");
@@ -1247,9 +1279,132 @@ static int acquire_new_password(
         }
 }
 
-static int create_home(int argc, char *argv[], void *userdata) {
+static int acquire_merged_blob_dir(UserRecord *hr, bool existing, Hashmap **ret) {
+        _cleanup_free_ char *sys_blob_path = NULL;
+        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
+        const char *src_blob_path, *filename;
+        void *fd_ptr;
+        int r;
+
+        assert(ret);
+
+        HASHMAP_FOREACH_KEY(fd_ptr, filename, arg_blob_files) {
+                _cleanup_free_ char *filename_dup = NULL;
+                _cleanup_close_ int fd_dup = -EBADF;
+
+                filename_dup = strdup(filename);
+                if (!filename_dup)
+                        return log_oom();
+
+                if (PTR_TO_FD(fd_ptr) != -EBADF) {
+                        fd_dup = fcntl(PTR_TO_FD(fd_ptr), F_DUPFD_CLOEXEC, 3);
+                        if (fd_dup < 0)
+                                return log_error_errno(errno, "Failed to duplicate fd of %s: %m", filename);
+                }
+
+                r = hashmap_ensure_put(&blobs, &blob_fd_hash_ops, filename_dup, FD_TO_PTR(fd_dup));
+                if (r < 0)
+                        return r;
+                TAKE_PTR(filename_dup); /* Ownership transferred to hashmap */
+                TAKE_FD(fd_dup);
+        }
+
+        if (arg_blob_dir)
+                src_blob_path = arg_blob_dir;
+        else if (existing && !arg_blob_clear) {
+                if (hr->blob_directory)
+                        src_blob_path = hr->blob_directory;
+                else {
+                        /* This isn't technically a correct thing to do for generic user records,
+                         * so anyone looking at this code for reference shouldn't replicate it.
+                         * However, since homectl is tied to homed, this is OK. This adds robustness
+                         * for situations where the user record is coming directly from the CLI and
+                         * thus doesn't have a blobDirectory set */
+
+                        sys_blob_path = path_join(home_system_blob_dir(), hr->user_name);
+                        if (!sys_blob_path)
+                                return log_oom();
+
+                        src_blob_path = sys_blob_path;
+                }
+        } else
+                goto nodir; /* Shortcut: no dir to merge with, so just return copy of arg_blob_files */
+
+        d = opendir(src_blob_path);
+        if (!d)
+                return log_error_errno(errno, "Failed to open %s: %m", src_blob_path);
+
+        FOREACH_DIRENT_ALL(de, d, return log_error_errno(errno, "Failed to read %s: %m", src_blob_path)) {
+                _cleanup_free_ char *name = NULL;
+                _cleanup_close_ int fd = -EBADF;
+
+                if (dot_or_dot_dot(de->d_name))
+                        continue;
+
+                if (hashmap_contains(blobs, de->d_name))
+                        continue; /* arg_blob_files should override the base dir */
+
+                if (!suitable_blob_filename(de->d_name)) {
+                        log_warning("File %s in blob directory %s has an invalid filename. Skipping.", de->d_name, src_blob_path);
+                        continue;
+                }
+
+                name = strdup(de->d_name);
+                if (!name)
+                        return log_oom();
+
+                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open %s in %s: %m", de->d_name, src_blob_path);
+
+                r = fd_verify_regular(fd);
+                if (r < 0) {
+                        log_warning_errno(r, "Entry %s in blob directory %s is not a regular file. Skipping.", de->d_name, src_blob_path);
+                        continue;
+                }
+
+                r = hashmap_ensure_put(&blobs, &blob_fd_hash_ops, name, FD_TO_PTR(fd));
+                if (r < 0)
+                        return r;
+                TAKE_PTR(name); /* Ownership transferred to hashmap */
+                TAKE_FD(fd);
+        }
+
+nodir:
+        *ret = TAKE_PTR(blobs);
+        return 0;
+}
+
+static int bus_message_append_blobs(sd_bus_message *m, Hashmap *blobs) {
+        const char *filename;
+        void *fd_ptr;
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_open_container(m, 'a', "{sh}");
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH_KEY(fd_ptr, filename, blobs) {
+                int fd = PTR_TO_FD(fd_ptr);
+
+                if (fd == -EBADF) /* File marked for deletion */
+                        continue;
+
+                r = sd_bus_message_append(m, "{sh}", filename, fd);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(m);
+}
+
+static int create_home_common(JsonVariant *input) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
         int r;
 
         r = acquire_bus(&bus);
@@ -1258,36 +1413,11 @@ static int create_home(int argc, char *argv[], void *userdata) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        if (argc >= 2) {
-                /* If a username was specified, use it */
+        r = acquire_new_home_record(input, &hr);
+        if (r < 0)
+                return r;
 
-                if (valid_user_group_name(argv[1], 0))
-                        r = json_variant_set_field_string(&arg_identity_extra, "userName", argv[1]);
-                else {
-                        _cleanup_free_ char *un = NULL, *rr = NULL;
-
-                        /* Before we consider the user name invalid, let's check if we can split it? */
-                        r = split_user_name_realm(argv[1], &un, &rr);
-                        if (r < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User name '%s' is not valid: %m", argv[1]);
-
-                        if (rr) {
-                                r = json_variant_set_field_string(&arg_identity_extra, "realm", rr);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to set realm field: %m");
-                        }
-
-                        r = json_variant_set_field_string(&arg_identity_extra, "userName", un);
-                }
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set userName field: %m");
-        } else {
-                /* If neither a username nor an identity have been specified we cannot operate. */
-                if (!arg_identity)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User name required.");
-        }
-
-        r = acquire_new_home_record(&hr);
+        r = acquire_merged_blob_dir(hr, false, &blobs);
         if (r < 0)
                 return r;
 
@@ -1337,13 +1467,21 @@ static int create_home(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to format user record: %m");
 
-                r = bus_message_new_method_call(bus, &m, bus_mgr, "CreateHome");
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "CreateHomeEx");
                 if (r < 0)
                         return bus_log_create_error(r);
 
                 (void) sd_bus_message_sensitive(m);
 
                 r = sd_bus_message_append(m, "s", formatted);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = bus_message_append_blobs(m, blobs);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "t", UINT64_C(0));
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1372,6 +1510,41 @@ static int create_home(int argc, char *argv[], void *userdata) {
         }
 
         return 0;
+}
+
+static int create_home(int argc, char *argv[], void *userdata) {
+        int r;
+
+        if (argc >= 2) {
+                /* If a username was specified, use it */
+
+                if (valid_user_group_name(argv[1], 0))
+                        r = json_variant_set_field_string(&arg_identity_extra, "userName", argv[1]);
+                else {
+                        _cleanup_free_ char *un = NULL, *rr = NULL;
+
+                        /* Before we consider the user name invalid, let's check if we can split it? */
+                        r = split_user_name_realm(argv[1], &un, &rr);
+                        if (r < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User name '%s' is not valid: %m", argv[1]);
+
+                        if (rr) {
+                                r = json_variant_set_field_string(&arg_identity_extra, "realm", rr);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to set realm field: %m");
+                        }
+
+                        r = json_variant_set_field_string(&arg_identity_extra, "userName", un);
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set userName field: %m");
+        } else {
+                /* If neither a username nor an identity have been specified we cannot operate. */
+                if (!arg_identity)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User name required.");
+        }
+
+        return create_home_common(/* input= */ NULL);
 }
 
 static int remove_home(int argc, char *argv[], void *userdata) {
@@ -1467,7 +1640,7 @@ static int acquire_updated_home_record(
 
                 reply = sd_bus_message_unref(reply);
 
-                r = json_variant_filter(&json, STRV_MAKE("binding", "status", "signature"));
+                r = json_variant_filter(&json, STRV_MAKE("binding", "status", "signature", "blobManifest"));
                 if (r < 0)
                         return log_error_errno(r, "Failed to strip binding and status from record to update: %m");
         }
@@ -1537,6 +1710,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL, *secret = NULL;
         _cleanup_free_ char *buffer = NULL;
+        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
         const char *username;
         int r;
 
@@ -1570,6 +1744,10 @@ static int update_home(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        r = acquire_merged_blob_dir(hr, true, &blobs);
+        if (r < 0)
+                return r;
+
         /* If we do multiple operations, let's output things more verbosely, since otherwise the repeated
          * authentication might be confusing. */
 
@@ -1581,7 +1759,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 _cleanup_free_ char *formatted = NULL;
 
-                r = bus_message_new_method_call(bus, &m, bus_mgr, "UpdateHome");
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "UpdateHomeEx");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1592,6 +1770,14 @@ static int update_home(int argc, char *argv[], void *userdata) {
                 (void) sd_bus_message_sensitive(m);
 
                 r = sd_bus_message_append(m, "s", formatted);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = bus_message_append_blobs(m, blobs);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "t", UINT64_C(0));
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -2131,6 +2317,190 @@ static int rebalance(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int create_from_credentials(void) {
+        _cleanup_close_ int fd = -EBADF;
+        int ret = 0, n_created = 0, r;
+
+        fd = open_credentials_dir();
+        if (IN_SET(fd, -ENXIO, -ENOENT)) /* Credential env var not set, or dir doesn't exist. */
+                return 0;
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open credentials directory: %m");
+
+        _cleanup_free_ DirectoryEntries *des = NULL;
+        r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &des);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate credentials: %m");
+
+        FOREACH_ARRAY(i, des->entries, des->n_entries) {
+                _cleanup_(json_variant_unrefp) JsonVariant *identity = NULL;
+                struct dirent *de = *i;
+                const char *e;
+
+                if (de->d_type != DT_REG)
+                        continue;
+
+                e = startswith(de->d_name, "home.create.");
+                if (!e)
+                        continue;
+
+                if (!valid_user_group_name(e, 0)) {
+                        log_notice("Skipping over credential with name that is not a suitable user name: %s", de->d_name);
+                        continue;
+                }
+
+                r = json_parse_file_at(
+                                /* f= */ NULL,
+                                fd,
+                                de->d_name,
+                                /* flags= */ 0,
+                                &identity,
+                                /* ret_line= */ NULL,
+                                /* ret_column= */ NULL);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse user record in credential '%s', ignoring: %m", de->d_name);
+                        continue;
+                }
+
+                JsonVariant *un;
+                un = json_variant_by_key(identity, "userName");
+                if (un) {
+                        if (!json_variant_is_string(un)) {
+                                log_warning("User record from credential '%s' contains 'userName' field of invalid type, ignoring.", de->d_name);
+                                continue;
+                        }
+
+                        if (!streq(json_variant_string(un), e)) {
+                                log_warning("User record from credential '%s' contains 'userName' field (%s) that doesn't match credential name (%s), ignoring.", de->d_name, json_variant_string(un), e);
+                                continue;
+                        }
+                } else {
+                        r = json_variant_set_field_string(&identity, "userName", e);
+                        if (r < 0)
+                                return log_warning_errno(r, "Failed to set userName field: %m");
+                }
+
+                log_notice("Processing user '%s' from credentials.", e);
+
+                r = create_home_common(identity);
+                if (r >= 0)
+                        n_created++;
+
+                RET_GATHER(ret, r);
+        }
+
+        return ret < 0 ? ret : n_created;
+}
+
+static int has_regular_user(void) {
+        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+        int r;
+
+        r = userdb_all(USERDB_SUPPRESS_SHADOW, &iterator);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create user enumerator: %m");
+
+        for (;;) {
+                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+
+                r = userdb_iterator_get(iterator, &ur);
+                if (r == -ESRCH)
+                        break;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate users: %m");
+
+                if (user_record_disposition(ur) == USER_REGULAR)
+                        return true;
+        }
+
+        return false;
+}
+
+static int create_interactively(void) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *username = NULL;
+        int r;
+
+        if (!arg_prompt_new_user) {
+                log_debug("Prompting for user creation was not requested.");
+                return 0;
+        }
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        (void) reset_terminal_fd(STDIN_FILENO, /* switch_to_text= */ false);
+
+        for (;;) {
+                username = mfree(username);
+
+                r = ask_string(&username,
+                               "%s Please enter user name to create (empty to skip): ",
+                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query user for username: %m");
+
+                if (isempty(username)) {
+                        log_info("No data entered, skipping.");
+                        return 0;
+                }
+
+                if (!valid_user_group_name(username, /* flags= */ 0)) {
+                        log_notice("Specified user name is not a valid UNIX user name, try again: %s", username);
+                        continue;
+                }
+
+                r = userdb_by_name(username, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL);
+                if (r == -ESRCH)
+                        break;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if specified user '%s' already exists: %m", username);
+
+                log_notice("Specified user '%s' exists already, try again.", username);
+        }
+
+        r = json_variant_set_field_string(&arg_identity_extra, "userName", username);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set userName field: %m");
+
+        return create_home_common(/* input= */ NULL);
+}
+
+static int verb_firstboot(int argc, char *argv[], void *userdata) {
+        int r;
+
+        /* Let's honour the systemd.firstboot kernel command line option, just like the systemd-firstboot
+         * tool. */
+
+        bool enabled;
+        r = proc_cmdline_get_bool("systemd.firstboot", /* flags = */ 0, &enabled);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
+        if (r > 0 && !enabled) {
+                log_debug("Found systemd.firstboot=no kernel command line argument, turning off all prompts.");
+                arg_prompt_new_user = false;
+        }
+
+        r = create_from_credentials();
+        if (r < 0)
+                return r;
+        if (r > 0) /* Already created users from credentials */
+                return 0;
+
+        r = has_regular_user();
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                log_info("Regular user already present in user database, skipping user creation.");
+                return 0;
+        }
+
+        return create_interactively();
+}
+
 static int drop_from_identity(const char *field) {
         int r;
 
@@ -2187,6 +2557,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  deactivate-all               Deactivate all active home areas\n"
                "  rebalance                    Rebalance free space between home areas\n"
                "  with USER [COMMAND…]         Run shell or command with access to a home area\n"
+               "  firstboot                    Run first-boot home area creation wizard\n"
                "\n%4$sOptions:%5$s\n"
                "  -h --help                    Show this help\n"
                "     --version                 Show package version\n"
@@ -2205,6 +2576,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -E                           When specified once equals -j --export-format=\n"
                "                               stripped, when specified twice equals\n"
                "                               -j --export-format=minimal\n"
+               "     --prompt-new-user         firstboot: Query user interactively for user\n"
+               "                               to create\n"
                "\n%4$sGeneral User Record Properties:%5$s\n"
                "  -c --real-name=REALNAME      Real name for user\n"
                "     --realm=REALM             Realm to create user in\n"
@@ -2222,7 +2595,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --shell=PATH              Shell for account\n"
                "     --setenv=VARIABLE[=VALUE] Set an environment variable at log-in\n"
                "     --timezone=TIMEZONE       Set a time-zone\n"
-               "     --language=LOCALE         Set preferred language\n"
+               "     --language=LOCALE         Set preferred languages\n"
                "     --ssh-authorized-keys=KEYS\n"
                "                               Specify SSH public keys\n"
                "     --pkcs11-token-uri=URI    URI to PKCS#11 security token containing\n"
@@ -2239,7 +2612,13 @@ static int help(int argc, char *argv[], void *userdata) {
                "                               Whether to require user verification to unlock\n"
                "                               the account\n"
                "     --recovery-key=BOOL       Add a recovery key\n"
-               "\n%4$sAccount Management User  Record Properties:%5$s\n"
+               "\n%4$sBlob Directory User Record Properties:%5$s\n"
+               "  -b --blob=[FILENAME=]PATH\n"
+               "                               Path to a replacement blob directory, or replace\n"
+               "                               an individual files in the blob directory.\n"
+               "     --avatar=PATH             Path to user avatar picture\n"
+               "     --login-background=PATH   Path to user login background picture\n"
+               "\n%4$sAccount Management User Record Properties:%5$s\n"
                "     --locked=BOOL             Set locked account state\n"
                "     --not-before=TIMESTAMP    Do not allow logins before\n"
                "     --not-after=TIMESTAMP     Do not allow logins after\n"
@@ -2334,6 +2713,7 @@ static int help(int argc, char *argv[], void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        _cleanup_strv_free_ char **arg_languages = NULL;
 
         enum {
                 ARG_VERSION = 0x100,
@@ -2412,6 +2792,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FIDO2_CRED_ALG,
                 ARG_CAPABILITY_BOUNDING_SET,
                 ARG_CAPABILITY_AMBIENT_SET,
+                ARG_PROMPT_NEW_USER,
+                ARG_AVATAR,
+                ARG_LOGIN_BACKGROUND,
         };
 
         static const struct option options[] = {
@@ -2504,6 +2887,10 @@ static int parse_argv(int argc, char *argv[]) {
                 { "rebalance-weight",            required_argument, NULL, ARG_REBALANCE_WEIGHT            },
                 { "capability-bounding-set",     required_argument, NULL, ARG_CAPABILITY_BOUNDING_SET     },
                 { "capability-ambient-set",      required_argument, NULL, ARG_CAPABILITY_AMBIENT_SET      },
+                { "prompt-new-user",             no_argument,       NULL, ARG_PROMPT_NEW_USER             },
+                { "blob",                        required_argument, NULL, 'b'                             },
+                { "avatar",                      required_argument, NULL, ARG_AVATAR                      },
+                { "login-background",            required_argument, NULL, ARG_LOGIN_BACKGROUND            },
                 {}
         };
 
@@ -2515,7 +2902,7 @@ static int parse_argv(int argc, char *argv[]) {
         for (;;) {
                 int c;
 
-                c = getopt_long(argc, argv, "hH:M:I:c:d:u:k:s:e:G:jPE", options, NULL);
+                c = getopt_long(argc, argv, "hH:M:I:c:d:u:G:k:s:e:b:jPE", options, NULL);
                 if (c < 0)
                         break;
 
@@ -2906,26 +3293,46 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_LANGUAGE:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("language");
+                case ARG_LANGUAGE: {
+                        const char *p = optarg;
+
+                        if (isempty(p)) {
+                                r = drop_from_identity("preferredLanguage");
                                 if (r < 0)
                                         return r;
 
+                                r = drop_from_identity("additionalLanguages");
+                                if (r < 0)
+                                        return r;
+
+                                arg_languages = strv_free(arg_languages);
                                 break;
                         }
 
-                        if (!locale_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale '%s' is not valid.", optarg);
+                        for (;;) {
+                                _cleanup_free_ char *word = NULL;
 
-                        if (locale_is_installed(optarg) <= 0)
-                                log_warning("Locale '%s' is not installed, accepting anyway.", optarg);
+                                r = extract_first_word(&p, &word, ",:", 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse locale list: %m");
+                                if (r == 0)
+                                        break;
 
-                        r = json_variant_set_field_string(&arg_identity_extra, "preferredLanguage", optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set preferredLanguage field: %m");
+                                if (!locale_is_valid(word))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale '%s' is not valid.", word);
+
+                                if (locale_is_installed(word) <= 0)
+                                        log_warning("Locale '%s' is not installed, accepting anyway.", word);
+
+                                r = strv_consume(&arg_languages, TAKE_PTR(word));
+                                if (r < 0)
+                                        return log_oom();
+
+                                strv_uniq(arg_languages);
+                        }
 
                         break;
+                }
 
                 case ARG_NOSUID:
                 case ARG_NODEV:
@@ -3788,6 +4195,82 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_PROMPT_NEW_USER:
+                        arg_prompt_new_user = true;
+                        break;
+
+                case 'b':
+                case ARG_AVATAR:
+                case ARG_LOGIN_BACKGROUND: {
+                        _cleanup_close_ int fd = -EBADF;
+                        _cleanup_free_ char *path = NULL, *filename = NULL;
+
+                        if (c == 'b') {
+                                char *eq;
+
+                                if (isempty(optarg)) { /* --blob= deletes everything, including existing blob dirs */
+                                        hashmap_clear(arg_blob_files);
+                                        arg_blob_dir = mfree(arg_blob_dir);
+                                        arg_blob_clear = true;
+                                        break;
+                                }
+
+                                eq = strrchr(optarg, '=');
+                                if (!eq) { /* --blob=/some/path replaces the blob dir */
+                                        r = parse_path_argument(optarg, false, &arg_blob_dir);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse path %s: %m", optarg);
+                                        break;
+                                }
+
+                                /* --blob=filename=/some/path replaces the file "filename" with /some/path */
+                                filename = strndup(optarg, eq - optarg);
+                                if (!filename)
+                                        return log_oom();
+
+                                if (isempty(filename))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't parse blob file assignment: %s", optarg);
+                                if (!suitable_blob_filename(filename))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid blob filename: %s", filename);
+
+                                r = parse_path_argument(eq + 1, false, &path);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse path %s: %m", eq + 1);
+                        } else {
+                                const char *well_known_filename =
+                                                  c == ARG_AVATAR ? "avatar" :
+                                        c == ARG_LOGIN_BACKGROUND ? "login-background" :
+                                                                    NULL;
+                                assert(well_known_filename);
+
+                                filename = strdup(well_known_filename);
+                                if (!filename)
+                                        return log_oom();
+
+                                r = parse_path_argument(optarg, false, &path);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse path %s: %m", optarg);
+                        }
+
+                        if (path) {
+                                fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                                if (fd < 0)
+                                        return log_error_errno(errno, "Failed to open %s: %m", path);
+
+                                if (fd_verify_regular(fd) < 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Provided blob is not a regular file: %s", path);
+                        } else
+                                fd = -EBADF; /* Delete the file */
+
+                        r = hashmap_ensure_put(&arg_blob_files, &blob_fd_hash_ops, filename, FD_TO_PTR(fd));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to map %s to %s in blob directory: %m", path, filename);
+                        TAKE_PTR(filename); /* hashmap takes ownership */
+                        TAKE_FD(fd);
+
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -3801,6 +4284,25 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_disk_size != UINT64_MAX || arg_disk_size_relative != UINT64_MAX)
                 arg_and_resize = true;
+
+        if (!strv_isempty(arg_languages)) {
+                char **additional;
+
+                r = json_variant_set_field_string(&arg_identity_extra, "preferredLanguage", arg_languages[0]);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to update preferred language: %m");
+
+                additional = strv_skip(arg_languages, 1);
+                if (!strv_isempty(additional)) {
+                        r = json_variant_set_field_strv(&arg_identity_extra, "additionalLanguages", additional);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to update additional language list: %m");
+                } else {
+                        r = drop_from_identity("additionalLanguages");
+                        if (r < 0)
+                                return r;
+                }
+        }
 
         return 1;
 }
@@ -3835,6 +4337,197 @@ static int redirect_bus_mgr(void) {
         return 0;
 }
 
+static bool is_fallback_shell(const char *p) {
+        const char *q;
+
+        if (!p)
+                return false;
+
+        if (p[0] == '-') {
+                /* Skip over login shell dash */
+                p++;
+
+                if (streq(p, "ystemd-home-fallback-shell")) /* maybe the dash was used to override the binary name? */
+                        return true;
+        }
+
+        q = strrchr(p, '/'); /* Skip over path */
+        if (q)
+                p = q + 1;
+
+        return streq(p, "systemd-home-fallback-shell");
+}
+
+static int fallback_shell(int argc, char *argv[]) {
+        _cleanup_(user_record_unrefp) UserRecord *secret = NULL, *hr = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free_ char *argv0 = NULL;
+        const char *json, *hd, *shell;
+        int r, incomplete;
+
+        /* So here's the deal: if users log into a system via ssh, and their homed-managed home directory
+         * wasn't activated yet, SSH will permit the access but the home directory isn't actually available
+         * yet. SSH doesn't allow us to ask authentication questions from the PAM session stack, and doesn't
+         * run the PAM authentication stack (because it authenticates via its own key management, after
+         * all). So here's our way to support this: homectl can be invoked as a multi-call binary under the
+         * name "systemd-home-fallback-shell". If so, it will chainload a login shell, but first try to
+         * unlock the home directory of the user it is invoked as. systemd-homed will then override the shell
+         * listed in user records whose home directory is not activated yet with this pseudo-shell. Net
+         * effect: one SSH auth succeeds this pseudo shell gets invoked, which will unlock the homedir
+         * (possibly asking for a passphrase) and then chainload the regular shell. Once the login is
+         * complete the user record will look like any other. */
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        for (unsigned n_tries = 0;; n_tries++) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                if (n_tries >= 5)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to activate home dir, even after %u tries.", n_tries);
+
+                /* Let's start by checking if this all is even necessary, i.e. if the useFallback boolean field is actually set. */
+                r = bus_call_method(bus, bus_mgr, "GetUserRecordByName", &error, &reply, "s", NULL); /* empty user string means: our calling user */
+                if (r < 0)
+                        return log_error_errno(r, "Failed to inspect home: %s", bus_error_message(&error, r));
+
+                r = sd_bus_message_read(reply, "sbo", &json, NULL, NULL);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = json_parse(json, JSON_PARSE_SENSITIVE, &v, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse JSON identity: %m");
+
+                hr = user_record_new();
+                if (!hr)
+                        return log_oom();
+
+                r = user_record_load(hr, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
+                if (r < 0)
+                        return r;
+
+                if (!hr->use_fallback) /* Nice! We are done, fallback logic not necessary */
+                        break;
+
+                if (!secret) {
+                        r = acquire_passed_secrets(hr->user_name, &secret);
+                        if (r < 0)
+                                return r;
+                }
+
+                for (;;) {
+                        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+
+                        r = bus_message_new_method_call(bus, &m, bus_mgr, "ActivateHomeIfReferenced");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_append(m, "s", NULL); /* empty user string means: our calling user */
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = bus_message_append_secret(m, secret);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                        if (r < 0) {
+                                if (sd_bus_error_has_name(&error, BUS_ERROR_HOME_NOT_REFERENCED))
+                                        return log_error_errno(r, "Called without reference on home taken, can't operate.");
+
+                                r = handle_generic_user_record_error(hr->user_name, secret, &error, r, false);
+                                if (r < 0)
+                                        return r;
+
+                                sd_bus_error_free(&error);
+                        } else
+                                break;
+                }
+
+                /* Try again */
+                hr = user_record_unref(hr);
+        }
+
+        incomplete = getenv_bool("XDG_SESSION_INCOMPLETE"); /* pam_systemd_home reports this state via an environment variable to us. */
+        if (incomplete < 0 && incomplete != -ENXIO)
+                return log_error_errno(incomplete, "Failed to parse $XDG_SESSION_INCOMPLETE environment variable: %m");
+        if (incomplete > 0) {
+                /* We are still in an "incomplete" session here. Now upgrade it to a full one. This will make logind
+                 * start the user@.service instance for us. */
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1/session/self",
+                                "org.freedesktop.login1.Session",
+                                "SetClass",
+                                &error,
+                                /* ret_reply= */ NULL,
+                                "s",
+                                "user");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to upgrade session: %s", bus_error_message(&error, r));
+
+                if (setenv("XDG_SESSION_CLASS", "user", /* overwrite= */ true) < 0) /* Update the XDG_SESSION_CLASS environment variable to match the above */
+                        return log_error_errno(errno, "Failed to set $XDG_SESSION_CLASS: %m");
+
+                if (unsetenv("XDG_SESSION_INCOMPLETE") < 0) /* Unset the 'incomplete' env var */
+                        return log_error_errno(errno, "Failed to unset $XDG_SESSION_INCOMPLETE: %m");
+        }
+
+        /* We are going to invoke execv() soon. Let's be extra accurate and flush/close our bus connection
+         * first, just to make sure anything queued is flushed out (though there shouldn't be anything) */
+        bus = sd_bus_flush_close_unref(bus);
+
+        assert(!hr->use_fallback);
+        assert_se(shell = user_record_shell(hr));
+        assert_se(hd = user_record_home_directory(hr));
+
+        /* Extra protection: avoid loops */
+        if (is_fallback_shell(shell))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Primary shell of '%s' is fallback shell, refusing loop.", hr->user_name);
+
+        if (chdir(hd) < 0)
+                return log_error_errno(errno, "Failed to change directory to home directory '%s': %m", hd);
+
+        if (setenv("SHELL", shell, /* overwrite= */ true) < 0)
+                return log_error_errno(errno, "Failed to set $SHELL: %m");
+
+        if (setenv("HOME", hd, /* overwrite= */ true) < 0)
+                return log_error_errno(errno, "Failed to set $HOME: %m");
+
+        /* Paranoia: in case the client passed some passwords to us to help us unlock, unlock things now */
+        FOREACH_STRING(ue, "PASSWORD", "NEWPASSWORD", "PIN")
+                if (unsetenv(ue) < 0)
+                        return log_error_errno(errno, "Failed to unset $%s: %m", ue);
+
+        r = path_extract_filename(shell, &argv0);
+        if (r < 0)
+                return log_error_errno(r, "Unable to extract file name from '%s': %m", shell);
+        if (r == O_DIRECTORY)
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Shell '%s' is a path to a directory, refusing.", shell);
+
+        /* Invoke this as login shell, by setting argv[0][0] to '-' (unless we ourselves weren't called as login shell) */
+        if (!argv || isempty(argv[0]) || argv[0][0] == '-')
+                argv0[0] = '-';
+
+        l = strv_new(argv0);
+        if (!l)
+                return log_oom();
+
+        if (strv_extend_strv(&l, strv_skip(argv, 1), /* filter_duplicates= */ false) < 0)
+                return log_oom();
+
+        execv(shell, l);
+        return log_error_errno(errno, "Failed to execute shell '%s': %m", shell);
+}
+
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "help",           VERB_ANY, VERB_ANY, 0,            help                 },
@@ -3854,6 +4547,7 @@ static int run(int argc, char *argv[]) {
                 { "lock-all",       VERB_ANY, 1,        0,            lock_all_homes       },
                 { "deactivate-all", VERB_ANY, 1,        0,            deactivate_all_homes },
                 { "rebalance",      VERB_ANY, 1,        0,            rebalance            },
+                { "firstboot",      VERB_ANY, 1,        0,            verb_firstboot       },
                 {}
         };
 
@@ -3864,6 +4558,9 @@ static int run(int argc, char *argv[]) {
         r = redirect_bus_mgr();
         if (r < 0)
                 return r;
+
+        if (is_fallback_shell(argv[0]))
+                return fallback_shell(argc, argv);
 
         r = parse_argv(argc, argv);
         if (r <= 0)

@@ -35,6 +35,8 @@ static int chown_cgroup_path(const char *path, uid_t uid_shift) {
                        "cgroup.stat",
                        "cgroup.subtree_control",
                        "cgroup.threads",
+                       "memory.oom.group",
+                       "memory.reclaim",
                        "notify_on_release",
                        "tasks")
                 if (fchownat(fd, fn, uid_shift, uid_shift, 0) < 0)
@@ -263,7 +265,7 @@ static int mount_legacy_cgroup_hierarchy(
 
         to = strjoina(strempty(dest), "/sys/fs/cgroup/", hierarchy);
 
-        r = path_is_mount_point(to, dest, 0);
+        r = path_is_mount_point_full(to, dest, /* flags = */ 0);
         if (r < 0 && r != -ENOENT)
                 return log_error_errno(r, "Failed to determine if %s is mounted already: %m", to);
         if (r > 0)
@@ -315,7 +317,7 @@ static int mount_legacy_cgns_supported(
         (void) mkdir_p(cgroup_root, 0755);
 
         /* Mount a tmpfs to /sys/fs/cgroup if it's not mounted there yet. */
-        r = path_is_mount_point(cgroup_root, dest, AT_SYMLINK_FOLLOW);
+        r = path_is_mount_point_full(cgroup_root, dest, AT_SYMLINK_FOLLOW);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if /sys/fs/cgroup is already mounted: %m");
         if (r == 0) {
@@ -425,7 +427,7 @@ static int mount_legacy_cgns_unsupported(
         (void) mkdir_p(cgroup_root, 0755);
 
         /* Mount a tmpfs to /sys/fs/cgroup if it's not mounted there yet. */
-        r = path_is_mount_point(cgroup_root, dest, AT_SYMLINK_FOLLOW);
+        r = path_is_mount_point_full(cgroup_root, dest, AT_SYMLINK_FOLLOW);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if /sys/fs/cgroup is already mounted: %m");
         if (r == 0) {
@@ -527,7 +529,7 @@ static int mount_unified_cgroups(const char *dest) {
 
         (void) mkdir_p(p, 0755);
 
-        r = path_is_mount_point(p, dest, AT_SYMLINK_FOLLOW);
+        r = path_is_mount_point_full(p, dest, AT_SYMLINK_FOLLOW);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if %s is mounted already: %m", p);
         if (r > 0) {

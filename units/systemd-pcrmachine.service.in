@@ -12,6 +12,7 @@ Description=TPM2 PCR Machine ID Measurement
 Documentation=man:systemd-pcrmachine.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
+After=tpm2.target
 Before=sysinit.target shutdown.target
 ConditionPathExists=!/etc/initrd-release
 ConditionSecurity=measured-uki

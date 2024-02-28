@@ -677,6 +677,23 @@ TEST(rtnl_set_link_name) {
         assert_se(!strv_contains(alternative_names, "testlongalternativename"));
         assert_se(strv_contains(alternative_names, "test-additional-name"));
         assert_se(!strv_contains(alternative_names, "test-shortname"));
+
+        _cleanup_free_ char *resolved = NULL;
+        assert_se(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", &resolved) == ifindex);
+        assert_se(streq_ptr(resolved, "test-shortname"));
+        resolved = mfree(resolved);
+
+        assert_se(rtnl_rename_link(&rtnl, "test-shortname", "test-shortname") >= 0);
+        assert_se(rtnl_rename_link(&rtnl, "test-shortname", "test-shortname2") >= 0);
+        assert_se(rtnl_rename_link(NULL, "test-shortname2", "test-shortname3") >= 0);
+
+        assert_se(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", &resolved) == ifindex);
+        assert_se(streq_ptr(resolved, "test-shortname3"));
+        resolved = mfree(resolved);
+
+        assert_se(rtnl_resolve_link_alternative_name(&rtnl, "test-shortname3", &resolved) == ifindex);
+        assert_se(streq_ptr(resolved, "test-shortname3"));
+        resolved = mfree(resolved);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

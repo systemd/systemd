@@ -145,8 +145,13 @@ static int reply_query_state(DnsQuery *q) {
                 return reply_method_errorf(q, BUS_ERROR_ABORTED, "Query aborted");
 
         case DNS_TRANSACTION_DNSSEC_FAILED:
-                return reply_method_errorf(q, BUS_ERROR_DNSSEC_FAILED, "DNSSEC validation failed: %s",
-                                           dnssec_result_to_string(q->answer_dnssec_result));
+                return reply_method_errorf(q, BUS_ERROR_DNSSEC_FAILED, "DNSSEC validation failed: %s%s%s%s%s%s",
+                                           dnssec_result_to_string(q->answer_dnssec_result),
+                                           q->answer_ede_rcode >= 0 ? " (" : "",
+                                           q->answer_ede_rcode >= 0 ? FORMAT_DNS_EDE_RCODE(q->answer_ede_rcode) : "",
+                                           (q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg)) ? ": " : "",
+                                           q->answer_ede_rcode >= 0 ? strempty(q->answer_ede_msg) : "",
+                                           q->answer_ede_rcode >= 0 ? ")" : "");
 
         case DNS_TRANSACTION_NO_TRUST_ANCHOR:
                 return reply_method_errorf(q, BUS_ERROR_NO_TRUST_ANCHOR, "No suitable trust anchor known");
@@ -183,7 +188,13 @@ static int reply_query_state(DnsQuery *q) {
 
                         rc = FORMAT_DNS_RCODE(q->answer_rcode);
                         n = strjoina(_BUS_ERROR_DNS, rc);
-                        sd_bus_error_setf(&error, n, "Could not resolve '%s', server or network returned error %s", dns_query_string(q), rc);
+                        sd_bus_error_setf(&error, n, "Could not resolve '%s', server or network returned error: %s%s%s%s%s%s",
+                                          dns_query_string(q), rc,
+                                          q->answer_ede_rcode >= 0 ? " (" : "",
+                                          q->answer_ede_rcode >= 0 ? FORMAT_DNS_EDE_RCODE(q->answer_ede_rcode) : "",
+                                          (q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg)) ? ": " : "",
+                                          q->answer_ede_rcode >= 0 ? strempty(q->answer_ede_msg) : "",
+                                          q->answer_ede_rcode >= 0 ? ")" : "");
                 }
 
                 return sd_bus_reply_method_error(req, &error);
@@ -806,7 +817,7 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
 
         if (!dns_type_is_valid_query(type))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified resource record type %" PRIu16 " may not be used in a query.", type);
-        if (dns_type_is_zone_transer(type))
+        if (dns_type_is_zone_transfer(type))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Zone transfers not permitted via this programming interface.");
         if (dns_type_is_obsolete(type))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Specified DNS resource record type %" PRIu16 " is obsolete.", type);
@@ -1988,10 +1999,12 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(message, CAP_SYS_ADMIN,
-                                    "org.freedesktop.resolve1.register-service",
-                                    NULL, false, UID_INVALID,
-                                    &m->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.resolve1.register-service",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)

@@ -4,6 +4,7 @@
 #include "sd-event.h"
 
 #include "json.h"
+#include "pidref.h"
 #include "time-util.h"
 #include "varlink-idl.h"
 
@@ -46,7 +47,8 @@ typedef enum VarlinkServerFlags {
         VARLINK_SERVER_MYSELF_ONLY      = 1 << 1, /* Only accessible by our own UID */
         VARLINK_SERVER_ACCOUNT_UID      = 1 << 2, /* Do per user accounting */
         VARLINK_SERVER_INHERIT_USERDATA = 1 << 3, /* Initialize Varlink connection userdata from VarlinkServer userdata */
-        _VARLINK_SERVER_FLAGS_ALL = (1 << 4) - 1,
+        VARLINK_SERVER_INPUT_SENSITIVE  = 1 << 4, /* Automatically mark al connection input as sensitive */
+        _VARLINK_SERVER_FLAGS_ALL = (1 << 5) - 1,
 } VarlinkServerFlags;
 
 typedef int (*VarlinkMethod)(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata);
@@ -86,12 +88,39 @@ int varlink_send(Varlink *v, const char *method, JsonVariant *parameters);
 int varlink_sendb(Varlink *v, const char *method, ...);
 
 /* Send method call and wait for reply */
-int varlink_call(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags);
-int varlink_callb(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags, ...);
+int varlink_call_full(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags);
+static inline int varlink_call(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id) {
+        return varlink_call_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
+}
+int varlink_call_and_log(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters);
+
+int varlink_callb_ap(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags, va_list ap);
+static inline int varlink_callb_full(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, ret_flags);
+        r = varlink_callb_ap(v, method, ret_parameters, ret_error_id, ret_flags, ap);
+        va_end(ap);
+        return r;
+}
+static inline int varlink_callb(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, ret_error_id);
+        r = varlink_callb_ap(v, method, ret_parameters, ret_error_id, NULL, ap);
+        va_end(ap);
+        return r;
+}
+int varlink_callb_and_log(Varlink *v, const char *method, JsonVariant **ret_parameters, ...);
 
 /* Send method call and begin collecting all 'more' replies into an array, finishing when a final reply is sent */
-int varlink_collect(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags);
-int varlink_collectb(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags, ...);
+int varlink_collect_full(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags);
+static inline int varlink_collect(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id) {
+        return varlink_collect_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
+}
+int varlink_collectb(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, ...);
 
 /* Enqueue method call, expect a reply, which is eventually delivered to the reply callback */
 int varlink_invoke(Varlink *v, const char *method, JsonVariant *parameters);
@@ -109,11 +138,18 @@ int varlink_replyb(Varlink *v, ...);
 int varlink_error(Varlink *v, const char *error_id, JsonVariant *parameters);
 int varlink_errorb(Varlink *v, const char *error_id, ...);
 int varlink_error_invalid_parameter(Varlink *v, JsonVariant *parameters);
+int varlink_error_invalid_parameter_name(Varlink *v, const char *name);
 int varlink_error_errno(Varlink *v, int error);
 
 /* Enqueue a "more" reply */
 int varlink_notify(Varlink *v, JsonVariant *parameters);
 int varlink_notifyb(Varlink *v, ...);
+
+/* Ask for the current message to be dispatched again */
+int varlink_dispatch_again(Varlink *v);
+
+/* Get the currently processed incoming message */
+int varlink_get_current_parameters(Varlink *v, JsonVariant **ret);
 
 /* Parsing incoming data via json_dispatch() and generate a nice error on parse errors */
 int varlink_dispatch(Varlink *v, JsonVariant *parameters, const JsonDispatch table[], void *userdata);
@@ -138,12 +174,16 @@ void* varlink_get_userdata(Varlink *v);
 
 int varlink_get_peer_uid(Varlink *v, uid_t *ret);
 int varlink_get_peer_pid(Varlink *v, pid_t *ret);
+int varlink_get_peer_pidref(Varlink *v, PidRef *ret);
 
 int varlink_set_relative_timeout(Varlink *v, usec_t usec);
 
 VarlinkServer* varlink_get_server(Varlink *v);
 
 int varlink_set_description(Varlink *v, const char *d);
+
+/* Automatically mark the parameters part of incoming messages as security sensitive */
+int varlink_set_input_sensitive(Varlink *v);
 
 /* Create a varlink server */
 int varlink_server_new(VarlinkServer **ret, VarlinkServerFlags flags);
@@ -200,6 +240,8 @@ typedef enum VarlinkInvocationFlags {
 
 int varlink_invocation(VarlinkInvocationFlags flags);
 
+int varlink_error_to_errno(const char *error, JsonVariant *parameters);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_close_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_flush_close_unref);
@@ -213,12 +255,13 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServer *, varlink_server_unref);
 /* This one we invented, and use for generically propagating system errors (errno) to clients */
 #define VARLINK_ERROR_SYSTEM "io.systemd.System"
 
+/* This one we invented and is a weaker version of "org.varlink.service.PermissionDenied", and indicates that if user would allow interactive auth, we might allow access */
+#define VARLINK_ERROR_INTERACTIVE_AUTHENTICATION_REQUIRED "io.systemd.InteractiveAuthenticationRequired"
+
 /* These are errors defined in the Varlink spec */
 #define VARLINK_ERROR_INTERFACE_NOT_FOUND "org.varlink.service.InterfaceNotFound"
 #define VARLINK_ERROR_METHOD_NOT_FOUND "org.varlink.service.MethodNotFound"
 #define VARLINK_ERROR_METHOD_NOT_IMPLEMENTED "org.varlink.service.MethodNotImplemented"
 #define VARLINK_ERROR_INVALID_PARAMETER "org.varlink.service.InvalidParameter"
-
-/* These are errors we came up with and squatted the namespace with */
 #define VARLINK_ERROR_PERMISSION_DENIED "org.varlink.service.PermissionDenied"
 #define VARLINK_ERROR_EXPECTED_MORE "org.varlink.service.ExpectedMore"

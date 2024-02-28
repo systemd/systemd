@@ -3,10 +3,10 @@
 Description=Test for PrivateNetwork= without mount namespacing
 
 [Service]
-ExecStart=/bin/sh -x -c '! ip link show dummy-test-exec'
-ExecStart=/bin/sh -x -c 'test ! -e /proc/sys/net/ipv4/conf/dummy-test-exec'
+ExecStart=sh -x -c '! ip link show dummy-test-exec'
+ExecStart=sh -x -c 'test ! -e /proc/sys/net/ipv4/conf/dummy-test-exec'
 # Without mount namespacing, we can access the dummy-test-exec interface through sysfs
-ExecStart=/bin/sh -x -c 'test -d /sys/class/net/dummy-test-exec'
+ExecStart=sh -x -c 'test -d /sys/class/net/dummy-test-exec'
 Type=oneshot
 PrivateNetwork=yes
 PrivateMounts=no

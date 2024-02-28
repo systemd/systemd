@@ -57,21 +57,6 @@ static int loop_is_bound(int fd) {
         return true; /* bound! */
 }
 
-static int get_current_uevent_seqnum(uint64_t *ret) {
-        _cleanup_free_ char *p = NULL;
-        int r;
-
-        r = read_full_virtual_file("/sys/kernel/uevent_seqnum", &p, NULL);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to read current uevent sequence number: %m");
-
-        r = safe_atou64(strstrip(p), ret);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse current uevent sequence number: %s", p);
-
-        return 0;
-}
-
 static int open_lock_fd(int primary_fd, int operation) {
         _cleanup_close_ int lock_fd = -EBADF;
 
@@ -149,8 +134,9 @@ static int loop_configure_verify(int fd, const struct loop_config *c) {
                  * effect hence. And if not use classic LOOP_SET_STATUS64. */
                 uint64_t z;
 
-                if (ioctl(fd, BLKGETSIZE64, &z) < 0)
-                        return -errno;
+                r = blockdev_get_device_size(fd, &z);
+                if (r < 0)
+                        return r;
 
                 if (z != c->info.lo_sizelimit) {
                         log_debug("LOOP_CONFIGURE is broken, doesn't honour .info.lo_sizelimit. Falling back to LOOP_SET_STATUS64.");
@@ -265,8 +251,7 @@ static int loop_configure(
         _cleanup_(cleanup_clear_loop_close) int loop_with_fd = -EBADF; /* This must be declared before lock_fd. */
         _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         _cleanup_free_ char *node = NULL;
-        uint64_t diskseq = 0, seqnum = UINT64_MAX;
-        usec_t timestamp = USEC_INFINITY;
+        uint64_t diskseq = 0;
         dev_t devno;
         int r;
 
@@ -326,18 +311,6 @@ static int loop_configure(
                                               "Removed partitions on the loopback block device.");
 
         if (!loop_configure_broken) {
-                /* Acquire uevent seqnum immediately before attaching the loopback device. This allows
-                 * callers to ignore all uevents with a seqnum before this one, if they need to associate
-                 * uevent with this attachment. Doing so isn't race-free though, as uevents that happen in
-                 * the window between this reading of the seqnum, and the LOOP_CONFIGURE call might still be
-                 * mistaken as originating from our attachment, even though might be caused by an earlier
-                 * use. But doing this at least shortens the race window a bit. */
-                r = get_current_uevent_seqnum(&seqnum);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to get the current uevent seqnum: %m");
-
-                timestamp = now(CLOCK_MONOTONIC);
-
                 if (ioctl(fd, LOOP_CONFIGURE, c) < 0) {
                         /* Do fallback only if LOOP_CONFIGURE is not supported, propagate all other
                          * errors. Note that the kernel is weird: non-existing ioctls currently return EINVAL
@@ -369,13 +342,6 @@ static int loop_configure(
         }
 
         if (loop_configure_broken) {
-                /* Let's read the seqnum again, to shorten the window. */
-                r = get_current_uevent_seqnum(&seqnum);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to get the current uevent seqnum: %m");
-
-                timestamp = now(CLOCK_MONOTONIC);
-
                 if (ioctl(fd, LOOP_SET_FD, c->fd) < 0)
                         return log_device_debug_errno(dev, errno, "ioctl(LOOP_SET_FD) failed: %m");
 
@@ -404,6 +370,11 @@ static int loop_configure(
                 assert_not_reached();
         }
 
+        uint64_t device_size;
+        r = blockdev_get_device_size(loop_with_fd, &device_size);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get loopback device size: %m");
+
         LoopDevice *d = new(LoopDevice, 1);
         if (!d)
                 return log_oom_debug();
@@ -417,9 +388,9 @@ static int loop_configure(
                 .devno = devno,
                 .dev = TAKE_PTR(dev),
                 .diskseq = diskseq,
-                .uevent_seqnum_not_before = seqnum,
-                .timestamp_not_before = timestamp,
                 .sector_size = c->block_size,
+                .device_size = device_size,
+                .created = true,
         };
 
         *ret = TAKE_PTR(d);
@@ -702,21 +673,21 @@ int loop_device_make_by_path_at(
         direct_flags = FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) ? O_DIRECT : 0;
         rdwr_flags = open_flags >= 0 ? open_flags : O_RDWR;
 
-        fd = xopenat(dir_fd, path, basic_flags|direct_flags|rdwr_flags, /* xopen_flags = */ 0, /* mode = */ 0);
+        fd = xopenat(dir_fd, path, basic_flags|direct_flags|rdwr_flags);
         if (fd < 0 && direct_flags != 0) /* If we had O_DIRECT on, and things failed with that, let's immediately try again without */
-                fd = xopenat(dir_fd, path, basic_flags|rdwr_flags, /* xopen_flags = */ 0, /* mode = */ 0);
+                fd = xopenat(dir_fd, path, basic_flags|rdwr_flags);
         else
                 direct = direct_flags != 0;
         if (fd < 0) {
-                r = -errno;
+                r = fd;
 
                 /* Retry read-only? */
                 if (open_flags >= 0 || !(ERRNO_IS_PRIVILEGE(r) || r == -EROFS))
                         return r;
 
-                fd = xopenat(dir_fd, path, basic_flags|direct_flags|O_RDONLY, /* xopen_flags = */ 0, /* mode = */ 0);
+                fd = xopenat(dir_fd, path, basic_flags|direct_flags|O_RDONLY);
                 if (fd < 0 && direct_flags != 0) /* as above */
-                        fd = xopenat(dir_fd, path, basic_flags|O_RDONLY, /* xopen_flags = */ 0, /* mode = */ 0);
+                        fd = xopenat(dir_fd, path, basic_flags|O_RDONLY);
                 else
                         direct = direct_flags != 0;
                 if (fd < 0)
@@ -944,6 +915,11 @@ int loop_device_open(
         if (r < 0)
                 return r;
 
+        uint64_t device_size;
+        r = blockdev_get_device_size(fd, &device_size);
+        if (r < 0)
+                return r;
+
         r = sd_device_get_devnum(dev, &devnum);
         if (r < 0)
                 return r;
@@ -973,9 +949,9 @@ int loop_device_open(
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
                 .devno = devnum,
                 .diskseq = diskseq,
-                .uevent_seqnum_not_before = UINT64_MAX,
-                .timestamp_not_before = USEC_INFINITY,
                 .sector_size = sector_size,
+                .device_size = device_size,
+                .created = false,
         };
 
         *ret = d;
@@ -1057,8 +1033,9 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
                 return -EINVAL;
         current_offset *= 512U;
 
-        if (ioctl(partition_fd, BLKGETSIZE64, &current_size) < 0)
-                return -EINVAL;
+        r = blockdev_get_device_size(partition_fd, &current_size);
+        if (r < 0)
+                return r;
 
         if (size == UINT64_MAX && offset == UINT64_MAX)
                 return 0;

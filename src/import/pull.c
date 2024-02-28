@@ -353,7 +353,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 /* If this is not a valid verification mode, maybe it's a literally specified
                                  * SHA256 hash? We can handle that too... */
 
-                                r = unhexmem(optarg, (size_t) -1, &h, &n);
+                                r = unhexmem(optarg, &h, &n);
                                 if (r < 0 || n == 0)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Invalid verification setting: %s", optarg);

@@ -26,7 +26,7 @@ StateDirectory=test-service
 CacheDirectory=test-service
 LogsDirectory=test-service
 RuntimeDirectoryPreserve=yes
-ExecStart=/bin/sleep infinity
+ExecStart=sleep infinity
 Type=exec
 EOF
 
@@ -97,7 +97,7 @@ StateDirectory=test-service
 CacheDirectory=test-service
 LogsDirectory=test-service
 RuntimeDirectoryPreserve=yes
-ExecStart=/bin/sleep infinity
+ExecStart=sleep infinity
 Type=exec
 EOF
 

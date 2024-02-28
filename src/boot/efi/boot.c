@@ -746,6 +746,9 @@ static bool menu_run(
                                 lines[i] = xnew(char16_t, line_width + 1);
                                 padding = (line_width - MIN(strlen16(config->entries[i]->title_show), line_width)) / 2;
 
+                                /* Make sure there is space for => */
+                                padding = MAX((size_t) 2, padding);
+
                                 for (j = 0; j < padding; j++)
                                         lines[i][j] = ' ';
 
@@ -2288,7 +2291,7 @@ static EFI_STATUS initrd_prepare(
                         continue;
 
                 size_t new_size, read_size = info->FileSize;
-                if (__builtin_add_overflow(size, read_size, &new_size))
+                if (!ADD_SAFE(&new_size, size, read_size))
                         return EFI_OUT_OF_RESOURCES;
                 initrd = xrealloc(initrd, size, new_size);
 

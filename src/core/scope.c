@@ -317,13 +317,9 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
         else {
                 r = unit_kill_context(
                                 UNIT(s),
-                                &s->kill_context,
                                 state != SCOPE_STOP_SIGTERM ? KILL_KILL :
                                 s->was_abandoned            ? KILL_TERMINATE_AND_LOG :
-                                                              KILL_TERMINATE,
-                                /* main_pid= */ NULL,
-                                /* control_pid= */ NULL,
-                                /* main_pid_alien= */ false);
+                                                              KILL_TERMINATE);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
                         goto fail;
@@ -357,6 +353,9 @@ static int scope_enter_start_chown(Scope *s) {
         assert(s);
         assert(s->user);
 
+        if (!s->cgroup_runtime)
+                return -EINVAL;
+
         r = scope_arm_timer(s, /* relative= */ true, u->manager->defaults.timeout_start_usec);
         if (r < 0)
                 return r;
@@ -389,7 +388,7 @@ static int scope_enter_start_chown(Scope *s) {
                         }
                 }
 
-                r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, uid, gid);
+                r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_runtime->cgroup_path, uid, gid);
                 if (r < 0) {
                         log_unit_error_errno(UNIT(s), r, "Failed to adjust control group access: %m");
                         _exit(EXIT_CGROUP);
@@ -780,6 +779,7 @@ const UnitVTable scope_vtable = {
         .object_size = sizeof(Scope),
         .cgroup_context_offset = offsetof(Scope, cgroup_context),
         .kill_context_offset = offsetof(Scope, kill_context),
+        .cgroup_runtime_offset = offsetof(Scope, cgroup_runtime),
 
         .sections =
                 "Unit\0"
@@ -804,8 +804,7 @@ const UnitVTable scope_vtable = {
         .start = scope_start,
         .stop = scope_stop,
 
-        .freeze = unit_freeze_vtable_common,
-        .thaw = unit_thaw_vtable_common,
+        .freezer_action = unit_cgroup_freezer_action,
 
         .get_timeout = scope_get_timeout,
 

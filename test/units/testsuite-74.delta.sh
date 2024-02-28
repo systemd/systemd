@@ -14,14 +14,14 @@ trap at_exit EXIT
 # Extended unit
 cat >"/run/systemd/system/delta-test-unit-extended.service" <<EOF
 [Service]
-ExecStart=/bin/true
+ExecStart=true
 EOF
 mkdir -p "/run/systemd/system/delta-test-unit-extended.service.d"
 cat >"/run/systemd/system/delta-test-unit-extended.service.d/override.conf" <<EOF
 [Unit]
 Description=Foo Bar
 [Service]
-ExecStartPre=/bin/true
+ExecStartPre=true
 EOF
 # Masked unit
 cp -fv /run/systemd/system/delta-test-unit-extended.service /run/systemd/system/delta-test-unit-masked.service

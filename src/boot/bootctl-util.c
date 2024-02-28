@@ -119,7 +119,7 @@ int settle_entry_token(void) {
 
         r = boot_entry_token_ensure(
                         arg_root,
-                        etc_kernel(),
+                        getenv("KERNEL_INSTALL_CONF_ROOT"),
                         arg_machine_id,
                         /* machine_id_is_random = */ false,
                         &arg_entry_token_type,

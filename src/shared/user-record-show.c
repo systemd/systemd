@@ -3,8 +3,14 @@
 #include "cap-list.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "glyph-util.h"
+#include "hashmap.h"
+#include "hexdecoct.h"
+#include "path-util.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
+#include "sha256.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "user-record-show.h"
@@ -23,6 +29,7 @@ const char *user_record_state_color(const char *state) {
 }
 
 void user_record_show(UserRecord *hr, bool show_full_group_info) {
+        _cleanup_strv_free_ char **langs = NULL;
         const char *hd, *ip, *shell;
         UserStorage storage;
         usec_t t;
@@ -203,8 +210,45 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 printf("   Real Name: %s\n", hr->real_name);
 
         hd = user_record_home_directory(hr);
-        if (hd)
-                printf("   Directory: %s\n", hd);
+        if (hd) {
+                printf("   Directory: %s", hd);
+
+                if (hr->fallback_home_directory && hr->use_fallback)
+                        printf(" %s(fallback)%s", ansi_highlight_yellow(), ansi_normal());
+
+                printf("\n");
+        }
+
+        if (hr->blob_directory) {
+                _cleanup_free_ char **filenames = NULL;
+                size_t n_filenames = 0;
+
+                r = hashmap_dump_keys_sorted(hr->blob_manifest, (void***) &filenames, &n_filenames);
+                if (r < 0) {
+                        errno = -r;
+                        printf("   Blob Dir.: %s (can't iterate: %m)\n", hr->blob_directory);
+                } else
+                        printf("   Blob Dir.: %s\n", hr->blob_directory);
+
+                for (size_t i = 0; i < n_filenames; i++) {
+                        _cleanup_free_ char *path = NULL, *link = NULL, *hash = NULL;
+                        const char *filename = filenames[i];
+                        const uint8_t *hash_bytes = hashmap_get(hr->blob_manifest, filename);
+                        bool last = i == n_filenames - 1;
+
+                        path = path_join(hr->blob_directory, filename);
+                        if (path)
+                                (void) terminal_urlify_path(path, filename, &link);
+                        hash = hexmem(hash_bytes, SHA256_DIGEST_SIZE);
+
+                        printf("              %s %s %s(%s)%s\n",
+                               special_glyph(last ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH),
+                               link ?: filename,
+                               ansi_grey(),
+                               hash ?: "can't display hash",
+                               ansi_normal());
+                }
+        }
 
         storage = user_record_storage(hr);
         if (storage >= 0) /* Let's be political, and clarify which storage we like, and which we don't. About CIFS we don't complain. */
@@ -222,8 +266,14 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 printf("   Removable: %s\n", yes_no(b));
 
         shell = user_record_shell(hr);
-        if (shell)
-                printf("       Shell: %s\n", shell);
+        if (shell) {
+                printf("       Shell: %s", shell);
+
+                if (hr->fallback_shell && hr->use_fallback)
+                        printf(" %s(fallback)%s", ansi_highlight_yellow(), ansi_normal());
+
+                printf("\n");
+        }
 
         if (hr->email_address)
                 printf("       Email: %s\n", hr->email_address);
@@ -237,15 +287,15 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->time_zone)
                 printf("   Time Zone: %s\n", hr->time_zone);
 
-        if (hr->preferred_language)
-                printf("    Language: %s\n", hr->preferred_language);
-
-        if (!strv_isempty(hr->environment))
-                STRV_FOREACH(i, hr->environment) {
-                        printf(i == hr->environment ?
-                               " Environment: %s\n" :
-                               "              %s\n", *i);
-                }
+        r = user_record_languages(hr, &langs);
+        if (r < 0) {
+                errno = -r;
+                printf("   Languages: (can't acquire: %m)\n");
+        } else if (!strv_isempty(langs)) {
+                STRV_FOREACH(i, langs)
+                        printf(i == langs ? "   Languages: %s" : ", %s", *i);
+                printf("\n");
+        }
 
         if (hr->locked >= 0)
                 printf("      Locked: %s\n", yes_no(hr->locked));

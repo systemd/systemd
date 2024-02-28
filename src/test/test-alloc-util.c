@@ -100,7 +100,7 @@ TEST(memdup_multiply_and_greedy_realloc) {
         size_t i;
         int *p;
 
-        dup = memdup_suffix0_multiply(org, sizeof(int), 3);
+        dup = memdup_suffix0_multiply(org, 3, sizeof(int));
         assert_se(dup);
         assert_se(dup[0] == 1);
         assert_se(dup[1] == 2);
@@ -108,7 +108,7 @@ TEST(memdup_multiply_and_greedy_realloc) {
         assert_se(((uint8_t*) dup)[sizeof(int) * 3] == 0);
         free(dup);
 
-        dup = memdup_multiply(org, sizeof(int), 3);
+        dup = memdup_multiply(org, 3, sizeof(int));
         assert_se(dup);
         assert_se(dup[0] == 1);
         assert_se(dup[1] == 2);

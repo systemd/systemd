@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd.exec" xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -155,6 +155,8 @@
           <programlisting>BindReadOnlyPaths=/dev/log /run/systemd/journal/socket /run/systemd/journal/stdout</programlisting>
         </example>
 
+        <xi:include href="vpick.xml" xpointer="directory"/>
+
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
@@ -190,6 +192,8 @@
         It will be updated automatically on soft reboot (see:
         <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>),
         in case the service is configured to survive it.</para>
+
+        <xi:include href="vpick.xml" xpointer="image"/>
 
         <xi:include href="system-only.xml" xpointer="singular"/>
 
@@ -547,6 +551,8 @@
         <varname>PrivateDevices=</varname> below, as it may change the setting of
         <varname>DevicePolicy=</varname>.</para>
 
+        <xi:include href="vpick.xml" xpointer="image"/>
+
         <xi:include href="system-only.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
@@ -581,6 +587,8 @@
 
         <para>Note that usage from user units requires overlayfs support in unprivileged user namespaces,
         which was first introduced in kernel v5.11.</para>
+
+        <xi:include href="vpick.xml" xpointer="directory"/>
 
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
 
@@ -703,12 +711,15 @@
       <varlistentry>
         <term><varname>SetLoginEnvironment=</varname></term>
 
-        <listitem><para>Takes a boolean parameter that controls whether to set <varname>$HOME</varname>,
-        <varname>$LOGNAME</varname>, and <varname>$SHELL</varname> environment variables. If unset, this is
-        controlled by whether <varname>User=</varname> is set. If true, they will always be set for system services,
-        i.e. even when the default user <literal>root</literal> is used. If false, the mentioned variables are not set
-        by systemd, no matter whether <varname>User=</varname> is used or not. This option normally has no effect
-        on user services, since these variables are typically inherited from user manager's own environment anyway.</para>
+        <listitem><para>Takes a boolean parameter that controls whether to set the <varname>$HOME</varname>,
+        <varname>$LOGNAME</varname>, and <varname>$SHELL</varname> environment variables. If not set, this
+        defaults to true if <varname>User=</varname>, <varname>DynamicUser=</varname> or
+        <varname>PAMName=</varname> are set, false otherwise. If set to true, the variables will always be
+        set for system services, i.e. even when the default user <literal>root</literal> is used. If set to
+        false, the mentioned variables are not set by the service manager, no matter whether
+        <varname>User=</varname>, <varname>DynamicUser=</varname>, or <varname>PAMName=</varname> are used or
+        not. This option normally has no effect on services of the per-user service manager, since in that
+        case these variables are typically inherited from user manager's own environment anyway.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
@@ -1226,9 +1237,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>IgnoreSIGPIPE=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, causes <constant>SIGPIPE</constant> to be ignored in the
-        executed process. Defaults to true because <constant>SIGPIPE</constant> generally is useful only in shell
-        pipelines.</para></listitem>
+        <listitem><para>Takes a boolean argument. If true, <constant>SIGPIPE</constant> is ignored in the
+        executed process. Defaults to true since <constant>SIGPIPE</constant> is generally only useful in
+        shell pipelines.</para></listitem>
       </varlistentry>
 
     </variablelist>
@@ -3006,7 +3017,7 @@ SystemCallErrorNumber=EPERM</programlisting>
         the kernel log buffer, the unit will implicitly gain a dependency of type <varname>After=</varname>
         on <filename>systemd-journald.socket</filename> (also see the "Implicit Dependencies" section
         above). Also note that in this case stdout (or stderr, see below) will be an
-        <constant>AF_UNIX</constant> stream socket, and not a pipe or FIFO that can be re-opened. This means
+        <constant>AF_UNIX</constant> stream socket, and not a pipe or FIFO that can be reopened. This means
         when executing shell scripts the construct <command>echo "hello" &gt; /dev/stderr</command> for
         writing text to stderr will not work. To mitigate this use the construct <command>echo "hello"
         >&amp;2</command> instead, which is mostly equivalent and avoids this pitfall.</para>
@@ -3384,6 +3395,12 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varname>DeviceAllow=</varname>. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for the details about <varname>DevicePolicy=</varname> or <varname>DeviceAllow=</varname>.</para>
+
+        <para>Note that encrypted credentials targeted for services of the per-user service manager must be
+        encrypted with <command>systemd-creds encrypt --user</command>, and those for the system service
+        manager without the <option>--user</option> switch. Encrypted credentials are always targeted to a
+        specific user or the system as a whole, and it is ensured that per-user service managers cannot
+        decrypt secrets intended for the system or for other users.</para>
 
         <para>The credential files/IPC sockets must be accessible to the service manager, but don't have to
         be directly accessible to the unit's processes: the credential data is read and copied into separate,
@@ -4610,25 +4627,25 @@ MONITOR_UNIT=mysuccess.service
 
   <refsect1>
       <title>See Also</title>
-      <para>
-        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry project='man-pages'><refentrytitle>exec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-        <citerefentry project='man-pages'><refentrytitle>fork</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-      </para>
+      <para><simplelist type="inline">
+        <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry project='man-pages'><refentrytitle>exec</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+        <member><citerefentry project='man-pages'><refentrytitle>fork</refentrytitle><manvolnum>2</manvolnum></citerefentry></member>
+      </simplelist></para>
   </refsect1>
 
 </refentry>

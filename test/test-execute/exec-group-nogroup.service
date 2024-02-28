@@ -3,6 +3,6 @@
 Description=Test for Group
 
 [Service]
-ExecStart=/bin/sh -x -c 'test "$$(id -n -g)" = "nogroup"'
+ExecStart=sh -x -c 'test "$$(id -n -g)" = "nogroup"'
 Type=oneshot
 Group=nogroup

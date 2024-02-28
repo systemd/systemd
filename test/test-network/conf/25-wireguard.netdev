@@ -13,8 +13,8 @@ RouteMetric=456
 [WireGuardPeer]
 PublicKey=RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=
 AllowedIPs=fd31:bf08:57cb::/48,192.168.26.3/24
-#Endpoint=wireguard.example.com:51820
-Endpoint=192.168.27.3:51820
+#Endpoint=192.168.27.3:51820
+Endpoint=@network.wireguard.peer0.endpoint
 PresharedKey=IIWIV17wutHv7t4cR6pOT91z6NSz/T8Arh0yaywhw3M=
 PersistentKeepalive=20
 RouteTable=1234

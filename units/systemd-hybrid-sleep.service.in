@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Hybrid Suspend+Hibernate
+Description=System Hybrid Suspend+Hibernate
 Documentation=man:systemd-hybrid-sleep.service(8)
 DefaultDependencies=no
 Requires=sleep.target

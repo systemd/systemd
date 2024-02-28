@@ -18,6 +18,7 @@ enum action {
         ACTION_KEXEC,
         ACTION_SOFT_REBOOT,
         ACTION_EXIT,
+        ACTION_SLEEP,
         ACTION_SUSPEND,
         ACTION_HIBERNATE,
         ACTION_HYBRID_SLEEP,
@@ -32,7 +33,6 @@ enum action {
         ACTION_RELOAD,
         ACTION_REEXEC,
         ACTION_RUNLEVEL,
-        ACTION_TELINIT,
         ACTION_CANCEL_SHUTDOWN,
         ACTION_SHOW_SHUTDOWN,
         _ACTION_MAX,
@@ -83,6 +83,7 @@ extern int arg_kill_value;
 extern bool arg_kill_value_set;
 extern char *arg_root;
 extern usec_t arg_when;
+extern bool arg_stdin;
 extern const char *arg_reboot_argument;
 extern enum action arg_action;
 extern BusTransport arg_transport;

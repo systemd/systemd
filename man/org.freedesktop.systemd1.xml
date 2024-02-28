@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" >
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="org.freedesktop.systemd1" xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -277,6 +277,11 @@ node /org/freedesktop/systemd1 {
       GetDynamicUsers(out a(us) users);
       DumpUnitFileDescriptorStore(in  s name,
                                   out a(suuutuusu) entries);
+      StartAuxiliaryScope(in  s name,
+                          in  ah pidfds,
+                          in  t flags,
+                          in  a(sv) properties,
+                          out o job);
     signals:
       UnitNew(s id,
               o unit);
@@ -611,20 +616,6 @@ node /org/freedesktop/systemd1 {
     <!--method LookupDynamicUserByUID is not documented!-->
 
     <!--method GetDynamicUsers is not documented!-->
-
-    <!--signal UnitNew is not documented!-->
-
-    <!--signal UnitRemoved is not documented!-->
-
-    <!--signal JobNew is not documented!-->
-
-    <!--signal JobRemoved is not documented!-->
-
-    <!--signal StartupFinished is not documented!-->
-
-    <!--signal UnitFilesChanged is not documented!-->
-
-    <!--signal Reloading is not documented!-->
 
     <!--property SecurityStartTimestampMonotonic is not documented!-->
 
@@ -990,19 +981,21 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="DumpUnitFileDescriptorStore()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="UnitNew"/>
+    <variablelist class="dbus-method" generated="True" extra-ref="StartAuxiliaryScope()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="UnitRemoved"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="UnitNew()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="JobNew"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="UnitRemoved()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="JobRemoved"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="JobNew()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="StartupFinished"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="JobRemoved()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="UnitFilesChanged"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="StartupFinished()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="Reloading"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="UnitFilesChanged()"/>
+
+    <variablelist class="dbus-signal" generated="True" extra-ref="Reloading()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Version"/>
 
@@ -1284,7 +1277,13 @@ node /org/freedesktop/systemd1 {
       and terminate all units that aren't dependencies of it. If <literal>ignore-dependencies</literal>, it
       will start a unit but ignore all its dependencies. If <literal>ignore-requirements</literal>, it will
       start a unit but only ignore the requirement dependencies. It is not recommended to make use of the
-      latter two options. On completion, this method returns the newly created job object.</para>
+      latter two options. On reply, if successful, this method returns the newly created job object
+      which has been enqueued for asynchronous activation. Callers that want to track the outcome of the
+      actual start operation need to monitor the result of this job. This can be achieved in a race-free
+      manner by first subscribing to the <function>JobRemoved()</function> signal, then calling
+      <function>StartUnit()</function> and using the returned job object to filter out unrelated
+      <function>JobRemoved()</function> signals, until the desired one is received, which will then carry
+      the result of the start operation.</para>
 
       <para><function>StartUnitReplace()</function> is similar to <function>StartUnit()</function> but
       replaces a job that is queued for one unit by a job for another unit.</para>
@@ -1356,7 +1355,7 @@ node /org/freedesktop/systemd1 {
       <para><function>ResetFailed()</function> resets the "failed" state of all units.</para>
 
       <para><function>ListUnits()</function> returns an array of all currently loaded units. Note that
-      units may be known by multiple names at the same name, and hence there might be more unit names loaded
+      units may be known by multiple names at the same time, and hence there might be more unit names loaded
       than actual units behind them. The array consists of structures with the following elements:
       <itemizedlist>
         <listitem><para>The primary unit name as string</para></listitem>
@@ -1567,6 +1566,13 @@ node /org/freedesktop/systemd1 {
       file descriptors currently in the file descriptor store of the specified unit. This call is equivalent
       to <function>DumpFileDescriptorStore()</function> on the
       <interfacename>org.freedesktop.systemd1.Service</interfacename>. For further details, see below.</para>
+
+      <para><function>StartAuxiliaryScope()</function> creates a new scope unit from a service where calling
+      process resides. Set of processes that will be migrated to newly created scope is passed in as an array
+      of pidfds. This is useful for creating auxiliary scopes that should contain worker processes and their lifecycle
+      shouldn't be bound to a lifecycle of the service, e.g. they should continue running after the restart
+      of the service. Note that the main PID of the service can not be migrated to an auxiliary scope.
+      Also, <varname>flags</varname> argument must be 0 and is reserved for future extensions.</para>
     </refsect2>
 
     <refsect2>
@@ -1858,7 +1864,7 @@ node /org/freedesktop/systemd1 {
       enablement state (<function>EnableUnitFiles()</function>, <function>DisableUnitFiles()</function>,
       <function>EnableUnitFilesWithFlags()</function>, <function>DisableUnitFilesWithFlags()</function>,
       <function>ReenableUnitFiles()</function>, <function>LinkUnitFiles()</function>,
-      <function>PresetUnitFiles</function>, <function>MaskUnitFiles</function>, and similar) require
+      <function>PresetUnitFiles()</function>, <function>MaskUnitFiles()</function>, and similar) require
       <interfacename>org.freedesktop.systemd1.manage-unit-files</interfacename>. Operations which modify the
       exported environment (<function>SetEnvironment()</function>, <function>UnsetEnvironment()</function>,
       <function>UnsetAndSetEnvironment()</function>) require
@@ -1978,6 +1984,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly as SliceOf = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as RequiresMountsFor = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as WantsMountsFor = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Documentation = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -2134,6 +2142,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property JoinsNamespaceOf is not documented!-->
 
     <!--property SliceOf is not documented!-->
+
+    <!--property WantsMountsFor is not documented!-->
 
     <!--property FreezerState is not documented!-->
 
@@ -2294,6 +2304,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="SliceOf"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RequiresMountsFor"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="WantsMountsFor"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Documentation"/>
 
@@ -2612,7 +2624,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       enqueued and complete successfully. The key value pairs correspond (in lowercase) to the environment
       variables described in the <literal>Environment Variables Set or Propagated by the Service
       Manager</literal> section in
-      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Note
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note
       that new key value pair may be added at any time in future versions. Existing entries will not be
       removed.</para>
     </refsect2>
@@ -2786,6 +2798,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveMemoryMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveMemoryHigh = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay EffectiveCPUs = [...];
@@ -2793,6 +2809,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly ay EffectiveMemoryNodes = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t TasksCurrent = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveTasksMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IPIngressBytes = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -3419,6 +3437,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property MemoryZSwapCurrent is not documented!-->
 
+    <!--property EffectiveMemoryMax is not documented!-->
+
+    <!--property EffectiveMemoryHigh is not documented!-->
+
     <!--property CPUUsageNSec is not documented!-->
 
     <!--property EffectiveCPUs is not documented!-->
@@ -3426,6 +3448,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property EffectiveMemoryNodes is not documented!-->
 
     <!--property TasksCurrent is not documented!-->
+
+    <!--property EffectiveTasksMax is not documented!-->
 
     <!--property IPIngressBytes is not documented!-->
 
@@ -4061,6 +4085,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryHigh"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveCPUs"/>
@@ -4068,6 +4096,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryNodes"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TasksCurrent"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveTasksMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPIngressBytes"/>
 
@@ -4865,6 +4895,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveMemoryMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveMemoryHigh = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay EffectiveCPUs = [...];
@@ -4872,6 +4906,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly ay EffectiveMemoryNodes = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t TasksCurrent = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveTasksMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IPIngressBytes = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -5508,6 +5544,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property MemoryZSwapCurrent is not documented!-->
 
+    <!--property EffectiveMemoryMax is not documented!-->
+
+    <!--property EffectiveMemoryHigh is not documented!-->
+
     <!--property CPUUsageNSec is not documented!-->
 
     <!--property EffectiveCPUs is not documented!-->
@@ -5515,6 +5555,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property EffectiveMemoryNodes is not documented!-->
 
     <!--property TasksCurrent is not documented!-->
+
+    <!--property EffectiveTasksMax is not documented!-->
 
     <!--property IPIngressBytes is not documented!-->
 
@@ -6132,6 +6174,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryHigh"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveCPUs"/>
@@ -6139,6 +6185,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryNodes"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TasksCurrent"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveTasksMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPIngressBytes"/>
 
@@ -6810,6 +6858,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveMemoryMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveMemoryHigh = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay EffectiveCPUs = [...];
@@ -6817,6 +6869,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly ay EffectiveMemoryNodes = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t TasksCurrent = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveTasksMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IPIngressBytes = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -7381,6 +7435,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property MemoryZSwapCurrent is not documented!-->
 
+    <!--property EffectiveMemoryMax is not documented!-->
+
+    <!--property EffectiveMemoryHigh is not documented!-->
+
     <!--property CPUUsageNSec is not documented!-->
 
     <!--property EffectiveCPUs is not documented!-->
@@ -7388,6 +7446,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property EffectiveMemoryNodes is not documented!-->
 
     <!--property TasksCurrent is not documented!-->
+
+    <!--property EffectiveTasksMax is not documented!-->
 
     <!--property IPIngressBytes is not documented!-->
 
@@ -7919,6 +7979,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryHigh"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveCPUs"/>
@@ -7926,6 +7990,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryNodes"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TasksCurrent"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveTasksMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPIngressBytes"/>
 
@@ -8720,6 +8786,10 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveMemoryMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveMemoryHigh = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay EffectiveCPUs = [...];
@@ -8727,6 +8797,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly ay EffectiveMemoryNodes = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t TasksCurrent = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveTasksMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IPIngressBytes = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -9277,6 +9349,10 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property MemoryZSwapCurrent is not documented!-->
 
+    <!--property EffectiveMemoryMax is not documented!-->
+
+    <!--property EffectiveMemoryHigh is not documented!-->
+
     <!--property CPUUsageNSec is not documented!-->
 
     <!--property EffectiveCPUs is not documented!-->
@@ -9284,6 +9360,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property EffectiveMemoryNodes is not documented!-->
 
     <!--property TasksCurrent is not documented!-->
+
+    <!--property EffectiveTasksMax is not documented!-->
 
     <!--property IPIngressBytes is not documented!-->
 
@@ -9801,6 +9879,10 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryHigh"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveCPUs"/>
@@ -9808,6 +9890,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryNodes"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TasksCurrent"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveTasksMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPIngressBytes"/>
 
@@ -10461,6 +10545,10 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveMemoryMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveMemoryHigh = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay EffectiveCPUs = [...];
@@ -10468,6 +10556,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       readonly ay EffectiveMemoryNodes = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t TasksCurrent = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveTasksMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IPIngressBytes = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -10644,6 +10734,10 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
 
     <!--property MemoryZSwapCurrent is not documented!-->
 
+    <!--property EffectiveMemoryMax is not documented!-->
+
+    <!--property EffectiveMemoryHigh is not documented!-->
+
     <!--property CPUUsageNSec is not documented!-->
 
     <!--property EffectiveCPUs is not documented!-->
@@ -10651,6 +10745,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property EffectiveMemoryNodes is not documented!-->
 
     <!--property TasksCurrent is not documented!-->
+
+    <!--property EffectiveTasksMax is not documented!-->
 
     <!--property IPIngressBytes is not documented!-->
 
@@ -10832,6 +10928,10 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryHigh"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveCPUs"/>
@@ -10839,6 +10939,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryNodes"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TasksCurrent"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveTasksMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPIngressBytes"/>
 
@@ -11046,6 +11148,10 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveMemoryMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveMemoryHigh = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly ay EffectiveCPUs = [...];
@@ -11053,6 +11159,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       readonly ay EffectiveMemoryNodes = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t TasksCurrent = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t EffectiveTasksMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IPIngressBytes = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -11249,6 +11357,10 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
     <!--property MemoryZSwapCurrent is not documented!-->
 
+    <!--property EffectiveMemoryMax is not documented!-->
+
+    <!--property EffectiveMemoryHigh is not documented!-->
+
     <!--property CPUUsageNSec is not documented!-->
 
     <!--property EffectiveCPUs is not documented!-->
@@ -11256,6 +11368,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property EffectiveMemoryNodes is not documented!-->
 
     <!--property TasksCurrent is not documented!-->
+
+    <!--property EffectiveTasksMax is not documented!-->
 
     <!--property IPIngressBytes is not documented!-->
 
@@ -11435,7 +11549,7 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
     <variablelist class="dbus-method" generated="True" extra-ref="AttachProcesses()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="RequestStop"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="RequestStop()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Controller"/>
 
@@ -11467,6 +11581,10 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryHigh"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUUsageNSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveCPUs"/>
@@ -11474,6 +11592,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="EffectiveMemoryNodes"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TasksCurrent"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="EffectiveTasksMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPIngressBytes"/>
 
@@ -11652,7 +11772,7 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <refsect2>
       <title>Signals</title>
 
-      <para><function>RequestStop</function> is sent to the peer that is configured in the
+      <para><function>RequestStop()</function> is sent to the peer that is configured in the
       <varname>Controller</varname> property when systemd is requested to terminate the scope unit. A program
       registering a scope can use this to cleanly shut down the processes it added to the scope instead of
       letting systemd do it with the usual <constant>SIGTERM</constant> logic.</para>
@@ -11664,7 +11784,7 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       <para>All properties correspond directly with the matching properties of service units.</para>
 
       <para><varname>Controller</varname> contains the bus name (unique or well-known) that is notified when
-      the scope unit is to be shut down via a <function>RequestStop</function> signal (see below). This is
+      the scope unit is to be shut down via a <function>RequestStop()</function> signal (see below). This is
       set when the scope is created. If not set, the scope's processes will terminated with
       <constant>SIGTERM</constant> directly.</para>
     </refsect2>
@@ -11820,6 +11940,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <function>QueueSignalUnit()</function>,
       <function>SoftReboot()</function>, and
       <function>DumpUnitFileDescriptorStore()</function> were added in version 254.</para>
+      <para><function>StartAuxiliaryScope()</function> was added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>
@@ -11829,6 +11950,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ActivationDetails</varname> were added in version 252.</para>
       <para><function>QueueSignal()</function> was added in version 254.</para>
       <para><varname>SurviveFinalKillSignal</varname> was added in version 255.</para>
+      <para><varname>WantsMountsFor</varname> was added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Service Unit Objects</title>
@@ -11866,6 +11988,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>MemorySwapCurrent</varname>,
       <varname>MemorySwapPeak</varname>, and
       <varname>MemoryZSwapCurrent</varname> were added in version 255.</para>
+      <para><varname>EffectiveMemoryHigh</varname>,
+      <varname>EffectiveMemoryMax</varname>,
+      <varname>EffectiveTasksMax</varname> were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -11897,6 +12022,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>MemorySwapCurrent</varname>,
       <varname>MemorySwapPeak</varname>, and
       <varname>MemoryZSwapCurrent</varname> were added in version 255.</para>
+      <para><varname>EffectiveMemoryHigh</varname>,
+      <varname>EffectiveMemoryMax</varname>,
+      <varname>EffectiveTasksMax</varname> were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -11926,6 +12054,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>MemorySwapCurrent</varname>,
       <varname>MemorySwapPeak</varname>, and
       <varname>MemoryZSwapCurrent</varname> were added in version 255.</para>
+      <para><varname>EffectiveMemoryHigh</varname>,
+      <varname>EffectiveMemoryMax</varname>,
+      <varname>EffectiveTasksMax</varname> were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -11955,6 +12086,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>MemorySwapCurrent</varname>,
       <varname>MemorySwapPeak</varname>, and
       <varname>MemoryZSwapCurrent</varname> were added in version 255.</para>
+      <para><varname>EffectiveMemoryHigh</varname>,
+      <varname>EffectiveMemoryMax</varname>,
+      <varname>EffectiveTasksMax</varname> were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
@@ -11975,6 +12109,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>MemorySwapCurrent</varname>,
       <varname>MemorySwapPeak</varname>, and
       <varname>MemoryZSwapCurrent</varname> were added in version 255.</para>
+      <para><varname>EffectiveMemoryHigh</varname>,
+      <varname>EffectiveMemoryMax</varname>,
+      <varname>EffectiveTasksMax</varname> were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>
@@ -11996,6 +12133,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>MemorySwapCurrent</varname>,
       <varname>MemorySwapPeak</varname>, and
       <varname>MemoryZSwapCurrent</varname> were added in version 255.</para>
+      <para><varname>EffectiveMemoryHigh</varname>,
+      <varname>EffectiveMemoryMax</varname>,
+      <varname>EffectiveTasksMax</varname> were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>

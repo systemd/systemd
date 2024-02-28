@@ -89,6 +89,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_keymap, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_timezone, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hostname, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_password, erase_and_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_shell, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static bool press_any_key(void) {
@@ -166,7 +168,7 @@ static int show_menu(char **x, unsigned n_columns, unsigned width, unsigned perc
 
         for (i = 0; i < per_column; i++) {
 
-                for (j = 0; j < n_columns; j ++) {
+                for (j = 0; j < n_columns; j++) {
                         _cleanup_free_ char *e = NULL;
 
                         if (j * per_column + i >= n)
@@ -456,6 +458,20 @@ static int process_locale(int rfd) {
         return 1;
 }
 
+static bool keymap_exists_bool(const char *name) {
+        return keymap_exists(name) > 0;
+}
+
+static typeof(&keymap_is_valid) determine_keymap_validity_func(int rfd) {
+        int r;
+
+        r = dir_fd_is_root(rfd);
+        if (r < 0)
+                log_debug_errno(r, "Unable to determine if operating on host root directory, assuming we are: %m");
+
+        return r != 0 ? keymap_exists_bool : keymap_is_valid;
+}
+
 static int prompt_keymap(int rfd) {
         _cleanup_strv_free_ char **kmaps = NULL;
         int r;
@@ -487,7 +503,7 @@ static int prompt_keymap(int rfd) {
         print_welcome(rfd);
 
         return prompt_loop("Please enter system keymap name or number",
-                           kmaps, 60, keymap_is_valid, &arg_keymap);
+                           kmaps, 60, determine_keymap_validity_func(rfd), &arg_keymap);
 }
 
 static int process_keymap(int rfd) {
@@ -781,7 +797,11 @@ static int prompt_root_password(int rfd) {
                 _cleanup_strv_free_erase_ char **a = NULL, **b = NULL;
                 _cleanup_free_ char *error = NULL;
 
-                r = ask_password_tty(-1, msg1, NULL, 0, 0, NULL, &a);
+                AskPasswordRequest req = {
+                        .message = msg1,
+                };
+
+                r = ask_password_tty(-EBADF, &req, /* until= */ 0, /* flags= */ 0, /* flag_file= */ NULL, &a);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
                 if (strv_length(a) != 1)
@@ -801,7 +821,9 @@ static int prompt_root_password(int rfd) {
                 else if (r == 0)
                         log_warning("Password is weak, accepting anyway: %s", error);
 
-                r = ask_password_tty(-1, msg2, NULL, 0, 0, NULL, &b);
+                req.message = msg2;
+
+                r = ask_password_tty(-EBADF, &req, /* until= */ 0, /* flags= */ 0, /* flag_file= */ NULL, &b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
                 if (strv_length(b) != 1)
@@ -1077,12 +1099,11 @@ static int process_root_account(int rfd) {
                 return log_error_errno(k, "Failed to check if directory file descriptor is root: %m");
 
         if (arg_copy_root_shell && k == 0) {
-                struct passwd *p;
+                _cleanup_free_ struct passwd *p = NULL;
 
-                errno = 0;
-                p = getpwnam("root");
-                if (!p)
-                        return log_error_errno(errno_or_else(EIO), "Failed to find passwd entry for root: %m");
+                r = getpwnam_malloc("root", &p);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find passwd entry for root: %m");
 
                 r = free_and_strdup(&arg_root_shell, p->pw_shell);
                 if (r < 0)
@@ -1208,7 +1229,8 @@ static int process_reset(int rfd) {
                        "/etc/vconsole.conf",
                        "/etc/hostname",
                        "/etc/machine-id",
-                       "/etc/kernel/cmdline") {
+                       "/etc/kernel/cmdline",
+                       "/etc/localtime") {
                 r = reset_one(rfd, p);
                 if (r < 0)
                         return r;
@@ -1238,11 +1260,13 @@ static int help(void) {
                "     --timezone=TIMEZONE          Set timezone\n"
                "     --hostname=NAME              Set hostname\n"
                "     --setup-machine-id           Set a random machine ID\n"
-               "     --machine-ID=ID              Set specified machine ID\n"
+               "     --machine-id=ID              Set specified machine ID\n"
                "     --root-password=PASSWORD     Set root password from plaintext password\n"
                "     --root-password-file=FILE    Set root password from file\n"
                "     --root-password-hashed=HASH  Set root password from hashed password\n"
                "     --root-shell=SHELL           Set root shell\n"
+               "     --kernel-command-line=CMDLINE\n"
+               "                                  Set kernel command line\n"
                "     --prompt-locale              Prompt the user for locale settings\n"
                "     --prompt-keymap              Prompt the user for keymap settings\n"
                "     --prompt-timezone            Prompt the user for timezone\n"
@@ -1621,7 +1645,7 @@ static int reload_vconsole(sd_bus **bus) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, false, NULL);
+        r = bus_wait_for_jobs_one(w, object, BUS_WAIT_JOBS_LOG_ERROR, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for systemd-vconsole-setup.service/restart: %m");
         return 0;
@@ -1654,8 +1678,8 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
                 if (r > 0 && !enabled) {
-                        log_debug("Found systemd.firstboot=no kernel command line argument, terminating.");
-                        return 0; /* disabled */
+                        log_debug("Found systemd.firstboot=no kernel command line argument, turning off all prompts.");
+                        arg_prompt_locale = arg_prompt_keymap = arg_prompt_timezone = arg_prompt_hostname = arg_prompt_root_password = arg_prompt_root_shell = false;
                 }
         }
 
@@ -1691,6 +1715,8 @@ static int run(int argc, char *argv[]) {
         /* We check these conditions here instead of in parse_argv() so that we can take the root directory
          * into account. */
 
+        if (arg_keymap && !determine_keymap_validity_func(rfd)(arg_keymap))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Keymap %s is not installed.", arg_keymap);
         if (arg_locale && !locale_is_ok(rfd, arg_locale))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale);
         if (arg_locale_messages && !locale_is_ok(rfd, arg_locale_messages))

@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-integritysetup@.service" conditional='HAVE_LIBCRYPTSETUP'
+<refentry id="systemd-integritysetup_.service" conditional='HAVE_LIBCRYPTSETUP'
           xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
@@ -94,12 +94,12 @@
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>integritytab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-integritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>integritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-     </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>integritytab</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-integritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>integritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+     </simplelist></para>
   </refsect1>
 
 </refentry>

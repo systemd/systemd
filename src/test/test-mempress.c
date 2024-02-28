@@ -220,7 +220,7 @@ TEST(real_pressure) {
 
         assert_se(sd_bus_message_read(reply, "o", &object) >= 0);
 
-        assert_se(bus_wait_for_jobs_one(w, object, /* quiet= */ false, /* extra_args= */ NULL) >= 0);
+        assert_se(bus_wait_for_jobs_one(w, object, /* flags= */ BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL) >= 0);
 
         assert_se(sd_event_default(&e) >= 0);
 
@@ -233,7 +233,7 @@ TEST(real_pressure) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
         assert_se(sd_event_add_child(e, &cs, pid, WEXITED, real_pressure_child_callback, NULL) >= 0);
         assert_se(sd_event_source_set_child_process_own(cs, true) >= 0);
 

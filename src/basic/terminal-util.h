@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <syslog.h>
 #include <sys/types.h>
+#include <termios.h>
 
 #include "macro.h"
 #include "time-util.h"
@@ -59,6 +60,8 @@
 
 /* Other ANSI codes */
 #define ANSI_UNDERLINE "\x1B[0;4m"
+#define ANSI_ADD_UNDERLINE "\x1B[4m"
+#define ANSI_ADD_UNDERLINE_GREY ANSI_ADD_UNDERLINE "\x1B[58;5;245m"
 #define ANSI_HIGHLIGHT "\x1B[0;1;39m"
 #define ANSI_HIGHLIGHT_UNDERLINE "\x1B[0;1;4m"
 
@@ -77,11 +80,20 @@
 /* Erase characters until the end of the line */
 #define ANSI_ERASE_TO_END_OF_LINE "\x1B[K"
 
+/* Erase characters until end of screen */
+#define ANSI_ERASE_TO_END_OF_SCREEN "\x1B[J"
+
 /* Move cursor up one line */
 #define ANSI_REVERSE_LINEFEED "\x1BM"
 
 /* Set cursor to top left corner and clear screen */
 #define ANSI_HOME_CLEAR "\x1B[H\x1B[2J"
+
+/* Push/pop a window title off the stack of window titles */
+#define ANSI_WINDOW_TITLE_PUSH "\x1b[22;2t"
+#define ANSI_WINDOW_TITLE_POP "\x1b[23;2t"
+
+bool isatty_safe(int fd);
 
 int reset_terminal_fd(int fd, bool switch_to_text);
 int reset_terminal(const char *name);
@@ -166,7 +178,6 @@ bool underline_enabled(void);
 bool dev_console_colors_enabled(void);
 
 static inline bool colors_enabled(void) {
-
         /* Returns true if colors are considered supported on our stdout. */
         return get_color_mode() != COLOR_OFF;
 }
@@ -187,6 +198,15 @@ static inline bool colors_enabled(void) {
 
 static inline const char *ansi_underline(void) {
         return underline_enabled() ? ANSI_UNDERLINE : ANSI_NORMAL;
+}
+
+static inline const char *ansi_add_underline(void) {
+        return underline_enabled() ? ANSI_ADD_UNDERLINE : "";
+}
+
+static inline const char *ansi_add_underline_grey(void) {
+        return underline_enabled() ?
+                (colors_enabled() ? ANSI_ADD_UNDERLINE_GREY : ANSI_ADD_UNDERLINE) : "";
 }
 
 #define DEFINE_ANSI_FUNC_UNDERLINE(name, NAME)                          \
@@ -275,3 +295,7 @@ static inline const char* ansi_highlight_green_red(bool b) {
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
+
+void termios_disable_echo(struct termios *termios);
+
+int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue);

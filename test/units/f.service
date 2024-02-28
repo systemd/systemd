@@ -3,4 +3,4 @@
 Description=F
 
 [Service]
-ExecStart=/bin/true
+ExecStart=true

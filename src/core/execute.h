@@ -390,22 +390,23 @@ static inline bool exec_context_with_rootfs(const ExecContext *c) {
 }
 
 typedef enum ExecFlags {
-        EXEC_APPLY_SANDBOXING      = 1 << 0,
-        EXEC_APPLY_CHROOT          = 1 << 1,
-        EXEC_APPLY_TTY_STDIN       = 1 << 2,
-        EXEC_PASS_LOG_UNIT         = 1 << 3, /* Whether to pass the unit name to the service's journal stream connection */
-        EXEC_CHOWN_DIRECTORIES     = 1 << 4, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
-        EXEC_NSS_DYNAMIC_BYPASS    = 1 << 5, /* Set the SYSTEMD_NSS_DYNAMIC_BYPASS environment variable, to disable nss-systemd blocking on PID 1, for use by dbus-daemon */
-        EXEC_CGROUP_DELEGATE       = 1 << 6,
-        EXEC_IS_CONTROL            = 1 << 7,
-        EXEC_CONTROL_CGROUP        = 1 << 8, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
-        EXEC_WRITE_CREDENTIALS     = 1 << 9, /* Set up the credential store logic */
+        EXEC_APPLY_SANDBOXING        = 1 << 0,
+        EXEC_APPLY_CHROOT            = 1 << 1,
+        EXEC_APPLY_TTY_STDIN         = 1 << 2,
+        EXEC_PASS_LOG_UNIT           = 1 << 3,  /* Whether to pass the unit name to the service's journal stream connection */
+        EXEC_CHOWN_DIRECTORIES       = 1 << 4,  /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
+        EXEC_NSS_DYNAMIC_BYPASS      = 1 << 5,  /* Set the SYSTEMD_NSS_DYNAMIC_BYPASS environment variable, to disable nss-systemd blocking on PID 1, for use by dbus-daemon */
+        EXEC_CGROUP_DELEGATE         = 1 << 6,
+        EXEC_IS_CONTROL              = 1 << 7,
+        EXEC_CONTROL_CGROUP          = 1 << 8,  /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
+        EXEC_SETUP_CREDENTIALS       = 1 << 9,  /* Set up the credential store logic */
+        EXEC_SETUP_CREDENTIALS_FRESH = 1 << 10, /* Set up a new credential store (disable reuse) */
 
         /* The following are not used by execute.c, but by consumers internally */
-        EXEC_PASS_FDS              = 1 << 10,
-        EXEC_SETENV_RESULT         = 1 << 11,
-        EXEC_SET_WATCHDOG          = 1 << 12,
-        EXEC_SETENV_MONITOR_RESULT = 1 << 13, /* Pass exit status to OnFailure= and OnSuccess= dependencies. */
+        EXEC_PASS_FDS                = 1 << 11,
+        EXEC_SETENV_RESULT           = 1 << 12,
+        EXEC_SET_WATCHDOG            = 1 << 13,
+        EXEC_SETENV_MONITOR_RESULT   = 1 << 14, /* Pass exit status to OnFailure= and OnSuccess= dependencies. */
 } ExecFlags;
 
 /* Parameters for a specific invocation of a command. This structure is put together right before a command is
@@ -453,7 +454,8 @@ struct ExecParameters {
 
         char **files_env;
         int user_lookup_fd;
-        int bpf_outer_map_fd;
+
+        int bpf_restrict_fs_map_fd;
 
         /* Used for logging in the executor functions */
         char *unit_id;
@@ -461,16 +463,16 @@ struct ExecParameters {
         char invocation_id_string[SD_ID128_STRING_MAX];
 };
 
-#define EXEC_PARAMETERS_INIT(_flags)        \
-        (ExecParameters) {                  \
-                .flags = (_flags),          \
-                .stdin_fd         = -EBADF, \
-                .stdout_fd        = -EBADF, \
-                .stderr_fd        = -EBADF, \
-                .exec_fd          = -EBADF, \
-                .bpf_outer_map_fd = -EBADF, \
-                .user_lookup_fd   = -EBADF, \
-        };
+#define EXEC_PARAMETERS_INIT(_flags)              \
+        (ExecParameters) {                        \
+                .flags = (_flags),                \
+                .stdin_fd               = -EBADF, \
+                .stdout_fd              = -EBADF, \
+                .stderr_fd              = -EBADF, \
+                .exec_fd                = -EBADF, \
+                .bpf_restrict_fs_map_fd = -EBADF, \
+                .user_lookup_fd         = -EBADF, \
+        }
 
 #include "unit.h"
 #include "dynamic-user.h"
@@ -481,7 +483,7 @@ int exec_spawn(Unit *unit,
                ExecParameters *exec_params,
                ExecRuntime *runtime,
                const CGroupContext *cgroup_context,
-               pid_t *ret);
+               PidRef *ret);
 
 void exec_command_done(ExecCommand *c);
 void exec_command_done_array(ExecCommand *c, size_t n);
@@ -527,6 +529,7 @@ int exec_context_get_nice(const ExecContext *c);
 int exec_context_get_cpu_sched_policy(const ExecContext *c);
 int exec_context_get_cpu_sched_priority(const ExecContext *c);
 uint64_t exec_context_get_timer_slack_nsec(const ExecContext *c);
+bool exec_context_get_set_login_environment(const ExecContext *c);
 char** exec_context_get_syscall_filter(const ExecContext *c);
 char** exec_context_get_syscall_archs(const ExecContext *c);
 char** exec_context_get_syscall_log(const ExecContext *c);
@@ -613,23 +616,26 @@ bool exec_needs_ipc_namespace(const ExecContext *context);
 #define LOG_EXEC_INVOCATION_ID_FIELD_FORMAT(ep) \
         ((ep)->runtime_scope == RUNTIME_SCOPE_USER ? "USER_INVOCATION_ID=%s" : "INVOCATION_ID=%s")
 
-#define log_exec_full_errno_zerook(ec, ep, level, error, ...)             \
-        ({                                                                \
-                const ExecContext *_c = (ec);                             \
-                const ExecParameters *_p = (ep);                          \
-                const int _l = (level);                                   \
-                bool _do_log = !(log_get_max_level() < LOG_PRI(_l) ||     \
-                        !(_c->log_level_max < 0 ||                        \
-                        _c->log_level_max >= LOG_PRI(_l)));               \
-                LOG_CONTEXT_PUSH_IOV(_c->log_extra_fields,                \
-                                     _c->n_log_extra_fields);             \
-                !_do_log ? -ERRNO_VALUE(error) :                          \
-                        log_object_internal(_l, error, PROJECT_FILE,      \
-                        __LINE__, __func__,                               \
-                        LOG_EXEC_ID_FIELD(_p),                            \
-                        _p->unit_id,                                      \
-                        LOG_EXEC_INVOCATION_ID_FIELD(_p),                 \
-                        _p->invocation_id_string, ##__VA_ARGS__);         \
+/* Like LOG_MESSAGE(), but with the unit name prefixed. */
+#define LOG_EXEC_MESSAGE(ep, fmt, ...) LOG_MESSAGE("%s: " fmt, (ep)->unit_id, ##__VA_ARGS__)
+#define LOG_EXEC_ID(ep) LOG_EXEC_ID_FIELD_FORMAT(ep), (ep)->unit_id
+#define LOG_EXEC_INVOCATION_ID(ep) LOG_EXEC_INVOCATION_ID_FIELD_FORMAT(ep), (ep)->invocation_id_string
+
+#define log_exec_full_errno_zerook(ec, ep, level, error, ...)                     \
+        ({                                                                        \
+                const ExecContext *_c = (ec);                                     \
+                const ExecParameters *_p = (ep);                                  \
+                const int _l = (level);                                           \
+                bool _do_log = _c->log_level_max >= 0 &&                          \
+                               _c->log_level_max < LOG_PRI(_l);                   \
+                LOG_CONTEXT_PUSH_IOV(_c->log_extra_fields,                        \
+                                     _c->n_log_extra_fields);                     \
+                !_do_log ? -ERRNO_VALUE(error) :                                  \
+                        log_object_internal(_l, error,                            \
+                                            PROJECT_FILE, __LINE__, __func__,     \
+                                            LOG_EXEC_ID(_p),                      \
+                                            LOG_EXEC_INVOCATION_ID(_p),           \
+                                            ##__VA_ARGS__);                       \
         })
 
 #define log_exec_full_errno(ec, ep, level, error, ...)                            \
@@ -653,48 +659,29 @@ bool exec_needs_ipc_namespace(const ExecContext *context);
 #define log_exec_warning_errno(ec, ep, error, ...) log_exec_full_errno(ec, ep, LOG_WARNING, error, __VA_ARGS__)
 #define log_exec_error_errno(ec, ep, error, ...)   log_exec_full_errno(ec, ep, LOG_ERR, error, __VA_ARGS__)
 
-#define log_exec_struct_errno(ec, ep, level, error, ...)                                                      \
-        ({                                                                                                    \
-                const ExecContext *_c = (ec);                                                                 \
-                const ExecParameters *_p = (ep);                                                              \
-                const int _l = (level);                                                                       \
-                bool _do_log = !(_c->log_level_max < 0 ||                                                     \
-                                 _c->log_level_max >= LOG_PRI(_l));                                           \
-                LOG_CONTEXT_PUSH_IOV(_c->log_extra_fields,                                                    \
-                                     _c->n_log_extra_fields);                                                 \
-                _do_log ?                                                                                     \
-                        log_struct_errno(_l, error, __VA_ARGS__, LOG_EXEC_ID_FIELD_FORMAT(_p), _p->unit_id) : \
-                        -ERRNO_VALUE(error);                            \
+#define log_exec_struct_errno(ec, ep, level, error, ...)                          \
+        ({                                                                        \
+                const ExecContext *_c = (ec);                                     \
+                const ExecParameters *_p = (ep);                                  \
+                const int _l = (level);                                           \
+                bool _do_log = _c->log_level_max >= 0 &&                          \
+                               _c->log_level_max < LOG_PRI(_l);                   \
+                LOG_CONTEXT_PUSH_IOV(_c->log_extra_fields,                        \
+                                     _c->n_log_extra_fields);                     \
+                !_do_log ? -ERRNO_VALUE(error) :                                  \
+                        log_struct_errno(_l, error,                               \
+                                         LOG_EXEC_ID(_p),                         \
+                                         LOG_EXEC_INVOCATION_ID(_p),              \
+                                         __VA_ARGS__);                            \
         })
 
 #define log_exec_struct(ec, ep, level, ...) log_exec_struct_errno(ec, ep, level, 0, __VA_ARGS__)
 
-#define log_exec_struct_iovec_errno(ec, ep, level, error, iovec, n_iovec)   \
-        ({                                                                  \
-                const ExecContext *_c = (ec);                               \
-                const ExecParameters *_p = (ep);                            \
-                const int _l = (level);                                     \
-                bool _do_log = !(_c->log_level_max < 0 ||                   \
-                                 _c->log_level_max >= LOG_PRI(_l));         \
-                LOG_CONTEXT_PUSH_IOV(_c->log_extra_fields,                  \
-                                     _c->n_log_extra_fields);               \
-                _do_log ?                                                   \
-                        log_struct_iovec_errno(_l, error, iovec, n_iovec) : \
-                        -ERRNO_VALUE(error);                                \
-        })
-
-#define log_exec_struct_iovec(ec, ep, level, iovec, n_iovec) log_exec_struct_iovec_errno(ec, ep, level, 0, iovec, n_iovec)
-
-/* Like LOG_MESSAGE(), but with the unit name prefixed. */
-#define LOG_EXEC_MESSAGE(ep, fmt, ...) LOG_MESSAGE("%s: " fmt, (ep)->unit_id, ##__VA_ARGS__)
-#define LOG_EXEC_ID(ep) LOG_EXEC_ID_FIELD_FORMAT(ep), (ep)->unit_id
-#define LOG_EXEC_INVOCATION_ID(ep) LOG_EXEC_INVOCATION_ID_FIELD_FORMAT(ep), (ep)->invocation_id_string
-
-#define _LOG_CONTEXT_PUSH_EXEC(ec, ep, p, c)                                                  \
-        const ExecContext *c = (ec);                                                          \
-        const ExecParameters *p = (ep);                                                       \
+#define _LOG_CONTEXT_PUSH_EXEC(ec, ep, p, c)                                                       \
+        const ExecContext *c = (ec);                                                               \
+        const ExecParameters *p = (ep);                                                            \
         LOG_CONTEXT_PUSH_KEY_VALUE(LOG_EXEC_ID_FIELD(p), p->unit_id);                              \
-        LOG_CONTEXT_PUSH_KEY_VALUE(LOG_EXEC_INVOCATION_ID_FIELD(p), p->invocation_id_string); \
+        LOG_CONTEXT_PUSH_KEY_VALUE(LOG_EXEC_INVOCATION_ID_FIELD(p), p->invocation_id_string);      \
         LOG_CONTEXT_PUSH_IOV(c->log_extra_fields, c->n_log_extra_fields)
 
 #define LOG_CONTEXT_PUSH_EXEC(ec, ep) \

@@ -7,7 +7,7 @@
  * http://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml.
  */
 enum {
-        /* Normal records */
+        /* 0 is reserved */
         DNS_TYPE_A          = 0x01,
         DNS_TYPE_NS,
         DNS_TYPE_MD,
@@ -60,7 +60,8 @@ enum {
         DNS_TYPE_NSEC3,
         DNS_TYPE_NSEC3PARAM,
         DNS_TYPE_TLSA,
-
+        DNS_TYPE_SMIMEA, /* RFC 8162 */
+        /* 0x36 (54) is not assigned */
         DNS_TYPE_HIP        = 0x37,
         DNS_TYPE_NINFO,
         DNS_TYPE_RKEY,
@@ -68,15 +69,23 @@ enum {
         DNS_TYPE_CDS,
         DNS_TYPE_CDNSKEY,
         DNS_TYPE_OPENPGPKEY,
-
+        DNS_TYPE_CSYNC,
+        DNS_TYPE_ZONEMD,
+        DNS_TYPE_SVCB, /* RFC 9460 */
+        DNS_TYPE_HTTPS, /* RFC 9460 */
+        /* 0x42…0x62 (66…98) are not assigned */
         DNS_TYPE_SPF        = 0x63,
+        DNS_TYPE_UINFO,
+        DNS_TYPE_UID,
+        DNS_TYPE_GID,
+        DNS_TYPE_UNSPEC,
         DNS_TYPE_NID,
         DNS_TYPE_L32,
         DNS_TYPE_L64,
         DNS_TYPE_LP,
         DNS_TYPE_EUI48,
         DNS_TYPE_EUI64,
-
+        /* 0x6e…0xf8 (110…248) are not assigned */
         DNS_TYPE_TKEY       = 0xF9,
         DNS_TYPE_TSIG,
         DNS_TYPE_IXFR,
@@ -86,15 +95,24 @@ enum {
         DNS_TYPE_ANY,
         DNS_TYPE_URI,
         DNS_TYPE_CAA,
+        DNS_TYPE_AVC,
+        DNS_TYPE_DOA,
+        DNS_TYPE_AMTRELAY,
+        DNS_TYPE_RESINFO,
+        /* 0x106…0x7fff (262…32767) are not assigned */
         DNS_TYPE_TA         = 0x8000,
         DNS_TYPE_DLV,
-
+        /* 32770…65279 are not assigned */
+        /* 65280…65534 are for private use */
+        /* 65535 is reserved */
         _DNS_TYPE_MAX,
         _DNS_TYPE_INVALID = -EINVAL,
 };
 
-assert_cc(DNS_TYPE_SSHFP == 44);
-assert_cc(DNS_TYPE_TLSA == 52);
+assert_cc(DNS_TYPE_SMIMEA == 53);
+assert_cc(DNS_TYPE_HTTPS == 65);
+assert_cc(DNS_TYPE_EUI64 == 109);
+assert_cc(DNS_TYPE_RESINFO == 261);
 assert_cc(DNS_TYPE_ANY == 255);
 
 /* DNS record classes, see RFC 1035 */
@@ -118,7 +136,7 @@ bool dns_type_is_obsolete(uint16_t type);
 bool dns_type_may_wildcard(uint16_t type);
 bool dns_type_apex_only(uint16_t type);
 bool dns_type_needs_authentication(uint16_t type);
-bool dns_type_is_zone_transer(uint16_t type);
+bool dns_type_is_zone_transfer(uint16_t type);
 int dns_type_to_af(uint16_t type);
 
 bool dns_class_is_pseudo(uint16_t class);

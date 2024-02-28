@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-analyze" conditional='ENABLE_ANALYZE'
@@ -136,13 +136,13 @@
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">verify</arg>
-      <arg choice="opt" rep="repeat"><replaceable>FILE</replaceable></arg>
+      <arg choice="plain" rep="repeat"><replaceable>FILE</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">security</arg>
-      <arg choice="plain" rep="repeat"><replaceable>UNIT</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>UNIT</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
@@ -160,7 +160,7 @@
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">fdstore</arg>
-      <arg choice="opt" rep="repeat"><replaceable>UNIT</replaceable></arg>
+      <arg choice="plain" rep="repeat"><replaceable>UNIT</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
@@ -177,7 +177,14 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <arg choice="plain">srk</arg> &gt;<arg choice="plain"><replaceable>FILE</replaceable></arg>
+      <arg choice="plain">srk</arg>
+      <arg choice="opt"><replaceable>&gt;FILE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">architectures</arg>
+      <arg choice="opt" rep="repeat"><replaceable>NAME</replaceable></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -833,7 +840,7 @@ alias.service:7: Unknown key name 'MysteryKey' in section 'Service', ignoring.
     </refsect2>
 
     <refsect2>
-      <title><command>systemd-analyze fdstore <optional><replaceable>UNIT</replaceable>...</optional></command></title>
+      <title><command>systemd-analyze fdstore <replaceable>UNIT</replaceable>...</command></title>
 
       <para>Lists the current contents of the specified service unit's file descriptor store. This shows
       names, inode types, device numbers, inode numbers, paths and open modes of the open file
@@ -862,7 +869,7 @@ stored sock 0:8   4213190 -      socket:[4213190] ro
     </refsect2>
 
     <refsect2>
-      <title><command>systemd-analyze image-policy <optional><replaceable>POLICY</replaceable>…</optional></command></title>
+      <title><command>systemd-analyze image-policy <replaceable>POLICY</replaceable>…</command></title>
 
       <para>This command analyzes the specified image policy string, as per
       <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
@@ -933,12 +940,43 @@ NR NAME                SHA256
     </refsect2>
 
     <refsect2>
-      <title><command>systemd-analyze srk &gt; <replaceable>FILE</replaceable></command></title>
+      <title><command>systemd-analyze srk <optional>&gt;<replaceable>FILE</replaceable></optional></command></title>
 
       <para>This command reads the Storage Root Key (SRK) from the TPM2 device, and writes it in marshalled
-      TPM2B_PUBLIC format to stdout. Example:</para>
+      TPM2B_PUBLIC format to stdout. The output is non-printable data, so it should be redirected to a file
+      or into a pipe.</para>
 
-      <programlisting>systemd-analyze srk &gt; srk.tpm2b_public</programlisting>
+      <example>
+        <title>Save the Storage Root Key to <filename>srk.tpm2b_public</filename></title>
+
+        <programlisting>systemd-analyze srk &gt;srk.tpm2b_public</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze architectures <optional><replaceable>NAME</replaceable>...</optional></command></title>
+
+      <para>Lists all known CPU architectures, and which ones are native. The listed architecture names are
+      those <varname>ConditionArchitecture=</varname> supports, see
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+      details. If architecture names are specified only those specified are listed.</para>
+
+      <example>
+        <title>Table output</title>
+        <programlisting>$ systemd-analyze architectures
+NAME        SUPPORT
+alpha       foreign
+arc         foreign
+arc-be      foreign
+arm         foreign
+arm64       foreign
+…
+sparc       foreign
+sparc64     foreign
+tilegx      foreign
+x86         secondary
+x86-64      native</programlisting>
+      </example>
     </refsect2>
 
   </refsect1>
@@ -1075,8 +1113,10 @@ NR NAME                SHA256
       <varlistentry>
         <term><option>--root=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>With <command>cat-files</command> and <command>verify</command>,
-        operate on files underneath the specified root path <replaceable>PATH</replaceable>.</para>
+        <listitem><para>With <command>cat-config</command>, <command>verify</command>,
+        <command>condition</command> and <command>security</command> when used with
+        <option>--offline=</option>, operate on files underneath the specified root path
+        <replaceable>PATH</replaceable>.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
@@ -1084,8 +1124,10 @@ NR NAME                SHA256
       <varlistentry>
         <term><option>--image=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>With <command>cat-files</command> and <command>verify</command>,
-        operate on files inside the specified image path <replaceable>PATH</replaceable>.</para>
+        <listitem><para>With <command>cat-config</command>, <command>verify</command>,
+        <command>condition</command> and <command>security</command> when used with
+        <option>--offline=</option>, operate on files inside the specified image path
+        <replaceable>PATH</replaceable>.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
@@ -1481,6 +1523,7 @@ NR NAME                SHA256
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
       <varlistentry>
+        <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 
         <listitem><para>Suppress hints and other non-essential output.</para>
@@ -1584,10 +1627,10 @@ NR NAME                SHA256
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 
 </refentry>

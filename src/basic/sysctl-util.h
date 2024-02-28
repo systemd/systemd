@@ -19,6 +19,13 @@ static inline int sysctl_write_ip_property_boolean(int af, const char *ifname, c
         return sysctl_write_ip_property(af, ifname, property, one_zero(value));
 }
 
+int sysctl_write_ip_neighbor_property(int af, const char *ifname, const char *property, const char *value);
+static inline int sysctl_write_ip_neighbor_property_uint32(int af, const char *ifname, const char *property, uint32_t value) {
+        char buf[DECIMAL_STR_MAX(uint32_t)];
+        xsprintf(buf, "%u", value);
+        return sysctl_write_ip_neighbor_property(af, ifname, property, buf);
+}
+
 #define DEFINE_SYSCTL_WRITE_IP_PROPERTY(name, type, format)           \
         static inline int sysctl_write_ip_property_##name(int af, const char *ifname, const char *property, type value) { \
                 char buf[DECIMAL_STR_MAX(type)];                        \

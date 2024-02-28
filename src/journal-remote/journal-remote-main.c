@@ -374,7 +374,7 @@ static int setup_microhttpd_server(RemoteServer *s,
                 { MHD_OPTION_EXTERNAL_LOGGER, (intptr_t) microhttpd_logger},
                 { MHD_OPTION_NOTIFY_COMPLETED, (intptr_t) request_meta_free},
                 { MHD_OPTION_LISTEN_SOCKET, fd},
-                { MHD_OPTION_CONNECTION_MEMORY_LIMIT, 128*1024},
+                { MHD_OPTION_CONNECTION_MEMORY_LIMIT, JOURNAL_SERVER_MEMORY_MAX},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
                 { MHD_OPTION_END},
@@ -540,7 +540,7 @@ static int setup_signals(RemoteServer *s) {
 
         assert(s);
 
-        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM) >= 0);
 
         r = sd_event_add_signal(s->events, &s->sigterm_event, SIGTERM, NULL, s);
         if (r < 0)

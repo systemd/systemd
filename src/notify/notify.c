@@ -99,6 +99,18 @@ static pid_t manager_pid(void) {
         return pid;
 }
 
+static pid_t pid_parent_if_possible(void) {
+        pid_t parent_pid = getppid();
+
+        /* Don't send from PID 1 or the service manager's PID (which might be distinct from 1, if we are a
+         * --user service). That'd just be confusing for the service manager. */
+        if (parent_pid <= 1 ||
+            parent_pid == manager_pid())
+                return getpid_cached();
+
+        return parent_pid;
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -135,7 +147,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         _cleanup_fdset_free_ FDSet *passed = NULL;
         bool do_exec = false;
-        int c, r, n_env;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -163,16 +175,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PID:
-                        if (isempty(optarg) || streq(optarg, "auto")) {
-                                arg_pid = getppid();
-
-                                if (arg_pid <= 1 ||
-                                    arg_pid == manager_pid()) /* Don't send from PID 1 or the service
-                                                               * manager's PID (which might be distinct from
-                                                               * 1, if we are a --user instance), that'd just
-                                                               * be confusing for the service manager */
-                                        arg_pid = getpid_cached();
-                        } else if (streq(optarg, "parent"))
+                        if (isempty(optarg) || streq(optarg, "auto"))
+                                arg_pid = pid_parent_if_possible();
+                        else if (streq(optarg, "parent"))
                                 arg_pid = getppid();
                         else if (streq(optarg, "self"))
                                 arg_pid = getpid_cached();
@@ -225,10 +230,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 r = fdset_new_fill(/* filter_cloexec= */ 0, &passed);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to take possession of passed file descriptors: %m");
-
-                                r = fdset_cloexec(passed, true);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to enable O_CLOEXEC for passed file descriptors: %m");
                         }
 
                         if (fdnr < 3) {
@@ -272,20 +273,11 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (optind >= argc &&
-            !arg_ready &&
-            !arg_stopping &&
-            !arg_reloading &&
-            !arg_status &&
-            !arg_pid &&
-            !arg_booted &&
-            fdset_isempty(arg_fds)) {
-                help();
-                return -EINVAL;
-        }
-
         if (arg_fdname && fdset_isempty(arg_fds))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No file descriptors passed, but --fdname= set, refusing.");
+
+        bool have_env = arg_ready || arg_stopping || arg_reloading || arg_status || arg_pid > 0 || !fdset_isempty(arg_fds);
+        size_t n_arg_env;
 
         if (do_exec) {
                 int i;
@@ -297,18 +289,32 @@ static int parse_argv(int argc, char *argv[]) {
                 if (i >= argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "If --exec is used argument list must contain ';' separator, refusing.");
                 if (i+1 == argc)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty command line specified after ';' separator, refusing");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty command line specified after ';' separator, refusing.");
 
                 arg_exec = strv_copy_n(argv + i + 1, argc - i - 1);
                 if (!arg_exec)
                         return log_oom();
 
-                n_env = i - optind;
+                n_arg_env = i - optind;
         } else
-                n_env = argc - optind;
+                n_arg_env = argc - optind;
 
-        if (n_env > 0) {
-                arg_env = strv_copy_n(argv + optind, n_env);
+        have_env = have_env || n_arg_env > 0;
+
+        if (!have_env && !arg_booted) {
+                if (do_exec)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No notify message specified while --exec, refusing.");
+
+                /* No argument at all? */
+                help();
+                return -EINVAL;
+        }
+
+        if (have_env && arg_booted)
+                log_warning("Notify message specified along with --booted, ignoring.");
+
+        if (n_arg_env > 0) {
+                arg_env = strv_copy_n(argv + optind, n_arg_env);
                 if (!arg_env)
                         return log_oom();
         }
@@ -320,16 +326,13 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char* argv[]) {
-        _cleanup_free_ char *status = NULL, *cpid = NULL, *n = NULL, *monotonic_usec = NULL, *fdn = NULL;
+        _cleanup_free_ char *status = NULL, *cpid = NULL, *msg = NULL, *monotonic_usec = NULL, *fdn = NULL;
         _cleanup_strv_free_ char **final_env = NULL;
-        char* our_env[9];
+        const char *our_env[9];
         size_t i = 0;
-        pid_t source_pid;
         int r;
 
-        log_show_color(true);
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -346,7 +349,7 @@ static int run(int argc, char* argv[]) {
         }
 
         if (arg_reloading) {
-                our_env[i++] = (char*) "RELOADING=1";
+                our_env[i++] = "RELOADING=1";
 
                 if (asprintf(&monotonic_usec, "MONOTONIC_USEC=" USEC_FMT, now(CLOCK_MONOTONIC)) < 0)
                         return log_oom();
@@ -355,10 +358,10 @@ static int run(int argc, char* argv[]) {
         }
 
         if (arg_ready)
-                our_env[i++] = (char*) "READY=1";
+                our_env[i++] = "READY=1";
 
         if (arg_stopping)
-                our_env[i++] = (char*) "STOPPING=1";
+                our_env[i++] = "STOPPING=1";
 
         if (arg_status) {
                 status = strjoin("STATUS=", arg_status);
@@ -376,7 +379,7 @@ static int run(int argc, char* argv[]) {
         }
 
         if (!fdset_isempty(arg_fds)) {
-                our_env[i++] = (char*) "FDSTORE=1";
+                our_env[i++] = "FDSTORE=1";
 
                 if (arg_fdname) {
                         fdn = strjoin("FDNAME=", arg_fdname);
@@ -389,15 +392,13 @@ static int run(int argc, char* argv[]) {
 
         our_env[i++] = NULL;
 
-        final_env = strv_env_merge(our_env, arg_env);
+        final_env = strv_env_merge((char**) our_env, arg_env);
         if (!final_env)
                 return log_oom();
+        assert(!strv_isempty(final_env));
 
-        if (strv_isempty(final_env))
-                return 0;
-
-        n = strv_join(final_env, "\n");
-        if (!n)
+        msg = strv_join(final_env, "\n");
+        if (!msg)
                 return log_oom();
 
         /* If this is requested change to the requested UID/GID. Note that we only change the real UID here, and leave
@@ -412,20 +413,13 @@ static int run(int argc, char* argv[]) {
             setreuid(arg_uid, UID_INVALID) < 0)
                 return log_error_errno(errno, "Failed to change UID: %m");
 
-        if (arg_pid > 0)
-                source_pid = arg_pid;
-        else {
-                /* Pretend the message originates from our parent, given that we are typically called from a
-                 * shell script, i.e. we are not the main process of a service but only a child of it. */
-                source_pid = getppid();
-                if (source_pid <= 1 ||
-                    source_pid == manager_pid()) /* safety check: don't claim we'd send anything from PID 1
-                                                  * or the service manager itself */
-                        source_pid = 0;
-        }
+        /* If --pid= is explicitly specified, use it as source pid. Otherwise, pretend the message originates
+         * from our parent, i.e. --pid=auto */
+        if (arg_pid <= 0)
+                arg_pid = pid_parent_if_possible();
 
         if (fdset_isempty(arg_fds))
-                r = sd_pid_notify(source_pid, /* unset_environment= */ false, n);
+                r = sd_pid_notify(arg_pid, /* unset_environment= */ false, msg);
         else {
                 _cleanup_free_ int *a = NULL;
                 int k;
@@ -434,7 +428,7 @@ static int run(int argc, char* argv[]) {
                 if (k < 0)
                         return log_error_errno(k, "Failed to convert file descriptor set to array: %m");
 
-                r = sd_pid_notify_with_fds(source_pid, /* unset_environment= */ false, n, a, k);
+                r = sd_pid_notify_with_fds(arg_pid, /* unset_environment= */ false, msg, a, k);
 
         }
         if (r < 0)
@@ -446,7 +440,7 @@ static int run(int argc, char* argv[]) {
         arg_fds = fdset_free(arg_fds); /* Close before we execute anything */
 
         if (!arg_no_block) {
-                r = sd_pid_notify_barrier(source_pid, /* unset_environment= */ false, 5 * USEC_PER_SEC);
+                r = sd_pid_notify_barrier(arg_pid, /* unset_environment= */ false, 5 * USEC_PER_SEC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to invoke barrier: %m");
                 if (r == 0)
@@ -455,15 +449,10 @@ static int run(int argc, char* argv[]) {
         }
 
         if (arg_exec) {
-                _cleanup_free_ char *cmdline = NULL;
-
                 execvp(arg_exec[0], arg_exec);
 
-                cmdline = strv_join(arg_exec, " ");
-                if (!cmdline)
-                        return log_oom();
-
-                return log_error_errno(errno, "Failed to execute command line: %s", cmdline);
+                _cleanup_free_ char *cmdline = strv_join(arg_exec, " ");
+                return log_error_errno(errno, "Failed to execute command line: %s", strnull(cmdline));
         }
 
         /* The DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE() boilerplate will send the exit status via

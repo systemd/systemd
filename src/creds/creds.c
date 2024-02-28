@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "build.h"
+#include "bus-polkit.h"
 #include "creds-util.h"
 #include "dirent-util.h"
 #include "escape.h"
@@ -24,6 +25,9 @@
 #include "terminal-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
+#include "user-util.h"
+#include "varlink.h"
+#include "varlink-io.systemd.Credentials.h"
 #include "verbs.h"
 
 typedef enum TranscodeMode {
@@ -54,6 +58,8 @@ static usec_t arg_timestamp = USEC_INFINITY;
 static usec_t arg_not_after = USEC_INFINITY;
 static bool arg_pretty = false;
 static bool arg_quiet = false;
+static bool arg_varlink = false;
+static uid_t arg_uid = UID_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
@@ -228,7 +234,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No credentials passed. (i.e. $CREDENTIALS_DIRECTORY not set.)");
         }
 
-        if ((arg_json_format_flags & JSON_FORMAT_OFF) && table_get_rows(t) <= 1) {
+        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) && table_isempty(t)) {
                 log_info("No credentials");
                 return 0;
         }
@@ -311,7 +317,7 @@ static int print_newline(FILE *f, const char *data, size_t l) {
 
         /* Don't bother unless this is a tty */
         fd = fileno(f);
-        if (fd >= 0 && isatty(fd) <= 0)
+        if (fd >= 0 && !isatty_safe(fd))
                 return 0;
 
         if (fputc('\n', f) != '\n')
@@ -350,14 +356,15 @@ static int write_blob(FILE *f, const void *data, size_t size) {
         }
 
         if (fwrite(data, 1, size, f) != size)
-                return log_error_errno(errno, "Failed to write credential data: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write credential data.");
 
         r = print_newline(f, data, size);
         if (r < 0)
                 return r;
 
-        if (fflush(f) != 0)
-                return log_error_errno(errno, "Failed to flush output: %m");
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to flush output: %m");
 
         return 0;
 }
@@ -415,22 +422,32 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                 }
 
                 if (encrypted) {
-                        _cleanup_(erase_and_freep) void *plaintext = NULL;
-                        size_t plaintext_size;
+                        _cleanup_(iovec_done_erase) struct iovec plaintext = {};
 
-                        r = decrypt_credential_and_warn(
-                                        *cn,
-                                        timestamp,
-                                        arg_tpm2_device,
-                                        arg_tpm2_signature,
-                                        data, size,
-                                        &plaintext, &plaintext_size);
+                        if (geteuid() != 0)
+                                r = ipc_decrypt_credential(
+                                                *cn,
+                                                timestamp,
+                                                uid_is_valid(arg_uid) ? arg_uid : getuid(),
+                                                &IOVEC_MAKE(data, size),
+                                                CREDENTIAL_ANY_SCOPE,
+                                                &plaintext);
+                        else
+                                r = decrypt_credential_and_warn(
+                                                *cn,
+                                                timestamp,
+                                                arg_tpm2_device,
+                                                arg_tpm2_signature,
+                                                uid_is_valid(arg_uid) ? arg_uid : getuid(),
+                                                &IOVEC_MAKE(data, size),
+                                                CREDENTIAL_ANY_SCOPE,
+                                                &plaintext);
                         if (r < 0)
                                 return r;
 
                         erase_and_free(data);
-                        data = TAKE_PTR(plaintext);
-                        size = plaintext_size;
+                        data = TAKE_PTR(plaintext.iov_base);
+                        size = plaintext.iov_len;
                 }
 
                 r = write_blob(stdout, data, size);
@@ -442,11 +459,9 @@ static int verb_cat(int argc, char **argv, void *userdata) {
 }
 
 static int verb_encrypt(int argc, char **argv, void *userdata) {
+        _cleanup_(iovec_done_erase) struct iovec plaintext = {}, output = {};
         _cleanup_free_ char *base64_buf = NULL, *fname = NULL;
-        _cleanup_(erase_and_freep) char *plaintext = NULL;
         const char *input_path, *output_path, *name;
-        _cleanup_free_ void *output = NULL;
-        size_t plaintext_size, output_size;
         ssize_t base64_size;
         usec_t timestamp;
         int r;
@@ -456,9 +471,9 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
         input_path = empty_or_dash(argv[1]) ? NULL : argv[1];
 
         if (input_path)
-                r = read_full_file_full(AT_FDCWD, input_path, UINT64_MAX, CREDENTIAL_SIZE_MAX, READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &plaintext, &plaintext_size);
+                r = read_full_file_full(AT_FDCWD, input_path, UINT64_MAX, CREDENTIAL_SIZE_MAX, READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, (char**) &plaintext.iov_base, &plaintext.iov_len);
         else
-                r = read_full_stream_full(stdin, NULL, UINT64_MAX, CREDENTIAL_SIZE_MAX, READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER, &plaintext, &plaintext_size);
+                r = read_full_stream_full(stdin, NULL, UINT64_MAX, CREDENTIAL_SIZE_MAX, READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER, (char**) &plaintext.iov_base, &plaintext.iov_len);
         if (r == -E2BIG)
                 return log_error_errno(r, "Plaintext too long for credential (allowed size: %zu).", (size_t) CREDENTIAL_SIZE_MAX);
         if (r < 0)
@@ -488,21 +503,33 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
         if (arg_not_after != USEC_INFINITY && arg_not_after < timestamp)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential is invalidated before it is valid.");
 
-        r = encrypt_credential_and_warn(
-                        arg_with_key,
-                        name,
-                        timestamp,
-                        arg_not_after,
-                        arg_tpm2_device,
-                        arg_tpm2_pcr_mask,
-                        arg_tpm2_public_key,
-                        arg_tpm2_public_key_pcr_mask,
-                        plaintext, plaintext_size,
-                        &output, &output_size);
+        if (geteuid() != 0)
+                r = ipc_encrypt_credential(
+                                name,
+                                timestamp,
+                                arg_not_after,
+                                arg_uid,
+                                &plaintext,
+                                /* flags= */ 0,
+                                &output);
+        else
+                r = encrypt_credential_and_warn(
+                                arg_with_key,
+                                name,
+                                timestamp,
+                                arg_not_after,
+                                arg_tpm2_device,
+                                arg_tpm2_pcr_mask,
+                                arg_tpm2_public_key,
+                                arg_tpm2_public_key_pcr_mask,
+                                arg_uid,
+                                &plaintext,
+                                /* flags= */ 0,
+                                &output);
         if (r < 0)
                 return r;
 
-        base64_size = base64mem_full(output, output_size, arg_pretty ? 69 : 79, &base64_buf);
+        base64_size = base64mem_full(output.iov_base, output.iov_len, arg_pretty ? 69 : 79, &base64_buf);
         if (base64_size < 0)
                 return base64_size;
 
@@ -538,11 +565,10 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
 }
 
 static int verb_decrypt(int argc, char **argv, void *userdata) {
-        _cleanup_(erase_and_freep) void *plaintext = NULL;
-        _cleanup_free_ char *input = NULL, *fname = NULL;
+        _cleanup_(iovec_done_erase) struct iovec input = {}, plaintext = {};
+        _cleanup_free_ char *fname = NULL;
         _cleanup_fclose_ FILE *output_file = NULL;
         const char *input_path, *output_path, *name;
-        size_t input_size, plaintext_size;
         usec_t timestamp;
         FILE *f;
         int r;
@@ -552,9 +578,9 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
         input_path = empty_or_dash(argv[1]) ? NULL : argv[1];
 
         if (input_path)
-                r = read_full_file_full(AT_FDCWD, argv[1], UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX, READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &input, &input_size);
+                r = read_full_file_full(AT_FDCWD, argv[1], UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX, READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, (char**) &input, &input.iov_len);
         else
-                r = read_full_stream_full(stdin, NULL, UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX, READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER, &input, &input_size);
+                r = read_full_stream_full(stdin, NULL, UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX, READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER, (char**) &input, &input.iov_len);
         if (r == -E2BIG)
                 return log_error_errno(r, "Data too long for encrypted credential (allowed size: %zu).", (size_t) CREDENTIAL_ENCRYPTED_SIZE_MAX);
         if (r < 0)
@@ -581,13 +607,24 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
 
         timestamp = arg_timestamp != USEC_INFINITY ? arg_timestamp : now(CLOCK_REALTIME);
 
-        r = decrypt_credential_and_warn(
-                        name,
-                        timestamp,
-                        arg_tpm2_device,
-                        arg_tpm2_signature,
-                        input, input_size,
-                        &plaintext, &plaintext_size);
+        if (geteuid() != 0)
+                r = ipc_decrypt_credential(
+                                name,
+                                timestamp,
+                                arg_uid,
+                                &input,
+                                /* flags= */ 0,
+                                &plaintext);
+        else
+                r = decrypt_credential_and_warn(
+                                name,
+                                timestamp,
+                                arg_tpm2_device,
+                                arg_tpm2_signature,
+                                arg_uid,
+                                &input,
+                                /* flags= */ 0,
+                                &plaintext);
         if (r < 0)
                 return r;
 
@@ -600,7 +637,7 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
         } else
                 f = stdout;
 
-        r = write_blob(f, plaintext, plaintext_size);
+        r = write_blob(f, plaintext.iov_base, plaintext.iov_len);
         if (r < 0)
                 return r;
 
@@ -608,14 +645,14 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
 }
 
 static int verb_setup(int argc, char **argv, void *userdata) {
-        size_t size;
+        _cleanup_(iovec_done_erase) struct iovec host_key = {};
         int r;
 
-        r = get_credential_host_secret(CREDENTIAL_SECRET_GENERATE|CREDENTIAL_SECRET_WARN_NOT_ENCRYPTED, NULL, &size);
+        r = get_credential_host_secret(CREDENTIAL_SECRET_GENERATE|CREDENTIAL_SECRET_WARN_NOT_ENCRYPTED, &host_key);
         if (r < 0)
                 return log_error_errno(r, "Failed to setup credentials host key: %m");
 
-        log_info("%zu byte credentials host key set up.", size);
+        log_info("%zu byte credentials host key set up.", host_key.iov_len);
 
         return EXIT_SUCCESS;
 }
@@ -702,6 +739,8 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "                          Specify TPM2 PCRs to seal against (public key)\n"
                "     --tpm2-signature=PATH\n"
                "                          Specify signature for public key PCR policy\n"
+               "     --user               Select user-scoped credential encryption\n"
+               "     --uid=UID            Select user for scoped credentials\n"
                "  -q --quiet              Suppress output for 'has-tpm2' verb\n"
                "\nSee the %2$s for details.\n"
                , program_invocation_short_name
@@ -732,6 +771,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NAME,
                 ARG_TIMESTAMP,
                 ARG_NOT_AFTER,
+                ARG_USER,
+                ARG_UID,
         };
 
         static const struct option options[] = {
@@ -754,6 +795,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "timestamp",            required_argument, NULL, ARG_TIMESTAMP            },
                 { "not-after",            required_argument, NULL, ARG_NOT_AFTER            },
                 { "quiet",                no_argument,       NULL, 'q'                      },
+                { "user",                 no_argument,       NULL, ARG_USER                 },
+                { "uid",                  required_argument, NULL, ARG_UID                  },
                 {}
         };
 
@@ -837,8 +880,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC;
                         else if (STR_IN_SET(optarg, "host+tpm2-with-public-key", "tpm2-with-public-key+host"))
                                 arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK;
-                        else if (streq(optarg, "tpm2-absent"))
-                                arg_with_key = CRED_AES256_GCM_BY_TPM2_ABSENT;
+                        else if (STR_IN_SET(optarg, "null", "tpm2-absent"))
+                                arg_with_key = CRED_AES256_GCM_BY_NULL;
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown key type: %s", optarg);
 
@@ -915,6 +958,32 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_USER:
+                        if (!uid_is_valid(arg_uid))
+                                arg_uid = getuid();
+
+                        break;
+
+                case ARG_UID:
+                        if (isempty(optarg))
+                                arg_uid = UID_INVALID;
+                        else if (streq(optarg, "self"))
+                                arg_uid = getuid();
+                        else {
+                                const char *name = optarg;
+
+                                r = get_user_creds(
+                                                &name,
+                                                &arg_uid,
+                                                /* ret_gid= */ NULL,
+                                                /* ret_home= */ NULL,
+                                                /* ret_shell= */ NULL,
+                                                /* flags= */ 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to resolve user '%s': %m", optarg);
+                        }
+                        break;
+
                 case 'q':
                         arg_quiet = true;
                         break;
@@ -927,10 +996,30 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
+        if (uid_is_valid(arg_uid)) {
+                /* If a UID is specified, then switch to scoped credentials */
+
+                if (sd_id128_equal(arg_with_key, _CRED_AUTO))
+                        arg_with_key = _CRED_AUTO_SCOPED;
+                else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST, CRED_AES256_GCM_BY_HOST_SCOPED))
+                        arg_with_key = CRED_AES256_GCM_BY_HOST_SCOPED;
+                else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED))
+                        arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED;
+                else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED))
+                        arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED;
+                else
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Selected key not available in --uid= scoped mode, refusing.");
+        }
+
         if (arg_tpm2_pcr_mask == UINT32_MAX)
                 arg_tpm2_pcr_mask = TPM2_PCR_MASK_DEFAULT;
         if (arg_tpm2_public_key_pcr_mask == UINT32_MAX)
                 arg_tpm2_public_key_pcr_mask = UINT32_C(1) << TPM2_PCR_KERNEL_BOOT;
+
+        r = varlink_invocation(VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        arg_varlink = r;
 
         return 1;
 }
@@ -951,6 +1040,314 @@ static int creds_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
+#define TIMESTAMP_FRESH_MAX (30*USEC_PER_SEC)
+
+static bool timestamp_is_fresh(usec_t x) {
+        usec_t n = now(CLOCK_REALTIME);
+
+        /* We'll only allow unprivileged encryption/decryption for somehwhat "fresh" timestamps */
+
+        if (x > n)
+                return x - n <= TIMESTAMP_FRESH_MAX;
+        else
+                return n - x <= TIMESTAMP_FRESH_MAX;
+}
+
+typedef enum CredentialScope {
+        CREDENTIAL_SYSTEM,
+        CREDENTIAL_USER,
+        /* One day we should add more here, for example, per-app/per-service credentials */
+        _CREDENTIAL_SCOPE_MAX,
+        _CREDENTIAL_SCOPE_INVALID = -EINVAL,
+} CredentialScope;
+
+static const char* credential_scope_table[_CREDENTIAL_SCOPE_MAX] = {
+        [CREDENTIAL_SYSTEM] = "system",
+        [CREDENTIAL_USER]   = "user",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(credential_scope, CredentialScope);
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_credential_scope, CredentialScope, credential_scope_from_string);
+
+typedef struct MethodEncryptParameters {
+        const char *name;
+        const char *text;
+        struct iovec data;
+        uint64_t timestamp;
+        uint64_t not_after;
+        CredentialScope scope;
+        uid_t uid;
+} MethodEncryptParameters;
+
+static void method_encrypt_parameters_done(MethodEncryptParameters *p) {
+        assert(p);
+
+        iovec_done_erase(&p->data);
+}
+
+static int settle_scope(
+                Varlink *link,
+                CredentialScope *scope,
+                uid_t *uid,
+                CredentialFlags *flags,
+                bool *any_scope_after_polkit) {
+
+        uid_t peer_uid;
+        int r;
+
+        assert(link);
+        assert(scope);
+        assert(uid);
+        assert(flags);
+
+        r = varlink_get_peer_uid(link, &peer_uid);
+        if (r < 0)
+                return r;
+
+        if (*scope < 0) {
+                if (uid_is_valid(*uid))
+                        *scope = CREDENTIAL_USER;
+                else {
+                        *scope = CREDENTIAL_SYSTEM;  /* When encrypting, we spit out a system credential */
+                        *uid = peer_uid;             /* When decrypting a user credential, use this UID */
+                }
+
+                if (peer_uid == 0)
+                        *flags |= CREDENTIAL_ANY_SCOPE;
+
+                if (any_scope_after_polkit)
+                        *any_scope_after_polkit = true;
+        } else if (*scope == CREDENTIAL_USER) {
+                if (!uid_is_valid(*uid))
+                        *uid = peer_uid;
+        } else {
+                assert(*scope == CREDENTIAL_SYSTEM);
+                if (uid_is_valid(*uid))
+                        return varlink_error_invalid_parameter_name(link, "uid");
+        }
+
+        return 0;
+}
+
+static int vl_method_encrypt(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+
+        static const JsonDispatch dispatch_table[] = {
+                { "name",      JSON_VARIANT_STRING,        json_dispatch_const_string,   offsetof(MethodEncryptParameters, name),      0 },
+                { "text",      JSON_VARIANT_STRING,        json_dispatch_const_string,   offsetof(MethodEncryptParameters, text),      0 },
+                { "data",      JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(MethodEncryptParameters, data),      0 },
+                { "timestamp", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,         offsetof(MethodEncryptParameters, timestamp), 0 },
+                { "notAfter",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,         offsetof(MethodEncryptParameters, not_after), 0 },
+                { "scope",     JSON_VARIANT_STRING,        dispatch_credential_scope,    offsetof(MethodEncryptParameters, scope),     0 },
+                { "uid",       _JSON_VARIANT_TYPE_INVALID, json_dispatch_uid_gid,        offsetof(MethodEncryptParameters, uid),       0 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+        _cleanup_(method_encrypt_parameters_done) MethodEncryptParameters p = {
+                .timestamp = UINT64_MAX,
+                .not_after = UINT64_MAX,
+                .scope = _CREDENTIAL_SCOPE_INVALID,
+                .uid = UID_INVALID,
+        };
+        _cleanup_(iovec_done) struct iovec output = {};
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
+        CredentialFlags cflags = 0;
+        bool timestamp_fresh;
+        uid_t peer_uid;
+        int r;
+
+        assert(link);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.name && !credential_name_valid(p.name))
+                return varlink_error_invalid_parameter_name(link, "name");
+        /* Specifying both or neither the text string and the binary data is not allowed */
+        if (!!p.text == !!p.data.iov_base)
+                return varlink_error_invalid_parameter_name(link, "data");
+        if (p.timestamp == UINT64_MAX) {
+                p.timestamp = now(CLOCK_REALTIME);
+                timestamp_fresh = true;
+        } else
+                timestamp_fresh = timestamp_is_fresh(p.timestamp);
+        if (p.not_after != UINT64_MAX && p.not_after < p.timestamp)
+                return varlink_error_invalid_parameter_name(link, "notAfter");
+
+        r = settle_scope(link, &p.scope, &p.uid, &cflags, /* any_scope_after_polkit= */ NULL);
+        if (r < 0)
+                return r;
+
+        r = varlink_get_peer_uid(link, &peer_uid);
+        if (r < 0)
+                return r;
+
+        /* Relax security requirements if peer wants to encrypt credentials for themselves */
+        bool own_scope = p.scope == CREDENTIAL_USER && p.uid == peer_uid;
+
+        if (!own_scope || !timestamp_fresh) {
+                /* Insist on PK if client wants to encrypt for another user or the system, or if the timestamp was explicitly overridden. */
+                r = varlink_verify_polkit_async(
+                                link,
+                                /* bus= */ NULL,
+                                "io.systemd.credentials.encrypt",
+                                /* details= */ NULL,
+                                /* good_user= */ UID_INVALID,
+                                polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
+
+        r = encrypt_credential_and_warn(
+                        p.scope == CREDENTIAL_USER ? _CRED_AUTO_SCOPED : _CRED_AUTO,
+                        p.name,
+                        p.timestamp,
+                        p.not_after,
+                        arg_tpm2_device,
+                        arg_tpm2_pcr_mask,
+                        arg_tpm2_public_key,
+                        arg_tpm2_public_key_pcr_mask,
+                        p.uid,
+                        p.text ? &IOVEC_MAKE_STRING(p.text) : &p.data,
+                        cflags,
+                        &output);
+        if (r == -ESRCH)
+                return varlink_error(link, "io.systemd.Credentials.NoSuchUser", NULL);
+        if (r < 0)
+                return r;
+
+        _cleanup_(json_variant_unrefp) JsonVariant *reply = NULL;
+
+        r = json_build(&reply, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_IOVEC_BASE64("blob", &output)));
+        if (r < 0)
+                return r;
+
+        /* Let's also mark the (theoretically encrypted) reply as sensitive, in case the NULL encryption scheme was used. */
+        json_variant_sensitive(reply);
+
+        return varlink_reply(link, reply);
+}
+
+typedef struct MethodDecryptParameters {
+        const char *name;
+        struct iovec blob;
+        uint64_t timestamp;
+        CredentialScope scope;
+        uid_t uid;
+} MethodDecryptParameters;
+
+static void method_decrypt_parameters_done(MethodDecryptParameters *p) {
+        assert(p);
+
+        iovec_done_erase(&p->blob);
+}
+
+static int vl_method_decrypt(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+
+        static const JsonDispatch dispatch_table[] = {
+                { "name",      JSON_VARIANT_STRING,        json_dispatch_const_string,   offsetof(MethodDecryptParameters, name),      0              },
+                { "blob",      JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(MethodDecryptParameters, blob),      JSON_MANDATORY },
+                { "timestamp", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,         offsetof(MethodDecryptParameters, timestamp), 0              },
+                { "scope",     JSON_VARIANT_STRING,        dispatch_credential_scope,    offsetof(MethodDecryptParameters, scope),     0              },
+                { "uid",       _JSON_VARIANT_TYPE_INVALID, json_dispatch_uid_gid,        offsetof(MethodDecryptParameters, uid),       0              },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+        _cleanup_(method_decrypt_parameters_done) MethodDecryptParameters p = {
+                .timestamp = UINT64_MAX,
+                .scope = _CREDENTIAL_SCOPE_INVALID,
+                .uid = UID_INVALID,
+        };
+        bool timestamp_fresh, any_scope_after_polkit = false;
+        _cleanup_(iovec_done_erase) struct iovec output = {};
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
+        CredentialFlags cflags = 0;
+        uid_t peer_uid;
+        int r;
+
+        assert(link);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.name && !credential_name_valid(p.name))
+                return varlink_error_invalid_parameter_name(link, "name");
+        if (p.timestamp == UINT64_MAX) {
+                p.timestamp = now(CLOCK_REALTIME);
+                timestamp_fresh = true;
+        } else
+                timestamp_fresh = timestamp_is_fresh(p.timestamp);
+
+        r = settle_scope(link, &p.scope, &p.uid, &cflags, &any_scope_after_polkit);
+        if (r < 0)
+                return r;
+
+        r = varlink_get_peer_uid(link, &peer_uid);
+        if (r < 0)
+                return r;
+
+        /* Relax security requirements if peer wants to encrypt credentials for themselves */
+        bool own_scope = p.scope == CREDENTIAL_USER && p.uid == peer_uid;
+        bool ask_polkit = !own_scope || !timestamp_fresh;
+        for (;;) {
+                if (ask_polkit) {
+                        r = varlink_verify_polkit_async(
+                                        link,
+                                        /* bus= */ NULL,
+                                        "io.systemd.credentials.decrypt",
+                                        /* details= */ NULL,
+                                        /* good_user= */ UID_INVALID,
+                                        polkit_registry);
+                        if (r <= 0)
+                                return r;
+
+                        /* Now that we have authenticated, it's fine to allow unpriv clients access to system secrets */
+                        if (any_scope_after_polkit)
+                                cflags |= CREDENTIAL_ANY_SCOPE;
+                }
+
+                r = decrypt_credential_and_warn(
+                                p.name,
+                                p.timestamp,
+                                arg_tpm2_device,
+                                arg_tpm2_signature,
+                                p.uid,
+                                &p.blob,
+                                cflags,
+                                &output);
+                if (r != -EMEDIUMTYPE || ask_polkit || !any_scope_after_polkit)
+                        break;
+
+                /* So the secret was apparently intended for the system. Let's retry decrypting it after
+                 * acquiring polkit's permission. */
+                ask_polkit = true;
+        }
+
+        if (r == -EBADMSG)
+                return varlink_error(link, "io.systemd.Credentials.BadFormat", NULL);
+        if (r == -EREMOTE)
+                return varlink_error(link, "io.systemd.Credentials.NameMismatch", NULL);
+        if (r == -ESTALE)
+                return varlink_error(link, "io.systemd.Credentials.TimeMismatch", NULL);
+        if (r == -ESRCH)
+                return varlink_error(link, "io.systemd.Credentials.NoSuchUser", NULL);
+        if (r == -EMEDIUMTYPE)
+                return varlink_error(link, "io.systemd.Credentials.BadScope", NULL);
+        if (r < 0)
+                return r;
+
+        _cleanup_(json_variant_unrefp) JsonVariant *reply = NULL;
+
+        r = json_build(&reply, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_IOVEC_BASE64("data", &output)));
+        if (r < 0)
+                return r;
+
+        json_variant_sensitive(reply);
+
+        return varlink_reply(link, reply);
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -959,6 +1356,36 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_varlink) {
+                _cleanup_(varlink_server_unrefp) VarlinkServer *varlink_server = NULL;
+                _cleanup_(hashmap_freep) Hashmap *polkit_registry = NULL;
+
+                /* Invocation as Varlink service */
+
+                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA|VARLINK_SERVER_INPUT_SENSITIVE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+                r = varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_Credentials);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+                r = varlink_server_bind_method_many(
+                                varlink_server,
+                                "io.systemd.Credentials.Encrypt", vl_method_encrypt,
+                                "io.systemd.Credentials.Decrypt", vl_method_decrypt);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+                varlink_server_set_userdata(varlink_server, &polkit_registry);
+
+                r = varlink_server_loop_auto(varlink_server);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+                return 0;
+        }
 
         return creds_main(argc, argv);
 }

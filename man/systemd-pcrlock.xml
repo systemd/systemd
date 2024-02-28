@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-pcrlock" xmlns:xi="http://www.w3.org/2001/XInclude" conditional='ENABLE_BOOTLOADER'>
+<refentry id="systemd-pcrlock" xmlns:xi="http://www.w3.org/2001/XInclude" conditional='HAVE_TPM2'>
 
   <refentryinfo>
     <title>systemd-pcrlock</title>
@@ -29,7 +29,7 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>/usr/lib/systemd/systemd-pcrlock <arg choice="opt" rep="repeat">OPTIONS</arg></command>
+      <command>/usr/lib/systemd/systemd-pcrlock</command> <arg choice="opt" rep="repeat">OPTIONS</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -155,6 +155,19 @@
         <para>If the new prediction matches the old this command terminates quickly and executes no further
         operation. (Unless <option>--force</option> is specified, see below.)</para>
 
+        <para>Starting with v256, a copy of the <filename>/var/lib/systemd/pcrlock.json</filename> policy
+        file is encoded in a credential (see
+        <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details) and written to the EFI System Partition or XBOOTLDR partition, in the
+        <filename>/loader/credentials/</filename> subdirectory. There it is picked up at boot by
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> and
+        passed to the invoked initrd, where it can be used to unlock the root file system (which typically
+        contains <filename>/var/</filename>, which is where the primary copy of the policy is located, which
+        hence cannot be used to unlock the root file system). The credential file is named after the boot
+        entry token of the installation (see
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>), which
+        is configurable via the <option>--entry-token=</option> switch, see below.</para>
+
         <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
@@ -266,7 +279,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>lock-gpt</command> <arg choice="opt"><replaceable>DEVICE</replaceable></arg></term>
+        <term><command>lock-gpt</command> <optional><replaceable>DEVICE</replaceable></optional></term>
         <term><command>unlock-gpt</command></term>
 
         <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on the GPT partition
@@ -282,7 +295,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>lock-pe</command> <arg choice="opt"><replaceable>BINARY</replaceable></arg></term>
+        <term><command>lock-pe</command> <optional><replaceable>BINARY</replaceable></optional></term>
         <term><command>unlock-pe</command></term>
 
         <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on the specified PE
@@ -301,7 +314,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>lock-uki</command> <arg choice="opt"><replaceable>UKI</replaceable></arg></term>
+        <term><command>lock-uki</command> <optional><replaceable>UKI</replaceable></optional></term>
         <term><command>unlock-uki</command></term>
 
         <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on the specified UKI PE
@@ -336,8 +349,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>lock-file-system</command> <arg choice="opt"><replaceable>PATH</replaceable></arg></term>
-        <term><command>unlock-file-system</command> <arg choice="opt"><replaceable>PATH</replaceable></arg></term>
+        <term><command>lock-file-system</command> <optional><replaceable>PATH</replaceable></optional></term>
+        <term><command>unlock-file-system</command> <optional><replaceable>PATH</replaceable></optional></term>
 
         <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on file system
         identity. This is useful for predicting measurements
@@ -353,7 +366,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>lock-kernel-cmdline</command> <arg choice="opt"><replaceable>FILE</replaceable></arg></term>
+        <term><command>lock-kernel-cmdline</command> <optional><replaceable>FILE</replaceable></optional></term>
         <term><command>unlock-kernel-cmdline</command></term>
 
         <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on
@@ -384,7 +397,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>lock-raw</command> <arg choice="opt"><replaceable>FILE</replaceable></arg></term>
+        <term><command>lock-raw</command> <optional><replaceable>FILE</replaceable></optional></term>
         <term><command>unlock-raw</command></term>
 
         <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on raw binary data. The
@@ -531,6 +544,18 @@
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--entry-token=</option></term>
+
+        <listitem><para>Sets the boot entry token to use for the file name for the pcrlock policy credential
+        in the EFI System Partition or XBOOTLDR partition. See the
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> option of
+        the same regarding expected values. This switch has an effect on the
+        <command>make-policy</command> command only.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -546,14 +571,17 @@
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.pcrlock</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-pcrmachine.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-     </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.pcrlock</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-pcrmachine.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+     </simplelist></para>
   </refsect1>
 
 </refentry>

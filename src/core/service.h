@@ -168,6 +168,8 @@ struct Service {
         /* Runtime data of the execution context */
         ExecRuntime *exec_runtime;
 
+        CGroupRuntime *cgroup_runtime;
+
         PidRef main_pid, control_pid;
 
         /* if we are a socket activated service instance, store information of the connection/peer/socket */
@@ -254,6 +256,8 @@ int service_set_socket_fd(Service *s, int fd, struct Socket *socket, struct Sock
 void service_release_socket_fd(Service *s);
 
 usec_t service_restart_usec_next(Service *s);
+
+int service_determine_exec_selinux_label(Service *s, char **ret);
 
 const char* service_restart_to_string(ServiceRestart i) _const_;
 ServiceRestart service_restart_from_string(const char *s) _pure_;

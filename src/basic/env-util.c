@@ -18,6 +18,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "utf8.h"
 
 /* We follow bash for the character set. Different shells have different rules. */
@@ -244,9 +245,9 @@ static bool env_match(const char *t, const char *pattern) {
                 return true;
 
         if (!strchr(pattern, '=')) {
-                size_t l = strlen(pattern);
+                t = startswith(t, pattern);
 
-                return strneq(t, pattern, l) && t[l] == '=';
+                return t && *t == '=';
         }
 
         return false;
@@ -309,19 +310,17 @@ char **strv_env_delete(char **x, size_t n_lists, ...) {
         return TAKE_PTR(t);
 }
 
-char **strv_env_unset(char **l, const char *p) {
-        char **f, **t;
+char** strv_env_unset(char **l, const char *p) {
+        assert(p);
 
         if (!l)
                 return NULL;
 
-        assert(p);
-
         /* Drops every occurrence of the env var setting p in the
          * string list. Edits in-place. */
 
+        char **f, **t;
         for (f = t = l; *f; f++) {
-
                 if (env_match(*f, p)) {
                         free(*f);
                         continue;
@@ -334,14 +333,13 @@ char **strv_env_unset(char **l, const char *p) {
         return l;
 }
 
-char **strv_env_unset_many(char **l, ...) {
-        char **f, **t;
-
+char** strv_env_unset_many_internal(char **l, ...) {
         if (!l)
                 return NULL;
 
         /* Like strv_env_unset() but applies many at once. Edits in-place. */
 
+        char **f, **t;
         for (f = t = l; *f; f++) {
                 bool found = false;
                 const char *p;
@@ -349,12 +347,11 @@ char **strv_env_unset_many(char **l, ...) {
 
                 va_start(ap, l);
 
-                while ((p = va_arg(ap, const char*))) {
+                while ((p = va_arg(ap, const char*)))
                         if (env_match(*f, p)) {
                                 found = true;
                                 break;
                         }
-                }
 
                 va_end(ap);
 
@@ -458,6 +455,35 @@ int strv_env_assign(char ***l, const char *key, const char *value) {
         return strv_env_replace_consume(l, p);
 }
 
+int strv_env_assignf(char ***l, const char *key, const char *valuef, ...) {
+        int r;
+
+        assert(l);
+        assert(key);
+
+        if (!env_name_is_valid(key))
+                return -EINVAL;
+
+        if (!valuef) {
+                strv_env_unset(*l, key);
+                return 0;
+        }
+
+        _cleanup_free_ char *value = NULL;
+        va_list ap;
+        va_start(ap, valuef);
+        r = vasprintf(&value, valuef, ap);
+        va_end(ap);
+        if (r < 0)
+                return -ENOMEM;
+
+        char *p = strjoin(key, "=", value);
+        if (!p)
+                return -ENOMEM;
+
+        return strv_env_replace_consume(l, p);
+}
+
 int _strv_env_assign_many(char ***l, ...) {
         va_list ap;
         int r;
@@ -500,18 +526,17 @@ int _strv_env_assign_many(char ***l, ...) {
         return 0;
 }
 
-char *strv_env_get_n(char **l, const char *name, size_t k, ReplaceEnvFlags flags) {
+char* strv_env_get_n(char * const *l, const char *name, size_t k, ReplaceEnvFlags flags) {
         assert(name);
 
         if (k == SIZE_MAX)
-                k = strlen_ptr(name);
+                k = strlen(name);
         if (k <= 0)
                 return NULL;
 
         STRV_FOREACH_BACKWARDS(i, l)
-                if (strneq(*i, name, k) &&
-                    (*i)[k] == '=')
-                        return *i + k + 1;
+                if (strneq(*i, name, k) && (*i)[k] == '=')
+                        return (char*) *i + k + 1;
 
         if (flags & REPLACE_ENV_USE_ENVIRONMENT) {
                 const char *t;
@@ -654,7 +679,7 @@ int replace_env_full(
         pu = ret_unset_variables ? &unset_variables : NULL;
         pb = ret_bad_variables ? &bad_variables : NULL;
 
-        for (e = format, i = 0; *e && i < n; e ++, i ++)
+        for (e = format, i = 0; *e && i < n; e++, i++)
                 switch (state) {
 
                 case WORD:
@@ -983,8 +1008,8 @@ int putenv_dup(const char *assignment, bool override) {
 }
 
 int setenv_systemd_exec_pid(bool update_only) {
-        char str[DECIMAL_STR_MAX(pid_t)];
         const char *e;
+        int r;
 
         /* Update $SYSTEMD_EXEC_PID=pid except when '*' is set for the variable. */
 
@@ -995,12 +1020,22 @@ int setenv_systemd_exec_pid(bool update_only) {
         if (streq_ptr(e, "*"))
                 return 0;
 
-        xsprintf(str, PID_FMT, getpid_cached());
-
-        if (setenv("SYSTEMD_EXEC_PID", str, 1) < 0)
-                return -errno;
+        r = setenvf("SYSTEMD_EXEC_PID", /* overwrite= */ 1, PID_FMT, getpid_cached());
+        if (r < 0)
+                return r;
 
         return 1;
+}
+
+int setenv_systemd_log_level(void) {
+        _cleanup_free_ char *val = NULL;
+        int r;
+
+        r = log_level_to_string_alloc(log_get_max_level(), &val);
+        if (r < 0)
+                return r;
+
+        return RET_NERRNO(setenv("SYSTEMD_LOG_LEVEL", val, /* overwrite= */ true));
 }
 
 int getenv_path_list(const char *name, char ***ret_paths) {
@@ -1092,4 +1127,26 @@ int set_full_environment(char **env) {
         }
 
         return 0;
+}
+
+int setenvf(const char *name, bool overwrite, const char *valuef, ...) {
+        _cleanup_free_ char *value = NULL;
+        va_list ap;
+        int r;
+
+        assert(name);
+
+        if (!valuef)
+                return RET_NERRNO(unsetenv(name));
+
+        va_start(ap, valuef);
+        DISABLE_WARNING_FORMAT_NONLITERAL;
+        r = vasprintf(&value, valuef, ap);
+        REENABLE_WARNING;
+        va_end(ap);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        return RET_NERRNO(setenv(name, value, overwrite));
 }

@@ -7,6 +7,7 @@
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-polkit.h"
+#include "bus-util.h"
 #include "cgroup-util.h"
 #include "condition.h"
 #include "dbus-job.h"
@@ -177,7 +178,7 @@ static int property_get_dependencies(
         return sd_bus_message_close_container(reply);
 }
 
-static int property_get_requires_mounts_for(
+static int property_get_mounts_for(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -408,9 +409,7 @@ int bus_unit_method_start_generic(
         r = bus_verify_manage_units_async_full(
                         u,
                         verb,
-                        CAP_SYS_ADMIN,
                         polkit_message_for_job[job_type],
-                        true,
                         message,
                         error);
         if (r < 0)
@@ -491,9 +490,7 @@ int bus_unit_method_enqueue_job(sd_bus_message *message, void *userdata, sd_bus_
         r = bus_verify_manage_units_async_full(
                         u,
                         jtype,
-                        CAP_SYS_ADMIN,
                         polkit_message_for_job[type],
-                        true,
                         message,
                         error);
         if (r < 0)
@@ -549,9 +546,7 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         r = bus_verify_manage_units_async_full(
                         u,
                         "kill",
-                        CAP_KILL,
                         N_("Authentication is required to send a UNIX signal to the processes of '$(unit)'."),
-                        true,
                         message,
                         error);
         if (r < 0)
@@ -579,9 +574,7 @@ int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus
         r = bus_verify_manage_units_async_full(
                         u,
                         "reset-failed",
-                        CAP_SYS_ADMIN,
                         N_("Authentication is required to reset the \"failed\" state of '$(unit)'."),
-                        true,
                         message,
                         error);
         if (r < 0)
@@ -611,9 +604,7 @@ int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_b
         r = bus_verify_manage_units_async_full(
                         u,
                         "set-property",
-                        CAP_SYS_ADMIN,
                         N_("Authentication is required to set properties on '$(unit)'."),
-                        true,
                         message,
                         error);
         if (r < 0)
@@ -641,9 +632,7 @@ int bus_unit_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *e
         r = bus_verify_manage_units_async_full(
                         u,
                         "ref",
-                        CAP_SYS_ADMIN,
-                        NULL,
-                        false,
+                        /* polkit_message= */ NULL,
                         message,
                         error);
         if (r < 0)
@@ -712,9 +701,7 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
         r = bus_verify_manage_units_async_full(
                         u,
                         "clean",
-                        CAP_DAC_OVERRIDE,
                         N_("Authentication is required to delete files and directories associated with '$(unit)'."),
-                        true,
                         message,
                         error);
         if (r < 0)
@@ -737,7 +724,6 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
 
 static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userdata, sd_bus_error *error, FreezerAction action) {
         const char* perm;
-        int (*method)(Unit*);
         Unit *u = ASSERT_PTR(userdata);
         bool reply_no_delay = false;
         int r;
@@ -745,13 +731,7 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
         assert(message);
         assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
 
-        if (action == FREEZER_FREEZE) {
-                perm = "stop";
-                method = unit_freeze;
-        } else {
-                perm = "start";
-                method = unit_thaw;
-        }
+        perm = action == FREEZER_FREEZE ? "stop" : "start";
 
         r = mac_selinux_unit_access_check(u, message, perm, error);
         if (r < 0)
@@ -760,9 +740,7 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
         r = bus_verify_manage_units_async_full(
                         u,
                         perm,
-                        CAP_SYS_ADMIN,
                         N_("Authentication is required to freeze or thaw the processes of '$(unit)' unit."),
-                        true,
                         message,
                         error);
         if (r < 0)
@@ -770,15 +748,17 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = method(u);
+        r = unit_freezer_action(u, action);
         if (r == -EOPNOTSUPP)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit '%s' does not support freezing.", u->id);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit does not support freeze/thaw.");
         if (r == -EBUSY)
                 return sd_bus_error_set(error, BUS_ERROR_UNIT_BUSY, "Unit has a pending job.");
         if (r == -EHOSTDOWN)
                 return sd_bus_error_set(error, BUS_ERROR_UNIT_INACTIVE, "Unit is inactive.");
         if (r == -EALREADY)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Previously requested freezer operation for unit '%s' is still in progress.", u->id);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Previously requested freezer operation for unit is still in progress.");
+        if (r == -ECHILD)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Unit is frozen by a parent slice.");
         if (r < 0)
                 return r;
         if (r == 0)
@@ -879,7 +859,8 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("StopPropagatedFrom", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JoinsNamespaceOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SliceOf", "as", property_get_dependencies, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RequiresMountsFor", "as", property_get_requires_mounts_for, offsetof(Unit, requires_mounts_for), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RequiresMountsFor", "as", property_get_mounts_for, offsetof(Unit, mounts_for[UNIT_MOUNT_REQUIRES]), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("WantsMountsFor", "as", property_get_mounts_for, offsetof(Unit, mounts_for[UNIT_MOUNT_WANTS]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Documentation", "as", NULL, offsetof(Unit, documentation), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Description", "s", property_get_description, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("AccessSELinuxContext", "s", NULL, offsetof(Unit, access_selinux_context), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1235,10 +1216,30 @@ static int property_get_cgroup(
          * indicates the root cgroup, which we report as "/". c) all
          * other cases we report as-is. */
 
-        if (u->cgroup_path)
-                t = empty_to_root(u->cgroup_path);
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+
+        if (crt && crt->cgroup_path)
+                t = empty_to_root(crt->cgroup_path);
 
         return sd_bus_message_append(reply, "s", t);
+}
+
+static int property_get_cgroup_id(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(reply);
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        return sd_bus_message_append(reply, "t", crt ? crt->cgroup_id : UINT64_C(0));
 }
 
 static int append_process(sd_bus_message *reply, const char *p, PidRef *pid, Set *pids) {
@@ -1369,8 +1370,10 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        if (u->cgroup_path) {
-                r = append_cgroup(reply, u->cgroup_path, pids);
+        CGroupRuntime *crt;
+        crt = unit_get_cgroup_runtime(u);
+        if (crt && crt->cgroup_path) {
+                r = append_cgroup(reply, crt->cgroup_path, pids);
                 if (r < 0)
                         return r;
         }
@@ -1441,6 +1444,28 @@ static int property_get_io_counter(
         return sd_bus_message_append(reply, "t", value);
 }
 
+static int property_get_effective_limit(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        uint64_t value = CGROUP_LIMIT_MAX;
+        Unit *u = ASSERT_PTR(userdata);
+        ssize_t type;
+
+        assert(bus);
+        assert(reply);
+        assert(property);
+
+        assert_se((type = cgroup_effective_limit_type_from_string(property)) >= 0);
+        (void) unit_get_effective_limit(u, type, &value);
+        return sd_bus_message_append(reply, "t", value);
+}
+
 int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         _cleanup_set_free_ Set *pids = NULL;
@@ -1478,7 +1503,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
         if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit is not active, refusing.");
 
-        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID, &creds);
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD, &creds);
         if (r < 0)
                 return r;
 
@@ -1489,7 +1514,6 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                 _cleanup_(pidref_freep) PidRef *pidref = NULL;
                 uid_t process_uid, sender_uid;
                 uint32_t upid;
-                pid_t pid;
 
                 r = sd_bus_message_read(message, "u", &upid);
                 if (r < 0)
@@ -1498,13 +1522,14 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                         break;
 
                 if (upid == 0) {
-                        r = sd_bus_creds_get_pid(creds, &pid);
+                        _cleanup_(pidref_done) PidRef p = PIDREF_NULL;
+                        r = bus_creds_get_pidref(creds, &p);
                         if (r < 0)
                                 return r;
-                } else
-                        pid = (uid_t) upid;
 
-                r = pidref_new_from_pid(pid, &pidref);
+                        r = pidref_dup(&p, &pidref);
+                } else
+                        r = pidref_new_from_pid(upid, &pidref);
                 if (r < 0)
                         return r;
 
@@ -1530,9 +1555,9 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                                 return sd_bus_error_set_errnof(error, r, "Failed to retrieve process UID: %m");
 
                         if (process_uid != sender_uid)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by client's UID. Refusing.", pid);
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by client's UID. Refusing.", pidref->pid);
                         if (process_uid != u->ref_uid)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by target unit's UID. Refusing.", pid);
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by target unit's UID. Refusing.", pidref->pid);
                 }
 
                 r = set_ensure_consume(&pids, &pidref_hash_ops_free, TAKE_PTR(pidref));
@@ -1555,17 +1580,20 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Slice", "s", property_get_slice, 0, 0),
         SD_BUS_PROPERTY("ControlGroup", "s", property_get_cgroup, 0, 0),
-        SD_BUS_PROPERTY("ControlGroupId", "t", NULL, offsetof(Unit, cgroup_id), 0),
+        SD_BUS_PROPERTY("ControlGroupId", "t", property_get_cgroup_id, 0, 0),
         SD_BUS_PROPERTY("MemoryCurrent", "t", property_get_current_memory, 0, 0),
         SD_BUS_PROPERTY("MemoryPeak", "t", property_get_memory_accounting, 0, 0),
         SD_BUS_PROPERTY("MemorySwapCurrent", "t", property_get_memory_accounting, 0, 0),
         SD_BUS_PROPERTY("MemorySwapPeak", "t", property_get_memory_accounting, 0, 0),
         SD_BUS_PROPERTY("MemoryZSwapCurrent", "t", property_get_memory_accounting, 0, 0),
         SD_BUS_PROPERTY("MemoryAvailable", "t", property_get_available_memory, 0, 0),
+        SD_BUS_PROPERTY("EffectiveMemoryMax", "t", property_get_effective_limit, 0, 0),
+        SD_BUS_PROPERTY("EffectiveMemoryHigh", "t", property_get_effective_limit, 0, 0),
         SD_BUS_PROPERTY("CPUUsageNSec", "t", property_get_cpu_usage, 0, 0),
         SD_BUS_PROPERTY("EffectiveCPUs", "ay", property_get_cpuset_cpus, 0, 0),
         SD_BUS_PROPERTY("EffectiveMemoryNodes", "ay", property_get_cpuset_mems, 0, 0),
         SD_BUS_PROPERTY("TasksCurrent", "t", property_get_current_tasks, 0, 0),
+        SD_BUS_PROPERTY("EffectiveTasksMax", "t", property_get_effective_limit, 0, 0),
         SD_BUS_PROPERTY("IPIngressBytes", "t", property_get_ip_counter, 0, 0),
         SD_BUS_PROPERTY("IPIngressPackets", "t", property_get_ip_counter, 0, 0),
         SD_BUS_PROPERTY("IPEgressBytes", "t", property_get_ip_counter, 0, 0),
@@ -2261,7 +2289,9 @@ static int bus_unit_set_transient_property(
                                 u->documentation = strv_free(u->documentation);
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
-                                strv_extend_strv(&u->documentation, l, false);
+                                r = strv_extend_strv(&u->documentation, l, /* filter_duplicates= */ false);
+                                if (r < 0)
+                                        return r;
 
                                 STRV_FOREACH(p, l)
                                         unit_write_settingf(u, flags, name, "%s=%s", name, *p);
@@ -2308,7 +2338,7 @@ static int bus_unit_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "RequiresMountsFor")) {
+        } else if (STR_IN_SET(name, "RequiresMountsFor", "WantsMountsFor")) {
                 _cleanup_strv_free_ char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
@@ -2328,9 +2358,9 @@ static int bus_unit_set_transient_property(
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path specified in %s is not normalized: %s", name, *p);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                r = unit_require_mounts_for(u, *p, UNIT_DEPENDENCY_FILE);
+                                r = unit_add_mounts_for(u, *p, UNIT_DEPENDENCY_FILE, unit_mount_dependency_type_from_string(name));
                                 if (r < 0)
-                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to add required mount \"%s\": %m", *p);
+                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to add requested mount \"%s\": %m", *p);
 
                                 unit_write_settingf(u, flags, name, "%s=%s", name, *p);
                         }

@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Service]
+ExecStart=cp -v /tmp/copyme /tmp/copied
+# once cp exits, service goes into deactivating state and then runs ExecStop
+ExecStop=flock -e /tmp/noexit true

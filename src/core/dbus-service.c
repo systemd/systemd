@@ -61,7 +61,7 @@ static int property_get_open_files(
                 return r;
 
         LIST_FOREACH(open_files, of, *open_files) {
-                r = sd_bus_message_append(reply, "(sst)", of->path, of->fdname, of->flags);
+                r = sd_bus_message_append(reply, "(sst)", of->path, of->fdname, (uint64_t) of->flags);
                 if (r < 0)
                         return r;
         }
@@ -166,9 +166,7 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
         r = bus_verify_manage_units_async_full(
                         u,
                         is_image ? "mount-image" : "bind-mount",
-                        CAP_SYS_ADMIN,
                         N_("Authentication is required to mount on '$(unit)'."),
-                        true,
                         message,
                         error);
         if (r < 0)

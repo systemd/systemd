@@ -13,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "analyze.h"
+#include "analyze-architectures.h"
 #include "analyze-blame.h"
 #include "analyze-calendar.h"
 #include "analyze-capability.h"
@@ -25,6 +26,7 @@
 #include "analyze-exit-status.h"
 #include "analyze-fdstore.h"
 #include "analyze-filesystems.h"
+#include "analyze-image-policy.h"
 #include "analyze-inspect-elf.h"
 #include "analyze-log-control.h"
 #include "analyze-malloc.h"
@@ -41,7 +43,6 @@
 #include "analyze-unit-files.h"
 #include "analyze-unit-paths.h"
 #include "analyze-verify.h"
-#include "analyze-image-policy.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -217,13 +218,14 @@ static int help(int argc, char *argv[], void *userdata) {
                "  dot [UNIT...]              Output dependency graph in %s format\n"
                "  dump [PATTERN...]          Output state serialization of service\n"
                "                             manager\n"
-               "  cat-config                 Show configuration file and drop-ins\n"
+               "  cat-config NAME|PATH...    Show configuration file and drop-ins\n"
                "  unit-files                 List files and symlinks for units\n"
                "  unit-paths                 List load directories for units\n"
                "  exit-status [STATUS...]    List exit status definitions\n"
                "  capability [CAP...]        List capability definitions\n"
                "  syscall-filter [NAME...]   List syscalls in seccomp filters\n"
                "  filesystems [NAME...]      List known filesystems\n"
+               "  architectures [NAME...]    List known architectures\n"
                "  condition CONDITION...     Evaluate conditions and asserts\n"
                "  compare-versions VERSION1 [OP] VERSION2\n"
                "                             Compare two version strings\n"
@@ -236,8 +238,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "  inspect-elf FILE...        Parse and print ELF package metadata\n"
                "  malloc [D-BUS SERVICE...]  Dump malloc stats of a D-Bus service\n"
                "  fdstore SERVICE...         Show file descriptor store contents of service\n"
+               "  image-policy POLICY...     Analyze image policy string\n"
                "  pcrs [PCR...]              Show TPM2 PCRs and their names\n"
-               "  srk > FILE                 Write TPM2 SRK to stdout\n"
+               "  srk [>FILE]                Write TPM2 SRK (to FILE)\n"
                "\nOptions:\n"
                "     --recursive-errors=MODE Control which units are verified\n"
                "     --offline=BOOL          Perform a security review on unit file(s)\n"
@@ -269,6 +272,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                             specified time\n"
                "     --profile=name|PATH     Include the specified profile in the\n"
                "                             security review of the unit(s)\n"
+               "     --unit=UNIT             Evaluate conditions and asserts of unit\n"
                "     --table                 Output plot's raw time data as a table\n"
                "  -h --help                  Show this help\n"
                "     --version               Show package version\n"
@@ -360,7 +364,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:U:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hH:M:U:q", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -556,9 +560,13 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --offline= is only supported for security right now.");
 
-        if (arg_json_format_flags != JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf", "plot", "fdstore", "pcrs"))
+        if (arg_offline && optind >= argc - 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --json= is only supported for security, inspect-elf, plot, fdstore, pcrs right now.");
+                                       "Option --offline= requires one or more units to perform a security review.");
+
+        if (arg_json_format_flags != JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf", "plot", "fdstore", "pcrs", "architectures", "capability", "exit-status"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --json= is only supported for security, inspect-elf, plot, fdstore, pcrs, architectures, capability, exit-status right now.");
 
         if (arg_threshold != 100 && !streq_ptr(argv[optind], "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -595,7 +603,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (streq_ptr(argv[optind], "condition") && arg_unit && optind < argc - 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No conditions can be passed if --unit= is used.");
 
-        if ((!arg_legend && !streq_ptr(argv[optind], "plot")) ||
+        if ((!arg_legend && !STRPTR_IN_SET(argv[optind], "plot", "architectures")) ||
            (streq_ptr(argv[optind], "plot") && !arg_legend && !arg_table && FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --no-legend is only supported for plot with either --table or --json=.");
 
@@ -649,6 +657,7 @@ static int run(int argc, char *argv[]) {
                 { "image-policy",      2,        2,        0,            verb_image_policy      },
                 { "pcrs",              VERB_ANY, VERB_ANY, 0,            verb_pcrs              },
                 { "srk",               VERB_ANY, 1,        0,            verb_srk               },
+                { "architectures",     VERB_ANY, VERB_ANY, 0,            verb_architectures     },
                 {}
         };
 

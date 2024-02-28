@@ -176,7 +176,7 @@ static int dispatch_rqueue(sd_netlink *nl, sd_netlink_message **ret) {
         assert(nl);
         assert(ret);
 
-        if (ordered_set_size(nl->rqueue) <= 0) {
+        if (ordered_set_isempty(nl->rqueue)) {
                 /* Try to read a new message */
                 r = socket_read_message(nl);
                 if (r == -ENOBUFS) /* FIXME: ignore buffer overruns for now */
@@ -443,7 +443,7 @@ int sd_netlink_wait(sd_netlink *nl, uint64_t timeout_usec) {
         assert_return(nl, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
-        if (ordered_set_size(nl->rqueue) > 0)
+        if (!ordered_set_isempty(nl->rqueue))
                 return 0;
 
         r = netlink_poll(nl, false, timeout_usec);
@@ -623,7 +623,7 @@ int sd_netlink_get_events(sd_netlink *nl) {
         assert_return(nl, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
-        return ordered_set_size(nl->rqueue) == 0 ? POLLIN : 0;
+        return ordered_set_isempty(nl->rqueue) ? POLLIN : 0;
 }
 
 int sd_netlink_get_timeout(sd_netlink *nl, uint64_t *timeout_usec) {
@@ -633,7 +633,7 @@ int sd_netlink_get_timeout(sd_netlink *nl, uint64_t *timeout_usec) {
         assert_return(timeout_usec, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
-        if (ordered_set_size(nl->rqueue) > 0) {
+        if (!ordered_set_isempty(nl->rqueue)) {
                 *timeout_usec = 0;
                 return 1;
         }

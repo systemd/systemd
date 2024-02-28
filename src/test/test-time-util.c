@@ -1089,9 +1089,9 @@ TEST(map_clock_usec) {
         assert_se(nowr < USEC_INFINITY - USEC_PER_DAY*7); /* overflow check */
         x = nowr + USEC_PER_DAY*7; /* 1 week from now */
         y = map_clock_usec(x, CLOCK_REALTIME, CLOCK_MONOTONIC);
-        assert_se(y > 0 && y < USEC_INFINITY);
+        assert_se(timestamp_is_set(y));
         z = map_clock_usec(y, CLOCK_MONOTONIC, CLOCK_REALTIME);
-        assert_se(z > 0 && z < USEC_INFINITY);
+        assert_se(timestamp_is_set(z));
         assert_se((z > x ? z - x : x - z) < USEC_PER_HOUR);
 
         assert_se(nowr > USEC_PER_DAY * 7); /* underflow check */
@@ -1100,7 +1100,7 @@ TEST(map_clock_usec) {
         if (y != 0) { /* might underflow if machine is not up long enough for the monotonic clock to be beyond 1w */
                 assert_se(y < USEC_INFINITY);
                 z = map_clock_usec(y, CLOCK_MONOTONIC, CLOCK_REALTIME);
-                assert_se(z > 0 && z < USEC_INFINITY);
+                assert_se(timestamp_is_set(z));
                 assert_se((z > x ? z - x : x - z) < USEC_PER_HOUR);
         }
 }
@@ -1171,6 +1171,9 @@ TEST(timezone_offset_change) {
 }
 
 static int intro(void) {
+        /* Tests have hard-coded results that do not expect a specific timezone to be set by the caller */
+        assert_se(unsetenv("TZ") >= 0);
+
         log_info("realtime=" USEC_FMT "\n"
                  "monotonic=" USEC_FMT "\n"
                  "boottime=" USEC_FMT "\n",

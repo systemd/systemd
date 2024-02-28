@@ -21,16 +21,22 @@ typedef struct Neighbor {
         NetworkConfigSource source;
         NetworkConfigState state;
 
+        unsigned n_ref;
+
         int family;
         union in_addr_union in_addr;
         struct hw_addr_data ll_addr;
 } Neighbor;
 
-Neighbor *neighbor_free(Neighbor *neighbor);
+Neighbor* neighbor_ref(Neighbor *neighbor);
+Neighbor* neighbor_unref(Neighbor *neighbor);
+
+int neighbor_get(Link *link, const Neighbor *in, Neighbor **ret);
+int neighbor_remove(Neighbor *neighbor, Link *link);
 
 int network_drop_invalid_neighbors(Network *network);
 
-int link_drop_managed_neighbors(Link *link);
+int link_drop_static_neighbors(Link *link);
 int link_drop_foreign_neighbors(Link *link);
 void link_foreignize_neighbors(Link *link);
 

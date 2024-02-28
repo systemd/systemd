@@ -6,6 +6,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "build.h"
 #include "exec-invoke.h"
 #include "execute-serialize.h"
@@ -18,9 +19,10 @@
 #include "label-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "selinux-util.h"
 #include "static-destruct.h"
 
-static FILE* arg_serialization = NULL;
+static FILE *arg_serialization = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_serialization, fclosep);
 
@@ -170,9 +172,8 @@ static int parse_argv(int argc, char *argv[]) {
         return 1 /* work to do */;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_fdset_free_ FDSet *fdset = NULL;
-        int exit_status = EXIT_SUCCESS, r;
         _cleanup_(cgroup_context_done) CGroupContext cgroup_context = {};
         _cleanup_(exec_context_done) ExecContext context = {};
         _cleanup_(exec_command_done) ExecCommand command = {};
@@ -187,6 +188,7 @@ int main(int argc, char *argv[]) {
                 .shared = &shared,
                 .dynamic_creds = &dynamic_creds,
         };
+        int exit_status = EXIT_SUCCESS, r;
 
         exec_context_init(&context);
         cgroup_context_init(&cgroup_context);
@@ -204,7 +206,9 @@ int main(int argc, char *argv[]) {
         log_set_prohibit_ipc(false);
         log_open();
 
-        /* The serialization fd is set to CLOEXEC in parse_argv, so it's also filtered. */
+        /* This call would collect all passed fds and enable CLOEXEC. We'll unset it in exec_invoke (flag_fds)
+         * for fds that shall be passed to the child.
+         * The serialization fd is set to CLOEXEC in parse_argv, so it's also filtered. */
         r = fdset_new_fill(/* filter_cloexec= */ 0, &fdset);
         if (r < 0)
                 return log_error_errno(r, "Failed to create fd set: %m");
@@ -241,12 +245,29 @@ int main(int argc, char *argv[]) {
 
                 log_exec_struct_errno(&context, &params, LOG_ERR, r,
                                       "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                      LOG_EXEC_INVOCATION_ID(&params),
                                       LOG_EXEC_MESSAGE(&params, "Failed at step %s spawning %s: %m",
                                                        status, command.path),
                                       "EXECUTABLE=%s", command.path);
         } else
-                assert(exit_status == EXIT_SUCCESS); /* When 'skip' is chosen in the confirm spawn prompt */
+                /* r == 0: 'skip' is chosen in the confirm spawn prompt
+                 * r > 0:  expected/ignored failure, do not log at error level */
+                assert((r == 0) == (exit_status == EXIT_SUCCESS));
 
         return exit_status;
+}
+
+int main(int argc, char *argv[]) {
+        int r;
+
+        /* We use safe_fork() for spawning sd-pam helper process, which internally calls rename_process().
+         * As the last step of renaming, all saved argvs are memzero()-ed. Hence, we need to save the argv
+         * first to prevent showing "intense" cmdline. See #30352. */
+        save_argc_argv(argc, argv);
+
+        r = run(argc, argv);
+
+        mac_selinux_finish();
+        static_destruct();
+
+        return r < 0 ? EXIT_FAILURE : r;
 }

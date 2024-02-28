@@ -176,7 +176,7 @@ static int lock_all_homes(void) {
         /* Let's synchronously lock all home directories managed by homed that have been marked for it. This
          * way the key material required to access these volumes is hopefully removed from memory. */
 
-        r = bus_connect_system_systemd(&bus);
+        r = sd_bus_open_system(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
@@ -218,7 +218,6 @@ static int execute(
                 NULL
         };
 
-        _cleanup_(hibernation_device_done) HibernationDevice hibernation_device = {};
         _cleanup_close_ int state_fd = -EBADF;
         int r;
 
@@ -234,10 +233,11 @@ static int execute(
         /* This file is opened first, so that if we hit an error, we can abort before modifying any state. */
         state_fd = open("/sys/power/state", O_WRONLY|O_CLOEXEC);
         if (state_fd < 0)
-                return -errno;
+                return log_error_errno(errno, "Failed to open /sys/power/state: %m");
 
         /* Configure hibernation settings if we are supposed to hibernate */
         if (sleep_operation_is_hibernation(operation)) {
+                _cleanup_(hibernation_device_done) HibernationDevice hibernation_device = {};
                 bool resume_set;
 
                 r = find_suitable_hibernation_device(&hibernation_device);
@@ -253,10 +253,8 @@ static int execute(
                                 return r;
 
                         r = write_resume_config(hibernation_device.devno, hibernation_device.offset, hibernation_device.path);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to write hibernation device to /sys/power/resume or /sys/power/resume_offset: %m");
+                        if (r < 0)
                                 goto fail;
-                        }
                 }
 
                 r = write_mode(sleep_config->modes[operation]);
@@ -301,8 +299,8 @@ static int execute(
                 return 0;
 
 fail:
-        if (sleep_operation_is_hibernation(operation) && is_efi_boot())
-                (void) efi_set_variable(EFI_SYSTEMD_VARIABLE(HibernateLocation), NULL, 0);
+        if (sleep_operation_is_hibernation(operation))
+                clear_efi_hibernate_location_and_warn();
 
         return r;
 }
@@ -429,15 +427,13 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
                         if (r < 0)
                                 log_warning_errno(r, "Failed to estimate and update battery discharge rate, ignoring: %m");
                 } else
-                        log_debug("System woke up too early to estimate discharge rate");
+                        log_debug("System woke up too early to estimate discharge rate.");
 
                 if (!woken_by_timer)
                         /* Return as manual wakeup done. This also will return in case battery was charged during suspension */
                         return 0;
 
                 r = check_wakeup_type();
-                if (r < 0)
-                        log_debug_errno(r, "Failed to check hardware wakeup type, ignoring: %m");
                 if (r > 0) {
                         log_debug("wakeup type is APM timer");
                         /* system should hibernate */
@@ -478,18 +474,18 @@ static int execute_s2h(const SleepConfig *sleep_config) {
 
         r = freeze_thaw_user_slice(&(const char*) { "FreezeUnit" });
         if (r < 0)
-                log_debug_errno(r, "Failed to freeze unit user.slice, ignoring: %m");
+                log_warning_errno(r, "Failed to freeze unit user.slice, ignoring: %m");
 
         /* Only check if we have automated battery alarms if HibernateDelaySec= is not set, as in that case
          * we'll busy poll for the configured interval instead */
         if (!timestamp_is_set(sleep_config->hibernate_delay_usec)) {
                 r = check_wakeup_type();
                 if (r < 0)
-                        log_debug_errno(r, "Failed to check hardware wakeup type, ignoring: %m");
+                        log_warning_errno(r, "Failed to check hardware wakeup type, ignoring: %m");
                 else {
                         r = battery_trip_point_alarm_exists();
                         if (r < 0)
-                                log_debug_errno(r, "Failed to check whether acpi_btp support is enabled or not, ignoring: %m");
+                                log_warning_errno(r, "Failed to check whether acpi_btp support is enabled or not, ignoring: %m");
                 }
         } else
                 r = 0;  /* Force fallback path */
@@ -502,7 +498,7 @@ static int execute_s2h(const SleepConfig *sleep_config) {
 
                 r = check_wakeup_type();
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to check hardware wakeup type: %m");
+                        return log_error_errno(r, "Failed to check hardware wakeup type: %m");
 
                 if (r == 0)
                         /* For APM Timer wakeup, system should hibernate else wakeup */

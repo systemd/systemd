@@ -1213,7 +1213,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                                 _cleanup_free_ void *decoded = NULL;
                                 size_t decoded_size;
 
-                                r = unbase64mem(p, SIZE_MAX, &decoded, &decoded_size);
+                                r = unbase64mem(p, &decoded, &decoded_size);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to base64 decode encrypted credential: %m");
 
@@ -1400,7 +1400,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 _cleanup_free_ void *decoded = NULL;
                 size_t sz;
 
-                r = unbase64mem(eq, SIZE_MAX, &decoded, &sz);
+                r = unbase64mem(eq, &decoded, &sz);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode base64 data '%s': %m", eq);
 
@@ -1419,12 +1419,12 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse resource limit: %s", eq);
 
-                        r = sd_bus_message_append(m, "(sv)", field, "t", l.rlim_max);
+                        r = sd_bus_message_append(m, "(sv)", field, "t", (uint64_t) l.rlim_max);
                         if (r < 0)
                                 return bus_log_create_error(r);
 
                         sn = strjoina(field, "Soft");
-                        r = sd_bus_message_append(m, "(sv)", sn, "t", l.rlim_cur);
+                        r = sd_bus_message_append(m, "(sv)", sn, "t", (uint64_t) l.rlim_cur);
                         if (r < 0)
                                 return bus_log_create_error(r);
 
@@ -1787,7 +1787,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         return bus_append_string(m, "RootHashPath", eq);
 
                 /* We have a roothash to decode, eg: RootHash=012345789abcdef */
-                r = unhexmem(eq, strlen(eq), &roothash_decoded, &roothash_decoded_size);
+                r = unhexmem(eq, &roothash_decoded, &roothash_decoded_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode RootHash= '%s': %m", eq);
                 if (roothash_decoded_size < sizeof(sd_id128_t))
@@ -1809,7 +1809,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to decode RootHashSignature= '%s', not a path but doesn't start with 'base64:': %m", eq);
 
                 /* We have a roothash signature to decode, eg: RootHashSignature=base64:012345789abcdef */
-                r = unbase64mem(value, strlen(value), &roothash_sig_decoded, &roothash_sig_decoded_size);
+                r = unbase64mem(value, &roothash_sig_decoded, &roothash_sig_decoded_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode RootHashSignature= '%s': %m", eq);
 
@@ -2167,7 +2167,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                                 return bus_log_create_error(r);
 
                         STRV_FOREACH_PAIR(source, destination, symlinks) {
-                                r = sd_bus_message_append(m, "(sst)", *source, *destination, 0);
+                                r = sd_bus_message_append(m, "(sst)", *source, *destination, UINT64_C(0));
                                 if (r < 0)
                                         return bus_log_create_error(r);
                         }
@@ -2643,6 +2643,7 @@ static int bus_append_unit_property(sd_bus_message *m, const char *field, const 
         if (unit_dependency_from_string(field) >= 0 ||
             STR_IN_SET(field, "Documentation",
                               "RequiresMountsFor",
+                              "WantsMountsFor",
                               "Markers"))
                 return bus_append_strv(m, field, eq, EXTRACT_UNQUOTE);
 

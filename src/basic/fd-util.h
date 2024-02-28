@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 
 #include "macro.h"
+#include "missing_fcntl.h"
 #include "stdio-util.h"
 
 /* maximum length of fdname */
@@ -32,8 +33,8 @@ static inline int safe_close_above_stdio(int fd) {
         return safe_close(fd);
 }
 
-void close_many(const int fds[], size_t n_fd);
-void close_many_unset(int fds[], size_t n_fd);
+void close_many(const int fds[], size_t n_fds);
+void close_many_unset(int fds[], size_t n_fds);
 void close_many_and_free(int *fds, size_t n_fds);
 
 int fclose_nointr(FILE *f);
@@ -52,6 +53,11 @@ static inline void fclosep(FILE **f) {
         safe_fclose(*f);
 }
 
+static inline void* close_fd_ptr(void *p) {
+        safe_close(PTR_TO_FD(p));
+        return NULL;
+}
+
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(FILE*, pclose, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(DIR*, closedir, NULL);
 
@@ -62,6 +68,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(DIR*, closedir, NULL);
 #define _cleanup_close_pair_ _cleanup_(close_pairp)
 
 int fd_nonblock(int fd, bool nonblock);
+int stdio_disable_nonblock(void);
+
 int fd_cloexec(int fd, bool cloexec);
 int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec);
 
@@ -69,6 +77,8 @@ int get_max_fd(void);
 
 int close_all_fds(const int except[], size_t n_except);
 int close_all_fds_without_malloc(const int except[], size_t n_except);
+
+int pack_fds(int fds[], size_t n);
 
 int same_fd(int a, int b);
 
@@ -102,7 +112,10 @@ static inline int make_null_stdio(void) {
 
 int fd_reopen(int fd, int flags);
 int fd_reopen_condition(int fd, int flags, int mask, int *ret_new_fd);
+
 int fd_is_opath(int fd);
+int fd_verify_safe_flags(int fd);
+
 int read_nr_open(void);
 int fd_get_diskseq(int fd, uint64_t *ret);
 
@@ -116,6 +129,8 @@ static inline int dir_fd_is_root(int dir_fd) {
 static inline int dir_fd_is_root_or_cwd(int dir_fd) {
         return dir_fd == AT_FDCWD ? true : path_is_root_at(dir_fd, NULL);
 }
+
+int fds_are_same_mount(int fd1, int fd2);
 
 /* The maximum length a buffer for a /proc/self/fd/<fd> path needs */
 #define PROC_FD_PATH_MAX \

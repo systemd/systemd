@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="portablectl" conditional='ENABLE_PORTABLED'
@@ -45,12 +45,12 @@
     within the file system context of the image.</para>
 
     <para>Portable service images are an efficient way to bundle multiple related services and other units together,
-    and transfer them as a whole between systems. When these images are attached the local system the contained units
+    and transfer them as a whole between systems. When these images are attached to the local system, the contained units
     may run in most ways like regular system-provided units, either with full privileges or inside strict sandboxing,
     depending on the selected configuration. For more details, see
     <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services Documentation</ulink>.</para>
 
-    <para>Specifically portable service images may be of the following kind:</para>
+    <para>Portable service images may be of the following kinds:</para>
 
     <itemizedlist>
       <listitem><para>Directory trees containing an OS, including the top-level directories <filename>/usr/</filename>,
@@ -155,11 +155,11 @@
         files. This is a convenience feature to allow all arguments passed as <command>attach</command> also to
         <command>detach</command>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
-
         <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable services are
         immediately stopped (blocking operation) and/or disabled before detaching the image. Prefix(es) are also accepted,
         to be used in case the unit names do not match the image name as described in the <command>attach</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -171,11 +171,11 @@
         character has to match. If the new image doesn't exist, the existing one will not be detached. The parameters
         follow the same syntax as the <command>attach</command> command.</para>
 
-        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
-
         <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable services are
         immediately stopped if removed, started and/or enabled if added, or restarted if updated. Prefixes are also
         accepted, in the same way as described in the <command>attach</command> case.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -321,12 +321,14 @@
       <varlistentry>
         <term><option>--copy=</option></term>
 
-        <listitem><para>When attaching an image, select whether to prefer copying or symlinking of files installed into
-        the host system. Takes one of <literal>copy</literal> (to prefer copying of files), <literal>symlink</literal>
-        (to prefer creation of symbolic links) or <literal>auto</literal> for an intermediary mode where security
-        profile drop-ins are symlinked while unit files are copied. Note that this option expresses a preference only,
-        in cases where symbolic links cannot be created — for example when the image operated on is a raw disk image,
-        and hence not directly referentiable from the host file system — copying of files is used
+        <listitem><para>When attaching an image, select whether to prefer copying or symlinking of files
+        installed into the host system. Takes one of <literal>copy</literal> (files will be copied),
+        <literal>symlink</literal> (to prefer creation of symbolic links), <literal>auto</literal> for an
+        intermediary mode where security profile drop-ins and images are symlinked while unit files are
+        copied, or <literal>mixed</literal> (since v256) where security profile drop-ins are symlinked while
+        unit files and images are copied. Note that this option expresses a preference only, in cases where
+        symbolic links cannot be created — for example when the image operated on is a raw disk image, and
+        hence not directly referentiable from the host file system — copying of files is used
         unconditionally.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
@@ -504,12 +506,12 @@
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>org.freedesktop.portable1</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-portabled.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>org.freedesktop.portable1</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-portabled.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 
 </refentry>

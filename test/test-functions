@@ -120,6 +120,7 @@ SYSTEMD="${SYSTEMD:-$(command -v "$BUILD_DIR/systemd" || command -v "$ROOTLIBDIR
 SYSTEMD_NSPAWN="${SYSTEMD_NSPAWN:-$(command -v "$BUILD_DIR/systemd-nspawn" || command -v systemd-nspawn)}"
 JOURNALCTL="${JOURNALCTL:-$(command -v "$BUILD_DIR/journalctl" || command -v journalctl)}"
 SYSTEMCTL="${SYSTEMCTL:-$(command -v "$BUILD_DIR/systemctl" || command -v systemctl)}"
+SYSTEMD_ID128="${SYSTEMD_ID128:-$(command -v "$BUILD_DIR/systemd-id128" || command -v systemd-id128)}"
 
 TESTFILE="${BASH_SOURCE[1]}"
 if [ -z "$TESTFILE" ]; then
@@ -157,6 +158,7 @@ BASICTOOLS=(
     bash
     capsh
     cat
+    chgrp
     chmod
     chown
     chroot
@@ -220,7 +222,6 @@ BASICTOOLS=(
     rm
     rmdir
     rmmod
-    route
     script
     sed
     seq
@@ -254,6 +255,7 @@ BASICTOOLS=(
     useradd
     userdel
     wc
+    whoami
     xargs
     xzcat
 )
@@ -994,7 +996,7 @@ create_asan_wrapper() {
 
     [[ -z "$ASAN_RT_PATH" ]] && dfatal "ASAN_RT_PATH is empty, but it shouldn't be"
 
-    default_asan_options="${ASAN_OPTIONS:-strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1}"
+    default_asan_options="${ASAN_OPTIONS:-strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:disable_coredump=0:use_madv_dontdump=1}"
     default_ubsan_options="${UBSAN_OPTIONS:-print_stacktrace=1:print_summary=1:halt_on_error=1}"
 
     if [[ "$ASAN_COMPILER" == "clang" ]]; then
@@ -1117,14 +1119,14 @@ install_fs_tools() {
 install_modules() {
     dinfo "Install modules"
 
-    instmods bridge dummy ipvlan macvlan vfat veth
+    instmods bridge dummy ext4 ipvlan macvlan vfat veth
     instmods loop =block
     instmods nls_ascii =nls
     instmods overlay =overlayfs
     instmods scsi_debug
 
     if get_bool "$LOOKS_LIKE_SUSE"; then
-        instmods ext4 af_packet
+        instmods af_packet
     fi
 }
 
@@ -1150,7 +1152,9 @@ install_multipath() {
     image_install kpartx /lib/udev/kpartx_id lsmod mpathpersist multipath multipathd partx
     image_install "${ROOTLIBDIR:?}"/system/multipathd.{service,socket}
     if get_bool "$LOOKS_LIKE_DEBIAN"; then
-        inst_rules 56-dm-parts.rules 56-dm-mpath.rules 60-multipath.rules 68-del-part-nodes.rules 95-kpartx.rules
+        # Note: try both 60-kpartx.rules (as seen on Debian Sid with 0.9.4-7) and 95-kpartx.rules (as seen on
+        # Ubuntu Jammy with 0.8.8-1ubuntu1.22.04.4)
+        inst_rules 56-dm-parts.rules 56-dm-mpath.rules 60-kpartx.rules 60-multipath.rules 68-del-part-nodes.rules 95-kpartx.rules
     else
         inst_rules 11-dm-mpath.rules 11-dm-parts.rules 62-multipath.rules 66-kpartx.rules 68-del-part-nodes.rules
     fi
@@ -1166,28 +1170,41 @@ install_multipath() {
 }
 
 install_lvm() {
+    local lvm_rules rule_prefix
+
     image_install lvm
     image_install "${ROOTLIBDIR:?}"/system/lvm2-lvmpolld.{service,socket}
     image_install "${ROOTLIBDIR:?}"/system/{blk-availability,lvm2-monitor}.service
     image_install -o "/lib/tmpfiles.d/lvm2.conf"
+
     if get_bool "$LOOKS_LIKE_DEBIAN"; then
-        inst_rules 56-lvm.rules 69-lvm-metad.rules
+        lvm_rules="56-lvm.rules"
+        rule_prefix=""
     else
-        # Support the new udev autoactivation introduced in lvm 2.03.14
-        # https://sourceware.org/git/?p=lvm2.git;a=commit;h=67722b312390cdab29c076c912e14bd739c5c0f6
-        # Static autoactivation (via lvm2-activation-generator) was dropped
-        # in lvm 2.03.15
-        # https://sourceware.org/git/?p=lvm2.git;a=commit;h=ee8fb0310c53ed003a43b324c99cdfd891dd1a7c
-        if [[ -f /lib/udev/rules.d/69-dm-lvm.rules ]]; then
-            inst_rules 11-dm-lvm.rules 69-dm-lvm.rules
-        else
-            image_install "${ROOTLIBDIR:?}"/system-generators/lvm2-activation-generator
-            image_install "${ROOTLIBDIR:?}"/system/lvm2-pvscan@.service
-            inst_rules 11-dm-lvm.rules 69-dm-lvm-metad.rules
-        fi
+        lvm_rules="11-dm-lvm.rules"
+        rule_prefix="dm-"
     fi
+
+    # Support the new udev autoactivation introduced in lvm 2.03.14
+    # https://sourceware.org/git/?p=lvm2.git;a=commit;h=67722b312390cdab29c076c912e14bd739c5c0f6
+    # Static autoactivation (via lvm2-activation-generator) was dropped
+    # in lvm 2.03.15
+    # https://sourceware.org/git/?p=lvm2.git;a=commit;h=ee8fb0310c53ed003a43b324c99cdfd891dd1a7c
+    if [[ -f "/lib/udev/rules.d/69-${rule_prefix}lvm.rules" ]]; then
+        inst_rules "$lvm_rules" "69-${rule_prefix}lvm.rules"
+    else
+        image_install "${ROOTLIBDIR:?}"/system-generators/lvm2-activation-generator
+        image_install "${ROOTLIBDIR:?}"/system/lvm2-pvscan@.service
+        inst_rules "$lvm_rules" "69-${rule_prefix}lvm-metad.rules"
+    fi
+
     mkdir -p "${initdir:?}/etc/lvm"
 }
+
+host_has_btrfs() (
+    set -e
+    modprobe -nv btrfs && command -v mkfs.btrfs && command -v btrfs || return $?
+)
 
 install_btrfs() {
     instmods btrfs
@@ -1256,6 +1273,11 @@ install_iscsi() {
     fi
 }
 
+host_has_mdadm() (
+    set -e
+    command -v mdadm || return $?
+)
+
 install_mdadm() {
     local unit
     local mdadm_units=(
@@ -1269,6 +1291,7 @@ install_mdadm() {
         system-shutdown/mdadm.shutdown
     )
 
+    instmods "=md"
     image_install mdadm mdmon
     inst_rules 01-md-raid-creating.rules 63-md-raid-arrays.rules 64-md-raid-assembly.rules 69-md-clustered-confirm-device.rules
     # Fedora/CentOS/RHEL ships this rule file
@@ -1277,6 +1300,10 @@ install_mdadm() {
     for unit in "${mdadm_units[@]}"; do
         image_install "${ROOTLIBDIR:?}/$unit"
     done
+
+    # Disable the mdmonitor service, since it fails if there's no valid email address
+    # configured in /etc/mdadm.conf, which just unnecessarily pollutes the logs
+    "${SYSTEMCTL:?}" mask --root "${initdir:?}" mdmonitor.service || :
 }
 
 install_compiled_systemd() {
@@ -1301,19 +1328,35 @@ install_compiled_systemd() {
     fi
 }
 
+install_package_file() {
+    local file="${1:?}"
+
+    # Skip missing files (like /etc/machine-info)
+    [[ ! -e "$file" ]] && return 0
+    # Skip python unit tests, since the image_install machinery will try to pull
+    # in the whole python stack in a very questionable state, making the tests fail.
+    # And given we're trying to transition to mkosi-based images anyway I'm not even
+    # going to bother
+    [[ "$file" =~ /tests/unit-tests/.*.py$ ]] && return 0
+    # If the current file is a directory, create it with the original
+    # mode; if it's a symlink to a directory, copy it as-is
+    if [[ -d "$file" ]]; then
+        inst_dir "$file"
+    else
+        inst "$file"
+    fi
+}
+
 install_debian_systemd() {
     dinfo "Install debian systemd"
 
-    local files
+    local deb file
 
     while read -r deb; do
-        files="$(dpkg-query -L "$deb" 2>/dev/null)" || continue
         ddebug "Install debian files from package $deb"
-        for file in $files; do
-            [ -e "$file" ] || continue
-            [ ! -L "$file" ] && [ -d "$file" ] && continue
-            inst "$file"
-        done
+        while read -r file; do
+            install_package_file "$file"
+        done < <(dpkg-query -L "$deb" 2>/dev/null)
     done < <(grep -E '^Package:' "${SOURCE_DIR}/debian/control" | cut -d ':' -f 2)
 }
 
@@ -1328,27 +1371,21 @@ install_rpm() {
 
     dinfo "Installing contents of RPM $rpm"
     while read -r file; do
-        # Skip missing files (like /etc/machine-info)
-        [[ ! -e "$file" ]] && continue
-        # Skip directories unless they are a symlink (both -L and -d pass in this case)
-        [[ -d "$file" && ! -L "$file" ]] && continue
-        # Skip python unit tests, since the image_install machinery will try to pull
-        # in the whole python stack in a very questionable state, making the tests fail.
-        # And given we're trying to transition to mkosi-based images anyway I'm not even
-        # going to bother
-        [[ "$file" =~ /tests/unit-tests/.*.py$ ]] && continue
-
-        image_install "$file"
+        install_package_file "$file"
     done < <(rpm -ql "$rpm")
 }
 
 install_suse_systemd() {
     local pkgs
 
+    dinfo "Install basic filesystem structure"
+    install_rpm filesystem
+
     dinfo "Install SUSE systemd"
 
     pkgs=(
         systemd
+        systemd-boot
         systemd-container
         systemd-coredump
         systemd-experimental
@@ -1518,7 +1555,7 @@ install_missing_libraries() {
     local lib path
     # A number of dependencies is now optional via dlopen, so the install
     # script will not pick them up, since it looks at linkage.
-    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu tss2-tcti-device libfido2 libbpf libelf libdw xkbcommon p11-kit-1; do
+    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu tss2-tcti-device libfido2 libbpf libelf libdw xkbcommon p11-kit-1 libarchive; do
         ddebug "Searching for $lib via pkg-config"
         if pkg-config --exists "$lib"; then
                 path="$(pkg-config --variable=libdir "$lib")"
@@ -1582,6 +1619,9 @@ create_empty_image() {
     # Partition sizes are in MiBs
     local root_size=768
     local data_size=100
+    local esp_size=128
+    local boot_size=128
+    local total=
     if ! get_bool "$NO_BUILD"; then
         if meson configure "${BUILD_DIR:?}" | grep 'static-lib\|standalone-binaries' | awk '{ print $2 }' | grep -q 'true'; then
             root_size=$((root_size + 200))
@@ -1604,28 +1644,44 @@ create_empty_image() {
         data_size=$((data_size + IMAGE_ADDITIONAL_DATA_SIZE))
     fi
 
-    echo "Setting up ${IMAGE_PUBLIC:?} (${root_size} MB)"
+    total=$((root_size + data_size + esp_size + boot_size))
+
+    echo "Setting up ${IMAGE_PUBLIC:?} (${total} MB)"
     rm -f "${IMAGE_PRIVATE:?}" "$IMAGE_PUBLIC"
 
     # Create the blank file to use as a root filesystem
-    truncate -s "${root_size}M" "$IMAGE_PUBLIC"
+    truncate -s "${total}M" "$IMAGE_PUBLIC"
 
     LOOPDEV="$(losetup --show -P -f "$IMAGE_PUBLIC")"
     [[ -b "$LOOPDEV" ]] || return 1
     # Create two partitions - a root one and a data one (utilized by some tests)
     sfdisk "$LOOPDEV" <<EOF
 label: gpt
-type=0FC63DAF-8483-4772-8E79-3D69D8477DE4 name=root size=$((root_size - data_size))M bootable
+type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B name=esp  size=${esp_size}M
+type=$("${SYSTEMD_ID128:?}" show root -Pu) name=root size=${root_size}M bootable
+type=BC13C2FF-59E6-4262-A352-B275FD6F7172 name=boot size=${boot_size}M
 type=0FC63DAF-8483-4772-8E79-3D69D8477DE4 name=data
 EOF
 
     udevadm settle
 
+    if ! mkfs -t vfat "${LOOPDEV}p1"; then
+        dfatal "Failed to mkfs -t vfat ${LOOPDEV}p1"
+        exit 1
+    fi
+
     local label=(-L systemd_boot)
     # mkfs.reiserfs doesn't know -L. so, use --label instead
     [[ "$FSTYPE" == "reiserfs" ]] && label=(--label systemd_boot)
-    if ! mkfs -t "${FSTYPE}" "${label[@]}" "${LOOPDEV}p1" -q; then
-        dfatal "Failed to mkfs -t ${FSTYPE}"
+    if ! mkfs -t "${FSTYPE}" "${label[@]}" "${LOOPDEV}p2" -q; then
+        dfatal "Failed to mkfs -t ${FSTYPE} ${label[*]} ${LOOPDEV}p2 -q"
+        exit 1
+    fi
+
+    local label=(-L xbootldr)
+    [[ "$FSTYPE" == "reiserfs" ]] && label=(--label xbootldr)
+    if ! mkfs -t "${FSTYPE}" "${label[@]}" "${LOOPDEV}p3" -q; then
+        dfatal "Failed to mkfs -t ${FSTYPE} ${label[*]} ${LOOPDEV}p3 -q"
         exit 1
     fi
 }
@@ -1641,7 +1697,7 @@ mount_initdir() {
 
     if ! mountpoint -q "${initdir:?}"; then
         mkdir -p "$initdir"
-        mount "${LOOPDEV}p1" "$initdir"
+        mount "${LOOPDEV}p2" "$initdir"
         TEST_SETUP_CLEANUP_ROOTDIR=1
     fi
 }
@@ -1790,8 +1846,9 @@ save_journal() {
 
     # Show messages from the testsuite-XX.service or messages with priority "warning" and higher
     echo " --- $source_dir ---"
-    "$JOURNALCTL" --no-pager --no-hostname -o short-monotonic -D "$source_dir" \
-        _SYSTEMD_UNIT="testsuite-${TESTID:?}.service" + PRIORITY=4 + PRIORITY=3 + PRIORITY=2 + PRIORITY=1 + PRIORITY=0
+    "$JOURNALCTL" --all --no-pager --no-hostname -o short-monotonic -D "$source_dir" \
+        _SYSTEMD_UNIT="testsuite-${TESTID:?}.service" + SYSLOG_IDENTIFIER="testsuite-$TESTID.sh" + \
+        PRIORITY=4 + PRIORITY=3 + PRIORITY=2 + PRIORITY=1 + PRIORITY=0
 
     if get_bool "$save"; then
         # If we don't have systemd-journal-remote copy all journals from /var/log/journal/
@@ -2046,7 +2103,7 @@ install_testuser() {
     # create unprivileged user for user manager tests
     mkdir -p "${initdir:?}/etc/sysusers.d"
     cat >"$initdir/etc/sysusers.d/testuser.conf" <<EOF
-u testuser    4711     "Test User" /home/testuser
+u testuser    4711     "Test User" /home/testuser /bin/bash
 EOF
 
     mkdir -p "$initdir/home/testuser"
@@ -2144,14 +2201,14 @@ install_dbus() {
     # Newer Fedora versions use dbus-broker by default. Let's install it if it's available.
     if [ -f "$ROOTLIBDIR/system/dbus-broker.service" ]; then
         inst "$ROOTLIBDIR/system/dbus-broker.service"
-        inst_symlink /etc/systemd/system/dbus.service
         inst /usr/bin/dbus-broker
         inst /usr/bin/dbus-broker-launch
+        image_install -o {/etc,/usr/lib}/systemd/system/dbus.service
     elif [ -f "$ROOTLIBDIR/system/dbus-daemon.service" ]; then
         # Fedora rawhide replaced dbus.service with dbus-daemon.service
         inst "$ROOTLIBDIR/system/dbus-daemon.service"
         # Alias symlink
-        inst_symlink /etc/systemd/system/dbus.service
+        image_install -o {/etc,/usr/lib}/systemd/system/dbus.service
     else
         inst "$ROOTLIBDIR/system/dbus.service"
     fi
@@ -2210,12 +2267,12 @@ EOF
     # Newer Fedora versions use dbus-broker by default. Let's install it if it's available.
     if [ -f "$userunitdir/dbus-broker.service" ]; then
         inst "$userunitdir/dbus-broker.service"
-        inst_symlink /etc/systemd/user/dbus.service
+        image_install -o {/etc,/usr/lib}/systemd/user/dbus.service
     elif [ -f "${ROOTLIBDIR:?}/system/dbus-daemon.service" ]; then
         # Fedora rawhide replaced dbus.service with dbus-daemon.service
         inst "$userunitdir/dbus-daemon.service"
         # Alias symlink
-        inst_symlink /etc/systemd/user/dbus.service
+        image_install -o {/etc,/usr/lib}/systemd/user/dbus.service
     else
         inst "$userunitdir/dbus.service"
     fi
@@ -2870,14 +2927,14 @@ inst_binary() {
 
     # Same as above, but we need to wrap certain libraries unconditionally
     #
-    # chown, getent, login, setfacl, su, useradd, userdel
+    # chgrp, chown, getent, login, setfacl, su, useradd, userdel
     #    - dlopen() (not only) systemd's PAM modules
     # ls, mkfs.*, mksquashfs, mkswap, setpriv, stat
     #   - pull in nss_systemd with certain options (like ls -l) when
     #     nsswitch.conf uses [SUCCESS=merge] (like on Arch Linux)
     # delv, dig - pull in nss_resolve if `resolve` is in nsswitch.conf
     # tar - called by machinectl in TEST-25
-    bin_rx='/(agetty|chown|curl|delv|dig|getfacl|getent|id|login|ls|mkfs\.[a-z0-9]+|mksquashfs|mkswap|setfacl|setpriv|stat|su|tar|useradd|userdel)$'
+    bin_rx='/(agetty|chgrp|chown|curl|delv|dig|getfacl|getent|id|login|ls|mkfs\.[a-z0-9]+|mksquashfs|mkswap|setfacl|setpriv|stat|su|tar|useradd|userdel)$'
     if get_bool "$IS_BUILT_WITH_ASAN" && [[ "$bin" =~ $bin_rx ]]; then
         wrap_binary=1
         # Ugh, so we want to disable LSan in most cases for the wrapped binaries, since
@@ -3294,9 +3351,10 @@ test_create_image() {
 }
 
 test_setup() {
-    if get_bool "${TEST_REQUIRE_INSTALL_TESTS:?}" && \
-            command -v meson >/dev/null && \
-            [[ "$(meson configure "${BUILD_DIR:?}" | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
+    if ! get_bool "$NO_BUILD" && \
+         get_bool "${TEST_REQUIRE_INSTALL_TESTS:?}" && \
+         command -v meson >/dev/null && \
+         [[ "$(meson configure "${BUILD_DIR:?}" | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
         dfatal "$BUILD_DIR needs to be built with -Dinstall-tests=true"
         exit 1
     fi

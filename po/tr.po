@@ -10,15 +10,16 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-11-14 21:25+0000\n"
-"PO-Revision-Date: 2023-08-03 17:21+0000\n"
+"PO-Revision-Date: 2023-12-11 13:43+0000\n"
 "Last-Translator: Oğuz Ersen <oguz@ersen.moe>\n"
-"Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/master/tr/>\n"
+"Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
+"master/tr/>\n"
 "Language: tr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.18.2\n"
+"X-Generator: Weblate 5.2.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -120,11 +121,14 @@ msgstr "Bir kullanıcının ev alanının parolasını değiştirmek kimlik doğ
 #, c-format
 msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
 msgstr ""
+"%s kullanıcısının ev dizini şu anda mevcut değil, lütfen gerekli depolama "
+"aygıtını veya içeren dosya sistemini bağlayın."
 
 #: src/home/pam_systemd_home.c:292
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
+"%s kullanıcısı için çok sık oturum açma denemesi, daha sonra tekrar deneyin."
 
 #: src/home/pam_systemd_home.c:304
 msgid "Password: "
@@ -134,116 +138,135 @@ msgstr "Parola: "
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
+"Parola yanlış veya %s kullanıcısının kimlik doğrulaması için yeterli değil."
 
 #: src/home/pam_systemd_home.c:307
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Üzgünüm, tekrar deneyin: "
 
 #: src/home/pam_systemd_home.c:329
 msgid "Recovery key: "
-msgstr ""
+msgstr "Kurtarma anahtarı: "
 
 #: src/home/pam_systemd_home.c:331
 #, c-format
 msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
 msgstr ""
+"Parola/kurtarma anahtarı yanlış veya %s kullanıcısının kimlik doğrulaması "
+"için yeterli değil."
 
 #: src/home/pam_systemd_home.c:332
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "Üzgünüm, kurtarma anahtarını yeniden girin: "
 
 #: src/home/pam_systemd_home.c:352
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "%s kullanıcısının güvenlik belirteci girilmedi."
 
 #: src/home/pam_systemd_home.c:353 src/home/pam_systemd_home.c:356
 msgid "Try again with password: "
-msgstr ""
+msgstr "Parola ile tekrar deneyin: "
 
 #: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
 msgstr ""
+"Parola yanlış veya yeterli değil ve %s kullanıcısının yapılandırılan "
+"güvenlik belirteci girilmedi."
 
 #: src/home/pam_systemd_home.c:376
 msgid "Security token PIN: "
-msgstr ""
+msgstr "Güvenlik belirteci PIN kodu: "
 
 #: src/home/pam_systemd_home.c:393
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
+"Lütfen %s kullanıcısının güvenlik belirteci ile fiziksel olarak kimlik "
+"doğrulaması yapın."
 
 #: src/home/pam_systemd_home.c:404
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
+msgstr "Lütfen %s kullanıcısının güvenlik belirtecinin varlığını doğrulayın."
 
 #: src/home/pam_systemd_home.c:415
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
+"Lütfen %s kullanıcısının güvenlik belirtecindeki kullanıcıyı doğrulayın."
 
 #: src/home/pam_systemd_home.c:424
 msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
 msgstr ""
+"Güvenlik belirteci PIN kodu kilitli, lütfen önce kilidini açın. (İpucu: "
+"Çıkarma ve yeniden takma yeterli olabilir.)"
 
 #: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Security token PIN incorrect for user %s."
-msgstr ""
+msgstr "Güvenlik belirteci PIN kodu %s kullanıcısı için yanlış."
 
 #: src/home/pam_systemd_home.c:433 src/home/pam_systemd_home.c:452
 #: src/home/pam_systemd_home.c:471
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "Üzgünüm, güvenlik belirteci PIN kodunu yeniden deneyin: "
 
 #: src/home/pam_systemd_home.c:451
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
+"%s kullanıcısının güvenlik belirteci PIN kodu yanlış (sadece birkaç deneme "
+"kaldı!)"
 
 #: src/home/pam_systemd_home.c:470
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
+"%s kullanıcısının güvenlik belirteci PIN kodu yanlış (sadece bir deneme "
+"kaldı!)"
 
 #: src/home/pam_systemd_home.c:616
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
+"%s kullanıcısının ev dizini şu anda etkin değil, lütfen önce yerel olarak "
+"oturum açın."
 
 #: src/home/pam_systemd_home.c:618
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
+"%s kullanıcısının ev dizini şu anda kilitli, lütfen önce yerel olarak "
+"kilidini açın."
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
+"%s kullanıcısı için çok fazla başarısız oturum açma denemesi, reddediliyor."
 
 #: src/home/pam_systemd_home.c:868
 msgid "User record is blocked, prohibiting access."
-msgstr ""
+msgstr "Kullanıcı kaydı engellendi, erişim engelleniyor."
 
 #: src/home/pam_systemd_home.c:872
 msgid "User record is not valid yet, prohibiting access."
-msgstr ""
+msgstr "Kullanıcı kaydı henüz geçerli değil, erişim engelleniyor."
 
 #: src/home/pam_systemd_home.c:876
 msgid "User record is not valid anymore, prohibiting access."
-msgstr ""
+msgstr "Kullanıcı kaydı artık geçerli değil, erişim engelleniyor."
 
 #: src/home/pam_systemd_home.c:881 src/home/pam_systemd_home.c:932
 msgid "User record not valid, prohibiting access."
-msgstr ""
+msgstr "Kullanıcı kaydı geçerli değil, erişim engelleniyor."
 
 #: src/home/pam_systemd_home.c:893
 #, c-format
 msgid "Too many logins, try again in %s."
-msgstr ""
+msgstr "Çok fazla oturum açıldı, %s içinde tekrar deneyin."
 
 #: src/home/pam_systemd_home.c:904
 msgid "Password change required."

@@ -2141,14 +2141,13 @@ int cg_kernel_controllers(Set **ret) {
                 _cleanup_free_ char *controller = NULL;
                 int enabled = 0;
 
-                errno = 0;
                 if (fscanf(f, "%ms %*i %*i %i", &controller, &enabled) != 2) {
+
+                        if (ferror(f))
+                                return -errno;
 
                         if (feof(f))
                                 break;
-
-                        if (ferror(f))
-                                return errno_or_else(EIO);
 
                         return -EBADMSG;
                 }

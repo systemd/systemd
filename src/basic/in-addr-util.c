@@ -91,14 +91,26 @@ bool in6_addr_is_link_local_all_nodes(const struct in6_addr *a) {
                 be32toh(a->s6_addr32[3]) == UINT32_C(0x00000001);
 }
 
+bool in4_addr_is_multicast(const struct in_addr *a) {
+        assert(a);
+
+        return IN_MULTICAST(be32toh(a->s_addr));
+}
+
+bool in6_addr_is_multicast(const struct in6_addr *a) {
+        assert(a);
+
+        return IN6_IS_ADDR_MULTICAST(a);
+}
+
 int in_addr_is_multicast(int family, const union in_addr_union *u) {
         assert(u);
 
         if (family == AF_INET)
-                return IN_MULTICAST(be32toh(u->in.s_addr));
+                return in4_addr_is_multicast(&u->in);
 
         if (family == AF_INET6)
-                return IN6_IS_ADDR_MULTICAST(&u->in6);
+                return in6_addr_is_multicast(&u->in6);
 
         return -EAFNOSUPPORT;
 }
@@ -922,12 +934,19 @@ int in_addr_prefix_from_string_auto_internal(
 
 }
 
+void in_addr_hash_func(const union in_addr_union *u, int family, struct siphash *state) {
+        assert(u);
+        assert(state);
+
+        siphash24_compress(u->bytes, FAMILY_ADDRESS_SIZE(family), state);
+}
+
 void in_addr_data_hash_func(const struct in_addr_data *a, struct siphash *state) {
         assert(a);
         assert(state);
 
-        siphash24_compress(&a->family, sizeof(a->family), state);
-        siphash24_compress(&a->address, FAMILY_ADDRESS_SIZE(a->family), state);
+        siphash24_compress_typesafe(a->family, state);
+        in_addr_hash_func(&a->address, a->family, state);
 }
 
 int in_addr_data_compare_func(const struct in_addr_data *x, const struct in_addr_data *y) {
@@ -960,7 +979,7 @@ void in6_addr_hash_func(const struct in6_addr *addr, struct siphash *state) {
         assert(addr);
         assert(state);
 
-        siphash24_compress(addr, sizeof(*addr), state);
+        siphash24_compress_typesafe(*addr, state);
 }
 
 int in6_addr_compare_func(const struct in6_addr *a, const struct in6_addr *b) {

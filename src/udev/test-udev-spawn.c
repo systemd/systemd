@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "signal-util.h"
 #include "strv.h"
@@ -16,8 +17,8 @@ static void test_event_spawn_core(bool with_pidfd, const char *cmd, char *result
         assert_se(setenv("SYSTEMD_PIDFD", yes_no(with_pidfd), 1) >= 0);
 
         assert_se(sd_device_new_from_syspath(&dev, "/sys/class/net/lo") >= 0);
-        assert_se(event = udev_event_new(dev, 0, NULL, LOG_DEBUG));
-        assert_se(udev_event_spawn(event, 5 * USEC_PER_SEC, SIGKILL, false, cmd, result_buf, buf_size, NULL) == 0);
+        assert_se(event = udev_event_new(dev, NULL));
+        assert_se(udev_event_spawn(event, false, cmd, result_buf, buf_size, NULL) == 0);
 
         assert_se(unsetenv("SYSTEMD_PIDFD") >= 0);
 }
@@ -80,6 +81,9 @@ static void test2(void) {
 int main(int argc, char *argv[]) {
         _cleanup_free_ char *self = NULL;
 
+        if (path_is_mount_point("/sys") <= 0)
+                return log_tests_skipped("/sys is not mounted");
+
         if (argc > 1) {
                 if (streq(argv[1], "test1"))
                         test1();
@@ -93,7 +97,7 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
         test_event_spawn_cat(true, SIZE_MAX);
         test_event_spawn_cat(false, SIZE_MAX);

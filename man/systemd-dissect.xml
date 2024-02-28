@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-dissect" conditional='HAVE_BLKID'
@@ -24,40 +24,43 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg></command>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--mount</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg></command>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--mount</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--umount</option> <arg choice="plain"><replaceable>PATH</replaceable></arg></command>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--umount</arg> <arg choice="plain"><replaceable>PATH</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--attach</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg></command>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--attach</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--detach</option> <arg choice="plain"><replaceable>PATH</replaceable></arg></command>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--detach</arg> <arg choice="plain"><replaceable>PATH</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--list</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg></command>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--list</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--mtree</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg></command>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--mtree</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--with</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="opt" rep="repeat"><replaceable>COMMAND</replaceable></arg></command>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--with</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="opt" rep="repeat"><replaceable>COMMAND</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--copy-from</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg> <arg choice="opt"><replaceable>TARGET</replaceable></arg></command>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--copy-from</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg> <arg choice="opt"><replaceable>TARGET</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--copy-to</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="opt"><replaceable>SOURCE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg></command>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--copy-to</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="opt"><replaceable>SOURCE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--discover</option></command>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--make-archive</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="opt"><replaceable>TARGET</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--validate</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg></command>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--discover</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--validate</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -120,6 +123,8 @@
     mounted directly by <command>mount</command> and <citerefentry
     project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>. For
     details see below.</para>
+
+    <xi:include href="vpick.xml" xpointer="image"/>
   </refsect1>
 
   <refsect1>
@@ -299,6 +304,21 @@
         operation begins.</para>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--make-archive</option></term>
+
+        <listitem><para>Generates an archive file from the specified disk image. Expects two arguments: the
+        path to the disk image and optionally the output archive file path. If the latter is omitted the
+        archive is written to standard output. The archive file format is determined automatically from the
+        specified output archive file name, e.g. any path suffixed with <literal>.tar.xz</literal> will
+        result in an xz compressed UNIX tarball (if the path is omitted an uncompressed UNIX tarball is
+        created). See
+        <citerefentry><refentrytitle>libarchive</refentrytitle><manvolnum>3</manvolnum></citerefentry> for a
+        list of supported archive formats and compression schemes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -531,23 +551,32 @@
     <title>Examples</title>
 
     <example>
-      <title>Generate a tarball from an OS disk image</title>
+      <title>Generate a tarball from an OS disk image (<option>--with</option>)</title>
 
       <programlisting># systemd-dissect --with foo.raw tar cz . >foo.tar.gz</programlisting>
+    </example>
+
+    <para>or alternatively just:</para>
+
+    <example>
+      <title>Generate a tarball from an OS disk image (<option>--make-archive</option>)</title>
+
+      <programlisting># systemd-dissect --make-archive foo.raw foo.tar.gz</programlisting>
     </example>
   </refsect1>
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink>,
-      <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>fdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink></member>
+      <member><citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>fdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 
 </refentry>

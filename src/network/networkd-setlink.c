@@ -103,6 +103,19 @@ static int link_set_bridge_handler(sd_netlink *rtnl, sd_netlink_message *m, Requ
 }
 
 static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
+        int r;
+
+        assert(link);
+
+        r = set_link_handler_internal(rtnl, m, req, link, /* ignore = */ false, NULL);
+        if (r <= 0)
+                return r;
+
+        link->bridge_vlan_set = true;
+        return 0;
+}
+
+static int link_del_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
         return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ false, NULL);
 }
 
@@ -326,29 +339,14 @@ static int link_configure_fill_message(
                         return r;
                 break;
         case REQUEST_TYPE_SET_LINK_BRIDGE_VLAN:
-                r = sd_rtnl_message_link_set_family(req, AF_BRIDGE);
+                r = bridge_vlan_set_message(link, req, /* is_set = */ true);
                 if (r < 0)
                         return r;
-
-                r = sd_netlink_message_open_container(req, IFLA_AF_SPEC);
+                break;
+        case REQUEST_TYPE_DEL_LINK_BRIDGE_VLAN:
+                r = bridge_vlan_set_message(link, req, /* is_set = */ false);
                 if (r < 0)
                         return r;
-
-                if (link->master_ifindex <= 0) {
-                        /* master needs BRIDGE_FLAGS_SELF flag */
-                        r = sd_netlink_message_append_u16(req, IFLA_BRIDGE_FLAGS, BRIDGE_FLAGS_SELF);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = bridge_vlan_append_info(link, req, link->network->pvid, link->network->br_vid_bitmap, link->network->br_untagged_bitmap);
-                if (r < 0)
-                        return r;
-
-                r = sd_netlink_message_close_container(req);
-                if (r < 0)
-                        return r;
-
                 break;
         case REQUEST_TYPE_SET_LINK_CAN:
                 r = can_set_netlink_message(link, req);
@@ -430,6 +428,8 @@ static int link_configure(Link *link, Request *req) {
                 r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_NEWLINK, link->master_ifindex);
         else if (IN_SET(req->type, REQUEST_TYPE_SET_LINK_CAN, REQUEST_TYPE_SET_LINK_IPOIB))
                 r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_NEWLINK, link->ifindex);
+        else if (req->type == REQUEST_TYPE_DEL_LINK_BRIDGE_VLAN)
+                r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_DELLINK, link->ifindex);
         else
                 r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_SETLINK, link->ifindex);
         if (r < 0)
@@ -480,11 +480,13 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
 
                 if (link->network->keep_master && link->master_ifindex <= 0 && !streq_ptr(link->kind, "bridge"))
                         return false;
-
                 break;
 
+        case REQUEST_TYPE_DEL_LINK_BRIDGE_VLAN:
+                return link->bridge_vlan_set;
+
         case REQUEST_TYPE_SET_LINK_CAN:
-                /* Do not check link->set_flgas_messages here, as it is ok even if link->flags
+                /* Do not check link->set_flags_messages here, as it is ok even if link->flags
                  * is outdated, and checking the counter causes a deadlock. */
                 if (FLAGS_SET(link->flags, IFF_UP)) {
                         /* The CAN interface must be down to configure bitrate, etc... */
@@ -530,15 +532,6 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                         if (!netdev_is_ready(link->network->bond))
                                 return false;
                         m = link->network->bond->ifindex;
-
-                        /* Do not check link->set_flgas_messages here, as it is ok even if link->flags
-                         * is outdated, and checking the counter causes a deadlock. */
-                        if (FLAGS_SET(link->flags, IFF_UP)) {
-                                /* link must be down when joining to bond master. */
-                                r = link_down_now(link);
-                                if (r < 0)
-                                        return r;
-                        }
                 } else if (link->network->bridge) {
                         if (ordered_set_contains(link->manager->request_queue, &req_mac))
                                 return false;
@@ -557,16 +550,33 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                         return -EALREADY; /* indicate to cancel the request. */
                 }
 
+                /* Do not check link->set_flags_messages here, as it is ok even if link->flags is outdated,
+                 * and checking the counter causes a deadlock. */
+                if (link->network->bond && FLAGS_SET(link->flags, IFF_UP)) {
+                        /* link must be down when joining to bond master. */
+                        r = link_down_now(link);
+                        if (r < 0)
+                                return r;
+                }
+
                 req->userdata = UINT32_TO_PTR(m);
                 break;
         }
         case REQUEST_TYPE_SET_LINK_MTU: {
-                Request req_ipoib = {
-                        .link = link,
-                        .type = REQUEST_TYPE_SET_LINK_IPOIB,
-                };
+                if (ordered_set_contains(link->manager->request_queue,
+                                         &(const Request) {
+                                                 .link = link,
+                                                 .type = REQUEST_TYPE_SET_LINK_IPOIB,
+                                         }))
+                        return false;
 
-                return !ordered_set_contains(link->manager->request_queue, &req_ipoib);
+                /* Changing FD mode may affect MTU. */
+                if (ordered_set_contains(link->manager->request_queue,
+                                         &(const Request) {
+                                                 .link = link,
+                                                 .type = REQUEST_TYPE_SET_LINK_CAN,
+                                         }))
+                        return false;
         }
         default:
                 break;
@@ -704,10 +714,14 @@ int link_request_to_set_bridge(Link *link) {
 }
 
 int link_request_to_set_bridge_vlan(Link *link) {
+        int r;
+
         assert(link);
         assert(link->network);
 
-        if (!link->network->use_br_vlan)
+        /* If nothing configured, use the default vlan ID. */
+        if (memeqzero(link->network->bridge_vlan_bitmap, BRIDGE_VLAN_BITMAP_LEN * sizeof(uint32_t)) &&
+            link->network->bridge_vlan_pvid == BRIDGE_VLAN_KEEP_PVID)
                 return 0;
 
         if (!link->network->bridge && !streq_ptr(link->kind, "bridge")) {
@@ -723,9 +737,21 @@ int link_request_to_set_bridge_vlan(Link *link) {
                         return 0;
         }
 
-        return link_request_set_link(link, REQUEST_TYPE_SET_LINK_BRIDGE_VLAN,
-                                     link_set_bridge_vlan_handler,
-                                     NULL);
+        link->bridge_vlan_set = false;
+
+        r = link_request_set_link(link, REQUEST_TYPE_SET_LINK_BRIDGE_VLAN,
+                                  link_set_bridge_vlan_handler,
+                                  NULL);
+        if (r < 0)
+                return r;
+
+        r = link_request_set_link(link, REQUEST_TYPE_DEL_LINK_BRIDGE_VLAN,
+                                  link_del_bridge_vlan_handler,
+                                  NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 int link_request_to_set_can(Link *link) {
@@ -840,7 +866,7 @@ int link_request_to_set_master(Link *link) {
 
 int link_request_to_set_mtu(Link *link, uint32_t mtu) {
         const char *origin;
-        uint32_t min_mtu;
+        uint32_t min_mtu, max_mtu;
         Request *req;
         int r;
 
@@ -868,10 +894,19 @@ int link_request_to_set_mtu(Link *link, uint32_t mtu) {
                 mtu = min_mtu;
         }
 
-        if (mtu > link->max_mtu) {
+        max_mtu = link->max_mtu;
+        if (link->iftype == ARPHRD_CAN)
+                /* The maximum MTU may be changed when FD mode is changed.
+                 * See https://docs.kernel.org/networking/can.html#can-fd-flexible-data-rate-driver-support
+                 *   MTU = 16 (CAN_MTU)   => Classical CAN device
+                 *   MTU = 72 (CANFD_MTU) => CAN FD capable device
+                 * So, even if the current maximum is 16, we should not reduce the requested value now. */
+                max_mtu = MAX(max_mtu, 72u);
+
+        if (mtu > max_mtu) {
                 log_link_warning(link, "Reducing the requested MTU %"PRIu32" to the interface's maximum MTU %"PRIu32".",
-                                 mtu, link->max_mtu);
-                mtu = link->max_mtu;
+                                 mtu, max_mtu);
+                mtu = max_mtu;
         }
 
         if (link->mtu == mtu)
@@ -1011,6 +1046,8 @@ static int link_up_or_down(Link *link, bool up, Request *req) {
         assert(link->manager->rtnl);
         assert(req);
 
+        /* The log message is checked in the test. Please also update test_bond_active_slave() in
+         * test/test-network/systemd-networkd-tests.py. when the log message below is modified. */
         log_link_debug(link, "Bringing link %s", up_or_down(up));
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_SETLINK, link->ifindex);

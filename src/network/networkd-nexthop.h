@@ -20,34 +20,54 @@ typedef struct Network Network;
 typedef struct NextHop {
         Network *network;
         Manager *manager;
-        Link *link;
         ConfigSection *section;
         NetworkConfigSource source;
         NetworkConfigState state;
 
-        uint8_t protocol;
+        unsigned n_ref;
 
-        uint32_t id;
-        bool blackhole;
+        /* struct nhmsg */
         int family;
-        union in_addr_union gw;
+        uint8_t protocol;
         uint8_t flags;
-        int onlink; /* Only used in conf parser and nexthop_section_verify(). */
-        Hashmap *group;
+
+        /* attributes */
+        uint32_t id; /* NHA_ID */
+        Hashmap *group; /* NHA_GROUP */
+        bool blackhole; /* NHA_BLACKHOLE */
+        int ifindex; /* NHA_OIF */
+        union in_addr_union gw; /* NHA_GATEWAY */
+
+        /* Only used in conf parser and nexthop_section_verify(). */
+        int onlink;
+
+        /* For managing routes and nexthops that depend on this nexthop. */
+        Set *nexthops;
+        Set *routes;
 } NextHop;
 
-NextHop *nexthop_free(NextHop *nexthop);
+NextHop* nexthop_ref(NextHop *nexthop);
+NextHop* nexthop_unref(NextHop *nexthop);
 
-void network_drop_invalid_nexthops(Network *network);
+int nexthop_remove(NextHop *nexthop, Manager *manager);
 
-int link_drop_managed_nexthops(Link *link);
-int link_drop_foreign_nexthops(Link *link);
+int network_drop_invalid_nexthops(Network *network);
+
+int link_drop_nexthops(Link *link, bool foreign);
+static inline int link_drop_foreign_nexthops(Link *link) {
+        return link_drop_nexthops(link, /* foreign = */ true);
+}
+static inline int link_drop_static_nexthops(Link *link) {
+        return link_drop_nexthops(link, /* foreign = */ false);
+}
 void link_foreignize_nexthops(Link *link);
 
 int link_request_static_nexthops(Link *link, bool only_ipv4);
 
-int manager_get_nexthop_by_id(Manager *manager, uint32_t id, NextHop **ret);
+int nexthop_get_by_id(Manager *manager, uint32_t id, NextHop **ret);
+int nexthop_is_ready(Manager *manager, uint32_t id, NextHop **ret);
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
+int manager_build_nexthop_ids(Manager *manager);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(NextHop, nexthop);
 

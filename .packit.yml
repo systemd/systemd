@@ -16,6 +16,13 @@ upstream_tag_template: "v{version}"
 srpm_build_deps: []
 
 actions:
+  get-current-version:
+    # Show the closest matching tag for the checked out revision, otherwise
+    # Packit tries to get the latest tag by creation date, which doesn't work
+    # well in the systemd-stable repo. We also need to sanitize it manually
+    # since "upstream_tag_template" defined above doesn't apply here.
+    - "bash -ec 'git describe --tags --abbrev=0 | cut -b 2-'"
+
   post-upstream-clone:
     # Use the Fedora Rawhide specfile
     - "git clone https://src.fedoraproject.org/rpms/systemd .packit_rpm --depth=1"
@@ -32,8 +39,11 @@ actions:
     # [0] https://github.com/mesonbuild/meson/issues/7360
     # [1] https://github.com/systemd/systemd/pull/18908#issuecomment-792250110
     - 'sed -i "/^CONFIGURE_OPTS=(/a--werror" .packit_rpm/systemd.spec'
-    # Ignore unpackages standalone binaries
+    # Ignore unpackaged standalone binaries
     - "sed -i 's/assert False,.*/pass/' .packit_rpm/split-files.py"
+    # Temporarily add libarchive-devel build dep and libarchive runtime dep
+    # until the change propagates to Rawhide's specfile
+    - "sed -ri '0,/^BuildRequires: .+$/s//&\\nBuildRequires: libarchive-devel\\nRequires: libarchive/' .packit_rpm/systemd.spec"
 
 jobs:
 - job: copr_build

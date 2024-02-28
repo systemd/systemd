@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-creds"
@@ -215,6 +215,36 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--user</option></term>
+
+        <listitem><para>When specified with the <command>encrypt</command> and <command>decrypt</command>
+        commands encrypts a user-scoped (rather than a system-scoped) credential. Use <option>--uid=</option>
+        to select which user the credential is from. Such credentials may only be decrypted from the
+        specified user's context, except if privileges can be acquired. Generally, when an encrypted
+        credential shall be used in the per-user service manager it should be encrypted with this option set,
+        when it shall be used in the system service manager it should be encrypted without.</para>
+
+        <para>Internally, this ensures that the selected user's numeric UID and username, as well as the
+        system's
+        <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> are
+        incorporated into the encryption key.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--uid=</option></term>
+
+        <listitem><para>Specifies the user to encrypt the credential for. Takes a user name or numeric
+        UID. If set, implies <option>--user</option>. If set to the special string <literal>self</literal>
+        sets the user to the user of the calling process. If <option>--user</option> is used without
+        <option>--uid=</option> then <option>--uid=self</option> is implied, i.e. the credential is encrypted
+        for the calling user.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--transcode=</option></term>
 
         <listitem><para>When specified with the <command>cat</command> or <command>decrypt</command>
@@ -310,7 +340,7 @@
 
         <listitem><para>When specified with the <command>encrypt</command> command controls the
         encryption/signature key to use. Takes one of <literal>host</literal>, <literal>tpm2</literal>,
-        <literal>host+tpm2</literal>, <literal>tpm2-absent</literal>, <literal>auto</literal>,
+        <literal>host+tpm2</literal>, <literal>null</literal>, <literal>auto</literal>,
         <literal>auto-initrd</literal>. See above for details on the three key types. If set to
         <literal>auto</literal> (which is the default) the TPM2 key is used if a TPM2 device is found and not
         running in a container. The host key is used if <filename>/var/lib/systemd/</filename> is on
@@ -318,13 +348,13 @@
         chip and the OS installation, and both need to be available to decrypt the credential again. If
         <literal>auto</literal> is selected but neither TPM2 is available (or running in container) nor
         <filename>/var/lib/systemd/</filename> is on persistent media, encryption will fail. If set to
-        <literal>tpm2-absent</literal> a fixed zero length key is used (thus, in this mode no confidentiality
+        <literal>null</literal> a fixed zero length key is used (thus, in this mode no confidentiality
         nor authenticity are provided!). This logic is useful to cover for systems that lack a TPM2 chip but
         where credentials shall be generated. Note that decryption of such credentials is refused on systems
         that have a TPM2 chip and where UEFI SecureBoot is enabled (this is done so that such a locked down
         system cannot be tricked into loading a credential generated this way that lacks authentication
         information). If set to <literal>auto-initrd</literal> a TPM2 key is used if a TPM2 is found. If not
-        a fixed zero length key is used, equivalent to <literal>tpm2-absent</literal> mode. This option is
+        a fixed zero length key is used, equivalent to <literal>null</literal> mode. This option is
         particularly useful to generate credentials files that are encrypted/authenticated against TPM2 where
         available but still work on systems lacking support for this.</para>
 
@@ -354,7 +384,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-pcrs=</option><arg rep="repeat">PCR</arg></term>
+        <term><option>--tpm2-pcrs=</option><replaceable>PCR<optional>+PCR...</optional></replaceable></term>
 
         <listitem><para>Configures the TPM2 PCRs (Platform Configuration Registers) to bind the encryption
         key to. Takes a <literal>+</literal> separated list of numeric PCR indexes in the range 0…23. If not
@@ -366,8 +396,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-public-key=</option><arg>PATH</arg></term>
-        <term><option>--tpm2-public-key-pcrs=</option><arg rep="repeat">PCR</arg></term>
+        <term><option>--tpm2-public-key=</option><replaceable>PATH</replaceable></term>
+        <term><option>--tpm2-public-key-pcrs=</option><replaceable>PCR<optional>+PCR...</optional></replaceable></term>
 
         <listitem><para>Configures a TPM2 signed PCR policy to bind encryption to, for use with the
         <command>encrypt</command> command. The <option>--tpm2-public-key=</option> option accepts a path to
@@ -389,7 +419,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-signature=</option><arg>PATH</arg></term>
+        <term><option>--tpm2-signature=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Takes a path to a TPM2 PCR signature file as generated by the
         <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -483,11 +513,11 @@ SetCredentialEncrypted=mysql-password: \
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 
 </refentry>

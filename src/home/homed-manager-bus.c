@@ -61,6 +61,53 @@ static int property_get_auto_login(
         return sd_bus_message_close_container(reply);
 }
 
+static int lookup_user_name(
+                Manager *m,
+                sd_bus_message *message,
+                const char *user_name,
+                sd_bus_error *error,
+                Home **ret) {
+
+        Home *h;
+        int r;
+
+        assert(m);
+        assert(message);
+        assert(user_name);
+        assert(ret);
+
+        if (isempty(user_name)) {
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                uid_t uid;
+
+                /* If an empty user name is specified, then identify caller's EUID and find home by that. */
+
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_creds_get_euid(creds, &uid);
+                if (r < 0)
+                        return r;
+
+                h = hashmap_get(m->homes_by_uid, UID_TO_PTR(uid));
+                if (!h)
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_HOME, "Client's UID " UID_FMT " not managed.", uid);
+
+        } else {
+
+                if (!valid_user_group_name(user_name, 0))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "User name %s is not valid", user_name);
+
+                h = hashmap_get(m->homes_by_name, user_name);
+                if (!h)
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_HOME, "No home for user %s known", user_name);
+        }
+
+        *ret = h;
+        return 0;
+}
+
 static int method_get_home_by_name(
                 sd_bus_message *message,
                 void *userdata,
@@ -77,12 +124,10 @@ static int method_get_home_by_name(
         r = sd_bus_message_read(message, "s", &user_name);
         if (r < 0)
                 return r;
-        if (!valid_user_group_name(user_name, 0))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "User name %s is not valid", user_name);
 
-        h = hashmap_get(m->homes_by_name, user_name);
-        if (!h)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_HOME, "No home for user %s known", user_name);
+        r = lookup_user_name(m, message, user_name, error, &h);
+        if (r < 0)
+                return r;
 
         r = bus_home_path(h, &path);
         if (r < 0)
@@ -204,12 +249,10 @@ static int method_get_user_record_by_name(
         r = sd_bus_message_read(message, "s", &user_name);
         if (r < 0)
                 return r;
-        if (!valid_user_group_name(user_name, 0))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "User name %s is not valid", user_name);
 
-        h = hashmap_get(m->homes_by_name, user_name);
-        if (!h)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_HOME, "No home for user %s known", user_name);
+        r = lookup_user_name(m, message, user_name, error, &h);
+        if (r < 0)
+                return r;
 
         r = bus_home_get_record_json(h, message, &json, &incomplete);
         if (r < 0)
@@ -274,16 +317,17 @@ static int generic_home_method(
         Home *h;
         int r;
 
+        assert(m);
+        assert(message);
+        assert(handler);
+
         r = sd_bus_message_read(message, "s", &user_name);
         if (r < 0)
                 return r;
 
-        if (!valid_user_group_name(user_name, 0))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "User name %s is not valid", user_name);
-
-        h = hashmap_get(m->homes_by_name, user_name);
-        if (!h)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_HOME, "No home for user %s known", user_name);
+        r = lookup_user_name(m, message, user_name, error, &h);
+        if (r < 0)
+                return r;
 
         return handler(message, h, error);
 }
@@ -296,10 +340,8 @@ static int method_deactivate_home(sd_bus_message *message, void *userdata, sd_bu
         return generic_home_method(userdata, message, bus_home_method_deactivate, error);
 }
 
-static int validate_and_allocate_home(Manager *m, UserRecord *hr, Home **ret, sd_bus_error *error) {
+static int validate_and_allocate_home(Manager *m, UserRecord *hr, Hashmap *blobs, Home **ret, sd_bus_error *error) {
         _cleanup_(user_record_unrefp) UserRecord *signed_hr = NULL;
-        struct passwd *pw;
-        struct group *gr;
         bool signed_locally;
         Home *other;
         int r;
@@ -316,13 +358,26 @@ static int validate_and_allocate_home(Manager *m, UserRecord *hr, Home **ret, sd
         if (other)
                 return sd_bus_error_setf(error, BUS_ERROR_USER_NAME_EXISTS, "Specified user name %s exists already, refusing.", hr->user_name);
 
-        pw = getpwnam(hr->user_name);
-        if (pw)
+        r = getpwnam_malloc(hr->user_name, /* ret= */ NULL);
+        if (r >= 0)
                 return sd_bus_error_setf(error, BUS_ERROR_USER_NAME_EXISTS, "Specified user name %s exists in the NSS user database, refusing.", hr->user_name);
+        if (r != -ESRCH)
+                return r;
 
-        gr = getgrnam(hr->user_name);
-        if (gr)
+        r = getgrnam_malloc(hr->user_name, /* ret= */ NULL);
+        if (r >= 0)
                 return sd_bus_error_setf(error, BUS_ERROR_USER_NAME_EXISTS, "Specified user name %s conflicts with an NSS group by the same name, refusing.", hr->user_name);
+        if (r != -ESRCH)
+                return r;
+
+        if (blobs) {
+                const char *failed = NULL;
+                r = user_record_ensure_blob_manifest(hr, blobs, &failed);
+                if (r == -EINVAL)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Provided blob files do not correspond to blob manifest.");
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to generate hash for blob %s: %m", strnull(failed));
+        }
 
         r = manager_verify_user_record(m, hr);
         switch (r) {
@@ -353,17 +408,24 @@ static int validate_and_allocate_home(Manager *m, UserRecord *hr, Home **ret, sd
         }
 
         if (uid_is_valid(hr->uid)) {
+                _cleanup_free_ struct passwd *pw = NULL;
+                _cleanup_free_ struct group *gr = NULL;
+
                 other = hashmap_get(m->homes_by_uid, UID_TO_PTR(hr->uid));
                 if (other)
                         return sd_bus_error_setf(error, BUS_ERROR_UID_IN_USE, "Specified UID " UID_FMT " already in use by home %s, refusing.", hr->uid, other->user_name);
 
-                pw = getpwuid(hr->uid);
-                if (pw)
+                r = getpwuid_malloc(hr->uid, &pw);
+                if (r >= 0)
                         return sd_bus_error_setf(error, BUS_ERROR_UID_IN_USE, "Specified UID " UID_FMT " already in use by NSS user %s, refusing.", hr->uid, pw->pw_name);
+                if (r != -ESRCH)
+                        return r;
 
-                gr = getgrgid(hr->uid);
-                if (gr)
+                r = getgrgid_malloc(hr->uid, &gr);
+                if (r >= 0)
                         return sd_bus_error_setf(error, BUS_ERROR_UID_IN_USE, "Specified UID " UID_FMT " already in use as GID by NSS group %s, refusing.", hr->uid, gr->gr_name);
+                if (r != -ESRCH)
+                        return r;
         } else {
                 r = manager_augment_record_with_uid(m, hr);
                 if (r < 0)
@@ -396,11 +458,8 @@ static int method_register_home(
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.home1.create-home",
-                        NULL,
-                        true,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -408,7 +467,7 @@ static int method_register_home(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = validate_and_allocate_home(m, hr, &h, error);
+        r = validate_and_allocate_home(m, hr, NULL, &h, error);
         if (r < 0)
                 return r;
 
@@ -425,12 +484,11 @@ static int method_unregister_home(sd_bus_message *message, void *userdata, sd_bu
         return generic_home_method(userdata, message, bus_home_method_unregister, error);
 }
 
-static int method_create_home(
-                sd_bus_message *message,
-                void *userdata,
-                sd_bus_error *error) {
 
+static int method_create_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        uint64_t flags = 0;
         Manager *m = ASSERT_PTR(userdata);
         Home *h;
         int r;
@@ -441,13 +499,22 @@ static int method_create_home(
         if (r < 0)
                 return r;
 
+        if (endswith(sd_bus_message_get_member(message), "Ex")) {
+                r = bus_message_read_blobs(message, &blobs, error);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "t", &flags);
+                if (r < 0)
+                        return r;
+                if (flags != 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Provided flags are unsupported.");
+        }
+
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.home1.create-home",
-                        NULL,
-                        true,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -455,11 +522,11 @@ static int method_create_home(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = validate_and_allocate_home(m, hr, &h, error);
+        r = validate_and_allocate_home(m, hr, blobs, &h, error);
         if (r < 0)
                 return r;
 
-        r = home_create(h, hr, error);
+        r = home_create(h, hr, blobs, flags, error);
         if (r < 0)
                 goto fail;
 
@@ -497,6 +564,8 @@ static int method_authenticate_home(sd_bus_message *message, void *userdata, sd_
 
 static int method_update_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        uint64_t flags = 0;
         Manager *m = ASSERT_PTR(userdata);
         Home *h;
         int r;
@@ -507,13 +576,23 @@ static int method_update_home(sd_bus_message *message, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
+        if (endswith(sd_bus_message_get_member(message), "Ex")) {
+                r = bus_message_read_blobs(message, &blobs, error);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "t", &flags);
+                if (r < 0)
+                        return r;
+        }
+
         assert(hr->user_name);
 
         h = hashmap_get(m->homes_by_name, hr->user_name);
         if (!h)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_HOME, "No home for user %s known", hr->user_name);
 
-        return bus_home_method_update_record(h, message, hr, error);
+        return bus_home_method_update_record(h, message, hr, blobs, flags, error);
 }
 
 static int method_resize_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -544,6 +623,10 @@ static int method_release_home(sd_bus_message *message, void *userdata, sd_bus_e
         return generic_home_method(userdata, message, bus_home_method_release, error);
 }
 
+static int method_inhibit_suspend_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return generic_home_method(userdata, message, bus_home_method_inhibit_suspend, error);
+}
+
 static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(operation_unrefp) Operation *o = NULL;
         bool waiting = false;
@@ -557,10 +640,7 @@ static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus
 
         HASHMAP_FOREACH(h, m->homes_by_name) {
 
-                /* Automatically suspend all homes that have at least one client referencing it that asked
-                 * for "please suspend", and no client that asked for "please do not suspend". */
-                if (h->ref_event_source_dont_suspend ||
-                    !h->ref_event_source_please_suspend)
+                if (!home_shall_suspend(h))
                         continue;
 
                 if (!o) {
@@ -689,7 +769,12 @@ static const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_ARGS("s", user_name, "s", secret),
                                 SD_BUS_NO_RESULT,
                                 method_activate_home,
-                                SD_BUS_VTABLE_SENSITIVE),
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("ActivateHomeIfReferenced",
+                                SD_BUS_ARGS("s", user_name, "s", secret),
+                                SD_BUS_NO_RESULT,
+                                method_activate_home,
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
         SD_BUS_METHOD_WITH_ARGS("DeactivateHome",
                                 SD_BUS_ARGS("s", user_name),
                                 SD_BUS_NO_RESULT,
@@ -713,6 +798,11 @@ static const sd_bus_vtable manager_vtable[] = {
         /* Add JSON record, and create $HOME for it */
         SD_BUS_METHOD_WITH_ARGS("CreateHome",
                                 SD_BUS_ARGS("s", user_record),
+                                SD_BUS_NO_RESULT,
+                                method_create_home,
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("CreateHomeEx",
+                                SD_BUS_ARGS("s", user_record, "a{sh}", blobs, "t", flags),
                                 SD_BUS_NO_RESULT,
                                 method_create_home,
                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
@@ -748,6 +838,11 @@ static const sd_bus_vtable manager_vtable[] = {
         /* Update the JSON record of existing user */
         SD_BUS_METHOD_WITH_ARGS("UpdateHome",
                                 SD_BUS_ARGS("s", user_record),
+                                SD_BUS_NO_RESULT,
+                                method_update_home,
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("UpdateHomeEx",
+                                SD_BUS_ARGS("s", user_record, "a{sh}", blobs, "t", flags),
                                 SD_BUS_NO_RESULT,
                                 method_update_home,
                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
@@ -795,11 +890,22 @@ static const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_RESULT("h", send_fd),
                                 method_ref_home,
                                 0),
+        SD_BUS_METHOD_WITH_ARGS("RefHomeUnrestricted",
+                                SD_BUS_ARGS("s", user_name, "b", please_suspend),
+                                SD_BUS_RESULT("h", send_fd),
+                                method_ref_home,
+                                0),
         SD_BUS_METHOD_WITH_ARGS("ReleaseHome",
                                 SD_BUS_ARGS("s", user_name),
                                 SD_BUS_NO_RESULT,
                                 method_release_home,
                                 0),
+
+        SD_BUS_METHOD_WITH_ARGS("InhibitSuspendHome",
+                                SD_BUS_ARGS("s", user_name),
+                                SD_BUS_RESULT("h", send_fd),
+                                method_inhibit_suspend_home,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
 
         /* An operation that acts on all homes that allow it */
         SD_BUS_METHOD("LockAllHomes", NULL, NULL, method_lock_all_homes, 0),

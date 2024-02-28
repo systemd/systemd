@@ -6,4 +6,4 @@ After=a.service
 Before=a.service
 
 [Service]
-ExecStart=/bin/true
+ExecStart=true

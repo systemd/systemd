@@ -63,7 +63,7 @@ static WaitForItem *wait_for_item_free(WaitForItem *item) {
                                 log_debug_errno(r, "Failed to drop reference to unit %s, ignoring: %m", item->bus_path);
                 }
 
-                assert_se(hashmap_remove(item->parent->items, item->bus_path) == item);
+                assert_se(hashmap_remove_value(item->parent->items, item->bus_path, item));
 
                 if (item->parent->current == item)
                         item->parent->current = NULL;
@@ -109,12 +109,12 @@ static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *e
 
         assert(m);
 
-        log_error("Warning! D-Bus connection terminated.");
+        log_warning("D-Bus connection terminated while waiting for unit.");
 
         bus_wait_for_units_clear(d);
 
         if (d->ready_callback)
-                d->ready_callback(d, false, d->userdata);
+                d->ready_callback(d, BUS_WAIT_FAILURE, d->userdata);
         else /* If no ready callback is specified close the connection so that the event loop exits */
                 sd_bus_close(sd_bus_message_get_bus(m));
 

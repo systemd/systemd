@@ -42,6 +42,7 @@
 #include "quota-util.h"
 #include "random-util.h"
 #include "resize-fs.h"
+#include "rm-rf.h"
 #include "socket-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
@@ -79,6 +80,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(homes_by_sysfs_hash_ops, char, pat
 
 static int on_home_inotify(sd_event_source *s, const struct inotify_event *event, void *userdata);
 static int manager_gc_images(Manager *m);
+static int manager_gc_blob(Manager *m);
 static int manager_enumerate_images(Manager *m);
 static int manager_assess_image(Manager *m, int dir_fd, const char *dir_path, const char *dentry_name);
 static void manager_revalidate_image(Manager *m, Home *h);
@@ -268,7 +270,7 @@ Manager* manager_free(Manager *m) {
                 (void) home_wait_for_worker(h);
 
         m->bus = sd_bus_flush_close_unref(m->bus);
-        m->polkit_registry = bus_verify_polkit_async_registry_free(m->polkit_registry);
+        m->polkit_registry = hashmap_free(m->polkit_registry);
 
         m->device_monitor = sd_device_monitor_unref(m->device_monitor);
 
@@ -588,8 +590,8 @@ static int manager_acquire_uid(
         assert(ret);
 
         for (;;) {
-                struct passwd *pw;
-                struct group *gr;
+                _cleanup_free_ struct passwd *pw = NULL;
+                _cleanup_free_ struct group *gr = NULL;
                 uid_t candidate;
                 Home *other;
 
@@ -632,17 +634,25 @@ static int manager_acquire_uid(
                         continue;
                 }
 
-                pw = getpwuid(candidate);
-                if (pw) {
+                r = getpwuid_malloc(candidate, &pw);
+                if (r >= 0) {
                         log_debug("Candidate UID " UID_FMT " already registered by another user in NSS (%s), let's try another.",
                                   candidate, pw->pw_name);
                         continue;
                 }
+                if (r != -ESRCH) {
+                        log_debug_errno(r, "Failed to check if an NSS user is already registered for candidate UID " UID_FMT ", assuming there might be: %m", candidate);
+                        continue;
+                }
 
-                gr = getgrgid((gid_t) candidate);
-                if (gr) {
+                r = getgrgid_malloc((gid_t) candidate, &gr);
+                if (r >= 0) {
                         log_debug("Candidate UID " UID_FMT " already registered by another group in NSS (%s), let's try another.",
                                   candidate, gr->gr_name);
+                        continue;
+                }
+                if (r != -ESRCH) {
+                        log_debug_errno(r, "Failed to check if an NSS group is already registered for candidate UID " UID_FMT ", assuming there might be: %m", candidate);
                         continue;
                 }
 
@@ -715,7 +725,7 @@ static int manager_add_home_by_image(
                 }
         } else {
                 /* Check NSS, in case there's another user or group by this name */
-                if (getpwnam(user_name) || getgrnam(user_name)) {
+                if (getpwnam_malloc(user_name, /* ret= */ NULL) >= 0 || getgrnam_malloc(user_name, /* ret= */ NULL) >= 0) {
                         log_debug("Found an existing user or group by name '%s', ignoring image '%s'.", user_name, image_path);
                         return 0;
                 }
@@ -998,7 +1008,7 @@ static int manager_bind_varlink(Manager *m) {
         assert(m);
         assert(!m->varlink_server);
 
-        r = varlink_server_new(&m->varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        r = varlink_server_new(&m->varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA|VARLINK_SERVER_INPUT_SENSITIVE);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
@@ -1619,6 +1629,9 @@ int manager_startup(Manager *m) {
         /* Let's clean up home directories whose devices got removed while we were not running */
         (void) manager_enqueue_gc(m, NULL);
 
+        /* Let's clean up blob directories for home dirs that no longer exist */
+        (void) manager_gc_blob(m);
+
         return 0;
 }
 
@@ -1703,6 +1716,29 @@ int manager_gc_images(Manager *m) {
                 HASHMAP_FOREACH(h, m->homes_by_name)
                         manager_revalidate_image(m, h);
         }
+
+        return 0;
+}
+
+static int manager_gc_blob(Manager *m) {
+        _cleanup_closedir_ DIR *d = NULL;
+        int r;
+
+        assert(m);
+
+        d = opendir(home_system_blob_dir());
+        if (!d) {
+                if (errno == ENOENT)
+                        return 0;
+                return log_error_errno(errno, "Failed to open %s: %m", home_system_blob_dir());
+        }
+
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read system blob directory: %m"))
+                if (!hashmap_contains(m->homes_by_name, de->d_name)) {
+                        r = rm_rf_at(dirfd(d), de->d_name, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to delete blob dir for missing user '%s', ignoring: %m", de->d_name);
+                }
 
         return 0;
 }

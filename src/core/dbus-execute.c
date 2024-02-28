@@ -67,6 +67,7 @@ static BUS_DEFINE_PROPERTY_GET(property_get_cpu_sched_policy, "i", ExecContext, 
 static BUS_DEFINE_PROPERTY_GET(property_get_cpu_sched_priority, "i", ExecContext, exec_context_get_cpu_sched_priority);
 static BUS_DEFINE_PROPERTY_GET(property_get_coredump_filter, "t", ExecContext, exec_context_get_coredump_filter);
 static BUS_DEFINE_PROPERTY_GET(property_get_timer_slack_nsec, "t", ExecContext, exec_context_get_timer_slack_nsec);
+static BUS_DEFINE_PROPERTY_GET(property_get_set_login_environment, "b", ExecContext, exec_context_get_set_login_environment);
 
 static int property_get_environment_files(
                 sd_bus *bus,
@@ -491,7 +492,7 @@ static int property_get_bind_paths(
                                 c->bind_mounts[i].source,
                                 c->bind_mounts[i].destination,
                                 c->bind_mounts[i].ignore_enoent,
-                                c->bind_mounts[i].recursive ? (uint64_t) MS_REC : (uint64_t) 0);
+                                c->bind_mounts[i].recursive ? (uint64_t) MS_REC : UINT64_C(0));
                 if (r < 0)
                         return r;
         }
@@ -910,7 +911,7 @@ static int bus_property_get_exec_dir_symlink(
 
         for (size_t i = 0; i < d->n_items; i++)
                 STRV_FOREACH(dst, d->items[i].symlinks) {
-                        r = sd_bus_message_append(reply, "(sst)", d->items[i].path, *dst, 0 /* flags, unused for now */);
+                        r = sd_bus_message_append(reply, "(sst)", d->items[i].path, *dst, UINT64_C(0) /* flags, unused for now */);
                         if (r < 0)
                                 return r;
                 }
@@ -1038,7 +1039,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("User", "s", NULL, offsetof(ExecContext, user), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Group", "s", NULL, offsetof(ExecContext, group), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DynamicUser", "b", bus_property_get_bool, offsetof(ExecContext, dynamic_user), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("SetLoginEnvironment", "b", bus_property_get_tristate, offsetof(ExecContext, set_login_environment), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SetLoginEnvironment", "b", property_get_set_login_environment, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemoveIPC", "b", bus_property_get_bool, offsetof(ExecContext, remove_ipc), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SetCredential", "a(say)", property_get_set_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SetCredentialEncrypted", "a(say)", property_get_set_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1310,7 +1311,7 @@ int bus_set_transient_exec_command(
         int r;
 
         /* Drop Ex from the written setting. E.g. ExecStart=, not ExecStartEx=. */
-        const char *written_name = is_ex_prop ? strndupa(name, strlen(name) - 2) : name;
+        const char *written_name = is_ex_prop ? strndupa_safe(name, strlen(name) - 2) : name;
 
         r = sd_bus_message_enter_container(message, 'a', is_ex_prop ? "(sasas)" : "(sasb)");
         if (r < 0)
@@ -1897,7 +1898,7 @@ int bus_exec_context_set_transient_property(
                                 c->restrict_filesystems_allow_list = allow_list;
 
                         STRV_FOREACH(s, l) {
-                                r = lsm_bpf_parse_filesystem(
+                                r = bpf_restrict_fs_parse_filesystem(
                                               *s,
                                               &c->restrict_filesystems,
                                               FILESYSTEM_PARSE_LOG|
@@ -1948,7 +1949,7 @@ int bus_exec_context_set_transient_property(
 
                                 r = strv_extend_strv(&c->supplementary_groups, l, true);
                                 if (r < 0)
-                                        return -ENOMEM;
+                                        return r;
 
                                 joined = strv_join(c->supplementary_groups, " ");
                                 if (!joined)
@@ -2720,8 +2721,9 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (streq(name, "WorkingDirectory")) {
+                _cleanup_free_ char *simplified = NULL;
+                bool missing_ok, is_home;
                 const char *s;
-                bool missing_ok;
 
                 r = sd_bus_message_read(message, "s", &s);
                 if (r < 0)
@@ -2733,23 +2735,33 @@ int bus_exec_context_set_transient_property(
                 } else
                         missing_ok = false;
 
-                if (!isempty(s) && !streq(s, "~") && !path_is_absolute(s))
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= expects an absolute path or '~'");
+                if (isempty(s))
+                        is_home = false;
+                else if (streq(s, "~"))
+                        is_home = true;
+                else {
+                        if (!path_is_absolute(s))
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= expects an absolute path or '~'");
+
+                        r = path_simplify_alloc(s, &simplified);
+                        if (r < 0)
+                                return r;
+
+                        if (!path_is_normalized(simplified))
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= expects a normalized path or '~'");
+
+                        if (path_below_api_vfs(simplified))
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= may not be below /proc/, /sys/ or /dev/.");
+
+                        is_home = false;
+                }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (streq(s, "~")) {
-                                c->working_directory = mfree(c->working_directory);
-                                c->working_directory_home = true;
-                        } else {
-                                r = free_and_strdup(&c->working_directory, empty_to_null(s));
-                                if (r < 0)
-                                        return r;
-
-                                c->working_directory_home = false;
-                        }
-
+                        free_and_replace(c->working_directory, simplified);
+                        c->working_directory_home = is_home;
                         c->working_directory_missing_ok = missing_ok;
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "WorkingDirectory=%s%s", missing_ok ? "-" : "", s);
+
+                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "WorkingDirectory=%s%s", missing_ok ? "-" : "", c->working_directory_home ? "+" : ASSERT_PTR(c->working_directory));
                 }
 
                 return 1;
@@ -3173,7 +3185,7 @@ int bus_exec_context_set_transient_property(
 
                                 r = strv_extend_strv(dirs, l, true);
                                 if (r < 0)
-                                        return -ENOMEM;
+                                        return r;
 
                                 unit_write_settingf(u, flags, name, "%s=%s", name, joined);
                         }
@@ -3200,7 +3212,7 @@ int bus_exec_context_set_transient_property(
                                 _cleanup_free_ char *joined = NULL;
                                 r = strv_extend_strv(&c->exec_search_path, l, true);
                                 if (r < 0)
-                                        return -ENOMEM;
+                                        return r;
                                 joined = strv_join(c->exec_search_path, ":");
                                 if (!joined)
                                         return log_oom();

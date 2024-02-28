@@ -33,6 +33,7 @@
 #include "glyph-util.h"
 #include "gpt.h"
 #include "home-util.h"
+#include "homework-blob.h"
 #include "homework-luks.h"
 #include "homework-mount.h"
 #include "io-util.h"
@@ -199,7 +200,7 @@ static int block_get_size_by_fd(int fd, uint64_t *ret) {
         if (!S_ISBLK(st.st_mode))
                 return -ENOTBLK;
 
-        return RET_NERRNO(ioctl(fd, BLKGETSIZE64, ret));
+        return blockdev_get_device_size(fd, ret);
 }
 
 static int block_get_size_by_path(const char *path, uint64_t *ret) {
@@ -365,7 +366,6 @@ static int luks_setup(
         _cleanup_(erase_and_freep) void *vk = NULL;
         sd_id128_t p;
         size_t vks;
-        char **list;
         int r;
 
         assert(h);
@@ -419,11 +419,13 @@ static int luks_setup(
                 return log_oom();
 
         r = -ENOKEY;
-        FOREACH_POINTER(list,
-                        cache ? cache->keyring_passswords : NULL,
-                        cache ? cache->pkcs11_passwords : NULL,
-                        cache ? cache->fido2_passwords : NULL,
-                        passwords) {
+        char **list;
+        FOREACH_ARGUMENT(list,
+                         cache ? cache->keyring_passswords : NULL,
+                         cache ? cache->pkcs11_passwords : NULL,
+                         cache ? cache->fido2_passwords : NULL,
+                         passwords) {
+
                 r = luks_try_passwords(h, cd, list, vk, &vks, ret_key_serial ? &key_serial : NULL);
                 if (r != -ENOKEY)
                         break;
@@ -519,7 +521,6 @@ static int luks_open(
 
         _cleanup_(erase_and_freep) void *vk = NULL;
         sd_id128_t p;
-        char **list;
         size_t vks;
         int r;
 
@@ -560,11 +561,13 @@ static int luks_open(
                 return log_oom();
 
         r = -ENOKEY;
-        FOREACH_POINTER(list,
-                        cache ? cache->keyring_passswords : NULL,
-                        cache ? cache->pkcs11_passwords : NULL,
-                        cache ? cache->fido2_passwords : NULL,
-                        h->password) {
+        char **list;
+        FOREACH_ARGUMENT(list,
+                         cache ? cache->keyring_passswords : NULL,
+                         cache ? cache->pkcs11_passwords : NULL,
+                         cache ? cache->fido2_passwords : NULL,
+                         h->password) {
+
                 r = luks_try_passwords(h, setup->crypt_device, list, vk, &vks, NULL);
                 if (r != -ENOKEY)
                         break;
@@ -1295,9 +1298,6 @@ int home_setup_luks(
                         if (!IN_SET(errno, ENOTTY, EINVAL))
                                 return log_error_errno(errno, "Failed to get block device metrics of %s: %m", n);
 
-                        if (ioctl(setup->loop->fd, BLKGETSIZE64, &size) < 0)
-                                return log_error_errno(r, "Failed to read block device size of %s: %m", n);
-
                         if (fstat(setup->loop->fd, &st) < 0)
                                 return log_error_errno(r, "Failed to stat block device %s: %m", n);
                         assert(S_ISBLK(st.st_mode));
@@ -1329,6 +1329,8 @@ int home_setup_luks(
 
                                 offset *= 512U;
                         }
+
+                        size = setup->loop->device_size;
                 } else {
 #if HAVE_VALGRIND_MEMCHECK_H
                         VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
@@ -1698,12 +1700,13 @@ static struct crypt_pbkdf_type* build_minimal_pbkdf(struct crypt_pbkdf_type *buf
         assert(hr);
 
         /* For PKCS#11 derived keys (which are generated randomly and are of high quality already) we use a
-         * minimal PBKDF */
+         * minimal PBKDF and CRYPT_PBKDF_NO_BENCHMARK flag to skip benchmark. */
         *buffer = (struct crypt_pbkdf_type) {
                 .hash = user_record_luks_pbkdf_hash_algorithm(hr),
                 .type = CRYPT_KDF_PBKDF2,
-                .iterations = 1,
-                .time_ms = 1,
+                .iterations = 1000, /* recommended minimum count for pbkdf2
+                                     * according to NIST SP 800-132, ch. 5.2 */
+                .flags = CRYPT_PBKDF_NO_BENCHMARK
         };
 
         return buffer;
@@ -2227,8 +2230,9 @@ int home_create_luks(
                 if (flock(setup->image_fd, LOCK_EX) < 0) /* make sure udev doesn't read from it while we operate on the device */
                         return log_error_errno(errno, "Failed to lock block device %s: %m", ip);
 
-                if (ioctl(setup->image_fd, BLKGETSIZE64, &block_device_size) < 0)
-                        return log_error_errno(errno, "Failed to read block device size: %m");
+                r = blockdev_get_device_size(setup->image_fd, &block_device_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read block device size: %m");
 
                 if (h->disk_size == UINT64_MAX) {
 
@@ -3126,7 +3130,7 @@ int home_resize_luks(
         struct fdisk_partition *partition = NULL;
         _cleanup_close_ int opened_image_fd = -EBADF;
         _cleanup_free_ char *whole_disk = NULL;
-        int r, resize_type, image_fd = -EBADF;
+        int r, resize_type, image_fd = -EBADF, reconciled = USER_RECONCILE_IDENTICAL;
         sd_id128_t disk_uuid;
         const char *ip, *ipo;
         struct statfs sfs;
@@ -3183,8 +3187,9 @@ int home_resize_luks(
                 } else
                         log_info("Operating on whole block device %s.", ip);
 
-                if (ioctl(image_fd, BLKGETSIZE64, &old_image_size) < 0)
-                        return log_error_errno(errno, "Failed to determine size of original block device: %m");
+                r = blockdev_get_device_size(image_fd, &old_image_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine size of original block device: %m");
 
                 if (flock(image_fd, LOCK_EX) < 0) /* make sure udev doesn't read from it while we operate on the device */
                         return log_error_errno(errno, "Failed to lock block device %s: %m", ip);
@@ -3231,9 +3236,9 @@ int home_resize_luks(
                 return r;
 
         if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
-                r = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, cache, &embedded_home, &new_home);
-                if (r < 0)
-                        return r;
+                reconciled = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, cache, &embedded_home, &new_home);
+                if (reconciled < 0)
+                        return reconciled;
         }
 
         r = home_maybe_shift_uid(h, flags, setup);
@@ -3444,7 +3449,11 @@ int home_resize_luks(
                 /* → Shrink */
 
                 if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
-                        r = home_store_embedded_identity(new_home, setup->root_fd, h->uid, embedded_home);
+                        r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
+                        if (r < 0)
+                                return r;
+
+                        r = home_reconcile_blob_dirs(new_home, setup->root_fd, reconciled);
                         if (r < 0)
                                 return r;
                 }
@@ -3532,7 +3541,11 @@ int home_resize_luks(
 
         } else { /* → Grow */
                 if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
-                        r = home_store_embedded_identity(new_home, setup->root_fd, h->uid, embedded_home);
+                        r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
+                        if (r < 0)
+                                return r;
+
+                        r = home_reconcile_blob_dirs(new_home, setup->root_fd, reconciled);
                         if (r < 0)
                                 return r;
                 }
@@ -3582,7 +3595,6 @@ int home_passwd_luks(
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         struct crypt_pbkdf_type good_pbkdf, minimal_pbkdf;
         const char *type;
-        char **list;
         int r;
 
         assert(h);
@@ -3612,11 +3624,12 @@ int home_passwd_luks(
                 return log_oom();
 
         r = -ENOKEY;
-        FOREACH_POINTER(list,
-                        cache ? cache->keyring_passswords : NULL,
-                        cache ? cache->pkcs11_passwords : NULL,
-                        cache ? cache->fido2_passwords : NULL,
-                        h->password) {
+        char **list;
+        FOREACH_ARGUMENT(list,
+                         cache ? cache->keyring_passswords : NULL,
+                         cache ? cache->pkcs11_passwords : NULL,
+                         cache ? cache->fido2_passwords : NULL,
+                         h->password) {
 
                 r = luks_try_passwords(h, setup->crypt_device, list, volume_key, &volume_key_size, NULL);
                 if (r != -ENOKEY)
@@ -3735,7 +3748,6 @@ static int luks_try_resume(
 }
 
 int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache) {
-        char **list;
         int r;
 
         assert(h);
@@ -3749,10 +3761,12 @@ int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache
         log_info("Discovered used LUKS device %s.", setup->dm_node);
 
         r = -ENOKEY;
-        FOREACH_POINTER(list,
-                        cache ? cache->pkcs11_passwords : NULL,
-                        cache ? cache->fido2_passwords : NULL,
-                        h->password) {
+        char **list;
+        FOREACH_ARGUMENT(list,
+                         cache ? cache->pkcs11_passwords : NULL,
+                         cache ? cache->fido2_passwords : NULL,
+                         h->password) {
+
                 r = luks_try_resume(setup->crypt_device, setup->dm_name, list);
                 if (r != -ENOKEY)
                         break;

@@ -326,7 +326,7 @@ void server_process_native_message(
         } while (r == 0);
 }
 
-void server_process_native_file(
+int server_process_native_file(
                 Server *s,
                 int fd,
                 const struct ucred *ucred,
@@ -342,61 +342,58 @@ void server_process_native_file(
         assert(s);
         assert(fd >= 0);
 
-        /* If it's a memfd, check if it is sealed. If so, we can just
-         * mmap it and use it, and do not need to copy the data out. */
+        if (fstat(fd, &st) < 0)
+                return log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,
+                                                 "Failed to stat passed file: %m");
+
+        r = stat_verify_regular(&st);
+        if (r < 0)
+                return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                 "File passed is not regular, ignoring message: %m");
+
+        if (st.st_size <= 0)
+                return 0;
+
+        r = fd_verify_safe_flags(fd);
+        if (r == -EREMOTEIO)
+                return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                 "Unexpected flags of passed memory fd, ignoring message.");
+        if (r < 0)
+                return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                 "Failed to get flags of passed file: %m");
+
+        /* If it's a memfd, check if it is sealed. If so, we can just mmap it and use it, and do not need to
+         * copy the data out. */
         sealed = memfd_get_sealed(fd) > 0;
 
         if (!sealed && (!ucred || ucred->uid != 0)) {
                 _cleanup_free_ char *k = NULL;
                 const char *e;
 
-                /* If this is not a sealed memfd, and the peer is unknown or
-                 * unprivileged, then verify the path. */
+                /* If this is not a sealed memfd, and the peer is unknown or unprivileged, then verify the
+                 * path. */
 
                 r = fd_get_path(fd, &k);
-                if (r < 0) {
-                        log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
-                                                  "readlink(/proc/self/fd/%i) failed: %m", fd);
-                        return;
-                }
+                if (r < 0)
+                        return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                         "Failed to get path of passed fd: %m");
 
                 e = PATH_STARTSWITH_SET(k, "/dev/shm/", "/tmp/", "/var/tmp/");
-                if (!e) {
-                        log_ratelimit_error(JOURNAL_LOG_RATELIMIT,
-                                            "Received file outside of allowed directories. Refusing.");
-                        return;
-                }
+                if (!e)
+                        return log_ratelimit_error_errno(SYNTHETIC_ERRNO(EPERM), JOURNAL_LOG_RATELIMIT,
+                                                         "Received file outside of allowed directories, refusing.");
 
-                if (!filename_is_valid(e)) {
-                        log_ratelimit_error(JOURNAL_LOG_RATELIMIT,
-                                            "Received file in subdirectory of allowed directories. Refusing.");
-                        return;
-                }
+                if (!filename_is_valid(e))
+                        return log_ratelimit_error_errno(SYNTHETIC_ERRNO(EPERM), JOURNAL_LOG_RATELIMIT,
+                                                         "Received file in subdirectory of allowed directories, refusing.");
         }
 
-        if (fstat(fd, &st) < 0) {
-                log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,
-                                          "Failed to stat passed file, ignoring: %m");
-                return;
-        }
-
-        if (!S_ISREG(st.st_mode)) {
-                log_ratelimit_error(JOURNAL_LOG_RATELIMIT,
-                                    "File passed is not regular. Ignoring.");
-                return;
-        }
-
-        if (st.st_size <= 0)
-                return;
-
-        /* When !sealed, set a lower memory limit. We have to read the file,
-         * effectively doubling memory use. */
-        if (st.st_size > ENTRY_SIZE_MAX / (sealed ? 1 : 2)) {
-                log_ratelimit_error(JOURNAL_LOG_RATELIMIT,
-                                    "File passed too large (%"PRIu64" bytes). Ignoring.",
-                                    (uint64_t) st.st_size);
-                return;
-        }
+        /* When !sealed, set a lower memory limit. We have to read the file, effectively doubling memory
+         * use. */
+        if (st.st_size > ENTRY_SIZE_MAX / (sealed ? 1 : 2))
+                return log_ratelimit_error_errno(SYNTHETIC_ERRNO(EFBIG), JOURNAL_LOG_RATELIMIT,
+                                                 "File passed too large (%"PRIu64" bytes), refusing.",
+                                                 (uint64_t) st.st_size);
 
         if (sealed) {
                 void *p;
@@ -407,67 +404,54 @@ void server_process_native_file(
                 ps = PAGE_ALIGN(st.st_size);
                 assert(ps < SIZE_MAX);
                 p = mmap(NULL, ps, PROT_READ, MAP_PRIVATE, fd, 0);
-                if (p == MAP_FAILED) {
-                        log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,
-                                                  "Failed to map memfd, ignoring: %m");
-                        return;
-                }
+                if (p == MAP_FAILED)
+                        return log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,
+                                                         "Failed to map memfd: %m");
 
                 server_process_native_message(s, p, st.st_size, ucred, tv, label, label_len);
                 assert_se(munmap(p, ps) >= 0);
-        } else {
-                _cleanup_free_ void *p = NULL;
-                struct statvfs vfs;
-                ssize_t n;
 
-                if (fstatvfs(fd, &vfs) < 0) {
-                        log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,
-                                                  "Failed to stat file system of passed file, not processing it: %m");
-                        return;
-                }
-
-                /* Refuse operating on file systems that have
-                 * mandatory locking enabled, see:
-                 *
-                 * https://github.com/systemd/systemd/issues/1822
-                 */
-                if (vfs.f_flag & ST_MANDLOCK) {
-                        log_ratelimit_error(JOURNAL_LOG_RATELIMIT,
-                                            "Received file descriptor from file system with mandatory locking enabled, not processing it.");
-                        return;
-                }
-
-                /* Make the fd non-blocking. On regular files this has
-                 * the effect of bypassing mandatory locking. Of
-                 * course, this should normally not be necessary given
-                 * the check above, but let's better be safe than
-                 * sorry, after all NFS is pretty confusing regarding
-                 * file system flags, and we better don't trust it,
-                 * and so is SMB. */
-                r = fd_nonblock(fd, true);
-                if (r < 0) {
-                        log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
-                                                  "Failed to make fd non-blocking, not processing it: %m");
-                        return;
-                }
-
-                /* The file is not sealed, we can't map the file here, since
-                 * clients might then truncate it and trigger a SIGBUS for
-                 * us. So let's stupidly read it. */
-
-                p = malloc(st.st_size);
-                if (!p) {
-                        log_oom();
-                        return;
-                }
-
-                n = pread(fd, p, st.st_size, 0);
-                if (n < 0)
-                        log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,
-                                                  "Failed to read file, ignoring: %m");
-                else if (n > 0)
-                        server_process_native_message(s, p, n, ucred, tv, label, label_len);
+                return 0;
         }
+
+        _cleanup_free_ void *p = NULL;
+        struct statvfs vfs;
+        ssize_t n;
+
+        if (fstatvfs(fd, &vfs) < 0)
+                return log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,
+                                                 "Failed to stat file system of passed file: %m");
+
+        /* Refuse operating on file systems that have mandatory locking enabled.
+         * See also: https://github.com/systemd/systemd/issues/1822 */
+        if (FLAGS_SET(vfs.f_flag, ST_MANDLOCK))
+                return log_ratelimit_error_errno(SYNTHETIC_ERRNO(EPERM), JOURNAL_LOG_RATELIMIT,
+                                                 "Received file descriptor from file system with mandatory locking enabled, not processing it.");
+
+        /* Make the fd non-blocking. On regular files this has the effect of bypassing mandatory
+         * locking. Of course, this should normally not be necessary given the check above, but let's
+         * better be safe than sorry, after all NFS is pretty confusing regarding file system flags,
+         * and we better don't trust it, and so is SMB. */
+        r = fd_nonblock(fd, true);
+        if (r < 0)
+                return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                 "Failed to make fd non-blocking: %m");
+
+        /* The file is not sealed, we can't map the file here, since clients might then truncate it
+         * and trigger a SIGBUS for us. So let's stupidly read it. */
+
+        p = malloc(st.st_size);
+        if (!p)
+                return log_oom();
+
+        n = pread(fd, p, st.st_size, 0);
+        if (n < 0)
+                return log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,
+                                                 "Failed to read file: %m");
+        if (n > 0)
+                server_process_native_message(s, p, n, ucred, tv, label, label_len);
+
+        return 0;
 }
 
 int server_open_native_socket(Server *s, const char *native_socket) {

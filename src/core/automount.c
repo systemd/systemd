@@ -126,7 +126,7 @@ static int automount_add_mount_dependencies(Automount *a) {
         if (r < 0)
                 return r;
 
-        return unit_require_mounts_for(UNIT(a), parent, UNIT_DEPENDENCY_IMPLICIT);
+        return unit_add_mounts_for(UNIT(a), parent, UNIT_DEPENDENCY_IMPLICIT, UNIT_MOUNT_REQUIRES);
 }
 
 static int automount_add_default_dependencies(Automount *a) {
@@ -821,7 +821,7 @@ static int automount_start(Unit *u) {
         assert(a);
         assert(IN_SET(a->state, AUTOMOUNT_DEAD, AUTOMOUNT_FAILED));
 
-        if (path_is_mount_point(a->where, NULL, 0) > 0)
+        if (path_is_mount_point(a->where) > 0)
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(EEXIST), "Path %s is already a mount point, refusing start.", a->where);
 
         r = unit_test_trigger_loaded(u);

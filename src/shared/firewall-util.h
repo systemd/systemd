@@ -43,7 +43,7 @@ typedef enum NFTSetSource {
         NFT_SET_SOURCE_GROUP,
         _NFT_SET_SOURCE_MAX,
         _NFT_SET_SOURCE_INVALID = -EINVAL,
-}  NFTSetSource;
+} NFTSetSource;
 
 typedef struct NFTSet {
         NFTSetSource source;

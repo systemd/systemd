@@ -28,7 +28,7 @@ bool link_ipv4ll_enabled(Link *link) {
 }
 
 static int address_new_from_ipv4ll(Link *link, Address **ret) {
-        _cleanup_(address_freep) Address *address = NULL;
+        _cleanup_(address_unrefp) Address *address = NULL;
         struct in_addr addr;
         int r;
 
@@ -56,8 +56,7 @@ static int address_new_from_ipv4ll(Link *link, Address **ret) {
 }
 
 static int ipv4ll_address_lost(Link *link) {
-        _cleanup_(address_freep) Address *address = NULL;
-        Address *existing;
+        _cleanup_(address_unrefp) Address *address = NULL;
         int r;
 
         assert(link);
@@ -70,19 +69,10 @@ static int ipv4ll_address_lost(Link *link) {
         if (r < 0)
                 return r;
 
-        if (address_get(link, address, &existing) < 0)
-                return 0;
-
-        if (existing->source != NETWORK_CONFIG_SOURCE_IPV4LL)
-                return 0;
-
-        if (!address_exists(existing))
-                return 0;
-
         log_link_debug(link, "IPv4 link-local release "IPV4_ADDRESS_FMT_STR,
                        IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
 
-        return address_remove(existing);
+        return address_remove_and_cancel(address, link);
 }
 
 static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Address *address) {
@@ -102,7 +92,7 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reque
 }
 
 static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
-        _cleanup_(address_freep) Address *address = NULL;
+        _cleanup_(address_unrefp) Address *address = NULL;
         int r;
 
         assert(ll);

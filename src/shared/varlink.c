@@ -37,6 +37,7 @@
 #define VARLINK_DEFAULT_TIMEOUT_USEC (45U*USEC_PER_SEC)
 #define VARLINK_BUFFER_MAX (16U*1024U*1024U)
 #define VARLINK_READ_SIZE (64U*1024U)
+#define VARLINK_COLLECT_MAX 1024U
 
 typedef enum VarlinkState {
         /* Client side states */
@@ -45,6 +46,8 @@ typedef enum VarlinkState {
         VARLINK_AWAITING_REPLY_MORE,
         VARLINK_CALLING,
         VARLINK_CALLED,
+        VARLINK_COLLECTING,
+        VARLINK_COLLECTING_REPLY,
         VARLINK_PROCESSING_REPLY,
 
         /* Server side states */
@@ -79,6 +82,8 @@ typedef enum VarlinkState {
                VARLINK_AWAITING_REPLY_MORE,             \
                VARLINK_CALLING,                         \
                VARLINK_CALLED,                          \
+               VARLINK_COLLECTING,                      \
+               VARLINK_COLLECTING_REPLY,                \
                VARLINK_PROCESSING_REPLY,                \
                VARLINK_IDLE_SERVER,                     \
                VARLINK_PROCESSING_METHOD,               \
@@ -169,8 +174,11 @@ struct Varlink {
         VarlinkReply reply_callback;
 
         JsonVariant *current;
+        JsonVariant *current_collected;
+        VarlinkReplyFlags current_reply_flags;
         VarlinkSymbol *current_method;
 
+        int peer_pidfd;
         struct ucred ucred;
         bool ucred_acquired:1;
 
@@ -183,6 +191,7 @@ struct Varlink {
         bool allow_fd_passing_output:1;
 
         bool output_buffer_sensitive:1; /* whether to erase the output buffer after writing it to the socket */
+        bool input_sensitive:1; /* Whether incoming messages might be sensitive */
 
         int af; /* address family if socket; AF_UNSPEC if not socket; negative if not known */
 
@@ -241,18 +250,14 @@ struct VarlinkServer {
         bool exit_on_idle;
 };
 
-typedef struct VarlinkCollectContext {
-        JsonVariant *parameters;
-        const char *error_id;
-        VarlinkReplyFlags flags;
-} VarlinkCollectContext ;
-
 static const char* const varlink_state_table[_VARLINK_STATE_MAX] = {
         [VARLINK_IDLE_CLIENT]              = "idle-client",
         [VARLINK_AWAITING_REPLY]           = "awaiting-reply",
         [VARLINK_AWAITING_REPLY_MORE]      = "awaiting-reply-more",
         [VARLINK_CALLING]                  = "calling",
         [VARLINK_CALLED]                   = "called",
+        [VARLINK_COLLECTING]               = "collecting",
+        [VARLINK_COLLECTING_REPLY]         = "collecting-reply",
         [VARLINK_PROCESSING_REPLY]         = "processing-reply",
         [VARLINK_IDLE_SERVER]              = "idle-server",
         [VARLINK_PROCESSING_METHOD]        = "processing-method",
@@ -361,6 +366,8 @@ static int varlink_new(Varlink **ret) {
                 .timeout = VARLINK_DEFAULT_TIMEOUT_USEC,
 
                 .af = -1,
+
+                .peer_pidfd = -EBADF,
         };
 
         *ret = v;
@@ -447,6 +454,10 @@ int varlink_connect_exec(Varlink **ret, const char *_command, char **_argv) {
         if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0, pair) < 0)
                 return log_debug_errno(errno, "Failed to allocate AF_UNIX socket pair: %m");
 
+        r = fd_nonblock(pair[1], false);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to disable O_NONBLOCK for varlink socket: %m");
+
         r = safe_fork_full(
                         "(sd-vlexec)",
                         /* stdio_fds= */ NULL,
@@ -504,39 +515,120 @@ int varlink_connect_exec(Varlink **ret, const char *_command, char **_argv) {
         return 0;
 }
 
+static int varlink_connect_ssh(Varlink **ret, const char *where) {
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        int r;
+
+        assert_return(ret, -EINVAL);
+        assert_return(where, -EINVAL);
+
+        /* Connects to an SSH server via OpenSSH 9.4's -W switch to connect to a remote AF_UNIX socket. For
+         * now we do not expose this function directly, but only via varlink_connect_url(). */
+
+        const char *ssh = secure_getenv("SYSTEMD_SSH") ?: "ssh";
+        if (!path_is_valid(ssh))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "SSH path is not valid, refusing: %s", ssh);
+
+        const char *e = strchr(where, ':');
+        if (!e)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "SSH specification lacks a : separator between host and path, refusing: %s", where);
+
+        _cleanup_free_ char *h = strndup(where, e - where);
+        if (!h)
+                return log_oom_debug();
+
+        _cleanup_free_ char *c = strdup(e + 1);
+        if (!c)
+                return log_oom_debug();
+
+        if (!path_is_absolute(c))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Remote AF_UNIX socket path is not absolute, refusing: %s", c);
+
+        _cleanup_free_ char *p = NULL;
+        r = path_simplify_alloc(c, &p);
+        if (r < 0)
+                return r;
+
+        if (!path_is_normalized(p))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path is not normalized, refusing: %s", p);
+
+        log_debug("Forking off SSH child process '%s -W %s %s'.", ssh, p, h);
+
+        if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0, pair) < 0)
+                return log_debug_errno(errno, "Failed to allocate AF_UNIX socket pair: %m");
+
+        r = safe_fork_full(
+                        "(sd-vlssh)",
+                        /* stdio_fds= */ (int[]) { pair[1], pair[1], STDERR_FILENO },
+                        /* except_fds= */ NULL,
+                        /* n_except_fds= */ 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
+                        &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to spawn process: %m");
+        if (r == 0) {
+                /* Child */
+
+                execlp(ssh, "ssh", "-W", p, h, NULL);
+                log_debug_errno(errno, "Failed to invoke %s: %m", ssh);
+                _exit(EXIT_FAILURE);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        Varlink *v;
+        r = varlink_new(&v);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create varlink object: %m");
+
+        v->fd = TAKE_FD(pair[0]);
+        v->af = AF_UNIX;
+        v->exec_pid = TAKE_PID(pid);
+        varlink_set_state(v, VARLINK_IDLE_CLIENT);
+
+        *ret = v;
+        return 0;
+}
+
 int varlink_connect_url(Varlink **ret, const char *url) {
         _cleanup_free_ char *c = NULL;
         const char *p;
-        bool exec;
+        enum {
+                SCHEME_UNIX,
+                SCHEME_EXEC,
+                SCHEME_SSH,
+        } scheme;
         int r;
 
         assert_return(ret, -EINVAL);
         assert_return(url, -EINVAL);
 
-        // FIXME: Add support for vsock:, ssh-exec:, ssh-unix: URL schemes here. (The latter with OpenSSH
-        // 9.4's -W switch for referencing remote AF_UNIX sockets.)
+        // FIXME: Maybe add support for vsock: and ssh-exec: URL schemes here.
 
-        /* The Varlink URL scheme is a bit underdefined. We support only the unix: transport for now, plus an
-         * exec: transport we made up ourselves. Strictly speaking this shouldn't even be called URL, since
-         * it has nothing to do with Internet URLs by RFC. */
+        /* The Varlink URL scheme is a bit underdefined. We support only the spec-defined unix: transport for
+         * now, plus exec:, ssh: transports we made up ourselves. Strictly speaking this shouldn't even be
+         * called "URL", since it has nothing to do with Internet URLs by RFC. */
 
         p = startswith(url, "unix:");
         if (p)
-                exec = false;
-        else {
-                p = startswith(url, "exec:");
-                if (!p)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL scheme not supported.");
-
-                exec = true;
-        }
+                scheme = SCHEME_UNIX;
+        else if ((p = startswith(url, "exec:")))
+                scheme = SCHEME_EXEC;
+        else if ((p = startswith(url, "ssh:")))
+                scheme = SCHEME_SSH;
+        else
+                return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL scheme not supported.");
 
         /* The varlink.org reference C library supports more than just file system paths. We might want to
          * support that one day too. For now simply refuse that. */
         if (p[strcspn(p, ";?#")] != '\0')
                 return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL parameterization with ';', '?', '#' not supported.");
 
-        if (exec || p[0] != '@') { /* no validity checks for abstract namespace */
+        if (scheme == SCHEME_SSH)
+                return varlink_connect_ssh(ret, p);
+
+        if (scheme == SCHEME_EXEC || p[0] != '@') { /* no path validity checks for abstract namespace sockets */
 
                 if (!path_is_absolute(p))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path not absolute, refusing.");
@@ -549,7 +641,7 @@ int varlink_connect_url(Varlink **ret, const char *url) {
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path is not normalized, refusing.");
         }
 
-        if (exec)
+        if (scheme == SCHEME_EXEC)
                 return varlink_connect_exec(ret, c, NULL);
 
         return varlink_connect_address(ret, c ?: p);
@@ -599,7 +691,9 @@ static void varlink_clear_current(Varlink *v) {
 
         /* Clears the currently processed incoming message */
         v->current = json_variant_unref(v->current);
+        v->current_collected = json_variant_unref(v->current_collected);
         v->current_method = NULL;
+        v->current_reply_flags = 0;
 
         close_many(v->input_fds, v->n_input_fds);
         v->input_fds = mfree(v->input_fds);
@@ -615,7 +709,7 @@ static void varlink_clear(Varlink *v) {
 
         varlink_clear_current(v);
 
-        v->input_buffer = mfree(v->input_buffer);
+        v->input_buffer = v->input_sensitive ? erase_and_free(v->input_buffer) : mfree(v->input_buffer);
         v->output_buffer = v->output_buffer_sensitive ? erase_and_free(v->output_buffer) : mfree(v->output_buffer);
 
         v->input_control_buffer = mfree(v->input_control_buffer);
@@ -638,6 +732,8 @@ static void varlink_clear(Varlink *v) {
                 sigterm_wait(v->exec_pid);
                 v->exec_pid = 0;
         }
+
+        v->peer_pidfd = safe_close(v->peer_pidfd);
 }
 
 static Varlink* varlink_destroy(Varlink *v) {
@@ -680,7 +776,7 @@ static int varlink_test_disconnect(Varlink *v) {
                 goto disconnect;
 
         /* If we are waiting for incoming data but the read side is shut down, disconnect. */
-        if (IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_IDLE_SERVER) && v->read_disconnected)
+        if (IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_COLLECTING, VARLINK_IDLE_SERVER) && v->read_disconnected)
                 goto disconnect;
 
         /* Similar, if are a client that hasn't written anything yet but the write side is dead, also
@@ -803,7 +899,7 @@ static int varlink_read(Varlink *v) {
 
         assert(v);
 
-        if (!IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_IDLE_SERVER))
+        if (!IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_COLLECTING, VARLINK_IDLE_SERVER))
                 return 0;
         if (v->connecting) /* read() on a socket while we are in connect() will fail with EINVAL, hence exit early here */
                 return 0;
@@ -932,7 +1028,8 @@ static int varlink_read(Varlink *v) {
 }
 
 static int varlink_parse_message(Varlink *v) {
-        const char *e, *begin;
+        const char *e;
+        char *begin;
         size_t sz;
         int r;
 
@@ -956,16 +1053,32 @@ static int varlink_parse_message(Varlink *v) {
 
         sz = e - begin + 1;
 
-        varlink_log(v, "New incoming message: %s", begin); /* FIXME: should we output the whole message here before validation?
-                                                            * This may produce a non-printable journal entry if the message
-                                                            * is invalid. We may also expose privileged information. */
-
         r = json_parse(begin, 0, &v->current, NULL, NULL);
+        if (v->input_sensitive)
+                explicit_bzero_safe(begin, sz);
         if (r < 0) {
                 /* If we encounter a parse failure flush all data. We cannot possibly recover from this,
                  * hence drop all buffered data now. */
                 v->input_buffer_index = v->input_buffer_size = v->input_buffer_unscanned = 0;
                 return varlink_log_errno(v, r, "Failed to parse JSON: %m");
+        }
+
+        if (v->input_sensitive) {
+                /* Mark the parameters subfield as sensitive right-away, if that's requested */
+                JsonVariant *parameters = json_variant_by_key(v->current, "parameters");
+                if (parameters)
+                        json_variant_sensitive(parameters);
+        }
+
+        if (DEBUG_LOGGING) {
+                _cleanup_(erase_and_freep) char *censored_text = NULL;
+
+                /* Suppress sensitive fields in the debug output */
+                r = json_variant_format(v->current, /* flags= */ JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
+                if (r < 0)
+                        return r;
+
+                varlink_log(v, "Received message: %s", censored_text);
         }
 
         v->input_buffer_size -= sz;
@@ -982,7 +1095,7 @@ static int varlink_parse_message(Varlink *v) {
 static int varlink_test_timeout(Varlink *v) {
         assert(v);
 
-        if (!IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING))
+        if (!IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_COLLECTING))
                 return 0;
         if (v->timeout == USEC_INFINITY)
                 return 0;
@@ -1006,7 +1119,7 @@ static int varlink_dispatch_local_error(Varlink *v, const char *error) {
 
         r = v->reply_callback(v, NULL, error, VARLINK_REPLY_ERROR|VARLINK_REPLY_LOCAL, v->userdata);
         if (r < 0)
-                log_debug_errno(r, "Reply callback returned error, ignoring: %m");
+                varlink_log_errno(v, r, "Reply callback returned error, ignoring: %m");
 
         return 1;
 }
@@ -1038,12 +1151,25 @@ static int varlink_dispatch_disconnect(Varlink *v) {
 }
 
 static int varlink_sanitize_parameters(JsonVariant **v) {
+        int r;
+
         assert(v);
 
         /* Varlink always wants a parameters list, hence make one if the caller doesn't want any */
         if (!*v)
                 return json_variant_new_object(v, NULL, 0);
-        else if (!json_variant_is_object(*v))
+        if (json_variant_is_null(*v)) {
+                JsonVariant *empty;
+
+                r = json_variant_new_object(&empty, NULL, 0);
+                if (r < 0)
+                        return r;
+
+                json_variant_unref(*v);
+                *v = empty;
+                return 0;
+        }
+        if (!json_variant_is_object(*v))
                 return -EINVAL;
 
         return 0;
@@ -1059,7 +1185,7 @@ static int varlink_dispatch_reply(Varlink *v) {
 
         assert(v);
 
-        if (!IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING))
+        if (!IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_COLLECTING))
                 return 0;
         if (!v->current)
                 return 0;
@@ -1083,7 +1209,7 @@ static int varlink_dispatch_reply(Varlink *v) {
                 } else if (streq(k, "parameters")) {
                         if (parameters)
                                 goto invalid;
-                        if (!json_variant_is_object(e))
+                        if (!json_variant_is_object(e) && !json_variant_is_null(e))
                                 goto invalid;
 
                         parameters = json_variant_ref(e);
@@ -1102,7 +1228,7 @@ static int varlink_dispatch_reply(Varlink *v) {
         }
 
         /* Replies with 'continue' set are only OK if we set 'more' when the method call was initiated */
-        if (v->state != VARLINK_AWAITING_REPLY_MORE && FLAGS_SET(flags, VARLINK_REPLY_CONTINUES))
+        if (!IN_SET(v->state, VARLINK_AWAITING_REPLY_MORE, VARLINK_COLLECTING) && FLAGS_SET(flags, VARLINK_REPLY_CONTINUES))
                 goto invalid;
 
         /* An error is final */
@@ -1113,19 +1239,20 @@ static int varlink_dispatch_reply(Varlink *v) {
         if (r < 0)
                 goto invalid;
 
+        v->current_reply_flags = flags;
+
         if (IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE)) {
                 varlink_set_state(v, VARLINK_PROCESSING_REPLY);
 
                 if (v->reply_callback) {
                         r = v->reply_callback(v, parameters, error, flags, v->userdata);
                         if (r < 0)
-                                log_debug_errno(r, "Reply callback returned error, ignoring: %m");
+                                varlink_log_errno(v, r, "Reply callback returned error, ignoring: %m");
                 }
 
                 varlink_clear_current(v);
 
                 if (v->state == VARLINK_PROCESSING_REPLY) {
-
                         assert(v->n_pending > 0);
 
                         if (!FLAGS_SET(flags, VARLINK_REPLY_CONTINUES))
@@ -1135,7 +1262,9 @@ static int varlink_dispatch_reply(Varlink *v) {
                                           FLAGS_SET(flags, VARLINK_REPLY_CONTINUES) ? VARLINK_AWAITING_REPLY_MORE :
                                           v->n_pending == 0 ? VARLINK_IDLE_CLIENT : VARLINK_AWAITING_REPLY);
                 }
-        } else {
+        } else if (v->state == VARLINK_COLLECTING)
+                varlink_set_state(v, VARLINK_COLLECTING_REPLY);
+        else {
                 assert(v->state == VARLINK_CALLING);
                 varlink_set_state(v, VARLINK_CALLED);
         }
@@ -1163,9 +1292,7 @@ static int generic_method_get_info(
         assert(link);
 
         if (json_variant_elements(parameters) != 0)
-                return varlink_errorb(link, VARLINK_ERROR_INVALID_PARAMETER,
-                                      JSON_BUILD_OBJECT(
-                                                      JSON_BUILD_PAIR_VARIANT("parameter", json_variant_by_index(parameters, 0))));
+                return varlink_error_invalid_parameter(link, parameters);
 
         product = strjoin("systemd (", program_invocation_short_name, ")");
         if (!product)
@@ -1183,7 +1310,7 @@ static int generic_method_get_info(
         return varlink_replyb(link, JSON_BUILD_OBJECT(
                                               JSON_BUILD_PAIR_STRING("vendor", "The systemd Project"),
                                               JSON_BUILD_PAIR_STRING("product", product),
-                                              JSON_BUILD_PAIR_STRING("version", STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")"),
+                                              JSON_BUILD_PAIR_STRING("version", PROJECT_VERSION_FULL " (" GIT_VERSION ")"),
                                               JSON_BUILD_PAIR_STRING("url", "https://systemd.io/"),
                                               JSON_BUILD_PAIR_STRV("interfaces", interfaces)));
 }
@@ -1256,7 +1383,7 @@ static int varlink_dispatch_method(Varlink *v) {
                 } else if (streq(k, "parameters")) {
                         if (parameters)
                                 goto invalid;
-                        if (!json_variant_is_object(e))
+                        if (!json_variant_is_object(e) && !json_variant_is_null(e))
                                 goto invalid;
 
                         parameters = json_variant_ref(e);
@@ -1314,16 +1441,18 @@ static int varlink_dispatch_method(Varlink *v) {
 
                 v->current_method = hashmap_get(v->server->symbols, method);
                 if (!v->current_method)
-                        log_debug("No interface description defined for method '%s', not validating.", method);
+                        varlink_log(v, "No interface description defined for method '%s', not validating.", method);
                 else {
                         const char *bad_field;
 
                         r = varlink_idl_validate_method_call(v->current_method, parameters, &bad_field);
                         if (r < 0) {
-                                log_debug_errno(r, "Parameters for method %s() didn't pass validation on field '%s': %m", method, strna(bad_field));
+                                /* Please adjust test/units/end.sh when updating the log message. */
+                                varlink_log_errno(v, r, "Parameters for method %s() didn't pass validation on field '%s': %m",
+                                                  method, strna(bad_field));
 
-                                if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
-                                        r = varlink_errorb(v, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", bad_field)));
+                                if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
+                                        r = varlink_error_invalid_parameter_name(v, bad_field);
                                         if (r < 0)
                                                 return r;
                                 }
@@ -1334,24 +1463,21 @@ static int varlink_dispatch_method(Varlink *v) {
                 if (!invalid) {
                         r = callback(v, parameters, flags, v->userdata);
                         if (r < 0) {
-                                log_debug_errno(r, "Callback for %s returned error: %m", method);
+                                varlink_log_errno(v, r, "Callback for %s returned error: %m", method);
 
                                 /* We got an error back from the callback. Propagate it to the client if the method call remains unanswered. */
-                                if (v->state == VARLINK_PROCESSED_METHOD)
-                                        r = 0; /* already processed */
-                                else if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
+                                if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
                                         r = varlink_error_errno(v, r);
                                         if (r < 0)
                                                 return r;
                                 }
                         }
                 }
-        } else if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
+        } else if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
                 r = varlink_errorb(v, VARLINK_ERROR_METHOD_NOT_FOUND, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method))));
                 if (r < 0)
                         return r;
-        } else
-                r = 0;
+        }
 
         switch (v->state) {
 
@@ -1373,7 +1499,7 @@ static int varlink_dispatch_method(Varlink *v) {
                 assert_not_reached();
         }
 
-        return r;
+        return 1;
 
 invalid:
         r = -EINVAL;
@@ -1467,6 +1593,48 @@ finish:
 
         varlink_unref(v);
         return r;
+}
+
+int varlink_dispatch_again(Varlink *v) {
+        int r;
+
+        assert_return(v, -EINVAL);
+
+        /* If a method call handler could not process the method call just yet (for example because it needed
+         * some Polkit authentication first), then it can leave the call unanswered, do its thing, and then
+         * ask to be dispatched a second time, via this call. It will then be called again, for the same
+         * message */
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+        if (v->state != VARLINK_PENDING_METHOD)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection has no pending method.");
+
+        varlink_set_state(v, VARLINK_IDLE_SERVER);
+
+        r = sd_event_source_set_enabled(v->defer_event_source, SD_EVENT_ON);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to enable deferred event source: %m");
+
+        return 0;
+}
+
+int varlink_get_current_parameters(Varlink *v, JsonVariant **ret) {
+        JsonVariant *p;
+
+        assert_return(v, -EINVAL);
+
+        if (!v->current)
+                return -ENODATA;
+
+        p = json_variant_by_key(v->current, "parameters");
+        if (!p)
+                return -ENODATA;
+
+        if (ret)
+                *ret = json_variant_ref(p);
+
+        return 0;
 }
 
 static void handle_revents(Varlink *v, int revents) {
@@ -1574,7 +1742,7 @@ int varlink_get_events(Varlink *v) {
                 return EPOLLOUT;
 
         if (!v->read_disconnected &&
-            IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_IDLE_SERVER) &&
+            IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_COLLECTING, VARLINK_IDLE_SERVER) &&
             !v->current &&
             v->input_buffer_unscanned <= 0)
                 ret |= EPOLLIN;
@@ -1592,7 +1760,7 @@ int varlink_get_timeout(Varlink *v, usec_t *ret) {
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
-        if (IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING) &&
+        if (IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_COLLECTING) &&
             v->timeout != USEC_INFINITY) {
                 if (ret)
                         *ret = usec_add(v->timestamp, v->timeout);
@@ -1713,51 +1881,60 @@ Varlink* varlink_flush_close_unref(Varlink *v) {
 
 static int varlink_format_json(Varlink *v, JsonVariant *m) {
         _cleanup_(erase_and_freep) char *text = NULL;
-        int r;
+        int sz, r;
 
         assert(v);
         assert(m);
 
-        r = json_variant_format(m, 0, &text);
-        if (r < 0)
-                return r;
-        assert(text[r] == '\0');
+        sz = json_variant_format(m, /* flags= */ 0, &text);
+        if (sz < 0)
+                return sz;
+        assert(text[sz] == '\0');
 
-        if (v->output_buffer_size + r + 1 > VARLINK_BUFFER_MAX)
+        if (v->output_buffer_size + sz + 1 > VARLINK_BUFFER_MAX)
                 return -ENOBUFS;
 
-        varlink_log(v, "Sending message: %s", text);
+        if (DEBUG_LOGGING) {
+                _cleanup_(erase_and_freep) char *censored_text = NULL;
+
+                /* Suppress sensitive fields in the debug output */
+                r = json_variant_format(m, /* flags= */ JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
+                if (r < 0)
+                        return r;
+
+                varlink_log(v, "Sending message: %s", censored_text);
+        }
 
         if (v->output_buffer_size == 0) {
 
                 free_and_replace(v->output_buffer, text);
 
-                v->output_buffer_size = r + 1;
+                v->output_buffer_size = sz + 1;
                 v->output_buffer_index = 0;
 
         } else if (v->output_buffer_index == 0) {
 
-                if (!GREEDY_REALLOC(v->output_buffer, v->output_buffer_size + r + 1))
+                if (!GREEDY_REALLOC(v->output_buffer, v->output_buffer_size + sz + 1))
                         return -ENOMEM;
 
-                memcpy(v->output_buffer + v->output_buffer_size, text, r + 1);
-                v->output_buffer_size += r + 1;
+                memcpy(v->output_buffer + v->output_buffer_size, text, sz + 1);
+                v->output_buffer_size += sz + 1;
         } else {
                 char *n;
-                const size_t new_size = v->output_buffer_size + r + 1;
+                const size_t new_size = v->output_buffer_size + sz + 1;
 
                 n = new(char, new_size);
                 if (!n)
                         return -ENOMEM;
 
-                memcpy(mempcpy(n, v->output_buffer + v->output_buffer_index, v->output_buffer_size), text, r + 1);
+                memcpy(mempcpy(n, v->output_buffer + v->output_buffer_index, v->output_buffer_size), text, sz + 1);
 
                 free_and_replace(v->output_buffer, n);
                 v->output_buffer_size = new_size;
                 v->output_buffer_index = 0;
         }
 
-        if (json_variant_is_sensitive(m))
+        if (json_variant_is_sensitive_recursive(m))
                 v->output_buffer_sensitive = true; /* Propagate sensitive flag */
         else
                 text = mfree(text); /* No point in the erase_and_free() destructor declared above */
@@ -1986,7 +2163,7 @@ int varlink_observeb(Varlink *v, const char *method, ...) {
         return varlink_observe(v, method, parameters);
 }
 
-int varlink_call(
+int varlink_call_full(
                 Varlink *v,
                 const char *method,
                 JsonVariant *parameters,
@@ -2030,7 +2207,6 @@ int varlink_call(
         v->timestamp = now(CLOCK_MONOTONIC);
 
         while (v->state == VARLINK_CALLING) {
-
                 r = varlink_process(v);
                 if (r < 0)
                         return r;
@@ -2044,21 +2220,29 @@ int varlink_call(
 
         switch (v->state) {
 
-        case VARLINK_CALLED:
+        case VARLINK_CALLED: {
                 assert(v->current);
 
                 varlink_set_state(v, VARLINK_IDLE_CLIENT);
                 assert(v->n_pending == 1);
                 v->n_pending--;
 
+                JsonVariant *e = json_variant_by_key(v->current, "error"),
+                        *p = json_variant_by_key(v->current, "parameters");
+
+                /* If caller doesn't ask for the error string, then let's return an error code in case of failure */
+                if (!ret_error_id && e)
+                        return varlink_error_to_errno(json_variant_string(e), p);
+
                 if (ret_parameters)
-                        *ret_parameters = json_variant_by_key(v->current, "parameters");
+                        *ret_parameters = p;
                 if (ret_error_id)
-                        *ret_error_id = json_variant_string(json_variant_by_key(v->current, "error"));
+                        *ret_error_id = e ? json_variant_string(e) : NULL;
                 if (ret_flags)
-                        *ret_flags = 0;
+                        *ret_flags = v->current_reply_flags;
 
                 return 1;
+        }
 
         case VARLINK_PENDING_DISCONNECT:
         case VARLINK_DISCONNECTED:
@@ -2072,63 +2256,76 @@ int varlink_call(
         }
 }
 
-int varlink_callb(
+int varlink_callb_ap(
                 Varlink *v,
                 const char *method,
                 JsonVariant **ret_parameters,
                 const char **ret_error_id,
-                VarlinkReplyFlags *ret_flags, ...) {
+                VarlinkReplyFlags *ret_flags,
+                va_list ap) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+
+        r = json_buildv(&parameters, ap);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        return varlink_call_full(v, method, parameters, ret_parameters, ret_error_id, ret_flags);
+}
+
+int varlink_call_and_log(
+                Varlink *v,
+                const char *method,
+                JsonVariant *parameters,
+                JsonVariant **ret_parameters) {
+
+        JsonVariant *reply = NULL;
+        const char *error_id = NULL;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+
+        r = varlink_call(v, method, parameters, &reply, &error_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue %s() varlink call: %m", method);
+        if (error_id)
+                return log_error_errno(varlink_error_to_errno(error_id, reply),
+                                         "Failed to issue %s() varlink call: %s", method, error_id);
+
+        if (ret_parameters)
+                *ret_parameters = TAKE_PTR(reply);
+
+        return 0;
+}
+
+int varlink_callb_and_log(
+                Varlink *v,
+                const char *method,
+                JsonVariant **ret_parameters,
+                ...) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
         va_list ap;
         int r;
 
         assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
 
-        va_start(ap, ret_flags);
+        va_start(ap, ret_parameters);
         r = json_buildv(&parameters, ap);
         va_end(ap);
-
         if (r < 0)
-                return varlink_log_errno(v, r, "Failed to build json message: %m");
+                return log_error_errno(r, "Failed to build JSON message: %m");
 
-        return varlink_call(v, method, parameters, ret_parameters, ret_error_id, ret_flags);
+        return varlink_call_and_log(v, method, parameters, ret_parameters);
 }
 
-static void varlink_collect_context_free(VarlinkCollectContext *cc) {
-        assert(cc);
-
-        json_variant_unref(cc->parameters);
-        free((char *)cc->error_id);
-}
-
-static int collect_callback(
-                Varlink *v,
-                JsonVariant *parameters,
-                const char *error_id,
-                VarlinkReplyFlags flags,
-                void *userdata) {
-
-        VarlinkCollectContext *context = ASSERT_PTR(userdata);
-        int r;
-
-        assert(v);
-
-        context->flags = flags;
-        /* If we hit an error, we will drop all collected replies and just return the error_id and flags in varlink_collect() */
-        if (error_id) {
-                context->error_id = error_id;
-                return 0;
-        }
-
-        r = json_variant_append_array(&context->parameters, parameters);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to append JSON object to array: %m");
-
-        return 1;
-}
-
-int varlink_collect(
+int varlink_collect_full(
                 Varlink *v,
                 const char *method,
                 JsonVariant *parameters,
@@ -2136,7 +2333,7 @@ int varlink_collect(
                 const char **ret_error_id,
                 VarlinkReplyFlags *ret_flags) {
 
-        _cleanup_(varlink_collect_context_free) VarlinkCollectContext context = {};
+        _cleanup_(json_variant_unrefp) JsonVariant *m = NULL, *collected = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2153,61 +2350,105 @@ int varlink_collect(
          * that we can assign a new reply shortly. */
         varlink_clear_current(v);
 
-        r = varlink_bind_reply(v, collect_callback);
+        r = varlink_sanitize_parameters(&parameters);
         if (r < 0)
-                return varlink_log_errno(v, r, "Failed to bind collect callback");
+                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
-        varlink_set_userdata(v, &context);
-        r = varlink_observe(v, method, parameters);
+        r = json_build(&m, JSON_BUILD_OBJECT(
+                                       JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method)),
+                                       JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters)),
+                                       JSON_BUILD_PAIR("more", JSON_BUILD_BOOLEAN(true))));
         if (r < 0)
-                return varlink_log_errno(v, r, "Failed to collect varlink method: %m");
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        while (v->state == VARLINK_AWAITING_REPLY_MORE) {
+        r = varlink_enqueue_json(v, m);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
-                r = varlink_process(v);
-                if (r < 0)
-                        return r;
+        varlink_set_state(v, VARLINK_COLLECTING);
+        v->n_pending++;
+        v->timestamp = now(CLOCK_MONOTONIC);
 
-                /* If we get an error from any of the replies, return immediately with just the error_id and flags*/
-                if (context.error_id) {
-                        if (ret_error_id)
-                                *ret_error_id = TAKE_PTR(context.error_id);
-                        if (ret_flags)
-                                *ret_flags = context.flags;
-                        return 0;
+        for (;;) {
+                while (v->state == VARLINK_COLLECTING) {
+                        r = varlink_process(v);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                continue;
+
+                        r = varlink_wait(v, USEC_INFINITY);
+                        if (r < 0)
+                                return r;
                 }
 
-                if (r > 0)
-                        continue;
+                switch (v->state) {
 
-                r = varlink_wait(v, USEC_INFINITY);
-                if (r < 0)
-                        return r;
+                case VARLINK_COLLECTING_REPLY: {
+                        assert(v->current);
+
+                        JsonVariant *e = json_variant_by_key(v->current, "error"),
+                                *p = json_variant_by_key(v->current, "parameters");
+
+                        /* Unless there is more to collect we reset state to idle */
+                        if (!FLAGS_SET(v->current_reply_flags, VARLINK_REPLY_CONTINUES)) {
+                                varlink_set_state(v, VARLINK_IDLE_CLIENT);
+                                assert(v->n_pending == 1);
+                                v->n_pending--;
+                        }
+
+                        if (e) {
+                                if (!ret_error_id)
+                                        return varlink_error_to_errno(json_variant_string(e), p);
+
+                                if (ret_parameters)
+                                        *ret_parameters = p;
+                                if (ret_error_id)
+                                        *ret_error_id = json_variant_string(e);
+                                if (ret_flags)
+                                        *ret_flags = v->current_reply_flags;
+
+                                return 1;
+                        }
+
+                        if (json_variant_elements(collected) >= VARLINK_COLLECT_MAX)
+                                return varlink_log_errno(v, SYNTHETIC_ERRNO(E2BIG), "Number of reply messages grew too large (%zu) while collecting.", json_variant_elements(collected));
+
+                        r = json_variant_append_array(&collected, p);
+                        if (r < 0)
+                                return varlink_log_errno(v, r, "Failed to append JSON object to array: %m");
+
+                        if (FLAGS_SET(v->current_reply_flags, VARLINK_REPLY_CONTINUES)) {
+                                /* There's more to collect, continue */
+                                varlink_clear_current(v);
+                                varlink_set_state(v, VARLINK_COLLECTING);
+                                continue;
+                        }
+
+                        if (ret_parameters)
+                                /* Install the collection array in the connection object, so that we can hand
+                                 * out a pointer to it without passing over ownership, to make it work more
+                                 * alike regular method call replies */
+                                *ret_parameters = v->current_collected = TAKE_PTR(collected);
+                        if (ret_error_id)
+                                *ret_error_id = NULL;
+                        if (ret_flags)
+                                *ret_flags = v->current_reply_flags;
+
+                        return 1;
+                }
+
+                case VARLINK_PENDING_DISCONNECT:
+                case VARLINK_DISCONNECTED:
+                        return varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET), "Connection was closed.");
+
+                case VARLINK_PENDING_TIMEOUT:
+                        return varlink_log_errno(v, SYNTHETIC_ERRNO(ETIME), "Connection timed out.");
+
+                default:
+                        assert_not_reached();
+                }
         }
-
-        switch (v->state) {
-
-        case VARLINK_IDLE_CLIENT:
-                break;
-
-        case VARLINK_PENDING_DISCONNECT:
-        case VARLINK_DISCONNECTED:
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET), "Connection was closed.");
-
-        case VARLINK_PENDING_TIMEOUT:
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(ETIME), "Connection timed out.");
-
-        default:
-                assert_not_reached();
-        }
-
-        if (ret_parameters)
-                *ret_parameters = TAKE_PTR(context.parameters);
-        if (ret_error_id)
-                *ret_error_id = TAKE_PTR(context.error_id);
-        if (ret_flags)
-                *ret_flags = context.flags;
-        return 1;
 }
 
 int varlink_collectb(
@@ -2215,7 +2456,7 @@ int varlink_collectb(
                 const char *method,
                 JsonVariant **ret_parameters,
                 const char **ret_error_id,
-                VarlinkReplyFlags *ret_flags, ...) {
+                ...) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
         va_list ap;
@@ -2223,14 +2464,14 @@ int varlink_collectb(
 
         assert_return(v, -EINVAL);
 
-        va_start(ap, ret_flags);
+        va_start(ap, ret_error_id);
         r = json_buildv(&parameters, ap);
         va_end(ap);
 
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        return varlink_collect(v, method, parameters, ret_parameters, ret_error_id, ret_flags);
+        return varlink_collect_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
 }
 
 int varlink_reply(Varlink *v, JsonVariant *parameters) {
@@ -2259,7 +2500,9 @@ int varlink_reply(Varlink *v, JsonVariant *parameters) {
 
                 r = varlink_idl_validate_method_reply(v->current_method, parameters, &bad_field);
                 if (r < 0)
-                        log_debug_errno(r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m", v->current_method->name, strna(bad_field));
+                        /* Please adjust test/units/end.sh when updating the log message. */
+                        varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
+                                          v->current_method->name, strna(bad_field));
         }
 
         r = varlink_enqueue_json(v, m);
@@ -2330,13 +2573,15 @@ int varlink_error(Varlink *v, const char *error_id, JsonVariant *parameters) {
 
         VarlinkSymbol *symbol = hashmap_get(v->server->symbols, error_id);
         if (!symbol)
-                log_debug("No interface description defined for error '%s', not validating.", error_id);
+                varlink_log(v, "No interface description defined for error '%s', not validating.", error_id);
         else {
                 const char *bad_field = NULL;
 
                 r = varlink_idl_validate_error(symbol, parameters, &bad_field);
                 if (r < 0)
-                        log_debug_errno(r, "Parameters for error %s didn't pass validation on field '%s', ignoring: %m", error_id, strna(bad_field));
+                        /* Please adjust test/units/end.sh when updating the log message. */
+                        varlink_log_errno(v, r, "Parameters for error %s didn't pass validation on field '%s', ignoring: %m",
+                                          error_id, strna(bad_field));
         }
 
         r = varlink_enqueue_json(v, m);
@@ -2412,6 +2657,13 @@ int varlink_error_invalid_parameter(Varlink *v, JsonVariant *parameters) {
         return -EINVAL;
 }
 
+int varlink_error_invalid_parameter_name(Varlink *v, const char *name) {
+        return varlink_errorb(
+                        v,
+                        VARLINK_ERROR_INVALID_PARAMETER,
+                        JSON_BUILD_OBJECT(JSON_BUILD_PAIR("parameter", JSON_BUILD_STRING(name))));
+}
+
 int varlink_error_errno(Varlink *v, int error) {
         return varlink_errorb(
                         v,
@@ -2451,7 +2703,9 @@ int varlink_notify(Varlink *v, JsonVariant *parameters) {
 
                 r = varlink_idl_validate_method_reply(v->current_method, parameters, &bad_field);
                 if (r < 0)
-                        log_debug_errno(r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m", v->current_method->name, strna(bad_field));
+                        /* Please adjust test/units/end.sh when updating the log message. */
+                        varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
+                                          v->current_method->name, strna(bad_field));
         }
 
         r = varlink_enqueue_json(v, m);
@@ -2491,8 +2745,7 @@ int varlink_dispatch(Varlink *v, JsonVariant *parameters, const JsonDispatch tab
         r = json_dispatch_full(parameters, table, /* bad= */ NULL, /* flags= */ 0, userdata, &bad_field);
         if (r < 0) {
                 if (bad_field)
-                        return varlink_errorb(v, VARLINK_ERROR_INVALID_PARAMETER,
-                                              JSON_BUILD_OBJECT(JSON_BUILD_PAIR("parameter", JSON_BUILD_STRING(bad_field))));
+                        return varlink_error_invalid_parameter_name(v, bad_field);
                 return r;
         }
 
@@ -2575,6 +2828,54 @@ int varlink_get_peer_pid(Varlink *v, pid_t *ret) {
 
         *ret = v->ucred.pid;
         return 0;
+}
+
+static int varlink_acquire_pidfd(Varlink *v) {
+        assert(v);
+
+        if (v->peer_pidfd >= 0)
+                return 0;
+
+        v->peer_pidfd = getpeerpidfd(v->fd);
+        if (v->peer_pidfd < 0)
+                return v->peer_pidfd;
+
+        return 0;
+}
+
+int varlink_get_peer_pidref(Varlink *v, PidRef *ret) {
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        /* Returns r > 0 if we acquired the pidref via SO_PEERPIDFD (i.e. if we can use it for
+         * authentication). Returns == 0 if we didn't, and the pidref should not be used for
+         * authentication. */
+
+        r = varlink_acquire_pidfd(v);
+        if (r < 0)
+                return r;
+
+        if (v->peer_pidfd < 0) {
+                pid_t pid;
+
+                r = varlink_get_peer_pid(v, &pid);
+                if (r < 0)
+                        return r;
+
+                r = pidref_set_pid(ret, pid);
+                if (r < 0)
+                        return r;
+
+                return 0; /* didn't get pidfd securely */
+        }
+
+        r = pidref_set_pidfd(ret, v->peer_pidfd);
+        if (r < 0)
+                return r;
+
+        return 1; /* got pidfd securely */
 }
 
 int varlink_set_relative_timeout(Varlink *v, usec_t timeout) {
@@ -2902,6 +3203,13 @@ int varlink_set_allow_fd_passing_output(Varlink *v, bool b) {
         return 0;
 }
 
+int varlink_set_input_sensitive(Varlink *v) {
+        assert_return(v, -EINVAL);
+
+        v->input_sensitive = true;
+        return 0;
+}
+
 int varlink_server_new(VarlinkServer **ret, VarlinkServerFlags flags) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         int r;
@@ -3008,9 +3316,11 @@ static int count_connection(VarlinkServer *server, const struct ucred *ucred) {
         server->n_connections++;
 
         if (FLAGS_SET(server->flags, VARLINK_SERVER_ACCOUNT_UID)) {
+                assert(uid_is_valid(ucred->uid));
+
                 r = hashmap_ensure_allocated(&server->by_uid, NULL);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to allocate UID hash table: %m");
+                        return varlink_server_log_errno(server, r, "Failed to allocate UID hash table: %m");
 
                 c = PTR_TO_UINT(hashmap_get(server->by_uid, UID_TO_PTR(ucred->uid)));
 
@@ -3019,7 +3329,7 @@ static int count_connection(VarlinkServer *server, const struct ucred *ucred) {
 
                 r = hashmap_replace(server->by_uid, UID_TO_PTR(ucred->uid), UINT_TO_PTR(c + 1));
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to increment counter in UID hash table: %m");
+                        return varlink_server_log_errno(server, r, "Failed to increment counter in UID hash table: %m");
         }
 
         return 0;
@@ -3127,6 +3437,9 @@ static int connect_callback(sd_event_source *source, int fd, uint32_t revents, v
                 return 0;
 
         TAKE_FD(cfd);
+
+        if (FLAGS_SET(ss->server->flags, VARLINK_SERVER_INPUT_SENSITIVE))
+                varlink_set_input_sensitive(v);
 
         if (ss->server->connect_callback) {
                 r = ss->server->connect_callback(ss->server, v, ss->server->userdata);
@@ -3280,6 +3593,14 @@ int varlink_server_listen_auto(VarlinkServer *s) {
                 n++;
         }
 
+        /* For debug purposes let's listen on an explicitly specified address */
+        const char *e = secure_getenv("SYSTEMD_VARLINK_LISTEN");
+        if (e) {
+                r = varlink_server_listen_address(s, e, FLAGS_SET(s->flags, VARLINK_SERVER_ROOT_ONLY) ? 0600 : 0666);
+                if (r < 0)
+                        return r;
+        }
+
         return n;
 }
 
@@ -3423,7 +3744,7 @@ int varlink_server_detach_event(VarlinkServer *s) {
         LIST_FOREACH(sockets, ss, s->sockets)
                 ss->event_source = sd_event_source_disable_unref(ss->event_source);
 
-        sd_event_unref(s->event);
+        s->event = sd_event_unref(s->event);
         return 0;
 }
 
@@ -3459,7 +3780,7 @@ int varlink_server_bind_method(VarlinkServer *s, const char *method, VarlinkMeth
 
         if (varlink_symbol_in_interface(method, "org.varlink.service") ||
             varlink_symbol_in_interface(method, "io.systemd"))
-                return log_debug_errno(SYNTHETIC_ERRNO(EEXIST), "Cannot bind server to '%s'.", method);
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EEXIST), "Cannot bind server to '%s'.", method);
 
         m = strdup(method);
         if (!m)
@@ -3469,7 +3790,7 @@ int varlink_server_bind_method(VarlinkServer *s, const char *method, VarlinkMeth
         if (r == -ENOMEM)
                 return log_oom_debug();
         if (r < 0)
-                return log_debug_errno(r, "Failed to register callback: %m");
+                return varlink_server_log_errno(s, r, "Failed to register callback: %m");
         if (r > 0)
                 TAKE_PTR(m);
 
@@ -3506,7 +3827,7 @@ int varlink_server_bind_connect(VarlinkServer *s, VarlinkConnect callback) {
         assert_return(s, -EINVAL);
 
         if (callback && s->connect_callback && callback != s->connect_callback)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
 
         s->connect_callback = callback;
         return 0;
@@ -3516,7 +3837,7 @@ int varlink_server_bind_disconnect(VarlinkServer *s, VarlinkDisconnect callback)
         assert_return(s, -EINVAL);
 
         if (callback && s->disconnect_callback && callback != s->disconnect_callback)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
 
         s->disconnect_callback = callback;
         return 0;
@@ -3530,7 +3851,7 @@ int varlink_server_add_interface(VarlinkServer *s, const VarlinkInterface *inter
         assert_return(interface->name, -EINVAL);
 
         if (hashmap_contains(s->interfaces, interface->name))
-                return log_debug_errno(SYNTHETIC_ERRNO(EEXIST), "Duplicate registration of interface '%s'.", interface->name);
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EEXIST), "Duplicate registration of interface '%s'.", interface->name);
 
         r = hashmap_ensure_put(&s->interfaces, &string_hash_ops, interface->name, (void*) interface);
         if (r < 0)
@@ -3683,11 +4004,11 @@ int varlink_server_deserialize_one(VarlinkServer *s, const char *value, FDSet *f
                 return log_oom_debug();
 
         if (v[n] != ' ')
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EINVAL),
                                        "Failed to deserialize VarlinkServerSocket: %s: %m", value);
         v = startswith(v + n + 1, "varlink-server-socket-fd=");
         if (!v)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EINVAL),
                                        "Failed to deserialize VarlinkServerSocket fd %s: %m", value);
 
         n = strcspn(v, " ");
@@ -3695,9 +4016,9 @@ int varlink_server_deserialize_one(VarlinkServer *s, const char *value, FDSet *f
 
         fd = parse_fd(buf);
         if (fd < 0)
-                return log_debug_errno(fd, "Unable to parse VarlinkServerSocket varlink-server-socket-fd=%s: %m", buf);
+                return varlink_server_log_errno(s, fd, "Unable to parse VarlinkServerSocket varlink-server-socket-fd=%s: %m", buf);
         if (!fdset_contains(fds, fd))
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EBADF),
                                        "VarlinkServerSocket varlink-server-socket-fd= has unknown fd %d: %m", fd);
 
         ss = new(VarlinkServerSocket, 1);
@@ -3712,7 +4033,7 @@ int varlink_server_deserialize_one(VarlinkServer *s, const char *value, FDSet *f
 
         r = varlink_server_add_socket_event_source(s, ss, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
-                return log_debug_errno(r, "Failed to add VarlinkServerSocket event source to the event loop: %m");
+                return varlink_server_log_errno(s, r, "Failed to add VarlinkServerSocket event source to the event loop: %m");
 
         LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
         return 0;
@@ -3724,6 +4045,10 @@ int varlink_invocation(VarlinkInvocationFlags flags) {
         socklen_t l = sizeof(b);
 
         /* Returns true if this is a "pure" varlink server invocation, i.e. with one fd passed. */
+
+        const char *e = secure_getenv("SYSTEMD_VARLINK_LISTEN"); /* Permit a manual override for testing purposes */
+        if (e)
+                return true;
 
         r = sd_listen_fds_with_names(/* unset_environment= */ false, &names);
         if (r < 0)
@@ -3751,4 +4076,43 @@ int varlink_invocation(VarlinkInvocationFlags flags) {
                 return -EISCONN;
 
         return true;
+}
+
+int varlink_error_to_errno(const char *error, JsonVariant *parameters) {
+        static const struct {
+                const char *error;
+                int value;
+        } table[] = {
+                { VARLINK_ERROR_DISCONNECTED,           -ECONNRESET    },
+                { VARLINK_ERROR_TIMEOUT,                -ETIMEDOUT     },
+                { VARLINK_ERROR_PROTOCOL,               -EPROTO        },
+                { VARLINK_ERROR_INTERFACE_NOT_FOUND,    -EADDRNOTAVAIL },
+                { VARLINK_ERROR_METHOD_NOT_FOUND,       -ENXIO         },
+                { VARLINK_ERROR_METHOD_NOT_IMPLEMENTED, -ENOTTY        },
+                { VARLINK_ERROR_INVALID_PARAMETER,      -EINVAL        },
+                { VARLINK_ERROR_PERMISSION_DENIED,      -EACCES        },
+                { VARLINK_ERROR_EXPECTED_MORE,          -EBADE         },
+        };
+
+        if (!error)
+                return 0;
+
+        FOREACH_ARRAY(t, table, ELEMENTSOF(table))
+                if (streq(error, t->error))
+                        return t->value;
+
+        if (streq(error, VARLINK_ERROR_SYSTEM) && parameters) {
+                JsonVariant *e;
+
+                e = json_variant_by_key(parameters, "errno");
+                if (json_variant_is_integer(e)) {
+                        int64_t i;
+
+                        i = json_variant_integer(e);
+                        if (i > 0 && i < ERRNO_MAX)
+                                return -i;
+                }
+        }
+
+        return -EBADR; /* Catch-all */
 }

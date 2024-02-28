@@ -384,7 +384,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
 
 static int write_uint64(FILE *fp, uint64_t p) {
         if (fwrite(&p, sizeof(p), 1, fp) != 1)
-                return -errno;
+                return -EIO;
 
         return 0;
 }

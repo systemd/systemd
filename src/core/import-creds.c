@@ -80,7 +80,7 @@ static int acquire_credential_directory(ImportCredentialContext *c, const char *
         if (c->target_dir_fd >= 0)
                 return c->target_dir_fd;
 
-        r = path_is_mount_point(path, NULL, 0);
+        r = path_is_mount_point(path);
         if (r < 0) {
                 if (r != -ENOENT)
                         return log_error_errno(r, "Failed to determine if %s is a mount point: %m", path);
@@ -314,7 +314,7 @@ static int proc_cmdline_callback(const char *key, const char *value, void *data)
         colon++;
 
         if (base64) {
-                r = unbase64mem(colon, SIZE_MAX, &binary, &l);
+                r = unbase64mem(colon, &binary, &l);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to decode binary credential '%s' data, ignoring: %m", n);
                         return 0;
@@ -525,7 +525,7 @@ static int parse_smbios_strings(ImportCredentialContext *c, const char *data, si
 
                 /* Optionally base64 decode the data, if requested, to allow binary credentials */
                 if (unbase64) {
-                        r = unbase64mem(eq + 1, nul - (eq + 1), &buf, &buflen);
+                        r = unbase64mem_full(eq + 1, nul - (eq + 1), /* secure = */ false, &buf, &buflen);
                         if (r < 0) {
                                 log_warning_errno(r, "Failed to base64 decode credential '%s', ignoring: %m", cn);
                                 continue;
@@ -815,7 +815,6 @@ static int setenv_notify_socket(void) {
 
 static int report_credentials_per_func(const char *title, int (*get_directory_func)(const char **ret)) {
         _cleanup_free_ DirectoryEntries *de = NULL;
-        _cleanup_close_ int dir_fd = -EBADF;
         _cleanup_free_ char *ll = NULL;
         const char *d = NULL;
         int r, c = 0;
@@ -831,11 +830,7 @@ static int report_credentials_per_func(const char *title, int (*get_directory_fu
                 return log_warning_errno(r, "Failed to determine %s directory: %m", title);
         }
 
-        dir_fd = open(d, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-        if (dir_fd < 0)
-                return log_warning_errno(errno, "Failed to open credentials directory %s: %m", d);
-
-        r = readdir_all(dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
+        r = readdir_all_at(AT_FDCWD, d, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
         if (r < 0)
                 return log_warning_errno(r, "Failed to enumerate credentials directory %s: %m", d);
 

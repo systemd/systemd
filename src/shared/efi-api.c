@@ -453,13 +453,13 @@ int efi_get_boot_options(uint16_t **ret_options) {
         FOREACH_DIRENT(de, dir, return -errno) {
                 int id;
 
-                if (strncmp(de->d_name, "Boot", 4) != 0)
+                if (!startswith(de->d_name, "Boot"))
                         continue;
 
                 if (strlen(de->d_name) != 45)
                         continue;
 
-                if (strcmp(de->d_name + 8, EFI_GLOBAL_VARIABLE_STR("")) != 0)  /* generate variable suffix using macro */
+                if (!streq(de->d_name + 8, EFI_GLOBAL_VARIABLE_STR(""))) /* generate variable suffix using macro */
                         continue;
 
                 id = boot_id_hex(de->d_name + 4);

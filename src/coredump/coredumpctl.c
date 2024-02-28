@@ -67,6 +67,8 @@ static bool arg_all = false;
 static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_debugger_args, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
@@ -126,19 +128,19 @@ static int acquire_journal(sd_journal **ret, char **matches) {
         assert(ret);
 
         if (arg_directory) {
-                r = sd_journal_open_directory(&j, arg_directory, 0);
+                r = sd_journal_open_directory(&j, arg_directory, SD_JOURNAL_ASSUME_IMMUTABLE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open journals in directory: %s: %m", arg_directory);
         } else if (arg_root) {
-                r = sd_journal_open_directory(&j, arg_root, SD_JOURNAL_OS_ROOT);
+                r = sd_journal_open_directory(&j, arg_root, SD_JOURNAL_OS_ROOT | SD_JOURNAL_ASSUME_IMMUTABLE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open journals in root directory: %s: %m", arg_root);
         } else if (arg_file) {
-                r = sd_journal_open_files(&j, (const char**)arg_file, 0);
+                r = sd_journal_open_files(&j, (const char**)arg_file, SD_JOURNAL_ASSUME_IMMUTABLE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open journal files: %m");
         } else {
-                r = sd_journal_open(&j, arg_all ? 0 : SD_JOURNAL_LOCAL_ONLY);
+                r = sd_journal_open(&j, arg_all ? 0 : SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_ASSUME_IMMUTABLE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open journal: %m");
         }
@@ -1240,7 +1242,7 @@ static int run_debug(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        r = strv_extend_strv(&debugger_call, STRV_MAKE(exe, "-c", path), false);
+        r = strv_extend_many(&debugger_call, exe, "-c", path);
         if (r < 0)
                 return log_oom();
 
@@ -1249,14 +1251,14 @@ static int run_debug(int argc, char **argv, void *userdata) {
                         const char *sysroot_cmd;
                         sysroot_cmd = strjoina("set sysroot ", arg_root);
 
-                        r = strv_extend_strv(&debugger_call, STRV_MAKE("-iex", sysroot_cmd), false);
+                        r = strv_extend_many(&debugger_call, "-iex", sysroot_cmd);
                         if (r < 0)
                                 return log_oom();
                 } else if (streq(arg_debugger, "lldb")) {
                         const char *sysroot_cmd;
                         sysroot_cmd = strjoina("platform select --sysroot ", arg_root, " host");
 
-                        r = strv_extend_strv(&debugger_call, STRV_MAKE("-O", sysroot_cmd), false);
+                        r = strv_extend_many(&debugger_call, "-O", sysroot_cmd);
                         if (r < 0)
                                 return log_oom();
                 }
