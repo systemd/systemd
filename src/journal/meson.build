@@ -65,7 +65,7 @@ executables += [
                 'dependencies' : [
                         liblz4_cflags,
                         libselinux,
-                        libxz,
+                        libxz_cflags,
                         libzstd_cflags,
                         threads,
                 ],
@@ -96,7 +96,7 @@ executables += [
                 'dependencies' : [
                         libdl,
                         liblz4_cflags,
-                        libxz,
+                        libxz_cflags,
                         libzstd_cflags,
                         threads,
                 ],
@@ -106,7 +106,7 @@ executables += [
                 'dependencies' : [
                         liblz4_cflags,
                         libselinux,
-                        libxz,
+                        libxz_cflags,
                 ],
         },
         journal_test_template + {
@@ -114,7 +114,7 @@ executables += [
                 'dependencies' : [
                         liblz4_cflags,
                         libselinux,
-                        libxz,
+                        libxz_cflags,
                         threads,
                 ],
         },

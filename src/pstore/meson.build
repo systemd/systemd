@@ -8,7 +8,7 @@ executables += [
                 'dependencies' : [
                         libacl,
                         liblz4_cflags,
-                        libxz,
+                        libxz_cflags,
                         libzstd_cflags,
                         threads,
                 ],
