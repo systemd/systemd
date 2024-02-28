@@ -185,20 +185,21 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(AsyncPolkitQueryAction*, async_polkit_query_action_f
 typedef struct AsyncPolkitQuery {
         unsigned n_ref;
 
-        AsyncPolkitQueryAction *action;
+        AsyncPolkitQueryAction *action; /* action currently being processed */
 
         sd_bus *bus;
-        sd_bus_message *request;  /* the original bus method call that triggered the polkit auth, NULL in case of varlink */
+        sd_bus_message *request;        /* the original bus method call that triggered the polkit auth, NULL in case of varlink */
         sd_bus_slot *slot;
-        Varlink *link;            /* the original varlink method call that triggered the polkit auth, NULL in case of bus */
+        Varlink *link;                  /* the original varlink method call that triggered the polkit auth, NULL in case of bus */
 
         Hashmap *registry;
         sd_event_source *defer_event_source;
 
-        LIST_HEAD(AsyncPolkitQueryAction, authorized_actions);
-        AsyncPolkitQueryAction *denied_action;
-        AsyncPolkitQueryAction *error_action;
-        sd_bus_error error;
+        LIST_HEAD(AsyncPolkitQueryAction, authorized_actions);  /* actions we successfully were authorized for */
+        AsyncPolkitQueryAction *denied_action;                  /* if we received denial for an action, it's this one */
+        AsyncPolkitQueryAction *absent_action;                  /* If polkit was absent for some action, it's this one */
+        AsyncPolkitQueryAction *error_action;                   /* if we encountered any other error, it's this one */
+        sd_bus_error error;                                     /* the precise error, in case error_action is set */
 } AsyncPolkitQuery;
 
 static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
@@ -226,6 +227,7 @@ static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
         LIST_CLEAR(authorized, q->authorized_actions, async_polkit_query_action_free);
 
         async_polkit_query_action_free(q->denied_action);
+        async_polkit_query_action_free(q->absent_action);
         async_polkit_query_action_free(q->error_action);
 
         sd_bus_error_free(&q->error);
@@ -265,28 +267,34 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
 
         /* Processing of a PolicyKit checks is canceled on the first auth. error. */
         assert(!q->denied_action);
+        assert(!q->absent_action);
         assert(!q->error_action);
         assert(!sd_bus_error_is_set(&q->error));
 
-        assert(q->action);
-        a = TAKE_PTR(q->action);
+        a = ASSERT_PTR(TAKE_PTR(q->action));
 
         if (sd_bus_message_is_method_error(reply, NULL)) {
                 const sd_bus_error *e;
 
                 e = sd_bus_message_get_error(reply);
 
-                if (bus_error_is_unknown_service(e) ||
-                    sd_bus_error_has_names(
-                                    e,
-                                    "org.freedesktop.PolicyKit1.Error.Failed",
-                                    "org.freedesktop.PolicyKit1.Error.Cancelled",
-                                    "org.freedesktop.PolicyKit1.Error.NotAuthorized"))
-                        /* Treat no PK available as access denied. Also treat some of the well-known PK errors as such. */
+                if (bus_error_is_unknown_service(e)) {
+                        /* If PK is absent, then store this away, as it depends on the callers flags whether
+                         * this means deny or allow */
+                        log_debug("Polkit found to be unavailable while trying to authorize action '%s'.", a->action);
+                        q->absent_action = TAKE_PTR(a);
+                } else if (sd_bus_error_has_names(
+                                           e,
+                                           "org.freedesktop.PolicyKit1.Error.Failed",
+                                           "org.freedesktop.PolicyKit1.Error.Cancelled",
+                                           "org.freedesktop.PolicyKit1.Error.NotAuthorized")) {
+                        /* Treat some of the well-known PK errors as denial. */
+                        log_debug("Polkit authorization for action '%s' failed with an polkit error: %s", a->action, e->name);
                         q->denied_action = TAKE_PTR(a);
-                else {
+                } else {
                         /* Save error from polkit reply, so it can be returned when the same authorization
                          * is attempted for second time */
+                        log_debug("Polkit authorization for action '%s' failed with an unexpected error: %s", a->action, e->name);
                         q->error_action = TAKE_PTR(a);
                         r = sd_bus_error_copy(&q->error, e);
                         if (r == -ENOMEM)
@@ -302,13 +310,17 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
         if (r < 0)
                 return r;
 
-        if (authorized)
+        if (authorized) {
+                log_debug("Polkit authorization for action '%s' succeeded.", a->action);
                 LIST_PREPEND(authorized, q->authorized_actions, TAKE_PTR(a));
-        else if (challenge) {
+        } else if (challenge) {
+                log_debug("Polkit authorization for action requires '%s' interactive authentication, which we didn't allow.", a->action);
                 q->error_action = TAKE_PTR(a);
                 sd_bus_error_set_const(&q->error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
-        } else
+        } else {
+                log_debug("Polkit authorization for action '%s' denied.", a->action);
                 q->denied_action = TAKE_PTR(a);
+        }
 
         return 0;
 }
@@ -407,6 +419,7 @@ static int async_polkit_query_check_action(
                 AsyncPolkitQuery *q,
                 const char *action,
                 const char **details,
+                PolkitFlags flags,
                 sd_bus_error *ret_error) {
 
         assert(q);
@@ -419,9 +432,12 @@ static int async_polkit_query_check_action(
                 return sd_bus_error_copy(ret_error, &q->error);
 
         if (q->denied_action && streq(q->denied_action->action, action))
-                return -EACCES;
+                return -EACCES; /* Deny! */
 
-        return 0;
+        if (q->absent_action)
+                return FLAGS_SET(flags, POLKIT_DEFAULT_ALLOW) ? 1 /* Allow! */ : -EACCES /* Deny! */;
+
+        return 0; /* no reply yet */
 }
 #endif
 
@@ -522,6 +538,8 @@ int bus_verify_polkit_async_full(
         assert(registry);
         assert(ret_error);
 
+        log_debug("Trying to acquire polkit authentication for '%s'.", action);
+
         r = bus_message_check_good_user(call, good_user);
         if (r != 0)
                 return r;
@@ -533,9 +551,11 @@ int bus_verify_polkit_async_full(
         /* This is a repeated invocation of this function, hence let's check if we've already got
          * a response from polkit for this action */
         if (q) {
-                r = async_polkit_query_check_action(q, action, details, ret_error);
-                if (r != 0)
+                r = async_polkit_query_check_action(q, action, details, flags, ret_error);
+                if (r != 0) {
+                        log_debug("Found matching previous polkit authentication for '%s'.", action);
                         return r;
+                }
         }
 #endif
 
@@ -601,9 +621,9 @@ int bus_verify_polkit_async_full(
         TAKE_PTR(q);
 
         return 0;
+#else
+        return FLAGS_SET(flags, POLKIT_DEFAULT_ALLOW) ? 1 : -EACCES;
 #endif
-
-        return -EACCES;
 }
 
 static int varlink_check_good_user(Varlink *link, uid_t good_user) {
@@ -738,6 +758,8 @@ int varlink_verify_polkit_async_full(
         assert(link);
         assert(registry);
 
+        log_debug("Trying to acquire polkit authentication for '%s'.", action);
+
         /* This is the same as bus_verify_polkit_async_full(), but authenticates the peer of a varlink
          * connection rather than the sender of a bus message. */
 
@@ -759,7 +781,9 @@ int varlink_verify_polkit_async_full(
          * a response from polkit for this action */
         if (q) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                r = async_polkit_query_check_action(q, action, details, &error);
+                r = async_polkit_query_check_action(q, action, details, flags, &error);
+                if (r != 0)
+                        log_debug("Found matching previous polkit authentication for '%s'.", action);
                 if (r < 0) {
                         /* Reply with a nice error */
                         if (sd_bus_error_has_name(&error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED))
@@ -834,9 +858,9 @@ int varlink_verify_polkit_async_full(
         TAKE_PTR(q);
 
         return 0;
+#else
+        return FLAGS_SET(flags, POLKIT_DEFAULT_ALLOW) ? 1 : -EACCES;
 #endif
-
-        return -EACCES;
 }
 
 bool varlink_has_polkit_action(Varlink *link, const char *action, const char **details, Hashmap **registry) {
