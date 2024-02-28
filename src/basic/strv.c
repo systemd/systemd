@@ -242,21 +242,19 @@ rollback:
         return -ENOMEM;
 }
 
-int strv_extend_strv_concat(char ***a, char * const *b, const char *suffix) {
+int strv_extend_strv_biconcat(char ***a, const char *prefix, const char* const *b, const char *suffix) {
         int r;
 
         STRV_FOREACH(s, b) {
                 char *v;
 
-                v = strjoin(*s, suffix);
+                v = strjoin(strempty(prefix), *s, suffix);
                 if (!v)
                         return -ENOMEM;
 
-                r = strv_push(a, v);
-                if (r < 0) {
-                        free(v);
+                r = strv_consume(a, v);
+                if (r < 0)
                         return r;
-                }
         }
 
         return 0;
