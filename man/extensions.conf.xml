@@ -58,8 +58,8 @@
 
         <listitem><para>Sets the default mutability mode of the merged <filename>/usr/</filename> and
         <filename>/opt/</filename> hierarchies. Possible values are <literal>auto</literal>,
-        <literal>import</literal>, <literal>ephemeral</literal> and boolean values. Defaults to
-        <literal>no</literal>. See
+        <literal>import</literal>, <literal>ephemeral</literal>, <literal>ephemeral-import</literal> and
+        boolean values. Defaults to <literal>no</literal>. See
         <citerefentry><refentrytitle>systemd-sysext.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for the meaning of those values.</para>
 
@@ -79,8 +79,8 @@
         <term><varname>Mutable=</varname></term>
 
         <listitem><para>Sets the default mutability mode of the merged <filename>/etc/</filename> hierarchy.
-        Possible values are <literal>auto</literal>, <literal>import</literal>, <literal>ephemeral</literal>
-        and boolean values. Defaults to <literal>no</literal>. See
+        Possible values are <literal>auto</literal>, <literal>import</literal>, <literal>ephemeral</literal>,
+        <literal>ephemeral-import</literal> and boolean values. Defaults to <literal>no</literal>. See
         <citerefentry><refentrytitle>systemd-confext.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for the meaning of those values.</para>
 
