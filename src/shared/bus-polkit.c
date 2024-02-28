@@ -539,11 +539,14 @@ int bus_verify_polkit_async_full(
         }
 #endif
 
-        r = sd_bus_query_sender_privilege(call, -1);
-        if (r < 0)
-                return r;
-        if (r > 0)
-                return 1;
+        if (!FLAGS_SET(flags, POLKIT_ALWAYS_QUERY)) {
+                /* Don't query PK if client is privileged */
+                r = sd_bus_query_sender_privilege(call, /* capability= */ -1);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 1;
+        }
 
 #if ENABLE_POLKIT
         bool interactive = FLAGS_SET(flags, POLKIT_ALLOW_INTERACTIVE);
@@ -742,9 +745,11 @@ int varlink_verify_polkit_async_full(
         if (r != 0)
                 return r;
 
-        r = varlink_check_peer_privilege(link);
-        if (r != 0)
-                return r;
+        if (!FLAGS_SET(flags, POLKIT_ALWAYS_QUERY)) {
+                r = varlink_check_peer_privilege(link);
+                if (r != 0)
+                        return r;
+        }
 
 #if ENABLE_POLKIT
         _cleanup_(async_polkit_query_unrefp) AsyncPolkitQuery *q = NULL;
