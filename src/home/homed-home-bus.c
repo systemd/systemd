@@ -97,12 +97,11 @@ static int home_verify_polkit_async(
                         message,
                         action,
                         details,
-                        /* interactive= */ false,
                         good_uid,
+                        /* flags= */ 0,
                         &h->manager->polkit_registry,
                         error);
 }
-
 
 int bus_home_get_record_json(
                 Home *h,
@@ -185,8 +184,8 @@ int bus_home_method_activate(
                         message,
                         "org.freedesktop.home1.activate-home",
                         /* details= */ NULL,
-                        /* interctive= */ false,
                         h->uid,
+                        /* flags= */ 0,
                         &h->manager->polkit_registry,
                         error);
         if (r < 0)
