@@ -259,6 +259,10 @@ if conf.get('HAVE_PAM') == 1
         shared_sources += files('pam-util.c')
 endif
 
+if conf.get('HAVE_LIBCURL') == 1
+        shared_sources += files('curl-util.c')
+endif
+
 generate_ip_protocol_list = find_program('generate-ip-protocol-list.sh')
 ip_protocol_list_txt = custom_target(
         'ip-protocol-list.txt',
@@ -343,6 +347,11 @@ libshared_deps = [threads,
                   libxenctrl_cflags,
                   libxz_cflags,
                   libzstd_cflags]
+
+# Is this correct?
+if conf.get('HAVE_LIBCURL') == 1
+        libshared_deps += [libcurl]
+endif
 
 libshared_sym_path = meson.current_source_dir() / 'libshared.sym'
 libshared_build_dir = meson.current_build_dir()

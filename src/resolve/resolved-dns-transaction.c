@@ -5,11 +5,13 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+
 #include "dns-domain.h"
 #include "errno-list.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "glyph-util.h"
+#include "hexdecoct.h"
 #include "log.h"
 #include "random-util.h"
 #include "resolved-dns-answer.h"
@@ -31,6 +33,10 @@
 #include "set.h"
 #include "string-table.h"
 #include "string-util.h"
+
+#if ENABLE_DNS_OVER_HTTPS
+#include "curl-util.h"
+#endif
 
 #define TRANSACTIONS_MAX 4096
 
@@ -694,7 +700,13 @@ static uint16_t dns_transaction_port(DnsTransaction *t) {
         if (t->server->port > 0)
                 return t->server->port;
 
-        return DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) ? 853 : 53;
+        if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level))
+                return 853;
+
+        if (DNS_SERVER_FEATURE_LEVEL_IS_HTTPS(t->current_feature_level))
+                return 443;
+
+        return 53;
 }
 
 static int dns_transaction_emit_tcp(DnsTransaction *t) {
@@ -1530,6 +1542,9 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                 if (t->current_feature_level < DNS_SERVER_FEATURE_LEVEL_UDP || DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level))
                         return -EAGAIN; /* Sorry, can't do UDP, try TCP! */
 
+                if (DNS_SERVER_FEATURE_LEVEL_IS_HTTPS(t->current_feature_level))
+                        return -EAGAIN; /* Direct request logic to HTTPS */
+
                 if (!t->bypass && !dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(dns_transaction_key(t)->type))
                         return -EOPNOTSUPP;
 
@@ -1993,6 +2008,223 @@ static int mdns_make_dummy_packet(DnsTransaction *t, DnsPacket **ret_packet, Set
         return add_known_answers;
 }
 
+#if ENABLE_DNS_OVER_HTTPS
+static size_t dns_transaction_curl_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
+        _cleanup_free_ char *content_header = NULL;
+        DnsTransaction *t = ASSERT_PTR(userdata);
+        size_t sz = size * nmemb;
+        CURLcode code;
+        long status;
+        int r;
+
+        assert(contents);
+
+        code = curl_easy_getinfo(t->curl, CURLINFO_RESPONSE_CODE, &status);
+        if (code != CURLE_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", curl_easy_strerror(code));
+
+        if (status >= 200 && status <= 299) {
+                r = curl_header_strdup(contents, sz, "Content-Type:", &content_header);
+                if (r < 0) {
+                        log_oom();
+                        return 0;
+                }
+                if (r > 0) {
+                        r = strcmp("application/dns-message", content_header);
+                        if (r == 0)
+                                t->valid_dns_message = true;
+                        return sz;
+                }
+        }
+
+        return sz;
+}
+
+static size_t dns_transaction_curl_write_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
+        DnsTransaction *t = ASSERT_PTR(userdata);
+        size_t sz = size * nmemb;
+        int r;
+
+        t->payload = memdup(contents, sz);
+        if (!t->payload) {
+                log_debug("Failed to extract HTTP payload to further processing");
+                r = log_oom();
+                goto fail;
+        }
+
+        t->payload_size += sz;
+
+        return sz;
+
+ fail:
+        dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+        return r;
+}
+
+static int dns_transaction_curl_recv(DnsTransaction *t, DnsPacket **p) {
+        size_t ms;
+        int r;
+
+        ms = t->payload_size;
+
+        if (t->payload_size < 1) {
+                log_debug("Received HTTP payload unexpected size %zu", t->payload_size);
+                return -1;
+        }
+
+        r = dns_packet_new(p, DNS_PROTOCOL_DNS, ms, DNS_PACKET_SIZE_MAX);
+        if (r < 0)
+                return r;
+
+        log_debug("Received HTTP payload of size %zu", t->payload_size);
+        return 0;
+}
+
+static int dns_transaction_curl_make_url(DnsTransaction *t, char **url) {
+        _cleanup_free_ char *base64_string = NULL;
+        uint8_t *packet_to_send = DNS_PACKET_DATA(t->sent);
+        int r;
+
+        /* Let's zero the query ID according to the RFC */
+        packet_to_send[0] = 0;
+        packet_to_send[1] = 0;
+
+        r = base64mem_full(packet_to_send, t->sent->size, MAX_URL_LENGTH, &base64_string);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to encode DNS packet to base64");
+                return r;
+        }
+
+        /* Remove base64 trailing characters */
+        delete_trailing_chars(base64_string, "=");
+
+        /* Build the DoH's wire format request URL */
+        r = asprintf(url, "https://%s/dns-query?dns=%s", t->server->server_string, base64_string);
+        if (r < 0) {
+                log_debug("Failed to allocate and set the url for transaction %" PRIu16 ".", t->id);
+                return r;
+        }
+
+        return 0;
+}
+
+static void dns_transaction_curl_on_response(CurlGlue *g, CURL *curl, CURLcode result) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        DnsTransaction *t = NULL;
+        int status;
+        int r;
+
+        assert(g);
+        assert(curl);
+
+        curl_easy_getinfo(curl, CURLINFO_PRIVATE, &t);
+
+        if (result != CURLE_OK) {
+                log_error_errno(SYNTHETIC_ERRNO(EIO), "HTTP request failed: %s", curl_easy_strerror(result));
+                status = DNS_TRANSACTION_INVALID_REPLY;
+                goto finish;
+        }
+
+        if (!t->valid_dns_message) {
+                log_debug("Received invalid HTTP payload, expected content type of application/dns-message");
+                status = DNS_TRANSACTION_INVALID_REPLY;
+                goto finish;
+        }
+
+        r = dns_transaction_curl_recv(t, &p);
+        if (r < 0) {
+                log_debug_errno(r, "HTTP payload receive failure");
+                dns_transaction_complete_errno(t, r);
+                return;
+        }
+
+        /* Transfer the received payload to transaction/packet struct */
+        uint8_t *p_data = DNS_PACKET_DATA(p);
+        memcpy(p_data, t->payload, t->payload_size);
+
+        p->size = t->payload_size;
+
+        r = dns_packet_validate_reply(p);
+        if (r < 0)
+                log_debug_errno(r, "Received invalid DNS packet as response, ignoring: %m");
+
+        if (r == 0)
+                log_debug("Received inappropriate DNS packet as response, ignoring");
+
+        dns_transaction_process_reply(t, p, false);
+
+        return;
+ finish:
+        dns_transaction_complete(t, status);
+}
+
+static int dns_transaction_emit_curl(DnsTransaction *t) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_free_ char *rule = NULL;
+        int r;
+
+        assert(t);
+        assert(t->sent);
+
+        dns_transaction_close_connection(t, true);
+
+        if (t->scope->protocol == DNS_PROTOCOL_DNS) {
+                r = dns_transaction_pick_server(t);
+                if (r < 0)
+                        return r;
+
+                if (manager_server_is_stub(t->scope->manager, t->server))
+                        return -ELOOP;
+
+                r = curl_glue_new(&t->glue, e);
+                if (r < 0)
+                        return r;
+
+                t->glue->on_finished = dns_transaction_curl_on_response;
+
+                r = dns_transaction_curl_make_url(t, &t->url);
+                if (r < 0)
+                        return r;
+
+                r = curl_glue_make(&t->curl, t->url, t);
+                if (r < 0)
+                        return r;
+
+                if (curl_easy_setopt(t->curl, CURLOPT_HEADERFUNCTION, dns_transaction_curl_header_callback) != CURLE_OK)
+                        return -EIO;
+
+                if (curl_easy_setopt(t->curl, CURLOPT_HEADERDATA, t) != CURLE_OK)
+                        return -EIO;
+
+                if (curl_easy_setopt(t->curl, CURLOPT_WRITEFUNCTION, dns_transaction_curl_write_callback) != CURLE_OK)
+                        return -EIO;
+
+                if (curl_easy_setopt(t->curl, CURLOPT_WRITEDATA, t) != CURLE_OK)
+                        return -EIO;
+
+                // Prevents libcurl's native name lookups
+                r = asprintf(&rule, "%s:443:%s", t->server->server_string, t->server->server_string);
+                if (r < 0) {
+                        log_debug("Failed to compound IP resolution to CURLOPT_RESOLVE parameter");
+                        return r;
+                }
+
+                t->glue->resolve_rules = curl_slist_append(NULL, rule);
+                if (curl_easy_setopt(t->curl, CURLOPT_RESOLVE, t->glue->resolve_rules) != CURLE_OK)
+                        return -EIO;
+
+
+                log_debug("Emitting HTTPS request via curl for transaction %" PRIu16, t->id);
+                r = curl_glue_add(t->glue, t->curl);
+                if (r < 0)
+                        return r;
+        } else
+                /* TODO: Is this the right error code here? */
+                return -ELOOP;
+
+        return 0;
+}
+#endif
 static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL, *dummy = NULL;
         _cleanup_set_free_ Set *keys = NULL;
@@ -2181,10 +2413,20 @@ int dns_transaction_go(DnsTransaction *t) {
                 r = dns_transaction_emit_udp(t);
                 if (r == -EMSGSIZE)
                         log_debug("Sending query via TCP since it is too large.");
+#if ENABLE_DNS_OVER_HTTPS
+                else if ((r == -EAGAIN &&
+                          (DNS_SERVER_FEATURE_LEVEL_IS_HTTPS(t->current_feature_level))))
+                        log_debug("Sending query via HTTPS.");
+#endif
                 else if (r == -EAGAIN)
                         log_debug("Sending query via TCP since UDP isn't supported or DNS-over-TLS is selected.");
                 else if (r == -EPERM)
                         log_debug("Sending query via TCP since UDP is blocked.");
+#if ENABLE_DNS_OVER_HTTPS
+                if ((r == -EAGAIN &&
+                          (DNS_SERVER_FEATURE_LEVEL_IS_HTTPS(t->current_feature_level))))
+                        r = dns_transaction_emit_curl(t);
+#endif
                 if (IN_SET(r, -EMSGSIZE, -EAGAIN, -EPERM))
                         r = dns_transaction_emit_tcp(t);
         }
