@@ -84,6 +84,10 @@ static int run(int argc, char **argv) {
         assert_se(dlopen_zstd() >= 0);
 #endif
 
+#if HAVE_XZ
+        assert_se(dlopen_lzma() >= 0);
+#endif
+
         return 0;
 }
 
