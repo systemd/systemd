@@ -5395,7 +5395,7 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, r'Address: 192.168.5.150 \(DHCP4 via 192.168.5.1\)')
 
-    def test_replay_agent_on_bridge(self):
+    def test_relay_agent_on_bridge(self):
         copy_network_unit('25-agent-bridge.netdev',
                           '25-agent-veth-client.netdev',
                           '25-agent-bridge.network',
