@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
 #include "in-addr-util.h"
+#include "sd-event.h"
+#include <curl/curl.h>
+#include "curl-util.h"
 
 typedef struct DnsTransaction DnsTransaction;
 typedef struct DnsTransactionFinder DnsTransactionFinder;
@@ -93,6 +95,15 @@ struct DnsTransaction {
         /* TCP connection logic, if we need it */
         DnsStream *stream;
 
+#if ENABLE_DNS_OVER_HTTPS
+        /* HTTPS connection logic, if we need it */
+        CurlGlue *glue;
+        CURL *curl;
+        char *url;
+        uint8_t *payload;
+        size_t payload_size;
+        bool valid_dns_message;
+#endif
         /* The active server */
         DnsServer *server;
 
@@ -213,6 +224,9 @@ DnsTransactionSource dns_transaction_source_from_string(const char *s) _pure_;
 
 /* Maximum attempts to send MDNS requests, see RFC 6762 Section 8.1 */
 #define MDNS_TRANSACTION_ATTEMPTS_MAX 3
+
+/* Maximum URL length for HTTP GET request, see RFC ... */
+#define MAX_URL_LENGTH 2048
 
 #define TRANSACTION_ATTEMPTS_MAX(p) ((p) == DNS_PROTOCOL_LLMNR ?        \
                                      LLMNR_TRANSACTION_ATTEMPTS_MAX :   \
