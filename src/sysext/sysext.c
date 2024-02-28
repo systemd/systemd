@@ -57,6 +57,7 @@ typedef enum MutableMode {
         MUTABLE_AUTO,
         MUTABLE_IMPORT,
         MUTABLE_EPHEMERAL,
+        MUTABLE_EPHEMERAL_IMPORT,
         _MUTABLE_MAX,
         _MUTABLE_INVALID = -EINVAL,
 } MutableMode;
@@ -75,6 +76,8 @@ static MutableMode arg_mutable = MUTABLE_NO;
 
 /* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
 static ImageClass arg_image_class = IMAGE_SYSEXT;
+
+static const char *mutable_extensions_base_dir = "/var/lib/extensions.mutable";
 
 STATIC_DESTRUCTOR_REGISTER(arg_hierarchies, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -134,6 +137,9 @@ static int parse_mutable_mode(const char *p) {
 
         if (streq(p, "ephemeral"))
                 return MUTABLE_EPHEMERAL;
+
+        if (streq(p, "ephemeral-import"))
+                return MUTABLE_EPHEMERAL_IMPORT;
 
         int r = parse_boolean(p);
         if (r < 0)
@@ -766,7 +772,7 @@ static int resolve_mutable_directory(
                 char **ret_resolved_mutable_directory) {
 
         _cleanup_free_ char *path = NULL, *resolved_path = NULL, *dir_name = NULL;
-        const char *root = arg_root, *base = "/var/lib/extensions.mutable";
+        const char *root = arg_root, *base = mutable_extensions_base_dir;
         int r;
 
         assert(hierarchy);
@@ -778,7 +784,7 @@ static int resolve_mutable_directory(
                 return 0;
         }
 
-        if (arg_mutable == MUTABLE_EPHEMERAL) {
+        if ((arg_mutable == MUTABLE_EPHEMERAL) || (arg_mutable == MUTABLE_EPHEMERAL_IMPORT)) {
                 root = NULL;
                 base = workspace;
         }
@@ -791,7 +797,7 @@ static int resolve_mutable_directory(
         if (!path)
                 return log_oom();
 
-        if ((arg_mutable == MUTABLE_YES) || (arg_mutable == MUTABLE_EPHEMERAL)) {
+        if ((arg_mutable == MUTABLE_YES) || (arg_mutable == MUTABLE_EPHEMERAL) || (arg_mutable == MUTABLE_EPHEMERAL_IMPORT)) {
                 _cleanup_free_ char *path_in_root = NULL;
 
                 path_in_root = path_join(root, path);
@@ -844,6 +850,83 @@ static int overlayfs_paths_new(const char *hierarchy, const char *workspace_path
         return 0;
 }
 
+static int resolved_paths_equal(const char *resolved_a, const char *resolved_b) {
+        /* Returns true if paths are of the same entry, false if not, <0 on error. */
+
+        if (path_equal(resolved_a, resolved_b))
+                return 1;
+
+        if (!resolved_a || !resolved_b)
+                return 0;
+
+        return inode_same(resolved_a, resolved_b, 0);
+}
+
+static int maybe_import_mutable_directory(OverlayFSPaths *op) {
+        int r;
+
+        assert(op);
+
+        /* If importing mutable layer and it actually exists and is not a hierarchy itself, add it just below
+         * the meta path */
+
+        if (arg_mutable != MUTABLE_IMPORT || !op->resolved_mutable_directory)
+                return 0;
+
+        r = resolved_paths_equal(op->resolved_hierarchy, op->resolved_mutable_directory);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
+        if (r) {
+                log_debug("Not importing mutable directory for hierarchy %s as a lower dir, because it points to the hierarchy itself", op->hierarchy);
+                return 0;
+        }
+
+        r = strv_extend(&op->lower_dirs, op->resolved_mutable_directory);
+        if (r < 0)
+                return log_oom ();
+
+        return 0;
+}
+
+static int maybe_import_ignored_mutable_directory(OverlayFSPaths *op) {
+        _cleanup_free_ char *dir_name = NULL, *path = NULL, *resolved_path = NULL;
+        int r;
+
+        assert(op);
+
+        /* If importing the ignored mutable layer and it actually exists and is not a hierarchy itself, add
+         * it just below the meta path */
+        if (arg_mutable != MUTABLE_EPHEMERAL_IMPORT)
+                return 0;
+
+        dir_name = hierarchy_as_single_path_component(op->hierarchy);
+        if (!dir_name)
+                return log_oom();
+
+        path = path_join(mutable_extensions_base_dir, dir_name);
+        if (!path)
+                return log_oom();
+
+        r = chase(path, arg_root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "Failed to resolve mutable directory '%s': %m", path);
+
+        r = resolved_paths_equal(op->resolved_hierarchy, resolved_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
+
+        if (r) {
+                log_debug("Not importing mutable directory for hierarchy %s as a lower dir, because it points to the hierarchy itself", op->hierarchy);
+                return 0;
+        }
+
+        r = strv_consume(&op->lower_dirs, TAKE_PTR(resolved_path));
+        if (r < 0)
+                return log_oom ();
+
+        return 0;
+}
+
 static int determine_top_lower_dirs(OverlayFSPaths *op, const char *meta_path) {
         int r;
 
@@ -855,12 +938,13 @@ static int determine_top_lower_dirs(OverlayFSPaths *op, const char *meta_path) {
         if (r < 0)
                 return log_oom();
 
-        /* If importing mutable layer and it actually exists, add it just below the meta path */
-        if (arg_mutable == MUTABLE_IMPORT && op->resolved_mutable_directory) {
-                r = strv_extend(&op->lower_dirs, op->resolved_mutable_directory);
-                if (r < 0)
-                        return r;
-        }
+        r = maybe_import_mutable_directory(op);
+        if (r < 0)
+                return r;
+
+        r = maybe_import_ignored_mutable_directory(op);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -924,7 +1008,12 @@ static int hierarchy_as_lower_dir(OverlayFSPaths *op) {
         }
 
         if (arg_mutable == MUTABLE_IMPORT) {
-                log_debug("Mutability for host hierarchy '%s' is disabled, so it will be a lowerdir", op->resolved_hierarchy);
+                log_debug("Mutability for host hierarchy '%s' is disabled, so host hierarchy will be a lowerdir", op->resolved_hierarchy);
+                return 0;
+        }
+
+        if (arg_mutable == MUTABLE_EPHEMERAL_IMPORT) {
+                log_debug("Mutability for host hierarchy '%s' is ephemeral, so host hierarchy will be a lowerdir", op->resolved_hierarchy);
                 return 0;
         }
 
@@ -933,13 +1022,9 @@ static int hierarchy_as_lower_dir(OverlayFSPaths *op) {
                 return 0;
         }
 
-        if (path_equal(op->resolved_hierarchy, op->resolved_mutable_directory)) {
-                log_debug("Host hierarchy '%s' will serve as upperdir.", op->resolved_hierarchy);
-                return 1;
-        }
-        r = inode_same(op->resolved_hierarchy, op->resolved_mutable_directory, 0);
+        r = resolved_paths_equal(op->resolved_hierarchy, op->resolved_mutable_directory);
         if (r < 0)
-                return log_error_errno(r, "Failed to check inode equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
+                return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
         if (r > 0) {
                 log_debug("Host hierarchy '%s' will serve as upperdir.", op->resolved_hierarchy);
                 return 1;
@@ -959,7 +1044,7 @@ static int determine_bottom_lower_dirs(OverlayFSPaths *op) {
         if (!r) {
                 r = strv_extend(&op->lower_dirs, op->resolved_hierarchy);
                 if (r < 0)
-                        return r;
+                        return log_oom();
         }
 
         return 0;
@@ -1143,7 +1228,7 @@ static int write_work_dir_file(ImageClass image_class, const char *meta_path, co
                 return 0;
 
         /* Do not store work dir path for ephemeral mode, it will be gone once this process is done. */
-        if (arg_mutable == MUTABLE_EPHEMERAL)
+        if ((arg_mutable == MUTABLE_EPHEMERAL) || (arg_mutable == MUTABLE_EPHEMERAL_IMPORT))
                 return 0;
 
         work_dir_in_root = path_startswith(work_dir, empty_to_root(arg_root));
@@ -2034,7 +2119,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "\n%3$sOptions:%4$s\n"
-               "     --mutable=yes|no|auto|import|ephemeral\n"
+               "     --mutable=yes|no|auto|import|ephemeral|ephemeral-import\n"
                "                          Specify a mutability mode of the merged hierarchy\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
