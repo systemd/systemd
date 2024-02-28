@@ -91,6 +91,20 @@ static int zstd_ret_to_errno(size_t ret) {
 }
 #endif
 
+#if HAVE_XZ
+static void *lzma_dl = NULL;
+
+static DLSYM_FUNCTION(lzma_code);
+static DLSYM_FUNCTION(lzma_easy_encoder);
+static DLSYM_FUNCTION(lzma_end);
+static DLSYM_FUNCTION(lzma_stream_buffer_encode);
+static DLSYM_FUNCTION(lzma_stream_decoder);
+
+static inline void sym_lzma_endp(lzma_stream *ls) {
+        sym_lzma_end(ls);
+}
+#endif
+
 #define ALIGN_8(l) ALIGN_TO(l, sizeof(size_t))
 
 static const char* const compression_table[_COMPRESSION_MAX] = {
@@ -112,6 +126,19 @@ bool compression_supported(Compression c) {
         return c >= 0 && c < _COMPRESSION_MAX && FLAGS_SET(supported, 1U << c);
 }
 
+#if HAVE_XZ
+static int dlopen_lzma(void) {
+        return dlopen_many_sym_or_warn(
+                        &lzma_dl,
+                        "liblzma.so.5", LOG_DEBUG,
+                        DLSYM_ARG(lzma_code),
+                        DLSYM_ARG(lzma_easy_encoder),
+                        DLSYM_ARG(lzma_end),
+                        DLSYM_ARG(lzma_stream_buffer_encode),
+                        DLSYM_ARG(lzma_stream_decoder));
+}
+#endif
+
 int compress_blob_xz(const void *src, uint64_t src_size,
                      void *dst, size_t dst_alloc_size, size_t *dst_size) {
 #if HAVE_XZ
@@ -125,6 +152,11 @@ int compress_blob_xz(const void *src, uint64_t src_size,
         };
         lzma_ret ret;
         size_t out_pos = 0;
+        int r;
+
+        r = dlopen_lzma();
+        if (r < 0)
+                return r;
 
         assert(src);
         assert(src_size > 0);
@@ -138,7 +170,7 @@ int compress_blob_xz(const void *src, uint64_t src_size,
         if (src_size < 80)
                 return -ENOBUFS;
 
-        ret = lzma_stream_buffer_encode((lzma_filter*) filters, LZMA_CHECK_NONE, NULL,
+        ret = sym_lzma_stream_buffer_encode((lzma_filter*) filters, LZMA_CHECK_NONE, NULL,
                                         src, src_size, dst, &out_pos, dst_alloc_size);
         if (ret != LZMA_OK)
                 return -ENOBUFS;
@@ -265,16 +297,21 @@ int decompress_blob_xz(
                 size_t dst_max) {
 
 #if HAVE_XZ
-        _cleanup_(lzma_end) lzma_stream s = LZMA_STREAM_INIT;
+        _cleanup_(sym_lzma_endp) lzma_stream s = LZMA_STREAM_INIT;
         lzma_ret ret;
         size_t space;
+        int r;
+
+        r = dlopen_lzma();
+        if (r < 0)
+                return r;
 
         assert(src);
         assert(src_size > 0);
         assert(dst);
         assert(dst_size);
 
-        ret = lzma_stream_decoder(&s, UINT64_MAX, 0);
+        ret = sym_lzma_stream_decoder(&s, UINT64_MAX, 0);
         if (ret != LZMA_OK)
                 return -ENOMEM;
 
@@ -291,7 +328,7 @@ int decompress_blob_xz(
         for (;;) {
                 size_t used;
 
-                ret = lzma_code(&s, LZMA_FINISH);
+                ret = sym_lzma_code(&s, LZMA_FINISH);
 
                 if (ret == LZMA_STREAM_END)
                         break;
@@ -450,7 +487,7 @@ int decompress_startswith_xz(
                 uint8_t extra) {
 
 #if HAVE_XZ
-        _cleanup_(lzma_end) lzma_stream s = LZMA_STREAM_INIT;
+        _cleanup_(sym_lzma_endp) lzma_stream s = LZMA_STREAM_INIT;
         size_t allocated;
         lzma_ret ret;
 
@@ -462,7 +499,7 @@ int decompress_startswith_xz(
         assert(buffer);
         assert(prefix);
 
-        ret = lzma_stream_decoder(&s, UINT64_MAX, 0);
+        ret = sym_lzma_stream_decoder(&s, UINT64_MAX, 0);
         if (ret != LZMA_OK)
                 return -EBADMSG;
 
@@ -478,7 +515,7 @@ int decompress_startswith_xz(
         s.avail_out = allocated;
 
         for (;;) {
-                ret = lzma_code(&s, LZMA_FINISH);
+                ret = sym_lzma_code(&s, LZMA_FINISH);
 
                 if (!IN_SET(ret, LZMA_OK, LZMA_STREAM_END))
                         return -EBADMSG;
@@ -658,15 +695,20 @@ int decompress_startswith(
 
 int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncompressed_size) {
 #if HAVE_XZ
-        _cleanup_(lzma_end) lzma_stream s = LZMA_STREAM_INIT;
+        _cleanup_(sym_lzma_endp) lzma_stream s = LZMA_STREAM_INIT;
         lzma_ret ret;
         uint8_t buf[BUFSIZ], out[BUFSIZ];
         lzma_action action = LZMA_RUN;
+        int r;
+
+        r = dlopen_lzma();
+        if (r < 0)
+                return r;
 
         assert(fdf >= 0);
         assert(fdt >= 0);
 
-        ret = lzma_easy_encoder(&s, LZMA_PRESET_DEFAULT, LZMA_CHECK_CRC64);
+        ret = sym_lzma_easy_encoder(&s, LZMA_PRESET_DEFAULT, LZMA_CHECK_CRC64);
         if (ret != LZMA_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Failed to initialize XZ encoder: code %u",
@@ -701,7 +743,7 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncom
                         s.avail_out = sizeof(out);
                 }
 
-                ret = lzma_code(&s, action);
+                ret = sym_lzma_code(&s, action);
                 if (!IN_SET(ret, LZMA_OK, LZMA_STREAM_END))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Compression failed: code %u",
@@ -828,16 +870,21 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unco
 int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
 
 #if HAVE_XZ
-        _cleanup_(lzma_end) lzma_stream s = LZMA_STREAM_INIT;
+        _cleanup_(sym_lzma_endp) lzma_stream s = LZMA_STREAM_INIT;
         lzma_ret ret;
 
         uint8_t buf[BUFSIZ], out[BUFSIZ];
         lzma_action action = LZMA_RUN;
+        int r;
+
+        r = dlopen_lzma();
+        if (r < 0)
+                return r;
 
         assert(fdf >= 0);
         assert(fdt >= 0);
 
-        ret = lzma_stream_decoder(&s, UINT64_MAX, 0);
+        ret = sym_lzma_stream_decoder(&s, UINT64_MAX, 0);
         if (ret != LZMA_OK)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOMEM),
                                        "Failed to initialize XZ decoder: code %u",
@@ -863,7 +910,7 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                         s.avail_out = sizeof(out);
                 }
 
-                ret = lzma_code(&s, action);
+                ret = sym_lzma_code(&s, action);
                 if (!IN_SET(ret, LZMA_OK, LZMA_STREAM_END))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Decompression failed: code %u",
