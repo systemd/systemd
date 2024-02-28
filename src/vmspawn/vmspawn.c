@@ -1560,8 +1560,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         _cleanup_free_ char *tpm_state_tempdir = NULL;
         if (swtpm) {
-                _cleanup_free_ char *escaped_state_dir = NULL;
-
                 r = start_tpm(bus, trans_scope, swtpm, &tpm_state_tempdir);
                 if (r < 0) {
                         /* only bail if the user asked for a tpm */
@@ -1569,6 +1567,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 return log_error_errno(r, "Failed to start tpm: %m");
                         log_debug_errno(r, "Failed to start tpm, ignoring: %m");
                 }
+        }
+
+        if (tpm_state_tempdir) {
+                _cleanup_free_ char *escaped_state_dir = NULL;
 
                 escaped_state_dir = escape_qemu_value(tpm_state_tempdir);
                 if (!escaped_state_dir)
