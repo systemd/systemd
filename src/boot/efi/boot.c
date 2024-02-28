@@ -741,23 +741,21 @@ static bool menu_run(
                         lines = xnew(char16_t *, config->n_entries + 1);
 
                         for (size_t i = 0; i < config->n_entries; i++) {
-                                size_t j, padding;
-
-                                lines[i] = xnew(char16_t, line_width + 1);
-                                padding = (line_width - MIN(strlen16(config->entries[i]->title_show), line_width)) / 2;
+                                int width = line_width - MIN(strlen16(config->entries[i]->title_show), line_width);
+                                int padding = width / 2;
+                                bool odd = width % 2;
 
                                 /* Make sure there is space for => */
-                                padding = MAX((size_t) 2, padding);
+                                padding = MAX(2, padding);
 
-                                for (j = 0; j < padding; j++)
-                                        lines[i][j] = ' ';
-
-                                for (size_t k = 0; config->entries[i]->title_show[k] != '\0' && j < line_width; j++, k++)
-                                        lines[i][j] = config->entries[i]->title_show[k];
-
-                                for (; j < line_width; j++)
-                                        lines[i][j] = ' ';
-                                lines[i][line_width] = '\0';
+                                int print_width = MIN(
+                                                strlen16(config->entries[i]->title_show),
+                                                line_width - padding * 2);
+                                lines[i] = xasprintf(
+                                                "%*ls%.*ls%*ls",
+                                                padding, u"",
+                                                print_width, config->entries[i]->title_show,
+                                                odd ? padding + 1 : padding, u"");
                         }
                         lines[config->n_entries] = NULL;
 
