@@ -62,6 +62,25 @@
 #include "verbs.h"
 #include "web-util.h"
 
+typedef enum MachineRunner {
+        RUNNER_NSPAWN,
+        RUNNER_VMSPAWN,
+        _RUNNER_MAX,
+        _RUNNER_INVALID = -EINVAL,
+} MachineRunner;
+
+static const char* const machine_runner_table[_RUNNER_MAX] = {
+        [RUNNER_NSPAWN] = "nspawn",
+        [RUNNER_VMSPAWN] = "vmspawn",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(machine_runner, MachineRunner);
+
+static const char* const machine_runner_unit_prefix_table[_RUNNER_MAX] = {
+        [RUNNER_NSPAWN] = "systemd-nspawn",
+        [RUNNER_VMSPAWN] = "systemd-vmspawn",
+};
+
 static char **arg_property = NULL;
 static bool arg_all = false;
 static BusPrintPropertyFlags arg_print_flags = 0;
@@ -81,6 +100,7 @@ static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_now = false;
 static bool arg_force = false;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
+static MachineRunner arg_runner = RUNNER_NSPAWN;
 static const char* arg_format = NULL;
 static const char *arg_uid = NULL;
 static char **arg_setenv = NULL;
@@ -1052,6 +1072,12 @@ static int kill_machine(int argc, char *argv[], void *userdata) {
 }
 
 static int reboot_machine(int argc, char *argv[], void *userdata) {
+        if (arg_runner == RUNNER_VMSPAWN)
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                "%s only support supported for --runner=nspawn",
+                                streq(argv[0], "reboot") ? "Reboot" : "Restart");
+
         arg_kill_whom = "leader";
         arg_signal = SIGINT; /* sysvinit + systemd */
 
@@ -1462,6 +1488,9 @@ static int edit_settings(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Edit is only supported on the host machine.");
 
+        if (arg_runner == RUNNER_VMSPAWN)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Edit is only supported for --runner=nspawn");
+
         r = mac_init();
         if (r < 0)
                 return r;
@@ -1524,6 +1553,9 @@ static int cat_settings(int argc, char *argv[], void *userdata) {
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Cat is only supported on the host machine.");
+
+        if (arg_runner == RUNNER_VMSPAWN)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Cat is only supported for --runner=nspawn");
 
         pager_open(arg_pager_flags);
 
@@ -1682,12 +1714,13 @@ static int make_service_name(const char *name, char **ret) {
 
         assert(name);
         assert(ret);
+        assert(arg_runner >= 0 && arg_runner < (MachineRunner) ELEMENTSOF(machine_runner_unit_prefix_table));
 
         if (!hostname_is_valid(name, 0))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Invalid machine name %s.", name);
 
-        r = unit_name_build("systemd-nspawn", name, ".service", ret);
+        r = unit_name_build(machine_runner_unit_prefix_table[arg_runner], name, ".service", ret);
         if (r < 0)
                 return log_error_errno(r, "Failed to build unit name: %m");
 
@@ -2642,6 +2675,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --force                  Download image even if already exists\n"
                "     --now                    Start or power off container after enabling or\n"
                "                              disabling it\n"
+               "     --runner=RUNNER          Select between nspawn and vmspawn as the runner\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -2665,6 +2699,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MKDIR,
                 ARG_NO_ASK_PASSWORD,
                 ARG_VERIFY,
+                ARG_RUNNER,
                 ARG_NOW,
                 ARG_FORCE,
                 ARG_FORMAT,
@@ -2692,6 +2727,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "output",          required_argument, NULL, 'o'                 },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
                 { "verify",          required_argument, NULL, ARG_VERIFY          },
+                { "runner",          required_argument, NULL, ARG_RUNNER          },
                 { "now",             no_argument,       NULL, ARG_NOW             },
                 { "force",           no_argument,       NULL, ARG_FORCE           },
                 { "format",          required_argument, NULL, ARG_FORMAT          },
@@ -2712,7 +2748,7 @@ static int parse_argv(int argc, char *argv[]) {
         optind = 0;
 
         for (;;) {
-                static const char option_string[] = "-hp:als:H:M:qn:o:E:";
+                static const char option_string[] = "-hp:als:H:M:qn:o:E:V";
 
                 c = getopt_long(argc, argv, option_string + reorder, options, NULL);
                 if (c < 0)
@@ -2871,6 +2907,18 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --verify= setting: %s", optarg);
                         arg_verify = r;
+                        break;
+
+                case 'V':
+                        arg_runner = RUNNER_VMSPAWN;
+                        break;
+
+                case ARG_RUNNER:
+                        r = machine_runner_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --runner= setting: %s", optarg);
+
+                        arg_runner = r;
                         break;
 
                 case ARG_NOW:
