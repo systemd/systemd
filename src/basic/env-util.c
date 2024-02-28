@@ -963,7 +963,7 @@ int getenv_bool(const char *p) {
         return parse_boolean(e);
 }
 
-int getenv_bool_secure(const char *p) {
+int secure_getenv_bool(const char *p) {
         const char *e;
 
         e = secure_getenv(p);
@@ -973,7 +973,7 @@ int getenv_bool_secure(const char *p) {
         return parse_boolean(e);
 }
 
-int getenv_uint64_secure(const char *p, uint64_t *ret) {
+int secure_getenv_uint64(const char *p, uint64_t *ret) {
         const char *e;
 
         assert(p);
