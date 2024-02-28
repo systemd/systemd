@@ -196,8 +196,8 @@ int bus_user_method_terminate(sd_bus_message *message, void *userdata, sd_bus_er
                         message,
                         "org.freedesktop.login1.manage",
                         /* details= */ NULL,
-                        /* interactive= */ false,
                         u->user_record->uid,
+                        /* flags= */ 0,
                         &u->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -223,8 +223,8 @@ int bus_user_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
                         message,
                         "org.freedesktop.login1.manage",
                         /* details= */ NULL,
-                        /* interactive= */ false,
                         u->user_record->uid,
+                        /* flags= */ 0,
                         &u->manager->polkit_registry,
                         error);
         if (r < 0)
