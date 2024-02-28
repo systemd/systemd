@@ -1382,6 +1382,7 @@ libzstd = dependency('libzstd',
                      version : '>= 1.4.0',
                      required : get_option('zstd'))
 conf.set10('HAVE_ZSTD', libzstd.found())
+libzstd_cflags = libzstd.partial_dependency(includes: true, compile_args: true)
 
 conf.set10('HAVE_COMPRESSION', libxz.found() or liblz4.found() or libzstd.found())
 
@@ -1987,7 +1988,7 @@ install_libsystemd_static = static_library(
                         libopenssl,
                         librt,
                         libxz,
-                        libzstd,
+                        libzstd_cflags,
                         threads,
                         userspace],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))

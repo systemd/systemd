@@ -334,7 +334,7 @@ libshared_deps = [threads,
                   libselinux,
                   libxenctrl_cflags,
                   libxz,
-                  libzstd]
+                  libzstd_cflags]
 
 libshared_sym_path = meson.current_source_dir() / 'libshared.sym'
 libshared_build_dir = meson.current_build_dir()
