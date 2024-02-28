@@ -239,6 +239,10 @@
       <command>systemd-sysext</command> will use empty ephemeral directories. This means that the
       modifications made in the merged hierarchies will be gone when the hierarchies are
       unmerged.</para></listitem>
+      <listitem><para><option>ephemeral-import</option>: Force mutable mode like <option>ephemeral</option>
+      above, but instead of ignoring the contents of write routing directories under
+      <filename>/var/lib/extensions.mutable/</filename>, merge them into the host file system, like
+      <option>import</option> does.</para></listitem>
     </orderedlist>
     See "Options" below on specifying modes using the <option>--mutable=</option> command line option.</para>
 
@@ -418,6 +422,14 @@
             <listitem><para>force mutable mode, but with contents of write routing directories in
             <filename>/var/lib/extensions.mutable/</filename> being ignored, and modifications of the host
             file system being discarded after unmerge.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>ephemeral-import</option></term>
+            <listitem><para>force mutable mode, with contents of write routing directories in
+            <filename>/var/lib/extensions.mutable/</filename> being merged into the host file system, but
+            with the modifications made to the host file system being discarded after unmerge.</para>
             <xi:include href="version-info.xml" xpointer="v256"/></listitem>
           </varlistentry>
         </variablelist>
