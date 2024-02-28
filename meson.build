@@ -1371,6 +1371,7 @@ conf.set10('HAVE_BZIP2', libbzip2.found())
 libxz = dependency('liblzma',
                    required : get_option('xz'))
 conf.set10('HAVE_XZ', libxz.found())
+libxz_cflags = libxz.partial_dependency(includes: true, compile_args: true)
 
 liblz4 = dependency('liblz4',
                     version : '>= 1.3.0',
@@ -1987,7 +1988,7 @@ install_libsystemd_static = static_library(
                         libmount,
                         libopenssl,
                         librt,
-                        libxz,
+                        libxz_cflags,
                         libzstd_cflags,
                         threads,
                         userspace],

@@ -36,7 +36,7 @@ executables += [
                 'sources' : files('machinectl.c'),
                 'dependencies' : [
                         liblz4_cflags,
-                        libxz,
+                        libxz_cflags,
                         libzstd_cflags,
                         threads,
                 ],
