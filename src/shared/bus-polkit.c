@@ -388,6 +388,21 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
         return r;
 }
 
+static bool async_polkit_query_have_action(
+                AsyncPolkitQuery *q,
+                const char *action,
+                const char **details) {
+
+        assert(q);
+        assert(action);
+
+        LIST_FOREACH(authorized, a, q->authorized_actions)
+                if (streq(a->action, action) && strv_equal(a->details, (char**) details))
+                        return true;
+
+        return false;
+}
+
 static int async_polkit_query_check_action(
                 AsyncPolkitQuery *q,
                 const char *action,
@@ -397,9 +412,8 @@ static int async_polkit_query_check_action(
         assert(q);
         assert(action);
 
-        LIST_FOREACH(authorized, a, q->authorized_actions)
-                if (streq(a->action, action) && strv_equal(a->details, (char**) details))
-                        return 1; /* Allow! */
+        if (async_polkit_query_have_action(q, action, details))
+                return 1; /* Allow! */
 
         if (q->error_action && streq(q->error_action->action, action))
                 return sd_bus_error_copy(ret_error, &q->error);
@@ -409,7 +423,6 @@ static int async_polkit_query_check_action(
 
         return 0;
 }
-
 #endif
 
 /* bus_verify_polkit_async() handles verification of D-Bus calls with polkit. Because the polkit API
@@ -819,4 +832,22 @@ int varlink_verify_polkit_async_full(
 #endif
 
         return -EACCES;
+}
+
+bool varlink_has_polkit_action(Varlink *link, const char *action, const char **details, Hashmap **registry) {
+        assert(link);
+        assert(action);
+        assert(registry);
+
+        /* Checks if we already have acquired some action previously */
+
+#if ENABLE_POLKIT
+        AsyncPolkitQuery *q = hashmap_get(*registry, link);
+        if (!q)
+                return false;
+
+        return async_polkit_query_have_action(q, action, details);
+#else
+        return false;
+#endif
 }
