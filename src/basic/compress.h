@@ -79,6 +79,10 @@ DLSYM_PROTOTYPE(LZ4_versionNumber);
 int dlopen_lz4(void);
 #endif
 
+#if HAVE_ZSTD
+int dlopen_zstd(void);
+#endif
+
 
 static inline int compress_blob(
                 Compression compression,

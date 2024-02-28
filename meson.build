@@ -1382,6 +1382,7 @@ libzstd = dependency('libzstd',
                      version : '>= 1.4.0',
                      required : get_option('zstd'))
 conf.set10('HAVE_ZSTD', libzstd.found())
+libzstd.partial_dependency(includes: true, compile_args: true)
 
 conf.set10('HAVE_COMPRESSION', libxz.found() or liblz4.found() or libzstd.found())
 
