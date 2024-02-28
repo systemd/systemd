@@ -1674,7 +1674,7 @@ bool log_context_enabled(void) {
         if (saved_log_context_enabled >= 0)
                 return saved_log_context_enabled;
 
-        r = getenv_bool_secure("SYSTEMD_ENABLE_LOG_CONTEXT");
+        r = secure_getenv_bool("SYSTEMD_ENABLE_LOG_CONTEXT");
         if (r < 0 && r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_ENABLE_LOG_CONTEXT, ignoring: %m");
 

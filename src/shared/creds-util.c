@@ -1489,7 +1489,7 @@ int decrypt_credential_and_warn(
 
                 if (validate_name && !streq(embedded_name, validate_name)) {
 
-                        r = getenv_bool_secure("SYSTEMD_CREDENTIAL_VALIDATE_NAME");
+                        r = secure_getenv_bool("SYSTEMD_CREDENTIAL_VALIDATE_NAME");
                         if (r < 0 && r != -ENXIO)
                                 log_debug_errno(r, "Failed to parse $SYSTEMD_CREDENTIAL_VALIDATE_NAME: %m");
                         if (r != 0)
@@ -1505,7 +1505,7 @@ int decrypt_credential_and_warn(
 
                 if (le64toh(m->not_after) != USEC_INFINITY && le64toh(m->not_after) < validate_timestamp) {
 
-                        r = getenv_bool_secure("SYSTEMD_CREDENTIAL_VALIDATE_NOT_AFTER");
+                        r = secure_getenv_bool("SYSTEMD_CREDENTIAL_VALIDATE_NOT_AFTER");
                         if (r < 0 && r != -ENXIO)
                                 log_debug_errno(r, "Failed to parse $SYSTEMD_CREDENTIAL_VALIDATE_NOT_AFTER: %m");
                         if (r != 0)

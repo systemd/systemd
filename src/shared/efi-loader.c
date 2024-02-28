@@ -262,7 +262,7 @@ int efi_measured_uki(int log_level) {
          * being used, but it measured things into a different PCR than we are configured for in
          * userspace. (i.e. we expect PCR 11 being used for this by both sd-stub and us) */
 
-        r = getenv_bool_secure("SYSTEMD_FORCE_MEASURE"); /* Give user a chance to override the variable test,
+        r = secure_getenv_bool("SYSTEMD_FORCE_MEASURE"); /* Give user a chance to override the variable test,
                                                           * for debugging purposes */
         if (r >= 0)
                 return (cached = r);
