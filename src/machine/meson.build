@@ -37,7 +37,7 @@ executables += [
                 'dependencies' : [
                         liblz4_cflags,
                         libxz,
-                        libzstd,
+                        libzstd_cflags,
                         threads,
                 ],
         },
