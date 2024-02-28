@@ -1517,6 +1517,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
 
         self.check_link_attr('bond97', 'bonding', 'arp_missed_max',    '10')
+        self.check_link_attr('bond97', 'bonding', 'peer_notif_delay', '300000')
 
     def test_vlan(self):
         copy_network_unit('21-vlan.netdev', '11-dummy.netdev',
