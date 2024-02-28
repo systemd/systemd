@@ -60,6 +60,7 @@
 #include "openssl-util.h"
 #include "os-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "raw-clone.h"
 #include "resize-fs.h"
@@ -2538,9 +2539,31 @@ static char* dm_deferred_remove_clean(char *name) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(char *, dm_deferred_remove_clean);
 
 static int validate_signature_userspace(const VeritySettings *verity, DissectImageFlags flags) {
+        int r;
 
         if (!FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_USERSPACE_VERITY)) {
                 log_debug("Userspace dm-verity signature authentication disabled via flag.");
+                return 0;
+        }
+
+        r = getenv_bool_secure("SYSTEMD_ALLOW_USERSPACE_VERITY");
+        if (r < 0 && r != -ENXIO) {
+                log_debug_errno(r, "Failed to parse $SYSTEMD_ALLOW_USERSPACE_VERITY environment variable, refusing userspace dm-verity signature authentication.");
+                return 0;
+        }
+        if (!r) {
+                log_debug("Userspace dm-verity signature authentication disabled via $SYSTEMD_ALLOW_USERSPACE_VERITY environment variable.");
+                return 0;
+        }
+
+        bool b;
+        r = proc_cmdline_get_bool("systemd.allow_userspace_verity", PROC_CMDLINE_TRUE_WHEN_MISSING, &b);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse systemd.allow_userspace_verity= kernel command line option, refusing userspace dm-verity signature authentication.");
+                return 0;
+        }
+        if (!b) {
+                log_debug("Userspace dm-verity signature authentication disabled via systemd.allow_userspace_verity= kernel command line variable.");
                 return 0;
         }
 
@@ -2552,7 +2575,6 @@ static int validate_signature_userspace(const VeritySettings *verity, DissectIma
         _cleanup_(BIO_freep) BIO *bio = NULL; /* 'bio' must be freed first, 's' second, hence keep this order
                                                * of declaration in place, please */
         const unsigned char *d;
-        int r;
 
         assert(verity);
         assert(verity->root_hash);
