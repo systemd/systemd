@@ -192,6 +192,12 @@ static int start_one_worker(Manager *m) {
                         _exit(EXIT_FAILURE);
                 }
 
+                r = setenv_systemd_log_level();
+                if (r < 0) {
+                        log_error_errno(r, "Failed to set $SYSTEMD_LOG_LEVEL: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
                 r = invoke_callout_binary(SYSTEMD_USERWORK_PATH, STRV_MAKE(SYSTEMD_USERWORK_PATH, "xxxxxxxxxxxxxxxx")); /* With some extra space rename_process() can make use of */
                 log_error_errno(r, "Failed start worker process: %m");
                 _exit(EXIT_FAILURE);
