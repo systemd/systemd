@@ -58,7 +58,7 @@ executables += [
                         libcap,
                         liblz4_cflags,
                         libselinux,
-                        libxz,
+                        libxz_cflags,
                         libzstd_cflags,
                         threads,
                 ],

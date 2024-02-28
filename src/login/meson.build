@@ -66,7 +66,7 @@ executables += [
                 'sources' : loginctl_sources,
                 'dependencies' : [
                         liblz4_cflags,
-                        libxz,
+                        libxz_cflags,
                         libzstd_cflags,
                         threads,
                 ],

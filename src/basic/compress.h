@@ -83,6 +83,10 @@ int dlopen_lz4(void);
 int dlopen_zstd(void);
 #endif
 
+#if HAVE_XZ
+int dlopen_lzma(void);
+#endif
+
 
 static inline int compress_blob(
                 Compression compression,

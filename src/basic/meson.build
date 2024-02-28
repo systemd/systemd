@@ -312,7 +312,7 @@ libbasic_compress = static_library(
         basic_compress_sources,
         include_directories : includes,
         dependencies : [libdl,
-                        libxz,
+                        libxz_cflags,
                         libzstd_cflags,
                         userspace],
         c_args : ['-fvisibility=default'],
