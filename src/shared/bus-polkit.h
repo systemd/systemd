@@ -30,3 +30,5 @@ static inline int varlink_verify_polkit_async(Varlink *link, sd_bus *bus, const 
                 .name = "allowInteractiveAuthentication",        \
                 .type = JSON_VARIANT_BOOLEAN,                    \
         }
+
+bool varlink_has_polkit_action(Varlink *link, const char *action, const char **details, Hashmap **registry);
