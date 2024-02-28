@@ -27,7 +27,7 @@
 
   # .link
   ifname=<interface>:<MAC>
-  net.ifname-policy=policy1[,policy2,...][,<MAC>] # This is an original rule, not supported by other tools.
+  net.ifname_policy=policy1[,policy2,...][,<MAC>] # This is an original rule, not supported by other tools.
 
   # .netdev
   vlan=<vlanname>:<phydevice>
@@ -1114,7 +1114,7 @@ static int parse_cmdline_ifname_policy(Context *context, const char *key, const 
         assert(context);
         assert(key);
 
-        /* net.ifname-policy=policy1[,policy2,...][,<MAC>] */
+        /* net.ifname_policy=policy1[,policy2,...][,<MAC>] */
 
         if (proc_cmdline_value_missing(key, value))
                 return -EINVAL;
@@ -1172,23 +1172,23 @@ int parse_cmdline_item(const char *key, const char *value, void *data) {
 
         assert(key);
 
-        if (streq(key, "ip"))
+        if (proc_cmdline_key_streq(key, "ip"))
                 return parse_cmdline_ip(context, key, value);
-        if (streq(key, "rd.route"))
+        if (proc_cmdline_key_streq(key, "rd.route"))
                 return parse_cmdline_rd_route(context, key, value);
-        if (streq(key, "nameserver"))
+        if (proc_cmdline_key_streq(key, "nameserver"))
                 return parse_cmdline_nameserver(context, key, value);
-        if (streq(key, "rd.peerdns"))
+        if (proc_cmdline_key_streq(key, "rd.peerdns"))
                 return parse_cmdline_rd_peerdns(context, key, value);
-        if (streq(key, "vlan"))
+        if (proc_cmdline_key_streq(key, "vlan"))
                 return parse_cmdline_vlan(context, key, value);
-        if (streq(key, "bridge"))
+        if (proc_cmdline_key_streq(key, "bridge"))
                 return parse_cmdline_bridge(context, key, value);
-        if (streq(key, "bond"))
+        if (proc_cmdline_key_streq(key, "bond"))
                 return parse_cmdline_bond(context, key, value);
-        if (streq(key, "ifname"))
+        if (proc_cmdline_key_streq(key, "ifname"))
                 return parse_cmdline_ifname(context, key, value);
-        if (streq(key, "net.ifname-policy"))
+        if (proc_cmdline_key_streq(key, "net.ifname_policy"))
                 return parse_cmdline_ifname_policy(context, key, value);
 
         return 0;

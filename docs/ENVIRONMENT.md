@@ -252,7 +252,7 @@ All tools:
   when determining stable network interface names. This may be used to revert
   to naming schemes of older udev versions, in order to provide more stable
   naming across updates. This environment variable takes precedence over the
-  kernel command line option `net.naming-scheme=`, except if the value is
+  kernel command line option `net.naming_scheme=`, except if the value is
   prefixed with `:` in which case the kernel command line option takes
   precedence, if it is specified as well.
 

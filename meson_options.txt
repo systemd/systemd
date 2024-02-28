@@ -230,9 +230,9 @@ option('default-hierarchy', type : 'combo',
        choices : ['legacy', 'hybrid', 'unified'], deprecated : true,
        description : '''This option is deprecated and will be removed in a future release''')
 option('extra-net-naming-schemes', type : 'string',
-       description : 'comma-separated list of extra net.naming-scheme= definitions')
+       description : 'comma-separated list of extra net.naming_scheme= definitions')
 option('default-net-naming-scheme', type : 'string', value : 'latest',
-       description : 'default net.naming-scheme= value')
+       description : 'default net.naming_scheme= value')
 option('status-unit-format-default', type : 'combo',
        choices : ['auto', 'description', 'name', 'combined'],
        description : 'use unit name or description in messages by default')

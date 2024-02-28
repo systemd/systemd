@@ -20,10 +20,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         assert(key);
 
-        if (proc_cmdline_key_streq(key, "systemd.tpm2-wait")) {
+        if (proc_cmdline_key_streq(key, "systemd.tpm2_wait")) {
                 r = value ? parse_boolean(value) : 1;
                 if (r < 0)
-                        log_warning_errno(r, "Failed to parse 'systemd.tpm2-wait' kernel command line argument, ignoring: %s", value);
+                        log_warning_errno(r, "Failed to parse 'systemd.tpm2_wait=' kernel command line argument, ignoring: %s", value);
                 else
                         arg_tpm2_wait = r;
         }
