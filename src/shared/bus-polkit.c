@@ -48,11 +48,7 @@ static int bus_message_append_strv_key_value(sd_bus_message *m, const char **l) 
                         return r;
         }
 
-        r = sd_bus_message_close_container(m);
-        if (r < 0)
-                return r;
-
-        return r;
+        return sd_bus_message_close_container(m);
 }
 
 static int bus_message_new_polkit_auth_call_for_bus(
