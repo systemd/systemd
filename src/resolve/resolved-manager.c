@@ -588,6 +588,7 @@ int manager_new(Manager **ret) {
                 .mdns_support = DEFAULT_MDNS_MODE,
                 .dnssec_mode = DEFAULT_DNSSEC_MODE,
                 .dns_over_tls_mode = DEFAULT_DNS_OVER_TLS_MODE,
+                .dns_over_https_mode = DEFAULT_DNS_OVER_HTTPS_MODE,
                 .enable_cache = DNS_CACHE_MODE_YES,
                 .dns_stub_listener_mode = DNS_STUB_LISTENER_YES,
                 .read_resolv_conf = true,
@@ -1593,6 +1594,15 @@ DnsOverTlsMode manager_get_dns_over_tls_mode(Manager *m) {
                 return m->dns_over_tls_mode;
 
         return DNS_OVER_TLS_NO;
+}
+
+DnsOverHttpsMode manager_get_dns_over_https_mode(Manager *m) {
+        assert(m);
+
+        if (m->dns_over_https_mode != _DNS_OVER_HTTPS_MODE_INVALID)
+                return m->dns_over_https_mode;
+
+        return DNS_OVER_HTTPS_NO;
 }
 
 void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key) {
