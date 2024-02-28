@@ -16,6 +16,7 @@ typedef struct CurlGlue {
 
         void (*on_finished)(CurlGlue *g, CURL *curl, CURLcode code);
         void *userdata;
+        struct curl_slist *resolve_rules;;
 } CurlGlue;
 
 int curl_glue_new(CurlGlue **glue, sd_event *event);
