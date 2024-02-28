@@ -306,7 +306,7 @@ enum nss_status _nss_systemd_getpwnam_r(
                 return NSS_STATUS_NOTFOUND;
 
         /* Synthesize entries for the root and nobody users, in case they are missing in /etc/passwd */
-        if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
+        if (secure_getenv_bool("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
 
                 if (streq(name, root_passwd.pw_name))
                         return copy_synthesized_passwd(pwd, &root_passwd,
@@ -354,7 +354,7 @@ enum nss_status _nss_systemd_getpwuid_r(
                 return NSS_STATUS_NOTFOUND;
 
         /* Synthesize data for the root user and for nobody in case they are missing from /etc/passwd */
-        if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
+        if (secure_getenv_bool("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
 
                 if (uid == root_passwd.pw_uid)
                         return copy_synthesized_passwd(pwd, &root_passwd,
@@ -403,7 +403,7 @@ enum nss_status _nss_systemd_getspnam_r(
                 return NSS_STATUS_NOTFOUND;
 
         /* Synthesize entries for the root and nobody users, in case they are missing in /etc/passwd */
-        if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
+        if (secure_getenv_bool("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
 
                 if (streq(name, root_spwd.sp_namp))
                         return copy_synthesized_spwd(spwd, &root_spwd, buffer, buflen, errnop);
@@ -450,7 +450,7 @@ enum nss_status _nss_systemd_getgrnam_r(
                 return NSS_STATUS_NOTFOUND;
 
         /* Synthesize records for root and nobody, in case they are missing from /etc/group */
-        if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
+        if (secure_getenv_bool("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
 
                 if (streq(name, root_group.gr_name))
                         return copy_synthesized_group(gr, &root_group, buffer, buflen, errnop);
@@ -494,7 +494,7 @@ enum nss_status _nss_systemd_getgrgid_r(
                 return NSS_STATUS_NOTFOUND;
 
         /* Synthesize records for root and nobody, in case they are missing from /etc/group */
-        if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
+        if (secure_getenv_bool("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
 
                 if (gid == root_group.gr_gid)
                         return copy_synthesized_group(gr, &root_group, buffer, buflen, errnop);
@@ -539,7 +539,7 @@ enum nss_status _nss_systemd_getsgnam_r(
                 return NSS_STATUS_NOTFOUND;
 
         /* Synthesize records for root and nobody, in case they are missing from /etc/group */
-        if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
+        if (secure_getenv_bool("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
 
                 if (streq(name, root_sgrp.sg_namp))
                         return copy_synthesized_sgrp(sgrp, &root_sgrp, buffer, buflen, errnop);

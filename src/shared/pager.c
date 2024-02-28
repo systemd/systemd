@@ -175,7 +175,7 @@ void pager_open(PagerFlags flags) {
                  * pager. If they didn't, use secure mode when under euid is changed. If $SYSTEMD_PAGERSECURE
                  * wasn't explicitly set, and we autodetect the need for secure mode, only use the pager we
                  * know to be good. */
-                int use_secure_mode = getenv_bool_secure("SYSTEMD_PAGERSECURE");
+                int use_secure_mode = secure_getenv_bool("SYSTEMD_PAGERSECURE");
                 bool trust_pager = use_secure_mode >= 0;
                 if (use_secure_mode == -ENXIO) {
                         uid_t uid;

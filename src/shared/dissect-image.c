@@ -2628,7 +2628,7 @@ static int do_crypt_activate_verity(
         assert(verity);
 
         if (verity->root_hash_sig) {
-                r = getenv_bool_secure("SYSTEMD_DISSECT_VERITY_SIGNATURE");
+                r = secure_getenv_bool("SYSTEMD_DISSECT_VERITY_SIGNATURE");
                 if (r < 0 && r != -ENXIO)
                         log_debug_errno(r, "Failed to parse $SYSTEMD_DISSECT_VERITY_SIGNATURE");
 
@@ -3100,7 +3100,7 @@ int verity_settings_load(
         if (is_device_path(image))
                 return 0;
 
-        r = getenv_bool_secure("SYSTEMD_DISSECT_VERITY_SIDECAR");
+        r = secure_getenv_bool("SYSTEMD_DISSECT_VERITY_SIDECAR");
         if (r < 0 && r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_DISSECT_VERITY_SIDECAR, ignoring: %m");
         if (r == 0)
@@ -3285,7 +3285,7 @@ int dissected_image_load_verity_sig_partition(
         if (verity->root_hash && verity->root_hash_sig) /* Already loaded? */
                 return 0;
 
-        r = getenv_bool_secure("SYSTEMD_DISSECT_VERITY_EMBEDDED");
+        r = secure_getenv_bool("SYSTEMD_DISSECT_VERITY_EMBEDDED");
         if (r < 0 && r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_DISSECT_VERITY_EMBEDDED, ignoring: %m");
         if (r == 0)
