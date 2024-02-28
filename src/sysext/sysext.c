@@ -1742,9 +1742,10 @@ static int merge(ImageClass image_class,
         r = wait_for_terminate_and_check("(sd-merge)", pid, WAIT_LOG_ABNORMAL);
         if (r < 0)
                 return r;
-
         if (r == 123) /* exit code 123 means: didn't do anything */
                 return 0;
+        if (r > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Failed to merge hierarchies");
 
         r = need_reload(image_class, hierarchies, no_reload);
         if (r < 0)
