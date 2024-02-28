@@ -1016,7 +1016,7 @@ static int vl_method_resolve_service(Varlink* link, JsonVariant* parameters, Var
                 return -EINVAL;
 
         r = varlink_dispatch(link, parameters, dispatch_table, &p);
-        if (r < 0)
+        if (r != 0)
                 return r;
 
         if (p.ifindex < 0)
