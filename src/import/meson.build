@@ -14,7 +14,6 @@ systemd_pull_sources = files(
         'pull-tar.c',
         'pull-job.c',
         'pull-common.c',
-        'curl-util.c',
 )
 
 systemd_import_sources = files(
