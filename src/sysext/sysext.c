@@ -1382,7 +1382,8 @@ static int merge_subprocess(
                                 DISSECT_IMAGE_MOUNT_ROOT_ONLY |
                                 DISSECT_IMAGE_USR_NO_ROOT |
                                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
-                                DISSECT_IMAGE_PIN_PARTITION_DEVICES;
+                                DISSECT_IMAGE_PIN_PARTITION_DEVICES |
+                                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
 
                         r = verity_settings_load(&verity_settings, img->path, NULL, NULL);
                         if (r < 0)
