@@ -897,10 +897,8 @@ static int maybe_import_mutable_directory(OverlayFSPaths *op) {
         r = resolved_paths_equal(op->resolved_hierarchy, op->resolved_mutable_directory);
         if (r < 0)
                 return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
-        if (r) {
-                log_debug("Not importing mutable directory for hierarchy %s as a lower dir, because it points to the hierarchy itself", op->hierarchy);
-                return 0;
-        }
+        if (r)
+                return log_error_errno(SYNTHETIC_ERRNO(ELOOP), "Not importing mutable directory for hierarchy %s as a lower dir, because it points to the hierarchy itself", op->hierarchy);
 
         r = strv_extend(&op->lower_dirs, op->resolved_mutable_directory);
         if (r < 0)
@@ -936,10 +934,8 @@ static int maybe_import_ignored_mutable_directory(OverlayFSPaths *op) {
         if (r < 0)
                 return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
 
-        if (r) {
-                log_debug("Not importing mutable directory for hierarchy %s as a lower dir, because it points to the hierarchy itself", op->hierarchy);
-                return 0;
-        }
+        if (r)
+                return log_error_errno(SYNTHETIC_ERRNO(ELOOP), "Not importing mutable directory for hierarchy %s as a lower dir, because it points to the hierarchy itself", op->hierarchy);
 
         r = strv_consume(&op->lower_dirs, TAKE_PTR(resolved_path));
         if (r < 0)
