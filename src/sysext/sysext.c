@@ -56,6 +56,7 @@ typedef enum MutableMode {
         MUTABLE_NO,
         MUTABLE_AUTO,
         MUTABLE_IMPORT,
+        MUTABLE_EPHEMERAL,
         _MUTABLE_MAX,
         _MUTABLE_INVALID = -EINVAL,
 } MutableMode;
@@ -132,6 +133,9 @@ static int parse_mutable_mode(const char *p) {
 
         if (streq(p, "import"))
                 return MUTABLE_IMPORT;
+
+        if (streq(p, "ephemeral"))
+                return MUTABLE_EPHEMERAL;
 
         r = parse_boolean(p);
         if (r < 0)
@@ -657,17 +661,6 @@ static char *hierarchy_as_single_path_component(const char *hierarchy) {
         return TAKE_PTR(dir_name);
 }
 
-static char *determine_mutable_directory_path_for_hierarchy(const char *hierarchy) {
-        _cleanup_free_ char *dir_name = NULL;
-
-        assert(hierarchy);
-        dir_name = hierarchy_as_single_path_component(hierarchy);
-        if (!dir_name)
-                return NULL;
-
-        return path_join("/var/lib/extensions.mutable", dir_name);
-}
-
 static int paths_on_same_fs(const char *path1, const char *path2) {
         struct stat st1, st2;
 
@@ -769,8 +762,13 @@ static int resolve_hierarchy(const char *hierarchy, char **ret_resolved_hierarch
         return 0;
 }
 
-static int resolve_mutable_directory(const char *hierarchy, char **ret_resolved_mutable_directory) {
-        _cleanup_free_ char *path = NULL, *resolved_path = NULL;
+static int resolve_mutable_directory(
+                const char *hierarchy,
+                const char *workspace,
+                char **ret_resolved_mutable_directory) {
+
+        _cleanup_free_ char *path = NULL, *resolved_path = NULL, *dir_name = NULL;
+        const char *root = arg_root, *base = "/var/lib/extensions.mutable";
         int r;
 
         assert(hierarchy);
@@ -782,14 +780,25 @@ static int resolve_mutable_directory(const char *hierarchy, char **ret_resolved_
                 return 0;
         }
 
-        path = determine_mutable_directory_path_for_hierarchy(hierarchy);
+        if (arg_mutable == MUTABLE_EPHEMERAL) {
+                /* We create mutable directory inside the temporary tmpfs workspace, which is a fixed
+                 * location that ignores arg_root. */
+                root = NULL;
+                base = workspace;
+        }
+
+        dir_name = hierarchy_as_single_path_component(hierarchy);
+        if (!dir_name)
+                return log_oom();
+
+        path = path_join(base, dir_name);
         if (!path)
                 return log_oom();
 
-        if (arg_mutable == MUTABLE_YES) {
+        if (IN_SET(arg_mutable, MUTABLE_YES, MUTABLE_EPHEMERAL)) {
                 _cleanup_free_ char *path_in_root = NULL;
 
-                path_in_root = path_join(arg_root, path);
+                path_in_root = path_join(root, path);
                 if (!path_in_root)
                         return log_oom();
 
@@ -798,7 +807,7 @@ static int resolve_mutable_directory(const char *hierarchy, char **ret_resolved_
                         return log_error_errno(r, "Failed to create a directory '%s': %m", path_in_root);
         }
 
-        r = chase(path, arg_root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
+        r = chase(path, root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
         if (r < 0 && r != -ENOENT)
                 return log_error_errno(r, "Failed to resolve mutable directory '%s': %m", path);
 
@@ -806,7 +815,7 @@ static int resolve_mutable_directory(const char *hierarchy, char **ret_resolved_
         return 0;
 }
 
-static int overlayfs_paths_new(const char *hierarchy, OverlayFSPaths **ret_op) {
+static int overlayfs_paths_new(const char *hierarchy, const char *workspace_path, OverlayFSPaths **ret_op) {
         _cleanup_free_ char *hierarchy_copy = NULL, *resolved_hierarchy = NULL, *resolved_mutable_directory = NULL;
         int r;
 
@@ -820,7 +829,7 @@ static int overlayfs_paths_new(const char *hierarchy, OverlayFSPaths **ret_op) {
         r = resolve_hierarchy(hierarchy, &resolved_hierarchy);
         if (r < 0)
                 return r;
-        r = resolve_mutable_directory(hierarchy, &resolved_mutable_directory);
+        r = resolve_mutable_directory(hierarchy, workspace_path, &resolved_mutable_directory);
         if (r < 0)
                 return r;
 
@@ -1137,6 +1146,10 @@ static int write_work_dir_file(ImageClass image_class, const char *meta_path, co
         if (!work_dir)
                 return 0;
 
+        /* Do not store work dir path for ephemeral mode, it will be gone once this process is done. */
+        if (arg_mutable == MUTABLE_EPHEMERAL)
+                return 0;
+
         work_dir_in_root = path_startswith(work_dir, empty_to_root(arg_root));
         if (!work_dir_in_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Workdir '%s' must not be outside root '%s'", work_dir, empty_to_root(arg_root));
@@ -1230,7 +1243,8 @@ static int merge_hierarchy(
                 char **extensions,
                 char **paths,
                 const char *meta_path,
-                const char *overlay_path) {
+                const char *overlay_path,
+                const char *workspace_path) {
 
         _cleanup_(overlayfs_paths_freep) OverlayFSPaths *op = NULL;
         size_t extensions_used = 0;
@@ -1241,8 +1255,9 @@ static int merge_hierarchy(
         assert(paths);
         assert(meta_path);
         assert(overlay_path);
+        assert(workspace_path);
 
-        r = overlayfs_paths_new(hierarchy, &op);
+        r = overlayfs_paths_new(hierarchy, workspace_path, &op);
         if (r < 0)
                 return r;
 
@@ -1551,7 +1566,7 @@ static int merge_subprocess(
 
         /* Create overlayfs mounts for all hierarchies */
         STRV_FOREACH(h, hierarchies) {
-                _cleanup_free_ char *meta_path = NULL, *overlay_path = NULL;
+                _cleanup_free_ char *meta_path = NULL, *overlay_path = NULL, *merge_hierarchy_workspace = NULL;
 
                 meta_path = path_join(workspace, "meta", *h); /* The place where to store metadata about this instance */
                 if (!meta_path)
@@ -1561,6 +1576,11 @@ static int merge_subprocess(
                 if (!overlay_path)
                         return log_oom();
 
+                /* Temporary directory for merge_hierarchy needs, like ephemeral directories. */
+                merge_hierarchy_workspace = path_join(workspace, "mh_workspace", *h);
+                if (!merge_hierarchy_workspace)
+                        return log_oom();
+
                 r = merge_hierarchy(
                                 image_class,
                                 *h,
@@ -1568,7 +1588,8 @@ static int merge_subprocess(
                                 extensions,
                                 paths,
                                 meta_path,
-                                overlay_path);
+                                overlay_path,
+                                merge_hierarchy_workspace);
                 if (r < 0)
                         return r;
         }
@@ -2017,7 +2038,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "\n%3$sOptions:%4$s\n"
-               "     --mutable=yes|no|auto|import\n"
+               "     --mutable=yes|no|auto|import|ephemeral\n"
                "                          Specify a mutability mode of the merged hierarchy\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
