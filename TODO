@@ -131,7 +131,7 @@ Deprecations and removals:
 Features:
 
 * add a new specifier to unit files that figures out the DDI the unit file is
-  from, tracing trough overlayfs, DM, loopback block device.
+  from, tracing through overlayfs, DM, loopback block device.
 
 * in os-release define a field that can be initialized at build time from
   SOURCE_DATE_EPOCH (maybe even under that name?). Would then be used to
