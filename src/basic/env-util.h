@@ -64,7 +64,7 @@ char *strv_env_pairs_get(char **l, const char *name) _pure_;
 int getenv_bool(const char *p);
 int secure_getenv_bool(const char *p);
 
-int getenv_uint64_secure(const char *p, uint64_t *ret);
+int secure_getenv_uint64(const char *p, uint64_t *ret);
 
 /* Like setenv, but calls unsetenv if value == NULL. */
 int set_unset_env(const char *name, const char *value, bool overwrite);

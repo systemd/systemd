@@ -569,7 +569,7 @@ static int write_temporary_passwd(
 static usec_t epoch_or_now(void) {
         uint64_t epoch;
 
-        if (getenv_uint64_secure("SOURCE_DATE_EPOCH", &epoch) >= 0) {
+        if (secure_getenv_uint64("SOURCE_DATE_EPOCH", &epoch) >= 0) {
                 if (epoch > UINT64_MAX/USEC_PER_SEC) /* Overflow check */
                         return USEC_INFINITY;
                 return (usec_t) epoch * USEC_PER_SEC;
