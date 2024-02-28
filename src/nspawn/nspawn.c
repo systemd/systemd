@@ -3712,6 +3712,14 @@ static int setup_unix_export_host_inside(const char *directory, const char *unix
         return 0;
 }
 
+static DissectImageFlags determine_dissect_image_flags(void) {
+        return
+                DISSECT_IMAGE_USR_NO_ROOT |
+                DISSECT_IMAGE_DISCARD_ON_LOOP |
+                (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS) |
+                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
+}
+
 static int outer_child(
                 Barrier *barrier,
                 const char *directory,
@@ -3773,10 +3781,8 @@ static int outer_child(
                                 arg_uid_shift,
                                 arg_uid_range,
                                 /* userns_fd= */ -EBADF,
+                                determine_dissect_image_flags()|
                                 DISSECT_IMAGE_MOUNT_ROOT_ONLY|
-                                DISSECT_IMAGE_DISCARD_ON_LOOP|
-                                DISSECT_IMAGE_USR_NO_ROOT|
-                                (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS)|
                                 (arg_start_mode == START_BOOT ? DISSECT_IMAGE_VALIDATE_OS : 0));
                 if (r < 0)
                         return r;
@@ -3958,10 +3964,8 @@ static int outer_child(
                                 arg_uid_shift,
                                 arg_uid_range,
                                 /* userns_fd= */ -EBADF,
+                                determine_dissect_image_flags()|
                                 DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|
-                                DISSECT_IMAGE_DISCARD_ON_LOOP|
-                                DISSECT_IMAGE_USR_NO_ROOT|
-                                (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS)|
                                 (idmap ? DISSECT_IMAGE_MOUNT_IDMAPPED : 0));
                 if (r == -EUCLEAN)
                         return log_error_errno(r, "File system check for image failed: %m");

@@ -2537,7 +2537,13 @@ static char* dm_deferred_remove_clean(char *name) {
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char *, dm_deferred_remove_clean);
 
-static int validate_signature_userspace(const VeritySettings *verity) {
+static int validate_signature_userspace(const VeritySettings *verity, DissectImageFlags flags) {
+
+        if (!FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_USERSPACE_VERITY)) {
+                log_debug("Userspace dm-verity signature authentication disabled via flag.");
+                return 0;
+        }
+
 #if HAVE_OPENSSL
         _cleanup_(sk_X509_free_allp) STACK_OF(X509) *sk = NULL;
         _cleanup_strv_free_ char **certs = NULL;
@@ -2618,7 +2624,8 @@ static int validate_signature_userspace(const VeritySettings *verity) {
 static int do_crypt_activate_verity(
                 struct crypt_device *cd,
                 const char *name,
-                const VeritySettings *verity) {
+                const VeritySettings *verity,
+                DissectImageFlags flags) {
 
         bool check_signature;
         int r, k;
@@ -2663,7 +2670,7 @@ static int do_crypt_activate_verity(
 
                 /* Preferably propagate the original kernel error, so that the fallback logic can work,
                  * as the device-mapper is finicky around concurrent activations of the same volume */
-                k = validate_signature_userspace(verity);
+                k = validate_signature_userspace(verity, flags);
                 if (k < 0)
                         return r < 0 ? r : k;
                 if (k == 0)
@@ -2784,7 +2791,7 @@ static int verity_partition(
                         goto check; /* The device already exists. Let's check it. */
 
                 /* The symlink to the device node does not exist yet. Assume not activated, and let's activate it. */
-                r = do_crypt_activate_verity(cd, name, verity);
+                r = do_crypt_activate_verity(cd, name, verity, flags);
                 if (r >= 0)
                         goto try_open; /* The device is activated. Let's open it. */
                 /* libdevmapper can return EINVAL when the device is already in the activation stage.
@@ -3966,10 +3973,12 @@ int verity_dissect_and_mount(
         if (r < 0)
                 return log_debug_errno(r, "Failed to load root hash: %m");
 
-        dissect_image_flags = (verity.data_path ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0) |
+        dissect_image_flags =
+                (verity.data_path ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0) |
                 (relax_extension_release_check ? DISSECT_IMAGE_RELAX_EXTENSION_CHECK : 0) |
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
-                DISSECT_IMAGE_PIN_PARTITION_DEVICES;
+                DISSECT_IMAGE_PIN_PARTITION_DEVICES |
+                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
 
         /* Note that we don't use loop_device_make here, as the FD is most likely O_PATH which would not be
          * accepted by LOOP_CONFIGURE, so just let loop_device_make_by_path reopen it as a regular FD. */
