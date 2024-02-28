@@ -456,13 +456,6 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
 
-        if (link_get_ipv6_address(link, &gateway, 0, NULL) >= 0) {
-                if (DEBUG_LOGGING)
-                        log_link_debug(link, "No NDisc route added, gateway %s matches local address",
-                                       IN6_ADDR_TO_STRING(&gateway));
-                return 0;
-        }
-
         r = sd_ndisc_router_get_preference(rt, &preference);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
@@ -1814,6 +1807,10 @@ int ndisc_start(Link *link) {
 
         if (in6_addr_is_null(&link->ipv6ll_address))
                 return 0;
+
+        r = sd_ndisc_set_link_local_address(link->ndisc, &link->ipv6ll_address);
+        if (r < 0)
+                return r;
 
         log_link_debug(link, "Discovering IPv6 routers");
 
