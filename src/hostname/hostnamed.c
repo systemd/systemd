@@ -1111,8 +1111,8 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
                         m,
                         "org.freedesktop.hostname1.set-hostname",
                         /* details= */ NULL,
-                        interactive,
                         /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -1157,8 +1157,8 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
                         m,
                         "org.freedesktop.hostname1.set-static-hostname",
                         /* details= */ NULL,
-                        interactive,
                         /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -1235,8 +1235,8 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
                         m,
                         prop == PROP_PRETTY_HOSTNAME ? "org.freedesktop.hostname1.set-static-hostname" : "org.freedesktop.hostname1.set-machine-info",
                         /* details= */ NULL,
-                        interactive,
                         /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -1312,8 +1312,8 @@ static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_err
                         m,
                         "org.freedesktop.hostname1.get-product-uuid",
                         /* details= */ NULL,
-                        interactive,
                         /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -1651,7 +1651,6 @@ static int vl_method_describe(Varlink *link, JsonVariant *parameters, VarlinkMet
                         c->bus,
                         "org.freedesktop.hostname1.get-hardware-serial",
                         /* details= */ NULL,
-                        /* good_user= */ UID_INVALID,
                         &c->polkit_registry);
         if (r == 0)
                 return 0; /* No authorization for now, but the async polkit stuff will call us again when it has it */
