@@ -106,7 +106,7 @@ bool cg_is_unified_wanted(void) {
                 return (wanted = true);
 
         /* If any controller is in use as v1, don't use unified. */
-        return (wanted = cg_any_controller_used_for_v1() <= 0);
+        return (wanted = (cg_any_controller_used_for_v1() <= 0));
 }
 
 bool cg_is_legacy_wanted(void) {
