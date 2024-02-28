@@ -1574,7 +1574,7 @@ static int child_exit_callback(sd_event_source *s, const siginfo_t *si, void *us
 
 static bool shall_use_pidfd(void) {
         /* Mostly relevant for debugging, i.e. this is used in test-event.c to test the event loop once with and once without pidfd */
-        return getenv_bool_secure("SYSTEMD_PIDFD") != 0;
+        return secure_getenv_bool("SYSTEMD_PIDFD") != 0;
 }
 
 _public_ int sd_event_add_child(

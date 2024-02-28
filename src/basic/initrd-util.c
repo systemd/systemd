@@ -21,7 +21,7 @@ bool in_initrd(void) {
          * This can be overridden by setting SYSTEMD_IN_INITRD=0|1.
          */
 
-        r = getenv_bool_secure("SYSTEMD_IN_INITRD");
+        r = secure_getenv_bool("SYSTEMD_IN_INITRD");
         if (r < 0 && r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_IN_INITRD, ignoring: %m");
 

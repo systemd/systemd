@@ -140,7 +140,7 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
                         assert_se(status == NSS_STATUS_SUCCESS);
                         assert_se(n == socket_ipv6_is_enabled() + 1);
 
-                } else if (streq(module, "resolve") && getenv_bool_secure("SYSTEMD_NSS_RESOLVE_SYNTHESIZE") != 0) {
+                } else if (streq(module, "resolve") && secure_getenv_bool("SYSTEMD_NSS_RESOLVE_SYNTHESIZE") != 0) {
                         assert_se(status == NSS_STATUS_SUCCESS);
                         if (socket_ipv6_is_enabled())
                                 assert_se(n == 2);

@@ -810,7 +810,7 @@ static bool sysfs_check(void) {
         int r;
 
         if (cached < 0) {
-                r = getenv_bool_secure("SYSTEMD_SYSFS_CHECK");
+                r = secure_getenv_bool("SYSTEMD_SYSFS_CHECK");
                 if (r < 0 && r != -ENXIO)
                         log_debug_errno(r, "Failed to parse $SYSTEMD_SYSFS_CHECK, ignoring: %m");
                 cached = r != 0;

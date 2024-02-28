@@ -202,9 +202,10 @@ static uint64_t query_flag(
                 const char *name,
                 const int value,
                 uint64_t flag) {
+
         int r;
 
-        r = getenv_bool_secure(name);
+        r = secure_getenv_bool(name);
         if (r >= 0)
                 return r == value ? flag : 0;
         if (r != -ENXIO)

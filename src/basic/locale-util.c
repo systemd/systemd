@@ -295,7 +295,7 @@ bool is_locale_utf8(void) {
         if (cached_answer >= 0)
                 goto out;
 
-        r = getenv_bool_secure("SYSTEMD_UTF8");
+        r = secure_getenv_bool("SYSTEMD_UTF8");
         if (r >= 0) {
                 cached_answer = r;
                 goto out;
