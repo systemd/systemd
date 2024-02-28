@@ -76,7 +76,7 @@
 
       <varlistentry>
         <term><varname>ifname=</varname></term>
-        <term><varname>net.ifname-policy=</varname></term>
+        <term><varname>net.ifname_policy=</varname></term>
         <listitem>
           <para>Translated into
           <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>

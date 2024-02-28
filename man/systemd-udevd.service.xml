@@ -236,7 +236,7 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>net.naming-scheme=</varname></term>
+        <term><varname>net.naming_scheme=</varname></term>
         <listitem>
           <para>Network interfaces are renamed to give them predictable names when possible (unless
           <varname>net.ifnames=0</varname> is specified, see above). With this kernel command line option it
@@ -255,7 +255,7 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>net.ifname-policy=<replaceable>policy1</replaceable>[,<replaceable>policy2</replaceable>,…][,<replaceable>MAC</replaceable>]</varname></term>
+        <term><varname>net.ifname_policy=<replaceable>policy1</replaceable>[,<replaceable>policy2</replaceable>,…][,<replaceable>MAC</replaceable>]</varname></term>
         <listitem>
           <para>Specifies naming policies applied when renaming network interfaces. Takes a list of
           policies and an optional MAC address separated with comma. Each policy value must be one of
@@ -273,8 +273,8 @@
           enabled.</para>
 
           <para>Example:
-          <programlisting>net.ifname-policy=keep,kernel,path,slot,onboard,01:23:45:67:89:ab
-net.ifname-policy=keep,kernel,path,slot,onboard,mac</programlisting>
+          <programlisting>net.ifname_policy=keep,kernel,path,slot,onboard,01:23:45:67:89:ab
+net.ifname_policy=keep,kernel,path,slot,onboard,mac</programlisting>
           This is mostly equivalent to creating the following .link files:
           <programlisting># 91-name-policy-with-mac.link
 [Match]
