@@ -80,6 +80,10 @@ static int run(int argc, char **argv) {
         assert_se(dlopen_lz4() >= 0);
 #endif
 
+#if HAVE_ZSTD
+        assert_se(dlopen_zstd() >= 0);
+#endif
+
         return 0;
 }
 
