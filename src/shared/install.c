@@ -1892,7 +1892,7 @@ static int install_info_symlink_alias(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        int r = 0, q;
+        int r, ret = 0;
 
         assert(info);
         assert(lp);
@@ -1900,20 +1900,18 @@ static int install_info_symlink_alias(
 
         STRV_FOREACH(s, info->aliases) {
                 _cleanup_free_ char *alias_path = NULL, *dst = NULL, *dst_updated = NULL;
-                bool broken;
 
-                q = install_name_printf(scope, info, *s, &dst);
-                if (q < 0) {
-                        install_changes_add(changes, n_changes, q, *s, NULL);
-                        r = r < 0 ? r : q;
+                r = install_name_printf(scope, info, *s, &dst);
+                if (r < 0) {
+                        install_changes_add(changes, n_changes, r, *s, NULL);
+                        RET_GATHER(ret, r);
                         continue;
                 }
 
-                q = unit_file_verify_alias(info, dst, &dst_updated, changes, n_changes);
-                if (q == -ELOOP)
-                        continue;
-                if (q < 0) {
-                        r = r < 0 ? r : q;
+                r = unit_file_verify_alias(info, dst, &dst_updated, changes, n_changes);
+                if (r < 0) {
+                        if (r != -ELOOP)
+                                RET_GATHER(ret, r);
                         continue;
                 }
 
@@ -1921,18 +1919,18 @@ static int install_info_symlink_alias(
                 if (!alias_path)
                         return -ENOMEM;
 
-                q = chase(alias_path, lp->root_dir, CHASE_NONEXISTENT, NULL, NULL);
-                if (q < 0 && q != -ENOENT) {
-                        r = r < 0 ? r : q;
+                bool broken;
+                r = chase(alias_path, lp->root_dir, CHASE_NONEXISTENT, /* ret_path = */ NULL, /* ret_fd = */ NULL);
+                if (r < 0 && r != -ENOENT) {
+                        RET_GATHER(ret, r);
                         continue;
                 }
-                broken = q == 0; /* symlink target does not exist? */
+                broken = r == 0; /* symlink target does not exist? */
 
-                q = create_symlink(lp, info->path, alias_path, force || broken, changes, n_changes);
-                r = r < 0 ? r : q;
+                RET_GATHER(ret, create_symlink(lp, info->path, alias_path, force || broken, changes, n_changes));
         }
 
-        return r;
+        return ret;
 }
 
 static int install_info_symlink_wants(
@@ -1996,9 +1994,7 @@ static int install_info_symlink_wants(
                 q = install_name_printf(scope, info, *s, &dst);
                 if (q < 0) {
                         install_changes_add(changes, n_changes, q, *s, NULL);
-                        if (r >= 0)
-                                r = q;
-
+                        RET_GATHER(r, q);
                         continue;
                 }
 
@@ -2014,11 +2010,9 @@ static int install_info_symlink_wants(
                                 continue;
 
                         if (unit_name_is_valid(dst, UNIT_NAME_ANY))
-                                q = install_changes_add(changes, n_changes, -EIDRM, dst, n);
+                                RET_GATHER(r, install_changes_add(changes, n_changes, -EIDRM, dst, n));
                         else
-                                q = install_changes_add(changes, n_changes, -EUCLEAN, dst, NULL);
-                        if (r >= 0)
-                                r = q;
+                                RET_GATHER(r, install_changes_add(changes, n_changes, -EUCLEAN, dst, NULL));
 
                         continue;
                 }
@@ -2027,9 +2021,7 @@ static int install_info_symlink_wants(
                 if (!path)
                         return -ENOMEM;
 
-                q = create_symlink(lp, info->path, path, true, changes, n_changes);
-                if ((q < 0 && r >= 0) || r == 0)
-                        r = q;
+                RET_GATHER(r, create_symlink(lp, info->path, path, /* force = */ true, changes, n_changes));
 
                 if (unit_file_exists(scope, lp, dst) == 0) {
                         q = install_changes_add(changes, n_changes, INSTALL_CHANGE_DESTINATION_NOT_PRESENT, dst, info->path);
@@ -2418,7 +2410,7 @@ int unit_file_link(
         _cleanup_strv_free_ char **todo = NULL;
         const char *config_path;
         size_t n_todo = 0;
-        int r, q;
+        int r;
 
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
@@ -2487,9 +2479,7 @@ int unit_file_link(
                 if (!new_path)
                         return -ENOMEM;
 
-                q = create_symlink(&lp, *i, new_path, flags & UNIT_FILE_FORCE, changes, n_changes);
-                if (q < 0 && r >= 0)
-                        r = q;
+                RET_GATHER(r, create_symlink(&lp, *i, new_path, flags & UNIT_FILE_FORCE, changes, n_changes));
         }
 
         return r;
