@@ -18,7 +18,7 @@
 
   <refnamediv>
     <refname>systemd-vmspawn</refname>
-    <refpurpose>Spawn an OS in a virtual machine.</refpurpose>
+    <refpurpose>Spawn an OS in a virtual machine</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -440,7 +440,7 @@
           <para>In order to embed binary data into the credential data for <option>--set-credential=</option>,
           use C-style escaping (i.e. <literal>\n</literal> to embed a newline, or <literal>\x00</literal> to
           embed a <constant>NUL</constant> byte). Note that the invoking shell might already apply unescaping
-          once, hence this might require double escaping!.</para>
+          once, hence this might require double escaping!</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>

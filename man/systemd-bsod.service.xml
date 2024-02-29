@@ -19,7 +19,7 @@
   <refnamediv>
     <refname>systemd-bsod.service</refname>
     <refname>systemd-bsod</refname>
-    <refpurpose>Displays boot-time emergency log message in full screen.</refpurpose>
+    <refpurpose>Displays boot-time emergency log message in full screen</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
