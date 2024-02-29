@@ -37,7 +37,7 @@
 
     <para>The services will store the public key of the SRK key pair in a PEM file in
     <filename>/run/systemd/tpm2-srk-public-key.pem</filename> and
-    <filename>/var/lib/systemd/tpm2-srk-public-key.pem</filename>. It will also store it in TPM2B_PUBLIC
+    <filename>/var/lib/systemd/tpm2-srk-public-key.pem</filename>. They will also store it in TPM2B_PUBLIC
     format in <filename>/run/systemd/tpm2-srk-public-key.tpm2_public</filename> and
     <filename>/var/lib/systemd/tpm2-srk-public-key.tpm2b_public</filename>.</para>
 
