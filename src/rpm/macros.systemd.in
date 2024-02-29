@@ -13,6 +13,7 @@
 %_udevhwdbdir {{UDEV_HWDB_DIR}}
 %_udevrulesdir {{UDEV_RULES_DIR}}
 %_journalcatalogdir {{SYSTEMD_CATALOG_DIR}}
+%_kernel_install_dir {{KERNEL_INSTALL_DIR}}
 %_binfmtdir {{BINFMT_DIR}}
 %_sysctldir {{SYSCTL_DIR}}
 %_sysusersdir {{SYSUSERS_DIR}}
