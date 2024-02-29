@@ -205,7 +205,14 @@ extern const struct hash_ops unit_file_list_hash_ops_free;
 
 InstallChangeType install_changes_add(InstallChange **changes, size_t *n_changes, InstallChangeType type, const char *path, const char *source);
 void install_changes_free(InstallChange *changes, size_t n_changes);
-void install_changes_dump(int r, const char *verb, const InstallChange *changes, size_t n_changes, bool quiet);
+
+int install_change_dump_error(const InstallChange *change, char **ret_errmsg, const char **ret_bus_error);
+void install_changes_dump(
+                int error,
+                const char *verb,
+                const InstallChange *changes,
+                size_t n_changes,
+                bool quiet);
 
 int unit_file_verify_alias(
                 const InstallInfo *info,
