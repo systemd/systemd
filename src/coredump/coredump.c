@@ -163,6 +163,7 @@ static uint64_t arg_external_size_max = EXTERNAL_SIZE_MAX;
 static uint64_t arg_journal_size_max = JOURNAL_SIZE_MAX;
 static uint64_t arg_keep_free = UINT64_MAX;
 static uint64_t arg_max_use = UINT64_MAX;
+static char *arg_storage_path = NULL;
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
@@ -173,6 +174,7 @@ static int parse_config(void) {
                 { "Coredump", "JournalSizeMax",   config_parse_iec_size,             0, &arg_journal_size_max  },
                 { "Coredump", "KeepFree",         config_parse_iec_uint64,           0, &arg_keep_free         },
                 { "Coredump", "MaxUse",           config_parse_iec_uint64,           0, &arg_max_use           },
+                { "Coredump", "StoragePath",      config_parse_string,               0, &arg_storage_path      },
                 {}
         };
 
@@ -339,13 +341,9 @@ static int make_filename(const Context *context, char **ret) {
         if (!t)
                 return -ENOMEM;
 
-        if (asprintf(ret,
-                     "/var/lib/systemd/coredump/core.%s.%s." SD_ID128_FORMAT_STR ".%s.%s",
-                     c,
-                     u,
-                     SD_ID128_FORMAT_VAL(boot),
-                     p,
-                     t) < 0)
+        // Construct the path using the configured storage path or default to /var/lib/systemd/coredump
+        const char *storage_path = arg_storage_path ?: "/var/lib/systemd/coredump";
+        if (asprintf(ret, "%s/core.%s.%s." SD_ID128_FORMAT_STR ".%s.%s", storage_path, c, u, SD_ID128_FORMAT_VAL(boot), p, t) < 0)
                 return -ENOMEM;
 
         return 0;
