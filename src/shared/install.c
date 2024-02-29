@@ -503,48 +503,35 @@ void install_changes_dump(
  */
 static int chroot_unit_symlinks_equivalent(
                 const LookupPaths *lp,
-                const char *src,
-                const char *target_a,
-                const char *target_b) {
+                const char *symlink,
+                const char *new_target) {
 
-        assert(lp);
-        assert(src);
-        assert(target_a);
-        assert(target_b);
-
-        /* This will give incorrect results if the paths are relative and go outside
-         * of the chroot. False negatives are possible. */
-
-        const char *root = lp->root_dir ?: "/";
-        _cleanup_free_ char *dirname = NULL;
+        _cleanup_free_ char *existing_target = NULL;
         int r;
 
-        if (!path_is_absolute(target_a) || !path_is_absolute(target_b)) {
-                r = path_extract_directory(src, &dirname);
-                if (r < 0)
-                        return r;
-        }
+        assert(lp);
+        assert(symlink);
+        assert(new_target);
 
-        _cleanup_free_ char *a = path_join(path_is_absolute(target_a) ? root : dirname, target_a);
-        _cleanup_free_ char *b = path_join(path_is_absolute(target_b) ? root : dirname, target_b);
-        if (!a || !b)
-                return log_oom();
-
-        r = path_equal_or_inode_same(a, b, 0);
-        if (r != 0)
-                return r;
-
-        _cleanup_free_ char *a_name = NULL, *b_name = NULL;
-        r = path_extract_filename(a, &a_name);
+        r = chase(symlink, lp->root_dir, CHASE_NONEXISTENT, &existing_target, /* ret_fd = */ NULL);
         if (r < 0)
                 return r;
-        r = path_extract_filename(b, &b_name);
+        if (r > 0 && path_equal_or_inode_same(existing_target, new_target, /* flags = */ 0))
+                return true;
+
+        _cleanup_free_ char *existing_name = NULL, *new_name = NULL;
+
+        r = path_extract_filename(existing_target, &existing_name);
         if (r < 0)
                 return r;
 
-        return streq(a_name, b_name) &&
-               path_startswith_strv(a, lp->search_path) &&
-               path_startswith_strv(b, lp->search_path);
+        r = path_extract_filename(new_target, &new_name);
+        if (r < 0)
+                return r;
+
+        return streq(existing_name, new_name) &&
+               path_startswith_strv(existing_target, lp->search_path) &&
+               path_startswith_strv(new_target, lp->search_path);
 }
 
 static int create_symlink(
@@ -581,22 +568,21 @@ static int create_symlink(
                         return r;
                 return 1;
         }
-
         if (errno != EEXIST)
                 return install_changes_add(changes, n_changes, -errno, new_path, NULL);
 
-        r = readlink_malloc(new_path, &dest);
-        if (r < 0) {
-                /* translate EINVAL (non-symlink exists) to EEXIST */
-                if (r == -EINVAL)
-                        r = -EEXIST;
-
+        r = is_symlink(new_path);
+        if (r < 0)
                 return install_changes_add(changes, n_changes, r, new_path, NULL);
-        }
+        if (r == 0)
+                return install_changes_add(changes, n_changes, -EEXIST, new_path, NULL);
 
-        if (chroot_unit_symlinks_equivalent(lp, new_path, dest, old_path)) {
-                log_debug("Symlink %s %s %s already exists",
-                          new_path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dest);
+        r = chroot_unit_symlinks_equivalent(lp, new_path, old_path);
+        if (r < 0)
+                return install_changes_add(changes, n_changes, r, new_path, NULL);
+        if (r > 0) {
+                log_debug("Symlink '%s' %s '%s' (or equivalent) already exists.",
+                          new_path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), old_path);
                 return 1;
         }
 
