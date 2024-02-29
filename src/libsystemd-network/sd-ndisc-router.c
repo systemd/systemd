@@ -10,7 +10,6 @@
 #include "alloc-util.h"
 #include "ndisc-internal.h"
 #include "ndisc-router-internal.h"
-#include "strv.h"
 
 static sd_ndisc_router* ndisc_router_free(sd_ndisc_router *rt) {
         if (!rt)
@@ -41,7 +40,7 @@ sd_ndisc_router* ndisc_router_new(ICMP6Packet *packet) {
         return rt;
 }
 
-int sd_ndisc_router_get_address(sd_ndisc_router *rt, struct in6_addr *ret) {
+int sd_ndisc_router_get_sender_address(sd_ndisc_router *rt, struct in6_addr *ret) {
         assert_return(rt, -EINVAL);
 
         return icmp6_packet_get_sender_address(rt->packet, ret);
@@ -167,7 +166,7 @@ int sd_ndisc_router_get_lifetime(sd_ndisc_router *rt, uint64_t *ret) {
         return rt->lifetime_usec > 0; /* Indicate if the router is still valid or not. */
 }
 
-int sd_ndisc_router_get_preference(sd_ndisc_router *rt, unsigned *ret) {
+int sd_ndisc_router_get_preference(sd_ndisc_router *rt, uint8_t *ret) {
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
 
@@ -193,7 +192,7 @@ int sd_ndisc_router_get_mtu(sd_ndisc_router *rt, uint32_t *ret) {
         return 0;
 }
 
-int sd_ndisc_router_captive_portal_get_uri(sd_ndisc_router *rt, const char **ret, size_t *ret_size) {
+int sd_ndisc_router_get_captive_portal(sd_ndisc_router *rt, const char **ret) {
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
 
@@ -202,7 +201,6 @@ int sd_ndisc_router_captive_portal_get_uri(sd_ndisc_router *rt, const char **ret
                 return -ENODATA;
 
         *ret = p->captive_portal;
-        *ret_size = strlen(p->captive_portal);
         return 0;
 }
 
@@ -243,13 +241,13 @@ int sd_ndisc_router_option_is_type(sd_ndisc_router *rt, uint8_t type) {
         return t == type;
 }
 
-int sd_ndisc_router_option_get_raw(sd_ndisc_router *rt, const void **ret, size_t *ret_size) {
+int sd_ndisc_router_option_get_raw(sd_ndisc_router *rt, const uint8_t **ret, size_t *ret_size) {
         assert_return(rt, -EINVAL);
 
         if (!rt->current_option)
                 return -ENODATA;
 
-        return ndisc_option_parse(rt->packet, rt->current_option->offset, NULL, ret_size, (const uint8_t**) ret);
+        return ndisc_option_parse(rt->packet, rt->current_option->offset, NULL, ret_size, ret);
 }
 
 #define DEFINE_GETTER(name, type, element, element_type)                \
@@ -273,13 +271,13 @@ int sd_ndisc_router_option_get_raw(sd_ndisc_router *rt, const void **ret, size_t
         }
 
 DEFINE_GETTER(prefix, SD_NDISC_OPTION_PREFIX_INFORMATION, flags, uint8_t);
-DEFINE_GETTER(prefix, SD_NDISC_OPTION_PREFIX_INFORMATION, prefixlen, unsigned);
+DEFINE_GETTER(prefix, SD_NDISC_OPTION_PREFIX_INFORMATION, prefixlen, uint8_t);
 DEFINE_GETTER(prefix, SD_NDISC_OPTION_PREFIX_INFORMATION, address, struct in6_addr);
 DEFINE_GETTER(prefix, SD_NDISC_OPTION_PREFIX_INFORMATION, valid_lifetime, uint64_t);
 DEFINE_GETTER(prefix, SD_NDISC_OPTION_PREFIX_INFORMATION, preferred_lifetime, uint64_t);
 
-DEFINE_GETTER(route, SD_NDISC_OPTION_ROUTE_INFORMATION, preference, unsigned);
-DEFINE_GETTER(route, SD_NDISC_OPTION_ROUTE_INFORMATION, prefixlen, unsigned);
+DEFINE_GETTER(route, SD_NDISC_OPTION_ROUTE_INFORMATION, preference, uint8_t);
+DEFINE_GETTER(route, SD_NDISC_OPTION_ROUTE_INFORMATION, prefixlen, uint8_t);
 DEFINE_GETTER(route, SD_NDISC_OPTION_ROUTE_INFORMATION, address, struct in6_addr);
 DEFINE_GETTER(route, SD_NDISC_OPTION_ROUTE_INFORMATION, lifetime, uint64_t);
 
@@ -301,28 +299,9 @@ int sd_ndisc_router_rdnss_get_addresses(sd_ndisc_router *rt, const struct in6_ad
         return (int) rt->current_option->rdnss.n_addresses;
 }
 
+DEFINE_GETTER(dnssl, SD_NDISC_OPTION_DNSSL, domains, char**);
 DEFINE_GETTER(dnssl, SD_NDISC_OPTION_DNSSL, lifetime, uint64_t);
 
-int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret) {
-        int r;
-
-        assert_return(rt, -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        r = sd_ndisc_router_option_is_type(rt, SD_NDISC_OPTION_DNSSL);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return -EMEDIUMTYPE;
-
-        char **q = strv_copy(rt->current_option->dnssl.domains);
-        if (!q)
-                return -ENOMEM;
-
-        *ret = q;
-        return (int) strv_length(q);
-}
-
-DEFINE_GETTER(prefix64, SD_NDISC_OPTION_PREF64, prefixlen, unsigned);
+DEFINE_GETTER(prefix64, SD_NDISC_OPTION_PREF64, prefixlen, uint8_t);
 DEFINE_GETTER(prefix64, SD_NDISC_OPTION_PREF64, prefix, struct in6_addr);
 DEFINE_GETTER(prefix64, SD_NDISC_OPTION_PREF64, lifetime, uint64_t);
