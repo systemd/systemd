@@ -473,7 +473,7 @@ static int dns_scope_socket(
                  * the local host. SO_BINDTODEVICE in combination with destination addresses on the local
                  * host result in EHOSTUNREACH, since Linux won't send the packets out of the specified
                  * interface, but delivers them directly to the local socket. */
-                if (s->link &&
+/*                if (s->link &&
                     !manager_find_link_address(s->manager, sa.sa.sa_family, sockaddr_in_addr(&sa.sa)) &&
                     in_addr_is_localhost(sa.sa.sa_family, sockaddr_in_addr(&sa.sa)) == 0) {
                         r = socket_bind_to_ifindex(fd, ifindex);
@@ -481,7 +481,7 @@ static int dns_scope_socket(
                                 return r;
 
                         bound = true;
-                }
+                }*/
 
                 r = connect(fd, &sa.sa, salen);
                 if (r < 0 && errno != EINPROGRESS)
