@@ -95,7 +95,7 @@
         <term><filename>250-firmware-code-early.pcrlock</filename></term>
 
         <listitem><para>Firmware code measurements, as recorded to PCR 0 and 2, up to the separator
-        measurement (see <filename>400-secureboot-separator.pcrlock.</filename> below). May be generated via
+        measurement (see <filename>400-secureboot-separator.pcrlock</filename> below). May be generated via
         <command>systemd-pcrlock lock-firmware-code</command>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
@@ -105,7 +105,7 @@
         <term><filename>250-firmware-config-early.pcrlock</filename></term>
 
         <listitem><para>Firmware configuration measurements, as recorded to PCR 1 and 3, up to the separator
-        measurement (see <filename>400-secureboot-separator.pcrlock.</filename> below). May be generated via
+        measurement (see <filename>400-secureboot-separator.pcrlock</filename> below). May be generated via
         <command>systemd-pcrlock lock-firmware-config</command>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
@@ -141,7 +141,7 @@
         <term><filename>550-firmware-code-late.pcrlock</filename></term>
 
         <listitem><para>Firmware code measurements, as recorded to PCR 0 and 2, after the separator
-        measurement (see <filename>400-secureboot-separator.pcrlock.</filename> above). May be generated via
+        measurement (see <filename>400-secureboot-separator.pcrlock</filename> above). May be generated via
         <command>systemd-pcrlock lock-firmware-code</command>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
@@ -151,7 +151,7 @@
         <term><filename>550-firmware-config-late.pcrlock</filename></term>
 
         <listitem><para>Firmware configuration measurements, as recorded to PCR 1 and 3, after the separator
-        measurement (see <filename>400-secureboot-separator.pcrlock.</filename> above). May be generated via
+        measurement (see <filename>400-secureboot-separator.pcrlock</filename> above). May be generated via
         <command>systemd-pcrlock lock-firmware-config</command>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
@@ -179,7 +179,7 @@
         <term><filename>700-action-efi-exit-boot-services.pcrlock</filename></term>
 
         <listitem><para>The EFI action generated when <function>ExitBootServices()</function> is generated,
-        i.e. the UEFI environment is left and the OS takes over. Covers the PCR 5 measurement. Statically
+        i.e. when the UEFI environment is left and the OS takes over. Covers the PCR 5 measurement. Statically
         defined.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
