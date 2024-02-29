@@ -475,8 +475,9 @@ if command -v ssh &>/dev/null && command -v sshd &>/dev/null && ! [[ -v ASAN_OPT
     mkdir -p /etc/ssh
     test -f /etc/ssh/ssh_host_ecdsa_key || ssh-keygen -t ecdsa -C '' -N '' -f /etc/ssh/ssh_host_ecdsa_key
 
-    # ssh wants this dir around, but distros cannot agree on a common name for it, let's just create all that are aware of distros use
-    mkdir -p /usr/share/empty.sshd /var/empty /var/empty/sshd
+    # ssh wants this dir around, but distros cannot agree on a common name for it, let's just create all that
+    # are aware of distros use
+    mkdir -p /usr/share/empty.sshd /var/empty /var/empty/sshd /run/sshd
 
     mv /etc/pam.d/sshd /etc/pam.d/sshd.bak
     cat >/etc/pam.d/sshd <<EOF
