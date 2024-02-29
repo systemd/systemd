@@ -512,6 +512,8 @@ ExecStart=-/usr/sbin/sshd -i -d -e
 StandardInput=socket
 StandardOutput=socket
 StandardError=journal
+RuntimeDirectory=sshd
+RuntimeDirectoryMode=0755
 EOF
 
     systemctl daemon-reload
