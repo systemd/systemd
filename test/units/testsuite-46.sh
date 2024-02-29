@@ -521,9 +521,8 @@ EOF
 
     ssh -t -t -4 -p 4711 -i /tmp/homed.id_ecdsa \
         -o "SetEnv PASSWORD=hunter4711" -o "StrictHostKeyChecking no" \
-        homedsshtest@localhost echo zzz | tail -n 1 | tr -d '\r' > /tmp/homedsshtest.out
-    cat /tmp/homedsshtest.out
-    test "$(cat /tmp/homedsshtest.out)" = "zzz"
+        homedsshtest@localhost echo zzz | tr -d '\r' | tee /tmp/homedsshtest.out
+    grep -E "^zzz$" /tmp/homedsshtest.out
     rm /tmp/homedsshtest.out
 
     ssh -t -t -4 -p 4711 -i /tmp/homed.id_ecdsa \
