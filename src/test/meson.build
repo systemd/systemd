@@ -199,6 +199,11 @@ common_test_dependencies = [
         threads,
 ]
 
+compression_libs = [ ]
+if liblz4.found()
+  compression_libs = liblz4
+endif
+
 executables += [
         test_template + {
                 'sources' : files('test-acl-util.c'),
@@ -259,6 +264,7 @@ executables += [
                         libbasic_compress,
                         libshared,
                 ],
+                'dependencies' : compression_libs,
         },
         test_template + {
                 'sources' : files('test-cryptolib.c'),
