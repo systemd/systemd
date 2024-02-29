@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bus-common-errors.h"
 #include "chase.h"
 #include "conf-files.h"
 #include "conf-parser.h"
@@ -332,122 +333,163 @@ void install_changes_free(InstallChange *changes, size_t n_changes) {
         free(changes);
 }
 
-void install_changes_dump(int r, const char *verb, const InstallChange *changes, size_t n_changes, bool quiet) {
-        int err = 0;
+static void install_change_dump_success(const InstallChange *change) {
+        assert(change);
+        assert(change->path);
 
-        assert(changes || n_changes == 0);
-        /* If verb is not specified, errors are not allowed! */
-        assert(verb || r >= 0);
+        switch (change->type) {
 
-        for (size_t i = 0; i < n_changes; i++) {
-                assert(changes[i].path);
-                /* This tries to tell the compiler that it's safe to use 'verb' in a string format if there
-                 * was an error, but the compiler doesn't care and fails anyway, so strna(verb) is used
-                 * too. */
-                assert(verb || changes[i].type >= 0);
-                verb = strna(verb);
+        case INSTALL_CHANGE_SYMLINK:
+                return log_info("Created symlink '%s' %s '%s'.",
+                                change->path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), change->source);
 
-                /* When making changes here, make sure to also change install_error() in dbus-manager.c. */
+        case INSTALL_CHANGE_UNLINK:
+                return log_info("Removed '%s'.", change->path);
 
-                switch (changes[i].type) {
-                case INSTALL_CHANGE_SYMLINK:
-                        if (!quiet)
-                                log_info("Created symlink %s %s %s.",
-                                         changes[i].path,
-                                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
-                                         changes[i].source);
-                        break;
-                case INSTALL_CHANGE_UNLINK:
-                        if (!quiet)
-                                log_info("Removed \"%s\".", changes[i].path);
-                        break;
-                case INSTALL_CHANGE_IS_MASKED:
-                        if (!quiet)
-                                log_info("Unit %s is masked, ignoring.", changes[i].path);
-                        break;
-                case INSTALL_CHANGE_IS_MASKED_GENERATOR:
-                        if (!quiet)
-                                log_info("Unit %s is masked via a generator and cannot be unmasked.",
-                                         changes[i].path);
-                        break;
-                case INSTALL_CHANGE_IS_DANGLING:
-                        if (!quiet)
-                                log_info("Unit %s is an alias to a unit that is not present, ignoring.",
-                                         changes[i].path);
-                        break;
-                case INSTALL_CHANGE_DESTINATION_NOT_PRESENT:
-                        if (!quiet)
-                                log_warning("Unit %s is added as a dependency to a non-existent unit %s.",
-                                            changes[i].source, changes[i].path);
-                        break;
-                case INSTALL_CHANGE_AUXILIARY_FAILED:
-                        if (!quiet)
-                                log_warning("Failed to enable auxiliary unit %s, ignoring.", changes[i].path);
-                        break;
-                case -EEXIST:
-                        if (changes[i].source)
-                                err = log_error_errno(changes[i].type,
-                                                      "Failed to %s unit, file \"%s\" already exists and is a symlink to \"%s\".",
-                                                      verb, changes[i].path, changes[i].source);
-                        else
-                                err = log_error_errno(changes[i].type,
-                                                      "Failed to %s unit, file \"%s\" already exists.",
-                                                      verb, changes[i].path);
-                        break;
-                case -ERFKILL:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, unit %s is masked.",
-                                              verb, changes[i].path);
-                        break;
-                case -EADDRNOTAVAIL:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, unit %s is transient or generated.",
-                                              verb, changes[i].path);
-                        break;
-                case -ETXTBSY:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, file %s is under the systemd unit hierarchy already.",
-                                              verb, changes[i].path);
-                        break;
-                case -EBADSLT:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, invalid specifier in \"%s\".",
-                                              verb, changes[i].path);
-                        break;
-                case -EIDRM:
-                        err = log_error_errno(changes[i].type, "Failed to %s %s, destination unit %s is a non-template unit.",
-                                              verb, changes[i].source, changes[i].path);
-                        break;
-                case -EUCLEAN:
-                        err = log_error_errno(changes[i].type,
-                                              "Failed to %s unit, \"%s\" is not a valid unit name.",
-                                              verb, changes[i].path);
-                        break;
-                case -ELOOP:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, refusing to operate on linked unit file %s.",
-                                              verb, changes[i].path);
-                        break;
-                case -EXDEV:
-                        if (changes[i].source)
-                                err = log_error_errno(changes[i].type, "Failed to %s unit, cannot alias %s as %s.",
-                                                      verb, changes[i].source, changes[i].path);
-                        else
-                                err = log_error_errno(changes[i].type, "Failed to %s unit, invalid unit reference \"%s\".",
-                                                      verb, changes[i].path);
-                        break;
-                case -ENOENT:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, unit %s does not exist.",
-                                              verb, changes[i].path);
-                        break;
-                case -EUNATCH:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, cannot resolve specifiers in \"%s\".",
-                                              verb, changes[i].path);
-                        break;
-                default:
-                        assert(changes[i].type < 0);
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, file \"%s\": %m",
-                                              verb, changes[i].path);
-                }
+        case INSTALL_CHANGE_IS_MASKED:
+                return log_info("Unit %s is masked, ignoring.", change->path);
+
+        case INSTALL_CHANGE_IS_MASKED_GENERATOR:
+                return log_info("Unit %s is masked via a generator and cannot be unmasked, skipping.", change->path);
+
+        case INSTALL_CHANGE_IS_DANGLING:
+                return log_info("Unit %s is an alias to a non-existent unit, ignoring.", change->path);
+
+        case INSTALL_CHANGE_DESTINATION_NOT_PRESENT:
+                return log_warning("Unit %s is added as a dependency to a non-existent unit %s.",
+                                   change->source, change->path);
+
+        case INSTALL_CHANGE_AUXILIARY_FAILED:
+                return log_warning("Failed to enable auxiliary unit %s, ignoring.", change->path);
+
+        default:
+                assert_not_reached();
         }
+}
 
-        if (r < 0 && err >= 0)
-                log_error_errno(r, "Failed to %s: %m.", verb);
+int install_change_dump_error(const InstallChange *change, char **ret_errmsg, const char **ret_bus_error) {
+        char *m;
+        const char *bus_error;
+
+        /* Returns 0:   known error and ret_errmsg formatted
+         *         < 0: non-recognizable error */
+
+        assert(change);
+        assert(change->path);
+        assert(change->type < 0);
+        assert(ret_errmsg);
+
+        switch (change->type) {
+
+        case -EEXIST:
+                m = strjoin("File '", change->path, "' already exists",
+                            change->source ? " and is a symlink to " : NULL, change->source);
+                bus_error = BUS_ERROR_UNIT_EXISTS;
+                break;
+
+        case -ERFKILL:
+                m = strjoin("Unit ", change->path, " is masked");
+                bus_error = BUS_ERROR_UNIT_MASKED;
+                break;
+
+        case -EADDRNOTAVAIL:
+                m = strjoin("Unit ", change->path, " is transient or generated");
+                bus_error = BUS_ERROR_UNIT_GENERATED;
+                break;
+
+        case -ETXTBSY:
+                m = strjoin("File '", change->path, "' is under the systemd unit hierarchy already");
+                bus_error = BUS_ERROR_UNIT_BAD_PATH;
+                break;
+
+        case -EBADSLT:
+                m = strjoin("Invalid specifier in unit ", change->path);
+                bus_error = BUS_ERROR_BAD_UNIT_SETTING;
+                break;
+
+        case -EIDRM:
+                m = strjoin("Refusing to operate on template unit ", change->source,
+                            " when destination unit ", change->path, " is a non-template unit");
+                bus_error = BUS_ERROR_BAD_UNIT_SETTING;
+                break;
+
+        case -EUCLEAN:
+                m = strjoin("Invalid unit name ", change->path);
+                bus_error = BUS_ERROR_BAD_UNIT_SETTING;
+                break;
+
+        case -ELOOP:
+                m = strjoin("Refusing to operate on linked unit file ", change->path);
+                bus_error = BUS_ERROR_UNIT_LINKED;
+                break;
+
+        case -EXDEV:
+                if (change->source)
+                        m = strjoin("Cannot alias ", change->source, " as ", change->path);
+                else
+                        m = strjoin("Invalid unit reference ", change->path);
+                bus_error = BUS_ERROR_BAD_UNIT_SETTING;
+                break;
+
+        case -ENOENT:
+                m = strjoin("Unit ", change->path, " does not exist");
+                bus_error = BUS_ERROR_NO_SUCH_UNIT;
+                break;
+
+        case -EUNATCH:
+                m = strjoin("Cannot resolve specifiers in unit ", change->path);
+                bus_error = BUS_ERROR_BAD_UNIT_SETTING;
+                break;
+
+        default:
+                return change->type;
+        }
+        if (!m)
+                return -ENOMEM;
+
+        *ret_errmsg = m;
+        if (ret_bus_error)
+                *ret_bus_error = bus_error;
+
+        return 0;
+}
+
+void install_changes_dump(
+                int error,
+                const char *verb,
+                const InstallChange *changes,
+                size_t n_changes,
+                bool quiet) {
+
+        bool err_logged = false;
+        int r;
+
+        /* If verb is not specified, errors are not allowed! */
+        assert(verb || error >= 0);
+        assert(changes || n_changes == 0);
+
+        FOREACH_ARRAY(i, changes, n_changes)
+                if (i->type >= 0) {
+                        if (!quiet)
+                                install_change_dump_success(i);
+                } else {
+                        _cleanup_free_ char *err_message = NULL;
+
+                        assert(verb);
+
+                        r = install_change_dump_error(i, &err_message, /* ret_bus_error = */ NULL);
+                        if (r == -ENOMEM)
+                                return (void) log_oom();
+                        if (r < 0)
+                                log_error_errno(r, "Failed to %s unit %s: %m", verb, i->path);
+                        else
+                                log_error_errno(i->type, "Failed to %s unit: %s", verb, err_message);
+
+                        err_logged = true;
+                }
+
+        if (error < 0 && !err_logged)
+                log_error_errno(error, "Failed to %s unit: %m.", verb);
 }
 
 /**
