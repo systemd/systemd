@@ -142,6 +142,11 @@
 
         <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>StoragePath=</varname></term>
+        <listitem><para>Specifies the directory path where core dumps should be stored when <literal>external</literal> storage is selected. If not set, the default path <filename>/var/lib/systemd/coredump/</filename> is used. This setting allows for redirecting core dump storage to a custom location on the filesystem. Note that the specified directory must exist and be writable by the systemd-coredump service.</para>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>The defaults for all values are listed as comments in the
