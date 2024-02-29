@@ -26,10 +26,6 @@
 %_systemd_system_env_generator_dir {{SYSTEM_ENV_GENERATOR_DIR}}
 %_systemd_user_env_generator_dir {{USER_ENV_GENERATOR_DIR}}
 
-# Because we had one release with a typo...
-# This is temporary (Remove after systemd 240 is released)
-%_environmnentdir %{warn:Use %%_environmentdir instead}%_environmentdir
-
 %systemd_requires \
 Requires(post): systemd \
 Requires(preun): systemd \
