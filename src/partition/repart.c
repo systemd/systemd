@@ -126,6 +126,14 @@ typedef enum FilterPartitionType {
         _FILTER_PARTITIONS_INVALID = -EINVAL,
 } FilterPartitionsType;
 
+typedef enum KeySourceType {
+        KEY_SOURCE_FILE,
+        KEY_SOURCE_ENGINE,
+        KEY_SOURCE_PROVIDER,
+        _KEY_SOURCE_MAX,
+        _KEY_SOURCE_INVALID = -EINVAL,
+} KeySourceType;
+
 static EmptyMode arg_empty = EMPTY_UNSET;
 static bool arg_dry_run = true;
 static char *arg_node = NULL;
@@ -146,6 +154,7 @@ static bool arg_legend = true;
 static void *arg_key = NULL;
 static size_t arg_key_size = 0;
 static EVP_PKEY *arg_private_key = NULL;
+static KeySourceType arg_private_key_source_type = KEY_SOURCE_FILE;
 static char *arg_private_key_source = NULL;
 static X509 *arg_certificate = NULL;
 static char *arg_tpm2_device = NULL;
@@ -7124,7 +7133,13 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_PRIVATE_KEY_SOURCE:
-                        if (!STARTSWITH_SET(optarg, "file", "provider:", "engine:"))
+                        if (startswith(optarg, "file:"))
+                                arg_private_key_source_type = KEY_SOURCE_FILE;
+                        else if (startswith(optarg, "engine:"))
+                                arg_private_key_source_type = KEY_SOURCE_ENGINE;
+                        else if (startswith(optarg, "provider:"))
+                                arg_private_key_source_type = KEY_SOURCE_PROVIDER;
+                        else
                                 return log_error_errno(
                                                 SYNTHETIC_ERRNO(EINVAL),
                                                 "Invalid private key source '%s'",
@@ -7478,7 +7493,7 @@ static int parse_argv(int argc, char *argv[]) {
                         *p = gpt_partition_type_override_architecture(*p, arg_architecture);
         }
 
-        if (private_key && (!arg_private_key_source || streq(arg_private_key_source, "file"))) {
+        if (private_key && arg_private_key_source_type == KEY_SOURCE_FILE) {
                 _cleanup_(erase_and_freep) char *k = NULL;
                 size_t n = 0;
 
@@ -7493,7 +7508,7 @@ static int parse_argv(int argc, char *argv[]) {
                 r = parse_private_key(k, n, &arg_private_key);
                 if (r < 0)
                         return r;
-        } else if (private_key && arg_private_key_source) {
+        } else if (private_key && IN_SET(arg_private_key_source_type, KEY_SOURCE_ENGINE, KEY_SOURCE_PROVIDER)) {
                 /* This must happen after parse_x509_certificate() is called above, otherwise
                  * signing later will get stuck as the parsed private key won't have the
                  * certificate, so this block cannot be inline in ARG_PRIVATE_KEY. */
