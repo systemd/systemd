@@ -1911,6 +1911,64 @@ drop_env
 
 
 #
+# extension data pointing to mutable hierarchy, ephemeral import mutability
+#
+# expecting a failure here
+#
+
+
+fake_root=${fake_roots_dir}/ephemeral-import-self
+hierarchy=/usr
+
+move_env_out
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+ext_data_path=$(hierarchy_ext_mut_path "${fake_root}" "${hierarchy}")
+real_ext_dir="${fake_root}${hierarchy}"
+prep_ext_mut "${real_ext_dir}"
+ln -sfTr "${real_ext_dir}" "${ext_data_path}"
+
+prep_hierarchy "${fake_root}" "${hierarchy}"
+
+touch "${fake_root}${hierarchy}/should-succeed-on-read-only-fs" || die "${fake_root}${hierarchy} is not mutable"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=ephemeral-import merge && die 'expected merge to fail'
+move_env_back
+
+
+#
+# extension data pointing to mutable hierarchy, import mutability
+#
+# expecting a failure here
+#
+
+
+fake_root=${fake_roots_dir}/import-self
+hierarchy=/usr
+
+move_env_out
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+ext_data_path=$(hierarchy_ext_mut_path "${fake_root}" "${hierarchy}")
+real_ext_dir="${fake_root}${hierarchy}"
+prep_ext_mut "${real_ext_dir}"
+ln -sfTr "${real_ext_dir}" "${ext_data_path}"
+
+prep_hierarchy "${fake_root}" "${hierarchy}"
+
+touch "${fake_root}${hierarchy}/should-succeed-on-read-only-fs" || die "${fake_root}${hierarchy} is not mutable"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=import merge && die 'expected merge to fail'
+move_env_back
+
+
+#
 # done
 #
 
