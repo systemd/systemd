@@ -18,6 +18,7 @@
 ***/
 
 #include <inttypes.h>
+#include <net/ethernet.h>
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <time.h>
@@ -42,6 +43,7 @@ int sd_ndisc_router_get_lifetime(sd_ndisc_router *rt, uint64_t *ret);
 int sd_ndisc_router_get_lifetime_timestamp(sd_ndisc_router *rt, clockid_t clock, uint64_t *ret);
 int sd_ndisc_router_get_reachable_time(sd_ndisc_router *rt, uint64_t *ret);
 int sd_ndisc_router_get_retransmission_time(sd_ndisc_router *rt, uint64_t *ret);
+int sd_ndisc_router_get_sender_mac(sd_ndisc_router *rt, struct ether_addr *ret);
 int sd_ndisc_router_get_mtu(sd_ndisc_router *rt, uint32_t *ret);
 
 /* Generic option access */
