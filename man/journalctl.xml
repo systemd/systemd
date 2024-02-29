@@ -826,7 +826,7 @@
   <refsect1>
     <title>Commands</title>
 
-    <para>The following commands are understood. If none is specified the default is to display journal records.</para>
+    <para>The following commands are understood. If none is specified the default is to display journal records:</para>
 
     <variablelist>
       <varlistentry>
