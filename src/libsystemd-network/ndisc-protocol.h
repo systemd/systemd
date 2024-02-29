@@ -88,7 +88,6 @@ struct nd_opt_prefix64_info {
         uint8_t prefix[12];
 } _packed_;
 
-int pref64_plc_to_prefix_length(uint16_t plc, uint8_t *ret);
 int pref64_prefix_length_to_plc(uint8_t prefixlen, uint8_t *ret);
 
 int ndisc_option_parse(
