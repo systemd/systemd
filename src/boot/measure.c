@@ -26,10 +26,19 @@
 /* Tool for pre-calculating expected TPM PCR values based on measured resources. This is intended to be used
  * to pre-calculate suitable values for PCR 11, the way sd-stub measures into it. */
 
+typedef enum KeySourceType {
+        KEY_SOURCE_FILE,
+        KEY_SOURCE_ENGINE,
+        KEY_SOURCE_PROVIDER,
+        _KEY_SOURCE_MAX,
+        _KEY_SOURCE_INVALID = -EINVAL,
+} KeySourceType;
+
 static char *arg_sections[_UNIFIED_SECTION_MAX] = {};
 static char **arg_banks = NULL;
 static char *arg_tpm2_device = NULL;
 static char *arg_private_key = NULL;
+static KeySourceType arg_private_key_source_type = KEY_SOURCE_FILE;
 static char *arg_private_key_source = NULL;
 static char *arg_public_key = NULL;
 static char *arg_certificate = NULL;
@@ -232,7 +241,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PRIVATE_KEY_SOURCE:
-                        if (!STARTSWITH_SET(optarg, "file", "provider:", "engine:"))
+                        if (startswith(optarg, "file:"))
+                                arg_private_key_source_type = KEY_SOURCE_FILE;
+                        else if (startswith(optarg, "engine:"))
+                                arg_private_key_source_type = KEY_SOURCE_ENGINE;
+                        else if (startswith(optarg, "provider:"))
+                                arg_private_key_source_type = KEY_SOURCE_PROVIDER;
+                        else
                                 return log_error_errno(
                                                 SYNTHETIC_ERRNO(EINVAL),
                                                 "Invalid private key source '%s'",
@@ -822,7 +837,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                                         ERR_error_string(ERR_get_error(), NULL));
         }
 
-        if (!arg_private_key_source || streq(arg_private_key_source, "file")) {
+        if (!arg_private_key_source || arg_private_key_source_type == KEY_SOURCE_FILE) {
                 _cleanup_fclose_ FILE *privkeyf = NULL;
                 _cleanup_free_ char *resolved_pkey = NULL;
 
@@ -837,7 +852,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 privkey = PEM_read_PrivateKey(privkeyf, NULL, NULL, NULL);
                 if (!privkey)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse private key '%s'.", resolved_pkey);
-        } else {
+        } else if (arg_private_key_source && IN_SET(arg_private_key_source_type, KEY_SOURCE_ENGINE, KEY_SOURCE_PROVIDER)) {
                 r = openssl_load_key_from_token(arg_private_key_source, arg_private_key, &privkey);
                 if (r < 0)
                         return log_error_errno(
