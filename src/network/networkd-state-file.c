@@ -583,8 +583,6 @@ static int link_save(Link *link) {
         if (link->state == LINK_STATE_LINGER)
                 return 0;
 
-        link_lldp_save(link);
-
         admin_state = link_state_to_string(link->state);
         assert(admin_state);
 
