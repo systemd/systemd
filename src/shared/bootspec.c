@@ -1484,7 +1484,7 @@ static int print_cmdline(
         }
 
         if (final_cmdline)
-                printf(" finalCmdline: %s\n", final_cmdline);
+                printf(" options: %s\n", final_cmdline);
 
         return 0;
 }
@@ -1544,7 +1544,7 @@ static int json_cmdline(
                 v, JSON_BUILD_OBJECT(
                                 JSON_BUILD_PAIR_CONDITION(def_cmdline, "ukiCmdline", JSON_BUILD_STRING(def_cmdline)),
                                 JSON_BUILD_PAIR("addons", JSON_BUILD_VARIANT(addons_array)),
-                                JSON_BUILD_PAIR_CONDITION(final_cmdline, "finalCmdline", JSON_BUILD_STRING(final_cmdline))));
+                                JSON_BUILD_PAIR_CONDITION(final_cmdline, "options", JSON_BUILD_STRING(final_cmdline))));
         if (r < 0)
                 return log_oom();
         return 0;
