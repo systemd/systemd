@@ -383,8 +383,8 @@ void warn_triggering_units(sd_bus *bus, const char *unit, const char *operation,
 
         r = get_active_triggering_units(bus, unit, ignore_masked, &triggered_by);
         if (r < 0) {
-                log_warning_errno(r,
-                                  "Failed to get triggering units for '%s', ignoring: %m", unit);
+                if (r != -ENOENT) /* A linked unit might have disappeared after disabling */
+                        log_warning_errno(r, "Failed to get triggering units for '%s', ignoring: %m", unit);
                 return;
         }
 
