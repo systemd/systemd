@@ -31,13 +31,13 @@ static void router_dump(sd_ndisc_router *rt) {
         usec_t t, lifetime, retrans_time;
         uint64_t flags;
         uint32_t mtu;
-        unsigned preference;
+        uint8_t preference;
         int r;
 
         assert_se(rt);
 
         log_info("--");
-        assert_se(sd_ndisc_router_get_address(rt, &addr) >= 0);
+        assert_se(sd_ndisc_router_get_sender_address(rt, &addr) >= 0);
         log_info("Sender: %s", IN6_ADDR_TO_STRING(&addr));
 
         assert_se(sd_ndisc_router_get_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
@@ -91,20 +91,19 @@ static void router_dump(sd_ndisc_router *rt) {
                 case SD_NDISC_OPTION_SOURCE_LL_ADDRESS:
                 case SD_NDISC_OPTION_TARGET_LL_ADDRESS: {
                         _cleanup_free_ char *c = NULL;
-                        const void *p;
+                        const uint8_t *p;
                         size_t n;
 
                         assert_se(sd_ndisc_router_option_get_raw(rt, &p, &n) >= 0);
                         assert_se(n > 2);
-                        assert_se(c = hexmem((uint8_t*) p + 2, n - 2));
+                        assert_se(c = hexmem(p + 2, n - 2));
 
                         log_info("Address: %s", c);
                         break;
                 }
 
                 case SD_NDISC_OPTION_PREFIX_INFORMATION: {
-                        unsigned prefix_len;
-                        uint8_t pfl;
+                        uint8_t prefix_len, pfl;
                         struct in6_addr a;
 
                         assert_se(sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime) >= 0);
@@ -146,18 +145,12 @@ static void router_dump(sd_ndisc_router *rt) {
                 }
 
                 case SD_NDISC_OPTION_DNSSL: {
-                        _cleanup_strv_free_ char **l = NULL;
-                        int n, i;
+                        char **l;
 
-                        n = sd_ndisc_router_dnssl_get_domains(rt, &l);
-                        if (n == -EBADMSG) {
-                                log_info("Invalid domain(s).");
-                                break;
-                        }
-                        assert_se(n > 0);
+                        assert_se(sd_ndisc_router_dnssl_get_domains(rt, &l) >= 0);
 
-                        for (i = 0; i < n; i++)
-                                log_info("Domain: %s", l[i]);
+                        STRV_FOREACH(s, l)
+                                log_info("Domain: %s", *s);
 
                         assert_se(sd_ndisc_router_dnssl_get_lifetime(rt, &lifetime) >= 0);
                         assert_se(sd_ndisc_router_dnssl_get_lifetime_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
