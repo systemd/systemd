@@ -482,12 +482,12 @@ if command -v ssh &>/dev/null && command -v sshd &>/dev/null && ! [[ -v ASAN_OPT
     mv /etc/pam.d/sshd /etc/pam.d/sshd.bak
     cat >/etc/pam.d/sshd <<EOF
 auth    sufficient pam_unix.so nullok
-auth    sufficient pam_systemd_home.so
+auth    sufficient pam_systemd_home.so debug
 auth    required   pam_deny.so
-account sufficient pam_systemd_home.so
+account sufficient pam_systemd_home.so debug
 account sufficient pam_unix.so
 account required   pam_permit.so
-session optional   pam_systemd_home.so
+session optional   pam_systemd_home.so debug
 session optional   pam_systemd.so
 session required   pam_unix.so
 EOF
