@@ -184,10 +184,11 @@ static int add_vsock_socket(
         assert(dest);
         assert(generated_sshd_template_unit);
 
-        Virtualization v = detect_vm();
+        Virtualization v = detect_virtualization();
         if (v < 0)
                 return log_error_errno(v, "Failed to detect if we run in a VM: %m");
-        if (v == VIRTUALIZATION_NONE) {
+        if (!VIRTUALIZATION_IS_VM(v)) {
+                /* NB: if we are running in a container inside a VM, then we'll *not* do AF_VSOCK stuff */
                 log_debug("Not running in a VM, not listening on AF_VSOCK.");
                 return 0;
         }
