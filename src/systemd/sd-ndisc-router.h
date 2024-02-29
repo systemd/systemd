@@ -34,7 +34,6 @@ _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc_router, sd_ndisc_router_unref);
 
 int sd_ndisc_router_get_address(sd_ndisc_router *rt, struct in6_addr *ret);
 int sd_ndisc_router_get_timestamp(sd_ndisc_router *rt, clockid_t clock, uint64_t *ret);
-int sd_ndisc_router_get_raw(sd_ndisc_router *rt, const void **ret, size_t *ret_size);
 
 int sd_ndisc_router_get_hop_limit(sd_ndisc_router *rt, uint8_t *ret);
 int sd_ndisc_router_get_flags(sd_ndisc_router *rt, uint64_t *ret);
