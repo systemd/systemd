@@ -175,6 +175,12 @@ int sd_ndisc_router_get_preference(sd_ndisc_router *rt, unsigned *ret) {
         return 0;
 }
 
+int sd_ndisc_router_get_sender_mac(sd_ndisc_router *rt, struct ether_addr *ret) {
+        assert_return(rt, -EINVAL);
+
+        return ndisc_option_get_mac(rt->options, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, ret);
+}
+
 int sd_ndisc_router_get_mtu(sd_ndisc_router *rt, uint32_t *ret) {
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
