@@ -1810,7 +1810,7 @@ static int event_log_validate_fully_recognized(EventLog *el) {
                                 continue;
 
                         if (rec->n_mapped == 0) {
-                                log_notice("Event log record %zu (PCR %" PRIu32 ", \"%s\") not matching any component.",
+                                log_info("Event log record %zu (PCR %" PRIu32 ", \"%s\") not matching any component.",
                                            (size_t) (rr - el->records), rec->pcr, strna(rec->description));
                                 fully_recognized = false;
                                 break;
@@ -1941,7 +1941,7 @@ static int event_log_map_components(EventLog *el) {
                         if (arg_location_start && strcmp(c->id, arg_location_start) >= 0)
                                 log_info("Didn't find component '%s' in event log, assuming system hasn't reached it yet.", c->id);
                         else {
-                                log_notice("Couldn't find component '%s' in event log.", c->id);
+                                log_info("Couldn't find component '%s' in event log.", c->id);
                                 el->n_missing_components++;
                                 el->missing_component_pcrs |= event_log_component_pcrs(c);
                         }
@@ -1950,9 +1950,9 @@ static int event_log_map_components(EventLog *el) {
         }
 
         if (n_skipped > 0)
-                log_notice("Skipped %u components after location '%s' (%s).", n_skipped, arg_location_end, skipped_ids);
+                log_info("Skipped %u components after location '%s' (%s).", n_skipped, arg_location_end, skipped_ids);
         if (el->n_missing_components > 0)
-                log_notice("Unable to recognize %zu components in event log.", el->n_missing_components);
+                log_debug("Unable to recognize %zu components in event log.", el->n_missing_components);
 
         return event_log_validate_fully_recognized(el);
 }
@@ -2795,7 +2795,7 @@ static int write_pcrlock(JsonVariant *array, const char *default_pcrlock_path) {
                 return log_error_errno(r, "Failed to output JSON object: %m");
 
         if (p)
-                log_info("%s written.", p);
+                log_debug("%s written.", p);
 
         return 0;
 }
@@ -3795,7 +3795,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
                         goto drop;
                 }
 
-                log_info("PCR %" PRIu32 " (%s) matches event log and fully consists of recognized measurements. Including in set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
+                log_debug("PCR %" PRIu32 " (%s) matches event log and fully consists of recognized measurements. Including in set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
 
                 if (strextendf_with_separator(&kept, ", ", "%" PRIu32 " (%s)", pcr, tpm2_pcr_index_to_string(pcr)) < 0)
                         return log_oom();
@@ -4441,7 +4441,7 @@ static int make_policy(bool force, bool recovery_pin) {
         if (r < 0)
                 return r;
 
-        log_info("Predicted future PCRs in %s.", FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), predict_start_usec), 1));
+        log_debug("Predicted future PCRs in %s.", FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), predict_start_usec), 1));
 
         _cleanup_(json_variant_unrefp) JsonVariant *new_prediction_json = NULL;
         r = tpm2_pcr_prediction_to_json(&new_prediction, el->primary_algorithm, &new_prediction_json);
