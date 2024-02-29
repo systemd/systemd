@@ -26,7 +26,7 @@ struct nd_opt_prefix64_info {
         uint8_t length;
         uint16_t lifetime_and_plc;
         uint8_t prefix[12];
-} __attribute__((__packed__));
+} _packed_;
 
 int pref64_plc_to_prefix_length(uint16_t plc, uint8_t *ret);
 int pref64_prefix_length_to_plc(uint8_t prefixlen, uint8_t *ret);
