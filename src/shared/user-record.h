@@ -351,6 +351,9 @@ typedef struct UserRecord {
         int auto_login;
         int drop_caches;
 
+        char *preferred_session_type;
+        char *preferred_session_launcher;
+
         uint64_t stop_delay_usec;   /* How long to leave systemd --user around on log-out */
         int kill_processes;         /* Whether to kill user processes forcibly on log-out */
 
