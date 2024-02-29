@@ -324,9 +324,9 @@ InstallChangeType install_changes_add(
 void install_changes_free(InstallChange *changes, size_t n_changes) {
         assert(changes || n_changes == 0);
 
-        for (size_t i = 0; i < n_changes; i++) {
-                free(changes[i].path);
-                free(changes[i].source);
+        FOREACH_ARRAY(i, changes, n_changes) {
+                free(i->path);
+                free(i->source);
         }
 
         free(changes);
