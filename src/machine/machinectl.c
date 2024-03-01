@@ -15,6 +15,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -1879,633 +1880,6 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int match_log_message(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        const char **our_path = userdata, *line;
-        unsigned priority;
-        int r;
-
-        assert(m);
-        assert(our_path);
-
-        r = sd_bus_message_read(m, "us", &priority, &line);
-        if (r < 0) {
-                bus_log_parse_error(r);
-                return 0;
-        }
-
-        if (!streq_ptr(*our_path, sd_bus_message_get_path(m)))
-                return 0;
-
-        if (arg_quiet && LOG_PRI(priority) >= LOG_INFO)
-                return 0;
-
-        log_full(priority, "%s", line);
-        return 0;
-}
-
-static int match_transfer_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        const char **our_path = userdata, *path, *result;
-        uint32_t id;
-        int r;
-
-        assert(m);
-        assert(our_path);
-
-        r = sd_bus_message_read(m, "uos", &id, &path, &result);
-        if (r < 0) {
-                bus_log_parse_error(r);
-                return 0;
-        }
-
-        if (!streq_ptr(*our_path, path))
-                return 0;
-
-        sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), !streq_ptr(result, "done"));
-        return 0;
-}
-
-static int transfer_signal_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        assert(s);
-        assert(si);
-
-        if (!arg_quiet)
-                log_info("Continuing download in the background. Use \"machinectl cancel-transfer %" PRIu32 "\" to abort transfer.", PTR_TO_UINT32(userdata));
-
-        sd_event_exit(sd_event_source_get_event(s), EINTR);
-        return 0;
-}
-
-static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
-        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot_job_removed = NULL, *slot_log_message = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_event_unrefp) sd_event* event = NULL;
-        const char *path = NULL;
-        uint32_t id;
-        int r;
-
-        assert(bus);
-        assert(m);
-
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
-
-        r = sd_event_default(&event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get event loop: %m");
-
-        r = sd_bus_attach_event(bus, event, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to attach bus to event loop: %m");
-
-        r = bus_match_signal_async(
-                        bus,
-                        &slot_job_removed,
-                        bus_import_mgr,
-                        "TransferRemoved",
-                        match_transfer_removed, NULL, &path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to request match: %m");
-
-        r = sd_bus_match_signal_async(
-                        bus,
-                        &slot_log_message,
-                        "org.freedesktop.import1",
-                        NULL,
-                        "org.freedesktop.import1.Transfer",
-                        "LogMessage",
-                        match_log_message, NULL, &path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to request match: %m");
-
-        r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0)
-                return log_error_errno(r, "Failed to transfer image: %s", bus_error_message(&error, r));
-
-        r = sd_bus_message_read(reply, "uo", &id, &path);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT) >= 0);
-
-        if (!arg_quiet)
-                log_info("Enqueued transfer job %u. Press C-c to continue download in background.", id);
-
-        (void) sd_event_add_signal(event, NULL, SIGINT, transfer_signal_handler, UINT32_TO_PTR(id));
-        (void) sd_event_add_signal(event, NULL, SIGTERM, transfer_signal_handler, UINT32_TO_PTR(id));
-
-        r = sd_event_loop(event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to run event loop: %m");
-
-        return -r;
-}
-
-static int import_tar(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_free_ char *ll = NULL, *fn = NULL;
-        const char *local = NULL, *path = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        sd_bus *bus = ASSERT_PTR(userdata);
-        int r;
-
-        if (argc >= 2)
-                path = empty_or_dash_to_null(argv[1]);
-
-        if (argc >= 3)
-                local = empty_or_dash_to_null(argv[2]);
-        else if (path) {
-                r = path_extract_filename(path, &fn);
-                if (r < 0)
-                        return log_error_errno(r, "Cannot extract container name from filename: %m");
-                if (r == O_DIRECTORY)
-                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
-                                               "Path '%s' refers to directory, but we need a regular file: %m", path);
-
-                local = fn;
-        }
-        if (!local)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Need either path or local name.");
-
-        r = tar_strip_suffixes(local, &ll);
-        if (r < 0)
-                return log_oom();
-
-        local = ll;
-
-        if (!hostname_is_valid(local, 0))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Local name %s is not a suitable machine name.",
-                                       local);
-
-        if (path) {
-                fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", path);
-        }
-
-        r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportTar");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append(
-                        m,
-                        "hsbb",
-                        fd >= 0 ? fd : STDIN_FILENO,
-                        local,
-                        arg_force,
-                        arg_read_only);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        return transfer_image_common(bus, m);
-}
-
-static int import_raw(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_free_ char *ll = NULL, *fn = NULL;
-        const char *local = NULL, *path = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        sd_bus *bus = ASSERT_PTR(userdata);
-        int r;
-
-        if (argc >= 2)
-                path = empty_or_dash_to_null(argv[1]);
-
-        if (argc >= 3)
-                local = empty_or_dash_to_null(argv[2]);
-        else if (path) {
-                r = path_extract_filename(path, &fn);
-                if (r < 0)
-                        return log_error_errno(r, "Cannot extract container name from filename: %m");
-                if (r == O_DIRECTORY)
-                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
-                                               "Path '%s' refers to directory, but we need a regular file: %m", path);
-
-                local = fn;
-        }
-        if (!local)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Need either path or local name.");
-
-        r = raw_strip_suffixes(local, &ll);
-        if (r < 0)
-                return log_oom();
-
-        local = ll;
-
-        if (!hostname_is_valid(local, 0))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Local name %s is not a suitable machine name.",
-                                       local);
-
-        if (path) {
-                fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", path);
-        }
-
-        r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportRaw");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append(
-                        m,
-                        "hsbb",
-                        fd >= 0 ? fd : STDIN_FILENO,
-                        local,
-                        arg_force,
-                        arg_read_only);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        return transfer_image_common(bus, m);
-}
-
-static int import_fs(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        const char *local = NULL, *path = NULL;
-        _cleanup_free_ char *fn = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        sd_bus *bus = ASSERT_PTR(userdata);
-        int r;
-
-        if (argc >= 2)
-                path = empty_or_dash_to_null(argv[1]);
-
-        if (argc >= 3)
-                local = empty_or_dash_to_null(argv[2]);
-        else if (path) {
-                r = path_extract_filename(path, &fn);
-                if (r < 0)
-                        return log_error_errno(r, "Cannot extract container name from filename: %m");
-
-                local = fn;
-        }
-        if (!local)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Need either path or local name.");
-
-        if (!hostname_is_valid(local, 0))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Local name %s is not a suitable machine name.",
-                                       local);
-
-        if (path) {
-                fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
-                if (fd < 0)
-                        return log_error_errno(errno, "Failed to open directory '%s': %m", path);
-        }
-
-        r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ImportFileSystem");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append(
-                        m,
-                        "hsbb",
-                        fd >= 0 ? fd : STDIN_FILENO,
-                        local,
-                        arg_force,
-                        arg_read_only);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        return transfer_image_common(bus, m);
-}
-
-static void determine_compression_from_filename(const char *p) {
-        if (arg_format)
-                return;
-
-        if (!p)
-                return;
-
-        if (endswith(p, ".xz"))
-                arg_format = "xz";
-        else if (endswith(p, ".gz"))
-                arg_format = "gzip";
-        else if (endswith(p, ".bz2"))
-                arg_format = "bzip2";
-}
-
-static int export_tar(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        const char *local = NULL, *path = NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
-        int r;
-
-        local = argv[1];
-        if (!hostname_is_valid(local, 0))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Machine name %s is not valid.", local);
-
-        if (argc >= 3)
-                path = argv[2];
-        path = empty_or_dash_to_null(path);
-
-        if (path) {
-                determine_compression_from_filename(path);
-
-                fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOCTTY, 0666);
-                if (fd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", path);
-        }
-
-        r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ExportTar");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append(
-                        m,
-                        "shs",
-                        local,
-                        fd >= 0 ? fd : STDOUT_FILENO,
-                        arg_format);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        return transfer_image_common(bus, m);
-}
-
-static int export_raw(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        const char *local = NULL, *path = NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
-        int r;
-
-        local = argv[1];
-        if (!hostname_is_valid(local, 0))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Machine name %s is not valid.", local);
-
-        if (argc >= 3)
-                path = argv[2];
-        path = empty_or_dash_to_null(path);
-
-        if (path) {
-                determine_compression_from_filename(path);
-
-                fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOCTTY, 0666);
-                if (fd < 0)
-                        return log_error_errno(errno, "Failed to open %s: %m", path);
-        }
-
-        r = bus_message_new_method_call(bus, &m, bus_import_mgr, "ExportRaw");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append(
-                        m,
-                        "shs",
-                        local,
-                        fd >= 0 ? fd : STDOUT_FILENO,
-                        arg_format);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        return transfer_image_common(bus, m);
-}
-
-static int pull_tar(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_free_ char *l = NULL, *ll = NULL;
-        const char *local, *remote;
-        sd_bus *bus = ASSERT_PTR(userdata);
-        int r;
-
-        remote = argv[1];
-        if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "URL '%s' is not valid.", remote);
-
-        if (argc >= 3)
-                local = argv[2];
-        else {
-                r = import_url_last_component(remote, &l);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get final component of URL: %m");
-
-                local = l;
-        }
-
-        local = empty_or_dash_to_null(local);
-
-        if (local) {
-                r = tar_strip_suffixes(local, &ll);
-                if (r < 0)
-                        return log_oom();
-
-                local = ll;
-
-                if (!hostname_is_valid(local, 0))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Local name %s is not a suitable machine name.",
-                                               local);
-        }
-
-        r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullTar");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append(
-                        m,
-                        "sssb",
-                        remote,
-                        local,
-                        import_verify_to_string(arg_verify),
-                        arg_force);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        return transfer_image_common(bus, m);
-}
-
-static int pull_raw(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_free_ char *l = NULL, *ll = NULL;
-        const char *local, *remote;
-        sd_bus *bus = ASSERT_PTR(userdata);
-        int r;
-
-        remote = argv[1];
-        if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "URL '%s' is not valid.", remote);
-
-        if (argc >= 3)
-                local = argv[2];
-        else {
-                r = import_url_last_component(remote, &l);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get final component of URL: %m");
-
-                local = l;
-        }
-
-        local = empty_or_dash_to_null(local);
-
-        if (local) {
-                r = raw_strip_suffixes(local, &ll);
-                if (r < 0)
-                        return log_oom();
-
-                local = ll;
-
-                if (!hostname_is_valid(local, 0))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Local name %s is not a suitable machine name.",
-                                               local);
-        }
-
-        r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullRaw");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_append(
-                        m,
-                        "sssb",
-                        remote,
-                        local,
-                        import_verify_to_string(arg_verify),
-                        arg_force);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        return transfer_image_common(bus, m);
-}
-
-typedef struct TransferInfo {
-        uint32_t id;
-        const char *type;
-        const char *remote;
-        const char *local;
-        double progress;
-} TransferInfo;
-
-static int compare_transfer_info(const TransferInfo *a, const TransferInfo *b) {
-        return strcmp(a->local, b->local);
-}
-
-static int list_transfers(int argc, char *argv[], void *userdata) {
-        size_t max_type = STRLEN("TYPE"), max_local = STRLEN("LOCAL"), max_remote = STRLEN("REMOTE");
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ TransferInfo *transfers = NULL;
-        const char *type, *remote, *local;
-        sd_bus *bus = userdata;
-        uint32_t id, max_id = 0;
-        size_t n_transfers = 0;
-        double progress;
-        int r;
-
-        pager_open(arg_pager_flags);
-
-        r = bus_call_method(bus, bus_import_mgr, "ListTransfers", &error, &reply, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Could not get transfers: %s", bus_error_message(&error, r));
-
-        r = sd_bus_message_enter_container(reply, 'a', "(usssdo)");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        while ((r = sd_bus_message_read(reply, "(usssdo)", &id, &type, &remote, &local, &progress, NULL)) > 0) {
-                size_t l;
-
-                if (!GREEDY_REALLOC(transfers, n_transfers + 1))
-                        return log_oom();
-
-                transfers[n_transfers].id = id;
-                transfers[n_transfers].type = type;
-                transfers[n_transfers].remote = remote;
-                transfers[n_transfers].local = local;
-                transfers[n_transfers].progress = progress;
-
-                l = strlen(type);
-                if (l > max_type)
-                        max_type = l;
-
-                l = strlen(remote);
-                if (l > max_remote)
-                        max_remote = l;
-
-                l = strlen(local);
-                if (l > max_local)
-                        max_local = l;
-
-                if (id > max_id)
-                        max_id = id;
-
-                n_transfers++;
-        }
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        typesafe_qsort(transfers, n_transfers, compare_transfer_info);
-
-        if (arg_legend && n_transfers > 0)
-                printf("%-*s %-*s %-*s %-*s %-*s\n",
-                       (int) MAX(2U, DECIMAL_STR_WIDTH(max_id)), "ID",
-                       (int) 7, "PERCENT",
-                       (int) max_type, "TYPE",
-                       (int) max_local, "LOCAL",
-                       (int) max_remote, "REMOTE");
-
-        for (size_t j = 0; j < n_transfers; j++)
-
-                if (transfers[j].progress < 0)
-                        printf("%*" PRIu32 " %*s %-*s %-*s %-*s\n",
-                               (int) MAX(2U, DECIMAL_STR_WIDTH(max_id)), transfers[j].id,
-                               (int) 7, "n/a",
-                               (int) max_type, transfers[j].type,
-                               (int) max_local, transfers[j].local,
-                               (int) max_remote, transfers[j].remote);
-                else
-                        printf("%*" PRIu32 " %*u%% %-*s %-*s %-*s\n",
-                               (int) MAX(2U, DECIMAL_STR_WIDTH(max_id)), transfers[j].id,
-                               (int) 6, (unsigned) (transfers[j].progress * 100),
-                               (int) max_type, transfers[j].type,
-                               (int) max_local, transfers[j].local,
-                               (int) max_remote, transfers[j].remote);
-
-        if (arg_legend) {
-                if (n_transfers > 0)
-                        printf("\n%zu transfers listed.\n", n_transfers);
-                else
-                        printf("No transfers.\n");
-        }
-
-        return 0;
-}
-
-static int cancel_transfer(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
-        int r;
-
-        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
-
-        for (int i = 1; i < argc; i++) {
-                uint32_t id;
-
-                r = safe_atou32(argv[i], &id);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse transfer id: %s", argv[i]);
-
-                r = bus_call_method(bus, bus_import_mgr, "CancelTransfer", &error, NULL, "u", id);
-                if (r < 0)
-                        return log_error_errno(r, "Could not cancel transfer: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
-}
-
 static int set_limit(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
@@ -2590,6 +1964,52 @@ static int clean_images(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int chainload_importctl(int argc, char *argv[]) {
+        int r;
+
+        log_notice("The 'machinectl %1$s' command has been replaced by 'importctl -m %1$s'. Redirecting invocation.", argv[optind]);
+
+        _cleanup_strv_free_ char **c =
+                strv_new("importctl", "--class=machine");
+        if (!c)
+                return log_oom();
+
+        if (FLAGS_SET(arg_pager_flags, PAGER_DISABLE))
+                if (strv_extend(&c, "--no-pager") < 0)
+                        return log_oom();
+        if (!arg_legend)
+                if (strv_extend(&c, "--no-legend") < 0)
+                        return log_oom();
+        if (arg_read_only)
+                if (strv_extend(&c, "--read-only") < 0)
+                        return log_oom();
+        if (arg_force)
+                if (strv_extend(&c, "--force") < 0)
+                        return log_oom();
+        if (arg_quiet)
+                if (strv_extend(&c, "--quiet") < 0)
+                        return log_oom();
+        if (!arg_ask_password)
+                if (strv_extend(&c, "--no-ask-password") < 0)
+                        return log_oom();
+        if (strv_extend_many(&c, "--verify", import_verify_to_string(arg_verify)) < 0)
+                return log_oom();
+        if (arg_format)
+                if (strv_extend_many(&c, "--format", arg_format) < 0)
+                        return log_oom();
+
+        if (strv_extend_strv(&c, argv + optind, /* filter_duplicates= */ false) < 0)
+                return log_oom();
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *joined = strv_join(c, " ");
+                log_debug("Chainloading: %s", joined);
+        }
+
+        r = invoke_callout_binary(BINDIR "/importctl", c);
+        return log_error_errno(r, "Failed to invoke 'importctl': %m");
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -2634,16 +2054,6 @@ static int help(int argc, char *argv[], void *userdata) {
                "  remove NAME...              Remove an image\n"
                "  set-limit [NAME] BYTES      Set image or pool size limit (disk quota)\n"
                "  clean                       Remove hidden (or all) images\n"
-               "\n%3$sImage Transfer Commands:%4$s\n"
-               "  pull-tar URL [NAME]         Download a TAR container image\n"
-               "  pull-raw URL [NAME]         Download a RAW container or VM image\n"
-               "  import-tar FILE [NAME]      Import a local TAR container image\n"
-               "  import-raw FILE [NAME]      Import a local RAW container or VM image\n"
-               "  import-fs DIRECTORY [NAME]  Import a local directory container image\n"
-               "  export-tar NAME [FILE]      Export a TAR container image locally\n"
-               "  export-raw NAME [FILE]      Export a RAW container or VM image locally\n"
-               "  list-transfers              Show list of downloads in progress\n"
-               "  cancel-transfer             Cancel a download\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
@@ -2661,7 +2071,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -s --signal=SIGNAL          Which signal to send\n"
                "     --uid=USER               Specify user ID to invoke shell as\n"
                "  -E --setenv=VAR[=VALUE]     Add an environment variable for shell\n"
-               "     --read-only              Create read-only bind mount\n"
+               "     --read-only              Create read-only bind mount or clone\n"
                "     --mkdir                  Create directory before bind mounting, if missing\n"
                "  -n --lines=INTEGER          Number of journal entries to show\n"
                "     --max-addresses=INTEGER  Number of internet addresses to show at most\n"
@@ -2670,9 +2080,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                               short-monotonic, short-unix, short-delta,\n"
                "                               json, json-pretty, json-sse, json-seq, cat,\n"
                "                               verbose, export, with-unit)\n"
-               "     --verify=MODE            Verification mode for downloaded images (no,\n"
-               "                               checksum, signature)\n"
-               "     --force                  Download image even if already exists\n"
+               "     --force                  Replace target file when copying, if necessary\n"
                "     --now                    Start or power off container after enabling or\n"
                "                              disabling it\n"
                "     --runner=RUNNER          Select between nspawn and vmspawn as the runner\n"
@@ -3011,15 +2419,6 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "start",           2,        VERB_ANY, 0,            start_machine     },
                 { "enable",          2,        VERB_ANY, 0,            enable_machine    },
                 { "disable",         2,        VERB_ANY, 0,            enable_machine    },
-                { "import-tar",      2,        3,        0,            import_tar        },
-                { "import-raw",      2,        3,        0,            import_raw        },
-                { "import-fs",       2,        3,        0,            import_fs         },
-                { "export-tar",      2,        3,        0,            export_tar        },
-                { "export-raw",      2,        3,        0,            export_raw        },
-                { "pull-tar",        2,        3,        0,            pull_tar          },
-                { "pull-raw",        2,        3,        0,            pull_raw          },
-                { "list-transfers",  VERB_ANY, 1,        0,            list_transfers    },
-                { "cancel-transfer", 2,        VERB_ANY, 0,            cancel_transfer   },
                 { "set-limit",       2,        3,        0,            set_limit         },
                 { "clean",           VERB_ANY, 1,        0,            clean_images      },
                 {}
@@ -3037,12 +2436,18 @@ static int run(int argc, char *argv[]) {
 
         /* The journal merging logic potentially needs a lot of fds. */
         (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
-
         sigbus_install();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (STRPTR_IN_SET(argv[optind],
+                          "import-tar", "import-raw", "import-fs",
+                          "export-tar", "export-raw",
+                          "pull-tar", "pull-raw",
+                          "list-transfers", "cancel-transfer"))
+                return chainload_importctl(argc, argv);
 
         r = bus_connect_transport(arg_transport, arg_host, RUNTIME_SCOPE_SYSTEM, &bus);
         if (r < 0)
