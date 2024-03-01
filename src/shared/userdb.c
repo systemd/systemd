@@ -1455,7 +1455,7 @@ int userdb_block_nss_systemd(int b) {
                 return 0;
         }
 
-        call = (int (*)(bool b)) dlsym(dl, "_nss_systemd_block");
+        call = dlsym(dl, "_nss_systemd_block");
         if (!call)
                 /* If the file is installed but lacks the symbol we expect, things are weird, let's complain */
                 return log_debug_errno(SYNTHETIC_ERRNO(ELIBBAD),
