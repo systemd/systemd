@@ -428,7 +428,13 @@
           Defaults to <literal>no</literal>. Further settings for the DHCP server may be set in the
           [DHCPServer] section described below.</para>
 
-        <xi:include href="version-info.xml" xpointer="v215"/>
+          <para>Even if this is enabled, the DHCP server will not be started automatically. It will be
+          started after <filename>systemd-networkd-persistent-storage.service</filename> is started, which
+          calls <command>networkctl persistent-storage yes</command>. See
+          <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          for more details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
