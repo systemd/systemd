@@ -167,11 +167,8 @@ static int mount_one(const MountPoint *p, bool relabel) {
         int r, priority;
 
         assert(p);
-        assert(p->what);
-        assert(p->where);
-        assert(p->type);
 
-        priority = FLAGS_SET(p->mode, MNT_FATAL) ? LOG_ERR : LOG_DEBUG;
+        priority = (p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG;
 
         if (p->condition_fn && !p->condition_fn())
                 return 0;
@@ -183,13 +180,13 @@ static int mount_one(const MountPoint *p, bool relabel) {
         r = path_is_mount_point_full(p->where, /* root = */ NULL, AT_SYMLINK_FOLLOW);
         if (r < 0 && r != -ENOENT) {
                 log_full_errno(priority, r, "Failed to determine whether %s is a mount point: %m", p->where);
-                return FLAGS_SET(p->mode, MNT_FATAL) ? r : 0;
+                return (p->mode & MNT_FATAL) ? r : 0;
         }
         if (r > 0)
                 return 0;
 
         /* Skip securityfs in a container */
-        if (!FLAGS_SET(p->mode, MNT_IN_CONTAINER) && detect_container() > 0)
+        if (!(p->mode & MNT_IN_CONTAINER) && detect_container() > 0)
                 return 0;
 
         /* The access mode here doesn't really matter too much, since
@@ -210,35 +207,39 @@ static int mount_one(const MountPoint *p, bool relabel) {
         else
                 r = mount_nofollow_verbose(priority, p->what, p->where, p->type, p->flags, p->options);
         if (r < 0)
-                return FLAGS_SET(p->mode, MNT_FATAL) ? r : 0;
+                return (p->mode & MNT_FATAL) ? r : 0;
 
         /* Relabel again, since we now mounted something fresh here */
         if (relabel)
                 (void) label_fix(p->where, 0);
 
-        if (FLAGS_SET(p->mode, MNT_CHECK_WRITABLE))
+        if (p->mode & MNT_CHECK_WRITABLE) {
                 if (access(p->where, W_OK) < 0) {
                         r = -errno;
 
                         (void) umount2(p->where, UMOUNT_NOFOLLOW);
                         (void) rmdir(p->where);
 
-                        log_full_errno(priority, r, "Mount point '%s' not writable after mounting, undoing: %m", p->where);
-                        return FLAGS_SET(p->mode, MNT_FATAL) ? r : 0;
+                        log_full_errno(priority, r, "Mount point %s not writable after mounting, undoing: %m", p->where);
+                        return (p->mode & MNT_FATAL) ? r : 0;
                 }
+        }
 
         return 1;
 }
 
 static int mount_points_setup(size_t n, bool loaded_policy) {
-        int r = 0;
+        int ret = 0, r;
 
         assert(n <= ELEMENTSOF(mount_table));
 
-        FOREACH_ARRAY(mp, mount_table, n)
-                RET_GATHER(r, mount_one(mp, loaded_policy));
+        FOREACH_ARRAY(mp, mount_table, n) {
+                r = mount_one(mp, loaded_policy);
+                if (r != 0 && ret >= 0)
+                        ret = r;
+        }
 
-        return r;
+        return ret;
 }
 
 int mount_setup_early(void) {
