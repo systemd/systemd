@@ -20,7 +20,7 @@ typedef struct sd_dhcp_server_lease {
         be32_t address;
         be32_t gateway;
         uint8_t chaddr[16];
-        usec_t expiration;
+        triple_timestamp expiration;
         char *hostname;
 } sd_dhcp_server_lease;
 
@@ -28,7 +28,7 @@ extern const struct hash_ops dhcp_server_lease_hash_ops;
 
 int dhcp_server_put_lease(sd_dhcp_server *server, sd_dhcp_server_lease *lease, bool is_static);
 
-int dhcp_server_set_lease(sd_dhcp_server *server, be32_t address, DHCPRequest *req, usec_t expiration);
+int dhcp_server_set_lease(sd_dhcp_server *server, be32_t address, DHCPRequest *req, usec_t expiration_boottime);
 int dhcp_server_cleanup_expired_leases(sd_dhcp_server *server);
 
 sd_dhcp_server_lease* dhcp_server_get_static_lease(sd_dhcp_server *server, const DHCPRequest *req);
