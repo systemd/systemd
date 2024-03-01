@@ -4364,24 +4364,22 @@ static void service_notify_message(
                 char * const *tags,
                 FDSet *fds) {
 
-        Service *s = SERVICE(u);
-        bool notify_dbus = false;
-        usec_t monotonic_usec = USEC_INFINITY;
-        const char *e;
+        Service *s = ASSERT_PTR(SERVICE(u));
         int r;
 
-        assert(u);
         assert(ucred);
 
         if (!service_notify_message_authorized(s, ucred->pid, fds))
                 return;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *cc = NULL;
-
-                cc = strv_join(tags, ", ");
+                _cleanup_free_ char *cc = strv_join(tags, ", ");
                 log_unit_debug(u, "Got notification message from PID "PID_FMT" (%s)", ucred->pid, empty_to_na(cc));
         }
+
+        usec_t monotonic_usec = USEC_INFINITY;
+        bool notify_dbus = false;
+        const char *e;
 
         /* Interpret MAINPID= */
         e = strv_find_startswith(tags, "MAINPID=");
