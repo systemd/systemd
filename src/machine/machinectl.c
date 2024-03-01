@@ -767,21 +767,16 @@ static int print_image_hostname(sd_bus *bus, const char *name) {
 
 static int print_image_machine_id(sd_bus *bus, const char *name) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        sd_id128_t id = SD_ID128_NULL;
-        const void *p;
-        size_t size;
+        sd_id128_t id;
         int r;
 
         r = bus_call_method(bus, bus_machine_mgr, "GetImageMachineID", NULL, &reply, "s", name);
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read_array(reply, 'y', &p, &size);
+        r = bus_message_read_id128(reply, &id);
         if (r < 0)
                 return r;
-
-        if (size == sizeof(sd_id128_t))
-                memcpy(&id, p, size);
 
         if (!sd_id128_is_null(id))
                 printf("      Machine ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(id));
