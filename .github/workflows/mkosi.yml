@@ -78,6 +78,11 @@ jobs:
     - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
     - uses: systemd/mkosi@070528fec478fc93af7ec057a5d2fd0045123c99
 
+    - name: Free disk space
+      run: |
+        sudo rm -rf /usr/local
+        sudo rm -rf /opt/hostedtoolcache
+
     - name: Configure
       run: |
         tee mkosi.local.conf <<EOF
