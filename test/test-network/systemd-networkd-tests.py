@@ -378,6 +378,9 @@ def setup_systemd_udev_rules():
                 continue
             cp(os.path.join(path, rule), udev_rules_dir)
 
+def clear_networkd_state_files():
+    rm_rf('/var/lib/systemd/network/')
+
 def copy_udev_rule(*rules):
     """Copy udev rules"""
     mkdir_p(udev_rules_dir)
@@ -412,11 +415,12 @@ def create_unit_dropin(unit, contents):
         f.write('\n'.join(contents))
 
 def create_service_dropin(service, command, additional_settings=None):
-    drop_in = [
-        '[Service]',
-        'ExecStart=',
-        f'ExecStart=!!{valgrind_cmd}{command}',
-    ]
+    drop_in = ['[Service]']
+    if command:
+        drop_in += [
+            'ExecStart=',
+            f'ExecStart=!!{valgrind_cmd}{command}',
+        ]
     if enable_debug:
         drop_in += ['Environment=SYSTEMD_LOG_LEVEL=debug']
     if asan_options:
@@ -451,6 +455,7 @@ def setup_system_units():
         for unit in [
                 'systemd-networkd.service',
                 'systemd-networkd.socket',
+                'systemd-networkd-persistent-storage.service',
                 'systemd-resolved.service',
                 'systemd-timesyncd.service',
                 'systemd-udevd.service',
@@ -487,9 +492,22 @@ def setup_system_units():
             'StartLimitIntervalSec=0',
         ]
     )
+    create_unit_dropin(
+        'systemd-networkd-persistent-storage.service',
+        [
+            '[Unit]',
+            'StartLimitIntervalSec=0',
+            '[Service]',
+            'ExecStart=',
+            f'ExecStart={networkctl_bin} persistent-storage yes',
+            'ExecStop=',
+            f'ExecStop={networkctl_bin} persistent-storage no'
+        ]
+    )
 
     check_output('systemctl daemon-reload')
     print(check_output('systemctl cat systemd-networkd.service'))
+    print(check_output('systemctl cat systemd-networkd-persistent-storage.service'))
     print(check_output('systemctl cat systemd-resolved.service'))
     print(check_output('systemctl cat systemd-timesyncd.service'))
     print(check_output('systemctl cat systemd-udevd.service'))
@@ -504,6 +522,7 @@ def clear_system_units():
 
     rm_unit('systemd-networkd.service')
     rm_unit('systemd-networkd.socket')
+    rm_unit('systemd-networkd-persistent-storage.service')
     rm_unit('systemd-resolved.service')
     rm_unit('systemd-timesyncd.service')
     rm_unit('systemd-udevd.service')
@@ -896,6 +915,7 @@ def tear_down_common():
     # 6. remove configs
     clear_network_units()
     clear_networkd_conf_dropins()
+    clear_networkd_state_files()
 
     # 7. flush settings
     flush_fou_ports()
@@ -909,6 +929,7 @@ def setUpModule():
 
     clear_network_units()
     clear_networkd_conf_dropins()
+    clear_networkd_state_files()
     clear_udev_rules()
 
     setup_systemd_udev_rules()
@@ -928,6 +949,7 @@ def tearDownModule():
     clear_udev_rules()
     clear_network_units()
     clear_networkd_conf_dropins()
+    clear_networkd_state_files()
 
     restore_timezone()
 
