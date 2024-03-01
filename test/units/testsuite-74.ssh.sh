@@ -24,8 +24,6 @@ if [[ -v ASAN_OPTIONS ]] ; then
 fi
 
 ROOTID=$(mktemp -u)
-# Needed on Ubuntu/Debian as we copy binaries manually
-mkdir -p /run/sshd
 
 removesshid() {
     rm -f "$ROOTID" "$ROOTID".pub
@@ -49,7 +47,7 @@ echo "LogLevel DEBUG3" >> /etc/ssh/sshd_config
 test -f /etc/ssh/ssh_config || echo 'Include /etc/ssh/ssh_config.d/*.conf' > /etc/ssh/ssh_config
 
 # ssh wants this dir around, but distros cannot agree on a common name for it, let's just create all that are aware of distros use
-mkdir -p /usr/share/empty.sshd /var/empty /var/empty/sshd
+mkdir -p /usr/share/empty.sshd /var/empty /var/empty/sshd /run/sshd
 
 ssh -o StrictHostKeyChecking=no -v -i "$ROOTID" .host cat /etc/machine-id | cmp - /etc/machine-id
 ssh -o StrictHostKeyChecking=no -v -i "$ROOTID" unix/run/ssh-unix-local/socket cat /etc/machine-id | cmp - /etc/machine-id
