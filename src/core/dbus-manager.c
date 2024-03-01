@@ -570,23 +570,14 @@ static int method_get_unit_by_invocation_id(sd_bus_message *message, void *userd
         _cleanup_free_ char *path = NULL;
         Manager *m = ASSERT_PTR(userdata);
         sd_id128_t id;
-        const void *a;
         Unit *u;
-        size_t sz;
         int r;
 
         assert(message);
 
         /* Anyone can call this method */
 
-        r = sd_bus_message_read_array(message, 'y', &a, &sz);
-        if (r < 0)
-                return r;
-        if (sz == 0)
-                id = SD_ID128_NULL;
-        else if (sz == 16)
-                memcpy(&id, a, sz);
-        else
+        if (bus_message_read_id128(message, &id) < 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid invocation ID");
 
         if (sd_id128_is_null(id)) {
