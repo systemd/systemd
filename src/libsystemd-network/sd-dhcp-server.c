@@ -958,18 +958,18 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
 }
 
 static int server_ack_request(sd_dhcp_server *server, DHCPRequest *req, be32_t address) {
-        usec_t expiration;
+        usec_t expiration_boottime;
         int r;
 
         assert(server);
         assert(req);
         assert(address != 0);
 
-        r = request_get_lifetime_timestamp(req, CLOCK_BOOTTIME, &expiration);
+        r = request_get_lifetime_timestamp(req, CLOCK_BOOTTIME, &expiration_boottime);
         if (r < 0)
                 return r;
 
-        r = dhcp_server_set_lease(server, address, req, expiration);
+        r = dhcp_server_set_lease(server, address, req, expiration_boottime);
         if (r < 0)
                 return log_dhcp_server_errno(server, r, "Failed to create new lease: %m");
 
