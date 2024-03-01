@@ -5,6 +5,7 @@
 #include "bus-polkit.h"
 #include "fs-util.h"
 #include "lldp-rx-internal.h"
+#include "networkd-dhcp-server.h"
 #include "networkd-manager-varlink.h"
 #include "stat-util.h"
 #include "user-util.h"
@@ -212,6 +213,8 @@ static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *paramet
                 if (unlink("/run/systemd/netif/persistent-storage-ready") < 0 && errno != ENOENT)
                         log_debug_errno(errno, "Failed to remove /run/systemd/netif/persistent-storage-ready, ignoring: %m");
         }
+
+        manager_toggle_dhcp4_server_state(manager, ready);
 
         return varlink_reply(vlink, NULL);
 }
