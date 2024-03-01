@@ -9,20 +9,11 @@
 #if HAVE_XKBCOMMON
 static void *xkbcommon_dl = NULL;
 
-struct xkb_context* (*sym_xkb_context_new)(enum xkb_context_flags flags);
-void (*sym_xkb_context_unref)(struct xkb_context *context);
-void (*sym_xkb_context_set_log_fn)(
-                struct xkb_context *context,
-                void (*log_fn)(
-                        struct xkb_context *context,
-                        enum xkb_log_level level,
-                        const char *format,
-                        va_list args));
-struct xkb_keymap* (*sym_xkb_keymap_new_from_names)(
-                struct xkb_context *context,
-                const struct xkb_rule_names *names,
-                enum xkb_keymap_compile_flags flags);
-void (*sym_xkb_keymap_unref)(struct xkb_keymap *keymap);
+DLSYM_FUNCTION(xkb_context_new);
+DLSYM_FUNCTION(xkb_context_unref);
+DLSYM_FUNCTION(xkb_context_set_log_fn);
+DLSYM_FUNCTION(xkb_keymap_new_from_names);
+DLSYM_FUNCTION(xkb_keymap_unref);
 
 static int dlopen_xkbcommon(void) {
         return dlopen_many_sym_or_warn(
