@@ -428,7 +428,13 @@
           Defaults to <literal>no</literal>. Further settings for the DHCP server may be set in the
           [DHCPServer] section described below.</para>
 
-        <xi:include href="version-info.xml" xpointer="v215"/>
+          <para>Even if this is enabled, the DHCP server will not be started automatically. It will be
+          started after <filename>systemd-networkd-persistent-storage.service</filename> is started, which
+          calls <command>networkctl persistent-storage yes</command>. See
+          <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          for more details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -3183,6 +3189,16 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
 
     <variablelist class='network-directives'>
       <varlistentry>
+        <term><varname>UseRedirect=</varname></term>
+        <listitem>
+          <para>When true (the default), Redirect message sent by the current first-hop router will be
+          accepted, and configures routes to redirected nodes will be configured.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Token=</varname></term>
         <listitem>
           <para>Specifies an optional address generation mode for the Stateless Address
@@ -3959,6 +3975,18 @@ ServerAddress=192.168.0.1/24</programlisting>
         Defaults to 1800 seconds (30 minutes).</para>
 
         <xi:include href="version-info.xml" xpointer="v235"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ReachableTimeSec=</varname></term>
+
+        <listitem>
+          <para>Configures the reachable time, used by by the Neighbor Unreachability Detection algorithm
+          that clients assume a neighbor is reachable after having received a reachability confirmation.
+          Takes a timespan in the range 0…4294967295 msec. Defaults to 0.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
 

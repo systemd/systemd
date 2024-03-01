@@ -617,6 +617,11 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   `nftables`. Selects the firewall backend to use. If not specified tries to
   use `nftables` and falls back to `iptables` if that's not available.
 
+`systemd-networkd`:
+
+* `$SYSTEMD_NETWORK_PERSISTENT_STORAGE_IS_READY` – takes a boolean. If enabled,
+  systemd-networkd will assume that the persistent storage is ready.
+
 `systemd-storagetm`:
 
 * `$SYSTEMD_NVME_MODEL`, `$SYSTEMD_NVME_FIRMWARE`, `$SYSTEMD_NVME_SERIAL`,
