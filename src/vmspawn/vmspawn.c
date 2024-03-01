@@ -1190,6 +1190,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (!cmdline)
                 return log_oom();
 
+        if (!sd_id128_is_null(arg_uuid))
+                if (strv_extend_many(&cmdline, "-uuid", SD_ID128_TO_UUID_STRING(arg_uuid)) < 0)
+                        return log_oom();
+
         /* if we are going to be starting any units with state then create our runtime dir */
         if (arg_tpm != 0 || arg_directory || arg_runtime_mounts.n_mounts != 0) {
                 r = runtime_directory(&arg_runtime_directory, arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER, "systemd/vmspawn");
