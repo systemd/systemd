@@ -219,10 +219,19 @@ static int dhcp_server_lease_append_json(sd_dhcp_server_lease *lease, JsonVarian
 int dhcp_server_bound_leases_append_json(sd_dhcp_server *server, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
         sd_dhcp_server_lease *lease;
+        usec_t now_b, now_r;
         int r;
 
         assert(server);
         assert(v);
+
+        r = sd_event_now(server->event, CLOCK_BOOTTIME, &now_b);
+        if (r < 0)
+                return r;
+
+        r = sd_event_now(server->event, CLOCK_REALTIME, &now_r);
+        if (r < 0)
+                return r;
 
         HASHMAP_FOREACH(lease, server->bound_leases_by_client_id) {
                 _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
@@ -231,9 +240,12 @@ int dhcp_server_bound_leases_append_json(sd_dhcp_server *server, JsonVariant **v
                 if (r < 0)
                         return r;
 
+                usec_t exp_r = map_clock_usec_internal(lease->expiration, now_b, now_r);
+
                 r = json_variant_merge_objectb(&w,
                                  JSON_BUILD_OBJECT(
-                                         JSON_BUILD_PAIR_FINITE_USEC("ExpirationUSec", lease->expiration)));
+                                         JSON_BUILD_PAIR_FINITE_USEC("ExpirationUSec", lease->expiration),
+                                         JSON_BUILD_PAIR_FINITE_USEC("ExpirationRealtimeUSec", exp_r)));
                 if (r < 0)
                         return r;
 
