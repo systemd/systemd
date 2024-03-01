@@ -604,7 +604,7 @@ static int run(int argc, char *argv[]) {
                 else
                         log_info("Froze user sessions");
         } else
-                log_notice("User sessions remain unfrozen on explicit request via environment variable. This is not recommended and might create deadlocks, security leaks, data loss, and other undesired behavior; especially if home directory encryption or hybrid sleep is used.");
+                log_notice("User sessions remain unfrozen due to explicit request via environment variable. This configuration can lead to undesired behavior.");
 
         switch (arg_operation) {
 

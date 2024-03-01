@@ -1831,6 +1831,8 @@ static int user_session_freezer(uid_t uid, bool freeze_now, UnitFreezer *ret) {
         if (r < 0 && r != -ENXIO)
                 log_warning_errno(r, "Cannot parse value of $SYSTEMD_HOME_LOCK_FREEZE_SESSION, ignoring.");
         else if (r == 0) {
+                if (freeze_now)
+                        log_notice("Session remains unfrozen due to explicit request via environment variable. This configuration can lead to undesired behavior, including data loss!");
                 *ret = (UnitFreezer) {};
                 return 0;
         }
