@@ -39,6 +39,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "user-util.h"
+#include "utf8.h"
 #include "varlink-io.systemd.Hostname.h"
 #include "virt.h"
 
@@ -283,13 +284,32 @@ static int get_hardware_firmware_data(const char *sysattr, char **ret) {
 }
 
 static int get_hardware_serial(char **ret) {
-         int r;
+        _cleanup_free_ char *b = NULL;
+        int r = 0;
 
-         r = get_hardware_firmware_data("product_serial", ret);
-         if (r <= 0)
-                return get_hardware_firmware_data("board_serial", ret);
+        FOREACH_STRING(attr, "product_serial", "board_serial") {
+                r = get_hardware_firmware_data(attr, &b);
+                if (r != 0 && !ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                        break;
+        }
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOENT;
 
-         return r;
+        /* Do some superficial validation: do not allow CCs and make sure D-Bus won't kick us off the bus
+         * because we send invalid UTF-8 data */
+
+        if (string_has_cc(b, /* ok= */ NULL))
+                return -ENOENT;
+
+        if (!utf8_is_valid(b))
+                return -ENOENT;
+
+        if (ret)
+                *ret = TAKE_PTR(b);
+
+        return 0;
 }
 
 static int get_firmware_version(char **ret) {
