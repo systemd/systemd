@@ -41,7 +41,7 @@ DLSYM_PROTOTYPE(crypt_keyslot_destroy);
 DLSYM_PROTOTYPE(crypt_keyslot_max);
 DLSYM_PROTOTYPE(crypt_load);
 DLSYM_PROTOTYPE(crypt_resize);
-DLSYM_PROTOTYPE(crypt_resume_by_passphrase);
+DLSYM_PROTOTYPE(crypt_resume_by_volume_key);
 DLSYM_PROTOTYPE(crypt_set_data_device);
 DLSYM_PROTOTYPE(crypt_set_debug_level);
 DLSYM_PROTOTYPE(crypt_set_log_callback);
