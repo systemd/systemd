@@ -917,6 +917,10 @@ DNS=192.168.5.1
 {dhopts}
 EOF
 
+# For the networkd instance invoked below cannot support varlink connection.
+# Hence, 'networkctl persistent-storage yes' cannot be used.
+export SYSTEMD_NETWORK_PERSISTENT_STORAGE_IS_READY=1
+
 # run networkd as in systemd-networkd.service
 exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ {{ s/^.*=//; s/^[@+-]//; s/^!*//; p}}')
 '''.format(ifr=self.if_router,
