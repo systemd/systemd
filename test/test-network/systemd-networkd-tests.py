@@ -444,6 +444,72 @@ def create_service_dropin(service, command, additional_settings=None):
 
     create_unit_dropin(f'{service}.service', drop_in)
 
+def setup_system_units():
+    if build_dir:
+        mkdir_p('/run/systemd/system/')
+
+        for unit in [
+                'systemd-networkd.service',
+                'systemd-networkd.socket',
+                'systemd-resolved.service',
+                'systemd-timesyncd.service',
+                'systemd-udevd.service',
+        ]:
+            for path in [build_dir, source_dir]:
+                fullpath = os.path.join(os.path.join(path, "units"), unit)
+                if os.path.exists(fullpath):
+                    print(f"Copying unit file from {fullpath} to /run/systemd/system/")
+                    cp(fullpath, '/run/systemd/system/')
+                    break
+
+    create_service_dropin('systemd-networkd', networkd_bin,
+                          ['[Service]',
+                           'Restart=no',
+                           'Environment=SYSTEMD_NETWORK_TEST_MODE=yes',
+                           '[Unit]',
+                           'StartLimitIntervalSec=0'])
+    create_service_dropin('systemd-resolved', resolved_bin)
+    create_service_dropin('systemd-timesyncd', timesyncd_bin)
+
+    # TODO: also run udevd with sanitizers, valgrind, or coverage
+    create_unit_dropin(
+        'systemd-udevd.service',
+        [
+            '[Service]',
+            'ExecStart=',
+            f'ExecStart=!!@{udevadm_bin} systemd-udevd',
+        ]
+    )
+    create_unit_dropin(
+        'systemd-networkd.socket',
+        [
+            '[Unit]',
+            'StartLimitIntervalSec=0',
+        ]
+    )
+
+    check_output('systemctl daemon-reload')
+    print(check_output('systemctl cat systemd-networkd.service'))
+    print(check_output('systemctl cat systemd-resolved.service'))
+    print(check_output('systemctl cat systemd-timesyncd.service'))
+    print(check_output('systemctl cat systemd-udevd.service'))
+    check_output('systemctl restart systemd-resolved.service')
+    check_output('systemctl restart systemd-timesyncd.service')
+    check_output('systemctl restart systemd-udevd.service')
+
+def clear_system_units():
+    def rm_unit(name):
+        rm_f(f'/run/systemd/system/{name}')
+        rm_rf(f'/run/systemd/system/{name}.d')
+
+    rm_unit('systemd-networkd.service')
+    rm_unit('systemd-networkd.socket')
+    rm_unit('systemd-resolved.service')
+    rm_unit('systemd-timesyncd.service')
+    rm_unit('systemd-udevd.service')
+    check_output('systemctl daemon-reload')
+    check_output('systemctl restart systemd-udevd.service')
+
 def link_exists(link):
     return call_quiet(f'ip link show {link}') == 0
 
@@ -855,40 +921,7 @@ def setUpModule():
     save_routing_policy_rules()
     save_timezone()
 
-    create_service_dropin('systemd-networkd', networkd_bin,
-                          ['[Service]',
-                           'Restart=no',
-                           'Environment=SYSTEMD_NETWORK_TEST_MODE=yes',
-                           '[Unit]',
-                           'StartLimitIntervalSec=0'])
-    create_service_dropin('systemd-resolved', resolved_bin)
-    create_service_dropin('systemd-timesyncd', timesyncd_bin)
-
-    # TODO: also run udevd with sanitizers, valgrind, or coverage
-    create_unit_dropin(
-        'systemd-udevd.service',
-        [
-            '[Service]',
-            'ExecStart=',
-            f'ExecStart=!!@{udevadm_bin} systemd-udevd',
-        ]
-    )
-    create_unit_dropin(
-        'systemd-networkd.socket',
-        [
-            '[Unit]',
-            'StartLimitIntervalSec=0',
-        ]
-    )
-
-    check_output('systemctl daemon-reload')
-    print(check_output('systemctl cat systemd-networkd.service'))
-    print(check_output('systemctl cat systemd-resolved.service'))
-    print(check_output('systemctl cat systemd-timesyncd.service'))
-    print(check_output('systemctl cat systemd-udevd.service'))
-    check_output('systemctl restart systemd-resolved.service')
-    check_output('systemctl restart systemd-timesyncd.service')
-    check_output('systemctl restart systemd-udevd.service')
+    setup_system_units()
 
 def tearDownModule():
     rm_rf(networkd_ci_temp_dir)
@@ -898,13 +931,7 @@ def tearDownModule():
 
     restore_timezone()
 
-    rm_rf('/run/systemd/system/systemd-networkd.service.d')
-    rm_rf('/run/systemd/system/systemd-networkd.socket.d')
-    rm_rf('/run/systemd/system/systemd-resolved.service.d')
-    rm_rf('/run/systemd/system/systemd-timesyncd.service.d')
-    rm_rf('/run/systemd/system/systemd-udevd.service.d')
-    check_output('systemctl daemon-reload')
-    check_output('systemctl restart systemd-udevd.service')
+    clear_system_units()
     restore_active_units()
 
 class Utilities():
