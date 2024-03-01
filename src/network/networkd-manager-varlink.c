@@ -2,8 +2,10 @@
 
 #include <unistd.h>
 
+#include "bus-polkit.h"
 #include "lldp-rx-internal.h"
 #include "networkd-manager-varlink.h"
+#include "user-util.h"
 #include "varlink.h"
 #include "varlink-io.systemd.Network.h"
 
@@ -164,6 +166,37 @@ static int vl_method_get_lldp_neighbors(Varlink *vlink, JsonVariant *parameters,
                                 JSON_BUILD_PAIR_CONDITION(!json_variant_is_blank_array(array), "Neighbors", JSON_BUILD_VARIANT(array))));
 }
 
+static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                { "Ready", JSON_VARIANT_BOOLEAN, json_dispatch_boolean, 0, 0 },
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        bool ready;
+        int r;
+
+        assert(vlink);
+
+        r = varlink_dispatch(vlink, parameters, dispatch_table, &ready);
+        if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                                vlink,
+                                manager->bus,
+                                "io.systemd.Network.SetPersistentStorage",
+                                /* details= */ NULL,
+                                /* good_user= */ UID_INVALID,
+                                &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        manager->persistent_storage_is_ready = ready;
+
+        return varlink_reply(vlink, NULL);
+}
+
 int manager_connect_varlink(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         int r;
@@ -187,7 +220,8 @@ int manager_connect_varlink(Manager *m) {
                         s,
                         "io.systemd.Network.GetStates", vl_method_get_states,
                         "io.systemd.Network.GetNamespaceId", vl_method_get_namespace_id,
-                        "io.systemd.Network.GetLLDPNeighbors", vl_method_get_lldp_neighbors);
+                        "io.systemd.Network.GetLLDPNeighbors", vl_method_get_lldp_neighbors,
+                        "io.systemd.Network.SetPersistentStorage", vl_method_set_persistent_storage);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
