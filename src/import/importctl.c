@@ -701,7 +701,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         pager_open(arg_pager_flags);
 
         bool ex;
-        r = bus_call_method(bus, bus_import_mgr, "ListTransfersEx", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_import_mgr, "ListTransfersEx", &error, &reply, "st", image_class_to_string(arg_image_class), UINT64_C(0));
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
                         sd_bus_error_free(&error);
@@ -740,6 +740,10 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
                         return bus_log_parse_error(r);
                 if (r == 0)
                         break;
+
+                /* Ideally we use server-side filtering. But if the server can't do it, we need to do it client side */
+                if (arg_image_class >= 0 && image_class_from_string(class) != arg_image_class)
+                        continue;
 
                 r = table_add_many(
                                 t,
