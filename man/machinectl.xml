@@ -888,7 +888,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-V</option></term>
         <term><option>--runner=</option><option>nspawn</option>|<option>vmspawn</option></term>
 
         <listitem><para>When operating on machines choose whether to use
@@ -900,7 +899,13 @@
         is used.
         </para>
 
-        <para><option>-V</option> is a shorthand for <option>--runner=vmspawn</option>.</para>
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-V</option></term>
+
+        <listitem><para><option>-V</option> is a shorthand for <option>--runner=vmspawn</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
