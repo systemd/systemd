@@ -270,6 +270,16 @@ struct DnsResourceRecord {
 
                         uint8_t flags;
                 } caa;
+
+                /* https://datatracker.ietf.org/doc/html/rfc2915 */
+                struct {
+                        uint16_t order;
+                        uint16_t preference;
+                        char *flags;
+                        char *services;
+                        char *regexp;
+                        char *replacement;
+                } naptr;
         };
 
         /* Note: fields should be ordered to minimize alignment gaps. Use pahole! */
