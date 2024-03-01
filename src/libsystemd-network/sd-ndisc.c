@@ -96,6 +96,18 @@ int sd_ndisc_get_ifname(sd_ndisc *nd, const char **ret) {
         return 0;
 }
 
+int sd_ndisc_set_link_local_address(sd_ndisc *nd, const struct in6_addr *addr) {
+        assert_return(nd, -EINVAL);
+        assert_return(!addr || in6_addr_is_link_local(addr), -EINVAL);
+
+        if (addr)
+                nd->link_local_addr = *addr;
+        else
+                zero(nd->link_local_addr);
+
+        return 0;
+}
+
 int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
         assert_return(nd, -EINVAL);
 
@@ -186,11 +198,16 @@ int sd_ndisc_new(sd_ndisc **ret) {
         return 0;
 }
 
-static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
+static int ndisc_handle_router(sd_ndisc *nd, ICMP6Packet *packet) {
+        _cleanup_(sd_ndisc_router_unrefp) sd_ndisc_router *rt = NULL;
         int r;
 
         assert(nd);
-        assert(rt);
+        assert(packet);
+
+        rt = ndisc_router_new(packet);
+        if (!rt)
+                return -ENOMEM;
 
         r = ndisc_router_parse(nd, rt);
         if (r < 0)
@@ -208,56 +225,46 @@ static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
 }
 
 static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(sd_ndisc_router_unrefp) sd_ndisc_router *rt = NULL;
+        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
         sd_ndisc *nd = ASSERT_PTR(userdata);
-        ssize_t buflen;
         int r;
 
         assert(s);
         assert(nd->event);
 
-        buflen = next_datagram_size_fd(fd);
-        if (ERRNO_IS_NEG_TRANSIENT(buflen) || ERRNO_IS_NEG_DISCONNECT(buflen))
-                return 0;
-        if (buflen < 0) {
-                log_ndisc_errno(nd, buflen, "Failed to determine datagram size to read, ignoring: %m");
+        r = icmp6_packet_receive(fd, &packet);
+        if (r < 0) {
+                log_ndisc_errno(nd, r, "Failed to receive ICMPv6 packet, ignoring: %m");
                 return 0;
         }
 
-        rt = ndisc_router_new(buflen);
-        if (!rt)
-                return -ENOMEM;
-
-        r = icmp6_receive(fd, NDISC_ROUTER_RAW(rt), rt->raw_size, &rt->address, &rt->timestamp);
-        if (ERRNO_IS_NEG_TRANSIENT(r) || ERRNO_IS_NEG_DISCONNECT(r))
-                return 0;
-        if (r < 0)
-                switch (r) {
-                case -EADDRNOTAVAIL:
-                        log_ndisc(nd, "Received an ICMPv6 packet from neither link-local nor null address, ignoring.");
-                        return 0;
-
-                case -EMULTIHOP:
-                        log_ndisc(nd, "Received an ICMPv6 packet with an invalid hop limit, ignoring.");
-                        return 0;
-
-                case -EPFNOSUPPORT:
-                        log_ndisc(nd, "Received an ICMPv6 packet with an invalid source address, ignoring.");
-                        return 0;
-
-                default:
-                        log_ndisc_errno(nd, r, "Unexpected error while receiving an ICMPv6 packet, ignoring: %m");
-                        return 0;
-                }
-
         /* The function icmp6_receive() accepts the null source address, but RFC 4861 Section 6.1.2 states
          * that hosts MUST discard messages with the null source address. */
-        if (in6_addr_is_null(&rt->address)) {
+        if (in6_addr_is_null(&packet->sender_address)) {
                 log_ndisc(nd, "Received an ICMPv6 packet from null address, ignoring.");
                 return 0;
         }
 
-        (void) ndisc_handle_datagram(nd, rt);
+        if (in6_addr_equal(&packet->sender_address, &nd->link_local_addr)) {
+                log_ndisc(nd, "Received an ICMPv6 packet sent by the same interface, ignoring.");
+                return 0;
+        }
+
+        r = icmp6_packet_get_type(packet);
+        if (r < 0) {
+                log_ndisc_errno(nd, r, "Received an invalid ICMPv6 packet, ignoring: %m");
+                return 0;
+        }
+
+        switch (r) {
+        case ND_ROUTER_ADVERT:
+                (void) ndisc_handle_router(nd, packet);
+                break;
+
+        default:
+                log_ndisc(nd, "Received an ICMPv6 packet with unexpected type %i, ignoring.", r);
+        }
+
         return 0;
 }
 
