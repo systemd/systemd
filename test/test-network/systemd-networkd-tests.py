@@ -51,18 +51,17 @@ radvd_pid_file = '/run/networkd-ci/test-radvd.pid'
 
 systemd_lib_paths = ['/usr/lib/systemd', '/lib/systemd']
 which_paths = ':'.join(systemd_lib_paths + os.getenv('PATH', os.defpath).lstrip(':').split(':'))
-systemd_source_dir = None
 
 networkd_bin = shutil.which('systemd-networkd', path=which_paths)
 resolved_bin = shutil.which('systemd-resolved', path=which_paths)
 timesyncd_bin = shutil.which('systemd-timesyncd', path=which_paths)
-udevd_bin = shutil.which('systemd-udevd', path=which_paths)
 wait_online_bin = shutil.which('systemd-networkd-wait-online', path=which_paths)
 networkctl_bin = shutil.which('networkctl', path=which_paths)
 resolvectl_bin = shutil.which('resolvectl', path=which_paths)
 timedatectl_bin = shutil.which('timedatectl', path=which_paths)
 udevadm_bin = shutil.which('udevadm', path=which_paths)
-systemd_udev_rules_build_dir = None
+build_dir = None
+source_dir = None
 
 use_valgrind = False
 valgrind_cmd = ''
@@ -365,12 +364,13 @@ def clear_networkd_conf_dropins():
     rm_rf(networkd_conf_dropin_dir)
 
 def setup_systemd_udev_rules():
-    if not systemd_udev_rules_build_dir:
+    if not build_dir:
         return
 
     mkdir_p(udev_rules_dir)
 
-    for path in [systemd_udev_rules_build_dir, os.path.join(systemd_source_dir, "rules.d")]:
+    for path in [build_dir, source_dir]:
+        path = os.path.join(path, "rules.d")
         print(f"Copying udev rules from {path} to {udev_rules_dir}")
 
         for rule in os.listdir(path):
@@ -865,14 +865,12 @@ def setUpModule():
     create_service_dropin('systemd-timesyncd', timesyncd_bin)
 
     # TODO: also run udevd with sanitizers, valgrind, or coverage
-    #create_service_dropin('systemd-udevd', udevd_bin,
-    #                      f'{udevadm_bin} control --reload --timeout 0')
     create_unit_dropin(
         'systemd-udevd.service',
         [
             '[Service]',
             'ExecStart=',
-            f'ExecStart=!!@{udevd_bin} systemd-udevd',
+            f'ExecStart=!!@{udevadm_bin} systemd-udevd',
         ]
     )
     create_unit_dropin(
@@ -7467,15 +7465,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--build-dir', help='Path to build dir', dest='build_dir')
     parser.add_argument('--source-dir', help='Path to source dir/git tree', dest='source_dir')
-    parser.add_argument('--networkd', help='Path to systemd-networkd', dest='networkd_bin')
-    parser.add_argument('--resolved', help='Path to systemd-resolved', dest='resolved_bin')
-    parser.add_argument('--timesyncd', help='Path to systemd-timesyncd', dest='timesyncd_bin')
-    parser.add_argument('--udevd', help='Path to systemd-udevd', dest='udevd_bin')
-    parser.add_argument('--wait-online', help='Path to systemd-networkd-wait-online', dest='wait_online_bin')
-    parser.add_argument('--networkctl', help='Path to networkctl', dest='networkctl_bin')
-    parser.add_argument('--resolvectl', help='Path to resolvectl', dest='resolvectl_bin')
-    parser.add_argument('--timedatectl', help='Path to timedatectl', dest='timedatectl_bin')
-    parser.add_argument('--udevadm', help='Path to udevadm', dest='udevadm_bin')
     parser.add_argument('--valgrind', help='Enable valgrind', dest='use_valgrind', type=bool, nargs='?', const=True, default=use_valgrind)
     parser.add_argument('--debug', help='Generate debugging logs', dest='enable_debug', type=bool, nargs='?', const=True, default=enable_debug)
     parser.add_argument('--asan-options', help='ASAN options', dest='asan_options')
@@ -7485,45 +7474,22 @@ if __name__ == '__main__':
     ns, unknown_args = parser.parse_known_args(namespace=unittest)
 
     if ns.build_dir:
-        if ns.networkd_bin or ns.resolved_bin or ns.timesyncd_bin or ns.udevd_bin or \
-           ns.wait_online_bin or ns.networkctl_bin or ns.resolvectl_bin or ns.timedatectl_bin or ns.udevadm_bin:
-            print('WARNING: --networkd, --resolved, --timesyncd, --udevd, --wait-online, --networkctl, --resolvectl, --timedatectl, or --udevadm options are ignored when --build-dir is specified.')
         networkd_bin = os.path.join(ns.build_dir, 'systemd-networkd')
         resolved_bin = os.path.join(ns.build_dir, 'systemd-resolved')
         timesyncd_bin = os.path.join(ns.build_dir, 'systemd-timesyncd')
-        udevd_bin = os.path.join(ns.build_dir, 'udevadm')
         wait_online_bin = os.path.join(ns.build_dir, 'systemd-networkd-wait-online')
         networkctl_bin = os.path.join(ns.build_dir, 'networkctl')
         resolvectl_bin = os.path.join(ns.build_dir, 'resolvectl')
         timedatectl_bin = os.path.join(ns.build_dir, 'timedatectl')
         udevadm_bin = os.path.join(ns.build_dir, 'udevadm')
-        systemd_udev_rules_build_dir = os.path.join(ns.build_dir, 'rules.d')
-    else:
-        if ns.networkd_bin:
-            networkd_bin = ns.networkd_bin
-        if ns.resolved_bin:
-            resolved_bin = ns.resolved_bin
-        if ns.timesyncd_bin:
-            timesyncd_bin = ns.timesyncd_bin
-        if ns.udevd_bin:
-            udevd_bin = ns.udevd_bin
-        if ns.wait_online_bin:
-            wait_online_bin = ns.wait_online_bin
-        if ns.networkctl_bin:
-            networkctl_bin = ns.networkctl_bin
-        if ns.resolvectl_bin:
-            resolvectl_bin = ns.resolvectl_bin
-        if ns.timedatectl_bin:
-            timedatectl_bin = ns.timedatectl_bin
-        if ns.udevadm_bin:
-            udevadm_bin = ns.udevadm_bin
+        build_dir = ns.build_dir
 
     if ns.source_dir:
-        systemd_source_dir = ns.source_dir
+        source_dir = ns.source_dir
     else:
-        systemd_source_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../"))
-    if not os.path.exists(os.path.join(systemd_source_dir, "meson_options.txt")):
-        raise RuntimeError(f"{systemd_source_dir} doesn't appear to be a systemd source tree")
+        source_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../"))
+    if not os.path.exists(os.path.join(source_dir, "meson_options.txt")):
+        raise RuntimeError(f"{source_dir} doesn't appear to be a systemd source tree")
 
     use_valgrind = ns.use_valgrind
     enable_debug = ns.enable_debug
