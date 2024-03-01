@@ -28,7 +28,7 @@ jobs:
           fetch-depth: 0
 
       - name: Differential ShellCheck
-        uses: redhat-plumbers-in-action/differential-shellcheck@91e2582e40236f831458392d905578d680baa138
+        uses: redhat-plumbers-in-action/differential-shellcheck@b9df2a9417f69c056e0aeaf870abd9a2065a403e
         with:
           # exclude all `.in` files because they may contain unsupported syntax, and they have to be preprocessed first
           # TEMPORARY: exclude bash completion files, they would generate too many defects in Code scanning dashboard (600+)
