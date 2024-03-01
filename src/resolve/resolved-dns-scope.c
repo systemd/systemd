@@ -414,6 +414,7 @@ static int dns_scope_socket(
                 }
         }
 
+
         fd = socket(sa.sa.sa_family, type|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
@@ -424,7 +425,11 @@ static int dns_scope_socket(
                         return r;
         }
 
-        if (ifindex != 0) {
+        bool addr_is_nonlocal = s->link &&
+            !manager_find_link_address(s->manager, sa.sa.sa_family, sockaddr_in_addr(&sa.sa)) &&
+            in_addr_is_localhost(sa.sa.sa_family, sockaddr_in_addr(&sa.sa)) == 0;
+
+        if (addr_is_nonlocal && ifindex != 0) {
                 r = socket_set_unicast_if(fd, sa.sa.sa_family, ifindex);
                 if (r < 0)
                         return r;
@@ -461,37 +466,9 @@ static int dns_scope_socket(
         if (ret_socket_address)
                 *ret_socket_address = sa;
         else {
-                bool bound = false;
-
-                /* Let's temporarily bind the socket to the specified ifindex. The kernel currently takes
-                 * only the SO_BINDTODEVICE/SO_BINDTOINDEX ifindex into account when making routing decisions
-                 * in connect() — and not IP_UNICAST_IF. We don't really want any of the other semantics of
-                 * SO_BINDTODEVICE/SO_BINDTOINDEX, hence we immediately unbind the socket after the fact
-                 * again.
-                 *
-                 * As a special exception we don't do this if we notice that the specified IP address is on
-                 * the local host. SO_BINDTODEVICE in combination with destination addresses on the local
-                 * host result in EHOSTUNREACH, since Linux won't send the packets out of the specified
-                 * interface, but delivers them directly to the local socket. */
-                if (s->link &&
-                    !manager_find_link_address(s->manager, sa.sa.sa_family, sockaddr_in_addr(&sa.sa)) &&
-                    in_addr_is_localhost(sa.sa.sa_family, sockaddr_in_addr(&sa.sa)) == 0) {
-                        r = socket_bind_to_ifindex(fd, ifindex);
-                        if (r < 0)
-                                return r;
-
-                        bound = true;
-                }
-
                 r = connect(fd, &sa.sa, salen);
                 if (r < 0 && errno != EINPROGRESS)
                         return -errno;
-
-                if (bound) {
-                        r = socket_bind_to_ifindex(fd, 0);
-                        if (r < 0)
-                                return r;
-                }
         }
 
         return TAKE_FD(fd);
