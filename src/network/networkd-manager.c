@@ -557,6 +557,29 @@ int manager_setup(Manager *m) {
         return 0;
 }
 
+static bool persistent_storage_is_ready(void) {
+        int r;
+
+        if (access("/run/systemd/netif/persistent-storage-ready", F_OK) < 0) {
+                if (errno != ENOENT)
+                        return log_debug_errno(errno, "Failed to check if /run/systemd/netif/persistent-storage-ready exists, assuming not, ignoring: %m");
+                return false;
+        }
+
+        r = path_is_read_only_fs("/var/lib/systemd/network/");
+        if (r == 0)
+                return true;
+        if (r < 0)
+                log_debug_errno(r, "Failed to check if /var/lib/systemd/network/ is writable: %m");
+        else
+                log_debug("The directory /var/lib/systemd/network/ is read-only.");
+
+        if (unlink("/run/systemd/netif/persistent-storage-ready") < 0 && errno != ENOENT)
+                log_debug_errno(errno, "Failed to remove /run/systemd/netif/persistent-storage-ready, ignoring: %m");
+
+        return false;
+}
+
 int manager_new(Manager **ret, bool test_mode) {
         _cleanup_(manager_freep) Manager *m = NULL;
 
@@ -568,6 +591,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
                 .ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO,
                 .test_mode = test_mode,
+                .persistent_storage_is_ready = persistent_storage_is_ready(),
                 .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
                 .online_state = _LINK_ONLINE_STATE_INVALID,
                 .manage_foreign_routes = true,
