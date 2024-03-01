@@ -90,17 +90,6 @@ DEFINE_GET_TIMESTAMP(rdnss_get_lifetime);
 DEFINE_GET_TIMESTAMP(dnssl_get_lifetime);
 DEFINE_GET_TIMESTAMP(prefix64_get_lifetime);
 
-int sd_ndisc_router_get_raw(sd_ndisc_router *rt, const void **ret, size_t *ret_size) {
-        assert_return(rt, -EINVAL);
-        assert_return(ret, -EINVAL);
-        assert_return(ret_size, -EINVAL);
-
-        *ret = NDISC_ROUTER_RAW(rt);
-        *ret_size = rt->packet->raw_size;
-
-        return 0;
-}
-
 static bool pref64_option_verify(const struct nd_opt_prefix64_info *p, size_t length) {
         uint16_t lifetime_and_plc;
 

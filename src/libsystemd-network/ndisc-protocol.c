@@ -22,6 +22,7 @@ int ndisc_option_parse(
         if (p->raw_size - offset < sizeof(struct nd_opt_hdr))
                 return -EBADMSG;
 
+        assert_cc(alignof(struct nd_opt_hdr) == 1);
         const struct nd_opt_hdr *hdr = (const struct nd_opt_hdr*) (p->raw_packet + offset);
         if (hdr->nd_opt_len == 0)
                 return -EBADMSG;
