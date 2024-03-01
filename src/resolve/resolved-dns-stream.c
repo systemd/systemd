@@ -593,3 +593,44 @@ void dns_stream_detach(DnsStream *s) {
 
         dns_server_unref_stream(s->server);
 }
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                dns_stream_hash_ops,
+                void,
+                trivial_hash_func,
+                trivial_compare_func,
+                dns_stream_unref);
+
+int dns_stream_disconnect_all(Manager *m) {
+        _cleanup_(set_freep) Set *closed = NULL;
+        int r;
+
+        assert(m);
+
+        /* Terminates all TCP connections (called after system suspend for example, to speed up recovery) */
+
+        log_info("Closing all remaining TCP connections.");
+
+        bool restart;
+        do {
+                restart = false;
+
+                LIST_FOREACH(streams, s, m->dns_streams) {
+                        r = set_ensure_put(&closed, &dns_stream_hash_ops, s);
+                        if (r < 0)
+                                return log_oom();
+                        if (r > 0) {
+                                /* Haven't seen this one before. Close it. */
+                                dns_stream_ref(s);
+                                (void) dns_stream_complete(s, ECONNRESET);
+
+                                /* This might have a ripple effect, let's hence no look at the list further,
+                                 * but scan from the beginning again */
+                                restart = true;
+                                break;
+                        }
+                }
+        } while (restart);
+
+        return 0;
+}

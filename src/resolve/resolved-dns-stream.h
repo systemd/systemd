@@ -126,3 +126,4 @@ static inline bool DNS_STREAM_QUEUED(DnsStream *s) {
 }
 
 void dns_stream_detach(DnsStream *s);
+int dns_stream_disconnect_all(Manager *m);
