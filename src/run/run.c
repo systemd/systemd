@@ -1552,8 +1552,6 @@ static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret)
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *object = NULL;
-        const void *p;
-        size_t l;
         int r;
 
         assert(bus);
@@ -1576,20 +1574,11 @@ static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret)
         if (r < 0)
                 return log_error_errno(r, "Failed to request invocation ID for unit: %s", bus_error_message(&error, r));
 
-        r = sd_bus_message_read_array(reply, 'y', &p, &l);
+        r = bus_message_read_id128(reply, ret);
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (l == 0) {
-                *ret = SD_ID128_NULL;
-                return 0; /* no uuid set */
-        }
-
-        if (l != sizeof(sd_id128_t))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid UUID size, %zu != %zu.", l, sizeof(sd_id128_t));
-
-        memcpy(ret, p, l);
-        return !sd_id128_is_null(*ret);
+        return 0;
 }
 
 static void set_window_title(PTYForward *f) {
