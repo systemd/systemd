@@ -4311,14 +4311,25 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
         return 0;
 }
 
-static bool service_notify_message_authorized(Service *s, pid_t pid, FDSet *fds) {
+static void service_force_watchdog(Service *s) {
+        if (!UNIT(s)->manager->service_watchdogs)
+                return;
+
+        log_unit_error(UNIT(s), "Watchdog request (last status: %s)!",
+                       s->status_text ?: "<unset>");
+
+        service_enter_signal(s, SERVICE_STOP_WATCHDOG, SERVICE_FAILURE_WATCHDOG);
+}
+
+static bool service_notify_message_authorized(Service *s, pid_t pid) {
         assert(s);
+        assert(pid_is_valid(pid));
 
         NotifyAccess notify_access = service_get_notify_access(s);
 
         if (notify_access == NOTIFY_NONE) {
                 /* Warn level only if no notifications are expected */
-                log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception is disabled.", pid);
+                log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception is disabled", pid);
                 return false;
         }
 
@@ -4334,7 +4345,7 @@ static bool service_notify_message_authorized(Service *s, pid_t pid, FDSet *fds)
         if (notify_access == NOTIFY_EXEC && pid != s->main_pid.pid && pid != s->control_pid.pid) {
                 if (pidref_is_set(&s->main_pid) && pidref_is_set(&s->control_pid))
                         log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT" and control PID "PID_FMT,
-                                         pid, s->main_pid.pid, s->control_pid.pid);
+                                       pid, s->main_pid.pid, s->control_pid.pid);
                 else if (pidref_is_set(&s->main_pid))
                         log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid.pid);
                 else if (pidref_is_set(&s->control_pid))
@@ -4348,40 +4359,28 @@ static bool service_notify_message_authorized(Service *s, pid_t pid, FDSet *fds)
         return true;
 }
 
-static void service_force_watchdog(Service *s) {
-        if (!UNIT(s)->manager->service_watchdogs)
-                return;
-
-        log_unit_error(UNIT(s), "Watchdog request (last status: %s)!",
-                       s->status_text ?: "<unset>");
-
-        service_enter_signal(s, SERVICE_STOP_WATCHDOG, SERVICE_FAILURE_WATCHDOG);
-}
-
 static void service_notify_message(
                 Unit *u,
                 const struct ucred *ucred,
                 char * const *tags,
                 FDSet *fds) {
 
-        Service *s = SERVICE(u);
-        bool notify_dbus = false;
-        usec_t monotonic_usec = USEC_INFINITY;
-        const char *e;
+        Service *s = ASSERT_PTR(SERVICE(u));
         int r;
 
-        assert(u);
         assert(ucred);
 
-        if (!service_notify_message_authorized(s, ucred->pid, fds))
+        if (!service_notify_message_authorized(s, ucred->pid))
                 return;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *cc = NULL;
-
-                cc = strv_join(tags, ", ");
+                _cleanup_free_ char *cc = strv_join(tags, ", ");
                 log_unit_debug(u, "Got notification message from PID "PID_FMT" (%s)", ucred->pid, empty_to_na(cc));
         }
+
+        usec_t monotonic_usec = USEC_INFINITY;
+        bool notify_dbus = false;
+        const char *e;
 
         /* Interpret MAINPID= */
         e = strv_find_startswith(tags, "MAINPID=");
