@@ -381,6 +381,9 @@ def setup_systemd_udev_rules():
                 continue
             cp(os.path.join(path, rule), udev_rules_dir)
 
+def clear_networkd_state_files():
+    rm_rf('/var/lib/systemd/network/')
+
 def copy_udev_rule(*rules):
     """Copy udev rules"""
     mkdir_p(udev_rules_dir)
@@ -415,11 +418,12 @@ def create_unit_dropin(unit, contents):
         f.write('\n'.join(contents))
 
 def create_service_dropin(service, command, additional_settings=None):
-    drop_in = [
-        '[Service]',
-        'ExecStart=',
-        f'ExecStart=!!{valgrind_cmd}{command}',
-    ]
+    drop_in = ['[Service]']
+    if command:
+        drop_in += [
+            'ExecStart=',
+            f'ExecStart=!!{valgrind_cmd}{command}',
+        ]
     if enable_debug:
         drop_in += ['Environment=SYSTEMD_LOG_LEVEL=debug']
     if asan_options:
@@ -824,6 +828,7 @@ def tear_down_common():
     # 6. remove configs
     clear_network_units()
     clear_networkd_conf_dropins()
+    clear_networkd_state_files()
 
     # 7. flush settings
     flush_fou_ports()
@@ -837,6 +842,7 @@ def setUpModule():
 
     clear_network_units()
     clear_networkd_conf_dropins()
+    clear_networkd_state_files()
     clear_udev_rules()
 
     setup_systemd_udev_rules()
@@ -855,6 +861,12 @@ def setUpModule():
                            'Environment=SYSTEMD_NETWORK_TEST_MODE=yes',
                            '[Unit]',
                            'StartLimitIntervalSec=0'])
+    create_service_dropin('systemd-networkd-persistent-storage', None,
+                          ['[Service]',
+                           'ExecStart=',
+                           f'ExecStart={networkctl_bin} persistent-storage yes',
+                           'ExecStop=',
+                           f'ExecStop={networkctl_bin} persistent-storage no'])
     create_service_dropin('systemd-resolved', resolved_bin)
     create_service_dropin('systemd-timesyncd', timesyncd_bin)
 
@@ -879,6 +891,7 @@ def setUpModule():
 
     check_output('systemctl daemon-reload')
     print(check_output('systemctl cat systemd-networkd.service'))
+    print(check_output('systemctl cat systemd-networkd-persistent-storage.service'))
     print(check_output('systemctl cat systemd-resolved.service'))
     print(check_output('systemctl cat systemd-timesyncd.service'))
     print(check_output('systemctl cat systemd-udevd.service'))
@@ -891,11 +904,13 @@ def tearDownModule():
     clear_udev_rules()
     clear_network_units()
     clear_networkd_conf_dropins()
+    clear_networkd_state_files()
 
     restore_timezone()
 
     rm_rf('/run/systemd/system/systemd-networkd.service.d')
     rm_rf('/run/systemd/system/systemd-networkd.socket.d')
+    rm_rf('/run/systemd/system/systemd-networkd-persistent-storage.service.d')
     rm_rf('/run/systemd/system/systemd-resolved.service.d')
     rm_rf('/run/systemd/system/systemd-timesyncd.service.d')
     rm_rf('/run/systemd/system/systemd-udevd.service.d')
@@ -5397,6 +5412,9 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2002:da8:1:0')
 
+        self.check_ipv6_neigh_sysctl_attr('veth99', 'base_reachable_time_ms', '42000')
+        self.check_ipv6_neigh_sysctl_attr('veth99', 'retrans_time_ms', '500')
+
         self.check_netlabel('veth99', '2002:da8:1::/64')
         self.check_netlabel('veth99', '2002:da8:2::/64')
 
@@ -5643,7 +5661,23 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'NTP: 192.168.5.1\n *192.168.5.11')
 
         output = networkctl_status('veth-peer')
+        print(output)
         self.assertRegex(output, "Offered DHCP leases: 192.168.5.[0-9]*")
+
+        if 'veth-peer: DHCPv4 server: Failed to save leases, ignoring: Read-only file system' in read_networkd_log():
+            print('/var/lib/systemd/network is on a read-only filesystem, skipping the lease file tests.')
+            return
+
+        networkctl_reconfigure('veth-peer')
+        self.wait_online('veth-peer:routable')
+
+        for _ in range(10):
+            output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+            if 'Offered DHCP leases: 192.168.5.' in output:
+                break
+            time.sleep(.2)
+        else:
+            self.fail()
 
     def test_dhcp_server_null_server_address(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-null-server-address.network')
