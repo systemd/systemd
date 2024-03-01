@@ -4321,14 +4321,15 @@ static void service_force_watchdog(Service *s) {
         service_enter_signal(s, SERVICE_STOP_WATCHDOG, SERVICE_FAILURE_WATCHDOG);
 }
 
-static bool service_notify_message_authorized(Service *s, pid_t pid, FDSet *fds) {
+static bool service_notify_message_authorized(Service *s, pid_t pid) {
         assert(s);
+        assert(pid_is_valid(pid));
 
         NotifyAccess notify_access = service_get_notify_access(s);
 
         if (notify_access == NOTIFY_NONE) {
                 /* Warn level only if no notifications are expected */
-                log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception is disabled.", pid);
+                log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception is disabled", pid);
                 return false;
         }
 
@@ -4344,7 +4345,7 @@ static bool service_notify_message_authorized(Service *s, pid_t pid, FDSet *fds)
         if (notify_access == NOTIFY_EXEC && pid != s->main_pid.pid && pid != s->control_pid.pid) {
                 if (pidref_is_set(&s->main_pid) && pidref_is_set(&s->control_pid))
                         log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT" and control PID "PID_FMT,
-                                         pid, s->main_pid.pid, s->control_pid.pid);
+                                       pid, s->main_pid.pid, s->control_pid.pid);
                 else if (pidref_is_set(&s->main_pid))
                         log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid.pid);
                 else if (pidref_is_set(&s->control_pid))
@@ -4369,7 +4370,7 @@ static void service_notify_message(
 
         assert(ucred);
 
-        if (!service_notify_message_authorized(s, ucred->pid, fds))
+        if (!service_notify_message_authorized(s, ucred->pid))
                 return;
 
         if (DEBUG_LOGGING) {
