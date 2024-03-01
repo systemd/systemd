@@ -249,7 +249,6 @@ static int get_hardware_model(char **ret) {
 
 static int get_hardware_firmware_data(const char *sysattr, char **ret) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        _cleanup_free_ char *b = NULL;
         const char *s = NULL;
         int r;
 
@@ -263,16 +262,24 @@ static int get_hardware_firmware_data(const char *sysattr, char **ret) {
                 return log_debug_errno(r, "Failed to open /sys/class/dmi/id device, ignoring: %m");
 
         (void) sd_device_get_sysattr_value(device, sysattr, &s);
-        if (!isempty(s)) {
-                b = strdup(s);
-                if (!b)
-                        return -ENOMEM;
+
+        bool empty = isempty(s);
+
+        if (ret) {
+                if (empty)
+                        *ret = NULL;
+                else {
+                        _cleanup_free_ char *b = NULL;
+
+                        b = strdup(s);
+                        if (!b)
+                                return -ENOMEM;
+
+                        *ret = TAKE_PTR(b);
+                }
         }
 
-        if (ret)
-                *ret = TAKE_PTR(b);
-
-        return !isempty(s);
+        return !empty;
 }
 
 static int get_hardware_serial(char **ret) {
