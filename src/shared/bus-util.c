@@ -754,3 +754,23 @@ int bus_query_sender_pidref(
 
         return bus_creds_get_pidref(creds, ret);
 }
+
+int bus_message_read_id128(sd_bus_message *m, sd_id128_t *ret) {
+        const void *a;
+        size_t sz;
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_read_array(m, 'y', &a, &sz);
+        if (r < 0)
+                return r;
+        if (sz == 0)
+                *ret = SD_ID128_NULL;
+        else if (sz == sizeof(sd_id128_t))
+                memcpy(ret, a, sz);
+        else
+                return -EINVAL;
+
+        return 0;
+}
