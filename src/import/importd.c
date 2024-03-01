@@ -14,15 +14,19 @@
 #include "common-signal.h"
 #include "constants.h"
 #include "daemon-util.h"
+#include "discover-image.h"
 #include "env-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "float.h"
 #include "hostname-util.h"
+#include "import-common.h"
 #include "import-util.h"
 #include "machine-pool.h"
 #include "main-func.h"
 #include "missing_capability.h"
 #include "mkdir-label.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
@@ -63,12 +67,11 @@ struct Transfer {
 
         char *remote;
         char *local;
-        bool force_local;
-        bool read_only;
-
+        ImageClass class;
+        ImportFlags flags;
         char *format;
 
-        pid_t pid;
+        PidRef pidref;
 
         int log_fd;
 
@@ -80,6 +83,7 @@ struct Transfer {
 
         unsigned n_canceled;
         unsigned progress_percent;
+        unsigned progress_percent_sent;
 
         int stdin_fd;
         int stdout_fd;
@@ -107,11 +111,11 @@ struct Manager {
 static const char* const transfer_type_table[_TRANSFER_TYPE_MAX] = {
         [TRANSFER_IMPORT_TAR] = "import-tar",
         [TRANSFER_IMPORT_RAW] = "import-raw",
-        [TRANSFER_IMPORT_FS] = "import-fs",
+        [TRANSFER_IMPORT_FS]  = "import-fs",
         [TRANSFER_EXPORT_TAR] = "export-tar",
         [TRANSFER_EXPORT_RAW] = "export-raw",
-        [TRANSFER_PULL_TAR] = "pull-tar",
-        [TRANSFER_PULL_RAW] = "pull-raw",
+        [TRANSFER_PULL_TAR]   = "pull-tar",
+        [TRANSFER_PULL_RAW]   = "pull-raw",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(transfer_type, TransferType);
@@ -131,8 +135,7 @@ static Transfer *transfer_unref(Transfer *t) {
         free(t->format);
         free(t->object_path);
 
-        if (t->pid > 1)
-                sigkill_wait(t->pid);
+        pidref_done_sigkill_wait(&t->pidref);
 
         safe_close(t->log_fd);
         safe_close(t->stdin_fd);
@@ -164,7 +167,8 @@ static int transfer_new(Manager *m, Transfer **ret) {
                 .stdin_fd = -EBADF,
                 .stdout_fd = -EBADF,
                 .verify = _IMPORT_VERIFY_INVALID,
-                .progress_percent= UINT_MAX,
+                .progress_percent = UINT_MAX,
+                .progress_percent_sent = UINT_MAX,
         };
 
         id = m->current_transfer_id + 1;
@@ -215,7 +219,28 @@ static void transfer_send_log_line(Transfer *t, const char *line) {
                         line);
         if (r < 0)
                 log_warning_errno(r, "Cannot emit log message signal, ignoring: %m");
- }
+}
+
+static void transfer_send_progress_update(Transfer *t) {
+        int r;
+
+        assert(t);
+
+        if (t->progress_percent_sent == t->progress_percent)
+                return;
+
+        r = sd_bus_emit_signal(
+                        t->manager->bus,
+                        t->object_path,
+                        "org.freedesktop.import1.Transfer",
+                        "ProgressUpdate",
+                        "d",
+                        transfer_percent_as_double(t));
+        if (r < 0)
+                log_warning_errno(r, "Cannot emit progress update signal, ignoring: %m");
+
+        t->progress_percent_sent = t->progress_percent;
+}
 
 static void transfer_send_logs(Transfer *t, bool flush) {
         assert(t);
@@ -302,7 +327,7 @@ static int transfer_cancel(Transfer *t) {
 
         assert(t);
 
-        r = kill_and_sigcont(t->pid, t->n_canceled < 3 ? SIGTERM : SIGKILL);
+        r = pidref_kill_and_sigcont(&t->pidref, t->n_canceled < 3 ? SIGTERM : SIGKILL);
         if (r < 0)
                 return r;
 
@@ -329,7 +354,7 @@ static int transfer_on_pid(sd_event_source *s, const siginfo_t *si, void *userda
         else
                 log_error("Transfer process failed due to unknown reason.");
 
-        t->pid = 0;
+        pidref_done(&t->pidref);
 
         return transfer_finalize(t, success);
 }
@@ -363,15 +388,17 @@ static int transfer_start(Transfer *t) {
         int r;
 
         assert(t);
-        assert(t->pid <= 0);
+        assert(!pidref_is_set(&t->pidref));
 
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return -errno;
 
-        r = safe_fork_full("(sd-transfer)",
-                           (int[]) { t->stdin_fd, t->stdout_fd < 0 ? pipefd[1] : t->stdout_fd, pipefd[1] },
-                           NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO, &t->pid);
+        r = pidref_safe_fork_full(
+                        "(sd-transfer)",
+                        (int[]) { t->stdin_fd, t->stdout_fd < 0 ? pipefd[1] : t->stdout_fd, pipefd[1] },
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_REOPEN_LOG,
+                        &t->pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -380,6 +407,9 @@ static int transfer_start(Transfer *t) {
                         NULL, /* tar, raw  */
                         NULL, /* --verify= */
                         NULL, /* verify argument */
+                        NULL, /* --class= */
+                        NULL, /* class argument */
+                        NULL, /* --keep-download= */
                         NULL, /* maybe --force */
                         NULL, /* maybe --read-only */
                         NULL, /* if so: the actual URL */
@@ -389,7 +419,7 @@ static int transfer_start(Transfer *t) {
                         NULL, /* local */
                         NULL
                 };
-                unsigned k = 0;
+                size_t k = 0;
 
                 /* Child */
 
@@ -398,6 +428,10 @@ static int transfer_start(Transfer *t) {
                         log_error_errno(errno, "setenv() failed: %m");
                         _exit(EXIT_FAILURE);
                 }
+
+                r = setenv_systemd_log_level();
+                if (r < 0)
+                        log_warning_errno(r, "Failed to update $SYSTEMD_LOG_LEVEL, ignoring: %m");
 
                 r = setenv_systemd_exec_pid(true);
                 if (r < 0)
@@ -455,9 +489,18 @@ static int transfer_start(Transfer *t) {
                         cmd[k++] = import_verify_to_string(t->verify);
                 }
 
-                if (t->force_local)
+                if (t->class != IMAGE_MACHINE) {
+                        cmd[k++] = "--class";
+                        cmd[k++] = image_class_to_string(t->class);
+                }
+
+                if (IN_SET(t->type, TRANSFER_PULL_TAR, TRANSFER_PULL_RAW))
+                        cmd[k++] = FLAGS_SET(t->flags, IMPORT_PULL_KEEP_DOWNLOAD) ?
+                                "--keep-download=yes" : "--keep-download=no";
+
+                if (FLAGS_SET(t->flags, IMPORT_FORCE))
                         cmd[k++] = "--force";
-                if (t->read_only)
+                if (FLAGS_SET(t->flags, IMPORT_READ_ONLY))
                         cmd[k++] = "--read-only";
 
                 if (t->format) {
@@ -478,6 +521,11 @@ static int transfer_start(Transfer *t) {
 
                 assert(k < ELEMENTSOF(cmd));
 
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *joined = strv_join((char**) cmd, " ");
+                        log_debug("Calling: %s", strnull(joined));
+                }
+
                 r = invoke_callout_binary(cmd[0], (char * const *) cmd);
                 log_error_errno(r, "Failed to execute %s tool: %m", cmd[0]);
                 _exit(EXIT_FAILURE);
@@ -488,8 +536,13 @@ static int transfer_start(Transfer *t) {
 
         t->stdin_fd = safe_close(t->stdin_fd);
 
-        r = sd_event_add_child(t->manager->event, &t->pid_event_source,
-                               t->pid, WEXITED, transfer_on_pid, t);
+        r = event_add_child_pidref(
+                        t->manager->event,
+                        &t->pid_event_source,
+                        &t->pidref,
+                        WEXITED,
+                        transfer_on_pid,
+                        t);
         if (r < 0)
                 return r;
 
@@ -584,7 +637,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         }
 
         HASHMAP_FOREACH(t, m->transfers)
-                if (ucred->pid == t->pid)
+                if (ucred->pid == t->pidref.pid)
                         break;
 
         if (!t) {
@@ -609,6 +662,8 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         t->progress_percent = (unsigned) r;
 
         log_debug("Got percentage from client: %u%%", t->progress_percent);
+
+        transfer_send_progress_update(t);
         return 0;
 }
 
@@ -635,23 +690,21 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        (void) sd_event_set_watchdog(m->event, true);
-
-        r = sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        r = sd_event_set_signal_exit(m->event, true);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
-        if (r < 0)
-                return r;
-
-        r = sd_event_add_signal(m->event, NULL, SIGRTMIN+18, sigrtmin18_handler, NULL);
+        r = sd_event_add_signal(m->event, NULL, (SIGRTMIN+18)|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
         if (r < 0)
                 return r;
 
         r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
+
+        r = sd_event_set_watchdog(m->event, true);
+        if (r < 0)
+                log_debug_errno(r, "Failed to enable watchdog logic, ignoring: %m");
 
         r = sd_bus_default_system(&m->bus);
         if (r < 0)
@@ -697,12 +750,13 @@ static Transfer *manager_find(Manager *m, TransferType type, const char *remote)
 
 static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
-        int fd, force, read_only, r;
-        const char *local, *object;
+        ImageClass class = _IMAGE_CLASS_INVALID;
         Manager *m = ASSERT_PTR(userdata);
+        const char *local;
         TransferType type;
         struct stat st;
-        uint32_t id;
+        uint64_t flags;
+        int fd, r;
 
         assert(msg);
 
@@ -717,7 +771,36 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = sd_bus_message_read(msg, "hsbb", &fd, &local, &force, &read_only);
+        if (endswith(sd_bus_message_get_member(msg), "Ex")) {
+                const char *sclass;
+
+                r = sd_bus_message_read(msg, "hsst", &fd, &local, &sclass, &flags);
+                if (r < 0)
+                        return r;
+
+                class = image_class_from_string(sclass);
+                if (class < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Image class '%s' not known", sclass);
+
+                if (flags & ~(IMPORT_READ_ONLY|IMPORT_FORCE))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Flags 0x%" PRIx64 " invalid", flags);
+        } else {
+                int force, read_only;
+
+                r = sd_bus_message_read(msg, "hsbb", &fd, &local, &force, &read_only);
+                if (r < 0)
+                        return r;
+
+                class = IMAGE_MACHINE;
+
+                flags = 0;
+                SET_FLAG(flags, IMPORT_FORCE, force);
+                SET_FLAG(flags, IMPORT_READ_ONLY, read_only);
+        }
+
+        r = fd_verify_safe_flags(fd);
         if (r < 0)
                 return r;
 
@@ -727,15 +810,17 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (!S_ISREG(st.st_mode) && !S_ISFIFO(st.st_mode))
                 return -EINVAL;
 
-        if (!hostname_is_valid(local, 0))
+        if (!image_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Local name %s is invalid", local);
+                                         "Local image name %s is invalid", local);
 
-        r = setup_machine_directory(error, m->use_btrfs_subvol, m->use_btrfs_quota);
-        if (r < 0)
-                return r;
+        if (class == IMAGE_MACHINE) {
+                r = setup_machine_directory(error, m->use_btrfs_subvol, m->use_btrfs_quota);
+                if (r < 0)
+                        return r;
+        }
 
-        type = streq_ptr(sd_bus_message_get_member(msg), "ImportTar") ?
+        type = startswith(sd_bus_message_get_member(msg), "ImportTar") ?
                 TRANSFER_IMPORT_TAR : TRANSFER_IMPORT_RAW;
 
         r = transfer_new(m, &t);
@@ -743,8 +828,8 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
                 return r;
 
         t->type = type;
-        t->force_local = force;
-        t->read_only = read_only;
+        t->class = class;
+        t->flags = flags;
 
         t->local = strdup(local);
         if (!t->local)
@@ -758,19 +843,21 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        object = t->object_path;
-        id = t->id;
-        t = NULL;
+        r = sd_bus_reply_method_return(msg, "uo", t->id, t->object_path);
+        if (r < 0)
+                return r;
 
-        return sd_bus_reply_method_return(msg, "uo", id, object);
+        TAKE_PTR(t);
+        return 1;
 }
 
 static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
-        int fd, force, read_only, r;
-        const char *local, *object;
+        ImageClass class = _IMAGE_CLASS_INVALID;
         Manager *m = ASSERT_PTR(userdata);
-        uint32_t id;
+        const char *local;
+        uint64_t flags;
+        int fd, r;
 
         assert(msg);
 
@@ -785,7 +872,36 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = sd_bus_message_read(msg, "hsbb", &fd, &local, &force, &read_only);
+        if (endswith(sd_bus_message_get_member(msg), "Ex")) {
+                const char *sclass;
+
+                r = sd_bus_message_read(msg, "hsst", &fd, &local, &sclass, &flags);
+                if (r < 0)
+                        return r;
+
+                class = image_class_from_string(sclass);
+                if (class < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Image class '%s' not known", sclass);
+
+                if (flags & ~(IMPORT_READ_ONLY|IMPORT_FORCE))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Flags 0x%" PRIx64 " invalid", flags);
+        } else {
+                int force, read_only;
+
+                r = sd_bus_message_read(msg, "hsbb", &fd, &local, &force, &read_only);
+                if (r < 0)
+                        return r;
+
+                class = IMAGE_MACHINE;
+
+                flags = 0;
+                SET_FLAG(flags, IMPORT_FORCE, force);
+                SET_FLAG(flags, IMPORT_READ_ONLY, read_only);
+        }
+
+        r = fd_verify_safe_flags(fd);
         if (r < 0)
                 return r;
 
@@ -793,21 +909,23 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
         if (r < 0)
                 return r;
 
-        if (!hostname_is_valid(local, 0))
+        if (!image_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Local name %s is invalid", local);
+                                         "Local image name %s is invalid", local);
 
-        r = setup_machine_directory(error, m->use_btrfs_subvol, m->use_btrfs_quota);
-        if (r < 0)
-                return r;
+        if (class == IMAGE_MACHINE) {
+                r = setup_machine_directory(error, m->use_btrfs_subvol, m->use_btrfs_quota);
+                if (r < 0)
+                        return r;
+        }
 
         r = transfer_new(m, &t);
         if (r < 0)
                 return r;
 
         t->type = TRANSFER_IMPORT_FS;
-        t->force_local = force;
-        t->read_only = read_only;
+        t->class = class;
+        t->flags = flags;
 
         t->local = strdup(local);
         if (!t->local)
@@ -821,21 +939,23 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
         if (r < 0)
                 return r;
 
-        object = t->object_path;
-        id = t->id;
-        t = NULL;
+        r = sd_bus_reply_method_return(msg, "uo", t->id, t->object_path);
+        if (r < 0)
+                return r;
 
-        return sd_bus_reply_method_return(msg, "uo", id, object);
+        TAKE_PTR(t);
+        return 1;
 }
 
 static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
-        int fd, r;
-        const char *local, *object, *format;
+        ImageClass class = _IMAGE_CLASS_INVALID;
         Manager *m = ASSERT_PTR(userdata);
+        const char *local, *format;
         TransferType type;
+        uint64_t flags;
         struct stat st;
-        uint32_t id;
+        int fd, r;
 
         assert(msg);
 
@@ -850,13 +970,37 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = sd_bus_message_read(msg, "shs", &local, &fd, &format);
+        if (endswith(sd_bus_message_get_member(msg), "Ex")) {
+                const char *sclass;
+
+                r = sd_bus_message_read(msg, "sshst", &local, &sclass, &fd, &format, &flags);
+                if (r < 0)
+                        return r;
+
+                class = image_class_from_string(sclass);
+                if (class < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Image class '%s' not known", sclass);
+
+                if (flags != 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Flags 0x%" PRIx64 " invalid", flags);
+        } else {
+                r = sd_bus_message_read(msg, "shs", &local, &fd, &format);
+                if (r < 0)
+                        return r;
+
+                class = IMAGE_MACHINE;
+                flags = 0;
+        }
+
+        if (!image_name_is_valid(local))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Local image name %s is invalid", local);
+
+        r = fd_verify_safe_flags(fd);
         if (r < 0)
                 return r;
-
-        if (!hostname_is_valid(local, 0))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Local name %s is invalid", local);
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -864,7 +1008,7 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (!S_ISREG(st.st_mode) && !S_ISFIFO(st.st_mode))
                 return -EINVAL;
 
-        type = streq_ptr(sd_bus_message_get_member(msg), "ExportTar") ?
+        type = startswith(sd_bus_message_get_member(msg), "ExportTar") ?
                 TRANSFER_EXPORT_TAR : TRANSFER_EXPORT_RAW;
 
         r = transfer_new(m, &t);
@@ -872,6 +1016,8 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
                 return r;
 
         t->type = type;
+        t->class = class;
+        t->flags = flags;
 
         if (!isempty(format)) {
                 t->format = strdup(format);
@@ -891,21 +1037,23 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        object = t->object_path;
-        id = t->id;
-        t = NULL;
+        r = sd_bus_reply_method_return(msg, "uo", t->id, t->object_path);
+        if (r < 0)
+                return r;
 
-        return sd_bus_reply_method_return(msg, "uo", id, object);
+        TAKE_PTR(t);
+        return 1;
 }
 
 static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
-        const char *remote, *local, *verify, *object;
+        ImageClass class = _IMAGE_CLASS_INVALID;
+        const char *remote, *local, *verify;
         Manager *m = ASSERT_PTR(userdata);
-        ImportVerify v;
         TransferType type;
-        int force, r;
-        uint32_t id;
+        uint64_t flags;
+        ImportVerify v;
+        int r;
 
         assert(msg);
 
@@ -920,9 +1068,33 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = sd_bus_message_read(msg, "sssb", &remote, &local, &verify, &force);
-        if (r < 0)
-                return r;
+        if (endswith(sd_bus_message_get_member(msg), "Ex")) {
+                const char *sclass;
+
+                r = sd_bus_message_read(msg, "sssst", &remote, &local, &sclass, &verify, &flags);
+                if (r < 0)
+                        return r;
+
+                class = image_class_from_string(sclass);
+                if (class < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Image class '%s' not known", sclass);
+
+                if (flags & ~(IMPORT_FORCE|IMPORT_READ_ONLY|IMPORT_PULL_KEEP_DOWNLOAD))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Flags 0x%" PRIx64 " invalid", flags);
+        } else {
+                int force;
+
+                r = sd_bus_message_read(msg, "sssb", &remote, &local, &verify, &force);
+                if (r < 0)
+                        return r;
+
+                class = IMAGE_MACHINE;
+
+                flags = 0;
+                SET_FLAG(flags, IMPORT_FORCE, force);
+        }
 
         if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
@@ -930,9 +1102,9 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
 
         if (isempty(local))
                 local = NULL;
-        else if (!hostname_is_valid(local, 0))
+        else if (!image_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Local name %s is invalid", local);
+                                         "Local image name %s is invalid", local);
 
         if (isempty(verify))
                 v = IMPORT_VERIFY_SIGNATURE;
@@ -942,11 +1114,13 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Unknown verification mode %s", verify);
 
-        r = setup_machine_directory(error, m->use_btrfs_subvol, m->use_btrfs_quota);
-        if (r < 0)
-                return r;
+        if (class == IMAGE_MACHINE) {
+                r = setup_machine_directory(error, m->use_btrfs_subvol, m->use_btrfs_quota);
+                if (r < 0)
+                        return r;
+        }
 
-        type = streq_ptr(sd_bus_message_get_member(msg), "PullTar") ?
+        type = startswith(sd_bus_message_get_member(msg), "PullTar") ?
                 TRANSFER_PULL_TAR : TRANSFER_PULL_RAW;
 
         if (manager_find(m, type, remote))
@@ -959,7 +1133,8 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
 
         t->type = type;
         t->verify = v;
-        t->force_local = force;
+        t->flags = flags;
+        t->class = class;
 
         t->remote = strdup(remote);
         if (!t->remote)
@@ -975,40 +1150,81 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        object = t->object_path;
-        id = t->id;
-        t = NULL;
+        r = sd_bus_reply_method_return(msg, "uo", t->id, t->object_path);
+        if (r < 0)
+                return r;
 
-        return sd_bus_reply_method_return(msg, "uo", id, object);
+        TAKE_PTR(t);
+        return 1;
 }
 
 static int method_list_transfers(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
+        ImageClass class = _IMAGE_CLASS_INVALID;
         Transfer *t;
         int r;
 
         assert(msg);
 
+        bool ex = endswith(sd_bus_message_get_member(msg), "Ex");
+        if (ex) {
+                const char *sclass;
+                uint64_t flags;
+
+                r = sd_bus_message_read(msg, "st", &sclass, &flags);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                if (!isempty(sclass)) {
+                        class = image_class_from_string(sclass);
+                        if (class < 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Image class '%s' not known", sclass);
+                }
+
+                if (flags != 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Flags 0x%" PRIx64 " invalid", flags);
+        }
+
         r = sd_bus_message_new_method_return(msg, &reply);
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_open_container(reply, 'a', "(usssdo)");
+        if (ex)
+                r = sd_bus_message_open_container(reply, 'a', "(ussssdo)");
+        else
+                r = sd_bus_message_open_container(reply, 'a', "(usssdo)");
         if (r < 0)
                 return r;
 
         HASHMAP_FOREACH(t, m->transfers) {
 
-                r = sd_bus_message_append(
-                                reply,
-                                "(usssdo)",
-                                t->id,
-                                transfer_type_to_string(t->type),
-                                t->remote,
-                                t->local,
-                                transfer_percent_as_double(t),
-                                t->object_path);
+                if (class >= 0 && class != t->class)
+                        continue;
+
+                if (ex)
+                        r = sd_bus_message_append(
+                                        reply,
+                                        "(ussssdo)",
+                                        t->id,
+                                        transfer_type_to_string(t->type),
+                                        t->remote,
+                                        t->local,
+                                        image_class_to_string(t->class),
+                                        transfer_percent_as_double(t),
+                                        t->object_path);
+                else
+                        r = sd_bus_message_append(
+                                        reply,
+                                        "(usssdo)",
+                                        t->id,
+                                        transfer_type_to_string(t->type),
+                                        t->remote,
+                                        t->local,
+                                        transfer_percent_as_double(t),
+                                        t->object_path);
                 if (r < 0)
                         return r;
         }
@@ -1054,7 +1270,7 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
 
         r = bus_verify_polkit_async(
                         msg,
-                        "org.freedesktop.import1.pull",
+                        "org.freedesktop.import1.cancel",
                         /* details= */ NULL,
                         &m->polkit_registry,
                         error);
@@ -1078,6 +1294,86 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
                 return r;
 
         return sd_bus_reply_method_return(msg, NULL);
+}
+
+static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        ImageClass class = _IMAGE_CLASS_INVALID;
+        int r;
+
+        assert(msg);
+
+        const char *sclass;
+        uint64_t flags;
+
+        r = sd_bus_message_read(msg, "st", &sclass, &flags);
+        if (r < 0)
+                return r;
+
+        if (!isempty(sclass)) {
+                class = image_class_from_string(sclass);
+                if (class < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Image class '%s' not known", sclass);
+        }
+
+        if (flags != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Flags 0x%" PRIx64 " invalid", flags);
+
+        r = sd_bus_message_new_method_return(msg, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(ssssbtttttt)");
+        if (r < 0)
+                return r;
+
+        for (ImageClass c = class < 0 ? 0 : class;
+             class < 0 ? (c < _IMAGE_CLASS_MAX) : (c == class);
+             c++) {
+
+                _cleanup_(hashmap_freep) Hashmap *h = NULL;
+
+                h = hashmap_new(&image_hash_ops);
+                if (!h)
+                        return -ENOMEM;
+
+                r = image_discover(c, /* root= */ NULL, h);
+                if (r < 0) {
+                        if (class >= 0)
+                                return r;
+
+                        log_warning_errno(r, "Failed to discover images of type %s: %m", image_class_to_string(c));
+                        continue;
+                }
+
+                Image *i;
+                HASHMAP_FOREACH(i, h) {
+                        r = sd_bus_message_append(
+                                        reply,
+                                        "(ssssbtttttt)",
+                                        image_class_to_string(i->class),
+                                        i->name,
+                                        image_type_to_string(i->type),
+                                        i->path,
+                                        i->read_only,
+                                        i->crtime,
+                                        i->mtime,
+                                        i->usage,
+                                        i->usage_exclusive,
+                                        i->limit,
+                                        i->limit_exclusive);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 static int property_get_progress(
@@ -1182,6 +1478,10 @@ static const sd_bus_vtable transfer_vtable[] = {
                                  SD_BUS_PARAM(priority)
                                  SD_BUS_PARAM(line),
                                  0),
+        SD_BUS_SIGNAL_WITH_NAMES("ProgressUpdate",
+                                 "d",
+                                 SD_BUS_PARAM(progress),
+                                 0),
 
         SD_BUS_VTABLE_END,
 };
@@ -1207,12 +1507,34 @@ static const sd_bus_vtable manager_vtable[] = {
                                  SD_BUS_PARAM(transfer_path),
                                  method_import_tar_or_raw,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ImportTarEx",
+                                 "hsst",
+                                 SD_BUS_PARAM(fd)
+                                 SD_BUS_PARAM(local_name)
+                                 SD_BUS_PARAM(class)
+                                 SD_BUS_PARAM(flags),
+                                 "uo",
+                                 SD_BUS_PARAM(transfer_id)
+                                 SD_BUS_PARAM(transfer_path),
+                                 method_import_tar_or_raw,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ImportRaw",
                                  "hsbb",
                                  SD_BUS_PARAM(fd)
                                  SD_BUS_PARAM(local_name)
                                  SD_BUS_PARAM(force)
                                  SD_BUS_PARAM(read_only),
+                                 "uo",
+                                 SD_BUS_PARAM(transfer_id)
+                                 SD_BUS_PARAM(transfer_path),
+                                 method_import_tar_or_raw,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ImportRawEx",
+                                 "hsst",
+                                 SD_BUS_PARAM(fd)
+                                 SD_BUS_PARAM(local_name)
+                                 SD_BUS_PARAM(class)
+                                 SD_BUS_PARAM(flags),
                                  "uo",
                                  SD_BUS_PARAM(transfer_id)
                                  SD_BUS_PARAM(transfer_path),
@@ -1229,6 +1551,17 @@ static const sd_bus_vtable manager_vtable[] = {
                                  SD_BUS_PARAM(transfer_path),
                                  method_import_fs,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ImportFileSystemEx",
+                                 "hsst",
+                                 SD_BUS_PARAM(fd)
+                                 SD_BUS_PARAM(local_name)
+                                 SD_BUS_PARAM(class)
+                                 SD_BUS_PARAM(flags),
+                                 "uo",
+                                 SD_BUS_PARAM(transfer_id)
+                                 SD_BUS_PARAM(transfer_path),
+                                 method_import_fs,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ExportTar",
                                  "shs",
                                  SD_BUS_PARAM(local_name)
@@ -1239,11 +1572,35 @@ static const sd_bus_vtable manager_vtable[] = {
                                  SD_BUS_PARAM(transfer_path),
                                  method_export_tar_or_raw,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ExportTarEx",
+                                 "sshst",
+                                 SD_BUS_PARAM(local_name)
+                                 SD_BUS_PARAM(class)
+                                 SD_BUS_PARAM(fd)
+                                 SD_BUS_PARAM(format)
+                                 SD_BUS_PARAM(flags),
+                                 "uo",
+                                 SD_BUS_PARAM(transfer_id)
+                                 SD_BUS_PARAM(transfer_path),
+                                 method_export_tar_or_raw,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ExportRaw",
                                  "shs",
                                  SD_BUS_PARAM(local_name)
                                  SD_BUS_PARAM(fd)
                                  SD_BUS_PARAM(format),
+                                 "uo",
+                                 SD_BUS_PARAM(transfer_id)
+                                 SD_BUS_PARAM(transfer_path),
+                                 method_export_tar_or_raw,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ExportRawEx",
+                                 "sshst",
+                                 SD_BUS_PARAM(local_name)
+                                 SD_BUS_PARAM(class)
+                                 SD_BUS_PARAM(fd)
+                                 SD_BUS_PARAM(format)
+                                 SD_BUS_PARAM(flags),
                                  "uo",
                                  SD_BUS_PARAM(transfer_id)
                                  SD_BUS_PARAM(transfer_path),
@@ -1260,6 +1617,18 @@ static const sd_bus_vtable manager_vtable[] = {
                                  SD_BUS_PARAM(transfer_path),
                                  method_pull_tar_or_raw,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("PullTarEx",
+                                 "sssst",
+                                 SD_BUS_PARAM(url)
+                                 SD_BUS_PARAM(local_name)
+                                 SD_BUS_PARAM(class)
+                                 SD_BUS_PARAM(verify_mode)
+                                 SD_BUS_PARAM(flags),
+                                 "uo",
+                                 SD_BUS_PARAM(transfer_id)
+                                 SD_BUS_PARAM(transfer_path),
+                                 method_pull_tar_or_raw,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("PullRaw",
                                  "sssb",
                                  SD_BUS_PARAM(url)
@@ -1271,9 +1640,29 @@ static const sd_bus_vtable manager_vtable[] = {
                                  SD_BUS_PARAM(transfer_path),
                                  method_pull_tar_or_raw,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("PullRawEx",
+                                 "sssst",
+                                 SD_BUS_PARAM(url)
+                                 SD_BUS_PARAM(local_name)
+                                 SD_BUS_PARAM(class)
+                                 SD_BUS_PARAM(verify_mode)
+                                 SD_BUS_PARAM(flags),
+                                 "uo",
+                                 SD_BUS_PARAM(transfer_id)
+                                 SD_BUS_PARAM(transfer_path),
+                                 method_pull_tar_or_raw,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ListTransfers",
                                  NULL,,
                                  "a(usssdo)",
+                                 SD_BUS_PARAM(transfers),
+                                 method_list_transfers,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ListTransfersEx",
+                                 "st",
+                                 SD_BUS_PARAM(class)
+                                 SD_BUS_PARAM(flags),
+                                 "a(ussssdo)",
                                  SD_BUS_PARAM(transfers),
                                  method_list_transfers,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
@@ -1282,6 +1671,14 @@ static const sd_bus_vtable manager_vtable[] = {
                                  SD_BUS_PARAM(transfer_id),
                                  NULL,,
                                  method_cancel_transfer,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ListImages",
+                                 "st",
+                                 SD_BUS_PARAM(class)
+                                 SD_BUS_PARAM(flags),
+                                 "a(ssssbtttttt)",
+                                 SD_BUS_PARAM(images),
+                                 method_list_images,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL_WITH_NAMES("TransferNew",
@@ -1374,7 +1771,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, SIGRTMIN+18) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
         r = manager_new(&m);
         if (r < 0)

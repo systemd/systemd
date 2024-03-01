@@ -4915,13 +4915,13 @@ _public_ int sd_event_get_state(sd_event *e) {
 _public_ int sd_event_get_exit_code(sd_event *e, int *code) {
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
-        assert_return(code, -EINVAL);
         assert_return(!event_origin_changed(e), -ECHILD);
 
         if (!e->exit_requested)
                 return -ENODATA;
 
-        *code = e->exit_code;
+        if (code)
+                *code = e->exit_code;
         return 0;
 }
 
