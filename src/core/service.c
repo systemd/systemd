@@ -4311,6 +4311,16 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
         return 0;
 }
 
+static void service_force_watchdog(Service *s) {
+        if (!UNIT(s)->manager->service_watchdogs)
+                return;
+
+        log_unit_error(UNIT(s), "Watchdog request (last status: %s)!",
+                       s->status_text ?: "<unset>");
+
+        service_enter_signal(s, SERVICE_STOP_WATCHDOG, SERVICE_FAILURE_WATCHDOG);
+}
+
 static bool service_notify_message_authorized(Service *s, pid_t pid, FDSet *fds) {
         assert(s);
 
@@ -4346,16 +4356,6 @@ static bool service_notify_message_authorized(Service *s, pid_t pid, FDSet *fds)
         }
 
         return true;
-}
-
-static void service_force_watchdog(Service *s) {
-        if (!UNIT(s)->manager->service_watchdogs)
-                return;
-
-        log_unit_error(UNIT(s), "Watchdog request (last status: %s)!",
-                       s->status_text ?: "<unset>");
-
-        service_enter_signal(s, SERVICE_STOP_WATCHDOG, SERVICE_FAILURE_WATCHDOG);
 }
 
 static void service_notify_message(
