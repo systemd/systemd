@@ -31,7 +31,7 @@ static int add_lease(sd_dhcp_server *server, const struct in_addr *server_addres
                 .n_ref = 1,
                 .address = htobe32(UINT32_C(10) << 24 | i),
                 .chaddr = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 },
-                .expiration = UINT64_MAX,
+                .expiration = { USEC_INFINITY, USEC_INFINITY, USEC_INFINITY },
                 .gateway = server_address->s_addr,
                 .hlen = ETH_ALEN,
                 .htype = ARPHRD_ETHER,
