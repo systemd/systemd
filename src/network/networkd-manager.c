@@ -23,6 +23,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "dns-domain.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "firewall-util.h"
@@ -557,6 +558,18 @@ int manager_setup(Manager *m) {
         return 0;
 }
 
+static bool persistent_storage_is_ready(void) {
+        int r;
+
+        r = getenv_bool("SYSTEMD_NETWORK_PERSISTENT_STORAGE_IS_READY");
+        if (r >= 0)
+                return r;
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_NETWORK_PERSISTENT_STORAGE_IS_READY environment variable, ignoring: %m");
+
+        return false; /* Defaults to false. */
+}
+
 int manager_new(Manager **ret, bool test_mode) {
         _cleanup_(manager_freep) Manager *m = NULL;
 
@@ -568,6 +581,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
                 .ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO,
                 .test_mode = test_mode,
+                .persistent_storage_is_ready = persistent_storage_is_ready(),
                 .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
                 .online_state = _LINK_ONLINE_STATE_INVALID,
                 .manage_foreign_routes = true,
