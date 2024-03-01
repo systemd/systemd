@@ -32,9 +32,9 @@ CHANGES WITH 256 in spe:
           locking a homed-managed home area. This is known to cause issues with
           the proprietary NVIDIA drivers. Packagers of the NVIDIA proprietary
           drivers may want to add drop-in configuration files that set
-          SYSTEMD_SLEEP_SKIP_FREEZE_USER_SESSION=true for systemd-suspend.service
-          and related services, and SYSTEMD_HOME_LOCK_SKIP_FREEZE_SESSION=true
-          for systemd-homed.service.
+          SYSTEMD_SLEEP_FREEZE_USER_SESSION=false for systemd-suspend.service
+          and related services, and SYSTEMD_HOME_LOCK_FREEZE_SESSION=false for
+          systemd-homed.service.
 
         Network Management:
 

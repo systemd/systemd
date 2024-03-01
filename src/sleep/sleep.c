@@ -594,17 +594,17 @@ static int run(int argc, char *argv[]) {
                                        sleep_operation_to_string(arg_operation));
 
         /* Freeze the user sessions */
-        r = getenv_bool("SYSTEMD_SLEEP_SKIP_FREEZE_USER_SESSIONS");
+        r = getenv_bool("SYSTEMD_SLEEP_FREEZE_USER_SESSIONS");
         if (r < 0 && r != -ENXIO)
-                log_warning_errno(r, "Cannot parse value of $SYSTEMD_SLEEP_SKIP_FREEZE_USER_SESSIONS, ignoring.");
-        if (r <= 0) {
+                log_warning_errno(r, "Cannot parse value of $SYSTEMD_SLEEP_FREEZE_USER_SESSIONS, ignoring.");
+        if (r != 0) {
                 r = unit_freezer_new_freeze(SPECIAL_USER_SLICE, &user_slice_freezer);
                 if (r < 0)
                         log_warning_errno(r, "Failed to freeze user sessions, ignoring: %m");
                 else
                         log_info("Froze user sessions");
         } else
-                log_notice("User sessions remain unfrozen on explicit request. This is not recommended and might create deadlocks, security leaks, data loss, and other undesired behavior; especially if home directory encryption or hybrid sleep is used.");
+                log_notice("User sessions remain unfrozen on explicit request via environment variable. This is not recommended and might create deadlocks, security leaks, data loss, and other undesired behavior; especially if home directory encryption or hybrid sleep is used.");
 
         switch (arg_operation) {
 

@@ -1827,10 +1827,10 @@ static int user_session_freezer(uid_t uid, bool freeze_now, UnitFreezer *ret) {
         _cleanup_free_ char *unit = NULL;
         int r;
 
-        r = getenv_bool("SYSTEMD_HOME_LOCK_SKIP_FREEZE_SESSION");
+        r = getenv_bool("SYSTEMD_HOME_LOCK_FREEZE_SESSION");
         if (r < 0 && r != -ENXIO)
-                log_warning_errno(r, "Cannot parse value of $SYSTEMD_HOME_LOCK_SKIP_FREEZE_SESSION, ignoring.");
-        else if (r > 0) {
+                log_warning_errno(r, "Cannot parse value of $SYSTEMD_HOME_LOCK_FREEZE_SESSION, ignoring.");
+        else if (r == 0) {
                 *ret = (UnitFreezer) {};
                 return 0;
         }
