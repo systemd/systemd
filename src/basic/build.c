@@ -244,6 +244,7 @@ const char* const systemd_features =
         " -LIBARCHIVE"
 #endif
 
+        " default-hierarchy=" DEFAULT_HIERARCHY_NAME
         ;
 
 static char *systemd_features_with_color(void) {
