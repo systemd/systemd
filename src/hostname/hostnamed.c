@@ -1365,7 +1365,8 @@ static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_
 
         r = get_hardware_serial(&serial);
         if (r < 0)
-                return r;
+                return sd_bus_error_set(error, BUS_ERROR_NO_HARDWARE_SERIAL,
+                                        "Failed to read hardware serial from firmware.");
 
         r = sd_bus_message_new_method_return(m, &reply);
         if (r < 0)
