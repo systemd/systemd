@@ -16,9 +16,9 @@ static void* idn_dl = NULL;
 #endif
 
 #if HAVE_LIBIDN2
-int (*sym_idn2_lookup_u8)(const uint8_t* src, uint8_t** lookupname, int flags) = NULL;
+DLSYM_FUNCTION(idn2_lookup_u8);
 const char *(*sym_idn2_strerror)(int rc) _const_ = NULL;
-int (*sym_idn2_to_unicode_8z8z)(const char * input, char ** output, int flags) = NULL;
+DLSYM_FUNCTION(idn2_to_unicode_8z8z);
 
 int dlopen_idn(void) {
         return dlopen_many_sym_or_warn(
@@ -30,10 +30,10 @@ int dlopen_idn(void) {
 #endif
 
 #if HAVE_LIBIDN
-int (*sym_idna_to_ascii_4i)(const uint32_t * in, size_t inlen, char *out, int flags);
-int (*sym_idna_to_unicode_44i)(const uint32_t * in, size_t inlen, uint32_t * out, size_t * outlen, int flags);
-char* (*sym_stringprep_ucs4_to_utf8)(const uint32_t * str, ssize_t len, size_t * items_read, size_t * items_written);
-uint32_t* (*sym_stringprep_utf8_to_ucs4)(const char *str, ssize_t len, size_t *items_written);
+DLSYM_FUNCTION(idna_to_ascii_4i);
+DLSYM_FUNCTION(idna_to_unicode_44i);
+DLSYM_FUNCTION(stringprep_ucs4_to_utf8);
+DLSYM_FUNCTION(stringprep_utf8_to_ucs4);
 
 int dlopen_idn(void) {
         _cleanup_(dlclosep) void *dl = NULL;

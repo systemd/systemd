@@ -43,22 +43,22 @@ bool pkcs11_uri_valid(const char *uri) {
 
 static void *p11kit_dl = NULL;
 
-char *(*sym_p11_kit_module_get_name)(CK_FUNCTION_LIST *module);
-void (*sym_p11_kit_modules_finalize_and_release)(CK_FUNCTION_LIST **modules);
-CK_FUNCTION_LIST **(*sym_p11_kit_modules_load_and_initialize)(int flags);
-const char *(*sym_p11_kit_strerror)(CK_RV rv);
-int (*sym_p11_kit_uri_format)(P11KitUri *uri, P11KitUriType uri_type, char **string);
-void (*sym_p11_kit_uri_free)(P11KitUri *uri);
-CK_ATTRIBUTE_PTR (*sym_p11_kit_uri_get_attributes)(P11KitUri *uri, CK_ULONG *n_attrs);
-CK_ATTRIBUTE_PTR (*sym_p11_kit_uri_get_attribute)(P11KitUri *uri, CK_ATTRIBUTE_TYPE attr_type);
-int (*sym_p11_kit_uri_set_attribute)(P11KitUri *uri, CK_ATTRIBUTE_PTR attr);
-CK_INFO_PTR (*sym_p11_kit_uri_get_module_info)(P11KitUri *uri);
-CK_SLOT_INFO_PTR (*sym_p11_kit_uri_get_slot_info)(P11KitUri *uri);
-CK_TOKEN_INFO_PTR (*sym_p11_kit_uri_get_token_info)(P11KitUri *uri);
-int (*sym_p11_kit_uri_match_token_info)(const P11KitUri *uri, const CK_TOKEN_INFO *token_info);
-const char *(*sym_p11_kit_uri_message)(int code);
-P11KitUri *(*sym_p11_kit_uri_new)(void);
-int (*sym_p11_kit_uri_parse)(const char *string, P11KitUriType uri_type, P11KitUri *uri);
+DLSYM_FUNCTION(p11_kit_module_get_name);
+DLSYM_FUNCTION(p11_kit_modules_finalize_and_release);
+DLSYM_FUNCTION(p11_kit_modules_load_and_initialize);
+DLSYM_FUNCTION(p11_kit_strerror);
+DLSYM_FUNCTION(p11_kit_uri_format);
+DLSYM_FUNCTION(p11_kit_uri_free);
+DLSYM_FUNCTION(p11_kit_uri_get_attributes);
+DLSYM_FUNCTION(p11_kit_uri_get_attribute);
+DLSYM_FUNCTION(p11_kit_uri_set_attribute);
+DLSYM_FUNCTION(p11_kit_uri_get_module_info);
+DLSYM_FUNCTION(p11_kit_uri_get_slot_info);
+DLSYM_FUNCTION(p11_kit_uri_get_token_info);
+DLSYM_FUNCTION(p11_kit_uri_match_token_info);
+DLSYM_FUNCTION(p11_kit_uri_message);
+DLSYM_FUNCTION(p11_kit_uri_new);
+DLSYM_FUNCTION(p11_kit_uri_parse);
 
 int dlopen_p11kit(void) {
         return dlopen_many_sym_or_warn(

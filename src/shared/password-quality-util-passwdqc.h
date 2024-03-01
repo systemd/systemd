@@ -6,12 +6,12 @@
 #if HAVE_PASSWDQC
 #include <passwdqc.h>
 
-extern void (*sym_passwdqc_params_reset)(passwdqc_params_t *params);
-extern int (*sym_passwdqc_params_load)(passwdqc_params_t *params, char **reason, const char *pathname);
-extern int (*sym_passwdqc_params_parse)(passwdqc_params_t *params, char **reason, int argc, const char *const *argv);
-extern void (*sym_passwdqc_params_free)(passwdqc_params_t *params);
-extern const char *(*sym_passwdqc_check)(const passwdqc_params_qc_t *params, const char *newpass, const char *oldpass, const struct passwd *pw);
-extern char *(*sym_passwdqc_random)(const passwdqc_params_qc_t *params);
+DLSYM_PROTOTYPE(passwdqc_params_reset);
+DLSYM_PROTOTYPE(passwdqc_params_load);
+DLSYM_PROTOTYPE(passwdqc_params_parse);
+DLSYM_PROTOTYPE(passwdqc_params_free);
+DLSYM_PROTOTYPE(passwdqc_check);
+DLSYM_PROTOTYPE(passwdqc_random);
 
 int dlopen_passwdqc(void);
 
