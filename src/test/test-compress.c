@@ -6,6 +6,7 @@
 #include <lz4.h>
 #endif
 
+#include "dlfcn-util.h"
 #include "alloc-util.h"
 #include "compress.h"
 #include "fd-util.h"
@@ -27,6 +28,15 @@
 # define LZ4_OK 0
 #else
 # define LZ4_OK -EPROTONOSUPPORT
+#endif
+
+#if HAVE_LZ4
+static void *lz4_dl = NULL;
+
+static DLSYM_FUNCTION(LZ4_compress_default);
+static DLSYM_FUNCTION(LZ4_decompress_safe);
+static DLSYM_FUNCTION(LZ4_decompress_safe_partial);
+static DLSYM_FUNCTION(LZ4_versionNumber);
 #endif
 
 #define HUGE_SIZE (4096*1024)
@@ -228,6 +238,16 @@ _unused_ static void test_compress_stream(const char *compression,
 #endif
 
 #if HAVE_LZ4
+static int dlopen_lz4(void) {
+        return dlopen_many_sym_or_warn(
+                        &lz4_dl,
+                        "liblz4.so.1", LOG_DEBUG,
+                        DLSYM_ARG(LZ4_compress_default),
+                        DLSYM_ARG(LZ4_decompress_safe),
+                        DLSYM_ARG(LZ4_decompress_safe_partial),
+                        DLSYM_ARG(LZ4_versionNumber));
+}
+
 static void test_lz4_decompress_partial(void) {
         char buf[20000], buf2[100];
         size_t buf_size = sizeof(buf), compressed;
@@ -241,16 +261,16 @@ static void test_lz4_decompress_partial(void) {
         memset(&huge[STRLEN("HUGE=")], 'x', HUGE_SIZE - STRLEN("HUGE=") - 1);
         huge[HUGE_SIZE - 1] = '\0';
 
-        r = LZ4_compress_default(huge, buf, HUGE_SIZE, buf_size);
+        r = sym_LZ4_compress_default(huge, buf, HUGE_SIZE, buf_size);
         assert_se(r >= 0);
         compressed = r;
         log_info("Compressed %i → %zu", HUGE_SIZE, compressed);
 
-        r = LZ4_decompress_safe(buf, huge, r, HUGE_SIZE);
+        r = sym_LZ4_decompress_safe(buf, huge, r, HUGE_SIZE);
         assert_se(r >= 0);
         log_info("Decompressed → %i", r);
 
-        r = LZ4_decompress_safe_partial(buf, huge,
+        r = sym_LZ4_decompress_safe_partial(buf, huge,
                                         compressed,
                                         12, HUGE_SIZE);
         assert_se(r >= 0);
@@ -258,10 +278,10 @@ static void test_lz4_decompress_partial(void) {
 
         for (size_t size = 1; size < sizeof(buf2); size++) {
                 /* This failed in older lz4s but works in newer ones. */
-                r = LZ4_decompress_safe_partial(buf, buf2, compressed, size, size);
+                r = sym_LZ4_decompress_safe_partial(buf, buf2, compressed, size, size);
                 log_info("Decompressed partial %zu/%zu → %i (%s)", size, size, r,
                                                                    r < 0 ? "bad" : "good");
-                if (r >= 0 && LZ4_versionNumber() >= 10803)
+                if (r >= 0 && sym_LZ4_versionNumber() >= 10803)
                         /* lz4 <= 1.8.2 should fail that test, let's only check for newer ones */
                         assert_se(memcmp(buf2, huge, r) == 0);
         }
@@ -316,28 +336,30 @@ int main(int argc, char *argv[]) {
 #endif
 
 #if HAVE_LZ4
-        test_compress_decompress("LZ4", compress_blob_lz4, decompress_blob_lz4,
-                                 text, sizeof(text), false);
-        test_compress_decompress("LZ4", compress_blob_lz4, decompress_blob_lz4,
-                                 data, sizeof(data), true);
+        if (dlopen_lz4() >= 0) {
+                test_compress_decompress("LZ4", compress_blob_lz4, decompress_blob_lz4,
+                                         text, sizeof(text), false);
+                test_compress_decompress("LZ4", compress_blob_lz4, decompress_blob_lz4,
+                                         data, sizeof(data), true);
 
-        test_decompress_startswith("LZ4",
-                                   compress_blob_lz4, decompress_startswith_lz4,
-                                   text, sizeof(text), false);
-        test_decompress_startswith("LZ4",
-                                   compress_blob_lz4, decompress_startswith_lz4,
-                                   data, sizeof(data), true);
-        test_decompress_startswith("LZ4",
-                                   compress_blob_lz4, decompress_startswith_lz4,
-                                   huge, HUGE_SIZE, true);
+                test_decompress_startswith("LZ4",
+                                           compress_blob_lz4, decompress_startswith_lz4,
+                                           text, sizeof(text), false);
+                test_decompress_startswith("LZ4",
+                                           compress_blob_lz4, decompress_startswith_lz4,
+                                           data, sizeof(data), true);
+                test_decompress_startswith("LZ4",
+                                           compress_blob_lz4, decompress_startswith_lz4,
+                                           huge, HUGE_SIZE, true);
 
-        test_compress_stream("LZ4", "lz4cat",
-                             compress_stream_lz4, decompress_stream_lz4, srcfile);
+                test_compress_stream("LZ4", "lz4cat",
+                                     compress_stream_lz4, decompress_stream_lz4, srcfile);
 
-        test_lz4_decompress_partial();
+                test_lz4_decompress_partial();
 
-        test_decompress_startswith_short("LZ4", compress_blob_lz4, decompress_startswith_lz4);
-
+                test_decompress_startswith_short("LZ4", compress_blob_lz4, decompress_startswith_lz4);
+        } else
+                log_error("/* Can't load liblz4 */");
 #else
         log_info("/* LZ4 test skipped */");
 #endif
