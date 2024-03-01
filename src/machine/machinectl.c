@@ -2676,6 +2676,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --now                    Start or power off container after enabling or\n"
                "                              disabling it\n"
                "     --runner=RUNNER          Select between nspawn and vmspawn as the runner\n"
+               "  -V                          Short for --runner=vmspawn\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
