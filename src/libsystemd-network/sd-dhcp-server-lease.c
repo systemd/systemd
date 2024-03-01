@@ -48,14 +48,14 @@ int dhcp_server_put_lease(sd_dhcp_server *server, sd_dhcp_server_lease *lease, b
         return 0;
 }
 
-int dhcp_server_set_lease(sd_dhcp_server *server, be32_t address, DHCPRequest *req, usec_t expiration) {
+int dhcp_server_set_lease(sd_dhcp_server *server, be32_t address, DHCPRequest *req, usec_t expiration_boottime) {
         _cleanup_(sd_dhcp_server_lease_unrefp) sd_dhcp_server_lease *lease = NULL;
         int r;
 
         assert(server);
         assert(address != 0);
         assert(req);
-        assert(expiration != 0);
+        assert(expiration_boottime != 0);
 
         /* If a lease for the host already exists, update it. */
         lease = hashmap_get(server->bound_leases_by_client_id, &req->client_id);
@@ -69,7 +69,7 @@ int dhcp_server_set_lease(sd_dhcp_server *server, be32_t address, DHCPRequest *r
                                 return r;
                 }
 
-                lease->expiration = expiration;
+                triple_timestamp_from_boottime(&lease->expiration, expiration_boottime);
 
                 TAKE_PTR(lease);
                 return 0;
@@ -88,9 +88,9 @@ int dhcp_server_set_lease(sd_dhcp_server *server, be32_t address, DHCPRequest *r
                 .htype = req->message->htype,
                 .hlen = req->message->hlen,
                 .gateway = req->message->giaddr,
-                .expiration = expiration,
         };
 
+        triple_timestamp_from_boottime(&lease->expiration, expiration_boottime);
         memcpy(lease->chaddr, req->message->chaddr, req->message->hlen);
 
         if (req->hostname) {
@@ -119,7 +119,7 @@ int dhcp_server_cleanup_expired_leases(sd_dhcp_server *server) {
                 return r;
 
         HASHMAP_FOREACH(lease, server->bound_leases_by_client_id)
-                if (lease->expiration < time_now) {
+                if (lease->expiration.boottime < time_now) {
                         log_dhcp_server(server, "CLEAN (0x%x)", be32toh(lease->address));
                         sd_dhcp_server_lease_unref(lease);
                 }
@@ -215,7 +215,8 @@ static int dhcp_server_lease_append_json(sd_dhcp_server_lease *lease, JsonVarian
                                  JSON_BUILD_PAIR_BYTE_ARRAY("ClientId", lease->client_id.raw, lease->client_id.size),
                                  JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Address", &(struct in_addr) { .s_addr = lease->address }),
                                  JSON_BUILD_PAIR_STRING_NON_EMPTY("Hostname", lease->hostname),
-                                 JSON_BUILD_PAIR_FINITE_USEC("ExpirationUSec", lease->expiration)));
+                                 JSON_BUILD_PAIR_FINITE_USEC("ExpirationUSec", lease->expiration.boottime),
+                                 JSON_BUILD_PAIR_FINITE_USEC("ExpirationTimestamp", lease->expiration.realtime)));
 }
 
 static int dhcp_server_bound_leases_build_json(sd_dhcp_server *server, JsonVariant **ret) {
