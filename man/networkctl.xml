@@ -302,15 +302,15 @@
           details.</para>
 
           <para>Produces output similar to:
-          <programlisting>LINK             CHASSIS ID        SYSTEM NAME      CAPS        PORT ID           PORT DESCRIPTION
-enp0s25          00:e0:4c:00:00:00 GS1900           ..b........ 2                 Port #2
+          <programlisting>LINK    SYSTEM-NAME SYSTEM-DESCRIPTION CHASSIS-ID        PORT-ID PORT-DESCRIPTION CAPS
+enp0s25 GS1900      -                  00:e0:4c:00:00:00 2       Port #2           ..b........
 
 Capability Flags:
 o - Other; p - Repeater;  b - Bridge; w - WLAN Access Point; r - Router;
 t - Telephone; d - DOCSIS cable device; a - Station; c - Customer VLAN;
 s - Service VLAN, m - Two-port MAC Relay (TPMR)
 
-1 neighbors listed.</programlisting></para>
+1 neighbor(s) listed.</programlisting></para>
 
           <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>

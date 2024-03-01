@@ -272,7 +272,6 @@ static Link *link_free(Link *link) {
         free(link->driver);
 
         unlink_and_free(link->lease_file);
-        unlink_and_free(link->lldp_file);
         unlink_and_free(link->state_file);
 
         sd_device_unref(link->dev);
@@ -2653,7 +2652,7 @@ static Link *link_drop_or_unref(Link *link) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_drop_or_unref);
 
 static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
-        _cleanup_free_ char *ifname = NULL, *kind = NULL, *state_file = NULL, *lease_file = NULL, *lldp_file = NULL;
+        _cleanup_free_ char *ifname = NULL, *kind = NULL, *state_file = NULL, *lease_file = NULL;
         _cleanup_(link_drop_or_unrefp) Link *link = NULL;
         unsigned short iftype;
         int r, ifindex;
@@ -2694,9 +2693,6 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
 
                 if (asprintf(&lease_file, "/run/systemd/netif/leases/%d", ifindex) < 0)
                         return log_oom_debug();
-
-                if (asprintf(&lldp_file, "/run/systemd/netif/lldp/%d", ifindex) < 0)
-                        return log_oom_debug();
         }
 
         link = new(Link, 1);
@@ -2719,7 +2715,6 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
 
                 .state_file = TAKE_PTR(state_file),
                 .lease_file = TAKE_PTR(lease_file),
-                .lldp_file = TAKE_PTR(lldp_file),
 
                 .n_dns = UINT_MAX,
                 .dns_default_route = -1,
