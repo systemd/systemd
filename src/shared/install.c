@@ -496,6 +496,45 @@ void install_changes_dump(
                 log_error_errno(error, "Failed to %s unit: %m.", verb);
 }
 
+static int chroot_unit_symlinks_equivalent(
+                const LookupPaths *lp,
+                const char *link_src,
+                const char *new_target,
+                const char *existing_target) {
+
+        _cleanup_free_ char *new_target_resolved = NULL;
+        int r;
+
+        assert(lp);
+        assert(link_src);
+        assert(new_target);
+        assert(existing_target);
+        assert(!lp->root_dir || path_startswith(link_src, lp->root_dir));
+        assert(path_is_absolute(existing_target));
+        assert(!lp->root_dir || path_startswith(existing_target, lp->root_dir));
+
+        if (!path_is_absolute(new_target)) {
+                _cleanup_free_ char *link_dir = NULL, *new_target_abs = NULL;
+
+                r = path_extract_directory(link_src, &link_dir);
+                if (r < 0)
+                        return r;
+
+                new_target_abs = path_make_absolute(new_target, link_dir);
+                if (!new_target_absolute)
+                        return -ENOMEM;
+
+                r = chase(new_target_abs, lp->root_dir, CHASE)
+
+                new_target = new_target_absolute;
+        }
+
+        if ((r > 0 && path_equal_or_inode_same(existing_target, link_target, /* flags = */ 0)) ||
+            (path_startswith_strv(existing_target, lp->search_path) &&
+             path_startswith_strv(link_target, lp->search_path) &&
+             path_equal_filename(existing_target, link_target))) {
+}
+
 static int create_symlink(
                 const LookupPaths *lp,
                 const char *link_target,
