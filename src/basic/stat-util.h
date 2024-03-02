@@ -14,14 +14,22 @@
 #include "siphash24.h"
 #include "time-util.h"
 
+int stat_verify_regular(const struct stat *st);
+int verify_regular_at(int fd, const char *path, bool follow);
+int fd_verify_regular(int fd);
+
+int stat_verify_directory(const struct stat *st);
+int fd_verify_directory(int fd);
+int is_dir_at(int fd, const char *path, bool follow);
+int is_dir(const char *path, bool follow);
+
+int stat_verify_symlink(const struct stat *st);
 int is_symlink(const char *path);
-int is_dir_full(int atfd, const char *fname, bool follow);
-static inline int is_dir(const char *path, bool follow) {
-        return is_dir_full(AT_FDCWD, path, follow);
-}
-static inline int is_dir_fd(int fd) {
-        return is_dir_full(fd, NULL, false);
-}
+
+int stat_verify_linked(const struct stat *st);
+int fd_verify_linked(int fd);
+
+int stat_verify_device_node(const struct stat *st);
 int is_device_node(const char *path);
 
 int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup);
@@ -71,16 +79,6 @@ int path_is_network_fs(const char *path);
  * signed/unsigned comparison, because the magic can be 32 bit unsigned.
  */
 #define F_TYPE_EQUAL(a, b) (a == (typeof(a)) b)
-
-int stat_verify_linked(const struct stat *st);
-int fd_verify_linked(int fd);
-
-int stat_verify_regular(const struct stat *st);
-int fd_verify_regular(int fd);
-int verify_regular_at(int dir_fd, const char *path, bool follow);
-
-int stat_verify_directory(const struct stat *st);
-int fd_verify_directory(int fd);
 
 int proc_mounted(void);
 
