@@ -496,62 +496,22 @@ void install_changes_dump(
                 log_error_errno(error, "Failed to %s unit: %m.", verb);
 }
 
-/**
- * Checks if two symlink targets (starting from src) are equivalent as far as the unit enablement logic is
- * concerned. If the target is in the unit search path, then anything with the same name is equivalent.
- * If outside the unit search path, paths must be identical.
- */
-static int chroot_unit_symlinks_equivalent(
-                const LookupPaths *lp,
-                const char *symlink,
-                const char *new_target) {
-
-        _cleanup_free_ char *existing_target = NULL;
-        int r;
-
-        assert(lp);
-        assert(symlink);
-        assert(new_target);
-
-        r = chase(symlink, lp->root_dir, CHASE_NONEXISTENT, &existing_target, /* ret_fd = */ NULL);
-        if (r < 0)
-                return r;
-        if (r > 0 && path_equal_or_inode_same(existing_target, new_target, /* flags = */ 0))
-                return true;
-
-        _cleanup_free_ char *existing_name = NULL, *new_name = NULL;
-
-        r = path_extract_filename(existing_target, &existing_name);
-        if (r < 0)
-                return r;
-
-        r = path_extract_filename(new_target, &new_name);
-        if (r < 0)
-                return r;
-
-        return streq(existing_name, new_name) &&
-               path_startswith_strv(existing_target, lp->search_path) &&
-               path_startswith_strv(new_target, lp->search_path);
-}
-
 static int create_symlink(
                 const LookupPaths *lp,
-                const char *old_path,
-                const char *new_path,
+                const char *link_target,
+                const char *link_src,
                 bool force,
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_free_ char *dest = NULL;
-        const char *rp;
+        const char *link_target_in_root;
         int r;
 
-        assert(old_path);
-        assert(new_path);
+        assert(lp);
+        assert(link_target);
+        assert(link_src);
 
-        rp = skip_root(lp->root_dir, old_path);
-        if (rp)
-                old_path = rp;
+        link_target_in_root = skip_root(lp->root_dir, link_target) ?: link_target;
 
         /* Actually create a symlink, and remember that we did. This function is
          * smart enough to check if there's already a valid symlink in place.
@@ -562,41 +522,50 @@ static int create_symlink(
 
         (void) mkdir_parents_label(new_path, 0755);
 
-        if (symlink(old_path, new_path) >= 0) {
-                r = install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, new_path, old_path);
+        if (symlink(link_target_in_root, link_src) >= 0) {
+                r = install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, link_src, link_target_in_root);
                 if (r < 0)
                         return r;
                 return 1;
         }
         if (errno != EEXIST)
-                return install_changes_add(changes, n_changes, -errno, new_path, NULL);
+                return install_changes_add(changes, n_changes, -errno, link_src, NULL);
 
-        r = is_symlink(new_path);
+        r = is_symlink(link_src);
         if (r < 0)
-                return install_changes_add(changes, n_changes, r, new_path, NULL);
+                return install_changes_add(changes, n_changes, r, link_src, NULL);
         if (r == 0)
-                return install_changes_add(changes, n_changes, -EEXIST, new_path, NULL);
+                return install_changes_add(changes, n_changes, -EEXIST, link_src, NULL);
 
-        r = chroot_unit_symlinks_equivalent(lp, new_path, old_path);
+        /* Check if the existing symlink is equivalent to the one shall be created by us, as far as
+         * the unit enablement logic is concerned. If the symlink target is in the unit search path,
+         * then anything with the same name is equivalent. If outside the unit search path, paths must
+         * be identical. */
+        _cleanup_free_ char *existing_target = NULL;
+
+        r = chase(link_src, lp->root_dir, CHASE_NONEXISTENT, &existing_target, /* ret_fd = */ NULL);
         if (r < 0)
-                return install_changes_add(changes, n_changes, r, new_path, NULL);
-        if (r > 0) {
+                return install_changes_add(changes, n_changes, r, link_src, NULL);
+        if ((r > 0 && path_equal_or_inode_same(existing_target, link_target, /* flags = */ 0)) ||
+            (path_startswith_strv(existing_target, lp->search_path) &&
+             path_startswith_strv(link_target, lp->search_path) &&
+             path_equal_filename(existing_target, link_target))) {
                 log_debug("Symlink '%s' %s '%s' (or equivalent) already exists.",
-                          new_path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), old_path);
+                          link_src, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), link_target);
                 return 1;
         }
 
         if (!force)
-                return install_changes_add(changes, n_changes, -EEXIST, new_path, dest);
+                return install_changes_add(changes, n_changes, -EEXIST, link_src, existing_target);
 
-        r = symlink_atomic(old_path, new_path);
+        r = symlink_atomic(link_target, link_src);
         if (r < 0)
-                return install_changes_add(changes, n_changes, r, new_path, NULL);
+                return install_changes_add(changes, n_changes, r, link_src, NULL);
 
-        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, new_path, NULL);
+        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, link_src, NULL);
         if (r < 0)
                 return r;
-        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, new_path, old_path);
+        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, link_src, link_target);
         if (r < 0)
                 return r;
 
