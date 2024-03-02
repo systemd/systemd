@@ -66,7 +66,10 @@ elif [ -f /usr/lib/os-release ]; then
     . /usr/lib/os-release
 fi
 
-[ -n "$PRETTY_NAME" ] || PRETTY_NAME="Linux $KERNEL_VERSION"
+[ -n "$PRETTY_NAME" ] || PRETTY_NAME="Linux"
+
+# Add Kernel Version
+PRETTY_NAME="$PRETTY_NAME $KERNEL_VERSION"
 
 SORT_KEY="$IMAGE_ID"
 [ -z "$SORT_KEY" ] && SORT_KEY="$ID"
