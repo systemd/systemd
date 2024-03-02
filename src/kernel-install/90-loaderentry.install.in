@@ -66,7 +66,7 @@ elif [ -f /usr/lib/os-release ]; then
     . /usr/lib/os-release
 fi
 
-[ -n "$PRETTY_NAME" ] || PRETTY_NAME="Linux $KERNEL_VERSION"
+[ -n "$PRETTY_NAME" ] || PRETTY_NAME="Linux"
 
 SORT_KEY="$IMAGE_ID"
 [ -z "$SORT_KEY" ] && SORT_KEY="$ID"
@@ -182,7 +182,7 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
 {
     echo "# Boot Loader Specification type#1 entry"
     echo "# File created by $0 (systemd {{GIT_VERSION}})"
-    echo "title      $PRETTY_NAME"
+    echo "title      $PRETTY_NAME $KERNEL_VERSION"
     echo "version    $KERNEL_VERSION"
     if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ]; then
         # See similar logic above for the systemd.machine_id= kernel command line option
