@@ -182,7 +182,7 @@ static int extract_now(
 
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_(lookup_paths_free) LookupPaths paths = {};
+        _cleanup_(lookup_paths_done) LookupPaths paths = {};
         _cleanup_close_ int os_release_fd = -EBADF;
         _cleanup_free_ char *os_release_path = NULL;
         const char *os_release_id;
@@ -1556,7 +1556,7 @@ int portable_attach(
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
-        _cleanup_(lookup_paths_free) LookupPaths paths = {};
+        _cleanup_(lookup_paths_done) LookupPaths paths = {};
         _cleanup_strv_free_ char **valid_prefixes = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         PortableMetadata *item;
@@ -1817,7 +1817,7 @@ int portable_detach(
                 size_t *n_changes,
                 sd_bus_error *error) {
 
-        _cleanup_(lookup_paths_free) LookupPaths paths = {};
+        _cleanup_(lookup_paths_done) LookupPaths paths = {};
         _cleanup_set_free_ Set *unit_files = NULL, *markers = NULL;
         _cleanup_free_ char *extensions = NULL;
         _cleanup_closedir_ DIR *d = NULL;
@@ -2002,7 +2002,7 @@ static int portable_get_state_internal(
                 PortableState *ret,
                 sd_bus_error *error) {
 
-        _cleanup_(lookup_paths_free) LookupPaths paths = {};
+        _cleanup_(lookup_paths_done) LookupPaths paths = {};
         bool found_enabled = false, found_running = false;
         _cleanup_set_free_ Set *unit_files = NULL;
         _cleanup_closedir_ DIR *d = NULL;
