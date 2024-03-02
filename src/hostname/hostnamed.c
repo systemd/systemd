@@ -1345,7 +1345,6 @@ static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_err
 }
 
 static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *serial = NULL;
         Context *c = ASSERT_PTR(userdata);
         int r;
@@ -1368,15 +1367,7 @@ static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_
                 return sd_bus_error_set(error, BUS_ERROR_NO_HARDWARE_SERIAL,
                                         "Failed to read hardware serial from firmware.");
 
-        r = sd_bus_message_new_method_return(m, &reply);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(reply, "s", serial);
-        if (r < 0)
-                return r;
-
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_reply_method_return(m, "s", serial);
 }
 
 static int build_describe_response(Context *c, bool privileged, JsonVariant **ret) {
@@ -1489,7 +1480,6 @@ static int build_describe_response(Context *c, bool privileged, JsonVariant **re
 }
 
 static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         Context *c = ASSERT_PTR(userdata);
         _cleanup_free_ char *text = NULL;
@@ -1519,15 +1509,7 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
         if (r < 0)
                 return log_error_errno(r, "Failed to format JSON data: %m");
 
-        r = sd_bus_message_new_method_return(m, &reply);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(reply, "s", text);
-        if (r < 0)
-                return r;
-
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_reply_method_return(m, "s", text);
 }
 
 static const sd_bus_vtable hostname_vtable[] = {
