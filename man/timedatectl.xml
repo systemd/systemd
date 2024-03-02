@@ -273,6 +273,16 @@
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>-P</option></term>
+
+        <listitem>
+          <xi:include href="systemctl.xml" xpointer="xpointer(//varlistentry[@id='option-P']/listitem/para[position() &lt; last()])" />
+        </listitem>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
