@@ -283,9 +283,6 @@ def compare_kernel_version(min_kernel_version):
 
     return version.parse(kver) >= version.parse(min_kernel_version)
 
-def udev_reload():
-    check_output(*udevadm_cmd, 'control', '--reload')
-
 def copy_network_unit(*units, copy_dropins=True):
     """
     Copy networkd unit files into the testbed.
@@ -316,7 +313,7 @@ def copy_network_unit(*units, copy_dropins=True):
             has_link = True
 
     if has_link:
-        udev_reload()
+        udevadm_reload()
 
 def copy_credential(src, target):
         mkdir_p(credstore_dir)
@@ -338,7 +335,7 @@ def remove_network_unit(*units):
             has_link = True
 
     if has_link:
-        udev_reload()
+        udevadm_reload()
 
 def clear_network_units():
     has_link = False
@@ -351,7 +348,7 @@ def clear_network_units():
     rm_rf(network_unit_dir)
 
     if has_link:
-        udev_reload()
+        udevadm_reload()
 
 def copy_networkd_conf_dropin(*dropins):
     """Copy networkd.conf dropin files into the testbed."""
@@ -797,6 +794,15 @@ def resolvectl(*args):
 
 def timedatectl(*args):
     return check_output(*(timedatectl_cmd + list(args)), env=env)
+
+def udevadm(*args):
+    return check_output(*(udevadm_cmd + list(args)))
+
+def udevadm_reload():
+    udevadm('control', '--reload')
+
+def udevadm_trigger(*args, action='add'):
+    udevadm('trigger', '--settle', f'--action={action}', *args)
 
 def setup_common():
     print()
@@ -1315,7 +1321,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         # This test may be run on the system that has older udevd than 70f32a260b5ebb68c19ecadf5d69b3844896ba55 (v249).
         # In that case, the udev DB for the loopback network interface may already have ID_NET_LINK_FILE property.
         # Let's reprocess the interface and drop the property.
-        check_output(*udevadm_cmd, 'trigger', '--settle', '--action=add', '/sys/class/net/lo')
+        udevadm_trigger('/sys/class/net/lo')
         output = networkctl_status('lo')
         print(output)
         self.assertIn('Link File: n/a', output)
@@ -1378,7 +1384,7 @@ class NetworkdMatchTests(unittest.TestCase, Utilities):
 
         check_output('ip link set dev dummy98-1 down')
         check_output('ip link set dev dummy98-1 name dummy98-2')
-        check_output(*udevadm_cmd, 'trigger', '--action=add', '/sys/class/net/dummy98-2')
+        udevadm_trigger('/sys/class/net/dummy98-2')
 
         self.wait_address('dummy98-2', '10.0.2.2/16', ipv='-4', timeout_sec=10)
         self.wait_online('dummy98-2:routable')
@@ -5248,8 +5254,8 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_dir, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=4\n')
 
-        udev_reload()
-        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
+        udevadm_reload()
+        udevadm_trigger(f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -5264,8 +5270,8 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_dir, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
-        udev_reload()
-        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
+        udevadm_reload()
+        udevadm_trigger(f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -5280,8 +5286,8 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_dir, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=2\n')
 
-        udev_reload()
-        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
+        udevadm_reload()
+        udevadm_trigger(f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -5296,8 +5302,8 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_dir, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
-        udev_reload()
-        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
+        udevadm_reload()
+        udevadm_trigger(f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
