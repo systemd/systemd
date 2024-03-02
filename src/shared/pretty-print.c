@@ -522,13 +522,10 @@ void clear_progress_bar(const char *prefix) {
 
         fputc('\r', stderr);
 
-        if (terminal_is_dumb()) {
-                size_t l = strlen_ptr(prefix);
-                for (size_t i = 0; i < l; i ++)
-                        fputc(' ', stderr);
-
-                fputs("    ", stderr);
-        } else
+        if (terminal_is_dumb())
+                fputs(strrepa(" ", strlen_ptr(prefix) + 4), /* 4: %3.0f%% */
+                      stderr);
+        else
                 fputs(ANSI_ERASE_TO_END_OF_LINE, stderr);
 
         fputc('\r', stderr);
