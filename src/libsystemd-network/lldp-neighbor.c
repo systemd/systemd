@@ -776,7 +776,7 @@ int lldp_neighbor_build_json(sd_lldp_neighbor *n, JsonVariant **ret) {
         (void) sd_lldp_neighbor_get_system_name(n, &system_name);
         (void) sd_lldp_neighbor_get_system_description(n, &system_description);
 
-        valid_cc = sd_lldp_neighbor_get_enabled_capabilities(n, &cc);
+        valid_cc = sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0;
 
         return json_build(ret, JSON_BUILD_OBJECT(
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("ChassisID", chassis_id),
