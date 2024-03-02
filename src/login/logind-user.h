@@ -65,10 +65,10 @@ struct User {
         LIST_FIELDS(User, gc_queue);
 };
 
-int user_new(User **out, Manager *m, UserRecord *ur);
+int user_new(Manager *m, UserRecord *ur, User **ret);
 User *user_free(User *u);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(User *, user_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(User*, user_free);
 
 int user_start_service_manager(User *u);
 int user_start(User *u);

@@ -46,13 +46,13 @@
 static void session_remove_fifo(Session *s);
 static void session_restore_vt(Session *s);
 
-int session_new(Session **ret, Manager *m, const char *id) {
+int session_new(Manager *m, const char *id, Session **ret) {
         _cleanup_(session_freep) Session *s = NULL;
         int r;
 
-        assert(ret);
         assert(m);
         assert(id);
+        assert(ret);
 
         if (!session_id_valid(id))
                 return -EINVAL;
@@ -63,18 +63,16 @@ int session_new(Session **ret, Manager *m, const char *id) {
 
         *s = (Session) {
                 .manager = m,
+                .id = strdup(id),
+                .state_file = path_join("/run/systemd/sessions/", id),
                 .fifo_fd = -EBADF,
                 .vtfd = -EBADF,
                 .audit_id = AUDIT_SESSION_INVALID,
                 .tty_validity = _TTY_VALIDITY_INVALID,
                 .leader = PIDREF_NULL,
         };
-
-        s->state_file = path_join("/run/systemd/sessions", id);
-        if (!s->state_file)
+        if (!s->id || !s->state_file)
                 return -ENOMEM;
-
-        s->id = basename(s->state_file);
 
         s->devices = hashmap_new(&devt_hash_ops);
         if (!s->devices)
@@ -146,10 +144,12 @@ Session* session_free(Session *s) {
         if (!s)
                 return NULL;
 
+        sd_event_source_unref(s->stop_on_idle_event_source);
+
         if (s->in_gc_queue)
                 LIST_REMOVE(gc_queue, s->manager->session_gc_queue, s);
 
-        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        sd_event_source_unref(s->timer_event_source);
 
         session_drop_controller(s);
 
@@ -203,10 +203,9 @@ Session* session_free(Session *s) {
 
         /* Note that we remove neither the state file nor the fifo path here, since we want both to survive
          * daemon restarts */
-        free(s->state_file);
         free(s->fifo_path);
-
-        sd_event_source_unref(s->stop_on_idle_event_source);
+        free(s->state_file);
+        free(s->id);
 
         return mfree(s);
 }

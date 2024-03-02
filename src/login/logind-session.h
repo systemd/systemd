@@ -95,7 +95,8 @@ typedef enum TTYValidity {
 struct Session {
         Manager *manager;
 
-        const char *id;
+        char *id;
+
         unsigned position;
         SessionType type;
         SessionType original_type;
@@ -164,10 +165,10 @@ struct Session {
         LIST_FIELDS(Session, gc_queue);
 };
 
-int session_new(Session **ret, Manager *m, const char *id);
+int session_new(Manager *m, const char *id, Session **ret);
 Session* session_free(Session *s);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Session *, session_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Session*, session_free);
 
 void session_set_user(Session *s, User *u);
 int session_set_leader_consume(Session *s, PidRef _leader);
