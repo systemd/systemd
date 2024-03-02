@@ -465,7 +465,7 @@ int terminal_tint_color(double hue, char **ret) {
 
 void draw_progress_bar(const char *prefix, double percentage) {
 
-        fputs("\r", stderr);
+        fputc('\r', stderr);
         if (prefix)
                 fputs(prefix, stderr);
 
@@ -474,11 +474,11 @@ void draw_progress_bar(const char *prefix, double percentage) {
                 size_t prefix_length = strlen_ptr(prefix);
                 size_t length = cols > prefix_length + 6 ? cols - prefix_length - 6 : 0;
 
-                fputs(ansi_highlight_green(), stderr);
-
                 if (length > 5 && percentage >= 0.0 && percentage <= 100.0) {
                         size_t p = (size_t) (length * percentage / 100.0);
                         bool separator_done = false;
+
+                        fputs(ansi_highlight_green(), stderr);
 
                         for (size_t i = 0; i < length; i++) {
 
@@ -522,13 +522,10 @@ void clear_progress_bar(const char *prefix) {
 
         fputc('\r', stderr);
 
-        if (terminal_is_dumb()) {
-                size_t l = strlen_ptr(prefix);
-                for (size_t i = 0; i < l; i ++)
-                        fputc(' ', stderr);
-
-                fputs("    ", stderr);
-        } else
+        if (terminal_is_dumb())
+                fputs(strrepa(" ", strlen_ptr(prefix) + 4), /* 4: %3.0f%% */
+                      stderr);
+        else
                 fputs(ANSI_ERASE_TO_END_OF_LINE, stderr);
 
         fputc('\r', stderr);

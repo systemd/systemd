@@ -101,7 +101,7 @@
       <varname>PCRPublicKey=</varname>, and <varname>Phases=</varname> are grouped into separate sections,
       describing separate boot phases. If <varname>SigningEngine=</varname>/<option>--signing-engine=</option>
       is specified, then the private keys arguments will be passed verbatim to OpenSSL as URIs, and the public
-      key arguments will be loaded as X.509 certificates, so that signing can be perfomed with an OpenSSL
+      key arguments will be loaded as X.509 certificates, so that signing can be performed with an OpenSSL
       engine.</para>
 
       <para>If a SecureBoot signing key is provided via the
