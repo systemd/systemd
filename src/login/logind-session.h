@@ -94,7 +94,8 @@ typedef enum TTYValidity {
 struct Session {
         Manager *manager;
 
-        const char *id;
+        char *id;
+
         unsigned position;
         SessionType type;
         SessionType original_type;

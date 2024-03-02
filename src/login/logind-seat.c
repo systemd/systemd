@@ -42,13 +42,11 @@ int seat_new(Manager *m, const char *id, Seat **ret) {
 
         *s = (Seat) {
                 .manager = m,
+                .id = strdup(id),
+                .state_file = path_join("/run/systemd/seats/", id),
         };
-
-        s->state_file = path_join("/run/systemd/seats", id);
-        if (!s->state_file)
+        if (!s->id || !s->state_file)
                 return -ENOMEM;
-
-        s->id = basename(s->state_file);
 
         r = hashmap_put(m->seats, s->id, s);
         if (r < 0)
@@ -77,6 +75,7 @@ Seat* seat_free(Seat *s) {
 
         free(s->positions);
         free(s->state_file);
+        free(s->id);
 
         return mfree(s);
 }
