@@ -46,13 +46,13 @@
 static void session_remove_fifo(Session *s);
 static void session_restore_vt(Session *s);
 
-int session_new(Session **ret, Manager *m, const char *id) {
+int session_new(Manager *m, const char *id, Session **ret) {
         _cleanup_(session_freep) Session *s = NULL;
         int r;
 
-        assert(ret);
         assert(m);
         assert(id);
+        assert(ret);
 
         if (!session_id_valid(id))
                 return -EINVAL;
