@@ -1397,12 +1397,10 @@ int config_parse_rps_cpu_mask(
                 mask = allocated;
         }
 
-        if (streq(rvalue, "disable")) {
+        if (streq(rvalue, "disable"))
                 cpu_set_reset(mask);
-                return 0;
-        }
 
-        if (streq(rvalue, "all")) {
+        else if (streq(rvalue, "all")) {
                 r = cpu_mask_add_all(mask);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
