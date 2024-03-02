@@ -801,7 +801,7 @@ static int context_ensure_layout(Context *c) {
         if (!entry_token_path)
                 return log_oom();
 
-        r = is_dir_full(c->rfd, entry_token_path, /* follow = */ false);
+        r = is_dir_at(c->rfd, entry_token_path, /* follow = */ false);
         if (r < 0 && r != -ENOENT)
                 return log_error_errno(r, "Failed to check if '%s' is a directory: %m", entry_token_path);
         if (r > 0) {
