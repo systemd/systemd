@@ -6,7 +6,7 @@
 #include "strv.h"
 
 int verb_unit_paths(int argc, char *argv[], void *userdata) {
-        _cleanup_(lookup_paths_free) LookupPaths paths = {};
+        _cleanup_(lookup_paths_done) LookupPaths paths = {};
         int r;
 
         r = lookup_paths_init_or_warn(&paths, arg_runtime_scope, 0, NULL);

@@ -458,7 +458,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if sshd is installed: %m");
 
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         r = lookup_paths_init_or_warn(&lp, RUNTIME_SCOPE_SYSTEM, LOOKUP_PATHS_EXCLUDE_GENERATED, /* root_dir= */ NULL);
         if (r < 0)
                 return r;

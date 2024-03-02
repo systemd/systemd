@@ -776,9 +776,8 @@ int lookup_paths_init_or_warn(LookupPaths *lp, RuntimeScope scope, LookupPathsFl
         return r;
 }
 
-void lookup_paths_free(LookupPaths *lp) {
-        if (!lp)
-                return;
+void lookup_paths_done(LookupPaths *lp) {
+        assert(lp);
 
         lp->search_path = strv_free(lp->search_path);
 
