@@ -28,7 +28,10 @@ sources = files(
         'sd-lldp-rx.c',
         'sd-lldp-tx.c',
         'sd-ndisc.c',
+        'sd-ndisc-neighbor.c',
+        'sd-ndisc-redirect.c',
         'sd-ndisc-router.c',
+        'sd-ndisc-router-solicit.c',
         'sd-radv.c',
 )
 
