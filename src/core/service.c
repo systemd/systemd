@@ -3877,11 +3877,13 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 default:
                                         assert_not_reached();
                                 }
-                        } else if (s->exit_type == SERVICE_EXIT_CGROUP && s->state == SERVICE_START)
+                        } else if (s->exit_type == SERVICE_EXIT_CGROUP && s->state == SERVICE_START &&
+                                   !IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD, SERVICE_DBUS))
                                 /* If a main process exits very quickly, this function might be executed
                                  * before service_dispatch_exec_io(). Since this function disabled IO events
                                  * to monitor the main process above, we need to update the state here too.
-                                 * Let's consider the process is successfully launched and exited. */
+                                 * Let's consider the process is successfully launched and exited, but
+                                 * only when we're not expecting a readiness notification or dbus name. */
                                 service_enter_start_post(s);
                 }
 
