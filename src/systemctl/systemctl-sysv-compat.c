@@ -111,7 +111,7 @@ int enable_sysv_units(const char *verb, char **args) {
         int r = 0;
 
 #if HAVE_SYSV_COMPAT
-        _cleanup_(lookup_paths_free) LookupPaths paths = {};
+        _cleanup_(lookup_paths_done) LookupPaths paths = {};
         unsigned f = 0;
         SysVUnitEnableState enable_state = SYSV_UNIT_NOT_FOUND;
 
