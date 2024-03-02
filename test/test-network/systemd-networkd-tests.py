@@ -5328,7 +5328,7 @@ class NetworkdLLDPTests(unittest.TestCase, Utilities):
 
             output = networkctl('lldp')
             print(output)
-            if re.search(r'veth99 .* veth-peer', output):
+            if re.search(r'veth99 .* veth-peer .* .......a...', output):
                 break
         else:
             self.fail()
@@ -5336,30 +5336,87 @@ class NetworkdLLDPTests(unittest.TestCase, Utilities):
         # With interface name
         output = networkctl('lldp', 'veth99');
         print(output)
-        self.assertRegex(output, r'veth99 .* veth-peer')
+        self.assertRegex(output, r'veth99 .* veth-peer .* .......a...')
 
         # With interface name pattern
         output = networkctl('lldp', 've*9');
         print(output)
-        self.assertRegex(output, r'veth99 .* veth-peer')
+        self.assertRegex(output, r'veth99 .* veth-peer .* .......a...')
 
         # json format
         output = networkctl('--json=short', 'lldp')
         print(output)
         self.assertIn('"InterfaceName":"veth99"', output)
         self.assertIn('"PortID":"veth-peer"', output)
+        self.assertIn('"EnabledCapabilities":128', output)
 
         # json format with interface name
         output = networkctl('--json=short', 'lldp', 'veth99')
         print(output)
         self.assertIn('"InterfaceName":"veth99"', output)
         self.assertIn('"PortID":"veth-peer"', output)
+        self.assertIn('"EnabledCapabilities":128', output)
 
         # json format with interface name pattern
         output = networkctl('--json=short', 'lldp', 've*9')
         print(output)
         self.assertIn('"InterfaceName":"veth99"', output)
         self.assertIn('"PortID":"veth-peer"', output)
+        self.assertIn('"EnabledCapabilities":128', output)
+
+        # LLDP neighbors in status
+        output = networkctl_status('veth99')
+        print(output)
+        self.assertRegex(output, r'Connected To: .* on port veth-peer')
+
+        # enable forwarding, to enable the Router flag
+        with open(os.path.join(network_unit_dir, '23-emit-lldp.network'), mode='a', encoding='utf-8') as f:
+            f.write('[Network]\nIPv4Forwarding=yes\n')
+
+        networkctl_reload()
+        self.wait_online('veth-peer:degraded')
+
+        for trial in range(10):
+            if trial > 0:
+                time.sleep(1)
+
+            output = networkctl('lldp')
+            print(output)
+            if re.search(r'veth99 .* veth-peer .* ....r......', output):
+                break
+        else:
+            self.fail()
+
+        # With interface name
+        output = networkctl('lldp', 'veth99');
+        print(output)
+        self.assertRegex(output, r'veth99 .* veth-peer .* ....r......')
+
+        # With interface name pattern
+        output = networkctl('lldp', 've*9');
+        print(output)
+        self.assertRegex(output, r'veth99 .* veth-peer .* ....r......')
+
+        # json format
+        output = networkctl('--json=short', 'lldp')
+        print(output)
+        self.assertIn('"InterfaceName":"veth99"', output)
+        self.assertIn('"PortID":"veth-peer"', output)
+        self.assertIn('"EnabledCapabilities":16', output)
+
+        # json format with interface name
+        output = networkctl('--json=short', 'lldp', 'veth99')
+        print(output)
+        self.assertIn('"InterfaceName":"veth99"', output)
+        self.assertIn('"PortID":"veth-peer"', output)
+        self.assertIn('"EnabledCapabilities":16', output)
+
+        # json format with interface name pattern
+        output = networkctl('--json=short', 'lldp', 've*9')
+        print(output)
+        self.assertIn('"InterfaceName":"veth99"', output)
+        self.assertIn('"PortID":"veth-peer"', output)
+        self.assertIn('"EnabledCapabilities":16', output)
 
         # LLDP neighbors in status
         output = networkctl_status('veth99')
