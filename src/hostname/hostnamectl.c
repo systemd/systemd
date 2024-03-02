@@ -427,11 +427,11 @@ static int show_all_names(sd_bus *bus) {
                             "b",
                             false);
         if (r < 0) {
-                log_full_errno(sd_bus_error_has_names(
+                log_full_errno((sd_bus_error_has_names(
                                                &error,
                                                BUS_ERROR_NO_PRODUCT_UUID,
                                                SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED,
-                                               SD_BUS_ERROR_UNKNOWN_METHOD) ? LOG_DEBUG : LOG_WARNING,
+                                               SD_BUS_ERROR_UNKNOWN_METHOD) || ERRNO_IS_DEVICE_ABSENT(r)) ? LOG_DEBUG : LOG_WARNING,
                                r, "Failed to query product UUID, ignoring: %s", bus_error_message(&error, r));
                 sd_bus_error_free(&error);
         } else {
@@ -448,11 +448,11 @@ static int show_all_names(sd_bus *bus) {
                             &hardware_serial_reply,
                             NULL);
         if (r < 0)
-                log_full_errno(sd_bus_error_has_names(
+                log_full_errno((sd_bus_error_has_names(
                                                &error,
                                                BUS_ERROR_NO_HARDWARE_SERIAL,
                                                SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED,
-                                               SD_BUS_ERROR_UNKNOWN_METHOD) ? LOG_DEBUG : LOG_WARNING,
+                                               SD_BUS_ERROR_UNKNOWN_METHOD) || ERRNO_IS_DEVICE_ABSENT(r)) ? LOG_DEBUG : LOG_WARNING,
                                r, "Failed to query hardware serial, ignoring: %s", bus_error_message(&error, r));
         else {
                 r = sd_bus_message_read_basic(hardware_serial_reply, 's', &info.hardware_serial);
