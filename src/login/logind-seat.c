@@ -25,13 +25,13 @@
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 
-int seat_new(Seat** ret, Manager *m, const char *id) {
+int seat_new(Manager *m, const char *id, Seat **ret) {
         _cleanup_(seat_freep) Seat *s = NULL;
         int r;
 
-        assert(ret);
         assert(m);
         assert(id);
+        assert(ret);
 
         if (!seat_name_is_valid(id))
                 return -EINVAL;

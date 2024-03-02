@@ -37,17 +37,14 @@
 #include "unit-name.h"
 #include "user-util.h"
 
-int user_new(User **ret,
-             Manager *m,
-             UserRecord *ur) {
-
+int user_new(Manager *m, UserRecord *ur, User **ret) {
         _cleanup_(user_freep) User *u = NULL;
         char lu[DECIMAL_STR_MAX(uid_t) + 1];
         int r;
 
-        assert(ret);
         assert(m);
         assert(ur);
+        assert(ret);
 
         if (!ur->user_name)
                 return -EINVAL;
