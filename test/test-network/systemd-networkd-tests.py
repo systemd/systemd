@@ -283,9 +283,6 @@ def compare_kernel_version(min_kernel_version):
 
     return version.parse(kver) >= version.parse(min_kernel_version)
 
-def udev_reload():
-    check_output(*udevadm_cmd, 'control', '--reload')
-
 def copy_network_unit(*units, copy_dropins=True):
     """
     Copy networkd unit files into the testbed.
@@ -316,7 +313,7 @@ def copy_network_unit(*units, copy_dropins=True):
             has_link = True
 
     if has_link:
-        udev_reload()
+        udevadm_reload()
 
 def copy_credential(src, target):
         mkdir_p(credstore_dir)
@@ -338,7 +335,7 @@ def remove_network_unit(*units):
             has_link = True
 
     if has_link:
-        udev_reload()
+        udevadm_reload()
 
 def clear_network_units():
     has_link = False
@@ -351,7 +348,7 @@ def clear_network_units():
     rm_rf(network_unit_dir)
 
     if has_link:
-        udev_reload()
+        udevadm_reload()
 
 def copy_networkd_conf_dropin(*dropins):
     """Copy networkd.conf dropin files into the testbed."""
@@ -797,6 +794,15 @@ def resolvectl(*args):
 
 def timedatectl(*args):
     return check_output(*(timedatectl_cmd + list(args)), env=env)
+
+def udevadm(*args):
+    return check_output(*(udevadm_cmd + list(args)))
+
+def udevadm_reload():
+    udevadm('control', '--reload')
+
+def udevadm_trigger(*args, action='add'):
+    udevadm('trigger', '--settle', f'--action={action}', *args)
 
 def setup_common():
     print()
@@ -1315,7 +1321,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         # This test may be run on the system that has older udevd than 70f32a260b5ebb68c19ecadf5d69b3844896ba55 (v249).
         # In that case, the udev DB for the loopback network interface may already have ID_NET_LINK_FILE property.
         # Let's reprocess the interface and drop the property.
-        check_output(*udevadm_cmd, 'trigger', '--settle', '--action=add', '/sys/class/net/lo')
+        udevadm_trigger('/sys/class/net/lo')
         output = networkctl_status('lo')
         print(output)
         self.assertIn('Link File: n/a', output)
@@ -1378,7 +1384,7 @@ class NetworkdMatchTests(unittest.TestCase, Utilities):
 
         check_output('ip link set dev dummy98-1 down')
         check_output('ip link set dev dummy98-1 name dummy98-2')
-        check_output(*udevadm_cmd, 'trigger', '--action=add', '/sys/class/net/dummy98-2')
+        udevadm_trigger('/sys/class/net/dummy98-2')
 
         self.wait_address('dummy98-2', '10.0.2.2/16', ipv='-4', timeout_sec=10)
         self.wait_online('dummy98-2:routable')
@@ -2460,22 +2466,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.wait_online('ifb99:degraded')
 
-    def test_rps_cpu_0(self):
-        copy_network_unit('12-dummy.netdev', '25-rps-cpu-0.link')
-        start_networkd()
-
-        self.wait_links('dummy98')
-
-        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
-        print(output)
-        self.assertEqual(int(output.replace(',', ''), base=16), 1)
-
     @unittest.skipUnless(os.cpu_count() >= 2, reason="CPU count should be >= 2 to pass this test")
     def test_rps_cpu_1(self):
-        copy_network_unit('12-dummy.netdev', '25-rps-cpu-1.link')
+        copy_network_unit('12-dummy.netdev', '12-dummy.network', '25-rps-cpu-1.link')
         start_networkd()
 
-        self.wait_links('dummy98')
+        self.wait_online('dummy98:carrier')
 
         output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
         print(output)
@@ -2483,10 +2479,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     @unittest.skipUnless(os.cpu_count() >= 2, reason="CPU count should be >= 2 to pass this test")
     def test_rps_cpu_0_1(self):
-        copy_network_unit('12-dummy.netdev', '25-rps-cpu-0-1.link')
+        copy_network_unit('12-dummy.netdev', '12-dummy.network', '25-rps-cpu-0-1.link')
         start_networkd()
 
-        self.wait_links('dummy98')
+        self.wait_online('dummy98:carrier')
 
         output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
         print(output)
@@ -2494,96 +2490,86 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     @unittest.skipUnless(os.cpu_count() >= 4, reason="CPU count should be >= 4 to pass this test")
     def test_rps_cpu_multi(self):
-        copy_network_unit('12-dummy.netdev', '25-rps-cpu-multi.link')
+        copy_network_unit('12-dummy.netdev', '12-dummy.network', '25-rps-cpu-multi.link')
         start_networkd()
 
-        self.wait_links('dummy98')
+        self.wait_online('dummy98:carrier')
 
         output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
         print(output)
         self.assertEqual(int(output.replace(',', ''), base=16), 15)
 
-    def test_rps_cpu_all(self):
+    def test_rps_cpu(self):
         cpu_count = os.cpu_count()
 
-        copy_network_unit('12-dummy.netdev', '25-rps-cpu-all.link')
+        copy_network_unit('12-dummy.netdev', '12-dummy.network')
         start_networkd()
 
-        self.wait_links('dummy98')
+        self.wait_online('dummy98:carrier')
 
-        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
-        print(output)
-        self.assertEqual(f"{int(output.replace(',', ''), base=16):x}", f'{(1 << cpu_count) - 1:x}')
-
-    def test_rps_cpu_disable(self):
-        copy_network_unit('12-dummy.netdev', '25-rps-cpu-all.link', '24-rps-cpu-disable.link')
-        start_networkd()
-
-        self.wait_links('dummy98')
-
-        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
-        print(output)
-        self.assertEqual(int(output.replace(',', ''), base=16), 0)
-
-    def test_rps_cpu_empty(self):
-        copy_network_unit('12-dummy.netdev', '24-rps-cpu-empty.link')
-        start_networkd()
-
-        self.wait_links('dummy98')
-
-        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
-        print(output)
-        self.assertEqual(int(output.replace(',', ''), base=16), 0)
-
-    def test_rps_cpu_0_empty(self):
-        copy_network_unit('12-dummy.netdev', '25-rps-cpu-0-empty.link')
-        start_networkd()
-
-        self.wait_links('dummy98')
-
-        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
-        print(output)
-        self.assertEqual(int(output.replace(',', ''), base=16), 0)
-
-    def test_rps_cpu_0_and_empty(self):
-        copy_network_unit('12-dummy.netdev', '25-rps-cpu-0.link', '24-rps-cpu-empty.link')
-        start_networkd()
-
-        self.wait_links('dummy98')
-
-        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
-        print(output)
-        self.assertEqual(int(output.replace(',', ''), base=16), 0)
-
-    def test_rps_cpu_invalid(self):
-        copy_network_unit('12-dummy.netdev', '24-rps-cpu-invalid.link')
-        start_networkd()
-
-        self.wait_links('dummy98')
-
-        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
-        print(output)
-        self.assertEqual(int(output.replace(',', ''), base=16), 0)
-
-    def test_rps_cpu_0_invalid(self):
-        copy_network_unit('12-dummy.netdev', '25-rps-cpu-0-invalid.link')
-        start_networkd()
-
-        self.wait_links('dummy98')
-
+        # 0
+        copy_network_unit('25-rps-cpu-0.link')
+        udevadm_trigger('/sys/class/net/dummy98')
         output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
         print(output)
         self.assertEqual(int(output.replace(',', ''), base=16), 1)
+        remove_network_unit('25-rps-cpu-0.link')
 
-    def test_rps_cpu_0_and_invalid(self):
-        copy_network_unit('12-dummy.netdev', '25-rps-cpu-0.link', '24-rps-cpu-invalid.link')
-        start_networkd()
+        # all
+        copy_network_unit('25-rps-cpu-all.link')
+        udevadm_trigger('/sys/class/net/dummy98')
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(f"{int(output.replace(',', ''), base=16):x}", f'{(1 << cpu_count) - 1:x}')
+        remove_network_unit('25-rps-cpu-all.link')
 
-        self.wait_links('dummy98')
-
+        # disable
+        copy_network_unit('24-rps-cpu-disable.link')
+        udevadm_trigger('/sys/class/net/dummy98')
         output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
         print(output)
         self.assertEqual(int(output.replace(',', ''), base=16), 0)
+        remove_network_unit('24-rps-cpu-disable.link')
+
+        # set all again
+        copy_network_unit('25-rps-cpu-all.link')
+        udevadm_trigger('/sys/class/net/dummy98')
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(f"{int(output.replace(',', ''), base=16):x}", f'{(1 << cpu_count) - 1:x}')
+        remove_network_unit('25-rps-cpu-all.link')
+
+        # empty -> unchanged
+        copy_network_unit('24-rps-cpu-empty.link')
+        udevadm_trigger('/sys/class/net/dummy98')
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(f"{int(output.replace(',', ''), base=16):x}", f'{(1 << cpu_count) - 1:x}')
+        remove_network_unit('24-rps-cpu-empty.link')
+
+        # 0, then empty -> unchanged
+        copy_network_unit('25-rps-cpu-0-empty.link')
+        udevadm_trigger('/sys/class/net/dummy98')
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(f"{int(output.replace(',', ''), base=16):x}", f'{(1 << cpu_count) - 1:x}')
+        remove_network_unit('25-rps-cpu-0-empty.link')
+
+        # 0, then invalid -> 0
+        copy_network_unit('25-rps-cpu-0-invalid.link')
+        udevadm_trigger('/sys/class/net/dummy98')
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 1)
+        remove_network_unit('25-rps-cpu-0-invalid.link')
+
+        # invalid -> unchanged
+        copy_network_unit('24-rps-cpu-invalid.link')
+        udevadm_trigger('/sys/class/net/dummy98')
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 1)
+        remove_network_unit('24-rps-cpu-invalid.link')
 
 class NetworkdL2TPTests(unittest.TestCase, Utilities):
 
@@ -5248,8 +5234,8 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_dir, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=4\n')
 
-        udev_reload()
-        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
+        udevadm_reload()
+        udevadm_trigger(f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -5264,8 +5250,8 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_dir, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
-        udev_reload()
-        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
+        udevadm_reload()
+        udevadm_trigger(f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -5280,8 +5266,8 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_dir, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=2\n')
 
-        udev_reload()
-        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
+        udevadm_reload()
+        udevadm_trigger(f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -5296,8 +5282,8 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_dir, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
-        udev_reload()
-        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
+        udevadm_reload()
+        udevadm_trigger(f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
