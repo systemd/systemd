@@ -2058,9 +2058,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -H --host=[USER@]HOST       Operate on remote host\n"
                "  -M --machine=CONTAINER      Operate on local container\n"
                "  -p --property=NAME          Show only properties by this name\n"
+               "     --value                  When showing properties, only print the value\n"
+               "  -P NAME                     Equivalent to --value --property=NAME\n"
                "  -q --quiet                  Suppress output\n"
                "  -a --all                    Show all properties, including empty ones\n"
-               "     --value                  When showing properties, only print the value\n"
                "  -l --full                   Do not ellipsize output\n"
                "     --kill-whom=WHOM         Whom to send signal to\n"
                "  -s --signal=SIGNAL          Which signal to send\n"
@@ -2115,8 +2116,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",            no_argument,       NULL, 'h'                 },
                 { "version",         no_argument,       NULL, ARG_VERSION         },
                 { "property",        required_argument, NULL, 'p'                 },
-                { "all",             no_argument,       NULL, 'a'                 },
                 { "value",           no_argument,       NULL, ARG_VALUE           },
+                { "all",             no_argument,       NULL, 'a'                 },
                 { "full",            no_argument,       NULL, 'l'                 },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
                 { "no-legend",       no_argument,       NULL, ARG_NO_LEGEND       },
@@ -2152,7 +2153,7 @@ static int parse_argv(int argc, char *argv[]) {
         optind = 0;
 
         for (;;) {
-                static const char option_string[] = "-hp:als:H:M:qn:o:E:V";
+                static const char option_string[] = "-hp:P:als:H:M:qn:o:E:V";
 
                 c = getopt_long(argc, argv, option_string + reorder, options, NULL);
                 if (c < 0)
@@ -2213,23 +2214,25 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 'p':
+                case 'P':
                         r = strv_extend(&arg_property, optarg);
                         if (r < 0)
                                 return log_oom();
 
-                        /* If the user asked for a particular
-                         * property, show it to them, even if it is
-                         * empty. */
+                        /* If the user asked for a particular property, show it to them, even if empty. */
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
+
+                        if (c == 'p')
+                                break;
+                        _fallthrough_;
+
+                case ARG_VALUE:
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         break;
 
                 case 'a':
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         arg_all = true;
-                        break;
-
-                case ARG_VALUE:
-                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         break;
 
                 case 'l':

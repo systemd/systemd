@@ -273,7 +273,7 @@
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
-      <varlistentry>
+      <varlistentry id='option-P'>
         <term><option>-P</option></term>
 
         <listitem>

@@ -553,6 +553,17 @@
         <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
+       <varlistentry>
+        <term><option>--value</option></term>
+
+        <listitem><para>When printing properties with <command>show</command>, only print the value,
+        and skip the property name and <literal>=</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
+      </varlistentry>
+
+      <xi:include href="timedatectl.xml" xpointer="option-P"/>
+
       <varlistentry>
         <term><option>-a</option></term>
         <term><option>--all</option></term>
@@ -568,15 +579,6 @@
         <para>When cleaning VM or container images, remove all images, not just hidden ones.</para>
 
         <xi:include href="version-info.xml" xpointer="v206"/></listitem>
-      </varlistentry>
-
-       <varlistentry>
-        <term><option>--value</option></term>
-
-        <listitem><para>When printing properties with <command>show</command>, only print the value,
-        and skip the property name and <literal>=</literal>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
       <varlistentry>
