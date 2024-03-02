@@ -1573,7 +1573,7 @@ int verify_timezone(const char *name, int log_level) {
 
         r = fd_verify_regular(fd);
         if (r < 0)
-                return log_full_errno(log_level, r, "Timezone file '%s' is not  a regular file: %m", t);
+                return log_full_errno(log_level, r, "Timezone file '%s' is not a regular file: %m", t);
 
         r = loop_read_exact(fd, buf, 4, false);
         if (r < 0)
