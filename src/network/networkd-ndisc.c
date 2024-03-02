@@ -622,7 +622,7 @@ static int ndisc_remember_default_router(Link *link, sd_ndisc_router *rt) {
         sd_ndisc_router_unref(link->ndisc_default_router);
         link->ndisc_default_router = rt;
 
-        return 0;
+        return 1; /* The received router is the default router. */
 }
 
 static int ndisc_router_process_reachable_time(Link *link, sd_ndisc_router *rt) {
@@ -1744,6 +1744,7 @@ static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
 static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         struct in6_addr router;
         usec_t timestamp_usec;
+        bool is_default;
         int r;
 
         assert(link);
@@ -1751,6 +1752,7 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         assert(link->manager);
         assert(rt);
 
+        /* 1. Check filter. */
         r = sd_ndisc_router_get_sender_address(rt, &router);
         if (r == -ENODATA) {
                 log_link_debug(link, "Received RA without router address, ignoring.");
@@ -1769,6 +1771,7 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return 0;
         }
 
+        /* 2. Drop outdated configs. */
         r = sd_ndisc_router_get_timestamp(rt, CLOCK_BOOTTIME, &timestamp_usec);
         if (r == -ENODATA) {
                 log_link_debug(link, "Received RA without timestamp, ignoring.");
@@ -1781,34 +1784,51 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
+        /* 3. Update the default router. */
         r = ndisc_remember_default_router(link, rt);
         if (r < 0)
                 return r;
+        is_default = r;
 
-        r = ndisc_start_dhcp6_client(link, rt);
-        if (r < 0)
-                return r;
+        /* 4. Process the RA header.
+         * Here, to gracefully support the case that there exist multiple routers with different preferences
+         * and different settings, the header elements are only processed when the router has the highest
+         * preference. Otherwise, e.g. when two routers send different hop limit, the sysctl setting
+         * frequently flipped. Of course, this is not perfect, as the two routers may have the same
+         * preference. */
+        if (is_default) {
+                /* 4.1. Start DHCPv6 client based on the flag. */
+                r = ndisc_start_dhcp6_client(link, rt);
+                if (r < 0)
+                        return r;
 
+                /* 4.2. Apply reachable time. */
+                r = ndisc_router_process_reachable_time(link, rt);
+                if (r < 0)
+                        return r;
+
+                /* 4.3. Apply retransmission time. */
+                r = ndisc_router_process_retransmission_time(link, rt);
+                if (r < 0)
+                        return r;
+
+                /* 4.4. Apply hop limit. */
+                r = ndisc_router_process_hop_limit(link, rt);
+                if (r < 0)
+                        return r;
+        }
+
+        /* 5. Configure the default route ::/0. */
         r = ndisc_router_process_default(link, rt);
         if (r < 0)
                 return r;
 
-        r = ndisc_router_process_reachable_time(link, rt);
-        if (r < 0)
-                return r;
-
-        r = ndisc_router_process_retransmission_time(link, rt);
-        if (r < 0)
-                return r;
-
-        r = ndisc_router_process_hop_limit(link, rt);
-        if (r < 0)
-                return r;
-
+        /* 6. Process options. */
         r = ndisc_router_process_options(link, rt);
         if (r < 0)
                 return r;
 
+        /* 7. Setup/update expiration timer. */
         r = ndisc_setup_expire(link);
         if (r < 0)
                 return r;
