@@ -901,7 +901,7 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
                 SET_FLAG(flags, IMPORT_READ_ONLY, read_only);
         }
 
-        r = fd_verify_safe_flags(fd);
+        r = fd_verify_safe_flags_full(fd, O_DIRECTORY);
         if (r < 0)
                 return r;
 

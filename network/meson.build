@@ -11,6 +11,7 @@ if conf.get('ENABLE_NETWORKD') == 1
                 '80-container-ve.link',
                 '80-container-vz.network',
                 '80-container-vz.link',
+                '80-namespace-ns.network',
                 '80-vm-vt.network',
                 '80-vm-vt.link',
                 '80-wifi-adhoc.network',
