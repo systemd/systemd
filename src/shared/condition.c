@@ -1024,7 +1024,7 @@ static int condition_test_psi(Condition *c, char **env) {
                         "io";
 
         p = c->parameter;
-        r = extract_many_words(&p, ":", 0, &first, &second, NULL);
+        r = extract_many_words(&p, ":", 0, &first, &second);
         if (r <= 0)
                 return log_debug_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s: %m", c->parameter);
         /* If only one parameter is passed, then we look at the global system pressure rather than a specific cgroup. */
@@ -1099,7 +1099,7 @@ static int condition_test_psi(Condition *c, char **env) {
         /* If a value including a specific timespan (in the intervals allowed by the kernel),
          * parse it, otherwise we assume just a plain percentage that will be checked if it is
          * smaller or equal to the current pressure average over 5 minutes. */
-        r = extract_many_words(&value, "/", 0, &third, &fourth, NULL);
+        r = extract_many_words(&value, "/", 0, &third, &fourth);
         if (r <= 0)
                 return log_debug_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s: %m", c->parameter);
         if (r == 1)
