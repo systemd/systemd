@@ -3018,7 +3018,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 if (!c)
                         return log_oom();
 
-                (void) serialize_item_format(f, "fd-store-fd", "%i \"%s\" %i", copy, c, fs->do_poll);
+                (void) serialize_item_format(f, "fd-store-fd", "%i \"%s\" %s", copy, c, one_zero(fs->do_poll));
         }
 
         if (s->main_exec_status.pid > 0) {
@@ -3261,9 +3261,9 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 _cleanup_close_ int fd = -EBADF;
                 int do_poll;
 
-                r = extract_first_word(&value, &fdv, NULL, 0);
-                if (r <= 0) {
-                        log_unit_debug(u, "Failed to parse fd-store-fd value, ignoring: %s", value);
+                r = extract_many_words(&value, " ", EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE, &fdv, &fdn, &fdp);
+                if (r < 2 || r > 3) {
+                        log_unit_debug(u, "Failed to deserialize fd-store-fd, ignoring: %s", value);
                         return 0;
                 }
 
@@ -3271,24 +3271,17 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 if (fd < 0)
                         return 0;
 
-                r = extract_first_word(&value, &fdn, NULL, EXTRACT_CUNESCAPE | EXTRACT_UNQUOTE);
-                if (r <= 0) {
-                        log_unit_debug(u, "Failed to parse fd-store-fd value, ignoring: %s", value);
-                        return 0;
-                }
-
-                r = extract_first_word(&value, &fdp, NULL, 0);
-                if (r == 0) {
-                        /* If the value is not present, we assume the default */
-                        do_poll = 1;
-                } else if (r < 0 || (r = safe_atoi(fdp, &do_poll)) < 0) {
-                        log_unit_debug_errno(u, r, "Failed to parse fd-store-fd value \"%s\", ignoring: %m", value);
+                do_poll = r == 3 ? parse_boolean(fdp) : true;
+                if (do_poll < 0) {
+                        log_unit_debug_errno(u, do_poll,
+                                             "Failed to deserialize fd-store-fd do_poll, ignoring: %s", fdp);
                         return 0;
                 }
 
                 r = service_add_fd_store(s, fd, fdn, do_poll);
                 if (r < 0) {
-                        log_unit_debug_errno(u, r, "Failed to store deserialized fd %i, ignoring: %m", fd);
+                        log_unit_debug_errno(u, r,
+                                             "Failed to store deserialized fd '%s', ignoring: %m", fdn);
                         return 0;
                 }
 
