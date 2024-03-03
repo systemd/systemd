@@ -38,6 +38,7 @@ EOF
 
     inst /usr/bin/screen
     echo "PS1='screen\$WINDOW # '" >>"$workspace/root/.bashrc"
+    echo "TERM=linux" >>"$workspace/root/.bash_profile"
     echo 'startup_message off' >"$workspace/etc/screenrc"
     echo 'bell_msg ""' >>"$workspace/etc/screenrc"
 }
