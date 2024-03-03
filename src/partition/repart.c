@@ -1758,7 +1758,7 @@ static int config_parse_mountpoint(
 
         const char *q = rvalue;
         r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNQUOTE,
-                               &where, &options, NULL);
+                               &where, &options);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -1815,7 +1815,7 @@ static int config_parse_encrypted_volume(
 
         const char *q = rvalue;
         r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNQUOTE,
-                               &volume, &keyfile, &options, NULL);
+                               &volume, &keyfile, &options);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {

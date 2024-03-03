@@ -447,7 +447,7 @@ int config_parse_ndisc_route_metric(
                 _cleanup_free_ char *high = NULL, *medium = NULL, *low = NULL;
                 const char *p = rvalue;
 
-                r = extract_many_words(&p, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &high, &medium, &low, NULL);
+                r = extract_many_words(&p, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &high, &medium, &low);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r != 3 || !isempty(p)) {
