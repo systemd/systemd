@@ -1429,7 +1429,7 @@ static int get_timezones_from_zone1970_tab(char ***ret) {
 
                 /* Line format is:
                  * 'country codes' 'coordinates' 'timezone' 'comments' */
-                r = extract_many_words(&p, NULL, 0, &cc, &co, &tz, NULL);
+                r = extract_many_words(&p, NULL, 0, &cc, &co, &tz);
                 if (r < 0)
                         continue;
 
@@ -1474,7 +1474,7 @@ static int get_timezones_from_tzdata_zi(char ***ret) {
                  * Link line format is:
                  * 'Link' 'target' 'alias'
                  * See 'man zic' for more detail. */
-                r = extract_many_words(&p, NULL, 0, &type, &f1, &f2, NULL);
+                r = extract_many_words(&p, NULL, 0, &type, &f1, &f2);
                 if (r < 0)
                         continue;
 

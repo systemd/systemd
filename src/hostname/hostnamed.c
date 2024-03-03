@@ -335,7 +335,7 @@ static int get_firmware_date(usec_t *ret) {
         }
 
         const char *p = bios_date;
-        r = extract_many_words(&p, "/", EXTRACT_DONT_COALESCE_SEPARATORS, &month, &day, &year, NULL);
+        r = extract_many_words(&p, "/", EXTRACT_DONT_COALESCE_SEPARATORS, &month, &day, &year);
         if (r < 0)
                 return r;
         if (r != 3) /* less than three args read? */
