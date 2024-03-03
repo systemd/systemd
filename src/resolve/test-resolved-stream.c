@@ -329,7 +329,7 @@ static void test_dns_stream(bool tls) {
         log_info("test-resolved-stream: Finished %s test", tls ? "TLS" : "TCP");
 }
 
-static void try_isolate_network(void) {
+static int try_isolate_network(void) {
         _cleanup_close_ int socket_fd = -EBADF;
         int r;
 
@@ -356,20 +356,25 @@ static void try_isolate_network(void) {
                 _exit(EXIT_SUCCESS);
         }
         if (r == -EPROTO) /* EPROTO means nonzero exit code of child, i.e. the tests in the child failed */
-                return;
+                return 0;
         assert_se(r > 0);
 
         /* Now that we know that the unshare() is safe, let's actually do it */
         assert_se(unshare(CLONE_NEWUSER | CLONE_NEWNET) >= 0);
 
-        /* Bring up the loopback interfaceon the newly created network namespace */
+        /* Bring up the loopback interface on the newly created network namespace */
         struct ifreq req = { .ifr_ifindex = 1 };
         assert_se((socket_fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0)) >= 0);
         assert_se(ioctl(socket_fd, SIOCGIFNAME, &req) >= 0);
         assert_se(ioctl(socket_fd, SIOCGIFFLAGS, &req) >= 0);
         assert_se(FLAGS_SET(req.ifr_flags, IFF_LOOPBACK));
         req.ifr_flags |= IFF_UP;
-        assert_se(ioctl(socket_fd, SIOCSIFFLAGS, &req) >= 0);
+        /* Do not assert on this, fails in the Ubuntu Noble CI environment */
+        r = RET_NERRNO(ioctl(socket_fd, SIOCSIFFLAGS, &req));
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 int main(int argc, char **argv) {
@@ -381,7 +386,8 @@ int main(int argc, char **argv) {
 
         test_setup_logging(LOG_DEBUG);
 
-        try_isolate_network();
+        if (try_isolate_network() < 0)
+                return log_tests_skipped("lacking privileges");
 
         test_dns_stream(false);
 #if ENABLE_DNS_OVER_TLS
