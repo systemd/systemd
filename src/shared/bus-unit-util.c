@@ -497,7 +497,7 @@ static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s", field);
 
                 q = tuple;
-                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE, &source_str, &nfproto_str, &table, &set, NULL);
+                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE, &source_str, &nfproto_str, &table, &set);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r != 4 || !isempty(q))
@@ -1894,7 +1894,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                                 break;
 
                         q = tuple;
-                        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &first, &second, NULL);
+                        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &first, &second);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse MountImages= property: %s", eq);
                         if (r == 0)
@@ -1926,7 +1926,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         for (;;) {
                                 _cleanup_free_ char *partition = NULL, *mount_options = NULL;
 
-                                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options, NULL);
+                                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse MountImages= property: %s", eq);
                                 if (r == 0)
@@ -2027,7 +2027,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         for (;;) {
                                 _cleanup_free_ char *partition = NULL, *mount_options = NULL;
 
-                                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options, NULL);
+                                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse ExtensionImages= property: %s", eq);
                                 if (r == 0)
@@ -2088,7 +2088,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                                 break;
 
                         const char *t = tuple;
-                        r = extract_many_words(&t, ":", EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS, &source, &destination, NULL);
+                        r = extract_many_words(&t, ":", EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS, &source, &destination);
                         if (r <= 0)
                                 return log_error_errno(r ?: SYNTHETIC_ERRNO(EINVAL), "Failed to parse argument: %m");
 

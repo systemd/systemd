@@ -245,7 +245,7 @@ int bind_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) 
         assert(l);
         assert(n);
 
-        r = extract_many_words(&s, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &source, &destination, NULL);
+        r = extract_many_words(&s, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &source, &destination);
         if (r < 0)
                 return r;
         if (r == 0)

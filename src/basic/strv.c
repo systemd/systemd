@@ -358,7 +358,7 @@ int strv_split_colon_pairs(char ***t, const char *s) {
 
                 const char *p = tuple;
                 r = extract_many_words(&p, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS,
-                                       &first, &second, NULL);
+                                       &first, &second);
                 if (r < 0)
                         return r;
                 if (r == 0)
