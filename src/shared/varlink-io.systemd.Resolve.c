@@ -127,6 +127,22 @@ static VARLINK_DEFINE_METHOD(
                 VARLINK_DEFINE_OUTPUT_BY_TYPE(canonical, ResolvedCanonical, 0),
                 VARLINK_DEFINE_OUTPUT(flags, VARLINK_INT, 0));
 
+static VARLINK_DEFINE_STRUCT_TYPE(
+                ResolvedRecord,
+                VARLINK_DEFINE_FIELD(ifindex, VARLINK_INT, 0),
+                VARLINK_DEFINE_FIELD_BY_TYPE(rr, ResourceRecord, VARLINK_NULLABLE),
+                VARLINK_DEFINE_FIELD(raw, VARLINK_STRING, 0));
+
+static VARLINK_DEFINE_METHOD(
+                ResolveRecord,
+                VARLINK_DEFINE_INPUT(ifindex, VARLINK_INT, VARLINK_NULLABLE),
+                VARLINK_DEFINE_INPUT(name, VARLINK_STRING, 0),
+                VARLINK_DEFINE_INPUT(class, VARLINK_INT, VARLINK_NULLABLE),
+                VARLINK_DEFINE_INPUT(type, VARLINK_INT, 0),
+                VARLINK_DEFINE_INPUT(flags, VARLINK_INT, VARLINK_NULLABLE),
+                VARLINK_DEFINE_OUTPUT_BY_TYPE(rrs, ResolvedRecord, VARLINK_ARRAY),
+                VARLINK_DEFINE_OUTPUT(flags, VARLINK_INT, 0));
+
 static VARLINK_DEFINE_ERROR(NoNameServers);
 static VARLINK_DEFINE_ERROR(NoSuchResourceRecord);
 static VARLINK_DEFINE_ERROR(QueryTimedOut);
@@ -150,6 +166,9 @@ static VARLINK_DEFINE_ERROR(
                 VARLINK_DEFINE_FIELD(extendedDNSErrorMessage, VARLINK_STRING, VARLINK_NULLABLE));
 static VARLINK_DEFINE_ERROR(CNAMELoop);
 static VARLINK_DEFINE_ERROR(BadAddressSize);
+static VARLINK_DEFINE_ERROR(ResourceRecordTypeInvalidForQuery);
+static VARLINK_DEFINE_ERROR(ZoneTransfersNotPermitted);
+static VARLINK_DEFINE_ERROR(ResourceRecordTypeObsolete);
 
 VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve,
@@ -157,12 +176,14 @@ VARLINK_DEFINE_INTERFACE(
                 &vl_method_ResolveHostname,
                 &vl_method_ResolveAddress,
                 &vl_method_ResolveService,
+                &vl_method_ResolveRecord,
                 &vl_type_ResolvedAddress,
                 &vl_type_ResolvedName,
                 &vl_type_ResolvedService,
                 &vl_type_ResolvedCanonical,
                 &vl_type_ResourceKey,
                 &vl_type_ResourceRecord,
+                &vl_type_ResolvedRecord,
                 &vl_error_NoNameServers,
                 &vl_error_NoSuchResourceRecord,
                 &vl_error_QueryTimedOut,
@@ -177,4 +198,7 @@ VARLINK_DEFINE_INTERFACE(
                 &vl_error_StubLoop,
                 &vl_error_DNSError,
                 &vl_error_CNAMELoop,
-                &vl_error_BadAddressSize);
+                &vl_error_BadAddressSize,
+                &vl_error_ResourceRecordTypeInvalidForQuery,
+                &vl_error_ZoneTransfersNotPermitted,
+                &vl_error_ResourceRecordTypeObsolete);
