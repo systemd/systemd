@@ -236,7 +236,7 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        if (i->os_support_end != USEC_INFINITY) {
+        if (timestamp_is_set(i->os_support_end)) {
                 usec_t n = now(CLOCK_REALTIME);
 
                 r = table_add_many(table,
@@ -362,6 +362,8 @@ static int get_one_name(sd_bus *bus, const char* attr, char **ret) {
 static int show_all_names(sd_bus *bus) {
         StatusInfo info = {
                 .vsock_cid = VMADDR_CID_ANY,
+                .os_support_end = USEC_INFINITY,
+                .firmware_date = USEC_INFINITY,
         };
 
         static const struct bus_properties_map hostname_map[]  = {
