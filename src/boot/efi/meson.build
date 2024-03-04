@@ -28,7 +28,7 @@ efi_fuzz_template = fuzz_template + efitest_base
 executables += [
         efi_test_template + {
                 'sources' : files('test-bcd.c'),
-                'dependencies' : libzstd,
+                'dependencies' : libzstd_cflags,
                 'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_ZSTD'],
         },
         efi_test_template + {
