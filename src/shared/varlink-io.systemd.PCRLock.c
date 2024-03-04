@@ -12,7 +12,7 @@ static VARLINK_DEFINE_METHOD(
 static VARLINK_DEFINE_METHOD(
                 RemovePolicy);
 
-VARLINK_DEFINE_ERROR(
+static VARLINK_DEFINE_ERROR(
                 NoChange);
 
 VARLINK_DEFINE_INTERFACE(
