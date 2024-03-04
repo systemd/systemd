@@ -25,43 +25,130 @@
 #include "stat-util.h"
 #include "string-util.h"
 
-int is_symlink(const char *path) {
-        struct stat info;
+static int verify_stat_at(
+                int fd,
+                const char *path,
+                bool follow,
+                int (*verify_func)(const struct stat *st),
+                bool verify) {
 
-        assert(path);
-
-        if (lstat(path, &info) < 0)
-                return -errno;
-
-        return !!S_ISLNK(info.st_mode);
-}
-
-int is_dir_full(int atfd, const char* path, bool follow) {
         struct stat st;
         int r;
 
-        assert(atfd >= 0 || atfd == AT_FDCWD);
-        assert(atfd >= 0 || path);
+        assert(fd >= 0 || fd == AT_FDCWD);
+        assert(!isempty(path) || !follow);
+        assert(verify_func);
 
-        if (path)
-                r = fstatat(atfd, path, &st, follow ? 0 : AT_SYMLINK_NOFOLLOW);
-        else
-                r = fstat(atfd, &st);
-        if (r < 0)
+        if (fstatat(fd, strempty(path), &st,
+                    (isempty(path) ? AT_EMPTY_PATH : 0) | (follow ? 0 : AT_SYMLINK_NOFOLLOW)) < 0)
                 return -errno;
 
-        return !!S_ISDIR(st.st_mode);
+        r = verify_func(&st);
+        return verify ? r : r >= 0;
+}
+
+int stat_verify_regular(const struct stat *st) {
+        assert(st);
+
+        /* Checks whether the specified stat() structure refers to a regular file. If not returns an
+         * appropriate error code. */
+
+        if (S_ISDIR(st->st_mode))
+                return -EISDIR;
+
+        if (S_ISLNK(st->st_mode))
+                return -ELOOP;
+
+        if (!S_ISREG(st->st_mode))
+                return -EBADFD;
+
+        return 0;
+}
+
+int verify_regular_at(int fd, const char *path, bool follow) {
+        return verify_stat_at(fd, path, follow, stat_verify_regular, true);
+}
+
+int fd_verify_regular(int fd) {
+        assert(fd >= 0);
+        return verify_regular_at(fd, NULL, false);
+}
+
+int stat_verify_directory(const struct stat *st) {
+        assert(st);
+
+        if (S_ISLNK(st->st_mode))
+                return -ELOOP;
+
+        if (!S_ISDIR(st->st_mode))
+                return -ENOTDIR;
+
+        return 0;
+}
+
+int fd_verify_directory(int fd) {
+        assert(fd >= 0);
+        return verify_stat_at(fd, NULL, false, stat_verify_directory, true);
+}
+
+int is_dir_at(int fd, const char *path, bool follow) {
+        return verify_stat_at(fd, path, follow, stat_verify_directory, false);
+}
+
+int is_dir(const char *path, bool follow) {
+        assert(!isempty(path));
+        return is_dir_at(AT_FDCWD, path, follow);
+}
+
+int stat_verify_symlink(const struct stat *st) {
+        assert(st);
+
+        if (S_ISDIR(st->st_mode))
+                return -EISDIR;
+
+        if (!S_ISLNK(st->st_mode))
+                return -ENOLINK;
+
+        return 0;
+}
+
+int is_symlink(const char *path) {
+        assert(!isempty(path));
+        return verify_stat_at(AT_FDCWD, path, false, stat_verify_symlink, false);
+}
+
+int stat_verify_linked(const struct stat *st) {
+        assert(st);
+
+        if (st->st_nlink <= 0)
+                return -EIDRM; /* recognizable error. */
+
+        return 0;
+}
+
+int fd_verify_linked(int fd) {
+        assert(fd >= 0);
+        return verify_stat_at(fd, NULL, false, stat_verify_linked, true);
+}
+
+int stat_verify_device_node(const struct stat *st) {
+        assert(st);
+
+        if (S_ISLNK(st->st_mode))
+                return -ELOOP;
+
+        if (S_ISDIR(st->st_mode))
+                return -EISDIR;
+
+        if (!S_ISBLK(st->st_mode) && !S_ISCHR(st->st_mode))
+                return -ENOTTY;
+
+        return 0;
 }
 
 int is_device_node(const char *path) {
-        struct stat info;
-
-        assert(path);
-
-        if (lstat(path, &info) < 0)
-                return -errno;
-
-        return !!(S_ISBLK(info.st_mode) || S_ISCHR(info.st_mode));
+        assert(!isempty(path));
+        return verify_stat_at(AT_FDCWD, path, false, stat_verify_device_node, false);
 }
 
 int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup) {
@@ -258,90 +345,6 @@ int path_is_network_fs(const char *path) {
                 return -errno;
 
         return is_network_fs(&s);
-}
-
-int stat_verify_linked(const struct stat *st) {
-        assert(st);
-
-        if (st->st_nlink <= 0)
-                return -EIDRM; /* recognizable error. */
-
-        return 0;
-}
-
-int fd_verify_linked(int fd) {
-        struct stat st;
-
-        assert(fd >= 0);
-
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        return stat_verify_linked(&st);
-}
-
-int stat_verify_regular(const struct stat *st) {
-        assert(st);
-
-        /* Checks whether the specified stat() structure refers to a regular file. If not returns an
-         * appropriate error code. */
-
-        if (S_ISDIR(st->st_mode))
-                return -EISDIR;
-
-        if (S_ISLNK(st->st_mode))
-                return -ELOOP;
-
-        if (!S_ISREG(st->st_mode))
-                return -EBADFD;
-
-        return 0;
-}
-
-int fd_verify_regular(int fd) {
-        struct stat st;
-
-        assert(fd >= 0);
-
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        return stat_verify_regular(&st);
-}
-
-int verify_regular_at(int dir_fd, const char *path, bool follow) {
-        struct stat st;
-
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(path);
-
-        if (fstatat(dir_fd, path, &st, (isempty(path) ? AT_EMPTY_PATH : 0) | (follow ? 0 : AT_SYMLINK_NOFOLLOW)) < 0)
-                return -errno;
-
-        return stat_verify_regular(&st);
-}
-
-int stat_verify_directory(const struct stat *st) {
-        assert(st);
-
-        if (S_ISLNK(st->st_mode))
-                return -ELOOP;
-
-        if (!S_ISDIR(st->st_mode))
-                return -ENOTDIR;
-
-        return 0;
-}
-
-int fd_verify_directory(int fd) {
-        struct stat st;
-
-        assert(fd >= 0);
-
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        return stat_verify_directory(&st);
 }
 
 int proc_mounted(void) {
