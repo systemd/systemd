@@ -1404,6 +1404,210 @@ int user_record_is_supported(UserRecord *hr, sd_bus_error *error) {
         return 0;
 }
 
+static int remove_safe_json_fields_regular(JsonVariant **v) {
+        _cleanup_(json_variant_unrefp) JsonVariant *blobs = NULL;
+        int r;
+
+        assert(v);
+
+        char **safe_fields = STRV_MAKE(
+                /* For display purposes */
+                "realName",
+                "emailAddress", /* Just the $EMAIL env var */
+                "iconName",
+                "location",
+
+                /* Basic account settings */
+                "shell",
+                "umask",
+                "environment",
+                "timeZone",
+                "preferredLanguage",
+                "additionalLanguages",
+                "preferredSessionLauncher",
+                "preferredSessionType",
+
+                /* Authentication methods */
+                "pkcs11TokenUri",
+                "fido2HmacCredential",
+                "recoveryKeyType",
+
+                "lastChangeUSec", /* Necessary to be able to change record at all */
+                "lastPasswordChangeUSec" /* Ditto, but for authentication methods */
+        );
+        char **safe_blobs = STRV_MAKE(
+                /* For display purposes */
+                "avatar",
+                "login-background"
+        );
+
+        if (!json_variant_is_object(*v))
+                return -EINVAL;
+
+        /* Handle basic fields */
+        r = json_variant_filter(v, safe_fields);
+        if (r < 0)
+                return r;
+
+        /* Handle blobs */
+        blobs = json_variant_ref(json_variant_by_key(*v, "blobManifest"));
+        if (blobs) {
+                /* The blobManifest contains the sha256 hashes of the blobs,
+                 * which are enforced by homework. So, by comparing the blob
+                 * manifests like this, we're actually comparing the contents
+                 * of the blob directories */
+
+                r = json_variant_filter(&blobs, safe_blobs);
+                if (r < 0)
+                        return r;
+
+                if (json_variant_is_blank_object(blobs))
+                        r = json_variant_filter(v, STRV_MAKE("blobManifest"));
+                else
+                        r = json_variant_set_field(v, "blobManifest", blobs);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int remove_safe_json_fields(JsonVariant **v) {
+        _cleanup_(json_variant_unrefp) JsonVariant *privileged = NULL;
+        JsonVariant *per_machine;
+        int r;
+
+        assert(v);
+
+        /* We remove the fields that are safe to change as an unprivileged
+         * user, and then compare the resulting JSON records. If they are not
+         * equal, that means an unsafe field has been changed and thus it
+         * we should not allow an unprivileged user to apply the changes.
+         *
+         * As a rule of thumb: a setting is safe if it cannot be used by a
+         * user to give themselves some unfair advantage over other users on
+         * a given system.
+         *
+         * In the event of an error, the JsonVariant is left in some undefined
+         * state.
+         */
+
+        char **safe_privileged = STRV_MAKE(
+                /* For display purposes */
+                "passwordHint",
+
+                /* Authentication methods */
+                "hashedPassword"
+                "pkcs11EncryptedKey",
+                "fido2HmacSalt",
+                "recoveryKey",
+
+                "sshAuthorizedKeys" /* Basically just ~/.ssh/authorized_keys */
+        );
+
+        if (!json_variant_is_object(*v))
+                return -EINVAL;
+
+        /* Handle the regular section */
+        r = remove_safe_json_fields_regular(v);
+        if (r < 0)
+                return r;
+
+        /* Handle the perMachine section */
+        per_machine = json_variant_by_key(*v, "perMachine");
+        if (per_machine) {
+                _cleanup_(json_variant_unrefp) JsonVariant *new_per_machine = NULL;
+                JsonVariant *e;
+
+                if (!json_variant_is_array(per_machine))
+                        return -EINVAL;
+
+                JSON_VARIANT_ARRAY_FOREACH(e, per_machine) {
+                        _cleanup_(json_variant_unrefp) JsonVariant *z = NULL;
+
+                        if (!json_variant_is_object(e))
+                                return -EINVAL;
+
+                        r = per_machine_match(e, 0);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                /* It's only safe to change anything inside of matching perMachine sections */
+                                r = json_variant_append_array(&new_per_machine, e);
+                                if (r < 0)
+                                        return r;
+                                continue;
+                        }
+
+                        z = json_variant_ref(e);
+
+                        r = remove_safe_json_fields_regular(&z);
+                        if (r < 0)
+                                return r;
+
+                        /* Note that the resulting object will never be empty, because it will have at
+                         * least matchMachineId and/or matchHostname. We also deem these unsafe to change,
+                         * since they can drastically change the behavior of this user on other machines */
+
+                        r = json_variant_append_array(&new_per_machine, z);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (json_variant_is_blank_array(new_per_machine))
+                        r = json_variant_filter(v, STRV_MAKE("perMachine"));
+                else
+                        r = json_variant_set_field(v, "perMachine", new_per_machine);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Handle the privileged section */
+        privileged = json_variant_ref(json_variant_by_key(*v, "privileged"));
+        if (privileged) {
+                r = json_variant_filter(&privileged, safe_privileged);
+                if (r < 0)
+                        return r;
+
+                if (json_variant_is_blank_object(privileged))
+                        r = json_variant_filter(v, STRV_MAKE("privileged"));
+                else
+                        r = json_variant_set_field(v, "privileged", privileged);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int user_record_changes_are_safe(UserRecord *a, UserRecord *b) {
+        _cleanup_(json_variant_unrefp) JsonVariant *va = NULL, *vb = NULL;
+        int r;
+
+        if (!a && !b)
+                return true;
+        if (!a || !b)
+                return false;
+
+        r = user_group_record_mangle(a->json, USER_RECORD_EXTRACT_SIGNABLE|USER_RECORD_PERMISSIVE, &va, NULL);
+        if (r < 0)
+                return r;
+
+        r = remove_safe_json_fields(&va);
+        if (r < 0)
+                return r;
+
+        r = user_group_record_mangle(b->json, USER_RECORD_EXTRACT_SIGNABLE|USER_RECORD_PERMISSIVE, &vb, NULL);
+        if (r < 0)
+                return r;
+
+        r = remove_safe_json_fields(&vb);
+        if (r < 0)
+                return r;
+
+        return json_variant_equal(va, vb);
+}
+
 bool user_record_shall_rebalance(UserRecord *h) {
         assert(h);
 
