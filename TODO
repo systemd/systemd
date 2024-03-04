@@ -130,6 +130,12 @@ Deprecations and removals:
 
 Features:
 
+* make varlink.h a public API, i.e. give all symbols an sd_ prefix, and rename
+  header file to sd-varlink.h. This of course also means we have to make json.h
+  public the same way. Convert the function param checks from assert() to
+  assert_ret(). Only export the stuff we are sure about, and keep some symbols
+  internally where things are not clear whether we want other projects to use.
+
 * add a new specifier to unit files that figures out the DDI the unit file is
   from, tracing through overlayfs, DM, loopback block device.
 
