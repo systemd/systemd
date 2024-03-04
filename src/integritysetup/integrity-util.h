@@ -13,4 +13,6 @@ int parse_integrity_options(
 
 #define DM_HMAC_256 "hmac(sha256)"
 #define DM_HMAC_512 "hmac(sha512)"
+#define DM_PHMAC_256 "phmac(sha256)"
+#define DM_PHMAC_512 "phmac(sha512)"
 #define DM_MAX_KEY_SIZE 4096            /* Maximum size of key allowed for dm-integrity */
