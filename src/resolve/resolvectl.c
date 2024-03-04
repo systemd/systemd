@@ -454,6 +454,9 @@ static int output_rr_packet(const void *d, size_t l, int ifindex) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to convert RR to JSON: %m");
 
+                if (!j)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "JSON formatting for records of type %s (%u) not available.", dns_type_to_string(rr->key->type), rr->key->type);
+
                 r = json_variant_dump(j, arg_json_format_flags, NULL, NULL);
                 if (r < 0)
                         return r;
