@@ -385,7 +385,7 @@ TEST(validate_method_call) {
 
         assert_se(varlink_callb(v, "xyz.TestMethod", &reply, &error_id,
                                 JSON_BUILD_OBJECT(
-                                                JSON_BUILD_PAIR_STRING("foo", "wuff"),
+                                                JSON_BUILD_PAIR_BOOLEAN("foo", true),
                                                 JSON_BUILD_PAIR_UNSIGNED("bar", 9))) >= 0);
         assert_se(streq_ptr(error_id, VARLINK_ERROR_INVALID_PARAMETER));
 
