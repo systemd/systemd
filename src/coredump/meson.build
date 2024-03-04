@@ -5,15 +5,10 @@ systemd_coredump_sources = files(
         'coredump-vacuum.c',
 )
 
-common_link_with = [
-        libshared,
-        libbasic_compress,
-]
-
 common_dependencies = [
-        liblz4,
-        libxz,
-        libzstd,
+        liblz4_cflags,
+        libxz_cflags,
+        libzstd_cflags,
         threads,
 ]
 
@@ -22,7 +17,7 @@ executables += [
                 'name' : 'systemd-coredump',
                 'conditions' : ['ENABLE_COREDUMP'],
                 'sources' : systemd_coredump_sources,
-                'link_with' : common_link_with,
+                'link_with' : [libshared],
                 'dependencies' : common_dependencies + [libacl],
         },
         executable_template + {
@@ -30,7 +25,7 @@ executables += [
                 'public' : true,
                 'conditions' : ['ENABLE_COREDUMP'],
                 'sources' : files('coredumpctl.c'),
-                'link_with' : common_link_with,
+                'link_with' : [libshared],
                 'dependencies' : common_dependencies,
         },
         test_template + {

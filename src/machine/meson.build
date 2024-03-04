@@ -35,9 +35,9 @@ executables += [
                 'conditions' : ['ENABLE_MACHINED'],
                 'sources' : files('machinectl.c'),
                 'dependencies' : [
-                        liblz4,
-                        libxz,
-                        libzstd,
+                        liblz4_cflags,
+                        libxz_cflags,
+                        libzstd_cflags,
                         threads,
                 ],
         },
