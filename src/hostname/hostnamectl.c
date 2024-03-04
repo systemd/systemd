@@ -236,7 +236,7 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        if (i->os_support_end != USEC_INFINITY) {
+        if (timestamp_is_set(i->os_support_end)) {
                 usec_t n = now(CLOCK_REALTIME);
 
                 r = table_add_many(table,
@@ -362,6 +362,8 @@ static int get_one_name(sd_bus *bus, const char* attr, char **ret) {
 static int show_all_names(sd_bus *bus) {
         StatusInfo info = {
                 .vsock_cid = VMADDR_CID_ANY,
+                .os_support_end = USEC_INFINITY,
+                .firmware_date = USEC_INFINITY,
         };
 
         static const struct bus_properties_map hostname_map[]  = {
@@ -452,7 +454,8 @@ static int show_all_names(sd_bus *bus) {
                                                &error,
                                                BUS_ERROR_NO_HARDWARE_SERIAL,
                                                SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED,
-                                               SD_BUS_ERROR_UNKNOWN_METHOD) ? LOG_DEBUG : LOG_WARNING,
+                                               SD_BUS_ERROR_UNKNOWN_METHOD) ||
+                               ERRNO_IS_DEVICE_ABSENT(r) ? LOG_DEBUG : LOG_WARNING, /* old hostnamed used to send ENOENT/ENODEV back to client as is, handle that gracefully */
                                r, "Failed to query hardware serial, ignoring: %s", bus_error_message(&error, r));
         else {
                 r = sd_bus_message_read_basic(hardware_serial_reply, 's', &info.hardware_serial);
