@@ -41,7 +41,7 @@ lib_import_common = static_library(
         include_directories : includes,
         dependencies : [
                 libbzip2,
-                libxz,
+                libxz_cflags,
                 libz,
                 userspace,
         ],
@@ -55,7 +55,7 @@ common_libs = [
 common_deps = [
         libbzip2,
         libcurl,
-        libxz,
+        libxz_cflags,
         libz,
 ]
 

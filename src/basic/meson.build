@@ -21,6 +21,7 @@ basic_sources = files(
         'confidential-virt.c',
         'devnum-util.c',
         'dirent-util.c',
+        'dlfcn-util.c',
         'efivars.c',
         'env-file.c',
         'env-util.c',
@@ -309,10 +310,10 @@ basic_compress_sources = files(
 libbasic_compress = static_library(
         'basic-compress',
         basic_compress_sources,
-        include_directories : basic_includes,
-        dependencies : [liblz4,
-                        libxz,
-                        libzstd,
+        include_directories : includes,
+        dependencies : [libdl,
+                        libxz_cflags,
+                        libzstd_cflags,
                         userspace],
         c_args : ['-fvisibility=default'],
         build_by_default : false)

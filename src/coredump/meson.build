@@ -11,9 +11,9 @@ common_link_with = [
 ]
 
 common_dependencies = [
-        liblz4,
-        libxz,
-        libzstd,
+        liblz4_cflags,
+        libxz_cflags,
+        libzstd_cflags,
         threads,
 ]
 
