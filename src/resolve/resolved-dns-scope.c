@@ -593,7 +593,8 @@ static DnsScopeMatch match_subnet_reverse_lookups(
 
 DnsScopeMatch dns_scope_good_domain(
                 DnsScope *s,
-                DnsQuery *q) {
+                DnsQuery *q,
+                uint64_t query_flags) {
 
         DnsQuestion *question;
         const char *domain;
@@ -707,7 +708,8 @@ DnsScopeMatch dns_scope_good_domain(
 
                 /* If ResolveUnicastSingleLabel=yes and the query is single-label, then bump match result
                    to prevent LLMNR monopoly among candidates. */
-                if (s->manager->resolve_unicast_single_label && dns_name_is_single_label(domain))
+                if ((s->manager->resolve_unicast_single_label || (query_flags & SD_RESOLVED_RELAX_SINGLE_LABEL)) &&
+                    dns_name_is_single_label(domain))
                         return DNS_SCOPE_YES_BASE + 1;
 
                 /* Let's return the number of labels in the best matching result */
