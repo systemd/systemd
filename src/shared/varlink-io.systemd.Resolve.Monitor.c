@@ -2,13 +2,13 @@
 
 #include "varlink-io.systemd.Resolve.Monitor.h"
 
-VARLINK_DEFINE_STRUCT_TYPE(
+static VARLINK_DEFINE_STRUCT_TYPE(
                 ResourceKey,
                 VARLINK_DEFINE_FIELD(class, VARLINK_INT, 0),
                 VARLINK_DEFINE_FIELD(type, VARLINK_INT, 0),
                 VARLINK_DEFINE_FIELD(name, VARLINK_STRING, 0));
 
-VARLINK_DEFINE_STRUCT_TYPE(
+static VARLINK_DEFINE_STRUCT_TYPE(
                 ResourceRecord,
                 VARLINK_DEFINE_FIELD_BY_TYPE(key, ResourceKey, 0),
                 VARLINK_DEFINE_FIELD(priority, VARLINK_INT, VARLINK_NULLABLE),
@@ -63,18 +63,18 @@ VARLINK_DEFINE_STRUCT_TYPE(
                 VARLINK_DEFINE_FIELD(target, VARLINK_STRING, VARLINK_NULLABLE),
                 VARLINK_DEFINE_FIELD(params, VARLINK_STRING, VARLINK_NULLABLE|VARLINK_ARRAY));
 
-VARLINK_DEFINE_STRUCT_TYPE(
+static VARLINK_DEFINE_STRUCT_TYPE(
                 ResourceRecordArray,
                 VARLINK_DEFINE_FIELD_BY_TYPE(rr, ResourceRecord, VARLINK_NULLABLE),
                 VARLINK_DEFINE_FIELD(raw, VARLINK_STRING, 0));
 
-VARLINK_DEFINE_STRUCT_TYPE(
+static VARLINK_DEFINE_STRUCT_TYPE(
                 Answer,
                 VARLINK_DEFINE_FIELD_BY_TYPE(rr, ResourceRecord, VARLINK_NULLABLE),
                 VARLINK_DEFINE_FIELD(raw, VARLINK_STRING, 0),
                 VARLINK_DEFINE_FIELD(ifindex, VARLINK_INT, VARLINK_NULLABLE));
 
-VARLINK_DEFINE_METHOD(
+static VARLINK_DEFINE_METHOD(
                 SubscribeQueryResults,
                 /* First reply */
                 VARLINK_DEFINE_OUTPUT(ready, VARLINK_BOOL, VARLINK_NULLABLE),
@@ -89,14 +89,14 @@ VARLINK_DEFINE_METHOD(
                 VARLINK_DEFINE_OUTPUT_BY_TYPE(collectedQuestions, ResourceKey, VARLINK_NULLABLE|VARLINK_ARRAY),
                 VARLINK_DEFINE_OUTPUT_BY_TYPE(answer, Answer, VARLINK_NULLABLE|VARLINK_ARRAY));
 
-VARLINK_DEFINE_STRUCT_TYPE(
+static VARLINK_DEFINE_STRUCT_TYPE(
                 CacheEntry,
                 VARLINK_DEFINE_FIELD_BY_TYPE(key, ResourceKey, 0),
                 VARLINK_DEFINE_FIELD_BY_TYPE(rrs, ResourceRecordArray, VARLINK_NULLABLE|VARLINK_ARRAY),
                 VARLINK_DEFINE_FIELD(type, VARLINK_STRING, VARLINK_NULLABLE),
                 VARLINK_DEFINE_FIELD(until, VARLINK_INT, 0));
 
-VARLINK_DEFINE_STRUCT_TYPE(
+static VARLINK_DEFINE_STRUCT_TYPE(
                 ScopeCache,
                 VARLINK_DEFINE_FIELD(protocol, VARLINK_STRING, 0),
                 VARLINK_DEFINE_FIELD(family, VARLINK_INT, VARLINK_NULLABLE),
@@ -104,11 +104,11 @@ VARLINK_DEFINE_STRUCT_TYPE(
                 VARLINK_DEFINE_FIELD(ifname, VARLINK_STRING, VARLINK_NULLABLE),
                 VARLINK_DEFINE_FIELD_BY_TYPE(cache, CacheEntry, VARLINK_ARRAY));
 
-VARLINK_DEFINE_METHOD(
+static VARLINK_DEFINE_METHOD(
                 DumpCache,
                 VARLINK_DEFINE_OUTPUT_BY_TYPE(dump, ScopeCache, VARLINK_ARRAY));
 
-VARLINK_DEFINE_STRUCT_TYPE(
+static VARLINK_DEFINE_STRUCT_TYPE(
                 ServerState,
                 VARLINK_DEFINE_FIELD(Server, VARLINK_STRING, 0),
                 VARLINK_DEFINE_FIELD(Type, VARLINK_STRING, 0),
@@ -127,11 +127,11 @@ VARLINK_DEFINE_STRUCT_TYPE(
                 VARLINK_DEFINE_FIELD(PacketInvalid, VARLINK_BOOL, 0),
                 VARLINK_DEFINE_FIELD(PacketDoOff, VARLINK_BOOL, 0));
 
-VARLINK_DEFINE_METHOD(
+static VARLINK_DEFINE_METHOD(
                 DumpServerState,
                 VARLINK_DEFINE_OUTPUT_BY_TYPE(dump, ServerState, VARLINK_ARRAY));
 
-VARLINK_DEFINE_STRUCT_TYPE(
+static VARLINK_DEFINE_STRUCT_TYPE(
                 TransactionStatistics,
                 VARLINK_DEFINE_FIELD(currentTransactions, VARLINK_INT, 0),
                 VARLINK_DEFINE_FIELD(totalTransactions, VARLINK_INT, 0),
@@ -140,26 +140,26 @@ VARLINK_DEFINE_STRUCT_TYPE(
                 VARLINK_DEFINE_FIELD(totalFailedResponses, VARLINK_INT, 0),
                 VARLINK_DEFINE_FIELD(totalFailedResponsesServedStale, VARLINK_INT, 0));
 
-VARLINK_DEFINE_STRUCT_TYPE(
+static VARLINK_DEFINE_STRUCT_TYPE(
                 CacheStatistics,
                 VARLINK_DEFINE_FIELD(size, VARLINK_INT, 0),
                 VARLINK_DEFINE_FIELD(hits, VARLINK_INT, 0),
                 VARLINK_DEFINE_FIELD(misses, VARLINK_INT, 0));
 
-VARLINK_DEFINE_STRUCT_TYPE(
+static VARLINK_DEFINE_STRUCT_TYPE(
                 DnssecStatistics,
                 VARLINK_DEFINE_FIELD(secure, VARLINK_INT, 0),
                 VARLINK_DEFINE_FIELD(insecure, VARLINK_INT, 0),
                 VARLINK_DEFINE_FIELD(bogus, VARLINK_INT, 0),
                 VARLINK_DEFINE_FIELD(indeterminate, VARLINK_INT, 0));
 
-VARLINK_DEFINE_METHOD(
+static VARLINK_DEFINE_METHOD(
                 DumpStatistics,
                 VARLINK_DEFINE_OUTPUT_BY_TYPE(transactions, TransactionStatistics, 0),
                 VARLINK_DEFINE_OUTPUT_BY_TYPE(cache, CacheStatistics, 0),
                 VARLINK_DEFINE_OUTPUT_BY_TYPE(dnssec, DnssecStatistics, 0));
 
-VARLINK_DEFINE_METHOD(ResetStatistics);
+static VARLINK_DEFINE_METHOD(ResetStatistics);
 
 VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve_Monitor,
