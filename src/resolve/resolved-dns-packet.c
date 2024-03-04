@@ -1220,6 +1220,30 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
                 r = dns_packet_append_blob(p, rr->caa.value, rr->caa.value_size, NULL);
                 break;
 
+        case DNS_TYPE_NAPTR:
+                r = dns_packet_append_uint16(p, rr->naptr.order, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint16(p, rr->naptr.preference, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_string(p, rr->naptr.flags, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_string(p, rr->naptr.services, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_string(p, rr->naptr.regexp, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_name(p, rr->naptr.replacement, /* allow_compression= */ false, /* canonical_candidate= */ true, NULL);
+                break;
+
         case DNS_TYPE_OPT:
         case DNS_TYPE_OPENPGPKEY:
         case _DNS_TYPE_INVALID: /* unparsable */
@@ -2245,6 +2269,30 @@ int dns_packet_read_rr(
                                            rdlength + offset - p->rindex,
                                            &rr->caa.value, &rr->caa.value_size, NULL);
 
+                break;
+
+        case DNS_TYPE_NAPTR:
+                r = dns_packet_read_uint16(p, &rr->naptr.order, NULL);
+                if (r < 0)
+                        return r;
+
+                r = dns_packet_read_uint16(p, &rr->naptr.preference, NULL);
+                if (r < 0)
+                        return r;
+
+                r = dns_packet_read_string(p, &rr->naptr.flags, NULL);
+                if (r < 0)
+                        return r;
+
+                r = dns_packet_read_string(p, &rr->naptr.services, NULL);
+                if (r < 0)
+                        return r;
+
+                r = dns_packet_read_string(p, &rr->naptr.regexp, NULL);
+                if (r < 0)
+                        return r;
+
+                r = dns_packet_read_name(p, &rr->naptr.replacement, /* allow_compressed= */ false, NULL);
                 break;
 
         case DNS_TYPE_OPT: /* we only care about the header of OPT for now. */
