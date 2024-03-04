@@ -135,4 +135,13 @@
     </listitem>
   </varlistentry>
 
+  <varlistentry id='option-P'>
+    <term><option>-P</option></term>
+
+    <listitem>
+      <para>Equivalent to <option>--value</option> <option>--property=</option>, i.e. shows the value of the
+      property without the property name or <literal>=</literal>. Note that using <option>-P</option> once
+      will also affect all properties listed with <option>-p</option>/<option>--property=</option>.</para>
+    </listitem>
+  </varlistentry>
 </variablelist>

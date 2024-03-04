@@ -273,6 +273,15 @@
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
+      <varlistentry id='option-P'>
+        <term><option>-P</option></term>
+
+        <listitem>
+          <xi:include href="standard-options.xml" xpointer="xpointer(//varlistentry[@id='option-P']/listitem/para)" />
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
