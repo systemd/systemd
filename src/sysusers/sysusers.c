@@ -1701,7 +1701,7 @@ static int parse_line(
         /* Parse columns */
         p = buffer;
         r = extract_many_words(&p, NULL, EXTRACT_UNQUOTE,
-                               &action, &name, &id, &description, &home, &shell, NULL);
+                               &action, &name, &id, &description, &home, &shell);
         if (r < 0)
                 return log_syntax(NULL, LOG_ERR, fname, line, r, "Syntax error.");
         if (r < 2)

@@ -159,7 +159,7 @@ static int mount_array_add(bool for_initrd, const char *str) {
         assert(str);
 
         r = extract_many_words(&str, ":", EXTRACT_CUNESCAPE | EXTRACT_DONT_COALESCE_SEPARATORS,
-                               &what, &where, &fstype, &options, NULL);
+                               &what, &where, &fstype, &options);
         if (r < 0)
                 return r;
         if (r < 2)
@@ -177,7 +177,7 @@ static int mount_array_add_swap(bool for_initrd, const char *str) {
         assert(str);
 
         r = extract_many_words(&str, ":", EXTRACT_CUNESCAPE | EXTRACT_DONT_COALESCE_SEPARATORS,
-                               &what, &options, NULL);
+                               &what, &options);
         if (r < 0)
                 return r;
         if (r < 1)

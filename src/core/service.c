@@ -523,7 +523,8 @@ static int service_add_fd_store(Service *s, int fd_in, const char *name, bool do
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        log_unit_debug(UNIT(s), "Trying to stash fd for dev=" DEVNUM_FORMAT_STR "/inode=%" PRIu64, DEVNUM_FORMAT_VAL(st.st_dev), (uint64_t) st.st_ino);
+        log_unit_debug(UNIT(s), "Trying to stash fd for dev=" DEVNUM_FORMAT_STR "/inode=%" PRIu64,
+                       DEVNUM_FORMAT_VAL(st.st_dev), (uint64_t) st.st_ino);
 
         if (s->n_fd_store >= s->n_fd_store_max)
                 /* Our store is full.  Use this errno rather than E[NM]FILE to distinguish from the case
@@ -557,17 +558,16 @@ static int service_add_fd_store(Service *s, int fd_in, const char *name, bool do
                 r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fs->fd, 0, on_fd_store_io, fs);
                 if (r < 0 && r != -EPERM) /* EPERM indicates fds that aren't pollable, which is OK */
                         return r;
-                else if (r >= 0)
+                if (r >= 0)
                         (void) sd_event_source_set_description(fs->event_source, "service-fd-store");
         }
 
-        fs->service = s;
-        LIST_PREPEND(fd_store, s->fd_store, fs);
-        s->n_fd_store++;
-
         log_unit_debug(UNIT(s), "Added fd %i (%s) to fd store.", fs->fd, fs->fdname);
 
-        TAKE_PTR(fs);
+        fs->service = s;
+        LIST_PREPEND(fd_store, s->fd_store, TAKE_PTR(fs));
+        s->n_fd_store++;
+
         return 1; /* fd newly stored */
 }
 
@@ -3018,7 +3018,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 if (!c)
                         return log_oom();
 
-                (void) serialize_item_format(f, "fd-store-fd", "%i \"%s\" %i", copy, c, fs->do_poll);
+                (void) serialize_item_format(f, "fd-store-fd", "%i \"%s\" %s", copy, c, one_zero(fs->do_poll));
         }
 
         if (s->main_exec_status.pid > 0) {
@@ -3261,9 +3261,9 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 _cleanup_close_ int fd = -EBADF;
                 int do_poll;
 
-                r = extract_first_word(&value, &fdv, NULL, 0);
-                if (r <= 0) {
-                        log_unit_debug(u, "Failed to parse fd-store-fd value, ignoring: %s", value);
+                r = extract_many_words(&value, " ", EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE, &fdv, &fdn, &fdp);
+                if (r < 2 || r > 3) {
+                        log_unit_debug(u, "Failed to deserialize fd-store-fd, ignoring: %s", value);
                         return 0;
                 }
 
@@ -3271,24 +3271,17 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 if (fd < 0)
                         return 0;
 
-                r = extract_first_word(&value, &fdn, NULL, EXTRACT_CUNESCAPE | EXTRACT_UNQUOTE);
-                if (r <= 0) {
-                        log_unit_debug(u, "Failed to parse fd-store-fd value, ignoring: %s", value);
-                        return 0;
-                }
-
-                r = extract_first_word(&value, &fdp, NULL, 0);
-                if (r == 0) {
-                        /* If the value is not present, we assume the default */
-                        do_poll = 1;
-                } else if (r < 0 || (r = safe_atoi(fdp, &do_poll)) < 0) {
-                        log_unit_debug_errno(u, r, "Failed to parse fd-store-fd value \"%s\", ignoring: %m", value);
+                do_poll = r == 3 ? parse_boolean(fdp) : true;
+                if (do_poll < 0) {
+                        log_unit_debug_errno(u, do_poll,
+                                             "Failed to deserialize fd-store-fd do_poll, ignoring: %s", fdp);
                         return 0;
                 }
 
                 r = service_add_fd_store(s, fd, fdn, do_poll);
                 if (r < 0) {
-                        log_unit_debug_errno(u, r, "Failed to store deserialized fd %i, ignoring: %m", fd);
+                        log_unit_debug_errno(u, r,
+                                             "Failed to store deserialized fd '%s', ignoring: %m", fdn);
                         return 0;
                 }
 

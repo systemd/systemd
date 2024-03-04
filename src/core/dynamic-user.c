@@ -651,7 +651,7 @@ void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds, Dyn
 
         /* Parse the serialization again, after a daemon reload */
 
-        r = extract_many_words(&value, NULL, 0, &name, &s0, &s1, NULL);
+        r = extract_many_words(&value, NULL, 0, &name, &s0, &s1);
         if (r != 3 || !isempty(value)) {
                 log_debug("Unable to parse dynamic user line.");
                 return;

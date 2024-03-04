@@ -420,8 +420,8 @@
         <term>FDPOLL=0</term>
 
         <listitem><para>When used in combination with <varname>FDSTORE=1</varname>, disables polling of the
-        stored file descriptors regardless of whether or not they are pollable. As this option disables
-        automatic cleanup of the stored file descriptors on EPOLLERR and EPOLLHUP, care must be taken to
+        submitted file descriptors regardless of whether or not they are pollable. As this option disables
+        automatic cleanup of the submitted file descriptors on EPOLLERR and EPOLLHUP, care must be taken to
         ensure proper manual cleanup.  Use of this option is not generally recommended except for when
         automatic cleanup has unwanted behavior such as prematurely discarding file descriptors from the
         store.</para>

@@ -228,7 +228,7 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
                 return -EINVAL;
         }
 
-        r = extract_many_words(&p, NULL, 0, &class, &type, NULL);
+        r = extract_many_words(&p, NULL, 0, &class, &type);
         if (r < 0)
                 return log_warning_errno(r, "Unable to parse class and type in line %s:%u: %m", path, line);
         if (r != 2) {
@@ -248,7 +248,7 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
                 int a, dt;
                 size_t l;
 
-                r = extract_many_words(&p, NULL, 0, &key_tag, &algorithm, &digest_type, NULL);
+                r = extract_many_words(&p, NULL, 0, &key_tag, &algorithm, &digest_type);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to parse DS parameters on line %s:%u: %m", path, line);
                         return -EINVAL;
@@ -302,7 +302,7 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
                 size_t l;
                 int a;
 
-                r = extract_many_words(&p, NULL, 0, &flags, &protocol, &algorithm, NULL);
+                r = extract_many_words(&p, NULL, 0, &flags, &protocol, &algorithm);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse DNSKEY parameters on line %s:%u: %m", path, line);
                 if (r != 3) {
