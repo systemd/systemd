@@ -454,7 +454,8 @@ static int show_all_names(sd_bus *bus) {
                                                &error,
                                                BUS_ERROR_NO_HARDWARE_SERIAL,
                                                SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED,
-                                               SD_BUS_ERROR_UNKNOWN_METHOD) ? LOG_DEBUG : LOG_WARNING,
+                                               SD_BUS_ERROR_UNKNOWN_METHOD) ||
+                               ERRNO_IS_DEVICE_ABSENT(r) ? LOG_DEBUG : LOG_WARNING, /* old hostnamed used to send ENOENT/ENODEV back to client as is, handle that gracefully */
                                r, "Failed to query hardware serial, ignoring: %s", bus_error_message(&error, r));
         else {
                 r = sd_bus_message_read_basic(hardware_serial_reply, 's', &info.hardware_serial);
