@@ -3,4 +3,7 @@
 
 #include "varlink-idl.h"
 
+extern const VarlinkSymbol vl_type_ResourceKey;
+extern const VarlinkSymbol vl_type_ResourceRecord;
+
 extern const VarlinkInterface vl_interface_io_systemd_Resolve;
