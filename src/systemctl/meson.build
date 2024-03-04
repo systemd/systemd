@@ -56,10 +56,10 @@ executables += [
                 'link_with' : systemctl_link_with,
                 'dependencies' : [
                         libcap,
-                        liblz4,
+                        liblz4_cflags,
                         libselinux,
-                        libxz,
-                        libzstd,
+                        libxz_cflags,
+                        libzstd_cflags,
                         threads,
                 ],
         },
