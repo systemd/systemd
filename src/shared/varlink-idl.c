@@ -1379,7 +1379,8 @@ static int varlink_idl_validate_field_element_type(const VarlinkField *field, Js
                 break;
 
         case VARLINK_INT:
-                if (!json_variant_is_integer(v) && !json_variant_is_unsigned(v))
+                /* Allow strings here too, since integers with > 53 bits are often passed in as strings */
+                if (!json_variant_is_integer(v) && !json_variant_is_unsigned(v) && !json_variant_is_string(v))
                         return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an int, but it is not, refusing.", strna(field->name));
 
                 break;
