@@ -481,6 +481,13 @@ static DnsResourceRecord* dns_resource_record_free(DnsResourceRecord *rr) {
                         free(rr->caa.value);
                         break;
 
+                case DNS_TYPE_NAPTR:
+                        free(rr->naptr.flags);
+                        free(rr->naptr.services);
+                        free(rr->naptr.regexp);
+                        free(rr->naptr.replacement);
+                        break;
+
                 case DNS_TYPE_OPENPGPKEY:
                 default:
                         if (!rr->unparsable)
@@ -693,6 +700,17 @@ int dns_resource_record_payload_equal(const DnsResourceRecord *a, const DnsResou
                 return a->caa.flags == b->caa.flags &&
                        streq(a->caa.tag, b->caa.tag) &&
                        FIELD_EQUAL(a->caa, b->caa, value);
+
+        case DNS_TYPE_NAPTR:
+                r = dns_name_equal(a->naptr.replacement, b->naptr.replacement);
+                if (r <= 0)
+                        return r;
+
+                return a->naptr.order == b->naptr.order &&
+                        a->naptr.preference == b->naptr.preference &&
+                        streq(a->naptr.flags, b->naptr.flags) &&
+                        streq(a->naptr.services, b->naptr.services) &&
+                        streq(a->naptr.regexp, b->naptr.regexp);
 
         case DNS_TYPE_OPENPGPKEY:
         default:
@@ -1263,6 +1281,31 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                         return NULL;
                 break;
 
+        case DNS_TYPE_NAPTR: {
+                _cleanup_free_ char *tt = NULL, *ttt = NULL;
+
+                t = octescape(rr->naptr.flags, SIZE_MAX);
+                if (!t)
+                        return NULL;
+
+                tt = octescape(rr->naptr.services, SIZE_MAX);
+                if (!tt)
+                        return NULL;
+
+                ttt = octescape(rr->naptr.regexp, SIZE_MAX);
+                if (!ttt)
+                        return NULL;
+
+                if (asprintf(&s, "%" PRIu16 " %" PRIu16 " \"%s\" \"%s\" \"%s\" %s.",
+                             rr->naptr.order,
+                             rr->naptr.preference,
+                             t,
+                             tt,
+                             ttt,
+                             rr->naptr.replacement) < 0)
+                        return NULL;
+                break;
+        }
         default:
                 /* Format as documented in RFC 3597, Section 5 */
                 if (rr->generic.data_size == 0)
@@ -1588,6 +1631,15 @@ void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *
                 siphash24_compress_safe(rr->caa.value, rr->caa.value_size, state);
                 break;
 
+        case DNS_TYPE_NAPTR:
+                siphash24_compress_typesafe(rr->naptr.order, state);
+                siphash24_compress_typesafe(rr->naptr.preference, state);
+                string_hash_func(rr->naptr.flags, state);
+                string_hash_func(rr->naptr.services, state);
+                string_hash_func(rr->naptr.regexp, state);
+                dns_name_hash_func(rr->naptr.replacement, state);
+                break;
+
         case DNS_TYPE_OPENPGPKEY:
         default:
                 siphash24_compress_safe(rr->generic.data, rr->generic.data_size, state);
@@ -1803,6 +1855,23 @@ DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
                         return NULL;
                 copy->svcb.params = dns_svc_params_copy(rr->svcb.params);
                 if (rr->svcb.params && !copy->svcb.params)
+                        return NULL;
+                break;
+
+        case DNS_TYPE_NAPTR:
+                copy->naptr.order = rr->naptr.order;
+                copy->naptr.preference = rr->naptr.preference;
+                copy->naptr.flags = strdup(rr->naptr.flags);
+                if (!copy->naptr.flags)
+                        return NULL;
+                copy->naptr.services = strdup(rr->naptr.services);
+                if (!copy->naptr.services)
+                        return NULL;
+                copy->naptr.regexp = strdup(rr->naptr.regexp);
+                if (!copy->naptr.regexp)
+                        return NULL;
+                copy->naptr.replacement = strdup(rr->naptr.replacement);
+                if (!copy->naptr.replacement)
                         return NULL;
                 break;
 
@@ -2351,6 +2420,18 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, JsonVariant **ret) {
                                                   JSON_BUILD_PAIR("flags", JSON_BUILD_UNSIGNED(rr->caa.flags)),
                                                   JSON_BUILD_PAIR("tag", JSON_BUILD_STRING(rr->caa.tag)),
                                                   JSON_BUILD_PAIR("value", JSON_BUILD_OCTESCAPE(rr->caa.value, rr->caa.value_size))));
+
+        case DNS_TYPE_NAPTR:
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("order", JSON_BUILD_UNSIGNED(rr->naptr.order)),
+                                                  JSON_BUILD_PAIR("preference", JSON_BUILD_UNSIGNED(rr->naptr.preference)),
+                                                  /* NB: we name this flags field here naptrFlags, because there's already another "flags" field (for example in CAA) which has a different type */
+                                                  JSON_BUILD_PAIR("naptrFlags", JSON_BUILD_STRING(rr->naptr.flags)),
+                                                  JSON_BUILD_PAIR("services", JSON_BUILD_STRING(rr->naptr.services)),
+                                                  JSON_BUILD_PAIR("regexp", JSON_BUILD_STRING(rr->naptr.regexp)),
+                                                  JSON_BUILD_PAIR("replacement", JSON_BUILD_STRING(rr->naptr.replacement))));
 
         default:
                 /* Can't provide broken-down format */
