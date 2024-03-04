@@ -36,7 +36,7 @@
     via three interfaces:</para>
 
     <itemizedlist>
-      <listitem><para>The native, fully-featured API <command>systemd-resolved</command> exposes on the bus,
+      <listitem><para>The native, fully-featured API <command>systemd-resolved</command> exposes via D-Bus,
       see
       <citerefentry><refentrytitle>org.freedesktop.resolve1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       and
@@ -44,6 +44,11 @@
       for details. Usage of this API is generally recommended to clients as it is asynchronous and fully
       featured (for example, properly returns DNSSEC validation status and interface scope for addresses as
       necessary for supporting link-local networking).</para></listitem>
+
+      <listitem><para>The native API <command>systemd-resolved</command> exposes via Varlink on the
+      <filename>/run/systemd/resolve/io.systemd.Resolve</filename> AF_UNIX socket. This provides similar
+      functionality as the D-Bus interface, but is available during the entire runtime, without requiring a
+      running D-Bus system bus broker service.</para></listitem>
 
       <listitem><para>The glibc
       <citerefentry project='man-pages'><refentrytitle>getaddrinfo</refentrytitle><manvolnum>3</manvolnum></citerefentry>
