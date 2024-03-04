@@ -63,7 +63,7 @@
     <option>systemd.default_debug_tty=</option> option can be used which also takes a tty with or without the
     <filename>/dev/</filename> prefix. Note that the shell may also be turned on persistently by enabling it
     with <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-    <command>enable</command> command. <option>rd.systemd.debug_shell=</option> is honored only by initial
+    <command>enable</command> command. <option>rd.systemd.debug_shell</option> is honored only by initial
     RAM disk (initrd) while <option>systemd.debug_shell</option> is honored only in the main system.</para>
 
     <para><filename>systemd-debug-generator</filename> implements
