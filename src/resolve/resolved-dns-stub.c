@@ -970,7 +970,8 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                                   SD_RESOLVED_NO_SEARCH|
                                   SD_RESOLVED_NO_VALIDATE|
                                   SD_RESOLVED_REQUIRE_PRIMARY|
-                                  SD_RESOLVED_CLAMP_TTL);
+                                  SD_RESOLVED_CLAMP_TTL|
+                                  SD_RESOLVED_RELAX_SINGLE_LABEL);
         else
                 r = dns_query_new(m, &q, p->question, p->question, NULL, 0,
                                   protocol_flags|
