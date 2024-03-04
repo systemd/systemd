@@ -9,6 +9,13 @@
 #include "time-util.h"
 #include "user-record.h"
 
+/* Flags supported by UpdateEx() */
+#define SD_HOMED_UPDATE_OFFLINE (UINT64_C(1) << 0)
+#define SD_HOMED_UPDATE_FLAGS_ALL (SD_HOMED_UPDATE_OFFLINE)
+
+/* Flags supported by CreateHomeEx() */
+#define SD_HOMED_CREATE_FLAGS_ALL (0)
+
 /* Put some limits on disk sizes: not less than 5M, not more than 5T */
 #define USER_DISK_SIZE_MIN (UINT64_C(5)*1024*1024)
 #define USER_DISK_SIZE_MAX (UINT64_C(5)*1024*1024*1024*1024)
