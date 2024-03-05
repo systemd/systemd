@@ -302,5 +302,3 @@ libbasic_gcrypt = static_library(
                         userspace],
         c_args : ['-fvisibility=default'],
         build_by_default : false)
-
-############################################################

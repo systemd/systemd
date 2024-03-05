@@ -87,7 +87,6 @@ int dlopen_zstd(void);
 int dlopen_lzma(void);
 #endif
 
-
 static inline int compress_blob(
                 Compression compression,
                 const void *src, uint64_t src_size,
