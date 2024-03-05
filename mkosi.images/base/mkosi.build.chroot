@@ -8,7 +8,7 @@ set -e
 # We don't want to install our build of systemd in the base image, but use it as an extra tree for the
 # initrd and system images, so override DESTDIR to store it in the output directory so we can reference it as
 # an extra tree in the initrd and system image builds.
-DESTDIR="$OUTPUTDIR/systemd"
+export DESTDIR="$OUTPUTDIR/systemd"
 
 # If mkosi.builddir/ exists mkosi will set $BUILDDIR to it, let's then use it
 # as out-of-tree build dir. Otherwise, let's make up our own builddir.
