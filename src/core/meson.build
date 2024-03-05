@@ -125,7 +125,7 @@ libcore = shared_library(
                         libaudit,
                         libblkid,
                         libdl,
-                        libkmod,
+                        libkmod_cflags,
                         libm,
                         libmount,
                         libpam,

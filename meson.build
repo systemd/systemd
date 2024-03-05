@@ -1204,6 +1204,7 @@ libkmod = dependency('libkmod',
                      version : '>= 15',
                      required : get_option('kmod'))
 conf.set10('HAVE_KMOD', libkmod.found())
+libkmod_cflags = libkmod.partial_dependency(includes: true, compile_args: true)
 
 libxenctrl = dependency('xencontrol',
                         version : '>= 4.9',
