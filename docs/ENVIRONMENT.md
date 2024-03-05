@@ -357,7 +357,8 @@ All tools:
 `systemd-resolved`:
 
 * `$SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME` — if set to "0", `systemd-resolved`
-  won't synthesize system hostname on both regular and reverse lookups.
+  won't synthesize A/AAAA/PTR RRs for the system hostname on either regular nor
+  reverse lookups.
 
 `systemd-sysext`:
 

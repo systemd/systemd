@@ -12,6 +12,7 @@
 #include "random-util.h"
 #include "resolved-dnssd.h"
 #include "resolved-dns-scope.h"
+#include "resolved-dns-synthesize.h"
 #include "resolved-dns-zone.h"
 #include "resolved-llmnr.h"
 #include "resolved-mdns.h"
@@ -651,6 +652,10 @@ DnsScopeMatch dns_scope_good_domain(
             is_outbound_hostname(domain) ||
             is_dns_stub_hostname(domain) ||
             is_dns_proxy_stub_hostname(domain))
+                return DNS_SCOPE_NO;
+
+        /* Don't look up the local host name via the network, unless user turned of local synthesis of it */
+        if (manager_is_own_hostname(s->manager, domain) && shall_synthesize_own_hostname_rrs())
                 return DNS_SCOPE_NO;
 
         /* Never send SOA or NS or DNSSEC request to LLMNR, where they make little sense. */

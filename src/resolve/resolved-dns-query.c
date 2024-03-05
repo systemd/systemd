@@ -672,6 +672,8 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
                 q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL|SD_RESOLVED_SYNTHETIC;
                 *state = DNS_TRANSACTION_RCODE_FAILURE;
 
+                log_debug("Found synthetic NXDOMAIN response.");
+
                 return 0;
         }
         if (r <= 0)
@@ -686,6 +688,8 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
         q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL|SD_RESOLVED_SYNTHETIC;
 
         *state = DNS_TRANSACTION_SUCCESS;
+
+        log_debug("Found synthetic success response.");
 
         return 1;
 }
