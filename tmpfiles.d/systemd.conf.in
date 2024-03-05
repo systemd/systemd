@@ -26,16 +26,13 @@ Z /run/log/journal/%m ~2750 root systemd-journal - -
 {% if HAVE_ACL %}
 {% if ENABLE_ADM_GROUP and ENABLE_WHEEL_GROUP %}
 a+ /run/log/journal    - - - - d:group::r-x,d:group:adm:r-x,d:group:wheel:r-x,group::r-x,group:adm:r-x,group:wheel:r-x
-a+ /run/log/journal/%m - - - - d:group:adm:r-x,d:group:wheel:r-x,group:adm:r-x,group:wheel:r-x
-a+ /run/log/journal/%m/*.journal* - - - - group:adm:r--,group:wheel:r--
+A+ /run/log/journal/%m - - - - d:group:adm:r-x,d:group:wheel:r-x,group:adm:r-X,group:wheel:r-X
 {% elif ENABLE_ADM_GROUP %}
 a+ /run/log/journal    - - - - d:group::r-x,d:group:adm:r-x,group::r-x,group:adm:r-x
-a+ /run/log/journal/%m - - - - d:group:adm:r-x,group:adm:r-x
-a+ /run/log/journal/%m/*.journal* - - - - group:adm:r--
+A+ /run/log/journal/%m - - - - d:group:adm:r-x,group:adm:r-X
 {% elif ENABLE_WHEEL_GROUP %}
 a+ /run/log/journal    - - - - d:group::r-x,d:group:wheel:r-x,group::r-x,group:wheel:r-x
-a+ /run/log/journal/%m - - - - d:group:wheel:r-x,group:wheel:r-x
-a+ /run/log/journal/%m/*.journal* - - - - group:wheel:r--
+A+ /run/log/journal/%m - - - - d:group:wheel:r-x,group:wheel:r-X
 {% endif %}
 {% endif %}
 
