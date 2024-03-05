@@ -1944,11 +1944,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>-P</option></term>
 
         <listitem>
-          <para>Equivalent to <option>--value</option> <option>--property=</option>, i.e. shows the
-          value of the property without the property name or <literal>=</literal>. Note that using
-          <option>-P</option> once will also affect all properties listed with
-          <option>-p</option>/<option>--property=</option>.</para>
-
+          <xi:include href="standard-options.xml" xpointer="xpointer(//varlistentry[@id='option-P']/listitem/para)" />
           <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
