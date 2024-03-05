@@ -1275,7 +1275,7 @@ static int parse_acl_cond_exec(
         assert(ret);
 
         if (!S_ISDIR(st->st_mode)) {
-                has_exec = st->st_mode & S_IXUSR;
+                has_exec = st->st_mode & 0111;
 
                 if (!has_exec && append) {
                         _cleanup_(acl_freep) acl_t old = NULL;
