@@ -305,16 +305,16 @@ knotc reload
 TIMESTAMP=$(date '+%F %T')
 # Issue: https://github.com/systemd/systemd/issues/23951
 # With IPv6 enabled
-run getent -s resolve hosts ns1.unsigned.test
-grep -qE "^fd00:dead:beef:cafe::1\s+ns1\.unsigned\.test" "$RUN_OUT"
+run getent -s resolve ahosts ns1.unsigned.test
+grep -qE "^fd00:dead:beef:cafe::1\s+STREAM\s+ns1\.unsigned\.test" "$RUN_OUT"
 monitor_check_rr "$TIMESTAMP" "ns1.unsigned.test IN AAAA fd00:dead:beef:cafe::1"
 # With IPv6 disabled
 # Issue: https://github.com/systemd/systemd/issues/23951
-# FIXME
-#disable_ipv6
-#run getent -s resolve hosts ns1.unsigned.test
-#grep -qE "^10\.0\.0\.1\s+ns1\.unsigned\.test" "$RUN_OUT"
-#monitor_check_rr "$TIMESTAMP" "ns1.unsigned.test IN A 10.0.0.1"
+disable_ipv6
+run getent -s resolve ahosts ns1.unsigned.test
+grep -qE "^10\.0\.0\.1\s+STREAM\s+ns1\.unsigned\.test" "$RUN_OUT"
+(! grep -qE "fd00:dead:beef:cafe::1" "$RUN_OUT")
+monitor_check_rr "$TIMESTAMP" "ns1.unsigned.test IN A 10.0.0.1"
 enable_ipv6
 
 # Issue: https://github.com/systemd/systemd/issues/18812
@@ -322,16 +322,17 @@ enable_ipv6
 # Follow-up issue: https://github.com/systemd/systemd/issues/23152
 # Follow-up PR: https://github.com/systemd/systemd/pull/23161
 # With IPv6 enabled
-run getent -s resolve hosts localhost
-grep -qE "^::1\s+localhost" "$RUN_OUT"
-run getent -s myhostname hosts localhost
-grep -qE "^::1\s+localhost" "$RUN_OUT"
+run getent -s resolve ahosts localhost
+grep -qE "^::1\s+STREAM\s+localhost" "$RUN_OUT"
+run getent -s myhostname ahosts localhost
+grep -qE "^::1\s+STREAM\s+localhost" "$RUN_OUT"
 # With IPv6 disabled
 disable_ipv6
-run getent -s resolve hosts localhost
-grep -qE "^127\.0\.0\.1\s+localhost" "$RUN_OUT"
-run getent -s myhostname hosts localhost
-grep -qE "^127\.0\.0\.1\s+localhost" "$RUN_OUT"
+run getent -s resolve ahosts localhost
+grep -qE "^127\.0\.0\.1\s+STREAM\s+localhost" "$RUN_OUT"
+(! grep -qE "::1" "$RUN_OUT")
+run getent -s myhostname ahosts localhost
+grep -qE "^127\.0\.0\.1\s+STREAM\s+localhost" "$RUN_OUT"
 enable_ipv6
 
 # Issue: https://github.com/systemd/systemd/issues/25088
