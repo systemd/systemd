@@ -5,6 +5,7 @@
 
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
+#include <bpf/btf.h>
 
 #include "bpf-compat.h"
 #include "dlfcn-util.h"
@@ -16,6 +17,8 @@ DLSYM_PROTOTYPE(bpf_link__destroy);
 DLSYM_PROTOTYPE(bpf_map__fd);
 DLSYM_PROTOTYPE(bpf_map__name);
 DLSYM_PROTOTYPE(bpf_map__set_max_entries);
+DLSYM_PROTOTYPE(bpf_map_get_fd_by_id);
+DLSYM_PROTOTYPE(bpf_map_get_next_id);
 DLSYM_PROTOTYPE(bpf_map_update_elem);
 DLSYM_PROTOTYPE(bpf_map_delete_elem);
 DLSYM_PROTOTYPE(bpf_map__set_inner_map_fd);
@@ -26,9 +29,18 @@ DLSYM_PROTOTYPE(bpf_object__load_skeleton);
 DLSYM_PROTOTYPE(bpf_object__attach_skeleton);
 DLSYM_PROTOTYPE(bpf_object__detach_skeleton);
 DLSYM_PROTOTYPE(bpf_object__destroy_skeleton);
+DLSYM_PROTOTYPE(bpf_obj_get_info_by_fd);
+DLSYM_PROTOTYPE(bpf_prog_get_fd_by_id);
+DLSYM_PROTOTYPE(bpf_prog_get_next_id);
 DLSYM_PROTOTYPE(bpf_program__name);
+DLSYM_PROTOTYPE(btf__free);
+DLSYM_PROTOTYPE(btf__load_from_kernel_by_id);
+DLSYM_PROTOTYPE(btf__name_by_offset);
+DLSYM_PROTOTYPE(btf__type_by_id);
 DLSYM_PROTOTYPE(libbpf_set_print);
 DLSYM_PROTOTYPE(libbpf_get_error);
+// DLSYM_PROTOTYPE(libbpf_bpf_map_type_str);
+// DLSYM_PROTOTYPE(libbpf_bpf_prog_type_str);
 
 #endif
 

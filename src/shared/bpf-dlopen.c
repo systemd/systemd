@@ -25,6 +25,8 @@ DLSYM_FUNCTION(bpf_link__destroy);
 DLSYM_FUNCTION(bpf_map__fd);
 DLSYM_FUNCTION(bpf_map__name);
 DLSYM_FUNCTION(bpf_map__set_max_entries);
+DLSYM_FUNCTION(bpf_map_get_fd_by_id);
+DLSYM_FUNCTION(bpf_map_get_next_id);
 DLSYM_FUNCTION(bpf_map_update_elem);
 DLSYM_FUNCTION(bpf_map_delete_elem);
 DLSYM_FUNCTION(bpf_map__set_inner_map_fd);
@@ -33,9 +35,18 @@ DLSYM_FUNCTION(bpf_object__load_skeleton);
 DLSYM_FUNCTION(bpf_object__attach_skeleton);
 DLSYM_FUNCTION(bpf_object__detach_skeleton);
 DLSYM_FUNCTION(bpf_object__destroy_skeleton);
+DLSYM_FUNCTION(bpf_obj_get_info_by_fd);
 DLSYM_FUNCTION(bpf_program__name);
+DLSYM_FUNCTION(bpf_prog_get_fd_by_id);
+DLSYM_FUNCTION(bpf_prog_get_next_id);
+DLSYM_FUNCTION(btf__free);
+DLSYM_FUNCTION(btf__load_from_kernel_by_id);
+DLSYM_FUNCTION(btf__name_by_offset);
+DLSYM_FUNCTION(btf__type_by_id);
 DLSYM_FUNCTION(libbpf_set_print);
 DLSYM_FUNCTION(libbpf_get_error);
+// DLSYM_FUNCTION(libbpf_bpf_map_type_str);
+// DLSYM_FUNCTION(libbpf_bpf_prog_type_str);
 
 /* new symbols available from libbpf 0.7.0 */
 int (*sym_bpf_map_create)(enum bpf_map_type,  const char *, __u32, __u32, __u32, const struct bpf_map_create_opts *);
@@ -127,7 +138,18 @@ int dlopen_bpf(void) {
 #endif
                         DLSYM_ARG(bpf_program__name),
                         DLSYM_ARG(libbpf_set_print),
-                        DLSYM_ARG(libbpf_get_error));
+                        DLSYM_ARG(libbpf_get_error),
+                        DLSYM_ARG(bpf_prog_get_next_id),
+                        DLSYM_ARG(bpf_map_get_next_id),
+                        DLSYM_ARG(bpf_prog_get_fd_by_id),
+                        DLSYM_ARG(bpf_map_get_fd_by_id),
+                        DLSYM_ARG(bpf_obj_get_info_by_fd),
+                        DLSYM_ARG(btf__load_from_kernel_by_id),
+                        DLSYM_ARG(btf__type_by_id),
+                        DLSYM_ARG(btf__name_by_offset),
+                        DLSYM_ARG(btf__free));
+                        // DLSYM_ARG(libbpf_bpf_map_type_str),
+                        // DLSYM_ARG(libbpf_bpf_prog_type_str));
         if (r < 0)
                 return r;
 
