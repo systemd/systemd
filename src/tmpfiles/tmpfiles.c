@@ -1355,14 +1355,10 @@ static int parse_acl_cond_exec(
         if (r < 0)
                 return -errno;
 
-        if (!append) { /* want_mask = true */
-                r = calc_acl_mask_if_needed(&parsed);
-                if (r < 0)
-                        return r;
-        }
+        if (acl_calc_mask(&parsed) < 0)
+                return -errno;
 
         *ret = TAKE_PTR(parsed);
-
         return 0;
 }
 
@@ -1387,9 +1383,8 @@ static int path_set_acl(
                 if (r < 0)
                         return r;
 
-                r = calc_acl_mask_if_needed(&dup);
-                if (r < 0)
-                        return r;
+                if (acl_calc_mask(&dup) < 0)
+                        return -errno;
         } else {
                 dup = acl_dup(acl);
                 if (!dup)
