@@ -1275,33 +1275,43 @@ static int parse_acl_cond_exec(
         assert(ret);
 
         if (!S_ISDIR(st->st_mode)) {
-                has_exec = st->st_mode & S_IXUSR;
+                _cleanup_(acl_freep) acl_t old = NULL;
 
-                if (!has_exec && append) {
-                        _cleanup_(acl_freep) acl_t old = NULL;
+                old = acl_get_file(path, ACL_TYPE_ACCESS);
+                if (!old)
+                        return -errno;
 
-                        old = acl_get_file(path, ACL_TYPE_ACCESS);
-                        if (!old)
+                has_exec = false;
+
+                for (r = acl_get_entry(old, ACL_FIRST_ENTRY, &entry);
+                     r > 0;
+                     r = acl_get_entry(old, ACL_NEXT_ENTRY, &entry)) {
+
+                        acl_tag_t tag;
+
+                        if (acl_get_tag_type(entry, &tag) < 0)
                                 return -errno;
 
-                        for (r = acl_get_entry(old, ACL_FIRST_ENTRY, &entry);
-                             r > 0;
-                             r = acl_get_entry(old, ACL_NEXT_ENTRY, &entry)) {
+                        if (tag == ACL_MASK)
+                                continue;
 
-                                if (acl_get_permset(entry, &permset) < 0)
-                                        return -errno;
+                        /* If not appending, skip ACL definitions */
+                        if (!append && IN_SET(tag, ACL_USER, ACL_GROUP))
+                                continue;
 
-                                r = acl_get_perm(permset, ACL_EXECUTE);
-                                if (r < 0)
-                                        return -errno;
-                                if (r > 0) {
-                                        has_exec = true;
-                                        break;
-                                }
-                        }
+                        if (acl_get_permset(entry, &permset) < 0)
+                                return -errno;
+
+                        r = acl_get_perm(permset, ACL_EXECUTE);
                         if (r < 0)
                                 return -errno;
+                        if (r > 0) {
+                                has_exec = true;
+                                break;
+                        }
                 }
+                if (r < 0)
+                        return -errno;
 
                 /* Check if we're about to set the execute bit in acl_access */
                 if (!has_exec && access) {
