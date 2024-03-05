@@ -70,8 +70,8 @@ under Docker), but as normal processes. A corollary of that is that they aren't
 supposed to manage anything in their own environment (such as the network) as
 the execution environment is mostly shared with the rest of the system.
 
-The primary focus use-case of "portable services" is to extend the host system
-with encapsulated extensions, but provide almost full integration with the rest
+The primary focus of "portable services" is to extend the host system
+with encapsulated extensions that provide almost full integration with the rest
 of the system, though possibly restricted by security knobs. This focus
 includes system extensions otherwise sometimes called "super-privileged
 containers".
