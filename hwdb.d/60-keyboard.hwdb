@@ -915,6 +915,14 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnINVENTEC:pnSYMPHONY*6.0/7.0:*
  KEYBOARD_KEY_f4=prog1
 
 ###########################################################
+# Kvadra
+###########################################################
+
+# LE14U/LE15U
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnKVADRA*:pn*LE1*U*:*
+ KEYBOARD_KEY_76=f21					# Fn+F1 Toggle touchpad, sends meta+ctrl+toggle
+
+###########################################################
 # Lenovo
 ###########################################################
 
