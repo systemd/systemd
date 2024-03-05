@@ -545,8 +545,10 @@ MMapFileDescriptor* mmap_cache_fd_free(MMapFileDescriptor *f) {
 
         mmap_cache_process_sigbus(f->cache);
 
-        while (f->windows)
+        if(f->windows){
                 window_free(f->windows);
+                f->windows = NULL;
+        }
 
         assert_se(hashmap_remove(f->cache->fds, FD_TO_PTR(f->fd)) == f);
 
