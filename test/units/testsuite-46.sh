@@ -42,13 +42,16 @@ mount -t tmpfs tmpfs /home -o size=290M
 
 # we enable --luks-discard= since we run our tests in a tight VM, hence don't
 # needlessly pressure for storage. We also set the cheapest KDF, since we don't
-# want to waste CI CPU cycles on it.
+# want to waste CI CPU cycles on it. We also effectively disable rate-limiting on
+# the user by allowing 1000 logins per second
 NEWPASSWORD=xEhErW0ndafV4s homectl create test-user \
            --disk-size=min \
            --luks-discard=yes \
            --image-path=/home/test-user.home \
            --luks-pbkdf-type=pbkdf2 \
-           --luks-pbkdf-time-cost=1ms
+           --luks-pbkdf-time-cost=1ms \
+           --rate-limit-interval=1s \
+           --rate-limit-burst=1000
 inspect test-user
 
 PASSWORD=xEhErW0ndafV4s homectl authenticate test-user
@@ -168,7 +171,9 @@ if ! systemd-detect-virt -cq ; then
            --luks-discard=yes \
            --image-path=/home/test-user2.home \
            --luks-pbkdf-type=pbkdf2 \
-           --luks-pbkdf-time-cost=1ms
+           --luks-pbkdf-time-cost=1ms \
+           --rate-limit-interval=1s \
+           --rate-limit-burst=1000
     inspect test-user2
 
     # activate second user
@@ -198,7 +203,9 @@ PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
 (! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz)
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- touch /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz
-# CAREFUL adding more `homectl with` tests here. Auth can get rate-limited and cause the tests to fail.
+PASSWORD=xEhErW0ndafV4s homectl with test-user -- rm /home/test-user/xyz
+PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
+(! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz)
 
 wait_for_state test-user inactive
 homectl remove test-user
@@ -231,6 +238,7 @@ dd if=/dev/urandom of=/tmp/external-toobig bs=1M count=65
 NEWPASSWORD=EMJuc3zQaMibJo homectl create blob-user \
            --disk-size=min --luks-discard=yes \
            --luks-pbkdf-type=pbkdf2 --luks-pbkdf-time-cost=1ms \
+           --rate-limit-interval=1s --rate-limit-burst=1000 \
            --uid=12345 \
            --blob=/tmp/blob1
 inspect blob-user
@@ -511,6 +519,8 @@ if command -v ssh &>/dev/null && command -v sshd &>/dev/null && ! [[ -v ASAN_OPT
                        --luks-discard=yes \
                        --luks-pbkdf-type=pbkdf2 \
                        --luks-pbkdf-time-cost=1ms \
+                       --rate-limit-interval=1s \
+                       --rate-limit-burst=1000 \
                        --enforce-password-policy=no \
                        --ssh-authorized-keys=@/tmp/homed.id_ecdsa.pub \
                        --stop-delay=0 \
