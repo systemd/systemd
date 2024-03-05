@@ -3,7 +3,8 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-pcrlock" xmlns:xi="http://www.w3.org/2001/XInclude" conditional='HAVE_TPM2'>
+<refentry id="systemd-pcrlock" conditional='ENABLE_BOOTLOADER HAVE_OPENSSL HAVE_TPM2'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-pcrlock</title>
