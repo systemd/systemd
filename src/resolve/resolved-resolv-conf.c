@@ -326,6 +326,11 @@ static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet 
 void manager_symlink_stub_to_uplink_resolv_conf(void) {
         _cleanup_free_ char *fname = NULL;
         int r;
+        if (access(PRIVATE_UPLINK_RESOLV_CONF, R_OK) != 0) {
+                log_debug("Uplink %s is missing.", PRIVATE_UPLINK_RESOLV_CONF);
+                return;
+        }
+
         r = path_extract_filename(PRIVATE_UPLINK_RESOLV_CONF, &fname);
         if (r < 0) {
                 log_warning_errno(r, "Failed to extract filename from path '" PRIVATE_UPLINK_RESOLV_CONF "', ignoring: %m");
