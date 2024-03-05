@@ -363,6 +363,7 @@ static int reply_callback(
                 r = 0;
 
         json_variant_dump(parameters, arg_json_format_flags, stdout, NULL);
+        fflush(stdout);
         return r;
 }
 
