@@ -509,7 +509,7 @@ int rtnl_get_link_info(
         assert(rtnl);
         assert(ifindex > 0);
 
-        if (!ret_iftype && !ret_flags)
+        if (!ret_iftype && !ret_flags && !ret_kind && !ret_hw_addr && !ret_permanent_hw_addr)
                 return 0;
 
         if (!*rtnl) {
