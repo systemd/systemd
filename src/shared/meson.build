@@ -55,7 +55,6 @@ shared_sources = files(
         'device-nodes.c',
         'discover-image.c',
         'dissect-image.c',
-        'dlfcn-util.c',
         'dm-util.c',
         'dns-domain.c',
         'dropin.c',
@@ -325,7 +324,7 @@ libshared_deps = [threads,
                   libgcrypt,
                   libiptc_cflags,
                   libkmod,
-                  liblz4,
+                  liblz4_cflags,
                   libmount,
                   libopenssl,
                   libp11kit_cflags,
@@ -334,8 +333,8 @@ libshared_deps = [threads,
                   libseccomp,
                   libselinux,
                   libxenctrl_cflags,
-                  libxz,
-                  libzstd]
+                  libxz_cflags,
+                  libzstd_cflags]
 
 libshared_sym_path = meson.current_source_dir() / 'libshared.sym'
 libshared_build_dir = meson.current_build_dir()
