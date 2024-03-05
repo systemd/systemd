@@ -247,18 +247,12 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-compress-benchmark.c'),
-                'link_with' : [
-                        libbasic_compress,
-                        libshared,
-                ],
+                'link_with' : [libshared],
                 'timeout' : 90,
         },
         test_template + {
                 'sources' : files('test-compress.c'),
-                'link_with' : [
-                        libbasic_compress,
-                        libshared,
-                ],
+                'link_with' : [libshared],
         },
         test_template + {
                 'sources' : files('test-cryptolib.c'),
