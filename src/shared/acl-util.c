@@ -55,36 +55,6 @@ int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *ret_entry) {
         return 0;
 }
 
-int calc_acl_mask_if_needed(acl_t *acl_p) {
-        acl_entry_t i;
-        int r;
-        bool need = false;
-
-        assert(acl_p);
-
-        for (r = acl_get_entry(*acl_p, ACL_FIRST_ENTRY, &i);
-             r > 0;
-             r = acl_get_entry(*acl_p, ACL_NEXT_ENTRY, &i)) {
-                acl_tag_t tag;
-
-                if (acl_get_tag_type(i, &tag) < 0)
-                        return -errno;
-
-                if (tag == ACL_MASK)
-                        return 0;
-
-                if (IN_SET(tag, ACL_USER, ACL_GROUP))
-                        need = true;
-        }
-        if (r < 0)
-                return -errno;
-
-        if (need && acl_calc_mask(acl_p) < 0)
-                return -errno;
-
-        return need;
-}
-
 int add_base_acls_if_needed(acl_t *acl_p, const char *path) {
         acl_entry_t i;
         int r;
@@ -280,11 +250,9 @@ int parse_acl(
                 if (!a_acl)
                         return -errno;
 
-                if (want_mask) {
-                        r = calc_acl_mask_if_needed(&a_acl);
-                        if (r < 0)
-                                return r;
-                }
+                if (want_mask)
+                        if (acl_calc_mask(&a_acl) < 0)
+                                return -errno;
         }
 
         if (!strv_isempty(e)) {
@@ -312,11 +280,9 @@ int parse_acl(
                 if (!d_acl)
                         return -errno;
 
-                if (want_mask) {
-                        r = calc_acl_mask_if_needed(&d_acl);
-                        if (r < 0)
-                                return r;
-                }
+                if (want_mask)
+                        if (acl_calc_mask(&d_acl) < 0)
+                                return -errno;
         }
 
         *ret_acl_access = TAKE_PTR(a_acl);
@@ -483,9 +449,8 @@ int fd_add_uid_acl_permission(
         if ((mask & ACL_EXECUTE) && acl_add_perm(permset, ACL_EXECUTE) < 0)
                 return -errno;
 
-        r = calc_acl_mask_if_needed(&acl);
-        if (r < 0)
-                return r;
+        if (acl_calc_mask(&acl) < 0)
+                return -errno;
 
         if (acl_set_fd(fd, acl) < 0)
                 return -errno;
