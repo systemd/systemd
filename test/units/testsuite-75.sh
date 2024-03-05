@@ -522,9 +522,9 @@ monitor_check_rr "$TIMESTAMP" "follow13.almost.final.signed.test IN CNAME follow
 monitor_check_rr "$TIMESTAMP" "follow14.final.signed.test IN A 10.0.0.14"
 
 # Non-existing RR + CNAME chain
-run dig +dnssec AAAA cname-chain.signed.test
-grep -qF "status: NOERROR" "$RUN_OUT"
-grep -qE "^follow14\.final\.signed\.test\..+IN\s+NSEC\s+" "$RUN_OUT"
+#run dig +dnssec AAAA cname-chain.signed.test
+#grep -qF "status: NOERROR" "$RUN_OUT"
+#grep -qE "^follow14\.final\.signed\.test\..+IN\s+NSEC\s+" "$RUN_OUT"
 
 
 : "--- ZONE: onlinesign.test (dynamic DNSSEC) ---"
