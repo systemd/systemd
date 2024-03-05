@@ -112,3 +112,6 @@ int dns_scope_remove_dnssd_services(DnsScope *scope);
 bool dns_scope_is_default_route(DnsScope *scope);
 
 int dns_scope_dump_cache_to_json(DnsScope *scope, JsonVariant **ret);
+
+int dns_type_suitable_for_protocol(uint16_t type, DnsProtocol protocol);
+int dns_question_types_suitable_for_protocol(DnsQuestion *q, DnsProtocol protocol);
