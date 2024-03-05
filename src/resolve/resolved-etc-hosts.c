@@ -560,7 +560,7 @@ static int etc_hosts_lookup_by_name(
                         return r;
         }
 
-        return question_for_a || question_for_aaaa;
+        return true; /* We consider ourselves authoritative for the whole name, all RR types, not just A/AAAA */
 }
 
 int manager_etc_hosts_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer) {
