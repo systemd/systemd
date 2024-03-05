@@ -4,23 +4,23 @@
 # Sebastian Rasmussen <sebras@gmail.com>, 2015.
 # Andreas Henriksson <andreas@fatal.se>, 2016.
 # Josef Andersson <l10nl18nsweja@gmail.com>, 2015, 2017.
-# Göran Uddeborg <goeran@uddeborg.se>, 2020, 2021.
+# Göran Uddeborg <goeran@uddeborg.se>, 2020, 2021, 2024.
 # Luna Jernberg <bittin@reimu.nl>, 2020, 2023.
 # Anders Jonsson <anders.jonsson@norsjovallen.se>, 2022, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-03-04 10:09+0100\n"
-"PO-Revision-Date: 2024-02-03 10:36+0000\n"
-"Last-Translator: Anders Jonsson <anders.jonsson@norsjovallen.se>\n"
+"PO-Revision-Date: 2024-03-05 21:36+0000\n"
+"Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
-"master/sv/>\n"
+"main/sv/>\n"
 "Language: sv\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.3.1\n"
+"X-Generator: Weblate 5.4\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -135,23 +135,22 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Inhibit automatic lock of a home area"
-msgstr ""
+msgstr "Förhindra automatiskt lås av en hemarea"
 
 #: src/home/org.freedesktop.home1.policy:74
-#, fuzzy
 msgid ""
 "Authentication is required to inhibit automatic lock of a user's home area."
-msgstr "Autentisering krävs för att uppdatera en användares hemarea."
+msgstr ""
+"Autentisering krävs för att förhindra automatiskt lås av en användares "
+"hemarea."
 
 #: src/home/org.freedesktop.home1.policy:83
-#, fuzzy
 msgid "Activate a home area"
-msgstr "Skapa en hemarea"
+msgstr "Aktivera en hemarea"
 
 #: src/home/org.freedesktop.home1.policy:84
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
-msgstr "Autentisering krävs för att skapa en användares hemarea."
+msgstr "Autentisering krävs för att aktivera en användares hemarea."
 
 #: src/home/pam_systemd_home.c:293
 #, c-format
@@ -374,45 +373,38 @@ msgid "Authentication is required to get system description."
 msgstr "Autentisering krävs för att hämta systemets beskrivning."
 
 #: src/import/org.freedesktop.import1.policy:22
-#, fuzzy
 msgid "Import a disk image"
-msgstr "Importera en VM eller behållaravbildning"
+msgstr "Importera en diskavbild"
 
 #: src/import/org.freedesktop.import1.policy:23
-#, fuzzy
 msgid "Authentication is required to import an image"
-msgstr "Autentisering krävs för att importera en VM eller behållaravbildning"
+msgstr "Autentisering krävs för att importera en avbild"
 
 #: src/import/org.freedesktop.import1.policy:32
-#, fuzzy
 msgid "Export a disk image"
-msgstr "Exportera en VM eller behållaravbildning"
+msgstr "Exportera en diskavbild"
 
 #: src/import/org.freedesktop.import1.policy:33
-#, fuzzy
 msgid "Authentication is required to export disk image"
-msgstr "Autentisering krävs för att exportera en VM eller behållaravbildning"
+msgstr "Autentisering krävs för att exportera en diskavbild"
 
 #: src/import/org.freedesktop.import1.policy:42
-#, fuzzy
 msgid "Download a disk image"
-msgstr "Hämta ner en VM eller behållaravbildning"
+msgstr "Hämta en diskavbild"
 
 #: src/import/org.freedesktop.import1.policy:43
-#, fuzzy
 msgid "Authentication is required to download a disk image"
-msgstr "Autentisering krävs för att hämta ner en VM eller behållaravbildning"
+msgstr "Autentisering krävs för att hämta en diskavbild"
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "Avbryt överföringen av en diskavbild"
 
 #: src/import/org.freedesktop.import1.policy:53
-#, fuzzy
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image"
 msgstr ""
-"Autentisering krävs för att ändra lösenordet för en användares hemarea."
+"Autentisering krävs för att avbryta en pågående överföring av en diskavbild"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
