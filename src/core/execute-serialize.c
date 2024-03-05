@@ -3498,8 +3498,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                                NULL,
                                                EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS,
                                                &source,
-                                               &destination,
-                                               NULL);
+                                               &destination);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -3531,8 +3530,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                                        ":",
                                                        EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS,
                                                        &partition,
-                                                       &opts,
-                                                       NULL);
+                                                       &opts);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -3612,8 +3610,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                                        ":",
                                                        EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS,
                                                        &partition,
-                                                       &opts,
-                                                       NULL);
+                                                       &opts);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)

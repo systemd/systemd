@@ -3649,8 +3649,7 @@ static int parse_line(
                         &mode,
                         &user,
                         &group,
-                        &age,
-                        NULL);
+                        &age);
         if (r < 0) {
                 if (IN_SET(r, -EINVAL, -EBADSLT))
                         /* invalid quoting and such or an unknown specifier */
