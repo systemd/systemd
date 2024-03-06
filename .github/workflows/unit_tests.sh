@@ -42,6 +42,12 @@ set -ex
 
 MESON_ARGS=(-Dcryptolib=${CRYPTOLIB:-auto})
 
+# (Re)set the current oom-{score-}adj. For some reason root on GH actions is able to _decrease_
+# its oom-score even after dropping all capabilities (including CAP_SYS_RESOURCE), until the
+# score is explicitly changed after sudo. No idea what's going on, but it breaks
+# exec-oomscoreadjust-negative.service from test-execute when running unprivileged.
+choom -p $$ -n 0
+
 for phase in "${PHASES[@]}"; do
     case $phase in
         SETUP)
