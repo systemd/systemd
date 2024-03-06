@@ -63,7 +63,7 @@
   <refsect1>
     <title>List of network time synchronization services</title>
 
-    <para><command>systemd-timesyncd</command> will look for files with a <literal>.list</literal> extension
+    <para><command>systemd-timedated</command> will look for files with a <literal>.list</literal> extension
     in <filename>ntp-units.d/</filename> directories. Each file is parsed as a list of unit names, one per
     line. Empty lines and lines with comments (<literal>#</literal>) are ignored.  Files are read from
     <filename>/usr/lib/systemd/ntp-units.d/</filename> and the corresponding directories under
@@ -82,7 +82,7 @@ systemd-timesyncd.service
     </example>
 
     <para>If the environment variable <varname>$SYSTEMD_TIMEDATED_NTP_SERVICES</varname> is set,
-    <command>systemd-timesyncd</command> will parse the contents of that variable as a colon-separated list
+    <command>systemd-timedated</command> will parse the contents of that variable as a colon-separated list
     of unit names. When set, this variable overrides the file-based list described above.</para>
 
     <example>
