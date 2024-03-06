@@ -1330,6 +1330,11 @@ libopenssl = dependency('openssl',
                         required : get_option('openssl'))
 conf.set10('HAVE_OPENSSL', libopenssl.found())
 
+libssh = dependency('libssh',
+                        version : '>= 0.9.6',
+                        required : get_option('libssh'))
+conf.set10('HAVE_LIBSSH', libssh.found())
+
 libp11kit = dependency('p11-kit-1',
                        version : '>= 0.23.3',
                        required : get_option('p11kit'))
@@ -2802,6 +2807,7 @@ foreach tuple : [
         ['libiptc'],
         ['microhttpd'],
         ['openssl'],
+        ['libssh'],
         ['p11kit'],
         ['passwdqc'],
         ['pcre2'],
