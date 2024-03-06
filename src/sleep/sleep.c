@@ -574,7 +574,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(unit_freezer_done_thaw) UnitFreezer user_slice_freezer = {};
+        _cleanup_(unit_freezer_thaw_done) UnitFreezer user_slice_freezer = {};
         _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
         int r;
 
@@ -606,7 +606,7 @@ static int run(int argc, char *argv[]) {
         } else
                 log_notice("User sessions remain unfrozen on explicit request "
                            "($SYSTEMD_SLEEP_FREEZE_USER_SESSIONS is set to false). This is not recommended, "
-                           "and might result in unexpected behavior, particularly in sysupend-then-hibernate "
+                           "and might result in unexpected behavior, particularly in suspend-then-hibernate "
                            "operations or setups with encrypted home directories.");
 
         switch (arg_operation) {

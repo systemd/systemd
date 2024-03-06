@@ -10,7 +10,6 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "condition.h"
-#include "constants.h"
 #include "coredump-util.h"
 #include "cpu-set-util.h"
 #include "dissect-image.h"
@@ -2939,6 +2938,9 @@ int bus_service_manager_reload(sd_bus *bus) {
         return 0;
 }
 
+/* Wait for 1.5 seconds at maximum for freeze operation */
+#define FREEZE_BUS_CALL_TIMEOUT (1500 * USEC_PER_MSEC)
+
 int unit_freezer_new(const char *name, UnitFreezer *ret) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *namedup = NULL;
@@ -2955,7 +2957,7 @@ int unit_freezer_new(const char *name, UnitFreezer *ret) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to open connection to systemd: %m");
 
-        (void) sd_bus_set_method_call_timeout(bus, FREEZE_TIMEOUT);
+        (void) sd_bus_set_method_call_timeout(bus, FREEZE_BUS_CALL_TIMEOUT);
 
         *ret = (UnitFreezer) {
                 .name = TAKE_PTR(namedup),
@@ -2964,36 +2966,40 @@ int unit_freezer_new(const char *name, UnitFreezer *ret) {
         return 0;
 }
 
-static int unit_freezer_action(bool freeze, UnitFreezer *f) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
-
-        assert(f);
-        assert(f->bus);
-        assert(f->name);
-
-        r = bus_call_method(f->bus, bus_systemd_mgr, freeze ? "FreezeUnit" : "ThawUnit",
-                            &error, NULL, "s", f->name);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to %s unit %s: %s", freeze ? "freeze" : "thaw",
-                                       f->name, bus_error_message(&error, r));
-
-        return 0;
-}
-
-int unit_freezer_freeze(UnitFreezer *f) {
-        return unit_freezer_action(true, f);
-}
-
-int unit_freezer_thaw(UnitFreezer *f) {
-        return unit_freezer_action(false, f);
-}
-
 void unit_freezer_done(UnitFreezer *f) {
         assert(f);
 
         f->name = mfree(f->name);
         f->bus = sd_bus_flush_close_unref(f->bus);
+}
+
+static int unit_freezer_action(UnitFreezer *f, bool freeze) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(f);
+        assert(f->name);
+        assert(f->bus);
+
+        r = bus_call_method(f->bus, bus_systemd_mgr,
+                            freeze ? "FreezeUnit" : "ThawUnit",
+                            &error,
+                            NULL,
+                            "s",
+                            f->name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to %s unit %s: %s",
+                                       freeze ? "freeze" : "thaw", f->name, bus_error_message(&error, r));
+
+        return 0;
+}
+
+int unit_freezer_freeze(UnitFreezer *f) {
+        return unit_freezer_action(f, true);
+}
+
+int unit_freezer_thaw(UnitFreezer *f) {
+        return unit_freezer_action(f, false);
 }
 
 int unit_freezer_new_freeze(const char *name, UnitFreezer *ret) {
@@ -3015,7 +3021,7 @@ int unit_freezer_new_freeze(const char *name, UnitFreezer *ret) {
         return 0;
 }
 
-void unit_freezer_done_thaw(UnitFreezer *f) {
+void unit_freezer_thaw_done(UnitFreezer *f) {
         assert(f);
 
         if (!f->name)
