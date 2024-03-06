@@ -53,6 +53,11 @@ for phase in "${PHASES[@]}"; do
             apt-get -y build-dep systemd
             apt-get -y install "${ADDITIONAL_DEPS[@]}"
             pip3 install -r .github/workflows/requirements.txt --require-hashes
+
+            # Make sure the build dir is accessible even when drop privileges, otherwise the unprivileged
+            # part of test-execute gets skipped, since it can't run systemd-executor
+            chmod o+x /home/runner
+            capsh --drop=all -- -c "stat $PWD/meson.build"
             ;;
         RUN|RUN_GCC|RUN_CLANG|RUN_CLANG_RELEASE)
             if [[ "$phase" =~ ^RUN_CLANG ]]; then
