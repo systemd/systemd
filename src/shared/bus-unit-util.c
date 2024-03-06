@@ -2966,36 +2966,40 @@ int unit_freezer_new(const char *name, UnitFreezer *ret) {
         return 0;
 }
 
-static int unit_freezer_action(bool freeze, UnitFreezer *f) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
-
-        assert(f);
-        assert(f->bus);
-        assert(f->name);
-
-        r = bus_call_method(f->bus, bus_systemd_mgr, freeze ? "FreezeUnit" : "ThawUnit",
-                            &error, NULL, "s", f->name);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to %s unit %s: %s", freeze ? "freeze" : "thaw",
-                                       f->name, bus_error_message(&error, r));
-
-        return 0;
-}
-
-int unit_freezer_freeze(UnitFreezer *f) {
-        return unit_freezer_action(true, f);
-}
-
-int unit_freezer_thaw(UnitFreezer *f) {
-        return unit_freezer_action(false, f);
-}
-
 void unit_freezer_done(UnitFreezer *f) {
         assert(f);
 
         f->name = mfree(f->name);
         f->bus = sd_bus_flush_close_unref(f->bus);
+}
+
+static int unit_freezer_action(UnitFreezer *f, bool freeze) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(f);
+        assert(f->name);
+        assert(f->bus);
+
+        r = bus_call_method(f->bus, bus_systemd_mgr,
+                            freeze ? "FreezeUnit" : "ThawUnit",
+                            &error,
+                            /* reply = */ NULL,
+                            "s",
+                            f->name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to %s unit %s: %s",
+                                       freeze ? "freeze" : "thaw", f->name, bus_error_message(&error, r));
+
+        return 0;
+}
+
+int unit_freezer_freeze(UnitFreezer *f) {
+        return unit_freezer_action(f, true);
+}
+
+int unit_freezer_thaw(UnitFreezer *f) {
+        return unit_freezer_action(f, false);
 }
 
 int unit_freezer_new_freeze(const char *name, UnitFreezer *ret) {
