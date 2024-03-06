@@ -13,8 +13,8 @@
 
 static void test_paths_one(RuntimeScope scope) {
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
-        _cleanup_(lookup_paths_free) LookupPaths lp_without_env = {};
-        _cleanup_(lookup_paths_free) LookupPaths lp_with_env = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp_without_env = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp_with_env = {};
         char *systemd_unit_path;
 
         assert_se(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp) >= 0);
@@ -40,7 +40,7 @@ TEST(paths) {
 }
 
 TEST(user_and_global_paths) {
-        _cleanup_(lookup_paths_free) LookupPaths lp_global = {}, lp_user = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp_global = {}, lp_user = {};
         char **u, **g;
         unsigned k = 0;
 
