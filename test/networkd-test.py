@@ -888,8 +888,10 @@ class NetworkdClientTest(ClientTestBase, unittest.TestCase):
 set -eu
 mkdir -p /run/systemd/network
 mkdir -p /run/systemd/netif
+mkdir -p /var/lib/systemd/network
 mount -t tmpfs none /run/systemd/network
 mount -t tmpfs none /run/systemd/netif
+mount -t tmpfs none /var/lib/systemd/network
 [ ! -e /run/dbus ] || mount -t tmpfs none /run/dbus
 # create router/client veth pair
 cat <<EOF >/run/systemd/network/50-test.netdev
@@ -917,6 +919,10 @@ DNS=192.168.5.1
 {dhopts}
 EOF
 
+# For the networkd instance invoked below cannot support varlink connection.
+# Hence, 'networkctl persistent-storage yes' cannot be used.
+touch /run/systemd/netif/persistent-storage-ready
+
 # run networkd as in systemd-networkd.service
 exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ {{ s/^.*=//; s/^[@+-]//; s/^!*//; p}}')
 '''.format(ifr=self.if_router,
@@ -930,6 +936,7 @@ exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ {{ s/^.*=/
                                '-p', 'InaccessibleDirectories=-/etc/systemd/network',
                                '-p', 'InaccessibleDirectories=-/run/systemd/network',
                                '-p', 'InaccessibleDirectories=-/run/systemd/netif',
+                               '-p', 'InaccessibleDirectories=-/var/lib/systemd/network',
                                '--service-type=notify', script])
 
         # wait until devices got created
