@@ -40,6 +40,12 @@ sd_ndisc_router* ndisc_router_new(ICMP6Packet *packet) {
         return rt;
 }
 
+int sd_ndisc_router_set_sender_address(sd_ndisc_router *rt, const struct in6_addr *addr) {
+        assert_return(rt, -EINVAL);
+
+        return icmp6_packet_set_sender_address(rt->packet, addr);
+}
+
 int sd_ndisc_router_get_sender_address(sd_ndisc_router *rt, struct in6_addr *ret) {
         assert_return(rt, -EINVAL);
 
