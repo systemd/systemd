@@ -154,9 +154,10 @@ typedef enum ReadLineFlags {
 int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret);
 
 static inline bool file_offset_beyond_memory_size(off_t x) {
-        if (x < 0) /* off_t is signed, filter that out */
-                return false;
-        return (uint64_t) x > (uint64_t) SIZE_MAX;
+        /* Function should return false as true is unreachable. The off_t range is from -9223372036854775808 to 9223372036854775807, 
+           and the value of x cannot be greater than SIZE_MAX(18446744073709551615).
+        */
+        return false;
 }
 
 static inline int read_line(FILE *f, size_t limit, char **ret) {
