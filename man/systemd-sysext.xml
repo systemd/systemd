@@ -141,7 +141,7 @@
     but the used architecture identifiers are the same as for <varname>ConditionArchitecture=</varname>
     described in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     <varname>EXTENSION_RELOAD_MANAGER=</varname> can be set to 1 if the extension requires a service manager reload after application
-    of the extension. Note that the for the reasons mentioned earlier:
+    of the extension. Note that for the reasons mentioned earlier:
     <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> remain
     the recommended way to ship system services.
 

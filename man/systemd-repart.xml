@@ -633,7 +633,7 @@
       <title>Generate a configuration extension image</title>
 
       <para>The following creates a configuration extension DDI (confext) for an
-      <filename>/etc/motd</filename> update.</para>
+      <filename>/etc/motd</filename> update:</para>
 
       <programlisting>mkdir tree tree/etc tree/etc/extension-release.d
 echo "Hello World" > tree/etc/motd
