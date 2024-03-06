@@ -159,6 +159,7 @@ shared_sources = files(
         'spawn-ask-password-agent.c',
         'spawn-polkit-agent.c',
         'specifier.c',
+        'ssh-util.c',
         'switch-root.c',
         'tmpfile-util-label.c',
         'tomoyo-util.c',

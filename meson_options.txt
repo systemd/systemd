@@ -421,6 +421,8 @@ option('gnutls', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 
        description : 'gnutls support')
 option('openssl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'openssl support')
+option('libssh', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'libssh support')
 option('cryptolib', type : 'combo', choices : ['auto', 'openssl', 'gcrypt'],
        description : 'whether to use openssl or gcrypt where both are supported')
 option('p11kit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
