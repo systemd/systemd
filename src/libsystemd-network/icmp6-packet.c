@@ -27,6 +27,17 @@ static ICMP6Packet* icmp6_packet_new(size_t size) {
         return p;
 }
 
+int icmp6_packet_set_sender_address(ICMP6Packet *p, const struct in6_addr *addr) {
+        assert(p);
+
+        if (addr)
+                p->sender_address = *addr;
+        else
+                p->sender_address = (const struct in6_addr) {};
+
+        return 0;
+}
+
 int icmp6_packet_get_sender_address(ICMP6Packet *p, struct in6_addr *ret) {
         assert(p);
 
