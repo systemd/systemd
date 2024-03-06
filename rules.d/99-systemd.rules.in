@@ -22,7 +22,9 @@ SUBSYSTEM=="block", TAG+="systemd"
 SUBSYSTEM=="block", ENV{DM_SUSPENDED}=="1", IMPORT{db}="SYSTEMD_READY"
 SUBSYSTEM=="block", ENV{DM_SUSPENDED}=="1", GOTO="systemd_end"
 
-SUBSYSTEM=="block", ACTION=="add", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}="0"
+# DM_UDEV_DISABLE_OTHER_RULES_FLAG==1 means that the device shouldn't be probed.
+# Import previous SYSTEMD_READY state.
+SUBSYSTEM=="block", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}=="", IMPORT{db}="SYSTEMD_READY"
 
 # Ignore encrypted devices with no identified superblock on it, since
 # we are probably still calling mke2fs or mkswap on it.
