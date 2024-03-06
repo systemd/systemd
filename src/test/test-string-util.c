@@ -299,8 +299,13 @@ TEST(ascii_strlower) {
 TEST(strshorten) {
         char s[] = "foobar";
 
+        assert_se(strlen(strshorten(s, SIZE_MAX)) == 6);
+        assert_se(strlen(strshorten(s, SIZE_MAX-1)) == 6);
+        assert_se(strlen(strshorten(s, SIZE_MAX-2)) == 6);
         assert_se(strlen(strshorten(s, 6)) == 6);
+        assert_se(strlen(strshorten(s, 7)) == 6);
         assert_se(strlen(strshorten(s, 12)) == 6);
+        assert_se(strlen(strshorten(s, 5)) == 5);
         assert_se(strlen(strshorten(s, 2)) == 2);
         assert_se(strlen(strshorten(s, 0)) == 0);
 }
