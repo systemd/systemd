@@ -606,7 +606,7 @@ static int run(int argc, char *argv[]) {
         } else
                 log_notice("User sessions remain unfrozen on explicit request "
                            "($SYSTEMD_SLEEP_FREEZE_USER_SESSIONS is set to false). This is not recommended, "
-                           "and might result in unexpected behavior, particularly in sysupend-then-hibernate "
+                           "and might result in unexpected behavior, particularly in suspend-then-hibernate "
                            "operations or setups with encrypted home directories.");
 
         switch (arg_operation) {
