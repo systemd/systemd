@@ -477,7 +477,7 @@ int dns_synthesize_answer(
 
                 name = dns_resource_key_name(key);
 
-                if (dns_name_is_root(name)) {
+                if (dns_name_is_root(name) || dns_name_endswith(name, "resolver.arpa") > 0) {
                         /* Do nothing. */
 
                 } else if (dns_name_dont_resolve(name)) {

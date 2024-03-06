@@ -595,6 +595,29 @@ static DnsScopeMatch match_subnet_reverse_lookups(
         return _DNS_SCOPE_MATCH_INVALID;
 }
 
+/* https://www.iana.org/assignments/special-use-domain-names/special-use-domain-names.xhtml */
+/* https://www.iana.org/assignments/locally-served-dns-zones/locally-served-dns-zones.xhtml */
+static bool dns_refuse_special_use_domain(const char *domain, DnsQuestion *question) {
+        /* RFC9462 § 6.4: resolvers SHOULD respond to queries of any type other than SVCB for
+         * _dns.resolver.arpa. with NODATA and queries of any type for any domain name under
+         * resolver.arpa with NODATA. */
+        if (dns_name_equal(domain, "_dns.resolver.arpa") > 0) {
+                DnsResourceKey *t;
+
+                /* Only SVCB is permitted to _dns.resolver.arpa */
+                DNS_QUESTION_FOREACH(t, question)
+                        if (t->type == DNS_TYPE_SVCB)
+                                return false;
+
+                return true;
+        }
+
+        if (dns_name_endswith(domain, "resolver.arpa") > 0)
+                return true;
+
+        return false;
+}
+
 DnsScopeMatch dns_scope_good_domain(
                 DnsScope *s,
                 DnsQuery *q,
@@ -649,6 +672,10 @@ DnsScopeMatch dns_scope_good_domain(
 
         /* Never respond to some of the domains listed in RFC6303 + RFC6761 */
         if (dns_name_dont_resolve(domain))
+                return DNS_SCOPE_NO;
+
+        /* Avoid asking invalid questions of some special use domains */
+        if (dns_refuse_special_use_domain(domain, question))
                 return DNS_SCOPE_NO;
 
         /* Never go to network for the _gateway, _outbound, _localdnsstub, _localdnsproxy domain — they're something special, synthesized locally. */
