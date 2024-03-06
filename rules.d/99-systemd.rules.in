@@ -26,9 +26,6 @@ SUBSYSTEM=="block", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READ
 # we are probably still calling mke2fs or mkswap on it.
 SUBSYSTEM=="block", ENV{DM_UUID}=="CRYPT-*", ENV{ID_PART_TABLE_TYPE}=="", ENV{ID_FS_USAGE}=="", ENV{SYSTEMD_READY}="0"
 
-# Explicitly set SYSTEMD_READY=1 for DM devices that don't have it set yet, so that we always have something to import above
-SUBSYSTEM=="block", ENV{DM_UUID}=="?*", ENV{SYSTEMD_READY}=="", ENV{SYSTEMD_READY}="1"
-
 # add symlink to GPT root disk
 SUBSYSTEM=="block", ENV{ID_PART_GPT_AUTO_ROOT}=="1", ENV{ID_FS_TYPE}!="crypto_LUKS", SYMLINK+="gpt-auto-root"
 SUBSYSTEM=="block", ENV{ID_PART_GPT_AUTO_ROOT}=="1", ENV{ID_FS_TYPE}=="crypto_LUKS", SYMLINK+="gpt-auto-root-luks"
