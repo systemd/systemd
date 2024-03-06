@@ -623,9 +623,13 @@ static int dns_cache_put_negative(
                 calculate_until_valid(soa, dns_answer_min_ttl(answer), nsec_ttl, timestamp, true);
 
         if (i->type == DNS_CACHE_NXDOMAIN) {
+                const char *name = dns_resource_key_name(key);
+                if (dns_name_endswith(name, "resolver.arpa"))
+                        return 0;
+
                 /* NXDOMAIN entries should apply equally to all types, so we use ANY as
                  * a pseudo type for this purpose here. */
-                i->key = dns_resource_key_new(key->class, DNS_TYPE_ANY, dns_resource_key_name(key));
+                i->key = dns_resource_key_new(key->class, DNS_TYPE_ANY, name);
                 if (!i->key)
                         return -ENOMEM;
 

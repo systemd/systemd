@@ -813,6 +813,7 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
         if (!IN_SET(key->class, DNS_CLASS_IN, DNS_CLASS_ANY))
                 return false;
 
+        const char* name = dns_resource_key_name(key);
         if (s->protocol == DNS_PROTOCOL_DNS) {
 
                 /* On classic DNS, looking up non-address RRs is always fine. (Specifically, we want to
@@ -823,7 +824,6 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
                 /* Unless explicitly overridden, we refuse to look up A and AAAA RRs on the root and
                  * single-label domains, under the assumption that those should be resolved via LLMNR or
                  * search path only, and should not be leaked onto the internet. */
-                const char* name = dns_resource_key_name(key);
 
                 if (!s->manager->resolve_unicast_single_label &&
                     dns_name_is_single_label(name))
@@ -831,6 +831,10 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
 
                 return !dns_name_is_root(name);
         }
+
+        /* RFC9462 § 4: clients MUST NOT perform A or AAAA queries for "resolver.arpa" */
+        if (dns_name_endswith(name, "resolver.arpa") && IN_SET(key->type, DNS_TYPE_A, DNS_TYPE_AAAA))
+                return false;
 
         /* Never route DNSSEC RR queries to LLMNR/mDNS scopes */
         if (dns_type_is_dnssec(key->type))
