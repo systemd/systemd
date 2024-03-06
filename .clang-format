@@ -26,6 +26,7 @@
 ---
 AccessModifierOffset: -4
 AlignAfterOpenBracket: AlwaysBreak
+AlignArrayOfStructures: Right
 AlignEscapedNewlines: Left
 AlignOperands: false
 AllowShortFunctionsOnASingleLine: None
