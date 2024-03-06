@@ -491,7 +491,7 @@ static int etc_hosts_lookup_by_name(
                 const char *name,
                 DnsAnswer **answer) {
 
-        bool found_a = false, found_aaaa = false;
+        bool question_for_a = false, question_for_aaaa = false;
         const struct in_addr_data *a;
         EtcHostsItemByName *item;
         DnsResourceKey *t;
@@ -513,6 +513,7 @@ static int etc_hosts_lookup_by_name(
                         return 0;
         }
 
+        /* Determine whether we are looking for A and/or AAAA RRs */
         DNS_QUESTION_FOREACH(t, q) {
                 if (!IN_SET(t->type, DNS_TYPE_A, DNS_TYPE_AAAA, DNS_TYPE_ANY))
                         continue;
@@ -526,20 +527,20 @@ static int etc_hosts_lookup_by_name(
                         continue;
 
                 if (IN_SET(t->type, DNS_TYPE_A, DNS_TYPE_ANY))
-                        found_a = true;
+                        question_for_a = true;
                 if (IN_SET(t->type, DNS_TYPE_AAAA, DNS_TYPE_ANY))
-                        found_aaaa = true;
+                        question_for_aaaa = true;
 
-                if (found_a && found_aaaa)
-                        break;
+                if (question_for_a && question_for_aaaa)
+                        break; /* We are looking for both, no need to continue loop */
         }
 
         SET_FOREACH(a, item ? item->addresses : NULL) {
                 EtcHostsItemByAddress *item_by_addr;
                 const char *canonical_name;
 
-                if ((!found_a && a->family == AF_INET) ||
-                    (!found_aaaa && a->family == AF_INET6))
+                if ((!question_for_a && a->family == AF_INET) ||
+                    (!question_for_aaaa && a->family == AF_INET6))
                         continue;
 
                 item_by_addr = hashmap_get(hosts->by_address, a);
@@ -559,7 +560,7 @@ static int etc_hosts_lookup_by_name(
                         return r;
         }
 
-        return found_a || found_aaaa;
+        return true; /* We consider ourselves authoritative for the whole name, all RR types, not just A/AAAA */
 }
 
 int manager_etc_hosts_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer) {

@@ -672,6 +672,8 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
                 q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL|SD_RESOLVED_SYNTHETIC;
                 *state = DNS_TRANSACTION_RCODE_FAILURE;
 
+                log_debug("Found synthetic NXDOMAIN response.");
+
                 return 0;
         }
         if (r <= 0)
@@ -686,6 +688,8 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
         q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL|SD_RESOLVED_SYNTHETIC;
 
         *state = DNS_TRANSACTION_SUCCESS;
+
+        log_debug("Found synthetic success response.");
 
         return 1;
 }
@@ -741,7 +745,7 @@ int dns_query_go(DnsQuery *q) {
         LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
                 DnsScopeMatch match;
 
-                match = dns_scope_good_domain(s, q);
+                match = dns_scope_good_domain(s, q, q->flags);
                 assert(match >= 0);
                 if (match > found) { /* Does this match better? If so, remember how well it matched, and the first one
                                       * that matches this well */
@@ -768,7 +772,7 @@ int dns_query_go(DnsQuery *q) {
         LIST_FOREACH(scopes, s, first->scopes_next) {
                 DnsScopeMatch match;
 
-                match = dns_scope_good_domain(s, q);
+                match = dns_scope_good_domain(s, q, q->flags);
                 assert(match >= 0);
                 if (match < found)
                         continue;
