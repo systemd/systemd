@@ -1853,7 +1853,7 @@ static int user_session_freezer(uid_t uid, bool freeze_now, UnitFreezer *ret) {
 
 static int home_lock(UserRecord *h) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
-        _cleanup_(unit_freezer_done_thaw) UnitFreezer freezer = {};
+        _cleanup_(unit_freezer_thaw_done) UnitFreezer freezer = {};
         int r;
 
         assert(h);
@@ -1889,7 +1889,7 @@ static int home_lock(UserRecord *h) {
 
 static int home_unlock(UserRecord *h) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
-        _cleanup_(unit_freezer_done_thaw) UnitFreezer freezer = {};
+        _cleanup_(unit_freezer_thaw_done) UnitFreezer freezer = {};
         _cleanup_(password_cache_free) PasswordCache cache = {};
         int r;
 

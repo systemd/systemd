@@ -574,7 +574,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(unit_freezer_done_thaw) UnitFreezer user_slice_freezer = {};
+        _cleanup_(unit_freezer_thaw_done) UnitFreezer user_slice_freezer = {};
         _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
         int r;
 
