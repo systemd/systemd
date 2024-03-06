@@ -1887,7 +1887,7 @@ config_h = configure_file(
 
 userspace_c_args += ['-include', 'config.h']
 
-jinja2_cmdline = [meson_render_jinja2, config_h, version_h]
+jinja2_cmdline = [meson_render_jinja2, config_h]
 
 userspace = declare_dependency(
         compile_args : userspace_c_args,

@@ -181,7 +181,7 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
 [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Creating $LOADER_ENTRY"
 {
     echo "# Boot Loader Specification type#1 entry"
-    echo "# File created by $0 (systemd {{GIT_VERSION}})"
+    echo "# File created by $0 (systemd {{VERSION_TAG}})"
     echo "title      $PRETTY_NAME $KERNEL_VERSION"
     echo "version    $KERNEL_VERSION"
     if [ "$ENTRY_TOKEN" = "$MACHINE_ID" ]; then
