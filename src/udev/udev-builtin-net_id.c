@@ -731,15 +731,15 @@ static int names_platform(sd_device *dev, const char *prefix, bool test) {
          * The Vendor (3 or 4 char), followed by hexadecimal model number : instance id. */
         if (r == 10 && p[7] == ':') {
                 /* 3 char vendor string */
-                vendor = strndupa(p, 3);
-                model_str = strndupa(p + 3, 4);
-                instance_str = strndupa(p + 8, 2);
+                vendor = strndupa_safe(p, 3);
+                model_str = strndupa_safe(p + 3, 4);
+                instance_str = strndupa_safe(p + 8, 2);
                 validchars = UPPERCASE_LETTERS;
         } else if (r == 11 && p[8] == ':') {
                 /* 4 char vendor string */
-                vendor = strndupa(p, 4);
-                model_str = strndupa(p + 4, 4);
-                instance_str = strndupa(p + 9, 2);
+                vendor = strndupa_safe(p, 4);
+                model_str = strndupa_safe(p + 4, 4);
+                instance_str = strndupa_safe(p + 9, 2);
                 validchars = UPPERCASE_LETTERS DIGITS;
         } else
                 return -EOPNOTSUPP;
