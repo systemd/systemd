@@ -870,14 +870,19 @@ def make_uki(opts):
 
     if linux is not None:
         # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on either.
-        uki.add_section(Section.create('.sbat', merge_sbat([opts.stub, linux], opts.sbat), measure=True))
-    else:
-        # Addons don't use the stub so we add SBAT manually
+        input_pes = [opts.stub, linux]
         if not opts.sbat:
             opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
-uki,1,UKI,uki,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html
+uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/
 """]
-        uki.add_section(Section.create('.sbat', merge_sbat([], opts.sbat), measure=False))
+    else:
+        # Addons don't use the stub so we add SBAT manually
+        input_pes = []
+        if not opts.sbat:
+            opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html
+"""]
+    uki.add_section(Section.create('.sbat', merge_sbat(input_pes, opts.sbat), measure=linux is not None))
 
     # PCR measurement and signing
 
