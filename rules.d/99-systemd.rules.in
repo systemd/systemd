@@ -18,6 +18,10 @@ SUBSYSTEM=="ubi", TAG+="systemd"
 
 SUBSYSTEM=="block", TAG+="systemd"
 
+# When a dm device is first created, it's just an empty container. Ignore it.
+# DM_NAME is not set in this case, but it's set on spurious "add" events that occur later.
+SUBSYSTEM=="block", ACTION=="add", KERNEL=="dm-*", ENV{DM_NAME}!="?*", ENV{SYSTEMD_READY}="0"
+
 # DM_UDEV_DISABLE_OTHER_RULES_FLAG==1 means that the device shouldn't be probed.
 # Import previous SYSTEMD_READY state.
 SUBSYSTEM=="block", ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", ENV{SYSTEMD_READY}=="", IMPORT{db}="SYSTEMD_READY"
