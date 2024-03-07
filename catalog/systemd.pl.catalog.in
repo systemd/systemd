@@ -197,6 +197,174 @@ jakie zostanie wykonane jest określone przez implementację, ale zwykle
 powoduje przywrócenie stanu i konfiguracji systemu do domyślnych wartości
 producenta.
 
+-- d9ec5e95e4b646aaaea2fd05214edbda
+Subject: Proces init kontenera uległ awarii
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Proces init kontenera uległ awarii i zakończył działanie.
+Szczegółowe informacje o awarii można uzyskać z menedżera kontenerów.
+
+-- 3ed0163e868a4417ab8b9e210407a96c
+Subject: Ponowne uruchomienie komputera po awarii się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Ponowne uruchomienie się nie powiodło, kiedy systemd próbował
+ponownie uruchomić po awarii.
+
+-- 645c735537634ae0a32b15a7c6cba7d4
+Subject: Wykonanie procesu init zostało zawieszone
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Systemd zawiesił wykonanie po błędzie krytycznym.
+
+-- 5addb3a06a734d3396b794bf98fb2d01
+Subject: Proces init otrzymał sygnał krytyczny, kiedy zrzut core jest wyłączony
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Systemd otrzymał sygnał krytyczny, ale zrzucanie core jest wyłączone.
+
+-- 5c9e98de4ab94c6a9d04d0ad793bd903
+Subject: Proces init otrzymał sygnał krytyczny, ale rozdzielenie się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Systemd otrzymał sygnał krytyczny, ale rozdzielenie w celu zrzucenia core
+się nie powiodło.
+
+-- 5e6f1f5e4db64a0eaee3368249d20b94
+Subject: Proces init otrzymał sygnał krytyczny od nieznanego procesu nadawcy
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 83f84b35ee264f74a3896a9717af34cb
+Subject: Proces init otrzymał sygnał krytyczny od naszego własnego procesu
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 3a73a98baf5b4b199929e3226c0be783
+Subject: Proces init otrzymał sygnał krytyczny od innego procesu
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 2ed18d4f78ca47f0a9bc25271c26adb4
+Subject: Proces init otrzymał sygnał krytyczny, ale waitpid() się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Systemd otrzymał sygnał krytyczny, ale waitpid() się nie powiodło podczas
+próby zrzucenia core.
+
+-- 56b1cd96f24246c5b607666fda952356
+Subject: Proces init otrzymał sygnał krytyczny, ale zrzucenie core się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 4ac7566d4d7548f4981f629a28f0f829
+Subject: Proces init otrzymał sygnał krytyczny i zrzucono core
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 38e8b1e039ad469291b18b44c553a5b7
+Subject: Rozdzielenie powłoki awarii przez proces init się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Systemd uległ awarii, ale rozdzielenie powłoki awarii się nie powiodło.
+
+-- 872729b47dbe473eb768ccecd477beda
+Subject: Wykonanie powłoki awarii się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Systemd uległ awarii, ale wywołanie powłoki awarii się nie powiodło.
+
+-- 658a67adc1c940b3b3316e7e8628834a
+Subject: Wczytanie zasad SELinuksa przez menedżera się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- e6f456bd92004d9580160b2207555186
+Subject: Poziom naładowania akumulatora jest krytycznie niski, oczekiwanie na ładowarkę
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Poziom naładowania akumulatora jest krytycznie niski. Proszę podłączyć
+ładowarkę, albo komputer wyłączy się za 10 sekund.
+
+-- 267437d33fdd41099ad76221cc24a335
+Subject: Poziom naładowania akumulatora jest krytycznie niski, wyłączanie komputera
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 79e05b67bc4545d1922fe47107ee60c5
+Subject: Wykonanie głównej pętli przez menedżera się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- dbb136b10ef4457ba47a795d62f108c9
+Subject: Ustalenie ścieżki $XDG_RUNTIME_DIR przez menedżera użytkownika się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- ed158c2df8884fa584eead2d902c1032
+Subject: Obniżenie zestawu przypisanych możliwości procesów pomocniczych trybu użytkownika przez proces init się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 42695b500df048298bee37159caa9f2e
+Subject: Obniżenie zestawu przypisanych możliwości przez proces init się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- bfc2430724ab44499735b4f94cca9295
+Subject: Wyłączenie nowych uprawnień przez menedżera użytkownika się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 59288af523be43a28d494e41e26e4510
+Subject: Uruchomienie domyślnego celu przez menedżera się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 689b4fcc97b4486ea5da92db69c9e314
+Subject: Odcięcie domyślnego celu przez menedżera się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 5ed836f1766f4a8a9fc5da45aae23b29
+Subject: Zebranie przekazanych deskryptorów plików przez menedżera się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 6a40fbfbd2ba4b8db02fb40c9cd090d7
+Subject: Naprawa zmiennych środowiskowych przez proces init się nie powiodła
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 0e54470984ac419689743d957a119e2e
+Subject: Przydzielenie obiektu menedżera się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- d67fa9f847aa4b048a2ae33535331adb
+Subject: Zapisanie listy „onlycap” dla Smack przez menedżera się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- af55a6f75b544431b72649f36ff6d62c
+Subject: Błąd krytyczny podczas wykonywania wyłączania komputera
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- d18e0339efb24a068d9c1060221048c2
+Subject: Rozdzielenie procesu pomocniczego Valgrind przez proces init się nie powiodło
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
 -- 7d4958e842da4a758f6c1cdc7b36dcc5
 Subject: Rozpoczęto wykonywanie zadania uruchamiania dla jednostki @UNIT@
 Defined-By: systemd
@@ -599,3 +767,23 @@ przestarzała. Proszę się upewnić, że zaktualizowano wymieniony pakiet,
 aby zapewnić właściwe, natywne pliki jednostek systemd. W razie potrzeby
 należy skontaktować się z producentem pakietu. Obsługa zgodności z usługami
 System V jest oznaczona jako przestarzała i niedługo zostanie usunięta.
+
+-- 187c62eb1e7f463bb530394f52cb090f
+Subject: Dołączono usługę przenośną
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: https://systemd.io/PORTABLE_SERVICES/
+
+Do systemu dołączono nową usługę przenośną @PORTABLE_ROOT@ (z rozszerzeniami:
+@PORTABLE_EXTENSION@) i jest teraz dostępna do użytku. Polecenie
+„portablectl list” wyświetli listę dołączonych usług przenośnych.
+
+-- 76c5c754d628490d8ecba4c9d042112b
+Subject: Odłączono usługę przenośną
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: https://systemd.io/PORTABLE_SERVICES/
+
+Z systemu odłączono usługę przenośną @PORTABLE_ROOT@ (z rozszerzeniami:
+@PORTABLE_EXTENSION@) i nie jest już dostępna do użytku. Polecenie
+„portablectl list” wyświetli listę dołączonych usług przenośnych.
