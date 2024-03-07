@@ -450,7 +450,7 @@ bool shall_synthesize_own_hostname_rrs(void) {
         if (r < 0 && r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME: %m");
 
-        return (cached = r != 0);
+        return (cached = (r != 0));
 }
 
 int dns_synthesize_answer(
