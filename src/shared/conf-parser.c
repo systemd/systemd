@@ -558,7 +558,7 @@ static int config_parse_many_files(
                         }
                 }
 
-                r = config_parse(NULL, *fn, f, sections, lookup, table, flags, userdata, &st);
+                r = config_parse(/* unit= */ NULL, *fn, f, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
                         return r;
                 assert(r > 0);
@@ -577,7 +577,7 @@ static int config_parse_many_files(
         const char *path_dropin;
         FILE *f_dropin;
         ORDERED_HASHMAP_FOREACH_KEY(f_dropin, path_dropin, dropins) {
-                r = config_parse(NULL, path_dropin, f_dropin, sections, lookup, table, flags, userdata, &st);
+                r = config_parse(/* unit= */ NULL, path_dropin, f_dropin, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
                         return r;
                 assert(r > 0);
