@@ -83,7 +83,7 @@ triple_timestamp* triple_timestamp_now(triple_timestamp *ts) {
         return ts;
 }
 
-static usec_t map_clock_usec_internal(usec_t from, usec_t from_base, usec_t to_base) {
+usec_t map_clock_usec_internal(usec_t from, usec_t from_base, usec_t to_base) {
 
         /* Maps the time 'from' between two clocks, based on a common reference point where the first clock
          * is at 'from_base' and the second clock at 'to_base'. Basically calculates:
