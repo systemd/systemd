@@ -837,6 +837,10 @@ static void dns_stub_query_complete(DnsQuery *query) {
                 break;
 
         case DNS_TRANSACTION_NO_SERVERS:
+                /* We're not configured to give answers for this question. Refuse it. */
+                (void) dns_stub_send_reply(q, DNS_RCODE_REFUSED);
+                break;
+
         case DNS_TRANSACTION_INVALID_REPLY:
         case DNS_TRANSACTION_ERRNO:
         case DNS_TRANSACTION_ABORTED:
