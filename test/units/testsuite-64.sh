@@ -827,6 +827,12 @@ testcase_iscsi_lvm() {
         /dev/disk/by-id/ata-foobar_deadbeefiscsi{0..3}
     )
 
+    # CentOS doesn't have scsi-target-utils
+    if ! command -v tgtadm || ! command -v tgtd; then
+        echo Missing iSCSI server tools >>/skipped
+        exit 0
+    fi
+
     ls -l "${devices[@]}"
 
     # Start the target daemon
