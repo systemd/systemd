@@ -385,6 +385,33 @@
           <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><option>--pass-ssh-key=</option><replaceable>BOOL</replaceable></term>
+
+          <listitem><para>By default an SSH key is generated to allow <command>systemd-vmspawn</command> to open
+          a D-Bus connection to the VM's systemd bus. Setting this to "no" will disable SSH key generation.</para>
+
+          <para>The generated keys are ephemeral. That is they are valid only for the current invocation of <command>systemd-vmspawn</command>,
+          and are typically not persisted.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--ssh-key-type=</option><replaceable>TYPE</replaceable></term>
+
+          <listitem><para>Configures the type of SSH key to generate, see
+          <citerefentry><refentrytitle>ssh-keygen</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          for more information.</para>
+
+          <para>By default <literal>ed25519</literal> keys are generated, however <literal>rsa</literal> keys
+          may also be useful if the VM has a particularly old version of <command>sshd</command></para>.
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
