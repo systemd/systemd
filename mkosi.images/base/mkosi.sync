@@ -8,6 +8,11 @@ fi
 
 if [ -z "$(ls --almost-all "pkg/$DISTRIBUTION")" ]; then
     git clone "$PKG_URL" --branch "$PKG_BRANCH" "pkg/$DISTRIBUTION"
-elif [ -d "pkg/$DISTRIBUTION/.git" ] && [ "$(git -C "pkg/$DISTRIBUTION" rev-parse --abbrev-ref HEAD)" = "$PKG_BRANCH" ]; then
-    git -C "pkg/$DISTRIBUTION" pull
+    git -C "pkg/$DISTRIBUTION" checkout "$PKG_COMMIT"
+elif [ -d "pkg/$DISTRIBUTION/.git" ] && \
+     git -C "pkg/$DISTRIBUTION" merge-base --is-ancestor HEAD "$PKG_BRANCH" && \
+     [ -z "$(git -C "pkg/$DISTRIBUTION" status --porcelain)" ]
+then
+    git -C "pkg/$DISTRIBUTION" fetch origin "$PKG_BRANCH"
+    git -C "pkg/$DISTRIBUTION" checkout "$PKG_COMMIT"
 fi
