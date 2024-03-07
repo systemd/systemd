@@ -774,6 +774,16 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                         goto invalid;
                 }
 
+                /* device path could be empty. Don't mark that as invalid but leave as don't know.
+                 * Happens eg with shim https://github.com/rhboot/shim/issues/642 */
+                if (load->lengthOfDevicePath == 0) {
+                        rec->description = strdup("File: <unspecified>");
+                        if (!rec->description)
+                                return log_oom();
+
+                        return 1;
+                }
+
                 const packed_EFI_DEVICE_PATH *dp = (const packed_EFI_DEVICE_PATH*) load->devicePath;
                 size_t left = load->lengthOfDevicePath;
 
