@@ -4,11 +4,13 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "creds-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
 #include "install.h"
+#include "io-util.h"
 #include "missing_socket.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -92,6 +94,7 @@ static int make_sshd_template_unit(
 
         if (!*generated_sshd_template_unit) {
                 _cleanup_fclose_ FILE *f = NULL;
+                const char *authorized_keys_file = "";
 
                 r = generator_open_unit_file_full(
                                 dest,
@@ -103,14 +106,19 @@ static int make_sshd_template_unit(
                 if (r < 0)
                         return r;
 
+                /* only change AuthorizedKeysFile if an ephemeral key is present */
+                if (access("/run/ssh.authorized_keys.root", F_OK) >= 0)
+                        authorized_keys_file = " -o 'AuthorizedKeysFile /run/ssh.authorized_keys.root .ssh/authorized_keys'";
+
                 fprintf(f,
                         "[Unit]\n"
                         "Description=OpenSSH Per-Connection Server Daemon\n"
                         "Documentation=man:systemd-ssh-generator(8) man:sshd(8)\n"
                         "[Service]\n"
-                        "ExecStart=-%s -i\n"
+                        "ExecStart=-%s -i%s\n"
                         "StandardInput=socket",
-                        sshd_binary);
+                        sshd_binary,
+                        authorized_keys_file);
 
                 r = fflush_and_check(f);
                 if (r < 0)
