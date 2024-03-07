@@ -30,7 +30,7 @@ executables += [
                 'conditions': ['ENABLE_VMSPAWN'],
                 'sources' : files('vmspawn.c'),
                 'link_with' : vmspawn_libs,
-                'dependencies' : [libblkid]
+                'dependencies' : [libblkid, libssh]
         },
         vmspawn_test_template + {
                 'conditions': ['ENABLE_VMSPAWN'],

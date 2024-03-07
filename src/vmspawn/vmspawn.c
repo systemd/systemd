@@ -33,6 +33,7 @@
 #include "gpt.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
+#include "io-util.h"
 #include "kernel-image.h"
 #include "log.h"
 #include "machine-credential.h"
@@ -51,6 +52,7 @@
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "ssh-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -92,6 +94,8 @@ static sd_id128_t arg_uuid = {};
 static char **arg_kernel_cmdline_extra = NULL;
 static char **arg_extra_drives = NULL;
 static char *arg_background = NULL;
+static bool arg_no_ssh_keygen = false;
+static SshKeyType arg_ssh_key_type = DEFAULT_SSH_KEY_TYPE;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -158,6 +162,9 @@ static int help(void) {
                "\n%3$sIntegration:%4$s\n"
                "     --forward-journal=FILE|DIR\n"
                "                           Forward the VM's journal to the host\n"
+               "     --ssh-key-type=TYPE   Determine the type of SSH key to generate for the VM\n"
+               "     --no-ssh-key-generation\n"
+               "                           Don't generate an ephemeral SSH key for the VM\n"
                "\n%3$sInput/Output:%4$s\n"
                "     --console=MODE        Console mode (interactive, native, gui)\n"
                "     --background=COLOR    Set ANSI color for background\n"
@@ -200,6 +207,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SECURE_BOOT,
                 ARG_PRIVATE_USERS,
                 ARG_FORWARD_JOURNAL,
+                ARG_SSH_KEY_TYPE,
+                ARG_NO_SSH_KEY_GENERATION,
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
                 ARG_FIRMWARE,
@@ -208,41 +217,43 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",              no_argument,       NULL, 'h'                   },
-                { "version",           no_argument,       NULL, ARG_VERSION           },
-                { "quiet",             no_argument,       NULL, 'q'                   },
-                { "no-pager",          no_argument,       NULL, ARG_NO_PAGER          },
-                { "image",             required_argument, NULL, 'i'                   },
-                { "directory",         required_argument, NULL, 'D'                   },
-                { "machine",           required_argument, NULL, 'M'                   },
-                { "cpus",              required_argument, NULL, ARG_CPUS              },
-                { "qemu-smp",          required_argument, NULL, ARG_CPUS              }, /* Compat alias */
-                { "ram",               required_argument, NULL, ARG_RAM               },
-                { "qemu-mem",          required_argument, NULL, ARG_RAM               }, /* Compat alias */
-                { "kvm",               required_argument, NULL, ARG_KVM               },
-                { "qemu-kvm",          required_argument, NULL, ARG_KVM               }, /* Compat alias */
-                { "vsock",             required_argument, NULL, ARG_VSOCK             },
-                { "qemu-vsock",        required_argument, NULL, ARG_VSOCK             }, /* Compat alias */
-                { "vsock-cid",         required_argument, NULL, ARG_VSOCK_CID         },
-                { "tpm",               required_argument, NULL, ARG_TPM               },
-                { "linux",             required_argument, NULL, ARG_LINUX             },
-                { "initrd",            required_argument, NULL, ARG_INITRD            },
-                { "console",           required_argument, NULL, ARG_CONSOLE           },
-                { "qemu-gui",          no_argument,       NULL, ARG_QEMU_GUI          }, /* compat option */
-                { "network-tap",       no_argument,       NULL, 'n'                   },
-                { "network-user-mode", no_argument,       NULL, ARG_NETWORK_USER_MODE },
-                { "uuid",              required_argument, NULL, ARG_UUID              },
-                { "register",          required_argument, NULL, ARG_REGISTER          },
-                { "bind",              required_argument, NULL, ARG_BIND              },
-                { "bind-ro",           required_argument, NULL, ARG_BIND_RO           },
-                { "extra-drive",       required_argument, NULL, ARG_EXTRA_DRIVE       },
-                { "secure-boot",       required_argument, NULL, ARG_SECURE_BOOT       },
-                { "private-users",     required_argument, NULL, ARG_PRIVATE_USERS     },
-                { "forward-journal",   required_argument, NULL, ARG_FORWARD_JOURNAL   },
-                { "set-credential",    required_argument, NULL, ARG_SET_CREDENTIAL    },
-                { "load-credential",   required_argument, NULL, ARG_LOAD_CREDENTIAL   },
-                { "firmware",          required_argument, NULL, ARG_FIRMWARE          },
-                { "background",        required_argument, NULL, ARG_BACKGROUND        },
+                { "help",                  no_argument,       NULL, 'h'                       },
+                { "version",               no_argument,       NULL, ARG_VERSION               },
+                { "quiet",                 no_argument,       NULL, 'q'                       },
+                { "no-pager",              no_argument,       NULL, ARG_NO_PAGER              },
+                { "image",                 required_argument, NULL, 'i'                       },
+                { "directory",             required_argument, NULL, 'D'                       },
+                { "machine",               required_argument, NULL, 'M'                       },
+                { "cpus",                  required_argument, NULL, ARG_CPUS                  },
+                { "qemu-smp",              required_argument, NULL, ARG_CPUS                  },
+                { "ram",                   required_argument, NULL, ARG_RAM                   },
+                { "qemu-mem",              required_argument, NULL, ARG_RAM                   }, /* Compat alias */
+                { "kvm",                   required_argument, NULL, ARG_KVM                   },
+                { "qemu-kvm",              required_argument, NULL, ARG_KVM                   }, /* Compat alias */
+                { "vsock",                 required_argument, NULL, ARG_VSOCK                 },
+                { "qemu-vsock",            required_argument, NULL, ARG_VSOCK                 }, /* Compat alias */
+                { "vsock-cid",             required_argument, NULL, ARG_VSOCK_CID             },
+                { "tpm",                   required_argument, NULL, ARG_TPM                   },
+                { "linux",                 required_argument, NULL, ARG_LINUX                 },
+                { "initrd",                required_argument, NULL, ARG_INITRD                },
+                { "console",               required_argument, NULL, ARG_CONSOLE               },
+                { "qemu-gui",              no_argument,       NULL, ARG_QEMU_GUI              }, /* compat option */
+                { "network-tap",           no_argument,       NULL, 'n'                       },
+                { "network-user-mode",     no_argument,       NULL, ARG_NETWORK_USER_MODE     },
+                { "uuid",                  required_argument, NULL, ARG_UUID                  },
+                { "register",              required_argument, NULL, ARG_REGISTER              },
+                { "bind",                  required_argument, NULL, ARG_BIND                  },
+                { "bind-ro",               required_argument, NULL, ARG_BIND_RO               },
+                { "extra-drive",           required_argument, NULL, ARG_EXTRA_DRIVE           },
+                { "secure-boot",           required_argument, NULL, ARG_SECURE_BOOT           },
+                { "private-users",         required_argument, NULL, ARG_PRIVATE_USERS         },
+                { "forward-journal",       required_argument, NULL, ARG_FORWARD_JOURNAL       },
+                { "ssh-key-type",          required_argument, NULL, ARG_SSH_KEY_TYPE          },
+                { "no-ssh-key-generation", no_argument,       NULL, ARG_NO_SSH_KEY_GENERATION },
+                { "set-credential",        required_argument, NULL, ARG_SET_CREDENTIAL        },
+                { "load-credential",       required_argument, NULL, ARG_LOAD_CREDENTIAL       },
+                { "firmware",              required_argument, NULL, ARG_FIRMWARE              },
+                { "background",            required_argument, NULL, ARG_BACKGROUND            },
                 {}
         };
 
@@ -440,6 +451,16 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_forward_journal);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_SSH_KEY_TYPE:
+                        r = ssh_key_type_from_string(optarg, &arg_ssh_key_type);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to parse --ssh-key-type=%s: %m", optarg);
+                        break;
+
+                case ARG_NO_SSH_KEY_GENERATION:
+                        arg_no_ssh_keygen = true;
                         break;
 
                 case ARG_SET_CREDENTIAL: {
@@ -1104,7 +1125,9 @@ static void set_window_title(PTYForward *f) {
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_free_ char *machine = NULL, *qemu_binary = NULL, *mem = NULL, *trans_scope = NULL, *kernel = NULL;
+        _cleanup_free_ char *machine = NULL, *qemu_binary = NULL, *mem = NULL, *trans_scope = NULL, *kernel = NULL,
+                            *ssh_public_key = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *ssh_private_key_path = NULL;
         _cleanup_close_ int notify_sock_fd = -EBADF;
         _cleanup_strv_free_ char **cmdline = NULL;
         _cleanup_free_ int *pass_fds = NULL;
@@ -1673,6 +1696,39 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = machine_credential_set(&arg_credentials, cred);
                 if (r < 0)
                         return r;
+        }
+
+        if (!arg_no_ssh_keygen && arg_ssh_key_type != SSH_KEYTYPE_UNKNOWN) {
+                _cleanup_free_ char *scope_prefix = NULL, *privkey = NULL, *cred = NULL;
+                _cleanup_close_ int fd = -EBADF;
+
+                r = generate_ssh_keypair(arg_ssh_key_type, &privkey, &ssh_public_key);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate an SSH keypair: %m");
+
+                cred = strjoin("ssh.authorized_keys.root:", ssh_public_key);
+                if (!cred)
+                        return log_oom();
+
+                r = machine_credential_set(&arg_credentials, cred);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set credential %s: %m", cred);
+
+                r = unit_name_to_prefix(trans_scope, &scope_prefix);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
+
+                ssh_private_key_path = strjoin(arg_runtime_directory, "/", scope_prefix, "-", ssh_key_type_to_string(arg_ssh_key_type));
+                if (!ssh_private_key_path)
+                        return log_oom();
+
+                fd = open(ssh_private_key_path, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600);
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to create file: %m");
+
+                r = loop_write(fd, privkey, strlen(privkey));
+                if (r < 0)
+                        return log_error_errno(fd, "Failed to write to file %s: %m", ssh_private_key_path);
         }
 
         if (ARCHITECTURE_SUPPORTS_SMBIOS)
