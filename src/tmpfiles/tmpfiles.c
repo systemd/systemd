@@ -49,7 +49,6 @@
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
-#include "nulstr-util.h"
 #include "offline-passwd.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -370,7 +369,7 @@ static int user_config_paths(char*** ret) {
         if (r < 0 && !ERRNO_IS_NOINFO(r))
                 return r;
 
-        r = strv_extend_strv_concat(&res, config_dirs, "/user-tmpfiles.d");
+        r = strv_extend_strv_concat(&res, (const char* const*) config_dirs, "/user-tmpfiles.d");
         if (r < 0)
                 return r;
 
@@ -382,7 +381,7 @@ static int user_config_paths(char*** ret) {
         if (r < 0)
                 return r;
 
-        r = strv_extend_strv_concat(&res, data_dirs, "/user-tmpfiles.d");
+        r = strv_extend_strv_concat(&res, (const char* const*) data_dirs, "/user-tmpfiles.d");
         if (r < 0)
                 return r;
 
@@ -4570,7 +4569,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case RUNTIME_SCOPE_SYSTEM:
-                config_dirs = strv_split_nulstr(CONF_PATHS_NULSTR("tmpfiles.d"));
+                config_dirs = strv_new(CONF_PATHS("tmpfiles.d"));
                 if (!config_dirs)
                         return log_oom();
                 break;
