@@ -50,7 +50,7 @@
       <arg choice="plain">call</arg>
       <arg choice="plain"><replaceable>ADDRESS</replaceable></arg>
       <arg choice="plain"><replaceable>METHOD</replaceable></arg>
-      <arg choice="opt"><replaceable>PARAMETERS</replaceable></arg>
+      <arg choice="opt"><replaceable>ARGUMENTS</replaceable></arg>
     </cmdsynopsis>
 
     <cmdsynopsis>
@@ -105,7 +105,7 @@
         <term><command>info</command> <replaceable>ADDRESS</replaceable></term>
 
         <listitem><para>Show brief information about the specified service, including vendor name and list of
-        implemented interfaces. Expects a service address in the formats described above.</para>
+        implemented interfaces. Expects a service address in one of the formats described above.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
@@ -114,7 +114,7 @@
         <term><command>list-interfaces</command> <replaceable>ADDRESS</replaceable></term>
 
         <listitem><para>Show list of interfaces implemented by the specified service. Expects a service
-        address in the formats described above.</para>
+        address in one of the formats described above.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
@@ -123,7 +123,7 @@
         <term><command>introspect</command> <replaceable>ADDRESS</replaceable> <replaceable>INTERFACE</replaceable></term>
 
         <listitem><para>Show interface definition of the specified interface provided by the specified
-        service. Expects a service address in the formats described above and a Varlink interface
+        service. Expects a service address in one of the formats described above and a Varlink interface
         name.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>

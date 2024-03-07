@@ -228,7 +228,7 @@
         <listitem><para>If the service opens sockets or other files on it own, and those file descriptors
         shall survive a restart, the daemon should store them in the service manager via
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> with
-        <varname>FDSTORE=1</varname>..</para></listitem>
+        <varname>FDSTORE=1</varname>.</para></listitem>
 
         <listitem><para>Instead of using the <function>syslog()</function> call to log directly to the system
         syslog service, a new-style daemon may choose to simply log to standard error via

@@ -403,7 +403,7 @@
 
         <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on raw binary data. The
         data is either read from the specified file or from STDIN (if none is specified). This requires that
-        <option>--pcrs=</option> is specified. The generated pcrlock file is written to the file specified
+        <option>--pcrs=</option> is specified. The generated .pcrlock file is written to the file specified
         via <option>--pcrlock=</option> or to STDOUT (if none is specified).</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/>
@@ -450,7 +450,7 @@
       <varlistentry>
         <term><option>--nv-index=</option></term>
 
-        <listitem><para>Specifies to NV index to store the policy in. Honoured by
+        <listitem><para>Specifies the NV index to store the policy in. Honoured by
         <command>make-policy</command>. If not specified the command will automatically pick a free NV
         index.</para>
 
