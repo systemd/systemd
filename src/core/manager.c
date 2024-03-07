@@ -1668,7 +1668,7 @@ Manager* manager_free(Manager *m) {
 
         free(m->notify_socket);
 
-        lookup_paths_free(&m->lookup_paths);
+        lookup_paths_done(&m->lookup_paths);
         strv_free(m->transient_environment);
         strv_free(m->client_environment);
 
@@ -3557,7 +3557,7 @@ int manager_reload(Manager *m) {
 
         manager_clear_jobs_and_units(m);
         lookup_paths_flush_generator(&m->lookup_paths);
-        lookup_paths_free(&m->lookup_paths);
+        lookup_paths_done(&m->lookup_paths);
         exec_shared_runtime_vacuum(m);
         dynamic_user_vacuum(m, false);
         m->uid_refs = hashmap_free(m->uid_refs);

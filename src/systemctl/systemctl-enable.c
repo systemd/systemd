@@ -143,7 +143,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 bool warn_trigger_ignore_masked = true; /* suppress "used uninitialized" warning */
 
                 if (STR_IN_SET(verb, "mask", "unmask")) {
-                        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+                        _cleanup_(lookup_paths_done) LookupPaths lp = {};
 
                         r = lookup_paths_init_or_warn(&lp, arg_runtime_scope, 0, arg_root);
                         if (r < 0)

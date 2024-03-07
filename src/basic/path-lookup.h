@@ -65,7 +65,7 @@ bool path_is_user_data_dir(const char *path);
 bool path_is_user_config_dir(const char *path);
 
 void lookup_paths_log(LookupPaths *p);
-void lookup_paths_free(LookupPaths *p);
+void lookup_paths_done(LookupPaths *p);
 
 char **generator_binary_paths(RuntimeScope scope);
 char **env_generator_binary_paths(RuntimeScope scope);
