@@ -2635,6 +2635,9 @@ static int verb_list_components(int argc, char *argv[], void *userdata) {
 
         FOREACH_ARRAY(c, el->components, el->n_components) {
 
+                if (arg_pcr_mask != 0 && (arg_pcr_mask & event_log_component_pcrs(*c)) == 0)
+                        continue;
+
                 if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
                         _cleanup_free_ char *marker = NULL;
 
