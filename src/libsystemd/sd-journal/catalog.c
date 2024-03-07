@@ -618,8 +618,7 @@ int catalog_get(const char* database, sd_id128_t id, char **_text) {
         r = 0;
 
 finish:
-        if (p)
-                munmap(p, st.st_size);
+        (void) munmap(p, st.st_size);
 
         return r;
 }
