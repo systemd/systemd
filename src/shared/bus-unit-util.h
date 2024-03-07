@@ -42,13 +42,11 @@ typedef struct UnitFreezer {
 } UnitFreezer;
 
 int unit_freezer_new(const char *name, UnitFreezer *ret);
+void unit_freezer_done(UnitFreezer *f);
 
-int unit_freezer_freeze(UnitFreezer *freezer);
-
-int unit_freezer_thaw(UnitFreezer *freezer);
-
-void unit_freezer_done(UnitFreezer *freezer);
+int unit_freezer_freeze(UnitFreezer *f);
+int unit_freezer_thaw(UnitFreezer *f);
 
 int unit_freezer_new_freeze(const char *name, UnitFreezer *ret);
 
-void unit_freezer_done_thaw(UnitFreezer *freezer);
+void unit_freezer_done_thaw(UnitFreezer *f);
