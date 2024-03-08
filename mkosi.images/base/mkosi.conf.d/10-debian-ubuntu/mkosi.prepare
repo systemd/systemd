@@ -6,10 +6,10 @@ if [ "$1" = "final" ]; then
     exit 0
 fi
 
-if [ ! -d "pkg/$DISTRIBUTION/debian" ]; then
-    echo "deb rules not found at pkg/$DISTRIBUTION/debian, run mkosi once with -ff to make sure the rules are cloned" >&2
+if [ ! -d "pkg/$PKG_SUBDIR/debian" ]; then
+    echo "deb rules not found at pkg/$PKG_SUBDIR/debian, run mkosi once with -ff to make sure the rules are cloned" >&2
     exit 1
 fi
 
-cd "pkg/$DISTRIBUTION"
+cd "pkg/$PKG_SUBDIR"
 DEB_BUILD_PROFILES="pkg.systemd.upstream" apt-get build-dep .
