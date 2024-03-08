@@ -1513,9 +1513,6 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                 if (t->current_feature_level < DNS_SERVER_FEATURE_LEVEL_UDP || DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level))
                         return -EAGAIN; /* Sorry, can't do UDP, try TCP! */
 
-                if (!t->bypass && !dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(dns_transaction_key(t)->type))
-                        return -EOPNOTSUPP;
-
                 if (r > 0 || t->dns_udp_fd < 0) { /* Server changed, or no connection yet. */
                         int fd;
 
