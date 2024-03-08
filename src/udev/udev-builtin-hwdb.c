@@ -94,14 +94,24 @@ static int udev_builtin_hwdb_search(sd_device *dev, sd_device *srcdev,
                         last = true;
                 }
 
-                if (!modalias)
-                        goto next;
+                /* The fw node device has character device while the fw unit device doesn't. */
+                if (streq(dsubsys, "firewire") && sd_device_get_devname(d, NULL) >= 0) {
+                        /*
+                         * The parent of node is 1394 OHCI controller in PCI bus. Let us
+                         * cancel walkthrough.
+                         */
+                        last = true;
 
-                log_device_debug(dev, "hwdb modalias key: \"%s\"", modalias);
+                        /* No hwdb entry is available since fw node has no modalias. */
+                }
 
-                r = udev_builtin_hwdb_lookup(dev, prefix, modalias, filter, test);
-                if (r > 0)
-                        break;
+                if (modalias) {
+                        log_device_debug(dev, "hwdb modalias key: \"%s\"", modalias);
+
+                        r = udev_builtin_hwdb_lookup(dev, prefix, modalias, filter, test);
+                        if (r > 0)
+                                break;
+                }
 
                 if (last)
                         break;
