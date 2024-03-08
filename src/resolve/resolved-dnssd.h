@@ -3,6 +3,7 @@
 #pragma once
 
 #include "list.h"
+#include "resolved-conf.h"
 
 typedef struct DnssdService DnssdService;
 typedef struct DnssdTxtData DnssdTxtData;
@@ -43,6 +44,9 @@ struct DnssdService {
         LIST_HEAD(DnssdTxtData, txt_data_items);
 
         Manager *manager;
+
+        /* Services registered via D-Bus are not removed on reload */
+        ResolveConfigSource config_source;
 
         bool withdrawn:1;
         uid_t originator;
