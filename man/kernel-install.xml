@@ -33,6 +33,11 @@
     <cmdsynopsis>
       <command>kernel-install</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">add-all</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>kernel-install</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">remove</arg>
       <arg choice="plain"><replaceable>KERNEL-VERSION</replaceable></arg>
     </cmdsynopsis>
