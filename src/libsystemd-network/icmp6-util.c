@@ -88,6 +88,20 @@ int icmp6_bind(int ifindex, bool is_router) {
         return TAKE_FD(s);
 }
 
+int icmp6_send(int fd, const struct sockaddr_in6 *dst, const struct iovec *iov, size_t n_iov) {
+        struct msghdr msg = {
+                .msg_name = (struct sockaddr_in6*) dst,
+                .msg_namelen = sizeof(struct sockaddr_in6),
+                .msg_iov = (struct iovec*) iov,
+                .msg_iovlen = n_iov,
+        };
+
+        if (sendmsg(fd, &msg, 0) < 0)
+                return -errno;
+
+        return 0;
+}
+
 int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
         struct sockaddr_in6 dst = {
                 .sin6_family = AF_INET6,
