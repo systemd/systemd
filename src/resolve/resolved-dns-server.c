@@ -704,9 +704,6 @@ bool dns_server_dnssec_supported(DnsServer *server) {
         if (dns_server_get_dnssec_mode(server) == DNSSEC_YES) /* If strict DNSSEC mode is enabled, always assume DNSSEC mode is supported. */
                 return true;
 
-        if (!DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(server->possible_feature_level))
-                return false;
-
         if (server->packet_bad_opt)
                 return false;
 
