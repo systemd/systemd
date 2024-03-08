@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if [ ! -d "pkg/$DISTRIBUTION/debian" ]; then
-    echo "deb rules not found at pkg/$DISTRIBUTION/debian, run mkosi once with -ff to make sure the rules are cloned" >&2
+if [ ! -d "pkg/$PKG_SUBDIR/debian" ]; then
+    echo "deb rules not found at pkg/$PKG_SUBDIR/debian, run mkosi once with -ff to make sure the rules are cloned" >&2
     exit 1
 fi
 
 # We transplant the debian/ folder from the deb package sources into the upstream sources.
-mount --mkdir --bind "$SRCDIR/pkg/$DISTRIBUTION/debian" "$SRCDIR"/debian
+mount --mkdir --bind "$SRCDIR/pkg/$PKG_SUBDIR/debian" "$SRCDIR"/debian
 
 # We hide the patches/ directory by mounting an empty directory on top so they don't get applied.
 TMP=$(mktemp -d)
