@@ -178,7 +178,12 @@ requirements are made for an image that can be attached/detached with
    recommended to use these two paths.)
 
 4. The image must contain an os-release file, either in `/etc/os-release` or
-   `/usr/lib/os-release`. The file should follow the standard format.
+   `/usr/lib/os-release`. The file should follow the standard format. In
+   addition, `portablectl` also lets you set an extra variable
+   `PORTABLE_PRETTY_NAME` in that file, which will be printed if you run
+   `portablectl inspect` on the image in question.  You can use that to
+   identify the OS image in a more specific fashion than the plain OS
+   identifier, for example, `PORTABLE_PRETTY_NAME="My awesome service"`.
 
 5. The image must contain the files `/etc/resolv.conf` and `/etc/machine-id`
    (empty files are ok), they will be bind mounted from the host at runtime.
