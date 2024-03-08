@@ -268,7 +268,7 @@ units = [
           'conditions' : ['ENABLE_BOOTLOADER'],
         },
         {
-          'file' : 'systemd-bootctl@.service.in',
+          'file' : 'systemd-bootctl@.service',
           'conditions' : ['ENABLE_BOOTLOADER'],
         },
         {
@@ -563,7 +563,7 @@ units = [
         { 'file' : 'systemd-reboot.service' },
         { 'file' : 'systemd-remount-fs.service.in' },
         {
-          'file' : 'systemd-repart.service.in',
+          'file' : 'systemd-repart.service',
           'conditions' : ['ENABLE_REPART'],
           'symlinks' : ['sysinit.target.wants/', 'initrd-root-fs.target.wants/'],
         },
