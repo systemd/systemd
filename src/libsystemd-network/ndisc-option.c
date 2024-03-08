@@ -2,7 +2,7 @@
 
 #include <netinet/icmp6.h>
 
-#include "ndisc-protocol.h"
+#include "ndisc-option.h"
 
 int ndisc_option_parse(
                 ICMP6Packet *p,

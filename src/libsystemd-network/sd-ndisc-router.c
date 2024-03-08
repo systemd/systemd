@@ -14,7 +14,7 @@
 #include "memory-util.h"
 #include "missing_network.h"
 #include "ndisc-internal.h"
-#include "ndisc-protocol.h"
+#include "ndisc-option.h"
 #include "ndisc-router-internal.h"
 #include "strv.h"
 
