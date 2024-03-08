@@ -6,8 +6,8 @@ if ((CACHED)); then
     exit 0
 fi
 
-if [ -z "$(ls --almost-all "pkg/$DISTRIBTION")" ]; then
-    git clone "$PKG_URL" --branch "$PKG_BRANCH" "pkg/$DISTRIBUTION"
-elif [ -d "pkg/$DISTRIBUTION/.git" ] && [ "$(git -C "pkg/$DISTRIBUTION" rev-parse --abbrev-ref HEAD)" = "$PKG_BRANCH" ]; then
-    git -C "pkg/$DISTRIBUTION" pull
+if [ -z "$(ls --almost-all "pkg/$PKG_SUBDIR")" ]; then
+    git clone "$PKG_URL" --branch "$PKG_BRANCH" "pkg/$PKG_SUBDIR"
+elif [ -d "pkg/$PKG_SUBDIR/.git" ] && [ "$(git -C "pkg/$PKG_SUBDIR" rev-parse --abbrev-ref HEAD)" = "$PKG_BRANCH" ]; then
+    git -C "pkg/$PKG_SUBDIR" pull
 fi
