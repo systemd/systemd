@@ -385,6 +385,29 @@
           <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><option>--ssh-key-type=</option><replaceable>TYPE</replaceable></term>
+
+          <listitem><para>Determine the type of SSH key to generate for the guest VM.</para>
+          <para>By default an Ed25519 is generated.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--disable-ssh-key-generation</option></term>
+
+          <listitem><para>Disables the generation of an ephemeral SSH key for the VM.</para>
+          <para>Take care with this option if you are intending to use machined integration.
+          Disabling key generation will mean that <command>systemd-vmspawn</command> will not
+          be able to perform many of the machined operations, e.g. restarting a machine is not possible
+          without generating a key.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
