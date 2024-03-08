@@ -17,4 +17,4 @@ Before=shutdown.target
 
 [Service]
 Environment=LISTEN_FDNAMES=varlink
-ExecStart={{BINDIR}}/bootctl
+ExecStart=bootctl
