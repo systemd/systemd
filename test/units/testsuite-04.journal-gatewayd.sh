@@ -95,7 +95,7 @@ curl -Lfs http://localhost:19531/machine | jq
 # /fields
 curl -Lfs http://localhost:19531/fields/MESSAGE | grep -qE -- "$TEST_MESSAGE"
 curl -Lfs http://localhost:19531/fields/_TRANSPORT
-(! curl -Lfs http://localhost:19531/fields)
+curl -Lfs http://localhost:19531/fields | grep -qF "MESSAGE"
 (! curl -Lfs http://localhost:19531/fields/foo-bar-baz)
 
 systemctl stop systemd-journal-gatewayd.{socket,service}

@@ -743,6 +743,66 @@ static int request_handler_fields(
         return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
+static int output_field_name(FILE *f, OutputMode m, const char *d) {
+        if (m == OUTPUT_JSON)
+                return fprintf(f, "{ \"field\" : \"%s\" }\n", d);
+        else
+                return fprintf(f, "%s\n", d);
+}
+
+static int request_handler_field_names(
+                struct MHD_Connection *connection,
+                void *connection_cls) {
+
+        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
+        RequestMeta *m = connection_cls;
+        _cleanup_close_ int fd = -1;
+        _cleanup_fclose_ FILE *tmp = NULL;
+        int r;
+        off_t n;
+        const char *field;
+
+        assert(connection);
+        assert(m);
+
+        r = open_journal(m);
+        if (r < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open journal: %m");
+
+        if (request_parse_accept(m, connection) < 0)
+                return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to parse Accept header.");
+
+        fd = open_tmpfile_unlinkable("/tmp", O_RDWR|O_CLOEXEC);
+        if (fd < 0)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to create temporary file: %m");
+
+        tmp = fdopen(fd, "w+");
+        if (!tmp)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to open temporary file: %m");
+
+        SD_JOURNAL_FOREACH_FIELD(m->journal, field) {
+                r = output_field_name(tmp, m->mode, field);
+                if (r < 0)
+                        return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to write to temporary file: %m");
+        }
+
+        n = ftello(tmp);
+        if (n == (off_t) -1)
+                return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to retrieve file position: %m");
+
+        rewind(tmp);
+        response = MHD_create_response_from_fd((size_t) n, fd);
+        if (!response)
+                return respond_oom(connection);
+        TAKE_FD(fd);
+        TAKE_PTR(tmp);
+
+        if (MHD_add_response_header(response, "Content-Type", mime_types[m->mode == OUTPUT_JSON ? OUTPUT_JSON : OUTPUT_SHORT]) == MHD_NO)
+                return respond_oom(connection);
+
+        return MHD_queue_response(connection, MHD_HTTP_OK, response);
+}
+
 static int request_handler_redirect(
                 struct MHD_Connection *connection,
                 const char *target) {
@@ -933,6 +993,9 @@ static mhd_result request_handler(
 
         if (streq(url, "/entries"))
                 return request_handler_entries(connection, *connection_cls);
+
+        if (streq(url, "/fields"))
+                return request_handler_field_names(connection, *connection_cls);
 
         if (startswith(url, "/fields/"))
                 return request_handler_fields(connection, url + 8, *connection_cls);
