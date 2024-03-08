@@ -841,12 +841,16 @@ static void dns_stub_query_complete(DnsQuery *query) {
                 (void) dns_stub_send_reply(q, DNS_RCODE_REFUSED);
                 break;
 
+        case DNS_TRANSACTION_RR_TYPE_UNSUPPORTED:
+                /* This RR Type is not implemented */
+                (void) dns_stub_send_reply(q, DNS_RCODE_NOTIMP);
+                break;
+
         case DNS_TRANSACTION_INVALID_REPLY:
         case DNS_TRANSACTION_ERRNO:
         case DNS_TRANSACTION_ABORTED:
         case DNS_TRANSACTION_DNSSEC_FAILED:
         case DNS_TRANSACTION_NO_TRUST_ANCHOR:
-        case DNS_TRANSACTION_RR_TYPE_UNSUPPORTED:
         case DNS_TRANSACTION_NETWORK_DOWN:
         case DNS_TRANSACTION_NO_SOURCE:
         case DNS_TRANSACTION_STUB_LOOP:
