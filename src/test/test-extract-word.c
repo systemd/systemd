@@ -533,6 +533,20 @@ TEST(extract_first_word) {
         assert_se(streq(t, "a:a"));
         assert_se(streq(p, ":b"));
         free(t);
+
+        p = original = "zażółcić 👊🔪💐 가너도루";
+        assert_se(extract_first_word(&p, &t, NULL, 0) > 0);
+        assert_se(streq(t, "zażółcić"));
+        free(t);
+        assert_se(p == original + 13);
+
+        assert_se(extract_first_word(&p, &t, NULL, 0) > 0);
+        assert_se(streq(t, "👊🔪💐"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, NULL, 0) > 0);
+        assert_se(streq(t, "가너도루"));
+        free(t);
+        assert_se(isempty(p));
 }
 
 TEST(extract_first_word_and_warn) {
@@ -758,6 +772,16 @@ TEST(extract_many_words) {
         assert_se(isempty(p));
         assert_se(streq_ptr(a, "foobar"));
         free(a);
+
+        p = original = "gęślą:👊🔪💐 가너도루";
+        assert_se(extract_many_words(&p, ":" WHITESPACE, 0, &a, &b, &c) == 3);
+        assert_se(isempty(p));
+        assert_se(streq(a, "gęślą"));
+        assert_se(streq(b, "👊🔪💐"));
+        assert_se(streq(c, "가너도루"));
+        free(a);
+        free(b);
+        free(c);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
