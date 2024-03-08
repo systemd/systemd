@@ -18,7 +18,7 @@ Before=shutdown.target
 [Service]
 Environment=HOME=/root
 WorkingDirectory=-/root
-ExecStartPre=-{{BINDIR}}/plymouth --wait quit
+ExecStartPre=-plymouth --wait quit
 ExecStart=-{{LIBEXECDIR}}/systemd-sulogin-shell rescue
 Type=idle
 StandardInput=tty-force
