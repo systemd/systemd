@@ -2442,7 +2442,7 @@ CHANGES WITH 252 🎃:
 
         * A new sd-gpt.h header is now published, listing GUIDs from the
           Discoverable Partitions specification. For more details see:
-          https://systemd.io/DISCOVERABLE_PARTITIONS/
+          https://uapi-group.org/specifications/specs/discoverable_partitions_specification
 
         * A new function sd_hwdb_new_from_path() has been added to open a hwdb
           database given an explicit path to the file.
@@ -3626,7 +3626,7 @@ CHANGES WITH 250:
         * systemd-analyze learnt a new inspect-elf verb that parses ELF core
           files, binaries and executables and prints metadata information,
           including the build-id and other info described on:
-          https://systemd.io/COREDUMP_PACKAGE_METADATA/
+          https://systemd.io/ELF_PACKAGE_METADATA
 
         * .network files gained a new UplinkInterface= in the [IPv6SendRA]
           section, for automatically propagating DNS settings from other
@@ -3847,7 +3847,7 @@ CHANGES WITH 250:
           don't need to guess it based on the already-existing directories. The
           only value that is defined natively is "bls", corresponding to the
           layout specified in
-          https://systemd.io/BOOT_LOADER_SPECIFICATION/. Plugins for
+          https://uapi-group.org/specifications/specs/boot_loader_specification/. Plugins for
           kernel-install that implement a different layout can declare other
           values for this variable.
 
@@ -4279,7 +4279,7 @@ CHANGES WITH 249:
           common today in our containerized and sand-boxed world. For further
           information, see:
 
-          https://systemd.io/COREDUMP_PACKAGE_METADATA
+          https://systemd.io/ELF_PACKAGE_METADATA
 
         * A new udev hardware database has been added for FireWire devices
           (IEEE 1394).
@@ -4439,7 +4439,7 @@ CHANGES WITH 249:
           partitions automatically created by systemd-repart, except if they
           are marked read-only. See the specification for further details:
 
-          https://systemd.io/DISCOVERABLE_PARTITIONS
+          https://uapi-group.org/specifications/specs/discoverable_partitions_specification/
 
         * .network files gained a new setting RoutesToNTP= in the [DHCPv4]
           section. If enabled (which is the default), and an NTP server address
@@ -6757,7 +6757,7 @@ CHANGES WITH 245:
           /var and /var/tmp partition discovery. Support for this has been
           added to systemd-gpt-auto-generator. For details see:
 
-          https://systemd.io/DISCOVERABLE_PARTITIONS
+          https://uapi-group.org/specifications/specs/discoverable_partitions_specification/
 
         * "systemctl list-unit-files" has been updated to show a new column
           with the suggested enablement state based on the vendor preset files
@@ -7454,7 +7454,7 @@ CHANGES WITH 243:
           service configuration for systemd-timesyncd.
 
         * "localectl list-locales" won't list non-UTF-8 locales anymore. It's
-          2019. (You can set non-UTF-8 locales though, if you know their name.)
+          1.    (You can set non-UTF-8 locales though, if you know their name.)
 
         * If variable assignments in sysctl.d/ files are prefixed with "-" any
           failures to apply them are now ignored.
@@ -14016,7 +14016,7 @@ CHANGES WITH 211:
           also supports LUKS-encrypted partitions now. With this in
           place, automatic discovery of partitions to mount following
           the Discoverable Partitions Specification
-          (https://systemd.io/DISCOVERABLE_PARTITIONS/)
+          (https://uapi-group.org/specifications/specs/discoverable_partitions_specification/)
           is now a lot more complete. This allows booting without
           /etc/fstab and without root= on the kernel command line on
           systems prepared appropriately.
@@ -15597,7 +15597,7 @@ CHANGES WITH 198:
         * A new tool kernel-install has been added that can install
           kernel images according to the Boot Loader Specification:
 
-          https://systemd.io/BOOT_LOADER_SPECIFICATION
+          https://uapi-group.org/specifications/specs/boot_loader_specification/
 
         * Boot time console output has been improved to provide
           animated boot time output for hanging jobs.
