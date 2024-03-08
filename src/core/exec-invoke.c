@@ -4733,7 +4733,7 @@ int exec_invoke(
         }
 
         if (context->memory_ksm >= 0)
-                if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm) < 0) {
+                if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm, 0, 0, 0) < 0) {
                         if (ERRNO_IS_NOT_SUPPORTED(errno))
                                 log_exec_debug_errno(context,
                                                      params,
