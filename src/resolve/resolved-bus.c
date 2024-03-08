@@ -1890,6 +1890,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
         service->originator = euid;
+        service->from_dbus = true;
 
         r = sd_bus_message_read(message, "sssqqq", &name, &name_template, &type,
                                 &service->port, &service->priority,

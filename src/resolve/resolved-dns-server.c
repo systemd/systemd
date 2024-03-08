@@ -28,7 +28,8 @@ int dns_server_new(
                 const union in_addr_union *in_addr,
                 uint16_t port,
                 int ifindex,
-                const char *server_name) {
+                const char *server_name,
+                bool from_dbus) {
 
         _cleanup_free_ char *name = NULL;
         DnsServer *s;
@@ -67,6 +68,7 @@ int dns_server_new(
                 .port = port,
                 .ifindex = ifindex,
                 .server_name = TAKE_PTR(name),
+                .from_dbus = from_dbus,
         };
 
         dns_server_reset_features(s);
@@ -792,6 +794,17 @@ void dns_server_unlink_all(DnsServer *first) {
         dns_server_unlink(first);
 
         dns_server_unlink_all(next);
+}
+
+void dns_server_unlink_on_reload(DnsServer *server) {
+        while (server) {
+                DnsServer *next = server->servers_next;
+
+                if (!server->from_dbus)
+                        dns_server_unlink(server);
+
+                server = next;
+        }
 }
 
 bool dns_server_unlink_marked(DnsServer *server) {
