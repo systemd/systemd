@@ -155,7 +155,7 @@
 #define __ONCE(o)                                                  \
         ({                                                         \
                 static bool (o) = false;                           \
-                __atomic_exchange_n(&(o), true, __ATOMIC_SEQ_CST); \
+                __atomic_exchange_n(&(o), true, __ATOMIC_RELAXED); \
         })
 
 #define U64_KB UINT64_C(1024)
