@@ -23,6 +23,10 @@ int icmp6_bind(int ifindex, bool is_router) {
         return test_fd[is_router];
 }
 
+int icmp6_send(int fd, const struct sockaddr_in6 *dst, const struct iovec *iov, size_t n_iov) {
+        return writev(fd, iov, n_iov);
+}
+
 int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
         static const struct nd_router_solicit header = {
                 .nd_rs_type = ND_ROUTER_SOLICIT,

@@ -3,8 +3,10 @@
 
 #include <inttypes.h>
 #include <net/ethernet.h>
+#include <netinet/icmp6.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
+#include <sys/uio.h>
 
 #include "sd-ndisc-protocol.h"
 
@@ -160,3 +162,5 @@ int ndisc_option_add_prefix64(
                 uint8_t prefixlen,
                 const struct in6_addr *prefix,
                 usec_t lifetime);
+
+int ndisc_send(int fd, const struct sockaddr_in6 *dst, const struct icmp6_hdr *hdr, Set *options);
