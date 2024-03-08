@@ -29,7 +29,7 @@ Before=shutdown.target initrd-switch-root.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={{BINDIR}}/systemd-repart --dry-run=no
+ExecStart=systemd-repart --dry-run=no
 
 # The tool returns 76 if it can't find the root block device
 SuccessExitStatus=76
