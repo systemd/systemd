@@ -24,7 +24,10 @@
   <refsynopsisdiv>
     <para><simplelist>
       <member><filename>/etc/systemd/oomd.conf</filename></member>
+      <member><filename>/run/systemd/oomd.conf</filename></member>
+      <member><filename>/usr/lib/systemd/oomd.conf</filename></member>
       <member><filename>/etc/systemd/oomd.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/oomd.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/oomd.conf.d/*.conf</filename></member>
     </simplelist></para>
   </refsynopsisdiv>

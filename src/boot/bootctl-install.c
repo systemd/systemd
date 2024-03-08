@@ -81,42 +81,50 @@ static int load_etc_machine_info(void) {
         return 0;
 }
 
-static int load_kernel_install_conf_one(const char *dir) {
-        _cleanup_free_ char *layout = NULL, *p = NULL;
+static int load_kernel_install_conf(void) {
+        _cleanup_free_ char *layout = NULL;
+        const ConfigTableItem items[] = {
+                { NULL, "layout",           config_parse_string, 0, &layout           },
+                {}
+        };
         int r;
 
-        assert(dir);
+        const char *conf_root = getenv("KERNEL_INSTALL_CONF_ROOT");
 
-        p = path_join(arg_root, dir, "install.conf");
-        if (!p)
-                return log_oom();
+        if (conf_root) {
+                _cleanup_free_ char *conf = NULL;
 
-        r = parse_env_file(NULL, p, "layout", &layout);
-        if (r == -ENOENT)
-                return 0;
+                conf = path_join(conf_root, "install.conf");
+                if (!conf)
+                        return log_oom();
+
+                r = config_parse_many(
+                                STRV_MAKE_CONST(conf),
+                                STRV_MAKE_CONST(conf_root),
+                                "install.conf.d",
+                                /* root= */ NULL, /* $KERNEL_INSTALL_CONF_ROOT and --root are independent */
+                                /* sections= */ NULL,
+                                config_item_table_lookup, items,
+                                CONFIG_PARSE_WARN,
+                                /* userdata = */ NULL,
+                                /* ret_stats_by_path= */ NULL,
+                                /* ret_dropin_files= */ NULL);
+        } else
+                r = config_parse_standard_file_with_dropins_full(
+                                arg_root,
+                                "kernel/install.conf",
+                                /* sections= */ NULL,
+                                config_item_table_lookup, items,
+                                CONFIG_PARSE_WARN,
+                                /* userdata = */ NULL,
+                                /* ret_stats_by_path= */ NULL,
+                                /* ret_dropin_files= */ NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse %s: %m", p);
+                return r == -ENOENT ? 0 : r;
 
         if (!isempty(layout)) {
-                log_debug("layout=%s is specified in %s.", layout, p);
+                log_debug("layout=%s is specified in config.", layout);
                 free_and_replace(arg_install_layout, layout);
-        }
-
-        return 1;
-}
-
-static int load_kernel_install_conf(void) {
-        const char *conf_root;
-        int r;
-
-        conf_root = getenv("KERNEL_INSTALL_CONF_ROOT");
-        if (conf_root)
-                return load_kernel_install_conf_one(conf_root);
-
-        FOREACH_STRING(p, "/etc/kernel", "/usr/lib/kernel") {
-                r = load_kernel_install_conf_one(p);
-                if (r != 0)
-                        return r;
         }
 
         return 0;

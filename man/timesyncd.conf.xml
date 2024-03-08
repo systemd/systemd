@@ -24,6 +24,8 @@
   <refsynopsisdiv>
     <para><simplelist>
       <member><filename>/etc/systemd/timesyncd.conf</filename></member>
+      <member><filename>/run/systemd/timesyncd.conf</filename></member>
+      <member><filename>/usr/lib/systemd/timesyncd.conf</filename></member>
       <member><filename>/etc/systemd/timesyncd.conf.d/*.conf</filename></member>
       <member><filename>/run/systemd/timesyncd.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/timesyncd.conf.d/*.conf</filename></member>

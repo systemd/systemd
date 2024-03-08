@@ -145,9 +145,12 @@ int parse_sleep_config(SleepConfig **ret) {
                 {}
         };
 
-        (void) config_parse_config_file("sleep.conf", "Sleep\0",
-                                        config_item_table_lookup, items,
-                                        CONFIG_PARSE_WARN, NULL);
+        (void) config_parse_standard_file_with_dropins(
+                        "systemd/sleep.conf",
+                        "Sleep\0",
+                        config_item_table_lookup, items,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ NULL);
 
         /* use default values unless set */
         sc->allow[SLEEP_SUSPEND] = allow_suspend != 0;
