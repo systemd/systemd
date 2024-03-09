@@ -120,6 +120,7 @@ simple_tests += files(
         'test-lock-util.c',
         'test-log.c',
         'test-logarithm.c',
+        'test-login-util.c',
         'test-macro.c',
         'test-memfd-util.c',
         'test-memory-util.c',

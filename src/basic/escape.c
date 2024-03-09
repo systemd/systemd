@@ -451,6 +451,12 @@ char* octescape(const char *s, size_t len) {
 
         assert(s || len == 0);
 
+        if (len == SIZE_MAX)
+                len = strlen(s);
+
+        if (len > (SIZE_MAX - 1) / 4)
+                return NULL;
+
         t = buf = new(char, len * 4 + 1);
         if (!buf)
                 return NULL;

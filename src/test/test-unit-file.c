@@ -26,7 +26,7 @@ TEST(unit_validate_alias_symlink_and_warn) {
 }
 
 TEST(unit_file_build_name_map) {
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_hashmap_free_ Hashmap *unit_ids = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_names = NULL;
         const char *k, *dst;

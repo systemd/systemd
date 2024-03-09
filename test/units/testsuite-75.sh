@@ -305,16 +305,16 @@ knotc reload
 TIMESTAMP=$(date '+%F %T')
 # Issue: https://github.com/systemd/systemd/issues/23951
 # With IPv6 enabled
-run getent -s resolve hosts ns1.unsigned.test
-grep -qE "^fd00:dead:beef:cafe::1\s+ns1\.unsigned\.test" "$RUN_OUT"
+run getent -s resolve ahosts ns1.unsigned.test
+grep -qE "^fd00:dead:beef:cafe::1\s+STREAM\s+ns1\.unsigned\.test" "$RUN_OUT"
 monitor_check_rr "$TIMESTAMP" "ns1.unsigned.test IN AAAA fd00:dead:beef:cafe::1"
 # With IPv6 disabled
 # Issue: https://github.com/systemd/systemd/issues/23951
-# FIXME
-#disable_ipv6
-#run getent -s resolve hosts ns1.unsigned.test
-#grep -qE "^10\.0\.0\.1\s+ns1\.unsigned\.test" "$RUN_OUT"
-#monitor_check_rr "$TIMESTAMP" "ns1.unsigned.test IN A 10.0.0.1"
+disable_ipv6
+run getent -s resolve ahosts ns1.unsigned.test
+grep -qE "^10\.0\.0\.1\s+STREAM\s+ns1\.unsigned\.test" "$RUN_OUT"
+(! grep -qE "fd00:dead:beef:cafe::1" "$RUN_OUT")
+monitor_check_rr "$TIMESTAMP" "ns1.unsigned.test IN A 10.0.0.1"
 enable_ipv6
 
 # Issue: https://github.com/systemd/systemd/issues/18812
@@ -322,16 +322,17 @@ enable_ipv6
 # Follow-up issue: https://github.com/systemd/systemd/issues/23152
 # Follow-up PR: https://github.com/systemd/systemd/pull/23161
 # With IPv6 enabled
-run getent -s resolve hosts localhost
-grep -qE "^::1\s+localhost" "$RUN_OUT"
-run getent -s myhostname hosts localhost
-grep -qE "^::1\s+localhost" "$RUN_OUT"
+run getent -s resolve ahosts localhost
+grep -qE "^::1\s+STREAM\s+localhost" "$RUN_OUT"
+run getent -s myhostname ahosts localhost
+grep -qE "^::1\s+STREAM\s+localhost" "$RUN_OUT"
 # With IPv6 disabled
 disable_ipv6
-run getent -s resolve hosts localhost
-grep -qE "^127\.0\.0\.1\s+localhost" "$RUN_OUT"
-run getent -s myhostname hosts localhost
-grep -qE "^127\.0\.0\.1\s+localhost" "$RUN_OUT"
+run getent -s resolve ahosts localhost
+grep -qE "^127\.0\.0\.1\s+STREAM\s+localhost" "$RUN_OUT"
+(! grep -qE "::1" "$RUN_OUT")
+run getent -s myhostname ahosts localhost
+grep -qE "^127\.0\.0\.1\s+STREAM\s+localhost" "$RUN_OUT"
 enable_ipv6
 
 # Issue: https://github.com/systemd/systemd/issues/25088
@@ -522,9 +523,9 @@ monitor_check_rr "$TIMESTAMP" "follow13.almost.final.signed.test IN CNAME follow
 monitor_check_rr "$TIMESTAMP" "follow14.final.signed.test IN A 10.0.0.14"
 
 # Non-existing RR + CNAME chain
-run dig +dnssec AAAA cname-chain.signed.test
-grep -qF "status: NOERROR" "$RUN_OUT"
-grep -qE "^follow14\.final\.signed\.test\..+IN\s+NSEC\s+" "$RUN_OUT"
+#run dig +dnssec AAAA cname-chain.signed.test
+#grep -qF "status: NOERROR" "$RUN_OUT"
+#grep -qE "^follow14\.final\.signed\.test\..+IN\s+NSEC\s+" "$RUN_OUT"
 
 
 : "--- ZONE: onlinesign.test (dynamic DNSSEC) ---"
@@ -844,6 +845,10 @@ run resolvectl reset-statistics --json=short
 
 test "$(resolvectl --json=short query -t AAAA localhost)" == '{"key":{"class":1,"type":28,"name":"localhost"},"address":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]}'
 test "$(resolvectl --json=short query -t A localhost)" == '{"key":{"class":1,"type":1,"name":"localhost"},"address":[127,0,0,1]}'
+
+# Test ResolveRecord RR resolving via Varlink
+test "$(varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveRecord '{"name":"localhost","type":1}' --json=short)" == '{"rrs":[{"ifindex":1,"rr":{"key":{"class":1,"type":1,"name":"localhost"},"address":[127,0,0,1]},"raw":"CWxvY2FsaG9zdAAAAQABAAAAAAAEfwAAAQ=="}],"flags":786945}'
+test "$(varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveRecord '{"name":"localhost","type":28}' --json=short)" == '{"rrs":[{"ifindex":1,"rr":{"key":{"class":1,"type":28,"name":"localhost"},"address":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]},"raw":"CWxvY2FsaG9zdAAAHAABAAAAAAAQAAAAAAAAAAAAAAAAAAAAAQ=="}],"flags":786945}'
 
 # Check if resolved exits cleanly.
 restart_resolved

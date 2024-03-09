@@ -439,6 +439,20 @@ static int synthesize_gateway_ptr(
         return answer_add_addresses_ptr(answer, "_gateway", addresses, n, af, address);
 }
 
+bool shall_synthesize_own_hostname_rrs(void) {
+        static int cached = -1;
+        int r;
+
+        if (cached >= 0)
+                return cached;
+
+        r = secure_getenv_bool("SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME: %m");
+
+        return (cached = (r != 0));
+}
+
 int dns_synthesize_answer(
                 Manager *m,
                 DnsQuestion *q,
@@ -463,7 +477,7 @@ int dns_synthesize_answer(
 
                 name = dns_resource_key_name(key);
 
-                if (dns_name_is_root(name)) {
+                if (dns_name_is_root(name) || dns_name_endswith(name, "resolver.arpa") > 0) {
                         /* Do nothing. */
 
                 } else if (dns_name_dont_resolve(name)) {
@@ -479,8 +493,9 @@ int dns_synthesize_answer(
 
                 } else if (manager_is_own_hostname(m, name)) {
 
-                        if (getenv_bool("SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME") == 0)
+                        if (!shall_synthesize_own_hostname_rrs())
                                 continue;
+
                         r = synthesize_system_hostname_rr(m, key, ifindex, &answer);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to synthesize system hostname RRs: %m");
@@ -530,7 +545,7 @@ int dns_synthesize_answer(
                 } else if (dns_name_address(name, &af, &address) > 0) {
                         int v, w, u;
 
-                        if (getenv_bool("SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME") == 0)
+                        if (!shall_synthesize_own_hostname_rrs())
                                 continue;
 
                         v = synthesize_system_hostname_ptr(m, af, &address, ifindex, &answer);

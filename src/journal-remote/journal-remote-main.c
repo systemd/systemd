@@ -746,9 +746,12 @@ static int parse_config(void) {
                 {}
         };
 
-        return config_parse_config_file("journal-remote.conf", "Remote\0",
-                                        config_item_table_lookup, items,
-                                        CONFIG_PARSE_WARN, NULL);
+        return config_parse_standard_file_with_dropins(
+                        "systemd/journal-remote.conf",
+                        "Remote\0",
+                        config_item_table_lookup, items,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ NULL);
 }
 
 static int help(void) {

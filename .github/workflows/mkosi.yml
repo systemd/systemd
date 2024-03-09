@@ -59,24 +59,24 @@ jobs:
           - distro: debian
             release: testing
           - distro: ubuntu
-            release: jammy
+            release: noble
           - distro: fedora
             release: "39"
           - distro: fedora
             release: rawhide
-          - distro: opensuse
-            release: tumbleweed
+          # TODO: Re-enable once https://lists.opensuse.org/archives/list/factory@lists.opensuse.org/thread/AU4NWTBXNA7MVAUXWR74XYCHCSZN4Z4K/
+          # is resolved or https://build.opensuse.org/request/show/1152118 is merged.
+          # - distro: opensuse
+          #   release: tumbleweed
           - distro: centos
             release: "9"
-          - distro: centos
-            release: "8"
 
     env:
       SYSTEMD_LOG_LEVEL: debug
 
     steps:
     - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
-    - uses: systemd/mkosi@070528fec478fc93af7ec057a5d2fd0045123c99
+    - uses: systemd/mkosi@ea1b00c3dba12662214b2e95dd1fe837cb13664b
 
     - name: Free disk space
       run: |
@@ -93,10 +93,6 @@ jobs:
         [Output]
         # Build a disk image in CI as this logic is much more prone to breakage.
         Format=disk
-
-        [Content]
-        Environment=CI_BUILD=1
-                    SLOW_TESTS=true
 
         [Host]
         ToolsTree=default

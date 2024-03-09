@@ -15,6 +15,8 @@ typedef struct LookupParameters {
         union in_addr_union address;
         size_t address_size;
         char *name;
+        uint16_t class;
+        uint16_t type;
 } LookupParameters;
 
 typedef struct LookupParametersResolveService {
@@ -162,6 +164,7 @@ static bool validate_and_mangle_flags(
                        SD_RESOLVED_NO_TRUST_ANCHOR|
                        SD_RESOLVED_NO_NETWORK|
                        SD_RESOLVED_NO_STALE|
+                       SD_RESOLVED_RELAX_SINGLE_LABEL|
                        ok))
                 return false;
 
@@ -1073,6 +1076,158 @@ static int vl_method_resolve_service(Varlink* link, JsonVariant* parameters, Var
         return 1;
 }
 
+static void vl_method_resolve_record_complete(DnsQuery *query) {
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *q = query;
+        DnsQuestion *question;
+        int r;
+
+        assert(q);
+
+        if (q->state != DNS_TRANSACTION_SUCCESS) {
+                r = reply_query_state(q);
+                goto finish;
+        }
+
+        r = dns_query_process_cname_many(q);
+        if (r == -ELOOP) {
+                r = varlink_error(q->varlink_request, "io.systemd.Resolve.CNAMELoop", NULL);
+                goto finish;
+        }
+        if (r < 0)
+                goto finish;
+        if (r == DNS_QUERY_CNAME) {
+                /* This was a cname, and the query was restarted. */
+                TAKE_PTR(q);
+                return;
+        }
+
+        question = dns_query_question_for_protocol(q, q->answer_protocol);
+
+        unsigned added = 0;
+        int ifindex;
+        DnsResourceRecord *rr;
+        DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                r = dns_question_matches_rr(question, rr, NULL);
+                if (r < 0)
+                        goto finish;
+                if (r == 0)
+                        continue;
+
+                r = dns_resource_record_to_json(rr, &v);
+                if (r < 0)
+                        goto finish;
+
+                r = dns_resource_record_to_wire_format(rr, /* canonical= */ false); /* don't use DNSSEC canonical format, since it removes casing, but we want that for DNS_SD compat */
+                if (r < 0)
+                        goto finish;
+
+                r = json_variant_append_arrayb(
+                                &array,
+                                JSON_BUILD_OBJECT(JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
+                                                  JSON_BUILD_PAIR_CONDITION(v, "rr", JSON_BUILD_VARIANT(v)),
+                                                  JSON_BUILD_PAIR("raw", JSON_BUILD_BASE64(rr->wire_format, rr->wire_format_size))));
+                if (r < 0)
+                        goto finish;
+
+                added++;
+        }
+
+        if (added <= 0) {
+                r = varlink_error(q->varlink_request, "io.systemd.Resolve.NoSuchResourceRecord", NULL);
+                goto finish;
+        }
+
+        r = varlink_replyb(q->varlink_request,
+                           JSON_BUILD_OBJECT(
+                                           JSON_BUILD_PAIR("rrs", JSON_BUILD_VARIANT(array)),
+                                           JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(dns_query_reply_flags_make(q)))));
+finish:
+        if (r < 0) {
+                log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_ERR, r, "Failed to send record reply: %m");
+                varlink_error_errno(q->varlink_request, r);
+        }
+}
+
+static int vl_method_resolve_record(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                { "ifindex", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,    offsetof(LookupParameters, ifindex), 0              },
+                { "name",    JSON_VARIANT_STRING,        json_dispatch_string, offsetof(LookupParameters, name),    JSON_MANDATORY },
+                { "class",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint16, offsetof(LookupParameters, class),  0              },
+                { "type",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint16, offsetof(LookupParameters, type),   JSON_MANDATORY },
+                { "flags",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(LookupParameters, flags),   0              },
+                {}
+        };
+
+        _cleanup_(lookup_parameters_destroy) LookupParameters p = {
+                .class = DNS_CLASS_IN,
+                .type = _DNS_TYPE_INVALID,
+        };
+        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        Manager *m;
+        int r;
+
+        assert(link);
+
+        m = ASSERT_PTR(varlink_server_get_userdata(varlink_get_server(link)));
+
+        if (FLAGS_SET(flags, VARLINK_METHOD_ONEWAY))
+                return -EINVAL;
+
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.ifindex < 0)
+                return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("ifindex"));
+
+        r = dns_name_is_valid(p.name);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("name"));
+
+        if (!dns_type_is_valid_query(p.type))
+                return varlink_error(link, "io.systemd.Resolve.ResourceRecordTypeInvalidForQuery", NULL);
+        if (dns_type_is_zone_transfer(p.type))
+                return varlink_error(link, "io.systemd.Resolve.ZoneTransfersNotPermitted", NULL);
+        if (dns_type_is_obsolete(p.type))
+                return varlink_error(link, "io.systemd.Resolve.ResourceRecordTypeObsolete", NULL);
+
+        if (!validate_and_mangle_flags(p.name, &p.flags, SD_RESOLVED_NO_SEARCH))
+                return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
+
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = dns_question_new(1);
+        if (!question)
+                return -ENOMEM;
+
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        key = dns_resource_key_new(p.class, p.type, p.name);
+        if (!key)
+                return -ENOMEM;
+
+        r = dns_question_add(question, key, /* flags= */ 0);
+        if (r < 0)
+                return r;
+
+        r = dns_query_new(m, &q, question, question, NULL, p.ifindex, p.flags|SD_RESOLVED_NO_SEARCH|SD_RESOLVED_CLAMP_TTL);
+        if (r < 0)
+                return r;
+
+        q->varlink_request = varlink_ref(link);
+        varlink_set_userdata(link, q);
+        q->complete = vl_method_resolve_record_complete;
+
+        r = dns_query_go(q);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(q);
+        return 1;
+}
+
 static int vl_method_subscribe_query_results(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
         Manager *m;
         int r;
@@ -1296,9 +1451,10 @@ static int varlink_main_server_init(Manager *m) {
 
         r = varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Resolve.ResolveHostname",  vl_method_resolve_hostname,
-                        "io.systemd.Resolve.ResolveAddress", vl_method_resolve_address,
-                        "io.systemd.Resolve.ResolveService", vl_method_resolve_service);
+                        "io.systemd.Resolve.ResolveHostname", vl_method_resolve_hostname,
+                        "io.systemd.Resolve.ResolveAddress",  vl_method_resolve_address,
+                        "io.systemd.Resolve.ResolveService",  vl_method_resolve_service,
+                        "io.systemd.Resolve.ResolveRecord",   vl_method_resolve_record);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 

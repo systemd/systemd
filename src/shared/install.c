@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bus-common-errors.h"
 #include "chase.h"
 #include "conf-files.h"
 #include "conf-parser.h"
@@ -324,130 +325,171 @@ InstallChangeType install_changes_add(
 void install_changes_free(InstallChange *changes, size_t n_changes) {
         assert(changes || n_changes == 0);
 
-        for (size_t i = 0; i < n_changes; i++) {
-                free(changes[i].path);
-                free(changes[i].source);
+        FOREACH_ARRAY(i, changes, n_changes) {
+                free(i->path);
+                free(i->source);
         }
 
         free(changes);
 }
 
-void install_changes_dump(int r, const char *verb, const InstallChange *changes, size_t n_changes, bool quiet) {
-        int err = 0;
+static void install_change_dump_success(const InstallChange *change) {
+        assert(change);
+        assert(change->path);
 
-        assert(changes || n_changes == 0);
-        /* If verb is not specified, errors are not allowed! */
-        assert(verb || r >= 0);
+        switch (change->type) {
 
-        for (size_t i = 0; i < n_changes; i++) {
-                assert(changes[i].path);
-                /* This tries to tell the compiler that it's safe to use 'verb' in a string format if there
-                 * was an error, but the compiler doesn't care and fails anyway, so strna(verb) is used
-                 * too. */
-                assert(verb || changes[i].type >= 0);
-                verb = strna(verb);
+        case INSTALL_CHANGE_SYMLINK:
+                return log_info("Created symlink '%s' %s '%s'.",
+                                change->path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), change->source);
 
-                /* When making changes here, make sure to also change install_error() in dbus-manager.c. */
+        case INSTALL_CHANGE_UNLINK:
+                return log_info("Removed '%s'.", change->path);
 
-                switch (changes[i].type) {
-                case INSTALL_CHANGE_SYMLINK:
-                        if (!quiet)
-                                log_info("Created symlink %s %s %s.",
-                                         changes[i].path,
-                                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
-                                         changes[i].source);
-                        break;
-                case INSTALL_CHANGE_UNLINK:
-                        if (!quiet)
-                                log_info("Removed \"%s\".", changes[i].path);
-                        break;
-                case INSTALL_CHANGE_IS_MASKED:
-                        if (!quiet)
-                                log_info("Unit %s is masked, ignoring.", changes[i].path);
-                        break;
-                case INSTALL_CHANGE_IS_MASKED_GENERATOR:
-                        if (!quiet)
-                                log_info("Unit %s is masked via a generator and cannot be unmasked.",
-                                         changes[i].path);
-                        break;
-                case INSTALL_CHANGE_IS_DANGLING:
-                        if (!quiet)
-                                log_info("Unit %s is an alias to a unit that is not present, ignoring.",
-                                         changes[i].path);
-                        break;
-                case INSTALL_CHANGE_DESTINATION_NOT_PRESENT:
-                        if (!quiet)
-                                log_warning("Unit %s is added as a dependency to a non-existent unit %s.",
-                                            changes[i].source, changes[i].path);
-                        break;
-                case INSTALL_CHANGE_AUXILIARY_FAILED:
-                        if (!quiet)
-                                log_warning("Failed to enable auxiliary unit %s, ignoring.", changes[i].path);
-                        break;
-                case -EEXIST:
-                        if (changes[i].source)
-                                err = log_error_errno(changes[i].type,
-                                                      "Failed to %s unit, file \"%s\" already exists and is a symlink to \"%s\".",
-                                                      verb, changes[i].path, changes[i].source);
-                        else
-                                err = log_error_errno(changes[i].type,
-                                                      "Failed to %s unit, file \"%s\" already exists.",
-                                                      verb, changes[i].path);
-                        break;
-                case -ERFKILL:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, unit %s is masked.",
-                                              verb, changes[i].path);
-                        break;
-                case -EADDRNOTAVAIL:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, unit %s is transient or generated.",
-                                              verb, changes[i].path);
-                        break;
-                case -ETXTBSY:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, file %s is under the systemd unit hierarchy already.",
-                                              verb, changes[i].path);
-                        break;
-                case -EBADSLT:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, invalid specifier in \"%s\".",
-                                              verb, changes[i].path);
-                        break;
-                case -EIDRM:
-                        err = log_error_errno(changes[i].type, "Failed to %s %s, destination unit %s is a non-template unit.",
-                                              verb, changes[i].source, changes[i].path);
-                        break;
-                case -EUCLEAN:
-                        err = log_error_errno(changes[i].type,
-                                              "Failed to %s unit, \"%s\" is not a valid unit name.",
-                                              verb, changes[i].path);
-                        break;
-                case -ELOOP:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, refusing to operate on linked unit file %s.",
-                                              verb, changes[i].path);
-                        break;
-                case -EXDEV:
-                        if (changes[i].source)
-                                err = log_error_errno(changes[i].type, "Failed to %s unit, cannot alias %s as %s.",
-                                                      verb, changes[i].source, changes[i].path);
-                        else
-                                err = log_error_errno(changes[i].type, "Failed to %s unit, invalid unit reference \"%s\".",
-                                                      verb, changes[i].path);
-                        break;
-                case -ENOENT:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, unit %s does not exist.",
-                                              verb, changes[i].path);
-                        break;
-                case -EUNATCH:
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, cannot resolve specifiers in \"%s\".",
-                                              verb, changes[i].path);
-                        break;
-                default:
-                        assert(changes[i].type < 0);
-                        err = log_error_errno(changes[i].type, "Failed to %s unit, file \"%s\": %m",
-                                              verb, changes[i].path);
-                }
+        case INSTALL_CHANGE_IS_MASKED:
+                return log_info("Unit %s is masked, ignoring.", change->path);
+
+        case INSTALL_CHANGE_IS_MASKED_GENERATOR:
+                return log_info("Unit %s is masked via a generator and cannot be unmasked, skipping.", change->path);
+
+        case INSTALL_CHANGE_IS_DANGLING:
+                return log_info("Unit %s is an alias to a non-existent unit, ignoring.", change->path);
+
+        case INSTALL_CHANGE_DESTINATION_NOT_PRESENT:
+                return log_warning("Unit %s is added as a dependency to a non-existent unit %s.",
+                                   change->source, change->path);
+
+        case INSTALL_CHANGE_AUXILIARY_FAILED:
+                return log_warning("Failed to enable auxiliary unit %s, ignoring.", change->path);
+
+        default:
+                assert_not_reached();
         }
+}
 
-        if (r < 0 && err >= 0)
-                log_error_errno(r, "Failed to %s: %m.", verb);
+int install_change_dump_error(const InstallChange *change, char **ret_errmsg, const char **ret_bus_error) {
+        char *m;
+        const char *bus_error;
+
+        /* Returns 0:   known error and ret_errmsg formatted
+         *         < 0: non-recognizable error */
+
+        assert(change);
+        assert(change->path);
+        assert(change->type < 0);
+        assert(ret_errmsg);
+
+        switch (change->type) {
+
+        case -EEXIST:
+                m = strjoin("File '", change->path, "' already exists",
+                            change->source ? " and is a symlink to " : NULL, change->source);
+                bus_error = BUS_ERROR_UNIT_EXISTS;
+                break;
+
+        case -ERFKILL:
+                m = strjoin("Unit ", change->path, " is masked");
+                bus_error = BUS_ERROR_UNIT_MASKED;
+                break;
+
+        case -EADDRNOTAVAIL:
+                m = strjoin("Unit ", change->path, " is transient or generated");
+                bus_error = BUS_ERROR_UNIT_GENERATED;
+                break;
+
+        case -ETXTBSY:
+                m = strjoin("File '", change->path, "' is under the systemd unit hierarchy already");
+                bus_error = BUS_ERROR_UNIT_BAD_PATH;
+                break;
+
+        case -EBADSLT:
+                m = strjoin("Invalid specifier in unit ", change->path);
+                bus_error = BUS_ERROR_BAD_UNIT_SETTING;
+                break;
+
+        case -EIDRM:
+                m = strjoin("Refusing to operate on template unit ", change->source,
+                            " when destination unit ", change->path, " is a non-template unit");
+                bus_error = BUS_ERROR_BAD_UNIT_SETTING;
+                break;
+
+        case -EUCLEAN:
+                m = strjoin("Invalid unit name ", change->path);
+                bus_error = BUS_ERROR_BAD_UNIT_SETTING;
+                break;
+
+        case -ELOOP:
+                m = strjoin("Refusing to operate on linked unit file ", change->path);
+                bus_error = BUS_ERROR_UNIT_LINKED;
+                break;
+
+        case -EXDEV:
+                if (change->source)
+                        m = strjoin("Cannot alias ", change->source, " as ", change->path);
+                else
+                        m = strjoin("Invalid unit reference ", change->path);
+                bus_error = BUS_ERROR_BAD_UNIT_SETTING;
+                break;
+
+        case -ENOENT:
+                m = strjoin("Unit ", change->path, " does not exist");
+                bus_error = BUS_ERROR_NO_SUCH_UNIT;
+                break;
+
+        case -EUNATCH:
+                m = strjoin("Cannot resolve specifiers in unit ", change->path);
+                bus_error = BUS_ERROR_BAD_UNIT_SETTING;
+                break;
+
+        default:
+                return change->type;
+        }
+        if (!m)
+                return -ENOMEM;
+
+        *ret_errmsg = m;
+        if (ret_bus_error)
+                *ret_bus_error = bus_error;
+
+        return 0;
+}
+
+void install_changes_dump(
+                int error,
+                const char *verb,
+                const InstallChange *changes,
+                size_t n_changes,
+                bool quiet) {
+
+        bool err_logged = false;
+        int r;
+
+        /* If verb is not specified, errors are not allowed! */
+        assert(verb || error >= 0);
+        assert(changes || n_changes == 0);
+
+        FOREACH_ARRAY(i, changes, n_changes)
+                if (i->type >= 0) {
+                        if (!quiet)
+                                install_change_dump_success(i);
+                } else {
+                        _cleanup_free_ char *err_message = NULL;
+
+                        assert(verb);
+
+                        r = install_change_dump_error(i, &err_message, /* ret_bus_error = */ NULL);
+                        if (r == -ENOMEM)
+                                return (void) log_oom();
+                        if (r < 0)
+                                log_error_errno(r, "Failed to %s unit %s: %m", verb, i->path);
+                        else
+                                log_error_errno(i->type, "Failed to %s unit: %s", verb, err_message);
+
+                        err_logged = true;
+                }
+
+        if (error < 0 && !err_logged)
+                log_error_errno(error, "Failed to %s unit: %m.", verb);
 }
 
 /**
@@ -1892,7 +1934,7 @@ static int install_info_symlink_alias(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        int r = 0, q;
+        int r, ret = 0;
 
         assert(info);
         assert(lp);
@@ -1900,20 +1942,17 @@ static int install_info_symlink_alias(
 
         STRV_FOREACH(s, info->aliases) {
                 _cleanup_free_ char *alias_path = NULL, *dst = NULL, *dst_updated = NULL;
-                bool broken;
 
-                q = install_name_printf(scope, info, *s, &dst);
-                if (q < 0) {
-                        install_changes_add(changes, n_changes, q, *s, NULL);
-                        r = r < 0 ? r : q;
+                r = install_name_printf(scope, info, *s, &dst);
+                if (r < 0) {
+                        RET_GATHER(ret, install_changes_add(changes, n_changes, r, *s, NULL));
                         continue;
                 }
 
-                q = unit_file_verify_alias(info, dst, &dst_updated, changes, n_changes);
-                if (q == -ELOOP)
-                        continue;
-                if (q < 0) {
-                        r = r < 0 ? r : q;
+                r = unit_file_verify_alias(info, dst, &dst_updated, changes, n_changes);
+                if (r < 0) {
+                        if (r != -ELOOP)
+                                RET_GATHER(ret, r);
                         continue;
                 }
 
@@ -1921,18 +1960,18 @@ static int install_info_symlink_alias(
                 if (!alias_path)
                         return -ENOMEM;
 
-                q = chase(alias_path, lp->root_dir, CHASE_NONEXISTENT, NULL, NULL);
-                if (q < 0 && q != -ENOENT) {
-                        r = r < 0 ? r : q;
+                bool broken;
+                r = chase(alias_path, lp->root_dir, CHASE_NONEXISTENT, /* ret_path = */ NULL, /* ret_fd = */ NULL);
+                if (r < 0 && r != -ENOENT) {
+                        RET_GATHER(ret, r);
                         continue;
                 }
-                broken = q == 0; /* symlink target does not exist? */
+                broken = r == 0; /* symlink target does not exist? */
 
-                q = create_symlink(lp, info->path, alias_path, force || broken, changes, n_changes);
-                r = r < 0 ? r : q;
+                RET_GATHER(ret, create_symlink(lp, info->path, alias_path, force || broken, changes, n_changes));
         }
 
-        return r;
+        return ret;
 }
 
 static int install_info_symlink_wants(
@@ -1995,10 +2034,7 @@ static int install_info_symlink_wants(
 
                 q = install_name_printf(scope, info, *s, &dst);
                 if (q < 0) {
-                        install_changes_add(changes, n_changes, q, *s, NULL);
-                        if (r >= 0)
-                                r = q;
-
+                        RET_GATHER(r, install_changes_add(changes, n_changes, q, *s, NULL));
                         continue;
                 }
 
@@ -2010,15 +2046,13 @@ static int install_info_symlink_wants(
                          * 'systemctl enable serial-getty@.service' should fail, the user should specify an
                          * instance like in 'systemctl enable serial-getty@ttyS0.service'.
                          */
-                        if (file_flags & UNIT_FILE_IGNORE_AUXILIARY_FAILURE)
+                        if (FLAGS_SET(file_flags, UNIT_FILE_IGNORE_AUXILIARY_FAILURE))
                                 continue;
 
                         if (unit_name_is_valid(dst, UNIT_NAME_ANY))
-                                q = install_changes_add(changes, n_changes, -EIDRM, dst, n);
+                                RET_GATHER(r, install_changes_add(changes, n_changes, -EIDRM, dst, n));
                         else
-                                q = install_changes_add(changes, n_changes, -EUCLEAN, dst, NULL);
-                        if (r >= 0)
-                                r = q;
+                                RET_GATHER(r, install_changes_add(changes, n_changes, -EUCLEAN, dst, NULL));
 
                         continue;
                 }
@@ -2027,7 +2061,7 @@ static int install_info_symlink_wants(
                 if (!path)
                         return -ENOMEM;
 
-                q = create_symlink(lp, info->path, path, true, changes, n_changes);
+                q = create_symlink(lp, info->path, path, /* force = */ true, changes, n_changes);
                 if ((q < 0 && r >= 0) || r == 0)
                         r = q;
 
@@ -2259,7 +2293,7 @@ int unit_file_mask(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         const char *config_path;
         int r;
 
@@ -2302,7 +2336,7 @@ int unit_file_unmask(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
         _cleanup_strv_free_ char **todo = NULL;
         const char *config_path;
@@ -2414,11 +2448,11 @@ int unit_file_link(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_strv_free_ char **todo = NULL;
         const char *config_path;
         size_t n_todo = 0;
-        int r, q;
+        int r;
 
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
@@ -2487,9 +2521,7 @@ int unit_file_link(
                 if (!new_path)
                         return -ENOMEM;
 
-                q = create_symlink(&lp, *i, new_path, flags & UNIT_FILE_FORCE, changes, n_changes);
-                if (q < 0 && r >= 0)
-                        r = q;
+                RET_GATHER(r, create_symlink(&lp, *i, new_path, flags & UNIT_FILE_FORCE, changes, n_changes));
         }
 
         return r;
@@ -2522,7 +2554,7 @@ int unit_file_revert(
                 size_t *n_changes) {
 
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_strv_free_ char **todo = NULL;
         size_t n_todo = 0;
         int r, q;
@@ -2680,7 +2712,7 @@ int unit_file_add_dependency(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
         InstallInfo *info, *target_info;
         const char *config_path;
@@ -2781,7 +2813,7 @@ int unit_file_enable(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         int r;
 
         assert(scope >= 0);
@@ -2849,7 +2881,7 @@ int unit_file_disable(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         int r;
 
         assert(scope >= 0);
@@ -2932,7 +2964,7 @@ int unit_file_reenable(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL, **files = NULL;
         int r;
 
@@ -2968,7 +3000,7 @@ int unit_file_set_default(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
         InstallInfo *info;
         const char *new_path;
@@ -3000,7 +3032,7 @@ int unit_file_get_default(
                 const char *root_dir,
                 char **name) {
 
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
         InstallInfo *info;
         char *n;
@@ -3131,7 +3163,7 @@ int unit_file_get_state(
                 const char *name,
                 UnitFileState *ret) {
 
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         int r;
 
         assert(scope >= 0);
@@ -3221,8 +3253,8 @@ static int split_pattern_into_name_and_instances(const char *pattern, char **out
 }
 
 static int presets_find_config(RuntimeScope scope, const char *root_dir, char ***files) {
-        static const char* const system_dirs[] = {CONF_PATHS("systemd/system-preset"), NULL};
-        static const char* const user_dirs[] = {CONF_PATHS_USR("systemd/user-preset"), NULL};
+        static const char* const system_dirs[] = { CONF_PATHS("systemd/system-preset"), NULL };
+        static const char* const user_dirs[] = { CONF_PATHS("systemd/user-preset"), NULL };
         const char* const* dirs;
 
         assert(scope >= 0);
@@ -3558,7 +3590,7 @@ int unit_file_preset(
                 size_t *n_changes) {
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
         const char *config_path;
         int r;
@@ -3597,7 +3629,7 @@ int unit_file_preset_all(
                 size_t *n_changes) {
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
         const char *config_path = NULL;
         int r;
@@ -3674,7 +3706,7 @@ int unit_file_get_list(
                 char **states,
                 char **patterns) {
 
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         int r;
 
         assert(scope >= 0);

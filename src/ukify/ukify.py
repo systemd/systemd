@@ -824,6 +824,20 @@ def make_uki(opts):
     if pcrpkey is None:
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
             pcrpkey = opts.pcr_public_keys[0]
+            # If we are getting a certificate when using an engine, we need to convert it to public key format
+            if opts.signing_engine is not None and pathlib.Path(pcrpkey).exists():
+                from cryptography.hazmat.primitives import serialization
+                from cryptography.x509 import load_pem_x509_certificate
+
+                try:
+                    cert = load_pem_x509_certificate(pathlib.Path(pcrpkey).read_bytes())
+                except ValueError:
+                    raise ValueError(f'{pcrpkey} must be an X.509 certificate when signing with an engine')
+                else:
+                    pcrpkey = cert.public_key().public_bytes(
+                        encoding=serialization.Encoding.PEM,
+                        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                    )
         elif opts.pcr_private_keys and len(opts.pcr_private_keys) == 1:
             from cryptography.hazmat.primitives import serialization
             privkey = serialization.load_pem_private_key(pathlib.Path(opts.pcr_private_keys[0]).read_bytes(), password=None)

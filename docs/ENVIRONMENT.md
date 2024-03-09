@@ -357,7 +357,8 @@ All tools:
 `systemd-resolved`:
 
 * `$SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME` — if set to "0", `systemd-resolved`
-  won't synthesize system hostname on both regular and reverse lookups.
+  won't synthesize A/AAAA/PTR RRs for the system hostname on either regular nor
+  reverse lookups.
 
 `systemd-sysext`:
 
@@ -557,6 +558,14 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   `mkfs` when formatting LUKS home directories. There's one variable for each
   of the supported file systems for the LUKS home directory backend.
 
+* `$SYSTEMD_HOME_LOCK_FREEZE_SESSION` - Takes a boolean. When false, the user's
+  session will not be frozen when the home directory is locked. Note that the kernel
+  may still freeze any task that tries to access data from the user's locked home
+  directory. This can lead to data loss, security leaks, or other undesired behavior
+  caused by parts of the session becoming unresponsive due to disk I/O while other
+  parts of the session continue running. Thus, we highly recommend that this variable
+  isn't used unless necessary. Defaults to true.
+
 `kernel-install`:
 
 * `$KERNEL_INSTALL_BYPASS` – If set to "1", execution of kernel-install is skipped
@@ -629,6 +638,14 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 * `$SYSTEMD_MEASURE_LOG_FIRMWARE` – the path to the `binary_bios_measurements`
   file (containing firmware measurement data) to read. This allows overriding
   the default of `/sys/kernel/security/tpm0/binary_bios_measurements`.
+
+`systemd-sleep`:
+
+* `$SYSTEMD_SLEEP_FREEZE_USER_SESSIONS` - Takes a boolean. When true (the default),
+  `user.slice` will be frozen during sleep. When false it will not be. We recommend
+  against using this variable, because it can lead to undesired behavior, especially
+  for systems that use home directory encryption and for
+  `systemd-suspend-then-hibernate.service`.
 
 Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 `busctl`):

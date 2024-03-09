@@ -736,11 +736,12 @@ static int parse_config_file(void) {
         };
 
         if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
-                (void) config_parse_config_file("system.conf",
-                                                "Manager\0",
-                                                config_item_table_lookup, items,
-                                                CONFIG_PARSE_WARN,
-                                                NULL);
+                (void) config_parse_standard_file_with_dropins(
+                                "systemd/system.conf",
+                                "Manager\0",
+                                config_item_table_lookup, items,
+                                CONFIG_PARSE_WARN,
+                                /* userdata= */ NULL);
         else {
                 _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
                 int r;
