@@ -1227,7 +1227,7 @@ static int install_info_add(
                         return -ENOMEM;
         }
 
-        r = ordered_hashmap_ensure_put(&ctx->will_process, &string_hash_ops, alloc->name, alloc);
+        r = ordered_hashmap_ensure_put(&ctx->will_process, &string_hash_ops_free, alloc->name, alloc);
         if (r < 0)
                 return r;
         i = TAKE_PTR(alloc);
@@ -2167,7 +2167,7 @@ static int install_context_apply(
         if (ordered_hashmap_isempty(ctx->will_process))
                 return 0;
 
-        r = ordered_hashmap_ensure_allocated(&ctx->have_processed, &string_hash_ops);
+        r = ordered_hashmap_ensure_allocated(&ctx->have_processed, &string_hash_ops_free);
         if (r < 0)
                 return r;
 
@@ -2239,7 +2239,7 @@ static int install_context_mark_for_removal(
         if (ordered_hashmap_isempty(ctx->will_process))
                 return 0;
 
-        r = ordered_hashmap_ensure_allocated(&ctx->have_processed, &string_hash_ops);
+        r = ordered_hashmap_ensure_allocated(&ctx->have_processed, &string_hash_ops_free);
         if (r < 0)
                 return r;
 
