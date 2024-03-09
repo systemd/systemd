@@ -118,6 +118,7 @@ simple_tests += files(
         'test-locale-util.c',
         'test-lock-util.c',
         'test-log.c',
+        'test-label.c',
         'test-logarithm.c',
         'test-login-util.c',
         'test-macro.c',
