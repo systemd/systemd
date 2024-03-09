@@ -47,6 +47,7 @@ simple_tests += files(
         'test-architecture.c',
         'test-argv-util.c',
         'test-barrier.c',
+        'test-label.c',
         'test-bitfield.c',
         'test-bitmap.c',
         'test-blockdev-util.c',
