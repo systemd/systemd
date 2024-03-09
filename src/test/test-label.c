@@ -24,7 +24,7 @@ TEST(label_ops_set) {
 }
 
 int pre_labelling_func(int dir_fd, const char *path, mode_t mode) {
-    /*sample prelabelling task*/
+    /*sample pre_labelling task*/
     if (dir_fd < 0 || !path || mode == 0)
         return -1;
 
@@ -48,7 +48,7 @@ TEST(label_ops_pre) {
 }
 
 int post_labelling_func(int dir_fd, const char *path) {
-    /*sample postlabelling task*/
+    /*sample post_labelling task*/
 
     if (dir_fd < 0 || !path)
     return -1;
