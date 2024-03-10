@@ -503,7 +503,8 @@
     <title>SMBIOS Type 11 Strings</title>
 
     <para><command>systemd-stub</command> can be configured using SMBIOS Type 11 strings. Applicable strings
-    consist of a name, followed by <literal>=</literal>, followed by the value.
+    consist of a name, followed by <literal>=</literal>, followed by the value. Unless
+    <command>systemd-stub</command> detects it is running inside a confidential computing environment,
     <command>systemd-stub</command> will search the table for a string with a specific name, and if found,
     use its value. The following strings are read:</para>
 
