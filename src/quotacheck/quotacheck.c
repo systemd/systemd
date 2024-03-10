@@ -31,12 +31,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else if (streq(value, "skip"))
                         arg_skip = true;
                 else
-                        log_warning("Invalid quotacheck.mode= parameter '%s'. Ignoring.", value);
+                        log_warning("Invalid quotacheck.mode= value, ignoring: %s", value);
         }
 
 #if HAVE_SYSV_COMPAT
         else if (streq(key, "forcequotacheck") && !value) {
-                log_warning("Please use 'quotacheck.mode=force' rather than 'forcequotacheck' on the kernel command line.");
+                log_warning("Please use 'quotacheck.mode=force' rather than 'forcequotacheck' on the kernel command line. Proceeding anyway.");
                 arg_force = true;
         }
 #endif
@@ -48,7 +48,7 @@ static void test_files(void) {
 
 #if HAVE_SYSV_COMPAT
         if (access("/forcequotacheck", F_OK) >= 0) {
-                log_error("Please pass 'quotacheck.mode=force' on the kernel command line rather than creating /forcequotacheck on the root file system.");
+                log_error("Please pass 'quotacheck.mode=force' on the kernel command line rather than creating /forcequotacheck on the root file system. Proceeding anyway.");
                 arg_force = true;
         }
 #endif
@@ -77,8 +77,15 @@ static int run(int argc, char *argv[]) {
                 if (arg_skip)
                         return 0;
 
-                if (access("/run/systemd/quotacheck", F_OK) < 0)
+                /* This is created by systemd-fsck when fsck detected and corrected errors. In normal
+                 * operations quotacheck is not needed. */
+                if (access("/run/systemd/quotacheck", F_OK) < 0) {
+                        if (errno != ENOENT)
+                                log_warning_errno(errno,
+                                                  "Failed to check whether /run/systemd/quotacheck exists, ignoring: %m");
+
                         return 0;
+                }
         }
 
         if (argc == 2) {
