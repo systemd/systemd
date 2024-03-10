@@ -7,6 +7,9 @@
 #include "sd-dhcp-server.c"
 
 #include "fuzz.h"
+#include "path-util.h"
+#include "rm-rf.h"
+#include "tmpfile-util.h"
 
 /* stub out network so that the server doesn't send */
 ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen) {
@@ -31,7 +34,7 @@ static int add_lease(sd_dhcp_server *server, const struct in_addr *server_addres
                 .n_ref = 1,
                 .address = htobe32(UINT32_C(10) << 24 | i),
                 .chaddr = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 },
-                .expiration = UINT64_MAX,
+                .expiration = usec_add(now(CLOCK_BOOTTIME), USEC_PER_DAY),
                 .gateway = server_address->s_addr,
                 .hlen = ETH_ALEN,
                 .htype = ARPHRD_ETHER,
@@ -62,9 +65,11 @@ static int add_static_lease(sd_dhcp_server *server, uint8_t i) {
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         struct in_addr address = { .s_addr = htobe32(UINT32_C(10) << 24 | UINT32_C(1))};
         _cleanup_free_ uint8_t *duped = NULL;
+        _cleanup_free_ char *lease_file = NULL;
 
         if (size < sizeof(DHCPMessage))
                 return 0;
@@ -73,8 +78,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         assert_se(duped = memdup(data, size));
 
+        assert_se(mkdtemp_malloc(NULL, &tmpdir) >= 0);
+        assert_se(lease_file = path_join(tmpdir, "leases"));
+
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
         assert_se(sd_dhcp_server_attach_event(server, NULL, 0) >= 0);
+        assert_se(sd_dhcp_server_set_lease_file(server, lease_file) >= 0);
         server->fd = open("/dev/null", O_RDWR|O_CLOEXEC|O_NOCTTY);
         assert_se(server->fd >= 0);
         assert_se(sd_dhcp_server_configure_pool(server, &address, 24, 0, 0) >= 0);
@@ -88,6 +97,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(add_static_lease(server, 4) >= 0);
 
         (void) dhcp_server_handle_message(server, (DHCPMessage*) duped, size, NULL);
+
+        assert_se(dhcp_server_save_leases(server) >= 0);
+        server->bound_leases_by_address = hashmap_free(server->bound_leases_by_address);
+        server->bound_leases_by_client_id = hashmap_free(server->bound_leases_by_client_id);
+        assert_se(dhcp_server_load_leases(server) >= 0);
 
         return 0;
 }
