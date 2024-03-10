@@ -38,6 +38,7 @@ static int update_rules_map(
                         .protocol = item->ip_protocol,
                         .nr_ports = item->nr_ports,
                         .port_min = item->port_min,
+                        .initialized = true,
                 };
 
                 uint32_t key = i++;
