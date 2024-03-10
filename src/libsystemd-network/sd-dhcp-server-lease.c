@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "dhcp-server-lease-internal.h"
+#include "utf8.h"
 
 static sd_dhcp_server_lease* dhcp_server_lease_free(sd_dhcp_server_lease *lease) {
         if (!lease)
@@ -93,7 +94,10 @@ int dhcp_server_set_lease(sd_dhcp_server *server, be32_t address, DHCPRequest *r
 
         memcpy(lease->chaddr, req->message->chaddr, req->message->hlen);
 
-        if (req->hostname) {
+        /* Currently, the hostname field in the request is only used when dumping leases in JSON format, and
+         * the field is optional. So, let's silently ignore non UTF8 hostname. This needs to be updated when
+         * we really use the hostname field. */
+        if (req->hostname && utf8_is_valid(req->hostname)) {
                 lease->hostname = strdup(req->hostname);
                 if (!lease->hostname)
                         return -ENOMEM;
