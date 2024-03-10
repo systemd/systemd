@@ -940,7 +940,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&m->units, &string_hash_ops);
+        r = hashmap_ensure_allocated(&m->units, &string_hash_ops_free);
         if (r < 0)
                 return r;
 
@@ -948,7 +948,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&m->watch_bus, &string_hash_ops);
+        r = hashmap_ensure_allocated(&m->watch_bus, &string_hash_ops_free);
         if (r < 0)
                 return r;
 
