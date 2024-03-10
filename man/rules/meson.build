@@ -994,7 +994,7 @@ manpages = [
    'systemd-makefs',
    'systemd-mkswap@.service'],
   ''],
- ['systemd-measure', '1', [], 'HAVE_TPM2'],
+ ['systemd-measure', '1', [], 'HAVE_TPM2 HAVE_BLKID HAVE_OPENSSL'],
  ['systemd-modules-load.service', '8', ['systemd-modules-load'], 'HAVE_KMOD'],
  ['systemd-mount', '1', ['systemd-umount'], ''],
  ['systemd-network-generator.service', '8', ['systemd-network-generator'], ''],
