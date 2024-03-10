@@ -12,10 +12,14 @@
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "static-destruct.h"
 #include "string-util.h"
 
+static char *arg_path = NULL;
 static bool arg_skip = false;
 static bool arg_force = false;
+
+STATIC_DESTRUCTOR_REGISTER(arg_path, freep);
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
 
@@ -56,8 +60,6 @@ static void test_files(void) {
 
 static int run(int argc, char *argv[]) {
         int r;
-        _cleanup_free_ char *fspath = NULL;
-        bool quota_check_all = false;
 
         log_setup();
 
@@ -89,21 +91,19 @@ static int run(int argc, char *argv[]) {
         }
 
         if (argc == 2) {
-                fspath = strdup(argv[1]);
-                if (!fspath)
+                arg_path = strdup(argv[1]);
+                if (!arg_path)
                         return log_oom();
-        } else
-                quota_check_all = true;
+        }
 
         r = safe_fork("(quotacheck)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_WAIT|FORK_LOG, NULL);
         if (r < 0)
                 return r;
-
         if (r == 0) {
                 const char *cmdline[] = {
                         QUOTACHECK,
-                        quota_check_all ? "-anug" : "-nug",
-                        fspath,
+                        arg_path ? "-nug" : "-anug", /* Check all file systems if path isn't specified */
+                        arg_path,
                         NULL
                 };
 
