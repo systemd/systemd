@@ -72,7 +72,7 @@ static __always_inline bool match_rules(
 
                 /* Lookup returns NULL if iterator is advanced past the last
                  * element put in the map. */
-                if (!rule)
+                if (!rule || !rule->initialized)
                         break;
 
                 if (match(ctx->user_family, ctx->protocol, port, rule))
