@@ -2374,7 +2374,16 @@ static EFI_STATUS image_start(
         /* If we had to append an initrd= entry to the command line, we have to pass it, and measure it.
          * Otherwise, only pass/measure it if it is not implicit anyway (i.e. embedded into the UKI or
          * so). */
-        char16_t *options = options_initrd ?: entry->options_implied ? NULL : entry->options;
+        _cleanup_free_ char16_t *options = xstrdup16(options_initrd ?: entry->options_implied ? NULL : entry->options);
+
+        if (!is_confidential_vm()) {
+                const char *extra = smbios_find_oem_string("io.systemd.boot.kernel-cmdline-extra");
+                if (extra) {
+                        _cleanup_free_ char16_t *tmp = TAKE_PTR(options), *extra16 = xstr8_to_16(extra);
+                        options = xasprintf("%ls %ls", tmp, extra16);
+                }
+        }
+
         if (options) {
                 loaded_image->LoadOptions = options;
                 loaded_image->LoadOptionsSize = strsize16(options);
