@@ -1,10 +1,12 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
 #include <errno.h>
 #include <stddef.h>
 #include <string.h>
 
 #include "label.h"
-#include "tests.h"
 #include "string-util.h"
+#include "tests.h"
 
 
 int pre_labelling_func(int dir_fd, const char *path, mode_t mode);
