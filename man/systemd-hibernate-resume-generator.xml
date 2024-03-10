@@ -28,14 +28,11 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-hibernate-resume-generator</command> is a
-    generator that initiates the procedure to resume the system from hibernation.
-    It creates the
+    <para><command>systemd-hibernate-resume-generator</command> is a generator that initiates the procedure
+    to resume the system from hibernation. When <option>resume=</option> kernel command line option or
+    <varname>HibernateLocation</varname> EFI variable is detected, it enables the
     <citerefentry><refentrytitle>systemd-hibernate-resume.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    unit according to the value of <option>resume=</option> parameter
-    specified on the kernel command line, or the value of EFI variable
-    <varname>HibernateLocation</varname>, which will instruct the kernel
-    to resume the system from the hibernation image on that device.</para>
+    unit, which will instruct the kernel to resume the system from the hibernation image.</para>
   </refsect1>
 
   <refsect1>
