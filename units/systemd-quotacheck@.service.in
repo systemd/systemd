@@ -15,6 +15,7 @@ ConditionPathExists={{QUOTACHECK}}
 ConditionPathExists=!/etc/initrd-release
 
 DefaultDependencies=no
+BindsTo=%i.mount
 After=%i.mount
 Before=shutdown.target
 Conflicts=shutdown.target

@@ -14,9 +14,9 @@ Documentation=man:quotaon(8)
 ConditionPathExists={{QUOTAON}}
 ConditionPathExists=!/etc/initrd-release
 
-After=%i.mount
-After=systemd-quotacheck@%i.service
 DefaultDependencies=no
+BindsTo=%i.mount
+After=systemd-quotacheck@%i.service %i.mount
 Before=shutdown.target
 Conflicts=shutdown.target
 
