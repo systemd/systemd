@@ -2051,7 +2051,7 @@ static int exec_shared_runtime_add(
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_put(&m->exec_shared_runtime_by_id, &string_hash_ops, rt->id, rt);
+        r = hashmap_ensure_put(&m->exec_shared_runtime_by_id, &string_hash_ops_free, rt->id, rt);
         if (r < 0)
                 return r;
 
@@ -2241,7 +2241,7 @@ int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char 
         }
 
         if (u->manager) {
-                if (hashmap_ensure_allocated(&u->manager->exec_shared_runtime_by_id, &string_hash_ops) < 0)
+                if (hashmap_ensure_allocated(&u->manager->exec_shared_runtime_by_id, &string_hash_ops_free) < 0)
                         return log_oom();
 
                 rt = hashmap_get(u->manager->exec_shared_runtime_by_id, u->id);
