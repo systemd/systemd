@@ -19,7 +19,7 @@ mount --mkdir --rbind "$PWD/pkg/$DISTRIBUTION" "pkg/$DISTRIBUTION/src/"
 
 # Override the default options. Use -Og because -O0 doesn't work with FORTIFY_SOURCE. We specifically disable
 # "strip", "zipman" and "lto" as they slow down builds significantly. OPTIONS= cannot be overridden on the
-# makepkg command line so we append to /etc/makepkg.conf instead. The rootfs is overlayed with a writable
+# makepkg command line so we append to /etc/makepkg.conf instead. The rootfs is overlaid with a writable
 # tmpfs during the build script so these changes don't end up in the image itself.
 tee --append /etc/makepkg.conf >/dev/null <<EOF
 CFLAGS="$CFLAGS -Og"
