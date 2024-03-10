@@ -12,7 +12,7 @@ sources = files(
         'icmp6-util.c',
         'lldp-neighbor.c',
         'lldp-network.c',
-        'ndisc-protocol.c',
+        'ndisc-option.c',
         'network-common.c',
         'network-internal.c',
         'sd-dhcp-client-id.c',
