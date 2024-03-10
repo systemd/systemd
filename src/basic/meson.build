@@ -17,10 +17,12 @@ basic_sources = files(
         'cgroup-util.c',
         'chase.c',
         'chattr-util.c',
+        'compress.c',
         'conf-files.c',
         'confidential-virt.c',
         'devnum-util.c',
         'dirent-util.c',
+        'dlfcn-util.c',
         'efivars.c',
         'env-file.c',
         'env-util.c',
@@ -274,8 +276,12 @@ libbasic = static_library(
         fundamental_sources,
         include_directories : basic_includes,
         dependencies : [libcap,
+                        libdl,
+                        liblz4_cflags,
                         libm,
                         librt,
+                        libxz_cflags,
+                        libzstd_cflags,
                         threads,
                         userspace],
         c_args : ['-fvisibility=default'],
@@ -294,25 +300,6 @@ libbasic_gcrypt = static_library(
         basic_gcrypt_sources,
         include_directories : basic_includes,
         dependencies : [libgcrypt,
-                        userspace],
-        c_args : ['-fvisibility=default'],
-        build_by_default : false)
-
-############################################################
-
-basic_compress_sources = files(
-        'compress.c',
-)
-
-# A convenience library that is separate from libbasic to avoid unnecessary
-# linking to the compression libraries.
-libbasic_compress = static_library(
-        'basic-compress',
-        basic_compress_sources,
-        include_directories : basic_includes,
-        dependencies : [liblz4,
-                        libxz,
-                        libzstd,
                         userspace],
         c_args : ['-fvisibility=default'],
         build_by_default : false)

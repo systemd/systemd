@@ -742,7 +742,7 @@ static int link_generate_new_name(Link *link) {
         device = link->device;
 
         if (link->action != SD_DEVICE_ADD) {
-                log_link_debug(link, "Skipping to apply Name= and NamePolicy= on '%s' uevent.",
+                log_link_debug(link, "Not applying Name= and NamePolicy= on '%s' uevent.",
                                device_action_to_string(link->action));
                 goto no_rename;
         }
@@ -822,7 +822,7 @@ static int link_generate_alternative_names(Link *link) {
         assert(!link->altnames);
 
         if (link->action != SD_DEVICE_ADD) {
-                log_link_debug(link, "Skipping to apply AlternativeNames= and AlternativeNamesPolicy= on '%s' uevent.",
+                log_link_debug(link, "Not applying AlternativeNames= and AlternativeNamesPolicy= on '%s' uevent.",
                                device_action_to_string(link->action));
                 return 0;
         }

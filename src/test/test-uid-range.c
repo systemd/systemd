@@ -20,6 +20,8 @@ TEST(uid_range) {
         assert_se(uid_range_covers(p, 0, 0));
         assert_se(!uid_range_covers(p, 0, 1));
         assert_se(!uid_range_covers(p, 100, UINT32_MAX));
+        assert_se(!uid_range_covers(p, UINT32_MAX, 1));
+        assert_se(!uid_range_covers(p, UINT32_MAX - 10, 11));
 
         assert_se(uid_range_add_str(&p, "500-999") >= 0);
         assert_se(p);

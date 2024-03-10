@@ -3,22 +3,22 @@
 # Ukrainian translation for systemd.
 # Eugene Melnik <jeka7js@gmail.com>, 2014.
 # Daniel Korostil <ted.korostiled@gmail.com>, 2014, 2016, 2018.
-# Yuri Chornoivan <yurchor@ukr.net>, 2019, 2020, 2021, 2022, 2023.
+# Yuri Chornoivan <yurchor@ukr.net>, 2019, 2020, 2021, 2022, 2023, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-03-04 10:09+0100\n"
-"PO-Revision-Date: 2023-07-14 11:47+0000\n"
+"PO-Revision-Date: 2024-03-05 21:36+0000\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/"
-"systemd/master/uk/>\n"
+"systemd/main/uk/>\n"
 "Language: uk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 4.18.2\n"
+"X-Generator: Weblate 5.4\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -139,23 +139,22 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Inhibit automatic lock of a home area"
-msgstr ""
+msgstr "Заборонити автоматичне блокування області домівки"
 
 #: src/home/org.freedesktop.home1.policy:74
-#, fuzzy
 msgid ""
 "Authentication is required to inhibit automatic lock of a user's home area."
-msgstr "Для оновлення домашньої теки користувача слід пройти розпізнавання."
+msgstr ""
+"Для заборони автоматичного блокування області домівки користувача слід "
+"пройти розпізнавання."
 
 #: src/home/org.freedesktop.home1.policy:83
-#, fuzzy
 msgid "Activate a home area"
-msgstr "Створення домашньої теки"
+msgstr "Активація області домівки"
 
 #: src/home/org.freedesktop.home1.policy:84
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
-msgstr "Для створення домашньої теки користувача слід пройти розпізнавання."
+msgstr "Для активації області домівки користувача слід пройти розпізнавання."
 
 #: src/home/pam_systemd_home.c:293
 #, c-format
@@ -387,52 +386,37 @@ msgid "Authentication is required to get system description."
 msgstr "Для отримання опису системи слід пройти розпізнавання."
 
 #: src/import/org.freedesktop.import1.policy:22
-#, fuzzy
 msgid "Import a disk image"
-msgstr "Імпортування образу контейнера або віртуальної машини"
+msgstr "Імпортування образу диска"
 
 #: src/import/org.freedesktop.import1.policy:23
-#, fuzzy
 msgid "Authentication is required to import an image"
-msgstr ""
-"Для імпортування образу контейнера або віртуальної машини слід пройти "
-"розпізнавання"
+msgstr "Для імпортування образу диска слід пройти розпізнавання"
 
 #: src/import/org.freedesktop.import1.policy:32
-#, fuzzy
 msgid "Export a disk image"
-msgstr "Експортування образу контейнера або віртуальної машини"
+msgstr "Експортування образу диска"
 
 #: src/import/org.freedesktop.import1.policy:33
-#, fuzzy
 msgid "Authentication is required to export disk image"
-msgstr ""
-"Для експортування образу контейнера або віртуальної машини слід пройти "
-"розпізнавання"
+msgstr "Для експортування образу диска слід пройти розпізнавання"
 
 #: src/import/org.freedesktop.import1.policy:42
-#, fuzzy
 msgid "Download a disk image"
-msgstr "Отримання образу контейнера або віртуальної машини"
+msgstr "Отримання образу диска"
 
 #: src/import/org.freedesktop.import1.policy:43
-#, fuzzy
 msgid "Authentication is required to download a disk image"
-msgstr ""
-"Для отримання образу контейнера або віртуальної машини слід пройти "
-"розпізнавання"
+msgstr "Для отримання образу диска слід пройти розпізнавання"
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "Скасування передавання образу диска"
 
 #: src/import/org.freedesktop.import1.policy:53
-#, fuzzy
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image"
-msgstr ""
-"Для зміни пароля для доступу до домашньої теки користувача слід пройти "
-"розпізнавання."
+msgstr "Для скасування передавання образу диска слід пройти розпізнавання"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"

@@ -6,6 +6,13 @@
 #include <stdint.h>
 #include <unistd.h>
 
+#if HAVE_LZ4
+#include <lz4.h>
+#include <lz4frame.h>
+#endif
+
+#include "dlfcn-util.h"
+
 typedef enum Compression {
         COMPRESSION_NONE,
         COMPRESSION_XZ,
@@ -62,6 +69,23 @@ int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unc
 int decompress_stream_xz(int fdf, int fdt, uint64_t max_size);
 int decompress_stream_lz4(int fdf, int fdt, uint64_t max_size);
 int decompress_stream_zstd(int fdf, int fdt, uint64_t max_size);
+
+#if HAVE_LZ4
+DLSYM_PROTOTYPE(LZ4_compress_default);
+DLSYM_PROTOTYPE(LZ4_decompress_safe);
+DLSYM_PROTOTYPE(LZ4_decompress_safe_partial);
+DLSYM_PROTOTYPE(LZ4_versionNumber);
+
+int dlopen_lz4(void);
+#endif
+
+#if HAVE_ZSTD
+int dlopen_zstd(void);
+#endif
+
+#if HAVE_XZ
+int dlopen_lzma(void);
+#endif
 
 static inline int compress_blob(
                 Compression compression,

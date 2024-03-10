@@ -35,3 +35,18 @@ int unit_load_state(sd_bus *bus, const char *name, char **load_state);
 int unit_info_compare(const UnitInfo *a, const UnitInfo *b);
 
 int bus_service_manager_reload(sd_bus *bus);
+
+typedef struct UnitFreezer {
+        char *name;
+        sd_bus *bus;
+} UnitFreezer;
+
+int unit_freezer_new(const char *name, UnitFreezer *ret);
+void unit_freezer_done(UnitFreezer *f);
+
+int unit_freezer_freeze(UnitFreezer *f);
+int unit_freezer_thaw(UnitFreezer *f);
+
+int unit_freezer_new_freeze(const char *name, UnitFreezer *ret);
+
+void unit_freezer_done_thaw(UnitFreezer *f);

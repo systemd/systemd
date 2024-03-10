@@ -119,6 +119,7 @@ simple_tests += files(
         'test-lock-util.c',
         'test-log.c',
         'test-logarithm.c',
+        'test-login-util.c',
         'test-macro.c',
         'test-memfd-util.c',
         'test-memory-util.c',
@@ -247,18 +248,12 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-compress-benchmark.c'),
-                'link_with' : [
-                        libbasic_compress,
-                        libshared,
-                ],
+                'link_with' : [libshared],
                 'timeout' : 90,
         },
         test_template + {
                 'sources' : files('test-compress.c'),
-                'link_with' : [
-                        libbasic_compress,
-                        libshared,
-                ],
+                'link_with' : [libshared],
         },
         test_template + {
                 'sources' : files('test-cryptolib.c'),

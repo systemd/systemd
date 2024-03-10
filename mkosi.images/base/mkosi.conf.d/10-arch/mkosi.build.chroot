@@ -1,0 +1,53 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -ex
+
+if [ ! -f "pkg/$DISTRIBUTION/PKGBUILD" ]; then
+    echo "PKGBUILD not found at pkg/$DISTRIBUTION/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
+    exit 1
+fi
+
+# We can't configure the source or build directory so we use bind mounts instead to make sure they are in the
+# expected locations.
+mount --mkdir --bind "$SRCDIR" "pkg/$DISTRIBUTION/systemd-stable/"
+mount --mkdir --bind "$BUILDDIR" "pkg/$DISTRIBUTION/build/"
+# Because we run with --noextract we are responsible for making sure the source files appear in src/.
+mount --mkdir --rbind "$PWD/pkg/$DISTRIBUTION" "pkg/$DISTRIBUTION/src/"
+
+# shellcheck source=/dev/null
+. /etc/makepkg.conf
+
+# Override the default options. Use -Og because -O0 doesn't work with FORTIFY_SOURCE. We specifically disable
+# "strip", "zipman" and "lto" as they slow down builds significantly. OPTIONS= cannot be overridden on the
+# makepkg command line so we append to /etc/makepkg.conf instead. The rootfs is overlaid with a writable
+# tmpfs during the build script so these changes don't end up in the image itself.
+tee --append /etc/makepkg.conf >/dev/null <<EOF
+CFLAGS="$CFLAGS -Og"
+OPTIONS=(!strip docs !libtool !staticlibs emptydirs !zipman purge debug !lto)
+EOF
+
+# Linting the PKGBUILD takes multiple seconds every build so avoid that by nuking all the linting functions.
+rm /usr/share/makepkg/lint_pkgbuild/*
+
+if [ -d .git/ ] && [ -z "$(git status --porcelain)" ]; then
+    TS="$(git show --no-patch --format=%ct HEAD)"
+else
+    TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
+fi
+
+# We get around makepkg's root check by setting EUID to something else.
+# shellcheck disable=SC2046
+env --chdir="pkg/$DISTRIBUTION" \
+    EUID=123 \
+    makepkg \
+    --noextract \
+    $( ((WITH_TESTS)) || echo --nocheck) \
+    --force \
+    UPSTREAM=1 \
+    QUIET=1 \
+    BUILDDIR="$PWD/pkg/$DISTRIBUTION" \
+    PKGDEST="$PACKAGEDIR" \
+    PKGEXT=".pkg.tar" \
+    PKGVER="$(cat meson.version)" \
+    PKGREL="$(date "+%Y%m%d%H%M%S" --date "@$TS")" \
+    MESON_EXTRA_CONFIGURE_OPTIONS="-D mode=developer -D b_sanitize=${SANITIZERS:-none}"

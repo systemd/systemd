@@ -741,23 +741,25 @@ static bool menu_run(
                         lines = xnew(char16_t *, config->n_entries + 1);
 
                         for (size_t i = 0; i < config->n_entries; i++) {
-                                size_t j, padding;
-
-                                lines[i] = xnew(char16_t, line_width + 1);
-                                padding = (line_width - MIN(strlen16(config->entries[i]->title_show), line_width)) / 2;
+                                size_t width = line_width - MIN(strlen16(config->entries[i]->title_show), line_width);
+                                size_t padding = width / 2;
+                                bool odd = width % 2;
 
                                 /* Make sure there is space for => */
                                 padding = MAX((size_t) 2, padding);
 
-                                for (j = 0; j < padding; j++)
-                                        lines[i][j] = ' ';
+                                size_t print_width = MIN(
+                                                strlen16(config->entries[i]->title_show),
+                                                line_width - padding * 2);
 
-                                for (size_t k = 0; config->entries[i]->title_show[k] != '\0' && j < line_width; j++, k++)
-                                        lines[i][j] = config->entries[i]->title_show[k];
+                                assert((padding + 1) <= INT_MAX);
+                                assert(print_width <= INT_MAX);
 
-                                for (; j < line_width; j++)
-                                        lines[i][j] = ' ';
-                                lines[i][line_width] = '\0';
+                                lines[i] = xasprintf(
+                                                "%*ls%.*ls%*ls",
+                                                (int) padding, u"",
+                                                (int) print_width, config->entries[i]->title_show,
+                                                odd ? (int) (padding + 1) : (int) padding, u"");
                         }
                         lines[config->n_entries] = NULL;
 

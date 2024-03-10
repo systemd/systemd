@@ -14,7 +14,7 @@ Documentation=man:systemd-journald.service(8) man:journald.conf(5)
 ConditionPathExists=!/etc/initrd-release
 
 DefaultDependencies=no
-After=systemd-remount-fs.service
+After=systemd-remount-fs.service systemd-quotacheck-root.service
 Before=systemd-tmpfiles-setup.service
 Wants=systemd-journald.service
 After=systemd-journald.service

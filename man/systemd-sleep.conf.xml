@@ -24,6 +24,8 @@
   <refsynopsisdiv>
     <para><simplelist>
       <member><filename>/etc/systemd/sleep.conf</filename></member>
+      <member><filename>/run/systemd/sleep.conf</filename></member>
+      <member><filename>/usr/lib/systemd/sleep.conf</filename></member>
       <member><filename>/etc/systemd/sleep.conf.d/*.conf</filename></member>
       <member><filename>/run/systemd/sleep.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/sleep.conf.d/*.conf</filename></member>

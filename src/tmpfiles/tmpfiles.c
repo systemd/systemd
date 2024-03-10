@@ -49,7 +49,6 @@
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
-#include "nulstr-util.h"
 #include "offline-passwd.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -370,7 +369,7 @@ static int user_config_paths(char*** ret) {
         if (r < 0 && !ERRNO_IS_NOINFO(r))
                 return r;
 
-        r = strv_extend_strv_concat(&res, config_dirs, "/user-tmpfiles.d");
+        r = strv_extend_strv_concat(&res, (const char* const*) config_dirs, "/user-tmpfiles.d");
         if (r < 0)
                 return r;
 
@@ -382,7 +381,7 @@ static int user_config_paths(char*** ret) {
         if (r < 0)
                 return r;
 
-        r = strv_extend_strv_concat(&res, data_dirs, "/user-tmpfiles.d");
+        r = strv_extend_strv_concat(&res, (const char* const*) data_dirs, "/user-tmpfiles.d");
         if (r < 0)
                 return r;
 
@@ -1258,80 +1257,46 @@ static int parse_acls_from_arg(Item *item) {
 #if HAVE_ACL
 static int parse_acl_cond_exec(
                 const char *path,
-                acl_t access, /* could be empty (NULL) */
-                acl_t cond_exec,
                 const struct stat *st,
+                acl_t cond_exec,
+                acl_t access, /* could be empty (NULL) */
                 bool append,
                 acl_t *ret) {
 
-        _cleanup_(acl_freep) acl_t parsed = NULL;
         acl_entry_t entry;
         acl_permset_t permset;
         bool has_exec;
         int r;
 
         assert(path);
-        assert(ret);
         assert(st);
+        assert(cond_exec);
+        assert(ret);
 
-        parsed = access ? acl_dup(access) : acl_init(0);
-        if (!parsed)
-                return -errno;
-
-        /* Since we substitute 'X' with 'x' in parse_acl(), we just need to copy the entries over
-         * for directories */
-        if (S_ISDIR(st->st_mode)) {
-                for (r = acl_get_entry(cond_exec, ACL_FIRST_ENTRY, &entry);
-                     r > 0;
-                     r = acl_get_entry(cond_exec, ACL_NEXT_ENTRY, &entry)) {
-
-                        acl_entry_t parsed_entry;
-
-                        if (acl_create_entry(&parsed, &parsed_entry) < 0)
-                                return -errno;
-
-                        if (acl_copy_entry(parsed_entry, entry) < 0)
-                                return -errno;
-                }
-                if (r < 0)
-                        return -errno;
-
-                goto finish;
-        }
-
-        has_exec = st->st_mode & S_IXUSR;
-
-        if (!has_exec && append) {
+        if (!S_ISDIR(st->st_mode)) {
                 _cleanup_(acl_freep) acl_t old = NULL;
 
                 old = acl_get_file(path, ACL_TYPE_ACCESS);
                 if (!old)
                         return -errno;
 
+                has_exec = false;
+
                 for (r = acl_get_entry(old, ACL_FIRST_ENTRY, &entry);
                      r > 0;
                      r = acl_get_entry(old, ACL_NEXT_ENTRY, &entry)) {
 
-                        if (acl_get_permset(entry, &permset) < 0)
+                        acl_tag_t tag;
+
+                        if (acl_get_tag_type(entry, &tag) < 0)
                                 return -errno;
 
-                        r = acl_get_perm(permset, ACL_EXECUTE);
-                        if (r < 0)
-                                return -errno;
-                        if (r > 0) {
-                                has_exec = true;
-                                break;
-                        }
-                }
-                if (r < 0)
-                        return -errno;
-        }
+                        if (tag == ACL_MASK)
+                                continue;
 
-        /* Check if we're about to set the execute bit in acl_access */
-        if (!has_exec && access) {
-                for (r = acl_get_entry(access, ACL_FIRST_ENTRY, &entry);
-                     r > 0;
-                     r = acl_get_entry(access, ACL_NEXT_ENTRY, &entry)) {
+                        /* If not appending, skip ACL definitions */
+                        if (!append && IN_SET(tag, ACL_USER, ACL_GROUP))
+                                continue;
 
                         if (acl_get_permset(entry, &permset) < 0)
                                 return -errno;
@@ -1346,7 +1311,33 @@ static int parse_acl_cond_exec(
                 }
                 if (r < 0)
                         return -errno;
-        }
+
+                /* Check if we're about to set the execute bit in acl_access */
+                if (!has_exec && access) {
+                        for (r = acl_get_entry(access, ACL_FIRST_ENTRY, &entry);
+                             r > 0;
+                             r = acl_get_entry(access, ACL_NEXT_ENTRY, &entry)) {
+
+                                if (acl_get_permset(entry, &permset) < 0)
+                                        return -errno;
+
+                                r = acl_get_perm(permset, ACL_EXECUTE);
+                                if (r < 0)
+                                        return -errno;
+                                if (r > 0) {
+                                        has_exec = true;
+                                        break;
+                                }
+                        }
+                        if (r < 0)
+                                return -errno;
+                }
+        } else
+                has_exec = true;
+
+        _cleanup_(acl_freep) acl_t parsed = access ? acl_dup(access) : acl_init(0);
+        if (!parsed)
+                return -errno;
 
         for (r = acl_get_entry(cond_exec, ACL_FIRST_ENTRY, &entry);
              r > 0;
@@ -1360,6 +1351,7 @@ static int parse_acl_cond_exec(
                 if (acl_copy_entry(parsed_entry, entry) < 0)
                         return -errno;
 
+                /* We substituted 'X' with 'x' in parse_acl(), so drop execute bit here if not applicable. */
                 if (!has_exec) {
                         if (acl_get_permset(parsed_entry, &permset) < 0)
                                 return -errno;
@@ -1371,7 +1363,6 @@ static int parse_acl_cond_exec(
         if (r < 0)
                 return -errno;
 
-finish:
         if (!append) { /* want_mask = true */
                 r = calc_acl_mask_if_needed(&parsed);
                 if (r < 0)
@@ -1476,10 +1467,9 @@ static int fd_set_acls(
         }
 
         if (item->acl_access_exec) {
-                r = parse_acl_cond_exec(FORMAT_PROC_FD_PATH(fd),
-                                        item->acl_access,
+                r = parse_acl_cond_exec(FORMAT_PROC_FD_PATH(fd), st,
                                         item->acl_access_exec,
-                                        st,
+                                        item->acl_access,
                                         item->append_or_force,
                                         &access_with_exec_parsed);
                 if (r < 0)
@@ -4579,7 +4569,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case RUNTIME_SCOPE_SYSTEM:
-                config_dirs = strv_split_nulstr(CONF_PATHS_NULSTR("tmpfiles.d"));
+                config_dirs = strv_new(CONF_PATHS("tmpfiles.d"));
                 if (!config_dirs)
                         return log_oom();
                 break;

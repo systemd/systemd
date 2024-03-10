@@ -4,7 +4,6 @@
 #include "analyze-cat-config.h"
 #include "conf-files.h"
 #include "constants.h"
-#include "nulstr-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "strv.h"
@@ -23,7 +22,7 @@ int verb_cat_config(int argc, char *argv[], void *userdata) {
                         print_separator();
 
                 if (path_is_absolute(*arg)) {
-                        NULSTR_FOREACH(dir, CONF_PATHS_NULSTR("")) {
+                        FOREACH_STRING(dir, CONF_PATHS("")) {
                                 t = path_startswith(*arg, dir);
                                 if (t)
                                         break;
