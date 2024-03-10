@@ -46,6 +46,7 @@ struct socket_bind_rule {
         __u32 protocol;
         __u16 nr_ports;
         __u16 port_min;
+        _Bool initialized;
 };
 
 #define SOCKET_BIND_MAX_RULES 128
