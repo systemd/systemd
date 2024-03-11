@@ -9,6 +9,7 @@
 #include "sd-ndisc.h"
 
 #include "alloc-util.h"
+#include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "icmp6-util.h"
@@ -268,6 +269,29 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
         return 0;
 }
 
+static int ndisc_send_router_solicitation(sd_ndisc *nd) {
+        static const struct sockaddr_in6 dst = {
+                .sin6_family = AF_INET6,
+                .sin6_addr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
+        };
+        static const struct nd_router_solicit header = {
+                .nd_rs_type = ND_ROUTER_SOLICIT,
+        };
+
+        _cleanup_set_free_ Set *options = NULL;
+        int r;
+
+        assert(nd);
+
+        if (!ether_addr_is_null(&nd->mac_addr)) {
+                r = ndisc_option_add_link_layer_address(&options, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, 0, &nd->mac_addr);
+                if (r < 0)
+                        return r;
+        }
+
+        return ndisc_send(nd->fd, &dst, &header.nd_rs_hdr, options);
+}
+
 static usec_t ndisc_timeout_compute_random(usec_t val) {
         /* compute a time that is random within ±10% of the given value */
         return val - val / 10 +
@@ -301,7 +325,7 @@ static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         if (r < 0)
                 goto fail;
 
-        r = icmp6_send_router_solicitation(nd->fd, &nd->mac_addr);
+        r = ndisc_send_router_solicitation(nd);
         if (r < 0)
                 log_ndisc_errno(nd, r, "Failed to send Router Solicitation, next solicitation in %s, ignoring: %m",
                                 FORMAT_TIMESPAN(nd->retransmit_time, USEC_PER_SEC));
