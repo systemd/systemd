@@ -746,14 +746,16 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
                 req->agent_info_option = (uint8_t*)option - 2;
 
                 break;
-        case SD_DHCP_OPTION_HOST_NAME:
-                r = dhcp_option_parse_string(option, len, &req->hostname);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to parse hostname, ignoring: %m");
-                        return 0;
-                }
+        case SD_DHCP_OPTION_HOST_NAME: {
+                _cleanup_free_ char *p = NULL;
 
+                r = dhcp_option_parse_hostname(option, len, &p);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse hostname, ignoring: %m");
+                else
+                        free_and_replace(req->hostname, p);
                 break;
+        }
         case SD_DHCP_OPTION_PARAMETER_REQUEST_LIST:
                 req->parameter_request_list = option;
                 req->parameter_request_list_len = len;

@@ -10,6 +10,8 @@
 #include "alloc-util.h"
 #include "dhcp-option.h"
 #include "dhcp-server-internal.h"
+#include "dns-domain.h"
+#include "hostname-util.h"
 #include "memory-util.h"
 #include "ordered-set.h"
 #include "strv.h"
@@ -417,6 +419,35 @@ int dhcp_option_parse_string(const uint8_t *option, size_t len, char **ret) {
                 return -EINVAL;
 
         *ret = TAKE_PTR(string);
+        return 0;
+}
+
+int dhcp_option_parse_hostname(const uint8_t *option, size_t len, char **ret) {
+        _cleanup_free_ char *hostname = NULL;
+        int r;
+
+        assert(option);
+        assert(ret);
+
+        r = dhcp_option_parse_string(option, len, &hostname);
+        if (r < 0)
+                return r;
+
+        if (!hostname) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (!hostname_is_valid(hostname, 0))
+                return -EINVAL;
+
+        r = dns_name_is_valid(hostname);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        *ret = TAKE_PTR(hostname);
         return 0;
 }
 
