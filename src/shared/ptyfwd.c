@@ -884,7 +884,7 @@ int pty_forward_new(
 
                 assert(f->input_fd >= 0);
 
-                same = inode_same_at(f->input_fd, NULL, f->output_fd, NULL, AT_EMPTY_PATH);
+                same = fd_inode_same(f->input_fd, f->output_fd);
                 if (same < 0)
                         return same;
 

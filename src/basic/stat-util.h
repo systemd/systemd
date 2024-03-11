@@ -47,9 +47,11 @@ static inline int null_or_empty_path(const char *fn) {
 int path_is_read_only_fs(const char *path);
 
 int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int flags);
-
 static inline int inode_same(const char *filea, const char *fileb, int flags) {
         return inode_same_at(AT_FDCWD, filea, AT_FDCWD, fileb, flags);
+}
+static inline int fd_inode_same(int fda, int fdb) {
+        return inode_same_at(fda, NULL, fdb, NULL, AT_EMPTY_PATH);
 }
 
 /* The .f_type field of struct statfs is really weird defined on
