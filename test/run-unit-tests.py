@@ -42,7 +42,7 @@ if not opts.artifact_directory and os.getenv('ARTIFACT_DIRECTORY'):
     opts.artifact_directory = os.getenv('ARTIFACT_DIRECTORY')
 
 total.total = len(tests)
-for test in tests:
+for test in sorted(tests):
     name = os.path.basename(test)
 
     ex = subprocess.run(test, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
