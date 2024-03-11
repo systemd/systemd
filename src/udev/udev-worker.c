@@ -237,7 +237,7 @@ void udev_broadcast_result(sd_device_monitor *monitor, sd_device *dev, EventResu
         if (result != EVENT_RESULT_SUCCESS) {
                 (void) device_add_property(dev, "UDEV_WORKER_FAILED", "1");
 
-                switch (result) {
+                switch ((int)result) {
                 case EVENT_RESULT_NERRNO_MIN ... EVENT_RESULT_NERRNO_MAX: {
                         const char *str;
 
@@ -248,7 +248,7 @@ void udev_broadcast_result(sd_device_monitor *monitor, sd_device *dev, EventResu
                                 (void) device_add_property(dev, "UDEV_WORKER_ERRNO_NAME", str);
                         break;
                 }
-                case EVENT_RESULT_EXIT_STATUS_BASE ... EVENT_RESULT_EXIT_STATUS_MAX:
+                case (EVENT_RESULT_EXIT_STATUS_BASE+1) ... EVENT_RESULT_EXIT_STATUS_MAX:
                         (void) device_add_propertyf(dev, "UDEV_WORKER_EXIT_STATUS", "%i", result - EVENT_RESULT_EXIT_STATUS_BASE);
                         break;
 
