@@ -1192,7 +1192,6 @@ static int vl_method_encrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
                                 /* bus= */ NULL,
                                 "io.systemd.credentials.encrypt",
                                 /* details= */ NULL,
-                                /* good_user= */ UID_INVALID,
                                 polkit_registry);
                 if (r <= 0)
                         return r;
@@ -1297,7 +1296,6 @@ static int vl_method_decrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
                                         /* bus= */ NULL,
                                         "io.systemd.credentials.decrypt",
                                         /* details= */ NULL,
-                                        /* good_user= */ UID_INVALID,
                                         polkit_registry);
                         if (r <= 0)
                                 return r;
