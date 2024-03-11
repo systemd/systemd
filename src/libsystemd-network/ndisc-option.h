@@ -90,6 +90,8 @@ struct nd_opt_prefix64_info {
 
 int pref64_prefix_length_to_plc(uint8_t prefixlen, uint8_t *ret);
 
+sd_ndisc_option* ndisc_option_free(sd_ndisc_option *option);
+
 int ndisc_option_parse(
                 ICMP6Packet *p,
                 size_t offset,

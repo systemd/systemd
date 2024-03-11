@@ -79,7 +79,7 @@ static void ndisc_dnssl_done(sd_ndisc_dnssl *dnssl) {
         strv_free(dnssl->domains);
 }
 
-static sd_ndisc_option* ndisc_option_free(sd_ndisc_option *option) {
+sd_ndisc_option* ndisc_option_free(sd_ndisc_option *option) {
         if (!option)
                 return NULL;
 
