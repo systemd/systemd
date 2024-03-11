@@ -24,12 +24,14 @@ static int help(const char *program_path, const char *service, const char *descr
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
                "     --bus-introspect=PATH  Write D-Bus XML introspection data\n"
-               "\nSee the %s for details.\n"
-               , program_path
-               , ansi_highlight(), description, ansi_normal()
-               , ansi_underline(), ansi_normal()
-               , link
-        );
+               "\nSee the %s for details.\n",
+               program_path,
+               ansi_highlight(),
+               description,
+               ansi_normal(),
+               ansi_underline(),
+               ansi_normal(),
+               link);
 
         return 0; /* No further action */
 }

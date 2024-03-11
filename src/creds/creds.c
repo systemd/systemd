@@ -703,12 +703,13 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --tpm2-signature=PATH\n"
                "                          Specify signature for public key PCR policy\n"
                "  -q --quiet              Suppress output for 'has-tpm2' verb\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-               , ansi_underline(), ansi_normal()
-               , ansi_highlight(), ansi_normal()
-        );
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link,
+               ansi_underline(),
+               ansi_normal(),
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
