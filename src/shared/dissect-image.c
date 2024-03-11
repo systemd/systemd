@@ -2694,9 +2694,9 @@ static int do_crypt_activate_verity(
                  * as the device-mapper is finicky around concurrent activations of the same volume */
                 k = validate_signature_userspace(verity, flags);
                 if (k < 0)
-                        return r < 0 ? r : k;
+                        return r ? r : k;
                 if (k == 0)
-                        return log_debug_errno(r < 0 ? r : SYNTHETIC_ERRNO(ENOKEY),
+                        return log_debug_errno(r ? r : SYNTHETIC_ERRNO(ENOKEY),
                                                "Activation of signed Verity volume worked neither via the kernel nor in userspace, can't activate.");
         }
 
