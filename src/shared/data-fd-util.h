@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
+#include <stddef.h>
 
 enum {
         ACQUIRE_NO_DEV_NULL = 1 << 0,
