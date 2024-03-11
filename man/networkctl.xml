@@ -495,6 +495,21 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>persistent-storage</command>
+          <replaceable>BOOL</replaceable>
+        </term>
+        <listitem>
+          <para>Notify <filename>systemd-networkd.service</filename> that the persistent storage for the
+          service is ready. This is called by
+          <filename>systemd-networkd-persistent-storage.service</filename>. Usually, this command should not
+          be called manually by users or administrators.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
