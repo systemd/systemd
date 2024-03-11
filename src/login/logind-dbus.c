@@ -1442,7 +1442,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
                         uid == auth_uid ? "org.freedesktop.login1.set-self-linger" :
                                           "org.freedesktop.login1.set-user-linger",
                         /* details= */ NULL,
-                        interactive,
+                        interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                         /* good_user= */ UID_INVALID,
                         &m->polkit_registry,
                         error);
@@ -1614,7 +1614,7 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
                         message,
                         "org.freedesktop.login1.attach-device",
                         /* details= */ NULL,
-                        interactive,
+                        interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                         /* good_user= */ UID_INVALID,
                         &m->polkit_registry,
                         error);
@@ -1644,7 +1644,7 @@ static int method_flush_devices(sd_bus_message *message, void *userdata, sd_bus_
                         message,
                         "org.freedesktop.login1.flush-devices",
                         /* details= */ NULL,
-                        interactive,
+                        interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                         /* good_user= */ UID_INVALID,
                         &m->polkit_registry,
                         error);
@@ -1853,7 +1853,7 @@ int manager_dispatch_delayed(Manager *manager, bool timeout) {
         if (!manager->delayed_action || manager->action_job)
                 return 0;
 
-        if (manager_is_inhibited(manager, manager->delayed_action->inhibit_what, INHIBIT_DELAY, NULL, false, false, 0, &offending)) {
+        if (manager_is_inhibited(manager, manager->delayed_action->inhibit_what, INHIBIT_DELAY, NULL, false, &offending)) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
 
                 if (!timeout)
@@ -1950,7 +1950,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
 
         delayed =
                 m->inhibit_delay_max > 0 &&
-                manager_is_inhibited(m, a->inhibit_what, INHIBIT_DELAY, NULL, false, false, 0, NULL);
+                manager_is_inhibited(m, a->inhibit_what, INHIBIT_DELAY, NULL, false, NULL);
 
         if (delayed)
                 /* Shutdown is delayed, keep in mind what we
@@ -1993,7 +1993,7 @@ static int verify_shutdown_creds(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, a->inhibit_what, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
+        blocked = manager_is_inhibited(m, a->inhibit_what, INHIBIT_BLOCK, NULL, false, NULL);
         interactive = flags & SD_LOGIND_INTERACTIVE;
 
         if (multiple_sessions) {
@@ -2001,7 +2001,7 @@ static int verify_shutdown_creds(
                                 message,
                                 a->polkit_action_multiple_sessions,
                                 /* details= */ NULL,
-                                interactive,
+                                interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                                 /* good_user= */ UID_INVALID,
                                 &m->polkit_registry,
                                 error);
@@ -2012,16 +2012,21 @@ static int verify_shutdown_creds(
         }
 
         if (blocked) {
-                /* We don't check polkit for root here, because you can't be more privileged than root */
-                if (uid == 0 && (flags & SD_LOGIND_ROOT_CHECK_INHIBITORS))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED,
-                                                 "Access denied to root due to active block inhibitor");
+                if (!FLAGS_SET(flags, SD_LOGIND_SKIP_INHIBITORS))
+                        return -EPERM;
+
+                /* We want to always ask here, even for root, to only allow bypassing if explicitly allowed
+                 * by polkit */
+                BusPolkitFlags f = BUS_POLKIT_FLAGS_SKIP_UID_CHECK;
+
+                if (interactive)
+                        f |= BUS_POLKIT_FLAGS_INTERACTIVE;
 
                 r = bus_verify_polkit_async_full(
                                 message,
                                 a->polkit_action_ignore_inhibit,
                                 /* details= */ NULL,
-                                interactive,
+                                f,
                                 /* good_user= */ UID_INVALID,
                                 &m->polkit_registry,
                                 error);
@@ -2036,7 +2041,7 @@ static int verify_shutdown_creds(
                                 message,
                                 a->polkit_action,
                                 /* details= */ NULL,
-                                interactive,
+                                interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                                 /* good_user= */ UID_INVALID,
                                 &m->polkit_registry,
                                 error);
@@ -2690,7 +2695,7 @@ static int method_can_shutdown_or_sleep(
                 return r;
 
         multiple_sessions = r > 0;
-        blocked = manager_is_inhibited(m, a->inhibit_what, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
+        blocked = manager_is_inhibited(m, a->inhibit_what, INHIBIT_BLOCK, NULL, false, NULL);
 
         if (check_unit_state && a->target) {
                 _cleanup_free_ char *load_state = NULL;
