@@ -497,8 +497,8 @@ int bus_verify_polkit_async_full(
                 sd_bus_message *call,
                 const char *action,
                 const char **details,
-                bool interactive, /* Use only for legacy method calls that have a separate "allow_interactive_authentication" field */
                 uid_t good_user,
+                PolkitFlags flags,
                 Hashmap **registry,
                 sd_bus_error *ret_error) {
 
@@ -533,7 +533,7 @@ int bus_verify_polkit_async_full(
                 return 1;
 
 #if ENABLE_POLKIT
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
+        bool interactive = FLAGS_SET(flags, POLKIT_ALLOW_INTERACTIVE);
 
         int c = sd_bus_message_get_allow_interactive_authorization(call);
         if (c < 0)
@@ -541,6 +541,7 @@ int bus_verify_polkit_async_full(
         if (c > 0)
                 interactive = true;
 
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
         r = bus_message_new_polkit_auth_call_for_bus(call, action, details, interactive, &pk);
         if (r < 0)
                 return r;
@@ -707,12 +708,13 @@ static bool varlink_allow_interactive_authentication(Varlink *link) {
 }
 #endif
 
-int varlink_verify_polkit_async(
+int varlink_verify_polkit_async_full(
                 Varlink *link,
                 sd_bus *bus,
                 const char *action,
                 const char **details,
                 uid_t good_user,
+                PolkitFlags flags,
                 Hashmap **registry) {
 
         int r;
@@ -766,7 +768,9 @@ int varlink_verify_polkit_async(
                 bus = mybus;
         }
 
-        bool interactive = varlink_allow_interactive_authentication(link);
+        bool interactive =
+                FLAGS_SET(flags, POLKIT_ALLOW_INTERACTIVE) ||
+                varlink_allow_interactive_authentication(link);
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
         r = bus_message_new_polkit_auth_call_for_varlink(bus, link, action, details, interactive, &pk);
