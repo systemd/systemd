@@ -1644,8 +1644,8 @@ static int method_flush_devices(sd_bus_message *message, void *userdata, sd_bus_
                         message,
                         "org.freedesktop.login1.flush-devices",
                         /* details= */ NULL,
-                        interactive,
                         /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -2001,8 +2001,8 @@ static int verify_shutdown_creds(
                                 message,
                                 a->polkit_action_multiple_sessions,
                                 /* details= */ NULL,
-                                interactive,
                                 /* good_user= */ UID_INVALID,
+                                interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                                 &m->polkit_registry,
                                 error);
                 if (r < 0)
@@ -2021,8 +2021,8 @@ static int verify_shutdown_creds(
                                 message,
                                 a->polkit_action_ignore_inhibit,
                                 /* details= */ NULL,
-                                interactive,
                                 /* good_user= */ UID_INVALID,
+                                interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                                 &m->polkit_registry,
                                 error);
                 if (r < 0)
@@ -2036,8 +2036,8 @@ static int verify_shutdown_creds(
                                 message,
                                 a->polkit_action,
                                 /* details= */ NULL,
-                                interactive,
                                 /* good_user= */ UID_INVALID,
+                                interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                                 &m->polkit_registry,
                                 error);
                 if (r < 0)
