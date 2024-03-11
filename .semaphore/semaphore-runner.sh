@@ -50,8 +50,6 @@ apt-get install -y -t $RELEASE-backports debhelper
 apt-get purge --auto-remove -y unattended-upgrades
 systemctl unmask systemd-networkd
 systemctl enable systemd-networkd
-# Remove once https://salsa.debian.org/ci-team/autopkgtest/-/merge_requests/297 is sorted
-adduser --disabled-login --gecos 'Temporary autopkgtest user,,,' autopkgtest
 EOF
     sudo lxc-stop -n "$CONTAINER"
 }
