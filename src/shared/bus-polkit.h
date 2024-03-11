@@ -9,6 +9,7 @@
 
 typedef enum PolkitFLags {
         POLKIT_ALLOW_INTERACTIVE = 1 << 0, /* Allow interactive auth (typically not required, because can be derived from bus message/link automatically) */
+        POLKIT_SKIP_UID_CHECK    = 1 << 1, /* Skip UID check, i.e. don't check if the caller is the same as the good_user but always defer to polkit */
 } PolkitFlags;
 
 int bus_test_polkit(sd_bus_message *call, const char *action, const char **details, uid_t good_user, bool *_challenge, sd_bus_error *e);
