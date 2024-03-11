@@ -73,7 +73,7 @@ byte. In this case, the key name is serialized as is, followed by a `\n`
 character, followed by a (non-aligned) little-endian unsigned 64-bit integer
 encoding the size of the value, followed by the literal value data, followed by
 `\n`. Example: a key `FOO` with a value `BAR` may be serialized using this
-second method as: `F`, `O`, `O`, `\n`, `\003`, `\000`, `\000`, `\000`, `\000`,
+second method as: `F`, `O`, `O`, `\n`, `\004`, `\000`, `\000`, `\000`, `\000`,
 `\000`, `\000`, `\000`, `B`, `A`, `R`, `\n`.
 
 If the value of a key/value pair contains a newline character (`\n`), it *must*
