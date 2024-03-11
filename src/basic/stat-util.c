@@ -365,7 +365,7 @@ bool stat_inode_same(const struct stat *a, const struct stat *b) {
          * a thorough check, comparing inode nr, backing device and if the inode is still of the same type. */
 
         return a && b &&
-                (a->st_mode & S_IFMT) != 0 && /* We use the check for .st_mode if the structure was ever initialized */
+                a->st_dev != 0 && /* is the structure ever initialized? */
                 ((a->st_mode ^ b->st_mode) & S_IFMT) == 0 &&  /* same inode type */
                 a->st_dev == b->st_dev &&
                 a->st_ino == b->st_ino;
@@ -395,7 +395,6 @@ bool statx_inode_same(const struct statx *a, const struct statx *b) {
 
         return a && b &&
                 FLAGS_SET(a->stx_mask, STATX_TYPE|STATX_INO) && FLAGS_SET(b->stx_mask, STATX_TYPE|STATX_INO) &&
-                (a->stx_mode & S_IFMT) != 0 &&
                 ((a->stx_mode ^ b->stx_mode) & S_IFMT) == 0 &&
                 a->stx_dev_major == b->stx_dev_major &&
                 a->stx_dev_minor == b->stx_dev_minor &&
