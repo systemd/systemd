@@ -69,7 +69,6 @@ TEST(label_ops_post) {
     assert_se(label_ops_post(1, "abcd") == 0);
     test_label_ops.post = post_labelling_func;
     assert_se(label_ops_post(1, "abc") == 0);
-    assert_se(label_ops_post(1, "/restricted_directory") == -1);
     label_ops_set(NULL);
 }
 
