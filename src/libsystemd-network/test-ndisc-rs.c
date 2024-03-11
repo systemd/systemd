@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
+#include "icmp6-packet.h"
 #include "icmp6-util-unix.h"
 #include "socket-util.h"
 #include "strv.h"
@@ -23,7 +24,6 @@ static struct ether_addr mac_addr = {
 };
 
 static bool verbose = false;
-static sd_ndisc *test_timeout_nd;
 
 static void router_dump(sd_ndisc_router *rt) {
         struct in6_addr addr;
@@ -232,11 +232,17 @@ static void test_callback(sd_ndisc *nd, sd_ndisc_event_t event, void *message, v
         sd_event_exit(e, 0);
 }
 
+static int on_recv_rs(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
+        assert_se(icmp6_packet_receive(fd, &packet) >= 0);
+
+        return send_ra(0);
+}
+
 TEST(rs) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
-
-        send_ra_function = send_ra;
 
         assert_se(sd_event_new(&e) >= 0);
 
@@ -261,9 +267,12 @@ TEST(rs) {
 
         assert_se(sd_ndisc_start(nd) >= 0);
 
+        assert_se(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs, nd) >= 0);
+        assert_se(sd_event_source_set_io_fd_own(s, true) >= 0);
+
         assert_se(sd_event_loop(e) >= 0);
 
-        test_fd[1] = safe_close(test_fd[1]);
+        test_fd[1] = -EBADF;
 }
 
 static int send_ra_invalid_domain(uint8_t flags) {
@@ -312,11 +321,17 @@ static int send_ra_invalid_domain(uint8_t flags) {
         return 0;
 }
 
+static int on_recv_rs_invalid_domain(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
+        assert_se(icmp6_packet_receive(fd, &packet) >= 0);
+
+        return send_ra_invalid_domain(0);
+}
+
 TEST(invalid_domain) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
-
-        send_ra_function = send_ra_invalid_domain;
 
         assert_se(sd_event_new(&e) >= 0);
 
@@ -335,19 +350,22 @@ TEST(invalid_domain) {
 
         assert_se(sd_ndisc_start(nd) >= 0);
 
+        assert_se(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs_invalid_domain, nd) >= 0);
+        assert_se(sd_event_source_set_io_fd_own(s, true) >= 0);
+
         assert_se(sd_event_loop(e) >= 0);
 
-        test_fd[1] = safe_close(test_fd[1]);
+        test_fd[1] = -EBADF;
 }
 
-static int test_timeout_value(uint8_t flags) {
+static int on_recv_rs_timeout(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
+        sd_ndisc *nd = ASSERT_PTR(userdata);
         static int count = 0;
         static usec_t last = 0;
-        sd_ndisc *nd = test_timeout_nd;
         usec_t min, max;
 
-        assert_se(nd);
-        assert_se(nd->event);
+        assert_se(icmp6_packet_receive(fd, &packet) >= 0);
 
         if (++count >= 20)
                 sd_event_exit(nd->event, 0);
@@ -391,16 +409,13 @@ static int test_timeout_value(uint8_t flags) {
 
 TEST(timeout) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
-
-        send_ra_function = test_timeout_value;
 
         assert_se(sd_event_new(&e) >= 0);
 
         assert_se(sd_ndisc_new(&nd) >= 0);
         assert_se(nd);
-
-        test_timeout_nd = nd;
 
         assert_se(sd_ndisc_attach_event(nd, e, 0) >= 0);
 
@@ -413,9 +428,12 @@ TEST(timeout) {
 
         assert_se(sd_ndisc_start(nd) >= 0);
 
+        assert_se(sd_event_add_io(e, &s, test_fd[1], EPOLLIN, on_recv_rs_timeout, nd) >= 0);
+        assert_se(sd_event_source_set_io_fd_own(s, true) >= 0);
+
         assert_se(sd_event_loop(e) >= 0);
 
-        test_fd[1] = safe_close(test_fd[1]);
+        test_fd[1] = -EBADF;
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
