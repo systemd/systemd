@@ -1,9 +1,9 @@
 #!/bin/bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
-set -ex
+set -e
 
-if [ ! -f "pkg/$DISTRIBUTION/systemd.spec" ]; then
-    echo "spec not found at pkg/$DISTRIBUTION/systemd.spec, run mkosi with -ff to make sure the spec is cloned" >&2
+if [ ! -f "pkg/$PKG_SUBDIR/systemd.spec" ]; then
+    echo "spec not found at pkg/$PKG_SUBDIR/systemd.spec, run mkosi with -ff to make sure the spec is cloned" >&2
     exit 1
 fi
 
@@ -19,8 +19,8 @@ mkosi-chroot \
     --query \
     "$DEPS" \
     --define "_topdir /var/tmp" \
-    --define "_sourcedir pkg/$DISTRIBUTION" \
-    "pkg/$DISTRIBUTION/systemd.spec" |
+    --define "_sourcedir pkg/$PKG_SUBDIR" \
+    "pkg/$PKG_SUBDIR/systemd.spec" |
         grep --invert-match --regexp systemd --regexp /bin/sh --regexp "rpmlib(" --regexp udev |
         sort --unique |
         tee /tmp/buildrequires |
@@ -33,7 +33,7 @@ fi
 # rpmbuild -br tries to build a source package which means all source files have to exist which isn't the
 # case when using --build-in-place so we get rid of the source file that doesn't exist to make it happy.
 # TODO: Use -bd instead of -br and get rid of this once we don't need to build on CentOS Stream 9 anymore.
-sed '/Source0/d' --in-place "pkg/$DISTRIBUTION/systemd.spec"
+sed '/Source0/d' --in-place "pkg/$PKG_SUBDIR/systemd.spec"
 
 until mkosi-chroot \
     rpmbuild \
@@ -41,9 +41,9 @@ until mkosi-chroot \
     --build-in-place \
     --with upstream \
     --define "_topdir /var/tmp" \
-    --define "_sourcedir pkg/$DISTRIBUTION" \
+    --define "_sourcedir pkg/$PKG_SUBDIR" \
     --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
-    "pkg/$DISTRIBUTION/systemd.spec"
+    "pkg/$PKG_SUBDIR/systemd.spec"
 do
     EXIT_STATUS=$?
     if [ $EXIT_STATUS -ne 11 ]; then
