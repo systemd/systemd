@@ -8,22 +8,22 @@
 # Alexey Rubtsov <rushills@gmail.com>, 2021.
 # Olga Smirnova <mistresssilvara@hotmail.com>, 2022.
 # Andrei Stepanov <adem4ik@gmail.com>, 2023.
-# "Sergey A." <sw@atrus.ru>, 2023.
+# "Sergey A." <sw@atrus.ru>, 2023, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-03-04 10:09+0100\n"
-"PO-Revision-Date: 2023-09-12 14:35+0000\n"
+"PO-Revision-Date: 2024-03-11 11:36+0000\n"
 "Last-Translator: \"Sergey A.\" <sw@atrus.ru>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
-"master/ru/>\n"
+"main/ru/>\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 5.0.1\n"
+"X-Generator: Weblate 5.4\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -151,26 +151,23 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Inhibit automatic lock of a home area"
-msgstr ""
+msgstr "Запретить автоматическую блокировку домашнего пространства"
 
 #: src/home/org.freedesktop.home1.policy:74
-#, fuzzy
 msgid ""
 "Authentication is required to inhibit automatic lock of a user's home area."
 msgstr ""
-"Чтобы обновить домашнее пространство пользователя, необходимо пройти "
-"аутентификацию."
+"Чтобы установить запрет на автоматическую блокировку домашнего пространства "
+"пользователя, необходимо пройти аутентификацию."
 
 #: src/home/org.freedesktop.home1.policy:83
-#, fuzzy
 msgid "Activate a home area"
-msgstr "Создать домашнее пространство"
+msgstr "Активация домашнего пространства"
 
 #: src/home/org.freedesktop.home1.policy:84
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
 msgstr ""
-"Чтобы создать домашнее пространство пользователя, необходимо пройти "
+"Чтобы активировать домашнее пространство пользователя, необходимо пройти "
 "аутентификацию."
 
 #: src/home/pam_systemd_home.c:293
@@ -406,52 +403,39 @@ msgid "Authentication is required to get system description."
 msgstr "Чтобы получить описание системы, необходимо пройти аутентификацию."
 
 #: src/import/org.freedesktop.import1.policy:22
-#, fuzzy
 msgid "Import a disk image"
-msgstr "Импортировать образ виртуальной машины или контейнера"
+msgstr "Импортировать образ диска"
 
 #: src/import/org.freedesktop.import1.policy:23
-#, fuzzy
 msgid "Authentication is required to import an image"
-msgstr ""
-"Чтобы импортировать образ виртуальной машины или контейнера, необходимо "
-"пройти аутентификацию"
+msgstr "Чтобы импортировать образ диска, необходимо пройти аутентификацию"
 
 #: src/import/org.freedesktop.import1.policy:32
-#, fuzzy
 msgid "Export a disk image"
-msgstr "Экспортировать образ виртуальной машины или контейнера"
+msgstr "Экспортировать образ диска"
 
 #: src/import/org.freedesktop.import1.policy:33
-#, fuzzy
 msgid "Authentication is required to export disk image"
-msgstr ""
-"Чтобы экспортировать образ виртуальной машины или контейнера, необходимо "
-"пройти аутентификацию"
+msgstr "Чтобы экспортировать образ диска, необходимо пройти аутентификацию"
 
 #: src/import/org.freedesktop.import1.policy:42
-#, fuzzy
 msgid "Download a disk image"
-msgstr "Загрузить образ виртуальной машины или контейнера"
+msgstr "Загрузить образ диска"
 
 #: src/import/org.freedesktop.import1.policy:43
-#, fuzzy
 msgid "Authentication is required to download a disk image"
-msgstr ""
-"Чтобы загрузить образ виртуальной машины или контейнера, необходимо пройти "
-"аутентификацию"
+msgstr "Чтобы загрузить образ диска, необходимо пройти аутентификацию"
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "Отменить передачу образа диска"
 
 #: src/import/org.freedesktop.import1.policy:53
-#, fuzzy
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image"
 msgstr ""
-"Чтобы изменить пароль для домашнего пространства пользователя, необходимо "
-"пройти аутентификацию."
+"Чтобы отменить текущую передачу образа диска, необходимо пройти "
+"аутентификацию"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
