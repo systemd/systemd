@@ -91,6 +91,7 @@ ocfs2,           {OCFS2_SUPER_MAGIC}
 openpromfs,      {OPENPROM_SUPER_MAGIC}
 orangefs,        {ORANGEFS_DEVREQ_MAGIC}
 overlay,         {OVERLAYFS_SUPER_MAGIC}
+pidfs,           {PID_FS_MAGIC}
 pipefs,          {PIPEFS_MAGIC}
 ppc-cmm,         {PPC_CMM_MAGIC}
 proc,            {PROC_SUPER_MAGIC}
