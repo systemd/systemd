@@ -670,8 +670,8 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                         m,
                         "org.freedesktop.timedate1.set-timezone",
                         /* details= */ NULL,
-                        interactive,
                         /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -744,8 +744,8 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
                         m,
                         "org.freedesktop.timedate1.set-local-rtc",
                         /* details= */ NULL,
-                        interactive,
                         /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -863,8 +863,8 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
                         m,
                         "org.freedesktop.timedate1.set-time",
                         /* details= */ NULL,
-                        interactive,
                         /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -926,8 +926,8 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                         m,
                         "org.freedesktop.timedate1.set-ntp",
                         /* details= */ NULL,
-                        interactive,
                         /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &c->polkit_registry,
                         error);
         if (r < 0)

@@ -24,8 +24,8 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
                         message,
                         "org.freedesktop.resolve1.unregister-service",
                         /* details= */ NULL,
-                        /* interactive= */ false,
                         /* good_user= */ s->originator,
+                        /* flags= */ 0,
                         &m->polkit_registry,
                         error);
         if (r < 0)
