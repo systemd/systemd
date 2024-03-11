@@ -55,8 +55,6 @@ static void device_detach(Device *d) {
 }
 
 void device_free(Device *d) {
-        assert(d);
-
         device_detach(d);
 
         hashmap_remove(d->manager->devices, d->sysfs);
