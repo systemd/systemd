@@ -1520,6 +1520,25 @@ conf.set('DEFAULT_DNS_OVER_TLS_MODE',
          'DNS_OVER_TLS_' + default_dns_over_tls.underscorify().to_upper())
 conf.set_quoted('DEFAULT_DNS_OVER_TLS_MODE_STR', default_dns_over_tls)
 
+dns_over_https = get_option('dns-over-https')
+if dns_over_https != 'false'
+   if conf.get('HAVE_LIBCURL') == 1 and conf.get('HAVE_OPENSSL') == 1
+      have = true
+   else
+      error('DNS-over-HTTPS support was requested but dependencies are not available')
+   endif
+endif
+conf.set10('ENABLE_DNS_OVER_HTTPS', have)
+
+default_dns_over_https = get_option('default-dns-over-https')
+if default_dns_over_https != 'no' and conf.get('ENABLE_DNS_OVER_HTTPS') == 0
+        message('default-dns-over-https cannot be enabled. Setting default-dns-over-https to no.')
+        default_dns_over_https = 'no'
+endif
+conf.set('DEFAULT_DNS_OVER_HTTPS_MODE',
+         'DNS_OVER_HTTPS_' + default_dns_over_https.underscorify().to_upper())
+conf.set_quoted('DEFAULT_DNS_OVER_HTTPS_MODE_STR', default_dns_over_https)
+
 default_mdns = get_option('default-mdns')
 conf.set('DEFAULT_MDNS_MODE',
          'RESOLVE_SUPPORT_' + default_mdns.to_upper())
@@ -2755,6 +2774,7 @@ summary({
         'default compression method' :      compression,
         'default DNSSEC mode' :             default_dnssec,
         'default DNS-over-TLS mode' :       default_dns_over_tls,
+        'default DNS-over-HTTPS mode' :     default_dns_over_https,
         'default mDNS mode' :               default_mdns,
         'default LLMNR mode' :              default_llmnr,
         'default DNS servers' :             dns_servers.split(' '),
