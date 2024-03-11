@@ -118,6 +118,7 @@ shared_sources = files(
         'macvlan-util.c',
         'mkdir-label.c',
         'mkfs-util.c',
+        'module-util.c',
         'mount-setup.c',
         'mount-util.c',
         'net-condition.c',
@@ -235,10 +236,6 @@ if conf.get('HAVE_LIBBPF') == 1
         shared_sources += files('bpf-link.c')
 endif
 
-if conf.get('HAVE_KMOD') == 1
-        shared_sources += files('module-util.c')
-endif
-
 if conf.get('HAVE_PAM') == 1
         shared_sources += files('pam-util.c')
 endif
@@ -323,7 +320,7 @@ libshared_deps = [threads,
                   libdl,
                   libgcrypt,
                   libiptc_cflags,
-                  libkmod,
+                  libkmod_cflags,
                   liblz4_cflags,
                   libmount,
                   libopenssl,
