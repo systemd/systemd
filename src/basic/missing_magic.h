@@ -128,6 +128,11 @@
 #define DEVMEM_MAGIC 0x454d444d
 #endif
 
+/* cb12fd8e0dabb9a1c8aef55a6a41e2c255fcdf4b (6.8) */
+#ifndef PID_FS_MAGIC
+#define PID_FS_MAGIC 0x50494446
+#endif
+
 /* Not in mainline but included in Ubuntu */
 #ifndef SHIFTFS_MAGIC
 #define SHIFTFS_MAGIC 0x6a656a62
