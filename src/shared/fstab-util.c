@@ -164,8 +164,6 @@ int fstab_is_mount_point_full(const char *where, const char *path) {
                 if (r > 0 || (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r)))
                         return r;
         }
-
-        return false;
 }
 
 int fstab_filter_options(
