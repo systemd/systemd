@@ -111,12 +111,13 @@ int sd_ndisc_set_link_local_address(sd_ndisc *nd, const struct in6_addr *addr) {
 int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
         assert_return(nd, -EINVAL);
 
-        if (mac_addr)
-                nd->mac_addr = *mac_addr;
-        else
-                zero(nd->mac_addr);
+        /* Remove previously assigned value. */
+        ndisc_option_free(set_remove(nd->options, &(const sd_ndisc_option) { .type = SD_NDISC_OPTION_SOURCE_LL_ADDRESS }));
 
-        return 0;
+        if (!mac_addr)
+                return 0;
+
+        return ndisc_option_add_link_layer_address(&nd->options, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, 0, mac_addr);
 }
 
 int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority) {
@@ -173,6 +174,7 @@ static sd_ndisc *ndisc_free(sd_ndisc *nd) {
         sd_event_source_unref(nd->timeout_no_ra);
         sd_ndisc_detach_event(nd);
 
+        set_free(nd->options);
         free(nd->ifname);
         return mfree(nd);
 }
@@ -268,6 +270,20 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
         return 0;
 }
 
+static int ndisc_send_router_solicitation(sd_ndisc *nd) {
+        static const struct sockaddr_in6 dst = {
+                .sin6_family = AF_INET6,
+                .sin6_addr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
+        };
+        static const struct nd_router_solicit header = {
+                .nd_rs_type = ND_ROUTER_SOLICIT,
+        };
+
+        assert(nd);
+
+        return ndisc_send(nd->fd, &dst, &header.nd_rs_hdr, nd->options);
+}
+
 static usec_t ndisc_timeout_compute_random(usec_t val) {
         /* compute a time that is random within ±10% of the given value */
         return val - val / 10 +
@@ -301,7 +317,7 @@ static int ndisc_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         if (r < 0)
                 goto fail;
 
-        r = icmp6_send_router_solicitation(nd->fd, &nd->mac_addr);
+        r = ndisc_send_router_solicitation(nd);
         if (r < 0)
                 log_ndisc_errno(nd, r, "Failed to send Router Solicitation, next solicitation in %s, ignoring: %m",
                                 FORMAT_TIMESPAN(nd->retransmit_time, USEC_PER_SEC));

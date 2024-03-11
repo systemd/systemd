@@ -8,6 +8,7 @@
 #include "sd-ndisc.h"
 
 #include "network-common.h"
+#include "set.h"
 #include "time-util.h"
 
 #define NDISC_ROUTER_SOLICITATION_INTERVAL (4U * USEC_PER_SEC)
@@ -25,7 +26,7 @@ struct sd_ndisc {
         int event_priority;
 
         struct in6_addr link_local_addr;
-        struct ether_addr mac_addr;
+        Set *options; /* options will be added in Router Solicitation messages */
 
         sd_event_source *recv_event_source;
         sd_event_source *timeout_event_source;
