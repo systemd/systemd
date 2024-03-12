@@ -32,7 +32,7 @@
 #include "tmpfile-util.h"
 
 /* The maximum size of the file we'll read in one go in read_full_file() (64M). */
-#define READ_FULL_BYTES_MAX (64U*1024U*1024U - 1U)
+#define READ_FULL_BYTES_MAX (64U * U64_MB - UINT64_C(1))
 /* Used when a size is specified for read_full_file() with READ_FULL_FILE_UNBASE64 or _UNHEX */
 #define READ_FULL_FILE_ENCODED_STRING_AMPLIFICATION_BOUNDARY 3
 
@@ -45,7 +45,7 @@
  * exponentially in a loop. We use a size limit of 4M-2 because 4M-1 is the maximum buffer that /proc/sys/
  * allows us to read() (larger reads will fail with ENOMEM), and we want to read one extra byte so that we
  * can detect EOFs. */
-#define READ_VIRTUAL_BYTES_MAX (4U*1024U*1024U - 2U)
+#define READ_VIRTUAL_BYTES_MAX (4U * U64_MB - UINT64_C(2))
 
 int fdopen_unlocked(int fd, const char *options, FILE **ret) {
         assert(ret);

@@ -20,10 +20,10 @@
 #include "tmpfile-util.h"
 
 /* When the data is smaller or equal to 64K, try to place the copy in a memfd/pipe */
-#define DATA_FD_MEMORY_LIMIT (64U*1024U)
+#define DATA_FD_MEMORY_LIMIT (64U * U64_KB)
 
 /* If memfd/pipe didn't work out, then let's use a file in /tmp up to a size of 1M. If it's large than that use /var/tmp instead. */
-#define DATA_FD_TMP_LIMIT (1024U*1024U)
+#define DATA_FD_TMP_LIMIT (1U * U64_MB)
 
 int acquire_data_fd(const void *data, size_t size, unsigned flags) {
         _cleanup_close_pair_ int pipefds[2] = EBADF_PAIR;
@@ -179,7 +179,7 @@ int copy_data_fd(int fd) {
          * that we use the reported regular file size only as a hint, given that there are plenty special files in
          * /proc and /sys which report a zero file size but can be read from. */
 
-        if (!S_ISREG(st.st_mode) || st.st_size < DATA_FD_MEMORY_LIMIT) {
+        if (!S_ISREG(st.st_mode) || (uint64_t) st.st_size < DATA_FD_MEMORY_LIMIT) {
 
                 /* Try a memfd first */
                 copy_fd = memfd_new("data-fd");
@@ -252,7 +252,7 @@ int copy_data_fd(int fd) {
         }
 
         /* If we have reason to believe this will fit fine in /tmp, then use that as first fallback. */
-        if ((!S_ISREG(st.st_mode) || st.st_size < DATA_FD_TMP_LIMIT) &&
+        if ((!S_ISREG(st.st_mode) || (uint64_t) st.st_size < DATA_FD_TMP_LIMIT) &&
             (DATA_FD_MEMORY_LIMIT + remains_size) < DATA_FD_TMP_LIMIT) {
                 off_t f;
 
