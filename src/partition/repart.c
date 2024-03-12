@@ -296,6 +296,7 @@ typedef struct Partition {
 
         char *format;
         char **copy_files;
+        char **mkfs_options;
         char **exclude_files_source;
         char **exclude_files_target;
         char **make_directories;
@@ -1668,6 +1669,33 @@ static int config_parse_make_dirs(
         }
 }
 
+static int config_parse_mkfs_options(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+                
+        _cleanup_strv_free_ char **l = NULL;
+        char ***opt = ASSERT_PTR(data);
+        const char *p = ASSERT_PTR(rvalue);
+        
+        if (p) {
+                l = strv_split(p, NULL);
+                if (!l)
+                        return log_oom();
+        }
+
+        *opt = TAKE_PTR(l);
+
+        return 0;
+}
+
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_encrypt, encrypt_mode, EncryptMode, ENCRYPT_OFF, "Invalid encryption mode");
 
 static int config_parse_gpt_flags(
@@ -1874,6 +1902,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "FactoryReset",             config_parse_bool,             0, &p->factory_reset           },
                 { "Partition", "CopyBlocks",               config_parse_copy_blocks,      0, p                           },
                 { "Partition", "Format",                   config_parse_fstype,           0, &p->format                  },
+                { "Partition", "MkfsOptions",              config_parse_mkfs_options,     0, &p->mkfs_options            },
                 { "Partition", "CopyFiles",                config_parse_copy_files,       0, &p->copy_files              },
                 { "Partition", "ExcludeFiles",             config_parse_exclude_files,    0, &p->exclude_files_source    },
                 { "Partition", "ExcludeFilesTarget",       config_parse_exclude_files,    0, &p->exclude_files_target    },
@@ -5038,7 +5067,13 @@ static int context_mkfs(Context *context) {
                         return log_error_errno(r,
                                                "Failed to determine mkfs command line options for '%s': %m",
                                                p->format);
-
+                
+                if (p->mkfs_options) {
+                        r = strv_extend_strv(&extra_mkfs_options, p->mkfs_options, /* filter_duplicates = */ 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to append mkfs options.");
+                }
+                
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
                                     p->fs_uuid, arg_discard, /* quiet = */ false,
                                     context->fs_sector_size, extra_mkfs_options);
@@ -6574,6 +6609,12 @@ static int context_minimize(Context *context) {
                         return log_error_errno(r,
                                                "Failed to determine mkfs command line options for '%s': %m",
                                                p->format);
+                
+                if (p->mkfs_options) {
+                        r = strv_extend_strv(&extra_mkfs_options, p->mkfs_options, /* filter_duplicates = */ 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to append mkfs options.");
+                }
 
                 r = make_filesystem(d ? d->node : temp,
                                     p->format,
