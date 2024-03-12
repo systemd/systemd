@@ -6,6 +6,8 @@
 #include <sys/utsname.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
+
 #include "alloc-util.h"
 #include "creds-util.h"
 #include "fd-util.h"
@@ -13,6 +15,7 @@
 #include "fs-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
+#include "initrd-util.h"
 #include "log.h"
 #include "macro.h"
 #include "proc-cmdline.h"
@@ -153,7 +156,7 @@ void hostname_update_source_hint(const char *hostname, HostnameSource source) {
 }
 
 int hostname_setup(bool really) {
-        _cleanup_free_ char *b = NULL;
+        _cleanup_free_ char *b = NULL, *buf = NULL;
         const char *hn = NULL;
         HostnameSource source;
         bool enoent = false;
@@ -194,8 +197,6 @@ int hostname_setup(bool really) {
         }
 
         if (!hn) {
-                _cleanup_free_ char *buf = NULL;
-
                 /* Don't override the hostname if it is already set and not explicitly configured */
 
                 r = gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST, &buf);
@@ -203,7 +204,8 @@ int hostname_setup(bool really) {
                         return log_oom();
                 if (r >= 0) {
                         log_debug("No hostname configured, leaving existing hostname <%s> in place.", buf);
-                        return 0;
+                        hn = buf;
+                        goto finish;
                 }
 
                 if (enoent)
@@ -229,7 +231,11 @@ int hostname_setup(bool really) {
         if (really)
                 hostname_update_source_hint(hn, source);
 
-        return r;
+finish:
+        if (!in_initrd())
+                (void) sd_notifyf(/* unset_environment= */ false, "X_SYSTEMD_HOSTNAME=%s", hn);
+
+        return 0;
 }
 
 static const char* const hostname_source_table[] = {
