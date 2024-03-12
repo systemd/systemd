@@ -4408,6 +4408,17 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         if (!tags)
                 return log_oom();
 
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *joined = strv_join(tags, " ");
+
+                if (joined) {
+                        _cleanup_free_ char *j = cescape(joined);
+                        free_and_replace(joined, j);
+                }
+
+                log_debug("Got sd_notify() message: %s", strnull(joined));
+        }
+
         if (strv_contains(tags, "READY=1")) {
                 r = sd_notify(false, "READY=1\n");
                 if (r < 0)
