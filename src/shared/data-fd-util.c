@@ -20,10 +20,10 @@
 #include "tmpfile-util.h"
 
 /* When the data is smaller or equal to 64K, try to place the copy in a memfd/pipe */
-#define DATA_FD_MEMORY_LIMIT (64U*1024U)
+#define DATA_FD_MEMORY_LIMIT (64 * U64_KB)
 
 /* If memfd/pipe didn't work out, then let's use a file in /tmp up to a size of 1M. If it's large than that use /var/tmp instead. */
-#define DATA_FD_TMP_LIMIT (1024U*1024U)
+#define DATA_FD_TMP_LIMIT (1 * U64_MB)
 
 int acquire_data_fd(const void *data, size_t size, unsigned flags) {
         _cleanup_close_pair_ int pipefds[2] = EBADF_PAIR;
