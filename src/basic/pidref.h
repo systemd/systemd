@@ -19,17 +19,7 @@ static inline bool pidref_is_set(const PidRef *pidref) {
         return pidref && pidref->pid > 0;
 }
 
-static inline bool pidref_equal(const PidRef *a, const PidRef *b) {
-
-        if (pidref_is_set(a)) {
-                if (!pidref_is_set(b))
-                        return false;
-
-                return a->pid == b->pid;
-        }
-
-        return !pidref_is_set(b);
-}
+bool pidref_equal(const PidRef *a, const PidRef *b);
 
 /* This turns a pid_t into a PidRef structure, and acquires a pidfd for it, if possible. (As opposed to
  * PIDREF_MAKE_FROM_PID() above, which does not acquire a pidfd.) */
