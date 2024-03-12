@@ -780,16 +780,7 @@ static int route_requeue_request(Request *req, Link *link, const Route *route) {
         request_detach(req);
 
         /* Request the route with the adjusted Route object combined with the same other parameters. */
-        r = link_queue_request_full(link,
-                                    req->type,
-                                    tmp,
-                                    req->free_func,
-                                    req->hash_func,
-                                    req->compare_func,
-                                    req->process,
-                                    req->counter,
-                                    req->netlink_handler,
-                                    NULL);
+        r = link_requeue_request(link, req, tmp, NULL);
         if (r < 0)
                 return r;
         if (r == 0)
