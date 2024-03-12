@@ -17,7 +17,7 @@ static void test_acquire_data_fd_one(unsigned flags) {
         char rbuffer[sizeof(wbuffer)];
         int fd;
 
-        fd = acquire_data_fd("foo", 3, flags);
+        fd = acquire_data_fd_full("foo", 3, flags);
         assert_se(fd >= 0);
 
         zero(rbuffer);
@@ -26,7 +26,7 @@ static void test_acquire_data_fd_one(unsigned flags) {
 
         fd = safe_close(fd);
 
-        fd = acquire_data_fd("", 0, flags);
+        fd = acquire_data_fd_full("", SIZE_MAX, flags);
         assert_se(fd >= 0);
 
         zero(rbuffer);
@@ -37,7 +37,7 @@ static void test_acquire_data_fd_one(unsigned flags) {
 
         random_bytes(wbuffer, sizeof(wbuffer));
 
-        fd = acquire_data_fd(wbuffer, sizeof(wbuffer), flags);
+        fd = acquire_data_fd_full(wbuffer, sizeof(wbuffer), flags);
         assert_se(fd >= 0);
 
         zero(rbuffer);
@@ -98,14 +98,14 @@ TEST(copy_data_fd) {
         fd1 = safe_close(fd1);
         fd2 = safe_close(fd2);
 
-        fd1 = acquire_data_fd("hallo", 6,  0);
+        fd1 = acquire_data_fd("hallo");
         assert_se(fd1 >= 0);
 
         fd2 = copy_data_fd(fd1);
         assert_se(fd2 >= 0);
 
         safe_close(fd1);
-        fd1 = acquire_data_fd("hallo", 6,  0);
+        fd1 = acquire_data_fd("hallo");
         assert_se(fd1 >= 0);
 
         assert_equal_fd(fd1, fd2);
