@@ -3730,7 +3730,7 @@ static void manager_notify_finished(Manager *m) {
         log_taint_string(m);
 }
 
-static void user_manager_send_ready(Manager *m) {
+static void manager_send_ready_user_scope(Manager *m) {
         int r;
 
         assert(m);
@@ -3749,11 +3749,16 @@ static void user_manager_send_ready(Manager *m) {
         m->status_ready = false;
 }
 
-static void manager_send_ready(Manager *m) {
+static void manager_send_ready_system_scope(Manager *m) {
         int r;
 
+        assert(m);
+
+        if (!MANAGER_IS_SYSTEM(m))
+                return;
+
+        /* Skip the notification if nothing changed. */
         if (m->ready_sent && m->status_ready)
-                /* Skip the notification if nothing changed. */
                 return;
 
         r = sd_notify(/* unset_environment= */ false,
@@ -3780,7 +3785,7 @@ static void manager_check_basic_target(Manager *m) {
                 return;
 
         /* For user managers, send out READY=1 as soon as we reach basic.target */
-        user_manager_send_ready(m);
+        manager_send_ready_user_scope(m);
 
         /* Log the taint string as soon as we reach basic.target */
         log_taint_string(m);
@@ -3811,7 +3816,7 @@ void manager_check_finished(Manager *m) {
         if (hashmap_buckets(m->jobs) > hashmap_size(m->units) / 10)
                 m->jobs = hashmap_free(m->jobs);
 
-        manager_send_ready(m);
+        manager_send_ready_system_scope(m);
 
         /* Notify Type=idle units that we are done now */
         manager_close_idle_pipe(m);
