@@ -29,13 +29,13 @@
 
 static void inhibitor_remove_fifo(Inhibitor *i);
 
-int inhibitor_new(Inhibitor **ret, Manager *m, const char* id) {
+int inhibitor_new(Manager *m, const char* id, Inhibitor **ret) {
         _cleanup_(inhibitor_freep) Inhibitor *i = NULL;
         int r;
 
-        assert(ret);
         assert(m);
         assert(id);
+        assert(ret);
 
         i = new(Inhibitor, 1);
         if (!i)
