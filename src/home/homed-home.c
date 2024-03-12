@@ -1258,7 +1258,7 @@ static int home_start_work(
         if (r < 0)
                 return r;
 
-        stdin_fd = acquire_data_fd(formatted, strlen(formatted), 0);
+        stdin_fd = acquire_data_fd(formatted);
         if (stdin_fd < 0)
                 return stdin_fd;
 
