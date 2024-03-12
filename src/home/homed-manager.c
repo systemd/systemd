@@ -1050,7 +1050,7 @@ static int manager_bind_varlink(Manager *m) {
         assert(!m->userdb_service);
         r = path_extract_filename(socket_path, &m->userdb_service);
         if (r < 0)
-                return log_error_errno(r, "Failed to extra filename from socket path '%s': %m", socket_path);
+                return log_error_errno(r, "Failed to extract filename from socket path '%s': %m", socket_path);
 
         /* Avoid recursion */
         if (setenv("SYSTEMD_BYPASS_USERDB", m->userdb_service, 1) < 0)
