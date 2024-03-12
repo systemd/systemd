@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <linux/magic.h>
 #include <sched.h>
+#include <sys/eventfd.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -193,6 +194,21 @@ TEST(inode_type_from_string) {
 
         FOREACH_ARRAY(m, types, ELEMENTSOF(types))
                 assert_se(inode_type_from_string(inode_type_to_string(*m)) == *m);
+}
+
+TEST(anonymous_inode) {
+        _cleanup_close_ int fd = -EBADF;
+
+        fd = eventfd(0, EFD_CLOEXEC);
+        assert_se(fd >= 0);
+
+        /* Verify that we handle anonymous inodes correctly, i.e. those which have no file type */
+
+        struct stat st;
+        assert_se(fstat(fd, &st) >= 0);
+        assert_se((st.st_mode & S_IFMT) == 0);
+
+        assert_se(!inode_type_to_string(st.st_mode));
 }
 
 TEST(fd_verify_linked) {
