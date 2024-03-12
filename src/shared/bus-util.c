@@ -627,7 +627,7 @@ static int method_dump_memory_state_by_fd(sd_bus_message *message, void *userdat
         if (r < 0)
                 return r;
 
-        fd = acquire_data_fd(dump, dump_size, 0);
+        fd = acquire_data_fd_full(dump, dump_size, /* flags = */ 0);
         if (fd < 0)
                 return fd;
 
