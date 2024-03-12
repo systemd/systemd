@@ -43,6 +43,8 @@ int inhibitor_new(Manager *m, const char* id, Inhibitor **ret) {
 
         *i = (Inhibitor) {
                 .manager = m,
+                .id = strdup(id),
+                .state_file = path_join("/run/systemd/inhibit/", id),
                 .what = _INHIBIT_WHAT_INVALID,
                 .mode = _INHIBIT_MODE_INVALID,
                 .uid = UID_INVALID,
@@ -50,11 +52,8 @@ int inhibitor_new(Manager *m, const char* id, Inhibitor **ret) {
                 .pid = PIDREF_NULL,
         };
 
-        i->state_file = path_join("/run/systemd/inhibit", id);
-        if (!i->state_file)
+        if (!i->id || !i->state_file)
                 return -ENOMEM;
-
-        i->id = basename(i->state_file);
 
         r = hashmap_put(m->inhibitors, i->id, i);
         if (r < 0)
@@ -79,8 +78,9 @@ Inhibitor* inhibitor_free(Inhibitor *i) {
 
         /* Note that we don't remove neither the state file nor the fifo path here, since we want both to
          * survive daemon restarts */
-        free(i->state_file);
         free(i->fifo_path);
+        free(i->state_file);
+        free(i->id);
 
         pidref_done(&i->pid);
 
