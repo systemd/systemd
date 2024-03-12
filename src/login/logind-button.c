@@ -15,7 +15,38 @@
 #include "missing_input.h"
 #include "string-util.h"
 
-#define CONST_MAX5(a, b, c, d, e) CONST_MAX(CONST_MAX(a, b), CONST_MAX(CONST_MAX(c, d), e))
+#define KEY_MAX_INTERESTED KEY_RESTART
+
+const int keys_interested[] = {
+        KEY_ESC,
+        KEY_LEFTCTRL,
+        KEY_LEFTSHIFT,
+        KEY_RIGHTSHIFT,
+        KEY_LEFTALT,
+        KEY_RIGHTCTRL,
+        KEY_RIGHTALT,
+        KEY_POWER,
+        KEY_LEFTMETA,
+        KEY_RIGHTMETA,
+        KEY_SLEEP,
+        KEY_SUSPEND,
+        KEY_POWER2,
+        KEY_RESTART
+};
+
+static int max_of_n(int count, ...) {
+        va_list ap;
+        int return_max = 0;
+        va_start(ap, count);
+        for(int i = 0; i < count; i++) {
+                int current_value = va_arg(ap, int);
+                if (current_value > return_max) {
+                        return_max = current_value;
+                }
+        }
+        va_end(ap);
+        return return_max;
+}
 
 #define ULONG_BITS (sizeof(unsigned long)*8)
 
@@ -47,6 +78,8 @@ Button* button_new(Manager *m, const char *name) {
                 free(b->name);
                 return mfree(b);
         }
+
+        b->mods_depressed = Button_Modifier_None;
 
         b->manager = m;
         b->fd = -EBADF;
@@ -179,6 +212,20 @@ static int long_press_of_hibernate_key_handler(sd_event_source *e, uint64_t usec
         return 0;
 }
 
+static int secure_attention_key_handler(Button *b) {
+        log_struct(LOG_INFO,
+                   LOG_MESSAGE("Capslock+Esc key pressed long."),
+                   "MESSAGE_ID=" SD_MESSAGE_SECURE_ATTENTION_KEY_PRESS_STR);
+
+        sd_bus_emit_signal(
+                        b->manager->bus,
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "SecureAttentionKey",
+                        "so", b->seat, NULL);
+        return 0;
+}
+
 static void start_long_press(Manager *m, sd_event_source **e, sd_event_time_handler_t callback) {
         int r;
 
@@ -275,6 +322,35 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                                 manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
                         }
                         break;
+
+                case KEY_ESC:
+                        if (b->manager->handle_secure_attention_key_press != HANDLE_IGNORE) {
+                                if (b->mods_depressed == (Button_Modifier_Ctrl | Button_Modifier_Alt | Button_Modifier_Shift)) {
+                                        log_debug("Capslock+Esc key pressed. Further action depends on the key press duration.");
+                                        secure_attention_key_handler(b);
+                                }
+                        }
+                        break;
+
+                case KEY_LEFTSHIFT:
+                case KEY_RIGHTSHIFT:
+                        b->mods_depressed |= Button_Modifier_Shift;
+                        break;
+
+                case KEY_LEFTCTRL:
+                case KEY_RIGHTCTRL:
+                        b->mods_depressed |= Button_Modifier_Ctrl;
+                        break;
+
+                case KEY_LEFTMETA:
+                case KEY_RIGHTMETA:
+                        b->mods_depressed |= Button_Modifier_Meta;
+                        break;
+
+                case KEY_LEFTALT:
+                case KEY_RIGHTALT:
+                        b->mods_depressed |= Button_Modifier_Alt;
+                        break;
                 }
 
         } else if (ev.type == EV_KEY && ev.value == 0) {
@@ -332,6 +408,29 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                                 manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
                         }
                         break;
+
+                case KEY_ESC:
+                        break;
+
+                case KEY_LEFTSHIFT:
+                case KEY_RIGHTSHIFT:
+                        b->mods_depressed &= ~Button_Modifier_Shift;
+                        break;
+
+                case KEY_LEFTCTRL:
+                case KEY_RIGHTCTRL:
+                        b->mods_depressed &= ~Button_Modifier_Ctrl;
+                        break;
+
+                case KEY_LEFTMETA:
+                case KEY_RIGHTMETA:
+                        b->mods_depressed &= ~Button_Modifier_Meta;
+                        break;
+
+                case KEY_LEFTALT:
+                case KEY_RIGHTALT:
+                        b->mods_depressed &= ~Button_Modifier_Alt;
+                        break;
                 }
 
         } else if (ev.type == EV_SW && ev.value > 0) {
@@ -378,7 +477,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 }
 
 static int button_suitable(int fd) {
-        unsigned long types[CONST_MAX(EV_KEY, EV_SW)/ULONG_BITS+1];
+        unsigned long types[max_of_n(2, EV_KEY, EV_SW)/ULONG_BITS+1];
 
         assert(fd >= 0);
 
@@ -386,21 +485,27 @@ static int button_suitable(int fd) {
                 return -errno;
 
         if (bitset_get(types, EV_KEY)) {
-                unsigned long keys[CONST_MAX5(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND, KEY_RESTART)/ULONG_BITS+1];
+                unsigned long keys[max_of_n(14, KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND, KEY_RESTART,
+                                            KEY_LEFTSHIFT, KEY_RIGHTSHIFT,
+                                            KEY_LEFTALT, KEY_RIGHTALT,
+                                            KEY_LEFTMETA, KEY_RIGHTMETA,
+                                            KEY_LEFTALT, KEY_RIGHTALT,
+                                            KEY_ESC)/ULONG_BITS+1];
 
                 if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys) < 0)
                         return -errno;
 
-                if (bitset_get(keys, KEY_POWER) ||
-                    bitset_get(keys, KEY_POWER2) ||
-                    bitset_get(keys, KEY_SLEEP) ||
-                    bitset_get(keys, KEY_SUSPEND) ||
-                    bitset_get(keys, KEY_RESTART))
-                        return true;
+
+                FOREACH_ARRAY(key, keys_interested, ELEMENTSOF(keys_interested)) {
+                        assert(*key <= KEY_MAX_INTERESTED);
+
+                        if (bitset_get(keys, *key))
+                                return true;
+                }
         }
 
         if (bitset_get(types, EV_SW)) {
-                unsigned long switches[CONST_MAX(SW_LID, SW_DOCK)/ULONG_BITS+1];
+                unsigned long switches[max_of_n(2, SW_LID, SW_DOCK)/ULONG_BITS+1];
 
                 if (ioctl(fd, EVIOCGBIT(EV_SW, sizeof switches), switches) < 0)
                         return -errno;
@@ -414,14 +519,26 @@ static int button_suitable(int fd) {
 }
 
 static int button_set_mask(const char *name, int fd) {
+        int types_elements = max_of_n(2, EV_KEY, EV_SW)/ULONG_BITS+1;
+        int keys_elements = max_of_n(14, KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND, KEY_RESTART,
+                                         KEY_LEFTSHIFT, KEY_RIGHTSHIFT,
+                                         KEY_LEFTALT, KEY_RIGHTALT,
+                                         KEY_LEFTMETA, KEY_RIGHTMETA,
+                                         KEY_LEFTALT, KEY_RIGHTALT,
+                                         KEY_ESC);
+        int switches_elements = max_of_n(SW_LID, SW_DOCK)/ULONG_BITS+1;
         unsigned long
-                types[CONST_MAX(EV_KEY, EV_SW)/ULONG_BITS+1] = {},
-                keys[CONST_MAX5(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND, KEY_RESTART)/ULONG_BITS+1] = {},
-                switches[CONST_MAX(SW_LID, SW_DOCK)/ULONG_BITS+1] = {};
+                types[types_elements],
+                keys[keys_elements],
+                switches[switches_elements];
         struct input_mask mask;
 
         assert(name);
         assert(fd >= 0);
+
+        for (int i = 0; i < types_elements; i++) {
+                types[i] = 0;
+        }
 
         bitset_put(types, EV_KEY);
         bitset_put(types, EV_SW);
@@ -437,11 +554,11 @@ static int button_set_mask(const char *name, int fd) {
                 return log_full_errno(IN_SET(errno, ENOTTY, EOPNOTSUPP, EINVAL) ? LOG_DEBUG : LOG_WARNING,
                                       errno, "Failed to set EV_SYN event mask on /dev/input/%s: %m", name);
 
-        bitset_put(keys, KEY_POWER);
-        bitset_put(keys, KEY_POWER2);
-        bitset_put(keys, KEY_SLEEP);
-        bitset_put(keys, KEY_SUSPEND);
-        bitset_put(keys, KEY_RESTART);
+        FOREACH_ARRAY(key, keys_interested, ELEMENTSOF(keys_interested)) {
+                assert(*key <= KEY_MAX_INTERESTED);
+
+                bitset_put(keys, *key);
+        }
 
         mask = (struct input_mask) {
                 .type = EV_KEY,
@@ -506,7 +623,8 @@ int button_open(Button *b) {
 }
 
 int button_check_switches(Button *b) {
-        unsigned long switches[CONST_MAX(SW_LID, SW_DOCK)/ULONG_BITS+1] = {};
+        int switches_elements = max_of_n(2, SW_LID, SW_DOCK)/ULONG_BITS+1;
+        unsigned long switches[switches_elements];
         assert(b);
 
         if (b->fd < 0)
