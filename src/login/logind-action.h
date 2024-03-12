@@ -22,6 +22,7 @@ typedef enum HandleAction {
         HANDLE_SLEEP, /* A "high-level" action that automatically choose an appropriate low-level sleep action */
         _HANDLE_ACTION_SLEEP_LAST = HANDLE_SLEEP,
 
+        HANDLE_SECURE_ATTENTION_KEY,
         HANDLE_LOCK,
         HANDLE_FACTORY_RESET,
 
@@ -77,7 +78,8 @@ int manager_handle_action(
                 InhibitWhat inhibit_key,
                 HandleAction handle,
                 bool ignore_inhibited,
-                bool is_edge);
+                bool is_edge,
+                const char *action_seat);
 
 const char* handle_action_verb_to_string(HandleAction h) _const_;
 
