@@ -169,6 +169,8 @@ node /org/freedesktop/login1 {
       SetWallMessage(in  s wall_message,
                      in  b enable);
     signals:
+      SecureAttentionKey(s seat_id,
+                         o object_path);
       SessionNew(s session_id,
                  o object_path);
       SessionRemoved(s session_id,
@@ -244,6 +246,8 @@ node /org/freedesktop/login1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s HandleLidSwitchDocked = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HandleSecureAttentionKey = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t HoldoffTimeoutUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IdleAction = '...';
@@ -295,6 +299,8 @@ node /org/freedesktop/login1 {
     <!--property HandleSuspendKeyLongPress is not documented!-->
 
     <!--property HandleHibernateKeyLongPress is not documented!-->
+
+    <!--property HandleSecureAttentionKey is not documented!-->
 
     <!--property DesignatedMaintenanceTime is not documented!-->
 
@@ -430,6 +436,8 @@ node /org/freedesktop/login1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetWallMessage()"/>
 
+    <variablelist class="dbus-signal" generated="True" extra-ref="SecureAttentionKey()"/>
+
     <variablelist class="dbus-signal" generated="True" extra-ref="SessionNew()"/>
 
     <variablelist class="dbus-signal" generated="True" extra-ref="SessionRemoved()"/>
@@ -507,6 +515,8 @@ node /org/freedesktop/login1 {
     <variablelist class="dbus-property" generated="True" extra-ref="HandleLidSwitchExternalPower"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="HandleLidSwitchDocked"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="HandleSecureAttentionKey"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="HoldoffTimeoutUSec"/>
 
@@ -732,6 +742,10 @@ node /org/freedesktop/login1 {
 
       <para>Whenever the inhibition state or idle hint changes, <function>PropertyChanged</function>
       signals are sent out to which clients can subscribe.</para>
+
+      <para>The <function>SecureAttentionKey()</function> signal is sent when the user presses Ctrl+Alt+Shift+Esc to
+      request the login manager to display the greeter, for instance in the case of a deadlocked compositor.
+      </para>
 
       <para>The <function>SessionNew()</function>, <function>SessionRemoved()</function>,
       <function>UserNew()</function>, <function>UserRemoved()</function>, <function>SeatNew()</function>, and
@@ -1590,6 +1604,8 @@ node /org/freedesktop/login1/session/1 {
       <varname>SleepOperation</varname>,
       <varname>DesignatedMaintenanceTime</varname>, and
       <function>ListSessionsEx()</function> were added in version 256.</para>
+      <para><varname>HandleSecureAttentionKey</varname>, and
+      <function>SecureAttentionKey()</function> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Session Objects</title>
