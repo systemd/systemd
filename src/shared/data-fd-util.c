@@ -25,7 +25,7 @@
 /* If memfd/pipe didn't work out, then let's use a file in /tmp up to a size of 1M. If it's large than that use /var/tmp instead. */
 #define DATA_FD_TMP_LIMIT (1 * U64_MB)
 
-int acquire_data_fd(const void *data, size_t size, unsigned flags) {
+int acquire_data_fd(const void *data, size_t size, DataFDFlags flags) {
         _cleanup_close_pair_ int pipefds[2] = EBADF_PAIR;
         _cleanup_close_ int fd = -EBADF;
         int isz = 0, r;
