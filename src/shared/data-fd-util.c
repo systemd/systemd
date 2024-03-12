@@ -51,6 +51,9 @@ int acquire_data_fd(const void *data, size_t size, DataFDFlags flags) {
          * It sucks a bit that depending on the situation we return very different objects here, but that's Linux I
          * figure. */
 
+        if (size == SIZE_MAX)
+                size = strlen(data);
+
         if (size == 0 && !FLAGS_SET(flags, ACQUIRE_NO_DEV_NULL))
                 /* As a special case, return /dev/null if we have been called for an empty data block */
                 return RET_NERRNO(open("/dev/null", O_RDONLY|O_CLOEXEC|O_NOCTTY));
