@@ -27,6 +27,25 @@ pass_deny_list() {
     return 0
 }
 
+test_run() {
+    local test_name="${1:?}"
+    shift
+
+    if [[ $# -eq 0 ]]; then
+        echo >&2 "test_run: missing arguments"
+        exit 1
+    fi
+
+    # Note: let's be very explicit in reporting the return code of the test command here, i.e don't rely on
+    #       `set -e` or the return code of the last statement in the function, since reporting false positive
+    #       would be very bad in this case.
+    if [[ "${SPLIT_TEST_LOGS:-0}" -ne 0 && -n "${ARTIFACT_DIRECTORY:-}" ]]; then
+        (set -x; "$@") &>>"$ARTIFACT_DIRECTORY/$test_name.log" || return $?
+    else
+        (set -x; "$@") || return $?
+    fi
+}
+
 ARGS=(setup run clean-again)
 CLEAN=0
 CLEAN_AGAIN=0
@@ -77,7 +96,7 @@ SELECTED_TESTS="${SELECTED_TESTS:-TEST-??-*}"
 # cache.
 if [[ $CLEAN -eq 1 ]]; then
     for test in $SELECTED_TESTS; do
-        (set -x; make -C "$test" clean)
+        test_run "$test" make -C "$test" clean
     done
 fi
 
@@ -91,7 +110,7 @@ if [[ ${#ARGS[@]} -ne 0 ]]; then
 
         echo -e "\n[$(date +%R:%S)] --x-- Running $test --x--"
         set +e
-        (set -x; make -C "$test" "${ARGS[@]}")
+        test_run "$test" make -C "$test" "${ARGS[@]}"
         result=$?
         set -e
         echo "[$(date +%R:%S)] --x-- Result of $test: $result --x--"
@@ -106,7 +125,7 @@ fi
 # Run clean-again, if requested, and if no tests failed
 if [[ $FAILURES -eq 0 && $CLEAN_AGAIN -eq 1 ]]; then
     for test in "${!RESULTS[@]}"; do
-        (set -x; make -C "$test" clean-again)
+        test_run "$test" make -C "$test" clean-again
     done
 fi
 
@@ -117,7 +136,7 @@ for test in "${!RESULTS[@]}"; do
     time="${TIMES[$test]}"
     [[ "$result" -eq 0 ]] && string="SUCCESS" || string="FAIL"
     printf "%-35s %-8s (%3s s)\n" "$test:" "$string" "$time"
-done
+done | sort
 
 if [[ "$FAILURES" -eq 0 ]]; then
     echo -e "\nALL $COUNT TESTS PASSED"
