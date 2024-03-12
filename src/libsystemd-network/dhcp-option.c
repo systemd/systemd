@@ -10,6 +10,8 @@
 #include "alloc-util.h"
 #include "dhcp-option.h"
 #include "dhcp-server-internal.h"
+#include "dns-domain.h"
+#include "hostname-util.h"
 #include "memory-util.h"
 #include "ordered-set.h"
 #include "strv.h"
@@ -396,27 +398,56 @@ int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t c
 }
 
 int dhcp_option_parse_string(const uint8_t *option, size_t len, char **ret) {
+        _cleanup_free_ char *string = NULL;
         int r;
 
         assert(option);
         assert(ret);
 
-        if (len <= 0)
-                *ret = mfree(*ret);
-        else {
-                char *string;
-
-                /*
-                 * One trailing NUL byte is OK, we don't mind. See:
-                 * https://github.com/systemd/systemd/issues/1337
-                 */
-                r = make_cstring((const char *) option, len, MAKE_CSTRING_ALLOW_TRAILING_NUL, &string);
-                if (r < 0)
-                        return r;
-
-                free_and_replace(*ret, string);
+        if (len <= 0) {
+                *ret = NULL;
+                return 0;
         }
 
+        /* One trailing NUL byte is OK, we don't mind. See:
+         * https://github.com/systemd/systemd/issues/1337 */
+        r = make_cstring((const char *) option, len, MAKE_CSTRING_ALLOW_TRAILING_NUL, &string);
+        if (r < 0)
+                return r;
+
+        if (!string_is_safe(string) || !utf8_is_valid(string))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(string);
+        return 0;
+}
+
+int dhcp_option_parse_hostname(const uint8_t *option, size_t len, char **ret) {
+        _cleanup_free_ char *hostname = NULL;
+        int r;
+
+        assert(option);
+        assert(ret);
+
+        r = dhcp_option_parse_string(option, len, &hostname);
+        if (r < 0)
+                return r;
+
+        if (!hostname) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (!hostname_is_valid(hostname, 0))
+                return -EINVAL;
+
+        r = dns_name_is_valid(hostname);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        *ret = TAKE_PTR(hostname);
         return 0;
 }
 

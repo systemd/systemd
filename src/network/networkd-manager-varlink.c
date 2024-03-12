@@ -2,8 +2,12 @@
 
 #include <unistd.h>
 
+#include "bus-polkit.h"
+#include "fs-util.h"
 #include "lldp-rx-internal.h"
+#include "networkd-dhcp-server.h"
 #include "networkd-manager-varlink.h"
+#include "stat-util.h"
 #include "varlink.h"
 #include "varlink-io.systemd.Network.h"
 
@@ -164,6 +168,55 @@ static int vl_method_get_lldp_neighbors(Varlink *vlink, JsonVariant *parameters,
                                 JSON_BUILD_PAIR_CONDITION(!json_variant_is_blank_array(array), "Neighbors", JSON_BUILD_VARIANT(array))));
 }
 
+static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                { "Ready", JSON_VARIANT_BOOLEAN, json_dispatch_boolean, 0, 0 },
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        bool ready;
+        int r;
+
+        assert(vlink);
+
+        r = varlink_dispatch(vlink, parameters, dispatch_table, &ready);
+        if (r != 0)
+                return r;
+
+        if (ready) {
+                r = path_is_read_only_fs("/var/lib/systemd/network/");
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to check if /var/lib/systemd/network/ is writable: %m");
+                if (r > 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EROFS), "The directory /var/lib/systemd/network/ is read-only.");
+        }
+
+        r = varlink_verify_polkit_async(
+                                vlink,
+                                manager->bus,
+                                "org.freedesktop.network1.set-persistent-storage",
+                                /* details= */ NULL,
+                                &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        manager->persistent_storage_is_ready = ready;
+
+        if (ready) {
+                r = touch("/run/systemd/netif/persistent-storage-ready");
+                if (r < 0)
+                        log_debug_errno(r, "Failed to create /run/systemd/netif/persistent-storage-ready, ignoring: %m");
+        } else {
+                if (unlink("/run/systemd/netif/persistent-storage-ready") < 0 && errno != ENOENT)
+                        log_debug_errno(errno, "Failed to remove /run/systemd/netif/persistent-storage-ready, ignoring: %m");
+        }
+
+        manager_toggle_dhcp4_server_state(manager, ready);
+
+        return varlink_reply(vlink, NULL);
+}
+
 int manager_connect_varlink(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         int r;
@@ -187,7 +240,8 @@ int manager_connect_varlink(Manager *m) {
                         s,
                         "io.systemd.Network.GetStates", vl_method_get_states,
                         "io.systemd.Network.GetNamespaceId", vl_method_get_namespace_id,
-                        "io.systemd.Network.GetLLDPNeighbors", vl_method_get_lldp_neighbors);
+                        "io.systemd.Network.GetLLDPNeighbors", vl_method_get_lldp_neighbors,
+                        "io.systemd.Network.SetPersistentStorage", vl_method_set_persistent_storage);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 

@@ -20,6 +20,7 @@
 #include "networkd-queue.h"
 #include "networkd-route-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "socket-netlink.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -141,6 +142,55 @@ int network_adjust_dhcp_server(Network *network, Set **addresses) {
         }
 
         return 0;
+}
+
+static int link_start_dhcp4_server(Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->manager);
+
+        if (!link->dhcp_server)
+                return 0; /* Not configured yet. */
+
+        if (!link_has_carrier(link))
+                return 0;
+
+        /* TODO: Maybe, also check the system time is synced. If the system does not have RTC battery, then
+         * the realtime clock in not usable in the early boot stage, and all saved leases may be wrongly
+         * handled as expired and dropped. */
+        if (!sd_dhcp_server_is_in_relay_mode(link->dhcp_server) &&
+            !link->manager->persistent_storage_is_ready)
+                return 0;
+
+        r = sd_dhcp_server_start(link->dhcp_server);
+        if (r < 0)
+                return r;
+
+        log_link_debug(link, "Offering DHCPv4 leases");
+        return 0;
+}
+
+void manager_toggle_dhcp4_server_state(Manager *manager, bool start) {
+        Link *link;
+        int r;
+
+        assert(manager);
+
+        HASHMAP_FOREACH(link, manager->links_by_index) {
+                if (!link->dhcp_server)
+                        continue;
+                if (sd_dhcp_server_is_in_relay_mode(link->dhcp_server))
+                        continue;
+
+                if (start)
+                        r = link_start_dhcp4_server(link);
+                else
+                        r = sd_dhcp_server_stop(link->dhcp_server);
+                if (r < 0)
+                        log_link_debug_errno(link, r, "Failed to %s DHCP server, ignoring: %m",
+                                             start ? "start" : "stop");
+        }
 }
 
 static int dhcp_server_find_uplink(Link *link, Link **ret) {
@@ -522,11 +572,20 @@ static int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set DHCPv4 static lease for DHCP server: %m");
         }
 
-        r = sd_dhcp_server_start(link->dhcp_server);
+        if (!sd_dhcp_server_is_in_relay_mode(link->dhcp_server)) {
+                _cleanup_free_ char *lease_file = path_join("/var/lib/systemd/network/dhcp-server-lease/", link->ifname);
+                if (!lease_file)
+                        return log_oom();
+
+                r = sd_dhcp_server_set_lease_file(link->dhcp_server, lease_file);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to load DHCPv4 server leases, ignoring: %m");
+        }
+
+        r = link_start_dhcp4_server(link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not start DHCPv4 server instance: %m");
 
-        log_link_debug(link, "Offering DHCPv4 leases");
         return 0;
 }
 
