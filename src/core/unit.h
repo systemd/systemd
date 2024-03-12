@@ -731,6 +731,9 @@ typedef struct UnitVTable {
         /* If true, we'll notify plymouth about this unit */
         bool notify_plymouth;
 
+        /* If true, we'll notify a surrounding VMM/container manager about this unit becoming available */
+        bool notify_supervisor;
+
         /* The audit events to generate on start + stop (or 0 if none shall be generated) */
         int audit_start_message_type;
         int audit_stop_message_type;
