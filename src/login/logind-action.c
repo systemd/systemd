@@ -12,6 +12,7 @@
 #include "format-util.h"
 #include "logind-action.h"
 #include "logind-dbus.h"
+#include "logind-seat-dbus.h"
 #include "logind-session-dbus.h"
 #include "process-util.h"
 #include "special.h"
@@ -299,12 +300,41 @@ static int handle_action_sleep_execute(
         return handle_action_execute(m, handle, ignore_inhibited, is_edge);
 }
 
+static int manager_handle_action_secure_attention_key(
+                Manager *m,
+                bool is_edge,
+                char *seat) {
+        int r;
+        Seat *o;
+        char *p;
+
+        if (!is_edge)
+                return 0;
+
+        o = hashmap_get(m->seats, seat);
+        p = seat_bus_path(o);
+
+        log_struct(LOG_INFO,
+                   LOG_MESSAGE("Secure Attention Key sequence pressed on seat %s", seat),
+                   "MESSAGE_ID=" SD_MESSAGE_SECURE_ATTENTION_KEY_PRESS_STR);
+
+        r = sd_bus_emit_signal(m->bus,
+                                  "/org/freedesktop/login1",
+                                  "org.freedesktop.login1.Manager",
+                                  "SecureAttentionKey",
+                                  "so", seat, p);
+
+        free(p);
+        return r;
+}
+
 int manager_handle_action(
                 Manager *m,
                 InhibitWhat inhibit_key,
                 HandleAction handle,
                 bool ignore_inhibited,
-                bool is_edge) {
+                bool is_edge,
+                char *action_seat) {
 
         assert(m);
         assert(handle_action_valid(handle));
@@ -336,7 +366,7 @@ int manager_handle_action(
                 }
         }
 
-        /* Locking is handled differently from the rest. */
+        /* Locking and greeter activation is handled differently from the rest. */
         if (handle == HANDLE_LOCK) {
                 if (!is_edge)
                         return 0;
@@ -344,6 +374,17 @@ int manager_handle_action(
                 log_info("Locking sessions...");
                 session_send_lock_all(m, true);
                 return 1;
+        }
+
+        if (handle == HANDLE_SECURE_ATTENTION_KEY) {
+                if (!is_edge)
+                        return 0;
+
+                if (!action_seat)
+                        return 0;
+
+                log_info("Requesting greeter on seat %s...", action_seat);
+                return manager_handle_action_secure_attention_key (m, is_edge, action_seat);
         }
 
         if (HANDLE_ACTION_IS_SLEEP(handle))
@@ -366,6 +407,7 @@ static const char* const handle_action_verb_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_SLEEP]                  = "sleep",
         [HANDLE_FACTORY_RESET]          = "perform a factory reset",
         [HANDLE_LOCK]                   = "be locked",
+        [HANDLE_SECURE_ATTENTION_KEY]   = "secure attention key pressed",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(handle_action_verb, HandleAction);
@@ -386,6 +428,7 @@ static const char* const handle_action_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_SLEEP]                  = "sleep",
         [HANDLE_FACTORY_RESET]          = "factory-reset",
         [HANDLE_LOCK]                   = "lock",
+        [HANDLE_SECURE_ATTENTION_KEY]   = "secure attention key",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(handle_action, HandleAction);
