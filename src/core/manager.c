@@ -264,12 +264,11 @@ static void manager_print_jobs_in_progress(Manager *m) {
                                       strempty(status_text));
         }
 
-        sd_notifyf(false,
-                   "STATUS=%sUser job %s/%s running (%s / %s)...",
-                   job_of_n,
-                   ident,
-                   job_type_to_string(j->type),
-                   time, limit);
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "STATUS=%sUser job %s/%s running (%s / %s)...",
+                          job_of_n,
+                          ident, job_type_to_string(j->type),
+                          time, limit);
         m->status_ready = false;
 }
 
@@ -2869,8 +2868,8 @@ static void manager_start_special(Manager *m, const char *name, JobMode mode) {
 
         log_info("Activating special unit %s...", s);
 
-        sd_notifyf(false,
-                   "STATUS=Activating special unit %s...", s);
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "STATUS=Activating special unit %s...", s);
         m->status_ready = false;
 }
 
@@ -3740,7 +3739,7 @@ static void user_manager_send_ready(Manager *m) {
         if (!MANAGER_IS_USER(m) || m->ready_sent)
                 return;
 
-        r = sd_notify(false,
+        r = sd_notify(/* unset_environment= */ false,
                       "READY=1\n"
                       "STATUS=Reached " SPECIAL_BASIC_TARGET ".");
         if (r < 0)
@@ -3757,7 +3756,7 @@ static void manager_send_ready(Manager *m) {
                 /* Skip the notification if nothing changed. */
                 return;
 
-        r = sd_notify(false,
+        r = sd_notify(/* unset_environment= */ false,
                       "READY=1\n"
                       "STATUS=Ready.");
         if (r < 0)
@@ -3842,7 +3841,7 @@ void manager_send_reloading(Manager *m) {
         assert(m);
 
         /* Let whoever invoked us know that we are now reloading */
-        (void) sd_notifyf(/* unset= */ false,
+        (void) sd_notifyf(/* unset_environment= */ false,
                           "RELOADING=1\n"
                           "MONOTONIC_USEC=" USEC_FMT "\n", now(CLOCK_MONOTONIC));
 
