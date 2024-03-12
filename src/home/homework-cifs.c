@@ -76,7 +76,7 @@ int home_setup_cifs(
                 pid_t mount_pid;
                 int exit_status;
 
-                passwd_fd = acquire_data_fd(*pw, strlen(*pw), /* flags= */ 0);
+                passwd_fd = acquire_data_fd(*pw);
                 if (passwd_fd < 0)
                         return log_error_errno(passwd_fd, "Failed to create data FD for password: %m");
 

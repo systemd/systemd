@@ -22,7 +22,7 @@ static int bus_method_dump_by_fd(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return r;
 
-        fd = acquire_data_fd(dump, strlen(dump), 0);
+        fd = acquire_data_fd(dump);
         if (fd < 0)
                 return fd;
 

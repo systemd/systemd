@@ -25,7 +25,7 @@
 /* If memfd/pipe didn't work out, then let's use a file in /tmp up to a size of 1M. If it's large than that use /var/tmp instead. */
 #define DATA_FD_TMP_LIMIT (1 * U64_MB)
 
-int acquire_data_fd(const void *data, size_t size, DataFDFlags flags) {
+int acquire_data_fd_full(const void *data, size_t size, DataFDFlags flags) {
         _cleanup_close_ int fd = -EBADF;
         ssize_t n;
         int r;
@@ -50,6 +50,9 @@ int acquire_data_fd(const void *data, size_t size, DataFDFlags flags) {
          *
          * It sucks a bit that depending on the situation we return very different objects here, but that's Linux I
          * figure. */
+
+        if (size == SIZE_MAX)
+                size = strlen(data);
 
         if (size == 0 && !FLAGS_SET(flags, ACQUIRE_NO_DEV_NULL))
                 /* As a special case, return /dev/null if we have been called for an empty data block */
