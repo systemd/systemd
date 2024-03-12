@@ -4,6 +4,7 @@
 #include <net/if_arp.h>
 
 #include "alloc-util.h"
+#include "dhcp-server-lease-internal.h"
 #include "firewall-util.h"
 #include "logarithm.h"
 #include "memory-util.h"
@@ -1487,6 +1488,44 @@ static int address_configure(const Address *address, const struct ifa_cacheinfo 
         return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
+static int address_acquire_from_lease_file(Link *link, const Address *address, union in_addr_union *ret) {
+        struct in_addr a;
+        uint8_t prefixlen;
+        int r;
+
+        assert(link);
+        assert(address);
+        assert(ret);
+
+        /* If the DHCP server address is configured as a null address, reuse the server address of the
+         * previous instance. */
+        if (address->family != AF_INET)
+                return -ENOENT;
+
+        if (!address->used_by_dhcp_server)
+                return -ENOENT;
+
+        if (!link_dhcp4_server_enabled(link))
+                return -ENOENT;
+
+        if (!link->manager->persistent_storage_is_ready)
+                return -EBUSY;
+
+        _cleanup_free_ char *lease_file = link_get_dhcp_server_lease_file(link);
+        if (!lease_file)
+                return -ENOMEM;
+
+        r = dhcp_server_lease_file_get_address(lease_file, &a, &prefixlen);
+        if (r < 0)
+                return r;
+
+        if (prefixlen != address->prefixlen)
+                return -ENOENT;
+
+        ret->in = a;
+        return 0;
+}
+
 static int address_acquire(Link *link, const Address *address, union in_addr_union *ret) {
         union in_addr_union a;
         int r;
@@ -1494,6 +1533,10 @@ static int address_acquire(Link *link, const Address *address, union in_addr_uni
         assert(link);
         assert(address);
         assert(ret);
+
+        r = address_acquire_from_lease_file(link, address, ret);
+        if (r != -ENOENT)
+                return r;
 
         r = address_pool_acquire(link->manager, address->family, address->prefixlen, &a);
         if (r < 0)
