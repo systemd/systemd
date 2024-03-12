@@ -230,6 +230,10 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
                         return r;
         }
 
+        r = serialize_bool(f, "exec-cgroup-context-memory-zswap-writeback", c->memory_zswap_writeback);
+        if (r < 0)
+                return r;
+
         if (c->memory_limit != CGROUP_LIMIT_MAX) {
                 r = serialize_item_format(f, "exec-cgroup-context-memory-limit", "%" PRIu64, c->memory_limit);
                 if (r < 0)
@@ -677,6 +681,11 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         r = safe_atou64(val, &c->startup_memory_zswap_max);
                         if (r < 0)
                                 return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-memory-zswap-writeback="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->memory_zswap_writeback = r;
                 } else if ((val = startswith(l, "exec-cgroup-context-memory-limit="))) {
                         r = safe_atou64(val, &c->memory_limit);
                         if (r < 0)
