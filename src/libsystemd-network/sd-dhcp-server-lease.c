@@ -307,7 +307,11 @@ int dhcp_server_save_leases(sd_dhcp_server *server) {
         if (r < 0)
                 return r;
 
-        r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_ID128("BootID", boot_id)));
+        r = json_build(&v, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_ID128("BootID", boot_id),
+                                JSON_BUILD_PAIR_IN4_ADDR("Address", &(struct in_addr) { .s_addr = server->address }),
+                                JSON_BUILD_PAIR_UNSIGNED("PrefixLength",
+                                        in4_addr_netmask_to_prefixlen(&(struct in_addr) { .s_addr = server->netmask }))));
         if (r < 0)
                 return r;
 
@@ -405,21 +409,25 @@ static int json_dispatch_dhcp_lease(sd_dhcp_server *server, JsonVariant *v, bool
 
 typedef struct SavedInfo {
         sd_id128_t boot_id;
+        struct in_addr address;
+        uint8_t prefixlen;
         JsonVariant *leases;
 } SavedInfo;
 
-static int dhcp_server_dispatch_leases(sd_dhcp_server *server, JsonVariant *v) {
-        static const JsonDispatch dispatch_table[] = {
-                { "BootID", JSON_VARIANT_STRING, json_dispatch_id128,         offsetof(SavedInfo, boot_id), JSON_MANDATORY },
-                { "Leases", JSON_VARIANT_ARRAY,  json_dispatch_variant_noref, offsetof(SavedInfo, leases),  JSON_MANDATORY },
-                {}
-        };
+static const JsonDispatch dispatch_lease_file_table[] = {
+        { "BootID",       JSON_VARIANT_STRING,        json_dispatch_id128,         offsetof(SavedInfo, boot_id),   JSON_MANDATORY },
+        { "Address",      JSON_VARIANT_ARRAY,         json_dispatch_in_addr,       offsetof(SavedInfo, address),   JSON_MANDATORY },
+        { "PrefixLength", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint8,         offsetof(SavedInfo, prefixlen), JSON_MANDATORY },
+        { "Leases",       JSON_VARIANT_ARRAY,         json_dispatch_variant_noref, offsetof(SavedInfo, leases),    JSON_MANDATORY },
+        {}
+};
 
+static int dhcp_server_dispatch_leases(sd_dhcp_server *server, JsonVariant *v) {
         SavedInfo info = {};
         sd_id128_t boot_id;
         int r;
 
-        r = json_dispatch(v, dispatch_table, JSON_ALLOW_EXTENSIONS, &info);
+        r = json_dispatch(v, dispatch_lease_file_table, JSON_ALLOW_EXTENSIONS, &info);
         if (r < 0)
                 return r;
 
@@ -466,4 +474,30 @@ int dhcp_server_load_leases(sd_dhcp_server *server) {
         log_dhcp_server(server, "Loaded %zu lease(s) from %s.", m - n, server->lease_file);
 
         return r;
+}
+
+int dhcp_server_lease_file_get_address(const char *lease_file, struct in_addr *ret_address, uint8_t *ret_prefixlen) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        SavedInfo info = {};
+        int r;
+
+        assert(lease_file);
+
+        r = json_parse_file(
+                        /* f = */ NULL,
+                        lease_file,
+                        /* flags = */ 0,
+                        &v,
+                        /* ret_line = */ NULL,
+                        /* ret_column = */ NULL);
+        if (r < 0)
+                return r;
+
+        r = json_dispatch(v, dispatch_lease_file_table, JSON_ALLOW_EXTENSIONS, &info);
+        if (r < 0)
+                return r;
+
+        *ret_address = info.address;
+        *ret_prefixlen = info.prefixlen;
+        return 0;
 }
