@@ -5,6 +5,15 @@ typedef struct Button Button;
 
 #include "logind.h"
 
+typedef enum {
+        Button_Modifier_None  = 0,
+        Button_Modifier_Shift = 1 << 0,
+        Button_Modifier_Ctrl  = 1 << 1,
+        Button_Modifier_Alt   = 1 << 2,
+        Button_Modifier_Meta  = 1 << 3,
+
+} ButtonModifierMask;
+
 struct Button {
         Manager *manager;
 
@@ -14,6 +23,8 @@ struct Button {
         char *name;
         char *seat;
         int fd;
+
+        ButtonModifierMask mods_depressed;
 
         bool lid_closed;
         bool docked;
