@@ -89,6 +89,7 @@ int network_adjust_dhcp_server(Network *network, Set **addresses) {
                         /* TODO: check if the prefix length is small enough for the pool. */
 
                         network->dhcp_server_address = address;
+                        address->used_by_dhcp_server = true;
                         break;
                 }
                 if (!network->dhcp_server_address) {
@@ -135,6 +136,7 @@ int network_adjust_dhcp_server(Network *network, Set **addresses) {
                 a->prefixlen = network->dhcp_server_address_prefixlen;
                 a->in_addr.in = network->dhcp_server_address_in_addr;
                 a->requested_as_null = !in4_addr_is_set(&network->dhcp_server_address_in_addr);
+                a->used_by_dhcp_server = true;
 
                 r = address_section_verify(a);
                 if (r < 0)
