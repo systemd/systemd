@@ -3355,16 +3355,18 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         const char *msg;
         int audit_fd, r;
 
+        assert(m);
+        assert(u);
+
         if (!MANAGER_IS_SYSTEM(m))
+                return;
+
+        /* Don't generate audit events if the service was already started and we're just deserializing */
+        if (MANAGER_IS_RELOADING(m))
                 return;
 
         audit_fd = get_audit_fd();
         if (audit_fd < 0)
-                return;
-
-        /* Don't generate audit events if the service was already
-         * started and we're just deserializing */
-        if (MANAGER_IS_RELOADING(m))
                 return;
 
         r = unit_name_to_prefix_and_instance(u->id, &p);
@@ -3383,7 +3385,6 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
                         log_warning_errno(errno, "Failed to send audit message, ignoring: %m");
         }
 #endif
-
 }
 
 void manager_send_unit_plymouth(Manager *m, Unit *u) {
@@ -3392,12 +3393,14 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         _cleanup_close_ int fd = -EBADF;
         int n = 0;
 
-        /* Don't generate plymouth events if the service was already
-         * started and we're just deserializing */
-        if (MANAGER_IS_RELOADING(m))
-                return;
+        assert(m);
+        assert(u);
 
         if (!MANAGER_IS_SYSTEM(m))
+                return;
+
+        /* Don't generate plymouth events if the service was already started and we're just deserializing */
+        if (MANAGER_IS_RELOADING(m))
                 return;
 
         if (detect_container() > 0)
