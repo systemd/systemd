@@ -216,6 +216,23 @@ int link_queue_request_full(
                            process, counter, netlink_handler, ret);
 }
 
+int link_requeue_request(Link *link, Request *req, void *userdata, Request **ret) {
+        assert(link);
+        assert(req);
+
+        return link_queue_request_full(
+                        link,
+                        req->type,
+                        userdata,
+                        req->free_func,
+                        req->hash_func,
+                        req->compare_func,
+                        req->process,
+                        req->counter,
+                        req->netlink_handler,
+                        ret);
+}
+
 int manager_process_requests(Manager *manager) {
         Request *req;
         int r;
