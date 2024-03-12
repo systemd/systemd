@@ -220,6 +220,7 @@
 {{type}}.StartupMemorySwapMax,             config_parse_memory_limit,                   0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.MemoryZSwapMax,                   config_parse_memory_limit,                   0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.StartupMemoryZSwapMax,            config_parse_memory_limit,                   0,                                  offsetof({{type}}, cgroup_context)
+{{type}}.MemoryZSwapWriteback,             config_parse_bool,                           0,                                  offsetof({{type}}, cgroup_context.memory_zswap_writeback)
 {{type}}.MemoryLimit,                      config_parse_memory_limit,                   0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.DeviceAllow,                      config_parse_device_allow,                   0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.DevicePolicy,                     config_parse_device_policy,                  0,                                  offsetof({{type}}, cgroup_context.device_policy)
