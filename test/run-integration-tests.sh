@@ -2,130 +2,158 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if [ "$NO_BUILD" ]; then
+is_valid_target() {
+    local target="${1:?}"
+    local t
+
+    for t in all setup run clean clean-again; do
+        [[ "$target" == "$t" ]] && return 0
+    done
+
+    return 1
+}
+
+pass_deny_list() {
+    local test="${1:?}"
+    local marker
+
+    for marker in $DENY_LIST_MARKERS $BLACKLIST_MARKERS; do
+        if [[ -f "$test/$marker" ]]; then
+            echo "========== DENY-LISTED: $test ($marker) =========="
+            return 1
+        fi
+    done
+
+    return 0
+}
+
+test_run() {
+    local test_name="${1:?}"
+    shift
+
+    if [[ $# -eq 0 ]]; then
+        echo >&2 "test_run: missing arguments"
+        exit 1
+    fi
+
+    # Note: let's be very explicit in reporting the return code of the test command here, i.e don't rely on
+    #       `set -e` or the return code of the last statement in the function, since reporting false positive
+    #       would be very bad in this case.
+    if [[ "${SPLIT_TEST_LOGS:-0}" -ne 0 && -n "${ARTIFACT_DIRECTORY:-}" ]]; then
+        (set -x; "$@") &>>"$ARTIFACT_DIRECTORY/$test_name.log" || return $?
+    else
+        (set -x; "$@") || return $?
+    fi
+}
+
+ARGS=(setup run clean-again)
+CLEAN=0
+CLEAN_AGAIN=0
+COUNT=0
+FAILURES=0
+declare -A RESULTS
+declare -A TIMES
+
+if [[ "${NO_BUILD:-0}" =~ ^(1|yes|true)$ ]]; then
     BUILD_DIR=""
 elif BUILD_DIR="$("$(dirname "$0")/../tools/find-build-dir.sh")"; then
     ninja -C "$BUILD_DIR"
 else
-    echo "No build found, please set BUILD_DIR or NO_BUILD" >&2
+    echo >&2 "No build found, please set BUILD_DIR or NO_BUILD"
     exit 1
 fi
 
-if [ $# -gt 0 ]; then
-    args="$*"
-else
-    args="setup run clean-again"
+if [[ $# -gt 0 ]]; then
+    ARGS=("$@")
 fi
 
-VALID_TARGETS="all setup run clean clean-again"
-
-is_valid_target() {
-    for target in $VALID_TARGETS; do
-        [ "$1" = "$target" ] && return 0
-    done
-    return 1
-}
-
-# reject invalid make targets in $args
-for arg in $args; do
+# Reject invalid make targets
+for arg in "${ARGS[@]}"; do
     if ! is_valid_target "$arg"; then
-        echo "Invalid target: $arg" >&2
+        echo >&2 "Invalid target: $arg"
         exit 1
     fi
 done
 
-CLEAN=0
-CLEANAGAIN=0
-
-# separate 'clean' and 'clean-again' operations
-[[ "$args" =~ "clean-again" ]] && CLEANAGAIN=1
-args=${args/clean-again}
-[[ "$args" =~ "clean" ]] && CLEAN=1
-args=${args/clean}
-
-declare -A results
-declare -A times
-
-COUNT=0
-FAILURES=0
+# Separate 'clean' and 'clean-again' operations
+args_filtered=()
+for arg in "${ARGS[@]}"; do
+    if [[ "$arg" == "clean-again" ]]; then
+        CLEAN_AGAIN=1
+    elif [[ "$arg" == "clean" ]]; then
+        CLEAN=1
+    else
+        args_filtered+=("$arg")
+    fi
+done
+ARGS=("${args_filtered[@]}")
 
 cd "$(dirname "$0")"
-
-pass_deny_list() {
-    for marker in $DENY_LIST_MARKERS $BLACKLIST_MARKERS; do
-        if [ -f "$1/$marker" ]; then
-            echo "========== DENY-LISTED: $1 ($marker) =========="
-            return 1
-        fi
-    done
-    return 0
-}
 
 SELECTED_TESTS="${SELECTED_TESTS:-TEST-??-*}"
 
 # Let's always do the cleaning operation first, because it destroys the image
 # cache.
-if [ $CLEAN = 1 ]; then
-    for TEST in $SELECTED_TESTS; do
-        ( set -x ; make -C "$TEST" clean )
+if [[ $CLEAN -eq 1 ]]; then
+    for test in $SELECTED_TESTS; do
+        test_run "$test" make -C "$test" clean
     done
 fi
 
 # Run actual tests (if requested)
-if [[ $args =~ [a-z] ]]; then
-    for TEST in $SELECTED_TESTS; do
-        COUNT=$((COUNT+1))
+if [[ ${#ARGS[@]} -ne 0 ]]; then
+    for test in $SELECTED_TESTS; do
+        COUNT=$((COUNT + 1))
 
-        pass_deny_list "$TEST" || continue
-        start=$(date +%s)
+        pass_deny_list "$test" || continue
+        SECONDS=0
 
-        echo -e "\n[$(date +%R:%S)] --x-- Running $TEST --x--"
+        echo -e "\n[$(date +%R:%S)] --x-- Running $test --x--"
         set +e
-        # shellcheck disable=SC2086
-        ( set -x ; make -C "$TEST" $args )
-        RESULT=$?
+        test_run "$test" make -C "$test" "${ARGS[@]}"
+        result=$?
         set -e
-        echo "[$(date +%R:%S)] --x-- Result of $TEST: $RESULT --x--"
+        echo "[$(date +%R:%S)] --x-- Result of $test: $result --x--"
 
-        results["$TEST"]="$RESULT"
-        times["$TEST"]=$(( $(date +%s) - start ))
+        RESULTS["$test"]="$result"
+        TIMES["$test"]="$SECONDS"
 
-        [ "$RESULT" -ne "0" ] && FAILURES=$((FAILURES+1))
+        [[ "$result" -ne 0 ]] && FAILURES=$((FAILURES + 1))
     done
 fi
 
 # Run clean-again, if requested, and if no tests failed
-if [[ $FAILURES -eq 0 && $CLEANAGAIN -eq 1 ]]; then
-    for TEST in "${!results[@]}"; do
-        ( set -x ; make -C "$TEST" clean-again )
+if [[ $FAILURES -eq 0 && $CLEAN_AGAIN -eq 1 ]]; then
+    for test in "${!RESULTS[@]}"; do
+        test_run "$test" make -C "$test" clean-again
     done
 fi
 
 echo ""
 
-for TEST in "${!results[@]}"; do
-    RESULT="${results[$TEST]}"
-    time="${times[$TEST]}"
-    string=$([ "$RESULT" = "0" ] && echo "SUCCESS" || echo "FAIL")
-    printf "%-35s %-8s (%3s s)\n" "${TEST}:" "${string}" "$time"
+for test in "${!RESULTS[@]}"; do
+    result="${RESULTS[$test]}"
+    time="${TIMES[$test]}"
+    [[ "$result" -eq 0 ]] && string="SUCCESS" || string="FAIL"
+    printf "%-35s %-8s (%3s s)\n" "$test:" "$string" "$time"
 done | sort
 
-if [ "$FAILURES" -eq 0 ] ; then
+if [[ "$FAILURES" -eq 0 ]]; then
     echo -e "\nALL $COUNT TESTS PASSED"
 else
     echo -e "\nTOTAL FAILURES: $FAILURES OF $COUNT"
 fi
 
 # If we have coverage files, merge them into a single report for upload
-if [ -n "${ARTIFACT_DIRECTORY}" ]; then
+if [[ -n "$ARTIFACT_DIRECTORY" ]]; then
     lcov_args=()
 
     while read -r info_file; do
-        lcov_args+=(--add-tracefile "${info_file}")
-    done < <(find "${ARTIFACT_DIRECTORY}" -maxdepth 1 -name "*.coverage-info")
+        lcov_args+=(--add-tracefile "$info_file")
+    done < <(find "$ARTIFACT_DIRECTORY" -maxdepth 1 -name "*.coverage-info")
 
-    if [ ${#lcov_args[@]} -gt 1 ]; then
-        lcov "${lcov_args[@]}" --output-file "${ARTIFACT_DIRECTORY}/merged.coverage-info"
+    if [[ ${#lcov_args[@]} -gt 1 ]]; then
+        lcov "${lcov_args[@]}" --output-file "$ARTIFACT_DIRECTORY/merged.coverage-info"
     fi
 fi
 
