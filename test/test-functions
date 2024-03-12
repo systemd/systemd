@@ -631,7 +631,7 @@ run_qemu() {
     fi
 
     if [[ "$QEMU_TIMEOUT" != "infinity" ]]; then
-        qemu_cmd=(timeout --foreground "$QEMU_TIMEOUT" "$QEMU_BIN")
+        qemu_cmd=(timeout --foreground --kill-after=60s "$QEMU_TIMEOUT" "$QEMU_BIN")
     fi
 
     (set -x; "${qemu_cmd[@]}" "${qemu_options[@]}" -append "${kernel_params[*]} ${KERNEL_APPEND:-}" |& tee "${TESTDIR:?}/console.log")
