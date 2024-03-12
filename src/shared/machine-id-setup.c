@@ -5,6 +5,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -12,6 +13,7 @@
 #include "creds-util.h"
 #include "fd-util.h"
 #include "id128-util.h"
+#include "initrd-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "machine-id-setup.h"
@@ -141,8 +143,8 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
         if (sd_id128_is_null(machine_id)) {
 
                 /* Try to read any existing machine ID */
-                if (id128_read_fd(fd, ID128_FORMAT_PLAIN, ret) >= 0)
-                        return 0;
+                if (id128_read_fd(fd, ID128_FORMAT_PLAIN, &machine_id) >= 0)
+                        goto finish;
 
                 /* Hmm, so, the id currently stored is not useful, then let's generate one */
                 r = generate_machine_id(root, &machine_id);
@@ -207,6 +209,9 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
                 return r;
 
 finish:
+        if (!in_initrd())
+                (void) sd_notifyf(/* unset_environment= */ false, "X_SYSTEMD_MACHINE_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(machine_id));
+
         if (ret)
                 *ret = machine_id;
 
