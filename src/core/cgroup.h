@@ -196,6 +196,7 @@ struct CGroupContext {
         bool startup_memory_max_set:1;
         bool startup_memory_swap_max_set:1;
         bool startup_memory_zswap_max_set:1;
+        bool memory_zswap_writeback:1;
 
         Set *ip_address_allow;
         Set *ip_address_deny;
