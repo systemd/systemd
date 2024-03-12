@@ -22,6 +22,8 @@ typedef enum HandleAction {
         HANDLE_SLEEP, /* A "high-level" action that automatically choose an appropriate low-level sleep action */
         _HANDLE_ACTION_SLEEP_LAST = HANDLE_SLEEP,
 
+        HANDLE_SAK,
+
         HANDLE_LOCK,
         HANDLE_FACTORY_RESET,
 

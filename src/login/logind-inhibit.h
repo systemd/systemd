@@ -14,7 +14,8 @@ typedef enum InhibitWhat {
         INHIBIT_HANDLE_HIBERNATE_KEY = 1 << 5,
         INHIBIT_HANDLE_LID_SWITCH    = 1 << 6,
         INHIBIT_HANDLE_REBOOT_KEY    = 1 << 7,
-        _INHIBIT_WHAT_MAX            = 1 << 8,
+        INHIBIT_HANDLE_SAK           = 1 << 8,
+        _INHIBIT_WHAT_MAX            = 1 << 9,
         _INHIBIT_WHAT_INVALID        = -EINVAL,
 } InhibitWhat;
 

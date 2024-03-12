@@ -170,6 +170,8 @@ node /org/freedesktop/login1 {
       SetWallMessage(in  s wall_message,
                      in  b enable);
     signals:
+      SAK(s seat_id
+          o object_path);
       SessionNew(s session_id,
                  o object_path);
       SessionRemoved(s session_id,
@@ -427,6 +429,8 @@ node /org/freedesktop/login1 {
     <variablelist class="dbus-method" generated="True" extra-ref="SetRebootToBootLoaderEntry()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetWallMessage()"/>
+
+    <variablelist class="dbus-signal" generated="True" extra-ref="SAK()"/>
 
     <variablelist class="dbus-signal" generated="True" extra-ref="SessionNew()"/>
 
@@ -725,6 +729,10 @@ node /org/freedesktop/login1 {
 
       <para>Whenever the inhibition state or idle hint changes, <function>PropertyChanged</function>
       signals are sent out to which clients can subscribe.</para>
+
+      <para>The <function>SAK()</function> signal is sent when the user presses a key command to
+      request the login manager to display the greeter, for instance in the case of a deadlocked compositor
+      </para>
 
       <para>The <function>SessionNew()</function>, <function>SessionRemoved()</function>,
       <function>UserNew()</function>, <function>UserRemoved()</function>, <function>SeatNew()</function>, and
