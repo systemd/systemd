@@ -213,4 +213,6 @@ const UnitVTable target_vtable = {
                         [JOB_DONE]       = "Stopped target %s.",
                 },
         },
+
+        .notify_supervisor = true,
 };

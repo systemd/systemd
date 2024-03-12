@@ -3432,6 +3432,27 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
                         log_error_errno(errno, "Failed to write Plymouth message: %m");
 }
 
+void manager_send_unit_supervisor(Manager *m, Unit *u, bool active) {
+        assert(m);
+        assert(u);
+
+        /* Notify a "supervisor" process about our progress, i.e. a container manager, hypervisor, or
+         * surrounding service manager. */
+
+        if (MANAGER_IS_RELOADING(m))
+                return;
+
+        if (!UNIT_VTABLE(u)->notify_supervisor)
+                return;
+
+        if (in_initrd()) /* Only send these once we left the initrd */
+                return;
+
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          active ? "X_SYSTEMD_UNIT_ACTIVE=%s" : "X_SYSTEMD_UNIT_INACTIVE=%s",
+                          u->id);
+}
+
 usec_t manager_get_watchdog(Manager *m, WatchdogType t) {
         assert(m);
 
