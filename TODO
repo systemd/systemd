@@ -130,11 +130,42 @@ Deprecations and removals:
 
 Features:
 
+* send out sd_notify() from PID 1 when we determined hostname and machine ID
+
+* send out sd_notify() from PID 1 whenever we reach a target unit. Then
+  introduce ssh.target or so. And in vmspawn/nspawn wait for that as indication
+  whether/when SSH is available. Similar for D-Bus (but just use sockets.target for that)
+
+* teach nspawn/machined a new bus call/verb that gets you a
+  shell in containers that have no sensible pid1, via joining the container,
+  and invoking a shell directly. Then provide another new bus call/vern that is
+  somewhat automatic: if we detect that pid1 is running and fully booted up we
+  provide a proper login shell, otherwise just a joined shell. Then expose that
+  as primary way into the container.
+
+* make vmspawn/nspawn/importd/machined a bit more usable in a WSL-like
+  fashion. i.e. teach unpriv systemd-vmspawn/systemd-nspawn a reasonable
+  --bind-user= behaviour that mounts the calling user through into the
+  machine. Then, ship importd with a small database of well known distro images
+  along with their pinned signature keys. Then add some minimal glue that binds
+  this together: downloads a suitable image if not done so yet, starts it in
+  the bg via vmspawn/nspawn if not done so yet and then requests a shell inside
+  it for the invoking user.
+
 * make varlink.h a public API, i.e. give all symbols an sd_ prefix, and rename
   header file to sd-varlink.h. This of course also means we have to make json.h
   public the same way. Convert the function param checks from assert() to
   assert_ret(). Only export the stuff we are sure about, and keep some symbols
   internally where things are not clear whether we want other projects to use.
+
+* machined: allow running in a per-user instance too, to allow unpriv
+  systemd-nspawn and systemd-vmspawn do something useful. (Alternatively: open
+  up system machined to unpriv client's registering their machines, and enforce
+  they come with some prefix or suffix that clarifies they are the
+  user's. i.e. when a user registers a machine it must be called
+  foobar.<username> or so.).
+
+* importd/…: define per-user dirs for container/VM images too.
 
 * add a new specifier to unit files that figures out the DDI the unit file is
   from, tracing through overlayfs, DM, loopback block device.
