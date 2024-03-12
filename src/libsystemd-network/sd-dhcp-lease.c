@@ -603,7 +603,7 @@ static int lease_parse_dnr(const uint8_t *option, size_t len, sd_dns_resolver **
 
         size_t offset = 0;
         while (offset < len) {
-                if (len < 2)
+                if (offset + 2 > len)
                         return -EBADMSG;
 
                 /* Instance Data length */
