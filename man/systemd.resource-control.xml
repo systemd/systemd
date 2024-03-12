@@ -505,6 +505,23 @@ CPUWeight=20   DisableControllers=cpu              /          \
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MemoryZSwapWriteback=</varname></term>
+
+        <listitem>
+          <para>This setting controls the <option>memory</option> controller in the unified hierarchy.</para>
+
+          <para>Takes a boolean argument. When true, pages stored in the Zswap cache are permitted to be
+          written to the backing storage, false otherwise. Defaults to true. This allows disabling
+          writeback of swap pages for IO-intensive applications, while retaining the ability to store
+          compressed pages in Zswap. See the kernel's
+          <ulink url="https://docs.kernel.org/admin-guide/mm/zswap.html">Zswap</ulink> documentation
+          for more details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>AllowedMemoryNodes=</varname></term>
         <term><varname>StartupAllowedMemoryNodes=</varname></term>
 
