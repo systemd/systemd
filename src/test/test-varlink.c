@@ -123,8 +123,8 @@ static int method_passfd(Varlink *link, JsonVariant *parameters, VarlinkMethodFl
         test_fd(yy, "bar", 3);
         test_fd(zz, "quux", 4);
 
-        _cleanup_close_ int vv = acquire_data_fd("miau", 4, 0);
-        _cleanup_close_ int ww = acquire_data_fd("wuff", 4, 0);
+        _cleanup_close_ int vv = acquire_data_fd("miau");
+        _cleanup_close_ int ww = acquire_data_fd("wuff");
 
         assert_se(vv >= 0);
         assert_se(ww >= 0);
