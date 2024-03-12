@@ -107,6 +107,8 @@ int link_queue_request_full(
                 request_netlink_handler_t netlink_handler,
                 Request **ret);
 
+int link_requeue_request(Link *link, Request *req, void *userdata, Request **ret);
+
 static inline int link_queue_request(
                 Link *link,
                 RequestType type,
