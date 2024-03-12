@@ -482,21 +482,19 @@ static int enable_special_signals(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m))
                 return 0;
 
-        /* Enable that we get SIGINT on control-alt-del. In containers
-         * this will fail with EPERM (older) or EINVAL (newer), so
-         * ignore that. */
+        /* Enable that we get SIGINT on control-alt-del. In containers this will fail with EPERM (older) or
+         * EINVAL (newer), so ignore that. */
         if (reboot(RB_DISABLE_CAD) < 0 && !IN_SET(errno, EPERM, EINVAL))
-                log_warning_errno(errno, "Failed to enable ctrl-alt-del handling: %m");
+                log_warning_errno(errno, "Failed to enable ctrl-alt-del handling, ignoring: %m");
 
         fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0) {
-                /* Support systems without virtual console */
-                if (fd != -ENOENT)
-                        log_warning_errno(errno, "Failed to open /dev/tty0: %m");
-        } else {
+        if (fd < 0)
+                /* Support systems without virtual console (ENOENT) gracefully */
+                log_full_errno(fd == -ENOENT ? LOG_DEBUG : LOG_WARNING, fd, "Failed to open /dev/tty0, ignoring: %m");
+        else {
                 /* Enable that we get SIGWINCH on kbrequest */
                 if (ioctl(fd, KDSIGACCEPT, SIGWINCH) < 0)
-                        log_warning_errno(errno, "Failed to enable kbrequest handling: %m");
+                        log_warning_errno(errno, "Failed to enable kbrequest handling, ignoring: %m");
         }
 
         return 0;
