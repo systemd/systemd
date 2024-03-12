@@ -1140,9 +1140,7 @@ int setenvf(const char *name, bool overwrite, const char *valuef, ...) {
                 return RET_NERRNO(unsetenv(name));
 
         va_start(ap, valuef);
-        DISABLE_WARNING_FORMAT_NONLITERAL;
         r = vasprintf(&value, valuef, ap);
-        REENABLE_WARNING;
         va_end(ap);
 
         if (r < 0)
