@@ -4812,6 +4812,42 @@ int json_dispatch_uint16(const char *name, JsonVariant *variant, JsonDispatchFla
         return 0;
 }
 
+int json_dispatch_int8(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        int8_t *i = ASSERT_PTR(userdata);
+        int64_t i64;
+        int r;
+
+        assert(variant);
+
+        r = json_dispatch_int64(name, variant, flags, &i64);
+        if (r < 0)
+                return r;
+
+        if (i64 < INT8_MIN || i64 > INT8_MAX)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' out of bounds.", strna(name));
+
+        *i = (int8_t) i64;
+        return 0;
+}
+
+int json_dispatch_uint8(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        uint8_t *u = ASSERT_PTR(userdata);
+        uint64_t u64;
+        int r;
+
+        assert(variant);
+
+        r = json_dispatch_uint64(name, variant, flags, &u64);
+        if (r < 0)
+                return r;
+
+        if (u64 > UINT8_MAX)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' out of bounds.", strna(name));
+
+        *u = (uint8_t) u64;
+        return 0;
+}
+
 int json_dispatch_string(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         char **s = ASSERT_PTR(userdata);
         int r;
