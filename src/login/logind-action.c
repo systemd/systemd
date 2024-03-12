@@ -336,7 +336,7 @@ int manager_handle_action(
                 }
         }
 
-        /* Locking is handled differently from the rest. */
+        /* Locking and greeter activation is handled differently from the rest. */
         if (handle == HANDLE_LOCK) {
                 if (!is_edge)
                         return 0;
@@ -366,6 +366,7 @@ static const char* const handle_action_verb_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_SLEEP]                  = "sleep",
         [HANDLE_FACTORY_RESET]          = "perform a factory reset",
         [HANDLE_LOCK]                   = "be locked",
+        [HANDLE_SAK]                    = "sak sequence pressed",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(handle_action_verb, HandleAction);
@@ -386,6 +387,7 @@ static const char* const handle_action_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_SLEEP]                  = "sleep",
         [HANDLE_FACTORY_RESET]          = "factory-reset",
         [HANDLE_LOCK]                   = "lock",
+        [HANDLE_SAK]                    = "sak",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(handle_action, HandleAction);

@@ -5,6 +5,16 @@ typedef struct Button Button;
 
 #include "logind.h"
 
+typedef enum
+{
+        MOD_NONE = 0,
+        MOD_SHIFT = 1,
+        MOD_CTRL = 1 << 1,
+        MOD_ALT = 1 << 2,
+        MOD_META = 1 << 3,
+
+} ButtonMods;
+
 struct Button {
         Manager *manager;
 
@@ -14,6 +24,8 @@ struct Button {
         char *name;
         char *seat;
         int fd;
+
+        int mods_depressed;
 
         bool lid_closed;
         bool docked;

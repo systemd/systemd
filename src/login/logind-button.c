@@ -15,7 +15,19 @@
 #include "missing_input.h"
 #include "string-util.h"
 
-#define CONST_MAX5(a, b, c, d, e) CONST_MAX(CONST_MAX(a, b), CONST_MAX(CONST_MAX(c, d), e))
+static int max_of_n(int count, ...) {
+        va_list ap;
+        int return_max = 0;
+        va_start(ap, count);
+        for(int i = 0; i < count; i++) {
+                int current_value = va_arg(ap, int);
+                if (current_value > return_max) {
+                        return_max = current_value;
+                }
+        }
+        va_end(ap);
+        return return_max;
+}
 
 #define ULONG_BITS (sizeof(unsigned long)*8)
 
@@ -47,6 +59,8 @@ Button* button_new(Manager *m, const char *name) {
                 free(b->name);
                 return mfree(b);
         }
+
+        b->mods_depressed = MOD_NONE;
 
         b->manager = m;
         b->fd = -EBADF;
@@ -179,6 +193,26 @@ static int long_press_of_hibernate_key_handler(sd_event_source *e, uint64_t usec
         return 0;
 }
 
+static int long_press_of_sak_sequence_handler(sd_event_source *e, uint64_t usec, void *userdata) {
+        Button *b = ASSERT_PTR(userdata);
+
+        assert(e);
+
+        b->manager->sak_sequence_long_press_event_source = sd_event_source_unref(b->manager->sak_sequence_long_press_event_source);
+
+        log_struct(LOG_INFO,
+                   LOG_MESSAGE("Capslock+Esc key pressed long."),
+                   "MESSAGE_ID=" SD_MESSAGE_SAK_SEQUENCE_LONG_PRESS_STR);
+
+        sd_bus_emit_signal(
+                        b->manager->bus,
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "SAK",
+                        "so", b->seat, NULL);
+        return 0;
+}
+
 static void start_long_press(Manager *m, sd_event_source **e, sd_event_time_handler_t callback) {
         int r;
 
@@ -194,6 +228,25 @@ static void start_long_press(Manager *m, sd_event_source **e, sd_event_time_hand
                         CLOCK_MONOTONIC,
                         LONG_PRESS_DURATION, 0,
                         callback, m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to add long press timer event, ignoring: %m");
+}
+
+static void start_long_press_button(Manager *m, Button *b, sd_event_source **e, sd_event_time_handler_t callback) {
+        int r;
+
+        assert(m);
+        assert(e);
+
+        if (*e)
+                return;
+
+        r = sd_event_add_time_relative(
+                        m->event,
+                        e,
+                        CLOCK_MONOTONIC,
+                        LONG_PRESS_DURATION, 0,
+                        callback, b);
         if (r < 0)
                 log_warning_errno(r, "Failed to add long press timer event, ignoring: %m");
 }
@@ -275,6 +328,35 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                                 manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
                         }
                         break;
+
+                case KEY_ESC:
+                        if (b->manager->handle_sak_sequence_long_press != HANDLE_IGNORE) {
+                                if (b->mods_depressed == (MOD_CTRL | MOD_ALT)) {
+                                        log_debug("Capslock+Esc key pressed. Further action depends on the key press duration.");
+                                        start_long_press_button(b->manager, b, &b->manager->sak_sequence_long_press_event_source, long_press_of_sak_sequence_handler);
+                                }
+                        }
+                        break;
+
+                case KEY_LEFTSHIFT:
+                case KEY_RIGHTSHIFT:
+                        b->mods_depressed |= MOD_SHIFT;
+                        break;
+
+                case KEY_LEFTCTRL:
+                case KEY_RIGHTCTRL:
+                        b->mods_depressed |= MOD_CTRL;
+                        break;
+
+                case KEY_LEFTMETA:
+                case KEY_RIGHTMETA:
+                        b->mods_depressed |= MOD_META;
+                        break;
+
+                case KEY_LEFTALT:
+                case KEY_RIGHTALT:
+                        b->mods_depressed |= MOD_ALT;
+                        break;
                 }
 
         } else if (ev.type == EV_KEY && ev.value == 0) {
@@ -332,6 +414,29 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                                 manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
                         }
                         break;
+
+                case KEY_ESC:
+                        break;
+
+                case KEY_LEFTSHIFT:
+                case KEY_RIGHTSHIFT:
+                        b->mods_depressed &= ~MOD_SHIFT;
+                        break;
+
+                case KEY_LEFTCTRL:
+                case KEY_RIGHTCTRL:
+                        b->mods_depressed &= ~MOD_CTRL;
+                        break;
+
+                case KEY_LEFTMETA:
+                case KEY_RIGHTMETA:
+                        b->mods_depressed &= ~MOD_META;
+                        break;
+
+                case KEY_LEFTALT:
+                case KEY_RIGHTALT:
+                        b->mods_depressed &= ~MOD_ALT;
+                        break;
                 }
 
         } else if (ev.type == EV_SW && ev.value > 0) {
@@ -378,7 +483,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 }
 
 static int button_suitable(int fd) {
-        unsigned long types[CONST_MAX(EV_KEY, EV_SW)/ULONG_BITS+1];
+        unsigned long types[max_of_n(2, EV_KEY, EV_SW)/ULONG_BITS+1];
 
         assert(fd >= 0);
 
@@ -386,7 +491,12 @@ static int button_suitable(int fd) {
                 return -errno;
 
         if (bitset_get(types, EV_KEY)) {
-                unsigned long keys[CONST_MAX5(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND, KEY_RESTART)/ULONG_BITS+1];
+                unsigned long keys[max_of_n(14, KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND, KEY_RESTART,
+                                            KEY_LEFTSHIFT, KEY_RIGHTSHIFT,
+                                            KEY_LEFTALT, KEY_RIGHTALT,
+                                            KEY_LEFTMETA, KEY_RIGHTMETA,
+                                            KEY_LEFTALT, KEY_RIGHTALT,
+                                            KEY_ESC)/ULONG_BITS+1];
 
                 if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys) < 0)
                         return -errno;
@@ -395,12 +505,21 @@ static int button_suitable(int fd) {
                     bitset_get(keys, KEY_POWER2) ||
                     bitset_get(keys, KEY_SLEEP) ||
                     bitset_get(keys, KEY_SUSPEND) ||
-                    bitset_get(keys, KEY_RESTART))
+                    bitset_get(keys, KEY_RESTART) ||
+                    bitset_get(keys, KEY_LEFTSHIFT) ||
+                    bitset_get(keys, KEY_RIGHTSHIFT) ||
+                    bitset_get(keys, KEY_LEFTCTRL) ||
+                    bitset_get(keys, KEY_RIGHTCTRL) ||
+                    bitset_get(keys, KEY_LEFTMETA) ||
+                    bitset_get(keys, KEY_RIGHTMETA) ||
+                    bitset_get(keys, KEY_LEFTALT) ||
+                    bitset_get(keys, KEY_RIGHTALT) ||
+                    bitset_get(keys, KEY_ESC))
                         return true;
         }
 
         if (bitset_get(types, EV_SW)) {
-                unsigned long switches[CONST_MAX(SW_LID, SW_DOCK)/ULONG_BITS+1];
+                unsigned long switches[max_of_n(2, SW_LID, SW_DOCK)/ULONG_BITS+1];
 
                 if (ioctl(fd, EVIOCGBIT(EV_SW, sizeof switches), switches) < 0)
                         return -errno;
@@ -414,14 +533,26 @@ static int button_suitable(int fd) {
 }
 
 static int button_set_mask(const char *name, int fd) {
+        int types_elements = max_of_n(2, EV_KEY, EV_SW)/ULONG_BITS+1;
+        int keys_elements = max_of_n(14, KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND, KEY_RESTART,
+                                         KEY_LEFTSHIFT, KEY_RIGHTSHIFT,
+                                         KEY_LEFTALT, KEY_RIGHTALT,
+                                         KEY_LEFTMETA, KEY_RIGHTMETA,
+                                         KEY_LEFTALT, KEY_RIGHTALT,
+                                         KEY_ESC);
+        int switches_elements = max_of_n(SW_LID, SW_DOCK)/ULONG_BITS+1;
         unsigned long
-                types[CONST_MAX(EV_KEY, EV_SW)/ULONG_BITS+1] = {},
-                keys[CONST_MAX5(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND, KEY_RESTART)/ULONG_BITS+1] = {},
-                switches[CONST_MAX(SW_LID, SW_DOCK)/ULONG_BITS+1] = {};
+                types[types_elements],
+                keys[keys_elements],
+                switches[switches_elements];
         struct input_mask mask;
 
         assert(name);
         assert(fd >= 0);
+
+        for (int i = 0; i < types_elements; i++) {
+                types[i] = 0;
+        }
 
         bitset_put(types, EV_KEY);
         bitset_put(types, EV_SW);
@@ -442,6 +573,15 @@ static int button_set_mask(const char *name, int fd) {
         bitset_put(keys, KEY_SLEEP);
         bitset_put(keys, KEY_SUSPEND);
         bitset_put(keys, KEY_RESTART);
+        bitset_put(keys, KEY_LEFTSHIFT);
+        bitset_put(keys, KEY_RIGHTSHIFT);
+        bitset_put(keys, KEY_LEFTCTRL);
+        bitset_put(keys, KEY_RIGHTCTRL);
+        bitset_put(keys, KEY_LEFTMETA);
+        bitset_put(keys, KEY_RIGHTMETA);
+        bitset_put(keys, KEY_LEFTALT);
+        bitset_put(keys, KEY_RIGHTALT);
+        bitset_put(keys, KEY_ESC);
 
         mask = (struct input_mask) {
                 .type = EV_KEY,
@@ -506,7 +646,8 @@ int button_open(Button *b) {
 }
 
 int button_check_switches(Button *b) {
-        unsigned long switches[CONST_MAX(SW_LID, SW_DOCK)/ULONG_BITS+1] = {};
+        int switches_elements = max_of_n(2, SW_LID, SW_DOCK)/ULONG_BITS+1;
+        unsigned long switches[switches_elements];
         assert(b);
 
         if (b->fd < 0)
