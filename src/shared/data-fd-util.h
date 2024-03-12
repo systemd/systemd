@@ -2,6 +2,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdint.h>
 
 typedef enum DataFDFlags {
         ACQUIRE_NO_DEV_NULL = 1 << 0,
@@ -11,6 +12,10 @@ typedef enum DataFDFlags {
         ACQUIRE_NO_REGULAR  = 1 << 4,
 } DataFDFlags;
 
-int acquire_data_fd(const void *data, size_t size, DataFDFlags flags);
+int acquire_data_fd_full(const void *data, size_t size, DataFDFlags flags);
+static inline int acquire_data_fd(const void *data) {
+        return acquire_data_fd_full(data, SIZE_MAX, 0);
+}
+
 int copy_data_fd(int fd);
 int memfd_clone_fd(int fd, const char *name, int mode);

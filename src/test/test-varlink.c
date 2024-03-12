@@ -123,8 +123,8 @@ static int method_passfd(Varlink *link, JsonVariant *parameters, VarlinkMethodFl
         test_fd(yy, "bar", 3);
         test_fd(zz, "quux", 4);
 
-        _cleanup_close_ int vv = acquire_data_fd("miau", 4, 0);
-        _cleanup_close_ int ww = acquire_data_fd("wuff", 4, 0);
+        _cleanup_close_ int vv = acquire_data_fd("miau");
+        _cleanup_close_ int ww = acquire_data_fd("wuff");
 
         assert_se(vv >= 0);
         assert_se(ww >= 0);
@@ -275,9 +275,9 @@ static void *thread(void *arg) {
         assert_se(json_variant_integer(json_variant_by_key(o, "sum")) == 88 + 99);
         assert_se(!e);
 
-        int fd1 = acquire_data_fd("foo", 3, 0);
-        int fd2 = acquire_data_fd("bar", 3, 0);
-        int fd3 = acquire_data_fd("quux", 4, 0);
+        int fd1 = acquire_data_fd("foo");
+        int fd2 = acquire_data_fd("bar");
+        int fd3 = acquire_data_fd("quux");
 
         assert_se(fd1 >= 0);
         assert_se(fd2 >= 0);
