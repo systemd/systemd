@@ -83,6 +83,7 @@
     <filename>sockets.target</filename>,
     <filename>soft-reboot.target</filename>,
     <filename>sound.target</filename>,
+    <filename>ssh-access.target</filename>,
     <filename>storage-target-mode.target</filename>,
     <filename>suspend.target</filename>,
     <filename>swap.target</filename>,
@@ -1170,6 +1171,19 @@
             <varname>After=</varname> for this target unit to all SysV
             init script service units with an LSB header referring to
             the <literal>$portmap</literal> facility.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>ssh-access.target</filename></term>
+          <listitem>
+            <para>Service and socket units that provide remote SSH secure shell access to the local system
+            should pull in this unit and order themselves before this unit. It's supposed to act as a
+            milestone indicating if and when SSH access into the system is available. It should only become
+            active when an SSH port is bound for remote clients (i.e. if SSH is used as a local privilege
+            escalation mechanism, it should <emphasis>not</emphasis> involve this target unit), regardless of
+            the protocol choices, i.e. regardless if IPv4, IPv6 or <constant>AF_VSOCK</constant> is
+            used.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
         </varlistentry>
         <varlistentry>
