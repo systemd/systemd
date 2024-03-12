@@ -7,6 +7,7 @@
 #include "sd-dhcp-server.h"
 
 #include "dhcp-protocol.h"
+#include "dhcp-server-lease-internal.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "network-common.h"
@@ -82,6 +83,7 @@ int network_adjust_dhcp_server(Network *network, Set **addresses) {
                         /* TODO: check if the prefix length is small enough for the pool. */
 
                         network->dhcp_server_address = address;
+                        address->used_by_dhcp_server = true;
                         break;
                 }
                 if (!network->dhcp_server_address) {
@@ -128,6 +130,7 @@ int network_adjust_dhcp_server(Network *network, Set **addresses) {
                 a->prefixlen = network->dhcp_server_address_prefixlen;
                 a->in_addr.in = network->dhcp_server_address_in_addr;
                 a->requested_as_null = !in4_addr_is_set(&network->dhcp_server_address_in_addr);
+                a->used_by_dhcp_server = true;
 
                 r = address_section_verify(a);
                 if (r < 0)
@@ -141,6 +144,49 @@ int network_adjust_dhcp_server(Network *network, Set **addresses) {
                 network->dhcp_server_address = TAKE_PTR(a);
         }
 
+        return 0;
+}
+
+int address_acquire_from_dhcp_server_leases_file(Link *link, const Address *address, union in_addr_union *ret) {
+        struct in_addr a;
+        uint8_t prefixlen;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(address);
+        assert(ret);
+
+        /* If the DHCP server address is configured as a null address, reuse the server address of the
+         * previous instance. */
+        if (address->family != AF_INET)
+                return -ENOENT;
+
+        if (!address->used_by_dhcp_server)
+                return -ENOENT;
+
+        if (!link_dhcp4_server_enabled(link))
+                return -ENOENT;
+
+        if (link->manager->persistent_storage_fd < 0)
+                return -EBUSY; /* The persistent storage is not ready, try later again. */
+
+        _cleanup_free_ char *lease_file = path_join("dhcp-server-lease", link->ifname);
+        if (!lease_file)
+                return -ENOMEM;
+
+        r = dhcp_server_leases_file_get_server_address(
+                        link->manager->persistent_storage_fd,
+                        lease_file,
+                        &a,
+                        &prefixlen);
+        if (r < 0)
+                return r;
+
+        if (prefixlen != address->prefixlen)
+                return -ENOENT;
+
+        ret->in = a;
         return 0;
 }
 
