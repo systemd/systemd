@@ -535,6 +535,8 @@ const char* inode_type_to_string(mode_t m) {
                 return "sock";
         }
 
+        /* Note anonmyous inodes in the kernel will have a zero type. Hence fstat() of an eventfd() will
+         * return an .st_mode where we'll return NULL here! */
         return NULL;
 }
 
