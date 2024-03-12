@@ -423,6 +423,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MkfsOptions=</varname></term>
+
+        <listitem><para>Takes a list of command line options to be passed to <literal>mkfs</literal> at file
+        system creation time. Options are specific to the file system type specified by
+        <varname>Format=</varname>.</para>
+
+        <para>Additionally, default <literal>mkfs</literal> options can be globally set for each file system
+        format supported by <varname>Format=</varname> by setting the corresponding environement variable:
+        <literal>SYSTEMD_REPART_MKFS_OPTIONS_BTRFS</literal>, <literal>SYSTEMD_REPART_MKFS_OPTIONS_XFS</literal>,
+        <literal>SYSTEMD_REPART_MKFS_OPTIONS_VFAT</literal>, <literal>SYSTEMD_REPART_MKFS_OPTIONS_EROFS</literal>
+        and <literal>SYSTEMD_REPART_MKFS_OPTIONS_SQUASHFS</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>CopyFiles=</varname></term>
 
         <listitem><para>Takes a pair of colon separated absolute file system paths. The first path refers to
