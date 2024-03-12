@@ -119,6 +119,14 @@ Documentation: sd-login(3)
 
 A seat @SEAT_ID@ has been removed and is no longer available.
 
+-- b2bcbaf5edf948e093ce50bbea0e81ec
+Subject: The Secure Attention Sequence was pressed on @SEAT_ID@
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: sd-login(3)
+
+The Secure Attention Sequence was pressed on @SEAT_ID@.
+
 -- c7a787079b354eaaa9e77b371893cd27
 Subject: Time change
 Defined-By: systemd
