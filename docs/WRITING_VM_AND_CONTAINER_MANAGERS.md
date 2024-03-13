@@ -47,16 +47,8 @@ documentation](https://www.freedesktop.org/software/systemd/man/latest/org.freed
 
 ## Guest OS Integration
 
-As container virtualization is much less comprehensive, and the guest is less
-isolated from the host, there are a number of interfaces defined how the
-container manager can set up the environment for systemd running inside a
-container. These Interfaces are documented in [Container Interface of
-systemd](https://systemd.io/CONTAINER_INTERFACE).
-
-VM virtualization is more comprehensive and fewer integration APIs are
-available. In fact there's only one: a VM manager may initialize the SMBIOS DMI
-field "Product UUUID" to a UUID uniquely identifying this virtual machine
-instance. This is read in the guest via /sys/class/dmi/id/product_uuid, and
-used as configuration source for /etc/machine-id if in the guest, if that file
-is not initialized yet. Note that this is currently only supported for kvm
-hosts, but may be extended to other managers as well.
+A number of interfaces are defined that permit a machine or container manager
+to set provide integration points with the payload/guest system. These
+interfaces are documented in [Container Interface of
+systemd](https://systemd.io/CONTAINER_INTERFACE) and [VM Interface of
+systemd](https://systemd.io/VM_INTERFACE).
