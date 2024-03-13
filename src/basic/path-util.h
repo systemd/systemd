@@ -173,6 +173,8 @@ int fsck_exists_for_fstype(const char *fstype);
                 _ret;                                                   \
         })
 
+const char* skip_slash_or_dot(const char *p);
+
 int path_find_first_component(const char **p, bool accept_dot_dot, const char **ret);
 int path_find_last_component(const char *path, bool accept_dot_dot, const char **next, const char **ret);
 const char* last_path_component(const char *path);
