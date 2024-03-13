@@ -33,7 +33,8 @@ enum {
         SD_NDISC_OPTION_FLAGS_EXTENSION    = 26,
         SD_NDISC_OPTION_DNSSL              = 31,
         SD_NDISC_OPTION_CAPTIVE_PORTAL     = 37,
-        SD_NDISC_OPTION_PREF64             = 38
+        SD_NDISC_OPTION_PREF64             = 38,
+        SD_NDISC_OPTION_ENCRYPTED_DNS      = 144
 };
 
 /* Route preference, RFC 4191, Section 2.1 */
