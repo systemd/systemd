@@ -130,6 +130,11 @@ Deprecations and removals:
 
 Features:
 
+* vmspawn switch default swtpm PCR bank to SHA384-only (away from SHA256), at
+  least on 64bit archs, simply because SHA384 is typically double the hashing
+  speed than SHA256 on 64bit archs (since based on 64bit words unlike SHA256
+  which uses 32bit words).
+
 * send out sd_notify() from PID 1 when we determined hostname and machine ID
 
 * send out sd_notify() from PID 1 whenever we reach a target unit. Then
@@ -312,7 +317,6 @@ Features:
     suspend inhibitor to implement this. request clean suspend by generating
     suspend key presses.
   - support for "real" networking via "-n" and --network-bridge=
-  - automatically run service "at the side" for swtpm
   - translate SIGTERM to clean ACPI shutdown event
 
 * systemd-pcrmachine should probably also measure the SMBIOS system UUID.
