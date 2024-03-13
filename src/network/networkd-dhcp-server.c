@@ -144,7 +144,7 @@ int network_adjust_dhcp_server(Network *network, Set **addresses) {
         return 0;
 }
 
-static int link_start_dhcp4_server(Link *link) {
+int link_start_dhcp4_server(Link *link) {
         int r;
 
         assert(link);
