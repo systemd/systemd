@@ -123,6 +123,17 @@
         boolean argument.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--namespace=</option></term>
+
+        <listitem><para>Specifies the journal namespace to which the standard IO should be connected.
+        For details about journal namespaces, see
+        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
     </variablelist>
 
   </refsect1>
@@ -130,8 +141,7 @@
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned, a non-zero failure code
-    otherwise.</para>
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
   </refsect1>
 
   <refsect1>
