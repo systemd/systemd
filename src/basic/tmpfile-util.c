@@ -331,7 +331,6 @@ int fopen_tmpfile_linkable(const char *target, int flags, char **ret_path, FILE 
 }
 
 int link_tmpfile_at(int fd, int dir_fd, const char *path, const char *target, LinkTmpfileFlags flags) {
-        _cleanup_free_ char *tmp = NULL;
         int r;
 
         assert(fd >= 0);
@@ -350,33 +349,14 @@ int link_tmpfile_at(int fd, int dir_fd, const char *path, const char *target, Li
                         r = RET_NERRNO(renameat(dir_fd, path, dir_fd, target));
                 else
                         r = rename_noreplace(dir_fd, path, dir_fd, target);
-                if (r < 0)
-                        return r;
         } else {
-
-                r = link_fd(fd, dir_fd, target);
-                if (r != -EEXIST || !FLAGS_SET(flags, LINK_TMPFILE_REPLACE))
-                        return r;
-
-                /* So the target already exists and we were asked to replace it. That sucks a bit, since the kernel's
-                 * linkat() logic does not allow that. We work-around this by linking the file to a random name
-                 * first, and then renaming that to the final name. This reintroduces the race O_TMPFILE kinda is
-                 * trying to fix, but at least the vulnerability window (i.e. where the file is linked into the file
-                 * system under a temporary name) is very short. */
-
-                r = tempfn_random(target, NULL, &tmp);
-                if (r < 0)
-                        return r;
-
-                if (link_fd(fd, dir_fd, tmp) < 0)
-                        return -EEXIST; /* propagate original error */
-
-                r = RET_NERRNO(renameat(dir_fd, tmp, dir_fd, target));
-                if (r < 0) {
-                        (void) unlinkat(dir_fd, tmp, 0);
-                        return r;
-                }
+                if (FLAGS_SET(flags, LINK_TMPFILE_REPLACE))
+                        r = linkat_replace(fd, /* oldpath= */ NULL, dir_fd, target);
+                else
+                        r = link_fd(fd, dir_fd, target);
         }
+        if (r < 0)
+                return r;
 
         if (FLAGS_SET(flags, LINK_TMPFILE_SYNC)) {
                 r = fsync_full(fd);
