@@ -250,6 +250,10 @@ def next_section_address(sections: typing.List[PeSection]) -> int:
                     SECTION_ALIGNMENT)
 
 
+class BadSectionError(ValueError):
+    "One of the sections is in a bad state"
+
+
 def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
     pe_s = None
 
@@ -260,7 +264,8 @@ def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
     relro = None
     for elf_seg in elf.iter_segments():
         if elf_seg["p_type"] == "PT_LOAD" and elf_seg["p_align"] != SECTION_ALIGNMENT:
-            raise RuntimeError("ELF segments are not properly aligned.")
+            raise BadSectionError(f"ELF segment {elf_seg['p_type']} is not properly aligned"
+                                  f" ({elf_seg['p_align']} != {SECTION_ALIGNMENT})")
         elif elf_seg["p_type"] == "PT_GNU_RELRO":
             relro = elf_seg
 
@@ -272,7 +277,7 @@ def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
         ):
             continue
         if elf_s["sh_type"] not in ["SHT_PROGBITS", "SHT_NOBITS"]:
-            raise RuntimeError(f"Unknown section {elf_s.name}.")
+            raise BadSectionError(f"Unknown section {elf_s.name} with type {elf_s['sh_type']}")
 
         if elf_s["sh_flags"] & SH_FLAGS.SHF_EXECINSTR:
             rwx = PE_CHARACTERISTICS_RX
@@ -304,7 +309,7 @@ def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
 
 
 def convert_sections(elf: ELFFile, opt: PeOptionalHeader) -> typing.List[PeSection]:
-    last_vma = 0
+    last_vma = (0, 0)
     sections = []
 
     for pe_s in iter_copy_sections(elf):
@@ -324,10 +329,11 @@ def convert_sections(elf: ELFFile, opt: PeOptionalHeader) -> typing.List[PeSecti
             PE_CHARACTERISTICS_R: b".rodata",
         }[pe_s.Characteristics]
 
-        # This can happen if not building with `-z separate-code`.
-        if pe_s.VirtualAddress < last_vma:
-            raise RuntimeError("Overlapping PE sections.")
-        last_vma = pe_s.VirtualAddress + pe_s.VirtualSize
+        # This can happen if not building with '-z separate-code'.
+        if pe_s.VirtualAddress < sum(last_vma):
+            raise BadSectionError(f"Section {pe_s.Name.decode()!r} @0x{pe_s.VirtualAddress:x} overlaps"
+                                  f" previous section @0x{last_vma[0]:x}+0x{last_vma[1]:x}=@0x{sum(last_vma):x}")
+        last_vma = (pe_s.VirtualAddress, pe_s.VirtualSize)
 
         if pe_s.Name == b".text":
             opt.BaseOfCode = pe_s.VirtualAddress
@@ -354,9 +360,9 @@ def copy_sections(
         if not elf_s:
             continue
         if elf_s.data_alignment > 1 and SECTION_ALIGNMENT % elf_s.data_alignment != 0:
-            raise RuntimeError(f"ELF section {name} is not aligned.")
+            raise BadSectionError(f"ELF section {name} is not aligned")
         if elf_s["sh_flags"] & (SH_FLAGS.SHF_EXECINSTR | SH_FLAGS.SHF_WRITE) != 0:
-            raise RuntimeError(f"ELF section {name} is not read-only data.")
+            raise BadSectionError(f"ELF section {name} is not read-only data")
 
         pe_s = PeSection()
         pe_s.Name = name.encode()
@@ -438,7 +444,7 @@ def convert_elf_reloc_table(
 
             continue
 
-        raise RuntimeError(f"Unsupported relocation {reloc}")
+        raise BadSectionError(f"Unsupported relocation {reloc}")
 
 
 def convert_elf_relocations(
@@ -449,18 +455,18 @@ def convert_elf_relocations(
 ) -> typing.Optional[PeSection]:
     dynamic = elf.get_section_by_name(".dynamic")
     if dynamic is None:
-        raise RuntimeError("ELF .dynamic section is missing.")
+        raise BadSectionError("ELF .dynamic section is missing")
 
     [flags_tag] = dynamic.iter_tags("DT_FLAGS_1")
     if not flags_tag["d_val"] & ENUM_DT_FLAGS_1["DF_1_PIE"]:
-        raise RuntimeError("ELF file is not a PIE.")
+        raise ValueError("ELF file is not a PIE")
 
     # This checks that the ELF image base is 0.
     symtab = elf.get_section_by_name(".symtab")
     if symtab:
         exe_start = symtab.get_symbol_by_name("__executable_start")
         if exe_start and exe_start[0]["st_value"] != 0:
-            raise RuntimeError("Unexpected ELF image base.")
+            raise ValueError("Unexpected ELF image base")
 
     opt.SizeOfHeaders = align_to(PE_OFFSET
                                  + len(PE_MAGIC)
@@ -487,7 +493,7 @@ def convert_elf_relocations(
     pe_reloc_blocks: typing.Dict[int, PeRelocationBlock] = {}
     for reloc_type, reloc_table in dynamic.get_relocation_tables().items():
         if reloc_type not in ["REL", "RELA"]:
-            raise RuntimeError("Unsupported relocation type {elf_reloc_type}.")
+            raise BadSectionError(f"Unsupported relocation type {reloc_type}")
         convert_elf_reloc_table(elf,
                                 reloc_table,
                                 opt.ImageBase + segment_offset,
@@ -548,7 +554,8 @@ def write_pe(
     offset = opt.SizeOfHeaders
     for pe_s in sorted(sections, key=lambda s: s.VirtualAddress):
         if pe_s.VirtualAddress < opt.SizeOfHeaders:
-            raise RuntimeError(f"Section {pe_s.Name} overlapping PE headers.")
+            raise BadSectionError(f"Section {pe_s.Name} @0x{pe_s.VirtualAddress:x} overlaps"
+                                  " PE headers ending at 0x{opt.SizeOfHeaders:x}")
 
         pe_s.PointerToRawData = offset
         file.write(pe_s)
@@ -566,9 +573,9 @@ def write_pe(
 def elf2efi(args: argparse.Namespace):
     elf = ELFFile(args.ELF)
     if not elf.little_endian:
-        raise RuntimeError("ELF file is not little-endian.")
+        raise ValueError("ELF file is not little-endian")
     if elf["e_type"] not in ["ET_DYN", "ET_EXEC"]:
-        raise RuntimeError("Unsupported ELF type.")
+        raise ValueError(f"Unsupported ELF type {elf['e_type']}")
 
     pe_arch = {
         "EM_386": 0x014C,
@@ -579,7 +586,7 @@ def elf2efi(args: argparse.Namespace):
         "EM_X86_64": 0x8664,
     }.get(elf["e_machine"])
     if pe_arch is None:
-        raise RuntimeError(f"Unsupported ELF arch {elf['e_machine']}")
+        raise ValueError(f"Unsupported ELF architecture {elf['e_machine']}")
 
     coff = PeCoffHeader()
     opt = PeOptionalHeader32() if elf.elfclass == 32 else PeOptionalHeader32Plus()
