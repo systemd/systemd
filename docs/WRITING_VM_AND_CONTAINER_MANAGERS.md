@@ -28,22 +28,22 @@ their own.
 ## Host OS Integration
 
 All virtual machines and containers should be registered with the
-[machined](http://www.freedesktop.org/wiki/Software/systemd/machined) mini
-service that is part of systemd. This provides integration into the core OS at
-various points. For example, tools like ps, cgls, gnome-system-manager use this
-registration information to show machine information for running processes, as
-each of the VM's/container's processes can reliably attributed to a registered
-machine. The various systemd tools (like systemctl, journalctl, loginctl,
-systemd-run, ...) all support a -M switch that operates on machines registered
-with machined. "machinectl" may be used to execute operations on any such
-machine. When a machine is registered via machined its processes will
+[systemd-machined(8)](https://www.freedesktop.org/software/systemd/man/latest/systemd-machined.service.html)
+mini service that is part of systemd. This provides integration into the core
+OS at various points. For example, tools like ps, cgls, gnome-system-manager
+use this registration information to show machine information for running
+processes, as each of the VM's/container's processes can reliably attributed to
+a registered machine. The various systemd tools (like systemctl, journalctl,
+loginctl, systemd-run, ...) all support a -M switch that operates on machines
+registered with machined. "machinectl" may be used to execute operations on any
+such machine. When a machine is registered via machined its processes will
 automatically be placed in a systemd scope unit (that is located in the
 machines.slice slice) and thus appear in "systemctl" and similar commands. The
 scope unit name is based on the machine meta information passed to machined at
 registration.
 
 For more details on the APIs provided by machine consult [the bus API interface
-documentation](http://www.freedesktop.org/wiki/Software/systemd/machined).
+documentation](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.machine1.html).
 
 ## Guest OS Integration
 
@@ -51,7 +51,7 @@ As container virtualization is much less comprehensive, and the guest is less
 isolated from the host, there are a number of interfaces defined how the
 container manager can set up the environment for systemd running inside a
 container. These Interfaces are documented in [Container Interface of
-systemd](http://www.freedesktop.org/wiki/Software/systemd/ContainerInterface).
+systemd](https://systemd.io/CONTAINER_INTERFACE).
 
 VM virtualization is more comprehensive and fewer integration APIs are
 available. In fact there's only one: a VM manager may initialize the SMBIOS DMI
