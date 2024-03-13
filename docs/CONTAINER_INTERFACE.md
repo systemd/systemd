@@ -165,10 +165,15 @@ manager, please consider supporting the following interfaces.
    issuing `journalctl -m`. The container machine ID can be determined from
    `/etc/machine-id` in the container.
 
-3. If the container manager wants to cleanly shutdown the container, it might
+3. If the container manager wants to cleanly shut down the container, it might
    be a good idea to send `SIGRTMIN+3` to its init process. systemd will then
    do a clean shutdown. Note however, that since only systemd understands
-   `SIGRTMIN+3` like this, this might confuse other init systems.
+   `SIGRTMIN+3` like this, this might confuse other init systems. A container
+   manager may implement the `$NOTIFY_SOCKET` protocol mentioned below in which
+   case it will receive a notification message `X_SYSTEMD_SIGNALS_LEVEL=2` that
+   indicates if and when these additional signal handlers are installed. If
+   these signals are sent to the container's PID 1 before this notification
+   message is sent they might not be handled correctly yet.
 
 4. To support [Socket Activated
    Containers](https://0pointer.de/blog/projects/socket-activated-containers.html)
@@ -190,12 +195,14 @@ manager, please consider supporting the following interfaces.
    unit they created for their container. That's private property of systemd,
    and no other code should modify it.
 
-6. systemd running inside the container can report when boot-up is complete
-   using the usual `sd_notify()` protocol that is also used when a service
-   wants to tell the service manager about readiness. A container manager can
-   set the `$NOTIFY_SOCKET` environment variable to a suitable socket path to
-   make use of this functionality. (Also see information about
-   `/run/host/notify` below.)
+6. systemd running inside the container can report when boot-up is complete,
+   boot progress and functionality as well as various other bits of system
+   information using the `sd_notify()` protocol that is also used when a
+   service wants to tell the service manager about readiness. A container
+   manager can set the `$NOTIFY_SOCKET` environment variable to a suitable
+   socket path to make use of this functionality. (Also see information about
+   `/run/host/notify` below, as well as the Readiness Protocol section on
+   [systemd(1)](https://www.freedesktop.org/software/systemd/man/latest/systemd.html)
 
 ## Networking
 
