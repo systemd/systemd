@@ -632,7 +632,7 @@ def elf2efi(args: argparse.Namespace):
     write_pe(args.PE, coff, opt, sections)
 
 
-def main():
+def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Convert ELF binaries to PE/EFI")
     parser.add_argument(
         "--version-major",
@@ -686,7 +686,11 @@ def main():
         default="",
         help="Copy these sections if found",
     )
+    return parser
 
+
+def main():
+    parser = create_parser()
     elf2efi(parser.parse_args())
 
 
