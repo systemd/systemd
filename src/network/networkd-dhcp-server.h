@@ -12,6 +12,7 @@ int network_adjust_dhcp_server(Network *network, Set **addresses);
 
 int link_request_dhcp_server(Link *link);
 
+int link_start_dhcp4_server(Link *link);
 void manager_toggle_dhcp4_server_state(Manager *manager, bool start);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_relay_agent_suboption);

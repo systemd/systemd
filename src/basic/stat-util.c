@@ -239,7 +239,7 @@ int null_or_empty_path_with_root(const char *fn, const char *root) {
         return null_or_empty(&st);
 }
 
-static int fd_is_read_only_fs(int fd) {
+int fd_is_read_only_fs(int fd) {
         struct statvfs st;
 
         assert(fd >= 0);
