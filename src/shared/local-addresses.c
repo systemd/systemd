@@ -211,7 +211,7 @@ int local_addresses(
                         break;
 
                 default:
-                        continue;
+                        assert_not_reached();
                 }
 
                 r = add_local_address(&list, &n_list, ifi, scope, family, &a);
