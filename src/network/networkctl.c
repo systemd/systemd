@@ -1108,7 +1108,7 @@ static int get_gateway_description(
                         break;
 
                 default:
-                        continue;
+                        assert_not_reached();
                 }
 
                 if (!in_addr_equal(fam, &gw, gateway))
