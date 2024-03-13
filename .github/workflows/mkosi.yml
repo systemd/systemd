@@ -75,7 +75,7 @@ jobs:
       SYSTEMD_LOG_LEVEL: debug
 
     steps:
-    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+    - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
     - uses: systemd/mkosi@ea1b00c3dba12662214b2e95dd1fe837cb13664b
 
     - name: Free disk space
