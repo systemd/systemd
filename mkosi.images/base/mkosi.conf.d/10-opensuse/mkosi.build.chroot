@@ -1,9 +1,9 @@
 #!/bin/bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
-set -ex
+set -e
 
-if [ ! -f "pkg/$DISTRIBUTION/systemd.spec" ]; then
-    echo "spec not found at pkg/$DISTRIBUTION/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
+if [ ! -f "pkg/$PKG_SUBDIR/systemd.spec" ]; then
+    echo "spec not found at pkg/$PKG_SUBDIR/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
     exit 1
 fi
 
@@ -16,7 +16,7 @@ fi
 # The openSUSE filelists hardcode the manpage compression extension. This causes rpmbuild errors since we
 # disable manpage compression as the files cannot be found. Fix the issue by removing the compression
 # extension.
-find "pkg/$DISTRIBUTION" -name "files.*" -exec sed --in-place 's/\.gz$//' {} \;
+find "pkg/$PKG_SUBDIR" -name "files.*" -exec sed --in-place 's/\.gz$//' {} \;
 
 build() {
     # TODO: Replace meson_build and meson_install overrides with "--undefine __meson_verbose" once
@@ -28,7 +28,7 @@ build() {
         --with upstream \
         $( ((WITH_TESTS)) || echo --nocheck) \
         --define "_topdir /var/tmp" \
-        --define "_sourcedir pkg/$DISTRIBUTION" \
+        --define "_sourcedir pkg/$PKG_SUBDIR" \
         --define "_rpmdir $PACKAGEDIR" \
         ${BUILDDIR:+--define} \
         ${BUILDDIR:+"_vpath_builddir $BUILDDIR"} \
@@ -46,7 +46,7 @@ build() {
         --define "__elf_exclude_path ^/usr/lib/systemd/tests/unit-tests/.*$" \
         --define "__script_requires %{nil}" \
         "$@" \
-        "pkg/$DISTRIBUTION/systemd.spec"
+        "pkg/$PKG_SUBDIR/systemd.spec"
 }
 
 if ! build; then
@@ -58,6 +58,6 @@ if ! build; then
     # warnings.
     rm systemd.lang
 
-    cat /tmp/unpackaged-files >>"pkg/$DISTRIBUTION/files.systemd"
+    cat /tmp/unpackaged-files >>"pkg/$PKG_SUBDIR/files.systemd"
     build --noprep --nocheck
 fi
