@@ -249,6 +249,11 @@ static int manager_listen_fds(Manager *m, int *ret_rtnl_fd) {
                         continue;
                 }
 
+                if (streq(names[i], "persistent-storage")) {
+                        close_and_replace(m->persistent_storage_fd, fd);
+                        continue;
+                }
+
                 if (manager_add_tuntap_fd(m, fd, names[i]) >= 0)
                         continue;
 

@@ -244,9 +244,13 @@ static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *paramet
                 if (fd < 0)
                         return log_warning_errno(fd, "Failed to take file descriptor of the persistent storage: %m");
 
+                (void) notify_remove_fd_warnf("persistent-storage");
+                (void) notify_push_fdf(fd, "persistent-storage");
                 close_and_replace(manager->persistent_storage_fd, fd);
-        } else
+        } else {
+                (void) notify_remove_fd_warnf("persistent-storage");
                 manager->persistent_storage_fd = safe_close(manager->persistent_storage_fd);
+        }
 
         manager_toggle_dhcp4_server_state(manager, ready);
 
