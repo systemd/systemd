@@ -13,6 +13,7 @@
 #include "journal-file.h"
 #include "list.h"
 #include "prioq.h"
+#include "syslog-util.h"
 
 #define JOURNAL_FILES_MAX 7168u
 
@@ -151,3 +152,15 @@ static inline bool JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(int r) {
                       E2BIG,            /* Field too large for pointer width */
                       EPROTONOSUPPORT); /* Unsupported compression */
 }
+
+#define journal_stream_path(log_namespace)                                              \
+        ({                                                                              \
+                const char *_ns = (log_namespace), *_ret;                               \
+                if (!_ns)                                                               \
+                        _ret = "/run/systemd/journal/stdout";                           \
+                else if (log_namespace_name_valid(_ns))                                 \
+                        _ret = strjoina("/run/systemd/journal.", _ns, "/stdout")        \
+                else                                                                    \
+                        _ret = NULL;                                                    \
+                _ret;                                                                   \
+        })
