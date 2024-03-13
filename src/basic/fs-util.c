@@ -1236,3 +1236,121 @@ int xopenat_lock_full(
 
         return TAKE_FD(fd);
 }
+
+int link_fd(int fd, int newdirfd, const char *newpath) {
+        int r;
+
+        assert(fd >= 0);
+        assert(newdirfd >= 0 || newdirfd == AT_FDCWD);
+        assert(newpath);
+
+        /* Try linking via /proc/self/fd/ first. */
+        r = RET_NERRNO(linkat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), newdirfd, newpath, AT_SYMLINK_FOLLOW));
+        if (r != -ENOENT)
+                return r;
+
+        /* Fall back to symlinking via AT_EMPTY_PATH as fallback (this requires CAP_DAC_READ_SEARCH and a
+         * more recent kernel, but does not require /proc/ mounted) */
+        if (proc_mounted() != 0)
+                return r;
+
+        return RET_NERRNO(linkat(fd, "", newdirfd, newpath, AT_EMPTY_PATH));
+}
+
+int linkat_replace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath) {
+        _cleanup_close_ int old_fd = -EBADF;
+        int r;
+
+        /* Like linkat() but replaces the target if needed. Is a NOP if source and target already share the
+         * same inode. */
+
+        if (olddirfd == AT_FDCWD && isempty(oldpath)) /* Refuse operating on the cwd (which is a dir, and dirs can't be hardlinked) */
+                return -EISDIR;
+
+        if (oldpath) {
+                if (STR_IN_SET(oldpath, ".", "..")) /* Refuse these definite directories early */
+                        return -EISDIR;
+
+                if (ENDSWITH_SET(oldpath, "/", "/.", "/..")) /* ditto */
+                        return -EISDIR;
+        }
+
+        if (isempty(newpath)) /* source path is optional, but the target path is not */
+                return -EINVAL;
+
+        if (STR_IN_SET(newpath, ".", ".."))
+                return -EISDIR;
+
+        if (ENDSWITH_SET(newpath, "/", "/.", "/..")) /* ditto */
+                return -EISDIR;
+
+        /* First, try to link this directly */
+        if (oldpath)
+                r = RET_NERRNO(linkat(olddirfd, oldpath, newdirfd, newpath, 0));
+        else
+                r = link_fd(olddirfd, newdirfd, newpath);
+        if (r >= 0)
+                return 0;
+        if (r != -EEXIST)
+                return r;
+
+        old_fd = xopenat(olddirfd, oldpath, O_PATH|O_CLOEXEC);
+        if (old_fd < 0)
+                return old_fd;
+
+        struct stat old_st;
+        if (fstat(old_fd, &old_st) < 0)
+                return -errno;
+
+        if (S_ISDIR(old_st.st_mode)) /* Don't bother if are operating on a directory */
+                return -EISDIR;
+
+        struct stat new_st;
+        if (fstatat(newdirfd, newpath, &new_st, AT_SYMLINK_NOFOLLOW) < 0)
+                return -errno;
+
+        if (S_ISDIR(new_st.st_mode)) /* Refuse replacing directories */
+                return -EEXIST;
+
+        if (stat_inode_same(&old_st, &new_st)) /* Already the same inode? Then shortcut this */
+                return 0;
+
+        _cleanup_free_ char *tmp_path = NULL;
+        r = tempfn_random(newpath, /* extra */ NULL, &tmp_path);
+        if (r < 0)
+                return r;
+
+        /* Try hardlink via /proc/self/fd/ first, which requires the least privileges, but does require /proc/ to be mounted. */
+        r = RET_NERRNO(linkat(AT_FDCWD, FORMAT_PROC_FD_PATH(old_fd), newdirfd, tmp_path, AT_SYMLINK_FOLLOW));
+        if (r < 0) {
+                if (r == -ENOENT) {
+                        if (proc_mounted() != 0) /* Unless ENOENT is caused by /proc/ is not being around, let's not bother with a fallback */
+                                return r;
+                } else if (!ERRNO_IS_PRIVILEGE(r))
+                        return r;
+
+                /* Second, let's try to go via the opened fd as source with AT_EMPTY_PATH. (This requires
+                 * CAP_DAC_READ_SEARCH and a more recent kernel, but does not require /proc/ mounted.) */
+                r = RET_NERRNO(linkat(old_fd, "", newdirfd, tmp_path, AT_EMPTY_PATH));
+                if (r < 0) {
+                        /* linkat() with AT_EMPTY_PATH requires privs. Let's cover for that. Interestingly,
+                         * if we lack the privs the kernel returns ENOENT rather than EACCESS/EPERM. But
+                         * let's also check for the error here that actually makese sense */
+                        if (!ERRNO_IS_PRIVILEGE(r) && r != -ENOENT)
+                                return r;
+
+                        /* If that didn't work due to permissions then go via the path of the dentry */
+                        r = RET_NERRNO(linkat(olddirfd, oldpath, newdirfd, tmp_path, 0));
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        r = RET_NERRNO(renameat(newdirfd, tmp_path, newdirfd, newpath));
+        if (r < 0) {
+                (void) unlinkat(newdirfd, tmp_path, /* flags= */ 0);
+                return r;
+        }
+
+        return 0;
+}
