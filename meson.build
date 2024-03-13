@@ -1853,7 +1853,7 @@ endif
 conf.set_quoted('VERSION_TAG', version_tag)
 
 vcs_tag = get_option('vcs-tag')
-if vcs_tag and fs.is_dir(project_source_root / '.git')
+if vcs_tag and fs.exists(project_source_root / '.git')
         version_h = vcs_tag(
                 input : 'src/version/version.h.in',
                 output : 'version.h',
