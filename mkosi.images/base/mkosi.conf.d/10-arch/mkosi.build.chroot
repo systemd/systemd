@@ -2,17 +2,17 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -ex
 
-if [ ! -f "pkg/$DISTRIBUTION/PKGBUILD" ]; then
-    echo "PKGBUILD not found at pkg/$DISTRIBUTION/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
+if [ ! -f "pkg/$PKG_SUBDIR/PKGBUILD" ]; then
+    echo "PKGBUILD not found at pkg/$PKG_SUBDIR/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
     exit 1
 fi
 
 # We can't configure the source or build directory so we use bind mounts instead to make sure they are in the
 # expected locations.
-mount --mkdir --bind "$SRCDIR" "pkg/$DISTRIBUTION/systemd-stable/"
-mount --mkdir --bind "$BUILDDIR" "pkg/$DISTRIBUTION/build/"
+mount --mkdir --bind "$SRCDIR" "pkg/$PKG_SUBDIR/systemd-stable/"
+mount --mkdir --bind "$BUILDDIR" "pkg/$PKG_SUBDIR/build/"
 # Because we run with --noextract we are responsible for making sure the source files appear in src/.
-mount --mkdir --rbind "$PWD/pkg/$DISTRIBUTION" "pkg/$DISTRIBUTION/src/"
+mount --mkdir --rbind "$PWD/pkg/$PKG_SUBDIR" "pkg/$PKG_SUBDIR/src/"
 
 # shellcheck source=/dev/null
 . /etc/makepkg.conf
@@ -37,7 +37,7 @@ fi
 
 # We get around makepkg's root check by setting EUID to something else.
 # shellcheck disable=SC2046
-env --chdir="pkg/$DISTRIBUTION" \
+env --chdir="pkg/$PKG_SUBDIR" \
     EUID=123 \
     makepkg \
     --noextract \
@@ -45,7 +45,7 @@ env --chdir="pkg/$DISTRIBUTION" \
     --force \
     UPSTREAM=1 \
     QUIET=1 \
-    BUILDDIR="$PWD/pkg/$DISTRIBUTION" \
+    BUILDDIR="$PWD/pkg/$PKG_SUBDIR" \
     PKGDEST="$PACKAGEDIR" \
     PKGEXT=".pkg.tar" \
     PKGVER="$(cat meson.version)" \
