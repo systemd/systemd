@@ -22,3 +22,6 @@ PassCredentials=yes
 PassSecurity=yes
 ReceiveBuffer=8M
 SendBuffer=8M
+
+[Install]
+WantedBy=sockets.target
