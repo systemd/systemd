@@ -820,7 +820,7 @@ int fsck_exists_for_fstype(const char *fstype) {
         return executable_is_good(checker);
 }
 
-static const char* skip_slash_or_dot(const char *p) {
+const char* skip_slash_or_dot(const char *p) {
         for (; !isempty(p); p++) {
                 if (*p == '/')
                         continue;
