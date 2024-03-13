@@ -221,7 +221,7 @@ int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **ret) {
 
         i = hashmap_get(m->inhibitors, id);
         if (!i) {
-                r = inhibitor_new(&i, m, id);
+                r = inhibitor_new(m, id, &i);
                 if (r < 0)
                         return r;
         }
