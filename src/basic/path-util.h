@@ -76,6 +76,10 @@ char* path_extend_internal(char **x, ...);
 #define path_extend(x, ...) path_extend_internal(x, __VA_ARGS__, POINTER_MAX)
 #define path_join(...) path_extend_internal(NULL, __VA_ARGS__, POINTER_MAX)
 
+static inline char* skip_leading_slash(const char *p) {
+        return skip_leading_chars(p, "/");
+}
+
 typedef enum PathSimplifyFlags {
         PATH_SIMPLIFY_KEEP_TRAILING_SLASH = 1 << 0,
 } PathSimplifyFlags;
