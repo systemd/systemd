@@ -44,6 +44,8 @@ static VARLINK_DEFINE_METHOD(
                 SetPersistentStorage,
                 VARLINK_DEFINE_INPUT(Ready, VARLINK_BOOL, 0));
 
+static VARLINK_DEFINE_ERROR(StorageReadOnly);
+
 VARLINK_DEFINE_INTERFACE(
                 io_systemd_Network,
                 "io.systemd.Network",
@@ -52,4 +54,5 @@ VARLINK_DEFINE_INTERFACE(
                 &vl_method_GetLLDPNeighbors,
                 &vl_method_SetPersistentStorage,
                 &vl_type_LLDPNeighbor,
-                &vl_type_LLDPNeighborsByInterface);
+                &vl_type_LLDPNeighborsByInterface,
+                &vl_error_StorageReadOnly);
