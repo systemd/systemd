@@ -10,7 +10,6 @@ static const LabelOps *label_ops = NULL;
 int label_ops_set(const LabelOps *ops) {
         if (label_ops)
                 return -EBUSY;
-
         label_ops = ops;
         return 0;
 }
