@@ -8,7 +8,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 # The Container Interface
 
 Also consult [Writing Virtual Machine or Container
-Managers](https://www.freedesktop.org/wiki/Software/systemd/writing-vm-managers).
+Managers](https://systemd.io/WRITING_VM_AND_CONTAINER_MANAGERS).
 
 systemd has a number of interfaces for interacting with container managers,
 when systemd is used inside of an OS container. If you work on a container
@@ -121,7 +121,7 @@ manager, please consider supporting the following interfaces.
    variable's name you may only specify ptys, and not other types of ttys. Also
    you need to specify the pty itself, a symlink will not suffice. This is
    implemented in
-   [systemd-getty-generator(8)](https://www.freedesktop.org/software/systemd/man/systemd-getty-generator.html).
+   [systemd-getty-generator(8)](https://www.freedesktop.org/software/systemd/man/latest/systemd-getty-generator.html).
    Note that this variable should not include the pty that `/dev/console` maps
    to if it maps to one (see below). Example: if the container receives
    `container_ttys=pts/7 pts/8 pts/14` it will spawn three additional login
@@ -131,7 +131,7 @@ manager, please consider supporting the following interfaces.
    running the container manager, if this is considered desirable, please parse
    the host's `/etc/os-release` and set a `$container_host_<key>=<VALUE>`
    environment variable for the ID fields described by the [os-release
-   interface](https://www.freedesktop.org/software/systemd/man/os-release.html), eg:
+   interface](https://www.freedesktop.org/software/systemd/man/latest/os-release.html), eg:
    `$container_host_id=debian`
    `$container_host_build_id=2020-06-15`
    `$container_host_variant_id=server`
