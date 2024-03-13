@@ -27,6 +27,7 @@ DeviceAllow=char-* rw
 ExecStart=!!{{LIBEXECDIR}}/systemd-networkd
 FileDescriptorStoreMax=512
 ImportCredential=network.wireguard.*
+InaccessiblePaths=-/boot -/efi
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
