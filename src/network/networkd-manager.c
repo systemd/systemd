@@ -562,7 +562,7 @@ static bool persistent_storage_is_ready(void) {
 
         if (access("/run/systemd/netif/persistent-storage-ready", F_OK) < 0) {
                 if (errno != ENOENT)
-                        return log_debug_errno(errno, "Failed to check if /run/systemd/netif/persistent-storage-ready exists, assuming not, ignoring: %m");
+                        log_debug_errno(errno, "Failed to check if /run/systemd/netif/persistent-storage-ready exists, assuming not: %m");
                 return false;
         }
 
