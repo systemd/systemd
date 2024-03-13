@@ -146,3 +146,5 @@ int xopenat_lock_full(int dir_fd, const char *path, int open_flags, XOpenFlags x
 static inline int xopenat_lock(int dir_fd, const char *path, int open_flags, LockType locktype, int operation) {
         return xopenat_lock_full(dir_fd, path, open_flags, 0, 0, locktype, operation);
 }
+
+int linkat_replace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);

@@ -268,6 +268,8 @@ conf.set_quoted('SYSTEMD_TEST_DATA',                          testdata_dir)
 conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', bindir / 'systemd-tty-ask-password-agent')
 conf.set_quoted('SYSTEMD_UPDATE_HELPER_PATH',                 libexecdir / 'systemd-update-helper')
 conf.set_quoted('SYSTEMD_USERWORK_PATH',                      libexecdir / 'systemd-userwork')
+conf.set_quoted('SYSTEMD_MOUNTWORK_PATH',                     libexecdir / 'systemd-mountwork')
+conf.set_quoted('SYSTEMD_NSRESOURCEWORK_PATH',                libexecdir / 'systemd-nsresourcework')
 conf.set_quoted('SYSTEMD_VERITYSETUP_PATH',                   libexecdir / 'systemd-veritysetup')
 conf.set_quoted('SYSTEM_CONFIG_UNIT_DIR',                     pkgsysconfdir / 'system')
 conf.set_quoted('SYSTEM_DATA_UNIT_DIR',                       systemunitdir)
@@ -1586,6 +1588,8 @@ conf.set10('ENABLE_REMOTE', have)
 feature = get_option('vmspawn').disable_auto_if(conf.get('BUILD_MODE_DEVELOPER') == 0)
 conf.set10('ENABLE_VMSPAWN', feature.allowed())
 
+conf.set10('DEFAULT_MOUNTFSD_TRUSTED_DIRECTORIES', get_option('default-mountfsd-trusted-directories'))
+
 foreach term : ['analyze',
                 'backlight',
                 'binfmt',
@@ -1606,8 +1610,10 @@ foreach term : ['analyze',
                 'localed',
                 'logind',
                 'machined',
+                'mountfsd',
                 'networkd',
                 'nscd',
+                'nsresourced',
                 'nss-myhostname',
                 'nss-systemd',
                 'oomd',
@@ -1824,6 +1830,76 @@ pefile = pymod.find_installation('python3', required: false, modules : ['pefile'
 
 want_ukify = get_option('ukify').require(python_39 and (want_tests != 'true' or pefile.found()), error_message : 'Python >= 3.9 and pefile required').allowed()
 conf.set10('ENABLE_UKIFY', want_ukify)
+
+#####################################################################
+
+use_provided_vmlinux_h = false
+use_generated_vmlinux_h = false
+provided_vmlinux_h_path = get_option('vmlinux-h-path')
+
+# For the more complex BPF programs we really want a vmlinux.h (which is arch
+# specific, but only somewhat bound to kernel version). Ideally the kernel
+# development headers would ship that, but right now they don't. Hence address
+# this in two ways:
+#
+# 1. Provide a vmlinux.h at build time
+# 2. Generate the file on the fly where possible (which requires /sys/ to be mounted)
+#
+# We generally prefer the former (to support reproducible builds), but will
+# fallback to the latter.
+
+if conf.get('BPF_FRAMEWORK') == 1
+        enable_vmlinux_h = get_option('vmlinux-h')
+
+        if enable_vmlinux_h == 'auto'
+                if provided_vmlinux_h_path != ''
+                        use_provided_vmlinux_h = true
+                elif fs.exists('/sys/kernel/btf/vmlinux') and \
+                                bpftool.found() and \
+                                (host_machine.cpu_family() == build_machine.cpu_family()) and \
+                                host_machine.cpu_family() in ['x86_64', 'aarch64']
+
+                        # We will only generate a vmlinux.h from the running
+                        # kernel if the host and build machine are of the same
+                        # family. Also for now we focus on x86_64 and aarch64,
+                        # since other archs don't seem to be ready yet.
+
+                        use_generated_vmlinux_h = true
+                endif
+        elif enable_vmlinux_h == 'provided'
+                use_provided_vmlinux_h = true
+        elif enable_vmlinux_h == 'generated'
+                if not fs.exists('/sys/kernel/btf/vmlinux')
+                        error('BTF data from kernel not available (/sys/kernel/btf/vmlinux missing), cannot generate vmlinux.h, but was asked to.')
+                endif
+                if not bpftool.found()
+                        error('bpftool not available, cannot generate vmlinux.h, but was asked to.')
+                endif
+                use_generated_vmlinux_h = true
+        endif
+endif
+
+if use_provided_vmlinux_h
+        if not fs.exists(provided_vmlinux_h_path)
+                error('Path to provided vmlinux.h does not exist.')
+        endif
+        vmlinux_h_dependency = []
+        bpf_o_unstripped_cmd += ['-I' + fs.parent(provided_vmlinux_h_path)]
+        message('Using provided @0@'.format(provided_vmlinux_h_path))
+elif use_generated_vmlinux_h
+        vmlinux_h_dependency = custom_target(
+                'vmlinux.h',
+                output: 'vmlinux.h',
+                command : [ bpftool, 'btf', 'dump', 'file', '/sys/kernel/btf/vmlinux', 'format', 'c' ],
+                capture : true)
+
+        bpf_o_unstripped_cmd += ['-I' + fs.parent(vmlinux_h_dependency.full_path())]
+        message('Using generated @0@'.format(vmlinux_h_dependency.full_path()))
+else
+        message('Using neither provided nor generated vmlinux.h, some features will not be available.')
+endif
+
+conf.set10('HAVE_VMLINUX_H', use_provided_vmlinux_h or use_generated_vmlinux_h)
 
 #####################################################################
 
@@ -2196,11 +2272,13 @@ subdir('src/locale')
 subdir('src/login')
 subdir('src/machine')
 subdir('src/machine-id-setup')
+subdir('src/mountfsd')
 subdir('src/modules-load')
 subdir('src/mount')
 subdir('src/network')
 subdir('src/notify')
 subdir('src/nspawn')
+subdir('src/nsresourced')
 subdir('src/nss-myhostname')
 subdir('src/nss-mymachines')
 subdir('src/nss-resolve')
