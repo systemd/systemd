@@ -1336,6 +1336,20 @@ bool dot_or_dot_dot(const char *path) {
         return path[2] == 0;
 }
 
+bool path_implies_directory(const char *path) {
+
+        /* Sometimes, if we look at a path we already know it must refer to a directory, because it is
+         * suffixed with a slash, or its last component is "." or ".." */
+
+        if (!path)
+                return false;
+
+        if (dot_or_dot_dot(path))
+                return true;
+
+        return ENDSWITH_SET(path, "/", "/.", "/..");
+}
+
 bool empty_or_root(const char *path) {
 
         /* For operations relative to some root directory, returns true if the specified root directory is
