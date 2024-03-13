@@ -113,6 +113,7 @@ simple_tests += files(
         'test-iovec-util.c',
         'test-journal-importer.c',
         'test-kbd-util.c',
+        'test-label.c',
         'test-limits-util.c',
         'test-list.c',
         'test-local-addresses.c',
