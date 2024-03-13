@@ -1473,17 +1473,6 @@ static void track_file_disposition(sd_journal *j, JournalFile *f) {
                 j->has_persistent_files = true;
 }
 
-static const char *skip_slash(const char *p) {
-
-        if (!p)
-                return NULL;
-
-        while (*p == '/')
-                p++;
-
-        return p;
-}
-
 static int add_any_file(
                 sd_journal *j,
                 int fd,
@@ -1503,7 +1492,7 @@ static int add_any_file(
                         /* If there's a top-level fd defined make the path relative, explicitly, since otherwise
                          * openat() ignores the first argument. */
 
-                        fd = our_fd = openat(j->toplevel_fd, skip_slash(path), O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                        fd = our_fd = openat(j->toplevel_fd, skip_leading_slash(path), O_RDONLY|O_CLOEXEC|O_NONBLOCK);
                 else
                         fd = our_fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0) {
@@ -1811,7 +1800,7 @@ static int directory_open(sd_journal *j, const char *path, DIR **ret) {
         else
                 /* Open the specified directory relative to the toplevel fd. Enforce that the path specified is
                  * relative, by dropping the initial slash */
-                d = xopendirat(j->toplevel_fd, skip_slash(path), 0);
+                d = xopendirat(j->toplevel_fd, skip_leading_slash(path), 0);
         if (!d)
                 return -errno;
 
