@@ -3282,7 +3282,8 @@ finish:
 #endif
 
         if (r < 0)
-                (void) sd_notifyf(0, "ERRNO=%i", -r);
+                (void) sd_notifyf(/* unset_environment= */ false,
+                                  "ERRNO=%i", -r);
 
         /* Try to invoke the shutdown binary unless we already failed.
          * If we failed above, we want to freeze after finishing cleanup. */
@@ -3295,7 +3296,8 @@ finish:
 
         /* This is primarily useful when running systemd in a VM, as it provides the user running the VM with
          * a mechanism to pick up systemd's exit status in the VM. */
-        (void) sd_notifyf(0, "EXIT_STATUS=%i", retval);
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "EXIT_STATUS=%i", retval);
 
         watchdog_free_device();
         arg_watchdog_device = mfree(arg_watchdog_device);
