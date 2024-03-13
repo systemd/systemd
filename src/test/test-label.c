@@ -10,12 +10,10 @@
 #include "string-util.h"
 #include "tests.h"
 
-
 static int check_path(int dir_fd, const char *path) {
 
         assert(dir_fd >= 0);
         assert(path);
-
         if (!is_path(path) || !path_is_valid(path) || isempty(path))
                 return -EINVAL;
 
@@ -55,46 +53,23 @@ static int post_labelling_func(int dir_fd, const char *path) {
         if (ret < 0) {
                 return ret;
         }
-
         /* custom post labelling logic */
         return 0; /*on sucess*/
 }
 
-TEST(label_ops_set) {
-
-        static const LabelOps test_label_ops = {
-        .pre = NULL,
-        .post = NULL,
-    };
-
-        assert_se(label_ops_set(&test_label_ops) == 0);
-        /*attempt to reset label_ops when already set*/
-        assert_se(label_ops_set(&test_label_ops) == -EBUSY);
-}
-
-TEST(label_ops_pre) {
+TEST(label_ops) {
 
         static const LabelOps test_label_ops = {
                 .pre = pre_labelling_func,
                 .post = post_labelling_func,
         };
-
-        label_ops_set(&test_label_ops);
-
-
+        assert_se(label_ops_set(&test_label_ops) == 0);
+        /*attempt to reset label_ops when already set*/
+        assert_se(label_ops_set(&test_label_ops) == -EBUSY);
         assert_se(label_ops_pre(1, "/abcd", 0755) == 0);
         assert_se(label_ops_pre(1, "/restricted_directory", 0755) == -EACCES);
         assert_se(label_ops_pre(2, "abcd", 0644) == -EINVAL);
         assert_se(label_ops_pre(1, "/wekrgoierhgoierhqgherhgwklegnlweehgorwfkryrit", 0755) == -ENAMETOOLONG);
-}
-
-TEST(label_ops_post) {
-
-        static const LabelOps test_label_ops = {
-                .pre = pre_labelling_func,
-                .post = post_labelling_func,
-        };
-        label_ops_set(&test_label_ops);
         assert_se(label_ops_post(1, "/abcd") == 0);
         assert_se(label_ops_post(1, "/restricted_directory") == -EACCES);
         assert_se(label_ops_post(2, "") == -EINVAL);
