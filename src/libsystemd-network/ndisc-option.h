@@ -13,6 +13,11 @@
 #include "set.h"
 #include "time-util.h"
 
+typedef struct sd_ndisc_raw {
+        uint8_t *bytes;
+        size_t length;
+} sd_ndisc_raw;
+
 /* Mostly equivalent to struct nd_opt_prefix_info, but using usec_t. */
 typedef struct sd_ndisc_prefix {
         uint8_t flags;
@@ -51,6 +56,7 @@ typedef struct sd_ndisc_option {
         size_t offset;
 
         union {
+                sd_ndisc_raw raw;           /* for testing or unsupported options */
                 struct ether_addr mac;      /* SD_NDISC_OPTION_SOURCE_LL_ADDRESS or SD_NDISC_OPTION_TARGET_LL_ADDRESS */
                 sd_ndisc_prefix prefix;     /* SD_NDISC_OPTION_PREFIX_INFORMATION */
                 struct ip6_hdr hdr;         /* SD_NDISC_OPTION_REDIRECTED_HEADER */
@@ -107,6 +113,11 @@ static inline sd_ndisc_option* ndisc_option_get(Set *options, uint8_t type) {
 
 int ndisc_option_get_mac(Set *options, uint8_t type, struct ether_addr *ret);
 
+int ndisc_option_add_raw(
+                Set **options,
+                size_t offset,
+                size_t length,
+                const uint8_t *bytes);
 int ndisc_option_add_link_layer_address(
                 Set **options,
                 uint8_t opt,
