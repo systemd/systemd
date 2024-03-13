@@ -4,8 +4,9 @@
 systemctl --failed --no-legend | tee /failed-services
 
 # Check that secure boot keys were properly enrolled.
-if ! systemd-detect-virt --container; then
-    cmp /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c <(printf '\6\0\0\0\1')
+if ! systemd-detect-virt --container && \
+   cmp /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c <(printf '\6\0\0\0\1')
+then
     cmp /sys/firmware/efi/efivars/SetupMode-8be4df61-93ca-11d2-aa0d-00e098032b8c <(printf '\6\0\0\0\0')
 
     if command -v sbsign &>/dev/null; then
