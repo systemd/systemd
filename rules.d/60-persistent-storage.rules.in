@@ -55,7 +55,11 @@ ENV{ID_MODEL}=="?*", ENV{ID_SERIAL_SHORT}=="?*", ENV{ID_NSID}=="?*", OPTIONS="st
 LABEL="nvme_end"
 
 # virtio-blk
+KERNEL=="vd*", ATTRS{serial}=="?*", GOTO="vdserial"
+KERNEL=="vd*", IMPORT{program}="/usr/bin/udevadm info --query=property /dev/%k", SYMLINK+="disk/by-id/virtio-$env{ID_PART_TABLE_UUID}$env{.PART_SUFFIX}", GOTO="vdend"
+LABEL="vdserial"
 KERNEL=="vd*", ATTRS{serial}=="?*", ENV{ID_SERIAL}="$attr{serial}", SYMLINK+="disk/by-id/virtio-$env{ID_SERIAL}$env{.PART_SUFFIX}"
+LABEL="vdend"
 
 # ATA
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", IMPORT{program}="ata_id --export $devnode"
