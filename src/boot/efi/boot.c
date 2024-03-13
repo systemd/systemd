@@ -2376,7 +2376,7 @@ static EFI_STATUS image_start(
          * so). */
         _cleanup_free_ char16_t *options = xstrdup16(options_initrd ?: entry->options_implied ? NULL : entry->options);
 
-        if (!is_confidential_vm()) {
+        if (entry->type == LOADER_LINUX && !is_confidential_vm()) {
                 const char *extra = smbios_find_oem_string("io.systemd.boot.kernel-cmdline-extra");
                 if (extra) {
                         _cleanup_free_ char16_t *tmp = TAKE_PTR(options), *extra16 = xstr8_to_16(extra);
