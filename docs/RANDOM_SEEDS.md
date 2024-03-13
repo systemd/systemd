@@ -335,7 +335,7 @@ This primarily leaves two kind of systems in the cold:
    delay, which this doesn't solve), there's hence little benefit for us to call these functions.
    That said, if glibc learns these APIs one day, we'll certainly make use of them where appropriate.
 
-7. *This is boring: NetBSD had [boot loader entropy seed support](https://netbsd.gw.com/cgi-bin/man-cgi?boot+8) since ages!*
+7. *This is boring: NetBSD had [boot loader entropy seed support](https://man.netbsd.org/entropy.7) since ages!*
 
    Yes, NetBSD has that, and the above is inspired by that (note though: this
    article is about a lot more than that).
