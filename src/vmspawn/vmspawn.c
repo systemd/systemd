@@ -1571,6 +1571,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 if (r < 0)
                                         return log_oom();
 
+                                r = strv_extend(&cmdline, "-smbios");
+                                if (r < 0)
+                                        return log_oom();
+
                                 r = strv_extendf(&cmdline, "type=11,value=io.systemd.boot.kernel-cmdline-extra=%s", escaped_kcl);
                                 if (r < 0)
                                         return log_oom();
@@ -1732,7 +1736,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = pidref_safe_fork_full(
                         qemu_binary,
                         /* stdio_fds= */ NULL,
-                        &child_vsock_fd, 1, /* pass the vsock fd to qemu */
+                        pass_fds, n_pass_fds,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE,
                         &child_pidref);
         if (r < 0)
