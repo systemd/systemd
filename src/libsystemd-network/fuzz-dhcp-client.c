@@ -91,9 +91,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         r = dhcp_lease_save(client->lease, lease_file);
         assert_se(r >= 0);
 
-        /* The result isn't checked because non UTF-8 options saved by
-         * dhcp_lease_save can't be loaded currently */
-        (void) dhcp_lease_load(&lease, lease_file);
+        r = dhcp_lease_load(&lease, lease_file);
+        assert_se(r >= 0);
 
 end:
         assert_se(sd_dhcp_client_stop(client) >= 0);
