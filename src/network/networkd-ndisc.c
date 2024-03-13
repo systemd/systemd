@@ -190,7 +190,7 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         assert(link->network);
         assert(rt);
 
-        r = sd_ndisc_router_get_address(rt, &router);
+        r = sd_ndisc_router_get_sender_address(rt, &router);
         if (r < 0)
                 return r;
 
@@ -336,7 +336,7 @@ static int ndisc_request_address(Address *address, Link *link, sd_ndisc_router *
         assert(link);
         assert(rt);
 
-        r = sd_ndisc_router_get_address(rt, &router);
+        r = sd_ndisc_router_get_sender_address(rt, &router);
         if (r < 0)
                 return r;
 
@@ -387,7 +387,7 @@ static int ndisc_router_drop_default(Link *link, sd_ndisc_router *rt) {
         assert(link->network);
         assert(rt);
 
-        r = sd_ndisc_router_get_address(rt, &gateway);
+        r = sd_ndisc_router_get_sender_address(rt, &gateway);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get router address from RA: %m");
 
@@ -430,7 +430,7 @@ static int ndisc_router_drop_default(Link *link, sd_ndisc_router *rt) {
 static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         usec_t lifetime_usec;
         struct in6_addr gateway;
-        unsigned preference;
+        uint8_t preference;
         int r;
 
         assert(link);
@@ -452,7 +452,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get gateway lifetime from RA: %m");
 
-        r = sd_ndisc_router_get_address(rt, &gateway);
+        r = sd_ndisc_router_get_sender_address(rt, &gateway);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
 
@@ -625,7 +625,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         usec_t lifetime_valid_usec, lifetime_preferred_usec;
         _cleanup_set_free_ Set *addresses = NULL;
         struct in6_addr prefix, *a;
-        unsigned prefixlen;
+        uint8_t prefixlen;
         int r;
 
         assert(link);
@@ -703,7 +703,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 
 static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_unrefp) Route *route = NULL;
-        unsigned prefixlen, preference;
+        uint8_t prefixlen, preference;
         usec_t lifetime_usec;
         struct in6_addr prefix;
         int r;
@@ -751,7 +751,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_drop_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_unrefp) Route *route = NULL;
-        unsigned prefixlen;
+        uint8_t prefixlen;
         struct in6_addr prefix;
         usec_t lifetime_usec;
         int r;
@@ -800,9 +800,8 @@ static int ndisc_router_drop_onlink_prefix(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
-        unsigned prefixlen;
+        uint8_t flags, prefixlen;
         struct in6_addr a;
-        uint8_t flags;
         int r;
 
         assert(link);
@@ -856,7 +855,7 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_unrefp) Route *route = NULL;
-        unsigned preference, prefixlen;
+        uint8_t preference, prefixlen;
         struct in6_addr gateway, dst;
         usec_t lifetime_usec;
         int r;
@@ -895,7 +894,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
                 return 0;
         }
 
-        r = sd_ndisc_router_get_address(rt, &gateway);
+        r = sd_ndisc_router_get_sender_address(rt, &gateway);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
 
@@ -962,7 +961,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         if (!link->network->ndisc_use_dns)
                 return 0;
 
-        r = sd_ndisc_router_get_address(rt, &router);
+        r = sd_ndisc_router_get_sender_address(rt, &router);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get router address from RA: %m");
 
@@ -1041,7 +1040,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 free);
 
 static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
-        _cleanup_strv_free_ char **l = NULL;
+        char **l;
         usec_t lifetime_usec;
         struct in6_addr router;
         bool updated = false, logged_about_too_many = false;
@@ -1054,7 +1053,7 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         if (link->network->ndisc_use_domains == DHCP_USE_DOMAINS_NO)
                 return 0;
 
-        r = sd_ndisc_router_get_address(rt, &router);
+        r = sd_ndisc_router_get_sender_address(rt, &router);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get router address from RA: %m");
 
@@ -1145,11 +1144,10 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
 static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) {
         _cleanup_(ndisc_captive_portal_freep) NDiscCaptivePortal *new_entry = NULL;
         _cleanup_free_ char *captive_portal = NULL;
+        const char *uri;
         usec_t lifetime_usec;
         NDiscCaptivePortal *exist;
         struct in6_addr router;
-        const char *uri;
-        size_t len;
         int r;
 
         assert(link);
@@ -1159,7 +1157,7 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
         if (!link->network->ndisc_use_captive_portal)
                 return 0;
 
-        r = sd_ndisc_router_get_address(rt, &router);
+        r = sd_ndisc_router_get_sender_address(rt, &router);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get router address from RA: %m");
 
@@ -1170,31 +1168,25 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get lifetime of RA message: %m");
 
-        r = sd_ndisc_router_captive_portal_get_uri(rt, &uri, &len);
+        r = sd_ndisc_router_get_captive_portal(rt, &uri);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get captive portal from RA: %m");
 
-        if (len == 0)
-                return log_link_warning_errno(link, SYNTHETIC_ERRNO(EBADMSG), "Received empty captive portal, ignoring.");
-
-        r = make_cstring(uri, len, MAKE_CSTRING_REFUSE_TRAILING_NUL, &captive_portal);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to convert captive portal URI: %m");
-
-        if (!in_charset(captive_portal, URI_VALID))
-                return log_link_warning_errno(link, SYNTHETIC_ERRNO(EBADMSG), "Received invalid captive portal, ignoring.");
+        captive_portal = strdup(uri);
+        if (!captive_portal)
+                return log_oom();
 
         if (lifetime_usec == 0) {
                 /* Drop the portal with zero lifetime. */
                 ndisc_captive_portal_free(set_remove(link->ndisc_captive_portals,
-                                                     &(NDiscCaptivePortal) {
+                                                     &(const NDiscCaptivePortal) {
                                                              .captive_portal = captive_portal,
                                                      }));
                 return 0;
         }
 
         exist = set_get(link->ndisc_captive_portals,
-                        &(NDiscCaptivePortal) {
+                        &(const NDiscCaptivePortal) {
                                 .captive_portal = captive_portal,
                         });
         if (exist) {
@@ -1268,7 +1260,7 @@ static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt) {
         _cleanup_free_ NDiscPREF64 *new_entry = NULL;
         usec_t lifetime_usec;
         struct in6_addr a, router;
-        unsigned prefix_len;
+        uint8_t prefix_len;
         NDiscPREF64 *exist;
         int r;
 
@@ -1279,7 +1271,7 @@ static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt) {
         if (!link->network->ndisc_use_pref64)
                 return 0;
 
-        r = sd_ndisc_router_get_address(rt, &router);
+        r = sd_ndisc_router_get_sender_address(rt, &router);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get router address from RA: %m");
 
@@ -1617,7 +1609,7 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         assert(link->manager);
         assert(rt);
 
-        r = sd_ndisc_router_get_address(rt, &router);
+        r = sd_ndisc_router_get_sender_address(rt, &router);
         if (r == -ENODATA) {
                 log_link_debug(link, "Received RA without router address, ignoring.");
                 return 0;
