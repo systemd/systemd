@@ -8,6 +8,9 @@ typedef struct Link Link;
 typedef struct Manager Manager;
 typedef struct Network Network;
 
+bool link_dhcp4_server_enabled(Link *link);
+char* link_get_dhcp_server_lease_file(Link *link);
+
 int network_adjust_dhcp_server(Network *network, Set **addresses);
 
 int link_request_dhcp_server(Link *link);

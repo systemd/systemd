@@ -26,7 +26,7 @@
 #include "string-util.h"
 #include "strv.h"
 
-static bool link_dhcp4_server_enabled(Link *link) {
+bool link_dhcp4_server_enabled(Link *link) {
         assert(link);
 
         if (link->flags & IFF_LOOPBACK)
@@ -39,6 +39,13 @@ static bool link_dhcp4_server_enabled(Link *link) {
                 return false;
 
         return link->network->dhcp_server;
+}
+
+char* link_get_dhcp_server_lease_file(Link *link) {
+        assert(link);
+        assert(link->ifname);
+
+        return path_join("/var/lib/systemd/network/dhcp-server-lease/", link->ifname);
 }
 
 int network_adjust_dhcp_server(Network *network, Set **addresses) {
@@ -82,6 +89,7 @@ int network_adjust_dhcp_server(Network *network, Set **addresses) {
                         /* TODO: check if the prefix length is small enough for the pool. */
 
                         network->dhcp_server_address = address;
+                        address->used_by_dhcp_server = true;
                         break;
                 }
                 if (!network->dhcp_server_address) {
@@ -128,6 +136,7 @@ int network_adjust_dhcp_server(Network *network, Set **addresses) {
                 a->prefixlen = network->dhcp_server_address_prefixlen;
                 a->in_addr.in = network->dhcp_server_address_in_addr;
                 a->requested_as_null = !in4_addr_is_set(&network->dhcp_server_address_in_addr);
+                a->used_by_dhcp_server = true;
 
                 r = address_section_verify(a);
                 if (r < 0)
@@ -573,7 +582,7 @@ static int dhcp4_server_configure(Link *link) {
         }
 
         if (!sd_dhcp_server_is_in_relay_mode(link->dhcp_server)) {
-                _cleanup_free_ char *lease_file = path_join("/var/lib/systemd/network/dhcp-server-lease/", link->ifname);
+                _cleanup_free_ char *lease_file = link_get_dhcp_server_lease_file(link);
                 if (!lease_file)
                         return log_oom();
 

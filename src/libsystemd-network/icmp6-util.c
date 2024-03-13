@@ -42,6 +42,8 @@ int icmp6_bind(int ifindex, bool is_router) {
                         .ipv6mr_interface = ifindex,
                 };
                 ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
+                ICMP6_FILTER_SETPASS(ND_NEIGHBOR_ADVERT, &filter);
+                ICMP6_FILTER_SETPASS(ND_REDIRECT, &filter);
         }
 
         s = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_ICMPV6);
@@ -86,6 +88,20 @@ int icmp6_bind(int ifindex, bool is_router) {
                 return r;
 
         return TAKE_FD(s);
+}
+
+int icmp6_send(int fd, const struct sockaddr_in6 *dst, const struct iovec *iov, size_t n_iov) {
+        struct msghdr msg = {
+                .msg_name = (struct sockaddr_in6*) dst,
+                .msg_namelen = sizeof(struct sockaddr_in6),
+                .msg_iov = (struct iovec*) iov,
+                .msg_iovlen = n_iov,
+        };
+
+        if (sendmsg(fd, &msg, 0) < 0)
+                return -errno;
+
+        return 0;
 }
 
 int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
