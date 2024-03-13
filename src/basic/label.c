@@ -10,6 +10,7 @@ static const LabelOps *label_ops = NULL;
 int label_ops_set(const LabelOps *ops) {
         if (label_ops)
                 return -EBUSY;
+
         label_ops = ops;
         return 0;
 }
@@ -26,4 +27,8 @@ int label_ops_post(int dir_fd, const char *path) {
                 return 0;
 
         return label_ops->post(dir_fd, path);
+}
+
+int label_ops_reset() {
+        label_ops = NULL;
 }
