@@ -286,7 +286,7 @@ int dhcp_server_static_leases_append_json(sd_dhcp_server *server, JsonVariant **
 
 int dhcp_server_save_leases(sd_dhcp_server *server) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         sd_id128_t boot_id;
         int r;
@@ -315,11 +315,11 @@ int dhcp_server_save_leases(sd_dhcp_server *server) {
         if (r < 0)
                 return r;
 
-        r = mkdir_parents(server->lease_file, 0755);
+        r = mkdirat_parents(server->lease_dir_fd, server->lease_file, 0755);
         if (r < 0)
                 return r;
 
-        r = fopen_temporary(server->lease_file, &f, &temp_path);
+        r = fopen_temporary_at(server->lease_dir_fd, server->lease_file, &f, &temp_path);
         if (r < 0)
                 return r;
 
@@ -327,14 +327,17 @@ int dhcp_server_save_leases(sd_dhcp_server *server) {
 
         r = json_variant_dump(v, JSON_FORMAT_NEWLINE | JSON_FORMAT_FLUSH, f, /* prefix = */ NULL);
         if (r < 0)
-                return r;
+                goto failure;
 
-        r = conservative_rename(temp_path, server->lease_file);
+        r = conservative_renameat(server->lease_dir_fd, temp_path, server->lease_dir_fd, server->lease_file);
         if (r < 0)
-                return r;
+                goto failure;
 
-        temp_path = mfree(temp_path);
         return 0;
+
+failure:
+        (void) unlinkat(server->lease_dir_fd, temp_path, /* flags = */ 0);
+        return r;
 }
 
 static int json_dispatch_dhcp_lease(sd_dhcp_server *server, JsonVariant *v, bool use_boottime) {
@@ -445,8 +448,9 @@ int dhcp_server_load_leases(sd_dhcp_server *server) {
         if (!server->lease_file)
                 return 0;
 
-        r = json_parse_file(
+        r = json_parse_file_at(
                         /* f = */ NULL,
+                        server->lease_dir_fd,
                         server->lease_file,
                         /* flags = */ 0,
                         &v,

@@ -144,6 +144,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         free(server->agent_circuit_id);
         free(server->agent_remote_id);
 
+        safe_close(server->lease_dir_fd);
         free(server->lease_file);
 
         free(server->ifname);
@@ -174,6 +175,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
                 .default_lease_time = DHCP_DEFAULT_LEASE_TIME_USEC,
                 .max_lease_time = DHCP_MAX_LEASE_TIME_USEC,
                 .rapid_commit = true,
+                .lease_dir_fd = -EBADF,
         };
 
         *ret = TAKE_PTR(server);
@@ -1586,12 +1588,34 @@ int sd_dhcp_server_set_relay_agent_information(
         return 0;
 }
 
-int sd_dhcp_server_set_lease_file(sd_dhcp_server *server, const char *path) {
+int sd_dhcp_server_set_lease_file(sd_dhcp_server *server, int dir_fd, const char *path) {
+        int r;
+
         assert_return(server, -EINVAL);
         assert_return(!sd_dhcp_server_is_running(server), -EBUSY);
 
-        if (path && !path_is_safe(path))
+        if (!path) {
+                /* When NULL, clear the previous assignment. */
+                server->lease_file = mfree(server->lease_file);
+                server->lease_dir_fd = safe_close(server->lease_dir_fd);
+                return 0;
+        }
+
+        if (!path_is_safe(path))
                 return -EINVAL;
 
-        return free_and_strdup(&server->lease_file, path);
+        if (dir_fd < 0 && dir_fd != AT_FDCWD)
+                return -EBADF;
+
+        _cleanup_close_ int fd = -EBADF;
+        fd = fd_reopen(dir_fd, O_CLOEXEC | O_DIRECTORY | O_PATH);
+        if (fd < 0)
+                return fd;
+
+        r = free_and_strdup(&server->lease_file, path);
+        if (r < 0)
+                return r;
+
+        server->lease_dir_fd = TAKE_FD(fd);
+        return 0;
 }
