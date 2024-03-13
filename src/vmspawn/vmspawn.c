@@ -1571,6 +1571,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 if (r < 0)
                                         return log_oom();
 
+                                r = strv_extend(&cmdline, "-smbios");
+                                if (r < 0)
+                                        return log_oom();
+
                                 r = strv_extendf(&cmdline, "type=11,value=io.systemd.boot.kernel-cmdline-extra=%s", escaped_kcl);
                                 if (r < 0)
                                         return log_oom();
