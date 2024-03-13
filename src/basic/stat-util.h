@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/vfs.h>
 
+#include "fs-util.h"
 #include "macro.h"
 #include "missing_stat.h"
 #include "siphash24.h"
@@ -126,3 +127,18 @@ extern const struct hash_ops inode_hash_ops;
 
 const char* inode_type_to_string(mode_t m);
 mode_t inode_type_from_string(const char *s);
+
+/* Macros that check whether the stat/statx structures have been initialized already. For "struct stat" we
+ * use a check for .st_dev being non-zero, since the kernel unconditionally fills that in, mapping the file
+ * to its originating superblock, regardless if the fs is block based or virtual (we also check for .st_mode
+ * being MODE_INVALID, since we use that as an invalid marker for separate mode_t fields). For "struct statx"
+ * we use the .stx_mask field, which must be non-zero if any of the fields have already been initialized. */
+static inline bool stat_is_set(const struct stat *st) {
+        return st && st->st_dev != 0 && st->st_mode != MODE_INVALID;
+}
+static inline bool statx_is_set(const struct statx *sx) {
+        return sx && sx->stx_mask != 0;
+}
+static inline bool new_statx_is_set(const struct new_statx *sx) {
+        return sx && sx->stx_mask != 0;
+}
