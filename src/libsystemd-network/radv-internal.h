@@ -10,7 +10,7 @@
 #include "sd-radv.h"
 
 #include "list.h"
-#include "ndisc-protocol.h"
+#include "ndisc-option.h"
 #include "network-common.h"
 #include "sparse-endian.h"
 #include "time-util.h"
