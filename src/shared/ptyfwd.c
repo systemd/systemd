@@ -266,36 +266,13 @@ static int insert_string(PTYForward *f, size_t offset, const char *s) {
         return (int) l;
 }
 
-static int insert_newline_color_erase(PTYForward *f, size_t offset) {
+static int insert_background_color(PTYForward *f, size_t offset) {
         _cleanup_free_ char *s = NULL;
 
         assert(f);
 
         if (!f->background_color)
                 return 0;
-
-        /* When we see a newline (ASCII 10) then this sets the background color to the desired one, and erase the rest
-         * of the line with it */
-
-        s = background_color_sequence(f);
-        if (!s)
-                return -ENOMEM;
-
-        if (!strextend(&s, ANSI_ERASE_TO_END_OF_LINE))
-                return -ENOMEM;
-
-        return insert_string(f, offset, s);
-}
-
-static int insert_carriage_return_color(PTYForward *f, size_t offset) {
-        _cleanup_free_ char *s = NULL;
-
-        assert(f);
-
-        if (!f->background_color)
-                return 0;
-
-        /* When we see a carriage return (ASCII 13) this this sets only the background */
 
         s = background_color_sequence(f);
         if (!s)
@@ -430,29 +407,19 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                 case ANSI_COLOR_STATE_TEXT:
                         break;
 
-                case ANSI_COLOR_STATE_NEWLINE: {
-                        /* Immediately after a newline insert an ANSI sequence to erase the line with a background color */
+                case ANSI_COLOR_STATE_NEWLINE:
+                case ANSI_COLOR_STATE_CARRIAGE_RETURN:
+                        /* Immediately after a newline (ASCII 10) or carriage return (ASCII 13) insert an
+                         * ANSI sequence set the background color back. */
 
-                        r = insert_newline_color_erase(f, i);
+                        r = insert_background_color(f, i);
                         if (r < 0)
                                 return r;
 
                         i += r;
                         break;
-                }
 
-                case ANSI_COLOR_STATE_CARRIAGE_RETURN: {
-                        /* Immediately after a carriage return insert an ANSI sequence set the background color back */
-
-                        r = insert_carriage_return_color(f, i);
-                        if (r < 0)
-                                return r;
-
-                        i += r;
-                        break;
-                }
-
-                case ANSI_COLOR_STATE_ESC: {
+                case ANSI_COLOR_STATE_ESC:
 
                         if (c == '[') {
                                 f->ansi_color_state = ANSI_COLOR_STATE_CSI_SEQUENCE;
@@ -461,11 +428,9 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                 f->ansi_color_state = ANSI_COLOR_STATE_OSC_SEQUENCE;
                                 continue;
                         }
-
                         break;
-                }
 
-                case ANSI_COLOR_STATE_CSI_SEQUENCE: {
+                case ANSI_COLOR_STATE_CSI_SEQUENCE:
 
                         if (c >= 0x20 && c <= 0x3F) {
                                 /* If this is a "parameter" or "intermediary" byte (i.e. ranges 0x20…0x2F and
@@ -493,11 +458,9 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                 f->csi_sequence = mfree(f->csi_sequence);
                                 f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
                         }
-
                         continue;
-                }
 
-                case ANSI_COLOR_STATE_OSC_SEQUENCE: {
+                case ANSI_COLOR_STATE_OSC_SEQUENCE:
 
                         if ((uint8_t) c >= ' ') {
                                 if (strlen_ptr(f->osc_sequence) >= 64) {
@@ -526,9 +489,7 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                 f->osc_sequence = mfree(f->osc_sequence);
                                 f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
                         }
-
                         continue;
-                }
 
                 default:
                         assert_not_reached();
