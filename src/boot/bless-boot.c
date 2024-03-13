@@ -316,13 +316,6 @@ static int make_bad(const char *prefix, uint64_t done, const char *suffix, char 
         return 0;
 }
 
-static const char *skip_slash(const char *path) {
-        assert(path);
-        assert(path[0] == '/');
-
-        return path + 1;
-}
-
 static int verb_status(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
         uint64_t left, done;
@@ -370,14 +363,14 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open $BOOT partition '%s': %m", *p);
                 }
 
-                if (faccessat(fd, skip_slash(path), F_OK, 0) >= 0) {
+                if (faccessat(fd, skip_leading_slash(path), F_OK, 0) >= 0) {
                         puts("indeterminate");
                         return 0;
                 }
                 if (errno != ENOENT)
                         return log_error_errno(errno, "Failed to check if '%s' exists: %m", path);
 
-                if (faccessat(fd, skip_slash(good), F_OK, 0) >= 0) {
+                if (faccessat(fd, skip_leading_slash(good), F_OK, 0) >= 0) {
                         puts("good");
                         return 0;
                 }
@@ -385,7 +378,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 if (errno != ENOENT)
                         return log_error_errno(errno, "Failed to check if '%s' exists: %m", good);
 
-                if (faccessat(fd, skip_slash(bad), F_OK, 0) >= 0) {
+                if (faccessat(fd, skip_leading_slash(bad), F_OK, 0) >= 0) {
                         puts("bad");
                         return 0;
                 }
@@ -445,17 +438,17 @@ static int verb_set(int argc, char *argv[], void *userdata) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to open $BOOT partition '%s': %m", *p);
 
-                r = rename_noreplace(fd, skip_slash(source1), fd, skip_slash(target));
+                r = rename_noreplace(fd, skip_leading_slash(source1), fd, skip_leading_slash(target));
                 if (r == -EEXIST)
                         goto exists;
                 if (r == -ENOENT) {
 
-                        r = rename_noreplace(fd, skip_slash(source2), fd, skip_slash(target));
+                        r = rename_noreplace(fd, skip_leading_slash(source2), fd, skip_leading_slash(target));
                         if (r == -EEXIST)
                                 goto exists;
                         if (r == -ENOENT) {
 
-                                if (faccessat(fd, skip_slash(target), F_OK, 0) >= 0) /* Hmm, if we can't find either source file, maybe the destination already exists? */
+                                if (faccessat(fd, skip_leading_slash(target), F_OK, 0) >= 0) /* Hmm, if we can't find either source file, maybe the destination already exists? */
                                         goto exists;
 
                                 if (errno != ENOENT)
@@ -474,7 +467,7 @@ static int verb_set(int argc, char *argv[], void *userdata) {
                         log_debug("Successfully renamed '%s' to '%s'.", source1, target);
 
                 /* First, fsync() the directory these files are located in */
-                r = fsync_parent_at(fd, skip_slash(target));
+                r = fsync_parent_at(fd, skip_leading_slash(target));
                 if (r < 0)
                         log_debug_errno(errno, "Failed to synchronize image directory, ignoring: %m");
 
