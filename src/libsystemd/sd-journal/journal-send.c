@@ -398,20 +398,28 @@ _public_ int sd_journal_perror(const char *message) {
         return fill_iovec_perror_and_send(message, 0, iovec);
 }
 
-_public_ int sd_journal_stream_fd(const char *identifier, int priority, int level_prefix) {
+_public_ int sd_journal_stream_fd_with_namespace(
+                const char *name_space,
+                const char *identifier,
+                int priority,
+                int level_prefix) {
+
         _cleanup_close_ int fd = -EBADF;
-        char *header;
-        size_t l;
+        const char *path;
         int r;
 
         assert_return(priority >= 0, -EINVAL);
         assert_return(priority <= 7, -EINVAL);
 
+        path = journal_stream_path(name_space);
+        if (!path)
+                return -EINVAL;
+
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return -errno;
 
-        r = connect_unix_path(fd, AT_FDCWD, "/run/systemd/journal/stdout");
+        r = connect_unix_path(fd, AT_FDCWD, path);
         if (r < 0)
                 return r;
 
@@ -421,6 +429,9 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
         identifier = strempty(identifier);
+
+        char *header;
+        size_t l;
 
         l = strlen(identifier);
         header = newa(char, l + 1 + 1 + 2 + 2 + 2 + 2 + 2);
@@ -444,6 +455,10 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
                 return r;
 
         return TAKE_FD(fd);
+}
+
+_public_ int sd_journal_stream_fd(const char *identifier, int priority, int level_prefix) {
+        return sd_journal_stream_fd_with_namespace(NULL, identifier, priority, level_prefix);
 }
 
 _public_ int sd_journal_print_with_location(int priority, const char *file, const char *line, const char *func, const char *format, ...) {
