@@ -55,26 +55,26 @@ from elftools.elf.relocation import (
 
 class PeCoffHeader(LittleEndianStructure):
     _fields_ = (
-        ("Machine", c_uint16),
-        ("NumberOfSections", c_uint16),
-        ("TimeDateStamp", c_uint32),
+        ("Machine",              c_uint16),
+        ("NumberOfSections",     c_uint16),
+        ("TimeDateStamp",        c_uint32),
         ("PointerToSymbolTable", c_uint32),
-        ("NumberOfSymbols", c_uint32),
+        ("NumberOfSymbols",      c_uint32),
         ("SizeOfOptionalHeader", c_uint16),
-        ("Characteristics", c_uint16),
+        ("Characteristics",      c_uint16),
     )
 
 
 class PeDataDirectory(LittleEndianStructure):
     _fields_ = (
         ("VirtualAddress", c_uint32),
-        ("Size", c_uint32),
+        ("Size",           c_uint32),
     )
 
 
 class PeRelocationBlock(LittleEndianStructure):
     _fields_ = (
-        ("PageRVA", c_uint32),
+        ("PageRVA",   c_uint32),
         ("BlockSize", c_uint32),
     )
 
@@ -86,62 +86,62 @@ class PeRelocationBlock(LittleEndianStructure):
 class PeRelocationEntry(LittleEndianStructure):
     _fields_ = (
         ("Offset", c_uint16, 12),
-        ("Type", c_uint16, 4),
+        ("Type",   c_uint16, 4),
     )
 
 
 class PeOptionalHeaderStart(LittleEndianStructure):
     _fields_ = (
-        ("Magic", c_uint16),
-        ("MajorLinkerVersion", c_uint8),
-        ("MinorLinkerVersion", c_uint8),
-        ("SizeOfCode", c_uint32),
-        ("SizeOfInitializedData", c_uint32),
+        ("Magic",                   c_uint16),
+        ("MajorLinkerVersion",      c_uint8),
+        ("MinorLinkerVersion",      c_uint8),
+        ("SizeOfCode",              c_uint32),
+        ("SizeOfInitializedData",   c_uint32),
         ("SizeOfUninitializedData", c_uint32),
-        ("AddressOfEntryPoint", c_uint32),
-        ("BaseOfCode", c_uint32),
+        ("AddressOfEntryPoint",     c_uint32),
+        ("BaseOfCode",              c_uint32),
     )
 
 
 class PeOptionalHeaderMiddle(LittleEndianStructure):
     _fields_ = (
-        ("SectionAlignment", c_uint32),
-        ("FileAlignment", c_uint32),
+        ("SectionAlignment",            c_uint32),
+        ("FileAlignment",               c_uint32),
         ("MajorOperatingSystemVersion", c_uint16),
         ("MinorOperatingSystemVersion", c_uint16),
-        ("MajorImageVersion", c_uint16),
-        ("MinorImageVersion", c_uint16),
-        ("MajorSubsystemVersion", c_uint16),
-        ("MinorSubsystemVersion", c_uint16),
-        ("Win32VersionValue", c_uint32),
-        ("SizeOfImage", c_uint32),
-        ("SizeOfHeaders", c_uint32),
-        ("CheckSum", c_uint32),
-        ("Subsystem", c_uint16),
-        ("DllCharacteristics", c_uint16),
+        ("MajorImageVersion",           c_uint16),
+        ("MinorImageVersion",           c_uint16),
+        ("MajorSubsystemVersion",       c_uint16),
+        ("MinorSubsystemVersion",       c_uint16),
+        ("Win32VersionValue",           c_uint32),
+        ("SizeOfImage",                 c_uint32),
+        ("SizeOfHeaders",               c_uint32),
+        ("CheckSum",                    c_uint32),
+        ("Subsystem",                   c_uint16),
+        ("DllCharacteristics",          c_uint16),
     )
 
 
 class PeOptionalHeaderEnd(LittleEndianStructure):
     _fields_ = (
-        ("LoaderFlags", c_uint32),
-        ("NumberOfRvaAndSizes", c_uint32),
-        ("ExportTable", PeDataDirectory),
-        ("ImportTable", PeDataDirectory),
-        ("ResourceTable", PeDataDirectory),
-        ("ExceptionTable", PeDataDirectory),
-        ("CertificateTable", PeDataDirectory),
-        ("BaseRelocationTable", PeDataDirectory),
-        ("Debug", PeDataDirectory),
-        ("Architecture", PeDataDirectory),
-        ("GlobalPtr", PeDataDirectory),
-        ("TLSTable", PeDataDirectory),
-        ("LoadConfigTable", PeDataDirectory),
-        ("BoundImport", PeDataDirectory),
-        ("IAT", PeDataDirectory),
+        ("LoaderFlags",           c_uint32),
+        ("NumberOfRvaAndSizes",   c_uint32),
+        ("ExportTable",           PeDataDirectory),
+        ("ImportTable",           PeDataDirectory),
+        ("ResourceTable",         PeDataDirectory),
+        ("ExceptionTable",        PeDataDirectory),
+        ("CertificateTable",      PeDataDirectory),
+        ("BaseRelocationTable",   PeDataDirectory),
+        ("Debug",                 PeDataDirectory),
+        ("Architecture",          PeDataDirectory),
+        ("GlobalPtr",             PeDataDirectory),
+        ("TLSTable",              PeDataDirectory),
+        ("LoadConfigTable",       PeDataDirectory),
+        ("BoundImport",           PeDataDirectory),
+        ("IAT",                   PeDataDirectory),
         ("DelayImportDescriptor", PeDataDirectory),
-        ("CLRRuntimeHeader", PeDataDirectory),
-        ("Reserved", PeDataDirectory),
+        ("CLRRuntimeHeader",      PeDataDirectory),
+        ("Reserved",              PeDataDirectory),
     )
 
 
@@ -152,44 +152,44 @@ class PeOptionalHeader(LittleEndianStructure):
 class PeOptionalHeader32(PeOptionalHeader):
     _anonymous_ = ("Start", "Middle", "End")
     _fields_ = (
-        ("Start", PeOptionalHeaderStart),
-        ("BaseOfData", c_uint32),
-        ("ImageBase", c_uint32),
-        ("Middle", PeOptionalHeaderMiddle),
+        ("Start",              PeOptionalHeaderStart),
+        ("BaseOfData",         c_uint32),
+        ("ImageBase",          c_uint32),
+        ("Middle",             PeOptionalHeaderMiddle),
         ("SizeOfStackReserve", c_uint32),
-        ("SizeOfStackCommit", c_uint32),
-        ("SizeOfHeapReserve", c_uint32),
-        ("SizeOfHeapCommit", c_uint32),
-        ("End", PeOptionalHeaderEnd),
+        ("SizeOfStackCommit",  c_uint32),
+        ("SizeOfHeapReserve",  c_uint32),
+        ("SizeOfHeapCommit",   c_uint32),
+        ("End",                PeOptionalHeaderEnd),
     )
 
 
 class PeOptionalHeader32Plus(PeOptionalHeader):
     _anonymous_ = ("Start", "Middle", "End")
     _fields_ = (
-        ("Start", PeOptionalHeaderStart),
-        ("ImageBase", c_uint64),
-        ("Middle", PeOptionalHeaderMiddle),
+        ("Start",              PeOptionalHeaderStart),
+        ("ImageBase",          c_uint64),
+        ("Middle",             PeOptionalHeaderMiddle),
         ("SizeOfStackReserve", c_uint64),
-        ("SizeOfStackCommit", c_uint64),
-        ("SizeOfHeapReserve", c_uint64),
-        ("SizeOfHeapCommit", c_uint64),
-        ("End", PeOptionalHeaderEnd),
+        ("SizeOfStackCommit",  c_uint64),
+        ("SizeOfHeapReserve",  c_uint64),
+        ("SizeOfHeapCommit",   c_uint64),
+        ("End",                PeOptionalHeaderEnd),
     )
 
 
 class PeSection(LittleEndianStructure):
     _fields_ = (
-        ("Name", c_char * 8),
-        ("VirtualSize", c_uint32),
-        ("VirtualAddress", c_uint32),
-        ("SizeOfRawData", c_uint32),
-        ("PointerToRawData", c_uint32),
+        ("Name",                 c_char * 8),
+        ("VirtualSize",          c_uint32),
+        ("VirtualAddress",       c_uint32),
+        ("SizeOfRawData",        c_uint32),
+        ("PointerToRawData",     c_uint32),
         ("PointerToRelocations", c_uint32),
         ("PointerToLinenumbers", c_uint32),
-        ("NumberOfRelocations", c_uint16),
-        ("NumberOfLinenumbers", c_uint16),
-        ("Characteristics", c_uint32),
+        ("NumberOfRelocations",  c_uint16),
+        ("NumberOfLinenumbers",  c_uint16),
+        ("Characteristics",      c_uint32),
     )
 
     def __init__(self):
@@ -206,7 +206,7 @@ assert sizeof(PeOptionalHeader32Plus) == 240
 
 PE_CHARACTERISTICS_RX = 0x60000020  # CNT_CODE|MEM_READ|MEM_EXECUTE
 PE_CHARACTERISTICS_RW = 0xC0000040  # CNT_INITIALIZED_DATA|MEM_READ|MEM_WRITE
-PE_CHARACTERISTICS_R = 0x40000040  # CNT_INITIALIZED_DATA|MEM_READ
+PE_CHARACTERISTICS_R  = 0x40000040  # CNT_INITIALIZED_DATA|MEM_READ
 
 IGNORE_SECTIONS = [
     ".eh_frame",
@@ -246,9 +246,8 @@ def align_down(x: int, align: int) -> int:
 
 
 def next_section_address(sections: typing.List[PeSection]) -> int:
-    return align_to(
-        sections[-1].VirtualAddress + sections[-1].VirtualSize, SECTION_ALIGNMENT
-    )
+    return align_to(sections[-1].VirtualAddress + sections[-1].VirtualSize,
+                    SECTION_ALIGNMENT)
 
 
 def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
@@ -376,12 +375,8 @@ def apply_elf_relative_relocation(
     sections: typing.List[PeSection],
     addend_size: int,
 ):
-    # fmt: off
-    [target] = [
-        pe_s for pe_s in sections
-        if pe_s.VirtualAddress <= reloc["r_offset"] < pe_s.VirtualAddress + len(pe_s.data)
-    ]
-    # fmt: on
+    [target] = [pe_s for pe_s in sections
+                if pe_s.VirtualAddress <= reloc["r_offset"] < pe_s.VirtualAddress + len(pe_s.data)]
 
     addend_offset = reloc["r_offset"] - target.VirtualAddress
 
@@ -425,9 +420,10 @@ def convert_elf_reloc_table(
             continue
 
         if reloc["r_info_type"] == RELATIVE_RELOC:
-            apply_elf_relative_relocation(
-                reloc, elf_image_base, sections, elf.elfclass // 8
-            )
+            apply_elf_relative_relocation(reloc,
+                                          elf_image_base,
+                                          sections,
+                                          elf.elfclass // 8)
 
             # Now that the ELF relocation has been applied, we can create a PE relocation.
             block_rva = reloc["r_offset"] & ~0xFFF
@@ -466,14 +462,12 @@ def convert_elf_relocations(
         if exe_start and exe_start[0]["st_value"] != 0:
             raise RuntimeError("Unexpected ELF image base.")
 
-    opt.SizeOfHeaders = align_to(
-        PE_OFFSET
-        + len(PE_MAGIC)
-        + sizeof(PeCoffHeader)
-        + sizeof(opt)
-        + sizeof(PeSection) * max(len(sections) + 1, minimum_sections),
-        FILE_ALIGNMENT,
-    )
+    opt.SizeOfHeaders = align_to(PE_OFFSET
+                                 + len(PE_MAGIC)
+                                 + sizeof(PeCoffHeader)
+                                 + sizeof(opt)
+                                 + sizeof(PeSection) * max(len(sections) + 1, minimum_sections),
+                                 FILE_ALIGNMENT)
 
     # We use the basic VMA layout from the ELF image in the PE image. This could cause the first
     # section to overlap the PE image headers during runtime at VMA 0. We can simply apply a fixed
@@ -482,9 +476,8 @@ def convert_elf_relocations(
     # the ELF portions of the image.
     segment_offset = 0
     if sections[0].VirtualAddress < opt.SizeOfHeaders:
-        segment_offset = align_to(
-            opt.SizeOfHeaders - sections[0].VirtualAddress, SECTION_ALIGNMENT
-        )
+        segment_offset = align_to(opt.SizeOfHeaders - sections[0].VirtualAddress,
+                                  SECTION_ALIGNMENT)
 
     opt.AddressOfEntryPoint = elf["e_entry"] + segment_offset
     opt.BaseOfCode += segment_offset
@@ -495,9 +488,11 @@ def convert_elf_relocations(
     for reloc_type, reloc_table in dynamic.get_relocation_tables().items():
         if reloc_type not in ["REL", "RELA"]:
             raise RuntimeError("Unsupported relocation type {elf_reloc_type}.")
-        convert_elf_reloc_table(
-            elf, reloc_table, opt.ImageBase + segment_offset, sections, pe_reloc_blocks
-        )
+        convert_elf_reloc_table(elf,
+                                reloc_table,
+                                opt.ImageBase + segment_offset,
+                                sections,
+                                pe_reloc_blocks)
 
     for pe_s in sections:
         pe_s.VirtualAddress += segment_offset
@@ -517,9 +512,7 @@ def convert_elf_relocations(
             block.entries.append(PeRelocationEntry())
 
         block.PageRVA += segment_offset
-        block.BlockSize = (
-            sizeof(PeRelocationBlock) + sizeof(PeRelocationEntry) * n_relocs
-        )
+        block.BlockSize = sizeof(PeRelocationBlock) + sizeof(PeRelocationEntry) * n_relocs
         data += block
         for entry in sorted(block.entries, key=lambda e: e.Offset):
             data += entry
@@ -539,7 +532,10 @@ def convert_elf_relocations(
 
 
 def write_pe(
-    file, coff: PeCoffHeader, opt: PeOptionalHeader, sections: typing.List[PeSection]
+    file,
+    coff: PeCoffHeader,
+    opt: PeOptionalHeader,
+    sections: typing.List[PeSection],
 ):
     file.write(b"MZ")
     file.seek(0x3C, io.SEEK_SET)
