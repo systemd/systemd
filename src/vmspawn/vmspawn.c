@@ -1728,7 +1728,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = pidref_safe_fork_full(
                         qemu_binary,
                         /* stdio_fds= */ NULL,
-                        &child_vsock_fd, 1, /* pass the vsock fd to qemu */
+                        pass_fds, n_pass_fds,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE,
                         &child_pidref);
         if (r < 0)
