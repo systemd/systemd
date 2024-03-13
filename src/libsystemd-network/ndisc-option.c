@@ -65,6 +65,13 @@ static sd_ndisc_option* ndisc_option_new(uint8_t type, size_t offset) {
         return p;
 }
 
+static void ndisc_raw_done(sd_ndisc_raw *raw) {
+        if (!raw)
+                return;
+
+        free(raw->bytes);
+}
+
 static void ndisc_rdnss_done(sd_ndisc_rdnss *rdnss) {
         if (!rdnss)
                 return;
@@ -84,6 +91,10 @@ sd_ndisc_option* ndisc_option_free(sd_ndisc_option *option) {
                 return NULL;
 
         switch (option->type) {
+        case 0:
+                ndisc_raw_done(&option->raw);
+                break;
+
         case SD_NDISC_OPTION_RDNSS:
                 ndisc_rdnss_done(&option->rdnss);
                 break;
@@ -111,6 +122,9 @@ static int ndisc_option_compare_func(const sd_ndisc_option *x, const sd_ndisc_op
                 return r;
 
         switch (x->type) {
+        case 0:
+                return memcmp_nn(x->raw.bytes, x->raw.length, y->raw.bytes, y->raw.length);
+
         case SD_NDISC_OPTION_SOURCE_LL_ADDRESS:
         case SD_NDISC_OPTION_TARGET_LL_ADDRESS:
         case SD_NDISC_OPTION_REDIRECTED_HEADER:
@@ -155,6 +169,10 @@ static void ndisc_option_hash_func(const sd_ndisc_option *option, struct siphash
         siphash24_compress_typesafe(option->type, state);
 
         switch (option->type) {
+        case 0:
+                siphash24_compress(option->raw.bytes, option->raw.length, state);
+                break;
+
         case SD_NDISC_OPTION_SOURCE_LL_ADDRESS:
         case SD_NDISC_OPTION_TARGET_LL_ADDRESS:
         case SD_NDISC_OPTION_REDIRECTED_HEADER:
@@ -197,6 +215,31 @@ static int ndisc_option_consume(Set **options, sd_ndisc_option *p) {
         }
 
         return set_ensure_consume(options, &ndisc_option_hash_ops, p);
+}
+
+int ndisc_option_add_raw(Set **options, size_t offset, size_t length, const uint8_t *bytes) {
+        _cleanup_free_ uint8_t *copy = NULL;
+
+        assert(options);
+        assert(bytes);
+
+        if (length == 0)
+                return -EINVAL;
+
+        copy = newdup(uint8_t, bytes, length);
+        if (!copy)
+                return -ENOMEM;
+
+        sd_ndisc_option *p = ndisc_option_new(/* type = */ 0, offset);
+        if (!p)
+                return -ENOMEM;
+
+        p->raw = (sd_ndisc_raw) {
+                .bytes = TAKE_PTR(copy),
+                .length = length,
+        };
+
+        return ndisc_option_consume(options, p);
 }
 
 int ndisc_option_add_link_layer_address(Set **options, uint8_t opt, size_t offset, const struct ether_addr *mac) {
@@ -788,6 +831,10 @@ int ndisc_parse_options(ICMP6Packet *packet, Set **ret_options) {
                         return log_debug_errno(r, "Failed to parse NDisc option header: %m");
 
                 switch (type) {
+                case 0:
+                        r = -EBADMSG;
+                        break;
+
                 case SD_NDISC_OPTION_SOURCE_LL_ADDRESS:
                 case SD_NDISC_OPTION_TARGET_LL_ADDRESS:
                         r = ndisc_option_parse_link_layer_address(&options, offset, length, opt);
