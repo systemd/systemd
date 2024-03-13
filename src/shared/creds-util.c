@@ -28,6 +28,7 @@
 #include "random-util.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
+#include "tmpfile-util.h"
 #include "tpm2-util.h"
 #include "user-util.h"
 #include "varlink.h"
@@ -377,22 +378,9 @@ static int make_credential_host_secret(
         assert(dfd >= 0);
         assert(fn);
 
-        /* For non-root users creating a temporary file using the openat(2) over "." will fail later, in the
-         * linkat(2) step at the end.  The reason is that linkat(2) requires the CAP_DAC_READ_SEARCH
-         * capability when it uses the AT_EMPTY_PATH flag. */
-        if (have_effective_cap(CAP_DAC_READ_SEARCH) > 0) {
-                fd = openat(dfd, ".", O_CLOEXEC|O_WRONLY|O_TMPFILE, 0400);
-                if (fd < 0)
-                        log_debug_errno(errno, "Failed to create temporary credential file with O_TMPFILE, proceeding without: %m");
-        }
-        if (fd < 0) {
-                if (asprintf(&t, "credential.secret.%016" PRIx64, random_u64()) < 0)
-                        return -ENOMEM;
-
-                fd = openat(dfd, t, O_CLOEXEC|O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW, 0400);
-                if (fd < 0)
-                        return -errno;
-        }
+        fd = open_tmpfile_linkable_at(dfd, fn, O_CLOEXEC|O_WRONLY, &t);
+        if (fd < 0)
+                return log_debug_errno(fd, "Failed to create temporary file for credential host secret: %m");
 
         r = chattr_secret(fd, 0);
         if (r < 0)
@@ -412,6 +400,11 @@ static int make_credential_host_secret(
         if (r < 0)
                 goto fail;
 
+        if (fchmod(fd, 0400) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
         if (fsync(fd) < 0) {
                 r = -errno;
                 goto fail;
@@ -419,19 +412,9 @@ static int make_credential_host_secret(
 
         warn_not_encrypted(fd, flags, dirname, fn);
 
-        if (t) {
-                r = rename_noreplace(dfd, t, dfd, fn);
-                if (r < 0)
-                        goto fail;
-
-                t = mfree(t);
-        } else if (linkat(fd, "", dfd, fn, AT_EMPTY_PATH) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        if (fsync(dfd) < 0) {
-                r = -errno;
+        r = link_tmpfile_at(fd, dfd, t, fn, LINK_TMPFILE_SYNC);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to link host key into place: %m");
                 goto fail;
         }
 
@@ -439,10 +422,8 @@ static int make_credential_host_secret(
                 void *copy;
 
                 copy = memdup(buf.data, sizeof(buf.data));
-                if (!copy) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+                if (!copy)
+                        return -ENOMEM;
 
                 *ret = IOVEC_MAKE(copy, sizeof(buf.data));
         }
