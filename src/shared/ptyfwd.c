@@ -419,7 +419,7 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                         i += r;
                         break;
 
-                case ANSI_COLOR_STATE_ESC: {
+                case ANSI_COLOR_STATE_ESC:
 
                         if (c == '[') {
                                 f->ansi_color_state = ANSI_COLOR_STATE_CSI_SEQUENCE;
@@ -428,11 +428,9 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                 f->ansi_color_state = ANSI_COLOR_STATE_OSC_SEQUENCE;
                                 continue;
                         }
-
                         break;
-                }
 
-                case ANSI_COLOR_STATE_CSI_SEQUENCE: {
+                case ANSI_COLOR_STATE_CSI_SEQUENCE:
 
                         if (c >= 0x20 && c <= 0x3F) {
                                 /* If this is a "parameter" or "intermediary" byte (i.e. ranges 0x20…0x2F and
@@ -460,11 +458,9 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                 f->csi_sequence = mfree(f->csi_sequence);
                                 f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
                         }
-
                         continue;
-                }
 
-                case ANSI_COLOR_STATE_OSC_SEQUENCE: {
+                case ANSI_COLOR_STATE_OSC_SEQUENCE:
 
                         if ((uint8_t) c >= ' ') {
                                 if (strlen_ptr(f->osc_sequence) >= 64) {
@@ -493,9 +489,7 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                 f->osc_sequence = mfree(f->osc_sequence);
                                 f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
                         }
-
                         continue;
-                }
 
                 default:
                         assert_not_reached();
