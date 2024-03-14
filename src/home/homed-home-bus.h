@@ -17,7 +17,6 @@ int bus_home_method_remove(sd_bus_message *message, void *userdata, sd_bus_error
 int bus_home_method_fixate(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_home_method_authenticate(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_home_method_update(sd_bus_message *message, void *userdata, sd_bus_error *error);
-int bus_home_update_record(Home *home, sd_bus_message *message, UserRecord *hr, Hashmap *blobs, uint64_t flags, sd_bus_error *error);
 int bus_home_method_resize(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_home_method_change_password(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_home_method_lock(sd_bus_message *message, void *userdata, sd_bus_error *error);
@@ -26,6 +25,10 @@ int bus_home_method_acquire(sd_bus_message *message, void *userdata, sd_bus_erro
 int bus_home_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_home_method_release(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_home_method_inhibit_suspend(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_home_method_delay_lock(sd_bus_message *message, void *userdata, sd_bus_error *error);
+
+int bus_home_update_record(Home *home, sd_bus_message *message, UserRecord *hr, Hashmap *blobs, uint64_t flags, sd_bus_error *error);
+int bus_home_delay_lock(Home *home, sd_bus_message *message, sd_bus_error *error);
 
 extern const BusObjectImplementation home_object;
 
@@ -33,3 +36,4 @@ int bus_home_path(Home *h, char **ret);
 
 int bus_home_emit_change(Home *h);
 int bus_home_emit_remove(Home *h);
+int bus_home_emit_prepare_for_lock(Home *h, bool locking);
