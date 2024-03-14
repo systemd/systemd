@@ -13,6 +13,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "discover-image.h"
+#include "pidref.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-id128.h"
@@ -33,6 +34,7 @@
 #include "gpt.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
+#include "io-util.h"
 #include "kernel-image.h"
 #include "log.h"
 #include "machine-credential.h"
@@ -54,6 +56,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "unit-name.h"
 #include "vmspawn-mount.h"
@@ -92,6 +95,8 @@ static sd_id128_t arg_uuid = {};
 static char **arg_kernel_cmdline_extra = NULL;
 static char **arg_extra_drives = NULL;
 static char *arg_background = NULL;
+static bool arg_pass_ssh_key = true;
+static char *arg_ssh_key_type = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -107,6 +112,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_forward_journal, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_extra_drives, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_ssh_key_type, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -158,6 +164,8 @@ static int help(void) {
                "\n%3$sIntegration:%4$s\n"
                "     --forward-journal=FILE|DIR\n"
                "                           Forward the VM's journal to the host\n"
+               "     --pass-ssh-key=BOOL   Create an SSH key to access the VM\n"
+               "     --ssh-key-type=TYPE   Choose what type of SSH key to pass\n"
                "\n%3$sInput/Output:%4$s\n"
                "     --console=MODE        Console mode (interactive, native, gui)\n"
                "     --background=COLOR    Set ANSI color for background\n"
@@ -200,6 +208,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SECURE_BOOT,
                 ARG_PRIVATE_USERS,
                 ARG_FORWARD_JOURNAL,
+                ARG_PASS_SSH_KEY,
+                ARG_SSH_KEY_TYPE,
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
                 ARG_FIRMWARE,
@@ -239,6 +249,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "secure-boot",       required_argument, NULL, ARG_SECURE_BOOT       },
                 { "private-users",     required_argument, NULL, ARG_PRIVATE_USERS     },
                 { "forward-journal",   required_argument, NULL, ARG_FORWARD_JOURNAL   },
+                { "pass-ssh-key",      required_argument, NULL, ARG_PASS_SSH_KEY      },
+                { "ssh-key-type",      required_argument, NULL, ARG_SSH_KEY_TYPE      },
                 { "set-credential",    required_argument, NULL, ARG_SET_CREDENTIAL    },
                 { "load-credential",   required_argument, NULL, ARG_LOAD_CREDENTIAL   },
                 { "firmware",          required_argument, NULL, ARG_FIRMWARE          },
@@ -438,6 +450,23 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FORWARD_JOURNAL:
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_forward_journal);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_PASS_SSH_KEY:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --pass-ssh-key= argument: %s", optarg);
+
+                        arg_pass_ssh_key = r;
+                        break;
+
+                case ARG_SSH_KEY_TYPE:
+                        if (!string_is_safe(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value for --arg-ssh-key-type=: %s", optarg);
+
+                        r = free_and_strdup_warn(&arg_ssh_key_type, optarg);
                         if (r < 0)
                                 return r;
                         break;
@@ -1100,11 +1129,55 @@ static void set_window_title(PTYForward *f) {
         if (dot)
                 (void) pty_forward_set_title_prefix(f, dot);
 }
+static int generate_ssh_keypair(const char *key_path, const char *key_type) {
+        _cleanup_free_ char *ssh_keygen = NULL;
+        _cleanup_strv_free_ char **cmdline = NULL;
+        int r;
+
+        assert(key_path);
+
+        r = find_executable("ssh-keygen", &ssh_keygen);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find ssh-keygen: %m");
+
+        cmdline = strv_new(ssh_keygen, "-f", key_path, /* don't encrypt the key */ "-N", "");
+        if (!cmdline)
+                return log_oom();
+
+        if (key_type) {
+                r = strv_extend_many(&cmdline, "-t", key_type);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *joined = quote_command_line(cmdline, SHELL_ESCAPE_EMPTY);
+                if (!joined)
+                        return log_oom();
+
+                log_debug("Executing: %s", joined);
+        }
+
+        r = safe_fork(
+                        ssh_keygen,
+                        FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
+                        NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                execv(ssh_keygen, cmdline);
+                log_error_errno(errno, "Failed to execve %s: %m", ssh_keygen);
+                _exit(EXIT_FAILURE);
+        }
+
+        return 0;
+}
 
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *machine = NULL, *qemu_binary = NULL, *mem = NULL, *trans_scope = NULL, *kernel = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *ssh_private_key_path = NULL, *ssh_public_key_path = NULL;
         _cleanup_close_ int notify_sock_fd = -EBADF;
         _cleanup_strv_free_ char **cmdline = NULL;
         _cleanup_free_ int *pass_fds = NULL;
@@ -1681,6 +1754,46 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = machine_credential_set(&arg_credentials, cred);
                 if (r < 0)
                         return r;
+        }
+
+        if (arg_pass_ssh_key) {
+                _cleanup_free_ char *scope_prefix = NULL, *privkey_path = NULL, *pubkey_path = NULL;
+                const char *key_type = arg_ssh_key_type ?: "ed25519";
+
+                r = unit_name_to_prefix(trans_scope, &scope_prefix);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
+
+                privkey_path = strjoin(arg_runtime_directory, "/", scope_prefix, "-", key_type);
+                if (!privkey_path)
+                        return log_oom();
+
+                pubkey_path = strjoin(privkey_path, ".pub");
+                if (!pubkey_path)
+                        return log_oom();
+
+                r = generate_ssh_keypair(privkey_path, key_type);
+                if (r < 0)
+                        return r;
+
+                ssh_private_key_path = TAKE_PTR(privkey_path);
+                ssh_public_key_path = TAKE_PTR(pubkey_path);
+        }
+
+        if (ssh_public_key_path && ssh_private_key_path) {
+                _cleanup_free_ char *scope_prefix = NULL, *cred_path = NULL;
+
+                cred_path = strjoin("ssh.ephemeral-authorized_keys-all:", ssh_public_key_path);
+                if (!cred_path)
+                        return log_oom();
+
+                r = machine_credential_load(&arg_credentials, cred_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load credential %s: %m", cred_path);
+
+                r = unit_name_to_prefix(trans_scope, &scope_prefix);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
         }
 
         if (ARCHITECTURE_SUPPORTS_SMBIOS)
