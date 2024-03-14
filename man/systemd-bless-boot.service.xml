@@ -37,7 +37,7 @@
     boot counting is used.</para>
 
     <para>Internally, the service operates based on the <varname>LoaderBootCountPath</varname> EFI variable (of the
-    vendor UUID <constant>4a67b082-0a4c-41cf-b6c7-440b29bb8c4</constant>), which is passed from the boot loader to the
+    vendor UUID <constant>4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</constant>), which is passed from the boot loader to the
     OS. It contains a file system path (relative to the EFI system partition) of the <ulink
     url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> compliant boot loader entry
     file or unified kernel image file that was used to boot up the
