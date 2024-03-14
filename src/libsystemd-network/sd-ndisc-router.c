@@ -5,11 +5,14 @@
 
 #include <netinet/icmp6.h>
 
+#include "dns-resolver-internal.h"
 #include "sd-ndisc.h"
 
 #include "alloc-util.h"
+#include "dns-domain.h"
 #include "ndisc-internal.h"
 #include "ndisc-router-internal.h"
+#include "unaligned.h"
 
 static sd_ndisc_router* ndisc_router_free(sd_ndisc_router *rt) {
         if (!rt)
@@ -84,6 +87,7 @@ DEFINE_GET_TIMESTAMP(route_get_lifetime);
 DEFINE_GET_TIMESTAMP(rdnss_get_lifetime);
 DEFINE_GET_TIMESTAMP(dnssl_get_lifetime);
 DEFINE_GET_TIMESTAMP(prefix64_get_lifetime);
+DEFINE_GET_TIMESTAMP(encrypted_dns_get_lifetime);
 
 int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt) {
         const struct nd_router_advert *a;
@@ -204,6 +208,123 @@ int sd_ndisc_router_get_captive_portal(sd_ndisc_router *rt, const char **ret) {
         return 0;
 }
 
+static int ndisc_get_dns_name(const uint8_t *optval, size_t optlen, char **ret) {
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        assert(optval || optlen == 0);
+        assert(ret);
+
+        r = dns_name_from_wire_format(&optval, &optlen, &name);
+        if (r < 0)
+                return -EBADMSG; /* ndisc doesn't handle other errcodes atm */
+        if (r == 0 || optlen != 0)
+                return -EBADMSG;
+
+        *ret = TAKE_PTR(name);
+        return r;
+}
+
+int sd_ndisc_router_encrypted_dns_get_dnr(sd_ndisc_router *rt, sd_dns_resolver *ret) {
+        uint8_t *nd_opt_encrypted_dns = NULL;
+        size_t length;
+        int r;
+
+        _cleanup_(sd_dns_resolver_done) sd_dns_resolver res = {};
+
+        assert_return(rt, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = sd_ndisc_router_option_is_type(rt, SD_NDISC_OPTION_ENCRYPTED_DNS);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EMEDIUMTYPE;
+
+        r = sd_ndisc_router_option_get_raw(rt, (void *)&nd_opt_encrypted_dns, &length);
+        if (r < 0)
+                return r;
+
+        assert(length % 8 == 0);
+        if (length == 0)
+                return -EBADMSG;
+
+        uint8_t *optval = &nd_opt_encrypted_dns[2];
+        size_t optlen = 8 * length - 2; /* units of octets */
+        size_t offset = 0;
+
+        res.priority = unaligned_read_be16(&optval[offset]);
+        offset += sizeof(uint16_t);
+        offset += sizeof(uint32_t); /* Lifetime field. Accessed with *lifetime_timestamp functions. */
+
+        if (offset + sizeof(uint16_t) > optlen)
+                return -EBADMSG;
+
+        /* adn field (length + dns-name) */
+        size_t ilen = unaligned_read_be16(&optval[offset]);
+        offset += sizeof(uint16_t);
+        if (offset + ilen > optlen)
+                return -EBADMSG;
+
+        r = ndisc_get_dns_name(&optval[offset], ilen, &res.auth_name);
+        if (r < 0)
+                return r;
+        if (dns_name_is_root(res.auth_name))
+                return -EBADMSG;
+        offset += ilen;
+
+        if (offset == optlen) /* adn-only mode */
+                return 0;
+
+        /* Fields following the variable (octets) length adn field are no longer certain to be aligned. */
+
+        if (offset + sizeof(uint16_t) > optlen)
+                return -EBADMSG;
+        ilen = unaligned_read_be16(&optval[offset]);
+        if (offset + ilen > optlen)
+                return -EBADMSG;
+        if (ilen % (sizeof(struct in6_addr)) != 0)
+                return -EBADMSG;
+
+        size_t n_addrs = ilen / (sizeof(struct in6_addr));
+        if (n_addrs == 0)
+                return -EBADMSG;
+        res.addrs = new(union in_addr_union, n_addrs);
+        if (!res.addrs)
+                return -ENOMEM;
+
+        for (size_t i = 0; i < n_addrs; i++) {
+                union in_addr_union addr;
+                memcpy(&addr.in6, &optval[offset], sizeof(struct in6_addr));
+                if (in_addr_is_multicast(AF_INET6, &addr) ||
+                    in_addr_is_localhost(AF_INET, &addr))
+                        return -EBADMSG;
+                res.addrs[i] = addr;
+                offset += sizeof(struct in6_addr);
+        }
+
+        /* find the real size of the svc params field */
+        size_t splen = 0;
+        while (ilen != 0 && offset + splen + sizeof(uint16_t) <= optlen) {
+                ilen = unaligned_read_be16(&optval[offset]);
+                if (offset + splen + ilen > optlen)
+                        return -EBADMSG;
+                splen += ilen;
+        }
+
+        /* the remaining padding bytes must be zeroed */
+        for (uint8_t *b = &optval[offset + splen]; b < optval + optlen; b++)
+                if (*b != '\0')
+                        return -EBADMSG;
+
+        r = dnr_parse_svc_params(&optval[offset], splen, &res);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_STRUCT(res);
+        return 1;
+}
+
 int sd_ndisc_router_option_rewind(sd_ndisc_router *rt) {
         assert_return(rt, -EINVAL);
 
@@ -305,3 +426,5 @@ DEFINE_GETTER(dnssl, SD_NDISC_OPTION_DNSSL, lifetime, uint64_t);
 DEFINE_GETTER(prefix64, SD_NDISC_OPTION_PREF64, prefixlen, uint8_t);
 DEFINE_GETTER(prefix64, SD_NDISC_OPTION_PREF64, prefix, struct in6_addr);
 DEFINE_GETTER(prefix64, SD_NDISC_OPTION_PREF64, lifetime, uint64_t);
+
+DEFINE_GETTER(encrypted_dns, SD_NDISC_OPTION_ENCRYPTED_DNS, lifetime, uint64_t);
