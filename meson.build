@@ -66,9 +66,9 @@ summary({'build mode' : get_option('mode')})
 #####################################################################
 
 # Try to install the git pre-commit hook
-add_git_hook_sh = find_program('tools/add-git-hook.sh', required : false)
-if add_git_hook_sh.found()
-        git_hook = run_command(add_git_hook_sh, check : false)
+git_setup_sh = find_program('tools/git-setup.sh', required : false)
+if git_setup_sh.found()
+        git_hook = run_command(git_setup_sh, check : false)
         if git_hook.returncode() == 0
                 message(git_hook.stdout().strip())
         endif
