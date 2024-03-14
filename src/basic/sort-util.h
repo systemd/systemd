@@ -25,6 +25,7 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
  * Normal bsearch requires base to be nonnull. Here were require
  * that only if nmemb > 0.
  */
+_no_sanitize_incorrect_function_pointer_type_
 static inline void* bsearch_safe(const void *key, const void *base,
                                  size_t nmemb, size_t size, comparison_fn_t compar) {
         if (nmemb <= 0)
@@ -45,6 +46,7 @@ static inline void* bsearch_safe(const void *key, const void *base,
  * Normal qsort requires base to be nonnull. Here were require
  * that only if nmemb > 0.
  */
+_no_sanitize_incorrect_function_pointer_type_
 static inline void _qsort_safe(void *base, size_t nmemb, size_t size, comparison_fn_t compar) {
         if (nmemb <= 1)
                 return;
@@ -61,6 +63,7 @@ static inline void _qsort_safe(void *base, size_t nmemb, size_t size, comparison
                 _qsort_safe((p), (n), sizeof((p)[0]), (comparison_fn_t) _func_); \
         })
 
+_no_sanitize_incorrect_function_pointer_type_
 static inline void qsort_r_safe(void *base, size_t nmemb, size_t size, comparison_userdata_fn_t compar, void *userdata) {
         if (nmemb <= 1)
                 return;

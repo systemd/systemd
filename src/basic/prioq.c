@@ -82,6 +82,7 @@ static void swap(Prioq *q, unsigned j, unsigned k) {
                 *q->items[k].idx = k;
 }
 
+_no_sanitize_incorrect_function_pointer_type_
 static unsigned shuffle_up(Prioq *q, unsigned idx) {
         assert(q);
         assert(idx < q->n_items);
@@ -101,6 +102,7 @@ static unsigned shuffle_up(Prioq *q, unsigned idx) {
         return idx;
 }
 
+_no_sanitize_incorrect_function_pointer_type_
 static unsigned shuffle_down(Prioq *q, unsigned idx) {
         assert(q);
 

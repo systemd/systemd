@@ -80,6 +80,7 @@ typedef struct ArrayCleanup {
         free_array_func_t pfunc;
 } ArrayCleanup;
 
+_no_sanitize_incorrect_function_pointer_type_
 static inline void array_cleanup(const ArrayCleanup *c) {
         assert(c);
 

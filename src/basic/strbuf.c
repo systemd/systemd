@@ -74,6 +74,7 @@ struct strbuf* strbuf_free(struct strbuf *str) {
         return mfree(str);
 }
 
+_no_sanitize_incorrect_function_pointer_type_
 static int strbuf_children_cmp(const struct strbuf_child_entry *n1,
                                const struct strbuf_child_entry *n2) {
         return n1->c - n2->c;
