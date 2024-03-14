@@ -19,7 +19,7 @@ please consider supporting the following interfaces.
    and `SetCredential=` settings. These credentials may be passed into a system
    via SMBIOS Type 11 vendor strings, see
    [systemd(1)](https://www.freedesktop.org/software/systemd/man/latest/systemd.html)
-   for details. This concept may be used to flexibily configure various facets
+   for details. This concept may be used to flexibly configure various facets
    ot the guest system. See
    [systemd.system-credentials(7)](https://www.freedesktop.org/software/systemd/man/latest/systemd.system-credentials.html)
    for a list of system credentials implemented by various systemd components.
