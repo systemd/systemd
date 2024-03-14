@@ -212,6 +212,7 @@ IGNORE_SECTIONS = [
     ".eh_frame",
     ".eh_frame_hdr",
     ".ARM.exidx",
+    ".relro_padding",
 ]
 
 IGNORE_SECTION_TYPES = [
@@ -274,6 +275,7 @@ def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
             elf_s["sh_flags"] & SH_FLAGS.SHF_ALLOC == 0
             or elf_s["sh_type"] in IGNORE_SECTION_TYPES
             or elf_s.name in IGNORE_SECTIONS
+            or elf_s["sh_size"] == 0
         ):
             continue
         if elf_s["sh_type"] not in ["SHT_PROGBITS", "SHT_NOBITS"]:
