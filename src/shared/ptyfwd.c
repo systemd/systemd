@@ -295,7 +295,7 @@ static int insert_carriage_return_color(PTYForward *f, size_t offset) {
         if (!f->background_color)
                 return 0;
 
-        /* When we see a carriage return (ASCII 13) this this sets only the background */
+        /* When we see a carriage return (ASCII 13) then this sets only the background */
 
         s = background_color_sequence(f);
         if (!s)
