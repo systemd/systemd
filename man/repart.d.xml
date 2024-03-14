@@ -854,6 +854,19 @@
   </refsect1>
 
   <refsect1>
+    <title>Environment</title>
+
+    <para>Extra filesystem formatting options can be provided using filesystem-specific environment variables:
+    <varname>$SYSTEMD_REPART_MKFS_OPTIONS_BTRFS</varname>, <varname>$SYSTEMD_REPART_MKFS_OPTIONS_XFS</varname>,
+    <varname>$SYSTEMD_REPART_MKFS_OPTIONS_VFAT</varname>, <varname>$SYSTEMD_REPART_MKFS_OPTIONS_EROFS</varname>,
+    and <varname>$SYSTEMD_REPART_MKFS_OPTIONS_SQUASHFS</varname>. Each variable accepts valid
+    <command>mkfs.<replaceable>filesystem</replaceable></command> command-line arguments.
+    The content of those variables is passed as-is to the command, without any verification.
+    </para>
+
+  </refsect1>
+
+  <refsect1>
     <title>Examples</title>
 
     <example>
