@@ -1473,6 +1473,7 @@ static void log_portable_verb(
                 const char *verb,
                 const char *message_id,
                 const char *image_path,
+                const char *profile,
                 OrderedHashmap *extension_images,
                 char **extension_image_paths,
                 PortableFlags flags) {
@@ -1531,12 +1532,14 @@ static void log_portable_verb(
         LOG_CONTEXT_PUSH_STRV(extension_base_names);
 
         log_struct(LOG_INFO,
-                   LOG_MESSAGE("Successfully %s%s '%s%s%s'",
+                   LOG_MESSAGE("Successfully %s%s '%s%s%s%s%s'",
                                verb,
                                FLAGS_SET(flags, PORTABLE_RUNTIME) ? " ephemeral" : "",
                                image_path,
                                isempty(extensions_joined) ? "" : "' and its extension(s) '",
-                               strempty(extensions_joined)),
+                               strempty(extensions_joined),
+                               isempty(profile) ? "" : "' using profile '",
+                               strempty(profile)),
                    message_id,
                    "PORTABLE_ROOT=%s", strna(root_base_name));
 }
@@ -1653,6 +1656,7 @@ int portable_attach(
                         "attached",
                         "MESSAGE_ID=" SD_MESSAGE_PORTABLE_ATTACHED_STR,
                         image->path,
+                        profile,
                         extension_images,
                         /* extension_image_paths= */ NULL,
                         flags);
@@ -1974,6 +1978,7 @@ int portable_detach(
                         "detached",
                         "MESSAGE_ID=" SD_MESSAGE_PORTABLE_DETACHED_STR,
                         name_or_path,
+                        /* profile= */ NULL,
                         /* extension_images= */ NULL,
                         extension_image_paths,
                         flags);
