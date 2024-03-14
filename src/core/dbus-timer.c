@@ -118,6 +118,7 @@ const sd_bus_vtable bus_timer_vtable[] = {
         SD_BUS_PROPERTY("Persistent", "b", bus_property_get_bool, offsetof(Timer, persistent), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("WakeSystem", "b", bus_property_get_bool, offsetof(Timer, wake_system), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemainAfterElapse", "b", bus_property_get_bool, offsetof(Timer, remain_after_elapse), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("AlwaysRealtime", "b", bus_property_get_bool, offsetof(Timer, always_realtime), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 
@@ -232,6 +233,9 @@ static int bus_timer_set_transient_property(
 
         if (streq(name, "OnClockChange"))
                 return bus_set_transient_bool(u, name, &t->on_clock_change, message, flags, error);
+
+        if (streq(name, "AlwaysRealtime"))
+                return bus_set_transient_bool(u, name, &t->always_realtime, message, flags, error);
 
         if (streq(name, "TimersMonotonic")) {
                 const char *base_name;
