@@ -212,6 +212,7 @@ int manager_new(Manager **ret) {
         *m = (Manager) {
                 .default_storage = _USER_STORAGE_INVALID,
                 .rebalance_interval_usec = 2 * USEC_PER_MINUTE, /* initially, rebalance every 2min */
+                .delay_lock_timeout_usec = 5 * USEC_PER_SEC,
         };
 
         r = manager_parse_config_file(m);

@@ -228,6 +228,9 @@ Home *home_free(Home *h) {
         h->ref_event_source_dont_suspend = sd_event_source_disable_unref(h->ref_event_source_dont_suspend);
         h->inhibit_suspend_event_source = sd_event_source_disable_unref(h->inhibit_suspend_event_source);
 
+        h->delay_lock_event_source = sd_event_source_disable_unref(h->delay_lock_event_source);
+        h->delayed_lock_event_source = sd_event_source_disable_unref(h->delayed_lock_event_source);
+
         h->pending_operations = ordered_set_free(h->pending_operations);
         h->pending_event_source = sd_event_source_disable_unref(h->pending_event_source);
         h->deferred_change_event_source = sd_event_source_disable_unref(h->deferred_change_event_source);
@@ -1051,6 +1054,10 @@ static void home_unlocking_finish(Home *h, int ret, UserRecord *hr) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to write home record to disk, ignoring: %m");
         }
+
+        r = bus_home_emit_prepare_for_lock(h, false);
+        if (r < 0)
+                log_warning_errno(r, "Failed to emit PrepareForLock(false), ignoring: %m");
 
         log_debug("Unlocking operation of %s completed.", h->user_name);
 
@@ -2040,6 +2047,27 @@ int home_unregister(Home *h, sd_bus_error *error) {
         return 1;
 }
 
+static int home_lock_internal(Home *h) {
+        int r;
+
+        assert(h);
+
+        r = home_start_work(h, "lock", h->record, NULL, NULL, 0);
+        if (r < 0)
+                return r;
+
+        home_set_state(h, HOME_LOCKING);
+        return 0;
+}
+
+static int home_on_delayed_lock(sd_event_source *s, uint64_t usec, void *userdata) {
+        Home *h = ASSERT_PTR(userdata);
+
+        h->delayed_lock_event_source = sd_event_source_disable_unref(h->delayed_lock_event_source);
+
+        return home_lock_internal(h);
+}
+
 int home_lock(Home *h, sd_bus_error *error) {
         int r;
 
@@ -2060,12 +2088,38 @@ int home_lock(Home *h, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
         }
 
-        r = home_start_work(h, "lock", h->record, NULL, NULL, 0);
+        r = bus_home_emit_prepare_for_lock(h, true);
         if (r < 0)
-                return r;
+                log_warning_errno(r, "Failed to emit PrepareForLock(true), ignoring.");
 
-        home_set_state(h, HOME_LOCKING);
-        return 0;
+        if (h->delay_lock_event_source) {
+                assert(!h->delayed_lock_event_source); /* Otherwise we'd be LOCKING, which we check for above */
+
+                home_set_state(h, HOME_LOCKING);
+
+                r = sd_event_add_time_relative(
+                                h->manager->event,
+                                &h->delayed_lock_event_source,
+                                CLOCK_MONOTONIC,
+                                h->manager->delay_lock_timeout_usec,
+                                0 /* default accuracy */,
+                                home_on_delayed_lock,
+                                h);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to schedule delayed lock, locking immediately: %m");
+                        return home_lock_internal(h);
+                }
+
+                (void) sd_event_source_set_description(h->delayed_lock_event_source, "delayed-lock");
+
+                r = sd_event_source_set_priority(h->delayed_lock_event_source, SD_EVENT_PRIORITY_IMPORTANT);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to increase priority of delayed lock, ignoring: %m");
+
+                return 0;
+        }
+
+        return home_lock_internal(h);
 }
 
 static int home_unlock_internal(Home *h, UserRecord *secret, HomeState for_state, sd_bus_error *error) {
@@ -2695,20 +2749,36 @@ int home_augment_status(
         return 0;
 }
 
-static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int on_home_fifo_eof(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(operation_unrefp) Operation *o = NULL;
         Home *h = ASSERT_PTR(userdata);
+        int r;
 
         assert(s);
 
-        if (h->ref_event_source_please_suspend == s)
-                h->ref_event_source_please_suspend = sd_event_source_disable_unref(h->ref_event_source_please_suspend);
-
-        if (h->ref_event_source_dont_suspend == s)
-                h->ref_event_source_dont_suspend = sd_event_source_disable_unref(h->ref_event_source_dont_suspend);
-
-        if (h->inhibit_suspend_event_source == s)
+        if (h->inhibit_suspend_event_source == s) {
                 h->inhibit_suspend_event_source = sd_event_source_disable_unref(h->inhibit_suspend_event_source);
+                return 0;
+
+        } else if (h->delay_lock_event_source == s) {
+                h->delay_lock_event_source = sd_event_source_disable_unref(h->delay_lock_event_source);
+
+                /* All instances of DelayLock() for this home have been dropped, so we can reschedule the pending
+                 * lock to happen immediately */
+                 if (h->delayed_lock_event_source) {
+                        r = sd_event_source_set_time(h->delayed_lock_event_source, 0);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to reschedule delayed lock, ignoring.");
+                 }
+
+                 return 0;
+
+        } else if (h->ref_event_source_please_suspend == s)
+                h->ref_event_source_please_suspend = sd_event_source_disable_unref(h->ref_event_source_please_suspend);
+        else if (h->ref_event_source_dont_suspend == s)
+                h->ref_event_source_dont_suspend = sd_event_source_disable_unref(h->ref_event_source_dont_suspend);
+        else
+                assert_not_reached();
 
         if (home_is_referenced(h))
                 return 0;
@@ -2746,6 +2816,11 @@ int home_create_fifo(Home *h, HomeFifoType type) {
                         .description = "inhibit-suspend",
                         .event_source = offsetof(Home, inhibit_suspend_event_source),
                 },
+                [HOME_FIFO_DELAY_LOCK] = {
+                        .suffix = ".delay-lock",
+                        .description = "delay-lock",
+                        .event_source = offsetof(Home, delay_lock_event_source),
+                },
         };
 
         _cleanup_close_ int ret_fd = -EBADF;
@@ -2771,7 +2846,7 @@ int home_create_fifo(Home *h, HomeFifoType type) {
                 if (ref_fd < 0)
                         return log_error_errno(errno, "Failed to open FIFO %s for reading: %m", fn);
 
-                r = sd_event_add_io(h->manager->event, evt, ref_fd, 0, on_home_ref_eof, h);
+                r = sd_event_add_io(h->manager->event, evt, ref_fd, 0, on_home_fifo_eof, h);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate reference FIFO event source: %m");
 
