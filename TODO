@@ -132,7 +132,7 @@ Features:
 
 * move documentation about our common env vars (SYSTEMD_LOG_LEVEL,
   SYSTEMD_PAGER, …) into a man page of its own, and just link it from our
-  various man pages that so far embedd the whole list again and again, in an
+  various man pages that so far embed the whole list again and again, in an
   attempt to reduce clutter and noise a bid.
 
 * vmspawn switch default swtpm PCR bank to SHA384-only (away from SHA256), at
