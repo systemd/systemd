@@ -15,7 +15,7 @@ Please make sure to follow our [Coding Style](CODING_STYLE) when submitting
 patches. Also have a look at our [Contribution Guidelines](CONTRIBUTING).
 
 To start, run the following commands in the systemd git repository to set up
-git correctly:
+git correctly (running `meson` will run these commands for you automatically):
 
 ```shell
 $ git config submodule.recurse true
