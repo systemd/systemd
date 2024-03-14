@@ -245,7 +245,8 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sRemainAfterElapse: %s\n"
                 "%sFixedRandomDelay: %s\n"
                 "%sOnClockChange: %s\n"
-                "%sOnTimeZoneChange: %s\n",
+                "%sOnTimeZoneChange: %s\n"
+                "%sDeferReactivation: %s\n",
                 prefix, timer_state_to_string(t->state),
                 prefix, timer_result_to_string(t->result),
                 prefix, trigger ? trigger->id : "n/a",
@@ -255,7 +256,8 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(t->remain_after_elapse),
                 prefix, yes_no(t->fixed_random_delay),
                 prefix, yes_no(t->on_clock_change),
-                prefix, yes_no(t->on_timezone_change));
+                prefix, yes_no(t->on_timezone_change),
+                prefix, yes_no(t->defer_reactivation));
 
         LIST_FOREACH(value, v, t->values)
                 if (v->base == TIMER_CALENDAR) {
@@ -391,12 +393,19 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                 if (v->base == TIMER_CALENDAR) {
                         usec_t b, rebased;
 
-                        /* If we know the last time this was
-                         * triggered, schedule the job based relative
-                         * to that. If we don't, just start from
-                         * the activation time. */
+                        /* If DeferReactivation= is enabled, schedule the job based on the last time
+                         * the trigger unit entered inactivity. Otherwise, if we know the last time
+                         * this was triggered, schedule the job based relative to that. If we don't,
+                         * just start from the activation time or realtime. */
 
-                        if (dual_timestamp_is_set(&t->last_trigger))
+                        if (t->defer_reactivation &&
+                            dual_timestamp_is_set(&trigger->inactive_enter_timestamp)) {
+                                if (dual_timestamp_is_set(&t->last_trigger))
+                                        b = MAX(trigger->inactive_enter_timestamp.realtime,
+                                                t->last_trigger.realtime);
+                                else
+                                        b = trigger->inactive_enter_timestamp.realtime;
+                        } else if (dual_timestamp_is_set(&t->last_trigger))
                                 b = t->last_trigger.realtime;
                         else if (dual_timestamp_is_set(&UNIT(t)->inactive_exit_timestamp))
                                 b = UNIT(t)->inactive_exit_timestamp.realtime;
