@@ -735,7 +735,9 @@ int vconsole_convert_to_x11(const VCContext *vc, X11Context *ret) {
 }
 
 int find_converted_keymap(const X11Context *xc, char **ret) {
+        _cleanup_strv_free_ char **keymap_dirs = NULL;
         _cleanup_free_ char *n = NULL;
+        int r;
 
         assert(xc);
         assert(!isempty(xc->layout));
@@ -748,12 +750,16 @@ int find_converted_keymap(const X11Context *xc, char **ret) {
         if (!n)
                 return -ENOMEM;
 
-        NULSTR_FOREACH(dir, KBD_KEYMAP_DIRS) {
+        r = keymap_directories(&keymap_dirs);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(dir, keymap_dirs) {
                 _cleanup_free_ char *p = NULL, *pz = NULL;
                 bool uncompressed;
 
-                p = strjoin(dir, "xkb/", n, ".map");
-                pz = strjoin(dir, "xkb/", n, ".map.gz");
+                p = strjoin(*dir, "/xkb/", n, ".map");
+                pz = strjoin(*dir, "/xkb/", n, ".map.gz");
                 if (!p || !pz)
                         return -ENOMEM;
 
