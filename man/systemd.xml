@@ -372,6 +372,14 @@
   <refsect1>
     <title>Signals</title>
 
+    <para>The service listens to various UNIX process signals that can be used to request various actions
+    asynchronously. The signal handling is enabled very early during boot, before any further processes are
+    invoked. However, a supervising container manager or similar that intends to request these operations via
+    this mechanism must take into consideration that this functionality is not available during the earliest
+    initialization phase. An <function>sd_notify()</function> notification message carrying the
+    <varname>X_SYSTEMD_SIGNALS_LEVEL=2</varname> field is emitted once the signal handlers are enabled, see
+    below. This may be used to schedule submission of these signals correctly.</para>
+
     <variablelist>
       <varlistentry>
         <term><constant>SIGTERM</constant></term>
@@ -769,10 +777,11 @@
       <varlistentry>
         <term><varname>$NOTIFY_SOCKET</varname></term>
 
-        <listitem><para>Set by systemd for supervised processes for
-        status and start-up completion notification. See
-        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for more information.</para></listitem>
+        <listitem><para>Set by service manager for its services for status and readiness notification.s Also
+        consumed by service manager for notifying supervising container managers or service managers up the
+        stack about its own progress. See
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> and the
+        relevant section below for more information.</para></listitem>
       </varlistentry>
     </variablelist>
 
@@ -1109,7 +1118,7 @@
   </refsect1>
 
   <refsect1>
-    <title>System credentials</title>
+    <title>System Credentials</title>
 
     <para>During initialization the service manager will import credentials from various sources into the
     system's set of credentials, which can then be propagated into services and consumed by
@@ -1151,14 +1160,16 @@
         <term><varname>vmm.notify_socket</varname></term>
         <listitem>
           <para>Contains a <constant>AF_VSOCK</constant> or <constant>AF_UNIX</constant> address where to
-          send a <constant>READY=1</constant> notification datagram when the system has finished booting. See
-          <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
-          more information. Note that in case the hypervisor does not support <constant>SOCK_DGRAM</constant>
-          over <constant>AF_VSOCK</constant>, <constant>SOCK_SEQPACKET</constant> will be tried instead. The
-          credential payload for <constant>AF_VSOCK</constant> should be in the form
+          send a <constant>READY=1</constant> notification message when the service manager has completed
+          booting. See
+          <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+          the next section for more information. Note that in case the hypervisor does not support
+          <constant>SOCK_DGRAM</constant> over <constant>AF_VSOCK</constant>,
+          <constant>SOCK_SEQPACKET</constant> will be tried instead. The credential payload for
+          <constant>AF_VSOCK</constant> should be a string in the form
           <literal>vsock:CID:PORT</literal>.</para>
 
-          <para>This feature is useful for hypervisors/VMMs or other processes on the host to receive a
+          <para>This feature is useful for machine managers or other processes on the host to receive a
           notification via VSOCK when a virtual machine has finished booting.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/>
@@ -1177,6 +1188,77 @@
         </listitem>
       </varlistentry>
     </variablelist>
+
+    <para>For a list of system credentials various other components of systemd consume, see
+    <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Readiness Protocol</title>
+
+    <para>The service manager implements a readiness notification protocol both between the manager and its
+    services (i.e. down the stack), and between the manager and a potential supervisor further up the stack
+    (the latter could be a machine or container manager, or in case of a per-user service manager the system
+    service manager instance). The basic protocol (and the suggested API for it) is described in
+    <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+    <para>The notification socket the service manager (including PID 1) uses for reporting readiness is set
+    via the usual <varname>$NOTIFY_SOCKET</varname> environment variable (see above). Since this is directly
+    accessible only for container managers and for the per-user instance of the service manager, an additional
+    mechanism to configure this is available, in particular for use in VM environments: the
+    <varname>vmm.notify_socket</varname> system credential (see above) may be set to a suitable socket
+    (typically an <constant>AF_VSOCK</constant> one) via SMBIOS Type 11 vendor strings. For details see
+    above.</para>
+
+    <para>The notification protocol from the service manager up the stack towards a supervisor supports a
+    number of extension fields that allow a supervisor to learn about specific properties of the system and
+    track its boot progress. Specifically the following fields are sent:</para>
+
+    <itemizedlist>
+      <listitem><para>An <varname>X_SYSTEMD_HOSTNAME=…</varname> message will be sent out once the initial
+      hostname for the system has been determined. Note that during later runtime the hostname might be
+      changed again programmatically, and (currently) no further notifications are sent out in that case.</para>
+
+      <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+
+      <listitem><para>An <varname>X_SYSTEMD_MACHINE_ID=…</varname> message will be sent out once the machine
+      ID of the system has been determined. See
+      <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+      details.</para>
+
+      <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+
+      <listitem><para>An <varname>X_SYSTEMD_SIGNALS_LEVEL=…</varname> message will be sent out once the
+      service manager installed the various UNIX process signal handlers described above. The field's value
+      is an unsigned integer formatted as decimal string, and indicates the supported UNIX process signal
+      feature level of the service manager. Currently, only a single feature level is defined:</para>
+
+      <itemizedlist>
+        <listitem><para><varname>X_SYSTEMD_SIGNALS_LEVEL=2</varname> covers the various UNIX process signals
+        documented above – which are a superset of those supported by the historical SysV init
+        system.</para></listitem>
+      </itemizedlist>
+
+      <para>Signals sent to PID 1 before this message is sent might not be handled correctly yet. A consumer
+      of these messages should parse the value as an unsigned integer indication the level of support. For
+      now only the mentioned level 2 is defined, but later on additional levels might be defined with higher
+      integers, that will implement a superset of the currently defined behaviour.</para>
+
+      <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+
+      <listitem><para><varname>X_SYSTEMD_UNIT_ACTIVE=…</varname> and
+      <varname>X_SYSTEMD_UNIT_INACTIVE=…</varname> messages will be sent out for each target unit as it
+      becomes active or stops being active. This is useful to track boot progress and functionality. For
+      example, once the <filename>ssh-access.target</filename> unit is reported started SSH access is
+      typically available, see
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+      details.</para>
+
+      <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+    </itemizedlist>
+
+    <para>Note that these extension fields are sent in addition to the regular <literal>READY=1</literal> and
+    <literal>RELOADING=1</literal> notifications.</para>
   </refsect1>
 
   <refsect1>
