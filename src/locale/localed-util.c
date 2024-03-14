@@ -736,6 +736,8 @@ int vconsole_convert_to_x11(const VCContext *vc, X11Context *ret) {
 
 int find_converted_keymap(const X11Context *xc, char **ret) {
         _cleanup_free_ char *n = NULL, *p = NULL, *pz = NULL;
+        _cleanup_strv_free_ char **keymap_dirs = NULL;
+        int r;
 
         assert(xc);
         assert(!isempty(xc->layout));
@@ -753,20 +755,24 @@ int find_converted_keymap(const X11Context *xc, char **ret) {
         if (!p || !pz)
                 return -ENOMEM;
 
-        NULSTR_FOREACH(dir, KBD_KEYMAP_DIRS) {
+        r = keymap_directories(&keymap_dirs);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(dir, keymap_dirs) {
                 _cleanup_close_ int dir_fd = -EBADF;
                 bool uncompressed;
 
-                dir_fd = open(dir, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                dir_fd = open(*dir, O_CLOEXEC | O_DIRECTORY | O_PATH);
                 if (dir_fd < 0) {
                         if (errno != ENOENT)
-                                log_debug_errno(errno, "Failed to open %s, ignoring: %m", dir);
+                                log_debug_errno(errno, "Failed to open %s, ignoring: %m", *dir);
                         continue;
                 }
 
                 uncompressed = faccessat(dir_fd, p, F_OK, 0) >= 0;
                 if (uncompressed || faccessat(dir_fd, pz, F_OK, 0) >= 0) {
-                        log_debug("Found converted keymap %s at %s/%s", n, dir, uncompressed ? p : pz);
+                        log_debug("Found converted keymap %s at %s/%s", n, *dir, uncompressed ? p : pz);
                         *ret = TAKE_PTR(n);
                         return 1;
                 }
