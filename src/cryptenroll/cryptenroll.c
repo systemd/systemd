@@ -5,6 +5,7 @@
 
 #include "ask-password-api.h"
 #include "build.h"
+#include "blockdev-util.h"
 #include "cryptenroll-fido2.h"
 #include "cryptenroll-list.h"
 #include "cryptenroll-password.h"
@@ -14,6 +15,7 @@
 #include "cryptenroll-wipe.h"
 #include "cryptenroll.h"
 #include "cryptsetup-util.h"
+#include "devnum-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "fileio.h"
@@ -534,17 +536,32 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (optind >= argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No block device node specified, refusing.");
-
         if (argc > optind+1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Too many arguments, refusing.");
 
-        r = parse_path_argument(argv[optind], false, &arg_node);
-        if (r < 0)
-                return r;
+        if (optind < argc) {
+                r = parse_path_argument(argv[optind], false, &arg_node);
+                if (r < 0)
+                        return r;
+        } else if (!wipe_requested()) {
+                dev_t devno;
+
+                r = blockdev_get_root(LOG_ERR, &devno);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
+                                        "Root file system not backed by a (single) whole block device.");
+
+                r = device_path_make_canonical(S_IFBLK, devno, &arg_node);
+                if (r < 0)
+                        return log_error_errno(r,
+                                               "Failed to format canonical device path for devno '" DEVNUM_FORMAT_STR "': %m",
+                                               DEVNUM_FORMAT_VAL(devno));
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No block device node specified, refusing.");
 
         if (arg_enroll_type == ENROLL_FIDO2) {
 
@@ -671,7 +688,7 @@ static int prepare_luks(
 
         r = crypt_load(cd, CRYPT_LUKS2, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to load LUKS2 superblock: %m");
+                return log_error_errno(r, "Failed to load LUKS2 superblock of %s: %m", arg_node);
 
         r = check_for_homed(cd);
         if (r < 0)
