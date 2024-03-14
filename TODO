@@ -130,6 +130,11 @@ Deprecations and removals:
 
 Features:
 
+* insert the new pidfs inode number as a third field into PidRef, so that
+  PidRef are reasonably serializable without having to pass around fds.
+
+* systemd-analyze smbios11 to dump smbios type 11 vendor strings
+
 * move documentation about our common env vars (SYSTEMD_LOG_LEVEL,
   SYSTEMD_PAGER, …) into a man page of its own, and just link it from our
   various man pages that so far embed the whole list again and again, in an
@@ -140,11 +145,10 @@ Features:
   speed than SHA256 on 64bit archs (since based on 64bit words unlike SHA256
   which uses 32bit words).
 
-* send out sd_notify() from PID 1 when we determined hostname and machine ID
-
-* send out sd_notify() from PID 1 whenever we reach a target unit. Then
-  introduce ssh.target or so. And in vmspawn/nspawn wait for that as indication
-  whether/when SSH is available. Similar for D-Bus (but just use sockets.target for that)
+* In vmspawn/nspawn/machined wait for X_SYSTEMD_UNIT_ACTIVE=ssh-active.target
+  and X_SYSTEMD_SIGNAL_LEVEL=2 as indication whether/when SSH and the POSIX
+  signals are available. Similar for D-Bus (but just use sockets.target for
+  that). Report as property for the machine.
 
 * teach nspawn/machined a new bus call/verb that gets you a
   shell in containers that have no sensible pid1, via joining the container,
@@ -189,10 +193,6 @@ Features:
 * in os-release define a field that can be initialized at build time from
   SOURCE_DATE_EPOCH (maybe even under that name?). Would then be used to
   initialize the timestamp logic of ConditionNeedsUpdate=.
-
-* ptyfwd: look for window title ANSI sequences and insert colored dot in front
-  of it while passing it through, to indicate whether we are in privileged, VM,
-  container terminal sessions.
 
 * nspawn/vmspawn/pid1: add ability to easily insert fully booted VMs/FOSC into
   shell pipelines, i.e. add easy to use switch that turns off console status
