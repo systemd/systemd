@@ -39,6 +39,7 @@ struct Manager {
         bool scan_slash_home;
         UserStorage default_storage;
         char *default_file_system_type;
+        usec_t delay_lock_timeout_usec;
 
         sd_event_source *inotify_event_source;
 
