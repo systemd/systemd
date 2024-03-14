@@ -295,6 +295,7 @@ typedef struct Partition {
         uint64_t copy_blocks_size;
 
         char *format;
+        char **mkfs_options_extra;
         char **copy_files;
         char **exclude_files_source;
         char **exclude_files_target;
@@ -459,6 +460,7 @@ static Partition* partition_free(Partition *p) {
         safe_close(p->copy_blocks_fd);
 
         free(p->format);
+        strv_free(p->mkfs_options_extra);
         strv_free(p->copy_files);
         strv_free(p->exclude_files_source);
         strv_free(p->exclude_files_target);
@@ -494,6 +496,7 @@ static void partition_foreignize(Partition *p) {
         p->copy_blocks_root = NULL;
 
         p->format = mfree(p->format);
+        p->mkfs_options_extra = strv_free(p->mkfs_options_extra);
         p->copy_files = strv_free(p->copy_files);
         p->exclude_files_source = strv_free(p->exclude_files_source);
         p->exclude_files_target = strv_free(p->exclude_files_target);
@@ -5033,12 +5036,19 @@ static int context_mkfs(Context *context) {
                                 return r;
                 }
 
-                r = mkfs_options_from_env("REPART", p->format, &extra_mkfs_options);
+                r = strv_copy_unless_empty(p->mkfs_options_extra, &extra_mkfs_options);
                 if (r < 0)
-                        return log_error_errno(r,
-                                               "Failed to determine mkfs command line options for '%s': %m",
-                                               p->format);
-
+                        return log_oom();
+                
+                if (!extra_mkfs_options) {
+                        /* Only read environment if mkfs options are not provided in config files */
+                        r = mkfs_options_from_env("REPART", p->format, &extra_mkfs_options);
+                        if (r < 0)
+                                return log_error_errno(r,
+                                                       "Failed to determine mkfs command line options for '%s': %m",
+                                                       p->format);
+                }                                                
+                
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
                                     p->fs_uuid, arg_discard, /* quiet = */ false,
                                     context->fs_sector_size, extra_mkfs_options);
@@ -6569,11 +6579,18 @@ static int context_minimize(Context *context) {
                                 return r;
                 }
 
-                r = mkfs_options_from_env("REPART", p->format, &extra_mkfs_options);
+                r = strv_copy_unless_empty(p->mkfs_options_extra, &extra_mkfs_options);
                 if (r < 0)
-                        return log_error_errno(r,
-                                               "Failed to determine mkfs command line options for '%s': %m",
-                                               p->format);
+                        return log_oom();
+                
+                if (!extra_mkfs_options) {
+                        /* Only read environment if mkfs options are not provided in config files */
+                        r = mkfs_options_from_env("REPART", p->format, &extra_mkfs_options);
+                        if (r < 0)
+                                return log_error_errno(r,
+                                                       "Failed to determine mkfs command line options for '%s': %m",
+                                                       p->format);
+                }
 
                 r = make_filesystem(d ? d->node : temp,
                                     p->format,
