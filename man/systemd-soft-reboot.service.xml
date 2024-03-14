@@ -109,28 +109,17 @@
       also have to be configured manually for correct ordering and conflicting. For example:</para>
 
       <programlisting>[Unit]
-Description=My surviving service
+Description=My Surviving Service
 SurviveFinalKillSignal=yes
 IgnoreOnIsolate=yes
 DefaultDependencies=no
 After=basic.target
-Conflicts=reboot.target
-Before=reboot.target
-Conflicts=kexec.target
-Before=kexec.target
-Conflicts=poweroff.target
-Before=poweroff.target
-Conflicts=halt.target
-Before=halt.target
-Conflicts=rescue.target
-Before=rescue.target
-Conflicts=emergency.target
-Before=emergency.target
+Conflicts=reboot.target kexec.target poweroff.target halt.target rescue.target emergency.target
+Before=reboot.target kexec.target poweroff.target halt.target rescue.target emergency.target
 
 [Service]
 Type=oneshot
-ExecStart=sleep infinity
-      </programlisting>
+ExecStart=sleep infinity</programlisting>
       </listitem>
 
       <listitem><para>File system mounts may remain mounted during the transition, and complex storage
