@@ -264,12 +264,11 @@ static void manager_print_jobs_in_progress(Manager *m) {
                                       strempty(status_text));
         }
 
-        sd_notifyf(false,
-                   "STATUS=%sUser job %s/%s running (%s / %s)...",
-                   job_of_n,
-                   ident,
-                   job_type_to_string(j->type),
-                   time, limit);
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "STATUS=%sUser job %s/%s running (%s / %s)...",
+                          job_of_n,
+                          ident, job_type_to_string(j->type),
+                          time, limit);
         m->status_ready = false;
 }
 
@@ -483,21 +482,19 @@ static int enable_special_signals(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m))
                 return 0;
 
-        /* Enable that we get SIGINT on control-alt-del. In containers
-         * this will fail with EPERM (older) or EINVAL (newer), so
-         * ignore that. */
+        /* Enable that we get SIGINT on control-alt-del. In containers this will fail with EPERM (older) or
+         * EINVAL (newer), so ignore that. */
         if (reboot(RB_DISABLE_CAD) < 0 && !IN_SET(errno, EPERM, EINVAL))
-                log_warning_errno(errno, "Failed to enable ctrl-alt-del handling: %m");
+                log_warning_errno(errno, "Failed to enable ctrl-alt-del handling, ignoring: %m");
 
         fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0) {
-                /* Support systems without virtual console */
-                if (fd != -ENOENT)
-                        log_warning_errno(errno, "Failed to open /dev/tty0: %m");
-        } else {
+        if (fd < 0)
+                /* Support systems without virtual console (ENOENT) gracefully */
+                log_full_errno(fd == -ENOENT ? LOG_DEBUG : LOG_WARNING, fd, "Failed to open /dev/tty0, ignoring: %m");
+        else {
                 /* Enable that we get SIGWINCH on kbrequest */
                 if (ioctl(fd, KDSIGACCEPT, SIGWINCH) < 0)
-                        log_warning_errno(errno, "Failed to enable kbrequest handling: %m");
+                        log_warning_errno(errno, "Failed to enable kbrequest handling, ignoring: %m");
         }
 
         return 0;
@@ -596,6 +593,17 @@ static int manager_setup_signals(Manager *m) {
         r = sd_event_source_set_priority(m->signal_event_source, EVENT_PRIORITY_SIGNALS);
         if (r < 0)
                 return r;
+
+        /* Report to supervisor that we now process the above signals. We report this as level "2", to
+         * indicate that we support more than sysvinit's signals (of course, sysvinit never sent this
+         * message, but conceptually it makes sense to consider level "1" to be equivalent to sysvinit's
+         * signal handling). Also, by setting this to "2" people looking for this hopefully won't
+         * misunderstand this as a boolean concept. Signal level 2 shall refer to the signals PID 1
+         * understands at the time of release of systemd v256, i.e. including basic SIGRTMIN+18 handling for
+         * memory pressure and stuff. When more signals are hooked up (or more SIGRTMIN+18 multiplex
+         * operations added, this level should be increased).  */
+        (void) sd_notify(/* unset_environment= */ false,
+                         "X_SYSTEMD_SIGNALS_LEVEL=2");
 
         if (MANAGER_IS_SYSTEM(m))
                 return enable_special_signals(m);
@@ -2869,8 +2877,8 @@ static void manager_start_special(Manager *m, const char *name, JobMode mode) {
 
         log_info("Activating special unit %s...", s);
 
-        sd_notifyf(false,
-                   "STATUS=Activating special unit %s...", s);
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "STATUS=Activating special unit %s...", s);
         m->status_ready = false;
 }
 
@@ -3362,16 +3370,18 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         const char *msg;
         int audit_fd, r;
 
+        assert(m);
+        assert(u);
+
         if (!MANAGER_IS_SYSTEM(m))
+                return;
+
+        /* Don't generate audit events if the service was already started and we're just deserializing */
+        if (MANAGER_IS_RELOADING(m))
                 return;
 
         audit_fd = get_audit_fd();
         if (audit_fd < 0)
-                return;
-
-        /* Don't generate audit events if the service was already
-         * started and we're just deserializing */
-        if (MANAGER_IS_RELOADING(m))
                 return;
 
         r = unit_name_to_prefix_and_instance(u->id, &p);
@@ -3390,19 +3400,20 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
                         log_warning_errno(errno, "Failed to send audit message, ignoring: %m");
         }
 #endif
-
 }
 
 void manager_send_unit_plymouth(Manager *m, Unit *u) {
         _cleanup_free_ char *message = NULL;
         int c, r;
 
-        /* Don't generate plymouth events if the service was already
-         * started and we're just deserializing */
-        if (MANAGER_IS_RELOADING(m))
-                return;
+        assert(m);
+        assert(u);
 
         if (!MANAGER_IS_SYSTEM(m))
+                return;
+
+        /* Don't generate plymouth events if the service was already started and we're just deserializing */
+        if (MANAGER_IS_RELOADING(m))
                 return;
 
         if (detect_container() > 0)
@@ -3420,6 +3431,27 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         if (r < 0)
                 log_full_errno(ERRNO_IS_NO_PLYMOUTH(r) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to communicate with plymouth: %m");
+}
+
+void manager_send_unit_supervisor(Manager *m, Unit *u, bool active) {
+        assert(m);
+        assert(u);
+
+        /* Notify a "supervisor" process about our progress, i.e. a container manager, hypervisor, or
+         * surrounding service manager. */
+
+        if (MANAGER_IS_RELOADING(m))
+                return;
+
+        if (!UNIT_VTABLE(u)->notify_supervisor)
+                return;
+
+        if (in_initrd()) /* Only send these once we left the initrd */
+                return;
+
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          active ? "X_SYSTEMD_UNIT_ACTIVE=%s" : "X_SYSTEMD_UNIT_INACTIVE=%s",
+                          u->id);
 }
 
 usec_t manager_get_watchdog(Manager *m, WatchdogType t) {
@@ -3731,7 +3763,7 @@ static void manager_notify_finished(Manager *m) {
         log_taint_string(m);
 }
 
-static void user_manager_send_ready(Manager *m) {
+static void manager_send_ready_user_scope(Manager *m) {
         int r;
 
         assert(m);
@@ -3740,7 +3772,7 @@ static void user_manager_send_ready(Manager *m) {
         if (!MANAGER_IS_USER(m) || m->ready_sent)
                 return;
 
-        r = sd_notify(false,
+        r = sd_notify(/* unset_environment= */ false,
                       "READY=1\n"
                       "STATUS=Reached " SPECIAL_BASIC_TARGET ".");
         if (r < 0)
@@ -3750,14 +3782,19 @@ static void user_manager_send_ready(Manager *m) {
         m->status_ready = false;
 }
 
-static void manager_send_ready(Manager *m) {
+static void manager_send_ready_system_scope(Manager *m) {
         int r;
 
-        if (m->ready_sent && m->status_ready)
-                /* Skip the notification if nothing changed. */
+        assert(m);
+
+        if (!MANAGER_IS_SYSTEM(m))
                 return;
 
-        r = sd_notify(false,
+        /* Skip the notification if nothing changed. */
+        if (m->ready_sent && m->status_ready)
+                return;
+
+        r = sd_notify(/* unset_environment= */ false,
                       "READY=1\n"
                       "STATUS=Ready.");
         if (r < 0)
@@ -3781,7 +3818,7 @@ static void manager_check_basic_target(Manager *m) {
                 return;
 
         /* For user managers, send out READY=1 as soon as we reach basic.target */
-        user_manager_send_ready(m);
+        manager_send_ready_user_scope(m);
 
         /* Log the taint string as soon as we reach basic.target */
         log_taint_string(m);
@@ -3812,7 +3849,7 @@ void manager_check_finished(Manager *m) {
         if (hashmap_buckets(m->jobs) > hashmap_size(m->units) / 10)
                 m->jobs = hashmap_free(m->jobs);
 
-        manager_send_ready(m);
+        manager_send_ready_system_scope(m);
 
         /* Notify Type=idle units that we are done now */
         manager_close_idle_pipe(m);
@@ -3842,7 +3879,7 @@ void manager_send_reloading(Manager *m) {
         assert(m);
 
         /* Let whoever invoked us know that we are now reloading */
-        (void) sd_notifyf(/* unset= */ false,
+        (void) sd_notifyf(/* unset_environment= */ false,
                           "RELOADING=1\n"
                           "MONOTONIC_USEC=" USEC_FMT "\n", now(CLOCK_MONOTONIC));
 
