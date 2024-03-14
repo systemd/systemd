@@ -6,6 +6,8 @@
 #include <sys/utsname.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
+
 #include "alloc-util.h"
 #include "creds-util.h"
 #include "fd-util.h"
@@ -13,6 +15,7 @@
 #include "fs-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
+#include "initrd-util.h"
 #include "log.h"
 #include "macro.h"
 #include "proc-cmdline.h"
@@ -24,7 +27,8 @@ static int sethostname_idempotent_full(const char *s, bool really) {
 
         assert(s);
 
-        assert_se(uname(&u) >= 0);
+        if (uname(&u) < 0)
+                return -errno;
 
         if (streq_ptr(s, u.nodename))
                 return 0;
@@ -41,34 +45,33 @@ int sethostname_idempotent(const char *s) {
 }
 
 int shorten_overlong(const char *s, char **ret) {
-        char *h, *p;
+        _cleanup_free_ char *h = NULL;
 
         /* Shorten an overlong name to HOST_NAME_MAX or to the first dot,
          * whatever comes earlier. */
 
         assert(s);
+        assert(ret);
 
         h = strdup(s);
         if (!h)
                 return -ENOMEM;
 
         if (hostname_is_valid(h, 0)) {
-                *ret = h;
+                *ret = TAKE_PTR(h);
                 return 0;
         }
 
-        p = strchr(h, '.');
+        char *p = strchr(h, '.');
         if (p)
                 *p = 0;
 
         strshorten(h, HOST_NAME_MAX);
 
-        if (!hostname_is_valid(h, 0)) {
-                free(h);
+        if (!hostname_is_valid(h, /* flags= */ 0))
                 return -EDOM;
-        }
 
-        *ret = h;
+        *ret = TAKE_PTR(h);
         return 1;
 }
 
@@ -147,74 +150,64 @@ void hostname_update_source_hint(const char *hostname, HostnameSource source) {
                 r = write_string_file("/run/systemd/default-hostname", hostname,
                                       WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to create \"/run/systemd/default-hostname\": %m");
+                        log_warning_errno(r, "Failed to create \"/run/systemd/default-hostname\", ignoring: %m");
         } else
                 unlink_or_warn("/run/systemd/default-hostname");
 }
 
 int hostname_setup(bool really) {
-        _cleanup_free_ char *b = NULL;
-        const char *hn = NULL;
+        _cleanup_free_ char *hn = NULL;
         HostnameSource source;
         bool enoent = false;
         int r;
 
-        r = proc_cmdline_get_key("systemd.hostname", 0, &b);
+        r = proc_cmdline_get_key("systemd.hostname", 0, &hn);
         if (r < 0)
                 log_warning_errno(r, "Failed to retrieve system hostname from kernel command line, ignoring: %m");
         else if (r > 0) {
-                if (hostname_is_valid(b, VALID_HOSTNAME_TRAILING_DOT)) {
-                        hn = b;
+                if (hostname_is_valid(hn, VALID_HOSTNAME_TRAILING_DOT))
                         source = HOSTNAME_TRANSIENT;
-                } else  {
-                        log_warning("Hostname specified on kernel command line is invalid, ignoring: %s", b);
-                        b = mfree(b);
+                else  {
+                        log_warning("Hostname specified on kernel command line is invalid, ignoring: %s", hn);
+                        hn = mfree(hn);
                 }
         }
 
         if (!hn) {
-                r = read_etc_hostname(NULL, &b);
-                if (r < 0) {
-                        if (r == -ENOENT)
-                                enoent = true;
-                        else
-                                log_warning_errno(r, "Failed to read configured hostname: %m");
-                } else {
-                        hn = b;
+                r = read_etc_hostname(NULL, &hn);
+                if (r == -ENOENT)
+                        enoent = true;
+                else if (r < 0)
+                        log_warning_errno(r, "Failed to read configured hostname, ignoring: %m");
+                else
                         source = HOSTNAME_STATIC;
-                }
         }
 
         if (!hn) {
-                r = acquire_hostname_from_credential(&b);
-                if (r >= 0) {
-                        hn = b;
+                r = acquire_hostname_from_credential(&hn);
+                if (r >= 0)
                         source = HOSTNAME_TRANSIENT;
-                }
         }
 
         if (!hn) {
-                _cleanup_free_ char *buf = NULL;
-
                 /* Don't override the hostname if it is already set and not explicitly configured */
 
-                r = gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST, &buf);
+                r = gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST, &hn);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r >= 0) {
-                        log_debug("No hostname configured, leaving existing hostname <%s> in place.", buf);
-                        return 0;
+                        log_debug("No hostname configured, leaving existing hostname <%s> in place.", hn);
+                        goto finish;
                 }
 
                 if (enoent)
                         log_info("No hostname configured, using default hostname.");
 
-                hn = b = get_default_hostname();
+                hn = get_default_hostname();
                 if (!hn)
                         return log_oom();
 
                 source = HOSTNAME_DEFAULT;
-
         }
 
         r = sethostname_idempotent_full(hn, really);
@@ -230,7 +223,11 @@ int hostname_setup(bool really) {
         if (really)
                 hostname_update_source_hint(hn, source);
 
-        return r;
+finish:
+        if (!in_initrd())
+                (void) sd_notifyf(/* unset_environment= */ false, "X_SYSTEMD_HOSTNAME=%s", hn);
+
+        return 0;
 }
 
 static const char* const hostname_source_table[] = {

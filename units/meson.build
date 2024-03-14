@@ -203,6 +203,7 @@ units = [
         { 'file' : 'sockets.target' },
         { 'file' : 'soft-reboot.target' },
         { 'file' : 'sound.target' },
+        { 'file' : 'ssh-access.target' },
         {
           'file' : 'suspend-then-hibernate.target',
           'conditions' : ['ENABLE_HIBERNATE'],
