@@ -1415,43 +1415,6 @@ void link_foreignize_addresses(Link *link) {
                 address->source = NETWORK_CONFIG_SOURCE_FOREIGN;
 }
 
-static int address_acquire(Link *link, const Address *original, Address **ret) {
-        _cleanup_(address_unrefp) Address *na = NULL;
-        union in_addr_union in_addr;
-        int r;
-
-        assert(link);
-        assert(original);
-        assert(ret);
-
-        /* Something useful was configured? just use it */
-        if (in_addr_is_set(original->family, &original->in_addr))
-                return address_dup(original, ret);
-
-        /* The address is configured to be 0.0.0.0 or [::] by the user?
-         * Then let's acquire something more useful from the pool. */
-        r = address_pool_acquire(link->manager, original->family, original->prefixlen, &in_addr);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return -EBUSY;
-
-        /* Pick first address in range for ourselves. */
-        if (original->family == AF_INET)
-                in_addr.in.s_addr = in_addr.in.s_addr | htobe32(1);
-        else if (original->family == AF_INET6)
-                in_addr.in6.s6_addr[15] |= 1;
-
-        r = address_dup(original, &na);
-        if (r < 0)
-                return r;
-
-        na->in_addr = in_addr;
-
-        *ret = TAKE_PTR(na);
-        return 0;
-}
-
 int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg) {
         int r;
 
@@ -1524,21 +1487,71 @@ static int address_configure(const Address *address, const struct ifa_cacheinfo 
         return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
-static bool address_is_ready_to_configure(Link *link, const Address *address) {
+static int address_acquire(Link *link, const Address *address, union in_addr_union *ret) {
+        union in_addr_union a;
+        int r;
+
         assert(link);
         assert(address);
+        assert(ret);
 
-        if (!link_is_ready_to_configure(link, false))
-                return false;
+        r = address_acquire_from_dhcp_server_leases_file(link, address, ret);
+        if (r != -ENOENT)
+                return r;
 
-        if (!ipv4acd_bound(link, address))
-                return false;
+        r = address_pool_acquire(link->manager, address->family, address->prefixlen, &a);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EBUSY;
 
-        /* Refuse adding more than the limit */
-        if (set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
-                return false;
+        /* Pick first address in range for ourselves. */
+        if (address->family == AF_INET)
+                a.in.s_addr |= htobe32(1);
+        else if (address->family == AF_INET6)
+                a.in6.s6_addr[15] |= 1;
+        else
+                assert_not_reached();
 
-        return true;
+        *ret = a;
+        return 0;
+}
+
+static int address_requeue_request(Request *req, Link *link, const Address *address) {
+        int r;
+
+        assert(req);
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+        assert(address);
+
+        /* Something useful was configured? just use it */
+        if (in_addr_is_set(address->family, &address->in_addr))
+                return 0;
+
+        /* The address is configured to be 0.0.0.0 or [::] by the user?
+         * Then let's acquire something more useful. */
+        union in_addr_union a;
+        r = address_acquire(link, address, &a);
+        if (r < 0)
+                return r;
+
+        _cleanup_(address_unrefp) Address *tmp = NULL;
+        r = address_dup(address, &tmp);
+        if (r < 0)
+                return r;
+
+        tmp->in_addr = a;
+
+        r = link_requeue_request(link, req, tmp, NULL);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EEXIST; /* Already queued?? Strange... */
+
+        TAKE_PTR(tmp);
+        return 1; /* A new request is queued. it is not necessary to process this request anymore. */
 }
 
 static int address_process_request(Request *req, Link *link, Address *address) {
@@ -1550,7 +1563,26 @@ static int address_process_request(Request *req, Link *link, Address *address) {
         assert(link);
         assert(address);
 
-        if (!address_is_ready_to_configure(link, address))
+        if (!link_is_ready_to_configure(link, false))
+                return 0;
+
+        /* Refuse adding more than the limit */
+        if (set_size(link->addresses) >= ADDRESSES_PER_LINK_MAX)
+                return 0;
+
+        r = address_requeue_request(req, link, address);
+        if (r == -EBUSY)
+                return 0;
+        if (r != 0)
+                return r;
+
+        address_set_broadcast(address, link);
+
+        r = ipv4acd_configure(link, address);
+        if (r < 0)
+                return r;
+
+        if (!ipv4acd_bound(link, address))
                 return 0;
 
         address_set_cinfo(link->manager, address, &c);
@@ -1595,19 +1627,14 @@ int link_request_address(
                 /* The requested address is outdated. Let's ignore the request. */
                 return 0;
 
-        if (address_get(link, address, &existing) < 0) {
-                if (address_get_request(link, address, NULL) >= 0)
-                        return 0; /* already requested, skipping. */
+        if (address_get_request(link, address, NULL) >= 0)
+                return 0; /* already requested, skipping. */
 
-                r = address_acquire(link, address, &tmp);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to acquire an address from pool: %m");
+        r = address_dup(address, &tmp);
+        if (r < 0)
+                return log_oom();
 
-        } else {
-                r = address_dup(address, &tmp);
-                if (r < 0)
-                        return log_oom();
-
+        if (address_get(link, address, &existing) >= 0) {
                 /* Copy already assigned address when it is requested as a null address. */
                 if (address_is_static_null(address))
                         tmp->in_addr = existing->in_addr;
@@ -1615,12 +1642,6 @@ int link_request_address(
                 /* Copy state for logging below. */
                 tmp->state = existing->state;
         }
-
-        address_set_broadcast(tmp, link);
-
-        r = ipv4acd_configure(link, tmp);
-        if (r < 0)
-                return r;
 
         log_address_debug(tmp, "Requesting", link);
         r = link_queue_request_safe(link, REQUEST_TYPE_ADDRESS,

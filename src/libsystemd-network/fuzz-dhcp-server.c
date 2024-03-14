@@ -69,7 +69,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         struct in_addr address = { .s_addr = htobe32(UINT32_C(10) << 24 | UINT32_C(1))};
         _cleanup_free_ uint8_t *duped = NULL;
-        _cleanup_free_ char *lease_file = NULL;
+        _cleanup_close_ int dir_fd = -EBADF;
 
         if (size < sizeof(DHCPMessage))
                 return 0;
@@ -78,12 +78,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         assert_se(duped = memdup(data, size));
 
-        assert_se(mkdtemp_malloc(NULL, &tmpdir) >= 0);
-        assert_se(lease_file = path_join(tmpdir, "leases"));
+        dir_fd = mkdtemp_open(NULL, 0, &tmpdir);
+        assert_se(dir_fd >= 0);
 
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
         assert_se(sd_dhcp_server_attach_event(server, NULL, 0) >= 0);
-        assert_se(sd_dhcp_server_set_lease_file(server, lease_file) >= 0);
+        assert_se(sd_dhcp_server_set_lease_file(server, dir_fd, "leases") >= 0);
         server->fd = open("/dev/null", O_RDWR|O_CLOEXEC|O_NOCTTY);
         assert_se(server->fd >= 0);
         assert_se(sd_dhcp_server_configure_pool(server, &address, 24, 0, 0) >= 0);
