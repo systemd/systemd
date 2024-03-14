@@ -21,7 +21,10 @@
 #include <unistd.h>
 
 #include "devnum-util.h"
+#include "errno-util.h"
+#include "fd-util.h"
 #include "memory-util.h"
+#include "path-util.h"
 #include "random-util.h"
 #include "scsi.h"
 #include "scsi_id.h"
@@ -85,8 +88,87 @@ static const char hex_str[]="0123456789abcdef";
 #define SG_ERR_CAT_SENSE               98        /* Something else in the sense buffer */
 #define SG_ERR_CAT_OTHER               99        /* Some other error/warning */
 
-static int do_scsi_page80_inquiry(struct scsi_id_device *dev_scsi, int fd,
-                                  char *serial, char *serial_short, int max_len);
+#define PAGE_PREFIX "/sys/block/"
+#define PAGE0x00_SUFFIX "/device/inquiry"
+#define PAGE0x80_SUFFIX "/device/vpd_pg80"
+#define PAGE0x83_SUFFIX "/device/vpd_pg83"
+
+static int process_page0_inquiry_data(struct scsi_id_device *dev_scsi,
+                                      unsigned char *buffer, unsigned len);
+
+static int process_page83_inquiry_data(struct scsi_id_device *dev_scsi, char *serial,
+                                       char *serial_short, unsigned char *page_83, int len, char *unit_serial_number,
+                                       char *wwn, char *wwn_vendor_extension, char *tgpt_group);
+
+static int process_page80_inquiry_data(struct scsi_id_device *dev_scsi, char *serial,
+                                       char *serial_short, unsigned char *buf, int max_len);
+
+static int process_page83_prespc3_inquiry_data(struct scsi_id_device *dev_scsi,
+                                               char *serial, char *serial_short, unsigned char *page_83,
+                                               int len);
+static void process_std_inquiry_data(struct scsi_id_device *dev_scsi, unsigned char *buf);
+
+static int sgio_do_scsi_page80_inquiry(struct scsi_id_device *dev_scsi, int fd,
+                                       char *serial, char *serial_short, int max_len);
+static int scsi_get_device_vpd_page_path(const char *device_path, const char **device_vpd_page_path, unsigned page);
+
+static int scsi_get_device_vpd_page_path(const char *device_path, const char **ret, unsigned page) {
+        _cleanup_free_ char *dev_name = NULL, *vpd_page_path = NULL;
+        int r;
+
+        assert(device_path);
+        r = path_extract_filename(device_path, &dev_name);
+
+        if (r < 0 || r == O_DIRECTORY)
+                return log_error_errno(r == O_DIRECTORY ? EISDIR : r, "Failed to extract file name");
+
+        switch (page) {
+                case PAGE_UNSPECIFIED:
+                        vpd_page_path = path_join(PAGE_PREFIX, dev_name, PAGE0x00_SUFFIX);
+                        break;
+                case PAGE_80:
+                        vpd_page_path = path_join(PAGE_PREFIX, dev_name, PAGE0x80_SUFFIX);
+                        break;
+                case PAGE_83:
+                        vpd_page_path = path_join(PAGE_PREFIX, dev_name, PAGE0x83_SUFFIX);
+                        break;
+                default:
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid page code.");
+        }
+
+        *ret= TAKE_PTR(vpd_page_path);
+        assert(*ret);
+        return 0;
+}
+
+int scsi_get_serial_open_file(const char *devname, int flags, int page_code) {
+        int fd = -EBADF;
+        int r;
+        const char *device_vpd_page_path = NULL;
+
+        switch (arg_scsi_interface) {
+                case SCSI_ID_INTERFACE_SGIO:
+                        break;
+                case SCSI_ID_INTERFACE_SYSFS:
+                case SCSI_ID_INTERFACE_UNKNOWN:
+                        r = scsi_get_device_vpd_page_path(devname, &device_vpd_page_path, page_code);
+                        if (r < 0)
+                                return r;
+                        devname = device_vpd_page_path;
+                        break;
+                default:
+                       assert_not_reached();
+        }
+
+        for (unsigned trial = 0; trial < 20; trial++) {
+                fd = RET_NERRNO(open(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC));
+                if (fd >= 0 || fd != -EBUSY)
+                        return fd;
+
+                (void) usleep_safe((200 * USEC_PER_SEC) + (random_u64_range(100 * USEC_PER_SEC)));
+        }
+        return -EBUSY;
+}
 
 static int sg_err_category_new(int scsi_status, int msg_status, int
                                host_status, int driver_status, const
@@ -268,9 +350,9 @@ static int scsi_dump_v4(struct scsi_id_device *dev_scsi, struct sg_io_v4 *io) {
                 return -1;
 }
 
-static int scsi_inquiry(struct scsi_id_device *dev_scsi, int fd,
-                        unsigned char evpd, unsigned char page,
-                        unsigned char *buf, unsigned buflen) {
+static int sgio_scsi_inquiry(struct scsi_id_device *dev_scsi, int fd,
+                             unsigned char evpd, unsigned char page,
+                             unsigned char *buf, unsigned buflen) {
         unsigned char inq_cmd[INQUIRY_CMDLEN] =
                 { INQUIRY_CMD, evpd, page, 0, buflen, 0 };
         unsigned char sense[SENSE_BUFF_LEN];
@@ -361,14 +443,35 @@ error:
 }
 
 /* Get list of supported EVPD pages */
-static int do_scsi_page0_inquiry(struct scsi_id_device *dev_scsi, int fd,
-                                 unsigned char *buffer, unsigned len) {
-        int retval;
+static int sgio_do_scsi_page0_inquiry(struct scsi_id_device *dev_scsi, int fd,
+                                      unsigned char *buffer, unsigned len) {
+        int r;
 
         memzero(buffer, len);
-        retval = scsi_inquiry(dev_scsi, fd, 1, 0x0, buffer, len);
-        if (retval < 0)
+        r = sgio_scsi_inquiry(dev_scsi, fd, 1, 0x0, buffer, len);
+        if (r < 0)
                 return 1;
+        return process_page0_inquiry_data(dev_scsi, buffer, len);
+}
+
+static int sysfs_do_scsi_page0_inquiry(struct scsi_id_device *dev_scsi, const char *devname,
+                                       unsigned char *buffer, unsigned len) {
+        int r;
+        _cleanup_close_ int fd = -EBADF;
+
+        fd = scsi_get_serial_open_file(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC, 0x0);
+        if (fd < 0)
+                return 1;
+
+        memzero(buffer, len);
+        r = read(fd, buffer, SCSI_INQ_BUFF_LEN);
+        if (r < 0)
+                return 1;
+        return process_page0_inquiry_data(dev_scsi, buffer, len);
+}
+
+static int process_page0_inquiry_data(struct scsi_id_device *dev_scsi,
+                                      unsigned char *buffer, unsigned len) {
 
         if (buffer[1] != 0) {
                 log_debug("%s: page 0 not available.", dev_scsi->kernel);
@@ -552,22 +655,32 @@ static int check_fill_0x83_prespc3(struct scsi_id_device *dev_scsi,
 }
 
 /* Get device identification VPD page */
-static int do_scsi_page83_inquiry(struct scsi_id_device *dev_scsi, int fd,
-                                  char *serial, char *serial_short, int len,
-                                  char *unit_serial_number, char *wwn,
-                                  char *wwn_vendor_extension, char *tgpt_group) {
-        int retval;
-        unsigned id_ind, j;
+static int sgio_do_scsi_page83_inquiry(struct scsi_id_device *dev_scsi, int fd,
+                                       char *serial, char *serial_short, int len,
+                                       char *unit_serial_number, char *wwn,
+                                       char *wwn_vendor_extension, char *tgpt_group) {
+        int r;
         unsigned char page_83[SCSI_INQ_BUFF_LEN];
 
         /* also pick up the page 80 serial number */
-        do_scsi_page80_inquiry(dev_scsi, fd, NULL, unit_serial_number, MAX_SERIAL_LEN);
+        sgio_do_scsi_page80_inquiry(dev_scsi, fd, NULL, unit_serial_number, MAX_SERIAL_LEN);
 
         memzero(page_83, SCSI_INQ_BUFF_LEN);
-        retval = scsi_inquiry(dev_scsi, fd, 1, PAGE_83, page_83,
-                              SCSI_INQ_BUFF_LEN);
-        if (retval < 0)
+        r = sgio_scsi_inquiry(dev_scsi, fd, 1, PAGE_83, page_83, SCSI_INQ_BUFF_LEN);
+        if (r < 0)
                 return 1;
+        r = process_page83_inquiry_data(dev_scsi, serial, serial_short, page_83, len,
+                                             unit_serial_number, wwn, wwn_vendor_extension, tgpt_group);
+        if (r <= 0)
+                return r;
+        return 1;
+}
+
+static int process_page83_inquiry_data(struct scsi_id_device *dev_scsi, char *serial, char *serial_short,
+                                       unsigned char *page_83, int len, char *unit_serial_number, char *wwn,
+                                       char *wwn_vendor_extension, char *tgpt_group) {
+        int retval;
+        unsigned id_ind, j;
 
         if (page_83[1] != PAGE_83) {
                 log_debug("%s: Invalid page 0x83", dev_scsi->kernel);
@@ -633,6 +746,24 @@ static int do_scsi_page83_inquiry(struct scsi_id_device *dev_scsi, int fd,
         return 1;
 }
 
+static int sysfs_do_scsi_page83_prespc3_inquiry(struct scsi_id_device *dev_scsi, const char *devname,
+                                                char *serial, char *serial_short, int len) {
+        int r;
+        unsigned char page_83[SCSI_INQ_BUFF_LEN];
+        _cleanup_close_ int fd = -EBADF;
+
+        fd = scsi_get_serial_open_file(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC, PAGE_83_PRE_SPC3);
+        if (fd < 0)
+                return 1;
+
+        memzero(page_83, SCSI_INQ_BUFF_LEN);
+        r = read(fd, page_83, SCSI_INQ_BUFF_LEN);
+        if (r < 0)
+                return 1;
+        return process_page83_prespc3_inquiry_data(dev_scsi, serial, serial_short,
+                                                   page_83, len);
+}
+
 /*
  * Get device identification VPD page for older SCSI-2 device which is not
  * compliant with either SPC-2 or SPC-3 format.
@@ -640,16 +771,23 @@ static int do_scsi_page83_inquiry(struct scsi_id_device *dev_scsi, int fd,
  * Return the hard coded error code value 2 if the page 83 reply is not
  * conformant to the SCSI-2 format.
  */
-static int do_scsi_page83_prespc3_inquiry(struct scsi_id_device *dev_scsi, int fd,
-                                          char *serial, char *serial_short, int len) {
-        int retval;
-        int i, j;
+static int sgio_do_scsi_page83_prespc3_inquiry(struct scsi_id_device *dev_scsi, int fd,
+                                               char *serial, char *serial_short, int len) {
+        int r;
         unsigned char page_83[SCSI_INQ_BUFF_LEN];
 
         memzero(page_83, SCSI_INQ_BUFF_LEN);
-        retval = scsi_inquiry(dev_scsi, fd, 1, PAGE_83, page_83, SCSI_INQ_BUFF_LEN);
-        if (retval < 0)
+        r = sgio_scsi_inquiry(dev_scsi, fd, 1, PAGE_83, page_83, SCSI_INQ_BUFF_LEN);
+        if (r < 0)
                 return 1;
+        return process_page83_prespc3_inquiry_data(dev_scsi, serial, serial_short,
+                                                   page_83, len);
+}
+
+static int process_page83_prespc3_inquiry_data(struct scsi_id_device *dev_scsi,
+                                               char *serial, char *serial_short,
+                                               unsigned char *page_83, int len) {
+        int i, j;
 
         if (page_83[1] != PAGE_83) {
                 log_debug("%s: Invalid page 0x83", dev_scsi->kernel);
@@ -700,18 +838,22 @@ static int do_scsi_page83_prespc3_inquiry(struct scsi_id_device *dev_scsi, int f
 }
 
 /* Get unit serial number VPD page */
-static int do_scsi_page80_inquiry(struct scsi_id_device *dev_scsi, int fd,
-                                  char *serial, char *serial_short, int max_len) {
-        int retval;
-        int ser_ind;
-        int i;
-        int len;
+static int sgio_do_scsi_page80_inquiry(struct scsi_id_device *dev_scsi, int fd,
+                                       char *serial, char *serial_short, int max_len) {
+        int r;
         unsigned char buf[SCSI_INQ_BUFF_LEN];
 
         memzero(buf, SCSI_INQ_BUFF_LEN);
-        retval = scsi_inquiry(dev_scsi, fd, 1, PAGE_80, buf, SCSI_INQ_BUFF_LEN);
-        if (retval < 0)
-                return retval;
+        r = sgio_scsi_inquiry(dev_scsi, fd, 1, PAGE_80, buf, SCSI_INQ_BUFF_LEN);
+        if (r < 0)
+                return r;
+
+        return process_page80_inquiry_data(dev_scsi, serial, serial_short, buf, max_len);
+}
+
+static int process_page80_inquiry_data(struct scsi_id_device *dev_scsi, char *serial,
+                                       char *serial_short, unsigned char *buf, int max_len) {
+        int ser_ind, i, len;
 
         if (buf[1] != PAGE_80) {
                 log_debug("%s: Invalid page 0x80", dev_scsi->kernel);
@@ -745,8 +887,48 @@ static int do_scsi_page80_inquiry(struct scsi_id_device *dev_scsi, int fd,
         return 0;
 }
 
-int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname) {
-        int fd;
+static int sysfs_do_scsi_page80_inquiry(struct scsi_id_device *dev_scsi, const char *devname,
+                                        char *serial, char *serial_short, int max_len) {
+        int r;
+        unsigned char page_80[SCSI_INQ_BUFF_LEN];
+        _cleanup_close_ int fd = -EBADF;
+
+        fd = scsi_get_serial_open_file(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC, PAGE_80);
+        if (fd < 0)
+                return 1;
+
+        memzero(page_80, SCSI_INQ_BUFF_LEN);
+        r = read(fd, page_80, SCSI_INQ_BUFF_LEN);
+        if (r < 0)
+                return r;
+        return process_page80_inquiry_data(dev_scsi, serial, serial_short, page_80, max_len);
+}
+
+static int sysfs_do_scsi_page83_inquiry(struct scsi_id_device *dev_scsi, const char *devname,
+                                        char *serial, char *serial_short, int len,
+                                        char *unit_serial_number, char *wwn,
+                                        char *wwn_vendor_extension, char *tgpt_group) {
+        int r;
+        _cleanup_close_ int fd = -EBADF;
+        unsigned char page_83[SCSI_INQ_BUFF_LEN];
+
+        /* also pick up the page 80 serial number */
+        sysfs_do_scsi_page80_inquiry(dev_scsi, devname, NULL, unit_serial_number, MAX_SERIAL_LEN);
+
+        fd = scsi_get_serial_open_file(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC, PAGE_83);
+        if (fd < 0)
+                return 1;
+
+        memzero(page_83, SCSI_INQ_BUFF_LEN);
+        r = read(fd, page_83, SCSI_INQ_BUFF_LEN);
+        if (r < 0)
+                return 1;
+        return process_page83_inquiry_data(dev_scsi, serial, serial_short, page_83, len,
+                                           unit_serial_number, wwn, wwn_vendor_extension, tgpt_group);
+}
+
+int sgio_scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname) {
+        _cleanup_close_ int fd = -EBADF;
         unsigned char buf[SCSI_INQ_BUFF_LEN];
         struct stat statbuf;
         int err = 0;
@@ -765,11 +947,56 @@ int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname) {
         format_devnum(statbuf.st_rdev, dev_scsi->kernel);
 
         memzero(buf, SCSI_INQ_BUFF_LEN);
-        err = scsi_inquiry(dev_scsi, fd, 0, 0, buf, SCSI_INQ_BUFF_LEN);
+        err = sgio_scsi_inquiry(dev_scsi, fd, 0, 0, buf, SCSI_INQ_BUFF_LEN);
         if (err < 0)
-                goto out;
+                return err;
 
         err = 0;
+        process_std_inquiry_data(dev_scsi, buf);
+out:
+        return err;
+}
+
+int sysfs_scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *device_path) {
+        _cleanup_close_ int fd = -EBADF;
+        unsigned char buf[SCSI_INQ_BUFF_LEN];
+        struct stat statbuf;
+        int err = 0;
+        char device_name[MAX_PATH_LEN];
+        _cleanup_free_ const char *device_vpd_page_path = NULL;
+        int r;
+
+        memset(device_name, 0, MAX_PATH_LEN);
+
+        r = scsi_get_device_vpd_page_path(device_path, &device_vpd_page_path, 0);
+        if (r < 0)
+                return r;
+
+        fd = open(device_vpd_page_path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+        if (fd < 0) {
+                log_debug_errno(errno, "scsi_id: cannot open %s: %m", device_vpd_page_path);
+                return 1;
+        }
+
+        if (fstat(fd, &statbuf) < 0) {
+                log_debug_errno(errno, "scsi_id: cannot stat %s: %m", device_vpd_page_path);
+                err = 2;
+                goto out;
+        }
+        format_devnum(statbuf.st_rdev, dev_scsi->kernel);
+
+        memzero(buf, SCSI_INQ_BUFF_LEN);
+        err = read(fd, buf, SCSI_INQ_BUFF_LEN);
+        if (err < 0)
+                return err;
+
+        err = 0;
+        process_std_inquiry_data(dev_scsi, buf);
+out:
+        return err;
+}
+
+static void process_std_inquiry_data(struct scsi_id_device *dev_scsi, unsigned char *buf) {
         memcpy(dev_scsi->vendor, buf + 8, 8);
         dev_scsi->vendor[8] = '\0';
         memcpy(dev_scsi->model, buf + 16, 16);
@@ -778,32 +1005,22 @@ int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname) {
         dev_scsi->revision[4] = '\0';
         dev_scsi->type = buf[0] & 0x1f;
 
-out:
-        close(fd);
-        return err;
 }
 
-int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
-                    int page_code, int len) {
+int sgio_scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname, int page_code, int len) {
         unsigned char page0[SCSI_INQ_BUFF_LEN];
-        int fd = -EBADF;
-        int cnt;
+        _cleanup_close_ int fd = -EBADF;
         int ind;
         int retval;
 
         memzero(dev_scsi->serial, len);
-        for (cnt = 20; cnt > 0; cnt--) {
-                fd = open(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOCTTY);
-                if (fd >= 0 || errno != EBUSY)
-                        break;
+        fd = scsi_get_serial_open_file(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC, page_code);
 
-                usleep_safe(200U*USEC_PER_MSEC + random_u64_range(100U*USEC_PER_MSEC));
-        }
         if (fd < 0)
                 return 1;
 
         if (page_code == PAGE_80) {
-                if (do_scsi_page80_inquiry(dev_scsi, fd, dev_scsi->serial, dev_scsi->serial_short, len)) {
+                if (sgio_do_scsi_page80_inquiry(dev_scsi, fd, dev_scsi->serial, dev_scsi->serial_short, len)) {
                         retval = 1;
                         goto completed;
                 } else  {
@@ -811,7 +1028,7 @@ int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
                         goto completed;
                 }
         } else if (page_code == PAGE_83) {
-                if (do_scsi_page83_inquiry(dev_scsi, fd, dev_scsi->serial, dev_scsi->serial_short, len, dev_scsi->unit_serial_number, dev_scsi->wwn, dev_scsi->wwn_vendor_extension, dev_scsi->tgpt_group)) {
+                if (sgio_do_scsi_page83_inquiry(dev_scsi, fd, dev_scsi->serial, dev_scsi->serial_short, len, dev_scsi->unit_serial_number, dev_scsi->wwn, dev_scsi->wwn_vendor_extension, dev_scsi->tgpt_group)) {
                         retval = 1;
                         goto completed;
                 } else  {
@@ -819,7 +1036,7 @@ int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
                         goto completed;
                 }
         } else if (page_code == PAGE_83_PRE_SPC3) {
-                retval = do_scsi_page83_prespc3_inquiry(dev_scsi, fd, dev_scsi->serial, dev_scsi->serial_short, len);
+                retval = sgio_do_scsi_page83_prespc3_inquiry(dev_scsi, fd, dev_scsi->serial, dev_scsi->serial_short, len);
                 if (retval) {
                         /*
                          * Fallback to servicing a SPC-2/3 compliant page 83
@@ -827,7 +1044,7 @@ int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
                          * conform to pre-SPC3 expectations.
                          */
                         if (retval == 2) {
-                                if (do_scsi_page83_inquiry(dev_scsi, fd, dev_scsi->serial, dev_scsi->serial_short, len, dev_scsi->unit_serial_number, dev_scsi->wwn, dev_scsi->wwn_vendor_extension, dev_scsi->tgpt_group)) {
+                                if (sgio_do_scsi_page83_inquiry(dev_scsi, fd, dev_scsi->serial, dev_scsi->serial_short, len, dev_scsi->unit_serial_number, dev_scsi->wwn, dev_scsi->wwn_vendor_extension, dev_scsi->tgpt_group)) {
                                         retval = 1;
                                         goto completed;
                                 } else  {
@@ -853,7 +1070,7 @@ int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
          * Get page 0, the page of the pages. By default, try from best to
          * worst of supported pages: 0x83 then 0x80.
          */
-        if (do_scsi_page0_inquiry(dev_scsi, fd, page0, SCSI_INQ_BUFF_LEN)) {
+        if (sgio_do_scsi_page0_inquiry(dev_scsi, fd, page0, SCSI_INQ_BUFF_LEN)) {
                 /*
                  * Don't try anything else. Black list if a specific page
                  * should be used for this vendor+model, or maybe have an
@@ -865,7 +1082,7 @@ int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
 
         for (ind = 4; ind <= page0[3] + 3; ind++)
                 if (page0[ind] == PAGE_83)
-                        if (!do_scsi_page83_inquiry(dev_scsi, fd,
+                        if (!sgio_do_scsi_page83_inquiry(dev_scsi, fd,
                                                     dev_scsi->serial, dev_scsi->serial_short, len, dev_scsi->unit_serial_number, dev_scsi->wwn, dev_scsi->wwn_vendor_extension, dev_scsi->tgpt_group)) {
                                 /*
                                  * Success
@@ -876,7 +1093,7 @@ int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
 
         for (ind = 4; ind <= page0[3] + 3; ind++)
                 if (page0[ind] == PAGE_80)
-                        if (!do_scsi_page80_inquiry(dev_scsi, fd,
+                        if (!sgio_do_scsi_page80_inquiry(dev_scsi, fd,
                                                     dev_scsi->serial, dev_scsi->serial_short, len)) {
                                 /*
                                  * Success
@@ -887,6 +1104,101 @@ int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
         retval = 1;
 
 completed:
-        close(fd);
+        return retval;
+}
+
+int sysfs_scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
+                          int page_code, int len) {
+        unsigned char page0[SCSI_INQ_BUFF_LEN];
+        int ind;
+        int retval;
+
+        memzero(dev_scsi->serial, len);
+
+        if (page_code == PAGE_80) {
+                if (sysfs_do_scsi_page80_inquiry(dev_scsi, devname, dev_scsi->serial, dev_scsi->serial_short, len)) {
+                        retval = 1;
+                        goto completed;
+                } else  {
+                        retval = 0;
+                        goto completed;
+                }
+        } else if (page_code == PAGE_83) {
+                if (sysfs_do_scsi_page83_inquiry(dev_scsi, devname, dev_scsi->serial, dev_scsi->serial_short, len, dev_scsi->unit_serial_number, dev_scsi->wwn, dev_scsi->wwn_vendor_extension, dev_scsi->tgpt_group)) {
+                        retval = 1;
+                        goto completed;
+                } else  {
+                        retval = 0;
+                        goto completed;
+                }
+        } else if (page_code == PAGE_83_PRE_SPC3) {
+                retval = sysfs_do_scsi_page83_prespc3_inquiry(dev_scsi, devname, dev_scsi->serial, dev_scsi->serial_short, len);
+                if (retval) {
+                        /*
+                         * Fallback to servicing a SPC-2/3 compliant page 83
+                         * inquiry if the page 83 reply format does not
+                         * conform to pre-SPC3 expectations.
+                         */
+                        if (retval == 2) {
+                                if (sysfs_do_scsi_page83_inquiry(dev_scsi, devname, dev_scsi->serial, dev_scsi->serial_short, len, dev_scsi->unit_serial_number, dev_scsi->wwn, dev_scsi->wwn_vendor_extension, dev_scsi->tgpt_group)) {
+                                        retval = 1;
+                                        goto completed;
+                                } else  {
+                                        retval = 0;
+                                        goto completed;
+                                }
+                        }
+                        else {
+                                retval = 1;
+                                goto completed;
+                        }
+                } else  {
+                        retval = 0;
+                        goto completed;
+                }
+        } else if (page_code != 0x00) {
+                log_debug("%s: unsupported page code 0x%d", dev_scsi->kernel, page_code);
+                retval = 1;
+                goto completed;
+        }
+
+        /*
+         * Get page 0, the page of the pages. By default, try from best to
+         * worst of supported pages: 0x83 then 0x80.
+         */
+        if (sysfs_do_scsi_page0_inquiry(dev_scsi, devname, page0, SCSI_INQ_BUFF_LEN)) {
+                /*
+                 * Don't try anything else. Black list if a specific page
+                 * should be used for this vendor+model, or maybe have an
+                 * optional fall-back to page 0x80 or page 0x83.
+                 */
+                retval = 1;
+                goto completed;
+        }
+
+        for (ind = 4; ind <= page0[3] + 3; ind++)
+                if (page0[ind] == PAGE_83)
+                        if (!sysfs_do_scsi_page83_inquiry(dev_scsi, devname,
+                                                    dev_scsi->serial, dev_scsi->serial_short, len, dev_scsi->unit_serial_number, dev_scsi->wwn, dev_scsi->wwn_vendor_extension, dev_scsi->tgpt_group)) {
+                                /*
+                                 * Success
+                                 */
+                                retval = 0;
+                                goto completed;
+                        }
+
+        for (ind = 4; ind <= page0[3] + 3; ind++)
+                if (page0[ind] == PAGE_80)
+                        if (!sysfs_do_scsi_page80_inquiry(dev_scsi, devname,
+                                                    dev_scsi->serial, dev_scsi->serial_short, len)) {
+                                /*
+                                 * Success
+                                 */
+                                retval = 0;
+                                goto completed;
+                        }
+        retval = 1;
+
+completed:
         return retval;
 }
