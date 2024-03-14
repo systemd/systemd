@@ -34,6 +34,8 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
 int fd_is_ns(int fd, unsigned long nsflag);
 
 int detach_mount_namespace(void);
+int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid);
+int detach_mount_namespace_userns(int userns_fd);
 
 static inline bool userns_shift_range_valid(uid_t shift, uid_t range) {
         /* Checks that the specified userns range makes sense, i.e. contains at least one UID, and the end
@@ -50,8 +52,15 @@ static inline bool userns_shift_range_valid(uid_t shift, uid_t range) {
         return true;
 }
 
+int userns_acquire_empty(void);
 int userns_acquire(const char *uid_map, const char *gid_map);
+
 int netns_acquire(void);
+
 int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type);
 
 int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_range);
+
+int namespace_open_by_type(NamespaceType type);
+
+int is_our_namespace(int fd, NamespaceType type);
