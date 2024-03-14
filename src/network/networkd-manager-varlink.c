@@ -188,8 +188,10 @@ static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *paramet
                 r = path_is_read_only_fs("/var/lib/systemd/network/");
                 if (r < 0)
                         return log_warning_errno(r, "Failed to check if /var/lib/systemd/network/ is writable: %m");
-                if (r > 0)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EROFS), "The directory /var/lib/systemd/network/ is read-only.");
+                if (r > 0) {
+                        log_warning("The directory /var/lib/systemd/network/ is read-only.");
+                        return varlink_error(vlink, "io.systemd.Network.StorageReadOnly", NULL);
+                }
         }
 
         r = varlink_verify_polkit_async(

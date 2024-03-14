@@ -20,16 +20,15 @@
 #include "tmpfile-util.h"
 
 /* When the data is smaller or equal to 64K, try to place the copy in a memfd/pipe */
-#define DATA_FD_MEMORY_LIMIT (64U*1024U)
+#define DATA_FD_MEMORY_LIMIT (64U * U64_KB)
 
 /* If memfd/pipe didn't work out, then let's use a file in /tmp up to a size of 1M. If it's large than that use /var/tmp instead. */
-#define DATA_FD_TMP_LIMIT (1024U*1024U)
+#define DATA_FD_TMP_LIMIT (1U * U64_MB)
 
-int acquire_data_fd(const void *data, size_t size, unsigned flags) {
-        _cleanup_close_pair_ int pipefds[2] = EBADF_PAIR;
+int acquire_data_fd_full(const void *data, size_t size, DataFDFlags flags) {
         _cleanup_close_ int fd = -EBADF;
-        int isz = 0, r;
         ssize_t n;
+        int r;
 
         assert(data || size == 0);
 
@@ -52,24 +51,25 @@ int acquire_data_fd(const void *data, size_t size, unsigned flags) {
          * It sucks a bit that depending on the situation we return very different objects here, but that's Linux I
          * figure. */
 
-        if (size == 0 && ((flags & ACQUIRE_NO_DEV_NULL) == 0))
+        if (size == SIZE_MAX)
+                size = strlen(data);
+
+        if (size == 0 && !FLAGS_SET(flags, ACQUIRE_NO_DEV_NULL))
                 /* As a special case, return /dev/null if we have been called for an empty data block */
                 return RET_NERRNO(open("/dev/null", O_RDONLY|O_CLOEXEC|O_NOCTTY));
 
-        if ((flags & ACQUIRE_NO_MEMFD) == 0) {
+        if (!FLAGS_SET(flags, ACQUIRE_NO_MEMFD)) {
                 fd = memfd_new_and_seal("data-fd", data, size);
-                if (fd < 0) {
-                        if (ERRNO_IS_NOT_SUPPORTED(fd))
-                                goto try_pipe;
-
+                if (fd < 0 && !ERRNO_IS_NOT_SUPPORTED(fd))
                         return fd;
-                }
-
-                return TAKE_FD(fd);
+                if (fd >= 0)
+                        return TAKE_FD(fd);
         }
 
-try_pipe:
-        if ((flags & ACQUIRE_NO_PIPE) == 0) {
+        if (!FLAGS_SET(flags, ACQUIRE_NO_PIPE)) {
+                _cleanup_close_pair_ int pipefds[2] = EBADF_PAIR;
+                int isz;
+
                 if (pipe2(pipefds, O_CLOEXEC|O_NONBLOCK) < 0)
                         return -errno;
 
@@ -106,7 +106,7 @@ try_pipe:
         }
 
 try_dev_shm:
-        if ((flags & ACQUIRE_NO_TMPFILE) == 0) {
+        if (!FLAGS_SET(flags, ACQUIRE_NO_TMPFILE)) {
                 fd = open("/dev/shm", O_RDWR|O_TMPFILE|O_CLOEXEC, 0500);
                 if (fd < 0)
                         goto try_dev_shm_without_o_tmpfile;
@@ -122,7 +122,7 @@ try_dev_shm:
         }
 
 try_dev_shm_without_o_tmpfile:
-        if ((flags & ACQUIRE_NO_REGULAR) == 0) {
+        if (!FLAGS_SET(flags, ACQUIRE_NO_REGULAR)) {
                 char pattern[] = "/dev/shm/data-fd-XXXXXX";
 
                 fd = mkostemp_safe(pattern);
@@ -179,7 +179,7 @@ int copy_data_fd(int fd) {
          * that we use the reported regular file size only as a hint, given that there are plenty special files in
          * /proc and /sys which report a zero file size but can be read from. */
 
-        if (!S_ISREG(st.st_mode) || st.st_size < DATA_FD_MEMORY_LIMIT) {
+        if (!S_ISREG(st.st_mode) || (uint64_t) st.st_size < DATA_FD_MEMORY_LIMIT) {
 
                 /* Try a memfd first */
                 copy_fd = memfd_new("data-fd");
@@ -252,7 +252,7 @@ int copy_data_fd(int fd) {
         }
 
         /* If we have reason to believe this will fit fine in /tmp, then use that as first fallback. */
-        if ((!S_ISREG(st.st_mode) || st.st_size < DATA_FD_TMP_LIMIT) &&
+        if ((!S_ISREG(st.st_mode) || (uint64_t) st.st_size < DATA_FD_TMP_LIMIT) &&
             (DATA_FD_MEMORY_LIMIT + remains_size) < DATA_FD_TMP_LIMIT) {
                 off_t f;
 

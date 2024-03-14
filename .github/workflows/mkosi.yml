@@ -75,8 +75,8 @@ jobs:
       SYSTEMD_LOG_LEVEL: debug
 
     steps:
-    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
-    - uses: systemd/mkosi@ea1b00c3dba12662214b2e95dd1fe837cb13664b
+    - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
+    - uses: systemd/mkosi@1445b389750af22756c0fde6facc1f2f343340b4
 
     - name: Free disk space
       run: |
@@ -99,7 +99,9 @@ jobs:
         ToolsTreeDistribution=fedora
         QemuVsock=yes
         # Sometimes we run on a host with /dev/kvm, but it is broken, so explicitly disable it
-        QemuKvm=no
+        QemuKvm=yes
+        # TODO: Drop once https://bugs.launchpad.net/ubuntu/+source/linux/+bug/2038777 is fixed in Github Actions
+        QemuFirmware=uefi
         Ephemeral=yes
         EOF
 

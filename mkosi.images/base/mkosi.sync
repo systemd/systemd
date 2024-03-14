@@ -2,12 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if ((CACHED)); then
-    exit 0
-fi
-
-if [ -z "$(ls --almost-all "pkg/$DISTRIBUTION")" ]; then
-    git clone "$PKG_URL" --branch "$PKG_BRANCH" "pkg/$DISTRIBUTION"
-elif [ -d "pkg/$DISTRIBUTION/.git" ] && [ "$(git -C "pkg/$DISTRIBUTION" rev-parse --abbrev-ref HEAD)" = "$PKG_BRANCH" ]; then
-    git -C "pkg/$DISTRIBUTION" pull
+if [ -z "$(ls --almost-all "pkg/$PKG_SUBDIR")" ] || [ -f "pkg/$PKG_SUBDIR/.git" ]; then
+    git submodule sync "pkg/$PKG_SUBDIR"
+    git submodule update --init "pkg/$PKG_SUBDIR"
 fi

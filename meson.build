@@ -1853,20 +1853,15 @@ endif
 conf.set_quoted('VERSION_TAG', version_tag)
 
 vcs_tag = get_option('vcs-tag')
-if vcs_tag and fs.is_dir(project_source_root / '.git')
-        version_h = vcs_tag(
-                input : 'src/version/version.h.in',
-                output : 'version.h',
-                fallback : '',
-                command : ['sh', '-c', 'echo "-g$(git -C . describe --abbrev=7 --match="" --always --dirty=^)"'],
-        )
-else
-        version_h = configure_file(
-                input : 'src/version/version.h.in',
-                output : 'version.h',
-                configuration : configuration_data({'VCS_TAG' : ''}),
-        )
-endif
+command = ['sh', '-c',
+           vcs_tag and fs.exists(project_source_root / '.git') ?
+                   'echo "-g$(git -C . describe --abbrev=7 --match="" --always --dirty=^)"' : ':']
+version_h = vcs_tag(
+        input : 'src/version/version.h.in',
+        output : 'version.h',
+        fallback : '',
+        command : command,
+)
 
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''

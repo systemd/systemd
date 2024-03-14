@@ -249,6 +249,7 @@ void udev_broadcast_result(sd_device_monitor *monitor, sd_device *dev, EventResu
                         break;
                 }
                 case EVENT_RESULT_EXIT_STATUS_BASE ... EVENT_RESULT_EXIT_STATUS_MAX:
+                        assert(result != EVENT_RESULT_EXIT_STATUS_BASE);
                         (void) device_add_propertyf(dev, "UDEV_WORKER_EXIT_STATUS", "%i", result - EVENT_RESULT_EXIT_STATUS_BASE);
                         break;
 

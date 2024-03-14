@@ -32,7 +32,7 @@ struct Inhibitor {
 
         sd_event_source *event_source;
 
-        const char *id;
+        char *id;
         char *state_file;
 
         bool started;
@@ -51,7 +51,7 @@ struct Inhibitor {
         int fifo_fd;
 };
 
-int inhibitor_new(Inhibitor **ret, Manager *m, const char* id);
+int inhibitor_new(Manager *m, const char* id, Inhibitor **ret);
 Inhibitor* inhibitor_free(Inhibitor *i);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Inhibitor*, inhibitor_free);

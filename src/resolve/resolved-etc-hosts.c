@@ -342,7 +342,7 @@ static int manager_etc_hosts_read(Manager *m) {
 
         m->etc_hosts_last = ts;
 
-        if (m->etc_hosts_stat.st_mode != 0) {
+        if (stat_is_set(&m->etc_hosts_stat)) {
                 if (stat("/etc/hosts", &st) < 0) {
                         if (errno != ENOENT)
                                 return log_error_errno(errno, "Failed to stat /etc/hosts: %m");
