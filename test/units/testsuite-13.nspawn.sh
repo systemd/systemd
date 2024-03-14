@@ -271,6 +271,13 @@ EOF
                    --load-credential=cred.path:/tmp/cred.path \
                    --set-credential="cred.set:hello world" \
                    bash -xec '[[ "$(</run/host/credentials/cred.path)" == "foo bar" ]]; [[ "$(</run/host/credentials/cred.set)" == "hello world" ]]'
+    # Combine with --user to ensure creds are still readable
+    systemd-nspawn --directory="$root" \
+                   --user=testuser \
+                   --no-new-privileges=yes \
+                   --load-credential=cred.path:/tmp/cred.path \
+                   --set-credential="cred.set:hello world" \
+                   bash -xec '[[ "$(</run/host/credentials/cred.path)" == "foo bar" ]]; [[ "$(</run/host/credentials/cred.set)" == "hello world" ]]'
     rm -f /tmp/cred.path
 
     # Assorted tests
