@@ -1,3 +1,4 @@
+pkg/debian
 src/basic/parse-util.c
 src/boot/efi/addon.c
 src/boot/efi/boot.c
