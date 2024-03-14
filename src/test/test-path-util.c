@@ -1305,4 +1305,28 @@ TEST(print_MAX) {
         assert_cc(FILENAME_MAX == PATH_MAX);
 }
 
+TEST(path_implies_directory) {
+        assert_se(!path_implies_directory(NULL));
+        assert_se(!path_implies_directory(""));
+        assert_se(path_implies_directory("/"));
+        assert_se(path_implies_directory("////"));
+        assert_se(path_implies_directory("////.///"));
+        assert_se(path_implies_directory("////./"));
+        assert_se(path_implies_directory("////."));
+        assert_se(path_implies_directory("."));
+        assert_se(path_implies_directory("./"));
+        assert_se(path_implies_directory("/."));
+        assert_se(path_implies_directory(".."));
+        assert_se(path_implies_directory("../"));
+        assert_se(path_implies_directory("/.."));
+        assert_se(!path_implies_directory("a"));
+        assert_se(!path_implies_directory("ab"));
+        assert_se(path_implies_directory("ab/"));
+        assert_se(!path_implies_directory("ab/a"));
+        assert_se(path_implies_directory("ab/a/"));
+        assert_se(path_implies_directory("ab/a/.."));
+        assert_se(path_implies_directory("ab/a/."));
+        assert_se(path_implies_directory("ab/a//"));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
