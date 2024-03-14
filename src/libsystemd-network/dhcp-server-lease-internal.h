@@ -38,3 +38,8 @@ int dhcp_server_static_leases_append_json(sd_dhcp_server *server, JsonVariant **
 
 int dhcp_server_save_leases(sd_dhcp_server *server);
 int dhcp_server_load_leases(sd_dhcp_server *server);
+int dhcp_server_leases_file_get_server_address(
+                int dir_fd,
+                const char *path,
+                struct in_addr *ret_address,
+                uint8_t *ret_prefixlen);
