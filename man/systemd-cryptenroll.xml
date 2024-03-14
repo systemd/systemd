@@ -61,6 +61,9 @@
     <para>The tool supports only LUKS2 volumes, as it stores token meta-information in the LUKS2 JSON token
     area, which is not available in other encryption formats.</para>
 
+    <para><command>systemd-cryptsetup</command> operates on the device backing <filename>/</filename> if no
+    device is specified explicitly</para>
+
     <refsect2>
       <title>TPM2 PCRs and policies</title>
 
@@ -228,7 +231,7 @@
     token, or a TPM2 key is always enrolled.</para>
 
     <para>Also note that support for enrolling multiple FIDO2 tokens is currently limited. When multiple FIDO2
-    tokens are enrolled, <command>systemd-cryptseup</command> will perform pre-flight requests to attempt to
+    tokens are enrolled, <command>systemd-cryptsetup</command> will perform pre-flight requests to attempt to
     identify which of the enrolled tokens are currently plugged in. However, this is not possible for FIDO2
     tokens with user verification (UV, usually via biometrics), in which case it will fall back to attempting
     each enrolled token one by one. This will result in multiple prompts for PIN and user verification. This
