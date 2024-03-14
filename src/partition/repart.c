@@ -3329,8 +3329,8 @@ static int context_dump(Context *context, bool late) {
         if (r < 0)
                 return r;
 
-        /* Make sure we only write the partition bar once, even if we're writing the partition table twice to
-         * communicate roothashes. */
+        /* Only write the partition bar once, even if we're writing the partition table twice to communicate
+         * roothashes. */
         if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) && !late) {
                 putc('\n', stdout);
 
@@ -4239,7 +4239,7 @@ static int partition_format_verity_hash(
         if (PARTITION_EXISTS(p)) /* Never format existing partitions */
                 return 0;
 
-        /* Minimized partitions will use the copy blocks logic so let's make sure to skip those here. */
+        /* Minimized partitions will use the copy blocks logic so skip those here. */
         if (p->copy_blocks_fd >= 0)
                 return 0;
 
@@ -4986,7 +4986,7 @@ static int context_mkfs(Context *context) {
                 if (!p->format)
                         continue;
 
-                /* Minimized partitions will use the copy blocks logic so let's make sure to skip those here. */
+                /* Minimized partitions will use the copy blocks logic so skip those here. */
                 if (p->copy_blocks_fd >= 0)
                         continue;
 
@@ -4997,7 +4997,7 @@ static int context_mkfs(Context *context) {
                 assert(p->new_size != UINT64_MAX);
                 assert(p->new_size >= (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_KEEP_FREE : 0));
 
-                /* If we're doing encryption, we make sure we keep free space at the end which is required
+                /* If we're doing encryption, keep free space at the end which is required
                  * for cryptsetup's offline encryption. */
                 r = partition_target_prepare(context, p,
                                              p->new_size - (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_KEEP_FREE : 0),
@@ -5046,8 +5046,8 @@ static int context_mkfs(Context *context) {
                         return r;
 
                 /* The mkfs binary we invoked might have removed our temporary file when we're not operating
-                 * on a loop device, so let's make sure we open the file again to make sure our file
-                 * descriptor points to any potential new file. */
+                 * on a loop device, so open the file again to make sure our file descriptor points to actual
+                 * new file. */
 
                 if (t->fd >= 0 && t->path && !t->loop) {
                         safe_close(t->fd);
