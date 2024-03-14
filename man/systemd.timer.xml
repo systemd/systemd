@@ -220,7 +220,9 @@
         the system was continuously sleeping the timer will only result in a single service activation. If
         <varname>WakeSystem=</varname> (see below) is enabled a calendar time event elapsing while the system
         is suspended will cause the system to wake up (under the condition the system's hardware supports
-        time-triggered wake-up functionality).</para>
+        time-triggered wake-up functionality). Note that this behavior can be modified by setting
+        <varname>AlwaysRealtime=</varname> to true, see below, in which case any timers that have triggered
+        when the system was sleeping will NOT trigger until the next calendar time event elapses.</para>
 
         <xi:include href="version-info.xml" xpointer="v197"/></listitem>
       </varlistentry>
@@ -301,6 +303,23 @@
 
         <para>This setting has no effect if <varname>RandomizedDelaySec=</varname> is set to 0. Defaults to
         <option>false</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AlwaysRealtime=</varname></term>
+
+        <listitem><para>Takes a boolean argument. When enabled, the service unit will only be triggered
+        at the moment any specified realtime expressions elapse, ignoring any timers that have elapsed
+        in the past. This is most apparent when a timer is triggered while the system is sleeping, or when
+        the service takes longer to run than the timer interval. In those cases, the default behavior is
+        for the timers that elapsed during those time periods to be immediately processed when the system
+        wakes up/is available again. But with this setting enabled, it will not do so, and the service unit
+        will have to wait until the next realtime elapse time to trigger.</para>
+
+        <para>This setting has no effect if a realtime timer has not been specified with
+        <varname>OnCalendar=</varname>. Defaults to <option>false</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
