@@ -307,7 +307,11 @@ int dhcp_server_save_leases(sd_dhcp_server *server) {
         if (r < 0)
                 return r;
 
-        r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_ID128("BootID", boot_id)));
+        r = json_build(&v, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_ID128("BootID", boot_id),
+                                JSON_BUILD_PAIR_IN4_ADDR("Address", &(struct in_addr) { .s_addr = server->address }),
+                                JSON_BUILD_PAIR_UNSIGNED("PrefixLength",
+                                        in4_addr_netmask_to_prefixlen(&(struct in_addr) { .s_addr = server->netmask }))));
         if (r < 0)
                 return r;
 
@@ -408,6 +412,8 @@ static int json_dispatch_dhcp_lease(sd_dhcp_server *server, JsonVariant *v, bool
 
 typedef struct SavedInfo {
         sd_id128_t boot_id;
+        struct in_addr address;
+        uint8_t prefixlen;
         JsonVariant *leases;
 } SavedInfo;
 
@@ -439,6 +445,8 @@ static int load_leases_file(int dir_fd, const char *path, SavedInfo *ret) {
 
         static const JsonDispatch dispatch_lease_file_table[] = {
                 { "BootID",       JSON_VARIANT_STRING,        json_dispatch_id128,   offsetof(SavedInfo, boot_id),   JSON_MANDATORY },
+                { "Address",      JSON_VARIANT_ARRAY,         json_dispatch_in_addr, offsetof(SavedInfo, address),   JSON_MANDATORY },
+                { "PrefixLength", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint8,   offsetof(SavedInfo, prefixlen), JSON_MANDATORY },
                 { "Leases",       JSON_VARIANT_ARRAY,         json_dispatch_variant, offsetof(SavedInfo, leases),    JSON_MANDATORY },
                 {}
         };
@@ -479,4 +487,27 @@ int dhcp_server_load_leases(sd_dhcp_server *server) {
         log_dhcp_server(server, "Loaded %zu lease(s) from %s.", m - n, server->lease_file);
 
         return r;
+}
+
+int dhcp_server_leases_file_get_server_address(
+                int dir_fd,
+                const char *path,
+                struct in_addr *ret_address,
+                uint8_t *ret_prefixlen) {
+
+        _cleanup_(saved_info_done) SavedInfo info = {};
+        int r;
+
+        if (!ret_address && !ret_prefixlen)
+                return 0;
+
+        r = load_leases_file(dir_fd, path, &info);
+        if (r < 0)
+                return r;
+
+        if (ret_address)
+                *ret_address = info.address;
+        if (ret_prefixlen)
+                *ret_prefixlen = info.prefixlen;
+        return 0;
 }
