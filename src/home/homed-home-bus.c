@@ -415,7 +415,7 @@ int bus_home_method_authenticate(
         return 1;
 }
 
-int bus_home_method_update_record(
+int bus_home_update_record(
                 Home *h,
                 sd_bus_message *message,
                 UserRecord *hr,
@@ -487,7 +487,7 @@ int bus_home_method_update(
                         return r;
         }
 
-        return bus_home_method_update_record(h, message, hr, blobs, flags, error);
+        return bus_home_update_record(h, message, hr, blobs, flags, error);
 }
 
 int bus_home_method_resize(
