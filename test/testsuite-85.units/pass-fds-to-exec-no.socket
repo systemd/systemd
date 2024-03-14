@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test if ExecXYZ= commands don't inherit listen FDs when PassFileDescriptorsToExec= is unset
+
+[Socket]
+# With Accept= set we don't need a corresponding service unit
+Accept=yes
+FileDescriptorName=foo
+ListenStream=127.0.0.1:1234
+ListenStream=[::1]:1234
+PassFileDescriptorsToExec=no
+ExecStartPre=\
+        test ExecStartPre -a \
+             -z ${LISTEN_FDS} -a \
+             -z ${LISTEN_FDNAMES} -a \
+             ! -e /dev/fd/3 -a \
+             ! -e /dev/fd/4
+ExecStartPost=\
+        test ExecStartPost -a \
+             -z ${LISTEN_FDS} -a \
+             -z ${LISTEN_FDNAMES} -a \
+             ! -e /dev/fd/3 -a \
+             ! -e /dev/fd/4
+ExecStopPre=\
+        test ExecStopPre -a \
+             -z ${LISTEN_FDS} -a \
+             -z ${LISTEN_FDNAMES} -a \
+             ! -e /dev/fd/3 -a \
+             ! -e /dev/fd/4
+ExecStopPost=\
+        test ExecStopPost -a \
+             -z ${LISTEN_FDS} -a \
+             -z ${LISTEN_FDNAMES} -a \
+             ! -e /dev/fd/3 -a \
+             ! -e /dev/fd/4
