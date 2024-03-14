@@ -594,6 +594,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTransparent: %s\n"
                 "%sBroadcast: %s\n"
                 "%sPassCredentials: %s\n"
+                "%sPassFileDescriptorsToExec: %s\n"
                 "%sPassSecurity: %s\n"
                 "%sPassPacketInfo: %s\n"
                 "%sTCPCongestion: %s\n"
@@ -614,6 +615,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->transparent),
                 prefix, yes_no(s->broadcast),
                 prefix, yes_no(s->pass_cred),
+                prefix, yes_no(s->pass_fds_to_exec),
                 prefix, yes_no(s->pass_sec),
                 prefix, yes_no(s->pass_pktinfo),
                 prefix, strna(s->tcp_congestion),
@@ -1901,6 +1903,9 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
         _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(
                         EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN);
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_strv_free_ char **fd_names = NULL;
+        _cleanup_free_ int *fds = NULL;
+        int n_fds;
         int r;
 
         assert(s);
@@ -1918,6 +1923,20 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
         r = unit_set_exec_params(UNIT(s), &exec_params);
         if (r < 0)
                 return r;
+
+        if (s->pass_fds_to_exec) {
+                n_fds = socket_collect_fds(s, &fds);
+                if (n_fds < 0)
+                        return n_fds;
+
+                r = strv_extend_n(&fd_names, socket_fdname(s), n_fds);
+                if (r < 0)
+                        return r;
+
+                exec_params.fds = TAKE_PTR(fds);
+                exec_params.fd_names = TAKE_PTR(fd_names);
+                exec_params.n_socket_fds = n_fds;
+        }
 
         r = exec_spawn(UNIT(s),
                        c,

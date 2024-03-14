@@ -1660,6 +1660,7 @@ org.freedesktop.systemd1.Socket.OOMScoreAdjust
 org.freedesktop.systemd1.Socket.PAMName
 org.freedesktop.systemd1.Socket.PassCredentials
 org.freedesktop.systemd1.Socket.PassEnvironment
+org.freedesktop.systemd1.Socket.PassFileDescriptorsToExec
 org.freedesktop.systemd1.Socket.PassPacketInfo
 org.freedesktop.systemd1.Socket.PassSecurity
 org.freedesktop.systemd1.Socket.Personality
