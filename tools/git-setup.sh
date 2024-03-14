@@ -4,6 +4,11 @@ set -eu
 
 cd "${MESON_SOURCE_ROOT:?}"
 
+if [ -e .git ]; then
+    git config submodule.recurse true
+    git config fetch.recurseSubmodules on-demand
+fi
+
 if [ ! -f .git/hooks/pre-commit.sample ] || [ -f .git/hooks/pre-commit ]; then
     exit 2 # not needed
 fi
