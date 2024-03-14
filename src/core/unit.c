@@ -2678,12 +2678,14 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                         unit_emit_audit_start(u);
                         manager_send_unit_plymouth(m, u);
+                        manager_send_unit_supervisor(m, u, /* active= */ true);
                 }
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(ns) && !UNIT_IS_INACTIVE_OR_FAILED(os)) {
                         /* This unit just stopped/failed. */
 
                         unit_emit_audit_stop(u, ns);
+                        manager_send_unit_supervisor(m, u, /* active= */ false);
                         unit_log_resources(u);
                 }
 
