@@ -592,7 +592,7 @@ static int method_update_home(sd_bus_message *message, void *userdata, sd_bus_er
         if (!h)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_HOME, "No home for user %s known", hr->user_name);
 
-        return bus_home_method_update_record(h, message, hr, blobs, flags, error);
+        return bus_home_update_record(h, message, hr, blobs, flags, error);
 }
 
 static int method_resize_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
