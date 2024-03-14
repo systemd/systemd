@@ -592,7 +592,7 @@ static int method_update_home(sd_bus_message *message, void *userdata, sd_bus_er
         if (!h)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_HOME, "No home for user %s known", hr->user_name);
 
-        return bus_home_method_update_record(h, message, hr, blobs, flags, error);
+        return bus_home_update_record(h, message, hr, blobs, flags, error);
 }
 
 static int method_resize_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -625,6 +625,33 @@ static int method_release_home(sd_bus_message *message, void *userdata, sd_bus_e
 
 static int method_inhibit_suspend_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return generic_home_method(userdata, message, bus_home_method_inhibit_suspend, error);
+}
+
+static int method_delay_lock(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *path = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        const char *user_name;
+        Home *h;
+        int r;
+
+        r = sd_bus_message_read(message, "s", &user_name);
+        if (r < 0)
+                return r;
+
+        r = lookup_user_name(m, message, user_name, error, &h);
+        if (r < 0)
+                return r;
+
+        fd = bus_home_delay_lock(h, message, error);
+        if (fd < 0)
+                return fd;
+
+        r = bus_home_path(h, &path);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, "ho", fd, path);
 }
 
 static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -905,6 +932,11 @@ static const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_ARGS("s", user_name),
                                 SD_BUS_RESULT("h", send_fd),
                                 method_inhibit_suspend_home,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("DelayLockHome",
+                                SD_BUS_ARGS("s", user_name),
+                                SD_BUS_RESULT("h", send_fd, "o", obj_path),
+                                method_delay_lock,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         /* An operation that acts on all homes that allow it */
