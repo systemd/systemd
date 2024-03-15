@@ -160,7 +160,7 @@ int link_start_dhcp4_server(Link *link) {
          * the realtime clock in not usable in the early boot stage, and all saved leases may be wrongly
          * handled as expired and dropped. */
         if (!sd_dhcp_server_is_in_relay_mode(link->dhcp_server) &&
-            !link->manager->persistent_storage_is_ready)
+            link->manager->persistent_storage_fd < 0)
                 return 0;
 
         r = sd_dhcp_server_start(link->dhcp_server);
