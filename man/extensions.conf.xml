@@ -1,0 +1,102 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="extensions.conf" conditional='ENABLE_SYSEXT'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>extensions.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>extensions.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>extensions.conf</refname>
+    <refname>extensions.conf.d</refname>
+    <refpurpose>Global <command>systemd-sysext</command> configuration files</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/systemd/extensions.conf</filename></member>
+      <member><filename>/run/systemd/extensions.conf</filename></member>
+      <member><filename>/usr/lib/systemd/extensions.conf</filename></member>
+      <member><filename>/etc/systemd/extensions.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/extensions.conf.d/*.conf</filename></member>
+      <member><filename>/usr/local/lib/systemd/extensions.conf.d/*.conf</filename></member>
+      <member><filename>/usr/lib/systemd/extensions.conf.d/*.conf</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These files configure the behavior of activating System Extension Images done by
+    <citerefentry><refentrytitle>systemd-sysext.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd-confext.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    See <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
+
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>[Sysext] Section Options</title>
+
+    <para>The following options are available in the [Sysext] section:</para>
+
+    <variablelist class='config-directives'>
+      <varlistentry>
+        <term><varname>Mutable=</varname></term>
+
+        <listitem><para>Sets the default mutability mode of the merged <filename>/usr/</filename> and
+        <filename>/opt/</filename> hierarchies. Possible values are <literal>auto</literal>,
+        <literal>import</literal>, <literal>ephemeral</literal>, <literal>ephemeral-import</literal> and
+        boolean values. Defaults to <literal>no</literal>. See
+        <citerefentry><refentrytitle>systemd-sysext.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for the meaning of those values.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[Confext] Section Options</title>
+
+    <para>The following options are available in the [Confext] section:</para>
+
+    <variablelist class='config-directives'>
+      <varlistentry>
+        <term><varname>Mutable=</varname></term>
+
+        <listitem><para>Sets the default mutability mode of the merged <filename>/etc/</filename> hierarchy.
+        Possible values are <literal>auto</literal>, <literal>import</literal>, <literal>ephemeral</literal>,
+        <literal>ephemeral-import</literal> and boolean values. Defaults to <literal>no</literal>. See
+        <citerefentry><refentrytitle>systemd-confext.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for the meaning of those values.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para><simplelist type="inline">
+        <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-sysext.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-confext.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      </simplelist></para>
+  </refsect1>
+
+</refentry>

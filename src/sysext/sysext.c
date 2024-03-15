@@ -16,6 +16,7 @@
 #include "bus-util.h"
 #include "capability-util.h"
 #include "chase.h"
+#include "conf-parser.h"
 #include "constants.h"
 #include "devnum-util.h"
 #include "discover-image.h"
@@ -56,6 +57,8 @@ typedef enum MutableMode {
         MUTABLE_NO,
         MUTABLE_AUTO,
         MUTABLE_IMPORT,
+        MUTABLE_EPHEMERAL,
+        MUTABLE_EPHEMERAL_IMPORT,
         _MUTABLE_MAX,
         _MUTABLE_INVALID = -EINVAL,
 } MutableMode;
@@ -75,6 +78,8 @@ static MutableMode arg_mutable = MUTABLE_NO;
 /* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
 static ImageClass arg_image_class = IMAGE_SYSEXT;
 
+static const char *mutable_extensions_base_dir = "/var/lib/extensions.mutable";
+
 STATIC_DESTRUCTOR_REGISTER(arg_hierarchies, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
@@ -90,6 +95,7 @@ static const struct {
         const char *level_env;
         const char *scope_env;
         const char *name_env;
+        const char *config_section;
         const ImagePolicy *default_image_policy;
         unsigned long default_mount_flags;
 } image_class_info[_IMAGE_CLASS_MAX] = {
@@ -102,6 +108,7 @@ static const struct {
                 .level_env = "SYSEXT_LEVEL",
                 .scope_env = "SYSEXT_SCOPE",
                 .name_env = "SYSTEMD_SYSEXT_HIERARCHIES",
+                .config_section = "Sysext",
                 .default_image_policy = &image_policy_sysext,
                 .default_mount_flags = MS_RDONLY|MS_NODEV,
         },
@@ -114,10 +121,53 @@ static const struct {
                 .level_env = "CONFEXT_LEVEL",
                 .scope_env = "CONFEXT_SCOPE",
                 .name_env = "SYSTEMD_CONFEXT_HIERARCHIES",
+                .config_section = "Confext",
                 .default_image_policy = &image_policy_confext,
                 .default_mount_flags = MS_RDONLY|MS_NODEV|MS_NOSUID|MS_NOEXEC,
         }
 };
+
+static int parse_mutable_mode(const char *p) {
+        assert(p);
+
+        if (streq(p, "auto"))
+                return MUTABLE_AUTO;
+
+        if (streq(p, "import"))
+                return MUTABLE_IMPORT;
+
+        if (streq(p, "ephemeral"))
+                return MUTABLE_EPHEMERAL;
+
+        if (streq(p, "ephemeral-import"))
+                return MUTABLE_EPHEMERAL_IMPORT;
+
+        int r = parse_boolean(p);
+        if (r < 0)
+                return r;
+
+        return r ? MUTABLE_YES : MUTABLE_NO;
+}
+
+static int config_parse_mutable_mode(CONFIG_PARSER_ARGUMENTS);
+DEFINE_CONFIG_PARSE(config_parse_mutable_mode, parse_mutable_mode, "Failed to parse mutable mode value");
+
+static int parse_config(ImageClass image_class) {
+        const ConfigTableItem items[] = {
+                { image_class_info[image_class].config_section, "Mutable", config_parse_mutable_mode, 0, &arg_mutable },
+        };
+
+        _cleanup_free_ char *sections = NULL;
+
+        if (asprintf(&sections, "%s#", image_class_info[image_class].config_section) < 0)
+                return log_oom ();
+        sections[strlen(sections) - 1] = '\0';
+
+        return config_parse_standard_file_with_dropins("systemd/extensions.conf", sections,
+                                                       config_item_table_lookup, items,
+                                                       CONFIG_PARSE_WARN | CONFIG_PARSE_RELAXED,
+                                                       /* userdata= */ NULL);
+}
 
 static int is_our_mount_point(
                 ImageClass image_class,
@@ -636,17 +686,6 @@ static char *hierarchy_as_single_path_component(const char *hierarchy) {
         return TAKE_PTR(dir_name);
 }
 
-static char *determine_mutable_directory_path_for_hierarchy(const char *hierarchy) {
-        _cleanup_free_ char *dir_name = NULL;
-
-        assert(hierarchy);
-        dir_name = hierarchy_as_single_path_component(hierarchy);
-        if (!dir_name)
-                return NULL;
-
-        return path_join("/var/lib/extensions.mutable", dir_name);
-}
-
 static int paths_on_same_fs(const char *path1, const char *path2) {
         struct stat st1, st2;
 
@@ -748,8 +787,13 @@ static int resolve_hierarchy(const char *hierarchy, char **ret_resolved_hierarch
         return 0;
 }
 
-static int resolve_mutable_directory(const char *hierarchy, char **ret_resolved_mutable_directory) {
-        _cleanup_free_ char *path = NULL, *resolved_path = NULL;
+static int resolve_mutable_directory(
+                const char *hierarchy,
+                const char *workspace,
+                char **ret_resolved_mutable_directory) {
+
+        _cleanup_free_ char *path = NULL, *resolved_path = NULL, *dir_name = NULL;
+        const char *root = arg_root, *base = mutable_extensions_base_dir;
         int r;
 
         assert(hierarchy);
@@ -761,14 +805,23 @@ static int resolve_mutable_directory(const char *hierarchy, char **ret_resolved_
                 return 0;
         }
 
-        path = determine_mutable_directory_path_for_hierarchy(hierarchy);
+        if ((arg_mutable == MUTABLE_EPHEMERAL) || (arg_mutable == MUTABLE_EPHEMERAL_IMPORT)) {
+                root = NULL;
+                base = workspace;
+        }
+
+        dir_name = hierarchy_as_single_path_component(hierarchy);
+        if (!dir_name)
+                return log_oom();
+
+        path = path_join(base, dir_name);
         if (!path)
                 return log_oom();
 
-        if (arg_mutable == MUTABLE_YES) {
+        if ((arg_mutable == MUTABLE_YES) || (arg_mutable == MUTABLE_EPHEMERAL) || (arg_mutable == MUTABLE_EPHEMERAL_IMPORT)) {
                 _cleanup_free_ char *path_in_root = NULL;
 
-                path_in_root = path_join(arg_root, path);
+                path_in_root = path_join(root, path);
                 if (!path_in_root)
                         return log_oom();
 
@@ -777,7 +830,7 @@ static int resolve_mutable_directory(const char *hierarchy, char **ret_resolved_
                         return log_error_errno(r, "Failed to create a directory '%s': %m", path_in_root);
         }
 
-        r = chase(path, arg_root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
+        r = chase(path, root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
         if (r < 0 && r != -ENOENT)
                 return log_error_errno(r, "Failed to resolve mutable directory '%s': %m", path);
 
@@ -785,7 +838,7 @@ static int resolve_mutable_directory(const char *hierarchy, char **ret_resolved_
         return 0;
 }
 
-static int overlayfs_paths_new(const char *hierarchy, OverlayFSPaths **ret_op) {
+static int overlayfs_paths_new(const char *hierarchy, const char *workspace_path, OverlayFSPaths **ret_op) {
         _cleanup_free_ char *hierarchy_copy = NULL, *resolved_hierarchy = NULL, *resolved_mutable_directory = NULL;
         int r;
 
@@ -799,7 +852,7 @@ static int overlayfs_paths_new(const char *hierarchy, OverlayFSPaths **ret_op) {
         r = resolve_hierarchy(hierarchy, &resolved_hierarchy);
         if (r < 0)
                 return r;
-        r = resolve_mutable_directory(hierarchy, &resolved_mutable_directory);
+        r = resolve_mutable_directory(hierarchy, workspace_path, &resolved_mutable_directory);
         if (r < 0)
                 return r;
 
@@ -818,6 +871,79 @@ static int overlayfs_paths_new(const char *hierarchy, OverlayFSPaths **ret_op) {
         return 0;
 }
 
+static int resolved_paths_equal(const char *resolved_a, const char *resolved_b) {
+        /* Returns true if paths are of the same entry, false if not, <0 on error. */
+
+        if (path_equal(resolved_a, resolved_b))
+                return 1;
+
+        if (!resolved_a || !resolved_b)
+                return 0;
+
+        return inode_same(resolved_a, resolved_b, 0);
+}
+
+static int maybe_import_mutable_directory(OverlayFSPaths *op) {
+        int r;
+
+        assert(op);
+
+        /* If importing mutable layer and it actually exists and is not a hierarchy itself, add it just below
+         * the meta path */
+
+        if (arg_mutable != MUTABLE_IMPORT || !op->resolved_mutable_directory)
+                return 0;
+
+        r = resolved_paths_equal(op->resolved_hierarchy, op->resolved_mutable_directory);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
+        if (r)
+                return log_error_errno(SYNTHETIC_ERRNO(ELOOP), "Not importing mutable directory for hierarchy %s as a lower dir, because it points to the hierarchy itself", op->hierarchy);
+
+        r = strv_extend(&op->lower_dirs, op->resolved_mutable_directory);
+        if (r < 0)
+                return log_oom ();
+
+        return 0;
+}
+
+static int maybe_import_ignored_mutable_directory(OverlayFSPaths *op) {
+        _cleanup_free_ char *dir_name = NULL, *path = NULL, *resolved_path = NULL;
+        int r;
+
+        assert(op);
+
+        /* If importing the ignored mutable layer and it actually exists and is not a hierarchy itself, add
+         * it just below the meta path */
+        if (arg_mutable != MUTABLE_EPHEMERAL_IMPORT)
+                return 0;
+
+        dir_name = hierarchy_as_single_path_component(op->hierarchy);
+        if (!dir_name)
+                return log_oom();
+
+        path = path_join(mutable_extensions_base_dir, dir_name);
+        if (!path)
+                return log_oom();
+
+        r = chase(path, arg_root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "Failed to resolve mutable directory '%s': %m", path);
+
+        r = resolved_paths_equal(op->resolved_hierarchy, resolved_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
+
+        if (r)
+                return log_error_errno(SYNTHETIC_ERRNO(ELOOP), "Not importing mutable directory for hierarchy %s as a lower dir, because it points to the hierarchy itself", op->hierarchy);
+
+        r = strv_consume(&op->lower_dirs, TAKE_PTR(resolved_path));
+        if (r < 0)
+                return log_oom ();
+
+        return 0;
+}
+
 static int determine_top_lower_dirs(OverlayFSPaths *op, const char *meta_path) {
         int r;
 
@@ -829,12 +955,13 @@ static int determine_top_lower_dirs(OverlayFSPaths *op, const char *meta_path) {
         if (r < 0)
                 return log_oom();
 
-        /* If importing mutable layer and it actually exists, add it just below the meta path */
-        if (arg_mutable == MUTABLE_IMPORT && op->resolved_mutable_directory) {
-                r = strv_extend(&op->lower_dirs, op->resolved_mutable_directory);
-                if (r < 0)
-                        return r;
-        }
+        r = maybe_import_mutable_directory(op);
+        if (r < 0)
+                return r;
+
+        r = maybe_import_ignored_mutable_directory(op);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -898,7 +1025,12 @@ static int hierarchy_as_lower_dir(OverlayFSPaths *op) {
         }
 
         if (arg_mutable == MUTABLE_IMPORT) {
-                log_debug("Mutability for host hierarchy '%s' is disabled, so it will be a lowerdir", op->resolved_hierarchy);
+                log_debug("Mutability for host hierarchy '%s' is disabled, so host hierarchy will be a lowerdir", op->resolved_hierarchy);
+                return 0;
+        }
+
+        if (arg_mutable == MUTABLE_EPHEMERAL_IMPORT) {
+                log_debug("Mutability for host hierarchy '%s' is ephemeral, so host hierarchy will be a lowerdir", op->resolved_hierarchy);
                 return 0;
         }
 
@@ -907,13 +1039,9 @@ static int hierarchy_as_lower_dir(OverlayFSPaths *op) {
                 return 0;
         }
 
-        if (path_equal(op->resolved_hierarchy, op->resolved_mutable_directory)) {
-                log_debug("Host hierarchy '%s' will serve as upperdir.", op->resolved_hierarchy);
-                return 1;
-        }
-        r = inode_same(op->resolved_hierarchy, op->resolved_mutable_directory, 0);
+        r = resolved_paths_equal(op->resolved_hierarchy, op->resolved_mutable_directory);
         if (r < 0)
-                return log_error_errno(r, "Failed to check inode equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
+                return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
         if (r > 0) {
                 log_debug("Host hierarchy '%s' will serve as upperdir.", op->resolved_hierarchy);
                 return 1;
@@ -933,7 +1061,7 @@ static int determine_bottom_lower_dirs(OverlayFSPaths *op) {
         if (!r) {
                 r = strv_extend(&op->lower_dirs, op->resolved_hierarchy);
                 if (r < 0)
-                        return r;
+                        return log_oom();
         }
 
         return 0;
@@ -1116,6 +1244,10 @@ static int write_work_dir_file(ImageClass image_class, const char *meta_path, co
         if (!work_dir)
                 return 0;
 
+        /* Do not store work dir path for ephemeral mode, it will be gone once this process is done. */
+        if ((arg_mutable == MUTABLE_EPHEMERAL) || (arg_mutable == MUTABLE_EPHEMERAL_IMPORT))
+                return 0;
+
         work_dir_in_root = path_startswith(work_dir, empty_to_root(arg_root));
         if (!work_dir_in_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Workdir '%s' must not be outside root '%s'", work_dir, empty_to_root(arg_root));
@@ -1209,7 +1341,8 @@ static int merge_hierarchy(
                 char **extensions,
                 char **paths,
                 const char *meta_path,
-                const char *overlay_path) {
+                const char *overlay_path,
+                const char *workspace_path) {
 
         _cleanup_(overlayfs_paths_freep) OverlayFSPaths *op = NULL;
         size_t extensions_used = 0;
@@ -1220,8 +1353,9 @@ static int merge_hierarchy(
         assert(paths);
         assert(meta_path);
         assert(overlay_path);
+        assert(workspace_path);
 
-        r = overlayfs_paths_new(hierarchy, &op);
+        r = overlayfs_paths_new(hierarchy, workspace_path, &op);
         if (r < 0)
                 return r;
 
@@ -1530,7 +1664,7 @@ static int merge_subprocess(
 
         /* Create overlayfs mounts for all hierarchies */
         STRV_FOREACH(h, hierarchies) {
-                _cleanup_free_ char *meta_path = NULL, *overlay_path = NULL;
+                _cleanup_free_ char *meta_path = NULL, *overlay_path = NULL, *merge_hierarchy_workspace = NULL;
 
                 meta_path = path_join(workspace, "meta", *h); /* The place where to store metadata about this instance */
                 if (!meta_path)
@@ -1540,6 +1674,11 @@ static int merge_subprocess(
                 if (!overlay_path)
                         return log_oom();
 
+                /* Temporary directory for merge_hierarchy needs, like ephemeral directories. */
+                merge_hierarchy_workspace = path_join(workspace, "mh_workspace", *h);
+                if (!merge_hierarchy_workspace)
+                        return log_oom();
+
                 r = merge_hierarchy(
                                 image_class,
                                 *h,
@@ -1547,7 +1686,8 @@ static int merge_subprocess(
                                 extensions,
                                 paths,
                                 meta_path,
-                                overlay_path);
+                                overlay_path,
+                                merge_hierarchy_workspace);
                 if (r < 0)
                         return r;
         }
@@ -1618,6 +1758,9 @@ static int merge(ImageClass image_class,
 
         if (r == 123) /* exit code 123 means: didn't do anything */
                 return 0;
+
+        if (r > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Failed to merge hierarchies");
 
         r = need_reload(image_class, hierarchies, no_reload);
         if (r < 0)
@@ -1996,6 +2139,8 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "\n%3$sOptions:%4$s\n"
+               "     --mutable=yes|no|auto|import\n"
+               "                          Specify a mutability mode of the merged hierarchy\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
                "     --root=PATH          Operate relative to root path\n"
@@ -2109,16 +2254,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MUTABLE:
-                        if (streq(optarg, "auto"))
-                                arg_mutable = MUTABLE_AUTO;
-                        else if (streq(optarg, "import"))
-                                arg_mutable = MUTABLE_IMPORT;
-                        else {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse argument to --mutable=: %s", optarg);
-                                arg_mutable = r ? MUTABLE_YES : MUTABLE_NO;
-                        }
+                        r = parse_mutable_mode(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse argument to --mutable=: %s", optarg);
+                        arg_mutable = r;
                         break;
 
                 case '?':
@@ -2158,6 +2297,10 @@ static int run(int argc, char *argv[]) {
         log_setup();
 
         arg_image_class = invoked_as(argv, "systemd-confext") ? IMAGE_CONFEXT : IMAGE_SYSEXT;
+
+        r = parse_config(arg_image_class);
+        if (r < 0)
+                return r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
