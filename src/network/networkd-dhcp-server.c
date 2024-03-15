@@ -147,6 +147,20 @@ int network_adjust_dhcp_server(Network *network, Set **addresses) {
         return 0;
 }
 
+static bool dhcp_server_persist_leases(Link *link) {
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+
+        if (in4_addr_is_set(&link->network->dhcp_server_relay_target))
+                return false; /* On relay mode. Nothing saved in the persistent storage. */
+
+        if (link->network->dhcp_server_persist_leases >= 0)
+                return link->network->dhcp_server_persist_leases;
+
+        return link->manager->dhcp_server_persist_leases;
+}
+
 int address_acquire_from_dhcp_server_leases_file(Link *link, const Address *address, union in_addr_union *ret) {
         struct in_addr a;
         uint8_t prefixlen;
@@ -166,6 +180,9 @@ int address_acquire_from_dhcp_server_leases_file(Link *link, const Address *addr
                 return -ENOENT;
 
         if (!link_dhcp4_server_enabled(link))
+                return -ENOENT;
+
+        if (!dhcp_server_persist_leases(link))
                 return -ENOENT;
 
         if (link->manager->persistent_storage_fd < 0)
@@ -208,7 +225,7 @@ int link_start_dhcp4_server(Link *link) {
         /* TODO: Maybe, also check the system time is synced. If the system does not have RTC battery, then
          * the realtime clock in not usable in the early boot stage, and all saved leases may be wrongly
          * handled as expired and dropped. */
-        if (!sd_dhcp_server_is_in_relay_mode(link->dhcp_server)) {
+        if (dhcp_server_persist_leases(link)) {
 
                 if (link->manager->persistent_storage_fd < 0)
                         return 0; /* persistent storage is not ready. */
@@ -239,7 +256,7 @@ void manager_toggle_dhcp4_server_state(Manager *manager, bool start) {
         HASHMAP_FOREACH(link, manager->links_by_index) {
                 if (!link->dhcp_server)
                         continue;
-                if (sd_dhcp_server_is_in_relay_mode(link->dhcp_server))
+                if (!dhcp_server_persist_leases(link))
                         continue;
 
                 /* Even if 'start' is true, first we need to stop the server. Otherwise, we cannot (re)set
