@@ -211,7 +211,6 @@ static bool use_dmi_data(void) {
 
 static int get_dmi_data(const char *database_key, const char *regular_key, char **ret) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        _cleanup_free_ char *b = NULL;
         const char *s = NULL;
         int r;
 
@@ -227,17 +226,7 @@ static int get_dmi_data(const char *database_key, const char *regular_key, char 
         if (!s && regular_key)
                 (void) sd_device_get_property_value(device, regular_key, &s);
 
-        if (!ret)
-                return !!s;
-
-        if (s) {
-                b = strdup(s);
-                if (!b)
-                        return -ENOMEM;
-        }
-
-        *ret = TAKE_PTR(b);
-        return !!s;
+        return strdup_to_full(ret, s);
 }
 
 static int get_hardware_vendor(char **ret) {
@@ -264,23 +253,7 @@ static int get_hardware_firmware_data(const char *sysattr, char **ret) {
 
         (void) sd_device_get_sysattr_value(device, sysattr, &s);
 
-        bool empty = isempty(s);
-
-        if (ret) {
-                if (empty)
-                        *ret = NULL;
-                else {
-                        _cleanup_free_ char *b = NULL;
-
-                        b = strdup(s);
-                        if (!b)
-                                return -ENOMEM;
-
-                        *ret = TAKE_PTR(b);
-                }
-        }
-
-        return !empty;
+        return strdup_to_full(ret, empty_to_null(s));
 }
 
 static int get_hardware_serial(char **ret) {
