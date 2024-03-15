@@ -53,7 +53,7 @@ _portablectl() {
                 comps="default nonetwork strict trusted"
                 ;;
             --copy)
-                comps="copy symlink auto"
+                comps="copy symlink auto mixed"
                 ;;
             --host|-H)
                 comps=$(compgen -A hostname)
