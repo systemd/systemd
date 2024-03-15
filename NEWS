@@ -277,12 +277,12 @@ CHANGES WITH 256 in spe:
           mounts to map the target directory owner from inside the container to
           the owner of the directory bound from the host filesystem.
 
-        * A sshd config drop-in to allow ssh keys acquired via userdbctl to be
+        * An sshd config drop-in to allow ssh keys acquired via userdbctl to be
           used for authorization.
 
         * New generator systemd-ssh-generator can be used to bind a
           socket-activated SSH instance to a local AF_SOCK or AF_UNIX socket.
-          This generator will automaticaly bind /run/host/unix-export/ssh.
+          This generator will automatically bind /run/host/unix-export/ssh.
 
         * systemd-resolved now implements RFC 8914 EDE error codes.
 
@@ -339,7 +339,7 @@ CHANGES WITH 256 in spe:
 
         * 'systemctl edit --stdin' allows creation of unit files and drop-ins
           with contents fed via standard input. This is useful when creating
-          configuration programatically; the tool takes care of figuring out
+          configuration programmatically; the tool takes care of figuring out
           the file name, creating any directories, and reloading the manager
           afterwards.
 
