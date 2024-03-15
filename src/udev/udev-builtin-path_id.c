@@ -24,6 +24,7 @@
 #include "sysexits.h"
 #include "udev-builtin.h"
 #include "udev-util.h"
+#include "device-util.h"
 
 _printf_(2,3)
 static void path_prepend(char **path, const char *fmt, ...) {
@@ -635,8 +636,24 @@ static int find_real_nvme_parent(sd_device *dev, sd_device **ret) {
                 return r;
 
         /* If the 'real parent' is (still) virtual, e.g. for nvmf disks, refuse to set ID_PATH. */
-        if (path_startswith(devpath, "/devices/virtual/"))
-                return -ENXIO;
+        if (path_startswith(devpath, "/devices/virtual/")) {
+		const char *syspath;
+		const char *addr, *fc_pn, *name, *nvme_pn;
+		struct sd_device *fcdev = NULL, *fc_parent = NULL;
+
+		sd_device_get_sysattr_value(nvme, "address", &addr);
+		nvme_pn = strrchr(addr, '-') + 1;
+
+		sd_device_new_from_syspath(&fc_parent, "/sys/class/fc_host");
+		FOREACH_DEVICE_CHILD_WITH_SUFFIX(fc_parent, child, name) {
+			fcdev = child;
+			sd_device_get_sysattr_value(fcdev, "port_name", &fc_pn);
+			if (strcmp(fc_pn, nvme_pn) == 0)
+				break;
+		}
+		sd_device_get_syspath(fcdev, &syspath);
+		nvme = fcdev;
+	}
 
         *ret = TAKE_PTR(nvme);
         return 0;
