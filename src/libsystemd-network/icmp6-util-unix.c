@@ -27,15 +27,6 @@ int icmp6_send(int fd, const struct sockaddr_in6 *dst, const struct iovec *iov, 
         return writev(fd, iov, n_iov);
 }
 
-int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
-        static const struct nd_router_solicit header = {
-                .nd_rs_type = ND_ROUTER_SOLICIT,
-        };
-
-        assert_se(write(s, &header, sizeof(header)) >= 0);
-        return 0;
-}
-
 int icmp6_receive(
                 int fd,
                 void *iov_base,
