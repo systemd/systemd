@@ -14,6 +14,14 @@ feature, please feel invited to fix it, and submit your work as a
 Please make sure to follow our [Coding Style](CODING_STYLE) when submitting
 patches. Also have a look at our [Contribution Guidelines](CONTRIBUTING).
 
+To start, run the following commands in the systemd git repository to set up
+git correctly (running `meson` will run these commands for you automatically):
+
+```shell
+$ git config submodule.recurse true
+$ git config fetch.recurseSubmodules on-demand
+```
+
 When adding new functionality, tests should be added. For shared functionality
 (in `src/basic/` and `src/shared/`) unit tests should be sufficient. The general
 policy is to keep tests in matching files underneath `src/test/`,
