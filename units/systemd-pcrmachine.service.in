@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=TPM2 PCR Machine ID Measurement
+Description=TPM PCR Machine ID Measurement
 Documentation=man:systemd-pcrmachine.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target

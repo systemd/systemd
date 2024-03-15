@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=TPM2 SRK Setup (Early)
+Description=Early TPM SRK Setup
 Documentation=man:systemd-tpm2-setup.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target

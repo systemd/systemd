@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=TPM2 PCR File System Measurement of %f
+Description=TPM PCR File System Measurement of %f
 Documentation=man:systemd-pcrfs@.service(8)
 DefaultDependencies=no
 BindsTo=%i.mount
