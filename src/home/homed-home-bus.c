@@ -415,7 +415,7 @@ int bus_home_method_authenticate(
         return 1;
 }
 
-int bus_home_method_update_record(
+int bus_home_update_record(
                 Home *h,
                 sd_bus_message *message,
                 UserRecord *hr,
@@ -487,7 +487,7 @@ int bus_home_method_update(
                         return r;
         }
 
-        return bus_home_method_update_record(h, message, hr, blobs, flags, error);
+        return bus_home_update_record(h, message, hr, blobs, flags, error);
 }
 
 int bus_home_method_resize(
@@ -790,6 +790,64 @@ int bus_home_method_inhibit_suspend(
         return sd_bus_reply_method_return(message, "h", fd);
 }
 
+int bus_home_delay_lock(
+                Home *h,
+                sd_bus_message *message,
+                sd_bus_error *error) {
+
+        _cleanup_close_ int fd = -EBADF;
+        HomeState state;
+        int r;
+
+        r = home_verify_polkit_async(
+                        h,
+                        message,
+                        "org.freedesktop.home1.delay-lock",
+                        h->uid,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        state = home_get_state(h);
+        switch (state) {
+        case HOME_ABSENT:
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
+        case HOME_UNFIXATED:
+        case HOME_INACTIVE:
+        case HOME_DIRTY:
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_NOT_ACTIVE, "Home %s not active.", h->user_name);
+        case HOME_LOCKED:
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
+        default:
+                if (HOME_STATE_IS_ACTIVE(state))
+                        break;
+
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
+        }
+
+        fd = home_create_fifo(h, HOME_FIFO_DELAY_LOCK);
+        if (fd < 0)
+                return sd_bus_reply_method_errnof(message, fd, "Failed to allocate FIFO for %s: %m", h->user_name);
+
+        return TAKE_FD(fd);
+}
+
+int bus_home_method_delay_lock(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+        _cleanup_close_ int fd = -EBADF;
+        Home *h = ASSERT_PTR(userdata);
+
+        fd = bus_home_delay_lock(h, message, error);
+        if (fd < 0)
+                return fd;
+
+        return sd_bus_reply_method_return(message, "h", fd);
+}
+
 /* We map a uid_t as uint32_t bus property, let's ensure this is safe. */
 assert_cc(sizeof(uid_t) == sizeof(uint32_t));
 
@@ -954,6 +1012,14 @@ const sd_bus_vtable home_vtable[] = {
                                 SD_BUS_RESULT("h", send_fd),
                                 bus_home_method_inhibit_suspend,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("DelayLock",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("h", send_fd),
+                                bus_home_method_delay_lock,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_SIGNAL_WITH_ARGS("PrepareForLock",
+                                SD_BUS_ARGS("b", locking),
+                                0),
         SD_BUS_VTABLE_END
 };
 
@@ -1041,4 +1107,20 @@ int bus_home_emit_remove(Home *h) {
 
         h->announced = false;
         return 1;
+}
+
+int bus_home_emit_prepare_for_lock(Home *h, bool locking) {
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(h);
+
+        r = bus_home_path(h, &path);
+        if (r < 0)
+                return r;
+
+        return sd_bus_emit_signal(h->manager->bus, path,
+                                  "org.freedesktop.home1.Home",
+                                  "PrepareForLock",
+                                  "b", locking);
 }

@@ -147,9 +147,13 @@ struct Home {
          * moment. */
         sd_event_source *ref_event_source_please_suspend;
         sd_event_source *ref_event_source_dont_suspend;
+
         /* This is distinct from ref_event_source_dont_suspend because it can be obtained from unprivileged
          * code, and thus we don't count it as a reference on the home area. */
         sd_event_source *inhibit_suspend_event_source;
+
+        sd_event_source *delay_lock_event_source; /* Non-NULL if someone requested to delay the lock */
+        sd_event_source *delayed_lock_event_source; /* A delayed (pending) lock */
 
         /* Any pending operations we still need to execute. These are for operations we want to queue if we
          * can't execute them right-away. */
@@ -219,6 +223,7 @@ typedef enum {
         HOME_FIFO_PLEASE_SUSPEND,
         HOME_FIFO_DONT_SUSPEND,
         HOME_FIFO_INHIBIT_SUSPEND,
+        HOME_FIFO_DELAY_LOCK,
         _HOME_FIFO_TYPE_MAX,
         _HOME_FIFO_TYPE_INVALID = -EINVAL,
 } HomeFifoType;
