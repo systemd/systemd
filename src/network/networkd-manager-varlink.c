@@ -186,6 +186,7 @@ static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *paramet
 
         if (ready) {
                 _cleanup_close_ int fd = -EBADF;
+                struct stat st, st_prev;
 
                 fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY | O_PATH);
                 if (fd < 0)
@@ -198,6 +199,18 @@ static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *paramet
                         log_warning("The persistent storage is on read-only filesystem.");
                         return varlink_error(vlink, "io.systemd.Network.StorageReadOnly", NULL);
                 }
+
+                if (fstat(fd, &st) < 0)
+                        return log_warning_errno(r, "Failed to stat the persistent storage: %m");
+
+                if (manager->persistent_storage_fd >= 0 &&
+                    fstat(manager->persistent_storage_fd, &st_prev) >= 0 &&
+                    stat_inode_same(&st, &st_prev))
+                        return varlink_reply(vlink, NULL);
+
+        } else {
+                if (manager->persistent_storage_fd < 0)
+                        return varlink_reply(vlink, NULL);
         }
 
         r = varlink_verify_polkit_async(
