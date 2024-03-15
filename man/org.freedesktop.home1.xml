@@ -208,7 +208,9 @@ node /org/freedesktop/home1 {
       the numeric UID and GID, the real name, home directory and shell. In addition it returns a state
       identifier describing the state the user's home directory is in, as well as a bus path referring to the
       bus object encapsulating the user record and home directory. This object implements the
-      <classname>org.freedesktop.home1.Home</classname> interface documented below.</para>
+      <classname>org.freedesktop.home1.Home</classname> interface documented below. This method, and most others
+      in this interface that take user names, will try to use the caller's home area if the specified user name
+      is an empty string.</para>
 
       <para><function>GetHomeByUID()</function> is similar to <function>GetHomeByName()</function> but
       acquires the information based on the numeric UID of the user.</para>
@@ -415,7 +417,7 @@ node /org/freedesktop/home1 {
       <para><function>InhibitSuspendHome()</function> temporarily inhibits automatic locking during system
       suspend for a home directory. It returns a file descriptor that inhibits this functionality for as long
       as it is open. As mentioned above, locking a home directory requires a secure lock screen running
-      outside of the user context, and is likely to freeze any process that attempts to access the directory.
+      outside of the user context, and will freeze any process that attempts to access the directory.
       Thus, locking a home directory is a trade-off: it increases security, but prevents the client from
       displaying any user content on its secure lock screen, including notifications, media controls, contact
       information for incoming phone calls, and much more. A client may use this method to implement more
@@ -427,6 +429,22 @@ node /org/freedesktop/home1 {
       the file descriptor is closed in the event that their custom behavior fails or is disabled. This method is
       equivalent to <function>InhibitSuspend()</function> on the <classname>org.freedesktop.home1.Home</classname>
       interface.</para>
+
+      <para><function>DelayLockHome()</function> temporarily delays locking of the specified home area, to give
+      clients time to prepare for a locked and frozen session. It returns a file descriptor that delays locking
+      for as long as it is open, up to a configurable maximum timeout (see <varname>DelayLockMaxSec=</varname> in
+      <citerefentry><refentrytitle>homed.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>). For
+      convenience, it also returns the object path of the affected home area; the caller should subscribe to the
+      <function>PrepareForLock()</function> signal on the <classname>org.freedesktop.home1.Home</classname> interface
+      that can be found at that path. Note that the returned object path will remain stable between invocations for the
+      same home area, so clients don't have to repeatedly re-subscribe to same signal. Clients should use this mechanism
+      to wipe any sensitive data out of memory (i.e. encryption keys, authentication tokens) in preparation for a lock.
+      They should also close open FDs, if possible, to give the kernel a better chance at wiping the file contents out of
+      memory. Clients should also use this mechanism to stop interacting with system DBus services; a frozen client cannot
+      read messages out of the queue, and if the queue fills up the DBus broker might conclude that the client is unresponsive
+      and disconnect it from the bus. Thus, clients should unsubscribe from signals that they are watching and try to finish
+      as many outstanding method calls as possible before closing the FD. This method is equivalent to <function>DelayLock()</function>
+      on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
 
       <para><function>LockAllHomes()</function> locks all active home directories that only have references
       that opted into automatic locking during system suspend and have no clients inhibiting this behavior.
@@ -579,14 +597,26 @@ node /org/freedesktop/home1/home {
       <function>Update()</function>, <function>UpdateEx()</function>, <function>Resize()</function>,
       <function>ChangePassword()</function>, <function>Lock()</function>, <function>Unlock()</function>,
       <function>Acquire()</function>, <function>Ref()</function>, <function>RefUnrestricted()</function>,
-      <function>Release()</function>, <function>InhibitSuspend()</function> operate like their matching counterparts
-      on the <classname>org.freedesktop.home1.Manager</classname> interface (see above). The main difference is that
-      they are methods of the home directory objects, and hence carry no additional user name
+      <function>Release()</function>, <function>InhibitSuspend()</function>, <function>DelayLock()</function> operate
+      like their matching counterparts on the <classname>org.freedesktop.home1.Manager</classname> interface (see above).
+      The main difference is that they are methods of the home directory objects, and hence carry no additional user name
       parameter. Which of the two flavors of methods to call depends on the handles to the user known on the
       client side: if only the user name is known, it's preferable to use the methods on the manager object
-      since they operate with user names only. If however the home object path was already acquired some way
-      it is preferable to operate on the <classname>org.freedesktop.home1.Home</classname> objects
-      instead.</para>
+      since they operate with user names only. Clients can also easily operate on their own home area by using
+      the methods on the manager object with an empty string as the user name. If however the home object path was
+      already acquired some way it is preferable to operate on the <classname>org.freedesktop.home1.Home</classname>
+      objects instead.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Signals</title>
+
+      <para><function>PrepareForLock()</function> is emitted before this home area is locked with an argument of
+      true, and again after this home area is unlocked with an argument of false. This, when used in conjunction
+      with <function>DelayLock()</function>, allows clients some time to prepare before a lock operation freezes
+      the user session. When the client recieves this signal with an argument of true, they should prepare for an
+      imminent lock and then close their delay FD; then once they recieve this signal with an argument of false,
+      clients can re-acquire the delay FD.</para>
     </refsect2>
 
     <refsect2>
@@ -612,12 +642,12 @@ node /org/freedesktop/home1/home {
     <refsect2>
       <title>The Manager Object</title>
       <para><function>InhibitSuspendHome()</function>, <function>ActivateHomeIfReferenced()</function>, <function>RefHomeUnrestricted()</function>,
-      <function>CreateHomeEx()</function>, and <function>UpdateHomeEx()</function> were added in version 256.</para>
+      <function>CreateHomeEx()</function>, <function>UpdateHomeEx()</function>, and <function>DelayLockHome()</function> were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Home Objects</title>
-      <para><function>InhibitSuspend()</function>, <function>ActivateIfReferenced()</function>, <function>RefUnrestricted()</function>, and
-      <function>UpdateEx()</function> were added in version 256.</para>
+      <para><function>InhibitSuspend()</function>, <function>ActivateIfReferenced()</function>, <function>RefUnrestricted()</function>,
+      <function>UpdateEx()</function>, <function>DelayLock()</function>, and <function>PrepareForLock()</function> were added in version 256.</para>
     </refsect2>
   </refsect1>
 
