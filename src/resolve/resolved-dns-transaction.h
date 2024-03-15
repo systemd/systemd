@@ -136,6 +136,11 @@ struct DnsTransaction {
 
         unsigned block_gc;
 
+        /* Set when we're willing to let this transaction live beyond it's usefulness for the original query,
+         * for caching purposes. This blocks gc while there is still a chance we might still receive an
+         * answer. */
+        bool wait_for_answer;
+
         LIST_FIELDS(DnsTransaction, transactions_by_scope);
         LIST_FIELDS(DnsTransaction, transactions_by_stream);
         LIST_FIELDS(DnsTransaction, transactions_by_key);
