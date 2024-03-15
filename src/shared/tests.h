@@ -200,3 +200,35 @@ static inline int run_test_table(void) {
         DEFINE_TEST_MAIN_FULL(log_level, intro, NULL)
 #define DEFINE_TEST_MAIN(log_level)                     \
         DEFINE_TEST_MAIN_FULL(log_level, NULL, NULL)
+
+#define ASSERT_OK(expr)                                                                  \
+    do {                                                                                 \
+        if (!(expr)) {                                                                   \
+            sd_journal_print(LOG_ERR, "Assertion failed: %s", #expr);                    \
+            abort();                                                                     \
+        }                                                                                \
+    } while (false)
+
+#define ASSERT_EQ(actual, expected)                                                      \
+    do {                                                                                 \
+        if ((actual) != (expected)) {                                                    \
+            sd_journal_print(LOG_ERR, "Assertion failed: %s != %s", #actual, #expected); \
+            abort();                                                                     \
+        }                                                                                \
+    } while (false)
+
+#define ASSERT_GE(actual, expected)                                                      \
+    do {                                                                                 \
+        if ((actual) < (expected)) {                                                     \
+            sd_journal_print(LOG_ERR, "Assertion failed: %s < %s", #actual, #expected);  \
+            abort();                                                                     \
+        }                                                                                \
+    } while (false)
+
+#define ASSERT_LE(actual, expected)                                                     \
+    do {                                                                                \
+        if ((actual) > (expected)) {                                                    \
+            sd_journal_print(LOG_ERR, "Assertion failed: %s > %s", #actual, #expected); \
+            abort();                                                                    \
+        }                                                                               \
+    } while (false)
