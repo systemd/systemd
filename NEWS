@@ -41,7 +41,7 @@ CHANGES WITH 256 in spe:
           (with at least one directory separator '/'), will open the file
           directly, instead of searching for the given partial path in the
           standard locations. The old mode wasn't useful because tmpfiles.d and
-          sysusers.d configuratino has a flat structure with no subdirectories
+          sysusers.d configuration has a flat structure with no subdirectories
           under the standard locations and this change makes it easier to work
           with local files with those tools.
 
@@ -52,7 +52,7 @@ CHANGES WITH 256 in spe:
         General Changes and New Features:
 
         * Various programs will load the main configuration from under
-          /usr/lib/, /usr/local/lib, and /run, not just from under /etc/. For
+          /usr/lib/, /usr/local/lib/, and /run/, not just from under /etc/. For
           example, systemd-logind will look for /etc/systemd/logind.conf,
           /run/systemd/logind.conf, /usr/local/lib/systemd/logind.conf, and
           /usr/lib/systemd/logind.conf, and use the first file that is found.
@@ -136,7 +136,7 @@ CHANGES WITH 256 in spe:
 
         * AllowedCPUs= now supports specifier expansion.
 
-        * What= setting in .mount and .swap units now accepts an fstab-style
+        * What= setting in .mount and .swap units now accepts fstab-style
           identifiers, for example UUID=… or LABEL=….
 
         * RestrictNetworkInterfaces= now supports alternative network interface
