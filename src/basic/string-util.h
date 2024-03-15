@@ -224,6 +224,12 @@ static inline int free_and_strdup_warn(char **p, const char *s) {
 }
 int free_and_strndup(char **p, const char *s, size_t l);
 
+int strdup_to_full(char **ret, const char *src);
+static inline int strdup_to(char **ret, const char *src) {
+        int r = strdup_to_full(ASSERT_PTR(ret), src);
+        return r < 0 ? r : 0;  /* Supress return value of 1. */
+}
+
 bool string_is_safe(const char *p) _pure_;
 
 DISABLE_WARNING_STRINGOP_TRUNCATION;
