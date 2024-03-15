@@ -181,13 +181,13 @@ checkblob() {
 }
 
 mkdir /tmp/blob1 /tmp/blob2
-echo data1 blob1 > /tmp/blob1/test1
-echo data1 blob2 > /tmp/blob2/test1
-echo data2 blob1 > /tmp/blob1/test2
-echo data2 blob2 > /tmp/blob2/test2
-echo invalid filename > /tmp/blob1/файл
-echo data3 > /tmp/external-test3
-echo avatardata > /tmp/external-avatar
+echo data1 blob1 >/tmp/blob1/test1
+echo data1 blob2 >/tmp/blob2/test1
+echo data2 blob1 >/tmp/blob1/test2
+echo data2 blob2 >/tmp/blob2/test2
+echo invalid filename >/tmp/blob1/файл
+echo data3 >/tmp/external-test3
+echo avatardata >/tmp/external-avatar
 ln -s /tmp/external-avatar /tmp/external-avatar-lnk
 dd if=/dev/urandom of=/tmp/external-barely-fits bs=1M count=64
 dd if=/dev/urandom of=/tmp/external-toobig bs=1M count=65
