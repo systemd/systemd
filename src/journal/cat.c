@@ -122,10 +122,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NAMESPACE:
-                        if (isempty(optarg))
-                                arg_namespace = NULL;
-                        else
-                                arg_namespace = optarg;
+                        arg_namespace = empty_to_null(optarg);
                         break;
 
                 case '?':
