@@ -181,6 +181,9 @@ DnsTransaction* dns_transaction_gc(DnsTransaction *t) {
         if (t->block_gc > 0)
                 return t;
 
+        if (t->wait_for_answer && IN_SET(t->state, DNS_TRANSACTION_PENDING, DNS_TRANSACTION_VALIDATING))
+                return t;
+
         if (set_isempty(t->notify_query_candidates) &&
             set_isempty(t->notify_query_candidates_done) &&
             set_isempty(t->notify_zone_items) &&
