@@ -6,10 +6,11 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-11-14 21:25+0000\n"
+"POT-Creation-Date: 2024-03-04 10:09+0100\n"
 "PO-Revision-Date: 2023-08-21 17:21+0000\n"
 "Last-Translator: Jan Kuparinen <copper_fin@hotmail.com>\n"
-"Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/master/fi/>\n"
+"Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
+"master/fi/>\n"
 "Language: fi\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -22,8 +23,11 @@ msgid "Send passphrase back to system"
 msgstr "Lähetä tunnuslause takaisin järjestelmään"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
-msgid "Authentication is required to send the entered passphrase back to the system."
-msgstr "Todennus vaaditaan jotta syötetty tunnuslause lähetetään takaisin järjestelmään."
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr ""
+"Todennus vaaditaan jotta syötetty tunnuslause lähetetään takaisin "
+"järjestelmään."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -31,7 +35,8 @@ msgstr "Hallinnoi järjestelmäpalveluja tai muita yksiköitä"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
-msgstr "Todennus vaaditaan järjestelmäpalvelujen tai muiden yksiköiden hallintaan."
+msgstr ""
+"Todennus vaaditaan järjestelmäpalvelujen tai muiden yksiköiden hallintaan."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
@@ -39,15 +44,20 @@ msgstr "Hallitse järjestelmäpalvelu- tai yksikkötiedostoja"
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
-msgstr "Todennus vaaditaan järjestelmän palvelu- tai yksikkötiedostojen hallintaan."
+msgstr ""
+"Todennus vaaditaan järjestelmän palvelu- tai yksikkötiedostojen hallintaan."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
 msgstr "Aseta tai poista järjestelmän ja palvelunhallinnan ympäristömuuttujia"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
-msgid "Authentication is required to set or unset system and service manager environment variables."
-msgstr "Todennus vaaditaan järjestelmän ja palvelunhallinnan ympäristömuuttujien asettamiseen tai poistamiseen."
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"Todennus vaaditaan järjestelmän ja palvelunhallinnan ympäristömuuttujien "
+"asettamiseen tai poistamiseen."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
@@ -62,8 +72,10 @@ msgid "Dump the systemd state without rate limits"
 msgstr "Dumppaa systemd-tila ilman nopeusrajoituksia"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
-msgid "Authentication is required to dump the systemd state without rate limits."
-msgstr "Todennus vaaditaan järjestelmätilan tyhjentämiseksi ilman nopeusrajoituksia."
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
+msgstr ""
+"Todennus vaaditaan järjestelmätilan tyhjentämiseksi ilman nopeusrajoituksia."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -86,8 +98,10 @@ msgid "Check credentials of a home area"
 msgstr "Tarkista kotialueen valtuudet"
 
 #: src/home/org.freedesktop.home1.policy:34
-msgid "Authentication is required to check credentials against a user's home area."
-msgstr "Todennus vaaditaan, jotta käyttäjän kotialueen valtuuksia voi tarkistaa."
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr ""
+"Todennus vaaditaan, jotta käyttäjän kotialueen valtuuksia voi tarkistaa."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -110,151 +124,200 @@ msgid "Change password of a home area"
 msgstr "Muuta kotialueen salasana"
 
 #: src/home/org.freedesktop.home1.policy:64
-msgid "Authentication is required to change the password of a user's home area."
+msgid ""
+"Authentication is required to change the password of a user's home area."
 msgstr "Todennus vaaditaan käyttäjän kotialueen salasanan vaihtamiseksi."
 
-#: src/home/pam_systemd_home.c:287
-#, c-format
-msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
-msgstr "Käyttäjän %s kotihakemisto ei ole tällä hetkellä saatavissa, liitä tarvittava tallennuslaite tai taustatiedostojärjestelmä."
+#: src/home/org.freedesktop.home1.policy:73
+msgid "Inhibit automatic lock of a home area"
+msgstr ""
 
-#: src/home/pam_systemd_home.c:292
+#: src/home/org.freedesktop.home1.policy:74
+#, fuzzy
+msgid ""
+"Authentication is required to inhibit automatic lock of a user's home area."
+msgstr "Todennus vaaditaan käyttäjän kotialueen päivittämiseksi."
+
+#: src/home/org.freedesktop.home1.policy:83
+#, fuzzy
+msgid "Activate a home area"
+msgstr "Luo kotialue"
+
+#: src/home/org.freedesktop.home1.policy:84
+#, fuzzy
+msgid "Authentication is required to activate a user's home area."
+msgstr "Todennus vaaditaan käyttäjän kotialueen luomiseksi."
+
+#: src/home/pam_systemd_home.c:293
+#, c-format
+msgid ""
+"Home of user %s is currently absent, please plug in the necessary storage "
+"device or backing file system."
+msgstr ""
+"Käyttäjän %s kotihakemisto ei ole tällä hetkellä saatavissa, liitä "
+"tarvittava tallennuslaite tai taustatiedostojärjestelmä."
+
+#: src/home/pam_systemd_home.c:298
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr "Liian nopeat peräkkäiset kirjautumisyritykset käyttäjälle %s, yritä uudelleen myöhemmin."
+msgstr ""
+"Liian nopeat peräkkäiset kirjautumisyritykset käyttäjälle %s, yritä "
+"uudelleen myöhemmin."
 
-#: src/home/pam_systemd_home.c:304
+#: src/home/pam_systemd_home.c:310
 msgid "Password: "
 msgstr "Salasana: "
 
-#: src/home/pam_systemd_home.c:306
+#: src/home/pam_systemd_home.c:312
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "Salasana on virheellinen tai ei riitä käyttäjän %s todentamiseen."
 
-#: src/home/pam_systemd_home.c:307
+#: src/home/pam_systemd_home.c:313
 msgid "Sorry, try again: "
 msgstr "Yritä uudelleen: "
 
-#: src/home/pam_systemd_home.c:329
+#: src/home/pam_systemd_home.c:335
 msgid "Recovery key: "
 msgstr "Palautusavain: "
 
-#: src/home/pam_systemd_home.c:331
+#: src/home/pam_systemd_home.c:337
 #, c-format
-msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
-msgstr "Salasana/palautusavain on virheellinen tai se ei riitä käyttäjän %s todentamiseen."
+msgid ""
+"Password/recovery key incorrect or not sufficient for authentication of user "
+"%s."
+msgstr ""
+"Salasana/palautusavain on virheellinen tai se ei riitä käyttäjän %s "
+"todentamiseen."
 
-#: src/home/pam_systemd_home.c:332
+#: src/home/pam_systemd_home.c:338
 msgid "Sorry, reenter recovery key: "
 msgstr "Anna palautusavain uudelleen: "
 
-#: src/home/pam_systemd_home.c:352
+#: src/home/pam_systemd_home.c:358
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Käyttäjän %s suojaustunnusta ei ole laitettu sisään."
 
-#: src/home/pam_systemd_home.c:353 src/home/pam_systemd_home.c:356
+#: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
 msgid "Try again with password: "
 msgstr "Yritä uudelleen salasanalla: "
 
-#: src/home/pam_systemd_home.c:355
+#: src/home/pam_systemd_home.c:361
 #, c-format
-msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
-msgstr "Salasana on virheellinen tai riittämätön, eikä käyttäjän %s määritettyä suojaustunnusta ei ole laitettu sisään."
+msgid ""
+"Password incorrect or not sufficient, and configured security token of user "
+"%s not inserted."
+msgstr ""
+"Salasana on virheellinen tai riittämätön, eikä käyttäjän %s määritettyä "
+"suojaustunnusta ei ole laitettu sisään."
 
-#: src/home/pam_systemd_home.c:376
+#: src/home/pam_systemd_home.c:381
 msgid "Security token PIN: "
 msgstr "Turvatunnuksen PIN-koodi: "
 
-#: src/home/pam_systemd_home.c:393
+#: src/home/pam_systemd_home.c:398
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "Todenna fyysisesti käyttäjän %s suojaustunnuksella."
 
-#: src/home/pam_systemd_home.c:404
+#: src/home/pam_systemd_home.c:409
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Vahvista käyttäjän %s suojaustunnuksen olemassaolo."
 
-#: src/home/pam_systemd_home.c:415
+#: src/home/pam_systemd_home.c:420
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "Vahvista käyttäjä käyttäjän %s suojaustunnuksella."
 
-#: src/home/pam_systemd_home.c:424
-msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
-msgstr "Turvatunnuksen PIN-koodi on lukittu, avaa se ensin. (Vihje: Poistaminen ja uudelleen asettaminen saattaa riittää.)"
+#: src/home/pam_systemd_home.c:429
+msgid ""
+"Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
+"insertion might suffice.)"
+msgstr ""
+"Turvatunnuksen PIN-koodi on lukittu, avaa se ensin. (Vihje: Poistaminen ja "
+"uudelleen asettaminen saattaa riittää.)"
 
-#: src/home/pam_systemd_home.c:432
+#: src/home/pam_systemd_home.c:437
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "Suojaustunnuksen PIN-koodi virheellinen käyttäjälle %s."
 
-#: src/home/pam_systemd_home.c:433 src/home/pam_systemd_home.c:452
-#: src/home/pam_systemd_home.c:471
+#: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
+#: src/home/pam_systemd_home.c:476
 msgid "Sorry, retry security token PIN: "
 msgstr "Yritä uudelleen suojaustunnuksen PIN-koodi: "
 
-#: src/home/pam_systemd_home.c:451
+#: src/home/pam_systemd_home.c:456
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
-msgstr "Käyttäjän %s suojaustunnuksen PIN-koodi on virheellinen (vain muutama yritys jäljellä!)"
+msgstr ""
+"Käyttäjän %s suojaustunnuksen PIN-koodi on virheellinen (vain muutama yritys "
+"jäljellä!)"
 
-#: src/home/pam_systemd_home.c:470
+#: src/home/pam_systemd_home.c:475
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
-msgstr "Käyttäjän %s suojaustunnuksen PIN-koodi on virheellinen (vain yksi yritys jäljellä!)"
+msgstr ""
+"Käyttäjän %s suojaustunnuksen PIN-koodi on virheellinen (vain yksi yritys "
+"jäljellä!)"
 
-#: src/home/pam_systemd_home.c:616
+#: src/home/pam_systemd_home.c:643
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr "Käyttäjän %s kotihakemisto ei ole tällä hetkellä aktiivinen, kirjaudu ensin paikallisesti sisään."
-
-#: src/home/pam_systemd_home.c:618
-#, c-format
-msgid "Home of user %s is currently locked, please unlock locally first."
-msgstr "Käyttäjän %s kotihakemisto on tällä hetkellä lukittu, avaa lukitus ensin paikallisesti."
+msgstr ""
+"Käyttäjän %s kotihakemisto ei ole tällä hetkellä aktiivinen, kirjaudu ensin "
+"paikallisesti sisään."
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
-msgid "Too many unsuccessful login attempts for user %s, refusing."
-msgstr "Liian monta epäonnistunutta kirjautumisyritystä käyttäjälle %s, kieltäydytään."
+msgid "Home of user %s is currently locked, please unlock locally first."
+msgstr ""
+"Käyttäjän %s kotihakemisto on tällä hetkellä lukittu, avaa lukitus ensin "
+"paikallisesti."
 
-#: src/home/pam_systemd_home.c:868
+#: src/home/pam_systemd_home.c:677
+#, c-format
+msgid "Too many unsuccessful login attempts for user %s, refusing."
+msgstr ""
+"Liian monta epäonnistunutta kirjautumisyritystä käyttäjälle %s, "
+"kieltäydytään."
+
+#: src/home/pam_systemd_home.c:956
 msgid "User record is blocked, prohibiting access."
 msgstr "Käyttäjätietue on estetty, mikä estää pääsyn."
 
-#: src/home/pam_systemd_home.c:872
+#: src/home/pam_systemd_home.c:960
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Käyttäjätietue ei ole vielä voimassa, mikä estää pääsyn."
 
-#: src/home/pam_systemd_home.c:876
+#: src/home/pam_systemd_home.c:964
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Käyttäjätietue ei ole enää voimassa, mikä estää pääsyn."
 
-#: src/home/pam_systemd_home.c:881 src/home/pam_systemd_home.c:932
+#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
 msgid "User record not valid, prohibiting access."
 msgstr "Käyttäjätietue ei ole voimassa, mikä estää pääsyn."
 
-#: src/home/pam_systemd_home.c:893
+#: src/home/pam_systemd_home.c:981
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Liian monta kirjautumista, yritä uudelleen ajassa %s."
 
-#: src/home/pam_systemd_home.c:904
+#: src/home/pam_systemd_home.c:992
 msgid "Password change required."
 msgstr "Salasanan vaihto vaaditaan."
 
-#: src/home/pam_systemd_home.c:908
+#: src/home/pam_systemd_home.c:996
 msgid "Password expired, change required."
 msgstr "Salasana vanhentunut, vaaditaan vaihto."
 
-#: src/home/pam_systemd_home.c:914
+#: src/home/pam_systemd_home.c:1002
 msgid "Password is expired, but can't change, refusing login."
 msgstr "Salasana on vanhentunut, mutta ei voi vaihtaa, estetään kirjautuminen."
 
-#: src/home/pam_systemd_home.c:918
+#: src/home/pam_systemd_home.c:1006
 msgid "Password will expire soon, please change."
 msgstr "Salasana vanhenee pian, vaihda se."
 
@@ -271,8 +334,12 @@ msgid "Set static hostname"
 msgstr "Aseta staattinen koneen nimi"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
-msgid "Authentication is required to set the statically configured local hostname, as well as the pretty hostname."
-msgstr "Todennus vaaditaan staattisesti määritetyn paikallisen konenimen ja kauniin konenimen asettamiseksi."
+msgid ""
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
+msgstr ""
+"Todennus vaaditaan staattisesti määritetyn paikallisen konenimen ja kauniin "
+"konenimen asettamiseksi."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -307,28 +374,47 @@ msgid "Authentication is required to get system description."
 msgstr "Järjestelmän kuvauksen saamiseksi vaaditaan todennus."
 
 #: src/import/org.freedesktop.import1.policy:22
-msgid "Import a VM or container image"
+#, fuzzy
+msgid "Import a disk image"
 msgstr "Tuo virtuaalikoneen tai kontin levykuva"
 
 #: src/import/org.freedesktop.import1.policy:23
-msgid "Authentication is required to import a VM or container image"
-msgstr "Todennus vaaditaan, jos haluat tuoda virtuaalikoneen tai kontin levykuvan"
+#, fuzzy
+msgid "Authentication is required to import an image"
+msgstr ""
+"Todennus vaaditaan, jos haluat tuoda virtuaalikoneen tai kontin levykuvan"
 
 #: src/import/org.freedesktop.import1.policy:32
-msgid "Export a VM or container image"
+#, fuzzy
+msgid "Export a disk image"
 msgstr "Vie virtuaalikoneen tai kontin levykuva"
 
 #: src/import/org.freedesktop.import1.policy:33
-msgid "Authentication is required to export a VM or container image"
-msgstr "Todennus vaaditaan, jos haluat viedä virtuaalikoneen tai kontin levykuvan"
+#, fuzzy
+msgid "Authentication is required to export disk image"
+msgstr ""
+"Todennus vaaditaan, jos haluat viedä virtuaalikoneen tai kontin levykuvan"
 
 #: src/import/org.freedesktop.import1.policy:42
-msgid "Download a VM or container image"
+#, fuzzy
+msgid "Download a disk image"
 msgstr "Lataa virtuaalikoneen tai kontin levykuva"
 
 #: src/import/org.freedesktop.import1.policy:43
-msgid "Authentication is required to download a VM or container image"
-msgstr "Todennus vaaditaan, jos haluat ladata virtuaalikoneen tai kontin levykuvan"
+#, fuzzy
+msgid "Authentication is required to download a disk image"
+msgstr ""
+"Todennus vaaditaan, jos haluat ladata virtuaalikoneen tai kontin levykuvan"
+
+#: src/import/org.freedesktop.import1.policy:52
+msgid "Cancel transfer of a disk image"
+msgstr ""
+
+#: src/import/org.freedesktop.import1.policy:53
+#, fuzzy
+msgid ""
+"Authentication is required to cancel the ongoing transfer of a disk image"
+msgstr "Todennus vaaditaan käyttäjän kotialueen salasanan vaihtamiseksi."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -351,7 +437,8 @@ msgid "Allow applications to inhibit system shutdown"
 msgstr "Salli sovellusten estää järjestelmän sammuttaminen"
 
 #: src/login/org.freedesktop.login1.policy:23
-msgid "Authentication is required for an application to inhibit system shutdown."
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
 msgstr "Todennus vaaditaan, jotta sovellus estää järjestelmän sammutuksen."
 
 #: src/login/org.freedesktop.login1.policy:33
@@ -360,7 +447,8 @@ msgstr "Salli sovellusten viivyttää järjestelmän sammuttaminen"
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
-msgstr "Todennus vaaditaan, jotta sovellus viivyttäisi järjestelmän sammutuksen."
+msgstr ""
+"Todennus vaaditaan, jotta sovellus viivyttäisi järjestelmän sammutuksen."
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
@@ -383,7 +471,9 @@ msgid "Allow applications to inhibit automatic system suspend"
 msgstr "Salli sovellusten estää järjestelmän automaattinen pysäyttäminen"
 
 #: src/login/org.freedesktop.login1.policy:66
-msgid "Authentication is required for an application to inhibit automatic system suspend."
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
 msgstr "Todennus vaaditaan, jotta sovellus estää järjestelmän pysäyttämisen."
 
 #: src/login/org.freedesktop.login1.policy:75
@@ -391,40 +481,59 @@ msgid "Allow applications to inhibit system handling of the power key"
 msgstr "Salli sovellusten estää järjestelmän virtapainikkeen käyttö"
 
 #: src/login/org.freedesktop.login1.policy:76
-msgid "Authentication is required for an application to inhibit system handling of the power key."
-msgstr "Todennus vaaditaan, jotta sovellus estää järjestelmän virtapainikkeen käytön."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr ""
+"Todennus vaaditaan, jotta sovellus estää järjestelmän virtapainikkeen käytön."
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
 msgstr "Salli sovellusten estää järjestelmän pysäytyspainikkeen käyttö"
 
 #: src/login/org.freedesktop.login1.policy:87
-msgid "Authentication is required for an application to inhibit system handling of the suspend key."
-msgstr "Todennus vaaditaan, jotta sovellus estää järjestelmän pysäytyspainikkeen käytön."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr ""
+"Todennus vaaditaan, jotta sovellus estää järjestelmän pysäytyspainikkeen "
+"käytön."
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
 msgstr "Salli sovellusten estää järjestelmän horrostilapainikkeen käyttö"
 
 #: src/login/org.freedesktop.login1.policy:98
-msgid "Authentication is required for an application to inhibit system handling of the hibernate key."
-msgstr "Todennus vaaditaan, jotta sovellus estää järjestelmän horrostilapainikkeen käytön."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr ""
+"Todennus vaaditaan, jotta sovellus estää järjestelmän horrostilapainikkeen "
+"käytön."
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
 msgstr "Salli sovellusten estää järjestelmän kansikytkimen käyttö"
 
 #: src/login/org.freedesktop.login1.policy:108
-msgid "Authentication is required for an application to inhibit system handling of the lid switch."
-msgstr "Todennus vaaditaan, jotta sovellus estää järjestelmän kansikytkimen käytön."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr ""
+"Todennus vaaditaan, jotta sovellus estää järjestelmän kansikytkimen käytön."
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr "Salli sovellusten estää järjestelmän uudelleenkäynnistyspainikkeen käyttö"
+msgstr ""
+"Salli sovellusten estää järjestelmän uudelleenkäynnistyspainikkeen käyttö"
 
 #: src/login/org.freedesktop.login1.policy:118
-msgid "Authentication is required for an application to inhibit system handling of the reboot key."
-msgstr "Todennus vaaditaan, jotta sovellus estää järjestelmän uudelleenkäynnistyspainikkeen käytön."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr ""
+"Todennus vaaditaan, jotta sovellus estää järjestelmän "
+"uudelleenkäynnistyspainikkeen käytön."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
@@ -432,7 +541,9 @@ msgstr "Salli sisäänkirjautumattomien käyttäjien suorittaa ohjelmia"
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
-msgstr "Ohjelmien suorittamiseen sisäänkirjautumattomana käyttäjänä tarvitaan nimenomainen pyyntö."
+msgstr ""
+"Ohjelmien suorittamiseen sisäänkirjautumattomana käyttäjänä tarvitaan "
+"nimenomainen pyyntö."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
@@ -440,7 +551,9 @@ msgstr "Salli sisäänkirjautumattomien käyttäjien suorittaa ohjelmia"
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
-msgstr "Todennus vaaditaan ohjelmien suorittamiseen sisäänkirjautumattomana käyttäjänä."
+msgstr ""
+"Todennus vaaditaan ohjelmien suorittamiseen sisäänkirjautumattomana "
+"käyttäjänä."
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
@@ -456,7 +569,8 @@ msgstr "Poista laitteen ja paikan liitokset"
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
-msgstr "Todennus vaaditaan nollaamaan, miten laitteet on yhdistetty paikkoihin."
+msgstr ""
+"Todennus vaaditaan nollaamaan, miten laitteet on yhdistetty paikkoihin."
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
@@ -471,16 +585,24 @@ msgid "Power off the system while other users are logged in"
 msgstr "Sammuta järjestelmä, vaikka muita käyttäjiä on kirjautuneena sisään"
 
 #: src/login/org.freedesktop.login1.policy:181
-msgid "Authentication is required to power off the system while other users are logged in."
-msgstr "Todennus vaaditaan järjestelmän sammuttamiseksi, kun muita käyttäjiä on kirjautuneena sisään."
+msgid ""
+"Authentication is required to power off the system while other users are "
+"logged in."
+msgstr ""
+"Todennus vaaditaan järjestelmän sammuttamiseksi, kun muita käyttäjiä on "
+"kirjautuneena sisään."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
 msgstr "Sammuta järjestelmä, vaikka joku sovellus estää sen"
 
 #: src/login/org.freedesktop.login1.policy:192
-msgid "Authentication is required to power off the system while an application is inhibiting this."
-msgstr "Todennus vaaditaan järjestelmän sammuttamiseksi, kun joku sovellus estää tämän."
+msgid ""
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
+msgstr ""
+"Todennus vaaditaan järjestelmän sammuttamiseksi, kun joku sovellus estää "
+"tämän."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -492,19 +614,29 @@ msgstr "Todennus vaaditaan järjestelmän uudelleen käynnistämiseksi."
 
 #: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while other users are logged in"
-msgstr "Käynnistä järjestelmä uudelleen, vaikka muita käyttäjiä on kirjautuneena sisään"
+msgstr ""
+"Käynnistä järjestelmä uudelleen, vaikka muita käyttäjiä on kirjautuneena "
+"sisään"
 
 #: src/login/org.freedesktop.login1.policy:214
-msgid "Authentication is required to reboot the system while other users are logged in."
-msgstr "Todennus vaaditaan järjestelmän uudelleen käynnistämiseksi, kun muita käyttäjiä on kirjautuneena sisään."
+msgid ""
+"Authentication is required to reboot the system while other users are logged "
+"in."
+msgstr ""
+"Todennus vaaditaan järjestelmän uudelleen käynnistämiseksi, kun muita "
+"käyttäjiä on kirjautuneena sisään."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
 msgstr "Käynnistä järjestelmä uudelleen, vaikka joku sovellus estää sen"
 
 #: src/login/org.freedesktop.login1.policy:225
-msgid "Authentication is required to reboot the system while an application is inhibiting this."
-msgstr "Todennus vaaditaan järjestelmän uudelleen käynnistämisksi, kun joku sovellus estää tämän."
+msgid ""
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
+msgstr ""
+"Todennus vaaditaan järjestelmän uudelleen käynnistämisksi, kun joku sovellus "
+"estää tämän."
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
@@ -519,16 +651,24 @@ msgid "Halt the system while other users are logged in"
 msgstr "Pysäytä järjestelmä, vaikka muita käyttäjiä on kirjautuneena sisään"
 
 #: src/login/org.freedesktop.login1.policy:247
-msgid "Authentication is required to halt the system while other users are logged in."
-msgstr "Todennus vaaditaan järjestelmän pysäyttämiseksi, kun muita käyttäjiä on kirjautuneena sisään."
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr ""
+"Todennus vaaditaan järjestelmän pysäyttämiseksi, kun muita käyttäjiä on "
+"kirjautuneena sisään."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
 msgstr "Pysäytä järjestelmä, vaikka joku sovellus estää sen"
 
 #: src/login/org.freedesktop.login1.policy:258
-msgid "Authentication is required to halt the system while an application is inhibiting this."
-msgstr "Todennus vaaditaan järjestelmän pysäyttämiseksi, kun joku sovellus estää tämän."
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr ""
+"Todennus vaaditaan järjestelmän pysäyttämiseksi, kun joku sovellus estää "
+"tämän."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -540,19 +680,29 @@ msgstr "Todennus vaaditaan järjestelmän pysäyttämiseksi väliaikaisesti."
 
 #: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
-msgstr "Pysäytä järjestelmä väliaikaisesti, vaikka muita käyttäjiä on kirjautuneena sisään"
+msgstr ""
+"Pysäytä järjestelmä väliaikaisesti, vaikka muita käyttäjiä on kirjautuneena "
+"sisään"
 
 #: src/login/org.freedesktop.login1.policy:279
-msgid "Authentication is required to suspend the system while other users are logged in."
-msgstr "Todennus vaaditaan järjestelmän väliaikaiseksi pysäyttämiseksi, kun muita käyttäjiä on kirjautuneena sisään."
+msgid ""
+"Authentication is required to suspend the system while other users are "
+"logged in."
+msgstr ""
+"Todennus vaaditaan järjestelmän väliaikaiseksi pysäyttämiseksi, kun muita "
+"käyttäjiä on kirjautuneena sisään."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
 msgstr "Pysäytä järjestelmä väliaikaisesti, vaikka joku sovellus estää sen"
 
 #: src/login/org.freedesktop.login1.policy:290
-msgid "Authentication is required to suspend the system while an application is inhibiting this."
-msgstr "Todennus vaaditaan järjestelmän väliaikaiseksi pysäyttämiseksi, kun joku sovellus estää tämän."
+msgid ""
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
+msgstr ""
+"Todennus vaaditaan järjestelmän väliaikaiseksi pysäyttämiseksi, kun joku "
+"sovellus estää tämän."
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
@@ -567,16 +717,24 @@ msgid "Hibernate the system while other users are logged in"
 msgstr "Horrosta järjestelmä, vaikka muita käyttäjiä on kirjautuneena sisään"
 
 #: src/login/org.freedesktop.login1.policy:311
-msgid "Authentication is required to hibernate the system while other users are logged in."
-msgstr "Todennus vaaditaan järjestelmän horrostamiseksi, kun muita käyttäjiä on kirjautuneena sisään."
+msgid ""
+"Authentication is required to hibernate the system while other users are "
+"logged in."
+msgstr ""
+"Todennus vaaditaan järjestelmän horrostamiseksi, kun muita käyttäjiä on "
+"kirjautuneena sisään."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Horrosta järjestelmä, vaikka joku sovellus estää sen"
 
 #: src/login/org.freedesktop.login1.policy:322
-msgid "Authentication is required to hibernate the system while an application is inhibiting this."
-msgstr "Todennus vaaditaan järjestelmän horrostamiseksi, kun joku sovellus estää tämän."
+msgid ""
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
+msgstr ""
+"Todennus vaaditaan järjestelmän horrostamiseksi, kun joku sovellus estää "
+"tämän."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
@@ -584,7 +742,9 @@ msgstr "Hallinnoi aktiivisia istuntoja, käyttäjiä ja paikkoja"
 
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
-msgstr "Todennus vaaditaan aktiivisten istuntojen, käyttäjien ja paikkojen hallintaan."
+msgstr ""
+"Todennus vaaditaan aktiivisten istuntojen, käyttäjien ja paikkojen "
+"hallintaan."
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
@@ -592,7 +752,8 @@ msgstr "Lukitse tai avaa aktiiviset istunnot"
 
 #: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
-msgstr "Todennus vaaditaan aktiivisten istuntojen lukitsemiseksi tai avaamiseksi."
+msgstr ""
+"Todennus vaaditaan aktiivisten istuntojen lukitsemiseksi tai avaamiseksi."
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
@@ -600,31 +761,46 @@ msgstr "Aseta uudelleenkäynnistyksen \"syy\" ytimeen"
 
 #: src/login/org.freedesktop.login1.policy:353
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
-msgstr "Todennus vaaditaan, jotta ytimen uudelleenkäynnistyksen \"syy\" voidaan asettaa."
+msgstr ""
+"Todennus vaaditaan, jotta ytimen uudelleenkäynnistyksen \"syy\" voidaan "
+"asettaa."
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
 msgstr "Ilmoita laiteohjelmistolle, että käynnistyy asennusliittymään"
 
 #: src/login/org.freedesktop.login1.policy:364
-msgid "Authentication is required to indicate to the firmware to boot to setup interface."
-msgstr "Todennus vaaditaan ilmoittamaan laiteohjelmistolle, että se käynnistyy asennusliittymään."
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr ""
+"Todennus vaaditaan ilmoittamaan laiteohjelmistolle, että se käynnistyy "
+"asennusliittymään."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
-msgstr "Ilmoita käynnistyslataimelle, että se käynnistyy käynnistyslatausvalikkoon"
+msgstr ""
+"Ilmoita käynnistyslataimelle, että se käynnistyy käynnistyslatausvalikkoon"
 
 #: src/login/org.freedesktop.login1.policy:375
-msgid "Authentication is required to indicate to the boot loader to boot to the boot loader menu."
-msgstr "Todennus vaaditaan ilmoittamaan käynnistyslataajalle, että se käynnistyy käynnistyslatausvalikkoon."
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"Todennus vaaditaan ilmoittamaan käynnistyslataajalle, että se käynnistyy "
+"käynnistyslatausvalikkoon."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
 msgstr "Ilmoita käynnistyslataimelle, että käynnistää tietyn vaihtoehdon"
 
 #: src/login/org.freedesktop.login1.policy:386
-msgid "Authentication is required to indicate to the boot loader to boot into a specific boot loader entry."
-msgstr "Todennus vaaditaan ilmoittamaan käynnistyslataajalle, että käynnistää tietyn vaihtoehdon."
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"Todennus vaaditaan ilmoittamaan käynnistyslataajalle, että käynnistää tietyn "
+"vaihtoehdon."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
@@ -679,7 +855,8 @@ msgid "Acquire a pseudo TTY in a local container"
 msgstr "Hanki pseudo TTY paikallisesta kontista"
 
 #: src/machine/org.freedesktop.machine1.policy:65
-msgid "Authentication is required to acquire a pseudo TTY in a local container."
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
 msgstr "Paikallisen kontin pseudo TTY:n saaminen vaatii todentamisen."
 
 #: src/machine/org.freedesktop.machine1.policy:74
@@ -695,16 +872,22 @@ msgid "Manage local virtual machines and containers"
 msgstr "Hallitse paikallisia virtuaalikoneita ja kontteja"
 
 #: src/machine/org.freedesktop.machine1.policy:85
-msgid "Authentication is required to manage local virtual machines and containers."
-msgstr "Todennus vaaditaan paikallisten virtuaalikoneiden ja konttien hallintaan."
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr ""
+"Todennus vaaditaan paikallisten virtuaalikoneiden ja konttien hallintaan."
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Manage local virtual machine and container images"
 msgstr "Hallitse paikallisia virtuaalikoneita ja konttilevykuvia"
 
 #: src/machine/org.freedesktop.machine1.policy:96
-msgid "Authentication is required to manage local virtual machine and container images."
-msgstr "Todennus vaaditaan paikallisten virtuaalikoneiden ja konttilevykuvien hallintaan."
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr ""
+"Todennus vaaditaan paikallisten virtuaalikoneiden ja konttilevykuvien "
+"hallintaan."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -752,7 +935,8 @@ msgstr "Ota LLMNR käyttöön tai poista se käytöstä"
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
 msgid "Authentication is required to enable or disable LLMNR."
-msgstr "Todennus vaaditaan LLMNR:n ottamiseksi käyttöön tai poistamiseksi käytöstä."
+msgstr ""
+"Todennus vaaditaan LLMNR:n ottamiseksi käyttöön tai poistamiseksi käytöstä."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
@@ -762,7 +946,9 @@ msgstr "Ota monilähetyksen DNS käyttöön tai poista se käytöstä"
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
 msgid "Authentication is required to enable or disable multicast DNS."
-msgstr "Todennus vaaditaan, jotta monilähetys-DNS voidaan ottaa käyttöön tai poistaa käytöstä."
+msgstr ""
+"Todennus vaaditaan, jotta monilähetys-DNS voidaan ottaa käyttöön tai poistaa "
+"käytöstä."
 
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
@@ -772,7 +958,9 @@ msgstr "Ota käyttöön/poista käytöstä DNS TLS:n kautta"
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr "Todennus vaaditaan DNS:n käyttöön ottamiseksi tai poistamiseksi käytöstä TLS:n kautta."
+msgstr ""
+"Todennus vaaditaan DNS:n käyttöön ottamiseksi tai poistamiseksi käytöstä TLS:"
+"n kautta."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
@@ -782,7 +970,8 @@ msgstr "Ota DNSSEC käyttöön tai poista se käytöstä"
 #: src/network/org.freedesktop.network1.policy:100
 #: src/resolve/org.freedesktop.resolve1.policy:111
 msgid "Authentication is required to enable or disable DNSSEC."
-msgstr "Todennus vaaditaan, jotta DNSSEC voidaan ottaa käyttöön tai poistaa käytöstä."
+msgstr ""
+"Todennus vaaditaan, jotta DNSSEC voidaan ottaa käyttöön tai poistaa käytöstä."
 
 #: src/network/org.freedesktop.network1.policy:110
 #: src/resolve/org.freedesktop.resolve1.policy:121
@@ -792,7 +981,8 @@ msgstr "Aseta DNSSEC-negatiiviset luottamusankkurit"
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
-msgstr "Todennus vaaditaan DNSSEC-negatiivisten luottamusankkureiden asettamiseksi."
+msgstr ""
+"Todennus vaaditaan DNSSEC-negatiivisten luottamusankkureiden asettamiseksi."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
@@ -855,16 +1045,22 @@ msgid "Attach or detach a portable service image"
 msgstr "Liitä tai irrota kannettava palvelulevykuva"
 
 #: src/portable/org.freedesktop.portable1.policy:24
-msgid "Authentication is required to attach or detach a portable service image."
-msgstr "Todennus vaaditaan kannettavan palvelulevykuvan liittämiseen tai irrottamiseen."
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr ""
+"Todennus vaaditaan kannettavan palvelulevykuvan liittämiseen tai "
+"irrottamiseen."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
 msgstr "Poista tai muokkaa kannettavaa palvelulevykuvaa"
 
 #: src/portable/org.freedesktop.portable1.policy:35
-msgid "Authentication is required to delete or modify a portable service image."
-msgstr "Todennus vaaditaan, jos haluat poistaa tai muokata kannettavaa palvelulevykuvaa."
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr ""
+"Todennus vaaditaan, jos haluat poistaa tai muokata kannettavaa "
+"palvelulevykuvaa."
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
@@ -908,52 +1104,71 @@ msgstr "Todennus vaaditaan järjestelmän aikavyöhykkeen asettamiseksi."
 
 #: src/timedate/org.freedesktop.timedate1.policy:43
 msgid "Set RTC to local timezone or UTC"
-msgstr "Aseta RTC(reaaliaikainen kello) paikalliseksi aikavyöhykkeeksi tai UTC:ksi"
+msgstr ""
+"Aseta RTC(reaaliaikainen kello) paikalliseksi aikavyöhykkeeksi tai UTC:ksi"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
-msgid "Authentication is required to control whether the RTC stores the local or UTC time."
-msgstr "Todennus vaaditaan sen säätämiseksi, tallentaako RTC paikallisen vai UTC-ajan."
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr ""
+"Todennus vaaditaan sen säätämiseksi, tallentaako RTC paikallisen vai UTC-"
+"ajan."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
 msgstr "Ota verkon ajan synkronointi käyttöön tai poista se käytöstä"
 
 #: src/timedate/org.freedesktop.timedate1.policy:54
-msgid "Authentication is required to control whether network time synchronization shall be enabled."
-msgstr "Todennus vaaditaan sen hallitsemiseksi, onko verkkoajan synkronointi käytössä."
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr ""
+"Todennus vaaditaan sen hallitsemiseksi, onko verkkoajan synkronointi "
+"käytössä."
 
-#: src/core/dbus-unit.c:352
+#: src/core/dbus-unit.c:353
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Todennus vaaditaan $(unit):n aloittamiseksi."
 
-#: src/core/dbus-unit.c:353
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Todennus vaaditaan $(unit):n lopettamiseksi."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:355
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Todennus vaaditaan $(unit):n uudelleen lataamiseksi."
 
-#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
+#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Todennus vaaditaan $(unit):n uudelleen käynnistämiseksi."
 
-#: src/core/dbus-unit.c:553
-msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
-msgstr "Todennus vaaditaan UNIX-signaalin lähettämiseen '$(unit)'-prosesseihin."
+#: src/core/dbus-unit.c:549
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"'$(unit)'."
+msgstr ""
+"Todennus vaaditaan UNIX-signaalin lähettämiseen '$(unit)'-prosesseihin."
 
-#: src/core/dbus-unit.c:583
+#: src/core/dbus-unit.c:577
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Todennus vaaditaan \"epäonnistuneen\" tilan \"$(unit)\" nollaamiseksi."
 
-#: src/core/dbus-unit.c:615
+#: src/core/dbus-unit.c:607
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Todennus vaaditaan, jotta ominaisuudet asetetaan arvoon '$(unit)'."
 
-#: src/core/dbus-unit.c:716
-msgid "Authentication is required to delete files and directories associated with '$(unit)'."
-msgstr "Todennus vaaditaan tiedostojen ja hakemistojen poistamiseen, jotka liittyvät '$(unit)':iin."
+#: src/core/dbus-unit.c:704
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
+msgstr ""
+"Todennus vaaditaan tiedostojen ja hakemistojen poistamiseen, jotka liittyvät "
+"'$(unit)':iin."
 
-#: src/core/dbus-unit.c:764
-msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
-msgstr "Todennus vaaditaan '$(unit)'-yksikön prosessien jäädyttämiseksi tai sulattamiseksi."
+#: src/core/dbus-unit.c:743
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr ""
+"Todennus vaaditaan '$(unit)'-yksikön prosessien jäädyttämiseksi tai "
+"sulattamiseksi."

@@ -180,6 +180,8 @@ void cgroup_context_init(CGroupContext *c) {
 
                 .memory_limit = CGROUP_LIMIT_MAX,
 
+                .memory_zswap_writeback = true,
+
                 .io_weight = CGROUP_WEIGHT_INVALID,
                 .startup_io_weight = CGROUP_WEIGHT_INVALID,
 
@@ -423,6 +425,7 @@ int cgroup_context_copy(CGroupContext *dst, const CGroupContext *src) {
         dst->startup_memory_max_set = src->startup_memory_max_set;
         dst->startup_memory_swap_max_set = src->startup_memory_swap_max_set;
         dst->startup_memory_zswap_max_set = src->startup_memory_zswap_max_set;
+        dst->memory_zswap_writeback = src->memory_zswap_writeback;
 
         SET_FOREACH(i, src->ip_address_allow) {
                 r = in_addr_prefix_add(&dst->ip_address_allow, i);
@@ -877,6 +880,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sStartupMemorySwapMax: %" PRIu64 "%s\n"
                 "%sMemoryZSwapMax: %" PRIu64 "%s\n"
                 "%sStartupMemoryZSwapMax: %" PRIu64 "%s\n"
+                "%sMemoryZSwapWriteback: %s\n"
                 "%sMemoryLimit: %" PRIu64 "\n"
                 "%sTasksMax: %" PRIu64 "\n"
                 "%sDevicePolicy: %s\n"
@@ -921,6 +925,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, c->startup_memory_swap_max, format_cgroup_memory_limit_comparison(u, "StartupMemorySwapMax", cdi, sizeof(cdi)),
                 prefix, c->memory_zswap_max, format_cgroup_memory_limit_comparison(u, "MemoryZSwapMax", cdj, sizeof(cdj)),
                 prefix, c->startup_memory_zswap_max, format_cgroup_memory_limit_comparison(u, "StartupMemoryZSwapMax", cdk, sizeof(cdk)),
+                prefix, yes_no(c->memory_zswap_writeback),
                 prefix, c->memory_limit,
                 prefix, cgroup_tasks_max_resolve(&c->tasks_max),
                 prefix, cgroup_device_policy_to_string(c->device_policy),
@@ -2236,6 +2241,7 @@ static void cgroup_context_apply(
                         cgroup_apply_unified_memory_limit(u, "memory.zswap.max", zswap_max);
 
                         (void) set_attribute_and_warn(u, "memory", "memory.oom.group", one_zero(c->memory_oom_group));
+                        (void) set_attribute_and_warn(u, "memory", "memory.zswap.writeback", one_zero(c->memory_zswap_writeback));
 
                 } else {
                         char buf[DECIMAL_STR_MAX(uint64_t) + 1];

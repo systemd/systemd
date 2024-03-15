@@ -129,14 +129,6 @@ All tools:
 * `$SYSTEMD_VERITY_SHARING=0` — if set, sharing dm-verity devices by
   using a stable `<ROOTHASH>-verity` device mapper name will be disabled.
 
-* `$SYSTEMD_OPENSSL_KEY_LOADER`— when using OpenSSL to load a key via an engine
-  or a provider, can be used to force the usage of one or the other interface.
-  Set to 'engine' to force the usage of the old engine API, and to 'provider'
-  force the usage of the new provider API. If unset, the provider will be tried
-  first and the engine as a fallback if that fails. Providers are the new OpenSSL
-  3 API, but there are very few if any in a production-ready state, so engines
-  are still needed.
-
 `systemctl`:
 
 * `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID 1's private D-Bus
@@ -252,7 +244,7 @@ All tools:
   when determining stable network interface names. This may be used to revert
   to naming schemes of older udev versions, in order to provide more stable
   naming across updates. This environment variable takes precedence over the
-  kernel command line option `net.naming-scheme=`, except if the value is
+  kernel command line option `net.naming_scheme=`, except if the value is
   prefixed with `:` in which case the kernel command line option takes
   precedence, if it is specified as well.
 
@@ -365,7 +357,8 @@ All tools:
 `systemd-resolved`:
 
 * `$SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME` — if set to "0", `systemd-resolved`
-  won't synthesize system hostname on both regular and reverse lookups.
+  won't synthesize A/AAAA/PTR RRs for the system hostname on either regular nor
+  reverse lookups.
 
 `systemd-sysext`:
 
@@ -488,6 +481,12 @@ disk images with `--image=` or similar:
   devices when opening them. Defaults to on, set this to "0" to disable this
   feature.
 
+* `$SYSTEMD_ALLOW_USERSPACE_VERITY` — takes a boolean, which controls whether
+  to consider the userspace Verity public key store in `/etc/verity.d/` (and
+  related directories) to authenticate signatures on Verity hashes of disk
+  images. Defaults to true, i.e. userspace signature validation is allowed. If
+  false, authentication can be done only via the kernel's internal keyring.
+
 `systemd-cryptsetup`:
 
 * `$SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE` – takes a boolean, which controls
@@ -558,6 +557,14 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   `$SYSTEMD_HOME_MKFS_OPTIONS_XFS` – configure additional arguments to use for
   `mkfs` when formatting LUKS home directories. There's one variable for each
   of the supported file systems for the LUKS home directory backend.
+
+* `$SYSTEMD_HOME_LOCK_FREEZE_SESSION` - Takes a boolean. When false, the user's
+  session will not be frozen when the home directory is locked. Note that the kernel
+  may still freeze any task that tries to access data from the user's locked home
+  directory. This can lead to data loss, security leaks, or other undesired behavior
+  caused by parts of the session becoming unresponsive due to disk I/O while other
+  parts of the session continue running. Thus, we highly recommend that this variable
+  isn't used unless necessary. Defaults to true.
 
 `kernel-install`:
 
@@ -631,6 +638,14 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 * `$SYSTEMD_MEASURE_LOG_FIRMWARE` – the path to the `binary_bios_measurements`
   file (containing firmware measurement data) to read. This allows overriding
   the default of `/sys/kernel/security/tpm0/binary_bios_measurements`.
+
+`systemd-sleep`:
+
+* `$SYSTEMD_SLEEP_FREEZE_USER_SESSIONS` - Takes a boolean. When true (the default),
+  `user.slice` will be frozen during sleep. When false it will not be. We recommend
+  against using this variable, because it can lead to undesired behavior, especially
+  for systems that use home directory encryption and for
+  `systemd-suspend-then-hibernate.service`.
 
 Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 `busctl`):

@@ -568,6 +568,15 @@ it is bypassed.
 auto-login. Systems are supposed to automatically log in a user marked this way
 during boot, if there's exactly one user on it defined this way.
 
+`preferredSessionType` → A string that indicates the user's preferred session type
+(i.e. `x11`, `wayland`, or other values valid for `$XDG_SESSION_TYPE`). This should
+be used by the display manager to pre-select the correct environment to log into.
+
+`preferredSessionLauncher` → A string that indicates the user's preferred session launcher
+desktop entry file (i.e. `gnome`, `gnome-classic`, `plasma`, `kodi`, or others that appear
+in `/usr/share/xsessions/` or `/usr/share/wayland-sessions/`). This should be used by the
+display manager to pre-select the correct environment to launch when the user logs in.
+
 `stopDelayUSec` → An unsigned 64-bit integer, indicating the time in µs the
 per-user service manager is kept around after the user fully logged out.  This
 value is honored by
@@ -780,8 +789,8 @@ that may be used in this section are identical to the equally named ones in the
 `luksPbkdfType`, `luksPbkdfForceIterations`, `luksPbkdfTimeCostUSec`, `luksPbkdfMemoryCost`,
 `luksPbkdfParallelThreads`, `luksSectorSize`, `autoResizeMode`, `rebalanceWeight`,
 `rateLimitIntervalUSec`, `rateLimitBurst`, `enforcePasswordPolicy`,
-`autoLogin`, `stopDelayUSec`, `killProcesses`, `passwordChangeMinUSec`,
-`passwordChangeMaxUSec`, `passwordChangeWarnUSec`,
+`autoLogin`, `preferredSessionType`, `preferredSessionLauncher`, `stopDelayUSec`, `killProcesses`,
+`passwordChangeMinUSec`, `passwordChangeMaxUSec`, `passwordChangeWarnUSec`,
 `passwordChangeInactiveUSec`, `passwordChangeNow`, `pkcs11TokenUri`,
 `fido2HmacCredential`.
 

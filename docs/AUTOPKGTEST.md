@@ -9,7 +9,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 Full system integration/acceptance testing is done through [autopkgtests](https://salsa.debian.org/ci-team/autopkgtest/-/blob/master/doc/README.package-tests.rst). These test the actual installed binary distribution packages. They are run in QEMU or containers and thus can do intrusive and destructive things such as installing arbitrary packages, modifying arbitrary files in the system (including grub boot parameters), rebooting, or loading kernel modules.
 
-The tests for systemd are defined in the [Debian package's debian/tests](https://salsa.debian.org/systemd-team/systemd/tree/master/debian/tests) directory. For validating a pull request, the Debian package is built using the unpatched code from that PR (via the [checkout-upstream](https://salsa.debian.org/systemd-team/systemd/blob/master/debian/extra/checkout-upstream) script), and the tests run against these built packages. Note that some tests which check Debian specific behaviour are skipped in "test upstream" mode.
+The tests for systemd are defined in the [Debian package's debian/tests](https://salsa.debian.org/systemd-team/systemd/-/tree/debian/master/debian/tests) directory. For validating a pull request, the Debian package is built using the unpatched code from that PR (via the [checkout-upstream](https://salsa.debian.org/systemd-team/systemd/-/blob/debian/master/debian/extra/checkout-upstream) script), and the tests run against these built packages. Note that some tests which check Debian specific behaviour are skipped in "test upstream" mode.
 
 # Infrastructure
 

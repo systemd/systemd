@@ -596,7 +596,7 @@ static int get_search(uint64_t type, char ***list) {
 
         case SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT:
         case SD_PATH_SYSTEMD_SEARCH_USER_UNIT: {
-                _cleanup_(lookup_paths_free) LookupPaths lp = {};
+                _cleanup_(lookup_paths_done) LookupPaths lp = {};
                 RuntimeScope scope = type == SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT ?
                         RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
 

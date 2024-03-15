@@ -376,17 +376,6 @@ int sd_lldp_neighbor_get_destination_address(sd_lldp_neighbor *n, struct ether_a
         return 0;
 }
 
-int sd_lldp_neighbor_get_raw(sd_lldp_neighbor *n, const void **ret, size_t *size) {
-        assert_return(n, -EINVAL);
-        assert_return(ret, -EINVAL);
-        assert_return(size, -EINVAL);
-
-        *ret = LLDP_NEIGHBOR_RAW(n);
-        *size = n->raw_size;
-
-        return 0;
-}
-
 int sd_lldp_neighbor_get_chassis_id(sd_lldp_neighbor *n, uint8_t *type, const void **ret, size_t *size) {
         assert_return(n, -EINVAL);
         assert_return(type, -EINVAL);
@@ -640,28 +629,6 @@ int sd_lldp_neighbor_get_enabled_capabilities(sd_lldp_neighbor *n, uint16_t *ret
         return 0;
 }
 
-int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, size_t raw_size) {
-        _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
-        int r;
-
-        assert_return(ret, -EINVAL);
-        assert_return(raw || raw_size <= 0, -EINVAL);
-
-        n = lldp_neighbor_new(raw_size);
-        if (!n)
-                return -ENOMEM;
-
-        memcpy_safe(LLDP_NEIGHBOR_RAW(n), raw, raw_size);
-
-        r = lldp_neighbor_parse(n);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_PTR(n);
-
-        return r;
-}
-
 int sd_lldp_neighbor_tlv_rewind(sd_lldp_neighbor *n) {
         assert_return(n, -EINVAL);
 
@@ -792,4 +759,32 @@ int sd_lldp_neighbor_get_timestamp(sd_lldp_neighbor *n, clockid_t clock, uint64_
 
         *ret = triple_timestamp_by_clock(&n->timestamp, clock);
         return 0;
+}
+
+int lldp_neighbor_build_json(sd_lldp_neighbor *n, JsonVariant **ret) {
+        const char *chassis_id = NULL, *port_id = NULL, *port_description = NULL,
+                *system_name = NULL, *system_description = NULL;
+        uint16_t cc = 0;
+        bool valid_cc;
+
+        assert(n);
+        assert(ret);
+
+        (void) sd_lldp_neighbor_get_chassis_id_as_string(n, &chassis_id);
+        (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
+        (void) sd_lldp_neighbor_get_port_description(n, &port_description);
+        (void) sd_lldp_neighbor_get_system_name(n, &system_name);
+        (void) sd_lldp_neighbor_get_system_description(n, &system_description);
+
+        valid_cc = sd_lldp_neighbor_get_enabled_capabilities(n, &cc) >= 0;
+
+        return json_build(ret, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("ChassisID", chassis_id),
+                                JSON_BUILD_PAIR_BYTE_ARRAY("RawChassisID", n->id.chassis_id, n->id.chassis_id_size),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("PortID", port_id),
+                                JSON_BUILD_PAIR_BYTE_ARRAY("RawPortID", n->id.port_id, n->id.port_id_size),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("PortDescription", port_description),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemName", system_name),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemDescription", system_description),
+                                JSON_BUILD_PAIR_CONDITION(valid_cc, "EnabledCapabilities", JSON_BUILD_UNSIGNED(cc))));
 }

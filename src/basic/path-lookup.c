@@ -214,7 +214,7 @@ static char** user_dirs(
                             persistent_config) < 0)
                 return NULL;
 
-        if (strv_extend_strv_concat(&res, config_dirs, "/systemd/user") < 0)
+        if (strv_extend_strv_concat(&res, (const char* const*) config_dirs, "/systemd/user") < 0)
                 return NULL;
 
         /* global config has lower priority than the user config of the same type */
@@ -232,7 +232,7 @@ static char** user_dirs(
                             data_home) < 0)
                 return NULL;
 
-        if (strv_extend_strv_concat(&res, data_dirs, "/systemd/user") < 0)
+        if (strv_extend_strv_concat(&res, (const char* const*) data_dirs, "/systemd/user") < 0)
                 return NULL;
 
         if (strv_extend_strv(&res, (char**) user_data_unit_paths, false) < 0)
@@ -776,9 +776,8 @@ int lookup_paths_init_or_warn(LookupPaths *lp, RuntimeScope scope, LookupPathsFl
         return r;
 }
 
-void lookup_paths_free(LookupPaths *lp) {
-        if (!lp)
-                return;
+void lookup_paths_done(LookupPaths *lp) {
+        assert(lp);
 
         lp->search_path = strv_free(lp->search_path);
 

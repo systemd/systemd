@@ -7,7 +7,7 @@ set -o pipefail
 # default to Debian testing
 DISTRO="${DISTRO:-debian}"
 RELEASE="${RELEASE:-bookworm}"
-BRANCH="${BRANCH:-upstream-ci}"
+BRANCH="${BRANCH:-debian/master}"
 ARCH="${ARCH:-amd64}"
 CONTAINER="${RELEASE}-${ARCH}"
 CACHE_DIR="${SEMAPHORE_CACHE_DIR:-/tmp}"
@@ -29,6 +29,7 @@ create_container() {
     # enable source repositories so that apt-get build-dep works
     sudo lxc-attach -n "$CONTAINER" -- sh -ex <<EOF
 sed 's/^deb/deb-src/' /etc/apt/sources.list >>/etc/apt/sources.list.d/sources.list
+echo "deb http://deb.debian.org/debian $RELEASE-backports main" >/etc/apt/sources.list.d/backports.list
 # We might attach the console too soon
 until systemctl --quiet --wait is-system-running; do sleep 1; done
 # Manpages database trigger takes a lot of time and is not useful in a CI
@@ -43,7 +44,9 @@ apt-get -q --allow-releaseinfo-change update
 apt-get -y dist-upgrade
 apt-get install -y eatmydata
 # The following four are needed as long as these deps are not covered by Debian's own packaging
-apt-get install -y fdisk tree libfdisk-dev libp11-kit-dev libssl-dev libpwquality-dev rpm
+apt-get install -y tree libpwquality-dev rpm libcurl4-openssl-dev libarchive-dev
+# autopkgtest doesn't consider backports
+apt-get install -y -t $RELEASE-backports debhelper
 apt-get purge --auto-remove -y unattended-upgrades
 systemctl unmask systemd-networkd
 systemctl enable systemd-networkd
@@ -63,7 +66,7 @@ for phase in "${PHASES[@]}"; do
             sudo apt-get install -y -t "$UBUNTU_RELEASE-backports" lxc
             sudo apt-get install -y python3-debian git dpkg-dev fakeroot python3-jinja2
 
-            [ -d "$AUTOPKGTEST_DIR" ] || git clone --quiet --branch=debian/5.32 --depth=1 https://salsa.debian.org/ci-team/autopkgtest.git "$AUTOPKGTEST_DIR"
+            [ -d "$AUTOPKGTEST_DIR" ] || git clone --quiet --depth=1 https://salsa.debian.org/ci-team/autopkgtest.git "$AUTOPKGTEST_DIR"
 
             create_container
         ;;
@@ -100,8 +103,11 @@ EOF
             # now build the package and run the tests
             rm -rf "$ARTIFACTS_DIR"
             # autopkgtest exits with 2 for "some tests skipped", accept that
-            sudo "$AUTOPKGTEST_DIR/runner/autopkgtest" --env DEB_BUILD_OPTIONS=noudeb \
-                                                       --env TEST_UPSTREAM=1 ../systemd_*.dsc \
+            sudo "$AUTOPKGTEST_DIR/runner/autopkgtest" --env DEB_BUILD_OPTIONS="noudeb nostrip optimize=-lto" \
+                                                       --env DPKG_DEB_COMPRESSOR_TYPE="none" \
+                                                       --env DEB_BUILD_PROFILES="pkg.systemd.upstream noudeb" \
+                                                       --env TEST_UPSTREAM=1 \
+                                                       ../systemd_*.dsc \
                                                        -o "$ARTIFACTS_DIR" \
                                                        -- lxc -s "$CONTAINER" \
                 || [ $? -eq 2 ]

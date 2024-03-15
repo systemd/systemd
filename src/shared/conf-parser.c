@@ -8,6 +8,7 @@
 #include <sys/types.h>
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -480,6 +481,7 @@ int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const s
 }
 
 static int config_parse_many_files(
+                const char *root,
                 const char* const* conf_files,
                 char **files,
                 const char *sections,
@@ -502,19 +504,16 @@ static int config_parse_many_files(
         }
 
         STRV_FOREACH(fn, files) {
-                _cleanup_free_ struct stat *st_dropin = NULL;
                 _cleanup_fclose_ FILE *f = NULL;
-                int fd;
+                _cleanup_free_ char *fname = NULL;
 
-                f = fopen(*fn, "re");
-                if (!f) {
-                        if (errno == ENOENT)
-                                continue;
+                r = chase_and_fopen_unlocked(*fn, root, CHASE_AT_RESOLVE_IN_ROOT, "re", &fname, &f);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
 
-                        return -errno;
-                }
-
-                fd = fileno(f);
+                int fd = fileno(f);
 
                 r = ordered_hashmap_ensure_put(&dropins, &config_file_hash_ops_fclose, *fn, f);
                 if (r < 0) {
@@ -527,7 +526,7 @@ static int config_parse_many_files(
                 /* Get inodes for all drop-ins. Later we'll verify if main config is a symlink to or is
                  * symlinked as one of them. If so, we skip reading main config file directly. */
 
-                st_dropin = new(struct stat, 1);
+                _cleanup_free_ struct stat *st_dropin = new(struct stat, 1);
                 if (!st_dropin)
                         return -ENOMEM;
 
@@ -543,13 +542,11 @@ static int config_parse_many_files(
         STRV_FOREACH(fn, conf_files) {
                 _cleanup_fclose_ FILE *f = NULL;
 
-                f = fopen(*fn, "re");
-                if (!f) {
-                        if (errno == ENOENT)
-                                continue;
-
-                        return -errno;
-                }
+                r = chase_and_fopen_unlocked(*fn, root, CHASE_AT_RESOLVE_IN_ROOT, "re", NULL, &f);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
 
                 if (inodes) {
                         if (fstat(fileno(f), &st) < 0)
@@ -561,7 +558,7 @@ static int config_parse_many_files(
                         }
                 }
 
-                r = config_parse(NULL, *fn, f, sections, lookup, table, flags, userdata, &st);
+                r = config_parse(/* unit= */ NULL, *fn, f, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
                         return r;
                 assert(r > 0);
@@ -580,7 +577,7 @@ static int config_parse_many_files(
         const char *path_dropin;
         FILE *f_dropin;
         ORDERED_HASHMAP_FOREACH_KEY(f_dropin, path_dropin, dropins) {
-                r = config_parse(NULL, path_dropin, f_dropin, sections, lookup, table, flags, userdata, &st);
+                r = config_parse(/* unit= */ NULL, path_dropin, f_dropin, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
                         return r;
                 assert(r > 0);
@@ -596,56 +593,6 @@ static int config_parse_many_files(
                 *ret_stats_by_path = TAKE_PTR(stats_by_path);
 
         return 0;
-}
-
-/* Parse one main config file located in /etc/$pkgdir and its drop-ins, which is what all systemd daemons
- * do. */
-int config_parse_config_file_full(
-                const char *conf_file,
-                const char *pkgdir,
-                const char *sections,
-                ConfigItemLookup lookup,
-                const void *table,
-                ConfigParseFlags flags,
-                void *userdata) {
-
-        _cleanup_strv_free_ char **dropins = NULL, **dropin_dirs = NULL;
-        char **conf_paths = CONF_PATHS_STRV("");
-        int r;
-
-        assert(conf_file);
-        assert(pkgdir);
-
-        /* build the dropin dir list */
-        dropin_dirs = new0(char*, strv_length(conf_paths) + 1);
-        if (!dropin_dirs) {
-                if (flags & CONFIG_PARSE_WARN)
-                        return log_oom();
-                return -ENOMEM;
-        }
-
-        size_t i = 0;
-        STRV_FOREACH(p, conf_paths) {
-                char *d;
-
-                d = strjoin(*p, pkgdir, "/", conf_file, ".d");
-                if (!d) {
-                        if (flags & CONFIG_PARSE_WARN)
-                                return log_oom();
-                        return -ENOMEM;
-                }
-
-                dropin_dirs[i++] = d;
-        }
-
-        r = conf_files_list_strv(&dropins, ".conf", NULL, 0, (const char**) dropin_dirs);
-        if (r < 0)
-                return r;
-
-        const char *sysconf_file = strjoina(SYSCONF_DIR, "/", pkgdir, "/", conf_file);
-
-        return config_parse_many_files(STRV_MAKE_CONST(sysconf_file), dropins,
-                                       sections, lookup, table, flags, userdata, NULL);
 }
 
 /* Parse each config file in the directories specified as strv. */
@@ -667,14 +614,13 @@ int config_parse_many(
 
         assert(conf_file_dirs);
         assert(dropin_dirname);
-        assert(sections);
         assert(table);
 
         r = conf_files_list_dropins(&files, dropin_dirname, root, conf_file_dirs);
         if (r < 0)
                 return r;
 
-        r = config_parse_many_files(conf_files, files, sections, lookup, table, flags, userdata, ret_stats_by_path);
+        r = config_parse_many_files(root, conf_files, files, sections, lookup, table, flags, userdata, ret_stats_by_path);
         if (r < 0)
                 return r;
 
@@ -682,6 +628,50 @@ int config_parse_many(
                 *ret_dropin_files = TAKE_PTR(files);
 
         return 0;
+}
+
+int config_parse_standard_file_with_dropins_full(
+                const char *root,
+                const char *main_file,    /* A path like "systemd/frobnicator.conf" */
+                const char *sections,
+                ConfigItemLookup lookup,
+                const void *table,
+                ConfigParseFlags flags,
+                void *userdata,
+                Hashmap **ret_stats_by_path,
+                char ***ret_dropin_files) {
+
+        const char* const *conf_paths = (const char* const*) CONF_PATHS_STRV("");
+        _cleanup_strv_free_ char **configs = NULL;
+        int r;
+
+        /* Build the list of main config files */
+        r = strv_extend_strv_biconcat(&configs, root, conf_paths, main_file);
+        if (r < 0) {
+                if (flags & CONFIG_PARSE_WARN)
+                        log_oom();
+                return r;
+        }
+
+        _cleanup_free_ char *dropin_dirname = strjoin(main_file, ".d");
+        if (!dropin_dirname) {
+                if (flags & CONFIG_PARSE_WARN)
+                        log_oom();
+                return -ENOMEM;
+        }
+
+        return config_parse_many(
+                        (const char* const*) configs,
+                        conf_paths,
+                        dropin_dirname,
+                        root,
+                        sections,
+                        lookup,
+                        table,
+                        flags,
+                        userdata,
+                        ret_stats_by_path,
+                        ret_dropin_files);
 }
 
 static int dropins_get_stats_by_path(

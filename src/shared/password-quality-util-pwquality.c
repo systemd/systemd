@@ -14,14 +14,14 @@
 
 static void *pwquality_dl = NULL;
 
-int (*sym_pwquality_check)(pwquality_settings_t *pwq, const char *password, const char *oldpassword, const char *user, void **auxerror);
-pwquality_settings_t *(*sym_pwquality_default_settings)(void);
-void (*sym_pwquality_free_settings)(pwquality_settings_t *pwq);
-int (*sym_pwquality_generate)(pwquality_settings_t *pwq, int entropy_bits, char **password);
-int (*sym_pwquality_get_str_value)(pwquality_settings_t *pwq, int setting, const char **value);
-int (*sym_pwquality_read_config)(pwquality_settings_t *pwq, const char *cfgfile, void **auxerror);
-int (*sym_pwquality_set_int_value)(pwquality_settings_t *pwq, int setting, int value);
-const char* (*sym_pwquality_strerror)(char *buf, size_t len, int errcode, void *auxerror);
+DLSYM_FUNCTION(pwquality_check);
+DLSYM_FUNCTION(pwquality_default_settings);
+DLSYM_FUNCTION(pwquality_free_settings);
+DLSYM_FUNCTION(pwquality_generate);
+DLSYM_FUNCTION(pwquality_get_str_value);
+DLSYM_FUNCTION(pwquality_read_config);
+DLSYM_FUNCTION(pwquality_set_int_value);
+DLSYM_FUNCTION(pwquality_strerror);
 
 int dlopen_pwquality(void) {
         return dlopen_many_sym_or_warn(

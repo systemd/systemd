@@ -7,6 +7,7 @@
 #include "capability-util.h"
 #include "copy.h"
 #include "dirent-util.h"
+#include "discover-image.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "hostname-util.h"
@@ -37,10 +38,8 @@ int pull_find_old_etags(
         int r;
 
         assert(url);
+        assert(image_root);
         assert(etags);
-
-        if (!image_root)
-                image_root = "/var/lib/machines";
 
         _cleanup_free_ char *escaped_url = xescape(url, FILENAME_ESCAPE);
         if (!escaped_url)
@@ -128,10 +127,8 @@ int pull_make_path(const char *url, const char *etag, const char *image_root, co
         char *path;
 
         assert(url);
+        assert(image_root);
         assert(ret);
-
-        if (!image_root)
-                image_root = "/var/lib/machines";
 
         escaped_url = xescape(url, FILENAME_ESCAPE);
         if (!escaped_url)
@@ -643,12 +640,12 @@ int pull_job_restart_with_sha256sum(PullJob *j, char **ret) {
         return 1;
 }
 
-bool pull_validate_local(const char *name, PullFlags flags) {
+bool pull_validate_local(const char *name, ImportFlags flags) {
 
-        if (FLAGS_SET(flags, PULL_DIRECT))
+        if (FLAGS_SET(flags, IMPORT_DIRECT))
                 return path_is_valid(name);
 
-        return hostname_is_valid(name, 0);
+        return image_name_is_valid(name);
 }
 
 int pull_url_needs_checksum(const char *url) {

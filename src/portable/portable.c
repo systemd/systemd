@@ -182,7 +182,7 @@ static int extract_now(
 
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_(lookup_paths_free) LookupPaths paths = {};
+        _cleanup_(lookup_paths_done) LookupPaths paths = {};
         _cleanup_close_ int os_release_fd = -EBADF;
         _cleanup_free_ char *os_release_path = NULL;
         const char *os_release_id;
@@ -362,7 +362,13 @@ static int portable_extract_by_path(
 
         assert(path);
 
-        r = loop_device_make_by_path(path, O_RDONLY, /* sector_size= */ UINT32_MAX, LO_FLAGS_PARTSCAN, LOCK_SH, &d);
+        r = loop_device_make_by_path(
+                        path,
+                        O_RDONLY,
+                        /* sector_size= */ UINT32_MAX,
+                        LO_FLAGS_PARTSCAN,
+                        LOCK_SH,
+                        &d);
         if (r == -EISDIR) {
                 _cleanup_free_ char *image_name = NULL;
 
@@ -384,6 +390,21 @@ static int portable_extract_by_path(
                 _cleanup_(rmdir_and_freep) char *tmpdir = NULL;
                 _cleanup_close_pair_ int seq[2] = EBADF_PAIR;
                 _cleanup_(sigkill_waitp) pid_t child = 0;
+                DissectImageFlags flags =
+                        DISSECT_IMAGE_READ_ONLY |
+                        DISSECT_IMAGE_GENERIC_ROOT |
+                        DISSECT_IMAGE_REQUIRE_ROOT |
+                        DISSECT_IMAGE_DISCARD_ON_LOOP |
+                        DISSECT_IMAGE_RELAX_VAR_CHECK |
+                        DISSECT_IMAGE_USR_NO_ROOT |
+                        DISSECT_IMAGE_ADD_PARTITION_DEVICES |
+                        DISSECT_IMAGE_PIN_PARTITION_DEVICES |
+                        DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
+
+                if (path_is_extension)
+                        flags |= DISSECT_IMAGE_VALIDATE_OS_EXT | (relax_extension_release_check ? DISSECT_IMAGE_RELAX_EXTENSION_CHECK : 0);
+                else
+                        flags |= DISSECT_IMAGE_VALIDATE_OS;
 
                 /* We now have a loopback block device, let's fork off a child in its own mount namespace, mount it
                  * there, and extract the metadata we need. The metadata is sent from the child back to us. */
@@ -399,14 +420,7 @@ static int portable_extract_by_path(
                                 /* verity= */ NULL,
                                 /* mount_options= */ NULL,
                                 image_policy,
-                                DISSECT_IMAGE_READ_ONLY |
-                                DISSECT_IMAGE_GENERIC_ROOT |
-                                DISSECT_IMAGE_REQUIRE_ROOT |
-                                DISSECT_IMAGE_DISCARD_ON_LOOP |
-                                DISSECT_IMAGE_RELAX_VAR_CHECK |
-                                DISSECT_IMAGE_USR_NO_ROOT |
-                                DISSECT_IMAGE_ADD_PARTITION_DEVICES |
-                                DISSECT_IMAGE_PIN_PARTITION_DEVICES,
+                                flags,
                                 &m);
                 if (r == -ENOPKG)
                         sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Couldn't identify a suitable partition table or file system in '%s'.", path);
@@ -428,14 +442,7 @@ static int portable_extract_by_path(
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        DissectImageFlags flags = DISSECT_IMAGE_READ_ONLY;
-
                         seq[0] = safe_close(seq[0]);
-
-                        if (path_is_extension)
-                                flags |= DISSECT_IMAGE_VALIDATE_OS_EXT | (relax_extension_release_check ? DISSECT_IMAGE_RELAX_EXTENSION_CHECK : 0);
-                        else
-                                flags |= DISSECT_IMAGE_VALIDATE_OS;
 
                         r = dissected_image_mount(
                                         m,
@@ -1549,7 +1556,7 @@ int portable_attach(
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
-        _cleanup_(lookup_paths_free) LookupPaths paths = {};
+        _cleanup_(lookup_paths_done) LookupPaths paths = {};
         _cleanup_strv_free_ char **valid_prefixes = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         PortableMetadata *item;
@@ -1810,7 +1817,7 @@ int portable_detach(
                 size_t *n_changes,
                 sd_bus_error *error) {
 
-        _cleanup_(lookup_paths_free) LookupPaths paths = {};
+        _cleanup_(lookup_paths_done) LookupPaths paths = {};
         _cleanup_set_free_ Set *unit_files = NULL, *markers = NULL;
         _cleanup_free_ char *extensions = NULL;
         _cleanup_closedir_ DIR *d = NULL;
@@ -1995,7 +2002,7 @@ static int portable_get_state_internal(
                 PortableState *ret,
                 sd_bus_error *error) {
 
-        _cleanup_(lookup_paths_free) LookupPaths paths = {};
+        _cleanup_(lookup_paths_done) LookupPaths paths = {};
         bool found_enabled = false, found_running = false;
         _cleanup_set_free_ Set *unit_files = NULL;
         _cleanup_closedir_ DIR *d = NULL;

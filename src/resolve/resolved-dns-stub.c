@@ -837,12 +837,20 @@ static void dns_stub_query_complete(DnsQuery *query) {
                 break;
 
         case DNS_TRANSACTION_NO_SERVERS:
+                /* We're not configured to give answers for this question. Refuse it. */
+                (void) dns_stub_send_reply(q, DNS_RCODE_REFUSED);
+                break;
+
+        case DNS_TRANSACTION_RR_TYPE_UNSUPPORTED:
+                /* This RR Type is not implemented */
+                (void) dns_stub_send_reply(q, DNS_RCODE_NOTIMP);
+                break;
+
         case DNS_TRANSACTION_INVALID_REPLY:
         case DNS_TRANSACTION_ERRNO:
         case DNS_TRANSACTION_ABORTED:
         case DNS_TRANSACTION_DNSSEC_FAILED:
         case DNS_TRANSACTION_NO_TRUST_ANCHOR:
-        case DNS_TRANSACTION_RR_TYPE_UNSUPPORTED:
         case DNS_TRANSACTION_NETWORK_DOWN:
         case DNS_TRANSACTION_NO_SOURCE:
         case DNS_TRANSACTION_STUB_LOOP:
@@ -958,8 +966,8 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 log_debug("Got request to DNS proxy address 127.0.0.54, enabling bypass logic.");
                 bypass = true;
                 protocol_flags = SD_RESOLVED_DNS|SD_RESOLVED_NO_ZONE; /* Turn off mDNS/LLMNR for proxy stub. */
-        } else if ((DNS_PACKET_DO(p) && DNS_PACKET_CD(p))) {
-                log_debug("Got request with DNSSEC checking disabled, enabling bypass logic.");
+        } else if (DNS_PACKET_DO(p)) {
+                log_debug("Got request with DNSSEC enabled, enabling bypass logic.");
                 bypass = true;
         }
 
@@ -970,7 +978,8 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                                   SD_RESOLVED_NO_SEARCH|
                                   SD_RESOLVED_NO_VALIDATE|
                                   SD_RESOLVED_REQUIRE_PRIMARY|
-                                  SD_RESOLVED_CLAMP_TTL);
+                                  SD_RESOLVED_CLAMP_TTL|
+                                  SD_RESOLVED_RELAX_SINGLE_LABEL);
         else
                 r = dns_query_new(m, &q, p->question, p->question, NULL, 0,
                                   protocol_flags|

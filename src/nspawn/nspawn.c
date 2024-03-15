@@ -3712,6 +3712,14 @@ static int setup_unix_export_host_inside(const char *directory, const char *unix
         return 0;
 }
 
+static DissectImageFlags determine_dissect_image_flags(void) {
+        return
+                DISSECT_IMAGE_USR_NO_ROOT |
+                DISSECT_IMAGE_DISCARD_ON_LOOP |
+                (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS) |
+                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
+}
+
 static int outer_child(
                 Barrier *barrier,
                 const char *directory,
@@ -3773,10 +3781,8 @@ static int outer_child(
                                 arg_uid_shift,
                                 arg_uid_range,
                                 /* userns_fd= */ -EBADF,
+                                determine_dissect_image_flags()|
                                 DISSECT_IMAGE_MOUNT_ROOT_ONLY|
-                                DISSECT_IMAGE_DISCARD_ON_LOOP|
-                                DISSECT_IMAGE_USR_NO_ROOT|
-                                (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS)|
                                 (arg_start_mode == START_BOOT ? DISSECT_IMAGE_VALIDATE_OS : 0));
                 if (r < 0)
                         return r;
@@ -3958,10 +3964,8 @@ static int outer_child(
                                 arg_uid_shift,
                                 arg_uid_range,
                                 /* userns_fd= */ -EBADF,
+                                determine_dissect_image_flags()|
                                 DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|
-                                DISSECT_IMAGE_DISCARD_ON_LOOP|
-                                DISSECT_IMAGE_USR_NO_ROOT|
-                                (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS)|
                                 (idmap ? DISSECT_IMAGE_MOUNT_IDMAPPED : 0));
                 if (r == -EUCLEAN)
                         return log_error_errno(r, "File system check for image failed: %m");
@@ -4403,6 +4407,17 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         tags = strv_split(buf, "\n\r");
         if (!tags)
                 return log_oom();
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *joined = strv_join(tags, " ");
+
+                if (joined) {
+                        _cleanup_free_ char *j = cescape(joined);
+                        free_and_replace(joined, j);
+                }
+
+                log_debug("Got sd_notify() message: %s", strnull(joined));
+        }
 
         if (strv_contains(tags, "READY=1")) {
                 r = sd_notify(false, "READY=1\n");

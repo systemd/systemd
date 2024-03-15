@@ -59,24 +59,29 @@ jobs:
           - distro: debian
             release: testing
           - distro: ubuntu
-            release: jammy
+            release: noble
           - distro: fedora
             release: "39"
           - distro: fedora
             release: rawhide
-          - distro: opensuse
-            release: tumbleweed
+          # TODO: Re-enable once https://lists.opensuse.org/archives/list/factory@lists.opensuse.org/thread/AU4NWTBXNA7MVAUXWR74XYCHCSZN4Z4K/
+          # is resolved or https://build.opensuse.org/request/show/1152118 is merged.
+          # - distro: opensuse
+          #   release: tumbleweed
           - distro: centos
             release: "9"
-          - distro: centos
-            release: "8"
 
     env:
       SYSTEMD_LOG_LEVEL: debug
 
     steps:
-    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
-    - uses: systemd/mkosi@070528fec478fc93af7ec057a5d2fd0045123c99
+    - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
+    - uses: systemd/mkosi@1445b389750af22756c0fde6facc1f2f343340b4
+
+    - name: Free disk space
+      run: |
+        sudo rm -rf /usr/local
+        sudo rm -rf /opt/hostedtoolcache
 
     - name: Configure
       run: |
@@ -89,16 +94,14 @@ jobs:
         # Build a disk image in CI as this logic is much more prone to breakage.
         Format=disk
 
-        [Content]
-        Environment=CI_BUILD=1
-                    SLOW_TESTS=true
-
         [Host]
         ToolsTree=default
         ToolsTreeDistribution=fedora
         QemuVsock=yes
         # Sometimes we run on a host with /dev/kvm, but it is broken, so explicitly disable it
-        QemuKvm=no
+        QemuKvm=yes
+        # TODO: Drop once https://bugs.launchpad.net/ubuntu/+source/linux/+bug/2038777 is fixed in Github Actions
+        QemuFirmware=uefi
         Ephemeral=yes
         EOF
 

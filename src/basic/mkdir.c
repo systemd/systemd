@@ -112,7 +112,7 @@ int mkdirat_parents_internal(int dir_fd, const char *path, mode_t mode, uid_t ui
 
         /* drop the last component */
         path = strndupa_safe(path, e - path);
-        r = is_dir_full(dir_fd, path, true);
+        r = is_dir_at(dir_fd, path, /* follow = */ true);
         if (r > 0)
                 return 0;
         if (r == 0)

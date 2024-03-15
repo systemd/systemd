@@ -232,6 +232,7 @@ conf.set_quoted('ENVIRONMENT_DIR',                            environmentdir)
 conf.set_quoted('INCLUDE_DIR',                                includedir)
 conf.set_quoted('LIBDIR',                                     libdir)
 conf.set_quoted('LIBEXECDIR',                                 libexecdir)
+conf.set_quoted('KERNEL_INSTALL_DIR',                         kernelinstalldir)
 conf.set_quoted('MODPROBE_DIR',                               modprobedir)
 conf.set_quoted('MODULESLOAD_DIR',                            modulesloaddir)
 conf.set_quoted('PKGSYSCONFDIR',                              pkgsysconfdir)
@@ -1370,16 +1371,19 @@ conf.set10('HAVE_BZIP2', libbzip2.found())
 libxz = dependency('liblzma',
                    required : get_option('xz'))
 conf.set10('HAVE_XZ', libxz.found())
+libxz_cflags = libxz.partial_dependency(includes: true, compile_args: true)
 
 liblz4 = dependency('liblz4',
                     version : '>= 1.3.0',
                     required : get_option('lz4'))
 conf.set10('HAVE_LZ4', liblz4.found())
+liblz4_cflags = liblz4.partial_dependency(includes: true, compile_args: true)
 
 libzstd = dependency('libzstd',
                      version : '>= 1.4.0',
                      required : get_option('zstd'))
 conf.set10('HAVE_ZSTD', libzstd.found())
+libzstd_cflags = libzstd.partial_dependency(includes: true, compile_args: true)
 
 conf.set10('HAVE_COMPRESSION', libxz.found() or liblz4.found() or libzstd.found())
 
@@ -1849,20 +1853,15 @@ endif
 conf.set_quoted('VERSION_TAG', version_tag)
 
 vcs_tag = get_option('vcs-tag')
-if vcs_tag and fs.is_dir(project_source_root / '.git')
-        version_h = vcs_tag(
-                input : 'src/version/version.h.in',
-                output : 'version.h',
-                fallback : '',
-                command : ['sh', '-c', 'echo "-g$(git -C . describe --abbrev=7 --match="" --always --dirty=^)"'],
-        )
-else
-        version_h = configure_file(
-                input : 'src/version/version.h.in',
-                output : 'version.h',
-                configuration : configuration_data({'VCS_TAG' : ''}),
-        )
-endif
+command = ['sh', '-c',
+           vcs_tag and fs.exists(project_source_root / '.git') ?
+                   'echo "-g$(git -C . describe --abbrev=7 --match="" --always --dirty=^)"' : ':']
+version_h = vcs_tag(
+        input : 'src/version/version.h.in',
+        output : 'version.h',
+        fallback : '',
+        command : command,
+)
 
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''
@@ -1883,7 +1882,7 @@ config_h = configure_file(
 
 userspace_c_args += ['-include', 'config.h']
 
-jinja2_cmdline = [meson_render_jinja2, config_h, version_h]
+jinja2_cmdline = [meson_render_jinja2, config_h]
 
 userspace = declare_dependency(
         compile_args : userspace_c_args,
@@ -1950,8 +1949,7 @@ libsystemd = shared_library(
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
         link_with : [libbasic,
-                     libbasic_gcrypt,
-                     libbasic_compress],
+                     libbasic_gcrypt],
         link_whole : [libsystemd_static],
         dependencies : [librt,
                         threads,
@@ -1968,7 +1966,6 @@ install_libsystemd_static = static_library(
         libsystemd_sources,
         basic_sources,
         basic_gcrypt_sources,
-        basic_compress_sources,
         fundamental_sources,
         include_directories : libsystemd_includes,
         build_by_default : static_libsystemd != 'false',
@@ -1980,12 +1977,12 @@ install_libsystemd_static = static_library(
                         libcap,
                         libdl,
                         libgcrypt,
-                        liblz4,
+                        liblz4_cflags,
                         libmount,
                         libopenssl,
                         librt,
-                        libxz,
-                        libzstd,
+                        libxz_cflags,
+                        libzstd_cflags,
                         threads,
                         userspace],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
@@ -2757,8 +2754,8 @@ summary({
         'default LLMNR mode' :              default_llmnr,
         'default DNS servers' :             dns_servers.split(' '),
         'default NTP servers' :             ntp_servers.split(' '),
-        'default net.naming-scheme value' : default_net_naming_scheme,
-        'default KillUserProcesses value' : kill_user_processes,
+        'default net.naming_scheme= value': default_net_naming_scheme,
+        'default KillUserProcesses= value': kill_user_processes,
         'default locale' :                  default_locale,
         'default nspawn locale' :           nspawn_locale,
         'default status unit format' :      status_unit_format_default,

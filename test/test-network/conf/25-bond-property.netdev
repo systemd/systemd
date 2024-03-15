@@ -7,3 +7,4 @@ Mode=active-backup
 PrimaryReselectPolicy=always
 MIIMonitorSec=1s
 ARPMissedMax=10
+PeerNotifyDelaySec=300s

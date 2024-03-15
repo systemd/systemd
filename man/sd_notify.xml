@@ -420,8 +420,8 @@
         <term>FDPOLL=0</term>
 
         <listitem><para>When used in combination with <varname>FDSTORE=1</varname>, disables polling of the
-        stored file descriptors regardless of whether or not they are pollable. As this option disables
-        automatic cleanup of the stored file descriptors on EPOLLERR and EPOLLHUP, care must be taken to
+        submitted file descriptors regardless of whether or not they are pollable. As this option disables
+        automatic cleanup of the submitted file descriptors on EPOLLERR and EPOLLHUP, care must be taken to
         ensure proper manual cleanup.  Use of this option is not generally recommended except for when
         automatic cleanup has unwanted behavior such as prematurely discarding file descriptors from the
         store.</para>
@@ -446,9 +446,14 @@
     </variablelist>
 
     <para>The notification messages sent by services are interpreted by the service manager. Unknown
-    assignments may be logged, but are otherwise ignored. Thus, it is not useful to send assignments which
-    are not in this list. The service manager also sends some messages to <emphasis>its</emphasis>
-    notification socket, which are then consumed by the machine or container manager.</para>
+    assignments are ignored. Thus, it is is safe (but often without effect) to send assignments which are not
+    in this list. The protocol is extensible, but care should be taken to ensure private extensions are
+    recognizable as such. Specifically, it is recommend to prefix them with <literal>X_</literal> followed by
+    some namespace identifier. The service manager also sends some messages to <emphasis>its</emphasis>
+    notification socket, which may then consumed by a supervising machine or container manager further up the
+    stack. The service manager sends a number of extension fields, for example
+    <varname>X_SYSTEMD_UNIT_ACTIVE=</varname>, for details see
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>

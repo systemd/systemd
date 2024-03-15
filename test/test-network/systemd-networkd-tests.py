@@ -51,18 +51,17 @@ radvd_pid_file = '/run/networkd-ci/test-radvd.pid'
 
 systemd_lib_paths = ['/usr/lib/systemd', '/lib/systemd']
 which_paths = ':'.join(systemd_lib_paths + os.getenv('PATH', os.defpath).lstrip(':').split(':'))
-systemd_source_dir = None
 
 networkd_bin = shutil.which('systemd-networkd', path=which_paths)
 resolved_bin = shutil.which('systemd-resolved', path=which_paths)
 timesyncd_bin = shutil.which('systemd-timesyncd', path=which_paths)
-udevd_bin = shutil.which('systemd-udevd', path=which_paths)
 wait_online_bin = shutil.which('systemd-networkd-wait-online', path=which_paths)
 networkctl_bin = shutil.which('networkctl', path=which_paths)
 resolvectl_bin = shutil.which('resolvectl', path=which_paths)
 timedatectl_bin = shutil.which('timedatectl', path=which_paths)
 udevadm_bin = shutil.which('udevadm', path=which_paths)
-systemd_udev_rules_build_dir = None
+build_dir = None
+source_dir = None
 
 use_valgrind = False
 valgrind_cmd = ''
@@ -283,9 +282,6 @@ def compare_kernel_version(min_kernel_version):
 
     return version.parse(kver) >= version.parse(min_kernel_version)
 
-def udev_reload():
-    check_output(*udevadm_cmd, 'control', '--reload')
-
 def copy_network_unit(*units, copy_dropins=True):
     """
     Copy networkd unit files into the testbed.
@@ -316,7 +312,7 @@ def copy_network_unit(*units, copy_dropins=True):
             has_link = True
 
     if has_link:
-        udev_reload()
+        udevadm_reload()
 
 def copy_credential(src, target):
         mkdir_p(credstore_dir)
@@ -338,7 +334,7 @@ def remove_network_unit(*units):
             has_link = True
 
     if has_link:
-        udev_reload()
+        udevadm_reload()
 
 def clear_network_units():
     has_link = False
@@ -351,7 +347,7 @@ def clear_network_units():
     rm_rf(network_unit_dir)
 
     if has_link:
-        udev_reload()
+        udevadm_reload()
 
 def copy_networkd_conf_dropin(*dropins):
     """Copy networkd.conf dropin files into the testbed."""
@@ -368,18 +364,22 @@ def clear_networkd_conf_dropins():
     rm_rf(networkd_conf_dropin_dir)
 
 def setup_systemd_udev_rules():
-    if not systemd_udev_rules_build_dir:
+    if not build_dir:
         return
 
     mkdir_p(udev_rules_dir)
 
-    for path in [systemd_udev_rules_build_dir, os.path.join(systemd_source_dir, "rules.d")]:
+    for path in [build_dir, source_dir]:
+        path = os.path.join(path, "rules.d")
         print(f"Copying udev rules from {path} to {udev_rules_dir}")
 
         for rule in os.listdir(path):
             if not rule.endswith(".rules"):
                 continue
             cp(os.path.join(path, rule), udev_rules_dir)
+
+def clear_networkd_state_files():
+    rm_rf('/var/lib/systemd/network/')
 
 def copy_udev_rule(*rules):
     """Copy udev rules"""
@@ -415,11 +415,12 @@ def create_unit_dropin(unit, contents):
         f.write('\n'.join(contents))
 
 def create_service_dropin(service, command, additional_settings=None):
-    drop_in = [
-        '[Service]',
-        'ExecStart=',
-        f'ExecStart=!!{valgrind_cmd}{command}',
-    ]
+    drop_in = ['[Service]']
+    if command:
+        drop_in += [
+            'ExecStart=',
+            f'ExecStart=!!{valgrind_cmd}{command}',
+        ]
     if enable_debug:
         drop_in += ['Environment=SYSTEMD_LOG_LEVEL=debug']
     if asan_options:
@@ -446,6 +447,87 @@ def create_service_dropin(service, command, additional_settings=None):
         drop_in += additional_settings
 
     create_unit_dropin(f'{service}.service', drop_in)
+
+def setup_system_units():
+    if build_dir:
+        mkdir_p('/run/systemd/system/')
+
+        for unit in [
+                'systemd-networkd.service',
+                'systemd-networkd.socket',
+                'systemd-networkd-persistent-storage.service',
+                'systemd-resolved.service',
+                'systemd-timesyncd.service',
+                'systemd-udevd.service',
+        ]:
+            for path in [build_dir, source_dir]:
+                fullpath = os.path.join(os.path.join(path, "units"), unit)
+                if os.path.exists(fullpath):
+                    print(f"Copying unit file from {fullpath} to /run/systemd/system/")
+                    cp(fullpath, '/run/systemd/system/')
+                    break
+
+    create_service_dropin('systemd-networkd', networkd_bin,
+                          ['[Service]',
+                           'Restart=no',
+                           'Environment=SYSTEMD_NETWORK_TEST_MODE=yes',
+                           '[Unit]',
+                           'StartLimitIntervalSec=0'])
+    create_service_dropin('systemd-resolved', resolved_bin)
+    create_service_dropin('systemd-timesyncd', timesyncd_bin)
+
+    # TODO: also run udevd with sanitizers, valgrind, or coverage
+    create_unit_dropin(
+        'systemd-udevd.service',
+        [
+            '[Service]',
+            'ExecStart=',
+            f'ExecStart=!!@{udevadm_bin} systemd-udevd',
+        ]
+    )
+    create_unit_dropin(
+        'systemd-networkd.socket',
+        [
+            '[Unit]',
+            'StartLimitIntervalSec=0',
+        ]
+    )
+    create_unit_dropin(
+        'systemd-networkd-persistent-storage.service',
+        [
+            '[Unit]',
+            'StartLimitIntervalSec=0',
+            '[Service]',
+            'ExecStart=',
+            f'ExecStart={networkctl_bin} persistent-storage yes',
+            'ExecStop=',
+            f'ExecStop={networkctl_bin} persistent-storage no'
+        ]
+    )
+
+    check_output('systemctl daemon-reload')
+    print(check_output('systemctl cat systemd-networkd.service'))
+    print(check_output('systemctl cat systemd-networkd-persistent-storage.service'))
+    print(check_output('systemctl cat systemd-resolved.service'))
+    print(check_output('systemctl cat systemd-timesyncd.service'))
+    print(check_output('systemctl cat systemd-udevd.service'))
+    check_output('systemctl restart systemd-resolved.service')
+    check_output('systemctl restart systemd-timesyncd.service')
+    check_output('systemctl restart systemd-udevd.service')
+
+def clear_system_units():
+    def rm_unit(name):
+        rm_f(f'/run/systemd/system/{name}')
+        rm_rf(f'/run/systemd/system/{name}.d')
+
+    rm_unit('systemd-networkd.service')
+    rm_unit('systemd-networkd.socket')
+    rm_unit('systemd-networkd-persistent-storage.service')
+    rm_unit('systemd-resolved.service')
+    rm_unit('systemd-timesyncd.service')
+    rm_unit('systemd-udevd.service')
+    check_output('systemctl daemon-reload')
+    check_output('systemctl restart systemd-udevd.service')
 
 def link_exists(link):
     return call_quiet(f'ip link show {link}') == 0
@@ -798,6 +880,15 @@ def resolvectl(*args):
 def timedatectl(*args):
     return check_output(*(timedatectl_cmd + list(args)), env=env)
 
+def udevadm(*args):
+    return check_output(*(udevadm_cmd + list(args)))
+
+def udevadm_reload():
+    udevadm('control', '--reload')
+
+def udevadm_trigger(*args, action='add'):
+    udevadm('trigger', '--settle', f'--action={action}', *args)
+
 def setup_common():
     print()
 
@@ -824,6 +915,7 @@ def tear_down_common():
     # 6. remove configs
     clear_network_units()
     clear_networkd_conf_dropins()
+    clear_networkd_state_files()
 
     # 7. flush settings
     flush_fou_ports()
@@ -837,6 +929,7 @@ def setUpModule():
 
     clear_network_units()
     clear_networkd_conf_dropins()
+    clear_networkd_state_files()
     clear_udev_rules()
 
     setup_systemd_udev_rules()
@@ -849,58 +942,18 @@ def setUpModule():
     save_routing_policy_rules()
     save_timezone()
 
-    create_service_dropin('systemd-networkd', networkd_bin,
-                          ['[Service]',
-                           'Restart=no',
-                           'Environment=SYSTEMD_NETWORK_TEST_MODE=yes',
-                           '[Unit]',
-                           'StartLimitIntervalSec=0'])
-    create_service_dropin('systemd-resolved', resolved_bin)
-    create_service_dropin('systemd-timesyncd', timesyncd_bin)
-
-    # TODO: also run udevd with sanitizers, valgrind, or coverage
-    #create_service_dropin('systemd-udevd', udevd_bin,
-    #                      f'{udevadm_bin} control --reload --timeout 0')
-    create_unit_dropin(
-        'systemd-udevd.service',
-        [
-            '[Service]',
-            'ExecStart=',
-            f'ExecStart=!!@{udevd_bin} systemd-udevd',
-        ]
-    )
-    create_unit_dropin(
-        'systemd-networkd.socket',
-        [
-            '[Unit]',
-            'StartLimitIntervalSec=0',
-        ]
-    )
-
-    check_output('systemctl daemon-reload')
-    print(check_output('systemctl cat systemd-networkd.service'))
-    print(check_output('systemctl cat systemd-resolved.service'))
-    print(check_output('systemctl cat systemd-timesyncd.service'))
-    print(check_output('systemctl cat systemd-udevd.service'))
-    check_output('systemctl restart systemd-resolved.service')
-    check_output('systemctl restart systemd-timesyncd.service')
-    check_output('systemctl restart systemd-udevd.service')
+    setup_system_units()
 
 def tearDownModule():
     rm_rf(networkd_ci_temp_dir)
     clear_udev_rules()
     clear_network_units()
     clear_networkd_conf_dropins()
+    clear_networkd_state_files()
 
     restore_timezone()
 
-    rm_rf('/run/systemd/system/systemd-networkd.service.d')
-    rm_rf('/run/systemd/system/systemd-networkd.socket.d')
-    rm_rf('/run/systemd/system/systemd-resolved.service.d')
-    rm_rf('/run/systemd/system/systemd-timesyncd.service.d')
-    rm_rf('/run/systemd/system/systemd-udevd.service.d')
-    check_output('systemctl daemon-reload')
-    check_output('systemctl restart systemd-udevd.service')
+    clear_system_units()
     restore_active_units()
 
 class Utilities():
@@ -1315,7 +1368,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         # This test may be run on the system that has older udevd than 70f32a260b5ebb68c19ecadf5d69b3844896ba55 (v249).
         # In that case, the udev DB for the loopback network interface may already have ID_NET_LINK_FILE property.
         # Let's reprocess the interface and drop the property.
-        check_output(*udevadm_cmd, 'trigger', '--settle', '--action=add', '/sys/class/net/lo')
+        udevadm_trigger('/sys/class/net/lo')
         output = networkctl_status('lo')
         print(output)
         self.assertIn('Link File: n/a', output)
@@ -1378,7 +1431,7 @@ class NetworkdMatchTests(unittest.TestCase, Utilities):
 
         check_output('ip link set dev dummy98-1 down')
         check_output('ip link set dev dummy98-1 name dummy98-2')
-        check_output(*udevadm_cmd, 'trigger', '--action=add', '/sys/class/net/dummy98-2')
+        udevadm_trigger('/sys/class/net/dummy98-2')
 
         self.wait_address('dummy98-2', '10.0.2.2/16', ipv='-4', timeout_sec=10)
         self.wait_online('dummy98-2:routable')
@@ -1517,6 +1570,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
 
         self.check_link_attr('bond97', 'bonding', 'arp_missed_max',    '10')
+        self.check_link_attr('bond97', 'bonding', 'peer_notif_delay', '300000')
 
     def test_vlan(self):
         copy_network_unit('21-vlan.netdev', '11-dummy.netdev',
@@ -2458,6 +2512,111 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         start_networkd()
 
         self.wait_online('ifb99:degraded')
+
+    @unittest.skipUnless(os.cpu_count() >= 2, reason="CPU count should be >= 2 to pass this test")
+    def test_rps_cpu_1(self):
+        copy_network_unit('12-dummy.netdev', '12-dummy.network', '25-rps-cpu-1.link')
+        start_networkd()
+
+        self.wait_online('dummy98:carrier')
+
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 2)
+
+    @unittest.skipUnless(os.cpu_count() >= 2, reason="CPU count should be >= 2 to pass this test")
+    def test_rps_cpu_0_1(self):
+        copy_network_unit('12-dummy.netdev', '12-dummy.network', '25-rps-cpu-0-1.link')
+        start_networkd()
+
+        self.wait_online('dummy98:carrier')
+
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 3)
+
+    @unittest.skipUnless(os.cpu_count() >= 4, reason="CPU count should be >= 4 to pass this test")
+    def test_rps_cpu_multi(self):
+        copy_network_unit('12-dummy.netdev', '12-dummy.network', '25-rps-cpu-multi.link')
+        start_networkd()
+
+        self.wait_online('dummy98:carrier')
+
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 15)
+
+    def test_rps_cpu(self):
+        cpu_count = os.cpu_count()
+
+        copy_network_unit('12-dummy.netdev', '12-dummy.network')
+        start_networkd()
+
+        self.wait_online('dummy98:carrier')
+
+        # 0
+        copy_network_unit('25-rps-cpu-0.link')
+        udevadm_trigger('/sys/class/net/dummy98')
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 1)
+        remove_network_unit('25-rps-cpu-0.link')
+
+        # all
+        copy_network_unit('25-rps-cpu-all.link')
+        udevadm_trigger('/sys/class/net/dummy98')
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(f"{int(output.replace(',', ''), base=16):x}", f'{(1 << cpu_count) - 1:x}')
+        remove_network_unit('25-rps-cpu-all.link')
+
+        # disable
+        copy_network_unit('24-rps-cpu-disable.link')
+        udevadm_trigger('/sys/class/net/dummy98')
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 0)
+        remove_network_unit('24-rps-cpu-disable.link')
+
+        # set all again
+        copy_network_unit('25-rps-cpu-all.link')
+        udevadm_trigger('/sys/class/net/dummy98')
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(f"{int(output.replace(',', ''), base=16):x}", f'{(1 << cpu_count) - 1:x}')
+        remove_network_unit('25-rps-cpu-all.link')
+
+        # empty -> unchanged
+        copy_network_unit('24-rps-cpu-empty.link')
+        udevadm_trigger('/sys/class/net/dummy98')
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(f"{int(output.replace(',', ''), base=16):x}", f'{(1 << cpu_count) - 1:x}')
+        remove_network_unit('24-rps-cpu-empty.link')
+
+        # 0, then empty -> unchanged
+        copy_network_unit('25-rps-cpu-0-empty.link')
+        udevadm_trigger('/sys/class/net/dummy98')
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(f"{int(output.replace(',', ''), base=16):x}", f'{(1 << cpu_count) - 1:x}')
+        remove_network_unit('25-rps-cpu-0-empty.link')
+
+        # 0, then invalid -> 0
+        copy_network_unit('25-rps-cpu-0-invalid.link')
+        udevadm_trigger('/sys/class/net/dummy98')
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 1)
+        remove_network_unit('25-rps-cpu-0-invalid.link')
+
+        # invalid -> unchanged
+        copy_network_unit('24-rps-cpu-invalid.link')
+        udevadm_trigger('/sys/class/net/dummy98')
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 1)
+        remove_network_unit('24-rps-cpu-invalid.link')
 
 class NetworkdL2TPTests(unittest.TestCase, Utilities):
 
@@ -5122,8 +5281,8 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_dir, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=4\n')
 
-        udev_reload()
-        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
+        udevadm_reload()
+        udevadm_trigger(f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -5138,8 +5297,8 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_dir, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
-        udev_reload()
-        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
+        udevadm_reload()
+        udevadm_trigger(f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -5154,8 +5313,8 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_dir, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=2\n')
 
-        udev_reload()
-        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
+        udevadm_reload()
+        udevadm_trigger(f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -5170,8 +5329,8 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
         with open(os.path.join(network_unit_dir, '25-sriov.link'), mode='a', encoding='utf-8') as f:
             f.write('[Link]\nSR-IOVVirtualFunctions=\n')
 
-        udev_reload()
-        check_output(*udevadm_cmd, 'trigger', '--action=add', '--settle', f'/sys/devices/netdevsim99/net/{ifname}')
+        udevadm_reload()
+        udevadm_trigger(f'/sys/devices/netdevsim99/net/{ifname}')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -5202,10 +5361,100 @@ class NetworkdLLDPTests(unittest.TestCase, Utilities):
 
             output = networkctl('lldp')
             print(output)
-            if re.search(r'veth99 .* veth-peer', output):
+            if re.search(r'veth99 .* veth-peer .* .......a...', output):
                 break
         else:
             self.fail()
+
+        # With interface name
+        output = networkctl('lldp', 'veth99');
+        print(output)
+        self.assertRegex(output, r'veth99 .* veth-peer .* .......a...')
+
+        # With interface name pattern
+        output = networkctl('lldp', 've*9');
+        print(output)
+        self.assertRegex(output, r'veth99 .* veth-peer .* .......a...')
+
+        # json format
+        output = networkctl('--json=short', 'lldp')
+        print(output)
+        self.assertIn('"InterfaceName":"veth99"', output)
+        self.assertIn('"PortID":"veth-peer"', output)
+        self.assertIn('"EnabledCapabilities":128', output)
+
+        # json format with interface name
+        output = networkctl('--json=short', 'lldp', 'veth99')
+        print(output)
+        self.assertIn('"InterfaceName":"veth99"', output)
+        self.assertIn('"PortID":"veth-peer"', output)
+        self.assertIn('"EnabledCapabilities":128', output)
+
+        # json format with interface name pattern
+        output = networkctl('--json=short', 'lldp', 've*9')
+        print(output)
+        self.assertIn('"InterfaceName":"veth99"', output)
+        self.assertIn('"PortID":"veth-peer"', output)
+        self.assertIn('"EnabledCapabilities":128', output)
+
+        # LLDP neighbors in status
+        output = networkctl_status('veth99')
+        print(output)
+        self.assertRegex(output, r'Connected To: .* on port veth-peer')
+
+        # enable forwarding, to enable the Router flag
+        with open(os.path.join(network_unit_dir, '23-emit-lldp.network'), mode='a', encoding='utf-8') as f:
+            f.write('[Network]\nIPv4Forwarding=yes\n')
+
+        networkctl_reload()
+        self.wait_online('veth-peer:degraded')
+
+        for trial in range(10):
+            if trial > 0:
+                time.sleep(1)
+
+            output = networkctl('lldp')
+            print(output)
+            if re.search(r'veth99 .* veth-peer .* ....r......', output):
+                break
+        else:
+            self.fail()
+
+        # With interface name
+        output = networkctl('lldp', 'veth99');
+        print(output)
+        self.assertRegex(output, r'veth99 .* veth-peer .* ....r......')
+
+        # With interface name pattern
+        output = networkctl('lldp', 've*9');
+        print(output)
+        self.assertRegex(output, r'veth99 .* veth-peer .* ....r......')
+
+        # json format
+        output = networkctl('--json=short', 'lldp')
+        print(output)
+        self.assertIn('"InterfaceName":"veth99"', output)
+        self.assertIn('"PortID":"veth-peer"', output)
+        self.assertIn('"EnabledCapabilities":16', output)
+
+        # json format with interface name
+        output = networkctl('--json=short', 'lldp', 'veth99')
+        print(output)
+        self.assertIn('"InterfaceName":"veth99"', output)
+        self.assertIn('"PortID":"veth-peer"', output)
+        self.assertIn('"EnabledCapabilities":16', output)
+
+        # json format with interface name pattern
+        output = networkctl('--json=short', 'lldp', 've*9')
+        print(output)
+        self.assertIn('"InterfaceName":"veth99"', output)
+        self.assertIn('"PortID":"veth-peer"', output)
+        self.assertIn('"EnabledCapabilities":16', output)
+
+        # LLDP neighbors in status
+        output = networkctl_status('veth99')
+        print(output)
+        self.assertRegex(output, r'Connected To: .* on port veth-peer')
 
 class NetworkdRATests(unittest.TestCase, Utilities):
 
@@ -5485,7 +5734,19 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'NTP: 192.168.5.1\n *192.168.5.11')
 
         output = networkctl_status('veth-peer')
+        print(output)
         self.assertRegex(output, "Offered DHCP leases: 192.168.5.[0-9]*")
+
+        networkctl_reconfigure('veth-peer')
+        self.wait_online('veth-peer:routable')
+
+        for _ in range(10):
+            output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+            if 'Offered DHCP leases: 192.168.5.' in output:
+                break
+            time.sleep(.2)
+        else:
+            self.fail()
 
     def test_dhcp_server_null_server_address(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-null-server-address.network')
@@ -7262,15 +7523,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--build-dir', help='Path to build dir', dest='build_dir')
     parser.add_argument('--source-dir', help='Path to source dir/git tree', dest='source_dir')
-    parser.add_argument('--networkd', help='Path to systemd-networkd', dest='networkd_bin')
-    parser.add_argument('--resolved', help='Path to systemd-resolved', dest='resolved_bin')
-    parser.add_argument('--timesyncd', help='Path to systemd-timesyncd', dest='timesyncd_bin')
-    parser.add_argument('--udevd', help='Path to systemd-udevd', dest='udevd_bin')
-    parser.add_argument('--wait-online', help='Path to systemd-networkd-wait-online', dest='wait_online_bin')
-    parser.add_argument('--networkctl', help='Path to networkctl', dest='networkctl_bin')
-    parser.add_argument('--resolvectl', help='Path to resolvectl', dest='resolvectl_bin')
-    parser.add_argument('--timedatectl', help='Path to timedatectl', dest='timedatectl_bin')
-    parser.add_argument('--udevadm', help='Path to udevadm', dest='udevadm_bin')
     parser.add_argument('--valgrind', help='Enable valgrind', dest='use_valgrind', type=bool, nargs='?', const=True, default=use_valgrind)
     parser.add_argument('--debug', help='Generate debugging logs', dest='enable_debug', type=bool, nargs='?', const=True, default=enable_debug)
     parser.add_argument('--asan-options', help='ASAN options', dest='asan_options')
@@ -7280,45 +7532,21 @@ if __name__ == '__main__':
     ns, unknown_args = parser.parse_known_args(namespace=unittest)
 
     if ns.build_dir:
-        if ns.networkd_bin or ns.resolved_bin or ns.timesyncd_bin or ns.udevd_bin or \
-           ns.wait_online_bin or ns.networkctl_bin or ns.resolvectl_bin or ns.timedatectl_bin or ns.udevadm_bin:
-            print('WARNING: --networkd, --resolved, --timesyncd, --udevd, --wait-online, --networkctl, --resolvectl, --timedatectl, or --udevadm options are ignored when --build-dir is specified.')
         networkd_bin = os.path.join(ns.build_dir, 'systemd-networkd')
         resolved_bin = os.path.join(ns.build_dir, 'systemd-resolved')
         timesyncd_bin = os.path.join(ns.build_dir, 'systemd-timesyncd')
-        udevd_bin = os.path.join(ns.build_dir, 'udevadm')
         wait_online_bin = os.path.join(ns.build_dir, 'systemd-networkd-wait-online')
         networkctl_bin = os.path.join(ns.build_dir, 'networkctl')
         resolvectl_bin = os.path.join(ns.build_dir, 'resolvectl')
         timedatectl_bin = os.path.join(ns.build_dir, 'timedatectl')
         udevadm_bin = os.path.join(ns.build_dir, 'udevadm')
-        systemd_udev_rules_build_dir = os.path.join(ns.build_dir, 'rules.d')
-    else:
-        if ns.networkd_bin:
-            networkd_bin = ns.networkd_bin
-        if ns.resolved_bin:
-            resolved_bin = ns.resolved_bin
-        if ns.timesyncd_bin:
-            timesyncd_bin = ns.timesyncd_bin
-        if ns.udevd_bin:
-            udevd_bin = ns.udevd_bin
-        if ns.wait_online_bin:
-            wait_online_bin = ns.wait_online_bin
-        if ns.networkctl_bin:
-            networkctl_bin = ns.networkctl_bin
-        if ns.resolvectl_bin:
-            resolvectl_bin = ns.resolvectl_bin
-        if ns.timedatectl_bin:
-            timedatectl_bin = ns.timedatectl_bin
-        if ns.udevadm_bin:
-            udevadm_bin = ns.udevadm_bin
+        build_dir = ns.build_dir
 
     if ns.source_dir:
-        systemd_source_dir = ns.source_dir
+        source_dir = ns.source_dir
     else:
-        systemd_source_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../"))
-    if not os.path.exists(os.path.join(systemd_source_dir, "meson_options.txt")):
-        raise RuntimeError(f"{systemd_source_dir} doesn't appear to be a systemd source tree")
+        source_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../"))
+    assert os.path.exists(os.path.join(source_dir, "meson_options.txt")), f"{source_dir} doesn't appear to be a systemd source tree."
 
     use_valgrind = ns.use_valgrind
     enable_debug = ns.enable_debug

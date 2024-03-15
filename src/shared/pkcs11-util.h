@@ -13,29 +13,29 @@
 #endif
 
 #include "ask-password-api.h"
+#include "dlfcn-util.h"
 #include "macro.h"
 #include "time-util.h"
 
 bool pkcs11_uri_valid(const char *uri);
 
 #if HAVE_P11KIT
-
-extern char *(*sym_p11_kit_module_get_name)(CK_FUNCTION_LIST *module);
-extern void (*sym_p11_kit_modules_finalize_and_release)(CK_FUNCTION_LIST **modules);
-extern CK_FUNCTION_LIST **(*sym_p11_kit_modules_load_and_initialize)(int flags);
-extern const char *(*sym_p11_kit_strerror)(CK_RV rv);
-extern int (*sym_p11_kit_uri_format)(P11KitUri *uri, P11KitUriType uri_type, char **string);
-extern void (*sym_p11_kit_uri_free)(P11KitUri *uri);
-extern CK_ATTRIBUTE_PTR (*sym_p11_kit_uri_get_attributes)(P11KitUri *uri, CK_ULONG *n_attrs);
-extern CK_ATTRIBUTE_PTR (*sym_p11_kit_uri_get_attribute)(P11KitUri *uri, CK_ATTRIBUTE_TYPE attr_type);
-extern int (*sym_p11_kit_uri_set_attribute)(P11KitUri *uri, CK_ATTRIBUTE_PTR attr);
-extern CK_INFO_PTR (*sym_p11_kit_uri_get_module_info)(P11KitUri *uri);
-extern CK_SLOT_INFO_PTR (*sym_p11_kit_uri_get_slot_info)(P11KitUri *uri);
-extern CK_TOKEN_INFO_PTR (*sym_p11_kit_uri_get_token_info)(P11KitUri *uri);
-extern int (*sym_p11_kit_uri_match_token_info)(const P11KitUri *uri, const CK_TOKEN_INFO *token_info);
-extern const char *(*sym_p11_kit_uri_message)(int code);
-extern P11KitUri *(*sym_p11_kit_uri_new)(void);
-extern int (*sym_p11_kit_uri_parse)(const char *string, P11KitUriType uri_type, P11KitUri *uri);
+DLSYM_PROTOTYPE(p11_kit_module_get_name);
+DLSYM_PROTOTYPE(p11_kit_modules_finalize_and_release);
+DLSYM_PROTOTYPE(p11_kit_modules_load_and_initialize);
+DLSYM_PROTOTYPE(p11_kit_strerror);
+DLSYM_PROTOTYPE(p11_kit_uri_format);
+DLSYM_PROTOTYPE(p11_kit_uri_free);
+DLSYM_PROTOTYPE(p11_kit_uri_get_attributes);
+DLSYM_PROTOTYPE(p11_kit_uri_get_attribute);
+DLSYM_PROTOTYPE(p11_kit_uri_set_attribute);
+DLSYM_PROTOTYPE(p11_kit_uri_get_module_info);
+DLSYM_PROTOTYPE(p11_kit_uri_get_slot_info);
+DLSYM_PROTOTYPE(p11_kit_uri_get_token_info);
+DLSYM_PROTOTYPE(p11_kit_uri_match_token_info);
+DLSYM_PROTOTYPE(p11_kit_uri_message);
+DLSYM_PROTOTYPE(p11_kit_uri_new);
+DLSYM_PROTOTYPE(p11_kit_uri_parse);
 
 int uri_from_string(const char *p, P11KitUri **ret);
 

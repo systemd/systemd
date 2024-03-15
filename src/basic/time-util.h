@@ -77,6 +77,7 @@ typedef enum TimestampStyle {
 usec_t now(clockid_t clock);
 nsec_t now_nsec(clockid_t clock);
 
+usec_t map_clock_usec_raw(usec_t from, usec_t from_base, usec_t to_base);
 usec_t map_clock_usec(usec_t from, clockid_t from_clock, clockid_t to_clock);
 
 dual_timestamp* dual_timestamp_now(dual_timestamp *ts);

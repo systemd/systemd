@@ -76,6 +76,10 @@ char* path_extend_internal(char **x, ...);
 #define path_extend(x, ...) path_extend_internal(x, __VA_ARGS__, POINTER_MAX)
 #define path_join(...) path_extend_internal(NULL, __VA_ARGS__, POINTER_MAX)
 
+static inline char* skip_leading_slash(const char *p) {
+        return skip_leading_chars(p, "/");
+}
+
 typedef enum PathSimplifyFlags {
         PATH_SIMPLIFY_KEEP_TRAILING_SLASH = 1 << 0,
 } PathSimplifyFlags;
@@ -200,6 +204,8 @@ bool valid_device_node_path(const char *path);
 bool valid_device_allow_pattern(const char *path);
 
 bool dot_or_dot_dot(const char *path);
+
+bool path_implies_directory(const char *path);
 
 static inline const char *skip_dev_prefix(const char *p) {
         const char *e;

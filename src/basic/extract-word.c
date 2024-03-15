@@ -244,52 +244,43 @@ int extract_first_word_and_warn(
  * Let's make sure that ExtractFlags fits into an unsigned int. */
 assert_cc(sizeof(enum ExtractFlags) <= sizeof(unsigned));
 
-int extract_many_words(const char **p, const char *separators, unsigned flags, ...) {
+int extract_many_words_internal(const char **p, const char *separators, unsigned flags, ...) {
         va_list ap;
-        char **l;
-        int n = 0, i, c, r;
+        unsigned n = 0;
+        int r;
 
-        /* Parses a number of words from a string, stripping any
-         * quotes if necessary. */
+        /* Parses a number of words from a string, stripping any quotes if necessary. */
 
         assert(p);
 
         /* Count how many words are expected */
         va_start(ap, flags);
-        for (;;) {
-                if (!va_arg(ap, char **))
-                        break;
+        while (va_arg(ap, char**))
                 n++;
-        }
         va_end(ap);
 
-        if (n <= 0)
+        if (n == 0)
                 return 0;
 
         /* Read all words into a temporary array */
-        l = newa0(char*, n);
-        for (c = 0; c < n; c++) {
+        char **l = newa0(char*, n);
+        unsigned c;
 
+        for (c = 0; c < n; c++) {
                 r = extract_first_word(p, &l[c], separators, flags);
                 if (r < 0) {
                         free_many_charp(l, c);
                         return r;
                 }
-
                 if (r == 0)
                         break;
         }
 
-        /* If we managed to parse all words, return them in the passed
-         * in parameters */
+        /* If we managed to parse all words, return them in the passed in parameters */
         va_start(ap, flags);
-        for (i = 0; i < n; i++) {
-                char **v;
-
-                v = va_arg(ap, char **);
-                assert(v);
-
-                *v = l[i];
+        FOREACH_ARRAY(i, l, n) {
+                char **v = ASSERT_PTR(va_arg(ap, char**));
+                *v = *i;
         }
         va_end(ap);
 

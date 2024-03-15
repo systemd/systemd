@@ -270,7 +270,9 @@ static int insert_newline_color_erase(PTYForward *f, size_t offset) {
         _cleanup_free_ char *s = NULL;
 
         assert(f);
-        assert(f->background_color);
+
+        if (!f->background_color)
+                return 0;
 
         /* When we see a newline (ASCII 10) then this sets the background color to the desired one, and erase the rest
          * of the line with it */
@@ -289,9 +291,11 @@ static int insert_carriage_return_color(PTYForward *f, size_t offset) {
         _cleanup_free_ char *s = NULL;
 
         assert(f);
-        assert(f->background_color);
 
-        /* When we see a carriage return (ASCII 13) this this sets only the background */
+        if (!f->background_color)
+                return 0;
+
+        /* When we see a carriage return (ASCII 13) then this sets only the background */
 
         s = background_color_sequence(f);
         if (!s)
@@ -503,9 +507,15 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                 } else if (!strextend(&f->osc_sequence, CHAR_TO_STR(c)))
                                         return -ENOMEM;
                         } else {
-                                /* Otherwise, the OSC sequence is over */
+                                /* Otherwise, the OSC sequence is over
+                                 *
+                                 * There are two allowed ways to end an OSC sequence:
+                                 * BEL '\x07'
+                                 * String Terminator (ST): <Esc>\ - "\x1b\x5c"
+                                 * since we cannot lookahead to see if the Esc is followed by a \
+                                 * we cut a corner here and assume it will be \. */
 
-                                if (c == '\x07') {
+                                if (c == '\x07' || c == '\x1b') {
                                         r = insert_window_title_fix(f, i+1);
                                         if (r < 0)
                                                 return r;
@@ -820,9 +830,13 @@ int pty_forward_new(
                  * them. This has two advantages: when we are killed abruptly the stdin/stdout fds won't be
                  * left in O_NONBLOCK state for the next process using them. In addition, if some process
                  * running in the background wants to continue writing to our stdout it can do so without
-                 * being confused by O_NONBLOCK. */
+                 * being confused by O_NONBLOCK.
+                 * We keep O_APPEND (if present) on the output FD and (try to) keep current file position on
+                 * both input and output FD (principle of least surprise).
+                 */
 
-                f->input_fd = fd_reopen(STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                f->input_fd = fd_reopen_propagate_append_and_position(
+                                STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
                 if (f->input_fd < 0) {
                         /* Handle failures gracefully, after all certain fd types cannot be reopened
                          * (sockets, …) */
@@ -836,7 +850,8 @@ int pty_forward_new(
                 } else
                         f->close_input_fd = true;
 
-                f->output_fd = fd_reopen(STDOUT_FILENO, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                f->output_fd = fd_reopen_propagate_append_and_position(
+                                STDOUT_FILENO, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
                 if (f->output_fd < 0) {
                         log_debug_errno(f->output_fd, "Failed to reopen stdout, using original fd: %m");
 
@@ -874,7 +889,7 @@ int pty_forward_new(
 
                 assert(f->input_fd >= 0);
 
-                same = inode_same_at(f->input_fd, NULL, f->output_fd, NULL, AT_EMPTY_PATH);
+                same = fd_inode_same(f->input_fd, f->output_fd);
                 if (same < 0)
                         return same;
 

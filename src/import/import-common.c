@@ -276,7 +276,7 @@ bool import_validate_local(const char *name, ImportFlags flags) {
         if (FLAGS_SET(flags, IMPORT_DIRECT))
                 return path_is_valid(name);
 
-        return hostname_is_valid(name, 0);
+        return image_name_is_valid(name);
 }
 
 static int interrupt_signal_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
@@ -295,9 +295,8 @@ int import_allocate_event_with_signals(sd_event **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT) >= 0);
-        (void) sd_event_add_signal(event, NULL, SIGTERM, interrupt_signal_handler,  NULL);
-        (void) sd_event_add_signal(event, NULL, SIGINT, interrupt_signal_handler, NULL);
+        (void) sd_event_add_signal(event, NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, interrupt_signal_handler,  NULL);
+        (void) sd_event_add_signal(event, NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, interrupt_signal_handler, NULL);
 
         *ret = TAKE_PTR(event);
         return 0;

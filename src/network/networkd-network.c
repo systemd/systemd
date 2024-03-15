@@ -483,7 +483,6 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ndisc_use_hop_limit = true,
                 .ndisc_use_reachable_time = true,
                 .ndisc_use_retransmission_time = true,
-                .ndisc_use_icmp6_ratelimit = true,
                 .ndisc_route_table = RT_TABLE_MAIN,
                 .ndisc_route_metric_high = IPV6RA_ROUTE_METRIC_HIGH,
                 .ndisc_route_metric_medium = IPV6RA_ROUTE_METRIC_MEDIUM,

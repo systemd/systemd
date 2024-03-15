@@ -230,6 +230,10 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
                         return r;
         }
 
+        r = serialize_bool(f, "exec-cgroup-context-memory-zswap-writeback", c->memory_zswap_writeback);
+        if (r < 0)
+                return r;
+
         if (c->memory_limit != CGROUP_LIMIT_MAX) {
                 r = serialize_item_format(f, "exec-cgroup-context-memory-limit", "%" PRIu64, c->memory_limit);
                 if (r < 0)
@@ -677,6 +681,11 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         r = safe_atou64(val, &c->startup_memory_zswap_max);
                         if (r < 0)
                                 return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-memory-zswap-writeback="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->memory_zswap_writeback = r;
                 } else if ((val = startswith(l, "exec-cgroup-context-memory-limit="))) {
                         r = safe_atou64(val, &c->memory_limit);
                         if (r < 0)
@@ -788,7 +797,7 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         _cleanup_free_ char *path = NULL, *rwm = NULL;
                         CGroupDevicePermissions p;
 
-                        r = extract_many_words(&val, " ", 0, &path, &rwm, NULL);
+                        r = extract_many_words(&val, " ", 0, &path, &rwm);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -805,7 +814,7 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         _cleanup_free_ char *path = NULL, *weight = NULL;
                         CGroupIODeviceWeight *a = NULL;
 
-                        r = extract_many_words(&val, " ", 0, &path, &weight, NULL);
+                        r = extract_many_words(&val, " ", 0, &path, &weight);
                         if (r < 0)
                                 return r;
                         if (r != 2)
@@ -834,7 +843,7 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         _cleanup_free_ char *path = NULL, *target = NULL;
                         CGroupIODeviceLatency *a = NULL;
 
-                        r = extract_many_words(&val, " ", 0, &path, &target, NULL);
+                        r = extract_many_words(&val, " ", 0, &path, &target);
                         if (r < 0)
                                 return r;
                         if (r != 2)
@@ -864,7 +873,7 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         CGroupIODeviceLimit *limit = NULL;
                         CGroupIOLimitType t;
 
-                        r = extract_many_words(&val, "= ", 0, &type, &path, &limits, NULL);
+                        r = extract_many_words(&val, "= ", 0, &type, &path, &limits);
                         if (r < 0)
                                 return r;
                         if (r != 3)
@@ -899,7 +908,7 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         _cleanup_free_ char *path = NULL, *weight = NULL;
                         CGroupBlockIODeviceWeight *a = NULL;
 
-                        r = extract_many_words(&val, " ", 0, &path, &weight, NULL);
+                        r = extract_many_words(&val, " ", 0, &path, &weight);
                         if (r < 0)
                                 return r;
                         if (r != 2)
@@ -920,7 +929,7 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         _cleanup_free_ char *path = NULL, *bw = NULL;
                         CGroupBlockIODeviceBandwidth *a = NULL;
 
-                        r = extract_many_words(&val, " ", 0, &path, &bw, NULL);
+                        r = extract_many_words(&val, " ", 0, &path, &bw);
                         if (r < 0)
                                 return r;
                         if (r != 2)
@@ -950,7 +959,7 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         _cleanup_free_ char *path = NULL, *bw = NULL;
                         CGroupBlockIODeviceBandwidth *a = NULL;
 
-                        r = extract_many_words(&val, " ", 0, &path, &bw, NULL);
+                        r = extract_many_words(&val, " ", 0, &path, &bw);
                         if (r < 0)
                                 return r;
                         if (r != 2)
@@ -1018,7 +1027,7 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         _cleanup_free_ char *type = NULL, *path = NULL;
                         uint32_t t;
 
-                        r = extract_many_words(&val, " ", 0, &type, &path, NULL);
+                        r = extract_many_words(&val, " ", 0, &type, &path);
                         if (r < 0)
                                 return r;
                         if (r != 2)
@@ -1521,7 +1530,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         _cleanup_free_ char *type = NULL, *prefix = NULL;
                         ExecDirectoryType dt;
 
-                        r = extract_many_words(&val, "= ", 0, &type, &prefix, NULL);
+                        r = extract_many_words(&val, "= ", 0, &type, &prefix);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -2633,7 +2642,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                         break;
 
                                 p = word;
-                                r = extract_many_words(&p, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options, NULL);
+                                r = extract_many_words(&p, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -2820,7 +2829,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         _cleanup_free_ char *type = NULL, *mode = NULL;
                         ExecDirectoryType dt;
 
-                        r = extract_many_words(&val, "= ", 0, &type, &mode, NULL);
+                        r = extract_many_words(&val, "= ", 0, &type, &mode);
                         if (r < 0)
                                 return r;
                         if (r == 0 || !mode)
@@ -2846,7 +2855,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                         break;
 
                                 p = tuple;
-                                r = extract_many_words(&p, ":", EXTRACT_UNESCAPE_SEPARATORS, &path, &only_create, NULL);
+                                r = extract_many_words(&p, ":", EXTRACT_UNESCAPE_SEPARATORS, &path, &only_create);
                                 if (r < 0)
                                         return r;
                                 if (r < 2)
@@ -3307,7 +3316,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                 } else if ((val = startswith(l, "exec-context-temporary-filesystems="))) {
                         _cleanup_free_ char *path = NULL, *options = NULL;
 
-                        r = extract_many_words(&val, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &path, &options, NULL);
+                        r = extract_many_words(&val, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &path, &options);
                         if (r < 0)
                                 return r;
                         if (r < 1)
@@ -3385,7 +3394,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         _cleanup_free_ char *s_id = NULL, *s_errno_num = NULL;
                         int id, errno_num;
 
-                        r = extract_many_words(&val, NULL, 0, &s_id, &s_errno_num, NULL);
+                        r = extract_many_words(&val, NULL, 0, &s_id, &s_errno_num);
                         if (r < 0)
                                 return r;
                         if (r != 2)
@@ -3425,7 +3434,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         _cleanup_free_ char *s_id = NULL, *s_errno_num = NULL;
                         int id, errno_num;
 
-                        r = extract_many_words(&val, " ", 0, &s_id, &s_errno_num, NULL);
+                        r = extract_many_words(&val, " ", 0, &s_id, &s_errno_num);
                         if (r < 0)
                                 return r;
                         if (r != 2)
@@ -3498,8 +3507,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                                NULL,
                                                EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS,
                                                &source,
-                                               &destination,
-                                               NULL);
+                                               &destination);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -3531,8 +3539,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                                        ":",
                                                        EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS,
                                                        &partition,
-                                                       &opts,
-                                                       NULL);
+                                                       &opts);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -3612,8 +3619,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                                        ":",
                                                        EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS,
                                                        &partition,
-                                                       &opts,
-                                                       NULL);
+                                                       &opts);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
@@ -3662,7 +3668,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         _cleanup_(exec_set_credential_freep) ExecSetCredential *sc = NULL;
                         _cleanup_free_ char *id = NULL, *encrypted = NULL, *data = NULL;
 
-                        r = extract_many_words(&val, " ", 0, &id, &encrypted, &data, NULL);
+                        r = extract_many_words(&val, " ", 0, &id, &encrypted, &data);
                         if (r < 0)
                                 return r;
                         if (r != 3)
@@ -3694,7 +3700,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         _cleanup_(exec_load_credential_freep) ExecLoadCredential *lc = NULL;
                         _cleanup_free_ char *id = NULL, *encrypted = NULL, *path = NULL;
 
-                        r = extract_many_words(&val, " ", 0, &id, &encrypted, &path, NULL);
+                        r = extract_many_words(&val, " ", 0, &id, &encrypted, &path);
                         if (r < 0)
                                 return r;
                         if (r != 3)

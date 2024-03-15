@@ -170,7 +170,18 @@ places:
   if jobs are started and running but no status is visible on the PR, then it is
   likely that reporting back is not working
 
-For infrastructure help, reaching out to Canonical via the #ubuntu-devel channel
+The CI job needs a PPA in order to be accepted, and the upstream-systemd-ci/systemd-ci
+PPA is used. Note that this is necessary even when there are no packages to backport,
+but by default a PPA won't have a repository for a release if there are no packages
+built for it. To work around this problem, when a new empty release is needed the
+mark-suite-dirty tool from the https://git.launchpad.net/ubuntu-archive-tools can
+be used to force the PPA to publish an empty repository, for example:
+
+ $ ./mark-suite-dirty -A ppa:upstream-systemd-ci/ubuntu/systemd-ci -s noble
+
+will create an empty 'noble' repository that can be used for 'noble' CI jobs.
+
+For infrastructure help, reaching out to Canonical via the #ubuntu-quality channel
 on libera.chat is an effective way to receive support in general.
 
 Manually running a part of the Ubuntu CI test suite

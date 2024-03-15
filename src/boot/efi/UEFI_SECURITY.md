@@ -9,28 +9,28 @@ stub's role is that of the fundamental entrypoint to kernel execution from UEFI 
 modern Linux boot protocol. `systemd-stub` on the other hand loads various resources, including the kernel
 image, via the EFI LoadImage/StartImage protocol (although it does support the legacy Linux boot protocol,
 as a fallback for older kernels on x86). The purpose of `systemd-stub` is to provide additional features and
-functionality for either or both `systemd-boot` and `systemd` (userspace).
+functionality for `systemd-boot` and `systemd` (in userspace).
 
 ## Fundamental Security Design Goals
-The fundamental security design goals for these components are separation of security policy logic from the
-rest of the functionality, achieved by offloading security-critical tasks to the firmware or earlier stages
-of the boot process (e.g.: `Shim`).
+The fundamental security design goal for these components is the separation of security policy logic from the
+rest of the functionality. This is achieved by offloading security-critical tasks to the firmware or earlier stages
+of the boot process (in particular `Shim`).
 
-When SecureBoot is enabled, these components are designed to avoid executing, loading or using
+When SecureBoot is enabled, these components are designed to avoid loading, executing, or using
 unauthenticated payloads that could compromise the boot process, with special care taken for anything that
 could affect the system before `ExitBootServices()` has been called. For example, when additional resources
 are loaded, if running with SecureBoot enabled, they will be validated before use. The only exceptions are
-the bootloader's own textual configuration files, and parsing metadata out of images for displaying purposes
+the bootloader's own textual configuration files, and metadata parsed out of kernel images for display purposes
 only. There are no build time or runtime configuration options that can be set to weaken the security model
 of these components when SecureBoot is enabled.
 
 The role of `systemd-boot` is to discover next stage components in the ESP (and XBOOTLDR if present), via
-filesystem enumeration or explicit configuration files, and present a menu to the user, to choose the next
-step. This auto discovery mechanism is described in details in the [BLS (Boot Loader
+filesystem enumeration or explicit configuration files, and present a menu to the user to choose the next
+step. This auto discovery mechanism is described in detail in the [BLS (Boot Loader
 Specification)](https://uapi-group.org/specifications/specs/boot_loader_specification/).
 
 The role of `systemd-stub` is to load and measure in the TPM the post-bootloader stages, such as the kernel,
-initrd and kernel command line, and implement optional features such as augmenting the initrd with
+initrd, and kernel command line, and implement optional features such as augmenting the initrd with
 additional content such as configuration or optional services. [Unified Kernel
 Images](https://uapi-group.org/specifications/specs/unified_kernel_image/) embed `systemd-stub`, a kernel
 and other optional components as sections in a PE signed binary, that can thus be executed in UEFI
@@ -42,19 +42,19 @@ the image, given that the payload kernel was already authenticated and verified 
 SecureBoot authentication is re-enabled immediately after the kernel image has been loaded.
 
 Various EFI variables, under the vendor UUID `4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`, are set and read by
-these components, to pass metadata and configuration between different stages of the boot process, as
+these components. This is used to pass metadata and configuration between different stages of the boot process, as
 defined in the [Boot Loader Interface](https://systemd.io/BOOT_LOADER_INTERFACE/).
 
 ## Dependencies
-Neither of these components implements cryptographic primitives, cryptographic checks or drivers. File
+Neither of these components implements cryptographic primitives, cryptographic checks, or drivers. File
 access to the ESP is implemented solely via the appropriate UEFI file protocols. Verification of next stage
-payloads is implementend solely via the appropriate UEFI image load protocols, which means authenticode
+payloads is implementend solely via the appropriate UEFI image load protocols, which means `authenticode`
 signature checks are again done by the firmware or `Shim`. As a consequence, no external security-critical
-libraries (such as OpenSSL or gnu-efi) are used, linked or embedded.
+libraries (such as OpenSSL or gnu-efi) are linked, embedded, or used.
 
 ## Additional Resources
 BLS Type #1 entries allow the user to load two types of additional resources that can affect the system
-before `ExitBootServices()` has been called, kernel command line arguments and Devicetree blobs, that are
+before `ExitBootServices()` has been called — kernel command line arguments and Devicetree blobs — that are
 not validated before use, as they do not carry signatures. For this reason, when SecureBoot is enabled,
 loading these resources is automatically disabled. There is no override for this security mechanism, neither
 at build time nor at runtime. Note that initrds are also not verified in BLS Type #1 configurations, for
@@ -62,8 +62,9 @@ compatibility with how SecureBoot has been traditionally handled on Linux-based 
 only load them after `ExitBootServices()` has been called.
 
 Another mechanism is supported by `systemd-boot` and `systemd-stub` to add additional payloads to the boot
-process: `addons`. Addons are PE signed binaries that can carry kernel command line arguments or Devicetree
-blobs (more might be added in the future). In contrast to the user-specified additions in the Type #1 case
+process: "addons". Addons are PE signed binaries that can carry kernel command line arguments or Devicetree
+blobs (more payload types might be added in the future).
+In contrast to the user-specified additions in the Type #1 case
 described above, these addons are loaded through the UEFI image loading protocol, and thus are subject to
 signature validation, and will be rejected if not signed or if the signature is invalid, following the
 standard SecureBoot model. They are also measured in the TPM.
@@ -72,22 +73,22 @@ standard SecureBoot model. They are also measured in the TPM.
 firmware's capabilities. These are again PE signed binaries and will be verified using the appropriate
 UEFI protocol.
 
-A random seed will be loaded and passed to the kernel for early-boot entropy pool filling if found in the
-ESP. It is mixed with various other sources of entropy available in the UEFI environment, such as the RNG
+A random seed will be loaded and passed to the kernel for early-boot entropy if found in the ESP.
+It is mixed with various other sources of entropy available in the UEFI environment, such as the RNG
 protocol, the boot counter and the clock. Moreover, the seed is updated before the kernel is invoked, as
 well as after the kernel is invoked (from userspace), with a new seed derived from the Linux kernel entropy
 pool.
 
 When operating as a virtual machine payload, the loaded payloads can be customized via `SMBIOS Type 11
-Strings`, if the hypervisor specifies them. This is automatically disabled if running inside a confidential
-computing VM.
+Strings`. Those settings are specified by the hypervisor and trusted.
+They are automatically disabled if running inside a confidential computing VM.
 
 ## Certificates Enrollment
-When SecureBoot is supported but in `setup` mode, `systemd-boot` can enroll user certificates if a set of
-`PK`, `KEK` and `db` certificates is found in the ESP, after which SecureBoot is enabled and a firmware
-reset is performed. When running on bare metal, the certificate(s) will be shown to the user on the console,
-and manual confirmation will be asked before proceeding. When running as a virtual machine payload,
-enrollment is fully automated, without user interaction, unless disabled via a configuration file in the
+When SecureBoot is supported, but in `setup` mode, `systemd-boot` can enroll user certificates if a set of
+`PK`, `KEK` and `db` certificates is found in the ESP. Afterwards, SecureBoot is enabled and a firmware
+reset is performed. When running on bare metal, the certificates will be shown to the user on the console,
+and manual confirmation is required before proceeding. When running as a virtual machine payload,
+enrollment is fully automated without user interaction, unless disabled via a configuration file in the
 ESP. The configuration file can also be used to disable enrollment completely.
 
 ## Compiler Hardening
@@ -111,10 +112,10 @@ allow customizations of the metadata included in the section, that can be used b
 The `systemd` project will participate in the coordinated `SBAT` disclosure and metadata revision process as
 deemed necessary, in coordination with the Shim Review group.
 
-The upstream project name used to be unified (`systemd`) for both components, but since version v255 has
+The upstream project name used to be unified (`systemd`) for both components, but since version 255 has
 been split into separate `systemd-boot` and `systemd-stub` project names, so that each component can be
-revisioned independently. Most of the code tend to be shared between these two components, but there is no
-complete overlap, so it is possible for a vulnerability to affect only one component but not the other.
+revisioned independently. Most of the code tends to be shared between these two components, but the
+overlap is not complete, so a future vulnerability may affect only one of the components.
 
 ## Known Vulnerabilities
 There is currently one known (and fixed) security vulnerability affecting `systemd-boot` on arm64 and

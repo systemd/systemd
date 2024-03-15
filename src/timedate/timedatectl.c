@@ -888,6 +888,7 @@ static int help(void) {
                "  -p --property=NAME       Show only properties by this name\n"
                "  -a --all                 Show all properties, including empty ones\n"
                "     --value               When showing properties, only print the value\n"
+               "  -P NAME                  Equivalent to --value --property=NAME\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -902,7 +903,6 @@ static int verb_help(int argc, char **argv, void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
@@ -922,8 +922,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "adjust-system-clock", no_argument,       NULL, ARG_ADJUST_SYSTEM_CLOCK },
                 { "monitor",             no_argument,       NULL, ARG_MONITOR             },
                 { "property",            required_argument, NULL, 'p'                     },
-                { "all",                 no_argument,       NULL, 'a'                     },
                 { "value",               no_argument,       NULL, ARG_VALUE               },
+                { "all",                 no_argument,       NULL, 'a'                     },
                 {}
         };
 
@@ -932,8 +932,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:p:a", options, NULL)) >= 0)
-
+        while ((c = getopt_long(argc, argv, "hH:M:p:P:a", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -968,24 +967,25 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_monitor = true;
                         break;
 
-                case 'p': {
+                case 'p':
+                case 'P':
                         r = strv_extend(&arg_property, optarg);
                         if (r < 0)
                                 return log_oom();
 
-                        /* If the user asked for a particular
-                         * property, show it to them, even if it is
-                         * empty. */
+                        /* If the user asked for a particular property, show it to them, even if empty. */
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
-                        break;
-                }
 
-                case 'a':
-                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
-                        break;
+                        if (c == 'p')
+                                break;
+                        _fallthrough_;
 
                 case ARG_VALUE:
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
+                        break;
+
+                case 'a':
+                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
 
                 case '?':

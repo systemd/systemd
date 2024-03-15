@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-11-14 21:25+0000\n"
+"POT-Creation-Date: 2024-03-04 10:09+0100\n"
 "PO-Revision-Date: 2014-04-29 09:17+0300\n"
 "Last-Translator: Dimitris Spingos (Δημήτρης Σπίγγος) <dmtrs32@gmail.com>\n"
 "Language-Team: team@lists.gnome.gr\n"
@@ -22,8 +22,11 @@ msgid "Send passphrase back to system"
 msgstr "Αποστολή του συνθηματικού πίσω στο σύστημα"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
-msgid "Authentication is required to send the entered passphrase back to the system."
-msgstr "Απαιτείται πιστοποίηση για αποστολή του εισερχόμενου συνθηματικού πίσω στο σύστημα."
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr ""
+"Απαιτείται πιστοποίηση για αποστολή του εισερχόμενου συνθηματικού πίσω στο "
+"σύστημα."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -32,7 +35,9 @@ msgstr ""
 #: src/core/org.freedesktop.systemd1.policy.in:34
 #, fuzzy
 msgid "Authentication is required to manage system services or other units."
-msgstr "Απαιτείται πιστοποίηση για να προσπελάσετε τον διαχειριστή συστήματος και υπηρεσιών."
+msgstr ""
+"Απαιτείται πιστοποίηση για να προσπελάσετε τον διαχειριστή συστήματος και "
+"υπηρεσιών."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
@@ -41,7 +46,9 @@ msgstr ""
 #: src/core/org.freedesktop.systemd1.policy.in:44
 #, fuzzy
 msgid "Authentication is required to manage system service or unit files."
-msgstr "Απαιτείται πιστοποίηση για να προσπελάσετε τον διαχειριστή συστήματος και υπηρεσιών."
+msgstr ""
+"Απαιτείται πιστοποίηση για να προσπελάσετε τον διαχειριστή συστήματος και "
+"υπηρεσιών."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 #, fuzzy
@@ -50,8 +57,12 @@ msgstr "Προνομιούχος πρόσβαση διαχειριστή συσ�
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 #, fuzzy
-msgid "Authentication is required to set or unset system and service manager environment variables."
-msgstr "Απαιτείται πιστοποίηση για να προσπελάσετε τον διαχειριστή συστήματος και υπηρεσιών."
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"Απαιτείται πιστοποίηση για να προσπελάσετε τον διαχειριστή συστήματος και "
+"υπηρεσιών."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 #, fuzzy
@@ -69,7 +80,8 @@ msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 #, fuzzy
-msgid "Authentication is required to dump the systemd state without rate limits."
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
 #: src/home/org.freedesktop.home1.policy:13
@@ -96,8 +108,10 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:34
 #, fuzzy
-msgid "Authentication is required to check credentials against a user's home area."
-msgstr "Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr ""
+"Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -106,7 +120,8 @@ msgstr ""
 #: src/home/org.freedesktop.home1.policy:44
 #, fuzzy
 msgid "Authentication is required to update a user's home area."
-msgstr "Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
+msgstr ""
+"Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
@@ -123,151 +138,181 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:64
 #, fuzzy
-msgid "Authentication is required to change the password of a user's home area."
-msgstr "Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr ""
+"Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
 
-#: src/home/pam_systemd_home.c:287
-#, c-format
-msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
+#: src/home/org.freedesktop.home1.policy:73
+msgid "Inhibit automatic lock of a home area"
 msgstr ""
 
-#: src/home/pam_systemd_home.c:292
+#: src/home/org.freedesktop.home1.policy:74
+#, fuzzy
+msgid ""
+"Authentication is required to inhibit automatic lock of a user's home area."
+msgstr ""
+"Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
+
+#: src/home/org.freedesktop.home1.policy:83
+msgid "Activate a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:84
+#, fuzzy
+msgid "Authentication is required to activate a user's home area."
+msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
+
+#: src/home/pam_systemd_home.c:293
+#, c-format
+msgid ""
+"Home of user %s is currently absent, please plug in the necessary storage "
+"device or backing file system."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:298
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:304
+#: src/home/pam_systemd_home.c:310
 msgid "Password: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:306
+#: src/home/pam_systemd_home.c:312
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:307
+#: src/home/pam_systemd_home.c:313
 msgid "Sorry, try again: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:329
+#: src/home/pam_systemd_home.c:335
 msgid "Recovery key: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:331
+#: src/home/pam_systemd_home.c:337
 #, c-format
-msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
+msgid ""
+"Password/recovery key incorrect or not sufficient for authentication of user "
+"%s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:332
+#: src/home/pam_systemd_home.c:338
 msgid "Sorry, reenter recovery key: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:352
+#: src/home/pam_systemd_home.c:358
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:353 src/home/pam_systemd_home.c:356
+#: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
 msgid "Try again with password: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:355
+#: src/home/pam_systemd_home.c:361
 #, c-format
-msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
+msgid ""
+"Password incorrect or not sufficient, and configured security token of user "
+"%s not inserted."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:376
+#: src/home/pam_systemd_home.c:381
 msgid "Security token PIN: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:393
+#: src/home/pam_systemd_home.c:398
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:404
+#: src/home/pam_systemd_home.c:409
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:415
+#: src/home/pam_systemd_home.c:420
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:424
-msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
+#: src/home/pam_systemd_home.c:429
+msgid ""
+"Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
+"insertion might suffice.)"
 msgstr ""
 
-#: src/home/pam_systemd_home.c:432
+#: src/home/pam_systemd_home.c:437
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:433 src/home/pam_systemd_home.c:452
-#: src/home/pam_systemd_home.c:471
+#: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
+#: src/home/pam_systemd_home.c:476
 msgid "Sorry, retry security token PIN: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:451
+#: src/home/pam_systemd_home.c:456
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 
-#: src/home/pam_systemd_home.c:470
+#: src/home/pam_systemd_home.c:475
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 
-#: src/home/pam_systemd_home.c:616
+#: src/home/pam_systemd_home.c:643
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:618
+#: src/home/pam_systemd_home.c:645
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:645
+#: src/home/pam_systemd_home.c:677
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:868
+#: src/home/pam_systemd_home.c:956
 msgid "User record is blocked, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:872
+#: src/home/pam_systemd_home.c:960
 msgid "User record is not valid yet, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:876
+#: src/home/pam_systemd_home.c:964
 msgid "User record is not valid anymore, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:881 src/home/pam_systemd_home.c:932
+#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
 msgid "User record not valid, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:893
+#: src/home/pam_systemd_home.c:981
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:904
+#: src/home/pam_systemd_home.c:992
 msgid "Password change required."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:908
+#: src/home/pam_systemd_home.c:996
 msgid "Password expired, change required."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:914
+#: src/home/pam_systemd_home.c:1002
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:918
+#: src/home/pam_systemd_home.c:1006
 msgid "Password will expire soon, please change."
 msgstr ""
 
@@ -284,8 +329,12 @@ msgid "Set static hostname"
 msgstr "Ορισμός στατικού ονόματος οικοδεσπότη"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
-msgid "Authentication is required to set the statically configured local hostname, as well as the pretty hostname."
-msgstr "Απαιτείται πιστοποίηση για να ορίσετε το στατικά ρυθμισμένο όνομα τοπικού οικοδεσπότη, καθώς και το pretty όνομα οικοδεσπότη."
+msgid ""
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
+msgstr ""
+"Απαιτείται πιστοποίηση για να ορίσετε το στατικά ρυθμισμένο όνομα τοπικού "
+"οικοδεσπότη, καθώς και το pretty όνομα οικοδεσπότη."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -324,31 +373,42 @@ msgid "Authentication is required to get system description."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα ζώνης του συστήματος."
 
 #: src/import/org.freedesktop.import1.policy:22
-msgid "Import a VM or container image"
+msgid "Import a disk image"
 msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:23
 #, fuzzy
-msgid "Authentication is required to import a VM or container image"
+msgid "Authentication is required to import an image"
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
 #: src/import/org.freedesktop.import1.policy:32
-msgid "Export a VM or container image"
+msgid "Export a disk image"
 msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:33
 #, fuzzy
-msgid "Authentication is required to export a VM or container image"
+msgid "Authentication is required to export disk image"
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
 #: src/import/org.freedesktop.import1.policy:42
-msgid "Download a VM or container image"
+msgid "Download a disk image"
 msgstr ""
 
 #: src/import/org.freedesktop.import1.policy:43
 #, fuzzy
-msgid "Authentication is required to download a VM or container image"
+msgid "Authentication is required to download a disk image"
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε πληροφορίες τοπικής μηχανής."
+
+#: src/import/org.freedesktop.import1.policy:52
+msgid "Cancel transfer of a disk image"
+msgstr ""
+
+#: src/import/org.freedesktop.import1.policy:53
+#, fuzzy
+msgid ""
+"Authentication is required to cancel the ongoing transfer of a disk image"
+msgstr ""
+"Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -356,7 +416,8 @@ msgstr "Ορισμός τοπικών ρυθμίσεων συστήματος"
 
 #: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
-msgstr "Απαιτείται πιστοποίηση για να ορίσετε τις τοπικές ρυθμίσεις του συστήματος."
+msgstr ""
+"Απαιτείται πιστοποίηση για να ορίσετε τις τοπικές ρυθμίσεις του συστήματος."
 
 #: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
@@ -364,23 +425,32 @@ msgstr "Ορισμός ρυθμίσεων πληκτρολογίου συστή�
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
-msgstr "Απαιτείται πιστοποίηση για να ορίσετε τις ρυθμίσεις πληκτρολογίου του συστήματος."
+msgstr ""
+"Απαιτείται πιστοποίηση για να ορίσετε τις ρυθμίσεις πληκτρολογίου του "
+"συστήματος."
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
-msgstr "Να επιτρέπεται στις εφαρμογές να αποτρέπουν τον τερματισμό του συστήματος"
+msgstr ""
+"Να επιτρέπεται στις εφαρμογές να αποτρέπουν τον τερματισμό του συστήματος"
 
 #: src/login/org.freedesktop.login1.policy:23
-msgid "Authentication is required for an application to inhibit system shutdown."
-msgstr "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει τον τερματισμό του συστήματος."
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
+msgstr ""
+"Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει τον "
+"τερματισμό του συστήματος."
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
-msgstr "Να επιτρέπεται στις εφαρμογές να καθυστερούν τον τερματισμό του συστήματος"
+msgstr ""
+"Να επιτρέπεται στις εφαρμογές να καθυστερούν τον τερματισμό του συστήματος"
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
-msgstr "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να καθυστερήσει τον τερματισμό του συστήματος."
+msgstr ""
+"Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να καθυστερήσει "
+"τον τερματισμό του συστήματος."
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
@@ -388,7 +458,9 @@ msgstr "Να επιτρέπεται στις εφαρμογές να αποτρ�
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την ύπνωση του συστήματος."
+msgstr ""
+"Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την "
+"ύπνωση του συστήματος."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
@@ -396,57 +468,95 @@ msgstr "Να επιτρέπεται στις εφαρμογές να καθυσ�
 
 #: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
-msgstr "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να καθυστερήσει την ύπνωση του συστήματος."
+msgstr ""
+"Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να καθυστερήσει "
+"την ύπνωση του συστήματος."
 
 #: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
-msgstr "Να επιτρέπεται στις εφαρμογές να αποτρέπουν την αυτόματη αναστολή του συστήματος"
+msgstr ""
+"Να επιτρέπεται στις εφαρμογές να αποτρέπουν την αυτόματη αναστολή του "
+"συστήματος"
 
 #: src/login/org.freedesktop.login1.policy:66
-msgid "Authentication is required for an application to inhibit automatic system suspend."
-msgstr "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την αυτόματη αναστολή του συστήματος."
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr ""
+"Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την "
+"αυτόματη αναστολή του συστήματος."
 
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
-msgstr "Να επιτρέπεται στις εφαρμογές να αποτρέπουν τη διαχείριση του πλήκτρου ενεργοποίησης του συστήματος"
+msgstr ""
+"Να επιτρέπεται στις εφαρμογές να αποτρέπουν τη διαχείριση του πλήκτρου "
+"ενεργοποίησης του συστήματος"
 
 #: src/login/org.freedesktop.login1.policy:76
-msgid "Authentication is required for an application to inhibit system handling of the power key."
-msgstr "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την διαχείριση του πλήκτρου ενεργοποίησης του συστήματος."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr ""
+"Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την "
+"διαχείριση του πλήκτρου ενεργοποίησης του συστήματος."
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
-msgstr "Να επιτρέπεται στις εφαρμογές να αποτρέπουν τη διαχείριση του πλήκτρου αναστολής του συστήματος."
+msgstr ""
+"Να επιτρέπεται στις εφαρμογές να αποτρέπουν τη διαχείριση του πλήκτρου "
+"αναστολής του συστήματος."
 
 #: src/login/org.freedesktop.login1.policy:87
-msgid "Authentication is required for an application to inhibit system handling of the suspend key."
-msgstr "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την διαχείριση του πλήκτρου αναστολής του συστήματος."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr ""
+"Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την "
+"διαχείριση του πλήκτρου αναστολής του συστήματος."
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr "Να επιτρέπεται στις εφαρμογές να αποτρέπουν τη διαχείριση του πλήκτρου αδρανοποίησης του συστήματος"
+msgstr ""
+"Να επιτρέπεται στις εφαρμογές να αποτρέπουν τη διαχείριση του πλήκτρου "
+"αδρανοποίησης του συστήματος"
 
 #: src/login/org.freedesktop.login1.policy:98
-msgid "Authentication is required for an application to inhibit system handling of the hibernate key."
-msgstr "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την διαχείριση του πλήκτρου αδρανοποίησης του συστήματος."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr ""
+"Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την "
+"διαχείριση του πλήκτρου αδρανοποίησης του συστήματος."
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
-msgstr "Να επιτρέπεται στις εφαρμογές να αποτρέπουν τη διαχείριση του διακόπτη καλύμματος του συστήματος"
+msgstr ""
+"Να επιτρέπεται στις εφαρμογές να αποτρέπουν τη διαχείριση του διακόπτη "
+"καλύμματος του συστήματος"
 
 #: src/login/org.freedesktop.login1.policy:108
-msgid "Authentication is required for an application to inhibit system handling of the lid switch."
-msgstr "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την διαχείριση του διακόπτη καλύμματος του συστήματος."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr ""
+"Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την "
+"διαχείριση του διακόπτη καλύμματος του συστήματος."
 
 #: src/login/org.freedesktop.login1.policy:117
 #, fuzzy
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr "Να επιτρέπεται στις εφαρμογές να αποτρέπουν τη διαχείριση του πλήκτρου ενεργοποίησης του συστήματος"
+msgstr ""
+"Να επιτρέπεται στις εφαρμογές να αποτρέπουν τη διαχείριση του πλήκτρου "
+"ενεργοποίησης του συστήματος"
 
 #: src/login/org.freedesktop.login1.policy:118
 #, fuzzy
-msgid "Authentication is required for an application to inhibit system handling of the reboot key."
-msgstr "Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την διαχείριση του πλήκτρου ενεργοποίησης του συστήματος."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr ""
+"Απαιτείται πιστοποίηση για να επιτρέπεται σε μια εφαρμογή να αποτρέψει την "
+"διαχείριση του πλήκτρου ενεργοποίησης του συστήματος."
 
 #: src/login/org.freedesktop.login1.policy:128
 #, fuzzy
@@ -456,7 +566,9 @@ msgstr "Να επιτρέπεται σε μη συνδεμένους χρήστ�
 #: src/login/org.freedesktop.login1.policy:129
 #, fuzzy
 msgid "Explicit request is required to run programs as a non-logged-in user."
-msgstr "Απαιτείται πιστοποίηση για να επιτρέπεται σε μη συνδεμένους χρήστες να εκτελούν προγράμματα."
+msgstr ""
+"Απαιτείται πιστοποίηση για να επιτρέπεται σε μη συνδεμένους χρήστες να "
+"εκτελούν προγράμματα."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
@@ -464,7 +576,9 @@ msgstr "Να επιτρέπεται σε μη συνδεμένους χρήστ�
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
-msgstr "Απαιτείται πιστοποίηση για να επιτρέπεται σε μη συνδεμένους χρήστες να εκτελούν προγράμματα."
+msgstr ""
+"Απαιτείται πιστοποίηση για να επιτρέπεται σε μη συνδεμένους χρήστες να "
+"εκτελούν προγράμματα."
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
@@ -472,7 +586,8 @@ msgstr "Να επιτρέπεται η προσάρτηση συσκευών σ�
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr "Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
+msgstr ""
+"Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
@@ -480,7 +595,9 @@ msgstr "Αφαίρεση συσκευής από προσαρτήσεις στα
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
-msgstr "Απαιτείται πιστοποίηση για επαναφορά του τρόπου που οι συσκευές προσαρτώνται στους σταθμούς εργασίας."
+msgstr ""
+"Απαιτείται πιστοποίηση για επαναφορά του τρόπου που οι συσκευές προσαρτώνται "
+"στους σταθμούς εργασίας."
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
@@ -495,16 +612,24 @@ msgid "Power off the system while other users are logged in"
 msgstr "Σβήσιμο του συστήματος ενώ άλλοι χρήστες είναι συνδεμένοι"
 
 #: src/login/org.freedesktop.login1.policy:181
-msgid "Authentication is required to power off the system while other users are logged in."
-msgstr "Απαιτείται πιστοποίηση για σβήσιμο του συστήματος ενώ άλλοι χρήστες είναι συνδεμένοι."
+msgid ""
+"Authentication is required to power off the system while other users are "
+"logged in."
+msgstr ""
+"Απαιτείται πιστοποίηση για σβήσιμο του συστήματος ενώ άλλοι χρήστες είναι "
+"συνδεμένοι."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
 msgstr "Απενεργοποίηση του συστήματος ενώ μια εφαρμογή ζήτησε να αποτραπεί."
 
 #: src/login/org.freedesktop.login1.policy:192
-msgid "Authentication is required to power off the system while an application is inhibiting this."
-msgstr "Απαιτείται πιστοποίηση για απενεργοποίηση του συστήματος ενώ μια εφαρμογή ζήτησε να αποτραπεί."
+msgid ""
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
+msgstr ""
+"Απαιτείται πιστοποίηση για απενεργοποίηση του συστήματος ενώ μια εφαρμογή "
+"ζήτησε να αποτραπεί."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -519,16 +644,24 @@ msgid "Reboot the system while other users are logged in"
 msgstr "Επανεκκίνηση του συστήματος ενώ άλλοι χρήστες είναι συνδεμένοι"
 
 #: src/login/org.freedesktop.login1.policy:214
-msgid "Authentication is required to reboot the system while other users are logged in."
-msgstr "Απαιτείται πιστοποίηση για επανεκκίνηση του συστήματος ενώ άλλοι χρήστες είναι συνδεμένοι."
+msgid ""
+"Authentication is required to reboot the system while other users are logged "
+"in."
+msgstr ""
+"Απαιτείται πιστοποίηση για επανεκκίνηση του συστήματος ενώ άλλοι χρήστες "
+"είναι συνδεμένοι."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
 msgstr "Επανεκκίνηση του συστήματος ενώ μια εφαρμογή ζήτησε να αποτραπεί"
 
 #: src/login/org.freedesktop.login1.policy:225
-msgid "Authentication is required to reboot the system while an application is inhibiting this."
-msgstr "Απαιτείται πιστοποίηση για επανεκκίνηση του συστήματος ενώ μια εφαρμογή ζήτησε να αποτραπεί."
+msgid ""
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
+msgstr ""
+"Απαιτείται πιστοποίηση για επανεκκίνηση του συστήματος ενώ μια εφαρμογή "
+"ζήτησε να αποτραπεί."
 
 #: src/login/org.freedesktop.login1.policy:235
 #, fuzzy
@@ -547,8 +680,12 @@ msgstr "Αδρανοποίηση του συστήματος ενώ άλλοι �
 
 #: src/login/org.freedesktop.login1.policy:247
 #, fuzzy
-msgid "Authentication is required to halt the system while other users are logged in."
-msgstr "Απαιτείται πιστοποίηση για αδρανοποίηση του συστήματος ενώ άλλοι χρήστες είναι συνδεμένοι."
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr ""
+"Απαιτείται πιστοποίηση για αδρανοποίηση του συστήματος ενώ άλλοι χρήστες "
+"είναι συνδεμένοι."
 
 #: src/login/org.freedesktop.login1.policy:257
 #, fuzzy
@@ -557,8 +694,12 @@ msgstr "Αδρανοποίηση του συστήματος ενώ μια εφ�
 
 #: src/login/org.freedesktop.login1.policy:258
 #, fuzzy
-msgid "Authentication is required to halt the system while an application is inhibiting this."
-msgstr "Απαιτείται πιστοποίηση για αδρανοποίηση του συστήματος ενώ μια εφαρμογή ζήτησε να αποτραπεί."
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr ""
+"Απαιτείται πιστοποίηση για αδρανοποίηση του συστήματος ενώ μια εφαρμογή "
+"ζήτησε να αποτραπεί."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -573,16 +714,24 @@ msgid "Suspend the system while other users are logged in"
 msgstr "Αναστολή του συστήματος ενώ άλλοι χρήστες είναι συνδεμένοι"
 
 #: src/login/org.freedesktop.login1.policy:279
-msgid "Authentication is required to suspend the system while other users are logged in."
-msgstr "Απαιτείται πιστοποίηση για αναστολή του συστήματος ενώ άλλοι χρήστες είναι συνδεμένοι."
+msgid ""
+"Authentication is required to suspend the system while other users are "
+"logged in."
+msgstr ""
+"Απαιτείται πιστοποίηση για αναστολή του συστήματος ενώ άλλοι χρήστες είναι "
+"συνδεμένοι."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
 msgstr "Αναστολή του συστήματος ενώ μια εφαρμογή ζήτησε να αποτραπεί"
 
 #: src/login/org.freedesktop.login1.policy:290
-msgid "Authentication is required to suspend the system while an application is inhibiting this."
-msgstr "Απαιτείται πιστοποίηση για αναστολή του συστήματος ενώ μια εφαρμογή ζήτησε να αποτραπεί."
+msgid ""
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
+msgstr ""
+"Απαιτείται πιστοποίηση για αναστολή του συστήματος ενώ μια εφαρμογή ζήτησε "
+"να αποτραπεί."
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
@@ -597,16 +746,24 @@ msgid "Hibernate the system while other users are logged in"
 msgstr "Αδρανοποίηση του συστήματος ενώ άλλοι χρήστες είναι συνδεμένοι"
 
 #: src/login/org.freedesktop.login1.policy:311
-msgid "Authentication is required to hibernate the system while other users are logged in."
-msgstr "Απαιτείται πιστοποίηση για αδρανοποίηση του συστήματος ενώ άλλοι χρήστες είναι συνδεμένοι."
+msgid ""
+"Authentication is required to hibernate the system while other users are "
+"logged in."
+msgstr ""
+"Απαιτείται πιστοποίηση για αδρανοποίηση του συστήματος ενώ άλλοι χρήστες "
+"είναι συνδεμένοι."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Αδρανοποίηση του συστήματος ενώ μια εφαρμογή ζήτησε να αποτραπεί"
 
 #: src/login/org.freedesktop.login1.policy:322
-msgid "Authentication is required to hibernate the system while an application is inhibiting this."
-msgstr "Απαιτείται πιστοποίηση για αδρανοποίηση του συστήματος ενώ μια εφαρμογή ζήτησε να αποτραπεί."
+msgid ""
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
+msgstr ""
+"Απαιτείται πιστοποίηση για αδρανοποίηση του συστήματος ενώ μια εφαρμογή "
+"ζήτησε να αποτραπεί."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
@@ -615,7 +772,8 @@ msgstr ""
 #: src/login/org.freedesktop.login1.policy:333
 #, fuzzy
 msgid "Authentication is required to manage active sessions, users and seats."
-msgstr "Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
+msgstr ""
+"Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
@@ -642,7 +800,9 @@ msgstr "Απαιτείται πιστοποίηση για να ορίσετε �
 
 #: src/login/org.freedesktop.login1.policy:364
 #, fuzzy
-msgid "Authentication is required to indicate to the firmware to boot to setup interface."
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
 
 #: src/login/org.freedesktop.login1.policy:374
@@ -651,7 +811,9 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:375
 #, fuzzy
-msgid "Authentication is required to indicate to the boot loader to boot to the boot loader menu."
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
 
 #: src/login/org.freedesktop.login1.policy:385
@@ -660,7 +822,9 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:386
 #, fuzzy
-msgid "Authentication is required to indicate to the boot loader to boot into a specific boot loader entry."
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
 
 #: src/login/org.freedesktop.login1.policy:396
@@ -725,7 +889,8 @@ msgstr "Απαιτείται πιστοποίηση για να ορίσετε �
 
 #: src/machine/org.freedesktop.machine1.policy:65
 #, fuzzy
-msgid "Authentication is required to acquire a pseudo TTY in a local container."
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
 
 #: src/machine/org.freedesktop.machine1.policy:74
@@ -743,7 +908,8 @@ msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:85
 #, fuzzy
-msgid "Authentication is required to manage local virtual machines and containers."
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε πληροφορίες τοπικής μηχανής."
 
 #: src/machine/org.freedesktop.machine1.policy:95
@@ -752,7 +918,9 @@ msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:96
 #, fuzzy
-msgid "Authentication is required to manage local virtual machine and container images."
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε πληροφορίες τοπικής μηχανής."
 
 #: src/network/org.freedesktop.network1.policy:22
@@ -850,7 +1018,8 @@ msgstr ""
 #: src/resolve/org.freedesktop.resolve1.policy:122
 #, fuzzy
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
-msgstr "Απαιτείται πιστοποίηση για να ορίσετε τις τοπικές ρυθμίσεις του συστήματος."
+msgstr ""
+"Απαιτείται πιστοποίηση για να ορίσετε τις τοπικές ρυθμίσεις του συστήματος."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
@@ -921,8 +1090,10 @@ msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:24
 #, fuzzy
-msgid "Authentication is required to attach or detach a portable service image."
-msgstr "Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr ""
+"Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
@@ -930,7 +1101,8 @@ msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:35
 #, fuzzy
-msgid "Authentication is required to delete or modify a portable service image."
+msgid ""
+"Authentication is required to delete or modify a portable service image."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε πληροφορίες τοπικής μηχανής."
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
@@ -958,7 +1130,9 @@ msgstr ""
 #: src/resolve/org.freedesktop.resolve1.policy:133
 #, fuzzy
 msgid "Authentication is required to reset name resolution settings."
-msgstr "Απαιτείται πιστοποίηση για να ορίσετε τις ρυθμίσεις πληκτρολογίου του συστήματος."
+msgstr ""
+"Απαιτείται πιστοποίηση για να ορίσετε τις ρυθμίσεις πληκτρολογίου του "
+"συστήματος."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -981,60 +1155,73 @@ msgid "Set RTC to local timezone or UTC"
 msgstr "Ορισμός RTC στην τοπική ζώνη ώρας ή UTC"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
-msgid "Authentication is required to control whether the RTC stores the local or UTC time."
-msgstr "Απαιτείται πιστοποίηση για να ελέγξετε αν το RTC αποθηκεύει την τοπική ή την ώρα UTC."
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr ""
+"Απαιτείται πιστοποίηση για να ελέγξετε αν το RTC αποθηκεύει την τοπική ή την "
+"ώρα UTC."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
 msgstr "Ενεργοποίηση/Απενεργοποίηση συγχρονισμού ώρας δικτύου"
 
 #: src/timedate/org.freedesktop.timedate1.policy:54
-msgid "Authentication is required to control whether network time synchronization shall be enabled."
-msgstr "Απαιτείται πιστοποίηση για να ελέγξετε αν ο συγχρονισμός ώρας δικτύου θα ενεργοποιηθεί."
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr ""
+"Απαιτείται πιστοποίηση για να ελέγξετε αν ο συγχρονισμός ώρας δικτύου θα "
+"ενεργοποιηθεί."
 
-#: src/core/dbus-unit.c:352
+#: src/core/dbus-unit.c:353
 #, fuzzy
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
-#: src/core/dbus-unit.c:353
+#: src/core/dbus-unit.c:354
 #, fuzzy
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:355
 #, fuzzy
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
-#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
+#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
 #, fuzzy
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
-#: src/core/dbus-unit.c:553
+#: src/core/dbus-unit.c:549
 #, fuzzy
-msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"'$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
-#: src/core/dbus-unit.c:583
+#: src/core/dbus-unit.c:577
 #, fuzzy
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
 
-#: src/core/dbus-unit.c:615
+#: src/core/dbus-unit.c:607
 #, fuzzy
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
-#: src/core/dbus-unit.c:716
+#: src/core/dbus-unit.c:704
 #, fuzzy
-msgid "Authentication is required to delete files and directories associated with '$(unit)'."
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
 
-#: src/core/dbus-unit.c:764
+#: src/core/dbus-unit.c:743
 #, fuzzy
-msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
 
 #, fuzzy

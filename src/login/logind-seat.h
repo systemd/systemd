@@ -26,10 +26,10 @@ struct Seat {
         LIST_FIELDS(Seat, gc_queue);
 };
 
-int seat_new(Seat **ret, Manager *m, const char *id);
+int seat_new(Manager *m, const char *id, Seat **ret);
 Seat* seat_free(Seat *s);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Seat *, seat_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Seat*, seat_free);
 
 int seat_save(Seat *s);
 int seat_load(Seat *s);

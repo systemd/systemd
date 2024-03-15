@@ -151,7 +151,7 @@ static int get_file_options(const char *vendor, const char *model,
                 if (*buf == '#')
                         continue;
 
-                r = extract_many_words(&buf, "=\",\n", 0, &key, &value, NULL);
+                r = extract_many_words(&buf, "=\",\n", 0, &key, &value);
                 if (r < 2)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Error parsing config file line %d '%s'", lineno, buffer);
 
@@ -159,7 +159,7 @@ static int get_file_options(const char *vendor, const char *model,
                         vendor_in = TAKE_PTR(value);
 
                         key = mfree(key);
-                        r = extract_many_words(&buf, "=\",\n", 0, &key, &value, NULL);
+                        r = extract_many_words(&buf, "=\",\n", 0, &key, &value);
                         if (r < 2)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Error parsing config file line %d '%s'", lineno, buffer);
 
@@ -167,7 +167,7 @@ static int get_file_options(const char *vendor, const char *model,
                                 model_in = TAKE_PTR(value);
 
                                 key = mfree(key);
-                                r = extract_many_words(&buf, "=\",\n", 0, &key, &value, NULL);
+                                r = extract_many_words(&buf, "=\",\n", 0, &key, &value);
                                 if (r < 2)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Error parsing config file line %d '%s'", lineno, buffer);
                         }

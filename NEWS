@@ -27,6 +27,15 @@ CHANGES WITH 256 in spe:
           mounted at some path, for example /boot/efi/ (this type of setup is
           obsolete but is still commonly found).
 
+        * The behavior of systemd-sleep and systemd-homed has been updated to
+          freeze user sessions when entering the various sleep modes or when
+          locking a homed-managed home area. This is known to cause issues with
+          the proprietary NVIDIA drivers. Packagers of the NVIDIA proprietary
+          drivers may want to add drop-in configuration files that set
+          SYSTEMD_SLEEP_FREEZE_USER_SESSION=false for systemd-suspend.service
+          and related services, and SYSTEMD_HOME_LOCK_FREEZE_SESSION=false for
+          systemd-homed.service.
+
         Network Management:
 
         * systemd-networkd's proxy support gained a new option to configure
@@ -1390,7 +1399,7 @@ CHANGES WITH 254:
           user is notified (graphically via Plymouth – if available – as well
           as in text form on the console), and the system is turned off after a
           10s delay. The feature can be disabled by passing
-          systemd.battery-check=0 through the kernel command line.
+          systemd.battery_check=0 through the kernel command line.
 
         * The 'passwdqc' library is now supported as an alternative to the
           'pwquality' library and can be selected at build time.
@@ -3718,7 +3727,7 @@ CHANGES WITH 250:
           interfaces. The Kind= setting in .netdev file accepts "ipoib". And
           systemd.netdev files gained the [IPoIB] section.
 
-        * systemd-networkd and systemd-udevd now support net.ifname-policy=
+        * systemd-networkd and systemd-udevd now support net.ifname_policy=
           option on the kernel command-line. This is implemented through the
           systemd-network-generator service that automatically generates
           appropriate .link, .network, and .netdev files.
@@ -4290,7 +4299,7 @@ CHANGES WITH 249:
           - Invalid characters in interface names are replaced with "_".
 
           The new version of the net naming scheme is "v249". The previous
-          scheme can be selected via the "net.naming-scheme=v247" kernel
+          scheme can be selected via the "net.naming_scheme=v247" kernel
           command line parameter.
 
         * sd-bus' sd_bus_is_ready() and sd_bus_is_open() calls now accept a
@@ -5821,7 +5830,7 @@ CHANGES WITH 247:
           bridge. Since this is a naming scheme incompatibility on systems that
           possess hardware like this it has been introduced as new naming
           scheme "v247". The previous scheme can be selected via the
-          "net.naming-scheme=v245" kernel command line parameter.
+          "net.naming_scheme=v245" kernel command line parameter.
 
         * ConditionFirstBoot= semantics have been modified to be safe towards
           abnormal system power-off during first boot. Specifically, the
@@ -6034,12 +6043,12 @@ CHANGES WITH 246:
           added, which may be used to turn off automatic activation of swap
           devices listed in /etc/fstab.
 
-        * New kernel command line options systemd.condition-needs-update= and
-          systemd.condition-first-boot= have been added, which override the
+        * New kernel command line options systemd.condition_needs_update= and
+          systemd.condition_first_boot= have been added, which override the
           result of the ConditionNeedsUpdate= and ConditionFirstBoot=
           conditions.
 
-        * A new kernel command line option systemd.clock-usec= has been added
+        * A new kernel command line option systemd.clock_usec= has been added
           that allows setting the system clock to the specified time in µs
           since Jan 1st, 1970 early during boot. This is in particular useful
           in order to make test cases more reliable.
@@ -6726,7 +6735,7 @@ CHANGES WITH 245:
           multiple containers whose names all begin with the same prefix. Since
           this changes the primary interface names pointing to containers if
           truncation happens, the old scheme may still be requested by
-          selecting an older naming scheme, via the net.naming-scheme= kernel
+          selecting an older naming scheme, via the net.naming_scheme= kernel
           command line option.
 
         * PrivateUsers= in service files now works in services run by the
@@ -7256,9 +7265,9 @@ CHANGES WITH 243:
           Moreover, the "en" prefix was dropped from the ID_NET_NAME_ONBOARD
           udev property.
 
-          Those two changes form a new net.naming-policy-scheme= entry.
-          Distributions which want to preserve naming stability may want to set
-          the -Ddefault-net-naming-scheme= configuration option.
+          Those two changes form a new net.naming_scheme= entry.  Distributions
+          which want to preserve naming stability may want to set the
+          -Ddefault-net-naming-scheme= configuration option.
 
         * systemd-networkd now supports MACsec, nlmon, IPVTAP and Xfrm
           interfaces natively.
@@ -8333,7 +8342,7 @@ CHANGES WITH 240:
           name as argument.
 
         * systemd-udevd's network naming logic now understands a new
-          net.naming-scheme= kernel command line switch, which may be used to
+          net.naming_scheme= kernel command line switch, which may be used to
           pick a specific version of the naming scheme. This helps stabilizing
           interface names even as systemd/udev are updated and the naming logic
           is improved.

@@ -446,51 +446,54 @@ for opt in json multiplexer output synthesize with-dropin with-nss with-varlink;
 done
 
 # FIXME: sshd seems to crash inside asan currently, skip the actual ssh test hence
-if command -v ssh &> /dev/null && command -v sshd &> /dev/null && ! [[ -v ASAN_OPTIONS ]]; then
-
+if command -v ssh &>/dev/null && command -v sshd &>/dev/null && ! [[ -v ASAN_OPTIONS ]]; then
     at_exit() {
-        systemctl stop mysshserver.socket
-        rm -f /tmp/homed.id_rsa /run/systemd/system/mysshserver.socket /run/systemd/system/mysshserver@.service
+        set +e
+
+        systemctl is-active -q mysshserver.socket && systemctl stop mysshserver.socket
+        rm -f /tmp/homed.id_ecdsa /run/systemd/system/mysshserver{@.service,.socket}
         systemctl daemon-reload
-        homectl remove homedsshtest ||:
-        mv /etc/pam.d/sshd.save46 /etc/pam.d/sshd
+        homectl remove homedsshtest
+        mv /etc/pam.d/sshd.bak /etc/pam.d/sshd
     }
 
     trap at_exit EXIT
 
     # Test that SSH logins work with delayed unlocking
-    ssh-keygen -N '' -C '' -t rsa -f /tmp/homed.id_rsa
+    ssh-keygen -N '' -C '' -t ecdsa -f /tmp/homed.id_ecdsa
     NEWPASSWORD=hunter4711 homectl create \
                        --disk-size=min \
                        --luks-discard=yes \
                        --luks-pbkdf-type=pbkdf2 \
                        --luks-pbkdf-time-cost=1ms \
                        --enforce-password-policy=no \
-                       --ssh-authorized-keys=@/tmp/homed.id_rsa.pub \
+                       --ssh-authorized-keys=@/tmp/homed.id_ecdsa.pub \
                        --stop-delay=0 \
                        homedsshtest
+    homectl inspect homedsshtest
 
     mkdir -p /etc/ssh
-    test -f /etc/ssh/ssh_host_rsa_key || ssh-keygen -t rsa -C '' -N '' -f /etc/ssh/ssh_host_rsa_key
+    test -f /etc/ssh/ssh_host_ecdsa_key || ssh-keygen -t ecdsa -C '' -N '' -f /etc/ssh/ssh_host_ecdsa_key
 
-    # ssh wants this dir around, but distros cannot agree on a common name for it, let's just create all that are aware of distros use
-    mkdir -p /usr/share/empty.sshd /var/empty /var/empty/sshd
+    # ssh wants this dir around, but distros cannot agree on a common name for it, let's just create all that
+    # are aware of distros use
+    mkdir -p /usr/share/empty.sshd /var/empty /var/empty/sshd /run/sshd
 
-    mv /etc/pam.d/sshd /etc/pam.d/sshd.save46
-
-    cat > /etc/pam.d/sshd <<EOF
+    mv /etc/pam.d/sshd /etc/pam.d/sshd.bak
+    cat >/etc/pam.d/sshd <<EOF
 auth    sufficient pam_unix.so nullok
-auth    sufficient pam_systemd_home.so
+auth    sufficient pam_systemd_home.so debug
 auth    required   pam_deny.so
-account sufficient pam_systemd_home.so
+account sufficient pam_systemd_home.so debug
 account sufficient pam_unix.so
 account required   pam_permit.so
-session optional   pam_systemd_home.so
+session optional   pam_systemd_home.so debug
 session optional   pam_systemd.so
 session required   pam_unix.so
 EOF
 
-    cat >> /etc/ssh/sshd_config <<EOF
+    mkdir -p /etc/sshd/
+    cat >/etc/ssh/sshd_config <<EOF
 AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u
 AuthorizedKeysCommandUser root
 UsePAM yes
@@ -498,13 +501,13 @@ AcceptEnv PASSWORD
 LogLevel DEBUG3
 EOF
 
-    cat > /run/systemd/system/mysshserver.socket <<EOF
+    cat >/run/systemd/system/mysshserver.socket <<EOF
 [Socket]
 ListenStream=4711
 Accept=yes
 EOF
 
-    cat > /run/systemd/system/mysshserver@.service <<EOF
+    cat >/run/systemd/system/mysshserver@.service <<EOF
 [Service]
 ExecStart=-/usr/sbin/sshd -i -d -e
 StandardInput=socket
@@ -517,15 +520,17 @@ EOF
 
     userdbctl user -j homedsshtest
 
-    ssh -t -t -4 -p 4711 -i /tmp/homed.id_rsa -o "SetEnv PASSWORD=hunter4711" -o "StrictHostKeyChecking no" homedsshtest@localhost echo zzz | tail -n 1 | tr -d '\r' > /tmp/homedsshtest.out
-    cat /tmp/homedsshtest.out
-    test "$(cat /tmp/homedsshtest.out)" = "zzz"
+    ssh -t -t -4 -p 4711 -i /tmp/homed.id_ecdsa \
+        -o "SetEnv PASSWORD=hunter4711" -o "StrictHostKeyChecking no" \
+        homedsshtest@localhost echo zzz | tr -d '\r' | tee /tmp/homedsshtest.out
+    grep -E "^zzz$" /tmp/homedsshtest.out
     rm /tmp/homedsshtest.out
 
-    ssh -t -t -4 -p 4711 -i /tmp/homed.id_rsa -o "SetEnv PASSWORD=hunter4711" -o "StrictHostKeyChecking no" homedsshtest@localhost env
+    ssh -t -t -4 -p 4711 -i /tmp/homed.id_ecdsa \
+        -o "SetEnv PASSWORD=hunter4711" -o "StrictHostKeyChecking no" \
+        homedsshtest@localhost env
 
     wait_for_state homedsshtest inactive
-    homectl remove homedsshtest
 fi
 
 systemd-analyze log-level info

@@ -57,6 +57,7 @@
 #include "tmpfile-util.h"
 #include "unit-name.h"
 #include "vmspawn-mount.h"
+#include "vmspawn-register.h"
 #include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
@@ -86,6 +87,8 @@ static char *arg_runtime_directory = NULL;
 static char *arg_forward_journal = NULL;
 static bool arg_runtime_directory_created = false;
 static bool arg_privileged = false;
+static bool arg_register = false;
+static sd_id128_t arg_uuid = {};
 static char **arg_kernel_cmdline_extra = NULL;
 static char **arg_extra_drives = NULL;
 static char *arg_background = NULL;
@@ -139,6 +142,9 @@ static int help(void) {
                "     --firmware=PATH|list  Select firmware definition file (or list available)\n"
                "\n%3$sSystem Identity:%4$s\n"
                "  -M --machine=NAME        Set the machine name for the VM\n"
+               "     --uuid=UUID           Set a specific machine UUID for the VM\n"
+               "\n%3$sProperties:%4$s\n"
+               "     --register=BOOLEAN    Register VM with systemd-machined\n"
                "\n%3$sUser Namespacing:%4$s\n"
                "     --private-users=UIDBASE[:NUIDS]\n"
                "                           Configure the UID/GID range to map into the\n"
@@ -186,6 +192,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_INITRD,
                 ARG_QEMU_GUI,
                 ARG_NETWORK_USER_MODE,
+                ARG_UUID,
+                ARG_REGISTER,
                 ARG_BIND,
                 ARG_BIND_RO,
                 ARG_EXTRA_DRIVE,
@@ -223,6 +231,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "qemu-gui",          no_argument,       NULL, ARG_QEMU_GUI          }, /* compat option */
                 { "network-tap",       no_argument,       NULL, 'n'                   },
                 { "network-user-mode", no_argument,       NULL, ARG_NETWORK_USER_MODE },
+                { "uuid",              required_argument, NULL, ARG_UUID              },
+                { "register",          required_argument, NULL, ARG_REGISTER          },
                 { "bind",              required_argument, NULL, ARG_BIND              },
                 { "bind-ro",           required_argument, NULL, ARG_BIND_RO           },
                 { "extra-drive",       required_argument, NULL, ARG_EXTRA_DRIVE       },
@@ -370,6 +380,26 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NETWORK_USER_MODE:
                         arg_network_stack = NETWORK_STACK_USER;
+                        break;
+
+                case ARG_UUID:
+                        r = id128_from_string_nonzero(optarg, &arg_uuid);
+                        if (r == -ENXIO)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Machine UUID may not be all zeroes.");
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid UUID: %s", optarg);
+
+                        arg_settings_mask |= SETTING_MACHINE_ID;
+                        break;
+
+                case ARG_REGISTER:
+                        r = parse_boolean(optarg);
+                        if (r < 0) {
+                                log_error("Failed to parse --register= argument: %s", optarg);
+                                return r;
+                        }
+
+                        arg_register = r;
                         break;
 
                 case ARG_BIND:
@@ -1093,6 +1123,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
+        if (arg_register) {
+                r = register_machine(bus, arg_machine, arg_uuid, trans_scope, arg_directory);
+                if (r < 0)
+                        return r;
+        }
+
         bool use_kvm = arg_kvm > 0;
         if (arg_kvm < 0) {
                 r = qemu_check_kvm_support();
@@ -1153,6 +1189,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         );
         if (!cmdline)
                 return log_oom();
+
+        if (!sd_id128_is_null(arg_uuid))
+                if (strv_extend_many(&cmdline, "-uuid", SD_ID128_TO_UUID_STRING(arg_uuid)) < 0)
+                        return log_oom();
 
         /* if we are going to be starting any units with state then create our runtime dir */
         if (arg_tpm != 0 || arg_directory || arg_runtime_mounts.n_mounts != 0) {
@@ -1530,6 +1570,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 r = strv_extendf(&cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", escaped_kcl);
                                 if (r < 0)
                                         return log_oom();
+
+                                r = strv_extend(&cmdline, "-smbios");
+                                if (r < 0)
+                                        return log_oom();
+
+                                r = strv_extendf(&cmdline, "type=11,value=io.systemd.boot.kernel-cmdline-extra=%s", escaped_kcl);
+                                if (r < 0)
+                                        return log_oom();
                         } else
                                 log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS, ignoring");
                 }
@@ -1560,8 +1608,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         _cleanup_free_ char *tpm_state_tempdir = NULL;
         if (swtpm) {
-                _cleanup_free_ char *escaped_state_dir = NULL;
-
                 r = start_tpm(bus, trans_scope, swtpm, &tpm_state_tempdir);
                 if (r < 0) {
                         /* only bail if the user asked for a tpm */
@@ -1569,6 +1615,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 return log_error_errno(r, "Failed to start tpm: %m");
                         log_debug_errno(r, "Failed to start tpm, ignoring: %m");
                 }
+        }
+
+        if (tpm_state_tempdir) {
+                _cleanup_free_ char *escaped_state_dir = NULL;
 
                 escaped_state_dir = escape_qemu_value(tpm_state_tempdir);
                 if (!escaped_state_dir)
@@ -1686,7 +1736,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = pidref_safe_fork_full(
                         qemu_binary,
                         /* stdio_fds= */ NULL,
-                        &child_vsock_fd, 1, /* pass the vsock fd to qemu */
+                        pass_fds, n_pass_fds,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE,
                         &child_pidref);
         if (r < 0)
@@ -1746,6 +1796,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = sd_event_loop(event);
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
+
+        if (arg_register)
+                (void) unregister_machine(bus, arg_machine);
 
         if (use_vsock) {
                 if (exit_status == INT_MAX) {
@@ -1825,6 +1878,9 @@ static int verify_arguments(void) {
         if (!strv_isempty(arg_initrds) && !arg_linux)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --initrd= cannot be used without --linux=.");
 
+        if (arg_register && !arg_privileged)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "--register= requires root privileges, refusing.");
+
         return 0;
 }
 
@@ -1835,6 +1891,9 @@ static int run(int argc, char *argv[]) {
         log_setup();
 
         arg_privileged = getuid() == 0;
+
+        /* don't attempt to register as a machine when running as a user */
+        arg_register = arg_privileged;
 
         r = parse_argv(argc, argv);
         if (r <= 0)

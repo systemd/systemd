@@ -1066,10 +1066,8 @@ static int process_root_account(int rfd) {
 
         FOREACH_STRING(s, "passwd", "shadow") {
                 r = verify_regular_at(pfd, s, /* follow = */ false);
-                if (IN_SET(r, -EISDIR, -ELOOP, -EBADFD))
-                        return log_error_errno(r, "/etc/%s is not a regular file", s);
                 if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to check whether /etc/%s is a regular file: %m", s);
+                        return log_error_errno(r, "Verification of /etc/%s being regular file failed: %m", s);
 
                 r = should_configure(pfd, s);
                 if (r < 0)
@@ -1694,7 +1692,8 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_VALIDATE_OS |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                                 DISSECT_IMAGE_FSCK |
-                                DISSECT_IMAGE_GROWFS,
+                                DISSECT_IMAGE_GROWFS |
+                                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
                                 &mounted_dir,
                                 &rfd,
                                 &loop_device);

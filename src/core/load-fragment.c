@@ -4692,7 +4692,7 @@ int config_parse_exec_directories(
 
                 _cleanup_free_ char *src = NULL, *dest = NULL;
                 const char *q = tuple;
-                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &src, &dest, NULL);
+                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &src, &dest);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r <= 0) {
@@ -5395,7 +5395,7 @@ int config_parse_mount_images(
                         return 0;
 
                 q = tuple;
-                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &first, &second, NULL);
+                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &first, &second);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -5444,7 +5444,7 @@ int config_parse_mount_images(
                         MountOptions *o = NULL;
                         PartitionDesignator partition_designator;
 
-                        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options, NULL);
+                        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0) {
@@ -5586,7 +5586,7 @@ int config_parse_extension_images(
                         MountOptions *o = NULL;
                         PartitionDesignator partition_designator;
 
-                        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options, NULL);
+                        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0) {

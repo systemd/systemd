@@ -575,6 +575,11 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->auto_login >= 0)
                 printf("Autom. Login: %s\n", yes_no(hr->auto_login));
 
+        if (hr->preferred_session_launcher)
+                printf("Sess. Launch: %s\n", hr->preferred_session_launcher);
+        if (hr->preferred_session_type)
+                printf("Session Type: %s\n", hr->preferred_session_type);
+
         if (hr->kill_processes >= 0)
                 printf("  Kill Proc.: %s\n", yes_no(hr->kill_processes));
 

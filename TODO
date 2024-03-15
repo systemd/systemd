@@ -130,16 +130,69 @@ Deprecations and removals:
 
 Features:
 
+* insert the new pidfs inode number as a third field into PidRef, so that
+  PidRef are reasonably serializable without having to pass around fds.
+
+* systemd-analyze smbios11 to dump smbios type 11 vendor strings
+
+* move documentation about our common env vars (SYSTEMD_LOG_LEVEL,
+  SYSTEMD_PAGER, …) into a man page of its own, and just link it from our
+  various man pages that so far embed the whole list again and again, in an
+  attempt to reduce clutter and noise a bid.
+
+* vmspawn switch default swtpm PCR bank to SHA384-only (away from SHA256), at
+  least on 64bit archs, simply because SHA384 is typically double the hashing
+  speed than SHA256 on 64bit archs (since based on 64bit words unlike SHA256
+  which uses 32bit words).
+
+* In vmspawn/nspawn/machined wait for X_SYSTEMD_UNIT_ACTIVE=ssh-active.target
+  and X_SYSTEMD_SIGNAL_LEVEL=2 as indication whether/when SSH and the POSIX
+  signals are available. Similar for D-Bus (but just use sockets.target for
+  that). Report as property for the machine.
+
+* teach nspawn/machined a new bus call/verb that gets you a
+  shell in containers that have no sensible pid1, via joining the container,
+  and invoking a shell directly. Then provide another new bus call/vern that is
+  somewhat automatic: if we detect that pid1 is running and fully booted up we
+  provide a proper login shell, otherwise just a joined shell. Then expose that
+  as primary way into the container.
+
+* make vmspawn/nspawn/importd/machined a bit more usable in a WSL-like
+  fashion. i.e. teach unpriv systemd-vmspawn/systemd-nspawn a reasonable
+  --bind-user= behaviour that mounts the calling user through into the
+  machine. Then, ship importd with a small database of well known distro images
+  along with their pinned signature keys. Then add some minimal glue that binds
+  this together: downloads a suitable image if not done so yet, starts it in
+  the bg via vmspawn/nspawn if not done so yet and then requests a shell inside
+  it for the invoking user.
+
+* make varlink.h a public API, i.e. give all symbols an sd_ prefix, and rename
+  header file to sd-varlink.h. This of course also means we have to make json.h
+  public the same way. Convert the function param checks from assert() to
+  assert_ret(). Only export the stuff we are sure about, and keep some symbols
+  internally where things are not clear whether we want other projects to use.
+
+* machined: allow running in a per-user instance too, to allow unpriv
+  systemd-nspawn and systemd-vmspawn do something useful. (Alternatively: open
+  up system machined to unpriv client's registering their machines, and enforce
+  they come with some prefix or suffix that clarifies they are the
+  user's. i.e. when a user registers a machine it must be called
+  foobar.<username> or so.).
+
+* importd/…: define per-user dirs for container/VM images too.
+
 * add a new specifier to unit files that figures out the DDI the unit file is
   from, tracing through overlayfs, DM, loopback block device.
+
+* importd/importctl
+  - import generator
+  - port tar handling to libarchive
+  - add varlink interface
+  - download images into .v/ dirs
 
 * in os-release define a field that can be initialized at build time from
   SOURCE_DATE_EPOCH (maybe even under that name?). Would then be used to
   initialize the timestamp logic of ConditionNeedsUpdate=.
-
-* ptyfwd: look for window title ANSI sequences and insert colored dot in front
-  of it while passing it through, to indicate whether we are in privileged, VM,
-  container terminal sessions.
 
 * nspawn/vmspawn/pid1: add ability to easily insert fully booted VMs/FOSC into
   shell pipelines, i.e. add easy to use switch that turns off console status
@@ -152,10 +205,6 @@ Features:
   close as we can make it for the MainPID of a service. Should be built around
   pidfd, so that we can reasonably robustly do this. Would only cover the
   execution environment like namespaces, but not the privilege settings.
-
-* add a generic client to importd called importctl, then make machinectl just
-  chain-exec() it. Make sure importd/importctl can be used for sysext images,
-  portable images too.
 
 * varlink: extend varlink IDL macros to include documentation strings
 
@@ -273,7 +322,6 @@ Features:
     suspend inhibitor to implement this. request clean suspend by generating
     suspend key presses.
   - support for "real" networking via "-n" and --network-bridge=
-  - automatically run service "at the side" for swtpm
   - translate SIGTERM to clean ACPI shutdown event
 
 * systemd-pcrmachine should probably also measure the SMBIOS system UUID.
@@ -1392,8 +1440,8 @@ Features:
     - kmod-libs (only when called from PID 1)
     - libblkid (only in RootImage= handling in PID 1, but not elsewhere)
     - libpam (only when called from PID 1)
-    - bzip2, xz, lz4 (always — gzip and zstd should probably stay static deps the way they are,
-      since they are so basic and our defaults)
+    - bzip2 (always — gzip should probably stay static dep the way it is,
+      since it's so basic and our defaults)
 
 * seccomp: maybe use seccomp_merge() to merge our filters per-arch if we can.
   Apparently kernel performance is much better with fewer larger seccomp
@@ -1540,8 +1588,6 @@ Features:
   it is OK to include them in log strings. This would be particularly useful so
   that our log messages could contain clickable links for example for unit
   files and suchlike we operate on.
-
-* importd: add ability download images for portabled + sysext
 
 * add support for "portablectl attach http://foobar.com/waaa.raw (i.e. importd integration)
 

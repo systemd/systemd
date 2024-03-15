@@ -41,6 +41,8 @@ const char *special_glyph_full(SpecialGlyph code, bool force_utf) {
                         [SPECIAL_GLYPH_TREE_SPACE]              = "  ",
                         [SPECIAL_GLYPH_TREE_TOP]                = ",-",
                         [SPECIAL_GLYPH_VERTICAL_DOTTED]         = ":",
+                        [SPECIAL_GLYPH_HORIZONTAL_DOTTED]       = "-",
+                        [SPECIAL_GLYPH_HORIZONTAL_FAT]          = "=",
                         [SPECIAL_GLYPH_TRIANGULAR_BULLET]       = ">",
                         [SPECIAL_GLYPH_BLACK_CIRCLE]            = "*",
                         [SPECIAL_GLYPH_WHITE_CIRCLE]            = "*",
@@ -91,6 +93,8 @@ const char *special_glyph_full(SpecialGlyph code, bool force_utf) {
 
                         /* Single glyphs in both cases */
                         [SPECIAL_GLYPH_VERTICAL_DOTTED]         = u8"┆",
+                        [SPECIAL_GLYPH_HORIZONTAL_DOTTED]       = u8"┄",
+                        [SPECIAL_GLYPH_HORIZONTAL_FAT]          = u8"━",
                         [SPECIAL_GLYPH_TRIANGULAR_BULLET]       = u8"‣",
                         [SPECIAL_GLYPH_BLACK_CIRCLE]            = u8"●",
                         [SPECIAL_GLYPH_WHITE_CIRCLE]            = u8"○",

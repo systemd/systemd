@@ -1214,7 +1214,9 @@ static int mount_in_namespace(
                         (void) mkdir_parents(dest, 0755);
 
                 if (img) {
-                        DissectImageFlags f = DISSECT_IMAGE_TRY_ATOMIC_MOUNT_EXCHANGE;
+                        DissectImageFlags f =
+                                DISSECT_IMAGE_TRY_ATOMIC_MOUNT_EXCHANGE |
+                                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
 
                         if (make_file_or_directory)
                                 f |= DISSECT_IMAGE_MKDIR;

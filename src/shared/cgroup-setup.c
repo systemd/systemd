@@ -51,7 +51,7 @@ static int cg_any_controller_used_for_v1(void) {
                         continue;
 
                 const char *p = *line;
-                r = extract_many_words(&p, NULL, 0, &name, &hierarchy_id, &num, &enabled, NULL);
+                r = extract_many_words(&p, NULL, 0, &name, &hierarchy_id, &num, &enabled);
                 if (r < 0)
                         return log_debug_errno(r, "Error parsing /proc/cgroups line, ignoring: %m");
                 else if (r < 4) {
@@ -106,7 +106,7 @@ bool cg_is_unified_wanted(void) {
                 return (wanted = true);
 
         /* If any controller is in use as v1, don't use unified. */
-        return (wanted = cg_any_controller_used_for_v1() <= 0);
+        return (wanted = (cg_any_controller_used_for_v1() <= 0));
 }
 
 bool cg_is_legacy_wanted(void) {

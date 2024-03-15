@@ -62,6 +62,7 @@ int sd_ndisc_set_callback(sd_ndisc *nd, sd_ndisc_callback_t cb, void *userdata);
 int sd_ndisc_set_ifindex(sd_ndisc *nd, int interface_index);
 int sd_ndisc_set_ifname(sd_ndisc *nd, const char *interface_name);
 int sd_ndisc_get_ifname(sd_ndisc *nd, const char **ret);
+int sd_ndisc_set_link_local_address(sd_ndisc *nd, const struct in6_addr *addr);
 int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr);
 
 _SD_END_DECLARATIONS;

@@ -15,7 +15,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 6. [RC1] Update library numbers in `meson.build`
 7. Update version number in `meson.version` (e.g. from `v256~devel` to `v256~rc1` or from `v256~rc3` to `v256`)
 8. Check dbus docs with `ninja -C build update-dbus-docs`
-9. Update translation strings (`cd build`, `meson compile systemd-pot`, `meson compile systemd-update-po`) - drop the header comments from `systemd.pot` + re-add SPDX before committing. If the only change in a file is the 'POT-Creation-Date' field, then ignore that file.
+9. Update translation strings (`ninja -C build systemd-pot`, `ninja -C build systemd-update-po`) - drop the header comments from `systemd.pot` + re-add SPDX before committing. If the only change in a file is the 'POT-Creation-Date' field, then ignore that file.
 10. Tag the release: `version=vXXX~rcY && git tag -s "${version}" -m "systemd ${version}"`. Note that this uses a tilde (\~) instead of a hyphen (-) because tildes sort lower in version comparisons according to the [version format specification](https://uapi-group.org/specifications/specs/version_format_specification/), and we want `v255~rc1` to sort lower than `v255`.
 11. Do `ninja -C build`
 12. Make sure that the version string and package string match: `build/systemctl --version`

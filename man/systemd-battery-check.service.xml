@@ -66,7 +66,7 @@
 
     <variablelist class='kernel-commandline-options'>
       <varlistentry>
-        <term><varname>systemd.battery-check=<replaceable>BOOL</replaceable></varname></term>
+        <term><varname>systemd.battery_check=<replaceable>BOOL</replaceable></varname></term>
 
         <listitem>
           <para>Takes a boolean. If specified with false, <command>systemd-battery-check</command> command

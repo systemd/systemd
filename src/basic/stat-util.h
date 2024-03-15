@@ -9,19 +9,28 @@
 #include <sys/types.h>
 #include <sys/vfs.h>
 
+#include "fs-util.h"
 #include "macro.h"
 #include "missing_stat.h"
 #include "siphash24.h"
 #include "time-util.h"
 
+int stat_verify_regular(const struct stat *st);
+int verify_regular_at(int fd, const char *path, bool follow);
+int fd_verify_regular(int fd);
+
+int stat_verify_directory(const struct stat *st);
+int fd_verify_directory(int fd);
+int is_dir_at(int fd, const char *path, bool follow);
+int is_dir(const char *path, bool follow);
+
+int stat_verify_symlink(const struct stat *st);
 int is_symlink(const char *path);
-int is_dir_full(int atfd, const char *fname, bool follow);
-static inline int is_dir(const char *path, bool follow) {
-        return is_dir_full(AT_FDCWD, path, follow);
-}
-static inline int is_dir_fd(int fd) {
-        return is_dir_full(fd, NULL, false);
-}
+
+int stat_verify_linked(const struct stat *st);
+int fd_verify_linked(int fd);
+
+int stat_verify_device_node(const struct stat *st);
 int is_device_node(const char *path);
 
 int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup);
@@ -36,12 +45,15 @@ static inline int null_or_empty_path(const char *fn) {
         return null_or_empty_path_with_root(fn, NULL);
 }
 
+int fd_is_read_only_fs(int fd);
 int path_is_read_only_fs(const char *path);
 
 int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int flags);
-
 static inline int inode_same(const char *filea, const char *fileb, int flags) {
         return inode_same_at(AT_FDCWD, filea, AT_FDCWD, fileb, flags);
+}
+static inline int fd_inode_same(int fda, int fdb) {
+        return inode_same_at(fda, NULL, fdb, NULL, AT_EMPTY_PATH);
 }
 
 /* The .f_type field of struct statfs is really weird defined on
@@ -71,16 +83,6 @@ int path_is_network_fs(const char *path);
  * signed/unsigned comparison, because the magic can be 32 bit unsigned.
  */
 #define F_TYPE_EQUAL(a, b) (a == (typeof(a)) b)
-
-int stat_verify_linked(const struct stat *st);
-int fd_verify_linked(int fd);
-
-int stat_verify_regular(const struct stat *st);
-int fd_verify_regular(int fd);
-int verify_regular_at(int dir_fd, const char *path, bool follow);
-
-int stat_verify_directory(const struct stat *st);
-int fd_verify_directory(int fd);
 
 int proc_mounted(void);
 
@@ -126,3 +128,18 @@ extern const struct hash_ops inode_hash_ops;
 
 const char* inode_type_to_string(mode_t m);
 mode_t inode_type_from_string(const char *s);
+
+/* Macros that check whether the stat/statx structures have been initialized already. For "struct stat" we
+ * use a check for .st_dev being non-zero, since the kernel unconditionally fills that in, mapping the file
+ * to its originating superblock, regardless if the fs is block based or virtual (we also check for .st_mode
+ * being MODE_INVALID, since we use that as an invalid marker for separate mode_t fields). For "struct statx"
+ * we use the .stx_mask field, which must be non-zero if any of the fields have already been initialized. */
+static inline bool stat_is_set(const struct stat *st) {
+        return st && st->st_dev != 0 && st->st_mode != MODE_INVALID;
+}
+static inline bool statx_is_set(const struct statx *sx) {
+        return sx && sx->stx_mask != 0;
+}
+static inline bool new_statx_is_set(const struct new_statx *sx) {
+        return sx && sx->stx_mask != 0;
+}

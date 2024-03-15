@@ -28,6 +28,7 @@
 #include "signal-util.h"
 #include "static-destruct.h"
 #include "stat-util.h"
+#include "sysctl-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "unit.h"
@@ -59,6 +60,11 @@ static void wait_for_service_finish(Manager *m, Unit *unit) {
 
         assert_se(m);
         assert_se(unit);
+
+        /* Bump the timeout when running in plain QEMU, as some more involved tests might start hitting the
+         * default 2m timeout (like exec-dynamicuser-statedir.service) */
+        if (detect_virtualization() == VIRTUALIZATION_QEMU)
+                timeout *= 2;
 
         service = SERVICE(unit);
         printf("%s\n", unit->id);
@@ -218,9 +224,29 @@ static void start_parent_slices(Unit *unit) {
         }
 }
 
+static bool apparmor_restrict_unprivileged_userns(void) {
+        _cleanup_free_ char *v = NULL;
+        int r;
+
+        /* If kernel.apparmor_restrict_unprivileged_userns=1, then we cannot
+         * use unprivileged user namespaces. */
+        r = sysctl_read("kernel/apparmor_restrict_unprivileged_userns", &v);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_debug_errno(r, "Failed to read kernel.apparmor_restrict_unprivileged_userns sysctl, ignoring: %m");
+
+                return false;
+        }
+
+        return streq(v, "1");
+}
+
 static bool have_userns_privileges(void) {
         pid_t pid;
         int r;
+
+        if (apparmor_restrict_unprivileged_userns())
+                return false;
 
         r = safe_fork("(sd-test-check-userns)",
                       FORK_RESET_SIGNALS |

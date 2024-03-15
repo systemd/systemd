@@ -69,7 +69,7 @@ option('loadkeys-path', type : 'string', description : 'path to loadkeys')
 option('setfont-path', type : 'string', description : 'path to setfont')
 option('nologin-path', type : 'string', description : 'path to nologin')
 
-option('debug-shell', type : 'string', value : '/usr/bin/sh',
+option('debug-shell', type : 'string', value : '/bin/sh',
        description : 'path to debug shell binary')
 option('debug-tty', type : 'string', value : '/dev/tty9',
        description : 'specify the tty device for debug shell')
@@ -230,9 +230,9 @@ option('default-hierarchy', type : 'combo',
        choices : ['legacy', 'hybrid', 'unified'], deprecated : true,
        description : '''This option is deprecated and will be removed in a future release''')
 option('extra-net-naming-schemes', type : 'string',
-       description : 'comma-separated list of extra net.naming-scheme= definitions')
+       description : 'comma-separated list of extra net.naming_scheme= definitions')
 option('default-net-naming-scheme', type : 'string', value : 'latest',
-       description : 'default net.naming-scheme= value')
+       description : 'default net.naming_scheme= value')
 option('status-unit-format-default', type : 'combo',
        choices : ['auto', 'description', 'name', 'combined'],
        description : 'use unit name or description in messages by default')
@@ -240,7 +240,7 @@ option('time-epoch', type : 'integer', value : 0,
        description : 'time epoch for time clients')
 option('clock-valid-range-usec-max', type : 'integer', value : 473364000000000, # 15 years
        description : 'maximum value in microseconds for the difference between RTC and epoch, exceeding which is considered an RTC error ["0" disables]')
-option('default-user-shell', type : 'string', value : '/usr/bin/bash',
+option('default-user-shell', type : 'string', value : '/bin/bash',
        description : 'default interactive shell')
 
 option('system-alloc-uid-min', type : 'integer', value : 0,

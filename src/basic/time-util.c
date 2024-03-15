@@ -83,7 +83,7 @@ triple_timestamp* triple_timestamp_now(triple_timestamp *ts) {
         return ts;
 }
 
-static usec_t map_clock_usec_internal(usec_t from, usec_t from_base, usec_t to_base) {
+usec_t map_clock_usec_raw(usec_t from, usec_t from_base, usec_t to_base) {
 
         /* Maps the time 'from' between two clocks, based on a common reference point where the first clock
          * is at 'from_base' and the second clock at 'to_base'. Basically calculates:
@@ -121,7 +121,7 @@ usec_t map_clock_usec(usec_t from, clockid_t from_clock, clockid_t to_clock) {
         if (from == USEC_INFINITY)
                 return from;
 
-        return map_clock_usec_internal(from, now(from_clock), now(to_clock));
+        return map_clock_usec_raw(from, now(from_clock), now(to_clock));
 }
 
 dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u) {
@@ -150,8 +150,8 @@ triple_timestamp* triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u)
         nowr = now(CLOCK_REALTIME);
 
         ts->realtime = u;
-        ts->monotonic = map_clock_usec_internal(u, nowr, now(CLOCK_MONOTONIC));
-        ts->boottime = map_clock_usec_internal(u, nowr, now(CLOCK_BOOTTIME));
+        ts->monotonic = map_clock_usec_raw(u, nowr, now(CLOCK_MONOTONIC));
+        ts->boottime = map_clock_usec_raw(u, nowr, now(CLOCK_BOOTTIME));
 
         return ts;
 }
@@ -169,8 +169,8 @@ triple_timestamp* triple_timestamp_from_boottime(triple_timestamp *ts, usec_t u)
         nowb = now(CLOCK_BOOTTIME);
 
         ts->boottime = u;
-        ts->monotonic = map_clock_usec_internal(u, nowb, now(CLOCK_MONOTONIC));
-        ts->realtime = map_clock_usec_internal(u, nowb, now(CLOCK_REALTIME));
+        ts->monotonic = map_clock_usec_raw(u, nowb, now(CLOCK_MONOTONIC));
+        ts->realtime = map_clock_usec_raw(u, nowb, now(CLOCK_REALTIME));
 
         return ts;
 }
@@ -199,8 +199,8 @@ dual_timestamp* dual_timestamp_from_boottime(dual_timestamp *ts, usec_t u) {
         }
 
         nowm = now(CLOCK_BOOTTIME);
-        ts->monotonic = map_clock_usec_internal(u, nowm, now(CLOCK_MONOTONIC));
-        ts->realtime = map_clock_usec_internal(u, nowm, now(CLOCK_REALTIME));
+        ts->monotonic = map_clock_usec_raw(u, nowm, now(CLOCK_MONOTONIC));
+        ts->realtime = map_clock_usec_raw(u, nowm, now(CLOCK_REALTIME));
         return ts;
 }
 
@@ -1429,7 +1429,7 @@ static int get_timezones_from_zone1970_tab(char ***ret) {
 
                 /* Line format is:
                  * 'country codes' 'coordinates' 'timezone' 'comments' */
-                r = extract_many_words(&p, NULL, 0, &cc, &co, &tz, NULL);
+                r = extract_many_words(&p, NULL, 0, &cc, &co, &tz);
                 if (r < 0)
                         continue;
 
@@ -1474,7 +1474,7 @@ static int get_timezones_from_tzdata_zi(char ***ret) {
                  * Link line format is:
                  * 'Link' 'target' 'alias'
                  * See 'man zic' for more detail. */
-                r = extract_many_words(&p, NULL, 0, &type, &f1, &f2, NULL);
+                r = extract_many_words(&p, NULL, 0, &type, &f1, &f2);
                 if (r < 0)
                         continue;
 
@@ -1573,7 +1573,7 @@ int verify_timezone(const char *name, int log_level) {
 
         r = fd_verify_regular(fd);
         if (r < 0)
-                return log_full_errno(log_level, r, "Timezone file '%s' is not  a regular file: %m", t);
+                return log_full_errno(log_level, r, "Timezone file '%s' is not a regular file: %m", t);
 
         r = loop_read_exact(fd, buf, 4, false);
         if (r < 0)

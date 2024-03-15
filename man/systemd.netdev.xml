@@ -2183,6 +2183,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PeerNotifyDelaySec=</varname></term>
+        <listitem>
+          <para>Specifies the number of seconds the delay between each peer notification
+          (gratuitous ARP and unsolicited IPv6 Neighbor Advertisement) when they are issued
+          after a failover event. This delay should be a multiple of the MII link monitor
+          interval (miimon). The valid range is 0...300s. The default value is 0,
+          which means to match the value of the <varname>MIIMonitorSec=</varname>.</para>
+
+           <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UpDelaySec=</varname></term>
         <listitem>
           <para>Specifies the delay before a link is enabled after a

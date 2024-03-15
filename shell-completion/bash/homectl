@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # homectl(1) completion                               -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
@@ -109,7 +110,9 @@ _homectl() {
                         --auto-login
                      -b --blob
                         --avatar
-                        --login-background'
+                        --login-background
+                        --session-launcher
+                        --session-type'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
@@ -151,6 +154,12 @@ _homectl() {
                 ;;
             --language)
                 comps=$(localectl list-locales 2>/dev/null)
+                ;;
+            --session-launcher)
+                comps=$(find /usr/share/{x,wayland-}sessions/ -type f -name '*.desktop' -exec basename {} .desktop \; 2>/dev/null | sort -u)
+                ;;
+            --session-type)
+                comps='wayland x11 tty'
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

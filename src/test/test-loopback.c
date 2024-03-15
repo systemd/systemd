@@ -19,6 +19,8 @@ TEST_RET(loopback_setup) {
         }
 
         r = loopback_setup();
+        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                return log_tests_skipped("lacking privileges");
         if (r < 0)
                 return log_error_errno(r, "loopback: %m");
 

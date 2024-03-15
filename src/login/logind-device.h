@@ -16,7 +16,7 @@ struct Device {
 
         dual_timestamp timestamp;
 
-        LIST_FIELDS(struct Device, devices);
+        LIST_FIELDS(Device, devices);
         LIST_HEAD(SessionDevice, session_devices);
 };
 

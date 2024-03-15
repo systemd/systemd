@@ -7,15 +7,17 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-11-14 21:25+0000\n"
+"POT-Creation-Date: 2024-03-04 10:09+0100\n"
 "PO-Revision-Date: 2021-01-12 17:36+0000\n"
 "Last-Translator: Vlad <milovlad@outlook.com>\n"
-"Language-Team: Romanian <https://translate.fedoraproject.org/projects/systemd/master/ro/>\n"
+"Language-Team: Romanian <https://translate.fedoraproject.org/projects/"
+"systemd/master/ro/>\n"
 "Language: ro\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=n==1 ? 0 : (n==0 || (n%100 > 0 && n%100 < 20)) ? 1 : 2;\n"
+"Plural-Forms: nplurals=3; plural=n==1 ? 0 : (n==0 || (n%100 > 0 && n%100 < "
+"20)) ? 1 : 2;\n"
 "X-Generator: Weblate 4.4\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -23,8 +25,11 @@ msgid "Send passphrase back to system"
 msgstr "Trimite fraza secretă înapoi la sistem"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
-msgid "Authentication is required to send the entered passphrase back to the system."
-msgstr "Autentificarea este necesară pentru a trimite fraza secretă introdusă înapoi la sistem."
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr ""
+"Autentificarea este necesară pentru a trimite fraza secretă introdusă înapoi "
+"la sistem."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -32,7 +37,9 @@ msgstr "Gestionează serviciile de sistem sau alte module"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
-msgstr "Autentificarea este necesară pentru a gestiona serviciile de sistem sau alte module."
+msgstr ""
+"Autentificarea este necesară pentru a gestiona serviciile de sistem sau alte "
+"module."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
@@ -40,15 +47,23 @@ msgstr "Gestionează serviciul de sistem sau fișierele modulelor"
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
-msgstr "Autentificarea este necesară pentru a gestiona serviciul de sistem sau fișierele modulelor."
+msgstr ""
+"Autentificarea este necesară pentru a gestiona serviciul de sistem sau "
+"fișierele modulelor."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
-msgstr "Setează sau resetează variabilele de mediu ale managerului de servicii si de sistem"
+msgstr ""
+"Setează sau resetează variabilele de mediu ale managerului de servicii si de "
+"sistem"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
-msgid "Authentication is required to set or unset system and service manager environment variables."
-msgstr "Autentificarea este necesară pentru setarea sau resetarea variabilelor de mediu ale managerului de servicii si de sistem."
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"Autentificarea este necesară pentru setarea sau resetarea variabilelor de "
+"mediu ale managerului de servicii si de sistem."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
@@ -64,7 +79,8 @@ msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 #, fuzzy
-msgid "Authentication is required to dump the systemd state without rate limits."
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
 msgstr "Autentificarea este necesară pentru a reîncărca starea lui systemd."
 
 #: src/home/org.freedesktop.home1.policy:13
@@ -73,7 +89,9 @@ msgstr "Crează un spațiu personal"
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
-msgstr "Autentificarea este necesară pentru a crea spațiul personal al unui utilizator."
+msgstr ""
+"Autentificarea este necesară pentru a crea spațiul personal al unui "
+"utilizator."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
@@ -81,15 +99,20 @@ msgstr "Șterge spațiu personal"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
-msgstr "Autentificarea este necesară pentru a șterge spațiul personal al unui utilizator."
+msgstr ""
+"Autentificarea este necesară pentru a șterge spațiul personal al unui "
+"utilizator."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
 msgstr "Verifică datele de acreditare ale unui spațiu personal"
 
 #: src/home/org.freedesktop.home1.policy:34
-msgid "Authentication is required to check credentials against a user's home area."
-msgstr "Autentificarea este necesară pentru verificarea datelor de acreditare ale unui spațiu personal al unui utilizator."
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr ""
+"Autentificarea este necesară pentru verificarea datelor de acreditare ale "
+"unui spațiu personal al unui utilizator."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -97,7 +120,9 @@ msgstr "Actualizează un spațiu personal"
 
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
-msgstr "Autentificarea este necesară pentru a actualiza spațiul personal al unui utilizator."
+msgstr ""
+"Autentificarea este necesară pentru a actualiza spațiul personal al unui "
+"utilizator."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
@@ -105,158 +130,195 @@ msgstr "Redimensionează un spațiu personal"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to resize a user's home area."
-msgstr "Autentificarea este necesară pentru a redimensiona spațiul personal al unui utilizator."
+msgstr ""
+"Autentificarea este necesară pentru a redimensiona spațiul personal al unui "
+"utilizator."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Change password of a home area"
 msgstr "Schimbă parola pentru un spațiu personal"
 
 #: src/home/org.freedesktop.home1.policy:64
-msgid "Authentication is required to change the password of a user's home area."
-msgstr "Autentificarea este necesară pentru schimbarea parolei unui spațiu personal al unui utilizator."
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr ""
+"Autentificarea este necesară pentru schimbarea parolei unui spațiu personal "
+"al unui utilizator."
 
-#: src/home/pam_systemd_home.c:287
-#, c-format
-msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
+#: src/home/org.freedesktop.home1.policy:73
+msgid "Inhibit automatic lock of a home area"
 msgstr ""
 
-#: src/home/pam_systemd_home.c:292
+#: src/home/org.freedesktop.home1.policy:74
+#, fuzzy
+msgid ""
+"Authentication is required to inhibit automatic lock of a user's home area."
+msgstr ""
+"Autentificarea este necesară pentru a actualiza spațiul personal al unui "
+"utilizator."
+
+#: src/home/org.freedesktop.home1.policy:83
+#, fuzzy
+msgid "Activate a home area"
+msgstr "Crează un spațiu personal"
+
+#: src/home/org.freedesktop.home1.policy:84
+#, fuzzy
+msgid "Authentication is required to activate a user's home area."
+msgstr ""
+"Autentificarea este necesară pentru a crea spațiul personal al unui "
+"utilizator."
+
+#: src/home/pam_systemd_home.c:293
+#, c-format
+msgid ""
+"Home of user %s is currently absent, please plug in the necessary storage "
+"device or backing file system."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:298
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:304
+#: src/home/pam_systemd_home.c:310
 msgid "Password: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:306
+#: src/home/pam_systemd_home.c:312
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:307
+#: src/home/pam_systemd_home.c:313
 msgid "Sorry, try again: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:329
+#: src/home/pam_systemd_home.c:335
 msgid "Recovery key: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:331
+#: src/home/pam_systemd_home.c:337
 #, c-format
-msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
+msgid ""
+"Password/recovery key incorrect or not sufficient for authentication of user "
+"%s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:332
+#: src/home/pam_systemd_home.c:338
 msgid "Sorry, reenter recovery key: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:352
+#: src/home/pam_systemd_home.c:358
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:353 src/home/pam_systemd_home.c:356
+#: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
 msgid "Try again with password: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:355
+#: src/home/pam_systemd_home.c:361
 #, c-format
-msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
+msgid ""
+"Password incorrect or not sufficient, and configured security token of user "
+"%s not inserted."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:376
+#: src/home/pam_systemd_home.c:381
 msgid "Security token PIN: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:393
+#: src/home/pam_systemd_home.c:398
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:404
+#: src/home/pam_systemd_home.c:409
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:415
+#: src/home/pam_systemd_home.c:420
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:424
-msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
+#: src/home/pam_systemd_home.c:429
+msgid ""
+"Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
+"insertion might suffice.)"
 msgstr ""
 
-#: src/home/pam_systemd_home.c:432
+#: src/home/pam_systemd_home.c:437
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:433 src/home/pam_systemd_home.c:452
-#: src/home/pam_systemd_home.c:471
+#: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
+#: src/home/pam_systemd_home.c:476
 msgid "Sorry, retry security token PIN: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:451
+#: src/home/pam_systemd_home.c:456
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 
-#: src/home/pam_systemd_home.c:470
+#: src/home/pam_systemd_home.c:475
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 
-#: src/home/pam_systemd_home.c:616
+#: src/home/pam_systemd_home.c:643
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:618
+#: src/home/pam_systemd_home.c:645
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:645
+#: src/home/pam_systemd_home.c:677
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:868
+#: src/home/pam_systemd_home.c:956
 msgid "User record is blocked, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:872
+#: src/home/pam_systemd_home.c:960
 msgid "User record is not valid yet, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:876
+#: src/home/pam_systemd_home.c:964
 msgid "User record is not valid anymore, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:881 src/home/pam_systemd_home.c:932
+#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
 msgid "User record not valid, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:893
+#: src/home/pam_systemd_home.c:981
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:904
+#: src/home/pam_systemd_home.c:992
 msgid "Password change required."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:908
+#: src/home/pam_systemd_home.c:996
 msgid "Password expired, change required."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:914
+#: src/home/pam_systemd_home.c:1002
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:918
+#: src/home/pam_systemd_home.c:1006
 msgid "Password will expire soon, please change."
 msgstr ""
 
@@ -273,8 +335,12 @@ msgid "Set static hostname"
 msgstr "Seteaza numele static al stației"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
-msgid "Authentication is required to set the statically configured local hostname, as well as the pretty hostname."
-msgstr "Autentificarea este necesară pentru a seta numele static de stație, precum și numele descriptiv de stație."
+msgid ""
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
+msgstr ""
+"Autentificarea este necesară pentru a seta numele static de stație, precum "
+"și numele descriptiv de stație."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -282,7 +348,8 @@ msgstr "Setează informațiile despre stație"
 
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
-msgstr "Autentificarea este necesară pentru setarea informațiilor despre stație."
+msgstr ""
+"Autentificarea este necesară pentru setarea informațiilor despre stație."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
@@ -290,7 +357,9 @@ msgstr "Obține identificatorul unic universal (UUID) al produsului"
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
-msgstr "Autentificarea este necesară pentru a obține identificatorul unic universal (UUID) al produsului."
+msgstr ""
+"Autentificarea este necesară pentru a obține identificatorul unic universal "
+"(UUID) al produsului."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
@@ -312,28 +381,52 @@ msgid "Authentication is required to get system description."
 msgstr "Autentificarea este necesară pentru a seta fusul orar al sistemului."
 
 #: src/import/org.freedesktop.import1.policy:22
-msgid "Import a VM or container image"
+#, fuzzy
+msgid "Import a disk image"
 msgstr "Importă o VM (mașină virtuală) sau o imagine container"
 
 #: src/import/org.freedesktop.import1.policy:23
-msgid "Authentication is required to import a VM or container image"
-msgstr "Autentificarea este necesară pentru a importa o VM (mașină virtuală) sau o imagine container"
+#, fuzzy
+msgid "Authentication is required to import an image"
+msgstr ""
+"Autentificarea este necesară pentru a importa o VM (mașină virtuală) sau o "
+"imagine container"
 
 #: src/import/org.freedesktop.import1.policy:32
-msgid "Export a VM or container image"
+#, fuzzy
+msgid "Export a disk image"
 msgstr "Exportă o VM (mașină virtuală) sau o imagine container"
 
 #: src/import/org.freedesktop.import1.policy:33
-msgid "Authentication is required to export a VM or container image"
-msgstr "Autentificarea este necesară pentru a exporta o VM (mașină virtuală) sau o imagine container"
+#, fuzzy
+msgid "Authentication is required to export disk image"
+msgstr ""
+"Autentificarea este necesară pentru a exporta o VM (mașină virtuală) sau o "
+"imagine container"
 
 #: src/import/org.freedesktop.import1.policy:42
-msgid "Download a VM or container image"
+#, fuzzy
+msgid "Download a disk image"
 msgstr "Descarcă o VM (mașină virtuală) sau o imagine container"
 
 #: src/import/org.freedesktop.import1.policy:43
-msgid "Authentication is required to download a VM or container image"
-msgstr "Autentificarea este necesară pentru a descărca o VM (mașină virtuală) sau o imagine container"
+#, fuzzy
+msgid "Authentication is required to download a disk image"
+msgstr ""
+"Autentificarea este necesară pentru a descărca o VM (mașină virtuală) sau o "
+"imagine container"
+
+#: src/import/org.freedesktop.import1.policy:52
+msgid "Cancel transfer of a disk image"
+msgstr ""
+
+#: src/import/org.freedesktop.import1.policy:53
+#, fuzzy
+msgid ""
+"Authentication is required to cancel the ongoing transfer of a disk image"
+msgstr ""
+"Autentificarea este necesară pentru schimbarea parolei unui spațiu personal "
+"al unui utilizator."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -341,7 +434,9 @@ msgstr "Configurează setările regionale ale sistemului"
 
 #: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
-msgstr "Autentificarea este necesară pentru a configura setările regionale ale sistemului."
+msgstr ""
+"Autentificarea este necesară pentru a configura setările regionale ale "
+"sistemului."
 
 #: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
@@ -356,8 +451,11 @@ msgid "Allow applications to inhibit system shutdown"
 msgstr "Permite aplicațiilor să împiedice închiderea sistemului"
 
 #: src/login/org.freedesktop.login1.policy:23
-msgid "Authentication is required for an application to inhibit system shutdown."
-msgstr "Autentificarea este necesară pentru ca o aplicație să împiedice închiderea sistemului."
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
+msgstr ""
+"Autentificarea este necesară pentru ca o aplicație să împiedice închiderea "
+"sistemului."
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
@@ -365,7 +463,9 @@ msgstr "Permite aplicațiilor să întârzie închiderea sistemului"
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
-msgstr "Autentificarea este necesară pentru ca o aplicație să întârzie închiderea sistemului."
+msgstr ""
+"Autentificarea este necesară pentru ca o aplicație să întârzie închiderea "
+"sistemului."
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
@@ -373,7 +473,9 @@ msgstr "Permite aplicațiilor să împiedice adormirea sistemului"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr "Autentificarea este necesară pentru ca o aplicație să împiedice adormirea sistemului."
+msgstr ""
+"Autentificarea este necesară pentru ca o aplicație să împiedice adormirea "
+"sistemului."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
@@ -381,55 +483,91 @@ msgstr "Permite aplicațiilor să întârzie adormirea sistemului"
 
 #: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
-msgstr "Autentificarea este necesară pentru ca o aplicație să întârzie adormirea sistemului."
+msgstr ""
+"Autentificarea este necesară pentru ca o aplicație să întârzie adormirea "
+"sistemului."
 
 #: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
 msgstr "Permite aplicațiilor să împiedice suspendarea automată a sistemului"
 
 #: src/login/org.freedesktop.login1.policy:66
-msgid "Authentication is required for an application to inhibit automatic system suspend."
-msgstr "Autentificarea este necesară pentru ca o aplicație să împiedice suspendarea automată a sistemului."
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr ""
+"Autentificarea este necesară pentru ca o aplicație să împiedice suspendarea "
+"automată a sistemului."
 
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
-msgstr "Permite aplicațiilor să împiedice administrarea butonului de pornire a sistemului"
+msgstr ""
+"Permite aplicațiilor să împiedice administrarea butonului de pornire a "
+"sistemului"
 
 #: src/login/org.freedesktop.login1.policy:76
-msgid "Authentication is required for an application to inhibit system handling of the power key."
-msgstr "Autentificarea este necesară pentru ca o aplicație să împiedice administrarea butonului de pornire a sistemului."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr ""
+"Autentificarea este necesară pentru ca o aplicație să împiedice "
+"administrarea butonului de pornire a sistemului."
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
-msgstr "Permite aplicațiilor să împiedice administrarea butonului de suspendare al sistemului"
+msgstr ""
+"Permite aplicațiilor să împiedice administrarea butonului de suspendare al "
+"sistemului"
 
 #: src/login/org.freedesktop.login1.policy:87
-msgid "Authentication is required for an application to inhibit system handling of the suspend key."
-msgstr "Autentificarea este necesară pentru ca o aplicație să împiedice manipularea butonului de suspendare al sistemului."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr ""
+"Autentificarea este necesară pentru ca o aplicație să împiedice manipularea "
+"butonului de suspendare al sistemului."
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr "Permite aplicațiilor să împiedice administrarea butonului de hibernare al sistemului"
+msgstr ""
+"Permite aplicațiilor să împiedice administrarea butonului de hibernare al "
+"sistemului"
 
 #: src/login/org.freedesktop.login1.policy:98
-msgid "Authentication is required for an application to inhibit system handling of the hibernate key."
-msgstr "Autentificarea este necesară pentru ca o aplicație să împiedice administrarea butonului de hibernare al sistemului."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr ""
+"Autentificarea este necesară pentru ca o aplicație să împiedice "
+"administrarea butonului de hibernare al sistemului."
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
-msgstr "Permite aplicațiilor să împiedice administrarea comutatorului din capacul statiei"
+msgstr ""
+"Permite aplicațiilor să împiedice administrarea comutatorului din capacul "
+"statiei"
 
 #: src/login/org.freedesktop.login1.policy:108
-msgid "Authentication is required for an application to inhibit system handling of the lid switch."
-msgstr "Autentificarea este necesară pentru ca o aplicație să împiedice manipularea comutatorului din capacul sistemului."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr ""
+"Autentificarea este necesară pentru ca o aplicație să împiedice manipularea "
+"comutatorului din capacul sistemului."
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr "Permite aplicațiilor să împiedice administrarea butonului de repornire a sistemului"
+msgstr ""
+"Permite aplicațiilor să împiedice administrarea butonului de repornire a "
+"sistemului"
 
 #: src/login/org.freedesktop.login1.policy:118
-msgid "Authentication is required for an application to inhibit system handling of the reboot key."
-msgstr "Autentificarea este necesară pentru ca o aplicație să împiedice administrarea butonului de repornire a sistemului."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr ""
+"Autentificarea este necesară pentru ca o aplicație să împiedice "
+"administrarea butonului de repornire a sistemului."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
@@ -437,7 +575,9 @@ msgstr "Permite utilizatorilor neautentificați să execute programe"
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
-msgstr "Este necesară o cerere explicită pentru ca un utilizator neautentificat să ruleze programe."
+msgstr ""
+"Este necesară o cerere explicită pentru ca un utilizator neautentificat să "
+"ruleze programe."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
@@ -445,7 +585,9 @@ msgstr "Permite utilizatorilor neautentificați să ruleze programe"
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
-msgstr "Autentificarea este necesară pentru a rula programe ca utilizator neautentificat."
+msgstr ""
+"Autentificarea este necesară pentru a rula programe ca utilizator "
+"neautentificat."
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
@@ -461,7 +603,9 @@ msgstr "Înlăturare dispozitiv atașat la stație"
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
-msgstr "Autentificarea este necesară pentru a înlătura dispozitivele atașate la stații."
+msgstr ""
+"Autentificarea este necesară pentru a înlătura dispozitivele atașate la "
+"stații."
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
@@ -476,16 +620,24 @@ msgid "Power off the system while other users are logged in"
 msgstr "Oprește sistemul în timp ce alți utilizatori sunt conectați"
 
 #: src/login/org.freedesktop.login1.policy:181
-msgid "Authentication is required to power off the system while other users are logged in."
-msgstr "Autentificarea este necesară pentru oprirea sistemului în timp ce alți utilizatori sunt conectați."
+msgid ""
+"Authentication is required to power off the system while other users are "
+"logged in."
+msgstr ""
+"Autentificarea este necesară pentru oprirea sistemului în timp ce alți "
+"utilizatori sunt conectați."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
 msgstr "Oprește sistemul în timp ce o aplicație împiedică oprirea"
 
 #: src/login/org.freedesktop.login1.policy:192
-msgid "Authentication is required to power off the system while an application is inhibiting this."
-msgstr "Autentificarea este necesară pentru oprirea sistemului în timp ce o aplicație împiedică oprirea."
+msgid ""
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
+msgstr ""
+"Autentificarea este necesară pentru oprirea sistemului în timp ce o "
+"aplicație împiedică oprirea."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -500,16 +652,24 @@ msgid "Reboot the system while other users are logged in"
 msgstr "Repornește sistemul în timp ce alți utilizatori sunt conectați"
 
 #: src/login/org.freedesktop.login1.policy:214
-msgid "Authentication is required to reboot the system while other users are logged in."
-msgstr "Autentificarea este necesară pentru repornirea sistemului în timp ce alți utilizatori sunt conectați."
+msgid ""
+"Authentication is required to reboot the system while other users are logged "
+"in."
+msgstr ""
+"Autentificarea este necesară pentru repornirea sistemului în timp ce alți "
+"utilizatori sunt conectați."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
 msgstr "Repornește sistemul în timp ce o aplicație împiedică repornirea"
 
 #: src/login/org.freedesktop.login1.policy:225
-msgid "Authentication is required to reboot the system while an application is inhibiting this."
-msgstr "Autentificarea este necesară pentru repornirea sistemului în timp ce o aplicație împiedică repornirea."
+msgid ""
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
+msgstr ""
+"Autentificarea este necesară pentru repornirea sistemului în timp ce o "
+"aplicație împiedică repornirea."
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
@@ -524,16 +684,24 @@ msgid "Halt the system while other users are logged in"
 msgstr "Oprește sistemul în timp ce alți utilizatori sunt conectați"
 
 #: src/login/org.freedesktop.login1.policy:247
-msgid "Authentication is required to halt the system while other users are logged in."
-msgstr "Autentificarea este necesară pentru oprirea sistemului în timp ce alți utilizatori sunt conectați."
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr ""
+"Autentificarea este necesară pentru oprirea sistemului în timp ce alți "
+"utilizatori sunt conectați."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
 msgstr "Oprește sistemul în timp ce o aplicație împiedică oprirea"
 
 #: src/login/org.freedesktop.login1.policy:258
-msgid "Authentication is required to halt the system while an application is inhibiting this."
-msgstr "Autentificarea este necesară pentru oprirea sistemului în timp ce o aplicație împiedică oprirea."
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr ""
+"Autentificarea este necesară pentru oprirea sistemului în timp ce o "
+"aplicație împiedică oprirea."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -548,16 +716,24 @@ msgid "Suspend the system while other users are logged in"
 msgstr "Suspendă sistemul în timp ce alți utilizatori sunt conectați"
 
 #: src/login/org.freedesktop.login1.policy:279
-msgid "Authentication is required to suspend the system while other users are logged in."
-msgstr "Autentificarea este necesară pentru suspendarea sistemului timp ce alți utilizatori sunt conectați."
+msgid ""
+"Authentication is required to suspend the system while other users are "
+"logged in."
+msgstr ""
+"Autentificarea este necesară pentru suspendarea sistemului timp ce alți "
+"utilizatori sunt conectați."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
 msgstr "Suspendă sistemul în timp ce o aplicație împiedică suspendarea"
 
 #: src/login/org.freedesktop.login1.policy:290
-msgid "Authentication is required to suspend the system while an application is inhibiting this."
-msgstr "Autentificarea este necesară pentru suspendarea sistemului în timp ce o aplicație împiedică suspendarea."
+msgid ""
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
+msgstr ""
+"Autentificarea este necesară pentru suspendarea sistemului în timp ce o "
+"aplicație împiedică suspendarea."
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
@@ -572,16 +748,24 @@ msgid "Hibernate the system while other users are logged in"
 msgstr "Hiberneaza sistemul în timp ce alți utilizatori sunt conectați"
 
 #: src/login/org.freedesktop.login1.policy:311
-msgid "Authentication is required to hibernate the system while other users are logged in."
-msgstr "Autentificarea este necesară pentru hibernarea sistemului în timp ce alți utilizatori sunt conectați."
+msgid ""
+"Authentication is required to hibernate the system while other users are "
+"logged in."
+msgstr ""
+"Autentificarea este necesară pentru hibernarea sistemului în timp ce alți "
+"utilizatori sunt conectați."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Hibernează sistemul în timp ce o aplicație împiedică hibernarea"
 
 #: src/login/org.freedesktop.login1.policy:322
-msgid "Authentication is required to hibernate the system while an application is inhibiting this."
-msgstr "Autentificarea este necesară pentru hibernarea sistemului în timp ce o aplicație împiedică hibernarea."
+msgid ""
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
+msgstr ""
+"Autentificarea este necesară pentru hibernarea sistemului în timp ce o "
+"aplicație împiedică hibernarea."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
@@ -589,7 +773,9 @@ msgstr "Gestionează sesiuni active, utilizatori și stații"
 
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
-msgstr "Autentificarea este necesară pentru gestionarea sesiunilor active, utilizatorilor și stațiilor."
+msgstr ""
+"Autentificarea este necesară pentru gestionarea sesiunilor active, "
+"utilizatorilor și stațiilor."
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
@@ -597,7 +783,8 @@ msgstr "Blochează sau deblochează sesiuni active"
 
 #: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
-msgstr "Autentificarea este necesară pentru a bloca sau debloca sesiuni active."
+msgstr ""
+"Autentificarea este necesară pentru a bloca sau debloca sesiuni active."
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
@@ -605,31 +792,45 @@ msgstr "Setează în kernel \"cauza\" pentru repornire"
 
 #: src/login/org.freedesktop.login1.policy:353
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
-msgstr "Autentificarea este necesară pentru a seta în kernel \"cauza\" pentru repornire."
+msgstr ""
+"Autentificarea este necesară pentru a seta în kernel \"cauza\" pentru "
+"repornire."
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
 msgstr "Indică firmware-ului să pornească în interfața de configurare"
 
 #: src/login/org.freedesktop.login1.policy:364
-msgid "Authentication is required to indicate to the firmware to boot to setup interface."
-msgstr "Autentificarea este necesară pentru a indica firmware-ului să pornească în interfața de configurare."
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr ""
+"Autentificarea este necesară pentru a indica firmware-ului să pornească în "
+"interfața de configurare."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
 msgstr "Indică boot loader-ului să pornească cu afișarea propriului meniu"
 
 #: src/login/org.freedesktop.login1.policy:375
-msgid "Authentication is required to indicate to the boot loader to boot to the boot loader menu."
-msgstr "Autentificarea este necesară pentru a indica boot loader-ului să pornească cu afișarea propriului meniu."
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"Autentificarea este necesară pentru a indica boot loader-ului să pornească "
+"cu afișarea propriului meniu."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
 msgstr "Indică boot loader-ului să pornească cu o anumită opțiune"
 
 #: src/login/org.freedesktop.login1.policy:386
-msgid "Authentication is required to indicate to the boot loader to boot into a specific boot loader entry."
-msgstr "Autentificarea este necesară pentru a indica boot loader-ului să pornească cu o anumită opțiune."
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"Autentificarea este necesară pentru a indica boot loader-ului să pornească "
+"cu o anumită opțiune."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
@@ -653,7 +854,8 @@ msgstr "Conectare la un container local"
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr "Autentificarea este necesară pentru a vă conecta la un container local."
+msgstr ""
+"Autentificarea este necesară pentru a vă conecta la un container local."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
@@ -669,7 +871,9 @@ msgstr "Obține un shell într-un container local"
 
 #: src/machine/org.freedesktop.machine1.policy:43
 msgid "Authentication is required to acquire a shell in a local container."
-msgstr "Autentificarea este necesară pentru a obține un shell într-un container local."
+msgstr ""
+"Autentificarea este necesară pentru a obține un shell într-un container "
+"local."
 
 #: src/machine/org.freedesktop.machine1.policy:53
 msgid "Acquire a shell on the local host"
@@ -677,15 +881,19 @@ msgstr "Obține un shell pe o stație locală"
 
 #: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr "Autentificarea este necesară pentru a obține un shell pe o stație locală."
+msgstr ""
+"Autentificarea este necesară pentru a obține un shell pe o stație locală."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
 msgstr "Obține un pseudo-TTY într-un container local"
 
 #: src/machine/org.freedesktop.machine1.policy:65
-msgid "Authentication is required to acquire a pseudo TTY in a local container."
-msgstr "Autentificarea este necesară pentru a obține un pseudo-TTY într-un container local."
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr ""
+"Autentificarea este necesară pentru a obține un pseudo-TTY într-un container "
+"local."
 
 #: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
@@ -693,23 +901,33 @@ msgstr "Obține un pseudo-TTY pe o stație locală"
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr "Autentificarea este necesară pentru a obține un pseudo-TTY pe o stație locală."
+msgstr ""
+"Autentificarea este necesară pentru a obține un pseudo-TTY pe o stație "
+"locală."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
 msgstr "Gestionează mașini virtuale locale și containere"
 
 #: src/machine/org.freedesktop.machine1.policy:85
-msgid "Authentication is required to manage local virtual machines and containers."
-msgstr "Autentificarea este necesară pentru a gestiona mașini virtuale locale și containere."
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr ""
+"Autentificarea este necesară pentru a gestiona mașini virtuale locale și "
+"containere."
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Manage local virtual machine and container images"
-msgstr "Gestionează imaginile pentru mașinile virtuale locale și pentru containere"
+msgstr ""
+"Gestionează imaginile pentru mașinile virtuale locale și pentru containere"
 
 #: src/machine/org.freedesktop.machine1.policy:96
-msgid "Authentication is required to manage local virtual machine and container images."
-msgstr "Autentificarea este necesară pentru a gestiona imagini de mașini virtuale locale și de containere."
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr ""
+"Autentificarea este necesară pentru a gestiona imagini de mașini virtuale "
+"locale și de containere."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -767,7 +985,9 @@ msgstr "Activare/dezactivare distribuție multiplă DNS"
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
 msgid "Authentication is required to enable or disable multicast DNS."
-msgstr "Autentificarea este necesară pentru a activa sau dezactiva distribuția multiplă DNS."
+msgstr ""
+"Autentificarea este necesară pentru a activa sau dezactiva distribuția "
+"multiplă DNS."
 
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
@@ -777,7 +997,8 @@ msgstr "Activare/dezactivare DNS prin TLS"
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr "Autentificarea este necesară pentru a activa sau dezactiva DNS prin TLS."
+msgstr ""
+"Autentificarea este necesară pentru a activa sau dezactiva DNS prin TLS."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
@@ -797,7 +1018,9 @@ msgstr "Setare ancore de încredere negative DNSSEC"
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
-msgstr "Autentificarea este necesară pentru a seta ancore de încredere negative DNSSEC."
+msgstr ""
+"Autentificarea este necesară pentru a seta ancore de încredere negative "
+"DNSSEC."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
@@ -821,7 +1044,8 @@ msgstr "Serverul DHCP trimite mesaje de reînnoire forțată"
 
 #: src/network/org.freedesktop.network1.policy:144
 msgid "Authentication is required to send force renew message."
-msgstr "Autentificarea este necesară pentru a trimite mesaje de reînnoire forțată."
+msgstr ""
+"Autentificarea este necesară pentru a trimite mesaje de reînnoire forțată."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
@@ -853,23 +1077,31 @@ msgstr "Inspectare imagine a unui serviciu portabil"
 
 #: src/portable/org.freedesktop.portable1.policy:14
 msgid "Authentication is required to inspect a portable service image."
-msgstr "Autentificarea este necesară pentru a inspecta imaginea unui serviciu portabil."
+msgstr ""
+"Autentificarea este necesară pentru a inspecta imaginea unui serviciu "
+"portabil."
 
 #: src/portable/org.freedesktop.portable1.policy:23
 msgid "Attach or detach a portable service image"
 msgstr "Atașare sau detașare imagine a unui serviciu portabil"
 
 #: src/portable/org.freedesktop.portable1.policy:24
-msgid "Authentication is required to attach or detach a portable service image."
-msgstr "Autentificarea este necesară pentru a atașa sau detașa imaginea unui serviciu portabil."
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr ""
+"Autentificarea este necesară pentru a atașa sau detașa imaginea unui "
+"serviciu portabil."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
 msgstr "Șterge sau modifică imagine a unui serviciu portabil"
 
 #: src/portable/org.freedesktop.portable1.policy:35
-msgid "Authentication is required to delete or modify a portable service image."
-msgstr "Autentificarea este necesară pentru a șterge sau modifica imaginea unui serviciu portabil."
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr ""
+"Autentificarea este necesară pentru a șterge sau modifica imaginea unui "
+"serviciu portabil."
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
@@ -885,7 +1117,9 @@ msgstr "Anulare înregistrare serviciu DNS-SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 msgid "Authentication is required to unregister a DNS-SD service"
-msgstr "Autentificarea este necesară pentru a anula înregistrarea unui serviciu DNS-SD"
+msgstr ""
+"Autentificarea este necesară pentru a anula înregistrarea unui serviciu DNS-"
+"SD"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
@@ -893,7 +1127,9 @@ msgstr "Revenire setări pentru rezoluția de nume"
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
 msgid "Authentication is required to reset name resolution settings."
-msgstr "Autentificarea este necesară pentru a reseta setările pentru rezoluția de nume."
+msgstr ""
+"Autentificarea este necesară pentru a reseta setările pentru rezoluția de "
+"nume."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -916,52 +1152,73 @@ msgid "Set RTC to local timezone or UTC"
 msgstr "Setează RTC la ora locală sau UTC"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
-msgid "Authentication is required to control whether the RTC stores the local or UTC time."
-msgstr "Autentificarea este necesară pentru a controla dacă RTC stochează ora locală sau UTC."
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr ""
+"Autentificarea este necesară pentru a controla dacă RTC stochează ora locală "
+"sau UTC."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
 msgstr "Activează sau dezactivează sincronizarea cu ora rețelei"
 
 #: src/timedate/org.freedesktop.timedate1.policy:54
-msgid "Authentication is required to control whether network time synchronization shall be enabled."
-msgstr "Autentificarea este necesară pentru a controla dacă sincronizarea cu ora rețelei ar trebui activată."
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr ""
+"Autentificarea este necesară pentru a controla dacă sincronizarea cu ora "
+"rețelei ar trebui activată."
 
-#: src/core/dbus-unit.c:352
+#: src/core/dbus-unit.c:353
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Autentificarea este necesară pentru a porni „$(unit)”."
 
-#: src/core/dbus-unit.c:353
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Autentificarea este necesară pentru a opri „$(unit)”."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:355
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Autentificarea este necesară pentru a reîncărca „$(unit)”."
 
-#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
+#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Autentificarea este necesară pentru a reporni „$(unit)”."
 
-#: src/core/dbus-unit.c:553
-msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
-msgstr "Autentificarea este necesară pentru a trimite un semnal UNIX către procesele unui „$(unit)”."
+#: src/core/dbus-unit.c:549
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"'$(unit)'."
+msgstr ""
+"Autentificarea este necesară pentru a trimite un semnal UNIX către procesele "
+"unui „$(unit)”."
 
-#: src/core/dbus-unit.c:583
+#: src/core/dbus-unit.c:577
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr "Autentificarea este necesară pentru a reseta starea „eșuată” a „$(unit)”."
+msgstr ""
+"Autentificarea este necesară pentru a reseta starea „eșuată” a „$(unit)”."
 
-#: src/core/dbus-unit.c:615
+#: src/core/dbus-unit.c:607
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr "Autentificarea este necesară pentru a seta proprietățile lui „$(unit)”."
+msgstr ""
+"Autentificarea este necesară pentru a seta proprietățile lui „$(unit)”."
 
-#: src/core/dbus-unit.c:716
-msgid "Authentication is required to delete files and directories associated with '$(unit)'."
-msgstr "Autentificarea este necesară pentru a șterge fișierele și directoarele asociate lui „$(unit)”."
+#: src/core/dbus-unit.c:704
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
+msgstr ""
+"Autentificarea este necesară pentru a șterge fișierele și directoarele "
+"asociate lui „$(unit)”."
 
-#: src/core/dbus-unit.c:764
-msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
-msgstr "Autentificarea este necesară pentru a îngheța sau dezgheța procesele corespunzătoare lui „$(unit)”."
+#: src/core/dbus-unit.c:743
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr ""
+"Autentificarea este necesară pentru a îngheța sau dezgheța procesele "
+"corespunzătoare lui „$(unit)”."
 
 #~ msgid "Authentication is required to kill '$(unit)'."
 #~ msgstr "Autentificarea este necesară pentru a omorî „$(unit)”."

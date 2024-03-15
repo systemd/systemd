@@ -298,7 +298,7 @@ bool is_seccomp_available(void) {
         if (cached_enabled < 0) {
                 int b;
 
-                b = getenv_bool_secure("SYSTEMD_SECCOMP");
+                b = secure_getenv_bool("SYSTEMD_SECCOMP");
                 if (b != 0) {
                         if (b < 0 && b != -ENXIO) /* ENXIO: env var unset */
                                 log_debug_errno(b, "Failed to parse $SYSTEMD_SECCOMP value, ignoring.");

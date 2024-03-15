@@ -1442,8 +1442,8 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
                         uid == auth_uid ? "org.freedesktop.login1.set-self-linger" :
                                           "org.freedesktop.login1.set-user-linger",
                         /* details= */ NULL,
-                        interactive,
                         /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -1614,8 +1614,8 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
                         message,
                         "org.freedesktop.login1.attach-device",
                         /* details= */ NULL,
-                        interactive,
                         /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -1644,8 +1644,8 @@ static int method_flush_devices(sd_bus_message *message, void *userdata, sd_bus_
                         message,
                         "org.freedesktop.login1.flush-devices",
                         /* details= */ NULL,
-                        interactive,
                         /* good_user= */ UID_INVALID,
+                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -1671,7 +1671,7 @@ static int have_multiple_sessions(
         /* Check for other users' sessions. Greeter sessions do not
          * count, and non-login sessions do not count either. */
         HASHMAP_FOREACH(session, m->sessions)
-                if (session->class == SESSION_USER &&
+                if (IN_SET(session->class, SESSION_USER, SESSION_USER_EARLY) &&
                     session->user->user_record->uid != uid)
                         return true;
 
@@ -2001,8 +2001,8 @@ static int verify_shutdown_creds(
                                 message,
                                 a->polkit_action_multiple_sessions,
                                 /* details= */ NULL,
-                                interactive,
                                 /* good_user= */ UID_INVALID,
+                                interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                                 &m->polkit_registry,
                                 error);
                 if (r < 0)
@@ -2021,8 +2021,8 @@ static int verify_shutdown_creds(
                                 message,
                                 a->polkit_action_ignore_inhibit,
                                 /* details= */ NULL,
-                                interactive,
                                 /* good_user= */ UID_INVALID,
+                                interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                                 &m->polkit_registry,
                                 error);
                 if (r < 0)
@@ -2036,8 +2036,8 @@ static int verify_shutdown_creds(
                                 message,
                                 a->polkit_action,
                                 /* details= */ NULL,
-                                interactive,
                                 /* good_user= */ UID_INVALID,
+                                interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
                                 &m->polkit_registry,
                                 error);
                 if (r < 0)

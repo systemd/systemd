@@ -751,9 +751,9 @@ static int condition_test_needs_update(Condition *c, char **env) {
         assert(c->parameter);
         assert(c->type == CONDITION_NEEDS_UPDATE);
 
-        r = proc_cmdline_get_bool("systemd.condition-needs-update", /* flags = */ 0, &b);
+        r = proc_cmdline_get_bool("systemd.condition_needs_update", /* flags = */ 0, &b);
         if (r < 0)
-                log_debug_errno(r, "Failed to parse systemd.condition-needs-update= kernel command line argument, ignoring: %m");
+                log_debug_errno(r, "Failed to parse systemd.condition_needs_update= kernel command line argument, ignoring: %m");
         if (r > 0)
                 return b;
 
@@ -1024,7 +1024,7 @@ static int condition_test_psi(Condition *c, char **env) {
                         "io";
 
         p = c->parameter;
-        r = extract_many_words(&p, ":", 0, &first, &second, NULL);
+        r = extract_many_words(&p, ":", 0, &first, &second);
         if (r <= 0)
                 return log_debug_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s: %m", c->parameter);
         /* If only one parameter is passed, then we look at the global system pressure rather than a specific cgroup. */
@@ -1099,7 +1099,7 @@ static int condition_test_psi(Condition *c, char **env) {
         /* If a value including a specific timespan (in the intervals allowed by the kernel),
          * parse it, otherwise we assume just a plain percentage that will be checked if it is
          * smaller or equal to the current pressure average over 5 minutes. */
-        r = extract_many_words(&value, "/", 0, &third, &fourth, NULL);
+        r = extract_many_words(&value, "/", 0, &third, &fourth);
         if (r <= 0)
                 return log_debug_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL), "Failed to parse condition parameter %s: %m", c->parameter);
         if (r == 1)

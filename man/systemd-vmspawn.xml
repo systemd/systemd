@@ -274,6 +274,41 @@
           <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><option>--uuid=</option></term>
+
+          <listitem><para>Set the specified UUID for the virtual machine. The
+          init system will initialize
+          <filename>/etc/machine-id</filename> from this if this file is
+          not set yet. Note that this option takes effect only if
+          <filename>/etc/machine-id</filename> in the virtual machine is
+          unpopulated.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Property Options</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--register=</option></term>
+
+          <listitem><para>Controls whether the virtual machine is registered with
+          <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.  Takes a
+          boolean argument, which defaults to <literal>yes</literal> when running as root, and <literal>no</literal> when
+          running as a regular user.  This ensures that the virtual machine is accessible via
+          <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+          <para>Note: root privileges are required to use this option as registering with
+          <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          requires privileged D-Bus method calls.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
@@ -450,6 +485,8 @@ $ systemd-vmspawn --image=image.raw
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>mkosi</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 </refentry>

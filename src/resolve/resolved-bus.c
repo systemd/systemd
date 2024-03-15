@@ -13,6 +13,7 @@
 #include "missing_capability.h"
 #include "resolved-bus.h"
 #include "resolved-def.h"
+#include "resolved-dns-stream.h"
 #include "resolved-dns-synthesize.h"
 #include "resolved-dnssd-bus.h"
 #include "resolved-dnssd.h"
@@ -372,6 +373,7 @@ static int validate_and_mangle_flags(
                        SD_RESOLVED_NO_TRUST_ANCHOR|
                        SD_RESOLVED_NO_NETWORK|
                        SD_RESOLVED_NO_STALE|
+                       SD_RESOLVED_RELAX_SINGLE_LABEL|
                        ok))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
@@ -1843,6 +1845,7 @@ static int bus_method_reset_server_features(sd_bus_message *message, void *userd
 
         bus_client_log(message, "server feature reset");
 
+        (void) dns_stream_disconnect_all(m);
         manager_reset_server_features(m);
 
         return sd_bus_reply_method_return(message, NULL);
@@ -2231,9 +2234,15 @@ static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_b
         if (b)
                 return 0;
 
-        log_debug("Coming back from suspend, verifying all RRs...");
+        log_debug("Coming back from suspend, closing all TCP connections...");
+        (void) dns_stream_disconnect_all(m);
 
+        log_debug("Coming back from suspend, resetting all probed server features...");
+        manager_reset_server_features(m);
+
+        log_debug("Coming back from suspend, verifying all RRs...");
         manager_verify_all(m);
+
         return 0;
 }
 

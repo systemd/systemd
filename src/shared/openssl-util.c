@@ -1366,38 +1366,25 @@ static int load_key_from_engine(const char *engine, const char *private_key_uri,
         return 0;
 }
 
-int openssl_load_key_from_token(const char *private_key_uri, EVP_PKEY **ret) {
-        _cleanup_free_ char *provider = NULL;
-        const char *colon, *e;
-        int r;
+int openssl_load_key_from_token(
+                KeySourceType private_key_source_type,
+                const char *private_key_source,
+                const char *private_key,
+                EVP_PKEY **ret) {
 
-        assert(private_key_uri);
+        assert(IN_SET(private_key_source_type, OPENSSL_KEY_SOURCE_ENGINE, OPENSSL_KEY_SOURCE_PROVIDER));
+        assert(private_key_source);
+        assert(private_key);
 
-        colon = strchr(private_key_uri, ':');
-        if (!colon)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid URI '%s'", private_key_uri);
+        switch (private_key_source_type) {
 
-        provider = strndup(private_key_uri, colon - private_key_uri);
-        if (!provider)
-                return log_oom_debug();
-
-        e = secure_getenv("SYSTEMD_OPENSSL_KEY_LOADER");
-        if (e) {
-                if (streq(e, "provider"))
-                        r = load_key_from_provider(provider, private_key_uri, ret);
-                else if (streq(e, "engine"))
-                        r = load_key_from_engine(provider, private_key_uri, ret);
-                else
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value for SYSTEMD_OPENSSL_KEY_LOADER: %s", e);
-        } else {
-                r = load_key_from_provider(provider, private_key_uri, ret);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to load key from provider '%s', falling back to engine", provider);
-                        r = load_key_from_engine(provider, private_key_uri, ret);
-                }
+        case OPENSSL_KEY_SOURCE_ENGINE:
+                return load_key_from_engine(private_key_source, private_key, ret);
+        case OPENSSL_KEY_SOURCE_PROVIDER:
+                return load_key_from_provider(private_key_source, private_key, ret);
+        default:
+                assert_not_reached();
         }
-
-        return r;
 }
 #endif
 
@@ -1417,4 +1404,35 @@ int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
 #else
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot calculate X509 fingerprint: %m");
 #endif
+}
+
+int parse_openssl_key_source_argument(
+                const char *argument,
+                char **private_key_source,
+                KeySourceType *private_key_source_type) {
+
+        KeySourceType type;
+        const char *e = NULL;
+        int r;
+
+        assert(argument);
+        assert(private_key_source);
+        assert(private_key_source_type);
+
+        if (streq(argument, "file"))
+                type = OPENSSL_KEY_SOURCE_FILE;
+        else if ((e = startswith(argument, "engine:")))
+                type = OPENSSL_KEY_SOURCE_ENGINE;
+        else if ((e = startswith(argument, "provider:")))
+                type = OPENSSL_KEY_SOURCE_PROVIDER;
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid private key source '%s'", argument);
+
+        r = free_and_strdup_warn(private_key_source, e);
+        if (r < 0)
+                return r;
+
+        *private_key_source_type = type;
+
+        return 0;
 }

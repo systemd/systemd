@@ -23,13 +23,18 @@ jobs:
 
     steps:
       - name: Repository checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
         with:
           fetch-depth: 0
 
       - name: Differential ShellCheck
-        uses: redhat-plumbers-in-action/differential-shellcheck@91e2582e40236f831458392d905578d680baa138
+        uses: redhat-plumbers-in-action/differential-shellcheck@b9df2a9417f69c056e0aeaf870abd9a2065a403e
         with:
           # exclude all `.in` files because they may contain unsupported syntax, and they have to be preprocessed first
-          exclude-path: '**/*.in'
+          # TEMPORARY: exclude bash completion files, they would generate too many defects in Code scanning dashboard (600+)
+          # exclude zsh completion files, zsh is not supported by ShellCheck
+          exclude-path: |
+            '**/*.in'
+            'shell-completion/bash/*'
+            'shell-completion/zsh/*'
           token: ${{ secrets.GITHUB_TOKEN }}

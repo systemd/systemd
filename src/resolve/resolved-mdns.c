@@ -349,6 +349,33 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         return 0;
 }
 
+static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userdata) {
+        DnsScope *scope = userdata;
+        int r;
+
+        assert(s);
+        assert(scope);
+
+        scope->mdns_goodbye_event_source = sd_event_source_disable_unref(scope->mdns_goodbye_event_source);
+
+        dns_cache_prune(&scope->cache);
+
+        if (dns_cache_expiry_in_one_second(&scope->cache, usec)) {
+                r = sd_event_add_time_relative(
+                        scope->manager->event,
+                        &scope->mdns_goodbye_event_source,
+                        CLOCK_BOOTTIME,
+                        USEC_PER_SEC,
+                        0,
+                        mdns_goodbye_callback,
+                        scope);
+                if (r < 0)
+                        return log_error_errno(r, "mDNS: Failed to re-schedule goodbye callback: %m");
+        }
+
+        return 0;
+}
+
 static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         Manager *m = userdata;
@@ -407,6 +434,22 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 log_debug("Got a goodbye packet");
                                 /* See the section 10.1 of RFC6762 */
                                 rr->ttl = 1;
+
+                                /* Look at the cache 1 second later and remove stale entries.
+                                 * This is particularly useful to keep service browsers updated on service removal,
+                                 * as there are no other reliable triggers to propagate that info. */
+                                if (!scope->mdns_goodbye_event_source) {
+                                        r = sd_event_add_time_relative(
+                                                        scope->manager->event,
+                                                        &scope->mdns_goodbye_event_source,
+                                                        CLOCK_BOOTTIME,
+                                                        USEC_PER_SEC,
+                                                        0,
+                                                        mdns_goodbye_callback,
+                                                        scope);
+                                        if (r < 0)
+                                                return r;
+                                }
                         }
                 }
 

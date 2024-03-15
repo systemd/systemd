@@ -187,7 +187,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                                 }
                         }
 
-                        r = log_error_errno(
+                        r = log_notice_errno(
                                         status == 404 ? SYNTHETIC_ERRNO(ENOMEDIUM) : SYNTHETIC_ERRNO(EIO), /* Make the most common error recognizable */
                                         "HTTP request to %s failed with code %li.", j->url, status);
                         goto finish;

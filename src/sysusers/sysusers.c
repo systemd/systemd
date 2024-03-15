@@ -569,7 +569,7 @@ static int write_temporary_passwd(
 static usec_t epoch_or_now(void) {
         uint64_t epoch;
 
-        if (getenv_uint64_secure("SOURCE_DATE_EPOCH", &epoch) >= 0) {
+        if (secure_getenv_uint64("SOURCE_DATE_EPOCH", &epoch) >= 0) {
                 if (epoch > UINT64_MAX/USEC_PER_SEC) /* Overflow check */
                         return USEC_INFINITY;
                 return (usec_t) epoch * USEC_PER_SEC;
@@ -1701,7 +1701,7 @@ static int parse_line(
         /* Parse columns */
         p = buffer;
         r = extract_many_words(&p, NULL, EXTRACT_UNQUOTE,
-                               &action, &name, &id, &description, &home, &shell, NULL);
+                               &action, &name, &id, &description, &home, &shell);
         if (r < 0)
                 return log_syntax(NULL, LOG_ERR, fname, line, r, "Syntax error.");
         if (r < 2)
@@ -2247,7 +2247,8 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_VALIDATE_OS |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                                 DISSECT_IMAGE_FSCK |
-                                DISSECT_IMAGE_GROWFS,
+                                DISSECT_IMAGE_GROWFS |
+                                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
                                 &mounted_dir,
                                 /* ret_dir_fd= */ NULL,
                                 &loop_device);
