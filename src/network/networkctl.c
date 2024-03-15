@@ -102,6 +102,10 @@ static int varlink_connect_networkd(Varlink **ret_varlink) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to network service /run/systemd/netif/io.systemd.Network: %m");
 
+        r = varlink_set_allow_fd_passing_output(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allow passing file descriptor through varlink: %m");
+
         r = varlink_call_and_log(vl, "io.systemd.Network.GetNamespaceId", /* parameters= */ NULL, &reply);
         if (r < 0)
                 return r;
@@ -2942,6 +2946,20 @@ static int verb_persistent_storage(int argc, char *argv[], void *userdata) {
         r = varlink_connect_networkd(&vl);
         if (r < 0)
                 return r;
+
+        if (ready) {
+                _cleanup_close_ int fd = -EBADF;
+
+                fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY | O_PATH);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open /var/lib/systemd/network/: %m");
+
+                r = varlink_push_fd(vl, fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to push file descriptor of /var/lib/systemd/network/ into varlink: %m");
+
+                TAKE_FD(fd);
+        }
 
         return varlink_callb_and_log(vl, "io.systemd.Network.SetPersistentStorage", /* reply = */ NULL,
                                      JSON_BUILD_OBJECT(JSON_BUILD_PAIR_BOOLEAN("Ready", ready)));
