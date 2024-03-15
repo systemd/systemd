@@ -78,10 +78,14 @@ jobs:
     - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9
     - uses: systemd/mkosi@f61dac009ee584797e61a961d508cc52d7f4a03c
 
+    # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
+    # immediately, we remove the files in the background. However, we first move them to a different location
+    # so that nothing tries to use anything in these directories anymore while we're busy deleting them.
     - name: Free disk space
       run: |
-        sudo rm -rf /usr/local
-        sudo rm -rf /opt/hostedtoolcache
+        sudo mv /usr/local /usr/local.trash
+        sudo mv /opt/hostedtoolcache /opt/hostedtoolcache.trash
+        sudo systemd-run rm -rf /usr/local.trash /opt/hostedtoolcache.trash
 
     - name: Configure
       run: |
