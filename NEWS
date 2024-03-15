@@ -462,6 +462,11 @@ CHANGES WITH 256 in spe:
           link-volume-key= to enter the volume key into the kernel keyring when
           the volume is opened.
 
+        * portablectl --copy= parameter gained a new 'mixed' argument, that will
+          result in resources owned by the OS (e.g.: portable profiles) to be linked
+          but resources owned by the portable image (e.g.: the unit files and the
+          images themselves) to be copied.
+
         * The remaining documentation that was on
           https://freedesktop.org/wiki/Software/systemd/ has been moved to
           https://systemd.io.
