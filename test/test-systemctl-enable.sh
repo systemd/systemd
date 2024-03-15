@@ -534,8 +534,8 @@ test ! -h "$root/etc/systemd/system/link5alias2.service"
 
 "$systemctl" --root="$root" enable '/link5copy.service'
 islink "$root/etc/systemd/system/link5copy.service" '/link5copy.service'
-islink "$root/etc/systemd/system/link5alias.service" '/link5copy.service'
-islink "$root/etc/systemd/system/link5alias2.service" '/link5copy.service'
+islink "$root/etc/systemd/system/link5alias.service" '/etc/systemd/system/link5copy.service'
+islink "$root/etc/systemd/system/link5alias2.service" '/etc/systemd/system/link5copy.service'
 
 "$systemctl" --root="$root" disable 'link5copy.service'
 test ! -h "$root/etc/systemd/system/link5copy.service"

@@ -200,7 +200,7 @@ TEST(basic_mask_and_enable) {
 }
 
 TEST(linked_units) {
-        const char *p, *q;
+        const char *p, *q, *s;
         UnitFileState state;
         InstallChange *changes = NULL;
         size_t n_changes = 0, i;
@@ -224,6 +224,7 @@ TEST(linked_units) {
         p = strjoina(root, "/opt/linked.service");
         assert_se(write_string_file(p,
                                     "[Install]\n"
+                                    "Alias=linked-alias.service\n"
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, "/opt/linked2.service");
@@ -275,31 +276,41 @@ TEST(linked_units) {
 
         /* Now, let's not just link it, but also enable it */
         assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("/opt/linked.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 2);
+        assert_se(n_changes == 3);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/linked.service");
         q = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked.service");
+        s = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked-alias.service");
         for (i = 0 ; i < n_changes; i++) {
                 assert_se(changes[i].type == INSTALL_CHANGE_SYMLINK);
-                assert_se(streq(changes[i].source, "/opt/linked.service"));
+
+                if (s && streq(changes[i].path, s))
+                        /* The alias symlink should point within the search path. */
+                        assert_se(streq(changes[i].source, SYSTEM_CONFIG_UNIT_DIR"/linked.service"));
+                else
+                        assert_se(streq(changes[i].source, "/opt/linked.service"));
 
                 if (p && streq(changes[i].path, p))
                         p = NULL;
                 else if (q && streq(changes[i].path, q))
                         q = NULL;
+                else if (s && streq(changes[i].path, s))
+                        s = NULL;
                 else
                         assert_not_reached();
         }
-        assert_se(!p && !q);
+        assert_se(!p && !q && !s);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "linked-alias.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
 
         /* And let's unlink it again */
         assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("linked.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 2);
+        assert_se(n_changes == 3);
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/linked.service");
         q = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked.service");
+        s = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/linked-alias.service");
         for (i = 0; i < n_changes; i++) {
                 assert_se(changes[i].type == INSTALL_CHANGE_UNLINK);
 
@@ -307,10 +318,12 @@ TEST(linked_units) {
                         p = NULL;
                 else if (q && streq(changes[i].path, q))
                         q = NULL;
+                else if (s && streq(changes[i].path, s))
+                        s = NULL;
                 else
                         assert_not_reached();
         }
-        assert_se(!p && !q);
+        assert_se(!p && !q && !s);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
