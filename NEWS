@@ -330,7 +330,11 @@ CHANGES WITH 256 in spe:
         * systemd-run is now a multi-call binary. When invoked as 'uid0', it
           provides as interface similar to 'sudo', with all arguments starting
           at the first non-option parameter being treated the command to
-          invoke.
+          invoke as root. Unlike 'sudo' and similar tools, it does not make use
+          of setuid binaries or other privilege escalation methods, but instead
+          runs the specified command as a transient unit, which is started by
+          the system service manager, so privileges are dropped, rather than
+          gained, thus implementing a much more robust and safe security model.
 
         * systemd-run gained a new option '--ignore-failure' to suppress
           command failures.
@@ -396,14 +400,14 @@ CHANGES WITH 256 in spe:
         * systemd-repart gained new options --generate-fstab= and
           --generate-crypttab= to write the fstab and crypttab files.
 
-        * systemd-repart gained new option --private-key-source= to specify the
-          key for as a file, or via OpenSSL's "engine" or "provider" logic.
-          Configures the signing mechanism to use when creating verity
-          signature partitions.
+        * systemd-repart gained new option --private-key-source= to allow
+          using OpenSSL's "engines" or "providers" as the signing mechanism to
+          use when creating verity signature partitions.
 
         * systemd-measure gained new options --certificate=, --private-key=,
-          and --private-key-source= to specify the signing information for as a
-          path or OpenSSL engine or provider.
+          and --private-key-source= to allow using OpenSSL's "engines" or
+          "providers" as the signing mechanism to use when creating signed
+          TPM2 PCR measurement values.
 
         * systemd-tmpfiles gained a new option --dry-run to print what would be
           done without actually taking action.
@@ -449,7 +453,7 @@ CHANGES WITH 256 in spe:
           additional metadata compared to ListSessions(). loginctl makes use of
           this to list additional fields in list-sessions.
 
-        * systemd-cryptenroll can now enroll directly with a public key
+        * systemd-cryptenroll can now enroll directly with a PKCS11 public key
           (instead of a certificate).
 
         * Core dumps are now retained for two weeks by default.
