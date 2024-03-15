@@ -328,12 +328,13 @@ TEST(shift_path) {
 
 TEST(mask_supported, .sd_booted = true) {
         CGroupMask m;
-        CGroupController c;
 
         assert_se(cg_mask_supported(&m) >= 0);
 
-        for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++)
-                printf("'%s' is supported: %s\n", cgroup_controller_to_string(c), yes_no(m & CGROUP_CONTROLLER_TO_MASK(c)));
+        for (CGroupController c = 0; c < _CGROUP_CONTROLLER_MAX; c++)
+                printf("'%s' is supported: %s\n",
+                       cgroup_controller_to_string(c),
+                       yes_no(m & CGROUP_CONTROLLER_TO_MASK(c)));
 }
 
 TEST(is_cgroup_fs, .sd_booted = true) {
@@ -392,7 +393,7 @@ TEST(cg_tests) {
 TEST(cg_get_keyed_attribute) {
         _cleanup_free_ char *val = NULL;
         char *vals3[3] = {}, *vals3a[3] = {};
-        int i, r;
+        int r;
 
         r = cg_get_keyed_attribute("cpu", "/init.scope", "no_such_file", STRV_MAKE("no_such_attr"), &val);
         if (IN_SET(r, -ENOMEDIUM, -ENOENT) || ERRNO_IS_PRIVILEGE(r)) {
@@ -430,7 +431,7 @@ TEST(cg_get_keyed_attribute) {
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
                                          STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3) == 0);
-        for (i = 0; i < 3; i++)
+        for (size_t i = 0; i < 3; i++)
                 free(vals3[i]);
 
         assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat",
@@ -440,7 +441,7 @@ TEST(cg_get_keyed_attribute) {
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
                                          STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 0);
-        for (i = 0; i < 3; i++)
+        for (size_t i = 0; i < 3; i++)
                 free(vals3a[i]);
 
         assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat",
@@ -448,7 +449,7 @@ TEST(cg_get_keyed_attribute) {
         log_info("cpu /init.scope cpu.stat [system_usec user_usec usage_usec] → \"%s\", \"%s\", \"%s\"",
                  vals3a[0], vals3a[1], vals3a[2]);
 
-        for (i = 0; i < 3; i++) {
+        for (size_t i = 0; i < 3; i++) {
                 free(vals3[i]);
                 free(vals3a[i]);
         }
