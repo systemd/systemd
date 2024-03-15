@@ -230,6 +230,7 @@ struct Network {
         char *dhcp_server_boot_filename;
         usec_t dhcp_server_ipv6_only_preferred_usec;
         bool dhcp_server_rapid_commit;
+        int dhcp_server_persist_leases;
 
         /* link-local addressing support */
         AddressFamily link_local;
