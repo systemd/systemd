@@ -1374,7 +1374,7 @@
 
           <row>
             <entry><literal>:</literal></entry>
-            <entry>If the executable path is prefixed with <literal>:</literal>, environment variable substitution (as described by the "Command Lines" section below) is not applied.</entry>
+            <entry>If the executable path is prefixed with <literal>:</literal>, environment variable substitution (as described below this table) is not applied.</entry>
           </row>
 
           <row>
