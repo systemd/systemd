@@ -1126,6 +1126,24 @@ int free_and_strndup(char **p, const char *s, size_t l) {
         return 1;
 }
 
+int strdup_to_full(char **dst, const char *src) {
+        if (!src) {
+                if (dst)
+                        *dst = NULL;
+
+                return 0;
+        } else {
+                if (dst) {
+                        char *t = strdup(src);
+                        if (!t)
+                                return -ENOMEM;
+                        *dst = t;
+                }
+
+                return 1;
+        }
+};
+
 bool string_is_safe(const char *p) {
         if (!p)
                 return false;
