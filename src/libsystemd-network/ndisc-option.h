@@ -29,6 +29,11 @@ typedef struct sd_ndisc_prefix {
         usec_t preferred_lifetime;
 } sd_ndisc_prefix;
 
+typedef struct sd_ndisc_home_agent {
+        uint16_t preference;
+        usec_t lifetime;
+} sd_ndisc_home_agent;
+
 typedef struct sd_ndisc_route {
         uint8_t preference;
         uint8_t prefixlen;
@@ -58,17 +63,18 @@ typedef struct sd_ndisc_option {
         size_t offset;
 
         union {
-                sd_ndisc_raw raw;           /* for testing or unsupported options */
-                struct ether_addr mac;      /* SD_NDISC_OPTION_SOURCE_LL_ADDRESS or SD_NDISC_OPTION_TARGET_LL_ADDRESS */
-                sd_ndisc_prefix prefix;     /* SD_NDISC_OPTION_PREFIX_INFORMATION */
-                struct ip6_hdr hdr;         /* SD_NDISC_OPTION_REDIRECTED_HEADER */
-                uint32_t mtu;               /* SD_NDISC_OPTION_MTU */
-                sd_ndisc_route route;       /* SD_NDISC_OPTION_ROUTE_INFORMATION */
-                sd_ndisc_rdnss rdnss;       /* SD_NDISC_OPTION_RDNSS */
-                uint64_t extended_flags;    /* SD_NDISC_OPTION_FLAGS_EXTENSION */
-                sd_ndisc_dnssl dnssl;       /* SD_NDISC_OPTION_DNSSL */
-                char *captive_portal;       /* SD_NDISC_OPTION_CAPTIVE_PORTAL */
-                sd_ndisc_prefix64 prefix64; /* SD_NDISC_OPTION_PREF64 */
+                sd_ndisc_raw raw;               /* for testing or unsupported options */
+                struct ether_addr mac;          /* SD_NDISC_OPTION_SOURCE_LL_ADDRESS or SD_NDISC_OPTION_TARGET_LL_ADDRESS */
+                sd_ndisc_prefix prefix;         /* SD_NDISC_OPTION_PREFIX_INFORMATION */
+                struct ip6_hdr hdr;             /* SD_NDISC_OPTION_REDIRECTED_HEADER */
+                uint32_t mtu;                   /* SD_NDISC_OPTION_MTU */
+                sd_ndisc_home_agent home_agent; /* SD_NDISC_OPTION_HOME_AGENT */
+                sd_ndisc_route route;           /* SD_NDISC_OPTION_ROUTE_INFORMATION */
+                sd_ndisc_rdnss rdnss;           /* SD_NDISC_OPTION_RDNSS */
+                uint64_t extended_flags;        /* SD_NDISC_OPTION_FLAGS_EXTENSION */
+                sd_ndisc_dnssl dnssl;           /* SD_NDISC_OPTION_DNSSL */
+                char *captive_portal;           /* SD_NDISC_OPTION_CAPTIVE_PORTAL */
+                sd_ndisc_prefix64 prefix64;     /* SD_NDISC_OPTION_PREF64 */
         };
 } sd_ndisc_option;
 
@@ -141,6 +147,11 @@ int ndisc_option_add_mtu(
                 Set **options,
                 size_t offset,
                 uint32_t mtu);
+int ndisc_option_add_home_agent(
+                Set **options,
+                size_t offset,
+                uint16_t preference,
+                usec_t lifetime);
 int ndisc_option_add_route(
                 Set **options,
                 size_t offset,
