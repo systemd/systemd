@@ -391,6 +391,10 @@ static int inhibitor_dispatch_fifo(sd_event_source *s, int fd, uint32_t revents,
         assert(fd == i->fifo_fd);
 
         inhibitor_stop(i);
+
+        if (i->user)
+                user_inhibitor_dropped(i->user, i);
+
         inhibitor_free(i);
 
         return 0;

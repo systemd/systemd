@@ -83,7 +83,7 @@ static inline bool inhibit_what_is_valid(InhibitWhat w) {
 const char *inhibit_what_to_string(InhibitWhat k);
 int inhibit_what_from_string(const char *s);
 
-static inline bool inhibit_what_user_is_valid(InhibitWhatUser w) {
+static inline bool inhibit_what_user_is_valid(uint64_t w) {
         return w > 0 && w < _INHIBIT_WHAT_USER_MAX;
 }
 
