@@ -204,7 +204,9 @@ node /org/freedesktop/home1 {
       the numeric UID and GID, the real name, home directory and shell. In addition it returns a state
       identifier describing the state the user's home directory is in, as well as a bus path referring to the
       bus object encapsulating the user record and home directory. This object implements the
-      <classname>org.freedesktop.home1.Home</classname> interface documented below.</para>
+      <classname>org.freedesktop.home1.Home</classname> interface documented below. This method, and most others
+      in this interface that take user names, will try to use the caller's home area if the specified user name is
+      an empty string.</para>
 
       <para><function>GetHomeByUID()</function> is similar to <function>GetHomeByName()</function> but
       acquires the information based on the numeric UID of the user.</para>
@@ -360,7 +362,7 @@ node /org/freedesktop/home1 {
       <classname>org.freedesktop.home1.Home</classname> interface.</para>
 
       <para><function>LockHome()</function> temporarily suspends access to a home directory, flushing out any
-      cryptographic keys from memory. This is only supported on some back-ends, and usually done during system
+      cryptographic keys from memory. This is only supported on some back-ends, and is usually done during system
       suspend, in order to effectively secure home directories while the system is sleeping. Takes a user
       name as single argument. If an application attempts to access a home directory while it is locked it
       will typically freeze until the home directory is unlocked again. This method is equivalent to
@@ -555,14 +557,15 @@ node /org/freedesktop/home1/home {
       <function>Update()</function>, <function>UpdateEx()</function>, <function>Resize()</function>,
       <function>ChangePassword()</function>, <function>Lock()</function>, <function>Unlock()</function>,
       <function>Acquire()</function>, <function>Ref()</function>, <function>RefUnrestricted()</function>,
-      <function>Release()</function>, operate like their matching counterparts
-      on the <classname>org.freedesktop.home1.Manager</classname> interface (see above). The main difference is that
-      they are methods of the home directory objects, and hence carry no additional user name
-      parameter. Which of the two flavors of methods to call depends on the handles to the user known on the
-      client side: if only the user name is known, it's preferable to use the methods on the manager object
-      since they operate with user names only. If however the home object path was already acquired some way
-      it is preferable to operate on the <classname>org.freedesktop.home1.Home</classname> objects
-      instead.</para>
+      <function>Release()</function>,
+      operate like their matching counterparts on the <classname>org.freedesktop.home1.Manager</classname>
+      interface (see above). The main difference is that they are methods of the home directory objects, and
+      hence carry no additional user name parameter. Which of the two flavors of methods to call depends on
+      the handles to the user known on the client side: if only the user name is known, it's preferable to use
+      the methods on the manager object since they operate with user names only. Clients can also easily operate
+      on their own home area by using the methods on the manager object with an empty string as the user name.
+      If the client has the home's object path already acquired in some way, however, it is preferable to operate
+      on the <classname>org.freedesktop.home1.Home</classname> objects instead.</para>
     </refsect2>
 
     <refsect2>
