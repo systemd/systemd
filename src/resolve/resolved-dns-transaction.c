@@ -2461,6 +2461,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 return 0; /* If we can't do DNSSEC anyway there's no point in getting the auxiliary RRs */
 
         DNS_ANSWER_FOREACH(rr, t->answer) {
+                const char *zone_name = NULL;
 
                 if (dns_type_is_pseudo(rr->key->type))
                         continue;
@@ -2477,13 +2478,14 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 case DNS_TYPE_RRSIG: {
                         /* For each RRSIG we request the matching DNSKEY */
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *dnskey = NULL;
+                        zone_name = rr->rrsig.signer;
 
                         /* If this RRSIG is about a DNSKEY RR and the
                          * signer is the same as the owner, then we
                          * already have the DNSKEY, and we don't have
                          * to look for more. */
                         if (rr->rrsig.type_covered == DNS_TYPE_DNSKEY) {
-                                r = dns_name_equal(rr->rrsig.signer, dns_resource_key_name(rr->key));
+                                r = dns_name_equal(zone_name, dns_resource_key_name(rr->key));
                                 if (r < 0)
                                         return r;
                                 if (r > 0)
@@ -2501,7 +2503,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                          * in another transaction whose additional RRs
                          * point back to the original transaction, and
                          * we deadlock. */
-                        r = dns_name_endswith(dns_resource_key_name(dns_transaction_key(t)), rr->rrsig.signer);
+                        r = dns_name_endswith(dns_resource_key_name(dns_transaction_key(t)), zone_name);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -2516,12 +2518,14 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         r = dns_transaction_request_dnssec_rr(t, dnskey);
                         if (r < 0)
                                 return r;
-                        break;
+                        _fallthrough_;
                 }
 
                 case DNS_TYPE_DNSKEY: {
                         /* For each DNSKEY we request the matching DS */
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds = NULL;
+                        zone_name = zone_name ? zone_name : dns_resource_key_name(rr->key);
+                        uint16_t keytag;
 
                         /* If the DNSKEY we are looking at is not for
                          * zone we are interested in, nor any of its
@@ -2530,18 +2534,19 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                          * up in request loops, and want to keep
                          * additional traffic down. */
 
-                        r = dns_name_endswith(dns_resource_key_name(dns_transaction_key(t)), dns_resource_key_name(rr->key));
+                        r = dns_name_endswith(dns_resource_key_name(dns_transaction_key(t)), zone_name);
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 continue;
 
-                        ds = dns_resource_key_new(rr->key->class, DNS_TYPE_DS, dns_resource_key_name(rr->key));
+                        ds = dns_resource_key_new(rr->key->class, DNS_TYPE_DS, zone_name);
                         if (!ds)
                                 return -ENOMEM;
 
-                        log_debug("Requesting DS to validate transaction %" PRIu16" (%s, DNSKEY with key tag: %" PRIu16 ").",
-                                  t->id, dns_resource_key_name(rr->key), dnssec_keytag(rr, false));
+                        keytag = rr->key->type == DNS_TYPE_DNSKEY ? dnssec_keytag(rr, false) : rr->rrsig.key_tag;
+                        log_debug("Requesting DS to validate transaction %" PRIu16" (%s, %s with key tag: %" PRIu16 ").",
+                                  t->id, zone_name, dns_type_to_string(rr->key->type), keytag);
                         r = dns_transaction_request_dnssec_rr(t, ds);
                         if (r < 0)
                                 return r;
