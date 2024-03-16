@@ -125,11 +125,11 @@ static int condition_test_kernel_command_line(Condition *c, char **env) {
                 bool found;
 
                 if (equal)
-                        found = streq(*word, c->parameter);
+                        found = proc_cmdline_key_streq(*word, c->parameter);
                 else {
                         const char *f;
 
-                        f = startswith(*word, c->parameter);
+                        f = proc_cmdline_key_startswith(*word, c->parameter);
                         found = f && IN_SET(*f, 0, '=');
                 }
 
