@@ -37,15 +37,15 @@ static int check_path(int dir_fd, const char *path) {
 
 static int pre_labelling_func(int dir_fd, const char *path, mode_t mode) {
         int r;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_close_ int pre_fd = -EBADF;
 
         assert(mode != MODE_INVALID);
         r = check_path(dir_fd, path);
         if (r < 0)
                 return r;
 
-        fd = openat(dir_fd, path, O_CLOEXEC|O_CREAT|O_RDWR|O_TRUNC, 0644);
-        if (fd < 0)
+        pre_fd = openat(dir_fd, path, O_CLOEXEC|O_CREAT|O_RDWR|O_TRUNC, 0644);
+        if (pre_fd < 0)
                 return negative_errno();
 
         return 0;
@@ -68,6 +68,7 @@ static int post_labelling_func(int dir_fd, const char *path) {
 }
 
 static int get_dir_fd(const char *dir_path) {
+        /* create a new directory and return its descriptor*/
         int dir_fd = -EBADF;
 
         assert(dir_path);
@@ -121,9 +122,10 @@ TEST(label_ops_set) {
         assert_se(label_ops_set(&test_label_ops) == -EBUSY);
 }
 
-static int fd = -EBADF;
+
 
 TEST(label_ops_pre) {
+        _cleanup_close_ int fd = -EBADF;
         static const LabelOps test_label_ops = {
                 .pre = pre_labelling_func,
                 .post = NULL,
@@ -139,6 +141,7 @@ TEST(label_ops_pre) {
 }
 
 TEST(label_ops_post) {
+        _cleanup_close_ int fd = -EBADF;
         const char *text1, *text2;
         static const LabelOps test_label_ops = {
                 .pre = NULL,
@@ -147,6 +150,7 @@ TEST(label_ops_post) {
 
         label_ops_reset();
         label_ops_set(&test_label_ops);
+        fd = get_dir_fd("label_test_dir");
 
         /* Perform sample labelling operation */
         text1 = "Add initial texts to file for testing label operations\n";
@@ -163,7 +167,6 @@ TEST(label_ops_post) {
         assert_se(label_ops_post(fd, "/abcd") == -ENOENT);
         assert_se(label_ops_post(fd, "/restricted_directory") == -EACCES);
         assert_se(label_ops_post(fd, "") == -EINVAL);
-        safe_close(fd);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO)
