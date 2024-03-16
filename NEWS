@@ -66,8 +66,9 @@ CHANGES WITH 256 in spe:
 
         * A new 'systemd-vpick' binary has been added. It implements the new
           vpick protocol, where a .v directory may contain multiple files with
-          a version embedded in the name, and they may be ordered by version
-          and the newest one can be reliably selected.
+          a version, following the UAPI version format specification, embedded
+          in the file name. The files are ordered by version and the newest one
+          is selected.
 
           systemd-nspawn, systemd-dissect, and the RootDirectory=, RootImage=,
           ExtensionImages=, and ExtensionDirectories= settings for units now
@@ -75,8 +76,8 @@ CHANGES WITH 256 in spe:
           selected automatically if a "*.v/" directory is specified as the
           source.
 
-        * Credentials can now be made accessible to unprivileged users.
-          'systemd-creds --user --uid=<user>' will encrypt or decrypt a
+        * Credentials can now be made accessible to and used by unprivileged
+          users. 'systemd-creds --user --uid=<user>' will encrypt or decrypt a
           credential for a specific user.
 
         * With systemd-homed, it is now possible to log in and activate an
@@ -103,7 +104,8 @@ CHANGES WITH 256 in spe:
           systemd-homed, userdbctl, and homectl gained support for blob
           directories.
 
-        * New command-line tool 'importctl' is added with the following verbs:
+        * New command-line tool 'importctl' to download, import, and export
+          disk images via systemd-importd is added with the following verbs:
           pull-tar, pull-raw, import-tar, import-raw, import-fs, export-tar,
           export-raw, list-transfers, cancel-transfer.
 
@@ -295,8 +297,8 @@ CHANGES WITH 256 in spe:
         Systemd-boot and systemd-stub and Related Tools:
 
         * TPM 1.2 PCR measurement support has been removed from systemd-stub.
-          TPM 1.2 is obsolete and — due to the (by today's standards) weak
-          cryptographic algorithms it only supports — does not actually provide
+          TPM 1.2 is obsolete and—due to the (by today's standards) weak
+          cryptographic algorithms it only supports—does not actually provide
           the security benefits it's supposed to provide. Given that the rest
           of systemd's codebase never supported TPM 1.2, the support has now
           been removed from systemd-stub as well.
@@ -342,7 +344,7 @@ CHANGES WITH 256 in spe:
         * systemd-creds gained new options --user/--uid=.
 
         * 'systemctl edit --stdin' allows creation of unit files and drop-ins
-          with contents fed via standard input. This is useful when creating
+          with contents supplied via standard input. This is useful when creating
           configuration programmatically; the tool takes care of figuring out
           the file name, creating any directories, and reloading the manager
           afterwards.
@@ -400,7 +402,7 @@ CHANGES WITH 256 in spe:
         * systemd-repart gained new options --generate-fstab= and
           --generate-crypttab= to write the fstab and crypttab files.
 
-        * systemd-repart gained new option --private-key-source= to allow
+        * systemd-repart gained a new option --private-key-source= to allow
           using OpenSSL's "engines" or "providers" as the signing mechanism to
           use when creating verity signature partitions.
 
