@@ -169,36 +169,30 @@ static int write_mode(char * const *modes) {
         return r;
 }
 
-static int lock_all_homes(void) {
+static int secure_lock_all_users(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        /* Let's synchronously lock all home directories managed by homed that have been marked for it. This
-         * way the key material required to access these volumes is hopefully removed from memory. */
+        /* Let's synchronously secure-lock all users that support it. This way the key material required
+         * to access these users, and other sensitive data, is hopefully removed from memory. */
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
-        r = bus_message_new_method_call(bus, &m, bus_home_mgr, "LockAllHomes");
+        r = bus_message_new_method_call(bus, &m, bus_login_mgr, "SecureLockUsers");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        /* If homed is not running it can't have any home directories active either. */
-        r = sd_bus_message_set_auto_start(m, false);
+        /* We set a long timeout on this to give ample time to ensure everything gets locked up. Especially
+         * since we might be waiting for user processes to wipe sensitive data here too... */
+        r = sd_bus_call(bus, m, 5 * USEC_PER_MINUTE, &error, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to disable auto-start of LockAllHomes() message: %m");
-
-        r = sd_bus_call(bus, m, DEFAULT_TIMEOUT_USEC, &error, NULL);
-        if (r < 0) {
-                if (!bus_error_is_unknown_service(&error))
-                        return log_error_errno(r, "Failed to lock home directories: %s", bus_error_message(&error, r));
-
-                log_debug("systemd-homed is not running, locking of home directories skipped.");
-        } else
-                log_debug("Successfully requested locking of all home directories.");
+                return log_error_errno(r, "Failed to activate secure lock for all users: %s", bus_error_message(&error, r));
+        else
+                log_debug("Successfully activated secure lock for all users.");
         return 0;
 }
 
@@ -275,7 +269,7 @@ static int execute(
                 log_warning_errno(errno, "Failed to set SYSTEMD_SLEEP_ACTION=%s, ignoring: %m", action);
 
         (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, (char **) arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
-        (void) lock_all_homes();
+        (void) secure_lock_all_users();
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_SLEEP_START_STR,
