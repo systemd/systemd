@@ -2433,6 +2433,7 @@ static bool dns_transaction_dnssec_supported_full(DnsTransaction *t) {
 
 int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
         DnsResourceRecord *rr;
+        const char *next_ds = NULL;
 
         int r;
 
@@ -2557,6 +2558,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 case DNS_TYPE_SOA:
                 case DNS_TYPE_NS: {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds = NULL;
+                        const char *name;
 
                         /* For an unsigned SOA or NS, try to acquire
                          * the matching DS RR, as we are at a zone cut
@@ -2595,7 +2597,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (r > 0)
                                 continue;
 
-                        ds = dns_resource_key_new(rr->key->class, DNS_TYPE_DS, dns_resource_key_name(rr->key));
+                        name = dns_resource_key_name(rr->key);
+                        ds = dns_resource_key_new(rr->key->class, DNS_TYPE_DS, name);
                         if (!ds)
                                 return -ENOMEM;
 
@@ -2604,6 +2607,10 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         r = dns_transaction_request_dnssec_rr(t, ds);
                         if (r < 0)
                                 return r;
+
+                        /* Which is the closest DS we have already requested? */
+                        if (!next_ds || dns_name_endswith(name, next_ds))
+                                next_ds = name;
 
                         break;
                 }
@@ -2719,14 +2726,27 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                  * to see if that is signed. */
 
                 if (dns_transaction_key(t)->type == DNS_TYPE_DS) {
+                        const char *nearest;
+
                         r = dns_name_parent(&name);
-                        if (r > 0) {
+                        if (r < 0)
+                                return r;
+
+                        /* Lookup the nearest positive trust anchor. We expect we can still validate this
+                         * name, so we had better not skip any positive trust anchors. */
+                        r = dns_trust_anchor_lookup_nearest(&t->scope->manager->trust_anchor, name, &nearest);
+                        if (r < 0)
+                                return r;
+
+                        /* If we haven't skipped anything, we've already requested what we need. */
+                        if (next_ds && dns_name_endswith(next_ds, nearest))
+                                name = NULL;
+                        else {
                                 type = DNS_TYPE_SOA;
                                 log_debug("Requesting parent SOA (%s %s) to validate transaction %" PRIu16 " (%s, %s empty DS response).",
                                           special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), name, t->id,
                                           dns_resource_key_name(dns_transaction_key(t)), signed_status);
-                        } else
-                                name = NULL;
+                        }
 
                 } else if (IN_SET(dns_transaction_key(t)->type, DNS_TYPE_SOA, DNS_TYPE_NS)) {
 
