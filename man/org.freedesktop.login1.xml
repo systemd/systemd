@@ -593,7 +593,8 @@ node /org/freedesktop/login1 {
       used to lock access to the entire machine in one action. Similarly, <function>UnlockSessions()</function>
       asks all sessions to deactivate their screen locks.</para>
 
-      <para><function>SecureLockUsers()</function> activates secure locks on all users that support them.</para>
+      <para><function>SecureLockUsers()</function> activates secure locks on all users that support them.
+      This is usually invoked automatically shortly before system suspend.</para>
 
       <para><function>KillSession()</function> may be used to send a Unix signal to one or all processes of a
       session. As arguments it takes the session id, either the string <literal>leader</literal> or
