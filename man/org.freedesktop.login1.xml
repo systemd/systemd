@@ -1074,6 +1074,46 @@ node /org/freedesktop/login1/user/_1000 {
       <para><function>Terminate()</function> and <function>Kill()</function> work similarly to the
       <function>TerminateUser()</function> and <function>KillUser()</function> methods on the manager
       object.</para>
+
+      <para><function>SecureLock()</function> activates a secure lock of this user. What exactly defines a
+      secure lock (as distinct from a normal lock) is implementation-defined, but generally it means that
+      the user's sesison is frozen, sensitive data is wiped from memory, and files are made inaccessible.
+      Note that since the user's session is frozen, the lock screen that will unlock the user cannot run
+      inside of the session and cannot communicate with any processes running inside of the session.</para>
+
+      <para><function>DelaySecureLock()</function> temporarily delays secure locking for this user, to give
+      clients time to prepare for a locked and frozen session. It returns a file descriptor that delays secure
+      locking for as long as it is open, up to a configurable maximum timeout (see <varname>InhibitDelayMaxSec=</varname>
+      in <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+      Callers of this method should first subscribe to the <function>PrepareForSecureLock()</function> signal.
+      Clients should use this mechanism to wipe any sensitive data out of memory (e.g. encryption keys, login
+      tokens), in preparation for a secure lock. They should also close open FDs, if possible, to give the kernel
+      a better chance at wiping the file contents out of memory. Clients should also use this mechanism to stop
+      interacting with system DBus services; a frozen client cannot read messages out of the queue, and if the queue
+      fills up the DBus broker might conclude that the client is unresponsive and disconnect it from the bus. Thus,
+      clients should unsubscribe from signals that they are watching and try to finish as many outstanding method
+      calls as possible before closing the FD.</para>
+
+      <para><function>InhibitAutoSecureLock()</function> temporarily inhibits automatic secure locking during
+      system suspend for this user. It returns a file descriptor that inhibits this functionality for as long
+      as it is open. As mentioned above, securely locking a user requires a separate lock screen running outside
+      of the user context, and will freeze the user session. Thus, securely locking a user is a trade-off: it
+      increases security, but prevents the lock screen from displaying any user content, including notifications,
+      media controls, contact information for incoming phone calls, and much more. A client may use this method to
+      implement more complicated automatic locking behavior for home directories, in order to solve some of these
+      UX issues. For instance, the client may choose to securely lock the user and switch to the secure lock screen
+      only after the device is inactive for over 24 hours. Note that this inhibitor does not prevent clients from
+      calling <function>SecureLock()</function> directly, and in fact clients will need to do so as part of their
+      custom behavior.</para>
+
+      <para><function>EnableSecureLock()</function> enables secure lock functionality for this user,
+      by setting up the "back-end" that will actually implement the locking. This should generally be called
+      by the service that is providing the user record to the system, like <filename>systemd-homed</filename>
+      or similar. When a secure lock should be activated, <filename>systemd-logind</filename> will emit the
+      <function>TriggerSecureLock()</function> signal. In response, the back-end should do whatever it needs
+      to securely lock the user, and then close the FD returned by this method to signal that it is done. The
+      back-end can also close the FD early to signal that secure locking has become unavailable for this user.
+      </para>
     </refsect2>
 
     <refsect2>
@@ -1081,6 +1121,16 @@ node /org/freedesktop/login1/user/_1000 {
 
       <para>Whenever <varname>Sessions</varname> or the idle state changes,
       <function>PropertyChanged</function> signals are sent out to which clients can subscribe.</para>
+
+      <para><function>PrepareForSecureLock()</function> is emitted before a secure lock is activated, or when
+      secure locking becomes available. When the argument is true, clients holding file descriptors returned by
+      <function>DelaySecureLock()</function> should take whatever actions they need to and then close the FDs.
+      Also, when the argument is true, the secure lock screen should present itself to ensure that it is visible
+      even if the session fails to activate it manually. When the argument is false, clients can call
+      <function>DelaySecureLock()</function> again to re-acquire their delay FDs.</para>
+
+      <para><function>TriggerSecureLock()</function> should be used by the back-end implementation of
+      secure locking for this user. See <function>EnableSecureLock()</function> above for details.</para>
     </refsect2>
 
     <refsect2>
@@ -1125,6 +1175,9 @@ node /org/freedesktop/login1/user/_1000 {
       to the <interfacename>Manager</interfacename>'s properties, but specific for this user.</para>
 
       <para>The <varname>Linger</varname> property shows whether lingering is enabled for this user.</para>
+
+      <para>The <varname>CanSecureLock</varname> property shows whether this user currently supports secure
+      locking or not.</para>
     </refsect2>
   </refsect1>
 
