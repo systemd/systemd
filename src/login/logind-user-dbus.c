@@ -6,6 +6,7 @@
 #include "bus-get-properties.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
+#include "fd-util.h"
 #include "format-util.h"
 #include "logind-dbus.h"
 #include "logind-session-dbus.h"
@@ -186,6 +187,9 @@ static int property_get_linger(
         return sd_bus_message_append(reply, "b", r > 0);
 }
 
+static BUS_DEFINE_PROPERTY_GET(property_get_can_secure_lock, "b", User, user_can_secure_lock);
+static BUS_DEFINE_PROPERTY_GET(property_get_secure_locked, "b", User, user_is_secure_locked);
+
 int bus_user_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         User *u = ASSERT_PTR(userdata);
         int r;
@@ -244,6 +248,139 @@ int bus_user_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
                 return r;
 
         return sd_bus_reply_method_return(message, NULL);
+}
+
+static void secure_lock_cb(User *u, void *userdata, const sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = ASSERT_PTR(userdata);
+        int r;
+
+        if (error)
+                r = sd_bus_reply_method_error(message, error);
+        else
+                r = sd_bus_reply_method_return(message, NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to reply to SecureLock(): %m");
+}
+
+static int bus_user_method_secure_lock(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *message_ref = NULL;
+        User *u = ASSERT_PTR(userdata);
+        uint64_t flags;
+        int r;
+
+        assert(message);
+
+        if (!user_can_secure_lock(u))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "User doesn't support secure locking.");
+
+        r = sd_bus_message_read(message, "t", &flags);
+        if (r < 0)
+                return r;
+
+        if (flags != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
+
+        r = bus_verify_polkit_async_full(
+                        message,
+                        "org.freedesktop.login1.secure-lock-users",
+                        /* details= */ NULL,
+                        u->user_record->uid,
+                        /* flags= */ 0,
+                        &u->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        message_ref = sd_bus_message_ref(message);
+        r = user_secure_lock(u, secure_lock_cb, message_ref);
+        if (r < 0)
+                return r;
+        TAKE_PTR(message_ref);
+
+        return 1;
+}
+
+static int bus_user_method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_(inhibitor_freep) Inhibitor *i = NULL;
+        _cleanup_free_ char *id = NULL;
+        _cleanup_close_ int fifo_fd = -EBADF;
+        User *u = ASSERT_PTR(userdata);
+        const char *who, *why;
+        InhibitWhatUser what;
+        uint64_t what_raw;
+        bool delay;
+        int r;
+
+        assert(message);
+
+        r = sd_bus_message_read(message, "tssb", &what_raw, &who, &why, &delay);
+        if (r < 0)
+                return r;
+
+        if (!inhibit_what_user_is_valid(what_raw))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid what value.");
+        what = (InhibitWhatUser) what_raw;
+
+        if (delay && (what & ~(INHIBIT_SECURE_LOCK)))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Delay is only supported for SECURE_LOCK.");
+
+        r = bus_verify_polkit_async_full(
+                        message,
+                        "org.freedesktop.login1.inhibit-secure-lock",
+                        /* details= */ NULL,
+                        u->user_record->uid,
+                        /* flags= */ 0,
+                        &u->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD, &creds);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to query sender creds: %m");
+
+        do {
+                id = mfree(id);
+                if (asprintf(&id, "%" PRIu64, ++u->inhibit_counter) < 0)
+                        return -ENOMEM;
+        } while (hashmap_get(u->inhibitors, id));
+
+        r = inhibitor_new_user(u, id, &i);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create user inhibitor: %m");
+
+        i->what_user = what;
+        i->mode = delay ? INHIBIT_DELAY : INHIBIT_BLOCK;
+        i->why = strdup(why);
+        i->who = strdup(who);
+
+        if (!i->why || !i->who)
+                return -ENOMEM;
+
+        r = sd_bus_creds_get_euid(creds, &i->uid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get euid from sender creds: %m");
+
+        r = bus_creds_get_pidref(creds, &i->pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get pidref from sender creds: %m");
+
+        fifo_fd = inhibitor_create_fifo(i);
+        if (fifo_fd < 0)
+                return log_debug_errno(fifo_fd, "Failed to create FIFO for inhibitor: %m");
+
+        r = inhibitor_start(i);
+        if (r < 0)
+                return log_debug_errno(r, "failed to start inhibitor: %m");
+        TAKE_PTR(i);
+
+        return sd_bus_reply_method_return(message, "h", fifo_fd);
 }
 
 static int user_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
@@ -365,6 +502,8 @@ static const sd_bus_vtable user_vtable[] = {
         SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Linger", "b", property_get_linger, 0, 0),
+        SD_BUS_PROPERTY("CanSecureLock", "b", property_get_can_secure_lock, 0, 0),
+        SD_BUS_PROPERTY("SecureLocked", "b", property_get_secure_locked, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
         SD_BUS_METHOD("Terminate", NULL, NULL, bus_user_method_terminate, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("Kill",
@@ -372,6 +511,20 @@ static const sd_bus_vtable user_vtable[] = {
                                 SD_BUS_NO_RESULT,
                                 bus_user_method_kill,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_ARGS("SecureLock",
+                                SD_BUS_ARGS("t", flags),
+                                SD_BUS_NO_RESULT,
+                                bus_user_method_secure_lock,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("Inhibit",
+                                SD_BUS_ARGS("t", what, "s", who, "s", why, "b", delay),
+                                SD_BUS_RESULT("h", inhibitor_fd),
+                                bus_user_method_inhibit,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_SIGNAL("PrepareForSecureLock", NULL, 0),
+        SD_BUS_SIGNAL("SecureUnlocked", NULL, 0),
 
         SD_BUS_VTABLE_END
 };
@@ -416,4 +569,36 @@ int user_send_changed(User *u, const char *properties, ...) {
         l = strv_from_stdarg_alloca(properties);
 
         return sd_bus_emit_properties_changed_strv(u->manager->bus, p, "org.freedesktop.login1.User", l);
+}
+
+int user_send_prepare_for_secure_lock(User *u) {
+        _cleanup_free_ char *path = NULL;
+
+        assert(u);
+
+        path = user_bus_path(u);
+        if (!path)
+                return -ENOMEM;
+
+        return sd_bus_emit_signal(u->manager->bus,
+                                  path,
+                                  "org.freedesktop.login1.User",
+                                  "PrepareForSecureLock",
+                                  NULL);
+}
+
+int user_send_secure_unlocked(User *u) {
+        _cleanup_free_ char *path = NULL;
+
+        assert(u);
+
+        path = user_bus_path(u);
+        if (!path)
+                return -ENOMEM;
+
+        return sd_bus_emit_signal(u->manager->bus,
+                                  path,
+                                  "org.freedesktop.login1.User",
+                                  "SecureUnlocked",
+                                  NULL);
 }
