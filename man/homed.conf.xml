@@ -78,6 +78,15 @@
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>DelayLockMaxSec=</varname></term>
+        <listitem><para>Specifies the maximum amount of time a lock operation is delayed at the request of
+        a session process before the request is ignored and the home area is locked anyway. If not specified
+        defaults to 5 seconds.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
