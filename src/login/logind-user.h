@@ -4,6 +4,10 @@
 #include "list.h"
 #include "logind-forward.h"
 #include "time-util.h"
+#include "logind-inhibit.h"
+#include "sd-varlink.h"
+
+typedef void (*user_secure_lock_cb_t)(User *u, void *userdata, const sd_bus_error *error);
 
 typedef enum UserState {
         USER_OFFLINE,    /* Not logged in at all */
@@ -51,6 +55,13 @@ typedef struct User {
         /* Set up when the last session of the user logs out */
         sd_event_source *timer_event_source;
 
+        user_secure_lock_cb_t *secure_lock_callbacks;
+        void **secure_lock_userdata;
+        size_t n_pending_secure_locks;
+        sd_event_source *pending_secure_lock_timeout_source;
+        sd_varlink *pending_secure_lock_call;
+        bool secure_locked;
+
         UserGCMode gc_mode;
         bool in_gc_queue:1;
 
@@ -59,6 +70,7 @@ typedef struct User {
         bool stopping:1;      /* Whenever the user is being stopped or has been stopped. */
 
         Hashmap *inhibitors;
+        uint64_t inhibit_counter;
 
         LIST_HEAD(Session, sessions);
         LIST_FIELDS(User, gc_queue);
@@ -84,6 +96,13 @@ int user_kill(User *u, int signo);
 int user_check_linger_file(const User *u);
 void user_elect_display(User *u);
 void user_update_last_session_timer(User *u);
+
+void user_inhibitor_dropped(User *u, Inhibitor *i);
+
+bool user_can_secure_lock(User *u);
+bool user_is_secure_locked(User *u);
+void user_set_secure_locked(User *u, bool secure_locked);
+int user_secure_lock(User *u, user_secure_lock_cb_t cb, void *userdata);
 
 DECLARE_STRING_TABLE_LOOKUP(user_state, UserState);
 

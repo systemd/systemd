@@ -28,6 +28,8 @@ typedef struct Manager {
         Hashmap *buttons;
         Hashmap *brightness_writers;
 
+        Set *secure_lock_backends;
+
         LIST_HEAD(Seat, seat_gc_queue);
         LIST_HEAD(Session, session_gc_queue);
         LIST_HEAD(User, user_gc_queue);
@@ -38,6 +40,7 @@ typedef struct Manager {
         sd_device_monitor *device_button_monitor;
         sd_device_monitor *device_uaccess_monitor;
 
+        sd_event_source *secure_lock_backends_event_source;
         sd_event_source *console_active_event_source;
 
 #if ENABLE_UTMP
