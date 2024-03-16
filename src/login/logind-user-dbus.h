@@ -11,6 +11,8 @@ char *user_bus_path(User *s);
 
 int user_send_signal(User *u, bool new_user);
 int user_send_changed(User *u, const char *properties, ...) _sentinel_;
+int user_send_trigger_secure_lock(User *u);
+int user_send_prepare_for_secure_lock(User *u, bool locking);
 
 int bus_user_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_user_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error);
