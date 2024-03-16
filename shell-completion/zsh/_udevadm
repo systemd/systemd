@@ -167,7 +167,7 @@ _udevadm_commands(){
         'test-builtin:test a built-in command'
         'verify:verify udev rules files'
         'wait:wait for devices or device symlinks being created'
-        'lock:lock a block device and run a comand'
+        'lock:lock a block device and run a command'
     )
 
     if ((CURRENT == 1)); then
