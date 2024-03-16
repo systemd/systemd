@@ -1161,7 +1161,7 @@ int ndisc_parse_options(ICMP6Packet *packet, Set **ret_options) {
 int ndisc_option_get_mac(Set *options, uint8_t type, struct ether_addr *ret) {
         assert(IN_SET(type, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, SD_NDISC_OPTION_TARGET_LL_ADDRESS));
 
-        sd_ndisc_option *p = ndisc_option_get(options, type);
+        sd_ndisc_option *p = ndisc_option_get_by_type(options, type);
         if (!p)
                 return -ENODATA;
 

@@ -109,10 +109,12 @@ int ndisc_option_parse(
 
 int ndisc_parse_options(ICMP6Packet *p, Set **ret_options);
 
-static inline sd_ndisc_option* ndisc_option_get(Set *options, uint8_t type) {
-        return set_get(options, &(sd_ndisc_option) { .type = type, });
+static inline sd_ndisc_option* ndisc_option_get(Set *options, const sd_ndisc_option *p) {
+        return set_get(options, ASSERT_PTR(p));
 }
-
+static inline sd_ndisc_option* ndisc_option_get_by_type(Set *options, uint8_t type) {
+        return ndisc_option_get(options, &(const sd_ndisc_option) { .type = type });
+}
 int ndisc_option_get_mac(Set *options, uint8_t type, struct ether_addr *ret);
 
 int ndisc_option_add_raw(
