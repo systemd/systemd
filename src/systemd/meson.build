@@ -62,30 +62,29 @@ opts = [['c'],
         ['c', '-std=iso9899:1990'],
         ['c', '-std=iso9899:2011']]
 
-if cc.has_argument('-std=iso9899:2017')
-        opts += [['c', '-std=iso9899:2017']]
-endif
-
-if cc.has_argument('-std=c2x')
-        opts += [['c', '-std=c2x']]
-endif
+foreach opt : ['-std=iso9899:2017',
+               '-std=c23',
+              ]
+        if cc.has_argument(opt)
+                opts += [['c', opt]]
+        endif
+endforeach
 
 if cxx_cmd != ''
         opts += [['c++'],
                  ['c++', '-std=c++98'],
                  ['c++', '-std=c++11']]
-        if cxx.has_argument('-std=c++14')
-                opts += [['c++', '-std=c++14']]
-        endif
-        if cxx.has_argument('-std=c++17')
-                opts += [['c++', '-std=c++17']]
-        endif
-        if cxx.has_argument('-std=c++20')
-                opts += [['c++', '-std=c++20']]
-        endif
-        if cxx.has_argument('-std=c++23')
-                opts += [['c++', '-std=c++23']]
-        endif
+
+        foreach opt : ['-std=c++14',
+                       '-std=c++17',
+                       '-std=c++20',
+                       '-std=c++23',
+                       '-std=c++26',
+                      ]
+                if cxx.has_argument(opt)
+                        opts += [['c++', opt]]
+                endif
+        endforeach
 endif
 
 foreach header : _systemd_headers + _not_installed_headers + [libudev_h_path]
