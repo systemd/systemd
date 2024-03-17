@@ -1941,7 +1941,7 @@ static int install_info_symlink_alias(
         assert(config_path);
 
         STRV_FOREACH(s, info->aliases) {
-                _cleanup_free_ char *alias_path = NULL, *dst = NULL, *dst_updated = NULL;
+                _cleanup_free_ char *alias_path = NULL, *alias_target = NULL, *dst = NULL, *dst_updated = NULL;
 
                 r = install_name_printf(scope, info, *s, &dst);
                 if (r < 0) {
@@ -1960,6 +1960,17 @@ static int install_info_symlink_alias(
                 if (!alias_path)
                         return -ENOMEM;
 
+                r = in_search_path(lp, info->path);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        /* The unit path itself is outside of the search path. To
+                         * correctly apply the alias, we need the alias symlink to
+                         * point to the symlink that was created in the search path. */
+                        alias_target = path_join(config_path, info->name);
+                        if (!alias_target)
+                                return -ENOMEM;
+
                 bool broken;
                 r = chase(alias_path, lp->root_dir, CHASE_NONEXISTENT, /* ret_path = */ NULL, /* ret_fd = */ NULL);
                 if (r < 0 && r != -ENOENT) {
@@ -1968,7 +1979,7 @@ static int install_info_symlink_alias(
                 }
                 broken = r == 0; /* symlink target does not exist? */
 
-                RET_GATHER(ret, create_symlink(lp, info->path, alias_path, force || broken, changes, n_changes));
+                RET_GATHER(ret, create_symlink(lp, alias_target ?: info->path, alias_path, force || broken, changes, n_changes));
         }
 
         return ret;
