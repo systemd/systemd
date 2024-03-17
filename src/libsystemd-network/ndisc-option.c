@@ -1239,11 +1239,17 @@ int ndisc_send(int fd, const struct sockaddr_in6 *dst, const struct icmp6_hdr *h
         assert(dst);
         assert(hdr);
 
+        size_t n;
+        _cleanup_free_ sd_ndisc_option **list = NULL;
+        r = set_dump_sorted(options, (void***) &list, &n);
+        if (r < 0)
+                return r;
+
         struct iovec *iov = NULL;
         size_t n_iov = 0;
         CLEANUP_ARRAY(iov, n_iov, iovec_array_free);
 
-        iov = new(struct iovec, 1 + set_size(options));
+        iov = new(struct iovec, 1 + n);
         if (!iov)
                 return -ENOMEM;
 
@@ -1258,9 +1264,9 @@ int ndisc_send(int fd, const struct sockaddr_in6 *dst, const struct icmp6_hdr *h
 
         iov[n_iov++] = IOVEC_MAKE(TAKE_PTR(copy), hdr_size);
 
-        const sd_ndisc_option *option;
-        SET_FOREACH(option, options) {
+        FOREACH_ARRAY(p, list, n) {
                 _cleanup_free_ uint8_t *buf = NULL;
+                sd_ndisc_option *option = *p;
 
                 switch (option->type) {
                 case 0:
