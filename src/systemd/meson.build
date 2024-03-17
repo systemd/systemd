@@ -63,7 +63,7 @@ opts = [['c'],
         ['c', '-std=iso9899:2011']]
 
 foreach opt : ['-std=iso9899:2017',
-               '-std=c2x',
+               '-std=c23',
               ]
         if cc.has_argument(opt)
                 opts += [['c', opt]]
