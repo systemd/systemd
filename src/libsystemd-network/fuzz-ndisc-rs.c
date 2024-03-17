@@ -53,7 +53,7 @@ static void test_with_icmp6_packet(const uint8_t *data, size_t size) {
         if (ndisc_parse_options(packet, &options) < 0)
                 return;
 
-        if (ndisc_send(fd_pair[1], &dst, icmp6_packet_get_header(packet), options) < 0)
+        if (ndisc_send(fd_pair[1], &dst, icmp6_packet_get_header(packet), options, /* timestamp = */ 0) < 0)
                 return;
 
         packet = icmp6_packet_unref(packet);
