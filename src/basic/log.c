@@ -988,7 +988,7 @@ void log_assert_failed_return(
 
         PROTECT_ERRNO;
         log_assert(LOG_DEBUG, text, file, line, func,
-                   "Assertion '%s' failed at %s:%u, function %s(). Ignoring.");
+                   "Assertion '%s' failed at %s:%u, function %s(), ignoring.");
 }
 
 int log_oom_internal(int level, const char *file, int line, const char *func) {
@@ -1265,7 +1265,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
 
                 if (log_set_target_from_string(value) < 0)
-                        log_warning("Failed to parse log target '%s'. Ignoring.", value);
+                        log_warning("Failed to parse log target '%s', ignoring.", value);
 
         } else if (proc_cmdline_key_streq(key, "systemd.log_level")) {
 
@@ -1273,32 +1273,32 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
 
                 if (log_set_max_level_from_string(value) < 0)
-                        log_warning("Failed to parse log level '%s'. Ignoring.", value);
+                        log_warning("Failed to parse log level '%s', ignoring.", value);
 
         } else if (proc_cmdline_key_streq(key, "systemd.log_color")) {
 
                 if (log_show_color_from_string(value ?: "1") < 0)
-                        log_warning("Failed to parse log color setting '%s'. Ignoring.", value);
+                        log_warning("Failed to parse log color setting '%s', ignoring.", value);
 
         } else if (proc_cmdline_key_streq(key, "systemd.log_location")) {
 
                 if (log_show_location_from_string(value ?: "1") < 0)
-                        log_warning("Failed to parse log location setting '%s'. Ignoring.", value);
+                        log_warning("Failed to parse log location setting '%s', ignoring.", value);
 
         } else if (proc_cmdline_key_streq(key, "systemd.log_tid")) {
 
                 if (log_show_tid_from_string(value ?: "1") < 0)
-                        log_warning("Failed to parse log tid setting '%s'. Ignoring.", value);
+                        log_warning("Failed to parse log tid setting '%s', ignoring.", value);
 
         } else if (proc_cmdline_key_streq(key, "systemd.log_time")) {
 
                 if (log_show_time_from_string(value ?: "1") < 0)
-                        log_warning("Failed to parse log time setting '%s'. Ignoring.", value);
+                        log_warning("Failed to parse log time setting '%s', ignoring.", value);
 
         } else if (proc_cmdline_key_streq(key, "systemd.log_ratelimit_kmsg")) {
 
                 if (log_set_ratelimit_kmsg_from_string(value ?: "1") < 0)
-                        log_warning("Failed to parse log ratelimit kmsg boolean '%s'. Ignoring.", value);
+                        log_warning("Failed to parse log ratelimit kmsg boolean '%s', ignoring.", value);
         }
 
         return 0;
@@ -1318,31 +1318,31 @@ void log_parse_environment_variables(void) {
 
         e = getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
-                log_warning("Failed to parse log target '%s'. Ignoring.", e);
+                log_warning("Failed to parse log target '%s', ignoring.", e);
 
         e = getenv("SYSTEMD_LOG_LEVEL");
         if (e && log_set_max_level_from_string(e) < 0)
-                log_warning("Failed to parse log level '%s'. Ignoring.", e);
+                log_warning("Failed to parse log level '%s', ignoring.", e);
 
         e = getenv("SYSTEMD_LOG_COLOR");
         if (e && log_show_color_from_string(e) < 0)
-                log_warning("Failed to parse log color '%s'. Ignoring.", e);
+                log_warning("Failed to parse log color '%s', ignoring.", e);
 
         e = getenv("SYSTEMD_LOG_LOCATION");
         if (e && log_show_location_from_string(e) < 0)
-                log_warning("Failed to parse log location '%s'. Ignoring.", e);
+                log_warning("Failed to parse log location '%s', ignoring.", e);
 
         e = getenv("SYSTEMD_LOG_TIME");
         if (e && log_show_time_from_string(e) < 0)
-                log_warning("Failed to parse log time '%s'. Ignoring.", e);
+                log_warning("Failed to parse log time '%s', ignoring.", e);
 
         e = getenv("SYSTEMD_LOG_TID");
         if (e && log_show_tid_from_string(e) < 0)
-                log_warning("Failed to parse log tid '%s'. Ignoring.", e);
+                log_warning("Failed to parse log tid '%s', ignoring.", e);
 
         e = getenv("SYSTEMD_LOG_RATELIMIT_KMSG");
         if (e && log_set_ratelimit_kmsg_from_string(e) < 0)
-                log_warning("Failed to parse log ratelimit kmsg boolean '%s'. Ignoring.", e);
+                log_warning("Failed to parse log ratelimit kmsg boolean '%s', ignoring.", e);
 }
 
 void log_parse_environment(void) {
