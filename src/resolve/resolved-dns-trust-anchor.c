@@ -592,6 +592,35 @@ int dns_trust_anchor_lookup_negative(DnsTrustAnchor *d, const char *name) {
         return false;
 }
 
+/* Find the nearest positive trust anchor for the given name. We musn't skip these when validating an insecure
+ * delegation. */
+int dns_trust_anchor_lookup_nearest(DnsTrustAnchor *d, const char *name, const char **ret) {
+        int r;
+
+        assert(d);
+        assert(name);
+        assert(ret);
+
+        for (;;) {
+                const DnsResourceKey ds = DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_DS, name);
+                if (hashmap_contains(d->positive_by_key, &ds))
+                        break;
+
+                const DnsResourceKey dnskey = DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_DNSKEY, name);
+                if (hashmap_contains(d->positive_by_key, &dnskey))
+                        break;
+
+                r = dns_name_parent(&name);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+        }
+
+        *ret = name;
+        return 0;
+}
+
 static int dns_trust_anchor_revoked_put(DnsTrustAnchor *d, DnsResourceRecord *rr) {
         int r;
 
