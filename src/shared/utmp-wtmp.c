@@ -179,6 +179,7 @@ int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line
         int r;
 
         assert(id);
+        assert(ut_type != USER_PROCESS || user);
 
         init_timestamp(&store, 0);
 

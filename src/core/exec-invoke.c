@@ -41,6 +41,7 @@
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "iovec-util.h"
+#include "journal-send.h"
 #include "missing_ioprio.h"
 #include "missing_prctl.h"
 #include "missing_securebits.h"
@@ -65,46 +66,6 @@
 #define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)
 
 #define SNDBUF_SIZE (8*1024*1024)
-
-static int shift_fds(int fds[], size_t n_fds) {
-        if (n_fds <= 0)
-                return 0;
-
-        /* Modifies the fds array! (sorts it) */
-
-        assert(fds);
-
-        for (int start = 0;;) {
-                int restart_from = -1;
-
-                for (int i = start; i < (int) n_fds; i++) {
-                        int nfd;
-
-                        /* Already at right index? */
-                        if (fds[i] == i+3)
-                                continue;
-
-                        nfd = fcntl(fds[i], F_DUPFD, i + 3);
-                        if (nfd < 0)
-                                return -errno;
-
-                        safe_close(fds[i]);
-                        fds[i] = nfd;
-
-                        /* Hmm, the fd we wanted isn't free? Then
-                         * let's remember that and try again from here */
-                        if (nfd != i+3 && restart_from < 0)
-                                restart_from = i;
-                }
-
-                if (restart_from < 0)
-                        break;
-
-                start = restart_from;
-        }
-
-        return 0;
-}
 
 static int flag_fds(
                 const int fds[],
@@ -199,9 +160,11 @@ static int connect_journal_socket(
         const char *j;
         int r;
 
-        j = log_namespace ?
-                strjoina("/run/systemd/journal.", log_namespace, "/stdout") :
-                "/run/systemd/journal/stdout";
+        assert(fd >= 0);
+
+        j = journal_stream_path(log_namespace);
+        if (!j)
+                return -EINVAL;
 
         if (gid_is_valid(gid)) {
                 oldgid = getgid();
@@ -450,7 +413,7 @@ static int setup_input(
         case EXEC_INPUT_DATA: {
                 int fd;
 
-                fd = acquire_data_fd(context->stdin_data, context->stdin_data_size, 0);
+                fd = acquire_data_fd_full(context->stdin_data, context->stdin_data_size, /* flags = */ 0);
                 if (fd < 0)
                         return fd;
 
@@ -1210,7 +1173,7 @@ static int setup_pam(
 
         /* Block SIGTERM, so that we know that it won't get lost in the child */
 
-        assert_se(sigprocmask_many(SIG_BLOCK, &old_ss, SIGTERM, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, &old_ss, SIGTERM) >= 0);
 
         parent_pid = getpid_cached();
 
@@ -4451,6 +4414,16 @@ int exec_invoke(
 
 #if ENABLE_UTMP
         if (context->utmp_id) {
+                _cleanup_free_ char *username_alloc = NULL;
+
+                if (!username && context->utmp_mode == EXEC_UTMP_USER) {
+                        username_alloc = uid_to_name(uid_is_valid(uid) ? uid : saved_uid);
+                        if (!username_alloc) {
+                                *exit_status = EXIT_USER;
+                                return log_oom();
+                        }
+                }
+
                 const char *line = context->tty_path ?
                         (path_startswith(context->tty_path, "/dev/") ?: context->tty_path) :
                         NULL;
@@ -4459,7 +4432,7 @@ int exec_invoke(
                                       context->utmp_mode == EXEC_UTMP_INIT  ? INIT_PROCESS :
                                       context->utmp_mode == EXEC_UTMP_LOGIN ? LOGIN_PROCESS :
                                       USER_PROCESS,
-                                      username);
+                                      username ?: username_alloc);
         }
 #endif
 
@@ -4763,7 +4736,7 @@ int exec_invoke(
         }
 
         if (context->memory_ksm >= 0)
-                if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm) < 0) {
+                if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm, 0, 0, 0) < 0) {
                         if (ERRNO_IS_NOT_SUPPORTED(errno))
                                 log_exec_debug_errno(context,
                                                      params,
@@ -4822,26 +4795,16 @@ int exec_invoke(
         _cleanup_close_ int executable_fd = -EBADF;
         r = find_executable_full(command->path, /* root= */ NULL, context->exec_search_path, false, &executable, &executable_fd);
         if (r < 0) {
-                if (r != -ENOMEM && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
-                        log_exec_struct_errno(context, params, LOG_INFO, r,
-                                              "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                              LOG_EXEC_INVOCATION_ID(params),
-                                              LOG_EXEC_MESSAGE(params,
-                                                               "Executable %s missing, skipping: %m",
-                                                               command->path),
-                                              "EXECUTABLE=%s", command->path);
-                        *exit_status = EXIT_SUCCESS;
-                        return 0;
-                }
-
                 *exit_status = EXIT_EXEC;
-                return log_exec_struct_errno(context, params, LOG_INFO, r,
-                                             "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                             LOG_EXEC_INVOCATION_ID(params),
-                                             LOG_EXEC_MESSAGE(params,
-                                                              "Failed to locate executable %s: %m",
-                                                              command->path),
-                                             "EXECUTABLE=%s", command->path);
+                log_exec_struct_errno(context, params, LOG_NOTICE, r,
+                                      "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
+                                      LOG_EXEC_MESSAGE(params,
+                                                       "Unable to locate executable '%s': %m",
+                                                       command->path),
+                                      "EXECUTABLE=%s", command->path);
+                /* If the error will be ignored by manager, tune down the log level here. Missing executable
+                 * is very much expected in this case. */
+                return r != -ENOMEM && FLAGS_SET(command->flags, EXEC_COMMAND_IGNORE_FAILURE) ? 1 : r;
         }
 
         r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &executable_fd);
@@ -4890,7 +4853,7 @@ int exec_invoke(
 
         r = close_all_fds(keep_fds, n_keep_fds);
         if (r >= 0)
-                r = shift_fds(params->fds, n_fds);
+                r = pack_fds(params->fds, n_fds);
         if (r >= 0)
                 r = flag_fds(params->fds, n_socket_fds, n_fds, context->non_blocking);
         if (r < 0) {

@@ -458,6 +458,20 @@ static int process_locale(int rfd) {
         return 1;
 }
 
+static bool keymap_exists_bool(const char *name) {
+        return keymap_exists(name) > 0;
+}
+
+static typeof(&keymap_is_valid) determine_keymap_validity_func(int rfd) {
+        int r;
+
+        r = dir_fd_is_root(rfd);
+        if (r < 0)
+                log_debug_errno(r, "Unable to determine if operating on host root directory, assuming we are: %m");
+
+        return r != 0 ? keymap_exists_bool : keymap_is_valid;
+}
+
 static int prompt_keymap(int rfd) {
         _cleanup_strv_free_ char **kmaps = NULL;
         int r;
@@ -489,7 +503,7 @@ static int prompt_keymap(int rfd) {
         print_welcome(rfd);
 
         return prompt_loop("Please enter system keymap name or number",
-                           kmaps, 60, keymap_is_valid, &arg_keymap);
+                           kmaps, 60, determine_keymap_validity_func(rfd), &arg_keymap);
 }
 
 static int process_keymap(int rfd) {
@@ -783,7 +797,11 @@ static int prompt_root_password(int rfd) {
                 _cleanup_strv_free_erase_ char **a = NULL, **b = NULL;
                 _cleanup_free_ char *error = NULL;
 
-                r = ask_password_tty(-1, msg1, NULL, 0, 0, NULL, &a);
+                AskPasswordRequest req = {
+                        .message = msg1,
+                };
+
+                r = ask_password_tty(-EBADF, &req, /* until= */ 0, /* flags= */ 0, /* flag_file= */ NULL, &a);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
                 if (strv_length(a) != 1)
@@ -803,7 +821,9 @@ static int prompt_root_password(int rfd) {
                 else if (r == 0)
                         log_warning("Password is weak, accepting anyway: %s", error);
 
-                r = ask_password_tty(-1, msg2, NULL, 0, 0, NULL, &b);
+                req.message = msg2;
+
+                r = ask_password_tty(-EBADF, &req, /* until= */ 0, /* flags= */ 0, /* flag_file= */ NULL, &b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
                 if (strv_length(b) != 1)
@@ -1046,10 +1066,8 @@ static int process_root_account(int rfd) {
 
         FOREACH_STRING(s, "passwd", "shadow") {
                 r = verify_regular_at(pfd, s, /* follow = */ false);
-                if (IN_SET(r, -EISDIR, -ELOOP, -EBADFD))
-                        return log_error_errno(r, "/etc/%s is not a regular file", s);
                 if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to check whether /etc/%s is a regular file: %m", s);
+                        return log_error_errno(r, "Verification of /etc/%s being regular file failed: %m", s);
 
                 r = should_configure(pfd, s);
                 if (r < 0)
@@ -1674,7 +1692,8 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_VALIDATE_OS |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                                 DISSECT_IMAGE_FSCK |
-                                DISSECT_IMAGE_GROWFS,
+                                DISSECT_IMAGE_GROWFS |
+                                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
                                 &mounted_dir,
                                 &rfd,
                                 &loop_device);
@@ -1695,6 +1714,8 @@ static int run(int argc, char *argv[]) {
         /* We check these conditions here instead of in parse_argv() so that we can take the root directory
          * into account. */
 
+        if (arg_keymap && !determine_keymap_validity_func(rfd)(arg_keymap))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Keymap %s is not installed.", arg_keymap);
         if (arg_locale && !locale_is_ok(rfd, arg_locale))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale);
         if (arg_locale_messages && !locale_is_ok(rfd, arg_locale_messages))

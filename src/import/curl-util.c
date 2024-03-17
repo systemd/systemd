@@ -10,20 +10,28 @@
 #include "version.h"
 
 static void curl_glue_check_finished(CurlGlue *g) {
-        CURLMsg *msg;
-        int k = 0;
+        int r;
 
         assert(g);
 
+        /* sd_event_get_exit_code() returns -ENODATA if no exit was scheduled yet */
+        r = sd_event_get_exit_code(g->event, /* ret_code= */ NULL);
+        if (r >= 0)
+                return; /* exit scheduled? Then don't process this anymore */
+        if (r != -ENODATA)
+                log_debug_errno(r, "Unexpected error while checking for event loop exit code, ignoring: %m");
+
+        CURLMsg *msg;
+        int k = 0;
         msg = curl_multi_info_read(g->curl, &k);
         if (!msg)
                 return;
 
-        if (msg->msg != CURLMSG_DONE)
-                return;
-
-        if (g->on_finished)
+        if (msg->msg == CURLMSG_DONE && g->on_finished)
                 g->on_finished(g, msg->easy_handle, msg->data.result);
+
+        /* This is a queue, process another item soon, but do so in a later event loop iteration. */
+        (void) sd_event_source_set_enabled(g->defer, SD_EVENT_ONESHOT);
 }
 
 static int curl_glue_on_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -153,6 +161,15 @@ static int curl_glue_timer_callback(CURLM *curl, long timeout_ms, void *userdata
         return 0;
 }
 
+static int curl_glue_on_defer(sd_event_source *s, void *userdata) {
+        CurlGlue *g = ASSERT_PTR(userdata);
+
+        assert(s);
+
+        curl_glue_check_finished(g);
+        return 0;
+}
+
 CurlGlue *curl_glue_unref(CurlGlue *g) {
         sd_event_source *io;
 
@@ -167,7 +184,8 @@ CurlGlue *curl_glue_unref(CurlGlue *g) {
 
         hashmap_free(g->ios);
 
-        sd_event_source_unref(g->timer);
+        sd_event_source_disable_unref(g->timer);
+        sd_event_source_disable_unref(g->defer);
         sd_event_unref(g->event);
         return mfree(g);
 }
@@ -210,6 +228,12 @@ int curl_glue_new(CurlGlue **glue, sd_event *event) {
 
         if (curl_multi_setopt(g->curl, CURLMOPT_TIMERFUNCTION, curl_glue_timer_callback) != CURLM_OK)
                 return -EINVAL;
+
+        r = sd_event_add_defer(g->event, &g->defer, curl_glue_on_defer, g);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(g->defer, "curl-defer");
 
         *glue = TAKE_PTR(g);
 

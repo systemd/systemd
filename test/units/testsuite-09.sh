@@ -3,7 +3,7 @@
 set -eux
 set -o pipefail
 
-NUM_REBOOT=4
+export NUM_REBOOT=4
 
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh

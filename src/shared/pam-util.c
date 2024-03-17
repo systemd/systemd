@@ -96,7 +96,9 @@ static void pam_bus_data_destroy(pam_handle_t *handle, void *data, int error_sta
         if (FLAGS_SET(error_status, PAM_DATA_SILENT) &&
             d->bus && bus_origin_changed(d->bus))
                 /* Please adjust test/units/end.sh when updating the log message. */
-                pam_syslog(handle, LOG_DEBUG, "Attempted to close sd-bus after fork whose connection is opened before the fork, this should not happen.");
+                pam_syslog(handle, LOG_DEBUG,
+                           "Warning: cannot close sd-bus connection (%s) after fork when it was opened before the fork.",
+                           strna(d->cache_id));
 
         pam_bus_data_free(data);
 }
@@ -177,6 +179,8 @@ int pam_acquire_bus_connection(
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set PAM bus data: @PAMERR@");
 
+        pam_syslog(handle, LOG_DEBUG, "New sd-bus connection (%s) opened.", d->cache_id);
+
 success:
         *ret_bus = sd_bus_ref(d->bus);
 
@@ -202,6 +206,32 @@ int pam_release_bus_connection(pam_handle_t *handle, const char *module_name) {
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to release PAM user record data: @PAMERR@");
 
+        return PAM_SUCCESS;
+}
+
+int pam_get_bus_data(
+                pam_handle_t *handle,
+                const char *module_name,
+                PamBusData **ret) {
+
+        PamBusData *d = NULL;
+        _cleanup_free_ char *cache_id = NULL;
+        int r;
+
+        assert(handle);
+        assert(module_name);
+        assert(ret);
+
+        cache_id = pam_make_bus_cache_id(module_name);
+        if (!cache_id)
+                return pam_log_oom(handle);
+
+        /* We cache the bus connection so that we can share it between the session and the authentication hooks */
+        r = pam_get_data(handle, cache_id, (const void**) &d);
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get bus connection: @PAMERR@");
+
+        *ret = d;
         return PAM_SUCCESS;
 }
 

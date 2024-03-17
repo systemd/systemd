@@ -77,3 +77,5 @@ int bus_property_get_string_set(sd_bus *bus, const char *path, const char *inter
 
 int bus_creds_get_pidref(sd_bus_creds *c, PidRef *ret);
 int bus_query_sender_pidref(sd_bus_message *m, PidRef *ret);
+
+int bus_message_read_id128(sd_bus_message *m, sd_id128_t *ret);

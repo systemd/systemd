@@ -39,6 +39,7 @@ jobs:
       security-events: write
 
     steps:
+      - run: sudo sysctl -w vm.mmap_rnd_bits=28
       - name: Build Fuzzers
         id: build
         uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@master
@@ -60,14 +61,14 @@ jobs:
           sanitizer: ${{ matrix.sanitizer }}
           output-sarif: true
       - name: Upload Crash
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3
         if: failure() && steps.build.outcome == 'success'
         with:
           name: ${{ matrix.sanitizer }}-${{ matrix.architecture }}-artifacts
           path: ./out/artifacts
       - name: Upload Sarif
         if: always() && steps.build.outcome == 'success'
-        uses: github/codeql-action/upload-sarif@012739e5082ff0c22ca6d6ab32e07c36df03c4a4
+        uses: github/codeql-action/upload-sarif@3ab4101902695724f9365a384f86c1074d94e18c
         with:
           # Path to SARIF file relative to the root of the repository
           sarif_file: cifuzz-sarif/results.sarif

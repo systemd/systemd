@@ -26,6 +26,7 @@ int route_metric_copy(const RouteMetric *src, RouteMetric *dest);
 
 void route_metric_hash_func(const RouteMetric *metric, struct siphash *state);
 int route_metric_compare_func(const RouteMetric *a, const RouteMetric *b);
+bool route_metric_can_update(const RouteMetric *a, const RouteMetric *b, bool expiration_by_kernel);
 
 int route_metric_set_full(RouteMetric *metric, uint16_t attr, uint32_t value, bool force);
 static inline int route_metric_set(RouteMetric *metric, uint16_t attr, uint32_t value) {

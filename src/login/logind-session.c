@@ -46,13 +46,13 @@
 static void session_remove_fifo(Session *s);
 static void session_restore_vt(Session *s);
 
-int session_new(Session **ret, Manager *m, const char *id) {
+int session_new(Manager *m, const char *id, Session **ret) {
         _cleanup_(session_freep) Session *s = NULL;
         int r;
 
-        assert(ret);
         assert(m);
         assert(id);
+        assert(ret);
 
         if (!session_id_valid(id))
                 return -EINVAL;
@@ -63,18 +63,16 @@ int session_new(Session **ret, Manager *m, const char *id) {
 
         *s = (Session) {
                 .manager = m,
+                .id = strdup(id),
+                .state_file = path_join("/run/systemd/sessions/", id),
                 .fifo_fd = -EBADF,
                 .vtfd = -EBADF,
                 .audit_id = AUDIT_SESSION_INVALID,
                 .tty_validity = _TTY_VALIDITY_INVALID,
                 .leader = PIDREF_NULL,
         };
-
-        s->state_file = path_join("/run/systemd/sessions", id);
-        if (!s->state_file)
+        if (!s->id || !s->state_file)
                 return -ENOMEM;
-
-        s->id = basename(s->state_file);
 
         s->devices = hashmap_new(&devt_hash_ops);
         if (!s->devices)
@@ -146,10 +144,12 @@ Session* session_free(Session *s) {
         if (!s)
                 return NULL;
 
+        sd_event_source_unref(s->stop_on_idle_event_source);
+
         if (s->in_gc_queue)
                 LIST_REMOVE(gc_queue, s->manager->session_gc_queue, s);
 
-        s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        sd_event_source_unref(s->timer_event_source);
 
         session_drop_controller(s);
 
@@ -187,6 +187,7 @@ Session* session_free(Session *s) {
         session_reset_leader(s, /* keep_fdstore = */ true);
 
         sd_bus_message_unref(s->create_message);
+        sd_bus_message_unref(s->upgrade_message);
 
         free(s->tty);
         free(s->display);
@@ -202,10 +203,9 @@ Session* session_free(Session *s) {
 
         /* Note that we remove neither the state file nor the fifo path here, since we want both to survive
          * daemon restarts */
-        free(s->state_file);
         free(s->fifo_path);
-
-        sd_event_source_unref(s->stop_on_idle_event_source);
+        free(s->state_file);
+        free(s->id);
 
         return mfree(s);
 }
@@ -717,6 +717,8 @@ int session_activate(Session *s) {
 }
 
 static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_error *error) {
+        _cleanup_free_ char *scope = NULL;
+        const char *description;
         int r;
 
         assert(s);
@@ -725,59 +727,45 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
         if (!SESSION_CLASS_WANTS_SCOPE(s->class))
                 return 0;
 
-        if (!s->scope) {
-                _cleanup_strv_free_ char **wants = NULL, **after = NULL;
-                _cleanup_free_ char *scope = NULL;
-                const char *description;
+        if (s->scope)
+                goto finish;
 
-                s->scope_job = mfree(s->scope_job);
+        s->scope_job = mfree(s->scope_job);
 
-                scope = strjoin("session-", s->id, ".scope");
-                if (!scope)
-                        return log_oom();
+        scope = strjoin("session-", s->id, ".scope");
+        if (!scope)
+                return log_oom();
 
-                description = strjoina("Session ", s->id, " of User ", s->user->user_record->user_name);
+        description = strjoina("Session ", s->id, " of User ", s->user->user_record->user_name);
 
-                /* These two have StopWhenUnneeded= set, hence add a dep towards them */
-                wants = strv_new(s->user->runtime_dir_service,
-                                 SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) ? s->user->service : STRV_IGNORE);
-                if (!wants)
-                        return log_oom();
+        r = manager_start_scope(
+                        s->manager,
+                        scope,
+                        &s->leader,
+                        s->user->slice,
+                        description,
+                        /* These should have been pulled in explicitly in user_start(). Just to be sure. */
+                        STRV_MAKE_CONST(s->user->runtime_dir_unit,
+                                        SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) ? s->user->service_manager_unit : NULL),
+                        /* We usually want to order session scopes after systemd-user-sessions.service
+                         * since the unit is used as login session barrier for unprivileged users. However
+                         * the barrier doesn't apply for root as sysadmin should always be able to log in
+                         * (and without waiting for any timeout to expire) in case something goes wrong
+                         * during the boot process. */
+                        STRV_MAKE_CONST("systemd-logind.service",
+                                        SESSION_CLASS_IS_EARLY(s->class) ? NULL : "systemd-user-sessions.service"),
+                        user_record_home_directory(s->user->user_record),
+                        properties,
+                        error,
+                        &s->scope_job);
+        if (r < 0)
+                return log_error_errno(r, "Failed to start session scope %s: %s",
+                                       scope, bus_error_message(error, r));
 
-                /* We usually want to order session scopes after systemd-user-sessions.service since the
-                 * latter unit is used as login session barrier for unprivileged users. However the barrier
-                 * doesn't apply for root as sysadmin should always be able to log in (and without waiting
-                 * for any timeout to expire) in case something goes wrong during the boot process. Since
-                 * ordering after systemd-user-sessions.service and the user instance is optional we make use
-                 * of STRV_IGNORE with strv_new() to skip these order constraints when needed. */
-                after = strv_new("systemd-logind.service",
-                                 s->user->runtime_dir_service,
-                                 SESSION_CLASS_IS_EARLY(s->class) ? STRV_IGNORE : "systemd-user-sessions.service",
-                                 s->user->service);
-                if (!after)
-                        return log_oom();
+        s->scope = TAKE_PTR(scope);
 
-                r = manager_start_scope(
-                                s->manager,
-                                scope,
-                                &s->leader,
-                                s->user->slice,
-                                description,
-                                wants,
-                                after,
-                                user_record_home_directory(s->user->user_record),
-                                properties,
-                                error,
-                                &s->scope_job);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to start session scope %s: %s",
-                                               scope, bus_error_message(error, r));
-
-                s->scope = TAKE_PTR(scope);
-        }
-
+finish:
         (void) hashmap_put(s->manager->session_units, s->scope, s);
-
         return 0;
 }
 
@@ -1208,6 +1196,20 @@ void session_set_type(Session *s, SessionType t) {
         s->type = t;
         (void) session_save(s);
         (void) session_send_changed(s, "Type", NULL);
+}
+
+void session_set_class(Session *s, SessionClass c) {
+        assert(s);
+
+        if (s->class == c)
+                return;
+
+        s->class = c;
+        (void) session_save(s);
+        (void) session_send_changed(s, "Class", NULL);
+
+        /* This class change might mean we need the per-user session manager now. Try to start it. */
+        (void) user_start_service_manager(s->user);
 }
 
 int session_set_display(Session *s, const char *display) {
@@ -1648,6 +1650,7 @@ DEFINE_STRING_TABLE_LOOKUP(session_type, SessionType);
 static const char* const session_class_table[_SESSION_CLASS_MAX] = {
         [SESSION_USER]              = "user",
         [SESSION_USER_EARLY]        = "user-early",
+        [SESSION_USER_INCOMPLETE]   = "user-incomplete",
         [SESSION_GREETER]           = "greeter",
         [SESSION_LOCK_SCREEN]       = "lock-screen",
         [SESSION_BACKGROUND]        = "background",

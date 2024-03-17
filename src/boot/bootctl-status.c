@@ -92,6 +92,7 @@ static int status_entries(
 
                 r = show_boot_entry(
                                 boot_config_default_entry(config),
+                                &config->global_addons,
                                 /* show_as_default= */ false,
                                 /* show_as_selected= */ false,
                                 /* show_discovered= */ false);
@@ -317,7 +318,13 @@ int verb_status(int argc, char *argv[], void *userdata) {
         dev_t esp_devid = 0, xbootldr_devid = 0;
         int r, k;
 
-        r = acquire_esp(/* unprivileged_mode= */ -1, /* graceful= */ false, NULL, NULL, NULL, &esp_uuid, &esp_devid);
+        r = acquire_esp(/* unprivileged_mode= */ -1,
+                        /* graceful= */ false,
+                        /* ret_part= */ NULL,
+                        /* ret_pstart= */ NULL,
+                        /* ret_psize= */ NULL,
+                        &esp_uuid,
+                        &esp_devid);
         if (arg_print_esp_path) {
                 if (r == -EACCES) /* If we couldn't acquire the ESP path, log about access errors (which is the only
                                    * error the find_esp_and_warn() won't log on its own) */
@@ -329,7 +336,10 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        r = acquire_xbootldr(/* unprivileged_mode= */ -1, &xbootldr_uuid, &xbootldr_devid);
+        r = acquire_xbootldr(
+                        /* unprivileged_mode= */ -1,
+                        &xbootldr_uuid,
+                        &xbootldr_devid);
         if (arg_print_dollar_boot_path) {
                 if (r == -EACCES)
                         return log_error_errno(r, "Failed to determine XBOOTLDR partition: %m");
@@ -823,4 +833,59 @@ int verb_list(int argc, char *argv[], void *userdata) {
 
 int verb_unlink(int argc, char *argv[], void *userdata) {
         return verb_list(argc, argv, userdata);
+}
+
+int vl_method_list_boot_entries(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
+        dev_t esp_devid = 0, xbootldr_devid = 0;
+        int r;
+
+        assert(link);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        r = acquire_esp(/* unprivileged_mode= */ false,
+                        /* graceful= */ false,
+                        /* ret_part= */ NULL,
+                        /* ret_pstart= */ NULL,
+                        /* ret_psize= */ NULL,
+                        /* ret_uuid=*/ NULL,
+                        &esp_devid);
+        if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
+                return log_error_errno(r, "Failed to determine ESP location: %m");
+        if (r < 0)
+                return r;
+
+        r = acquire_xbootldr(
+                        /* unprivileged_mode= */ false,
+                        /* ret_uuid= */ NULL,
+                        &xbootldr_devid);
+        if (r == -EACCES)
+                return log_error_errno(r, "Failed to determine XBOOTLDR partition: %m");
+        if (r < 0)
+                return r;
+
+        r = boot_config_load_and_select(&config, arg_esp_path, esp_devid, arg_xbootldr_path, xbootldr_devid);
+        if (r < 0)
+                return r;
+
+        _cleanup_(json_variant_unrefp) JsonVariant *previous = NULL;
+        for (size_t i = 0; i < config.n_entries; i++) {
+                if (previous) {
+                        r = varlink_notifyb(link, JSON_BUILD_OBJECT(
+                                                            JSON_BUILD_PAIR_VARIANT("entry", previous)));
+                        if (r < 0)
+                                return r;
+
+                        previous = json_variant_unref(previous);
+                }
+
+                r = boot_entry_to_json(&config, i, &previous);
+                if (r < 0)
+                        return r;
+        }
+
+        return varlink_replyb(link, JSON_BUILD_OBJECT(
+                                              JSON_BUILD_PAIR_CONDITION(previous, "entry", JSON_BUILD_VARIANT(previous))));
 }

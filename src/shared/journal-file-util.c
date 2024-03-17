@@ -210,11 +210,16 @@ static void journal_file_set_offline_internal(JournalFile *f) {
 
                                 log_debug_errno(r, "Failed to re-enable copy-on-write for %s: %m, rewriting file", f->path);
 
-                                r = copy_file_atomic_full(FORMAT_PROC_FD_PATH(f->fd), f->path, f->mode,
-                                                          0,
-                                                          FS_NOCOW_FL,
-                                                          COPY_REPLACE | COPY_FSYNC | COPY_HOLES | COPY_ALL_XATTRS,
-                                                          NULL, NULL);
+                                /* Here, setting COPY_VERIFY_LINKED flag is crucial. Otherwise, a broken
+                                 * journal file may be created, if journal_directory_vacuum() ->
+                                 * unlinkat_deallocate() is called in the main thread while this thread is
+                                 * copying the file. See issue #24150 and #31222. */
+                                r = copy_file_atomic_at_full(
+                                                f->fd, NULL, AT_FDCWD, f->path, f->mode,
+                                                0,
+                                                FS_NOCOW_FL,
+                                                COPY_REPLACE | COPY_FSYNC | COPY_HOLES | COPY_ALL_XATTRS | COPY_VERIFY_LINKED,
+                                                NULL, NULL);
                                 if (r < 0) {
                                         log_debug_errno(r, "Failed to rewrite %s: %m", f->path);
                                         continue;
@@ -399,7 +404,7 @@ JournalFile* journal_file_offline_close(JournalFile *f) {
 
         if (sd_event_source_get_enabled(f->post_change_timer, NULL) > 0)
                 journal_file_post_change(f);
-        sd_event_source_disable_unref(f->post_change_timer);
+        f->post_change_timer = sd_event_source_disable_unref(f->post_change_timer);
 
         journal_file_set_offline(f, true);
 
@@ -446,7 +451,7 @@ int journal_file_rotate(
         set_clear_with_destructor(deferred_closes, journal_file_offline_close);
 
         r = journal_file_open(
-                        /* fd= */ -1,
+                        /* fd= */ -EBADF,
                         path,
                         (*f)->open_flags,
                         file_flags,
@@ -471,14 +476,13 @@ int journal_file_open_reliably(
                 uint64_t compress_threshold_bytes,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
-                JournalFile *template,
                 JournalFile **ret) {
 
         _cleanup_(journal_file_offline_closep) JournalFile *old_file = NULL;
         int r;
 
         r = journal_file_open(
-                        /* fd= */ -1,
+                        /* fd= */ -EBADF,
                         fname,
                         open_flags,
                         file_flags,
@@ -486,7 +490,7 @@ int journal_file_open_reliably(
                         compress_threshold_bytes,
                         metrics,
                         mmap_cache,
-                        template,
+                        /* template = */ NULL,
                         ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* Corrupted */
@@ -512,23 +516,19 @@ int journal_file_open_reliably(
         /* The file is corrupted. Rotate it away and try it again (but only once) */
         log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
 
-        if (!template) {
-                /* The file is corrupted and no template is specified. Try opening it read-only as the
-                 * template before rotating to inherit its sequence number and ID. */
-                r = journal_file_open(-1, fname,
-                                      (open_flags & ~(O_ACCMODE|O_CREAT|O_EXCL)) | O_RDONLY,
-                                      file_flags, 0, compress_threshold_bytes, NULL,
-                                      mmap_cache, NULL, &old_file);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to continue sequence from file %s, ignoring: %m", fname);
-                else
-                        template = old_file;
-        }
+        /* The file is corrupted. Try opening it read-only as the template before rotating to inherit its
+         * sequence number and ID. */
+        r = journal_file_open(-EBADF, fname,
+                              (open_flags & ~(O_ACCMODE|O_CREAT|O_EXCL)) | O_RDONLY,
+                              file_flags, 0, compress_threshold_bytes, NULL,
+                              mmap_cache, /* template = */ NULL, &old_file);
+        if (r < 0)
+                log_debug_errno(r, "Failed to continue sequence from file %s, ignoring: %m", fname);
 
         r = journal_file_dispose(AT_FDCWD, fname);
         if (r < 0)
                 return r;
 
-        return journal_file_open(-1, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
-                                 mmap_cache, template, ret);
+        return journal_file_open(-EBADF, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
+                                 mmap_cache, /* template = */ old_file, ret);
 }

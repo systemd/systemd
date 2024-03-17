@@ -654,7 +654,7 @@ static void manager_mark_routing_policy_rules(Manager *m, bool foreign, const Li
                         continue;
 
                 /* When 'foreign' is true, mark only foreign rules, and vice versa. */
-                if (foreign != (rule->source == NETWORK_CONFIG_SOURCE_FOREIGN))
+                if (rule->source != (foreign ? NETWORK_CONFIG_SOURCE_FOREIGN : NETWORK_CONFIG_SOURCE_STATIC))
                         continue;
 
                 /* Ignore rules not assigned yet or already removing. */

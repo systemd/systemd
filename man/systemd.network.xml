@@ -428,7 +428,13 @@
           Defaults to <literal>no</literal>. Further settings for the DHCP server may be set in the
           [DHCPServer] section described below.</para>
 
-        <xi:include href="version-info.xml" xpointer="v215"/>
+          <para>Even if this is enabled, the DHCP server will not be started automatically. It will be
+          started after <filename>systemd-networkd-persistent-storage.service</filename> is started, which
+          calls <command>networkctl persistent-storage yes</command>. See
+          <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          for more details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -803,26 +809,43 @@ Table=1234</programlisting></para>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>IPForward=</varname></term>
+        <term><varname>IPv4Forwarding=</varname></term>
         <listitem>
-          <para>Configures IP packet forwarding for the system. If enabled, incoming packets on any
-          network interface will be forwarded to any other interfaces according to the routing table.
-          Takes a boolean, or the values <literal>ipv4</literal> or <literal>ipv6</literal>, which only
-          enable IP packet forwarding for the specified address family. This controls the
-          <filename>net.ipv4.ip_forward</filename> and <filename>net.ipv6.conf.all.forwarding</filename>
-          sysctl options of the network interface (see
+          <para>Configures IPv4 packet forwarding for the interface. Takes a boolean value. This controls the
+          <filename>net.ipv4.conf.<replaceable>INTERFACE</replaceable>.forwarding</filename> sysctl option of
+          the network interface. See
           <ulink url="https://docs.kernel.org/networking/ip-sysctl.html">IP Sysctl</ulink>
-          for details about sysctl options). Defaults to <literal>no</literal>.</para>
+          for more details about the sysctl option. Defaults to true if <varname>IPMasquerade=</varname> is
+          enabled for IPv4, otherwise the value specified to the same setting in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          will be used. If none of them are specified, the sysctl option will not be changed.</para>
 
-          <para>Note: this setting controls a global kernel option, and does so one way only: if a
-          network that has this setting enabled is set up the global setting is turned on. However,
-          it is never turned off again, even after all networks with this setting enabled are shut
-          down again.</para>
-
-          <para>To allow IP packet forwarding only between specific network interfaces use a firewall.
+          <para>To control the global setting, use the same setting in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v219"/>
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IPv6Forwarding=</varname></term>
+        <listitem>
+          <para>Configures IPv6 packet forwarding for the interface. Takes a boolean value. This controls the
+          <filename>net.ipv6.conf.<replaceable>INTERFACE</replaceable>.forwarding</filename> sysctl option of
+          the network interface. See
+          <ulink url="https://docs.kernel.org/networking/ip-sysctl.html">IP Sysctl</ulink>
+          for more details about the sysctl option. Defaults to true if <varname>IPMasquerade=</varname> is
+          enabled for IPv6 or <varname>IPv6SendRA=</varname> is enabled, otherwise the value specified to the
+          same setting in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          will be used. If none of them are specified, the sysctl option will not be changed.</para>
+
+          <para>To control the global setting, use the same setting in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
 
@@ -832,9 +855,7 @@ Table=1234</programlisting></para>
           <para>Configures IP masquerading for the network interface. If enabled, packets forwarded
           from the network interface will be appear as coming from the local host. Takes one of
           <literal>ipv4</literal>, <literal>ipv6</literal>, <literal>both</literal>, or
-          <literal>no</literal>. Defaults to <literal>no</literal>. If enabled, this automatically sets
-          <varname>IPForward=</varname> to one of <literal>ipv4</literal>, <literal>ipv6</literal> or
-          <literal>yes</literal>.</para>
+          <literal>no</literal>. Defaults to <literal>no</literal>.</para>
           <para>Note. Any positive boolean values such as <literal>yes</literal> or
           <literal>true</literal> are now deprecated. Please use one of the values in the above.</para>
 
@@ -2341,7 +2362,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           are implied and these settings in the .network file are silently ignored. Also,
           <varname>Hostname=</varname>,
           <varname>MUDURL=</varname>,
-          <varname>RequestAddress</varname>,
+          <varname>RequestAddress=</varname>,
           <varname>RequestOptions=</varname>,
           <varname>SendOption=</varname>,
           <varname>SendVendorOption=</varname>,
@@ -2733,6 +2754,15 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <para>Set the port from which the DHCP client packets originate.</para>
 
         <xi:include href="version-info.xml" xpointer="v233"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ServerPort=</varname></term>
+        <listitem>
+          <para>Set the port on which the DHCP server is listening.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
 
@@ -3348,6 +3378,17 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UseReachableTime=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the reachable time received in the Router Advertisement will be
+          set on the interface receiving the advertisement. It is used as the base timespan of the validity
+          of a neighbor entry. Defaults to true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UseRetransmissionTime=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, the retransmission time received in the Router Advertisement will be set
@@ -3356,16 +3397,6 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           Defaults to true.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>UseICMP6RateLimit=</varname></term>
-        <listitem>
-          <para>Takes a boolean. When true, the ICMP6 rate limit received in the Router Advertisement will be set to ICMP6
-          rate limit based on the advertisement. Defaults to true.</para>
-
-          <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
 

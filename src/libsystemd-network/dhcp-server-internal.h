@@ -75,6 +75,9 @@ struct sd_dhcp_server {
 
         char *agent_circuit_id;
         char *agent_remote_id;
+
+        int lease_dir_fd;
+        char *lease_file;
 };
 
 typedef struct DHCPRequest {

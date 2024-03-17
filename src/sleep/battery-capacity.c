@@ -123,7 +123,7 @@ static int get_battery_discharge_rate(sd_device *dev, int *ret) {
                         break;
 
                 p = line;
-                r = extract_many_words(&p, NULL, 0, &stored_hash_id, &stored_discharge_rate, NULL);
+                r = extract_many_words(&p, NULL, 0, &stored_hash_id, &stored_discharge_rate);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse hash_id and discharge_rate read from " DISCHARGE_RATE_FILEPATH ": %m");
                 if (r != 2)

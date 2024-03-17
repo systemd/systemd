@@ -366,6 +366,8 @@ int bus_image_common_attach(
                 flags |= PORTABLE_PREFER_SYMLINK;
         else if (streq(copy_mode, "copy"))
                 flags |= PORTABLE_PREFER_COPY;
+        else if (streq(copy_mode, "mixed"))
+                flags |= PORTABLE_MIXED_COPY_LINK;
         else if (!isempty(copy_mode))
                 return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Unknown copy mode '%s'", copy_mode);
 
@@ -695,6 +697,8 @@ int bus_image_common_reattach(
                 flags |= PORTABLE_PREFER_SYMLINK;
         else if (streq(copy_mode, "copy"))
                 flags |= PORTABLE_PREFER_COPY;
+        else if (streq(copy_mode, "mixed"))
+                flags |= PORTABLE_MIXED_COPY_LINK;
         else if (!isempty(copy_mode))
                 return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Unknown copy mode '%s'", copy_mode);
 

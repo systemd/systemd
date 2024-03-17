@@ -1316,7 +1316,7 @@ int config_parse_nft_set(
                         return 0;
 
                 q = tuple;
-                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE, &source_str, &family_str, &table, &set, NULL);
+                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE, &source_str, &family_str, &table, &set);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r != 4 || !isempty(q)) {

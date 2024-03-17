@@ -52,7 +52,6 @@ static inline uint32_t usec_to_sec(usec_t usec, usec_t now_usec) {
 }
 
 CONFIG_PARSER_PROTOTYPE(config_parse_link_local_address_family);
-CONFIG_PARSER_PROTOTYPE(config_parse_address_family_with_kernel);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_masquerade);
 CONFIG_PARSER_PROTOTYPE(config_parse_mud_url);
 

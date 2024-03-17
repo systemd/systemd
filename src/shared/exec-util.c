@@ -539,7 +539,7 @@ int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret
 
         r = safe_fork_full(name,
                            NULL,
-                           except,
+                           (int*) except, /* safe_fork_full only changes except if you pass in FORK_PACK_FDS, which we don't */
                            n_except,
                            FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE,
                            ret_pid);

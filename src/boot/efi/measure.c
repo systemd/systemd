@@ -10,39 +10,6 @@
 #include "tpm2-pcr.h"
 #include "util.h"
 
-static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
-                const EFI_TCG_PROTOCOL *tcg,
-                uint32_t pcrindex,
-                EFI_PHYSICAL_ADDRESS buffer,
-                size_t buffer_size,
-                const char16_t *description) {
-
-        _cleanup_free_ TCG_PCR_EVENT *tcg_event = NULL;
-        EFI_PHYSICAL_ADDRESS event_log_last;
-        uint32_t event_number = 1;
-        size_t desc_len;
-
-        assert(tcg);
-        assert(description);
-
-        desc_len = strsize16(description);
-        tcg_event = xmalloc(offsetof(TCG_PCR_EVENT, Event) + desc_len);
-        *tcg_event = (TCG_PCR_EVENT) {
-                .EventSize = desc_len,
-                .PCRIndex = pcrindex,
-                .EventType = EV_IPL,
-        };
-        memcpy(tcg_event->Event, description, desc_len);
-
-        return tcg->HashLogExtendEvent(
-                        (EFI_TCG_PROTOCOL *) tcg,
-                        buffer, buffer_size,
-                        TCG_ALG_SHA,
-                        tcg_event,
-                        &event_number,
-                        &event_log_last);
-}
-
 static EFI_STATUS tpm2_measure_to_pcr_and_tagged_event_log(
                 EFI_TCG2_PROTOCOL *tcg,
                 uint32_t pcrindex,
@@ -187,37 +154,6 @@ static EFI_CC_MEASUREMENT_PROTOCOL *cc_interface_check(void) {
         return cc;
 }
 
-static EFI_TCG_PROTOCOL *tcg1_interface_check(void) {
-        EFI_PHYSICAL_ADDRESS event_log_location, event_log_last_entry;
-        EFI_TCG_BOOT_SERVICE_CAPABILITY capability = {
-                .Size = sizeof(capability),
-        };
-        EFI_STATUS err;
-        uint32_t features;
-        EFI_TCG_PROTOCOL *tcg;
-
-        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_TCG_PROTOCOL), NULL, (void **) &tcg);
-        if (err != EFI_SUCCESS)
-                return NULL;
-
-        err = tcg->StatusCheck(
-                        tcg,
-                        &capability,
-                        &features,
-                        &event_log_location,
-                        &event_log_last_entry);
-        if (err != EFI_SUCCESS)
-                return NULL;
-
-        if (capability.TPMDeactivatedFlag)
-                return NULL;
-
-        if (!capability.TPMPresentFlag)
-                return NULL;
-
-        return tcg;
-}
-
 static EFI_TCG2_PROTOCOL *tcg2_interface_check(void) {
         EFI_TCG2_BOOT_SERVICE_CAPABILITY capability = {
                 .Size = sizeof(capability),
@@ -248,7 +184,7 @@ static EFI_TCG2_PROTOCOL *tcg2_interface_check(void) {
 }
 
 bool tpm_present(void) {
-        return tcg2_interface_check() || tcg1_interface_check();
+        return tcg2_interface_check();
 }
 
 EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
@@ -271,25 +207,18 @@ EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t 
         if (tpm2)
                 err = tpm2_measure_to_pcr_and_event_log(tpm2, pcrindex, buffer, buffer_size, description);
         else {
-                EFI_TCG_PROTOCOL *tpm1;
+                EFI_CC_MEASUREMENT_PROTOCOL *cc;
 
-                tpm1 = tcg1_interface_check();
-                if (tpm1)
-                        err = tpm1_measure_to_pcr_and_event_log(tpm1, pcrindex, buffer, buffer_size, description);
+                cc = cc_interface_check();
+                if (cc)
+                        err = cc_measure_to_mr_and_event_log(cc, pcrindex, buffer, buffer_size, description);
                 else {
-                        EFI_CC_MEASUREMENT_PROTOCOL *cc;
+                        /* No active TPM found, so don't return an error */
 
-                        cc = cc_interface_check();
-                        if (cc)
-                                err = cc_measure_to_mr_and_event_log(cc, pcrindex, buffer, buffer_size, description);
-                        else {
-                                /* No active TPM found, so don't return an error */
+                        if (ret_measured)
+                                *ret_measured = false;
 
-                                if (ret_measured)
-                                        *ret_measured = false;
-
-                                return EFI_SUCCESS;
-                        }
+                        return EFI_SUCCESS;
                 }
         }
 

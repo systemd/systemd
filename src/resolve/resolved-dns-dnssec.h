@@ -9,12 +9,13 @@ typedef enum DnssecVerdict DnssecVerdict;
 #include "resolved-dns-rr.h"
 
 enum DnssecResult {
-        /* These five are returned by dnssec_verify_rrset() */
+        /* These six are returned by dnssec_verify_rrset() */
         DNSSEC_VALIDATED,
         DNSSEC_VALIDATED_WILDCARD, /* Validated via a wildcard RRSIG, further NSEC/NSEC3 checks necessary */
         DNSSEC_INVALID,
         DNSSEC_SIGNATURE_EXPIRED,
         DNSSEC_UNSUPPORTED_ALGORITHM,
+        DNSSEC_TOO_MANY_VALIDATIONS,
 
         /* These two are added by dnssec_verify_rrset_search() */
         DNSSEC_NO_SIGNATURE,
@@ -45,6 +46,12 @@ enum DnssecVerdict {
 
 /* The longest digest we'll ever generate, of all digest algorithms we support */
 #define DNSSEC_HASH_SIZE_MAX (MAX(20, 32))
+
+/* The most invalid signatures we will tolerate for a single rrset */
+#define DNSSEC_INVALID_MAX 5
+
+/* The total number of signature validations we will tolerate for a single transaction */
+#define DNSSEC_VALIDATION_MAX 64
 
 int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnskey, bool revoked_ok);
 int dnssec_key_match_rrsig(const DnsResourceKey *key, DnsResourceRecord *rrsig);

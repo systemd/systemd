@@ -155,10 +155,11 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped("Kernel doesn't support the necessary bpf bits (masked out via seccomp?)");
         assert_se(r >= 0);
 
-        assert_se(u->ip_bpf_ingress);
-        assert_se(u->ip_bpf_egress);
+        CGroupRuntime *crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
+        assert_se(crt->ip_bpf_ingress);
+        assert_se(crt->ip_bpf_egress);
 
-        r = bpf_program_load_kernel(u->ip_bpf_ingress, log_buf, ELEMENTSOF(log_buf));
+        r = bpf_program_load_kernel(crt->ip_bpf_ingress, log_buf, ELEMENTSOF(log_buf));
 
         log_notice("log:");
         log_notice("-------");
@@ -167,7 +168,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(r >= 0);
 
-        r = bpf_program_load_kernel(u->ip_bpf_egress, log_buf, ELEMENTSOF(log_buf));
+        r = bpf_program_load_kernel(crt->ip_bpf_egress, log_buf, ELEMENTSOF(log_buf));
 
         log_notice("log:");
         log_notice("-------");

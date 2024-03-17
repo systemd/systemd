@@ -63,14 +63,18 @@ node /org/freedesktop/home1 {
                          out b incomplete,
                          out o bus_path);
       ListHomes(out a(susussso) home_areas);
-      @org.freedesktop.systemd1.Privileged("true")
       ActivateHome(in  s user_name,
                    in  s secret);
+      ActivateHomeIfReferenced(in  s user_name,
+                               in  s secret);
       @org.freedesktop.systemd1.Privileged("true")
       DeactivateHome(in  s user_name);
       RegisterHome(in  s user_record);
       UnregisterHome(in  s user_name);
       CreateHome(in  s user_record);
+      CreateHomeEx(in  s user_record,
+                   in  a{sh} blobs,
+                   in  t flags);
       RealizeHome(in  s user_name,
                   in  s secret);
       RemoveHome(in  s user_name);
@@ -80,6 +84,9 @@ node /org/freedesktop/home1 {
       AuthenticateHome(in  s user_name,
                        in  s secret);
       UpdateHome(in  s user_record);
+      UpdateHomeEx(in  s user_record,
+                   in  a{sh} blobs,
+                   in  t flags);
       ResizeHome(in  s user_name,
                  in  t size,
                  in  s secret);
@@ -99,6 +106,10 @@ node /org/freedesktop/home1 {
       RefHome(in  s user_name,
               in  b please_suspend,
               out h send_fd);
+      @org.freedesktop.systemd1.Privileged("true")
+      RefHomeUnrestricted(in  s user_name,
+                          in  b please_suspend,
+                          out h send_fd);
       @org.freedesktop.systemd1.Privileged("true")
       ReleaseHome(in  s user_name);
       InhibitSuspendHome(in  s user_name,
@@ -136,6 +147,8 @@ node /org/freedesktop/home1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="ActivateHome()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="ActivateHomeIfReferenced()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="DeactivateHome()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="RegisterHome()"/>
@@ -143,6 +156,8 @@ node /org/freedesktop/home1 {
     <variablelist class="dbus-method" generated="True" extra-ref="UnregisterHome()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="CreateHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CreateHomeEx()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="RealizeHome()"/>
 
@@ -153,6 +168,8 @@ node /org/freedesktop/home1 {
     <variablelist class="dbus-method" generated="True" extra-ref="AuthenticateHome()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="UpdateHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="UpdateHomeEx()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ResizeHome()"/>
 
@@ -165,6 +182,8 @@ node /org/freedesktop/home1 {
     <variablelist class="dbus-method" generated="True" extra-ref="AcquireHome()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="RefHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RefHomeUnrestricted()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ReleaseHome()"/>
 
@@ -224,6 +243,11 @@ node /org/freedesktop/home1 {
       <classname>org.freedesktop.home1.Home</classname> interface documented below, but may be called on the
       manager object and takes a user name as additional argument, instead.</para>
 
+      <para><function>ActivateHomeIfReferenced()</function> is identical to
+      <function>ActivateHome()</function>. However, the call only succeeds if the home directory is currently
+      referenced. Useful in conjunction with <function>RefHomeUnrestricted()</function>, which allows
+      creating a reference to a home directory even if the home directory is not active.</para>
+
       <para><function>DeactivateHome()</function> deactivates (i.e. unmounts) the home directory of the
       specified user. It is equivalent to the <function>Deactivate()</function> method on the
       <classname>org.freedesktop.home1.Home</classname> interface documented below.</para>
@@ -250,6 +274,19 @@ node /org/freedesktop/home1 {
       specified JSON user record as argument (including the <literal>secret</literal> section). This registers
       the user record locally and creates a home directory matching it, depending on the settings specified
       in the record in combination with local configuration.</para>
+
+      <para><function>CreateHomeEx()</function> is like <function>CreateHome()</function>, but it allows the
+      home directory to be created with a pre-populated blob directory (see
+      <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob Directories</ulink> for more info).
+      This can be done via the dictionary passed as the <varname>blobs</varname> argument to this method: the values
+      are open file descriptors to regular files, and the keys are the filenames that should contain their respective
+      file's data in the blob directory. Note that for security reasons, the file descriptors passed into this method
+      must have enough privileges to read their target file and thus cannot be <literal>O_PATH</literal>; this
+      is done to ensure the caller is actually permitted to read the file they are asking to publish in the
+      blob directories. If the user record passed as the first argument contains a <literal>blobManifest</literal>
+      field it will be enforced; otherwise, a <literal>blobManifest</literal> field will be generated and inserted
+      into the record. The <varname>flags</varname> argument may be used for future expansion, but for now
+      pass 0.</para>
 
       <para><function>RealizeHome()</function> creates a home directory whose user record is already
       registered locally. This takes a user name plus a user record consisting only of the
@@ -293,6 +330,14 @@ node /org/freedesktop/home1 {
       the password of the underlying storage updated using <function>ChangePasswordHome()</function> as well
       as the storage resized using <function>ResizeHome()</function>. This method is equivalent to
       <function>Update()</function> on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
+
+      <para><function>UpdateHomeEx()</function> is like <function>UpdateHome()</function>, but it allows for
+      changes to the blob directory (see <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob
+      Directories</ulink> for more info). The <varname>blobs</varname> argument works in the same way as
+      <function>CreateHomeEx()</function>, so check there for details. The new blob directory contents passed into
+      this method will completely replace the user's existing blob directory. The <varname>flags</varname> argument
+      may be used for future expansion, but for now pass 0. This method is equivalent to <function>UpdateEx()</function>
+      on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
 
       <para><function>ResizeHome()</function> resizes the storage associated with a user record. Takes a user
       name, a disk size in bytes and a user record consisting only of the <literal>secret</literal> section
@@ -355,6 +400,10 @@ node /org/freedesktop/home1 {
       <function>Ref()</function> on the <classname>org.freedesktop.home1.Home</classname>
       interface.</para>
 
+      <para><function>RefHomeUnrestricted()</function> is identical to <function>RefHome()</function> but
+      succeeds even if the home area is not active currently. This is useful on conjunction with
+      <function>ActivateHomeIfReferenced()</function>.</para>
+
       <para><function>ReleaseHome()</function> releases a home directory again, if all file descriptors
       referencing it are already closed, that where acquired through <function>AcquireHome()</function> or
       <function>RefHome()</function>. Note that this call does not actually cause the deactivation of the
@@ -409,8 +458,8 @@ node /org/freedesktop/home1 {
 node /org/freedesktop/home1/home {
   interface org.freedesktop.home1.Home {
     methods:
-      @org.freedesktop.systemd1.Privileged("true")
       Activate(in  s secret);
+      ActivateIfReferenced(in  s secret);
       @org.freedesktop.systemd1.Privileged("true")
       Deactivate();
       Unregister();
@@ -420,6 +469,9 @@ node /org/freedesktop/home1/home {
       Fixate(in  s secret);
       Authenticate(in  s secret);
       Update(in  s user_record);
+      UpdateEx(in  s user_record,
+               in  a{sh} blobs,
+               in  t flags);
       Resize(in  t size,
              in  s secret);
       ChangePassword(in  s new_secret,
@@ -435,6 +487,9 @@ node /org/freedesktop/home1/home {
       @org.freedesktop.systemd1.Privileged("true")
       Ref(in  b please_suspend,
           out h send_fd);
+      @org.freedesktop.systemd1.Privileged("true")
+      RefUnrestricted(in  b please_suspend,
+                      out h send_fd);
       @org.freedesktop.systemd1.Privileged("true")
       Release();
       InhibitSuspend(out h send_fd);
@@ -467,6 +522,8 @@ node /org/freedesktop/home1/home {
 
     <variablelist class="dbus-method" generated="True" extra-ref="Activate()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="ActivateIfReferenced()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="Deactivate()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Unregister()"/>
@@ -481,6 +538,8 @@ node /org/freedesktop/home1/home {
 
     <variablelist class="dbus-method" generated="True" extra-ref="Update()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="UpdateEx()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="Resize()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ChangePassword()"/>
@@ -492,6 +551,8 @@ node /org/freedesktop/home1/home {
     <variablelist class="dbus-method" generated="True" extra-ref="Acquire()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Ref()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RefUnrestricted()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Release()"/>
 
@@ -512,13 +573,14 @@ node /org/freedesktop/home1/home {
     <refsect2>
       <title>Methods</title>
 
-      <para><function>Activate()</function>, <function>Deactivate()</function>,
-      <function>Unregister()</function>, <function>Realize()</function>, <function>Remove()</function>,
-      <function>Fixate()</function>, <function>Authenticate()</function>, <function>Update()</function>,
-      <function>Resize()</function>, <function>ChangePassword()</function>, <function>Lock()</function>,
-      <function>Unlock()</function>, <function>Acquire()</function>, <function>Ref()</function>,
-      <function>Release()</function>, <function>InhibitSuspend()</function> operate like their matching counterparts on the
-      <classname>org.freedesktop.home1.Manager</classname> interface (see above). The main difference is that
+      <para><function>Activate()</function>, <function>ActivateIfReferenced()</function>,
+      <function>Deactivate()</function>, <function>Unregister()</function>, <function>Realize()</function>,
+      <function>Remove()</function>, <function>Fixate()</function>, <function>Authenticate()</function>,
+      <function>Update()</function>, <function>UpdateEx()</function>, <function>Resize()</function>,
+      <function>ChangePassword()</function>, <function>Lock()</function>, <function>Unlock()</function>,
+      <function>Acquire()</function>, <function>Ref()</function>, <function>RefUnrestricted()</function>,
+      <function>Release()</function>, <function>InhibitSuspend()</function> operate like their matching counterparts
+      on the <classname>org.freedesktop.home1.Manager</classname> interface (see above). The main difference is that
       they are methods of the home directory objects, and hence carry no additional user name
       parameter. Which of the two flavors of methods to call depends on the handles to the user known on the
       client side: if only the user name is known, it's preferable to use the methods on the manager object
@@ -549,11 +611,13 @@ node /org/freedesktop/home1/home {
     <title>History</title>
     <refsect2>
       <title>The Manager Object</title>
-      <para><function>InhibitSuspendHome()</function> was added in version 256.</para>
+      <para><function>InhibitSuspendHome()</function>, <function>ActivateHomeIfReferenced()</function>, <function>RefHomeUnrestricted()</function>,
+      <function>CreateHomeEx()</function>, and <function>UpdateHomeEx()</function> were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Home Objects</title>
-      <para><function>InhibitSuspend()</function> was added in version 256.</para>
+      <para><function>InhibitSuspend()</function>, <function>ActivateIfReferenced()</function>, <function>RefUnrestricted()</function>, and
+      <function>UpdateEx()</function> were added in version 256.</para>
     </refsect2>
   </refsect1>
 

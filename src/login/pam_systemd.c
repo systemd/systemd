@@ -525,6 +525,26 @@ static const char* getenv_harder(pam_handle_t *handle, const char *key, const ch
         return fallback;
 }
 
+static bool getenv_harder_bool(pam_handle_t *handle, const char *key, bool fallback) {
+        const char *v;
+        int r;
+
+        assert(handle);
+        assert(key);
+
+        v = getenv_harder(handle, key, NULL);
+        if (isempty(v))
+                return fallback;
+
+        r = parse_boolean(v);
+        if (r < 0) {
+                pam_syslog(handle, LOG_ERR, "Boolean environment variable value of '%s' is not valid: %s", key, v);
+                return fallback;
+        }
+
+        return r;
+}
+
 static int update_environment(pam_handle_t *handle, const char *key, const char *value) {
         int r;
 
@@ -606,6 +626,7 @@ static int apply_user_record_settings(
                 bool debug,
                 uint64_t default_capability_bounding_set,
                 uint64_t default_capability_ambient_set) {
+        _cleanup_strv_free_ char **langs = NULL;
         int r;
 
         assert(handle);
@@ -617,48 +638,25 @@ static int apply_user_record_settings(
         }
 
         STRV_FOREACH(i, ur->environment) {
-                _cleanup_free_ char *n = NULL;
-                const char *e;
-
-                assert_se(e = strchr(*i, '=')); /* environment was already validated while parsing JSON record, this thus must hold */
-
-                n = strndup(*i, e - *i);
-                if (!n)
-                        return pam_log_oom(handle);
-
-                if (pam_getenv(handle, n)) {
-                        pam_debug_syslog(handle, debug,
-                                         "PAM environment variable $%s already set, not changing based on record.", *i);
-                        continue;
-                }
-
                 r = pam_putenv_and_log(handle, *i, debug);
                 if (r != PAM_SUCCESS)
                         return r;
         }
 
         if (ur->email_address) {
-                if (pam_getenv(handle, "EMAIL"))
-                        pam_debug_syslog(handle, debug,
-                                         "PAM environment variable $EMAIL already set, not changing based on user record.");
-                else {
-                        _cleanup_free_ char *joined = NULL;
+                _cleanup_free_ char *joined = NULL;
 
-                        joined = strjoin("EMAIL=", ur->email_address);
-                        if (!joined)
-                                return pam_log_oom(handle);
+                joined = strjoin("EMAIL=", ur->email_address);
+                if (!joined)
+                        return pam_log_oom(handle);
 
-                        r = pam_putenv_and_log(handle, joined, debug);
-                        if (r != PAM_SUCCESS)
-                                return r;
-                }
+                r = pam_putenv_and_log(handle, joined, debug);
+                if (r != PAM_SUCCESS)
+                        return r;
         }
 
         if (ur->time_zone) {
-                if (pam_getenv(handle, "TZ"))
-                        pam_debug_syslog(handle, debug,
-                                         "PAM environment variable $TZ already set, not changing based on user record.");
-                else if (!timezone_is_valid(ur->time_zone, LOG_DEBUG))
+                if (!timezone_is_valid(ur->time_zone, LOG_DEBUG))
                         pam_debug_syslog(handle, debug,
                                          "Time zone specified in user record is not valid locally, not setting $TZ.");
                 else {
@@ -674,21 +672,38 @@ static int apply_user_record_settings(
                 }
         }
 
-        if (ur->preferred_language) {
-                if (pam_getenv(handle, "LANG"))
-                        pam_debug_syslog(handle, debug,
-                                         "PAM environment variable $LANG already set, not changing based on user record.");
-                else if (locale_is_installed(ur->preferred_language) <= 0)
-                        pam_debug_syslog(handle, debug,
-                                         "Preferred language specified in user record is not valid or not installed, not setting $LANG.");
-                else {
-                        _cleanup_free_ char *joined = NULL;
+        r = user_record_languages(ur, &langs);
+        if (r < 0)
+                pam_syslog_errno(handle, LOG_ERR, r,
+                                 "Failed to acquire user's language preferences, ignoring: %m");
+        else if (strv_isempty(langs))
+                ; /* User has no preference set so we do nothing */
+        else if (locale_is_installed(langs[0]) <= 0)
+                pam_debug_syslog(handle, debug,
+                                 "Preferred languages specified in user record are not installed locally, not setting $LANG or $LANGUAGE.");
+        else {
+                _cleanup_free_ char *lang = NULL;
 
-                        joined = strjoin("LANG=", ur->preferred_language);
+                lang = strjoin("LANG=", langs[0]);
+                if (!lang)
+                        return pam_log_oom(handle);
+
+                r = pam_putenv_and_log(handle, lang, debug);
+                if (r != PAM_SUCCESS)
+                        return r;
+
+                if (strv_length(langs) > 1) {
+                        _cleanup_free_ char *joined = NULL, *language = NULL;
+
+                        joined = strv_join(langs, ":");
                         if (!joined)
                                 return pam_log_oom(handle);
 
-                        r = pam_putenv_and_log(handle, joined, debug);
+                        language = strjoin("LANGUAGE=", joined);
+                        if (!language)
+                                return pam_log_oom(handle);
+
+                        r = pam_putenv_and_log(handle, language, debug);
                         if (r != PAM_SUCCESS)
                                 return r;
                 }
@@ -820,7 +835,7 @@ static int create_session_message(
 
         if (!avoid_pidfd) {
                 pidfd = pidfd_open(getpid_cached(), 0);
-                if (pidfd < 0 && !ERRNO_IS_NOT_SUPPORTED(errno))
+                if (pidfd < 0 && !ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                         return -errno;
         }
 
@@ -908,7 +923,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         int session_fd = -EBADF, existing, r;
-        bool debug = false, remote;
+        bool debug = false, remote, incomplete;
         uint32_t vtnr = 0;
         uid_t original_uid;
 
@@ -949,6 +964,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         type = getenv_harder(handle, "XDG_SESSION_TYPE", type_pam);
         class = getenv_harder(handle, "XDG_SESSION_CLASS", class_pam);
         desktop = getenv_harder(handle, "XDG_SESSION_DESKTOP", desktop_pam);
+        incomplete = getenv_harder_bool(handle, "XDG_SESSION_INCOMPLETE", false);
 
         if (streq_ptr(service, "systemd-user")) {
                 /* If we detect that we are running in the "systemd-user" PAM stack, then let's patch the class to
@@ -1013,6 +1029,13 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 class = streq(type, "unspecified") ? "background" :
                         ((IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) &&
                          streq(type, "tty")) ? "user-early" : "user");
+
+        if (incomplete) {
+                if (streq(class, "user"))
+                        class = "user-incomplete";
+                else
+                        pam_syslog_pam_error(handle, LOG_WARNING, 0, "PAM session of class '%s' is incomplete, which is not supported, ignoring.", class);
+        }
 
         remote = !isempty(remote_host) && !is_localhost(remote_host);
 
@@ -1126,6 +1149,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                          "Reply from logind: "
                          "id=%s object_path=%s runtime_path=%s session_fd=%d seat=%s vtnr=%u original_uid=%u",
                          id, object_path, runtime_path, session_fd, seat, vtnr, original_uid);
+
+        /* Please update manager_default_environment() in core/manager.c accordingly if more session envvars
+         * shall be added. */
 
         r = update_environment(handle, "XDG_SESSION_ID", id);
         if (r != PAM_SUCCESS)

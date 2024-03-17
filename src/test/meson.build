@@ -14,6 +14,7 @@ test_env = environment()
 test_env.set('SYSTEMD_LANGUAGE_FALLBACK_MAP', language_fallback_map)
 test_env.set('PATH', project_build_root + ':' + path)
 test_env.set('PROJECT_BUILD_ROOT', project_build_root)
+test_env.set('SYSTEMD_SLOW_TESTS', slow_tests ? '1' : '0')
 
 if efi_addon != ''
         test_env.set('EFI_ADDON', efi_addon)
@@ -50,6 +51,7 @@ simple_tests += files(
         'test-bitmap.c',
         'test-blockdev-util.c',
         'test-bootspec.c',
+        'test-build-path.c',
         'test-bus-util.c',
         'test-calendarspec.c',
         'test-cgroup-setup.c',
@@ -72,6 +74,7 @@ simple_tests += files(
         'test-dev-setup.c',
         'test-device-nodes.c',
         'test-devnum-util.c',
+        'test-dirent-util.c',
         'test-dns-domain.c',
         'test-ellipsize.c',
         'test-env-file.c',
@@ -117,6 +120,7 @@ simple_tests += files(
         'test-lock-util.c',
         'test-log.c',
         'test-logarithm.c',
+        'test-login-util.c',
         'test-macro.c',
         'test-memfd-util.c',
         'test-memory-util.c',
@@ -245,18 +249,12 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-compress-benchmark.c'),
-                'link_with' : [
-                        libbasic_compress,
-                        libshared,
-                ],
+                'link_with' : [libshared],
                 'timeout' : 90,
         },
         test_template + {
                 'sources' : files('test-compress.c'),
-                'link_with' : [
-                        libbasic_compress,
-                        libshared,
-                ],
+                'link_with' : [libshared],
         },
         test_template + {
                 'sources' : files('test-cryptolib.c'),
@@ -377,6 +375,10 @@ executables += [
         test_template + {
                 'sources' : files('test-process-util.c'),
                 'dependencies' : threads,
+        },
+        test_template + {
+                'sources' : files('test-progress-bar.c'),
+                'type' : 'manual',
         },
         test_template + {
                 'sources' : files('test-qrcode-util.c'),

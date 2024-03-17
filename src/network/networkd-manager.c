@@ -453,7 +453,7 @@ static int signal_restart_callback(sd_event_source *s, const struct signalfd_sig
 static int signal_reload_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
-        manager_reload(m);
+        (void) manager_reload(m, /* message = */ NULL);
 
         return 0;
 }
@@ -557,6 +557,29 @@ int manager_setup(Manager *m) {
         return 0;
 }
 
+static bool persistent_storage_is_ready(void) {
+        int r;
+
+        if (access("/run/systemd/netif/persistent-storage-ready", F_OK) < 0) {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to check if /run/systemd/netif/persistent-storage-ready exists, assuming not: %m");
+                return false;
+        }
+
+        r = path_is_read_only_fs("/var/lib/systemd/network/");
+        if (r == 0)
+                return true;
+        if (r < 0)
+                log_debug_errno(r, "Failed to check if /var/lib/systemd/network/ is writable: %m");
+        else
+                log_debug("The directory /var/lib/systemd/network/ is read-only.");
+
+        if (unlink("/run/systemd/netif/persistent-storage-ready") < 0 && errno != ENOENT)
+                log_debug_errno(errno, "Failed to remove /run/systemd/netif/persistent-storage-ready, ignoring: %m");
+
+        return false;
+}
+
 int manager_new(Manager **ret, bool test_mode) {
         _cleanup_(manager_freep) Manager *m = NULL;
 
@@ -568,6 +591,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
                 .ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO,
                 .test_mode = test_mode,
+                .persistent_storage_is_ready = persistent_storage_is_ready(),
                 .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
                 .online_state = _LINK_ONLINE_STATE_INVALID,
                 .manage_foreign_routes = true,
@@ -577,6 +601,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
                 .duid_product_uuid.type = DUID_TYPE_UUID,
+                .ip_forwarding = { -1, -1, },
         };
 
         *ret = TAKE_PTR(m);
@@ -658,6 +683,8 @@ int manager_start(Manager *m) {
         int r;
 
         assert(m);
+
+        manager_set_sysctl(m);
 
         r = manager_start_speed_meter(m);
         if (r < 0)
@@ -1085,7 +1112,7 @@ int manager_set_timezone(Manager *m, const char *tz) {
         return 0;
 }
 
-int manager_reload(Manager *m) {
+int manager_reload(Manager *m, sd_bus_message *message) {
         Link *link;
         int r;
 
@@ -1105,9 +1132,14 @@ int manager_reload(Manager *m) {
                 goto finish;
 
         HASHMAP_FOREACH(link, m->links_by_index) {
-                r = link_reconfigure(link, /* force = */ false);
-                if (r < 0)
-                        goto finish;
+                if (message)
+                        r = link_reconfigure_on_bus_method_reload(link, message);
+                else
+                        r = link_reconfigure(link, /* force = */ false);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to reconfigure the interface: %m");
+                        link_enter_failed(link);
+                }
         }
 
         r = 0;

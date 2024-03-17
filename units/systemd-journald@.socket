@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Journal Socket for Namespace %i
+Description=Journal Sockets for Namespace %i
 Documentation=man:systemd-journald.service(8) man:journald.conf(5)
 StopWhenUnneeded=yes
 
@@ -22,3 +22,6 @@ PassCredentials=yes
 PassSecurity=yes
 ReceiveBuffer=8M
 SendBuffer=8M
+
+[Install]
+WantedBy=sockets.target

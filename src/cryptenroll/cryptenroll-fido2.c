@@ -33,10 +33,10 @@ int load_volume_key_fido2(
                         cd_node,
                         device,
                         /* until= */ 0,
-                        /* headless= */ false,
+                        "cryptenroll.fido2-pin",
+                        ASK_PASSWORD_PUSH_CACHE|ASK_PASSWORD_ACCEPT_CACHED,
                         &decrypted_key,
-                        &decrypted_key_size,
-                        ASK_PASSWORD_PUSH_CACHE|ASK_PASSWORD_ACCEPT_CACHED);
+                        &decrypted_key_size);
         if (r == -EAGAIN)
                 return log_error_errno(r, "FIDO2 token does not exist, or UV is blocked. Please try again.");
         if (r < 0)
@@ -97,6 +97,7 @@ int enroll_fido2(
                         /* user_display_name= */ node,
                         /* user_icon_name= */ NULL,
                         /* askpw_icon_name= */ "drive-harddisk",
+                        /* askpw_credential= */ "cryptenroll.fido2-pin",
                         lock_with,
                         cred_alg,
                         &cid, &cid_size,

@@ -138,7 +138,7 @@ int readdir_all_at(int fd, const char *path, RecurseDirFlags flags, DirectoryEnt
 
         assert(fd >= 0 || fd == AT_FDCWD);
 
-        dir_fd = xopenat(fd, path, O_DIRECTORY|O_CLOEXEC, /* xopen_flags= */ 0, /* mode= */ 0);
+        dir_fd = xopenat(fd, path, O_DIRECTORY|O_CLOEXEC);
         if (dir_fd < 0)
                 return dir_fd;
 

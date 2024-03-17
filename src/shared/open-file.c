@@ -23,7 +23,7 @@ int open_file_parse(const char *v, OpenFile **ret) {
         if (!of)
                 return -ENOMEM;
 
-        r = extract_many_words(&v, ":", EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_CUNESCAPE, &of->path, &of->fdname, &options, NULL);
+        r = extract_many_words(&v, ":", EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_CUNESCAPE, &of->path, &of->fdname, &options);
         if (r < 0)
                 return r;
         if (r == 0)

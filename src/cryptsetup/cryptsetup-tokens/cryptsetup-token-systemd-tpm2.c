@@ -20,7 +20,7 @@
 /* for libcryptsetup debug purpose */
 _public_ const char *cryptsetup_token_version(void) {
 
-        return TOKEN_VERSION_MAJOR "." TOKEN_VERSION_MINOR " systemd-v" STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")";
+        return TOKEN_VERSION_MAJOR "." TOKEN_VERSION_MINOR " systemd-v" PROJECT_VERSION_FULL " (" GIT_VERSION ")";
 }
 
 static int log_debug_open_error(struct crypt_device *cd, int r) {

@@ -72,7 +72,7 @@ id-input:modalias:input:b0003v046Dp4066e0111*
  ID_INPUT_MOUSE=0
 
 # CH Products Pro Pedals
-id-input:modalias:input:b0003v068Ep00F2e0100*
+id-input:modalias:input:b0003v068Ep00F2*
  ID_INPUT_ACCELEROMETER=0
  ID_INPUT_JOYSTICK=1
 

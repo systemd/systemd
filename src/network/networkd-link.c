@@ -272,7 +272,6 @@ static Link *link_free(Link *link) {
         free(link->driver);
 
         unlink_and_free(link->lease_file);
-        unlink_and_free(link->lldp_file);
         unlink_and_free(link->state_file);
 
         sd_device_unref(link->dev);
@@ -541,7 +540,7 @@ void link_check_ready(Link *link) {
          * Note, ignore NDisc when ConfigureWithoutCarrier= is enabled, as IPv6AcceptRA= is enabled by default. */
         if (!link_ipv4ll_enabled(link) && !link_dhcp4_enabled(link) &&
             !link_dhcp6_enabled(link) && !link_dhcp_pd_is_enabled(link) &&
-            (link->network->configure_without_carrier || !link_ipv6_accept_ra_enabled(link)))
+            (link->network->configure_without_carrier || !link_ndisc_enabled(link)))
                 goto ready;
 
         bool ipv4ll_ready =
@@ -559,15 +558,15 @@ void link_check_ready(Link *link) {
                 (!link->network->dhcp_pd_assign ||
                  link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_DHCP_PD));
         bool ndisc_ready =
-                link_ipv6_accept_ra_enabled(link) && link->ndisc_configured &&
-                (!link->network->ipv6_accept_ra_use_autonomous_prefix ||
+                link_ndisc_enabled(link) && link->ndisc_configured &&
+                (!link->network->ndisc_use_autonomous_prefix ||
                  link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_NDISC));
 
         /* If the uplink for PD is self, then request the corresponding DHCP protocol is also ready. */
         if (dhcp_pd_is_uplink(link, link, /* accept_auto = */ false)) {
                 if (link_dhcp4_enabled(link) && link->network->dhcp_use_6rd &&
                     sd_dhcp_lease_has_6rd(link->dhcp_lease)) {
-                        if (!dhcp4_ready)
+                        if (!link->dhcp4_configured)
                                 return (void) log_link_debug(link, "%s(): DHCPv4 6rd prefix is assigned, but DHCPv4 protocol is not finished yet.", __func__);
                         if (!dhcp_pd_ready)
                                 return (void) log_link_debug(link, "%s(): DHCPv4 is finished, but prefix acquired by DHCPv4-6rd is not assigned yet.", __func__);
@@ -575,7 +574,7 @@ void link_check_ready(Link *link) {
 
                 if (link_dhcp6_enabled(link) && link->network->dhcp6_use_pd_prefix &&
                     sd_dhcp6_lease_has_pd_prefix(link->dhcp6_lease)) {
-                        if (!dhcp6_ready)
+                        if (!link->dhcp6_configured)
                                 return (void) log_link_debug(link, "%s(): DHCPv6 IA_PD prefix is assigned, but DHCPv6 protocol is not finished yet.", __func__);
                         if (!dhcp_pd_ready)
                                 return (void) log_link_debug(link, "%s(): DHCPv6 is finished, but prefix acquired by DHCPv6 IA_PD is not assigned yet.", __func__);
@@ -714,11 +713,9 @@ static int link_acquire_dynamic_ipv4_conf(Link *link) {
                 log_link_debug(link, "Acquiring IPv4 link-local address.");
         }
 
-        if (link->dhcp_server) {
-                r = sd_dhcp_server_start(link->dhcp_server);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not start DHCP server: %m");
-        }
+        r = link_start_dhcp4_server(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not start DHCP server: %m");
 
         r = ipv4acd_start(link);
         if (r < 0)
@@ -1115,12 +1112,11 @@ static int link_drop_managed_config(Link *link) {
         assert(link);
         assert(link->manager);
 
-        r = link_drop_managed_routes(link);
-
-        RET_GATHER(r, link_drop_managed_nexthops(link));
-        RET_GATHER(r, link_drop_managed_addresses(link));
-        RET_GATHER(r, link_drop_managed_neighbors(link));
-        RET_GATHER(r, link_drop_managed_routing_policy_rules(link));
+        r = link_drop_static_routes(link);
+        RET_GATHER(r, link_drop_static_nexthops(link));
+        RET_GATHER(r, link_drop_static_addresses(link));
+        RET_GATHER(r, link_drop_static_neighbors(link));
+        RET_GATHER(r, link_drop_static_routing_policy_rules(link));
 
         return r;
 }
@@ -1463,6 +1459,80 @@ int link_reconfigure(Link *link, bool force) {
         return 1; /* 1 means the interface will be reconfigured. */
 }
 
+typedef struct ReconfigureData {
+        Link *link;
+        Manager *manager;
+        sd_bus_message *message;
+} ReconfigureData;
+
+static void reconfigure_data_destroy_callback(ReconfigureData *data) {
+        int r;
+
+        assert(data);
+        assert(data->link);
+        assert(data->manager);
+        assert(data->manager->reloading > 0);
+        assert(data->message);
+
+        link_unref(data->link);
+
+        data->manager->reloading--;
+        if (data->manager->reloading <= 0) {
+                r = sd_bus_reply_method_return(data->message, NULL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to send reply for 'Reload' DBus method, ignoring: %m");
+        }
+
+        sd_bus_message_unref(data->message);
+        free(data);
+}
+
+static int reconfigure_handler_on_bus_method_reload(sd_netlink *rtnl, sd_netlink_message *m, ReconfigureData *data) {
+        assert(data);
+        assert(data->link);
+        return link_reconfigure_handler_internal(rtnl, m, data->link, /* force = */ false);
+}
+
+int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_free_ ReconfigureData *data = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+        assert(message);
+
+        /* See comments in link_reconfigure() above. */
+        if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED, LINK_STATE_LINGER))
+                return 0;
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK, link->ifindex);
+        if (r < 0)
+                return r;
+
+        data = new(ReconfigureData, 1);
+        if (!data)
+                return -ENOMEM;
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req,
+                               reconfigure_handler_on_bus_method_reload,
+                               reconfigure_data_destroy_callback, data);
+        if (r < 0)
+                return r;
+
+        *data = (ReconfigureData) {
+                .link = link_ref(link),
+                .manager = link->manager,
+                .message = sd_bus_message_ref(message),
+        };
+
+        link->manager->reloading++;
+
+        TAKE_PTR(data);
+        return 0;
+}
+
 static int link_initialized_and_synced(Link *link) {
         int r;
 
@@ -1574,6 +1644,14 @@ static int link_check_initialized(Link *link) {
                 return log_link_warning_errno(link, r, "Failed to determine the device is being renamed: %m");
         if (r > 0) {
                 log_link_debug(link, "Interface is being renamed, pending initialization.");
+                return 0;
+        }
+
+        r = device_is_processing(device);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to determine whether the device is being processed: %m");
+        if (r > 0) {
+                log_link_debug(link, "Interface is being processed by udevd, pending initialization.");
                 return 0;
         }
 
@@ -2572,7 +2650,7 @@ static Link *link_drop_or_unref(Link *link) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_drop_or_unref);
 
 static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
-        _cleanup_free_ char *ifname = NULL, *kind = NULL, *state_file = NULL, *lease_file = NULL, *lldp_file = NULL;
+        _cleanup_free_ char *ifname = NULL, *kind = NULL, *state_file = NULL, *lease_file = NULL;
         _cleanup_(link_drop_or_unrefp) Link *link = NULL;
         unsigned short iftype;
         int r, ifindex;
@@ -2613,9 +2691,6 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
 
                 if (asprintf(&lease_file, "/run/systemd/netif/leases/%d", ifindex) < 0)
                         return log_oom_debug();
-
-                if (asprintf(&lldp_file, "/run/systemd/netif/lldp/%d", ifindex) < 0)
-                        return log_oom_debug();
         }
 
         link = new(Link, 1);
@@ -2638,7 +2713,6 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
 
                 .state_file = TAKE_PTR(state_file),
                 .lease_file = TAKE_PTR(lease_file),
-                .lldp_file = TAKE_PTR(lldp_file),
 
                 .n_dns = UINT_MAX,
                 .dns_default_route = -1,

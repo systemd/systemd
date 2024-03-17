@@ -30,10 +30,10 @@ struct ServerAddress {
 struct ServerName {
         Manager *manager;
 
+        bool marked;
+
         ServerType type;
         char *string;
-
-        bool marked:1;
 
         LIST_HEAD(ServerAddress, addresses);
         LIST_FIELDS(ServerName, names);

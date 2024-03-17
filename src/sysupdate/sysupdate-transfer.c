@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
+#include "build-path.h"
 #include "chase.h"
 #include "conf-parser.h"
 #include "dirent-util.h"
@@ -782,25 +783,23 @@ static void compile_pattern_fields(
         memcpy(ret->sha256sum, i->metadata.sha256sum, sizeof(ret->sha256sum));
 }
 
-static int run_helper(
+static int run_callout(
                 const char *name,
-                const char *path,
-                const char * const cmdline[]) {
+                char *cmdline[]) {
 
         int r;
 
         assert(name);
-        assert(path);
         assert(cmdline);
+        assert(cmdline[0]);
 
         r = safe_fork(name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
-
-                execv(path, (char *const*) cmdline);
-                log_error_errno(errno, "Failed to execute %s tool: %m", path);
+                r = invoke_callout_binary(cmdline[0], (char *const*) cmdline);
+                log_error_errno(r, "Failed to execute %s tool: %m", cmdline[0]);
                 _exit(EXIT_FAILURE);
         }
 
@@ -907,36 +906,30 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
                          * importer has some tricks up its sleeve, such as sparse file generation, which we
                          * want to take benefit of, too.) */
 
-                        r = run_helper("(sd-import-raw)",
-                                       import_binary_path(),
-                                       (const char* const[]) {
-                                               "systemd-import",
+                        r = run_callout("(sd-import-raw)",
+                                        STRV_MAKE(
+                                               SYSTEMD_IMPORT_PATH,
                                                "raw",
                                                "--direct",          /* just copy/unpack the specified file, don't do anything else */
                                                arg_sync ? "--sync=yes" : "--sync=no",
                                                i->path,
-                                               t->temporary_path,
-                                               NULL
-                                       });
+                                               t->temporary_path));
                         break;
 
                 case RESOURCE_PARTITION:
 
                         /* regular file → partition */
 
-                        r = run_helper("(sd-import-raw)",
-                                       import_binary_path(),
-                                       (const char* const[]) {
-                                               "systemd-import",
+                        r = run_callout("(sd-import-raw)",
+                                        STRV_MAKE(
+                                               SYSTEMD_IMPORT_PATH,
                                                "raw",
                                                "--direct",          /* just copy/unpack the specified file, don't do anything else */
                                                "--offset", offset,
                                                "--size-max", max_size,
                                                arg_sync ? "--sync=yes" : "--sync=no",
                                                i->path,
-                                               t->target.path,
-                                               NULL
-                                       });
+                                               t->target.path));
                         break;
 
                 default:
@@ -951,18 +944,15 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
 
                 /* directory/subvolume → directory/subvolume */
 
-                r = run_helper("(sd-import-fs)",
-                               import_fs_binary_path(),
-                               (const char* const[]) {
-                                       "systemd-import-fs",
+                r = run_callout("(sd-import-fs)",
+                                STRV_MAKE(
+                                       SYSTEMD_IMPORT_FS_PATH,
                                        "run",
                                        "--direct",          /* just untar the specified file, don't do anything else */
                                        arg_sync ? "--sync=yes" : "--sync=no",
                                        t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        i->path,
-                                       t->temporary_path,
-                                       NULL
-                               });
+                                       t->temporary_path));
                 break;
 
         case RESOURCE_TAR:
@@ -970,18 +960,15 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
 
                 /* tar → directory/subvolume */
 
-                r = run_helper("(sd-import-tar)",
-                               import_binary_path(),
-                               (const char* const[]) {
-                                       "systemd-import",
+                r = run_callout("(sd-import-tar)",
+                                STRV_MAKE(
+                                       SYSTEMD_IMPORT_PATH,
                                        "tar",
                                        "--direct",          /* just untar the specified file, don't do anything else */
                                        arg_sync ? "--sync=yes" : "--sync=no",
                                        t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        i->path,
-                                       t->temporary_path,
-                                       NULL
-                               });
+                                       t->temporary_path));
                 break;
 
         case RESOURCE_URL_FILE:
@@ -992,28 +979,24 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
 
                         /* url file → regular file */
 
-                        r = run_helper("(sd-pull-raw)",
-                                       pull_binary_path(),
-                                       (const char* const[]) {
-                                               "systemd-pull",
+                        r = run_callout("(sd-pull-raw)",
+                                       STRV_MAKE(
+                                               SYSTEMD_PULL_PATH,
                                                "raw",
                                                "--direct",          /* just download the specified URL, don't download anything else */
                                                "--verify", digest,  /* validate by explicit SHA256 sum */
                                                arg_sync ? "--sync=yes" : "--sync=no",
                                                i->path,
-                                               t->temporary_path,
-                                               NULL
-                                       });
+                                               t->temporary_path));
                         break;
 
                 case RESOURCE_PARTITION:
 
                         /* url file → partition */
 
-                        r = run_helper("(sd-pull-raw)",
-                                       pull_binary_path(),
-                                       (const char* const[]) {
-                                               "systemd-pull",
+                        r = run_callout("(sd-pull-raw)",
+                                        STRV_MAKE(
+                                               SYSTEMD_PULL_PATH,
                                                "raw",
                                                "--direct",              /* just download the specified URL, don't download anything else */
                                                "--verify", digest,      /* validate by explicit SHA256 sum */
@@ -1021,9 +1004,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
                                                "--size-max", max_size,
                                                arg_sync ? "--sync=yes" : "--sync=no",
                                                i->path,
-                                               t->target.path,
-                                               NULL
-                                       });
+                                               t->target.path));
                         break;
 
                 default:
@@ -1035,19 +1016,16 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
         case RESOURCE_URL_TAR:
                 assert(IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME));
 
-                r = run_helper("(sd-pull-tar)",
-                               pull_binary_path(),
-                               (const char*const[]) {
-                                       "systemd-pull",
+                r = run_callout("(sd-pull-tar)",
+                                STRV_MAKE(
+                                       SYSTEMD_PULL_PATH,
                                        "tar",
                                        "--direct",          /* just download the specified URL, don't download anything else */
                                        "--verify", digest,  /* validate by explicit SHA256 sum */
                                        t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
                                        arg_sync ? "--sync=yes" : "--sync=no",
                                        i->path,
-                                       t->temporary_path,
-                                       NULL
-                               });
+                                       t->temporary_path));
                 break;
 
         default:

@@ -70,6 +70,7 @@ struct Swap {
         CGroupContext cgroup_context;
 
         ExecRuntime *exec_runtime;
+        CGroupRuntime *cgroup_runtime;
 
         SwapState state, deserialized_state;
 

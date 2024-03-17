@@ -288,7 +288,7 @@
         large individual journal files may grow at most. This influences the granularity in which disk space
         is made available through rotation, i.e. deletion of historic data. Defaults to one eighth of the
         values configured with <varname>SystemMaxUse=</varname> and <varname>RuntimeMaxUse=</varname> capped
-        to 128M, so that usually seven rotated journal files are kept as history. If the journal compact 
+        to 128M, so that usually seven rotated journal files are kept as history. If the journal compact
         mode is enabled (enabled by default), the maximum file size is capped to 4G.</para>
 
         <para>Specify values in bytes or use K, M, G, T, P, E as units for the specified sizes (equal to
@@ -368,11 +368,13 @@
         <term><varname>ForwardToKMsg=</varname></term>
         <term><varname>ForwardToConsole=</varname></term>
         <term><varname>ForwardToWall=</varname></term>
+        <term><varname>ForwardToSocket=</varname></term>
 
         <listitem><para>Control whether log messages received by the journal daemon shall be forwarded to a
-        traditional syslog daemon, to the kernel log buffer (kmsg), to the system console, or sent as wall
-        messages to all logged-in users.  These options take boolean arguments. If forwarding to syslog is
-        enabled but nothing reads messages from the socket, forwarding to syslog has no effect. By default,
+        traditional syslog daemon, to the kernel log buffer (kmsg), to the system console, sent as wall
+        messages to all logged-in users or sent over a socket. These options take boolean arguments except
+        for <literal>ForwardToSocket=</literal> which takes an an address instead. If forwarding
+        to syslog is enabled but nothing reads messages from the socket, forwarding to syslog has no effect. By default,
         only forwarding to wall is enabled. These settings may be overridden at boot time with the kernel
         command line options <literal>systemd.journald.forward_to_syslog</literal>,
         <literal>systemd.journald.forward_to_kmsg</literal>,
@@ -380,6 +382,16 @@
         <literal>systemd.journald.forward_to_wall</literal>. If the option name is specified without
         <literal>=</literal> and the following argument, true is assumed. Otherwise, the argument is parsed
         as a boolean.</para>
+
+        <para>The socket forwarding address can be specified with the credential
+        <literal>journal.forward_to_socket</literal>. The following socket types are supported:</para>
+
+        <para><simplelist type="inline">
+          <member><constant>AF_INET</constant> (e.g. <literal>192.168.0.11:4444</literal>)</member>
+          <member><constant>AF_INET6</constant> (e.g. <literal>[2001:db8::ff00:42:8329]:4444</literal>)</member>
+          <member><constant>AF_UNIX</constant> (e.g. <literal>/run/host/journal/socket</literal>)</member>
+          <member><constant>AF_VSOCK</constant> (e.g. <literal>vsock:2:1234</literal>)</member>
+        </simplelist></para>
 
         <para>When forwarding to the console, the TTY to log to can be changed with
         <varname>TTYPath=</varname>, described below.</para>
@@ -389,15 +401,27 @@
         <command>systemd</command> will automatically disable kernel's rate-limiting applied to userspace
         processes (equivalent to setting <literal>printk.devkmsg=on</literal>).</para>
 
+        <para>When forwarding over a socket the <ulink url="https://systemd.io/JOURNAL_EXPORT_FORMATS/#journal-export-format">
+        Journal Export Format</ulink> is used when sending over the wire.  Notably this includes the metadata
+        field <varname>__REALTIME_TIMESTAMP</varname> so that
+        <command>systemd-journal-remote</command> (see
+        <citerefentry><refentrytitle>systemd-journal-remote.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+        can be used to receive the forwarded journal entries.</para>
+
         <para>Note: Forwarding is performed synchronously within journald, and may significantly affect its
         performance.  This is particularly relevant when using ForwardToConsole=yes in cloud environments,
-        where the console is often a slow, virtual serial port.  Since journald is implemented as a
-        conventional single-process daemon, forwarding to a completely hung console will block journald.
-        This can have a cascading effect resulting in any services synchronously logging to the blocked
-        journal also becoming blocked.  Unless actively debugging/developing something, it's generally
-        preferable to setup a <command>journalctl --follow</command> style service redirected to the
+        where the console is often a slow, virtual serial port.
+        Since journald is implemented as a conventional single-process daemon, forwarding to a completely
+        hung console will block journald. This can have a cascading effect resulting in any services synchronously
+        logging to the blocked journal also becoming blocked.  Unless actively debugging/developing something, it's
+        generally preferable to setup a <command>journalctl --follow</command> style service redirected to the
         console, instead of ForwardToConsole=yes, for production use.</para>
         </listitem>
+
+        <para>Note: Using <varname>ForwardToSocket=</varname> over IPv4/IPv6 links can be very slow due to the synchronous nature of the sockets.
+        Take care to ensure your link is a low-latency local link if possible. Typically IP networking is not available everywhere
+        journald runs, e.g. in the initrd during boot. Consider using <constant>AF_VSOCK</constant>/<constant>AF_UNIX</constant> sockets for this if possible.
+        </para>
       </varlistentry>
 
       <varlistentry>
@@ -406,11 +430,12 @@
         <term><varname>MaxLevelKMsg=</varname></term>
         <term><varname>MaxLevelConsole=</varname></term>
         <term><varname>MaxLevelWall=</varname></term>
+        <term><varname>MaxLevelSocket=</varname></term>
 
         <listitem><para>Controls the maximum log level of messages
         that are stored in the journal, forwarded to syslog, kmsg, the
-        console or wall (if that is enabled, see above). As argument,
-        takes one of
+        console, a socket, or wall (if that is enabled, see above).
+        As argument, takes one of
         <literal>emerg</literal>,
         <literal>alert</literal>,
         <literal>crit</literal>,
@@ -422,9 +447,11 @@
         or integer values in the range of 0–7 (corresponding to the
         same levels). Messages equal or below the log level specified
         are stored/forwarded, messages above are dropped. Defaults to
-        <literal>debug</literal> for <varname>MaxLevelStore=</varname>
-        and <varname>MaxLevelSyslog=</varname>, to ensure that the all
-        messages are stored in the journal and forwarded to syslog.
+        <literal>debug</literal> for <varname>MaxLevelStore=</varname>,
+        <varname>MaxLevelSyslog=</varname> and
+        <varname>MaxLevelSocket=</varname>, to ensure that the all
+        messages are stored in the journal, forwarded to syslog and
+        the socket if one exists.
         Defaults to
         <literal>notice</literal> for <varname>MaxLevelKMsg=</varname>,
         <literal>info</literal> for <varname>MaxLevelConsole=</varname>,
@@ -435,7 +462,8 @@
         <literal>systemd.journald.max_level_syslog=</literal>,
         <literal>systemd.journald.max_level_kmsg=</literal>,
         <literal>systemd.journald.max_level_console=</literal>,
-        <literal>systemd.journald.max_level_wall=</literal>.</para>
+        <literal>systemd.journald.max_level_wall=</literal>,
+        <literal>systemd.journald.max_level_socket=</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v185"/>
         </listitem>

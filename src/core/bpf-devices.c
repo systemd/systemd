@@ -24,15 +24,15 @@ assert_cc((unsigned) BPF_DEVCG_ACC_WRITE == (unsigned) CGROUP_DEVICE_WRITE);
 static int bpf_prog_allow_list_device(
                 BPFProgram *prog,
                 char type,
-                int major,
-                int minor,
+                unsigned major,
+                unsigned minor,
                 CGroupDevicePermissions p) {
 
         int r;
 
         assert(prog);
 
-        log_trace("%s: %c %d:%d %s", __func__, type, major, minor, cgroup_device_permissions_to_string(p));
+        log_trace("%s: %c %u:%u %s", __func__, type, major, minor, cgroup_device_permissions_to_string(p));
 
         if (p <= 0 || p >= _CGROUP_DEVICE_PERMISSIONS_MAX)
                 return -EINVAL;
@@ -56,22 +56,22 @@ static int bpf_prog_allow_list_device(
         else
                 r = bpf_program_add_instructions(prog, insn, ELEMENTSOF(insn));
         if (r < 0)
-                log_error_errno(r, "Extending device control BPF program failed: %m");
+                return log_error_errno(r, "Extending device control BPF program failed: %m");
 
-        return r;
+        return 1; /* return 1 → we did something */
 }
 
 static int bpf_prog_allow_list_major(
                 BPFProgram *prog,
                 char type,
-                int major,
+                unsigned major,
                 CGroupDevicePermissions p) {
 
         int r;
 
         assert(prog);
 
-        log_trace("%s: %c %d:* %s", __func__, type, major, cgroup_device_permissions_to_string(p));
+        log_trace("%s: %c %u:* %s", __func__, type, major, cgroup_device_permissions_to_string(p));
 
         if (p <= 0 || p >= _CGROUP_DEVICE_PERMISSIONS_MAX)
                 return -EINVAL;
@@ -94,9 +94,9 @@ static int bpf_prog_allow_list_major(
         else
                 r = bpf_program_add_instructions(prog, insn, ELEMENTSOF(insn));
         if (r < 0)
-                log_error_errno(r, "Extending device control BPF program failed: %m");
+                return log_error_errno(r, "Extending device control BPF program failed: %m");
 
-        return r;
+        return 1; /* return 1 → we did something */
 }
 
 static int bpf_prog_allow_list_class(
@@ -130,9 +130,9 @@ static int bpf_prog_allow_list_class(
         else
                 r = bpf_program_add_instructions(prog, insn, ELEMENTSOF(insn));
         if (r < 0)
-                log_error_errno(r, "Extending device control BPF program failed: %m");
+                return log_error_errno(r, "Extending device control BPF program failed: %m");
 
-        return r;
+        return 1; /* return 1 → we did something */
 }
 
 int bpf_devices_cgroup_init(
@@ -165,8 +165,10 @@ int bpf_devices_cgroup_init(
 
         assert(ret);
 
-        if (policy == CGROUP_DEVICE_POLICY_AUTO && !allow_list)
+        if (policy == CGROUP_DEVICE_POLICY_AUTO && !allow_list) {
+                *ret = NULL;
                 return 0;
+        }
 
         r = bpf_program_new(BPF_PROG_TYPE_CGROUP_DEVICE, "sd_devices", &prog);
         if (r < 0)
@@ -179,8 +181,7 @@ int bpf_devices_cgroup_init(
         }
 
         *ret = TAKE_PTR(prog);
-
-        return 0;
+        return 1;
 }
 
 int bpf_devices_apply_policy(
@@ -307,8 +308,8 @@ static int allow_list_device_pattern(
                 BPFProgram *prog,
                 const char *path,
                 char type,
-                const unsigned *maj,
-                const unsigned *min,
+                unsigned major,
+                unsigned minor,
                 CGroupDevicePermissions p) {
 
         assert(IN_SET(type, 'b', 'c'));
@@ -317,10 +318,10 @@ static int allow_list_device_pattern(
                 if (!prog)
                         return 0;
 
-                if (maj && min)
-                        return bpf_prog_allow_list_device(prog, type, *maj, *min, p);
-                else if (maj)
-                        return bpf_prog_allow_list_major(prog, type, *maj, p);
+                if (major != UINT_MAX && minor != UINT_MAX)
+                        return bpf_prog_allow_list_device(prog, type, major, minor, p);
+                else if (major != UINT_MAX)
+                        return bpf_prog_allow_list_major(prog, type, major, p);
                 else
                         return bpf_prog_allow_list_class(prog, type, p);
 
@@ -328,10 +329,10 @@ static int allow_list_device_pattern(
                 char buf[2+DECIMAL_STR_MAX(unsigned)*2+2+4];
                 int r;
 
-                if (maj && min)
-                        xsprintf(buf, "%c %u:%u %s", type, *maj, *min, cgroup_device_permissions_to_string(p));
-                else if (maj)
-                        xsprintf(buf, "%c %u:* %s", type, *maj, cgroup_device_permissions_to_string(p));
+                if (major != UINT_MAX && minor != UINT_MAX)
+                        xsprintf(buf, "%c %u:%u %s", type, major, minor, cgroup_device_permissions_to_string(p));
+                else if (major != UINT_MAX)
+                        xsprintf(buf, "%c %u:* %s", type, major, cgroup_device_permissions_to_string(p));
                 else
                         xsprintf(buf, "%c *:* %s", type, cgroup_device_permissions_to_string(p));
 
@@ -371,8 +372,14 @@ int bpf_devices_allow_list_device(
                         return log_warning_errno(r, "Couldn't parse major/minor from device path '%s': %m", node);
 
                 struct stat st;
-                if (stat(node, &st) < 0)
+                if (stat(node, &st) < 0) {
+                        if (errno == ENOENT) {
+                                log_debug_errno(errno, "Device '%s' does not exist, skipping.", node);
+                                return 0; /* returning 0 means → skipped */
+                        }
+
                         return log_warning_errno(errno, "Couldn't stat device %s: %m", node);
+                }
 
                 if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode))
                         return log_warning_errno(SYNTHETIC_ERRNO(ENODEV), "%s is not a device.", node);
@@ -381,8 +388,7 @@ int bpf_devices_allow_list_device(
                 rdev = (dev_t) st.st_rdev;
         }
 
-        unsigned maj = major(rdev), min = minor(rdev);
-        return allow_list_device_pattern(prog, path, S_ISCHR(mode) ? 'c' : 'b', &maj, &min, p);
+        return allow_list_device_pattern(prog, path, S_ISCHR(mode) ? 'c' : 'b', major(rdev), minor(rdev), p);
 }
 
 int bpf_devices_allow_list_major(
@@ -392,7 +398,7 @@ int bpf_devices_allow_list_major(
                 char type,
                 CGroupDevicePermissions permissions) {
 
-        unsigned maj;
+        unsigned major;
         int r;
 
         assert(path);
@@ -401,12 +407,12 @@ int bpf_devices_allow_list_major(
 
         if (streq(name, "*"))
                 /* If the name is a wildcard, then apply this list to all devices of this type */
-                return allow_list_device_pattern(prog, path, type, NULL, NULL, permissions);
+                return allow_list_device_pattern(prog, path, type, /* major= */ UINT_MAX, /* minor= */ UINT_MAX, permissions);
 
-        if (safe_atou(name, &maj) >= 0 && DEVICE_MAJOR_VALID(maj))
+        if (safe_atou(name, &major) >= 0 && DEVICE_MAJOR_VALID(major))
                 /* The name is numeric and suitable as major. In that case, let's take its major, and create
                  * the entry directly. */
-                return allow_list_device_pattern(prog, path, type, &maj, NULL, permissions);
+                return allow_list_device_pattern(prog, path, type, major, /* minor= */ UINT_MAX, permissions);
 
         _cleanup_fclose_ FILE *f = NULL;
         bool good = false, any = false;
@@ -450,10 +456,10 @@ int bpf_devices_allow_list_major(
                         continue;
                 *w = 0;
 
-                r = safe_atou(p, &maj);
+                r = safe_atou(p, &major);
                 if (r < 0)
                         continue;
-                if (maj <= 0)
+                if (major <= 0)
                         continue;
 
                 w++;
@@ -462,15 +468,15 @@ int bpf_devices_allow_list_major(
                 if (fnmatch(name, w, 0) != 0)
                         continue;
 
-                any = true;
-                (void) allow_list_device_pattern(prog, path, type, &maj, NULL, permissions);
+                if (allow_list_device_pattern(prog, path, type, major, /* minor= */ UINT_MAX, permissions) > 0)
+                        any = true;
         }
 
         if (!any)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
                                        "Device allow list pattern \"%s\" did not match anything.", name);
 
-        return 0;
+        return any;
 }
 
 int bpf_devices_allow_list_static(
@@ -492,13 +498,13 @@ int bpf_devices_allow_list_static(
 
         NULSTR_FOREACH_PAIR(node, acc, auto_devices) {
                 k = bpf_devices_allow_list_device(prog, path, node, cgroup_device_permissions_from_string(acc));
-                if (r >= 0 && k < 0)
+                if ((r >= 0 && k < 0) || (r >= 0 && k > 0))
                         r = k;
         }
 
         /* PTS (/dev/pts) devices may not be duplicated, but accessed */
         k = bpf_devices_allow_list_major(prog, path, "pts", 'c', CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
-        if (r >= 0 && k < 0)
+        if ((r >= 0 && k < 0) || (r >= 0 && k > 0))
                 r = k;
 
         return r;

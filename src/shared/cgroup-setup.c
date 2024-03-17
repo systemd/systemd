@@ -51,7 +51,7 @@ static int cg_any_controller_used_for_v1(void) {
                         continue;
 
                 const char *p = *line;
-                r = extract_many_words(&p, NULL, 0, &name, &hierarchy_id, &num, &enabled, NULL);
+                r = extract_many_words(&p, NULL, 0, &name, &hierarchy_id, &num, &enabled);
                 if (r < 0)
                         return log_debug_errno(r, "Error parsing /proc/cgroups line, ignoring: %m");
                 else if (r < 4) {
@@ -81,9 +81,6 @@ static int cg_any_controller_used_for_v1(void) {
 
 bool cg_is_unified_wanted(void) {
         static thread_local int wanted = -1;
-        bool b;
-        const bool is_default = DEFAULT_HIERARCHY == CGROUP_UNIFIED_ALL;
-        _cleanup_free_ char *c = NULL;
         int r;
 
         /* If we have a cached value, return that. */
@@ -96,21 +93,20 @@ bool cg_is_unified_wanted(void) {
                 return (wanted = r >= CGROUP_UNIFIED_ALL);
 
         /* If we were explicitly passed systemd.unified_cgroup_hierarchy, respect that. */
+        bool b;
         r = proc_cmdline_get_bool("systemd.unified_cgroup_hierarchy", /* flags = */ 0, &b);
         if (r > 0)
                 return (wanted = b);
 
         /* If we passed cgroup_no_v1=all with no other instructions, it seems highly unlikely that we want to
          * use hybrid or legacy hierarchy. */
+        _cleanup_free_ char *c = NULL;
         r = proc_cmdline_get_key("cgroup_no_v1", 0, &c);
         if (r > 0 && streq_ptr(c, "all"))
                 return (wanted = true);
 
         /* If any controller is in use as v1, don't use unified. */
-        if (cg_any_controller_used_for_v1() > 0)
-                return (wanted = false);
-
-        return (wanted = is_default);
+        return (wanted = (cg_any_controller_used_for_v1() <= 0));
 }
 
 bool cg_is_legacy_wanted(void) {
@@ -132,10 +128,6 @@ bool cg_is_legacy_wanted(void) {
 bool cg_is_hybrid_wanted(void) {
         static thread_local int wanted = -1;
         int r;
-        bool b;
-        const bool is_default = DEFAULT_HIERARCHY >= CGROUP_UNIFIED_SYSTEMD;
-        /* We default to true if the default is "hybrid", obviously, but also when the default is "unified",
-         * because if we get called, it means that unified hierarchy was not mounted. */
 
         /* If we have a cached value, return that. */
         if (wanted >= 0)
@@ -146,12 +138,33 @@ bool cg_is_hybrid_wanted(void) {
                 return (wanted = false);
 
         /* Otherwise, let's see what the kernel command line has to say.  Since checking is expensive, cache
-         * a non-error result. */
-        r = proc_cmdline_get_bool("systemd.legacy_systemd_cgroup_controller", /* flags = */ 0, &b);
-
-        /* The meaning of the kernel option is reversed wrt. to the return value of this function, hence the
+         * a non-error result.
+         * The meaning of the kernel option is reversed wrt. to the return value of this function, hence the
          * negation. */
-        return (wanted = r > 0 ? !b : is_default);
+        bool b;
+        r = proc_cmdline_get_bool("systemd.legacy_systemd_cgroup_controller", /* flags = */ 0, &b);
+        if (r > 0)
+                return (wanted = !b);
+
+        /* The default hierarchy is "unified". But if this is reached, it means that unified hierarchy was
+         * not mounted, so return true too. */
+        return (wanted = true);
+}
+
+bool cg_is_legacy_force_enabled(void) {
+        bool force;
+
+        if (!cg_is_legacy_wanted())
+                return false;
+
+        /* If in container, we have to follow host's cgroup hierarchy. */
+        if (detect_container() > 0)
+                return true;
+
+        if (proc_cmdline_get_bool("SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE", /* flags = */ 0, &force) < 0)
+                return false;
+
+        return force;
 }
 
 int cg_weight_parse(const char *s, uint64_t *ret) {

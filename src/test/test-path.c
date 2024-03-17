@@ -100,7 +100,8 @@ static int _check_states(unsigned line,
                          service_state_to_string(service->state),
                          service_result_to_string(service->result));
 
-                if (service->state == SERVICE_FAILED && service->main_exec_status.status == EXIT_CGROUP) {
+                if (service->state == SERVICE_FAILED &&
+                    (service->main_exec_status.status == EXIT_CGROUP || service->result == SERVICE_FAILURE_RESOURCES)) {
                         const char *ci = ci_environment();
 
                         /* On a general purpose system we may fail to start the service for reasons which are

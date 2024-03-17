@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=System Extension Image Management (Varlink)
+Description=System Extension Image Management
 Documentation=man:systemd-sysext(8)
 DefaultDependencies=no
 After=local-fs.target
@@ -20,6 +20,7 @@ ListenStream=/run/systemd/io.systemd.sysext
 FileDescriptorName=varlink
 SocketMode=0600
 Accept=yes
+MaxConnectionsPerSource=16
 
 [Install]
 WantedBy=sockets.target

@@ -352,7 +352,7 @@ static int route_get_link(Manager *manager, const Route *route, Link **ret) {
         return route_nexthop_get_link(manager, &route->nexthop, ret);
 }
 
-static int route_get_request(Manager *manager, const Route *route, Request **ret) {
+int route_get_request(Manager *manager, const Route *route, Request **ret) {
         Request *req;
 
         assert(manager);
@@ -600,8 +600,8 @@ int route_remove(Route *route, Manager *manager) {
 }
 
 int route_remove_and_cancel(Route *route, Manager *manager) {
+        _cleanup_(request_unrefp) Request *req = NULL;
         bool waiting = false;
-        Request *req;
 
         assert(route);
         assert(manager);
@@ -612,6 +612,7 @@ int route_remove_and_cancel(Route *route, Manager *manager) {
         /* Cancel the request for the route. If the request is already called but we have not received the
          * notification about the request, then explicitly remove the route. */
         if (route_get_request(manager, route, &req) >= 0) {
+                request_ref(req); /* avoid the request freed by request_detach() */
                 waiting = req->waiting_reply;
                 request_detach(req);
                 route_cancel_requesting(route);
@@ -779,16 +780,7 @@ static int route_requeue_request(Request *req, Link *link, const Route *route) {
         request_detach(req);
 
         /* Request the route with the adjusted Route object combined with the same other parameters. */
-        r = link_queue_request_full(link,
-                                    req->type,
-                                    tmp,
-                                    req->free_func,
-                                    req->hash_func,
-                                    req->compare_func,
-                                    req->process,
-                                    req->counter,
-                                    req->netlink_handler,
-                                    NULL);
+        r = link_requeue_request(link, req, tmp, NULL);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1305,6 +1297,43 @@ static bool route_by_kernel(const Route *route) {
         return false;
 }
 
+bool route_can_update(const Route *existing, const Route *requesting) {
+        assert(existing);
+        assert(requesting);
+
+        if (route_compare_func(existing, requesting) != 0)
+                return false;
+
+        switch (existing->family) {
+        case AF_INET:
+                if (existing->nexthop.weight != requesting->nexthop.weight)
+                        return false;
+                return true;
+
+        case AF_INET6:
+                if (existing->protocol != requesting->protocol)
+                        return false;
+                if (existing->type != requesting->type)
+                        return false;
+                if (existing->flags != requesting->flags)
+                        return false;
+                if (!in6_addr_equal(&existing->prefsrc.in6, &requesting->prefsrc.in6))
+                        return false;
+                if (existing->pref != requesting->pref)
+                        return false;
+                if (existing->expiration_managed_by_kernel && requesting->lifetime_usec != USEC_INFINITY)
+                        return false; /* We cannot disable expiration timer in the kernel. */
+                if (!route_metric_can_update(&existing->metric, &requesting->metric, existing->expiration_managed_by_kernel))
+                        return false;
+                if (existing->nexthop.weight != requesting->nexthop.weight)
+                        return false;
+                return true;
+
+        default:
+                assert_not_reached();
+        }
+}
+
 static int link_unmark_route(Link *link, const Route *route, const RouteNextHop *nh) {
         _cleanup_(route_unrefp) Route *tmp = NULL;
         Route *existing;
@@ -1322,6 +1351,9 @@ static int link_unmark_route(Link *link, const Route *route, const RouteNextHop 
                 return r;
 
         if (route_get(link->manager, tmp, &existing) < 0)
+                return 0;
+
+        if (!route_can_update(existing, tmp))
                 return 0;
 
         route_unmark(existing);

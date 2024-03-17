@@ -233,7 +233,7 @@ TEST(real_pressure) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
         assert_se(sd_event_add_child(e, &cs, pid, WEXITED, real_pressure_child_callback, NULL) >= 0);
         assert_se(sd_event_source_set_child_process_own(cs, true) >= 0);
 

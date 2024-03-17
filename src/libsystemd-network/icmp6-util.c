@@ -21,37 +21,42 @@
 #include "network-common.h"
 #include "socket-util.h"
 
-#define IN6ADDR_ALL_ROUTERS_MULTICAST_INIT \
-        { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02 } } }
-
-#define IN6ADDR_ALL_NODES_MULTICAST_INIT \
-        { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
-              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } } }
-
-static int icmp6_bind_router_message(const struct icmp6_filter *filter,
-                                     const struct ipv6_mreq *mreq) {
-        int ifindex = mreq->ipv6mr_interface;
+int icmp6_bind(int ifindex, bool is_router) {
+        struct icmp6_filter filter = {};
+        struct ipv6_mreq mreq;
         _cleanup_close_ int s = -EBADF;
         int r;
 
-        assert(filter);
-        assert(mreq);
+        assert(ifindex > 0);
+
+        ICMP6_FILTER_SETBLOCKALL(&filter);
+        if (is_router) {
+                mreq = (struct ipv6_mreq) {
+                        .ipv6mr_multiaddr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
+                        .ipv6mr_interface = ifindex,
+                };
+                ICMP6_FILTER_SETPASS(ND_ROUTER_SOLICIT, &filter);
+        } else {
+                mreq = (struct ipv6_mreq) {
+                        .ipv6mr_multiaddr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
+                        .ipv6mr_interface = ifindex,
+                };
+                ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
+        }
 
         s = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_ICMPV6);
         if (s < 0)
                 return -errno;
 
-        if (setsockopt(s, IPPROTO_ICMPV6, ICMP6_FILTER, filter, sizeof(*filter)) < 0)
+        if (setsockopt(s, IPPROTO_ICMPV6, ICMP6_FILTER, &filter, sizeof(filter)) < 0)
                 return -errno;
 
-        if (setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, mreq, sizeof(*mreq)) < 0)
+        if (setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
                 return -errno;
 
-        /* RFC 3315, section 6.7, bullet point 2 may indicate that an
-           IPV6_PKTINFO socket option also applies for ICMPv6 multicast.
-           Empirical experiments indicates otherwise and therefore an
-           IPV6_MULTICAST_IF socket option is used here instead */
+        /* RFC 3315, section 6.7, bullet point 2 may indicate that an IPV6_PKTINFO socket option also applies
+         * for ICMPv6 multicast. Empirical experiments indicates otherwise and therefore an IPV6_MULTICAST_IF
+         * socket option is used here instead. */
         r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_IF, ifindex);
         if (r < 0)
                 return r;
@@ -81,32 +86,6 @@ static int icmp6_bind_router_message(const struct icmp6_filter *filter,
                 return r;
 
         return TAKE_FD(s);
-}
-
-int icmp6_bind_router_solicitation(int ifindex) {
-        struct icmp6_filter filter = {};
-        struct ipv6_mreq mreq = {
-                .ipv6mr_multiaddr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
-                .ipv6mr_interface = ifindex,
-        };
-
-        ICMP6_FILTER_SETBLOCKALL(&filter);
-        ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
-
-        return icmp6_bind_router_message(&filter, &mreq);
-}
-
-int icmp6_bind_router_advertisement(int ifindex) {
-        struct icmp6_filter filter = {};
-        struct ipv6_mreq mreq = {
-                .ipv6mr_multiaddr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
-                .ipv6mr_interface = ifindex,
-        };
-
-        ICMP6_FILTER_SETBLOCKALL(&filter);
-        ICMP6_FILTER_SETPASS(ND_ROUTER_SOLICIT, &filter);
-
-        return icmp6_bind_router_message(&filter, &mreq);
 }
 
 int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
@@ -165,7 +144,6 @@ int icmp6_receive(
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
-        struct in6_addr addr = {};
         ssize_t len;
 
         iov = IOVEC_MAKE(buffer, size);
@@ -177,17 +155,11 @@ int icmp6_receive(
         if ((size_t) len != size)
                 return -EINVAL;
 
-        if (msg.msg_namelen == sizeof(struct sockaddr_in6) &&
-            sa.in6.sin6_family == AF_INET6)  {
-
-                addr = sa.in6.sin6_addr;
-                if (!in6_addr_is_link_local(&addr) && !in6_addr_is_null(&addr))
-                        return -EADDRNOTAVAIL;
-
-        } else if (msg.msg_namelen > 0)
+        if (msg.msg_namelen != sizeof(struct sockaddr_in6) || sa.in6.sin6_family != AF_INET6)
                 return -EPFNOSUPPORT;
 
-        /* namelen == 0 only happens when running the test-suite over a socketpair */
+        if (!in6_addr_is_link_local(&sa.in6.sin6_addr) && !in6_addr_is_null(&sa.in6.sin6_addr))
+                return -EADDRNOTAVAIL;
 
         assert(!(msg.msg_flags & MSG_TRUNC));
 
@@ -198,6 +170,6 @@ int icmp6_receive(
         if (ret_timestamp)
                 triple_timestamp_from_cmsg(ret_timestamp, &msg);
         if (ret_sender)
-                *ret_sender = addr;
+                *ret_sender = sa.in6.sin6_addr;
         return 0;
 }

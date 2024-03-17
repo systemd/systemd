@@ -80,6 +80,9 @@
       <listitem><para>The file system tree of the host OS itself.</para></listitem>
     </itemizedlist>
 
+    <para>Images may be downloaded, imported and exported via the
+    <citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    tool.</para>
   </refsect1>
 
   <refsect1>
@@ -87,8 +90,9 @@
 
     <para>The following commands are understood:</para>
 
-    <refsect2><title>Machine Commands</title><variablelist>
+    <refsect2><title>Machine Commands</title>
 
+    <variablelist>
       <varlistentry>
         <term><command>list</command></term>
 
@@ -279,7 +283,7 @@
         trigger a reboot by sending SIGINT to the container's init
         process, which is roughly equivalent to pressing Ctrl+Alt+Del
         on a non-containerized system, and is compatible with
-        containers running any system manager. Use <command>restart</command> as alias 
+        containers running any system manager. Use <command>restart</command> as alias
         for <command>reboot</command>.</para>
 
         <xi:include href="version-info.xml" xpointer="v209"/></listitem>
@@ -361,8 +365,9 @@
       </varlistentry>
     </variablelist></refsect2>
 
-    <refsect2><title>Image Commands</title><variablelist>
+    <refsect2><title>Image Commands</title>
 
+    <variablelist>
       <varlistentry>
         <term><command>list-images</command></term>
 
@@ -515,7 +520,7 @@
         <para>When combined with the <option>--all</option> switch removes all images, not just hidden ones. This
         command effectively empties <filename>/var/lib/machines/</filename>.</para>
 
-        <para>Note that commands such as <command>machinectl pull-tar</command> or <command>machinectl
+        <para>Note that commands such as <command>importctl pull-tar</command> or <command>importctl
         pull-raw</command> usually create hidden, read-only, unmodified machine images from the downloaded image first,
         before cloning a writable working copy of it, in order to avoid duplicate downloads in case of images that are
         reused multiple times. Use <command>machinectl clean</command> to remove old, hidden images created this
@@ -525,197 +530,6 @@
       </varlistentry>
 
     </variablelist></refsect2>
-
-    <refsect2><title>Image Transfer Commands</title><variablelist>
-
-      <varlistentry>
-        <term><command>pull-tar</command> <replaceable>URL</replaceable> [<replaceable>NAME</replaceable>]</term>
-
-        <listitem><para>Downloads a <filename>.tar</filename>
-        container image from the specified URL, and makes it available
-        under the specified local machine name. The URL must be of
-        type <literal>http://</literal> or
-        <literal>https://</literal>, and must refer to a
-        <filename>.tar</filename>, <filename>.tar.gz</filename>,
-        <filename>.tar.xz</filename> or <filename>.tar.bz2</filename>
-        archive file. If the local machine name is omitted, it
-        is automatically derived from the last component of the URL,
-        with its suffix removed.</para>
-
-        <para>The image is verified before it is made available, unless
-        <option>--verify=no</option> is specified.
-        Verification is done either via an inline signed file with the name
-        of the image and the suffix <filename>.sha256</filename> or via
-        separate <filename>SHA256SUMS</filename> and
-        <filename>SHA256SUMS.gpg</filename> files.
-        The signature files need to be made available on the same web
-        server, under the same URL as the <filename>.tar</filename> file.
-        With <option>--verify=checksum</option>, only the SHA256 checksum
-        for the file is verified, based on the <filename>.sha256</filename>
-        suffixed file or the <filename>SHA256SUMS</filename> file.
-        With <option>--verify=signature</option>, the sha checksum file is
-        first verified with the inline signature in the
-        <filename>.sha256</filename> file or the detached GPG signature file
-        <filename>SHA256SUMS.gpg</filename>.
-        The public key for this verification step needs to be available in
-        <filename>/usr/lib/systemd/import-pubring.gpg</filename> or
-        <filename>/etc/systemd/import-pubring.gpg</filename>.</para>
-
-        <para>The container image will be downloaded and stored in a
-        read-only subvolume in
-        <filename>/var/lib/machines/</filename> that is named after
-        the specified URL and its HTTP etag. A writable snapshot is
-        then taken from this subvolume, and named after the specified
-        local name. This behavior ensures that creating multiple
-        container instances of the same URL is efficient, as multiple
-        downloads are not necessary. In order to create only the
-        read-only image, and avoid creating its writable snapshot,
-        specify <literal>-</literal> as local machine name.</para>
-
-        <para>Note that the read-only subvolume is prefixed with
-        <filename>.tar-</filename>, and is thus not shown by
-        <command>list-images</command>, unless <option>--all</option>
-        is passed.</para>
-
-        <para>Note that pressing C-c during execution of this command
-        will not abort the download. Use
-        <command>cancel-transfer</command>, described
-        below.</para>
-
-        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><command>pull-raw</command> <replaceable>URL</replaceable> [<replaceable>NAME</replaceable>]</term>
-
-        <listitem><para>Downloads a <filename>.raw</filename>
-        container or VM disk image from the specified URL, and makes
-        it available under the specified local machine name. The URL
-        must be of type <literal>http://</literal> or
-        <literal>https://</literal>. The container image must either
-        be a <filename>.qcow2</filename> or raw disk image, optionally
-        compressed as <filename>.gz</filename>,
-        <filename>.xz</filename>, or <filename>.bz2</filename>. If the
-        local machine name is omitted, it is automatically
-        derived from the last component of the URL, with its suffix
-        removed.</para>
-
-        <para>Image verification is identical for raw and tar images
-        (see above).</para>
-
-        <para>If the downloaded image is in
-        <filename>.qcow2</filename> format it is converted into a raw
-        image file before it is made available.</para>
-
-        <para>Downloaded images of this type will be placed as
-        read-only <filename>.raw</filename> file in
-        <filename>/var/lib/machines/</filename>. A local, writable
-        (reflinked) copy is then made under the specified local
-        machine name. To omit creation of the local, writable copy
-        pass <literal>-</literal> as local machine name.</para>
-
-        <para>Similarly to the behavior of <command>pull-tar</command>, the read-only image is prefixed with
-        <filename>.raw-</filename>, and thus not shown by <command>list-images</command>, unless
-        <option>--all</option> is passed.</para>
-
-        <para>Note that pressing C-c during execution of this command
-        will not abort the download. Use
-        <command>cancel-transfer</command>, described
-        below.</para>
-
-        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><command>import-tar</command> <replaceable>FILE</replaceable> [<replaceable>NAME</replaceable>]</term>
-        <term><command>import-raw</command> <replaceable>FILE</replaceable> [<replaceable>NAME</replaceable>]</term>
-        <listitem><para>Imports a TAR or RAW container or VM image,
-        and places it under the specified name in
-        <filename>/var/lib/machines/</filename>. When
-        <command>import-tar</command> is used, the file specified as
-        the first argument should be a tar archive, possibly compressed
-        with xz, gzip or bzip2. It will then be unpacked into its own
-        subvolume in <filename>/var/lib/machines/</filename>. When
-        <command>import-raw</command> is used, the file should be a
-        qcow2 or raw disk image, possibly compressed with xz, gzip or
-        bzip2. If the second argument (the resulting image name) is
-        not specified, it is automatically derived from the file
-        name. If the filename is passed as <literal>-</literal>, the
-        image is read from standard input, in which case the second
-        argument is mandatory.</para>
-
-        <para>Optionally, the <option>--read-only</option> switch may be used to create a read-only container or VM
-        image. No cryptographic validation is done when importing the images.</para>
-
-        <para>Much like image downloads, ongoing imports may be listed
-        with <command>list-transfers</command> and aborted with
-        <command>cancel-transfer</command>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><command>import-fs</command> <replaceable>DIRECTORY</replaceable> [<replaceable>NAME</replaceable>]</term>
-
-        <listitem><para>Imports a container image stored in a local directory into
-        <filename>/var/lib/machines/</filename>, operates similarly to <command>import-tar</command> or
-        <command>import-raw</command>, but the first argument is the source directory. If supported, this
-        command will create a btrfs snapshot or subvolume for the new image.</para>
-
-        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><command>export-tar</command> <replaceable>NAME</replaceable> [<replaceable>FILE</replaceable>]</term>
-        <term><command>export-raw</command> <replaceable>NAME</replaceable> [<replaceable>FILE</replaceable>]</term>
-        <listitem><para>Exports a TAR or RAW container or VM image and
-        stores it in the specified file. The first parameter should be
-        a VM or container image name. The second parameter should be a
-        file path the TAR or RAW image is written to. If the path ends
-        in <literal>.gz</literal>, the file is compressed with gzip, if
-        it ends in <literal>.xz</literal>, with xz, and if it ends in
-        <literal>.bz2</literal>, with bzip2. If the path ends in
-        neither, the file is left uncompressed. If the second argument
-        is missing, the image is written to standard output. The
-        compression may also be explicitly selected with the
-        <option>--format=</option> switch. This is in particular
-        useful if the second parameter is left unspecified.</para>
-
-        <para>Much like image downloads and imports, ongoing exports
-        may be listed with <command>list-transfers</command> and
-        aborted with
-        <command>cancel-transfer</command>.</para>
-
-        <para>Note that, currently, only directory and subvolume images
-        may be exported as TAR images, and only raw disk images as RAW
-        images.</para>
-
-        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><command>list-transfers</command></term>
-
-        <listitem><para>Shows a list of container or VM image
-        downloads, imports and exports that are currently in
-        progress.</para>
-
-        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><command>cancel-transfer</command> <replaceable>ID</replaceable>…</term>
-
-        <listitem><para>Aborts a download, import or export of the
-        container or VM image with the specified ID. To list ongoing
-        transfers and their IDs, use
-        <command>list-transfers</command>. </para>
-
-        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
-      </varlistentry>
-
-    </variablelist></refsect2>
-
   </refsect1>
 
   <refsect1>
@@ -739,6 +553,17 @@
         <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
+       <varlistentry>
+        <term><option>--value</option></term>
+
+        <listitem><para>When printing properties with <command>show</command>, only print the value,
+        and skip the property name and <literal>=</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
+      </varlistentry>
+
+      <xi:include href="timedatectl.xml" xpointer="option-P"/>
+
       <varlistentry>
         <term><option>-a</option></term>
         <term><option>--all</option></term>
@@ -754,15 +579,6 @@
         <para>When cleaning VM or container images, remove all images, not just hidden ones.</para>
 
         <xi:include href="version-info.xml" xpointer="v206"/></listitem>
-      </varlistentry>
-
-       <varlistentry>
-        <term><option>--value</option></term>
-
-        <listitem><para>When printing properties with <command>show</command>, only print the value,
-        and skip the property name and <literal>=</literal>.</para>
-
-        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -834,8 +650,7 @@
 
         <listitem><para>When used with <command>bind</command>, creates a read-only bind mount.</para>
 
-        <para>When used with <command>clone</command>, <command>import-raw</command> or <command>import-tar</command> a
-        read-only container or VM image is created.</para>
+        <para>When used with <command>clone</command> a read-only container or VM image is created.</para>
 
         <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
@@ -867,24 +682,26 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--verify=</option></term>
+        <term><option>--runner=</option><option>nspawn</option>|<option>vmspawn</option></term>
 
-        <listitem><para>When downloading a container or VM image,
-        specify whether the image shall be verified before it is made
-        available. Takes one of <literal>no</literal>,
-        <literal>checksum</literal> and <literal>signature</literal>.
-        If <literal>no</literal>, no verification is done. If
-        <literal>checksum</literal> is specified, the download is
-        checked for integrity after the transfer is complete, but no
-        signatures are verified. If <literal>signature</literal> is
-        specified, the checksum is verified and the image's signature
-        is checked against a local keyring of trustable vendors. It is
-        strongly recommended to set this option to
-        <literal>signature</literal> if the server and protocol
-        support this. Defaults to
-        <literal>signature</literal>.</para>
+        <listitem><para>When operating on machines choose whether to use
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        or
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        By default
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        is used.
+        </para>
 
-        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-V</option></term>
+
+        <listitem><para><option>-V</option> is a shorthand for <option>--runner=vmspawn</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -903,26 +720,9 @@
       <varlistentry>
         <term><option>--force</option></term>
 
-        <listitem><para>When downloading a container or VM image, and
-        a local copy by the specified local machine name already
-        exists, delete it first and replace it by the newly downloaded
-        image.</para>
+        <listitem><para>Replace target file when copying files.</para>
 
         <xi:include href="version-info.xml" xpointer="v219"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--format=</option></term>
-
-        <listitem><para>When used with the <option>export-tar</option>
-        or <option>export-raw</option> commands, specifies the
-        compression format to use for the resulting file. Takes one of
-        <literal>uncompressed</literal>, <literal>xz</literal>,
-        <literal>gzip</literal>, <literal>bzip2</literal>. By default,
-        the format is determined automatically from the image file
-        name passed.</para>
-
-        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1046,58 +846,8 @@
 
   <refsect1>
     <title>Examples</title>
-    <example>
-      <title>Download a Ubuntu image and open a shell in it</title>
 
-      <programlisting># machinectl pull-tar https://cloud-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-root.tar.gz
-# systemd-nspawn -M trusty-server-cloudimg-amd64-root</programlisting>
-
-      <para>This downloads and verifies the specified
-      <filename>.tar</filename> image, and then uses
-      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-      to open a shell in it.</para>
-    </example>
-
-    <example>
-      <title>Download a Fedora image, set a root password in it, start
-      it as a service</title>
-
-      <programlisting># machinectl pull-raw --verify=no \
-      https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz \
-      Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86-64
-# systemd-nspawn -M Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86-64
-# passwd
-# exit
-# machinectl start Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86-64
-# machinectl login Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86-64</programlisting>
-
-      <para>This downloads the specified <filename>.raw</filename>
-      image with verification disabled. Then, a shell is opened in it
-      and a root password is set. Afterwards the shell is left, and
-      the machine started as system service. With the last command a
-      login prompt into the container is requested.</para>
-    </example>
-
-    <example>
-      <title>Exports a container image as tar file</title>
-
-      <programlisting># machinectl export-tar fedora myfedora.tar.xz</programlisting>
-
-      <para>Exports the container <literal>fedora</literal> as an
-      xz-compressed tar file <filename>myfedora.tar.xz</filename> into the
-      current directory.</para>
-    </example>
-
-    <example>
-      <title>Create a new shell session</title>
-
-      <programlisting># machinectl shell --uid=lennart</programlisting>
-
-      <para>This creates a new shell session on the local host for
-      the user ID <literal>lennart</literal>, in a <citerefentry
-      project='die-net'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry>-like
-      fashion.</para>
-    </example>
+    <xi:include href="importctl.xml" xpointer="example-import-raw" />
 
   </refsect1>
 
@@ -1117,6 +867,7 @@
       <member><citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>tar</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>xz</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>gzip</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

@@ -308,7 +308,7 @@ void print_separator(void) {
                 fputs("\n\n", stdout);
 }
 
-static int guess_type(const char **name, char ***prefixes, bool *is_collection, const char **extension) {
+static int guess_type(const char **name, char ***ret_prefixes, bool *ret_is_collection, const char **ret_extension) {
         /* Try to figure out if name is like tmpfiles.d/ or systemd/system-presets/,
          * i.e. a collection of directories without a main config file.
          * Incidentally, all those formats don't use sections. So we return a single
@@ -316,11 +316,10 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
          */
 
         _cleanup_free_ char *n = NULL;
-        bool usr = false, run = false, coll = false;
+        bool run = false, coll = false;
         const char *ext = ".conf";
         /* This is static so that the array doesn't get deallocated when we exit the function */
         static const char* const std_prefixes[] = { CONF_PATHS(""), NULL };
-        static const char* const usr_prefixes[] = { CONF_PATHS_USR(""), NULL };
         static const char* const run_prefixes[] = { "/run/", NULL };
 
         if (path_equal(*name, "environment.d"))
@@ -332,19 +331,12 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
         if (!n)
                 return log_oom();
 
-        /* All systemd-style config files should support the /usr-/etc-/run split and
-         * dropins. Let's add a blanket rule that allows us to support them without keeping
-         * an explicit list. */
-        if (path_startswith(n, "systemd") && endswith(n, ".conf"))
-                usr = true;
-
         delete_trailing_chars(n, "/");
+
+        /* We assume systemd-style config files support the /usr-/run-/etc split and dropins. */
 
         if (endswith(n, ".d"))
                 coll = true;
-
-        if (path_equal(n, "environment"))
-                usr = true;
 
         if (path_equal(n, "udev/hwdb.d"))
                 ext = ".hwdb";
@@ -363,12 +355,9 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
                 ext = ".preset";
         }
 
-        if (path_equal(n, "systemd/user-preset"))
-                usr = true;
-
-        *prefixes = (char**) (usr ? usr_prefixes : run ? run_prefixes : std_prefixes);
-        *is_collection = coll;
-        *extension = ext;
+        *ret_prefixes = (char**) (run ? run_prefixes : std_prefixes);
+        *ret_is_collection = coll;
+        *ret_extension = ext;
         return 0;
 }
 
@@ -452,7 +441,7 @@ int terminal_tint_color(double hue, char **ret) {
         else        /* otherwise pump it up */
                 s = 75;
 
-        v = MAX(30, v); /* Make sure we don't hide the color in black */
+        v = MAX(20, v); /* Make sure we don't hide the color in black */
 
         uint8_t r8, g8, b8;
         hsv_to_rgb(hue, s, v, &r8, &g8, &b8);
@@ -461,4 +450,73 @@ int terminal_tint_color(double hue, char **ret) {
                 return -ENOMEM;
 
         return 0;
+}
+
+void draw_progress_bar(const char *prefix, double percentage) {
+
+        fputc('\r', stderr);
+        if (prefix)
+                fputs(prefix, stderr);
+
+        if (!terminal_is_dumb()) {
+                size_t cols = columns();
+                size_t prefix_length = strlen_ptr(prefix);
+                size_t length = cols > prefix_length + 6 ? cols - prefix_length - 6 : 0;
+
+                if (length > 5 && percentage >= 0.0 && percentage <= 100.0) {
+                        size_t p = (size_t) (length * percentage / 100.0);
+                        bool separator_done = false;
+
+                        fputs(ansi_highlight_green(), stderr);
+
+                        for (size_t i = 0; i < length; i++) {
+
+                                if (i <= p) {
+                                        if (get_color_mode() == COLOR_24BIT) {
+                                                uint8_t r8, g8, b8;
+                                                double z = i == 0 ? 0 : (((double) i / p) * 100);
+                                                hsv_to_rgb(145 /* green */, z, 33 + z*2/3, &r8, &g8, &b8);
+                                                fprintf(stderr, "\x1B[38;2;%u;%u;%um", r8, g8, b8);
+                                        }
+
+                                        fputs(special_glyph(SPECIAL_GLYPH_HORIZONTAL_FAT), stderr);
+                                } else if (i+1 < length && !separator_done) {
+                                        fputs(ansi_normal(), stderr);
+                                        fputc(' ', stderr);
+                                        separator_done = true;
+                                        fputs(ansi_grey(), stderr);
+                                } else
+                                        fputs(special_glyph(SPECIAL_GLYPH_HORIZONTAL_DOTTED), stderr);
+                        }
+
+                        fputs(ansi_normal(), stderr);
+                        fputc(' ', stderr);
+                }
+        }
+
+        fprintf(stderr,
+                "%s%3.0f%%%s",
+                ansi_highlight(),
+                percentage,
+                ansi_normal());
+
+        if (!terminal_is_dumb())
+                fputs(ANSI_ERASE_TO_END_OF_LINE, stderr);
+
+        fputc('\r', stderr);
+        fflush(stderr);
+}
+
+void clear_progress_bar(const char *prefix) {
+
+        fputc('\r', stderr);
+
+        if (terminal_is_dumb())
+                fputs(strrepa(" ", strlen_ptr(prefix) + 4), /* 4: %3.0f%% */
+                      stderr);
+        else
+                fputs(ANSI_ERASE_TO_END_OF_LINE, stderr);
+
+        fputc('\r', stderr);
+        fflush(stderr);
 }

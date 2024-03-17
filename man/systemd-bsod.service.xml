@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-bsod.service" conditional='HAVE_QRENCODE' xmlns:xi="http://www.w3.org/2001/XInclude">
+<refentry id="systemd-bsod.service" conditional='HAVE_QRENCODE ENABLE_INITRD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-bsod</title>
@@ -54,6 +55,17 @@
         journal if it doesn't find any emergency messages on the initial attempt.</para>
 
          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tty=</option><replaceable></replaceable></term>
+
+        <listitem><para>Specify the TTY to output to. By default <command>systemd-bsod</command> will
+        automatically find a free VT to display the message on. If this option is specified a TTY may be
+        selected explicitly. Use <option>--tty=/dev/tty</option> to direct output to the terminal the command
+        is invoked on.</para>
+
+         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
     </variablelist>
 

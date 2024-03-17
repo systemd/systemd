@@ -8,11 +8,13 @@
 #include "varlink.h"
 #include "varlink-idl.h"
 #include "varlink-io.systemd.h"
+#include "varlink-io.systemd.BootControl.h"
 #include "varlink-io.systemd.Credentials.h"
 #include "varlink-io.systemd.Journal.h"
 #include "varlink-io.systemd.ManagedOOM.h"
 #include "varlink-io.systemd.Network.h"
 #include "varlink-io.systemd.PCRExtend.h"
+#include "varlink-io.systemd.PCRLock.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.UserDatabase.h"
@@ -143,11 +145,15 @@ TEST(parse_format) {
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_PCRExtend);
         print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_PCRLock);
+        print_separator();
         test_parse_format_one(&vl_interface_io_systemd_service);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_sysext);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_Credentials);
+        print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_BootControl);
         print_separator();
         test_parse_format_one(&vl_interface_xyz_test);
 }
@@ -379,7 +385,7 @@ TEST(validate_method_call) {
 
         assert_se(varlink_callb(v, "xyz.TestMethod", &reply, &error_id,
                                 JSON_BUILD_OBJECT(
-                                                JSON_BUILD_PAIR_STRING("foo", "wuff"),
+                                                JSON_BUILD_PAIR_BOOLEAN("foo", true),
                                                 JSON_BUILD_PAIR_UNSIGNED("bar", 9))) >= 0);
         assert_se(streq_ptr(error_id, VARLINK_ERROR_INVALID_PARAMETER));
 

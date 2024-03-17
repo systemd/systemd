@@ -579,10 +579,7 @@ _public_ int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat) 
         if (isempty(content))
                 return 0;
 
-        char t[DECIMAL_STR_MAX(uid_t)];
-        xsprintf(t, UID_FMT, uid);
-
-        return string_contains_word(content, NULL, t);
+        return string_contains_word(content, NULL, FORMAT_UID(uid));
 }
 
 static int uid_get_array(uid_t uid, const char *variable, char ***array) {

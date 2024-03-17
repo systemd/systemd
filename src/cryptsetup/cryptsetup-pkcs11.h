@@ -19,7 +19,7 @@ int decrypt_pkcs11_key(
                 const void *key_data,
                 size_t key_data_size,
                 usec_t until,
-                bool headless,
+                AskPasswordFlags askpw_flags,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size);
 
@@ -42,7 +42,7 @@ static inline int decrypt_pkcs11_key(
                 const void *key_data,
                 size_t key_data_size,
                 usec_t until,
-                bool headless,
+                AskPasswordFlags askpw_flags,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
 

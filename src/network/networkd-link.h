@@ -181,7 +181,6 @@ typedef struct Link {
 
         /* This is about LLDP reception */
         sd_lldp_rx *lldp_rx;
-        char *lldp_file;
 
         /* This is about LLDP transmission */
         sd_lldp_tx *lldp_tx;
@@ -252,6 +251,7 @@ LinkState link_state_from_string(const char *s) _pure_;
 
 int link_reconfigure_impl(Link *link, bool force);
 int link_reconfigure(Link *link, bool force);
+int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message);
 
 int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t action);
 int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);

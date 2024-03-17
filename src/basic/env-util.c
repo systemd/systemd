@@ -18,6 +18,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "utf8.h"
 
 /* We follow bash for the character set. Different shells have different rules. */
@@ -309,19 +310,17 @@ char **strv_env_delete(char **x, size_t n_lists, ...) {
         return TAKE_PTR(t);
 }
 
-char **strv_env_unset(char **l, const char *p) {
-        char **f, **t;
+char** strv_env_unset(char **l, const char *p) {
+        assert(p);
 
         if (!l)
                 return NULL;
 
-        assert(p);
-
         /* Drops every occurrence of the env var setting p in the
          * string list. Edits in-place. */
 
+        char **f, **t;
         for (f = t = l; *f; f++) {
-
                 if (env_match(*f, p)) {
                         free(*f);
                         continue;
@@ -334,14 +333,13 @@ char **strv_env_unset(char **l, const char *p) {
         return l;
 }
 
-char **strv_env_unset_many(char **l, ...) {
-        char **f, **t;
-
+char** strv_env_unset_many_internal(char **l, ...) {
         if (!l)
                 return NULL;
 
         /* Like strv_env_unset() but applies many at once. Edits in-place. */
 
+        char **f, **t;
         for (f = t = l; *f; f++) {
                 bool found = false;
                 const char *p;
@@ -349,12 +347,11 @@ char **strv_env_unset_many(char **l, ...) {
 
                 va_start(ap, l);
 
-                while ((p = va_arg(ap, const char*))) {
+                while ((p = va_arg(ap, const char*)))
                         if (env_match(*f, p)) {
                                 found = true;
                                 break;
                         }
-                }
 
                 va_end(ap);
 
@@ -966,7 +963,7 @@ int getenv_bool(const char *p) {
         return parse_boolean(e);
 }
 
-int getenv_bool_secure(const char *p) {
+int secure_getenv_bool(const char *p) {
         const char *e;
 
         e = secure_getenv(p);
@@ -976,7 +973,7 @@ int getenv_bool_secure(const char *p) {
         return parse_boolean(e);
 }
 
-int getenv_uint64_secure(const char *p, uint64_t *ret) {
+int secure_getenv_uint64(const char *p, uint64_t *ret) {
         const char *e;
 
         assert(p);
@@ -1028,6 +1025,17 @@ int setenv_systemd_exec_pid(bool update_only) {
                 return r;
 
         return 1;
+}
+
+int setenv_systemd_log_level(void) {
+        _cleanup_free_ char *val = NULL;
+        int r;
+
+        r = log_level_to_string_alloc(log_get_max_level(), &val);
+        if (r < 0)
+                return r;
+
+        return RET_NERRNO(setenv("SYSTEMD_LOG_LEVEL", val, /* overwrite= */ true));
 }
 
 int getenv_path_list(const char *name, char ***ret_paths) {
@@ -1132,9 +1140,7 @@ int setenvf(const char *name, bool overwrite, const char *valuef, ...) {
                 return RET_NERRNO(unsetenv(name));
 
         va_start(ap, valuef);
-        DISABLE_WARNING_FORMAT_NONLITERAL;
         r = vasprintf(&value, valuef, ap);
-        REENABLE_WARNING;
         va_end(ap);
 
         if (r < 0)

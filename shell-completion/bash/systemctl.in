@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # systemctl(1) completion                                 -*- shell-script -*-
 # vi: ft=sh
 # SPDX-License-Identifier: LGPL-2.1-or-later

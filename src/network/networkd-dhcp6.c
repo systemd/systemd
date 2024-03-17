@@ -102,6 +102,7 @@ int dhcp6_check_ready(Link *link) {
         }
 
         if (link->network->dhcp6_use_address &&
+            sd_dhcp6_lease_has_address(link->dhcp6_lease) &&
             !link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
                 Address *address;
 
@@ -158,8 +159,7 @@ static int verify_dhcp6_address(Link *link, const Address *address) {
         } else
                 log_level = LOG_DEBUG;
 
-        if (address->prefixlen == existing->prefixlen)
-                /* Currently, only conflict in prefix length is reported. */
+        if (address_can_update(existing, address))
                 goto simple_log;
 
         if (existing->source == NETWORK_CONFIG_SOURCE_NDISC)
@@ -799,7 +799,7 @@ int link_request_dhcp6_client(Link *link) {
 
         assert(link);
 
-        if (!link_dhcp6_enabled(link) && !link_ipv6_accept_ra_enabled(link))
+        if (!link_dhcp6_enabled(link) && !link_ndisc_enabled(link))
                 return 0;
 
         if (link->dhcp6_client)

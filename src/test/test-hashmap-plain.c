@@ -965,6 +965,8 @@ TEST(string_strv_hashmap) {
 
 TEST(hashmap_dump_sorted) {
         static void * const expected[] = { UINT_TO_PTR(123U), UINT_TO_PTR(12U), UINT_TO_PTR(345U), };
+        static const char *expected_keys[] = { "key 0", "key 1", "key 2", };
+        static void * const expected_keys2[] = { UINT_TO_PTR(111U), UINT_TO_PTR(222U), UINT_TO_PTR(333U), };
         _cleanup_hashmap_free_ Hashmap *m = NULL;
         _cleanup_free_ void **vals = NULL;
         size_t n;
@@ -984,6 +986,13 @@ TEST(hashmap_dump_sorted) {
         assert_se(memcmp(vals, expected, n * sizeof(void*)) == 0);
 
         vals = mfree(vals);
+
+        assert_se(hashmap_dump_keys_sorted(m, &vals, &n) >= 0);
+        assert_se(n == ELEMENTSOF(expected_keys));
+        for (size_t i = 0; i < n; i++)
+                assert_se(streq(vals[i], expected_keys[i]));
+
+        vals = mfree(vals);
         m = hashmap_free(m);
 
         assert_se(m = hashmap_new(NULL));
@@ -999,6 +1008,12 @@ TEST(hashmap_dump_sorted) {
         assert_se(hashmap_dump_sorted(m, &vals, &n) >= 0);
         assert_se(n == ELEMENTSOF(expected));
         assert_se(memcmp(vals, expected, n * sizeof(void*)) == 0);
+
+        vals = mfree(vals);
+
+        assert_se(hashmap_dump_keys_sorted(m, &vals, &n) >= 0);
+        assert_se(n == ELEMENTSOF(expected_keys2));
+        assert_se(memcmp(vals, expected_keys2, n * sizeof(void*)) == 0);
 }
 
 /* Signal to test-hashmap.c that tests from this compilation unit were run. */

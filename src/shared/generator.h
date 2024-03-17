@@ -85,6 +85,16 @@ int generator_hook_up_pcrfs(
         const char *dir,
         const char *where,
         const char *target);
+int generator_hook_up_quotacheck(
+        const char *dir,
+        const char *what,
+        const char *where,
+        const char *target,
+        const char *fstype);
+int generator_hook_up_quotaon(
+        const char *dir,
+        const char *where,
+        const char *target);
 
 int generator_enable_remount_fs_service(const char *dir);
 
@@ -102,4 +112,5 @@ void log_setup_generator(void);
                 impl(argv[1],                                           \
                      argv[argc == 4 ? 2 : 1],                           \
                      argv[argc == 4 ? 3 : 1]),                          \
-                r < 0 ? EXIT_FAILURE : EXIT_SUCCESS)
+                exit_failure_if_negative,                               \
+                exit_failure_if_negative)

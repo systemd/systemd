@@ -184,7 +184,7 @@ static int run(int argc, char * argv[]) {
         };
         int r;
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT) >= 0);
 
         r = sd_event_default(&event);
         if (r < 0)

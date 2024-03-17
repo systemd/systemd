@@ -454,6 +454,9 @@ static int output_rr_packet(const void *d, size_t l, int ifindex) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to convert RR to JSON: %m");
 
+                if (!j)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "JSON formatting for records of type %s (%u) not available.", dns_type_to_string(rr->key->type), rr->key->type);
+
                 r = json_variant_dump(j, arg_json_format_flags, NULL, NULL);
                 if (r < 0)
                         return r;
@@ -3339,6 +3342,7 @@ static int native_help(void) {
                "     --synthesize=BOOL         Allow synthetic response (default: yes)\n"
                "     --cache=BOOL              Allow response from cache (default: yes)\n"
                "     --stale-data=BOOL         Allow response from cache with stale data (default: yes)\n"
+               "     --relax-single-label=BOOL Allow single label lookups to go upstream (default: no)\n"
                "     --zone=BOOL               Allow response from locally registered mDNS/LLMNR\n"
                "                               records (default: yes)\n"
                "     --trust-anchor=BOOL       Allow response from local trust anchor (default:\n"
@@ -3698,7 +3702,8 @@ static int native_parse_argv(int argc, char *argv[]) {
                 ARG_SEARCH,
                 ARG_NO_PAGER,
                 ARG_JSON,
-                ARG_STALE_DATA
+                ARG_STALE_DATA,
+                ARG_RELAX_SINGLE_LABEL,
         };
 
         static const struct option options[] = {
@@ -3723,6 +3728,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 { "no-pager",              no_argument,       NULL, ARG_NO_PAGER              },
                 { "json",                  required_argument, NULL, ARG_JSON                  },
                 { "stale-data",            required_argument, NULL, ARG_STALE_DATA            },
+                { "relax-single-label",    required_argument, NULL, ARG_RELAX_SINGLE_LABEL    },
                 {}
         };
 
@@ -3907,6 +3913,13 @@ static int native_parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_SEARCH, r == 0);
+                        break;
+
+                case ARG_RELAX_SINGLE_LABEL:
+                        r = parse_boolean_argument("--relax-single-label=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+                        SET_FLAG(arg_flags, SD_RESOLVED_RELAX_SINGLE_LABEL, r > 0);
                         break;
 
                 case ARG_NO_PAGER:

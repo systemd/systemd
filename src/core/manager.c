@@ -25,6 +25,7 @@
 #include "alloc-util.h"
 #include "audit-fd.h"
 #include "boot-timestamps.h"
+#include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-kernel.h"
@@ -263,12 +264,11 @@ static void manager_print_jobs_in_progress(Manager *m) {
                                       strempty(status_text));
         }
 
-        sd_notifyf(false,
-                   "STATUS=%sUser job %s/%s running (%s / %s)...",
-                   job_of_n,
-                   ident,
-                   job_type_to_string(j->type),
-                   time, limit);
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "STATUS=%sUser job %s/%s running (%s / %s)...",
+                          job_of_n,
+                          ident, job_type_to_string(j->type),
+                          time, limit);
         m->status_ready = false;
 }
 
@@ -482,21 +482,19 @@ static int enable_special_signals(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m))
                 return 0;
 
-        /* Enable that we get SIGINT on control-alt-del. In containers
-         * this will fail with EPERM (older) or EINVAL (newer), so
-         * ignore that. */
+        /* Enable that we get SIGINT on control-alt-del. In containers this will fail with EPERM (older) or
+         * EINVAL (newer), so ignore that. */
         if (reboot(RB_DISABLE_CAD) < 0 && !IN_SET(errno, EPERM, EINVAL))
-                log_warning_errno(errno, "Failed to enable ctrl-alt-del handling: %m");
+                log_warning_errno(errno, "Failed to enable ctrl-alt-del handling, ignoring: %m");
 
         fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0) {
-                /* Support systems without virtual console */
-                if (fd != -ENOENT)
-                        log_warning_errno(errno, "Failed to open /dev/tty0: %m");
-        } else {
+        if (fd < 0)
+                /* Support systems without virtual console (ENOENT) gracefully */
+                log_full_errno(fd == -ENOENT ? LOG_DEBUG : LOG_WARNING, fd, "Failed to open /dev/tty0, ignoring: %m");
+        else {
                 /* Enable that we get SIGWINCH on kbrequest */
                 if (ioctl(fd, KDSIGACCEPT, SIGWINCH) < 0)
-                        log_warning_errno(errno, "Failed to enable kbrequest handling: %m");
+                        log_warning_errno(errno, "Failed to enable kbrequest handling, ignoring: %m");
         }
 
         return 0;
@@ -596,6 +594,17 @@ static int manager_setup_signals(Manager *m) {
         if (r < 0)
                 return r;
 
+        /* Report to supervisor that we now process the above signals. We report this as level "2", to
+         * indicate that we support more than sysvinit's signals (of course, sysvinit never sent this
+         * message, but conceptually it makes sense to consider level "1" to be equivalent to sysvinit's
+         * signal handling). Also, by setting this to "2" people looking for this hopefully won't
+         * misunderstand this as a boolean concept. Signal level 2 shall refer to the signals PID 1
+         * understands at the time of release of systemd v256, i.e. including basic SIGRTMIN+18 handling for
+         * memory pressure and stuff. When more signals are hooked up (or more SIGRTMIN+18 multiplex
+         * operations added, this level should be increased).  */
+        (void) sd_notify(/* unset_environment= */ false,
+                         "X_SYSTEMD_SIGNALS_LEVEL=2");
+
         if (MANAGER_IS_SYSTEM(m))
                 return enable_special_signals(m);
 
@@ -641,8 +650,7 @@ static char** sanitize_environment(char **l) {
                         "TRIGGER_TIMER_REALTIME_USEC",
                         "TRIGGER_UNIT",
                         "WATCHDOG_PID",
-                        "WATCHDOG_USEC",
-                        NULL);
+                        "WATCHDOG_USEC");
 
         /* Let's order the environment alphabetically, just to make it pretty */
         return strv_sort(l);
@@ -668,7 +676,9 @@ int manager_default_environment(Manager *m) {
                 /* Import locale variables LC_*= from configuration */
                 (void) locale_setup(&m->transient_environment);
         } else {
-                /* The user manager passes its own environment along to its children, except for $PATH. */
+                /* The user manager passes its own environment along to its children, except for $PATH and
+                 * session envs. */
+
                 m->transient_environment = strv_copy(environ);
                 if (!m->transient_environment)
                         return log_oom();
@@ -676,6 +686,16 @@ int manager_default_environment(Manager *m) {
                 r = strv_env_replace_strdup(&m->transient_environment, "PATH=" DEFAULT_USER_PATH);
                 if (r < 0)
                         return log_oom();
+
+                /* Envvars set for our 'manager' class session are private and should not be propagated
+                 * to children. Also it's likely that the graphical session will set these on their own. */
+                strv_env_unset_many(m->transient_environment,
+                                    "XDG_SESSION_ID",
+                                    "XDG_SESSION_CLASS",
+                                    "XDG_SESSION_TYPE",
+                                    "XDG_SESSION_DESKTOP",
+                                    "XDG_SEAT",
+                                    "XDG_VTNR");
         }
 
         sanitize_environment(m->transient_environment);
@@ -1013,42 +1033,19 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
 
                 if (r < 0 && r != -EEXIST)
                         return r;
+        }
 
-                m->executor_fd = open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH);
+        if (!FLAGS_SET(test_run_flags, MANAGER_TEST_DONT_OPEN_EXECUTOR)) {
+                m->executor_fd = pin_callout_binary(SYSTEMD_EXECUTOR_BINARY_PATH);
                 if (m->executor_fd < 0)
-                        return log_emergency_errno(errno,
-                                                   "Failed to open executor binary '%s': %m",
-                                                   SYSTEMD_EXECUTOR_BINARY_PATH);
-        } else if (!FLAGS_SET(test_run_flags, MANAGER_TEST_DONT_OPEN_EXECUTOR)) {
-                _cleanup_free_ char *self_exe = NULL, *executor_path = NULL;
-                _cleanup_close_ int self_dir_fd = -EBADF;
-                int level = LOG_DEBUG;
+                        return log_debug_errno(m->executor_fd, "Failed to pin executor binary: %m");
 
-                /* Prefer sd-executor from the same directory as the test, e.g.: when running unit tests from the
-                * build directory. Fallback to working directory and then the installation path. */
-                r = readlink_and_make_absolute("/proc/self/exe", &self_exe);
-                if (r < 0)
-                        return r;
-
-                self_dir_fd = open_parent(self_exe, O_CLOEXEC|O_PATH|O_DIRECTORY, 0);
-                if (self_dir_fd < 0)
-                        return self_dir_fd;
-
-                m->executor_fd = RET_NERRNO(openat(self_dir_fd, "systemd-executor", O_CLOEXEC|O_PATH));
-                if (m->executor_fd == -ENOENT)
-                        m->executor_fd = RET_NERRNO(openat(AT_FDCWD, "systemd-executor", O_CLOEXEC|O_PATH));
-                if (m->executor_fd == -ENOENT) {
-                        m->executor_fd = RET_NERRNO(open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH));
-                        level = LOG_WARNING; /* Tests should normally use local builds */
-                }
-                if (m->executor_fd < 0)
-                        return m->executor_fd;
-
+                _cleanup_free_ char *executor_path = NULL;
                 r = fd_get_path(m->executor_fd, &executor_path);
                 if (r < 0)
                         return r;
 
-                log_full(level, "Using systemd-executor binary from '%s'.", executor_path);
+                log_debug("Using systemd-executor binary from '%s'.", executor_path);
         }
 
         /* Note that we do not set up the notify fd here. We do that after deserialization,
@@ -1679,7 +1676,7 @@ Manager* manager_free(Manager *m) {
 
         free(m->notify_socket);
 
-        lookup_paths_free(&m->lookup_paths);
+        lookup_paths_done(&m->lookup_paths);
         strv_free(m->transient_environment);
         strv_free(m->client_environment);
 
@@ -2880,8 +2877,8 @@ static void manager_start_special(Manager *m, const char *name, JobMode mode) {
 
         log_info("Activating special unit %s...", s);
 
-        sd_notifyf(false,
-                   "STATUS=Activating special unit %s...", s);
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "STATUS=Activating special unit %s...", s);
         m->status_ready = false;
 }
 
@@ -3373,16 +3370,18 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         const char *msg;
         int audit_fd, r;
 
+        assert(m);
+        assert(u);
+
         if (!MANAGER_IS_SYSTEM(m))
+                return;
+
+        /* Don't generate audit events if the service was already started and we're just deserializing */
+        if (MANAGER_IS_RELOADING(m))
                 return;
 
         audit_fd = get_audit_fd();
         if (audit_fd < 0)
-                return;
-
-        /* Don't generate audit events if the service was already
-         * started and we're just deserializing */
-        if (MANAGER_IS_RELOADING(m))
                 return;
 
         r = unit_name_to_prefix_and_instance(u->id, &p);
@@ -3401,19 +3400,20 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
                         log_warning_errno(errno, "Failed to send audit message, ignoring: %m");
         }
 #endif
-
 }
 
 void manager_send_unit_plymouth(Manager *m, Unit *u) {
         _cleanup_free_ char *message = NULL;
         int c, r;
 
-        /* Don't generate plymouth events if the service was already
-         * started and we're just deserializing */
-        if (MANAGER_IS_RELOADING(m))
-                return;
+        assert(m);
+        assert(u);
 
         if (!MANAGER_IS_SYSTEM(m))
+                return;
+
+        /* Don't generate plymouth events if the service was already started and we're just deserializing */
+        if (MANAGER_IS_RELOADING(m))
                 return;
 
         if (detect_container() > 0)
@@ -3431,6 +3431,27 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         if (r < 0)
                 log_full_errno(ERRNO_IS_NO_PLYMOUTH(r) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to communicate with plymouth: %m");
+}
+
+void manager_send_unit_supervisor(Manager *m, Unit *u, bool active) {
+        assert(m);
+        assert(u);
+
+        /* Notify a "supervisor" process about our progress, i.e. a container manager, hypervisor, or
+         * surrounding service manager. */
+
+        if (MANAGER_IS_RELOADING(m))
+                return;
+
+        if (!UNIT_VTABLE(u)->notify_supervisor)
+                return;
+
+        if (in_initrd()) /* Only send these once we left the initrd */
+                return;
+
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          active ? "X_SYSTEMD_UNIT_ACTIVE=%s" : "X_SYSTEMD_UNIT_INACTIVE=%s",
+                          u->id);
 }
 
 usec_t manager_get_watchdog(Manager *m, WatchdogType t) {
@@ -3568,7 +3589,7 @@ int manager_reload(Manager *m) {
 
         manager_clear_jobs_and_units(m);
         lookup_paths_flush_generator(&m->lookup_paths);
-        lookup_paths_free(&m->lookup_paths);
+        lookup_paths_done(&m->lookup_paths);
         exec_shared_runtime_vacuum(m);
         dynamic_user_vacuum(m, false);
         m->uid_refs = hashmap_free(m->uid_refs);
@@ -3742,7 +3763,7 @@ static void manager_notify_finished(Manager *m) {
         log_taint_string(m);
 }
 
-static void user_manager_send_ready(Manager *m) {
+static void manager_send_ready_user_scope(Manager *m) {
         int r;
 
         assert(m);
@@ -3751,7 +3772,7 @@ static void user_manager_send_ready(Manager *m) {
         if (!MANAGER_IS_USER(m) || m->ready_sent)
                 return;
 
-        r = sd_notify(false,
+        r = sd_notify(/* unset_environment= */ false,
                       "READY=1\n"
                       "STATUS=Reached " SPECIAL_BASIC_TARGET ".");
         if (r < 0)
@@ -3761,14 +3782,19 @@ static void user_manager_send_ready(Manager *m) {
         m->status_ready = false;
 }
 
-static void manager_send_ready(Manager *m) {
+static void manager_send_ready_system_scope(Manager *m) {
         int r;
 
-        if (m->ready_sent && m->status_ready)
-                /* Skip the notification if nothing changed. */
+        assert(m);
+
+        if (!MANAGER_IS_SYSTEM(m))
                 return;
 
-        r = sd_notify(false,
+        /* Skip the notification if nothing changed. */
+        if (m->ready_sent && m->status_ready)
+                return;
+
+        r = sd_notify(/* unset_environment= */ false,
                       "READY=1\n"
                       "STATUS=Ready.");
         if (r < 0)
@@ -3792,7 +3818,7 @@ static void manager_check_basic_target(Manager *m) {
                 return;
 
         /* For user managers, send out READY=1 as soon as we reach basic.target */
-        user_manager_send_ready(m);
+        manager_send_ready_user_scope(m);
 
         /* Log the taint string as soon as we reach basic.target */
         log_taint_string(m);
@@ -3823,7 +3849,7 @@ void manager_check_finished(Manager *m) {
         if (hashmap_buckets(m->jobs) > hashmap_size(m->units) / 10)
                 m->jobs = hashmap_free(m->jobs);
 
-        manager_send_ready(m);
+        manager_send_ready_system_scope(m);
 
         /* Notify Type=idle units that we are done now */
         manager_close_idle_pipe(m);
@@ -3853,7 +3879,7 @@ void manager_send_reloading(Manager *m) {
         assert(m);
 
         /* Let whoever invoked us know that we are now reloading */
-        (void) sd_notifyf(/* unset= */ false,
+        (void) sd_notifyf(/* unset_environment= */ false,
                           "RELOADING=1\n"
                           "MONOTONIC_USEC=" USEC_FMT "\n", now(CLOCK_MONOTONIC));
 

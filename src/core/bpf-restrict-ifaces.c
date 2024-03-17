@@ -103,13 +103,18 @@ static int restrict_ifaces_install_impl(Unit *u) {
         _cleanup_free_ char *cgroup_path = NULL;
         _cleanup_close_ int cgroup_fd = -EBADF;
         CGroupContext *cc;
+        CGroupRuntime *crt;
         int r;
 
         cc = unit_get_cgroup_context(u);
         if (!cc)
                 return 0;
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, NULL, &cgroup_path);
+        crt = unit_get_cgroup_runtime(u);
+        if (!crt)
+                return 0;
+
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, NULL, &cgroup_path);
         if (r < 0)
                 return log_unit_error_errno(u, r, "restrict-interfaces: Failed to get cgroup path: %m");
 
@@ -137,30 +142,42 @@ static int restrict_ifaces_install_impl(Unit *u) {
         if (r != 0)
                 return log_unit_error_errno(u, r, "restrict-interfaces: Failed to create egress cgroup link: %m");
 
-        u->restrict_ifaces_ingress_bpf_link = TAKE_PTR(ingress_link);
-        u->restrict_ifaces_egress_bpf_link = TAKE_PTR(egress_link);
+        crt->restrict_ifaces_ingress_bpf_link = TAKE_PTR(ingress_link);
+        crt->restrict_ifaces_egress_bpf_link = TAKE_PTR(egress_link);
 
         return 0;
 }
 
 int bpf_restrict_ifaces_install(Unit *u) {
-        int r;
-
-        r = restrict_ifaces_install_impl(u);
-        fdset_close(u->initial_restric_ifaces_link_fds);
-        return r;
-}
-
-int bpf_restrict_ifaces_serialize(Unit *u, FILE *f, FDSet *fds) {
+        CGroupRuntime *crt;
         int r;
 
         assert(u);
 
-        r = bpf_serialize_link(f, fds, "restrict-ifaces-bpf-fd", u->restrict_ifaces_ingress_bpf_link);
+        crt = unit_get_cgroup_runtime(u);
+        if (!crt)
+                return 0;
+
+        r = restrict_ifaces_install_impl(u);
+        fdset_close(crt->initial_restrict_ifaces_link_fds);
+        return r;
+}
+
+int bpf_restrict_ifaces_serialize(Unit *u, FILE *f, FDSet *fds) {
+        CGroupRuntime *crt;
+        int r;
+
+        assert(u);
+
+        crt = unit_get_cgroup_runtime(u);
+        if (!crt)
+                return 0;
+
+        r = bpf_serialize_link(f, fds, "restrict-ifaces-bpf-fd", crt->restrict_ifaces_ingress_bpf_link);
         if (r < 0)
                 return r;
 
-        return bpf_serialize_link(f, fds, "restrict-ifaces-bpf-fd", u->restrict_ifaces_egress_bpf_link);
+        return bpf_serialize_link(f, fds, "restrict-ifaces-bpf-fd", crt->restrict_ifaces_egress_bpf_link);
 }
 
 int bpf_restrict_ifaces_add_initial_link_fd(Unit *u, int fd) {
@@ -168,13 +185,17 @@ int bpf_restrict_ifaces_add_initial_link_fd(Unit *u, int fd) {
 
         assert(u);
 
-        if (!u->initial_restric_ifaces_link_fds) {
-                u->initial_restric_ifaces_link_fds = fdset_new();
-                if (!u->initial_restric_ifaces_link_fds)
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt)
+                return -EINVAL;
+
+        if (!crt->initial_restrict_ifaces_link_fds) {
+                crt->initial_restrict_ifaces_link_fds = fdset_new();
+                if (!crt->initial_restrict_ifaces_link_fds)
                         return log_oom();
         }
 
-        r = fdset_put(u->initial_restric_ifaces_link_fds, fd);
+        r = fdset_put(crt->initial_restrict_ifaces_link_fds, fd);
         if (r < 0)
                 return log_unit_error_errno(u, r,
                         "restrict-interfaces: Failed to put restrict-ifaces-bpf-fd %d to restored fdset: %m", fd);

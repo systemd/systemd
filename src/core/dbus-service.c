@@ -61,7 +61,7 @@ static int property_get_open_files(
                 return r;
 
         LIST_FOREACH(open_files, of, *open_files) {
-                r = sd_bus_message_append(reply, "(sst)", of->path, of->fdname, of->flags);
+                r = sd_bus_message_append(reply, "(sst)", of->path, of->fdname, (uint64_t) of->flags);
                 if (r < 0)
                         return r;
         }

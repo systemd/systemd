@@ -759,7 +759,7 @@ static int parse_key_value_argument(const char *s, char **key, char **value) {
         assert(key);
         assert(value);
 
-        r = extract_many_words(&s, "=", EXTRACT_DONT_COALESCE_SEPARATORS, &k, &v, NULL);
+        r = extract_many_words(&s, "=", EXTRACT_DONT_COALESCE_SEPARATORS, &k, &v);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse key/value pair %s: %m", s);
         if (r < 2)

@@ -156,7 +156,8 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_VALIDATE_OS |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                                 DISSECT_IMAGE_FSCK |
-                                DISSECT_IMAGE_GROWFS,
+                                DISSECT_IMAGE_GROWFS |
+                                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
                                 &mounted_dir,
                                 /* ret_dir_fd= */ NULL,
                                 &loop_device);

@@ -59,7 +59,7 @@ _journalctl_boots() {
 (( $+functions[_journalctl_facilities] )) ||
 _journalctl_facilities() {
   local -a _journalctl_facilities
-  _journalctl_facilities=(kern user mail daemon auth syslog lpr news uucp cron authpriv ftp local0 local1 local2 local3 local4 local5 local6 local7)
+  _journalctl_facilities=(help kern user mail daemon auth syslog lpr news uucp cron authpriv ftp local0 local1 local2 local3 local4 local5 local6 local7)
   _describe 'possible values' _journalctl_facilities
 }
 
@@ -120,10 +120,12 @@ _arguments -s \
     '--facility=[Filter messages by facility]:facility:_journalctl_facilities' \
     {-t+,--identifier=}'[Filter messages by syslog identifier]:identifier:_journalctl_field_values SYSLOG_IDENTIFIER' \
     {-c+,--cursor=}'[Start showing entries from the specified cursor]:cursors:_journalctl_field_values __CURSORS' \
-    '--cursor-file=[Show entries using cursor store in file]:file:_files' \
+    '--cursor-file=[Show entries using cursor stored in file]:file:_files' \
     '--after-cursor=[Start showing entries from after the specified cursor]:cursors:_journalctl_field_values __CURSORS' \
     '--since=[Start showing entries on or newer than the specified date]:YYYY-MM-DD HH\:MM\:SS' \
     '--until=[Stop showing entries on or older than the specified date]:YYYY-MM-DD HH\:MM\:SS' \
+    {-g+,--grep=}'[Show entries with MESSAGE field matching PCRE pattern]' \
+    '--case-sensitive=[Force case sensitive or insensitive matching]:boolean:(true false)' \
     {-F,--field=}'[List all values a certain field takes]:Fields:_journalctl_fields' \
     '--system[Show system and kernel messages]' \
     '--user[Show messages from user services]' \

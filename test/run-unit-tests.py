@@ -28,6 +28,9 @@ def argument_parser():
                    help='run "unsafe" tests too')
     p.add_argument('-A', '--artifact_directory',
                    help='store output from failed tests in this dir')
+    p.add_argument('-s', '--skip', action='append', default=[],
+                   help='skip the named test')
+
     return p
 
 opts = argument_parser().parse_args()
@@ -42,8 +45,13 @@ if not opts.artifact_directory and os.getenv('ARTIFACT_DIRECTORY'):
     opts.artifact_directory = os.getenv('ARTIFACT_DIRECTORY')
 
 total.total = len(tests)
-for test in tests:
+for test in sorted(tests):
     name = os.path.basename(test)
+
+    if name in opts.skip:
+        print(f'{YELLOW}SKIP: {name} (by user) {RESET_ALL}')
+        total.skip += 1
+        continue
 
     ex = subprocess.run(test, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if ex.returncode == 0:

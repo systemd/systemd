@@ -4,7 +4,6 @@ Name=bridge99
 
 [Network]
 VLAN=vlan99
-IPForward=yes
 ConfigureWithoutCarrier=yes
 LLDP=yes
 IPv6AcceptRA=false

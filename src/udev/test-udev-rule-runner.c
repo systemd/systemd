@@ -144,7 +144,7 @@ static int run(int argc, char *argv[]) {
 
         assert_se(event = udev_event_new(dev, NULL));
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD) >= 0);
 
         /* do what devtmpfs usually provides us */
         if (sd_device_get_devname(dev, &devname) >= 0) {

@@ -98,6 +98,8 @@ REQUIREMENTS:
           CONFIG_SECCOMP_FILTER (required for seccomp support)
           CONFIG_KCMP (for the kcmp() syscall, used to be under
                        CONFIG_CHECKPOINT_RESTORE before ~5.12)
+          CONFIG_NET_SCHED
+          CONFIG_NET_SCH_FQ_CODEL
 
         Required for CPUShares= in resource control unit settings:
           CONFIG_CGROUP_SCHED

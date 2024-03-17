@@ -38,7 +38,7 @@
     implemented version, but it is also possible to set one of the older versions to preserve
     compatibility. This may be useful for example for distributions, which may introduce new versions of
     systemd in stable releases without changing the naming scheme. The naming scheme may also be overridden
-    using the <varname>net.naming-scheme=</varname> kernel command line switch, see
+    using the <varname>net.naming_scheme=</varname> kernel command line switch, see
     <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     Available naming schemes are described below.</para>
 
@@ -326,7 +326,7 @@
     <title>History</title>
 
     <para>The following "naming schemes" have been defined (which may be chosen at system boot-up time via
-    the <varname>net.naming-scheme=</varname> kernel command line switch, see above):</para>
+    the <varname>net.naming_scheme=</varname> kernel command line switch, see above):</para>
 
     <variablelist>
         <varlistentry>

@@ -73,6 +73,7 @@ static LinkConfig* link_config_free(LinkConfig *config) {
         free(config->alias);
         free(config->wol_password_file);
         erase_and_free(config->wol_password);
+        cpu_set_free(config->rps_cpu_mask);
 
         ordered_hashmap_free_with_destructor(config->sr_iov_by_section, sr_iov_free);
 
@@ -741,7 +742,7 @@ static int link_generate_new_name(Link *link) {
         device = link->device;
 
         if (link->action != SD_DEVICE_ADD) {
-                log_link_debug(link, "Skipping to apply Name= and NamePolicy= on '%s' uevent.",
+                log_link_debug(link, "Not applying Name= and NamePolicy= on '%s' uevent.",
                                device_action_to_string(link->action));
                 goto no_rename;
         }
@@ -821,7 +822,7 @@ static int link_generate_alternative_names(Link *link) {
         assert(!link->altnames);
 
         if (link->action != SD_DEVICE_ADD) {
-                log_link_debug(link, "Skipping to apply AlternativeNames= and AlternativeNamesPolicy= on '%s' uevent.",
+                log_link_debug(link, "Not applying AlternativeNames= and AlternativeNamesPolicy= on '%s' uevent.",
                                device_action_to_string(link->action));
                 return 0;
         }
@@ -937,6 +938,49 @@ static int link_apply_sr_iov_config(Link *link, sd_netlink **rtnl) {
         return 0;
 }
 
+static int link_apply_rps_cpu_mask(Link *link) {
+        _cleanup_free_ char *mask_str = NULL;
+        LinkConfig *config;
+        int r;
+
+        assert(link);
+        config = ASSERT_PTR(link->config);
+
+        /* Skip if the config is not specified. */
+        if (!config->rps_cpu_mask)
+                return 0;
+
+        mask_str = cpu_set_to_mask_string(config->rps_cpu_mask);
+        if (!mask_str)
+                return log_oom();
+
+        log_link_debug(link, "Applying RPS CPU mask: %s", mask_str);
+
+        /* Currently, this will set CPU mask to all rx queue of matched device. */
+        FOREACH_DEVICE_SYSATTR(link->device, attr) {
+                const char *c;
+
+                c = path_startswith(attr, "queues/");
+                if (!c)
+                        continue;
+
+                c = startswith(c, "rx-");
+                if (!c)
+                        continue;
+
+                c += strcspn(c, "/");
+
+                if (!path_equal(c, "/rps_cpus"))
+                        continue;
+
+                r = sd_device_set_sysattr_value(link->device, attr, mask_str);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to write %s sysfs attribute, ignoring: %m", attr);
+        }
+
+        return 0;
+}
+
 static int link_apply_udev_properties(Link *link, bool test) {
         LinkConfig *config;
         sd_device *device;
@@ -1021,6 +1065,10 @@ int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link, boo
                 return r;
 
         r = link_apply_udev_properties(link, test);
+        if (r < 0)
+                return r;
+
+        r = link_apply_rps_cpu_mask(link);
         if (r < 0)
                 return r;
 
@@ -1311,6 +1359,63 @@ int config_parse_wol_password(
         }
 
         config->wol_password_file = mfree(config->wol_password_file);
+        return 0;
+}
+
+int config_parse_rps_cpu_mask(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(cpu_set_freep) CPUSet *allocated = NULL;
+        CPUSet *mask, **rps_cpu_mask = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *rps_cpu_mask = cpu_set_free(*rps_cpu_mask);
+                return 0;
+        }
+
+        if (*rps_cpu_mask)
+                mask = *rps_cpu_mask;
+        else {
+                allocated = new0(CPUSet, 1);
+                if (!allocated)
+                        return log_oom();
+
+                mask = allocated;
+        }
+
+        if (streq(rvalue, "disable"))
+                cpu_set_reset(mask);
+
+        else if (streq(rvalue, "all")) {
+                r = cpu_mask_add_all(mask);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to create CPU affinity mask representing \"all\" cpus, ignoring: %m");
+                        return 0;
+                }
+        } else {
+                r = parse_cpu_set_extend(rvalue, mask, /* warn= */ true, unit, filename, line, lvalue);
+                if (r < 0)
+                        return 0;
+        }
+
+        if (allocated)
+                *rps_cpu_mask = TAKE_PTR(allocated);
+
         return 0;
 }
 

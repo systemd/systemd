@@ -562,6 +562,27 @@
   </refsect1>
 
   <refsect1>
+    <title>SMBIOS Type 11 Strings</title>
+
+    <para><command>systemd-boot</command> can be configured using SMBIOS Type 11 strings. Applicable strings
+    consist of a name, followed by <literal>=</literal>, followed by the value. Unless
+    <command>systemd-boot</command> detects it is running inside a confidential computing environment,
+    <command>systemd-boot</command> will search the table for a string with a specific name, and if found,
+    use its value. The following strings are read:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>io.systemd.boot.kernel-cmdline-extra</varname></term>
+        <listitem><para>If set, the value of this string is added to the list of kernel command line
+        arguments for Boot Loader Specification Type 1 entries that are measured in PCR12 and passed to the
+        kernel.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Boot Counting</title>
 
     <para><command>systemd-boot</command> implements a simple boot counting mechanism on top of the <ulink

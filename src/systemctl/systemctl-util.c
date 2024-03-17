@@ -18,6 +18,8 @@
 #include "glob-util.h"
 #include "macro.h"
 #include "path-util.h"
+#include "pidref.h"
+#include "process-util.h"
 #include "reboot-util.h"
 #include "set.h"
 #include "spawn-ask-password-agent.h"
@@ -260,7 +262,13 @@ int get_unit_list(
         return c;
 }
 
-int expand_unit_names(sd_bus *bus, char **names, const char* suffix, char ***ret, bool *ret_expanded) {
+int expand_unit_names(
+                sd_bus *bus,
+                char * const *names,
+                const char *suffix,
+                char ***ret,
+                bool *ret_expanded) {
+
         _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
         int r;
 
@@ -288,30 +296,20 @@ int expand_unit_names(sd_bus *bus, char **names, const char* suffix, char ***ret
         if (expanded) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_free_ UnitInfo *unit_infos = NULL;
-                size_t n;
 
                 r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
                 if (r < 0)
                         return r;
 
-                n = strv_length(mangled);
-
-                for (int i = 0; i < r; i++) {
-                        if (!GREEDY_REALLOC(mangled, n+2))
+                FOREACH_ARRAY(info, unit_infos, r)
+                        if (strv_extend(&mangled, info->id) < 0)
                                 return log_oom();
-
-                        mangled[n] = strdup(unit_infos[i].id);
-                        if (!mangled[n])
-                                return log_oom();
-
-                        mangled[++n] = NULL;
-                }
         }
 
+        *ret = TAKE_PTR(mangled);
         if (ret_expanded)
                 *ret_expanded = expanded;
 
-        *ret = TAKE_PTR(mangled);
         return 0;
 }
 
@@ -437,6 +435,9 @@ int need_daemon_reload(sd_bus *bus, const char *unit) {
 
 void warn_unit_file_changed(const char *unit) {
         assert(unit);
+
+        if (arg_no_warn)
+                return;
 
         log_warning("Warning: The unit file, source configuration file or drop-ins of %s changed on disk. Run 'systemctl%s daemon-reload' to reload units.",
                     unit,
@@ -763,9 +764,7 @@ int maybe_extend_with_unit_dependencies(sd_bus *bus, char ***list) {
         if (r < 0)
                 return log_error_errno(r, "Failed to append unit dependencies: %m");
 
-        strv_free(*list);
-        *list = TAKE_PTR(list_with_deps);
-        return 0;
+        return strv_free_and_replace(*list, list_with_deps);
 }
 
 int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret) {
@@ -921,37 +920,31 @@ UnitFileFlags unit_file_flags_from_args(void) {
                (arg_force   ? UNIT_FILE_FORCE   : 0);
 }
 
-int mangle_names(const char *operation, char **original_names, char ***ret_mangled_names) {
+int mangle_names(const char *operation, char * const *original_names, char ***ret) {
         _cleanup_strv_free_ char **l = NULL;
-        char **i;
         int r;
 
-        assert(ret_mangled_names);
-
-        l = i = new(char*, strv_length(original_names) + 1);
-        if (!l)
-                return log_oom();
+        assert(operation);
+        assert(ret);
 
         STRV_FOREACH(name, original_names) {
-
-                /* When enabling units qualified path names are OK, too, hence allow them explicitly. */
+                char *mangled;
 
                 if (is_path(*name))
-                        r = path_make_absolute_cwd(*name, i);
+                        /* When enabling units qualified path names are OK, too, hence allow them explicitly. */
+                        r = path_make_absolute_cwd(*name, &mangled);
                 else
                         r = unit_name_mangle_with_suffix(*name, operation,
                                                          arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
-                                                         ".service", i);
-                if (r < 0) {
-                        *i = NULL;
+                                                         ".service", &mangled);
+                if (r < 0)
                         return log_error_errno(r, "Failed to mangle unit name or path '%s': %m", *name);
-                }
 
-                i++;
+                if (strv_consume(&l, mangled) < 0)
+                        return log_oom();
         }
 
-        *i = NULL;
-        *ret_mangled_names = TAKE_PTR(l);
+        *ret = TAKE_PTR(l);
 
         return 0;
 }
@@ -993,4 +986,150 @@ int halt_now(enum action a) {
         default:
                 assert_not_reached();
         }
+}
+
+int get_unit_by_pid(sd_bus *bus, pid_t pid, char **ret_unit, char **ret_path) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int r;
+
+        assert(bus);
+        assert(pid >= 0); /* 0 is accepted by GetUnitByPID for querying our own process. */
+
+        r = bus_call_method(bus, bus_systemd_mgr, "GetUnitByPID", &error, &reply, "u", (uint32_t) pid);
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, BUS_ERROR_NO_UNIT_FOR_PID))
+                        return log_error_errno(r, "%s", bus_error_message(&error, r));
+
+                return log_error_errno(r,
+                                       "Failed to get unit that PID " PID_FMT " belongs to: %s",
+                                       pid > 0 ? pid : getpid_cached(),
+                                       bus_error_message(&error, r));
+        }
+
+        _cleanup_free_ char *u = NULL, *p = NULL;
+        const char *path;
+
+        r = sd_bus_message_read_basic(reply, 'o', &path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (ret_unit) {
+                r = unit_name_from_dbus_path(path, &u);
+                if (r < 0)
+                        return log_error_errno(r,
+                                               "Failed to extract unit name from D-Bus object path '%s': %m",
+                                               path);
+        }
+
+        if (ret_path) {
+                p = strdup(path);
+                if (!p)
+                        return log_oom();
+        }
+
+        if (ret_unit)
+                *ret_unit = TAKE_PTR(u);
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+
+        return 0;
+}
+
+static int get_unit_by_pidfd(sd_bus *bus, const PidRef *pid, char **ret_unit, char **ret_path) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int r;
+
+        assert(bus);
+        assert(pidref_is_set(pid));
+
+        if (pid->fd < 0)
+                return -EOPNOTSUPP;
+
+        r = bus_call_method(bus, bus_systemd_mgr, "GetUnitByPIDFD", &error, &reply, "h", pid->fd);
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
+                        return -EOPNOTSUPP;
+
+                if (sd_bus_error_has_names(&error, BUS_ERROR_NO_UNIT_FOR_PID, BUS_ERROR_NO_SUCH_PROCESS))
+                        return log_error_errno(r, "%s", bus_error_message(&error, r));
+
+                return log_error_errno(r,
+                                       "Failed to get unit that PID " PID_FMT " belongs to: %s",
+                                       pid->pid, bus_error_message(&error, r));
+        }
+
+        _cleanup_free_ char *u = NULL, *p = NULL;
+        const char *path, *unit;
+
+        r = sd_bus_message_read(reply, "os", &path, &unit);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (ret_unit) {
+                u = strdup(unit);
+                if (!u)
+                        return log_oom();
+        }
+
+        if (ret_path) {
+                p = strdup(path);
+                if (!p)
+                        return log_oom();
+        }
+
+        if (ret_unit)
+                *ret_unit = TAKE_PTR(u);
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+
+        return 0;
+}
+
+int lookup_unit_by_pidref(sd_bus *bus, pid_t pid, char **ret_unit, char **ret_path) {
+        int r;
+
+        assert(bus);
+        assert(pid >= 0); /* 0 means our own process */
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return get_unit_by_pid(bus, pid, ret_unit, ret_path);
+
+        static bool use_pidfd = true;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+
+        r = pidref_set_pid(&pidref, pid);
+        if (r < 0)
+                return log_error_errno(r,
+                                       r == -ESRCH ?
+                                       "PID " PID_FMT " doesn't exist or is already gone." :
+                                       "Failed to create reference to PID " PID_FMT ": %m",
+                                       pid);
+
+        if (use_pidfd) {
+                r = get_unit_by_pidfd(bus, &pidref, ret_unit, ret_path);
+                if (r != -EOPNOTSUPP)
+                        return r;
+
+                use_pidfd = false;
+                log_debug_errno(r, "Unable to look up process using pidfd, falling back to pid.");
+        }
+
+        _cleanup_free_ char *u = NULL, *p = NULL;
+
+        r = get_unit_by_pid(bus, pidref.pid, ret_unit ? &u : NULL, ret_path ? &p : NULL);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(&pidref);
+        if (r < 0)
+                return log_error_errno(r, "Failed to verify our reference to PID " PID_FMT ": %m", pidref.pid);
+
+        if (ret_unit)
+                *ret_unit = TAKE_PTR(u);
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+
+        return 0;
 }

@@ -4,31 +4,34 @@
 # Sebastian Rasmussen <sebras@gmail.com>, 2015.
 # Andreas Henriksson <andreas@fatal.se>, 2016.
 # Josef Andersson <l10nl18nsweja@gmail.com>, 2015, 2017.
-# Göran Uddeborg <goeran@uddeborg.se>, 2020, 2021.
+# Göran Uddeborg <goeran@uddeborg.se>, 2020, 2021, 2024.
 # Luna Jernberg <bittin@reimu.nl>, 2020, 2023.
 # Anders Jonsson <anders.jonsson@norsjovallen.se>, 2022, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-11-14 21:25+0000\n"
-"PO-Revision-Date: 2024-02-03 10:36+0000\n"
-"Last-Translator: Anders Jonsson <anders.jonsson@norsjovallen.se>\n"
+"POT-Creation-Date: 2024-03-04 10:09+0100\n"
+"PO-Revision-Date: 2024-03-05 21:36+0000\n"
+"Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
-"master/sv/>\n"
+"main/sv/>\n"
 "Language: sv\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.3.1\n"
+"X-Generator: Weblate 5.4\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
 msgstr "Skicka tillbaka lösenfras till system"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
-msgid "Authentication is required to send the entered passphrase back to the system."
-msgstr "Autentisering krävs för att skicka tillbaka den angivna lösenfrasen till systemet."
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr ""
+"Autentisering krävs för att skicka tillbaka den angivna lösenfrasen till "
+"systemet."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -36,7 +39,8 @@ msgstr "Hantera systemtjänster eller andra enheter"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
-msgstr "Autentisering krävs för att hantera systemtjänster eller andra enheter."
+msgstr ""
+"Autentisering krävs för att hantera systemtjänster eller andra enheter."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
@@ -51,8 +55,12 @@ msgid "Set or unset system and service manager environment variables"
 msgstr "Ställ in eller ta bort miljövariabler för system- och servicehanterare"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
-msgid "Authentication is required to set or unset system and service manager environment variables."
-msgstr "Autentisering krävs för att ställa in eller ta bort miljövariabler för system- och servicehanterare."
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"Autentisering krävs för att ställa in eller ta bort miljövariabler för "
+"system- och servicehanterare."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
@@ -67,8 +75,11 @@ msgid "Dump the systemd state without rate limits"
 msgstr "Dumpa systemets tillstånd utan hastighetsbegränsningar"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
-msgid "Authentication is required to dump the systemd state without rate limits."
-msgstr "Autentisering krävs för att dumpa systemtillståndet utan hastighetsbegränsningar."
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
+msgstr ""
+"Autentisering krävs för att dumpa systemtillståndet utan "
+"hastighetsbegränsningar."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -91,8 +102,10 @@ msgid "Check credentials of a home area"
 msgstr "Kontrollera kreditiven för en hemarea"
 
 #: src/home/org.freedesktop.home1.policy:34
-msgid "Authentication is required to check credentials against a user's home area."
-msgstr "Autentisering krävs för att kontrollera kreditiven mot en användares hemarea."
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr ""
+"Autentisering krävs för att kontrollera kreditiven mot en användares hemarea."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -115,154 +128,195 @@ msgid "Change password of a home area"
 msgstr "Ändra lösenord för en hemarea"
 
 #: src/home/org.freedesktop.home1.policy:64
-msgid "Authentication is required to change the password of a user's home area."
-msgstr "Autentisering krävs för att ändra lösenordet för en användares hemarea."
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr ""
+"Autentisering krävs för att ändra lösenordet för en användares hemarea."
 
-#: src/home/pam_systemd_home.c:287
+#: src/home/org.freedesktop.home1.policy:73
+msgid "Inhibit automatic lock of a home area"
+msgstr "Förhindra automatiskt lås av en hemarea"
+
+#: src/home/org.freedesktop.home1.policy:74
+msgid ""
+"Authentication is required to inhibit automatic lock of a user's home area."
+msgstr ""
+"Autentisering krävs för att förhindra automatiskt lås av en användares "
+"hemarea."
+
+#: src/home/org.freedesktop.home1.policy:83
+msgid "Activate a home area"
+msgstr "Aktivera en hemarea"
+
+#: src/home/org.freedesktop.home1.policy:84
+msgid "Authentication is required to activate a user's home area."
+msgstr "Autentisering krävs för att aktivera en användares hemarea."
+
+#: src/home/pam_systemd_home.c:293
 #, c-format
-msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
+msgid ""
+"Home of user %s is currently absent, please plug in the necessary storage "
+"device or backing file system."
 msgstr ""
 "Hem för användaren %s är för närvarande inte tillgängligt, vänligen koppla "
 "in nödvändiga lagringsenheter eller säkerhetskopieringsfilsystem."
 
-#: src/home/pam_systemd_home.c:292
+#: src/home/pam_systemd_home.c:298
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "För ofta inloggningsförsök från användare %s, försök igen senare."
 
-#: src/home/pam_systemd_home.c:304
+#: src/home/pam_systemd_home.c:310
 msgid "Password: "
 msgstr "Lösenord: "
 
-#: src/home/pam_systemd_home.c:306
+#: src/home/pam_systemd_home.c:312
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr "Lösenordet är felaktigt eller inte tillräckligt för autentisering av användare %s."
+msgstr ""
+"Lösenordet är felaktigt eller inte tillräckligt för autentisering av "
+"användare %s."
 
-#: src/home/pam_systemd_home.c:307
+#: src/home/pam_systemd_home.c:313
 msgid "Sorry, try again: "
 msgstr "Tyvärr, försök igen: "
 
-#: src/home/pam_systemd_home.c:329
+#: src/home/pam_systemd_home.c:335
 msgid "Recovery key: "
 msgstr "Återställningsnyckel: "
 
-#: src/home/pam_systemd_home.c:331
+#: src/home/pam_systemd_home.c:337
 #, c-format
-msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
-msgstr "Lösenord/återställningsnyckel är felaktig eller inte tillräcklig för autentisering av användare %s."
+msgid ""
+"Password/recovery key incorrect or not sufficient for authentication of user "
+"%s."
+msgstr ""
+"Lösenord/återställningsnyckel är felaktig eller inte tillräcklig för "
+"autentisering av användare %s."
 
-#: src/home/pam_systemd_home.c:332
+#: src/home/pam_systemd_home.c:338
 msgid "Sorry, reenter recovery key: "
 msgstr "Tyvärr, ange återställningsnyckel igen: "
 
-#: src/home/pam_systemd_home.c:352
+#: src/home/pam_systemd_home.c:358
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Säkerhetstoken för användare %s har inte kopplats in."
 
-#: src/home/pam_systemd_home.c:353 src/home/pam_systemd_home.c:356
+#: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
 msgid "Try again with password: "
 msgstr "Prova igen med lösenord: "
 
-#: src/home/pam_systemd_home.c:355
+#: src/home/pam_systemd_home.c:361
 #, c-format
-msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
-msgstr "Lösenordet är felaktigt eller inte tillräckligt, och konfigurerad säkerhetstoken för användare %s har inte kopplats in."
+msgid ""
+"Password incorrect or not sufficient, and configured security token of user "
+"%s not inserted."
+msgstr ""
+"Lösenordet är felaktigt eller inte tillräckligt, och konfigurerad "
+"säkerhetstoken för användare %s har inte kopplats in."
 
-#: src/home/pam_systemd_home.c:376
+#: src/home/pam_systemd_home.c:381
 msgid "Security token PIN: "
 msgstr "Säkerhetstoken-PIN: "
 
-#: src/home/pam_systemd_home.c:393
+#: src/home/pam_systemd_home.c:398
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "Vänligen autentisera fysiskt på säkerhetstoken för användare %s."
 
-#: src/home/pam_systemd_home.c:404
+#: src/home/pam_systemd_home.c:409
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Vänligen bekräfta närvaro på säkerhetstoken för användare %s."
 
-#: src/home/pam_systemd_home.c:415
+#: src/home/pam_systemd_home.c:420
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "Vänligen verifiera användare på säkerhetstoken för användare %s."
 
-#: src/home/pam_systemd_home.c:424
-msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
-msgstr "PIN-kod för säkerhetstoken är låst. Lås upp den först. (Tips: Det kan räcka med borttagning och återinsättning.)"
+#: src/home/pam_systemd_home.c:429
+msgid ""
+"Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
+"insertion might suffice.)"
+msgstr ""
+"PIN-kod för säkerhetstoken är låst. Lås upp den först. (Tips: Det kan räcka "
+"med borttagning och återinsättning.)"
 
-#: src/home/pam_systemd_home.c:432
+#: src/home/pam_systemd_home.c:437
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "Felaktig PIN-kod för säkerhetstoken för användare %s."
 
-#: src/home/pam_systemd_home.c:433 src/home/pam_systemd_home.c:452
-#: src/home/pam_systemd_home.c:471
+#: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
+#: src/home/pam_systemd_home.c:476
 msgid "Sorry, retry security token PIN: "
 msgstr "Tyvärr, försök igen med PIN-kod för säkerhetstoken: "
 
-#: src/home/pam_systemd_home.c:451
+#: src/home/pam_systemd_home.c:456
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
-msgstr "Säkerhetstoken-PIN för användare %s är felaktig (bara några försök kvar!)"
+msgstr ""
+"Säkerhetstoken-PIN för användare %s är felaktig (bara några försök kvar!)"
 
-#: src/home/pam_systemd_home.c:470
+#: src/home/pam_systemd_home.c:475
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
-msgstr "Säkerhetstoken-PIN för användare %s är felaktig (endast ett försök kvar!)"
+msgstr ""
+"Säkerhetstoken-PIN för användare %s är felaktig (endast ett försök kvar!)"
 
-#: src/home/pam_systemd_home.c:616
+#: src/home/pam_systemd_home.c:643
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr "Hem för användare %s är för närvarande inte aktivt, vänligen logga in lokalt först."
+msgstr ""
+"Hem för användare %s är för närvarande inte aktivt, vänligen logga in lokalt "
+"först."
 
-#: src/home/pam_systemd_home.c:618
+#: src/home/pam_systemd_home.c:645
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "Hem för användare %s är för närvarande låst, vänligen lås upp lokalt först."
 
-#: src/home/pam_systemd_home.c:645
+#: src/home/pam_systemd_home.c:677
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "För många misslyckade inloggningsförsök för användare %s, vägrar."
 
-#: src/home/pam_systemd_home.c:868
+#: src/home/pam_systemd_home.c:956
 msgid "User record is blocked, prohibiting access."
 msgstr "Användarposten är blockerad, vilket förbjuder åtkomst."
 
-#: src/home/pam_systemd_home.c:872
+#: src/home/pam_systemd_home.c:960
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Användarposten är inte giltig ännu, vilket förbjuder åtkomst."
 
-#: src/home/pam_systemd_home.c:876
+#: src/home/pam_systemd_home.c:964
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Användarposten är inte längre giltig, vilket förbjuder åtkomst."
 
-#: src/home/pam_systemd_home.c:881 src/home/pam_systemd_home.c:932
+#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
 msgid "User record not valid, prohibiting access."
 msgstr "Användarposten är inte giltig, förbjuder åtkomst."
 
-#: src/home/pam_systemd_home.c:893
+#: src/home/pam_systemd_home.c:981
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "För många inloggningsförsök, försök igen om %s."
 
-#: src/home/pam_systemd_home.c:904
+#: src/home/pam_systemd_home.c:992
 msgid "Password change required."
 msgstr "Lösenordsbyte krävs."
 
-#: src/home/pam_systemd_home.c:908
+#: src/home/pam_systemd_home.c:996
 msgid "Password expired, change required."
 msgstr "Lösenordet har löpt ut, byte av lösenord krävs."
 
-#: src/home/pam_systemd_home.c:914
+#: src/home/pam_systemd_home.c:1002
 msgid "Password is expired, but can't change, refusing login."
 msgstr "Lösenordet har löpt ut, men kan inte ändras, vägrar inloggning."
 
-#: src/home/pam_systemd_home.c:918
+#: src/home/pam_systemd_home.c:1006
 msgid "Password will expire soon, please change."
 msgstr "Lösenordet upphör snart, vänligen byt."
 
@@ -279,8 +333,12 @@ msgid "Set static hostname"
 msgstr "Ange statiskt värdnamn"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
-msgid "Authentication is required to set the statically configured local hostname, as well as the pretty hostname."
-msgstr "Autentisering krävs för att ställa in det statiskt konfigurerade lokala värdnamnet såväl som det stiliga värdnamnet."
+msgid ""
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
+msgstr ""
+"Autentisering krävs för att ställa in det statiskt konfigurerade lokala "
+"värdnamnet såväl som det stiliga värdnamnet."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -315,28 +373,38 @@ msgid "Authentication is required to get system description."
 msgstr "Autentisering krävs för att hämta systemets beskrivning."
 
 #: src/import/org.freedesktop.import1.policy:22
-msgid "Import a VM or container image"
-msgstr "Importera en VM eller behållaravbildning"
+msgid "Import a disk image"
+msgstr "Importera en diskavbild"
 
 #: src/import/org.freedesktop.import1.policy:23
-msgid "Authentication is required to import a VM or container image"
-msgstr "Autentisering krävs för att importera en VM eller behållaravbildning"
+msgid "Authentication is required to import an image"
+msgstr "Autentisering krävs för att importera en avbild"
 
 #: src/import/org.freedesktop.import1.policy:32
-msgid "Export a VM or container image"
-msgstr "Exportera en VM eller behållaravbildning"
+msgid "Export a disk image"
+msgstr "Exportera en diskavbild"
 
 #: src/import/org.freedesktop.import1.policy:33
-msgid "Authentication is required to export a VM or container image"
-msgstr "Autentisering krävs för att exportera en VM eller behållaravbildning"
+msgid "Authentication is required to export disk image"
+msgstr "Autentisering krävs för att exportera en diskavbild"
 
 #: src/import/org.freedesktop.import1.policy:42
-msgid "Download a VM or container image"
-msgstr "Hämta ner en VM eller behållaravbildning"
+msgid "Download a disk image"
+msgstr "Hämta en diskavbild"
 
 #: src/import/org.freedesktop.import1.policy:43
-msgid "Authentication is required to download a VM or container image"
-msgstr "Autentisering krävs för att hämta ner en VM eller behållaravbildning"
+msgid "Authentication is required to download a disk image"
+msgstr "Autentisering krävs för att hämta en diskavbild"
+
+#: src/import/org.freedesktop.import1.policy:52
+msgid "Cancel transfer of a disk image"
+msgstr "Avbryt överföringen av en diskavbild"
+
+#: src/import/org.freedesktop.import1.policy:53
+msgid ""
+"Authentication is required to cancel the ongoing transfer of a disk image"
+msgstr ""
+"Autentisering krävs för att avbryta en pågående överföring av en diskavbild"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -352,15 +420,18 @@ msgstr "Ange systeminställningar för tangentbord"
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
-msgstr "Autentisering krävs för att ställa in systeminställningar för tangentbord."
+msgstr ""
+"Autentisering krävs för att ställa in systeminställningar för tangentbord."
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
 msgstr "Tillåt program att hindra systemavstängning"
 
 #: src/login/org.freedesktop.login1.policy:23
-msgid "Authentication is required for an application to inhibit system shutdown."
-msgstr "Autentisering krävs för att tillåta ett program att hindra systemavstängning."
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
+msgstr ""
+"Autentisering krävs för att tillåta ett program att hindra systemavstängning."
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
@@ -368,7 +439,9 @@ msgstr "Tillåt program att fördröja systemavstängning"
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
-msgstr "Autentisering krävs för att tillåta ett program att fördröja systemavstängning."
+msgstr ""
+"Autentisering krävs för att tillåta ett program att fördröja "
+"systemavstängning."
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
@@ -376,7 +449,9 @@ msgstr "Tillåt program att hindra system att försättas i viloläge"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr "Autentisering krävs för att tillåta ett program att hindra ett system att försättas i viloläge."
+msgstr ""
+"Autentisering krävs för att tillåta ett program att hindra ett system att "
+"försättas i viloläge."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
@@ -384,55 +459,81 @@ msgstr "Tillåt program att fördröja att system försätts i viloläge"
 
 #: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
-msgstr "Autentisering krävs för att tillåta ett program att fördröja ett system att försättas i viloläge."
+msgstr ""
+"Autentisering krävs för att tillåta ett program att fördröja ett system att "
+"försättas i viloläge."
 
 #: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
 msgstr "Tillåt program att hindra automatiskt systemvänteläge"
 
 #: src/login/org.freedesktop.login1.policy:66
-msgid "Authentication is required for an application to inhibit automatic system suspend."
-msgstr "Autentisering krävs för att tillåta ett program att hindra automatiskt systemvänteläge."
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr ""
+"Autentisering krävs för att tillåta ett program att hindra automatiskt "
+"systemvänteläge."
 
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
 msgstr "Tillåt program att hindra systemhantering av strömknappen"
 
 #: src/login/org.freedesktop.login1.policy:76
-msgid "Authentication is required for an application to inhibit system handling of the power key."
-msgstr "Autentisering krävs för att tillåta ett program att hindra systemhantering av strömknappen."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr ""
+"Autentisering krävs för att tillåta ett program att hindra systemhantering "
+"av strömknappen."
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
 msgstr "Tillåt program att hindra systemhantering av väntelägesknappen"
 
 #: src/login/org.freedesktop.login1.policy:87
-msgid "Authentication is required for an application to inhibit system handling of the suspend key."
-msgstr "Autentisering krävs för att tillåta ett program att hindra systemhantering av väntelägesknappen."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr ""
+"Autentisering krävs för att tillåta ett program att hindra systemhantering "
+"av väntelägesknappen."
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
 msgstr "Tillåt program att hindra systemhantering av vilolägesknappen"
 
 #: src/login/org.freedesktop.login1.policy:98
-msgid "Authentication is required for an application to inhibit system handling of the hibernate key."
-msgstr "Autentisering krävs för att tillåta ett program att hindra systemhantering av vilolägesknappen."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr ""
+"Autentisering krävs för att tillåta ett program att hindra systemhantering "
+"av vilolägesknappen."
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
 msgstr "Tillåt program att hindra systemhantering av växel för datorhölje"
 
 #: src/login/org.freedesktop.login1.policy:108
-msgid "Authentication is required for an application to inhibit system handling of the lid switch."
-msgstr "Autentisering krävs för att tillåta ett program att hindra systemhantering av brytaren för datorhöljet."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr ""
+"Autentisering krävs för att tillåta ett program att hindra systemhantering "
+"av brytaren för datorhöljet."
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
 msgstr "Tillåt program att hindra systemhantering av omstartsknappen"
 
 #: src/login/org.freedesktop.login1.policy:118
-msgid "Authentication is required for an application to inhibit system handling of the reboot key."
-msgstr "Autentisering krävs för att tillåta ett program att hindra systemhantering av omstartsknappen."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr ""
+"Autentisering krävs för att tillåta ett program att hindra systemhantering "
+"av omstartsknappen."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
@@ -440,7 +541,8 @@ msgstr "Tillåt ej inloggad användare att köra program"
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
-msgstr "Uttrycklig begäran krävs för att köra program som en icke inloggad användare."
+msgstr ""
+"Uttrycklig begäran krävs för att köra program som en icke inloggad användare."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
@@ -448,7 +550,8 @@ msgstr "Tillåt ej inloggade användare att köra program"
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
-msgstr "Autentisering krävs för att köra program som en icke inloggad användare."
+msgstr ""
+"Autentisering krävs för att köra program som en icke inloggad användare."
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
@@ -464,7 +567,8 @@ msgstr "Töm bindningar för enhet-till-plats"
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
-msgstr "Autentisering krävs för att återställa hur enheter är bundna till platser."
+msgstr ""
+"Autentisering krävs för att återställa hur enheter är bundna till platser."
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
@@ -479,16 +583,24 @@ msgid "Power off the system while other users are logged in"
 msgstr "Stäng av systemet medan andra användare är inloggade"
 
 #: src/login/org.freedesktop.login1.policy:181
-msgid "Authentication is required to power off the system while other users are logged in."
-msgstr "Autentisering krävs för att stänga av systemet medan andra användare är inloggade."
+msgid ""
+"Authentication is required to power off the system while other users are "
+"logged in."
+msgstr ""
+"Autentisering krävs för att stänga av systemet medan andra användare är "
+"inloggade."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
 msgstr "Stäng av systemet även då ett program hindrar det"
 
 #: src/login/org.freedesktop.login1.policy:192
-msgid "Authentication is required to power off the system while an application is inhibiting this."
-msgstr "Autentisering krävs för att stänga av systemet även då ett program hindrar det."
+msgid ""
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
+msgstr ""
+"Autentisering krävs för att stänga av systemet även då ett program hindrar "
+"det."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -503,16 +615,24 @@ msgid "Reboot the system while other users are logged in"
 msgstr "Starta om systemet medan andra användare är inloggade"
 
 #: src/login/org.freedesktop.login1.policy:214
-msgid "Authentication is required to reboot the system while other users are logged in."
-msgstr "Autentisering krävs för att starta om systemet medan andra användare är inloggade."
+msgid ""
+"Authentication is required to reboot the system while other users are logged "
+"in."
+msgstr ""
+"Autentisering krävs för att starta om systemet medan andra användare är "
+"inloggade."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
 msgstr "Starta om systemet även då ett program hindrar det"
 
 #: src/login/org.freedesktop.login1.policy:225
-msgid "Authentication is required to reboot the system while an application is inhibiting this."
-msgstr "Autentisering krävs för att starta om systemet även då ett program hindrar det."
+msgid ""
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
+msgstr ""
+"Autentisering krävs för att starta om systemet även då ett program hindrar "
+"det."
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
@@ -527,16 +647,23 @@ msgid "Halt the system while other users are logged in"
 msgstr "Stoppa systemet medan andra användare är inloggade"
 
 #: src/login/org.freedesktop.login1.policy:247
-msgid "Authentication is required to halt the system while other users are logged in."
-msgstr "Autentisering krävs för att stoppa systemet medan andra användare är inloggade."
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr ""
+"Autentisering krävs för att stoppa systemet medan andra användare är "
+"inloggade."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
 msgstr "Stoppa systemet även då ett program hindrar det"
 
 #: src/login/org.freedesktop.login1.policy:258
-msgid "Authentication is required to halt the system while an application is inhibiting this."
-msgstr "Autentisering krävs för att stoppa systemet även då ett program hindrar det."
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr ""
+"Autentisering krävs för att stoppa systemet även då ett program hindrar det."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -551,16 +678,24 @@ msgid "Suspend the system while other users are logged in"
 msgstr "Försätt systemet i vänteläge medan andra användare är inloggade"
 
 #: src/login/org.freedesktop.login1.policy:279
-msgid "Authentication is required to suspend the system while other users are logged in."
-msgstr "Autentisering krävs för att försätta systemet i vänteläge medan andra användare är inloggade."
+msgid ""
+"Authentication is required to suspend the system while other users are "
+"logged in."
+msgstr ""
+"Autentisering krävs för att försätta systemet i vänteläge medan andra "
+"användare är inloggade."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
 msgstr "Försätt systemet i vänteläge även då ett program hindrar det"
 
 #: src/login/org.freedesktop.login1.policy:290
-msgid "Authentication is required to suspend the system while an application is inhibiting this."
-msgstr "Autentisering krävs för att försätta systemet i sovläge även då ett program hindrar det."
+msgid ""
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
+msgstr ""
+"Autentisering krävs för att försätta systemet i sovläge även då ett program "
+"hindrar det."
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
@@ -575,16 +710,24 @@ msgid "Hibernate the system while other users are logged in"
 msgstr "Försätt systemet i viloläge medan andra användare är inloggade"
 
 #: src/login/org.freedesktop.login1.policy:311
-msgid "Authentication is required to hibernate the system while other users are logged in."
-msgstr "Autentisering krävs för att försätta systemet i viloläge medan andra användare är inloggade."
+msgid ""
+"Authentication is required to hibernate the system while other users are "
+"logged in."
+msgstr ""
+"Autentisering krävs för att försätta systemet i viloläge medan andra "
+"användare är inloggade."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Försätt systemet i viloläge även då ett program hindrar det"
 
 #: src/login/org.freedesktop.login1.policy:322
-msgid "Authentication is required to hibernate the system while an application is inhibiting this."
-msgstr "Autentisering krävs för att försätta systemet i viloläge även då ett program hindrar det."
+msgid ""
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
+msgstr ""
+"Autentisering krävs för att försätta systemet i viloläge även då ett program "
+"hindrar det."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
@@ -592,7 +735,8 @@ msgstr "Hantera aktiva sessioner, användare och platser"
 
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
-msgstr "Autentisering krävs för att hantera aktiva sessioner, användare och platser."
+msgstr ""
+"Autentisering krävs för att hantera aktiva sessioner, användare och platser."
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
@@ -612,27 +756,41 @@ msgstr "Autentisering krävs för att ställa in ”orsaken” för omstart i k�
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr "Indikera till den fasta programvaran att starta upp till inställningsgränssnittet"
+msgstr ""
+"Indikera till den fasta programvaran att starta upp till "
+"inställningsgränssnittet"
 
 #: src/login/org.freedesktop.login1.policy:364
-msgid "Authentication is required to indicate to the firmware to boot to setup interface."
-msgstr "Autentisering krävs för att indikera till den fasta programvaran att starta upp till inställningsgränssnitt."
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr ""
+"Autentisering krävs för att indikera till den fasta programvaran att starta "
+"upp till inställningsgränssnitt."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
 msgstr "Indikera till startprogrammet att starta upp i uppstartsladdmenyn"
 
 #: src/login/org.freedesktop.login1.policy:375
-msgid "Authentication is required to indicate to the boot loader to boot to the boot loader menu."
-msgstr "Autentisering krävs för att indikera till uppstartsladdaren att starta upp uppstartsladdmenyn."
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"Autentisering krävs för att indikera till uppstartsladdaren att starta upp "
+"uppstartsladdmenyn."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
 msgstr "Indikera till uppstartsladdaren att starta en specifik post"
 
 #: src/login/org.freedesktop.login1.policy:386
-msgid "Authentication is required to indicate to the boot loader to boot into a specific boot loader entry."
-msgstr "Autentisering krävs för att indikera till uppstartsladdaren att starta upp till en specifik uppstartsladdspost."
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"Autentisering krävs för att indikera till uppstartsladdaren att starta upp "
+"till en specifik uppstartsladdspost."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
@@ -672,7 +830,8 @@ msgstr "Förvärva en kommandotolk i en lokal behållare"
 
 #: src/machine/org.freedesktop.machine1.policy:43
 msgid "Authentication is required to acquire a shell in a local container."
-msgstr "Autentisering krävs för att förvärva en kommandotolk i en lokal behållare."
+msgstr ""
+"Autentisering krävs för att förvärva en kommandotolk i en lokal behållare."
 
 #: src/machine/org.freedesktop.machine1.policy:53
 msgid "Acquire a shell on the local host"
@@ -680,15 +839,18 @@ msgstr "Förvärva en kommandotolk på den lokala värden"
 
 #: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr "Autentisering krävs för att förvärva en kommandotolk på den lokala värden."
+msgstr ""
+"Autentisering krävs för att förvärva en kommandotolk på den lokala värden."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
 msgstr "Förvärva en pseudo TTY i en lokal behållare"
 
 #: src/machine/org.freedesktop.machine1.policy:65
-msgid "Authentication is required to acquire a pseudo TTY in a local container."
-msgstr "Autentisering krävs för att förvärva en pseudo TTY i en lokal behållare."
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr ""
+"Autentisering krävs för att förvärva en pseudo TTY i en lokal behållare."
 
 #: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
@@ -696,23 +858,30 @@ msgstr "Förvärva en pseudo TTY på den lokala värden"
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr "Autentisering krävs för att förvärva en pseudo TTY på den lokala värden."
+msgstr ""
+"Autentisering krävs för att förvärva en pseudo TTY på den lokala värden."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
 msgstr "Hantera lokala virtuella maskiner och behållare"
 
 #: src/machine/org.freedesktop.machine1.policy:85
-msgid "Authentication is required to manage local virtual machines and containers."
-msgstr "Autentisering krävs för att hantera lokala virtuella maskiner och behållare."
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr ""
+"Autentisering krävs för att hantera lokala virtuella maskiner och behållare."
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Manage local virtual machine and container images"
 msgstr "Hantera lokala virtuella maskin- och behållaravbildningar"
 
 #: src/machine/org.freedesktop.machine1.policy:96
-msgid "Authentication is required to manage local virtual machine and container images."
-msgstr "Autentisering krävs för att hantera lokala virtuella maskin- och behållaravbildningar."
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr ""
+"Autentisering krävs för att hantera lokala virtuella maskin- och "
+"behållaravbildningar."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -863,16 +1032,21 @@ msgid "Attach or detach a portable service image"
 msgstr "Koppla in eller koppla ifrån en portabel tjänsteavbild"
 
 #: src/portable/org.freedesktop.portable1.policy:24
-msgid "Authentication is required to attach or detach a portable service image."
-msgstr "Autentisering krävs för att koppla in eller koppla ifrån en portabel tjänsteavbild."
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr ""
+"Autentisering krävs för att koppla in eller koppla ifrån en portabel "
+"tjänsteavbild."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
 msgstr "Radera eller modifiera en portabel tjänsteavbild"
 
 #: src/portable/org.freedesktop.portable1.policy:35
-msgid "Authentication is required to delete or modify a portable service image."
-msgstr "Autentisering krävs för att radera eller modifiera en portabel tjänsteavbild."
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr ""
+"Autentisering krävs för att radera eller modifiera en portabel tjänsteavbild."
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
@@ -916,58 +1090,84 @@ msgstr "Autentisering krävs för att ställa in systemets tidszon."
 
 #: src/timedate/org.freedesktop.timedate1.policy:43
 msgid "Set RTC to local timezone or UTC"
-msgstr "Sätt realtidsklocka (RTC) till lokal tidszon eller koordinerad universell tid (UTC)"
+msgstr ""
+"Sätt realtidsklocka (RTC) till lokal tidszon eller koordinerad universell "
+"tid (UTC)"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
-msgid "Authentication is required to control whether the RTC stores the local or UTC time."
-msgstr "Autentisering krävs för att kunna kontrollera huruvida realtidsklockan (RTC) lagrar den lokala eller koordinerade universella tiden (UTC)."
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr ""
+"Autentisering krävs för att kunna kontrollera huruvida realtidsklockan (RTC) "
+"lagrar den lokala eller koordinerade universella tiden (UTC)."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
 msgstr "Växla synkronisering av nätverkstid på och av"
 
 #: src/timedate/org.freedesktop.timedate1.policy:54
-msgid "Authentication is required to control whether network time synchronization shall be enabled."
-msgstr "Autentisering krävs för att kontrollera huruvida synkronisering av nätverkstid ska vara aktiverat."
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr ""
+"Autentisering krävs för att kontrollera huruvida synkronisering av "
+"nätverkstid ska vara aktiverat."
 
-#: src/core/dbus-unit.c:352
+#: src/core/dbus-unit.c:353
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Autentisering krävs för att starta \"$(unit)\"."
 
-#: src/core/dbus-unit.c:353
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Autentisering krävs för att stoppa \"$(unit)\"."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:355
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Autentisering krävs för att läsa om \"$(unit)\"."
 
-#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
+#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Autentisering krävs för att starta om \"$(unit)\"."
 
-#: src/core/dbus-unit.c:553
-msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
-msgstr "Autentisering krävs för att skicka en UNIX-signal till processerna i ”$(unit)”."
+#: src/core/dbus-unit.c:549
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"'$(unit)'."
+msgstr ""
+"Autentisering krävs för att skicka en UNIX-signal till processerna i "
+"”$(unit)”."
 
-#: src/core/dbus-unit.c:583
+#: src/core/dbus-unit.c:577
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr "Autentisering krävs för att återställa det \"fallerade\" tillståndet för \"$(unit)\"."
+msgstr ""
+"Autentisering krävs för att återställa det \"fallerade\" tillståndet för "
+"\"$(unit)\"."
 
-#: src/core/dbus-unit.c:615
+#: src/core/dbus-unit.c:607
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Autentisering krävs för att ställa in egenskaper på \"$(unit)\"."
 
-#: src/core/dbus-unit.c:716
-msgid "Authentication is required to delete files and directories associated with '$(unit)'."
-msgstr "Autentisering krävs för att radera filer och kataloger associerade med ”$(unit)”."
+#: src/core/dbus-unit.c:704
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
+msgstr ""
+"Autentisering krävs för att radera filer och kataloger associerade med "
+"”$(unit)”."
 
-#: src/core/dbus-unit.c:764
-msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
-msgstr "Autentisering krävs för att frysa eller töa processerna i enheten ”$(unit)”."
+#: src/core/dbus-unit.c:743
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr ""
+"Autentisering krävs för att frysa eller töa processerna i enheten ”$(unit)”."
 
-#~ msgid "Authentication is required to halt the system while an application asked to inhibit it."
-#~ msgstr "Autentisering krävs för att stoppa systemet även då ett program hindrar det."
+#~ msgid ""
+#~ "Authentication is required to halt the system while an application asked "
+#~ "to inhibit it."
+#~ msgstr ""
+#~ "Autentisering krävs för att stoppa systemet även då ett program hindrar "
+#~ "det."
 
 #~ msgid "Authentication is required to kill '$(unit)'."
 #~ msgstr "Autentisering krävs för att döda \"$(unit)\"."

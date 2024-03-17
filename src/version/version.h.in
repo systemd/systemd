@@ -7,4 +7,4 @@
  * - where a simplified machine-parsable form is more useful, for example
  *   pkgconfig files and version information written to binary files.
  */
-#define GIT_VERSION "@VCS_TAG@"
+#define GIT_VERSION VERSION_TAG "@VCS_TAG@"

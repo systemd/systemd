@@ -9,6 +9,12 @@ rm -fr /tmp/p
 mkdir  /tmp/p
 touch  /tmp/p/f1
 
+systemd-tmpfiles --dry-run --create - <<EOF
+p     /tmp/p/fifo1    0666 - - - -
+EOF
+
+test ! -p /tmp/p/fifo1
+
 systemd-tmpfiles --create - <<EOF
 p     /tmp/p/fifo1    0666 - - - -
 EOF

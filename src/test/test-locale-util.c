@@ -82,7 +82,7 @@ TEST(keymaps) {
 
 #define dump_glyph(x) log_info(STRINGIFY(x) ": %s", special_glyph(x))
 TEST(dump_special_glyphs) {
-        assert_cc(SPECIAL_GLYPH_WORLD + 1 == _SPECIAL_GLYPH_MAX);
+        assert_cc(SPECIAL_GLYPH_GREEN_CIRCLE + 1 == _SPECIAL_GLYPH_MAX);
 
         log_info("is_locale_utf8: %s", yes_no(is_locale_utf8()));
 
@@ -92,6 +92,8 @@ TEST(dump_special_glyphs) {
         dump_glyph(SPECIAL_GLYPH_TREE_SPACE);
         dump_glyph(SPECIAL_GLYPH_TREE_TOP);
         dump_glyph(SPECIAL_GLYPH_VERTICAL_DOTTED);
+        dump_glyph(SPECIAL_GLYPH_HORIZONTAL_DOTTED);
+        dump_glyph(SPECIAL_GLYPH_HORIZONTAL_FAT);
         dump_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET);
         dump_glyph(SPECIAL_GLYPH_BLACK_CIRCLE);
         dump_glyph(SPECIAL_GLYPH_WHITE_CIRCLE);
@@ -127,6 +129,10 @@ TEST(dump_special_glyphs) {
         dump_glyph(SPECIAL_GLYPH_WARNING_SIGN);
         dump_glyph(SPECIAL_GLYPH_COMPUTER_DISK);
         dump_glyph(SPECIAL_GLYPH_WORLD);
+        dump_glyph(SPECIAL_GLYPH_RED_CIRCLE);
+        dump_glyph(SPECIAL_GLYPH_YELLOW_CIRCLE);
+        dump_glyph(SPECIAL_GLYPH_BLUE_CIRCLE);
+        dump_glyph(SPECIAL_GLYPH_GREEN_CIRCLE);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

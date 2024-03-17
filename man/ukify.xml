@@ -99,7 +99,10 @@
       the n-th boot phase path set will be signed by the n-th key. This can be used to build different trust
       policies for different phases of the boot. In the config file, <varname>PCRPrivateKey=</varname>,
       <varname>PCRPublicKey=</varname>, and <varname>Phases=</varname> are grouped into separate sections,
-      describing separate boot phases.</para>
+      describing separate boot phases. If <varname>SigningEngine=</varname>/<option>--signing-engine=</option>
+      is specified, then the private keys arguments will be passed verbatim to OpenSSL as URIs, and the public
+      key arguments will be loaded as X.509 certificates, so that signing can be performed with an OpenSSL
+      engine.</para>
 
       <para>If a SecureBoot signing key is provided via the
       <varname>SecureBootPrivateKey=</varname>/<option>--secureboot-private-key=</option> option, the resulting
@@ -482,8 +485,10 @@
           <listitem><para>SBAT metadata associated with the UKI or addon. SBAT policies are useful to revoke
           whole groups of UKIs or addons with a single, static policy update that does not take space in
           DBX/MOKX. If not specified manually, a default metadata entry consisting of
-          <literal>uki,1,UKI,uki,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html</literal>
-          will be used, to ensure it is always possible to revoke UKIs and addons. For more information on
+          <literal>uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/</literal>
+          for UKIs and
+          <literal>uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html</literal>
+          for addons will be used, to ensure it is always possible to revoke them. For more information on
           SBAT see <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim documentation</ulink>.
           </para>
 
@@ -566,7 +571,7 @@
       --initrd=early_cpio \
       --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img \
       --sbat='sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
-      uki.author.myimage,1,UKI for System,uki.author.myimage,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html' \
+      uki.author.myimage,1,UKI for System,uki.author.myimage,1,https://uapi-group.org/specifications/specs/unified_kernel_image/' \
       --pcr-private-key=pcr-private-initrd-key.pem \
       --pcr-public-key=pcr-public-initrd-key.pem \
       --phases='enter-initrd' \
@@ -639,7 +644,7 @@ $ ukify -c ukify.conf build \
       --secureboot-certificate=sb.cert \
       --cmdline='debug' \
       --sbat='sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
-      uki.addon.author,1,UKI Addon for System,uki.addon.author,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html'
+      uki-addon.author,1,UKI Addon for System,uki-addon.author,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html'
       --output=debug.cmdline
       </programlisting>
 

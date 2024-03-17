@@ -33,6 +33,7 @@
 #include "path-lookup.h"
 #include "portable.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "selinux-util.h"
 #include "set.h"
 #include "signal-util.h"
@@ -181,7 +182,7 @@ static int extract_now(
 
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_(lookup_paths_free) LookupPaths paths = {};
+        _cleanup_(lookup_paths_done) LookupPaths paths = {};
         _cleanup_close_ int os_release_fd = -EBADF;
         _cleanup_free_ char *os_release_path = NULL;
         const char *os_release_id;
@@ -361,7 +362,13 @@ static int portable_extract_by_path(
 
         assert(path);
 
-        r = loop_device_make_by_path(path, O_RDONLY, /* sector_size= */ UINT32_MAX, LO_FLAGS_PARTSCAN, LOCK_SH, &d);
+        r = loop_device_make_by_path(
+                        path,
+                        O_RDONLY,
+                        /* sector_size= */ UINT32_MAX,
+                        LO_FLAGS_PARTSCAN,
+                        LOCK_SH,
+                        &d);
         if (r == -EISDIR) {
                 _cleanup_free_ char *image_name = NULL;
 
@@ -383,6 +390,21 @@ static int portable_extract_by_path(
                 _cleanup_(rmdir_and_freep) char *tmpdir = NULL;
                 _cleanup_close_pair_ int seq[2] = EBADF_PAIR;
                 _cleanup_(sigkill_waitp) pid_t child = 0;
+                DissectImageFlags flags =
+                        DISSECT_IMAGE_READ_ONLY |
+                        DISSECT_IMAGE_GENERIC_ROOT |
+                        DISSECT_IMAGE_REQUIRE_ROOT |
+                        DISSECT_IMAGE_DISCARD_ON_LOOP |
+                        DISSECT_IMAGE_RELAX_VAR_CHECK |
+                        DISSECT_IMAGE_USR_NO_ROOT |
+                        DISSECT_IMAGE_ADD_PARTITION_DEVICES |
+                        DISSECT_IMAGE_PIN_PARTITION_DEVICES |
+                        DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
+
+                if (path_is_extension)
+                        flags |= DISSECT_IMAGE_VALIDATE_OS_EXT | (relax_extension_release_check ? DISSECT_IMAGE_RELAX_EXTENSION_CHECK : 0);
+                else
+                        flags |= DISSECT_IMAGE_VALIDATE_OS;
 
                 /* We now have a loopback block device, let's fork off a child in its own mount namespace, mount it
                  * there, and extract the metadata we need. The metadata is sent from the child back to us. */
@@ -398,14 +420,7 @@ static int portable_extract_by_path(
                                 /* verity= */ NULL,
                                 /* mount_options= */ NULL,
                                 image_policy,
-                                DISSECT_IMAGE_READ_ONLY |
-                                DISSECT_IMAGE_GENERIC_ROOT |
-                                DISSECT_IMAGE_REQUIRE_ROOT |
-                                DISSECT_IMAGE_DISCARD_ON_LOOP |
-                                DISSECT_IMAGE_RELAX_VAR_CHECK |
-                                DISSECT_IMAGE_USR_NO_ROOT |
-                                DISSECT_IMAGE_ADD_PARTITION_DEVICES |
-                                DISSECT_IMAGE_PIN_PARTITION_DEVICES,
+                                flags,
                                 &m);
                 if (r == -ENOPKG)
                         sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Couldn't identify a suitable partition table or file system in '%s'.", path);
@@ -427,14 +442,7 @@ static int portable_extract_by_path(
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        DissectImageFlags flags = DISSECT_IMAGE_READ_ONLY;
-
                         seq[0] = safe_close(seq[0]);
-
-                        if (path_is_extension)
-                                flags |= DISSECT_IMAGE_VALIDATE_OS_EXT | (relax_extension_release_check ? DISSECT_IMAGE_RELAX_EXTENSION_CHECK : 0);
-                        else
-                                flags |= DISSECT_IMAGE_VALIDATE_OS;
 
                         r = dissected_image_mount(
                                         m,
@@ -1341,7 +1349,7 @@ static int attach_unit_file(
         return 0;
 }
 
-static int image_symlink(
+static int image_target_path(
                 const char *image_path,
                 PortableFlags flags,
                 char **ret) {
@@ -1367,37 +1375,66 @@ static int image_symlink(
         return 0;
 }
 
-static int install_image_symlink(
+static int install_image(
                 const char *image_path,
                 PortableFlags flags,
                 PortableChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_free_ char *sl = NULL;
+        _cleanup_free_ char *target = NULL;
         int r;
 
         assert(image_path);
 
-        /* If the image is outside of the image search also link it into it, so that it can be found with short image
-         * names and is listed among the images. */
+        /* If the image is outside of the image search also link it into it, so that it can be found with
+         * short image names and is listed among the images. If we are operating in mixed mode, the image is
+         * copied instead. */
 
         if (image_in_search_path(IMAGE_PORTABLE, NULL, image_path))
                 return 0;
 
-        r = image_symlink(image_path, flags, &sl);
+        r = image_target_path(image_path, flags, &target);
         if (r < 0)
                 return log_debug_errno(r, "Failed to generate image symlink path: %m");
 
-        (void) mkdir_parents(sl, 0755);
+        (void) mkdir_parents(target, 0755);
 
-        if (symlink(image_path, sl) < 0)
-                return log_debug_errno(errno, "Failed to link %s %s %s: %m", image_path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), sl);
+        if (flags & PORTABLE_MIXED_COPY_LINK) {
+                r = copy_tree(image_path,
+                              target,
+                              UID_INVALID,
+                              GID_INVALID,
+                              COPY_REFLINK | COPY_FSYNC | COPY_FSYNC_FULL | COPY_SYNCFS,
+                              /* denylist= */ NULL,
+                              /* subvolumes= */ NULL);
+                if (r < 0)
+                        return log_debug_errno(
+                                        r,
+                                        "Failed to copy %s %s %s: %m",
+                                        image_path,
+                                        special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                        target);
 
-        (void) portable_changes_add(changes, n_changes, PORTABLE_SYMLINK, sl, image_path);
+        } else {
+                if (symlink(image_path, target) < 0)
+                        return log_debug_errno(
+                                        errno,
+                                        "Failed to link %s %s %s: %m",
+                                        image_path,
+                                        special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                        target);
+        }
+
+        (void) portable_changes_add(
+                        changes,
+                        n_changes,
+                        (flags & PORTABLE_MIXED_COPY_LINK) ? PORTABLE_COPY : PORTABLE_SYMLINK,
+                        target,
+                        image_path);
         return 0;
 }
 
-static int install_image_and_extensions_symlinks(
+static int install_image_and_extensions(
                 const Image *image,
                 OrderedHashmap *extension_images,
                 PortableFlags flags,
@@ -1410,12 +1447,12 @@ static int install_image_and_extensions_symlinks(
         assert(image);
 
         ORDERED_HASHMAP_FOREACH(ext, extension_images) {
-                r = install_image_symlink(ext->path, flags, changes, n_changes);
+                r = install_image(ext->path, flags, changes, n_changes);
                 if (r < 0)
                         return r;
         }
 
-        r = install_image_symlink(image->path, flags, changes, n_changes);
+        r = install_image(image->path, flags, changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -1436,6 +1473,7 @@ static void log_portable_verb(
                 const char *verb,
                 const char *message_id,
                 const char *image_path,
+                const char *profile,
                 OrderedHashmap *extension_images,
                 char **extension_image_paths,
                 PortableFlags flags) {
@@ -1494,12 +1532,14 @@ static void log_portable_verb(
         LOG_CONTEXT_PUSH_STRV(extension_base_names);
 
         log_struct(LOG_INFO,
-                   LOG_MESSAGE("Successfully %s%s '%s%s%s'",
+                   LOG_MESSAGE("Successfully %s%s '%s%s%s%s%s'",
                                verb,
                                FLAGS_SET(flags, PORTABLE_RUNTIME) ? " ephemeral" : "",
                                image_path,
                                isempty(extensions_joined) ? "" : "' and its extension(s) '",
-                               strempty(extensions_joined)),
+                               strempty(extensions_joined),
+                               isempty(profile) ? "" : "' using profile '",
+                               strempty(profile)),
                    message_id,
                    "PORTABLE_ROOT=%s", strna(root_base_name));
 }
@@ -1519,7 +1559,7 @@ int portable_attach(
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
-        _cleanup_(lookup_paths_free) LookupPaths paths = {};
+        _cleanup_(lookup_paths_done) LookupPaths paths = {};
         _cleanup_strv_free_ char **valid_prefixes = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         PortableMetadata *item;
@@ -1608,14 +1648,15 @@ int portable_attach(
                         return sd_bus_error_set_errnof(error, r, "Failed to attach unit '%s': %m", item->name);
         }
 
-        /* We don't care too much for the image symlink, it's just a convenience thing, it's not necessary for proper
-         * operation otherwise. */
-        (void) install_image_and_extensions_symlinks(image, extension_images, flags, changes, n_changes);
+        /* We don't care too much for the image symlink/copy, it's just a convenience thing, it's not necessary for
+         * proper operation otherwise. */
+        (void) install_image_and_extensions(image, extension_images, flags, changes, n_changes);
 
         log_portable_verb(
                         "attached",
                         "MESSAGE_ID=" SD_MESSAGE_PORTABLE_ATTACHED_STR,
                         image->path,
+                        profile,
                         extension_images,
                         /* extension_image_paths= */ NULL,
                         flags);
@@ -1780,7 +1821,7 @@ int portable_detach(
                 size_t *n_changes,
                 sd_bus_error *error) {
 
-        _cleanup_(lookup_paths_free) LookupPaths paths = {};
+        _cleanup_(lookup_paths_done) LookupPaths paths = {};
         _cleanup_set_free_ Set *unit_files = NULL, *markers = NULL;
         _cleanup_free_ char *extensions = NULL;
         _cleanup_closedir_ DIR *d = NULL;
@@ -1909,34 +1950,24 @@ int portable_detach(
                         portable_changes_add_with_prefix(changes, n_changes, PORTABLE_UNLINK, where, md, NULL);
         }
 
-        /* Now, also drop any image symlink, for images outside of the sarch path */
+        /* Now, also drop any image symlink or copy, for images outside of the sarch path */
         SET_FOREACH(item, markers) {
-                _cleanup_free_ char *sl = NULL;
-                struct stat st;
+                _cleanup_free_ char *target = NULL;
 
-                r = image_symlink(item, flags, &sl);
+                r = image_target_path(item, flags, &target);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to determine image symlink for '%s', ignoring: %m", item);
+                        log_debug_errno(r, "Failed to determine image path for '%s', ignoring: %m", item);
                         continue;
                 }
 
-                if (lstat(sl, &st) < 0) {
-                        log_debug_errno(errno, "Failed to stat '%s', ignoring: %m", sl);
-                        continue;
-                }
+                r = rm_rf(target, REMOVE_ROOT | REMOVE_PHYSICAL | REMOVE_MISSING_OK | REMOVE_SYNCFS);
+                if (r < 0) {
+                        log_debug_errno(r, "Can't remove image '%s': %m", target);
 
-                if (!S_ISLNK(st.st_mode)) {
-                        log_debug("Image '%s' is not a symlink, ignoring.", sl);
-                        continue;
-                }
-
-                if (unlink(sl) < 0) {
-                        log_debug_errno(errno, "Can't remove image symlink '%s': %m", sl);
-
-                        if (errno != ENOENT && ret >= 0)
-                                ret = -errno;
+                        if (r != -ENOENT)
+                                RET_GATHER(ret, r);
                 } else
-                        portable_changes_add(changes, n_changes, PORTABLE_UNLINK, sl, NULL);
+                        portable_changes_add(changes, n_changes, PORTABLE_UNLINK, target, NULL);
         }
 
         /* Try to remove the unit file directory, if we can */
@@ -1947,6 +1978,7 @@ int portable_detach(
                         "detached",
                         "MESSAGE_ID=" SD_MESSAGE_PORTABLE_DETACHED_STR,
                         name_or_path,
+                        /* profile= */ NULL,
                         /* extension_images= */ NULL,
                         extension_image_paths,
                         flags);
@@ -1975,7 +2007,7 @@ static int portable_get_state_internal(
                 PortableState *ret,
                 sd_bus_error *error) {
 
-        _cleanup_(lookup_paths_free) LookupPaths paths = {};
+        _cleanup_(lookup_paths_done) LookupPaths paths = {};
         bool found_enabled = false, found_running = false;
         _cleanup_set_free_ Set *unit_files = NULL;
         _cleanup_closedir_ DIR *d = NULL;

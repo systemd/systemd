@@ -212,6 +212,15 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
                         log_device_warning_errno(dev, r, "Failed to add inotify watch, ignoring: %m");
         }
 
+        /* Finalize database. */
+        r = device_add_property(dev, "ID_PROCESSING", NULL);
+        if (r < 0)
+                return log_device_warning_errno(dev, r, "Failed to remove 'ID_PROCESSING' property: %m");
+
+        r = device_update_db(dev);
+        if (r < 0)
+                return log_device_warning_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
+
         log_device_uevent(dev, "Device processed");
         return 0;
 }
@@ -240,6 +249,7 @@ void udev_broadcast_result(sd_device_monitor *monitor, sd_device *dev, EventResu
                         break;
                 }
                 case EVENT_RESULT_EXIT_STATUS_BASE ... EVENT_RESULT_EXIT_STATUS_MAX:
+                        assert(result != EVENT_RESULT_EXIT_STATUS_BASE);
                         (void) device_add_propertyf(dev, "UDEV_WORKER_EXIT_STATUS", "%i", result - EVENT_RESULT_EXIT_STATUS_BASE);
                         break;
 

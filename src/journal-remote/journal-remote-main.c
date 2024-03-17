@@ -540,7 +540,7 @@ static int setup_signals(RemoteServer *s) {
 
         assert(s);
 
-        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM) >= 0);
 
         r = sd_event_add_signal(s->events, &s->sigterm_event, SIGTERM, NULL, s);
         if (r < 0)
@@ -746,9 +746,12 @@ static int parse_config(void) {
                 {}
         };
 
-        return config_parse_config_file("journal-remote.conf", "Remote\0",
-                                        config_item_table_lookup, items,
-                                        CONFIG_PARSE_WARN, NULL);
+        return config_parse_standard_file_with_dropins(
+                        "systemd/journal-remote.conf",
+                        "Remote\0",
+                        config_item_table_lookup, items,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ NULL);
 }
 
 static int help(void) {

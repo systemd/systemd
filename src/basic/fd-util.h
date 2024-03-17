@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 
 #include "macro.h"
+#include "missing_fcntl.h"
 #include "stdio-util.h"
 
 /* maximum length of fdname */
@@ -77,6 +78,8 @@ int get_max_fd(void);
 int close_all_fds(const int except[], size_t n_except);
 int close_all_fds_without_malloc(const int except[], size_t n_except);
 
+int pack_fds(int fds[], size_t n);
+
 int same_fd(int a, int b);
 
 void cmsg_close_all(struct msghdr *mh);
@@ -108,8 +111,16 @@ static inline int make_null_stdio(void) {
         })
 
 int fd_reopen(int fd, int flags);
+int fd_reopen_propagate_append_and_position(int fd, int flags);
 int fd_reopen_condition(int fd, int flags, int mask, int *ret_new_fd);
+
 int fd_is_opath(int fd);
+
+int fd_verify_safe_flags_full(int fd, int extra_flags);
+static inline int fd_verify_safe_flags(int fd) {
+        return fd_verify_safe_flags_full(fd, 0);
+}
+
 int read_nr_open(void);
 int fd_get_diskseq(int fd, uint64_t *ret);
 

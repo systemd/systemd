@@ -79,6 +79,7 @@ struct Mount {
         CGroupContext cgroup_context;
 
         ExecRuntime *exec_runtime;
+        CGroupRuntime *cgroup_runtime;
 
         MountState state, deserialized_state;
 

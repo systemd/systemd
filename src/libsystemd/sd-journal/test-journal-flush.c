@@ -32,13 +32,13 @@ static void test_journal_flush_one(int argc, char *argv[]) {
 
         assert_se(fn = path_join(dn, "test.journal"));
 
-        r = journal_file_open(-1, fn, O_CREAT|O_RDWR, 0, 0644, 0, NULL, m, NULL, &new_journal);
+        r = journal_file_open(-EBADF, fn, O_CREAT|O_RDWR, 0, 0644, 0, NULL, m, NULL, &new_journal);
         assert_se(r >= 0);
 
         if (argc > 1)
-                r = sd_journal_open_files(&j, (const char **) strv_skip(argv, 1), 0);
+                r = sd_journal_open_files(&j, (const char **) strv_skip(argv, 1), SD_JOURNAL_ASSUME_IMMUTABLE);
         else
-                r = sd_journal_open(&j, 0);
+                r = sd_journal_open(&j, SD_JOURNAL_ASSUME_IMMUTABLE);
         assert_se(r == 0);
 
         sd_journal_set_data_threshold(j, 0);
@@ -75,7 +75,7 @@ static void test_journal_flush_one(int argc, char *argv[]) {
 
         /* Open the new journal before archiving and offlining the file. */
         sd_journal_close(j);
-        assert_se(sd_journal_open_directory(&j, dn, 0) >= 0);
+        assert_se(sd_journal_open_directory(&j, dn, SD_JOURNAL_ASSUME_IMMUTABLE) >= 0);
 
         /* Read the online journal. */
         assert_se(sd_journal_seek_tail(j) >= 0);

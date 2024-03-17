@@ -460,6 +460,7 @@ static void service_done(Unit *u) {
         s->status_text = mfree(s->status_text);
 
         s->exec_runtime = exec_runtime_free(s->exec_runtime);
+
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
         s->control_command = NULL;
         s->main_command = NULL;
@@ -522,7 +523,8 @@ static int service_add_fd_store(Service *s, int fd_in, const char *name, bool do
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        log_unit_debug(UNIT(s), "Trying to stash fd for dev=" DEVNUM_FORMAT_STR "/inode=%" PRIu64, DEVNUM_FORMAT_VAL(st.st_dev), (uint64_t) st.st_ino);
+        log_unit_debug(UNIT(s), "Trying to stash fd for dev=" DEVNUM_FORMAT_STR "/inode=%" PRIu64,
+                       DEVNUM_FORMAT_VAL(st.st_dev), (uint64_t) st.st_ino);
 
         if (s->n_fd_store >= s->n_fd_store_max)
                 /* Our store is full.  Use this errno rather than E[NM]FILE to distinguish from the case
@@ -556,17 +558,16 @@ static int service_add_fd_store(Service *s, int fd_in, const char *name, bool do
                 r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fs->fd, 0, on_fd_store_io, fs);
                 if (r < 0 && r != -EPERM) /* EPERM indicates fds that aren't pollable, which is OK */
                         return r;
-                else if (r >= 0)
+                if (r >= 0)
                         (void) sd_event_source_set_description(fs->event_source, "service-fd-store");
         }
 
-        fs->service = s;
-        LIST_PREPEND(fd_store, s->fd_store, fs);
-        s->n_fd_store++;
-
         log_unit_debug(UNIT(s), "Added fd %i (%s) to fd store.", fs->fd, fs->fdname);
 
-        TAKE_PTR(fs);
+        fs->service = s;
+        LIST_PREPEND(fd_store, s->fd_store, TAKE_PTR(fs));
+        s->n_fd_store++;
+
         return 1; /* fd newly stored */
 }
 
@@ -662,12 +663,8 @@ static int service_verify(Service *s) {
         if (s->type != SERVICE_ONESHOT && s->exec_command[SERVICE_EXEC_START]->command_next)
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has more than one ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.");
 
-        if (s->type == SERVICE_ONESHOT &&
-            !IN_SET(s->restart, SERVICE_RESTART_NO, SERVICE_RESTART_ON_FAILURE, SERVICE_RESTART_ON_ABNORMAL, SERVICE_RESTART_ON_WATCHDOG, SERVICE_RESTART_ON_ABORT))
+        if (s->type == SERVICE_ONESHOT && IN_SET(s->restart, SERVICE_RESTART_ALWAYS, SERVICE_RESTART_ON_SUCCESS))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has Restart= set to either always or on-success, which isn't allowed for Type=oneshot services. Refusing.");
-
-        if (s->type == SERVICE_ONESHOT && !exit_status_set_is_empty(&s->restart_force_status))
-                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has RestartForceExitStatus= set, which isn't allowed for Type=oneshot services. Refusing.");
 
         if (s->type == SERVICE_ONESHOT && s->exit_type == SERVICE_EXIT_CGROUP)
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has ExitType=cgroup set, which isn't allowed for Type=oneshot services. Refusing.");
@@ -1349,6 +1346,7 @@ static int service_coldplug(Unit *u) {
                     SERVICE_DEAD_RESOURCES_PINNED)) {
                 (void) unit_enqueue_rewatch_pids(u);
                 (void) unit_setup_exec_runtime(u);
+                (void) unit_setup_cgroup_runtime(u);
         }
 
         if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY))
@@ -1889,10 +1887,10 @@ static int cgroup_good(Service *s) {
         /* Returns 0 if the cgroup is empty or doesn't exist, > 0 if it is exists and is populated, < 0 if we can't
          * figure it out */
 
-        if (!UNIT(s)->cgroup_path)
+        if (!s->cgroup_runtime || !s->cgroup_runtime->cgroup_path)
                 return 0;
 
-        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path);
+        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_runtime->cgroup_path);
         if (r < 0)
                 return r;
 
@@ -1901,6 +1899,7 @@ static int cgroup_good(Service *s) {
 
 static bool service_shall_restart(Service *s, const char **reason) {
         assert(s);
+        assert(reason);
 
         /* Don't restart after manual stops */
         if (s->forbid_restart) {
@@ -1916,6 +1915,13 @@ static bool service_shall_restart(Service *s, const char **reason) {
 
         /* Restart if the exit code/status are configured as restart triggers */
         if (exit_status_set_test(&s->restart_force_status,  s->main_exec_status.code, s->main_exec_status.status)) {
+                /* Don't allow Type=oneshot services to restart on success. Note that Restart=always/on-success
+                 * is already rejected in service_verify. */
+                if (s->type == SERVICE_ONESHOT && s->result == SERVICE_SUCCESS) {
+                        *reason = "service type and exit status";
+                        return false;
+                }
+
                 *reason = "forced by exit status";
                 return true;
         }
@@ -2769,7 +2775,9 @@ static int service_start(Unit *u) {
                 s->flush_n_restarts = false;
         }
 
-        u->reset_accounting = true;
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (crt)
+                crt->reset_accounting = true;
 
         service_enter_condition(s);
         return 1;
@@ -3010,7 +3018,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 if (!c)
                         return log_oom();
 
-                (void) serialize_item_format(f, "fd-store-fd", "%i \"%s\" %i", copy, c, fs->do_poll);
+                (void) serialize_item_format(f, "fd-store-fd", "%i \"%s\" %s", copy, c, one_zero(fs->do_poll));
         }
 
         if (s->main_exec_status.pid > 0) {
@@ -3253,9 +3261,9 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 _cleanup_close_ int fd = -EBADF;
                 int do_poll;
 
-                r = extract_first_word(&value, &fdv, NULL, 0);
-                if (r <= 0) {
-                        log_unit_debug(u, "Failed to parse fd-store-fd value, ignoring: %s", value);
+                r = extract_many_words(&value, " ", EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE, &fdv, &fdn, &fdp);
+                if (r < 2 || r > 3) {
+                        log_unit_debug(u, "Failed to deserialize fd-store-fd, ignoring: %s", value);
                         return 0;
                 }
 
@@ -3263,24 +3271,17 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 if (fd < 0)
                         return 0;
 
-                r = extract_first_word(&value, &fdn, NULL, EXTRACT_CUNESCAPE | EXTRACT_UNQUOTE);
-                if (r <= 0) {
-                        log_unit_debug(u, "Failed to parse fd-store-fd value, ignoring: %s", value);
-                        return 0;
-                }
-
-                r = extract_first_word(&value, &fdp, NULL, 0);
-                if (r == 0) {
-                        /* If the value is not present, we assume the default */
-                        do_poll = 1;
-                } else if (r < 0 || (r = safe_atoi(fdp, &do_poll)) < 0) {
-                        log_unit_debug_errno(u, r, "Failed to parse fd-store-fd value \"%s\", ignoring: %m", value);
+                do_poll = r == 3 ? parse_boolean(fdp) : true;
+                if (do_poll < 0) {
+                        log_unit_debug_errno(u, do_poll,
+                                             "Failed to deserialize fd-store-fd do_poll, ignoring: %s", fdp);
                         return 0;
                 }
 
                 r = service_add_fd_store(s, fd, fdn, do_poll);
                 if (r < 0) {
-                        log_unit_debug_errno(u, r, "Failed to store deserialized fd %i, ignoring: %m", fd);
+                        log_unit_debug_errno(u, r,
+                                             "Failed to store deserialized fd '%s', ignoring: %m", fdn);
                         return 0;
                 }
 
@@ -3603,8 +3604,10 @@ static void service_notify_cgroup_empty_event(Unit *u) {
                         break;
                 }
 
-                if (s->exit_type == SERVICE_EXIT_CGROUP && main_pid_good(s) <= 0)
-                        service_enter_start_post(s);
+                if (s->exit_type == SERVICE_EXIT_CGROUP && main_pid_good(s) <= 0) {
+                        service_enter_stop_post(s, SERVICE_SUCCESS);
+                        break;
+                }
 
                 _fallthrough_;
         case SERVICE_START_POST:
@@ -3876,11 +3879,13 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 default:
                                         assert_not_reached();
                                 }
-                        } else if (s->exit_type == SERVICE_EXIT_CGROUP && s->state == SERVICE_START)
+                        } else if (s->exit_type == SERVICE_EXIT_CGROUP && s->state == SERVICE_START &&
+                                   !IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD, SERVICE_DBUS))
                                 /* If a main process exits very quickly, this function might be executed
                                  * before service_dispatch_exec_io(). Since this function disabled IO events
                                  * to monitor the main process above, we need to update the state here too.
-                                 * Let's consider the process is successfully launched and exited. */
+                                 * Let's consider the process is successfully launched and exited, but
+                                 * only when we're not expecting a readiness notification or dbus name. */
                                 service_enter_start_post(s);
                 }
 
@@ -4303,42 +4308,6 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
         return 0;
 }
 
-static bool service_notify_message_authorized(Service *s, pid_t pid, FDSet *fds) {
-        assert(s);
-
-        NotifyAccess notify_access = service_get_notify_access(s);
-
-        if (notify_access == NOTIFY_NONE) {
-                log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception is disabled.", pid);
-                return false;
-        }
-
-        if (notify_access == NOTIFY_MAIN && pid != s->main_pid.pid) {
-                if (pidref_is_set(&s->main_pid))
-                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid.pid);
-                else
-                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", pid);
-
-                return false;
-        }
-
-        if (notify_access == NOTIFY_EXEC && pid != s->main_pid.pid && pid != s->control_pid.pid) {
-                if (pidref_is_set(&s->main_pid) && pidref_is_set(&s->control_pid))
-                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT" and control PID "PID_FMT,
-                                         pid, s->main_pid.pid, s->control_pid.pid);
-                else if (pidref_is_set(&s->main_pid))
-                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid.pid);
-                else if (pidref_is_set(&s->control_pid))
-                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for control PID "PID_FMT, pid, s->control_pid.pid);
-                else
-                        log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID and control PID which are currently not known", pid);
-
-                return false;
-        }
-
-        return true;
-}
-
 static void service_force_watchdog(Service *s) {
         if (!UNIT(s)->manager->service_watchdogs)
                 return;
@@ -4349,30 +4318,66 @@ static void service_force_watchdog(Service *s) {
         service_enter_signal(s, SERVICE_STOP_WATCHDOG, SERVICE_FAILURE_WATCHDOG);
 }
 
+static bool service_notify_message_authorized(Service *s, pid_t pid) {
+        assert(s);
+        assert(pid_is_valid(pid));
+
+        NotifyAccess notify_access = service_get_notify_access(s);
+
+        if (notify_access == NOTIFY_NONE) {
+                /* Warn level only if no notifications are expected */
+                log_unit_warning(UNIT(s), "Got notification message from PID "PID_FMT", but reception is disabled", pid);
+                return false;
+        }
+
+        if (notify_access == NOTIFY_MAIN && pid != s->main_pid.pid) {
+                if (pidref_is_set(&s->main_pid))
+                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid.pid);
+                else
+                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID which is currently not known", pid);
+
+                return false;
+        }
+
+        if (notify_access == NOTIFY_EXEC && pid != s->main_pid.pid && pid != s->control_pid.pid) {
+                if (pidref_is_set(&s->main_pid) && pidref_is_set(&s->control_pid))
+                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT" and control PID "PID_FMT,
+                                       pid, s->main_pid.pid, s->control_pid.pid);
+                else if (pidref_is_set(&s->main_pid))
+                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID "PID_FMT, pid, s->main_pid.pid);
+                else if (pidref_is_set(&s->control_pid))
+                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for control PID "PID_FMT, pid, s->control_pid.pid);
+                else
+                        log_unit_debug(UNIT(s), "Got notification message from PID "PID_FMT", but reception only permitted for main PID and control PID which are currently not known", pid);
+
+                return false;
+        }
+
+        return true;
+}
+
 static void service_notify_message(
                 Unit *u,
                 const struct ucred *ucred,
                 char * const *tags,
                 FDSet *fds) {
 
-        Service *s = SERVICE(u);
-        bool notify_dbus = false;
-        usec_t monotonic_usec = USEC_INFINITY;
-        const char *e;
+        Service *s = ASSERT_PTR(SERVICE(u));
         int r;
 
-        assert(u);
         assert(ucred);
 
-        if (!service_notify_message_authorized(s, ucred->pid, fds))
+        if (!service_notify_message_authorized(s, ucred->pid))
                 return;
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *cc = NULL;
-
-                cc = strv_join(tags, ", ");
+                _cleanup_free_ char *cc = strv_join(tags, ", ");
                 log_unit_debug(u, "Got notification message from PID "PID_FMT" (%s)", ucred->pid, empty_to_na(cc));
         }
+
+        usec_t monotonic_usec = USEC_INFINITY;
+        bool notify_dbus = false;
+        const char *e;
 
         /* Interpret MAINPID= */
         e = strv_find_startswith(tags, "MAINPID=");
@@ -5144,6 +5149,7 @@ const UnitVTable service_vtable = {
         .cgroup_context_offset = offsetof(Service, cgroup_context),
         .kill_context_offset = offsetof(Service, kill_context),
         .exec_runtime_offset = offsetof(Service, exec_runtime),
+        .cgroup_runtime_offset = offsetof(Service, cgroup_runtime),
 
         .sections =
                 "Unit\0"

@@ -98,7 +98,7 @@ static Virtualization detect_vm_cpuid(void) {
 }
 
 static Virtualization detect_vm_device_tree(void) {
-#if defined(__arm__) || defined(__aarch64__) || defined(__powerpc__) || defined(__powerpc64__)
+#if defined(__arm__) || defined(__aarch64__) || defined(__powerpc__) || defined(__powerpc64__) || defined(__riscv)
         _cleanup_free_ char *hvtype = NULL;
         int r;
 
@@ -155,7 +155,7 @@ static Virtualization detect_vm_device_tree(void) {
 #endif
 }
 
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch_lp64)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch_lp64) || defined(__riscv)
 static Virtualization detect_vm_dmi_vendor(void) {
         static const char* const dmi_vendors[] = {
                 "/sys/class/dmi/id/product_name", /* Test this before sys_vendor to detect KVM over QEMU */
@@ -455,12 +455,12 @@ Virtualization detect_vm(void) {
 
         /* We have to use the correct order here:
          *
-         * → First, try to detect Oracle Virtualbox, Amazon EC2 Nitro, and Parallels, even if they use KVM,
-         *   as well as Xen even if it cloaks as Microsoft Hyper-V. Attempt to detect uml at this stage also
-         *   since it runs as a user-process nested inside other VMs. Also check for Xen now, because Xen PV
-         *   mode does not override CPUID when nested inside another hypervisor.
+         * → First, try to detect Oracle Virtualbox, Amazon EC2 Nitro, Parallels, and Google Compute Engine,
+         *   even if they use KVM, as well as Xen, even if it cloaks as Microsoft Hyper-V. Attempt to detect
+         *   UML at this stage too, since it runs as a user-process nested inside other VMs. Also check for
+         *   Xen now, because Xen PV mode does not override CPUID when nested inside another hypervisor.
          *
-         * → Second, try to detect from CPUID, this will report KVM for whatever software is used even if
+         * → Second, try to detect from CPUID. This will report KVM for whatever software is used even if
          *   info in DMI is overwritten.
          *
          * → Third, try to detect from DMI. */
@@ -470,7 +470,8 @@ Virtualization detect_vm(void) {
                    VIRTUALIZATION_ORACLE,
                    VIRTUALIZATION_XEN,
                    VIRTUALIZATION_AMAZON,
-                   VIRTUALIZATION_PARALLELS)) {
+                   VIRTUALIZATION_PARALLELS,
+                   VIRTUALIZATION_GOOGLE)) {
                 v = dmi;
                 goto finish;
         }

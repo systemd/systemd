@@ -399,6 +399,7 @@ static int slice_freezer_action(Unit *s, FreezerAction action) {
 const UnitVTable slice_vtable = {
         .object_size = sizeof(Slice),
         .cgroup_context_offset = offsetof(Slice, cgroup_context),
+        .cgroup_runtime_offset = offsetof(Slice, cgroup_runtime),
 
         .sections =
                 "Unit\0"

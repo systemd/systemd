@@ -34,12 +34,23 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-firstboot</command> initializes basic system settings interactively during the
-    first boot, or non-interactively on an offline system image. The service is started during boot if
-    <varname>ConditionFirstBoot=yes</varname> is met, which essentially means that <filename>/etc/</filename>
-    is unpopulated, see
+    <para>The <command>systemd-firstboot.service</command> unit is one of the units which are used to
+    initialize the machine configuration during "First Boot", i.e. when the system is freshly installed or
+    after a factory reset. The
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> manager
+    itself will initialize
+    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> and preset
+    all units, enabling or disabling them according to the
+    <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    settings. <filename>systemd-firstboot.service</filename> is started later to interactively initialize
+    basic system configuration. It is started only if <varname>ConditionFirstBoot=yes</varname> is met, which
+    essentially means that <filename>/etc/</filename> is unpopulated, see
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-    details.</para>
+    details. System credentials may be used to inject configuration; those settings are not queried
+    interactively.</para>
+
+    <para>The <command>systemd-firstboot</command> command can also be used to non-interactively initialize
+    an offline system image.</para>
 
     <para>The following settings may be configured:</para>
 
@@ -415,8 +426,8 @@
 
     <para><programlisting># systemd-nspawn --image=… --set-credential=firstboot.locale:de_DE.UTF-8 …</programlisting></para>
 
-    <para>Note that these credentials are only read and applied during the first boot process. Once they are
-    applied they remain applied for subsequent boots, and the credentials are not considered anymore.</para>
+    <para>Note that these credentials are only read and applied during the first boot. Once they are applied
+    they remain applied for subsequent boots, and the credentials are not considered anymore.</para>
   </refsect1>
 
   <refsect1>

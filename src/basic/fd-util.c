@@ -308,7 +308,7 @@ static int close_all_fds_special_case(const int except[], size_t n_except) {
         case 0:
                 /* Close everything. Yay! */
 
-                if (close_range(3, -1, 0) >= 0)
+                if (close_range(3, INT_MAX, 0) >= 0)
                         return 1;
 
                 if (ERRNO_IS_NOT_SUPPORTED(errno) || ERRNO_IS_PRIVILEGE(errno)) {
@@ -419,7 +419,7 @@ int close_all_fds(const int except[], size_t n_except) {
                                 if (sorted[n_sorted-1] >= INT_MAX) /* Dont let the addition below overflow */
                                         return 0;
 
-                                if (close_range(sorted[n_sorted-1] + 1, -1, 0) >= 0)
+                                if (close_range(sorted[n_sorted-1] + 1, INT_MAX, 0) >= 0)
                                         return 0;
 
                                 if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
@@ -462,6 +462,53 @@ int close_all_fds(const int except[], size_t n_except) {
         }
 
         return r;
+}
+
+int pack_fds(int fds[], size_t n_fds) {
+        if (n_fds <= 0)
+                return 0;
+
+        /* Shifts around the fds in the provided array such that they
+         * all end up packed next to each-other, in order, starting
+         * from SD_LISTEN_FDS_START. This must be called after close_all_fds();
+         * it is likely to freeze up otherwise. You should probably use safe_fork_full
+         * with FORK_CLOSE_ALL_FDS|FORK_PACK_FDS set, to ensure that this is done correctly.
+         * The fds array is modified in place with the new FD numbers. */
+
+        assert(fds);
+
+        for (int start = 0;;) {
+                int restart_from = -1;
+
+                for (int i = start; i < (int) n_fds; i++) {
+                        int nfd;
+
+                        /* Already at right index? */
+                        if (fds[i] == i + 3)
+                                continue;
+
+                        nfd = fcntl(fds[i], F_DUPFD, i + 3);
+                        if (nfd < 0)
+                                return -errno;
+
+                        safe_close(fds[i]);
+                        fds[i] = nfd;
+
+                        /* Hmm, the fd we wanted isn't free? Then
+                         * let's remember that and try again from here */
+                        if (nfd != i + 3 && restart_from < 0)
+                                restart_from = i;
+                }
+
+                if (restart_from < 0)
+                        break;
+
+                start = restart_from;
+        }
+
+        assert(fds[0] == 3);
+
+        return 0;
 }
 
 int same_fd(int a, int b) {
@@ -822,6 +869,49 @@ int fd_reopen(int fd, int flags) {
         return new_fd;
 }
 
+int fd_reopen_propagate_append_and_position(int fd, int flags) {
+        /* Invokes fd_reopen(fd, flags), but propagates O_APPEND if set on original fd, and also tries to
+         * keep current file position.
+         *
+         * You should use this if the original fd potentially is O_APPEND, otherwise we get rather
+         * "unexpected" behavior. Unless you intentionally want to overwrite pre-existing data, and have
+         * your output overwritten by the next user.
+         *
+         * Use case: "systemd-run --pty >> some-log".
+         *
+         * The "keep position" part is obviously nonsense for the O_APPEND case, but should reduce surprises
+         * if someone carefully pre-positioned the passed in original input or non-append output FDs. */
+
+        assert(fd >= 0);
+        assert(!(flags & (O_APPEND|O_DIRECTORY)));
+
+        int existing_flags = fcntl(fd, F_GETFL);
+        if (existing_flags < 0)
+                return -errno;
+
+        int new_fd = fd_reopen(fd, flags | (existing_flags & O_APPEND));
+        if (new_fd < 0)
+                return new_fd;
+
+        /* Try to adjust the offset, but ignore errors for now. */
+        off_t p = lseek(fd, 0, SEEK_CUR);
+        if (p <= 0)
+                return new_fd;
+
+        off_t new_p = lseek(new_fd, p, SEEK_SET);
+        if (new_p == (off_t) -1)
+                log_debug_errno(errno,
+                                "Failed to propagate file position for re-opened fd %d, ignoring: %m",
+                                fd);
+        else if (new_p != p)
+                log_debug("Failed to propagate file position for re-opened fd %d (%lld != %lld), ignoring: %m",
+                          fd,
+                          (long long) new_p,
+                          (long long) p);
+
+        return new_fd;
+}
+
 int fd_reopen_condition(
                 int fd,
                 int flags,
@@ -864,6 +954,38 @@ int fd_is_opath(int fd) {
                 return -errno;
 
         return FLAGS_SET(r, O_PATH);
+}
+
+int fd_verify_safe_flags_full(int fd, int extra_flags) {
+        int flags, unexpected_flags;
+
+        /* Check if an extrinsic fd is safe to work on (by a privileged service). This ensures that clients
+         * can't trick a privileged service into giving access to a file the client doesn't already have
+         * access to (especially via something like O_PATH).
+         *
+         * O_NOFOLLOW: For some reason the kernel will return this flag from fcntl(); it doesn't go away
+         *             immediately after open(). It should have no effect whatsoever to an already-opened FD,
+         *             and since we refuse O_PATH it should be safe.
+         *
+         * RAW_O_LARGEFILE: glibc secretly sets this and neglects to hide it from us if we call fcntl.
+         *                  See comment in missing_fcntl.h for more details about this.
+         *
+         * If 'extra_flags' is specified as non-zero the included flags are also allowed.
+         */
+
+        assert(fd >= 0);
+
+        flags = fcntl(fd, F_GETFL);
+        if (flags < 0)
+                return -errno;
+
+        unexpected_flags = flags & ~(O_ACCMODE|O_NOFOLLOW|RAW_O_LARGEFILE|extra_flags);
+        if (unexpected_flags != 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EREMOTEIO),
+                                       "Unexpected flags set for extrinsic fd: 0%o",
+                                       (unsigned) unexpected_flags);
+
+        return flags & (O_ACCMODE | extra_flags); /* return the flags variable, but remove the noise */
 }
 
 int read_nr_open(void) {

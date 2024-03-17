@@ -11,8 +11,16 @@ We welcome all contributions to systemd. If you notice a bug or a missing
 feature, please feel invited to fix it, and submit your work as a
 [GitHub Pull Request (PR)](https://github.com/systemd/systemd/pull/new).
 
-Please make sure to follow our [Coding Style](CODING_STYLE.md) when submitting
-patches. Also have a look at our [Contribution Guidelines](CONTRIBUTING.md).
+Please make sure to follow our [Coding Style](CODING_STYLE) when submitting
+patches. Also have a look at our [Contribution Guidelines](CONTRIBUTING).
+
+To start, run the following commands in the systemd git repository to set up
+git correctly (running `meson` will run these commands for you automatically):
+
+```shell
+$ git config submodule.recurse true
+$ git config fetch.recurseSubmodules on-demand
+```
 
 When adding new functionality, tests should be added. For shared functionality
 (in `src/basic/` and `src/shared/`) unit tests should be sufficient. The general
@@ -23,7 +31,7 @@ test executable. For features at a higher level, tests in `src/test/` are very
 strongly recommended. If that is not possible, integration tests in `test/` are
 encouraged.
 
-Please also have a look at our list of [code quality tools](CODE_QUALITY.md) we
+Please also have a look at our list of [code quality tools](CODE_QUALITY) we
 have setup for systemd, to ensure our codebase stays in good shape.
 
 Please always test your work before submitting a PR. For many of the components
@@ -32,16 +40,16 @@ run the relevant tool from the build directory.
 
 For some components (most importantly, systemd/PID 1 itself) this is not
 possible, however. In order to simplify testing for cases like this we provide
-a set of `mkosi` build files directly in the source tree.
+a set of `mkosi` config files directly in the source tree.
 [mkosi](https://github.com/systemd/mkosi) is a tool for building clean OS images
 from an upstream distribution in combination with a fresh build of the project
-in the local working directory. To make use of this, please install `mkosi` v19
-or newer using your distribution's package manager or from the
-[GitHub repository](https://github.com/systemd/mkosi). `mkosi` will build an
-image for the host distro by default. First, run `mkosi genkey` to generate a key
-and certificate to be used for secure boot and verity signing. After that is done,
-it is sufficient to type `mkosi` in the systemd project directory to generate a disk
-image you can boot either in `systemd-nspawn` or in a UEFI-capable VM:
+in the local working directory. To make use of this, please install the latest
+version of mkosi from the [GitHub repository](https://github.com/systemd/mkosi).
+`mkosi` will build an image for the host distro by default. First, run
+`mkosi genkey` to generate a key and certificate to be used for secure boot and
+verity signing. After that is done, it is sufficient to type `mkosi` in the
+systemd project directory to generate a disk image you can boot either in
+`systemd-nspawn` or in a UEFI-capable VM:
 
 ```sh
 $ sudo mkosi boot # nspawn still needs sudo for now
@@ -148,7 +156,7 @@ distribution and can be disabled by setting `-Dmode=release`.
 
 ## Sanitizers in mkosi
 
-See [Testing systemd using sanitizers](TESTING_WITH_SANITIZERS.md) for more information
+See [Testing systemd using sanitizers](TESTING_WITH_SANITIZERS) for more information
 on how to build with sanitizers enabled in mkosi.
 
 ## Fuzzers
@@ -211,7 +219,7 @@ done
 ```
 
 If you find a bug that impacts the security of systemd, please follow the
-guidance in [CONTRIBUTING.md](CONTRIBUTING.md) on how to report a security vulnerability.
+guidance in [CONTRIBUTING.md](CONTRIBUTING) on how to report a security vulnerability.
 
 For more details on building fuzzers and integrating with OSS-Fuzz, visit:
 

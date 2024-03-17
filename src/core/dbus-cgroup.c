@@ -487,6 +487,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("StartupMemorySwapMax", "t", NULL, offsetof(CGroupContext, startup_memory_swap_max), 0),
         SD_BUS_PROPERTY("MemoryZSwapMax", "t", NULL, offsetof(CGroupContext, memory_zswap_max), 0),
         SD_BUS_PROPERTY("StartupMemoryZSwapMax", "t", NULL, offsetof(CGroupContext, startup_memory_zswap_max), 0),
+        SD_BUS_PROPERTY("MemoryZSwapWriteback", "b", bus_property_get_bool, offsetof(CGroupContext, memory_zswap_writeback), 0),
         SD_BUS_PROPERTY("MemoryLimit", "t", NULL, offsetof(CGroupContext, memory_limit), 0),
         SD_BUS_PROPERTY("DevicePolicy", "s", property_get_cgroup_device_policy, offsetof(CGroupContext, device_policy), 0),
         SD_BUS_PROPERTY("DeviceAllow", "a(ss)", property_get_device_allow, 0, 0),
@@ -1279,6 +1280,9 @@ int bus_cgroup_set_property(
         if (streq(name, "MemoryLimitScale"))
                 return bus_cgroup_set_memory_scale(u, name, &c->memory_limit, message, flags, error);
 
+        if (streq(name, "MemoryZSwapWriteback"))
+                return bus_cgroup_set_boolean(u, name, &c->memory_zswap_writeback, CGROUP_MASK_MEMORY, message, flags, error);
+
         if (streq(name, "TasksAccounting"))
                 return bus_cgroup_set_boolean(u, name, &c->tasks_accounting, CGROUP_MASK_PIDS, message, flags, error);
 
@@ -1300,7 +1304,9 @@ int bus_cgroup_set_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->cpu_quota_per_sec_usec = u64;
-                        u->warned_clamping_cpu_quota_period = false;
+                        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+                        if (crt)
+                                crt->warned_clamping_cpu_quota_period = false;
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
 
                         if (c->cpu_quota_per_sec_usec == USEC_INFINITY)
@@ -1324,7 +1330,9 @@ int bus_cgroup_set_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->cpu_quota_period_usec = u64;
-                        u->warned_clamping_cpu_quota_period = false;
+                        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+                        if (crt)
+                                crt->warned_clamping_cpu_quota_period = false;
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
                         if (c->cpu_quota_period_usec == USEC_INFINITY)
                                 unit_write_setting(u, flags, "CPUQuotaPeriodSec", "CPUQuotaPeriodSec=");

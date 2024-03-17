@@ -55,7 +55,6 @@ shared_sources = files(
         'device-nodes.c',
         'discover-image.c',
         'dissect-image.c',
-        'dlfcn-util.c',
         'dm-util.c',
         'dns-domain.c',
         'dropin.c',
@@ -174,12 +173,14 @@ shared_sources = files(
         'varlink.c',
         'varlink-idl.c',
         'varlink-io.systemd.c',
+        'varlink-io.systemd.BootControl.c',
         'varlink-io.systemd.Credentials.c',
         'varlink-io.systemd.Hostname.c',
         'varlink-io.systemd.Journal.c',
         'varlink-io.systemd.ManagedOOM.c',
         'varlink-io.systemd.Network.c',
         'varlink-io.systemd.PCRExtend.c',
+        'varlink-io.systemd.PCRLock.c',
         'varlink-io.systemd.Resolve.c',
         'varlink-io.systemd.Resolve.Monitor.c',
         'varlink-io.systemd.UserDatabase.c',
@@ -248,6 +249,10 @@ endif
 
 if conf.get('HAVE_LIBFIDO2') == 1 and conf.get('HAVE_LIBCRYPTSETUP') == 1
         shared_sources += files('cryptsetup-fido2.c')
+endif
+
+if conf.get('HAVE_TPM2') == 1 and conf.get('HAVE_LIBCRYPTSETUP') == 1
+        shared_sources += files('cryptsetup-tpm2.c')
 endif
 
 generate_ip_protocol_list = find_program('generate-ip-protocol-list.sh')
@@ -319,7 +324,7 @@ libshared_deps = [threads,
                   libgcrypt,
                   libiptc_cflags,
                   libkmod,
-                  liblz4,
+                  liblz4_cflags,
                   libmount,
                   libopenssl,
                   libp11kit_cflags,
@@ -328,8 +333,8 @@ libshared_deps = [threads,
                   libseccomp,
                   libselinux,
                   libxenctrl_cflags,
-                  libxz,
-                  libzstd]
+                  libxz_cflags,
+                  libzstd_cflags]
 
 libshared_sym_path = meson.current_source_dir() / 'libshared.sym'
 libshared_build_dir = meson.current_build_dir()

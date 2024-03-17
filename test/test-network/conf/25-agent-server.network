@@ -4,7 +4,7 @@ Name=server
 
 [Network]
 Address=192.168.5.1/24
-IPForward=ipv4
+IPv4Forwarding=yes
 DHCPServer=yes
 IPv6AcceptRA=no
 

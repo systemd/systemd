@@ -533,6 +533,20 @@ TEST(extract_first_word) {
         assert_se(streq(t, "a:a"));
         assert_se(streq(p, ":b"));
         free(t);
+
+        p = original = "zażółcić 👊🔪💐 가너도루";
+        assert_se(extract_first_word(&p, &t, NULL, 0) > 0);
+        assert_se(streq(t, "zażółcić"));
+        free(t);
+        assert_se(p == original + 13);
+
+        assert_se(extract_first_word(&p, &t, NULL, 0) > 0);
+        assert_se(streq(t, "👊🔪💐"));
+        free(t);
+        assert_se(extract_first_word(&p, &t, NULL, 0) > 0);
+        assert_se(streq(t, "가너도루"));
+        free(t);
+        assert_se(isempty(p));
 }
 
 TEST(extract_first_word_and_warn) {
@@ -684,7 +698,7 @@ TEST(extract_many_words) {
         char *a, *b, *c, *d, *e, *f;
 
         p = original = "foobar waldi piep";
-        assert_se(extract_many_words(&p, NULL, 0, &a, &b, &c, NULL) == 3);
+        assert_se(extract_many_words(&p, NULL, 0, &a, &b, &c) == 3);
         assert_se(isempty(p));
         assert_se(streq_ptr(a, "foobar"));
         assert_se(streq_ptr(b, "waldi"));
@@ -694,12 +708,12 @@ TEST(extract_many_words) {
         free(c);
 
         p = original = "foobar:waldi:piep ba1:ba2";
-        assert_se(extract_many_words(&p, ":" WHITESPACE, 0, &a, &b, &c, NULL) == 3);
+        assert_se(extract_many_words(&p, ":" WHITESPACE, 0, &a, &b, &c) == 3);
         assert_se(!isempty(p));
         assert_se(streq_ptr(a, "foobar"));
         assert_se(streq_ptr(b, "waldi"));
         assert_se(streq_ptr(c, "piep"));
-        assert_se(extract_many_words(&p, ":" WHITESPACE, 0, &d, &e, &f, NULL) == 2);
+        assert_se(extract_many_words(&p, ":" WHITESPACE, 0, &d, &e, &f) == 2);
         assert_se(isempty(p));
         assert_se(streq_ptr(d, "ba1"));
         assert_se(streq_ptr(e, "ba2"));
@@ -712,7 +726,7 @@ TEST(extract_many_words) {
         free(f);
 
         p = original = "'foobar' wa\"ld\"i   ";
-        assert_se(extract_many_words(&p, NULL, 0, &a, &b, &c, NULL) == 2);
+        assert_se(extract_many_words(&p, NULL, 0, &a, &b, &c) == 2);
         assert_se(isempty(p));
         assert_se(streq_ptr(a, "'foobar'"));
         assert_se(streq_ptr(b, "wa\"ld\"i"));
@@ -721,7 +735,7 @@ TEST(extract_many_words) {
         free(b);
 
         p = original = "'foobar' wa\"ld\"i   ";
-        assert_se(extract_many_words(&p, NULL, EXTRACT_UNQUOTE, &a, &b, &c, NULL) == 2);
+        assert_se(extract_many_words(&p, NULL, EXTRACT_UNQUOTE, &a, &b, &c) == 2);
         assert_se(isempty(p));
         assert_se(streq_ptr(a, "foobar"));
         assert_se(streq_ptr(b, "waldi"));
@@ -730,34 +744,44 @@ TEST(extract_many_words) {
         free(b);
 
         p = original = "";
-        assert_se(extract_many_words(&p, NULL, 0, &a, &b, &c, NULL) == 0);
+        assert_se(extract_many_words(&p, NULL, 0, &a, &b, &c) == 0);
         assert_se(isempty(p));
         assert_se(streq_ptr(a, NULL));
         assert_se(streq_ptr(b, NULL));
         assert_se(streq_ptr(c, NULL));
 
         p = original = "  ";
-        assert_se(extract_many_words(&p, NULL, 0, &a, &b, &c, NULL) == 0);
+        assert_se(extract_many_words(&p, NULL, 0, &a, &b, &c) == 0);
         assert_se(isempty(p));
         assert_se(streq_ptr(a, NULL));
         assert_se(streq_ptr(b, NULL));
         assert_se(streq_ptr(c, NULL));
 
         p = original = "foobar";
-        assert_se(extract_many_words(&p, NULL, 0, NULL) == 0);
+        assert_se(extract_many_words(&p, NULL, 0) == 0);
         assert_se(p == original);
 
         p = original = "foobar waldi";
-        assert_se(extract_many_words(&p, NULL, 0, &a, NULL) == 1);
+        assert_se(extract_many_words(&p, NULL, 0, &a) == 1);
         assert_se(p == original+7);
         assert_se(streq_ptr(a, "foobar"));
         free(a);
 
         p = original = "     foobar    ";
-        assert_se(extract_many_words(&p, NULL, 0, &a, NULL) == 1);
+        assert_se(extract_many_words(&p, NULL, 0, &a) == 1);
         assert_se(isempty(p));
         assert_se(streq_ptr(a, "foobar"));
         free(a);
+
+        p = original = "gęślą:👊🔪💐 가너도루";
+        assert_se(extract_many_words(&p, ":" WHITESPACE, 0, &a, &b, &c) == 3);
+        assert_se(isempty(p));
+        assert_se(streq(a, "gęślą"));
+        assert_se(streq(b, "👊🔪💐"));
+        assert_se(streq(c, "가너도루"));
+        free(a);
+        free(b);
+        free(c);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

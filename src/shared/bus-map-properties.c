@@ -8,20 +8,11 @@
 
 int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         sd_id128_t *p = userdata;
-        const void *v;
-        size_t n;
         int r;
 
-        r = sd_bus_message_read_array(m, SD_BUS_TYPE_BYTE, &v, &n);
+        r = bus_message_read_id128(m, p);
         if (r < 0)
                 return bus_log_parse_error_debug(r);
-
-        if (n == 0)
-                *p = SD_ID128_NULL;
-        else if (n == 16)
-                memcpy((*p).bytes, v, n);
-        else
-                return -EINVAL;
 
         return 0;
 }

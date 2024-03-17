@@ -82,9 +82,12 @@ void manager_reset_config(Manager *m) {
 int manager_parse_config_file(Manager *m) {
         assert(m);
 
-        return config_parse_config_file("logind.conf", "Login\0",
-                                        config_item_perf_lookup, logind_gperf_lookup,
-                                        CONFIG_PARSE_WARN, m);
+        return config_parse_standard_file_with_dropins(
+                        "systemd/logind.conf",
+                        "Login\0",
+                        config_item_perf_lookup, logind_gperf_lookup,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ m);
 }
 
 int manager_add_device(Manager *m, const char *sysfs, bool master, Device **ret_device) {
@@ -118,7 +121,7 @@ int manager_add_seat(Manager *m, const char *id, Seat **ret_seat) {
 
         s = hashmap_get(m->seats, id);
         if (!s) {
-                r = seat_new(&s, m, id);
+                r = seat_new(m, id, &s);
                 if (r < 0)
                         return r;
         }
@@ -138,7 +141,7 @@ int manager_add_session(Manager *m, const char *id, Session **ret_session) {
 
         s = hashmap_get(m->sessions, id);
         if (!s) {
-                r = session_new(&s, m, id);
+                r = session_new(m, id, &s);
                 if (r < 0)
                         return r;
         }
@@ -162,7 +165,7 @@ int manager_add_user(
 
         u = hashmap_get(m->users, UID_TO_PTR(ur->uid));
         if (!u) {
-                r = user_new(&u, m, ur);
+                r = user_new(m, ur, &u);
                 if (r < 0)
                         return r;
         }
@@ -218,7 +221,7 @@ int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **ret) {
 
         i = hashmap_get(m->inhibitors, id);
         if (!i) {
-                r = inhibitor_new(&i, m, id);
+                r = inhibitor_new(m, id, &i);
                 if (r < 0)
                         return r;
         }

@@ -40,6 +40,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import struct
 from hashlib import sha256
 from typing import (Any,
                     Callable,
@@ -50,7 +51,7 @@ from typing import (Any,
 
 import pefile  # type: ignore
 
-__version__ = '{{PROJECT_VERSION}} ({{GIT_VERSION}})'
+__version__ = '{{PROJECT_VERSION_FULL}} ({{VERSION_TAG}})'
 
 EFI_ARCH_MAP = {
     # host_arch glob : [efi_arch, 32_bit_efi_arch if mixed mode is supported]
@@ -128,6 +129,45 @@ def try_import(modname, name=None):
     except ImportError as e:
         raise ValueError(f'Kernel is compressed with {name or modname}, but module unavailable') from e
 
+def get_zboot_kernel(f):
+    """Decompress zboot efistub kernel if compressed. Return contents."""
+    # See linux/drivers/firmware/efi/libstub/Makefile.zboot
+    # and linux/drivers/firmware/efi/libstub/zboot-header.S
+
+    # 4 bytes at offset 0x08 contain the starting offset of compressed data
+    f.seek(8)
+    _start = f.read(4)
+    start = struct.unpack('<i', _start)[0]
+
+    # Reading 4 bytes from address 0x0c is the size of compressed data,
+    # but it needs to be corrected according to the compressed type.
+    f.seek(0xc)
+    _sizes = f.read(4)
+    size = struct.unpack('<i', _sizes)[0]
+
+    # Read 6 bytes from address 0x18, which is a nul-terminated
+    # string representing the compressed type.
+    f.seek(0x18)
+    comp_type = f.read(6)
+    f.seek(start)
+    if comp_type.startswith(b'gzip'):
+        gzip = try_import('gzip')
+        return gzip.open(f).read(size)
+    elif comp_type.startswith(b'lz4'):
+        lz4 = try_import('lz4.frame', 'lz4')
+        return lz4.frame.decompress(f.read(size))
+    elif comp_type.startswith(b'lzma'):
+        lzma = try_import('lzma')
+        return lzma.open(f).read(size)
+    elif comp_type.startswith(b'lzo'):
+        raise NotImplementedError('lzo decompression not implemented')
+    elif comp_type.startswith(b'xzkern'):
+        raise NotImplementedError('xzkern decompression not implemented')
+    elif comp_type.startswith(b'zstd22'):
+        zstd = try_import('zstd')
+        return zstd.uncompress(f.read(size))
+    else:
+        raise NotImplementedError(f'unknown compressed type: {comp_type}')
 
 def maybe_decompress(filename):
     """Decompress file if compressed. Return contents."""
@@ -140,8 +180,14 @@ def maybe_decompress(filename):
         return f.read()
 
     if start.startswith(b'MZ'):
-        # not compressed aarch64 and riscv64
-        return f.read()
+        f.seek(4)
+        img_type = f.read(4)
+        if img_type.startswith(b'zimg'):
+            # zboot efistub kernel
+            return get_zboot_kernel(f)
+        else:
+            # not compressed aarch64 and riscv64
+            return f.read()
 
     if start.startswith(b'\x1f\x8b'):
         gzip = try_import('gzip')
@@ -403,7 +449,7 @@ def check_cert_and_keys_nonexistent(opts):
         *((priv_key, pub_key)
           for priv_key, pub_key, _ in key_path_groups(opts)))
     for path in paths:
-        if path and path.exists():
+        if path and pathlib.Path(path).exists():
             raise ValueError(f'{path} is present')
 
 
@@ -493,7 +539,11 @@ def call_systemd_measure(uki, linux, opts):
 
         for priv_key, pub_key, group in key_path_groups(opts):
             extra = [f'--private-key={priv_key}']
-            if pub_key:
+            if opts.signing_engine is not None:
+                assert pub_key
+                extra += [f'--private-key-source=engine:{opts.signing_engine}']
+                extra += [f'--certificate={pub_key}']
+            elif pub_key:
                 extra += [f'--public-key={pub_key}']
             extra += [f'--phase={phase_path}' for phase_path in group or ()]
 
@@ -682,11 +732,13 @@ def sbsign_sign(sbsign_tool, input_f, output_f, opts=None):
         sbsign_tool,
         '--key', opts.sb_key,
         '--cert', opts.sb_cert,
-        input_f,
-        '--output', output_f,
     ]
     if opts.signing_engine is not None:
         sign_invocation += ['--engine', opts.signing_engine]
+    sign_invocation += [
+        input_f,
+        '--output', output_f,
+    ]
     signer_sign(sign_invocation)
 
 def find_pesign(opts=None):
@@ -772,9 +824,23 @@ def make_uki(opts):
     if pcrpkey is None:
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
             pcrpkey = opts.pcr_public_keys[0]
+            # If we are getting a certificate when using an engine, we need to convert it to public key format
+            if opts.signing_engine is not None and pathlib.Path(pcrpkey).exists():
+                from cryptography.hazmat.primitives import serialization
+                from cryptography.x509 import load_pem_x509_certificate
+
+                try:
+                    cert = load_pem_x509_certificate(pathlib.Path(pcrpkey).read_bytes())
+                except ValueError:
+                    raise ValueError(f'{pcrpkey} must be an X.509 certificate when signing with an engine')
+                else:
+                    pcrpkey = cert.public_key().public_bytes(
+                        encoding=serialization.Encoding.PEM,
+                        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                    )
         elif opts.pcr_private_keys and len(opts.pcr_private_keys) == 1:
             from cryptography.hazmat.primitives import serialization
-            privkey = serialization.load_pem_private_key(opts.pcr_private_keys[0].read_bytes(), password=None)
+            privkey = serialization.load_pem_private_key(pathlib.Path(opts.pcr_private_keys[0]).read_bytes(), password=None)
             pcrpkey = privkey.public_key().public_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PublicFormat.SubjectPublicKeyInfo,
@@ -804,14 +870,19 @@ def make_uki(opts):
 
     if linux is not None:
         # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on either.
-        uki.add_section(Section.create('.sbat', merge_sbat([opts.stub, linux], opts.sbat), measure=True))
-    else:
-        # Addons don't use the stub so we add SBAT manually
+        input_pes = [opts.stub, linux]
         if not opts.sbat:
             opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
-uki,1,UKI,uki,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html
+uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/
 """]
-        uki.add_section(Section.create('.sbat', merge_sbat([], opts.sbat), measure=False))
+    else:
+        # Addons don't use the stub so we add SBAT manually
+        input_pes = []
+        if not opts.sbat:
+            opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html
+"""]
+    uki.add_section(Section.create('.sbat', merge_sbat(input_pes, opts.sbat), measure=linux is not None))
 
     # PCR measurement and signing
 
@@ -956,7 +1027,7 @@ def generate_keys(opts):
 
         print(f'Writing private key for PCR signing to {priv_key}')
         with temporary_umask(0o077):
-            priv_key.write_bytes(priv_key_pem)
+            pathlib.Path(priv_key).write_bytes(priv_key_pem)
         if pub_key:
             print(f'Writing public key for PCR signing to {pub_key}')
             pub_key.write_bytes(pub_key_pem)
@@ -1359,10 +1430,8 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--pcr-private-key',
         dest = 'pcr_private_keys',
-        metavar = 'PATH',
-        type = pathlib.Path,
         action = 'append',
-        help = 'private part of the keypair for signing PCR signatures',
+        help = 'private part of the keypair or engine-specific designation for signing PCR signatures',
         config_key = 'PCRSignature:/PCRPrivateKey',
         config_push = ConfigItem.config_set_group,
     ),
@@ -1372,7 +1441,7 @@ CONFIG_ITEMS = [
         metavar = 'PATH',
         type = pathlib.Path,
         action = 'append',
-        help = 'public part of the keypair for signing PCR signatures',
+        help = 'public part of the keypair or engine-specific designation for signing PCR signatures',
         config_key = 'PCRSignature:/PCRPublicKey',
         config_push = ConfigItem.config_set_group,
     ),

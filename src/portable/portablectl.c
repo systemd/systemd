@@ -1171,7 +1171,7 @@ static int is_image_attached(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (!strv_isempty(arg_extension_images)) {
-                r = sd_bus_message_append(m, "t", 0);
+                r = sd_bus_message_append(m, "t", UINT64_C(0));
                 if (r < 0)
                         return bus_log_create_error(r);
         }
@@ -1251,7 +1251,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -M --machine=CONTAINER      Operate on local container\n"
                "  -q --quiet                  Suppress informational messages\n"
                "  -p --profile=PROFILE        Pick security profile for portable service\n"
-               "     --copy=copy|auto|symlink Prefer copying or symlinks if possible\n"
+               "     --copy=copy|auto|symlink|mixed\n"
+               "                              Pick copying or symlinking of resources\n"
                "     --runtime                Attach portable service until next reboot only\n"
                "     --no-reload              Don't reload the system and service manager\n"
                "     --cat                    When inspecting include unit and os-release file\n"
@@ -1372,12 +1373,13 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_COPY:
                         if (streq(optarg, "auto"))
                                 arg_copy_mode = NULL;
-                        else if (STR_IN_SET(optarg, "copy", "symlink"))
+                        else if (STR_IN_SET(optarg, "copy", "symlink", "mixed"))
                                 arg_copy_mode = optarg;
                         else if (streq(optarg, "help")) {
                                 puts("auto\n"
                                      "copy\n"
-                                     "symlink");
+                                     "symlink\n"
+                                     "mixed\n");
                                 return 0;
                         } else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

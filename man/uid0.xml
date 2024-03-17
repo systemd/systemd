@@ -32,7 +32,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>uid0</command> may be used to temporarily and interactively acquire elavated or different
+    <para><command>uid0</command> may be used to temporarily and interactively acquire elevated or different
     privileges. It serves a similar purpose as <citerefentry
     project='man-pages'><refentrytitle>sudo</refentrytitle><manvolnum>8</manvolnum></citerefentry>, but
     operates differently in a couple of key areas:</para>

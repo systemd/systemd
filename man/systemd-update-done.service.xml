@@ -58,7 +58,7 @@
     <citerefentry project='man-pages'><refentrytitle>touch</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     on it.</para>
 
-    <para>Note that if the <varname>systemd.condition-needs-update=</varname> kernel command line option is
+    <para>Note that if the <varname>systemd.condition_needs_update=</varname> kernel command line option is
     used it overrides the <varname>ConditionNeedsUpdate=</varname> unit condition checks. In that case
     <filename>systemd-update-done.service</filename> will not reset the condition state until a follow-up
     reboot where the kernel switch is not specified anymore.</para>

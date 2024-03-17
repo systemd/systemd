@@ -140,7 +140,7 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
                         assert_se(status == NSS_STATUS_SUCCESS);
                         assert_se(n == socket_ipv6_is_enabled() + 1);
 
-                } else if (streq(module, "resolve") && getenv_bool_secure("SYSTEMD_NSS_RESOLVE_SYNTHESIZE") != 0) {
+                } else if (streq(module, "resolve") && secure_getenv_bool("SYSTEMD_NSS_RESOLVE_SYNTHESIZE") != 0) {
                         assert_se(status == NSS_STATUS_SUCCESS);
                         if (socket_ipv6_is_enabled())
                                 assert_se(n == 2);
@@ -451,7 +451,11 @@ static int parse_argv(int argc, char **argv,
         } else {
                 _cleanup_free_ char *hostname = NULL;
                 assert_se(hostname = gethostname_malloc());
-                assert_se(names = strv_new("localhost", "_gateway", "_outbound", "foo_no_such_host", hostname));
+                assert_se(names = strv_new("localhost",
+                                           "_gateway",
+                                           "_outbound",
+                                           hostname,
+                                           slow_tests_enabled() ? "foo_no_such_host" : NULL));
 
                 n = make_addresses(&addrs);
                 assert_se(n >= 0);

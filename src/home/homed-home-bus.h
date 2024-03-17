@@ -17,7 +17,7 @@ int bus_home_method_remove(sd_bus_message *message, void *userdata, sd_bus_error
 int bus_home_method_fixate(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_home_method_authenticate(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_home_method_update(sd_bus_message *message, void *userdata, sd_bus_error *error);
-int bus_home_method_update_record(Home *home, sd_bus_message *message, UserRecord *hr, sd_bus_error *error);
+int bus_home_method_update_record(Home *home, sd_bus_message *message, UserRecord *hr, Hashmap *blobs, uint64_t flags, sd_bus_error *error);
 int bus_home_method_resize(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_home_method_change_password(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_home_method_lock(sd_bus_message *message, void *userdata, sd_bus_error *error);

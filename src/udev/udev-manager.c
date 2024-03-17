@@ -1308,7 +1308,7 @@ int manager_main(Manager *manager) {
         udev_watch_restore(manager->inotify_fd);
 
         /* block SIGCHLD for listening child events. */
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
         r = sd_event_default(&manager->event);
         if (r < 0)

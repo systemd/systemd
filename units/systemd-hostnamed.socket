@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Hostname Service Varlink Socket
+Description=Hostname Service Socket
 Documentation=man:systemd-hostnamed.service(8)
 Documentation=man:hostname(5)
 Documentation=man:machine-info(5)

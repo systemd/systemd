@@ -15,7 +15,7 @@
 #include "in-addr-util.h"
 #include "memory-util.h"
 #include "ndisc-internal.h"
-#include "ndisc-router.h"
+#include "ndisc-router-internal.h"
 #include "network-common.h"
 #include "random-util.h"
 #include "socket-util.h"
@@ -31,7 +31,7 @@ static const char * const ndisc_event_table[_SD_NDISC_EVENT_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(ndisc_event, sd_ndisc_event_t);
 
-static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event_t event, sd_ndisc_router *rt) {
+static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event_t event, void *message) {
         assert(ndisc);
         assert(event >= 0 && event < _SD_NDISC_EVENT_MAX);
 
@@ -39,7 +39,14 @@ static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event_t event, sd_ndisc_rou
                 return (void) log_ndisc(ndisc, "Received '%s' event.", ndisc_event_to_string(event));
 
         log_ndisc(ndisc, "Invoking callback for '%s' event.", ndisc_event_to_string(event));
-        ndisc->callback(ndisc, event, rt, ndisc->userdata);
+        ndisc->callback(ndisc, event, message, ndisc->userdata);
+}
+
+int sd_ndisc_is_running(sd_ndisc *nd) {
+        if (!nd)
+                return false;
+
+        return sd_event_source_get_enabled(nd->recv_event_source, NULL) > 0;
 }
 
 int sd_ndisc_set_callback(
@@ -58,7 +65,7 @@ int sd_ndisc_set_callback(
 int sd_ndisc_set_ifindex(sd_ndisc *nd, int ifindex) {
         assert_return(nd, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
-        assert_return(nd->fd < 0, -EBUSY);
+        assert_return(!sd_ndisc_is_running(nd), -EBUSY);
 
         nd->ifindex = ifindex;
         return 0;
@@ -89,6 +96,18 @@ int sd_ndisc_get_ifname(sd_ndisc *nd, const char **ret) {
         return 0;
 }
 
+int sd_ndisc_set_link_local_address(sd_ndisc *nd, const struct in6_addr *addr) {
+        assert_return(nd, -EINVAL);
+        assert_return(!addr || in6_addr_is_link_local(addr), -EINVAL);
+
+        if (addr)
+                nd->link_local_addr = *addr;
+        else
+                zero(nd->link_local_addr);
+
+        return 0;
+}
+
 int sd_ndisc_set_mac(sd_ndisc *nd, const struct ether_addr *mac_addr) {
         assert_return(nd, -EINVAL);
 
@@ -104,7 +123,7 @@ int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(nd, -EINVAL);
-        assert_return(nd->fd < 0, -EBUSY);
+        assert_return(!sd_ndisc_is_running(nd), -EBUSY);
         assert_return(!nd->event, -EBUSY);
 
         if (event)
@@ -123,7 +142,7 @@ int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority) {
 int sd_ndisc_detach_event(sd_ndisc *nd) {
 
         assert_return(nd, -EINVAL);
-        assert_return(nd->fd < 0, -EBUSY);
+        assert_return(!sd_ndisc_is_running(nd), -EBUSY);
 
         nd->event = sd_event_unref(nd->event);
         return 0;
@@ -179,15 +198,22 @@ int sd_ndisc_new(sd_ndisc **ret) {
         return 0;
 }
 
-static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
+static int ndisc_handle_router(sd_ndisc *nd, ICMP6Packet *packet) {
+        _cleanup_(sd_ndisc_router_unrefp) sd_ndisc_router *rt = NULL;
         int r;
 
         assert(nd);
-        assert(rt);
+        assert(packet);
+
+        rt = ndisc_router_new(packet);
+        if (!rt)
+                return -ENOMEM;
 
         r = ndisc_router_parse(nd, rt);
         if (r < 0)
                 return r;
+
+        (void) event_source_disable(nd->timeout_event_source);
 
         log_ndisc(nd, "Received Router Advertisement: flags %s preference %s lifetime %s",
                   rt->flags & ND_RA_FLAG_MANAGED ? "MANAGED" : rt->flags & ND_RA_FLAG_OTHER ? "OTHER" : "none",
@@ -199,55 +225,46 @@ static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
 }
 
 static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(sd_ndisc_router_unrefp) sd_ndisc_router *rt = NULL;
+        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
         sd_ndisc *nd = ASSERT_PTR(userdata);
-        ssize_t buflen;
         int r;
 
         assert(s);
         assert(nd->event);
 
-        buflen = next_datagram_size_fd(fd);
-        if (ERRNO_IS_NEG_TRANSIENT(buflen) || ERRNO_IS_NEG_DISCONNECT(buflen))
-                return 0;
-        if (buflen < 0) {
-                log_ndisc_errno(nd, buflen, "Failed to determine datagram size to read, ignoring: %m");
+        r = icmp6_packet_receive(fd, &packet);
+        if (r < 0) {
+                log_ndisc_errno(nd, r, "Failed to receive ICMPv6 packet, ignoring: %m");
                 return 0;
         }
 
-        rt = ndisc_router_new(buflen);
-        if (!rt)
-                return -ENOMEM;
-
-        r = icmp6_receive(fd, NDISC_ROUTER_RAW(rt), rt->raw_size, &rt->address, &rt->timestamp);
-        if (ERRNO_IS_NEG_TRANSIENT(r) || ERRNO_IS_NEG_DISCONNECT(r))
-                return 0;
-        if (r < 0)
-                switch (r) {
-                case -EADDRNOTAVAIL:
-                        log_ndisc(nd, "Received RA from neither link-local nor null address. Ignoring.");
-                        return 0;
-
-                case -EMULTIHOP:
-                        log_ndisc(nd, "Received RA with invalid hop limit. Ignoring.");
-                        return 0;
-
-                case -EPFNOSUPPORT:
-                        log_ndisc(nd, "Received invalid source address from ICMPv6 socket. Ignoring.");
-                        return 0;
-
-                default:
-                        log_ndisc_errno(nd, r, "Unexpected error while reading from ICMPv6, ignoring: %m");
-                        return 0;
-                }
-
         /* The function icmp6_receive() accepts the null source address, but RFC 4861 Section 6.1.2 states
          * that hosts MUST discard messages with the null source address. */
-        if (in6_addr_is_null(&rt->address))
-                log_ndisc(nd, "Received RA from null address. Ignoring.");
+        if (in6_addr_is_null(&packet->sender_address)) {
+                log_ndisc(nd, "Received an ICMPv6 packet from null address, ignoring.");
+                return 0;
+        }
 
-        (void) event_source_disable(nd->timeout_event_source);
-        (void) ndisc_handle_datagram(nd, rt);
+        if (in6_addr_equal(&packet->sender_address, &nd->link_local_addr)) {
+                log_ndisc(nd, "Received an ICMPv6 packet sent by the same interface, ignoring.");
+                return 0;
+        }
+
+        r = icmp6_packet_get_type(packet);
+        if (r < 0) {
+                log_ndisc_errno(nd, r, "Received an invalid ICMPv6 packet, ignoring: %m");
+                return 0;
+        }
+
+        switch (r) {
+        case ND_ROUTER_ADVERT:
+                (void) ndisc_handle_router(nd, packet);
+                break;
+
+        default:
+                log_ndisc(nd, "Received an ICMPv6 packet with unexpected type %i, ignoring.", r);
+        }
+
         return 0;
 }
 
@@ -316,7 +333,7 @@ int sd_ndisc_stop(sd_ndisc *nd) {
         if (!nd)
                 return 0;
 
-        if (nd->fd < 0)
+        if (!sd_ndisc_is_running(nd))
                 return 0;
 
         log_ndisc(nd, "Stopping IPv6 Router Solicitation client");
@@ -325,50 +342,74 @@ int sd_ndisc_stop(sd_ndisc *nd) {
         return 1;
 }
 
+static int ndisc_setup_recv_event(sd_ndisc *nd) {
+        int r;
+
+        assert(nd);
+        assert(nd->event);
+        assert(nd->ifindex > 0);
+
+        _cleanup_close_ int fd = -EBADF;
+        fd = icmp6_bind(nd->ifindex, /* is_router = */ false);
+        if (fd < 0)
+                return fd;
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        r = sd_event_add_io(nd->event, &s, fd, EPOLLIN, ndisc_recv, nd);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(s, nd->event_priority);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(s, "ndisc-receive-router-message");
+
+        nd->fd = TAKE_FD(fd);
+        nd->recv_event_source = TAKE_PTR(s);
+        return 1;
+}
+
+static int ndisc_setup_timer(sd_ndisc *nd) {
+        int r;
+
+        assert(nd);
+        assert(nd->event);
+
+        r = event_reset_time_relative(nd->event, &nd->timeout_event_source,
+                                      CLOCK_BOOTTIME,
+                                      USEC_PER_SEC / 2, 1 * USEC_PER_SEC, /* See RFC 8415 sec. 18.2.1 */
+                                      ndisc_timeout, nd,
+                                      nd->event_priority, "ndisc-timeout", true);
+        if (r < 0)
+                return r;
+
+        r = event_reset_time_relative(nd->event, &nd->timeout_no_ra,
+                                      CLOCK_BOOTTIME,
+                                      NDISC_TIMEOUT_NO_RA_USEC, 10 * USEC_PER_MSEC,
+                                      ndisc_timeout_no_ra, nd,
+                                      nd->event_priority, "ndisc-timeout-no-ra", true);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int sd_ndisc_start(sd_ndisc *nd) {
         int r;
-        usec_t time_now;
 
         assert_return(nd, -EINVAL);
         assert_return(nd->event, -EINVAL);
         assert_return(nd->ifindex > 0, -EINVAL);
 
-        if (nd->fd >= 0)
+        if (sd_ndisc_is_running(nd))
                 return 0;
 
-        assert(!nd->recv_event_source);
-
-        r = sd_event_now(nd->event, CLOCK_BOOTTIME, &time_now);
+        r = ndisc_setup_recv_event(nd);
         if (r < 0)
                 goto fail;
 
-        nd->fd = icmp6_bind_router_solicitation(nd->ifindex);
-        if (nd->fd < 0)
-                return nd->fd;
-
-        r = sd_event_add_io(nd->event, &nd->recv_event_source, nd->fd, EPOLLIN, ndisc_recv, nd);
-        if (r < 0)
-                goto fail;
-
-        r = sd_event_source_set_priority(nd->recv_event_source, nd->event_priority);
-        if (r < 0)
-                goto fail;
-
-        (void) sd_event_source_set_description(nd->recv_event_source, "ndisc-receive-message");
-
-        r = event_reset_time(nd->event, &nd->timeout_event_source,
-                             CLOCK_BOOTTIME,
-                             time_now + USEC_PER_SEC / 2, 1 * USEC_PER_SEC, /* See RFC 8415 sec. 18.2.1 */
-                             ndisc_timeout, nd,
-                             nd->event_priority, "ndisc-timeout", true);
-        if (r < 0)
-                goto fail;
-
-        r = event_reset_time(nd->event, &nd->timeout_no_ra,
-                             CLOCK_BOOTTIME,
-                             time_now + NDISC_TIMEOUT_NO_RA_USEC, 10 * USEC_PER_MSEC,
-                             ndisc_timeout_no_ra, nd,
-                             nd->event_priority, "ndisc-timeout-no-ra", true);
+        r = ndisc_setup_timer(nd);
         if (r < 0)
                 goto fail;
 

@@ -2,7 +2,12 @@
 
 #include <unistd.h>
 
+#include "bus-polkit.h"
+#include "fs-util.h"
+#include "lldp-rx-internal.h"
+#include "networkd-dhcp-server.h"
 #include "networkd-manager-varlink.h"
+#include "stat-util.h"
 #include "varlink.h"
 #include "varlink-io.systemd.Network.h"
 
@@ -47,13 +52,171 @@ static int vl_method_get_namespace_id(Varlink *link, JsonVariant *parameters, Va
 
         r = netns_get_nsid(/* netnsfd= */ -EBADF, &nsid);
         if (r < 0)
-                log_warning_errno(r, "Failed to query network nsid, ignoring: %m");
+                log_full_errno(r == -ENODATA ? LOG_DEBUG : LOG_WARNING, r, "Failed to query network nsid, ignoring: %m");
 
         return varlink_replyb(link,
                               JSON_BUILD_OBJECT(
                                               JSON_BUILD_PAIR_UNSIGNED("NamespaceId", inode),
                                               JSON_BUILD_PAIR_CONDITION(nsid == UINT32_MAX, "NamespaceNSID", JSON_BUILD_NULL),
                                               JSON_BUILD_PAIR_CONDITION(nsid != UINT32_MAX, "NamespaceNSID", JSON_BUILD_UNSIGNED(nsid))));
+}
+
+typedef struct InterfaceInfo {
+        int ifindex;
+        const char *ifname;
+} InterfaceInfo;
+
+static int dispatch_interface(Varlink *vlink, JsonVariant *parameters, Manager *manager, Link **ret) {
+        static const JsonDispatch dispatch_table[] = {
+                { "InterfaceIndex", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          offsetof(InterfaceInfo, ifindex), 0 },
+                { "InterfaceName",  JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(InterfaceInfo, ifname),  0 },
+                {}
+        };
+
+        InterfaceInfo info = {};
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+        assert(manager);
+
+        r = varlink_dispatch(vlink, parameters, dispatch_table, &info);
+        if (r != 0)
+                return r;
+
+        if (info.ifindex < 0)
+                return varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
+        if (info.ifindex > 0 && link_get_by_index(manager, info.ifindex, &link) < 0)
+                return varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
+        if (info.ifname) {
+                Link *link_by_name;
+
+                if (link_get_by_name(manager, info.ifname, &link_by_name) < 0)
+                        return varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceName"));
+
+                if (link && link_by_name != link)
+                        /* If both arguments are specified, then these must be consistent. */
+                        return varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceName"));
+
+                link = link_by_name;
+        }
+
+        /* If neither InterfaceIndex nor InterfaceName specified, this function returns NULL. */
+        *ret = link;
+        return 0;
+}
+
+static int link_append_lldp_neighbors(Link *link, JsonVariant *v, JsonVariant **array) {
+        assert(link);
+        assert(array);
+
+        return json_variant_append_arrayb(array,
+                        JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_INTEGER("InterfaceIndex", link->ifindex),
+                                JSON_BUILD_PAIR_STRING("InterfaceName", link->ifname),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("InterfaceAlternativeNames", link->alternative_names),
+                                JSON_BUILD_PAIR_CONDITION(json_variant_is_blank_array(v), "Neighbors", JSON_BUILD_EMPTY_ARRAY),
+                                JSON_BUILD_PAIR_CONDITION(!json_variant_is_blank_array(v), "Neighbors", JSON_BUILD_VARIANT(v))));
+}
+
+static int vl_method_get_lldp_neighbors(Varlink *vlink, JsonVariant *parameters, VarlinkMethodFlags flags, Manager *manager) {
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+        assert(manager);
+
+        r = dispatch_interface(vlink, parameters, manager, &link);
+        if (r != 0)
+                return r;
+
+        if (link) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                if (link->lldp_rx) {
+                        r = lldp_rx_build_neighbors_json(link->lldp_rx, &v);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = link_append_lldp_neighbors(link, v, &array);
+                if (r < 0)
+                        return r;
+        } else
+                HASHMAP_FOREACH(link, manager->links_by_index) {
+                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                        if (!link->lldp_rx)
+                                continue;
+
+                        r = lldp_rx_build_neighbors_json(link->lldp_rx, &v);
+                        if (r < 0)
+                                return r;
+
+                        if (json_variant_is_blank_array(v))
+                                continue;
+
+                        r = link_append_lldp_neighbors(link, v, &array);
+                        if (r < 0)
+                                return r;
+                }
+
+        return varlink_replyb(vlink,
+                        JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_CONDITION(json_variant_is_blank_array(array), "Neighbors", JSON_BUILD_EMPTY_ARRAY),
+                                JSON_BUILD_PAIR_CONDITION(!json_variant_is_blank_array(array), "Neighbors", JSON_BUILD_VARIANT(array))));
+}
+
+static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                { "Ready", JSON_VARIANT_BOOLEAN, json_dispatch_boolean, 0, 0 },
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        bool ready;
+        int r;
+
+        assert(vlink);
+
+        r = varlink_dispatch(vlink, parameters, dispatch_table, &ready);
+        if (r != 0)
+                return r;
+
+        if (ready) {
+                r = path_is_read_only_fs("/var/lib/systemd/network/");
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to check if /var/lib/systemd/network/ is writable: %m");
+                if (r > 0) {
+                        log_warning("The directory /var/lib/systemd/network/ is read-only.");
+                        return varlink_error(vlink, "io.systemd.Network.StorageReadOnly", NULL);
+                }
+        }
+
+        r = varlink_verify_polkit_async(
+                                vlink,
+                                manager->bus,
+                                "org.freedesktop.network1.set-persistent-storage",
+                                /* details= */ NULL,
+                                &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        manager->persistent_storage_is_ready = ready;
+
+        if (ready) {
+                r = touch("/run/systemd/netif/persistent-storage-ready");
+                if (r < 0)
+                        log_debug_errno(r, "Failed to create /run/systemd/netif/persistent-storage-ready, ignoring: %m");
+        } else {
+                if (unlink("/run/systemd/netif/persistent-storage-ready") < 0 && errno != ENOENT)
+                        log_debug_errno(errno, "Failed to remove /run/systemd/netif/persistent-storage-ready, ignoring: %m");
+        }
+
+        manager_toggle_dhcp4_server_state(manager, ready);
+
+        return varlink_reply(vlink, NULL);
 }
 
 int manager_connect_varlink(Manager *m) {
@@ -78,7 +241,9 @@ int manager_connect_varlink(Manager *m) {
         r = varlink_server_bind_method_many(
                         s,
                         "io.systemd.Network.GetStates", vl_method_get_states,
-                        "io.systemd.Network.GetNamespaceId", vl_method_get_namespace_id);
+                        "io.systemd.Network.GetNamespaceId", vl_method_get_namespace_id,
+                        "io.systemd.Network.GetLLDPNeighbors", vl_method_get_lldp_neighbors,
+                        "io.systemd.Network.SetPersistentStorage", vl_method_set_persistent_storage);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 

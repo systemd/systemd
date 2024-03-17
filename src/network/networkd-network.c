@@ -225,11 +225,8 @@ int network_verify(Network *network) {
             network->ipv6ll_address_gen_mode < 0)
                 network->ipv6ll_address_gen_mode = IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY;
 
-        /* IPMasquerade implies IPForward */
-        network->ip_forward |= network->ip_masquerade;
-
         network_adjust_ipv6_proxy_ndp(network);
-        network_adjust_ipv6_accept_ra(network);
+        network_adjust_ndisc(network);
         network_adjust_dhcp(network);
         network_adjust_radv(network);
         network_adjust_bridge_vlan(network);
@@ -465,6 +462,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .link_local = _ADDRESS_FAMILY_INVALID,
                 .ipv6ll_address_gen_mode = _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID,
 
+                .ip_forwarding = { -1, -1, },
                 .ipv4_accept_local = -1,
                 .ipv4_route_localnet = -1,
                 .ipv6_privacy_extensions = _IPV6_PRIVACY_EXTENSIONS_INVALID,
@@ -474,22 +472,22 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .proxy_arp_pvlan = -1,
                 .ipv4_rp_filter = _IP_REVERSE_PATH_FILTER_INVALID,
 
-                .ipv6_accept_ra = -1,
-                .ipv6_accept_ra_use_dns = true,
-                .ipv6_accept_ra_use_gateway = true,
-                .ipv6_accept_ra_use_captive_portal = true,
-                .ipv6_accept_ra_use_route_prefix = true,
-                .ipv6_accept_ra_use_autonomous_prefix = true,
-                .ipv6_accept_ra_use_onlink_prefix = true,
-                .ipv6_accept_ra_use_mtu = true,
-                .ipv6_accept_ra_use_hop_limit = true,
-                .ipv6_accept_ra_use_retransmission_time = true,
-                .ipv6_accept_ra_use_icmp6_ratelimit = true,
-                .ipv6_accept_ra_route_table = RT_TABLE_MAIN,
-                .ipv6_accept_ra_route_metric_high = IPV6RA_ROUTE_METRIC_HIGH,
-                .ipv6_accept_ra_route_metric_medium = IPV6RA_ROUTE_METRIC_MEDIUM,
-                .ipv6_accept_ra_route_metric_low = IPV6RA_ROUTE_METRIC_LOW,
-                .ipv6_accept_ra_start_dhcp6_client = IPV6_ACCEPT_RA_START_DHCP6_CLIENT_YES,
+                .ndisc = -1,
+                .ndisc_use_dns = true,
+                .ndisc_use_gateway = true,
+                .ndisc_use_captive_portal = true,
+                .ndisc_use_route_prefix = true,
+                .ndisc_use_autonomous_prefix = true,
+                .ndisc_use_onlink_prefix = true,
+                .ndisc_use_mtu = true,
+                .ndisc_use_hop_limit = true,
+                .ndisc_use_reachable_time = true,
+                .ndisc_use_retransmission_time = true,
+                .ndisc_route_table = RT_TABLE_MAIN,
+                .ndisc_route_metric_high = IPV6RA_ROUTE_METRIC_HIGH,
+                .ndisc_route_metric_medium = IPV6RA_ROUTE_METRIC_MEDIUM,
+                .ndisc_route_metric_low = IPV6RA_ROUTE_METRIC_LOW,
+                .ndisc_start_dhcp6_client = IPV6_ACCEPT_RA_START_DHCP6_CLIENT_YES,
 
                 .can_termination = -1,
 

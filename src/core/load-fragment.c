@@ -434,8 +434,9 @@ int config_parse_colon_separated_paths(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         char ***sv = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -575,17 +576,13 @@ int config_parse_socket_listen(
                 void *data,
                 void *userdata) {
 
+        Socket *s = ASSERT_PTR(SOCKET(data));
         _cleanup_free_ SocketPort *p = NULL;
-        SocketPort *tail;
-        Socket *s;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
-
-        s = SOCKET(data);
 
         if (isempty(rvalue)) {
                 /* An empty assignment removes all ports */
@@ -593,9 +590,14 @@ int config_parse_socket_listen(
                 return 0;
         }
 
-        p = new0(SocketPort, 1);
+        p = new(SocketPort, 1);
         if (!p)
                 return log_oom();
+
+        *p = (SocketPort) {
+                .socket = s,
+                .fd = -EBADF,
+        };
 
         if (ltype != SOCKET_SOCKET) {
                 _cleanup_free_ char *k = NULL;
@@ -606,7 +608,11 @@ int config_parse_socket_listen(
                         return 0;
                 }
 
-                r = path_simplify_and_warn(k, PATH_CHECK_ABSOLUTE|PATH_CHECK_NON_API_VFS, unit, filename, line, lvalue);
+                PathSimplifyWarnFlags flags = PATH_CHECK_ABSOLUTE;
+                if (ltype != SOCKET_SPECIAL)
+                        flags |= PATH_CHECK_NON_API_VFS;
+
+                r = path_simplify_and_warn(k, flags, unit, filename, line, lvalue);
                 if (r < 0)
                         return 0;
 
@@ -620,7 +626,7 @@ int config_parse_socket_listen(
                 p->type = ltype;
 
         } else if (streq(lvalue, "ListenNetlink")) {
-                _cleanup_free_ char  *k = NULL;
+                _cleanup_free_ char *k = NULL;
 
                 r = unit_path_printf(UNIT(s), rvalue, &k);
                 if (r < 0) {
@@ -645,7 +651,7 @@ int config_parse_socket_listen(
                         return 0;
                 }
 
-                if (k[0] == '/') { /* Only for AF_UNIX file system sockets… */
+                if (path_is_absolute(k)) { /* Only for AF_UNIX file system sockets… */
                         r = patch_var_run(unit, filename, line, lvalue, &k);
                         if (r < 0)
                                 return r;
@@ -675,16 +681,7 @@ int config_parse_socket_listen(
                 p->type = SOCKET_SOCKET;
         }
 
-        p->fd = -EBADF;
-        p->auxiliary_fds = NULL;
-        p->n_auxiliary_fds = 0;
-        p->socket = s;
-
-        tail = LIST_FIND_TAIL(port, s->ports);
-        LIST_INSERT_AFTER(port, s->ports, tail, p);
-
-        p = NULL;
-
+        LIST_APPEND(port, s->ports, TAKE_PTR(p));
         return 0;
 }
 
@@ -4695,7 +4692,7 @@ int config_parse_exec_directories(
 
                 _cleanup_free_ char *src = NULL, *dest = NULL;
                 const char *q = tuple;
-                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &src, &dest, NULL);
+                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &src, &dest);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r <= 0) {
@@ -5398,7 +5395,7 @@ int config_parse_mount_images(
                         return 0;
 
                 q = tuple;
-                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &first, &second, NULL);
+                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &first, &second);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -5447,7 +5444,7 @@ int config_parse_mount_images(
                         MountOptions *o = NULL;
                         PartitionDesignator partition_designator;
 
-                        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options, NULL);
+                        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0) {
@@ -5589,7 +5586,7 @@ int config_parse_extension_images(
                         MountOptions *o = NULL;
                         PartitionDesignator partition_designator;
 
-                        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options, NULL);
+                        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0) {
@@ -6145,7 +6142,7 @@ int config_parse_mount_node(
                 return log_oom();
 
         /* The source passed is not necessarily something we understand, and we pass it as-is to mount/swapon,
-         * so path_is_valid is not used. But let's check for basic sanety, i.e. if the source is longer than
+         * so path_is_valid is not used. But let's check for basic sanity, i.e. if the source is longer than
          * PATH_MAX, you're likely doing something wrong. */
         if (strlen(path) >= PATH_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Resolved mount path '%s' too long, ignoring.", path);

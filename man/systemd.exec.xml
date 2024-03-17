@@ -155,9 +155,7 @@
           <programlisting>BindReadOnlyPaths=/dev/log /run/systemd/journal/socket /run/systemd/journal/stdout</programlisting>
         </example>
 
-        <para>In place of the directory path a <literal>.v/</literal> versioned directory may be specified,
-        see <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details.</para>
+        <xi:include href="vpick.xml" xpointer="directory"/>
 
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
@@ -195,9 +193,7 @@
         <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>),
         in case the service is configured to survive it.</para>
 
-        <para>In place of the image path a <literal>.v/</literal> versioned directory may be specified, see
-        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details.</para>
+        <xi:include href="vpick.xml" xpointer="image"/>
 
         <xi:include href="system-only.xml" xpointer="singular"/>
 
@@ -555,6 +551,8 @@
         <varname>PrivateDevices=</varname> below, as it may change the setting of
         <varname>DevicePolicy=</varname>.</para>
 
+        <xi:include href="vpick.xml" xpointer="image"/>
+
         <xi:include href="system-only.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
@@ -589,6 +587,8 @@
 
         <para>Note that usage from user units requires overlayfs support in unprivileged user namespaces,
         which was first introduced in kernel v5.11.</para>
+
+        <xi:include href="vpick.xml" xpointer="directory"/>
 
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
 
@@ -1237,9 +1237,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>IgnoreSIGPIPE=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, causes <constant>SIGPIPE</constant> to be ignored in the
-        executed process. Defaults to true because <constant>SIGPIPE</constant> generally is useful only in shell
-        pipelines.</para></listitem>
+        <listitem><para>Takes a boolean argument. If true, <constant>SIGPIPE</constant> is ignored in the
+        executed process. Defaults to true since <constant>SIGPIPE</constant> is generally only useful in
+        shell pipelines.</para></listitem>
       </varlistentry>
 
     </variablelist>
@@ -3017,7 +3017,7 @@ SystemCallErrorNumber=EPERM</programlisting>
         the kernel log buffer, the unit will implicitly gain a dependency of type <varname>After=</varname>
         on <filename>systemd-journald.socket</filename> (also see the "Implicit Dependencies" section
         above). Also note that in this case stdout (or stderr, see below) will be an
-        <constant>AF_UNIX</constant> stream socket, and not a pipe or FIFO that can be re-opened. This means
+        <constant>AF_UNIX</constant> stream socket, and not a pipe or FIFO that can be reopened. This means
         when executing shell scripts the construct <command>echo "hello" &gt; /dev/stderr</command> for
         writing text to stderr will not work. To mitigate this use the construct <command>echo "hello"
         >&amp;2</command> instead, which is mostly equivalent and avoids this pitfall.</para>

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # systemd-cat(1) completion                  -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
@@ -30,7 +31,7 @@ _systemd_cat() {
 
     local -A OPTS=(
         [STANDALONE]='-h --help --version'
-        [ARG]='-t --identifier -p --priority --stderr-priority --level-prefix'
+        [ARG]='-t --identifier -p --priority --stderr-priority --level-prefix --namespace'
     )
 
     _init_completion || return
@@ -45,6 +46,9 @@ _systemd_cat() {
                 ;;
             --level-prefix)
                 comps='yes no'
+                ;;
+            --namespace)
+                comps=$(journalctl --list-namespaces --output=cat 2>/dev/null)
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

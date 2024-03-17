@@ -832,12 +832,16 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
 
                 break;
 
-        case SD_DHCP_OPTION_ROOT_PATH:
-                r = dhcp_option_parse_string(option, len, &lease->root_path);
+        case SD_DHCP_OPTION_ROOT_PATH: {
+                _cleanup_free_ char *p = NULL;
+
+                r = dhcp_option_parse_string(option, len, &p);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse root path, ignoring: %m");
-                break;
 
+                free_and_replace(lease->root_path, p);
+                break;
+        }
         case SD_DHCP_OPTION_RENEWAL_TIME:
                 r = lease_parse_be32_seconds(option, len, /* max_as_infinity = */ true, &lease->t1);
                 if (r < 0)

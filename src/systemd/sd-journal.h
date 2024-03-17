@@ -57,6 +57,7 @@ int sd_journal_perror_with_location(const char *file, const char *line, const ch
 #endif
 
 int sd_journal_stream_fd(const char *identifier, int priority, int level_prefix);
+int sd_journal_stream_fd_with_namespace(const char *name_space, const char *identifier, int priority, int level_prefix);
 
 /* Browse journal stream */
 
@@ -72,6 +73,7 @@ enum {
         SD_JOURNAL_ALL_NAMESPACES            = 1 << 5, /* Show all namespaces, not just the default or specified one */
         SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE = 1 << 6, /* Show default namespace in addition to specified one */
         SD_JOURNAL_TAKE_DIRECTORY_FD         = 1 << 7, /* sd_journal_open_directory_fd() will take ownership of the provided file descriptor. */
+        SD_JOURNAL_ASSUME_IMMUTABLE          = 1 << 8, /* Assume the opened journal files are immutable. Journal entries added later may be ignored. */
 
         SD_JOURNAL_SYSTEM_ONLY _sd_deprecated_ = SD_JOURNAL_SYSTEM /* old name */
 };

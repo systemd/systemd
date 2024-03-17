@@ -19,3 +19,4 @@ ListenSequentialPacket=/run/systemd/coredump
 SocketMode=0600
 Accept=yes
 MaxConnections=16
+MaxConnectionsPerSource=8

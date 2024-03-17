@@ -1,10 +1,517 @@
 [
-    { "category": "Project", "title": "Brand", "url": "https://brand.systemd.io/" },
-    { "category": "Project", "title": "Releases", "url": "https://github.com/systemd/systemd/releases" },
-    { "category": "Project", "title": "GitHub Project Page", "url": "https://github.com/systemd/systemd" },
-    { "category": "Project", "title": "Issues", "url": "https://github.com/systemd/systemd/issues" },
-    { "category": "Project", "title": "Pull Requests", "url": "https://github.com/systemd/systemd/pulls" },
-    { "category": "Project", "title": "Mailing List", "url": "https://lists.freedesktop.org/mailman/listinfo/systemd-devel" },
-    { "category": "Manual Pages", "title": "Index", "url": "https://www.freedesktop.org/software/systemd/man/" },
-    { "category": "Manual Pages", "title": "Directives", "url": "https://www.freedesktop.org/software/systemd/man/systemd.directives.html" }
+  {
+    "category": "Project",
+    "title": "mkosi Project - Build Bespoke OS Images",
+    "url": "https://mkosi.systemd.io/"
+  },
+  {
+    "category": "Project",
+    "title": "Brand",
+    "url": "https://brand.systemd.io/"
+  },
+  {
+    "category": "Project",
+    "title": "Mailing List",
+    "url": "https://lists.freedesktop.org/mailman/listinfo/systemd-devel"
+  },
+  {
+    "category": "Project",
+    "title": "Mastodon",
+    "url": "https://mastodon.social/@pid_eins"
+  },
+  {
+    "category": "Project",
+    "title": "Releases",
+    "url": "https://github.com/systemd/systemd/releases"
+  },
+  {
+    "category": "Project",
+    "title": "GitHub Project Page",
+    "url": "https://github.com/systemd/systemd"
+  },
+  {
+    "category": "Project",
+    "title": "Issues",
+    "url": "https://github.com/systemd/systemd/issues"
+  },
+  {
+    "category": "Project",
+    "title": "Pull Requests",
+    "url": "https://github.com/systemd/systemd/pulls"
+  },
+  {
+    "category": "Manual Pages",
+    "title": "Index",
+    "url": "https://www.freedesktop.org/software/systemd/man/"
+  },
+  {
+    "category": "Manual Pages",
+    "title": "Directives",
+    "url": "https://www.freedesktop.org/software/systemd/man/systemd.directives.html"
+  },
+  {
+    "category": "Publications",
+    "title": "Article in The H",
+    "url": "http://www.h-online.com/open/features/Control-Centre-The-systemd-Linux-init-system-1565543.html"
+  },
+  {
+    "category": "Publications",
+    "title": "Article in The H, Part 2",
+    "url": "http://www.h-online.com/open/features/Booting-up-Tools-and-tips-for-systemd-1570630.html"
+  },
+  {
+    "category": "Publications",
+    "title": "Bê-á-bá do systemd #1 (Brazilian Portuguese)",
+    "url": "https://community.ibm.com/community/user/legacy"
+  },
+  {
+    "category": "Publications",
+    "title": "Bê-á-bá do systemd #2 (Brazilian Portuguese)",
+    "url": "https://community.ibm.com/community/user/legacy"
+  },
+  {
+    "category": "Publications",
+    "title": "Bê-á-bá do systemd #3 (Brazilian Portuguese)",
+    "url": "https://community.ibm.com/community/user/legacy"
+  },
+  {
+    "category": "Publications",
+    "title": "Bê-á-bá do systemd #4 (Brazilian Portuguese)",
+    "url": "https://community.ibm.com/community/user/legacy"
+  },
+  {
+    "category": "Publications",
+    "title": "Bê-á-bá do systemd #5 (Brazilian Portuguese)",
+    "url": "https://community.ibm.com/community/user/legacy"
+  },
+  {
+    "category": "Publications",
+    "title": "Bê-á-bá do systemd #6 (Brazilian Portuguese)",
+    "url": "https://community.ibm.com/community/user/legacy"
+  },
+  {
+    "category": "Publications",
+    "title": "Évolutions techniques de systemd (French)",
+    "url": "https://linuxfr.org/news/evolutions-techniques-de-systemd"
+  },
+  {
+    "category": "Publications",
+    "title": "RHEL7 docs",
+    "url": "https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/system_administrators_guide/chap-managing_services_with_systemd"
+  },
+  {
+    "category": "Publications",
+    "title": "SUSE White Paper on systemd",
+    "url": "https://www.suse.com/media/white-paper/systemd_in_suse_linux_enterprise_12_white_paper.pdf"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about kdbus at linux.conf.au 2014",
+    "url": "https://mirror.linux.org.au/pub/linux.conf.au/2014/Friday/104-D-Bus_in_the_kernel_-_Lennart_Poettering.mp4"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at the Red Hat Summit 2013",
+    "url": "https://access.redhat.com/videos/403833"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about the journal at Devconf 2013",
+    "url": "https://www.youtube.com/watch?v=i4CACB7paLc"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about recent developments at Devconf 2013",
+    "url": "https://www.youtube.com/watch?v=_rrpjYD373A"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at FOSDEM 2013",
+    "url": "https://ftp.fau.de/fosdem/2013/maintracks/Janson/systemd,_Two_Years_Later.webm"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at FOSDEM 2013 (Slides)",
+    "url": "https://0pointer.de/public/systemd-fosdem2013.pdf"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at FOSS.in 2012",
+    "url": "https://www.youtube.com/watch?v=_2aa34Uzr3c"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at OSEC Barcamp 2012",
+    "url": "https://www.youtube.com/watch?v=9UnEV9SPuw8"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at FOSDEM 2011",
+    "url": "https://www.youtube.com/watch?v=TyMLi8QF6sw"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at linux.conf.au 2011",
+    "url": "http://linuxconfau.blip.tv/file/4696791/"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at linux.conf.au 2011 (Slides)",
+    "url": "https://0pointer.de/public/systemd-lca2011.pdf"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Interview about systemd at golem.de (German)",
+    "url": "https://video.golem.de/oss/4823/interview-mit-lennart-poettering-entwickler-systemd.html"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at OSworld 2014 (systemd cheat-sheet) (Polish)",
+    "url": "https://www.youtube.com/watch?v=tU3HJVUPMyw"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#01: Verifying Bootup",
+    "url": "https://0pointer.de/blog/projects/systemd-for-admins-1.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#02: Which Service Owns Which Processes?",
+    "url": "https://0pointer.de/blog/projects/systemd-for-admins-2.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#03: How Do I Convert A SysV Init Script Into A systemd Service File?",
+    "url": "https://0pointer.de/blog/projects/systemd-for-admins-3.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#04: Killing Services",
+    "url": "https://0pointer.de/blog/projects/systemd-for-admins-4.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#05: The Three Levels of \"Off\"",
+    "url": "https://0pointer.de/blog/projects/three-levels-of-off"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#06: Changing Roots",
+    "url": "https://0pointer.de/blog/projects/changing-roots.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#07: The Blame Game",
+    "url": "https://0pointer.de/blog/projects/blame-game.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#08: The New Configuration Files",
+    "url": "https://0pointer.de/blog/projects/the-new-configuration-files"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#09: On /etc/sysconfig and /etc/default",
+    "url": "https://0pointer.de/blog/projects/on-etc-sysinit.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#10: Instantiated Services",
+    "url": "https://0pointer.de/blog/projects/instances.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#11: Converting inetd Services",
+    "url": "https://0pointer.de/blog/projects/inetd.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#12: Securing Your Services",
+    "url": "https://0pointer.de/blog/projects/security.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#13: Log and Service Status",
+    "url": "https://0pointer.de/blog/projects/systemctl-journal.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#14: The Self-Explanatory Boot",
+    "url": "https://0pointer.de/blog/projects/self-documented-boot.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#15: Watchdogs",
+    "url": "https://0pointer.de/blog/projects/watchdog.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#16: Gettys on Serial Consoles (and Elsewhere)",
+    "url": "https://0pointer.de/blog/projects/serial-console.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#17: Using the Journal",
+    "url": "https://0pointer.de/blog/projects/journalctl.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#18: Managing Resources",
+    "url": "https://0pointer.de/blog/projects/resources.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#19: Detecting Virtualization",
+    "url": "https://0pointer.de/blog/projects/detect-virt.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#20: Socket Activated Internet Services and OS Containers",
+    "url": "https://0pointer.de/blog/projects/socket-activated-containers.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#21: Container Integration",
+    "url": "https://0pointer.net/blog/systemd-for-administrators-part-xxi.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "A Russian translation",
+    "url": "https://wiki.opennet.ru/Systemd_%D0%B4%D0%BB%D1%8F_%D0%B0%D0%B4%D0%BC%D0%B8%D0%BD%D0%B8%D1%81%D1%82%D1%80%D0%B0%D1%82%D0%BE%D1%80%D0%BE%D0%B2"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "A more complete Russian translation (PDF)",
+    "url": "http://www2.kangran.su/~nnz/pub/s4a/s4a_latest.pdf"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "A Vietnamese translation",
+    "url": "https://archlinuxvn.org/doc/systemd/#lp"
+  },
+  {
+    "category": "The systemd for Developers Series",
+    "title": "#1: Socket Activation",
+    "url": "https://0pointer.de/blog/projects/socket-activation.html"
+  },
+  {
+    "category": "The systemd for Developers Series",
+    "title": "#2: Socket Activation (Part 2)",
+    "url": "https://0pointer.de/blog/projects/socket-activation2.html"
+  },
+  {
+    "category": "The systemd for Developers Series",
+    "title": "#3: Logging to the Journal",
+    "url": "https://0pointer.de/blog/projects/journal-submit.html"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Go Bindings for the Journal API, socket activation and DBUS",
+    "url": "https://github.com/coreos/go-systemd"
+  },
+  {
+    "category": "Related Packages",
+    "title": "PHP Bindings for the Journal APIs",
+    "url": "https://github.com/systemd/php-systemd"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Lua Bindinds for systemd APIs",
+    "url": "https://github.com/daurnimator/lua-systemd"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Node.JS bindings for the Journal APIs",
+    "url": "https://www.fourkitchens.com/blog/2012/09/25/nodejs-extension-systemd"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Node.JS support for systemd Socket Activation",
+    "url": "https://www.npmjs.com/package/systemd"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Node.JS wrapper for sd_notify",
+    "url": "https://www.npmjs.com/package/sd-notify"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Node.JS wrapper for sd_notify (repo)",
+    "url": "https://github.com/systemd/node-sd-notify"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Experimental Qt bindings",
+    "url": "https://github.com/ilpianista/libsystemd-qt"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Haskell socket activation",
+    "url": "https://hackage.haskell.org/package/socket-activation"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Haskell Journal API",
+    "url": "https://hackage.haskell.org/package/libsystemd-journal"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Ruby bindings for the Journal APIs",
+    "url": "https://github.com/ledbettj/systemd-journal"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Ruby bindings for the systemd D-Bus APIs",
+    "url": "https://github.com/nathwill/ruby-dbus-systemd"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Erlang bindings for the Journal APIs",
+    "url": "https://github.com/systemd/ejournald"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Erlang journald backend for Lager",
+    "url": "https://github.com/travelping/lager_journald_backend"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Perl bindings for the Journal APIs",
+    "url": "https://metacpan.org/release/LKUNDRAK/Log-Journald-0.10"
+  },
+  {
+    "category": "Related Packages",
+    "title": "GLib bindings",
+    "url": "https://github.com/tcbrindle/systemd-glib"
+  },
+  {
+    "category": "Related Packages",
+    "title": "python-systemd",
+    "url": "https://www.freedesktop.org/software/systemd/python-systemd/index.html"
+  },
+  {
+    "category": "Related Packages",
+    "title": "pystemd",
+    "url": "https://github.com/systemd/pystemd"
+  },
+  {
+    "category": "Related Packages",
+    "title": "C++ bindings for sd-bus",
+    "url": "https://github.com/Kistler-Group/sdbus-cpp/"
+  },
+  {
+    "category": "Documentation for Developers - external links",
+    "title": "On /etc/os-release",
+    "url": "http://0pointer.de/blog/projects/os-release.html"
+  },
+  {
+    "category": "Documentation for Developers - external links",
+    "title": "Control Groups vs. Control Groups",
+    "url": "http://0pointer.de/blog/projects/cgroups-vs-cgroups.html"
+  },
+  {
+    "category": "Documentation for Developers - external links",
+    "title": "The 30 Biggest Myths about systemd",
+    "url": "http://0pointer.de/blog/projects/the-biggest-myths.html"
+  },
+  {
+    "category": "Documentation for Developers - external links",
+    "title": "Introduction to systemd in French",
+    "url": "http://lea-linux.org/documentations/Systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Fedora packages",
+    "url": "https://packages.fedoraproject.org/pkgs/systemd/systemd/"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Fedora sources",
+    "url": "https://src.fedoraproject.org/rpms/systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Fedora bugtracker",
+    "url": "https://bugzilla.redhat.com/buglist.cgi?list_id=565273&classification=Fedora&query_format=advanced&bug_status=NEW&bug_status=ASSIGNED&bug_status=MODIFIED&bug_status=ON_DEV&bug_status=ON_QA&bug_status=VERIFIED&bug_status=RELEASE_PENDING&bug_status=POST&component=systemd&product=Fedora"
+  },
+  {
+    "category": "The various distributions",
+    "title": "openSUSE packages",
+    "url": "https://build.opensuse.org/package/show/Base:System/systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "openSUSE instructions",
+    "url": "http://en.opensuse.org/SDB:Systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "openSUSE bugtracker",
+    "url": "https://bugzilla.novell.com/buglist.cgi?short_desc=systemd&field0-0-0=product&type0-0-1=substring&field0-0-1=component&classification=openSUSE&value0-0-2=systemd&query_based_on=systemd&query_format=advanced&type0-0-3=substring&field0-0-3=status_whiteboard&value0-0-3=systemd&bug_status=UNCONFIRMED&bug_status=NEW&bug_status=ASSIGNED&bug_status=NEEDINFO&bug_status=REOPENED&short_desc_type=allwordssubstr&field0-0-2=short_desc&value0-0-1=systemd&type0-0-0=substring&value0-0-0=systemd&type0-0-2=substring&known_name=systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Arch Linux packages",
+    "url": "https://www.archlinux.org/packages/core/x86_64/systemd/"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Arch Linux wiki",
+    "url": "https://wiki.archlinux.org/index.php/Systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Arch Linux bugtracker",
+    "url": "https://gitlab.archlinux.org/archlinux/packaging/packages/systemd/-/issues"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Debian packages",
+    "url": "http://packages.debian.org/systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Debian wiki",
+    "url": "http://wiki.debian.org/systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Debian bugtracker",
+    "url": "http://bugs.debian.org/cgi-bin/pkgreport.cgi?ordering=normal;archive=0;src=systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Ubuntu packages",
+    "url": "https://launchpad.net/ubuntu/+source/systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Ubuntu wiki",
+    "url": "https://wiki.ubuntu.com/systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Mageia packages",
+    "url": "http://svnweb.mageia.org/packages/cauldron/systemd/current/"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Mageia bugtracker",
+    "url": "https://bugs.mageia.org/buglist.cgi?field0-0-0=cf_rpmpkg&query_format=advanced&bug_status=NEW&bug_status=UNCONFIRMED&bug_status=ASSIGNED&bug_status=REOPENED&type0-0-0=substring&value0-0-0=systemd&component=RPM%20Packages&product=Mageia"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Gentoo packages",
+    "url": "http://packages.gentoo.org/package/sys-apps/systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Gentoo wiki",
+    "url": "http://wiki.gentoo.org/wiki/Systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Gentoo bugtracker",
+    "url": "https://bugs.gentoo.org/buglist.cgi?quicksearch=systemd"
+  }
 ]

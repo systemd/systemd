@@ -204,7 +204,7 @@ typedef struct UnitStatusInfo {
         pid_t control_pid;
         const char *status_text;
         const char *pid_file;
-        bool running:1;
+        bool running;
         int status_errno;
 
         uint32_t fd_store_max;
@@ -2200,96 +2200,6 @@ static int show_one(
         return 0;
 }
 
-static int get_unit_dbus_path_by_pid_fallback(
-                sd_bus *bus,
-                uint32_t pid,
-                char **ret_path,
-                char **ret_unit) {
-
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_free_ char *path = NULL, *unit = NULL;
-        char *p;
-        int r;
-
-        assert(bus);
-        assert(ret_path);
-        assert(ret_unit);
-
-        r = bus_call_method(bus, bus_systemd_mgr, "GetUnitByPID", &error, &reply, "u", pid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get unit for PID %"PRIu32": %s", pid, bus_error_message(&error, r));
-
-        r = sd_bus_message_read(reply, "o", &p);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        path = strdup(p);
-        if (!path)
-                return log_oom();
-
-        r = unit_name_from_dbus_path(path, &unit);
-        if (r < 0)
-                return log_oom();
-
-        *ret_unit = TAKE_PTR(unit);
-        *ret_path = TAKE_PTR(path);
-
-        return 0;
-}
-
-static int get_unit_dbus_path_by_pid(
-                sd_bus *bus,
-                uint32_t pid,
-                char **ret_path,
-                char **ret_unit) {
-
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_free_ char *path = NULL, *unit = NULL;
-        _cleanup_close_ int pidfd = -EBADF;
-        char *p, *u;
-        int r;
-
-        assert(bus);
-        assert(ret_path);
-        assert(ret_unit);
-
-        /* First, try to send a PIDFD across the wire, so that we can pin the process and there's no race
-         * condition possible while we wait for the D-Bus reply. If we either don't have PIDFD support in
-         * the kernel or the new D-Bus method is not available, then fallback to the older method that
-         * sends the numeric PID. */
-
-        pidfd = pidfd_open(pid, 0);
-        if (pidfd < 0 && ERRNO_IS_NOT_SUPPORTED(errno))
-                return get_unit_dbus_path_by_pid_fallback(bus, pid, ret_path, ret_unit);
-        if (pidfd < 0)
-                return log_error_errno(errno, "Failed to open PID %"PRIu32": %m", pid);
-
-        r = bus_call_method(bus, bus_systemd_mgr, "GetUnitByPIDFD", &error, &reply, "h", pidfd);
-        if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
-                return get_unit_dbus_path_by_pid_fallback(bus, pid, ret_path, ret_unit);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get unit for PID %"PRIu32": %s", pid, bus_error_message(&error, r));
-
-        r = sd_bus_message_read(reply, "os", &p, &u);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        path = strdup(p);
-        if (!path)
-                return log_oom();
-
-        unit = strdup(u);
-        if (!unit)
-                return log_oom();
-
-        *ret_unit = TAKE_PTR(unit);
-        *ret_path = TAKE_PTR(path);
-
-        return 0;
-}
-
 static int show_all(
                 sd_bus *bus,
                 SystemctlShowMode show_mode,
@@ -2461,9 +2371,9 @@ int verb_show(int argc, char *argv[], void *userdata) {
 
                         } else {
                                 /* Interpret as PID */
-                                r = get_unit_dbus_path_by_pid(bus, id, &path, &unit);
+                                r = lookup_unit_by_pidref(bus, (pid_t) id, &unit, &path);
                                 if (r < 0) {
-                                        ret = r;
+                                        RET_GATHER(ret, r);
                                         continue;
                                 }
                         }

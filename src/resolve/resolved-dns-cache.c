@@ -243,6 +243,22 @@ void dns_cache_prune(DnsCache *c) {
         }
 }
 
+bool dns_cache_expiry_in_one_second(DnsCache *c, usec_t t) {
+        DnsCacheItem *i;
+
+        assert(c);
+
+        /* Check if any items expire within the next second */
+        i = prioq_peek(c->by_expiry);
+        if (!i)
+                return false;
+
+        if (i->until <= usec_add(t, USEC_PER_SEC))
+                return true;
+
+        return false;
+}
+
 static int dns_cache_item_prioq_compare_func(const void *a, const void *b) {
         const DnsCacheItem *x = a, *y = b;
 
@@ -531,6 +547,20 @@ static int dns_cache_put_positive(
         TAKE_PTR(i);
         return 0;
 }
+/* https://www.iana.org/assignments/special-use-domain-names/special-use-domain-names.xhtml */
+/* https://www.iana.org/assignments/locally-served-dns-zones/locally-served-dns-zones.xhtml#transport-independent */
+static bool dns_special_use_domain_invalid_answer(DnsResourceKey *key, int rcode) {
+        /* Sometimes we know a domain exists, even if broken nameservers say otherwise. Make sure not to
+         * cache any answers we know are wrong. */
+
+        /* RFC9462 § 6.4: resolvers SHOULD respond to queries of any type other than SVCB for
+         * _dns.resolver.arpa. with NODATA and queries of any type for any domain name under resolver.arpa
+         * with NODATA. */
+        if (dns_name_endswith(dns_resource_key_name(key), "resolver.arpa") > 0 && rcode == DNS_RCODE_NXDOMAIN)
+                return true;
+
+        return false;
+}
 
 static int dns_cache_put_negative(
                 DnsCache *c,
@@ -560,6 +590,8 @@ static int dns_cache_put_negative(
         if (dns_class_is_pseudo(key->class))
                 return 0;
         if (dns_type_is_pseudo(key->type))
+                return 0;
+        if (dns_special_use_domain_invalid_answer(key, rcode))
                 return 0;
 
         if (IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN)) {

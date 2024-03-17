@@ -209,7 +209,9 @@ int bpf_restrict_fs_update(const Set *filesystems, uint64_t cgroup_id, int outer
         return 0;
 }
 
-int bpf_restrict_fs_cleanup(const Unit *u) {
+int bpf_restrict_fs_cleanup(Unit *u) {
+        CGroupRuntime *crt;
+
         assert(u);
         assert(u->manager);
 
@@ -220,14 +222,18 @@ int bpf_restrict_fs_cleanup(const Unit *u) {
         if (!u->manager->restrict_fs)
                 return 0;
 
-        if (u->cgroup_id == 0)
+        crt = unit_get_cgroup_runtime(u);
+        if (!crt)
+                return 0;
+
+        if (crt->cgroup_id == 0)
                 return 0;
 
         int fd = sym_bpf_map__fd(u->manager->restrict_fs->maps.cgroup_hash);
         if (fd < 0)
                 return log_unit_error_errno(u, errno, "bpf-restrict-fs: Failed to get BPF map fd: %m");
 
-        if (sym_bpf_map_delete_elem(fd, &u->cgroup_id) != 0 && errno != ENOENT)
+        if (sym_bpf_map_delete_elem(fd, &crt->cgroup_id) != 0 && errno != ENOENT)
                 return log_unit_debug_errno(u, errno, "bpf-restrict-fs: Failed to delete cgroup entry from LSM BPF map: %m");
 
         return 0;
@@ -259,7 +265,7 @@ int bpf_restrict_fs_update(const Set *filesystems, uint64_t cgroup_id, int outer
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-restrict-fs: Failed to restrict filesystems using LSM BPF: %m");
 }
 
-int bpf_restrict_fs_cleanup(const Unit *u) {
+int bpf_restrict_fs_cleanup(Unit *u) {
         return 0;
 }
 

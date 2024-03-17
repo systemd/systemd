@@ -1,0 +1,442 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="importctl" conditional='ENABLE_MACHINED'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>importctl</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>importctl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>importctl</refname>
+    <refpurpose>Download, import or export disk images</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>importctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="req">COMMAND</arg>
+      <arg choice="opt" rep="repeat">NAME</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>importctl</command> may be used to download, import export disk images via
+    <citerefentry><refentrytitle>systemd-importd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+    <para><command>importctl</command> operates both on block-level disk images (such as DDIs) as well as
+    file-system-level images (tarballs). It supports disk images are one of the four following
+    classes:</para>
+
+    <itemizedlist>
+      <listitem><para>VM images or full OS container images, that may be run via
+      <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> or
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>, and
+      managed via
+      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+
+      <listitem><para>Portable service images, that may be attached an managed via
+      <citerefentry><refentrytitle>portablectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+
+      <listitem><para>System extension (sysext) images, that may be activated via
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+
+      <listitem><para>Configuration extension (confext) images, that may be activated via
+      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+    </itemizedlist>
+
+    <para>When images are downloaded or imported they are placed in the following directories, depending on
+    the <option>--class=</option> parameter:</para>
+
+    <table>
+      <title>Classes and Directories</title>
+      <tgroup cols='2'>
+        <colspec colname='class' />
+        <colspec colname='directory' />
+        <thead>
+          <row>
+            <entry>Class</entry>
+            <entry>Directory</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><literal>machine</literal></entry>
+            <entry><filename>/var/lib/machines/</filename></entry>
+          </row>
+          <row>
+            <entry><literal>portable</literal></entry>
+            <entry><filename>/var/lib/portables/</filename></entry>
+          </row>
+          <row>
+            <entry><literal>sysext</literal></entry>
+            <entry><filename>/var/lib/extensions/</filename></entry>
+          </row>
+          <row>
+            <entry><literal>confext</literal></entry>
+            <entry><filename>/var/lib/confexts/</filename></entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>pull-tar</command> <replaceable>URL</replaceable> [<replaceable>NAME</replaceable>]</term>
+
+        <listitem><para>Downloads a <filename>.tar</filename> image from the specified URL, and makes it
+        available under the specified local name in the image directory for the selected
+        <option>--class=</option>. The URL must be of type <literal>http://</literal> or
+        <literal>https://</literal>, and must refer to a <filename>.tar</filename>,
+        <filename>.tar.gz</filename>, <filename>.tar.xz</filename> or <filename>.tar.bz2</filename> archive
+        file. If the local image name is omitted, it is automatically derived from the last component of the
+        URL, with its suffix removed.</para>
+
+        <para>The image is verified before it is made available, unless <option>--verify=no</option> is
+        specified.  Verification is done either via an inline signed file with the name of the image and the
+        suffix <filename>.sha256</filename> or via separate <filename>SHA256SUMS</filename> and
+        <filename>SHA256SUMS.gpg</filename> files.  The signature files need to be made available on the same
+        web server, under the same URL as the <filename>.tar</filename> file.  With
+        <option>--verify=checksum</option>, only the SHA256 checksum for the file is verified, based on the
+        <filename>.sha256</filename> suffixed file or the <filename>SHA256SUMS</filename> file.  With
+        <option>--verify=signature</option>, the sha checksum file is first verified with the inline
+        signature in the <filename>.sha256</filename> file or the detached GPG signature file
+        <filename>SHA256SUMS.gpg</filename>.  The public key for this verification step needs to be available
+        in <filename>/usr/lib/systemd/import-pubring.gpg</filename> or
+        <filename>/etc/systemd/import-pubring.gpg</filename>.</para>
+
+        <para>If <option>-keep-download=yes</option> is specified the image will be downloaded and stored in
+        a read-only subvolume/directory in the image directory that is named after the specified URL and its
+        HTTP etag. A writable snapshot is then taken from this subvolume, and named after the specified local
+        name. This behavior ensures that creating multiple instances of the same URL is efficient, as
+        multiple downloads are not necessary. In order to create only the read-only image, and avoid creating
+        its writable snapshot, specify <literal>-</literal> as local name.</para>
+
+        <para>Note that pressing C-c during execution of this command will not abort the download. Use
+        <command>cancel-transfer</command>, described below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>pull-raw</command> <replaceable>URL</replaceable> [<replaceable>NAME</replaceable>]</term>
+
+        <listitem><para>Downloads a <filename>.raw</filename> disk image from the specified URL, and makes it
+        available under the specified local name in the image directory for the selected
+        <option>--class=</option>. The URL must be of type <literal>http://</literal> or
+        <literal>https://</literal>. The image must either be a <filename>.qcow2</filename> or raw disk
+        image, optionally compressed as <filename>.gz</filename>, <filename>.xz</filename>, or
+        <filename>.bz2</filename>. If the local name is omitted, it is automatically derived from the last
+        component of the URL, with its suffix removed.</para>
+
+        <para>Image verification is identical for raw and tar images (see above).</para>
+
+        <para>If the downloaded image is in <filename>.qcow2</filename> format it is converted into a raw
+        image file before it is made available.</para>
+
+        <para>If <option>-keep-download=yes</option> is specified the image will be downloaded and stored in
+        a read-only file in the image directory that is named after the specified URL and its HTTP etag. A
+        writable copy is then made from this file, and named after the specified local name. This behavior
+        ensures that creating multiple instances of the same URL is efficient, as multiple downloads are not
+        necessary. In order to create only the read-only image, and avoid creating its writable copy,
+        specify <literal>-</literal> as local name.</para>
+
+        <para>Note that pressing C-c during execution of this command will not abort the download. Use
+        <command>cancel-transfer</command>, described below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>import-tar</command> <replaceable>FILE</replaceable> [<replaceable>NAME</replaceable>]</term>
+        <term><command>import-raw</command> <replaceable>FILE</replaceable> [<replaceable>NAME</replaceable>]</term>
+
+        <listitem><para>Imports a TAR or RAW image, and places it under the specified name in the image
+        directory for the image class selected via <option>--class=</option>. When
+        <command>import-tar</command> is used, the file specified as the first argument should be a tar
+        archive, possibly compressed with xz, gzip or bzip2. It will then be unpacked into its own
+        subvolume/directory. When <command>import-raw</command> is used, the file should be a qcow2 or raw
+        disk image, possibly compressed with xz, gzip or bzip2. If the second argument (the resulting image
+        name) is not specified, it is automatically derived from the file name. If the filename is passed as
+        <literal>-</literal>, the image is read from standard input, in which case the second argument is
+        mandatory.</para>
+
+        <para>No cryptographic validation is done when importing the images.</para>
+
+        <para>Much like image downloads, ongoing imports may be listed with <command>list</command>
+        and aborted with <command>cancel-transfer</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>import-fs</command> <replaceable>DIRECTORY</replaceable> [<replaceable>NAME</replaceable>]</term>
+
+        <listitem><para>Imports an image stored in a local directory into the image directory for the image
+        class selected via <option>--class=</option> and operates similarly to <command>import-tar</command>
+        or <command>import-raw</command>, but the first argument is the source directory. If supported, this
+        command will create a btrfs snapshot or subvolume for the new image.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>export-tar</command> <replaceable>NAME</replaceable> [<replaceable>FILE</replaceable>]</term>
+        <term><command>export-raw</command> <replaceable>NAME</replaceable> [<replaceable>FILE</replaceable>]</term>
+
+        <listitem><para>Exports a TAR or RAW image and stores it in the specified file. The first parameter
+        should be an image name. The second parameter should be a file path the TAR or RAW
+        image is written to. If the path ends in <literal>.gz</literal>, the file is compressed with gzip, if
+        it ends in <literal>.xz</literal>, with xz, and if it ends in <literal>.bz2</literal>, with bzip2. If
+        the path ends in neither, the file is left uncompressed. If the second argument is missing, the image
+        is written to standard output. The compression may also be explicitly selected with the
+        <option>--format=</option> switch. This is in particular useful if the second parameter is left
+        unspecified.</para>
+
+        <para>Much like image downloads and imports, ongoing exports may be listed with
+        <command>list</command> and aborted with <command>cancel-transfer</command>.</para>
+
+        <para>Note that, currently, only directory and subvolume images may be exported as TAR images, and
+        only raw disk images as RAW images.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list-transfer</command></term>
+
+        <listitem><para>Shows a list of image downloads, imports and exports that are currently in
+        progress.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>cancel-transfer</command> <replaceable>ID</replaceable>…</term>
+
+        <listitem><para>Aborts a download, import or export of the image with the specified ID. To list
+        ongoing transfers and their IDs, use <command>list</command>. </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list-images</command></term>
+
+        <listitem><para>Shows a list of already downloaded/imported images.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--read-only</option></term>
+
+        <listitem>
+          <para>When used with <command>pull-raw</command>, <command>pull-tar</command>,
+          <command>import-raw</command>, <command>import-tar</command> or <command>import-fs</command> a
+          read-only image is created.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--verify=</option></term>
+
+        <listitem><para>When downloading an image, specify whether the image shall be verified before it is
+        made available. Takes one of <literal>no</literal>, <literal>checksum</literal> and
+        <literal>signature</literal>.  If <literal>no</literal>, no verification is done. If
+        <literal>checksum</literal> is specified, the download is checked for integrity after the transfer is
+        complete, but no signatures are verified. If <literal>signature</literal> is specified, the checksum
+        is verified and the image's signature is checked against a local keyring of trustable vendors. It is
+        strongly recommended to set this option to <literal>signature</literal> if the server and protocol
+        support this. Defaults to <literal>signature</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--force</option></term>
+
+        <listitem><para>When downloading an image, and a local copy by the specified local name already
+        exists, delete it first and replace it by the newly downloaded image.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--format=</option></term>
+
+        <listitem><para>When used with the <option>export-tar</option> or <option>export-raw</option>
+        commands, specifies the compression format to use for the resulting file. Takes one of
+        <literal>uncompressed</literal>, <literal>xz</literal>, <literal>gzip</literal>,
+        <literal>bzip2</literal>. By default, the format is determined automatically from the output image
+        file name passed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppresses additional informational output while running.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="host" />
+
+      <varlistentry>
+        <term><option>-M</option></term>
+        <term><option>--machine=</option></term>
+
+        <listitem><para>Connect to
+        <citerefentry><refentrytitle>systemd-import.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        running in a local container, to perform the specified operation within the container.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--class=</option></term>
+        <term><option>-m</option></term>
+        <term><option>-P</option></term>
+        <term><option>-S</option></term>
+        <term><option>-C</option></term>
+
+        <listitem><para>Selects the image class for the downloaded images. This primarily selects the
+        directory to download into. The <option>--class=</option> switch takes <literal>machine</literal>,
+        <literal>portable</literal>, <literal>sysext</literal> or <literal>confext</literal> as argument. The
+        short options <option>-m</option>, <option>-P</option>, <option>-S</option>, <option>-C</option> are
+        shortcuts for <option>--class=machine</option>, <option>--class=portable</option>,
+        <option>--class=sysext</option>, <option>--class=confext</option>.</para>
+
+        <para>Note that <option>--keep-download=</option> defaults to true for
+        <option>--class=machine</option> and false otherwise, see below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--keep-download=</option></term>
+        <term><option>-N</option></term>
+
+        <listitem><para>Takes a boolean argument. When specified with <command>pull-raw</command> or
+        <command>pull-tar</command>, selects whether to download directly into the specified local image
+        name, or whether to download into a read-only copy first of which to make a writable copy after the
+        download is completed. Defaults to true for <option>--class=machine</option>, false otherwise.</para>
+
+        <para>The <option>-N</option> switch is a shortcut for <option>--keep-download=no</option>.</para>
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="json" />
+      <xi:include href="standard-options.xml" xpointer="j" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <example id="example-import-tar">
+      <title>Download an Ubuntu TAR image and open a shell in it</title>
+
+      <programlisting># importctl pull-tar -mN https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64-root.tar.xz
+# systemd-nspawn -M jammy-server-cloudimg-amd64-root</programlisting>
+
+      <para>This downloads and verifies the specified <filename>.tar</filename> image, and then uses
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> to
+      open a shell in it.</para>
+    </example>
+
+    <example id="example-import-raw">
+      <title>Download an Ubuntu RAW image, set a root password in it, start
+      it as a service</title>
+
+      <programlisting># importctl pull-raw -mN \
+      https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64-disk-kvm.img \
+      jammy
+# systemd-firstboot --image=/var/lib/machines/jammy.raw --prompt-root-password --force
+# machinectl start jammy
+# machinectl login jammy</programlisting>
+
+      <para>This downloads the specified <filename>.raw</filename> image and makes it available under the
+      local name <literal>jammy</literal>. Then, a root password is set with
+      <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Afterwards
+      the machine is started as system service. With the last command a login prompt into the container is
+      requested.</para>
+    </example>
+
+    <example id="example-export-tar">
+      <title>Exports a container image as tar file</title>
+
+      <programlisting># importctl export-tar -m fedora myfedora.tar.xz</programlisting>
+
+      <para>Exports the container <literal>fedora</literal> as an xz-compressed tar file
+      <filename>myfedora.tar.xz</filename> into the current directory.</para>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code
+    otherwise.</para>
+  </refsect1>
+
+  <xi:include href="common-variables.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-importd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>portablectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>tar</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>xz</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>gzip</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>bzip2</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

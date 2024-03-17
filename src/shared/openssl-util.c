@@ -1298,6 +1298,94 @@ int pkey_generate_volume_keys(
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported public key type: %s", OBJ_nid2sn(type));
         }
 }
+
+static int load_key_from_provider(const char *provider, const char *private_key_uri, EVP_PKEY **ret) {
+
+        assert(provider);
+        assert(private_key_uri);
+        assert(ret);
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        /* Load the provider so that this can work without any custom written configuration in /etc/.
+         * Also load the 'default' as that seems to be the recommendation. */
+        if (!OSSL_PROVIDER_try_load(/* ctx= */ NULL, provider, /* retain_fallbacks= */ true))
+                return log_openssl_errors("Failed to load OpenSSL provider '%s'", provider);
+        if (!OSSL_PROVIDER_try_load(/* ctx= */ NULL, "default", /* retain_fallbacks= */ true))
+                return log_openssl_errors("Failed to load OpenSSL provider 'default'");
+
+        _cleanup_(OSSL_STORE_closep) OSSL_STORE_CTX *store = OSSL_STORE_open(
+                        private_key_uri,
+                        /* ui_method= */ NULL,
+                        /* ui_data= */ NULL,
+                        /* post_process= */ NULL,
+                        /* post_process_data= */ NULL);
+        if (!store)
+                return log_openssl_errors("Failed to open OpenSSL store via '%s'", private_key_uri);
+
+        _cleanup_(OSSL_STORE_INFO_freep) OSSL_STORE_INFO *info = OSSL_STORE_load(store);
+        if (!info)
+                return log_openssl_errors("Failed to load OpenSSL store via '%s'", private_key_uri);
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = OSSL_STORE_INFO_get1_PKEY(info);
+        if (!private_key)
+                return log_openssl_errors("Failed to load private key via '%s'", private_key_uri);
+
+        *ret = TAKE_PTR(private_key);
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+static int load_key_from_engine(const char *engine, const char *private_key_uri, EVP_PKEY **ret) {
+
+        assert(engine);
+        assert(private_key_uri);
+        assert(ret);
+
+        DISABLE_WARNING_DEPRECATED_DECLARATIONS;
+        _cleanup_(ENGINE_freep) ENGINE *e = ENGINE_by_id(engine);
+        if (!e)
+                return log_openssl_errors("Failed to load signing engine '%s'", engine);
+
+        if (ENGINE_init(e) == 0)
+                return log_openssl_errors("Failed to initialize signing engine '%s'", engine);
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = ENGINE_load_private_key(
+                        e,
+                        private_key_uri,
+                        /* ui_method= */ NULL,
+                        /* callback_data= */ NULL);
+        if (!private_key)
+                return log_openssl_errors("Failed to load private key from '%s'", private_key_uri);
+        REENABLE_WARNING;
+
+        *ret = TAKE_PTR(private_key);
+
+        return 0;
+}
+
+int openssl_load_key_from_token(
+                KeySourceType private_key_source_type,
+                const char *private_key_source,
+                const char *private_key,
+                EVP_PKEY **ret) {
+
+        assert(IN_SET(private_key_source_type, OPENSSL_KEY_SOURCE_ENGINE, OPENSSL_KEY_SOURCE_PROVIDER));
+        assert(private_key_source);
+        assert(private_key);
+
+        switch (private_key_source_type) {
+
+        case OPENSSL_KEY_SOURCE_ENGINE:
+                return load_key_from_engine(private_key_source, private_key, ret);
+        case OPENSSL_KEY_SOURCE_PROVIDER:
+                return load_key_from_provider(private_key_source, private_key, ret);
+        default:
+                assert_not_reached();
+        }
+}
 #endif
 
 int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
@@ -1316,4 +1404,35 @@ int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
 #else
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot calculate X509 fingerprint: %m");
 #endif
+}
+
+int parse_openssl_key_source_argument(
+                const char *argument,
+                char **private_key_source,
+                KeySourceType *private_key_source_type) {
+
+        KeySourceType type;
+        const char *e = NULL;
+        int r;
+
+        assert(argument);
+        assert(private_key_source);
+        assert(private_key_source_type);
+
+        if (streq(argument, "file"))
+                type = OPENSSL_KEY_SOURCE_FILE;
+        else if ((e = startswith(argument, "engine:")))
+                type = OPENSSL_KEY_SOURCE_ENGINE;
+        else if ((e = startswith(argument, "provider:")))
+                type = OPENSSL_KEY_SOURCE_PROVIDER;
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid private key source '%s'", argument);
+
+        r = free_and_strdup_warn(private_key_source, e);
+        if (r < 0)
+                return r;
+
+        *private_key_source_type = type;
+
+        return 0;
 }

@@ -87,6 +87,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_DISKSEQ_DEVNODE           = 1 << 23, /* Prefer /dev/disk/by-diskseq/… device nodes */
         DISSECT_IMAGE_ALLOW_EMPTY               = 1 << 24, /* Allow that no usable partitions is present */
         DISSECT_IMAGE_TRY_ATOMIC_MOUNT_EXCHANGE = 1 << 25, /* Try to mount the image beneath the specified mountpoint, rather than on top of it, and then umount the top */
+        DISSECT_IMAGE_ALLOW_USERSPACE_VERITY    = 1 << 26, /* Allow userspace verity keyring in /etc/verity.d/ and related dirs */
 } DissectImageFlags;
 
 struct DissectedImage {

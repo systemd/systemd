@@ -6,6 +6,7 @@
 
 #include "sd-id128.h"
 
+#include "hashmap.h"
 #include "json.h"
 #include "missing_resource.h"
 #include "time-util.h"
@@ -243,6 +244,9 @@ typedef struct UserRecord {
         char *icon_name;
         char *location;
 
+        char *blob_directory;
+        Hashmap *blob_manifest;
+
         UserDisposition disposition;
         uint64_t last_change_usec;
         uint64_t last_password_change_usec;
@@ -252,6 +256,7 @@ typedef struct UserRecord {
         char **environment;
         char *time_zone;
         char *preferred_language;
+        char **additional_languages;
         int nice_level;
         struct rlimit *rlimits[_RLIMIT_MAX];
 
@@ -292,6 +297,10 @@ typedef struct UserRecord {
         char *home_directory;
         char *home_directory_auto; /* when none is set explicitly, this is where we place the implicit home directory */
 
+        /* fallback shell and home dir */
+        char *fallback_shell;
+        char *fallback_home_directory;
+
         uid_t uid;
         gid_t gid;
 
@@ -321,6 +330,8 @@ typedef struct UserRecord {
         uint64_t disk_ceiling;
         uint64_t disk_floor;
 
+        bool use_fallback; /* if true → use fallback_shell + fallback_home_directory instead of the regular ones */
+
         char *state;
         char *service;
         int signed_locally;
@@ -339,6 +350,9 @@ typedef struct UserRecord {
         int enforce_password_policy;
         int auto_login;
         int drop_caches;
+
+        char *preferred_session_type;
+        char *preferred_session_launcher;
 
         uint64_t stop_delay_usec;   /* How long to leave systemd --user around on log-out */
         int kill_processes;         /* Whether to kill user processes forcibly on log-out */
@@ -415,6 +429,7 @@ AutoResizeMode user_record_auto_resize_mode(UserRecord *h);
 uint64_t user_record_rebalance_weight(UserRecord *h);
 uint64_t user_record_capability_bounding_set(UserRecord *h);
 uint64_t user_record_capability_ambient_set(UserRecord *h);
+int user_record_languages(UserRecord *h, char ***ret);
 
 int user_record_build_image_path(UserStorage storage, const char *user_name_and_realm, char **ret);
 
@@ -440,6 +455,9 @@ int per_machine_id_match(JsonVariant *ids, JsonDispatchFlags flags);
 int per_machine_hostname_match(JsonVariant *hns, JsonDispatchFlags flags);
 int per_machine_match(JsonVariant *entry, JsonDispatchFlags flags);
 int user_group_record_mangle(JsonVariant *v, UserRecordLoadFlags load_flags, JsonVariant **ret_variant, UserRecordMask *ret_mask);
+
+#define BLOB_DIR_MAX_SIZE (UINT64_C(64) * U64_MB)
+int suitable_blob_filename(const char *name);
 
 const char* user_storage_to_string(UserStorage t) _const_;
 UserStorage user_storage_from_string(const char *s) _pure_;

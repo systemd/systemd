@@ -303,7 +303,7 @@ EFI_STATUS chunked_read(EFI_FILE *file, size_t *size, void *buf) {
          * Some broken firmwares cannot handle large file reads and will instead return
          * an error. As a workaround, read such files in small chunks.
          * Note that we cannot just try reading the whole file first on such firmware as
-         * that will permanently break the handle even if it is re-opened.
+         * that will permanently break the handle even if it is reopened.
          *
          * https://github.com/systemd/systemd/issues/25911 */
 
@@ -696,4 +696,10 @@ char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path) {
         convert_efi_path(file_path_str);
         remove_boot_count(file_path_str);
         return xasprintf("%ls.extra.d", file_path_str);
+}
+
+void *xmalloc(size_t size) {
+        void *p = NULL;
+        assert_se(BS->AllocatePool(EfiLoaderData, size, &p) == EFI_SUCCESS);
+        return p;
 }

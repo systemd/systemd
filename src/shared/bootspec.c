@@ -57,6 +57,7 @@ static void boot_entry_free(BootEntry *entry) {
         free(entry->machine_id);
         free(entry->architecture);
         strv_free(entry->options);
+        free(entry->local_addons.items);
         free(entry->kernel);
         free(entry->efi);
         strv_free(entry->initrd);
@@ -421,12 +422,6 @@ void boot_config_free(BootConfig *config) {
         assert(config);
 
         free(config->default_pattern);
-        free(config->timeout);
-        free(config->editor);
-        free(config->auto_entries);
-        free(config->auto_firmware);
-        free(config->console_mode);
-        free(config->beep);
 
         free(config->entry_oneshot);
         free(config->entry_default);
@@ -435,6 +430,7 @@ void boot_config_free(BootConfig *config) {
         for (size_t i = 0; i < config->n_entries; i++)
                 boot_entry_free(config->entries + i);
         free(config->entries);
+        free(config->global_addons.items);
 
         set_free(config->inodes_seen);
 }
@@ -480,20 +476,10 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
 
                 if (streq(field, "default"))
                         r = free_and_strdup(&config->default_pattern, p);
-                else if (streq(field, "timeout"))
-                        r = free_and_strdup(&config->timeout, p);
-                else if (streq(field, "editor"))
-                        r = free_and_strdup(&config->editor, p);
-                else if (streq(field, "auto-entries"))
-                        r = free_and_strdup(&config->auto_entries, p);
-                else if (streq(field, "auto-firmware"))
-                        r = free_and_strdup(&config->auto_firmware, p);
-                else if (streq(field, "console-mode"))
-                        r = free_and_strdup(&config->console_mode, p);
-                else if (streq(field, "random-seed-mode"))
-                        log_syntax(NULL, LOG_WARNING, path, line, 0, "'random-seed-mode' has been deprecated, ignoring.");
-                else if (streq(field, "beep"))
-                        r = free_and_strdup(&config->beep, p);
+                else if (STR_IN_SET(field, "timeout", "editor", "auto-entries", "auto-firmware",
+                                    "auto-poweroff", "auto-reboot", "beep", "reboot-for-bitlocker",
+                                    "secure-boot-enroll", "console-mode"))
+                        r = 0; /* we don't parse these in userspace, but they are OK */
                 else {
                         log_syntax(NULL, LOG_WARNING, path, line, 0, "Unknown line '%s', ignoring.", field);
                         continue;
@@ -753,13 +739,12 @@ static int boot_entry_load_unified(
 static int find_sections(
                 int fd,
                 const char *path,
-                char **ret_osrelease,
-                char **ret_cmdline) {
+                IMAGE_SECTION_HEADER **ret_sections,
+                PeHeader **ret_pe_header) {
 
-        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
         _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
-        _cleanup_free_ char *osrel = NULL, *cmdline = NULL;
-        _cleanup_free_ PeHeader *pe_header = NULL;
+        IMAGE_SECTION_HEADER *sections;
+        PeHeader *pe_header;
         int r;
 
         assert(fd >= 0);
@@ -773,23 +758,246 @@ static int find_sections(
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse PE sections of '%s': %m", path);
 
-        if (!pe_is_uki(pe_header, sections))
-                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Parsed PE file '%s' is not a UKI.", path);
+        if (ret_pe_header)
+                *ret_pe_header = TAKE_PTR(pe_header);
+        if (ret_sections)
+                *ret_sections = TAKE_PTR(sections);
 
-        r = pe_read_section_data(fd, pe_header, sections, ".osrel", PE_SECTION_SIZE_MAX, (void**) &osrel, NULL);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to read .osrel section of '%s': %m", path);
+        return 0;
+}
+
+static int find_cmdline_section(
+                int fd,
+                const char *path,
+                IMAGE_SECTION_HEADER *sections,
+                PeHeader *pe_header,
+                char **ret_cmdline) {
+
+        int r;
+        char *cmdline = NULL, *t = NULL;
+        _cleanup_free_ char *word = NULL;
+
+        assert(path);
+
+        if (!ret_cmdline)
+                return 0;
 
         r = pe_read_section_data(fd, pe_header, sections, ".cmdline", PE_SECTION_SIZE_MAX, (void**) &cmdline, NULL);
-        if (r < 0 && r != -ENXIO) /* cmdline is optional */
+        if (r == -ENXIO) /* cmdline is optional */
+                *ret_cmdline = NULL;
+        else if (r < 0)
                 return log_warning_errno(r, "Failed to read .cmdline section of '%s': %m", path);
 
-        if (ret_osrelease)
-                *ret_osrelease = TAKE_PTR(osrel);
-        if (ret_cmdline)
+        word = strdup(cmdline);
+        if (!word)
+                return log_oom();
+
+        /* Quick test to check if there is actual content in the addon cmdline */
+        t = delete_chars(word, NULL);
+        if (t[0] == 0)
+                *ret_cmdline = NULL;
+        else
                 *ret_cmdline = TAKE_PTR(cmdline);
 
         return 0;
+}
+
+static int find_osrel_section(
+                int fd,
+                const char *path,
+                IMAGE_SECTION_HEADER *sections,
+                PeHeader *pe_header,
+                char **ret_osrelease) {
+
+        int r;
+
+        if (!ret_osrelease)
+                return 0;
+
+        r = pe_read_section_data(fd, pe_header, sections, ".osrel", PE_SECTION_SIZE_MAX, (void**) ret_osrelease, NULL);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read .osrel section of '%s': %m", path);
+
+        return 0;
+}
+
+static int find_uki_sections(
+                int fd,
+                const char *path,
+                char **ret_osrelease,
+                char **ret_cmdline) {
+
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        int r;
+
+        r = find_sections(fd, path, &sections, &pe_header);
+        if (r < 0)
+                return r;
+
+        if (!pe_is_uki(pe_header, sections))
+                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Parsed PE file '%s' is not a UKI.", path);
+
+        r = find_osrel_section(fd, path, sections, pe_header, ret_osrelease);
+        if (r < 0)
+                return r;
+
+        r = find_cmdline_section(fd, path, sections, pe_header, ret_cmdline);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int find_addon_sections(
+                int fd,
+                const char *path,
+                char **ret_cmdline) {
+
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        int r;
+
+        r = find_sections(fd, path, &sections, &pe_header);
+        if (r < 0)
+                return r;
+
+        r = find_cmdline_section(fd, path, sections, pe_header, ret_cmdline);
+        /* If addon cmdline is empty or contains just separators,
+         * don't bother tracking it.
+         * Don't check r because it cannot return <0 if cmdline is empty,
+         * as cmdline is always optional. */
+        if (!ret_cmdline)
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOENT), "Addon %s contains empty cmdline and will be therefore ignored.", path);
+
+        return r;
+}
+
+static int insert_boot_entry_addon(
+                BootEntryAddons *addons,
+                char *location,
+                char *cmdline) {
+
+        if (!GREEDY_REALLOC(addons->items, addons->n_items + 1))
+                return log_oom();
+
+        addons->items[addons->n_items] = (BootEntryAddon) {
+                .location = location,
+                .cmdline = cmdline,
+        };
+        addons->n_items++;
+
+        return 0;
+}
+
+static void boot_entry_addons_done(BootEntryAddons *addons) {
+        FOREACH_ARRAY(addon, addons->items, addons->n_items) {
+                free(addon->cmdline);
+                free(addon->location);
+        }
+        addons->items = mfree(addons->items);
+        addons->n_items = 0;
+}
+
+static int boot_entries_find_unified_addons(
+                BootConfig *config,
+                int d_fd,
+                const char *addon_dir,
+                const char *root,
+                BootEntryAddons *ret_addons) {
+
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_free_ char *full = NULL;
+        _cleanup_(boot_entry_addons_done) BootEntryAddons addons = {};
+        int r;
+
+        assert(ret_addons);
+        assert(config);
+
+        r = chase_and_opendirat(d_fd, addon_dir, CHASE_AT_RESOLVE_IN_ROOT, &full, &d);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to open '%s/%s': %m", root, addon_dir);
+
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read %s: %m", full)) {
+                _cleanup_free_ char *j = NULL, *cmdline = NULL, *location = NULL;
+                _cleanup_close_ int fd = -EBADF;
+
+                if (!dirent_is_file(de))
+                        continue;
+
+                if (!endswith_no_case(de->d_name, ".addon.efi"))
+                        continue;
+
+                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOFOLLOW|O_NOCTTY);
+                if (fd < 0) {
+                        log_warning_errno(errno, "Failed to open %s/%s, ignoring: %m", full, de->d_name);
+                        continue;
+                }
+
+                r = config_check_inode_relevant_and_unseen(config, fd, de->d_name);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* inode already seen or otherwise not relevant */
+                        continue;
+
+                j = path_join(full, de->d_name);
+                if (!j)
+                        return log_oom();
+
+                if (find_addon_sections(fd, j, &cmdline) < 0)
+                        continue;
+
+                location = strdup(j);
+                if (!location)
+                        return log_oom();
+
+                r = insert_boot_entry_addon(&addons, location, cmdline);
+                if (r < 0)
+                        return r;
+
+                TAKE_PTR(location);
+                TAKE_PTR(cmdline);
+        }
+
+        *ret_addons = TAKE_STRUCT(addons);
+        return 0;
+}
+
+static int boot_entries_find_unified_global_addons(
+                BootConfig *config,
+                const char *root,
+                const char *d_name) {
+
+        int r;
+        _cleanup_closedir_ DIR *d = NULL;
+
+        r = chase_and_opendir(root, NULL, CHASE_PROHIBIT_SYMLINKS, NULL, &d);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to open '%s/%s': %m", root, d_name);
+
+        return boot_entries_find_unified_addons(config, dirfd(d), d_name, root, &config->global_addons);
+}
+
+static int boot_entries_find_unified_local_addons(
+                BootConfig *config,
+                int d_fd,
+                const char *d_name,
+                const char *root,
+                BootEntry *ret) {
+
+        _cleanup_free_ char *addon_dir = NULL;
+
+        assert(ret);
+
+        addon_dir = strjoin(d_name, ".extra.d");
+        if (!addon_dir)
+                return log_oom();
+
+        return boot_entries_find_unified_addons(config, d_fd, addon_dir, root, &ret->local_addons);
 }
 
 static int boot_entries_find_unified(
@@ -839,10 +1047,15 @@ static int boot_entries_find_unified(
                 if (!j)
                         return log_oom();
 
-                if (find_sections(fd, j, &osrelease, &cmdline) < 0)
+                if (find_uki_sections(fd, j, &osrelease, &cmdline) < 0)
                         continue;
 
                 r = boot_entry_load_unified(root, j, osrelease, cmdline, config->entries + config->n_entries);
+                if (r < 0)
+                        continue;
+
+                /* look for .efi.extra.d */
+                r = boot_entries_find_unified_local_addons(config, dirfd(d), de->d_name, full, config->entries + config->n_entries);
                 if (r < 0)
                         continue;
 
@@ -1062,6 +1275,7 @@ int boot_config_load(
         int r;
 
         assert(config);
+        config->global_addons = (BootEntryAddons) {};
 
         if (esp_path) {
                 r = boot_loader_read_conf_path(config, esp_path, "/loader/loader.conf");
@@ -1073,6 +1287,10 @@ int boot_config_load(
                         return r;
 
                 r = boot_entries_find_unified(config, esp_path, "/EFI/Linux/");
+                if (r < 0)
+                        return r;
+
+                r = boot_entries_find_unified_global_addons(config, esp_path, "/loader/addons/");
                 if (r < 0)
                         return r;
         }
@@ -1238,13 +1456,151 @@ static void boot_entry_file_list(
                 *ret_status = status;
 }
 
+static void print_addon(
+                BootEntryAddon *addon,
+                const char *addon_str) {
+
+        printf("  %s: %s\n", addon_str, addon->location);
+        printf("      options: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), addon->cmdline);
+}
+
+static int indent_embedded_newlines(char *cmdline, char **ret_cmdline) {
+        _cleanup_free_ char *t = NULL;
+        _cleanup_strv_free_ char **ts = NULL;
+
+        assert(ret_cmdline);
+
+        ts = strv_split_newlines(cmdline);
+        if (!ts)
+                return -ENOMEM;
+
+        t = strv_join(ts, "\n              ");
+        if (!t)
+                return -ENOMEM;
+
+        *ret_cmdline = TAKE_PTR(t);
+
+        return 0;
+}
+
+static int print_cmdline(
+                const BootEntry *e,
+                const BootEntryAddons *global_arr) {
+
+        _cleanup_free_ char *options = NULL, *combined_cmdline = NULL, *t2 = NULL;
+
+        assert(e);
+
+        if (!strv_isempty(e->options)) {
+                _cleanup_free_ char *t = NULL;
+
+                options = strv_join(e->options, " ");
+                if (!options)
+                        return log_oom();
+
+                if (indent_embedded_newlines(options, &t) < 0)
+                        return log_oom();
+
+                printf("      options: %s\n", t);
+                t2 = strdup(options);
+                if (!t2)
+                        return log_oom();
+        }
+
+        FOREACH_ARRAY(addon, global_arr->items, global_arr->n_items) {
+                print_addon(addon, "global-addon");
+                if (!strextend(&t2, " ", addon->cmdline))
+                        return log_oom();
+        }
+
+        FOREACH_ARRAY(addon, e->local_addons.items, e->local_addons.n_items) {
+                /* Add space at the beginning of addon_str to align it correctly */
+                print_addon(addon, " local-addon");
+                if (!strextend(&t2, " ", addon->cmdline))
+                        return log_oom();
+        }
+
+        /* Don't print the combined cmdline if it's same as options. */
+        if (streq_ptr(t2, options))
+                return 0;
+
+        if (indent_embedded_newlines(t2, &combined_cmdline) < 0)
+                return log_oom();
+
+        if (combined_cmdline)
+                printf("      cmdline: %s\n", combined_cmdline);
+
+        return 0;
+}
+
+static int json_addon(
+                BootEntryAddon *addon,
+                const char *addon_str,
+                JsonVariant **array) {
+
+        int r;
+
+        r = json_variant_append_arrayb(array,
+                        JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR(addon_str, JSON_BUILD_STRING(addon->location)),
+                                JSON_BUILD_PAIR("options", JSON_BUILD_STRING(addon->cmdline))));
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+static int json_cmdline(
+                const BootEntry *e,
+                const BootEntryAddons *global_arr,
+                const char *def_cmdline,
+                JsonVariant **v) {
+
+        _cleanup_free_ char *combined_cmdline = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *addons_array = NULL;
+        int r;
+
+        assert(e);
+
+        if (def_cmdline) {
+                combined_cmdline = strdup(def_cmdline);
+                if (!combined_cmdline)
+                        return log_oom();
+        }
+
+        FOREACH_ARRAY(addon, global_arr->items, global_arr->n_items) {
+                r = json_addon(addon, "globalAddon", &addons_array);
+                if (r < 0)
+                        return r;
+                if (!strextend(&combined_cmdline, " ", addon->cmdline))
+                        return log_oom();
+        }
+
+        FOREACH_ARRAY(addon, e->local_addons.items, e->local_addons.n_items) {
+                r = json_addon(addon, "localAddon", &addons_array);
+                if (r < 0)
+                        return r;
+                if (!strextend(&combined_cmdline, " ", addon->cmdline))
+                        return log_oom();
+        }
+
+        r = json_variant_merge_objectb(
+                v, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR("addons", JSON_BUILD_VARIANT(addons_array)),
+                                JSON_BUILD_PAIR_CONDITION(combined_cmdline, "cmdline", JSON_BUILD_STRING(combined_cmdline))));
+        if (r < 0)
+                return log_oom();
+        return 0;
+}
+
 int show_boot_entry(
                 const BootEntry *e,
+                const BootEntryAddons *global_addons,
                 bool show_as_default,
                 bool show_as_selected,
                 bool show_reported) {
 
-        int status = 0;
+        int status = 0, r = 0;
 
         /* Returns 0 on success, negative on processing error, and positive if something is wrong with the
            boot entry itself. */
@@ -1323,24 +1679,9 @@ int show_boot_entry(
                                      *s,
                                      &status);
 
-        if (!strv_isempty(e->options)) {
-                _cleanup_free_ char *t = NULL, *t2 = NULL;
-                _cleanup_strv_free_ char **ts = NULL;
-
-                t = strv_join(e->options, " ");
-                if (!t)
-                        return log_oom();
-
-                ts = strv_split_newlines(t);
-                if (!ts)
-                        return log_oom();
-
-                t2 = strv_join(ts, "\n              ");
-                if (!t2)
-                        return log_oom();
-
-                printf("      options: %s\n", t2);
-        }
+        r = print_cmdline(e, global_addons);
+        if (r < 0)
+                return r;
 
         if (e->device_tree)
                 boot_entry_file_list("devicetree", e->root, e->device_tree, &status);
@@ -1354,6 +1695,71 @@ int show_boot_entry(
         return -status;
 }
 
+int boot_entry_to_json(const BootConfig *c, size_t i, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_free_ char *opts = NULL;
+        const BootEntry *e;
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        if (i >= c->n_entries) {
+                *ret = NULL;
+                return 0;
+        }
+
+        e = c->entries + i;
+
+        if (!strv_isempty(e->options)) {
+                opts = strv_join(e->options, " ");
+                if (!opts)
+                        return log_oom();
+        }
+
+        r = json_variant_merge_objectb(
+                        &v, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR("type", JSON_BUILD_STRING(boot_entry_type_json_to_string(e->type))),
+                                        JSON_BUILD_PAIR_CONDITION(e->id, "id", JSON_BUILD_STRING(e->id)),
+                                        JSON_BUILD_PAIR_CONDITION(e->path, "path", JSON_BUILD_STRING(e->path)),
+                                        JSON_BUILD_PAIR_CONDITION(e->root, "root", JSON_BUILD_STRING(e->root)),
+                                        JSON_BUILD_PAIR_CONDITION(e->title, "title", JSON_BUILD_STRING(e->title)),
+                                        JSON_BUILD_PAIR_CONDITION(boot_entry_title(e), "showTitle", JSON_BUILD_STRING(boot_entry_title(e))),
+                                        JSON_BUILD_PAIR_CONDITION(e->sort_key, "sortKey", JSON_BUILD_STRING(e->sort_key)),
+                                        JSON_BUILD_PAIR_CONDITION(e->version, "version", JSON_BUILD_STRING(e->version)),
+                                        JSON_BUILD_PAIR_CONDITION(e->machine_id, "machineId", JSON_BUILD_STRING(e->machine_id)),
+                                        JSON_BUILD_PAIR_CONDITION(e->architecture, "architecture", JSON_BUILD_STRING(e->architecture)),
+                                        JSON_BUILD_PAIR_CONDITION(opts, "options", JSON_BUILD_STRING(opts)),
+                                        JSON_BUILD_PAIR_CONDITION(e->kernel, "linux", JSON_BUILD_STRING(e->kernel)),
+                                        JSON_BUILD_PAIR_CONDITION(e->efi, "efi", JSON_BUILD_STRING(e->efi)),
+                                        JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", JSON_BUILD_STRV(e->initrd)),
+                                        JSON_BUILD_PAIR_CONDITION(e->device_tree, "devicetree", JSON_BUILD_STRING(e->device_tree)),
+                                        JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay))));
+        if (r < 0)
+                return log_oom();
+
+        /* Sanitizers (only memory sanitizer?) do not like function call with too many
+         * arguments and trigger false positive warnings. Let's not add too many json objects
+         * at once. */
+        r = json_variant_merge_objectb(
+                        &v, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR("isReported", JSON_BUILD_BOOLEAN(e->reported_by_loader)),
+                                        JSON_BUILD_PAIR_CONDITION(e->tries_left != UINT_MAX, "triesLeft", JSON_BUILD_UNSIGNED(e->tries_left)),
+                                        JSON_BUILD_PAIR_CONDITION(e->tries_done != UINT_MAX, "triesDone", JSON_BUILD_UNSIGNED(e->tries_done)),
+                                        JSON_BUILD_PAIR_CONDITION(c->default_entry >= 0, "isDefault", JSON_BUILD_BOOLEAN(i == (size_t) c->default_entry)),
+                                        JSON_BUILD_PAIR_CONDITION(c->selected_entry >= 0, "isSelected", JSON_BUILD_BOOLEAN(i == (size_t) c->selected_entry))));
+
+        if (r < 0)
+                return log_oom();
+
+        r = json_cmdline(e, &c->global_addons, opts, &v);
+        if (r < 0)
+                return log_oom();
+
+        *ret = TAKE_PTR(v);
+        return 1;
+}
+
 int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
         int r;
 
@@ -1363,48 +1769,9 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                 _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
 
                 for (size_t i = 0; i < config->n_entries; i++) {
-                        _cleanup_free_ char *opts = NULL;
-                        const BootEntry *e = config->entries + i;
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
-                        if (!strv_isempty(e->options)) {
-                                opts = strv_join(e->options, " ");
-                                if (!opts)
-                                        return log_oom();
-                        }
-
-                        r = json_variant_merge_objectb(
-                                        &v, JSON_BUILD_OBJECT(
-                                                       JSON_BUILD_PAIR("type", JSON_BUILD_STRING(boot_entry_type_json_to_string(e->type))),
-                                                       JSON_BUILD_PAIR_CONDITION(e->id, "id", JSON_BUILD_STRING(e->id)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->path, "path", JSON_BUILD_STRING(e->path)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->root, "root", JSON_BUILD_STRING(e->root)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->title, "title", JSON_BUILD_STRING(e->title)),
-                                                       JSON_BUILD_PAIR_CONDITION(boot_entry_title(e), "showTitle", JSON_BUILD_STRING(boot_entry_title(e))),
-                                                       JSON_BUILD_PAIR_CONDITION(e->sort_key, "sortKey", JSON_BUILD_STRING(e->sort_key)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->version, "version", JSON_BUILD_STRING(e->version)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->machine_id, "machineId", JSON_BUILD_STRING(e->machine_id)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->architecture, "architecture", JSON_BUILD_STRING(e->architecture)),
-                                                       JSON_BUILD_PAIR_CONDITION(opts, "options", JSON_BUILD_STRING(opts)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->kernel, "linux", JSON_BUILD_STRING(e->kernel)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->efi, "efi", JSON_BUILD_STRING(e->efi)),
-                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", JSON_BUILD_STRV(e->initrd)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->device_tree, "devicetree", JSON_BUILD_STRING(e->device_tree)),
-                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay))));
-                        if (r < 0)
-                                return log_oom();
-
-                        /* Sanitizers (only memory sanitizer?) do not like function call with too many
-                         * arguments and trigger false positive warnings. Let's not add too many json objects
-                         * at once. */
-                        r = json_variant_merge_objectb(
-                                        &v, JSON_BUILD_OBJECT(
-                                                       JSON_BUILD_PAIR("isReported", JSON_BUILD_BOOLEAN(e->reported_by_loader)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->tries_left != UINT_MAX, "triesLeft", JSON_BUILD_UNSIGNED(e->tries_left)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->tries_done != UINT_MAX, "triesDone", JSON_BUILD_UNSIGNED(e->tries_done)),
-                                                       JSON_BUILD_PAIR_CONDITION(config->default_entry >= 0, "isDefault", JSON_BUILD_BOOLEAN(i == (size_t) config->default_entry)),
-                                                       JSON_BUILD_PAIR_CONDITION(config->selected_entry >= 0, "isSelected", JSON_BUILD_BOOLEAN(i == (size_t) config->selected_entry))));
-
+                        r = boot_entry_to_json(config, i, &v);
                         if (r < 0)
                                 return log_oom();
 
@@ -1413,12 +1780,12 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                                 return log_oom();
                 }
 
-                json_variant_dump(array, json_format | JSON_FORMAT_EMPTY_ARRAY, NULL, NULL);
-
+                return json_variant_dump(array, json_format | JSON_FORMAT_EMPTY_ARRAY, NULL, NULL);
         } else {
                 for (size_t n = 0; n < config->n_entries; n++) {
                         r = show_boot_entry(
                                         config->entries + n,
+                                        &config->global_addons,
                                         /* show_as_default= */  n == (size_t) config->default_entry,
                                         /* show_as_selected= */ n == (size_t) config->selected_entry,
                                         /* show_discovered= */  true);

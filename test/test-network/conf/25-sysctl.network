@@ -3,7 +3,8 @@
 Name=dummy98
 
 [Network]
-IPForward=yes
+IPv4Forwarding=yes
+IPv6Forwarding=yes
 IPv6DuplicateAddressDetection=3
 IPv6HopLimit=5
 IPv4ProxyARP=yes

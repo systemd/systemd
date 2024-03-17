@@ -86,7 +86,6 @@ static int open_output(RemoteServer *s, Writer *w, const char* host) {
                         UINT64_MAX,
                         &w->metrics,
                         w->mmap,
-                        NULL,
                         &w->journal);
         if (r < 0)
                 return log_error_errno(r, "Failed to open output journal %s: %m", filename);
@@ -517,7 +516,9 @@ static int accept_connection(
 
         switch (socket_address_family(addr)) {
         case AF_INET:
-        case AF_INET6: {
+        case AF_INET6:
+        case AF_VSOCK:
+        case AF_UNIX: {
                 _cleanup_free_ char *a = NULL;
                 char *b;
 

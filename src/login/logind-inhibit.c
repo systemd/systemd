@@ -29,13 +29,13 @@
 
 static void inhibitor_remove_fifo(Inhibitor *i);
 
-int inhibitor_new(Inhibitor **ret, Manager *m, const char* id) {
+int inhibitor_new(Manager *m, const char* id, Inhibitor **ret) {
         _cleanup_(inhibitor_freep) Inhibitor *i = NULL;
         int r;
 
-        assert(ret);
         assert(m);
         assert(id);
+        assert(ret);
 
         i = new(Inhibitor, 1);
         if (!i)
@@ -43,6 +43,8 @@ int inhibitor_new(Inhibitor **ret, Manager *m, const char* id) {
 
         *i = (Inhibitor) {
                 .manager = m,
+                .id = strdup(id),
+                .state_file = path_join("/run/systemd/inhibit/", id),
                 .what = _INHIBIT_WHAT_INVALID,
                 .mode = _INHIBIT_MODE_INVALID,
                 .uid = UID_INVALID,
@@ -50,11 +52,8 @@ int inhibitor_new(Inhibitor **ret, Manager *m, const char* id) {
                 .pid = PIDREF_NULL,
         };
 
-        i->state_file = path_join("/run/systemd/inhibit", id);
-        if (!i->state_file)
+        if (!i->id || !i->state_file)
                 return -ENOMEM;
-
-        i->id = basename(i->state_file);
 
         r = hashmap_put(m->inhibitors, i->id, i);
         if (r < 0)
@@ -79,8 +78,9 @@ Inhibitor* inhibitor_free(Inhibitor *i) {
 
         /* Note that we don't remove neither the state file nor the fifo path here, since we want both to
          * survive daemon restarts */
-        free(i->state_file);
         free(i->fifo_path);
+        free(i->state_file);
+        free(i->id);
 
         pidref_done(&i->pid);
 
@@ -270,7 +270,7 @@ int inhibitor_load(Inhibitor *i) {
         if (i->fifo_path) {
                 _cleanup_close_ int fd = -EBADF;
 
-                /* Let's re-open the FIFO on both sides, and close the writing side right away */
+                /* Let's reopen the FIFO on both sides, and close the writing side right away */
                 fd = inhibitor_create_fifo(i);
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to reopen FIFO: %m");

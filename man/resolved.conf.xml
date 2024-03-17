@@ -27,6 +27,8 @@
   <refsynopsisdiv>
     <para><simplelist>
       <member><filename>/etc/systemd/resolved.conf</filename></member>
+      <member><filename>/run/systemd/resolved.conf</filename></member>
+      <member><filename>/usr/lib/systemd/resolved.conf</filename></member>
       <member><filename>/etc/systemd/resolved.conf.d/*.conf</filename></member>
       <member><filename>/run/systemd/resolved.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/resolved.conf.d/*.conf</filename></member>
@@ -170,9 +172,7 @@
         downgrade to non-DNSSEC mode by synthesizing a DNS response that suggests DNSSEC was not
         supported.</para>
 
-        <para>If set to false, DNS lookups are not DNSSEC validated. In this mode, or when set to
-        <literal>allow-downgrade</literal> and the downgrade has happened, the resolver becomes
-        security-unaware and all forwarded queries have DNSSEC OK (DO) bit unset.</para>
+        <para>If set to false, DNS lookups are not DNSSEC validated.</para>
 
         <para>Note that DNSSEC validation requires retrieval of additional DNS data, and thus results in a
         small DNS lookup time penalty.</para>

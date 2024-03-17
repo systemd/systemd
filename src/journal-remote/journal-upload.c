@@ -397,7 +397,7 @@ static int setup_signals(Uploader *u) {
 
         assert(u);
 
-        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM) >= 0);
 
         r = sd_event_add_signal(u->events, &u->sigterm_event, SIGTERM, dispatch_sigterm, u);
         if (r < 0)
@@ -531,9 +531,12 @@ static int parse_config(void) {
                 {}
         };
 
-        return config_parse_config_file("journal-upload.conf", "Upload\0",
-                                        config_item_table_lookup, items,
-                                        CONFIG_PARSE_WARN, NULL);
+        return config_parse_standard_file_with_dropins(
+                        "systemd/journal-upload.conf",
+                        "Upload\0",
+                        config_item_table_lookup, items,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ NULL);
 }
 
 static int help(void) {
@@ -777,7 +780,7 @@ static int open_journal(sd_journal **j) {
         else if (arg_file)
                 r = sd_journal_open_files(j, (const char**) arg_file, 0);
         else if (arg_machine)
-                r = journal_open_machine(j, arg_machine);
+                r = journal_open_machine(j, arg_machine, 0);
         else
                 r = sd_journal_open_namespace(j, arg_namespace,
                                               (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | arg_namespace_flags | arg_journal_type);

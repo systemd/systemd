@@ -492,7 +492,7 @@ static int property_get_bind_paths(
                                 c->bind_mounts[i].source,
                                 c->bind_mounts[i].destination,
                                 c->bind_mounts[i].ignore_enoent,
-                                c->bind_mounts[i].recursive ? (uint64_t) MS_REC : (uint64_t) 0);
+                                c->bind_mounts[i].recursive ? (uint64_t) MS_REC : UINT64_C(0));
                 if (r < 0)
                         return r;
         }
@@ -911,7 +911,7 @@ static int bus_property_get_exec_dir_symlink(
 
         for (size_t i = 0; i < d->n_items; i++)
                 STRV_FOREACH(dst, d->items[i].symlinks) {
-                        r = sd_bus_message_append(reply, "(sst)", d->items[i].path, *dst, 0 /* flags, unused for now */);
+                        r = sd_bus_message_append(reply, "(sst)", d->items[i].path, *dst, UINT64_C(0) /* flags, unused for now */);
                         if (r < 0)
                                 return r;
                 }

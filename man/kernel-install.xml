@@ -33,6 +33,11 @@
     <cmdsynopsis>
       <command>kernel-install</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">add-all</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>kernel-install</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">remove</arg>
       <arg choice="plain"><replaceable>KERNEL-VERSION</replaceable></arg>
     </cmdsynopsis>
@@ -510,8 +515,12 @@
 
       <para><varname>$KERNEL_INSTALL_CONF_ROOT</varname> can be set to override the location of the
       configuration files read by <command>kernel-install</command>. When set,
-      <filename>install.conf</filename>, <filename>entry-token</filename>, and other files will be
-      read from this directory.</para>
+      <filename>install.conf</filename>, <filename>entry-token</filename>, and other files will be read from
+      this directory only. Note that this path is relative to the host, and in particular <emphasis>symlinks
+      in this directory are resolved relative to the host</emphasis>, even if
+      <option>--root=<replaceable>root</replaceable></option> is used. This means that it is generally
+      <emphasis>not</emphasis> correct to use this variable to specify a directory underneath
+      <replaceable>root</replaceable> if symlinks are used there.</para>
 
       <para><varname>$KERNEL_INSTALL_PLUGINS</varname> can be set to override the list of plugins executed by
       <command>kernel-install</command>. The argument is a whitespace-separated list of paths.
@@ -639,14 +648,23 @@
       </varlistentry>
       <varlistentry>
         <term><filename>/etc/kernel/install.conf</filename></term>
+        <term><filename>/run/kernel/install.conf</filename></term>
+        <term><filename>/usr/local/lib/kernel/install.conf</filename></term>
         <term><filename>/usr/lib/kernel/install.conf</filename></term>
+        <term><filename>/etc/kernel/install.conf.d/*.conf</filename></term>
+        <term><filename>/run/kernel/install.conf.d/*.conf</filename></term>
+        <term><filename>/usr/local/lib/kernel/install.conf.d/*.conf</filename></term>
+        <term><filename>/usr/lib/kernel/install.conf.d/*.conf</filename></term>
         <listitem>
           <para>Configuration file with options for <command>kernel-install</command>, as a series of
           <varname>KEY=</varname><replaceable>VALUE</replaceable> assignments, compatible with shell syntax,
           following the same rules as described in
           <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
           first of the files that is found will be used. <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be
-          used to override the search path; see below for details.</para>
+          used to override the search path; see below for details. Drop-in files may also be used
+          to extend the configuration with overrides, see
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          </para>
 
           <para>Currently, the following keys are supported:
           <varname>MACHINE_ID=</varname>,

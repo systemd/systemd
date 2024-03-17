@@ -28,12 +28,10 @@ int udev_parse_config_full(const ConfigTableItem config_table[]) {
 
         assert(config_table);
 
-        r = config_parse_config_file_full(
-                        "udev.conf",
-                        "udev",
+        r = config_parse_standard_file_with_dropins(
+                        "udev/udev.conf",
                         /* sections = */ NULL,
-                        config_item_table_lookup,
-                        config_table,
+                        config_item_table_lookup, config_table,
                         CONFIG_PARSE_WARN,
                         /* userdata = */ NULL);
         if (r == -ENOENT)
@@ -232,13 +230,23 @@ int device_is_renaming(sd_device *dev) {
 
         assert(dev);
 
-        r = sd_device_get_property_value(dev, "ID_RENAMING", NULL);
+        r = device_get_property_bool(dev, "ID_RENAMING");
         if (r == -ENOENT)
-                return false;
-        if (r < 0)
-                return r;
+                return false; /* defaults to false */
 
-        return true;
+        return r;
+}
+
+int device_is_processing(sd_device *dev) {
+        int r;
+
+        assert(dev);
+
+        r = device_get_property_bool(dev, "ID_PROCESSING");
+        if (r == -ENOENT)
+                return false; /* defaults to false */
+
+        return r;
 }
 
 bool device_for_action(sd_device *dev, sd_device_action_t a) {

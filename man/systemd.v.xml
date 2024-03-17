@@ -26,7 +26,7 @@
     <para>In various places systemd components accept paths whose trailing components have the
     <literal>.v/</literal> suffix, pointing to a directory. These components will then automatically look for
     suitable files inside the directory, do a version comparison and open the newest file found (by
-    version). Specifically, two expressions are supported:</para>
+    version). Available since version v256. Specifically, two expressions are supported:</para>
 
     <itemizedlist>
 

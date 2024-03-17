@@ -39,8 +39,8 @@ typedef struct IteratedCache IteratedCache;   /* Caches the iterated order of on
  * by hashmap users, so the definition has to be here. Do not use its fields
  * directly. */
 typedef struct {
-        unsigned idx;         /* index of an entry to be iterated next */
         const void *next_key; /* expected value of that entry's key pointer */
+        unsigned idx;         /* index of an entry to be iterated next */
 #if ENABLE_DEBUG_HASHMAP
         unsigned put_count;   /* hashmap's put_count recorded at start of iteration */
         unsigned rem_count;   /* hashmap's rem_count in previous iteration */
@@ -407,6 +407,14 @@ static inline int ordered_hashmap_dump_sorted(OrderedHashmap *h, void ***ret, si
 }
 static inline int set_dump_sorted(Set *h, void ***ret, size_t *ret_n) {
         return _hashmap_dump_sorted(HASHMAP_BASE(h), ret, ret_n);
+}
+
+int _hashmap_dump_keys_sorted(HashmapBase *h, void ***ret, size_t *ret_n);
+static inline int hashmap_dump_keys_sorted(Hashmap *h, void ***ret, size_t *ret_n) {
+        return _hashmap_dump_keys_sorted(HASHMAP_BASE(h), ret, ret_n);
+}
+static inline int ordered_hashmap_dump_keys_sorted(OrderedHashmap *h, void ***ret, size_t *ret_n) {
+        return _hashmap_dump_keys_sorted(HASHMAP_BASE(h), ret, ret_n);
 }
 
 /*

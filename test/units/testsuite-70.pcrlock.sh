@@ -156,4 +156,20 @@ SYSTEMD_XBOOTLDR_PATH=/tmp/fakexbootldr SYSTEMD_RELAX_XBOOTLDR_CHECKS=1 "$SD_PCR
 (! "$SD_PCRLOCK" lock-uki /bin/true)
 (! "$SD_PCRLOCK" lock-file-system "")
 
+# Exercise Varlink API a bit (but first turn off condition)
+
+mkdir -p /run/systemd/system/systemd-pcrlock.socket.d
+cat > /run/systemd/system/systemd-pcrlock.socket.d/50-no-condition.conf <<EOF
+[Unit]
+# Turn off all conditions
+ConditionSecurity=
+EOF
+
+systemctl daemon-reload
+systemctl restart systemd-pcrlock.socket
+
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.RemovePolicy '{}'
+varlinkctl call /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.MakePolicy '{}'
+varlinkctl call --collect --json=pretty /run/systemd/io.systemd.PCRLock io.systemd.PCRLock.ReadEventLog '{}'
+
 rm "$img" /tmp/pcrlockpwd

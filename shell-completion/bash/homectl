@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # homectl(1) completion                               -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
@@ -106,7 +107,12 @@ _homectl() {
                         --cifs-service
                         --stop-delay
                         --kill-processes
-                        --auto-login'
+                        --auto-login
+                     -b --blob
+                        --avatar
+                        --login-background
+                        --session-launcher
+                        --session-type'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
@@ -117,7 +123,7 @@ _homectl() {
             --machine|-M)
                 comps=$( __get_machines )
                 ;;
-            --identity|--image-path)
+            --identity|--image-path|--avatar|--login-background)
                 comps=$(compgen -A file -- "$cur" )
                 compopt -o filenames
                 ;;
@@ -130,7 +136,7 @@ _homectl() {
             --locked|--enforce-password-policy|--password-change-now|--luks-discard|--luks-offline-discard|--nosuid|--nodev|--noexec|--kill-processes|--auto-login)
                 comps='yes no'
                 ;;
-            -d|--home-dir|--skel)
+            -d|--home-dir|--skel|-b|--blob)
                 comps=$(compgen -A directory -- "$cur" )
                 compopt -o dirnames
                 ;;
@@ -145,6 +151,15 @@ _homectl() {
                 ;;
             --cifs-user-name)
                 comps=$(compgen -A user -- "$cur" )
+                ;;
+            --language)
+                comps=$(localectl list-locales 2>/dev/null)
+                ;;
+            --session-launcher)
+                comps=$(find /usr/share/{x,wayland-}sessions/ -type f -name '*.desktop' -exec basename {} .desktop \; 2>/dev/null | sort -u)
+                ;;
+            --session-type)
+                comps='wayland x11 tty'
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

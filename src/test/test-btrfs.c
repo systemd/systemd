@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Failed to make snapshot: %m");
         if (r >= 0)
-                assert_se(xopenat_lock(AT_FDCWD, "/xxxtest4", 0, 0, 0, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
+                assert_se(xopenat_lock(AT_FDCWD, "/xxxtest4", 0, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
 
         safe_close(r);
 

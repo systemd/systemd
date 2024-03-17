@@ -240,7 +240,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  fdstore SERVICE...         Show file descriptor store contents of service\n"
                "  image-policy POLICY...     Analyze image policy string\n"
                "  pcrs [PCR...]              Show TPM2 PCRs and their names\n"
-               "  srk > FILE                 Write TPM2 SRK to stdout\n"
+               "  srk [>FILE]                Write TPM2 SRK (to FILE)\n"
                "\nOptions:\n"
                "     --recursive-errors=MODE Control which units are verified\n"
                "     --offline=BOOL          Perform a security review on unit file(s)\n"
@@ -681,7 +681,8 @@ static int run(int argc, char *argv[]) {
                                 arg_image_policy,
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
-                                DISSECT_IMAGE_READ_ONLY,
+                                DISSECT_IMAGE_READ_ONLY |
+                                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
                                 &mounted_dir,
                                 /* ret_dir_fd= */ NULL,
                                 &loop_device);

@@ -96,9 +96,12 @@ int route_remove(Route *route, Manager *manager);
 int route_remove_and_cancel(Route *route, Manager *manager);
 
 int route_get(Manager *manager, const Route *route, Route **ret);
+int route_get_request(Manager *manager, const Route *route, Request **ret);
+
+bool route_can_update(const Route *existing, const Route *requesting);
 
 int link_drop_routes(Link *link, bool foreign);
-static inline int link_drop_managed_routes(Link *link) {
+static inline int link_drop_static_routes(Link *link) {
         return link_drop_routes(link, false);
 }
 static inline int link_drop_foreign_routes(Link *link) {

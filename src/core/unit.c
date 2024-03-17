@@ -109,28 +109,12 @@ Unit* unit_new(Manager *m, size_t size) {
         u->unit_file_preset = -1;
         u->on_failure_job_mode = JOB_REPLACE;
         u->on_success_job_mode = JOB_FAIL;
-        u->cgroup_control_inotify_wd = -1;
-        u->cgroup_memory_inotify_wd = -1;
         u->job_timeout = USEC_INFINITY;
         u->job_running_timeout = USEC_INFINITY;
         u->ref_uid = UID_INVALID;
         u->ref_gid = GID_INVALID;
-        u->cpu_usage_last = NSEC_INFINITY;
 
-        unit_reset_memory_accounting_last(u);
-
-        unit_reset_io_accounting_last(u);
-
-        u->cgroup_invalidated_mask |= CGROUP_MASK_BPF_FIREWALL;
         u->failure_action_exit_status = u->success_action_exit_status = -1;
-
-        u->ip_accounting_ingress_map_fd = -EBADF;
-        u->ip_accounting_egress_map_fd = -EBADF;
-
-        u->ipv4_allow_map_fd = -EBADF;
-        u->ipv6_allow_map_fd = -EBADF;
-        u->ipv4_deny_map_fd = -EBADF;
-        u->ipv6_deny_map_fd = -EBADF;
 
         u->last_section_private = -1;
 
@@ -139,7 +123,13 @@ Unit* unit_new(Manager *m, size_t size) {
                 m->defaults.start_limit_burst,
         };
 
-        u->auto_start_stop_ratelimit = (const RateLimit) { .interval = 10 * USEC_PER_SEC, .burst = 16 };
+        u->auto_start_stop_ratelimit = (const RateLimit) {
+                .interval = 10 * USEC_PER_SEC,
+                .burst = 16
+        };
+
+        unit_reset_memory_accounting_last(u);
+        unit_reset_io_accounting_last(u);
 
         return u;
 }
@@ -490,16 +480,11 @@ bool unit_may_gc(Unit *u) {
         if (unit_success_failure_handler_has_jobs(u))
                 return false;
 
-        if (u->cgroup_path) {
-                /* If the unit has a cgroup, then check whether there's anything in it. If so, we should stay
-                 * around. Units with active processes should never be collected. */
-
-                r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path);
-                if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to determine whether cgroup %s is empty: %m", empty_to_root(u->cgroup_path));
-                if (r <= 0)
-                        return false;
-        }
+        /* If the unit has a cgroup, then check whether there's anything in it. If so, we should stay
+         * around. Units with active processes should never be collected. */
+        r = unit_cgroup_is_empty(u);
+        if (r <= 0 && r != -ENXIO)
+                return false; /* ENXIO means: currently not realized */
 
         if (!UNIT_VTABLE(u)->may_gc)
                 return true;
@@ -804,12 +789,6 @@ Unit* unit_free(Unit *u) {
         if (u->on_console)
                 manager_unref_console(u->manager);
 
-        fdset_free(u->initial_socket_bind_link_fds);
-#if BPF_FRAMEWORK
-        bpf_link_free(u->ipv4_socket_bind_link);
-        bpf_link_free(u->ipv6_socket_bind_link);
-#endif
-
         unit_release_cgroup(u);
 
         if (!MANAGER_IS_RELOADING(u->manager))
@@ -865,16 +844,6 @@ Unit* unit_free(Unit *u) {
                 LIST_REMOVE(release_resources_queue, u->manager->release_resources_queue, u);
 
         bpf_firewall_close(u);
-
-        hashmap_free(u->bpf_foreign_by_key);
-
-        bpf_program_free(u->bpf_device_control_installed);
-
-#if BPF_FRAMEWORK
-        bpf_link_free(u->restrict_ifaces_ingress_bpf_link);
-        bpf_link_free(u->restrict_ifaces_egress_bpf_link);
-#endif
-        fdset_free(u->initial_restric_ifaces_link_fds);
 
         condition_free_list(u->conditions);
         condition_free_list(u->asserts);
@@ -2709,12 +2678,14 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                         unit_emit_audit_start(u);
                         manager_send_unit_plymouth(m, u);
+                        manager_send_unit_supervisor(m, u, /* active= */ true);
                 }
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(ns) && !UNIT_IS_INACTIVE_OR_FAILED(os)) {
                         /* This unit just stopped/failed. */
 
                         unit_emit_audit_stop(u, ns);
+                        manager_send_unit_supervisor(m, u, /* active= */ false);
                         unit_log_resources(u);
                 }
 
@@ -2966,7 +2937,8 @@ int unit_enqueue_rewatch_pids(Unit *u) {
 
         assert(u);
 
-        if (!u->cgroup_path)
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt || !crt->cgroup_path)
                 return -ENOENT;
 
         r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
@@ -3452,8 +3424,11 @@ int unit_set_slice(Unit *u, Unit *slice) {
                 return 0;
 
         /* Disallow slice changes if @u is already bound to cgroups */
-        if (UNIT_GET_SLICE(u) && u->cgroup_realized)
-                return -EBUSY;
+        if (UNIT_GET_SLICE(u)) {
+                CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+                if (crt && crt->cgroup_realized)
+                        return -EBUSY;
+        }
 
         /* Remove any slices assigned prior; we should only have one UNIT_IN_SLICE dependency */
         if (UNIT_GET_SLICE(u))
@@ -4093,31 +4068,35 @@ int unit_kill(
         /* Note: if we shall enqueue rather than kill we won't do this via the cgroup mechanism, since it
          * doesn't really make much sense (and given that enqueued values are a relatively expensive
          * resource, and we shouldn't allow us to be subjects for such allocation sprees) */
-        if (IN_SET(who, KILL_ALL, KILL_ALL_FAIL) && u->cgroup_path && code == SI_USER) {
-                _cleanup_set_free_ Set *pid_set = NULL;
+        if (IN_SET(who, KILL_ALL, KILL_ALL_FAIL) && code == SI_USER) {
+                CGroupRuntime *crt = unit_get_cgroup_runtime(u);
 
-                /* Exclude the main/control pids from being killed via the cgroup */
-                r = unit_pid_set(u, &pid_set);
-                if (r < 0)
-                        return log_oom();
+                if (crt && crt->cgroup_path) {
+                        _cleanup_set_free_ Set *pid_set = NULL;
 
-                r = cg_kill_recursive(u->cgroup_path, signo, 0, pid_set, kill_common_log, u);
-                if (r < 0 && !IN_SET(r, -ESRCH, -ENOENT)) {
-                        if (ret >= 0)
-                                sd_bus_error_set_errnof(
-                                                ret_error, r,
-                                                "Failed to send signal SIG%s to auxiliary processes: %m",
+                        /* Exclude the main/control pids from being killed via the cgroup */
+                        r = unit_pid_set(u, &pid_set);
+                        if (r < 0)
+                                return log_oom();
+
+                        r = cg_kill_recursive(crt->cgroup_path, signo, 0, pid_set, kill_common_log, u);
+                        if (r < 0 && !IN_SET(r, -ESRCH, -ENOENT)) {
+                                if (ret >= 0)
+                                        sd_bus_error_set_errnof(
+                                                        ret_error, r,
+                                                        "Failed to send signal SIG%s to auxiliary processes: %m",
+                                                        signal_to_string(signo));
+
+                                log_unit_warning_errno(
+                                                u, r,
+                                                "Failed to send signal SIG%s to auxiliary processes on client request: %m",
                                                 signal_to_string(signo));
 
-                        log_unit_warning_errno(
-                                        u, r,
-                                        "Failed to send signal SIG%s to auxiliary processes on client request: %m",
-                                        signal_to_string(signo));
+                                RET_GATHER(ret, r);
+                        }
 
-                        RET_GATHER(ret, r);
+                        killed = killed || r >= 0;
                 }
-
-                killed = killed || r >= 0;
         }
 
         /* If the "fail" versions of the operation are requested, then complain if the set of processes we killed is empty */
@@ -4377,7 +4356,7 @@ ExecContext *unit_get_exec_context(const Unit *u) {
         return (ExecContext*) ((uint8_t*) u + offset);
 }
 
-KillContext *unit_get_kill_context(Unit *u) {
+KillContext *unit_get_kill_context(const Unit *u) {
         size_t offset;
         assert(u);
 
@@ -4391,7 +4370,7 @@ KillContext *unit_get_kill_context(Unit *u) {
         return (KillContext*) ((uint8_t*) u + offset);
 }
 
-CGroupContext *unit_get_cgroup_context(Unit *u) {
+CGroupContext *unit_get_cgroup_context(const Unit *u) {
         size_t offset;
 
         if (u->type < 0)
@@ -4404,7 +4383,7 @@ CGroupContext *unit_get_cgroup_context(Unit *u) {
         return (CGroupContext*) ((uint8_t*) u + offset);
 }
 
-ExecRuntime *unit_get_exec_runtime(Unit *u) {
+ExecRuntime *unit_get_exec_runtime(const Unit *u) {
         size_t offset;
 
         if (u->type < 0)
@@ -4415,6 +4394,19 @@ ExecRuntime *unit_get_exec_runtime(Unit *u) {
                 return NULL;
 
         return *(ExecRuntime**) ((uint8_t*) u + offset);
+}
+
+CGroupRuntime *unit_get_cgroup_runtime(const Unit *u) {
+        size_t offset;
+
+        if (u->type < 0)
+                return NULL;
+
+        offset = UNIT_VTABLE(u)->cgroup_runtime_offset;
+        if (offset <= 0)
+                return NULL;
+
+        return *(CGroupRuntime**) ((uint8_t*) u + offset);
 }
 
 static const char* unit_drop_in_dir(Unit *u, UnitWriteFlags flags) {
@@ -4810,7 +4802,8 @@ int unit_kill_context(Unit *u, KillOperation k) {
         r = unit_kill_context_one(u, unit_control_pid(u), "control", /* is_alien = */ false, sig, send_sighup, log_func);
         wait_for_exit = wait_for_exit || r > 0;
 
-        if (u->cgroup_path &&
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (crt && crt->cgroup_path &&
             (c->kill_mode == KILL_CONTROL_GROUP || (c->kill_mode == KILL_MIXED && k == KILL_KILL))) {
                 _cleanup_set_free_ Set *pid_set = NULL;
 
@@ -4820,14 +4813,14 @@ int unit_kill_context(Unit *u, KillOperation k) {
                         return r;
 
                 r = cg_kill_recursive(
-                                u->cgroup_path,
+                                crt->cgroup_path,
                                 sig,
                                 CGROUP_SIGCONT|CGROUP_IGNORE_SELF,
                                 pid_set,
                                 log_func, u);
                 if (r < 0) {
                         if (!IN_SET(r, -EAGAIN, -ESRCH, -ENOENT))
-                                log_unit_warning_errno(u, r, "Failed to kill control group %s, ignoring: %m", empty_to_root(u->cgroup_path));
+                                log_unit_warning_errno(u, r, "Failed to kill control group %s, ignoring: %m", empty_to_root(crt->cgroup_path));
 
                 } else if (r > 0) {
 
@@ -4848,7 +4841,7 @@ int unit_kill_context(Unit *u, KillOperation k) {
                                         return r;
 
                                 (void) cg_kill_recursive(
-                                                u->cgroup_path,
+                                                crt->cgroup_path,
                                                 SIGHUP,
                                                 CGROUP_IGNORE_SELF,
                                                 pid_set,
@@ -4994,6 +4987,21 @@ int unit_setup_exec_runtime(Unit *u) {
         TAKE_PTR(dcreds);
 
         return r;
+}
+
+CGroupRuntime *unit_setup_cgroup_runtime(Unit *u) {
+        size_t offset;
+
+        assert(u);
+
+        offset = UNIT_VTABLE(u)->cgroup_runtime_offset;
+        assert(offset > 0);
+
+        CGroupRuntime **rt = (CGroupRuntime**) ((uint8_t*) u + offset);
+        if (*rt)
+                return *rt;
+
+        return (*rt = cgroup_runtime_new());
 }
 
 bool unit_type_supported(UnitType t) {
@@ -5339,7 +5347,8 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         SET_FLAG(p->flags, EXEC_PASS_LOG_UNIT|EXEC_CHOWN_DIRECTORIES, MANAGER_IS_SYSTEM(u->manager));
 
         /* Copy parameters from unit */
-        p->cgroup_path = u->cgroup_path;
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        p->cgroup_path = crt ? crt->cgroup_path : NULL;
         SET_FLAG(p->flags, EXEC_CGROUP_DELEGATE, unit_cgroup_delegate(u));
 
         p->received_credentials_directory = u->manager->received_credentials_directory;
@@ -5359,7 +5368,7 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
 
         p->user_lookup_fd = u->manager->user_lookup_fds[1];
 
-        p->cgroup_id = u->cgroup_id;
+        p->cgroup_id = crt ? crt->cgroup_id : 0;
         p->invocation_id = u->invocation_id;
         sd_id128_to_string(p->invocation_id, p->invocation_id_string);
         p->unit_id = strdup(u->id);
@@ -5380,6 +5389,10 @@ int unit_fork_helper_process(Unit *u, const char *name, PidRef *ret) {
          * and > 0 in the parent. The pid parameter is always filled in with the child's PID. */
 
         (void) unit_realize_cgroup(u);
+
+        CGroupRuntime *crt = unit_setup_cgroup_runtime(u);
+        if (!crt)
+                return -ENOMEM;
 
         r = safe_fork(name, FORK_REOPEN_LOG|FORK_DEATHSIG_SIGTERM, &pid);
         if (r < 0)
@@ -5403,10 +5416,10 @@ int unit_fork_helper_process(Unit *u, const char *name, PidRef *ret) {
         (void) default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE);
         (void) ignore_signals(SIGPIPE);
 
-        if (u->cgroup_path) {
-                r = cg_attach_everywhere(u->manager->cgroup_supported, u->cgroup_path, 0, NULL, NULL);
+        if (crt->cgroup_path) {
+                r = cg_attach_everywhere(u->manager->cgroup_supported, crt->cgroup_path, 0, NULL, NULL);
                 if (r < 0) {
-                        log_unit_error_errno(u, r, "Failed to join unit cgroup %s: %m", empty_to_root(u->cgroup_path));
+                        log_unit_error_errno(u, r, "Failed to join unit cgroup %s: %m", empty_to_root(crt->cgroup_path));
                         _exit(EXIT_CGROUP);
                 }
         }
@@ -5801,9 +5814,10 @@ int unit_prepare_exec(Unit *u) {
 
         (void) unit_realize_cgroup(u);
 
-        if (u->reset_accounting) {
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (crt && crt->reset_accounting) {
                 (void) unit_reset_accounting(u);
-                u->reset_accounting = false;
+                crt->reset_accounting = false;
         }
 
         unit_export_state_files(u);
@@ -5863,11 +5877,13 @@ int unit_warn_leftover_processes(Unit *u, cg_kill_log_func_t log_func) {
 
         (void) unit_pick_cgroup_path(u);
 
-        if (!u->cgroup_path)
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+
+        if (!crt || !crt->cgroup_path)
                 return 0;
 
         return cg_kill_recursive(
-                        u->cgroup_path,
+                        crt->cgroup_path,
                         /* sig= */ 0,
                         /* flags= */ 0,
                         /* set= */ NULL,

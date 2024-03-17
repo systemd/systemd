@@ -40,17 +40,17 @@
     <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
-    <para>If invoked with no arguments, it applies all directives from all files found in the directories
+    <para>If invoked with no arguments, directives from the configuration files found in the directories
     specified by
     <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>. When
     invoked with positional arguments, if option <option>--replace=<replaceable>PATH</replaceable></option>
     is specified, arguments specified on the command line are used instead of the configuration file
     <replaceable>PATH</replaceable>. Otherwise, just the configuration specified by the command line
-    arguments is executed. The string <literal>-</literal> may be specified instead of a filename to instruct
-    <command>systemd-sysusers</command> to read the configuration from standard input. If the argument is a
-    relative path, all configuration directories are searched for a matching file and the file found that has
-    the highest priority is executed. If the argument is an absolute path, that file is used directly without
-    searching of the configuration directories.</para>
+    arguments is executed. If the string <literal>-</literal> is specified instead of a filename, the
+    configuration is read from standard input. If the argument is a file name (without any slashes), all
+    configuration directories are searched for a matching file and the file found that has the highest
+    priority is executed. If the argument is a path, that file is used directly without searching the
+    configuration directories for any other matching file.</para>
   </refsect1>
 
   <refsect1>

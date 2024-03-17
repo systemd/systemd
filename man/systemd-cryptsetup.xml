@@ -105,7 +105,7 @@
   </refsect1>
 
   <refsect1>
-    <title>System Credentials</title>
+    <title>Credentials</title>
 
     <para><command>systemd-cryptsetup</command> supports the service credentials logic as implemented by
     <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
@@ -123,14 +123,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>cryptsetup.fido2-pin</varname></term>
-
-        <listitem><para>This credential specifies the FIDO2 token pin.</para>
-
-        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>cryptsetup.tpm2-pin</varname></term>
 
         <listitem><para>This credential specifies the TPM pin.</para>
@@ -139,9 +131,9 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>cryptsetup.luks2-pin</varname></term>
+        <term><varname>cryptsetup.fido2-pin</varname></term>
 
-        <listitem><para>This credential specifies the LUKS2 token pin.</para>
+        <listitem><para>This credential specifies the FIDO2 token pin.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
@@ -150,6 +142,14 @@
         <term><varname>cryptsetup.pkcs11-pin</varname></term>
 
         <listitem><para>This credential specifies the PKCS11 token pin.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>cryptsetup.luks2-pin</varname></term>
+
+        <listitem><para>This credential specifies the PIN requested by generic LUKS2 token modules.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>

@@ -81,6 +81,7 @@ static int bpf_foreign_prepare(
                 Unit *u,
                 enum bpf_attach_type attach_type,
                 const char *bpffs_path) {
+
         _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
         _cleanup_free_ BPFForeignKey *key = NULL;
         uint32_t prog_id;
@@ -101,6 +102,11 @@ static int bpf_foreign_prepare(
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
                                 "bpf-foreign: Path in BPF filesystem is expected.");
 
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "Failed to get control group runtime object.");
+
         r = bpf_program_new_from_bpffs_path(bpffs_path, &prog);
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-foreign: Failed to create foreign BPF program: %m");
@@ -114,7 +120,7 @@ static int bpf_foreign_prepare(
                 return log_unit_error_errno(u, r,
                                 "bpf-foreign: Failed to create foreign BPF program key from path '%s': %m", bpffs_path);
 
-        r = hashmap_ensure_put(&u->bpf_foreign_by_key, &bpf_foreign_by_key_hash_ops, key, prog);
+        r = hashmap_ensure_put(&crt->bpf_foreign_by_key, &bpf_foreign_by_key_hash_ops, key, prog);
         if (r == -EEXIST) {
                 log_unit_warning_errno(u, r, "bpf-foreign: Foreign BPF program already exists, ignoring: %m");
                 return 0;
@@ -131,6 +137,7 @@ static int bpf_foreign_prepare(
 int bpf_foreign_install(Unit *u) {
         _cleanup_free_ char *cgroup_path = NULL;
         CGroupContext *cc;
+        CGroupRuntime *crt;
         int r, ret = 0;
 
         assert(u);
@@ -139,7 +146,11 @@ int bpf_foreign_install(Unit *u) {
         if (!cc)
                 return 0;
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, NULL, &cgroup_path);
+        crt = unit_get_cgroup_runtime(u);
+        if (!crt)
+                return 0;
+
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, NULL, &cgroup_path);
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-foreign: Failed to get cgroup path: %m");
 
@@ -149,6 +160,6 @@ int bpf_foreign_install(Unit *u) {
                         ret = r;
         }
 
-        r = attach_programs(u, cgroup_path, u->bpf_foreign_by_key, BPF_F_ALLOW_MULTI);
+        r = attach_programs(u, cgroup_path, crt->bpf_foreign_by_key, BPF_F_ALLOW_MULTI);
         return ret < 0 ? ret : r;
 }

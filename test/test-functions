@@ -222,7 +222,6 @@ BASICTOOLS=(
     rm
     rmdir
     rmmod
-    route
     script
     sed
     seq
@@ -256,6 +255,7 @@ BASICTOOLS=(
     useradd
     userdel
     wc
+    whoami
     xargs
     xzcat
 )
@@ -1119,14 +1119,14 @@ install_fs_tools() {
 install_modules() {
     dinfo "Install modules"
 
-    instmods bridge dummy ipvlan macvlan vfat veth
+    instmods bridge dummy ext4 ipvlan macvlan vfat veth
     instmods loop =block
     instmods nls_ascii =nls
     instmods overlay =overlayfs
     instmods scsi_debug
 
     if get_bool "$LOOKS_LIKE_SUSE"; then
-        instmods ext4 af_packet
+        instmods af_packet
     fi
 }
 
@@ -1378,10 +1378,14 @@ install_rpm() {
 install_suse_systemd() {
     local pkgs
 
+    dinfo "Install basic filesystem structure"
+    install_rpm filesystem
+
     dinfo "Install SUSE systemd"
 
     pkgs=(
         systemd
+        systemd-boot
         systemd-container
         systemd-coredump
         systemd-experimental
@@ -1842,7 +1846,7 @@ save_journal() {
 
     # Show messages from the testsuite-XX.service or messages with priority "warning" and higher
     echo " --- $source_dir ---"
-    "$JOURNALCTL" --no-pager --no-hostname -o short-monotonic -D "$source_dir" \
+    "$JOURNALCTL" --all --no-pager --no-hostname -o short-monotonic -D "$source_dir" \
         _SYSTEMD_UNIT="testsuite-${TESTID:?}.service" + SYSLOG_IDENTIFIER="testsuite-$TESTID.sh" + \
         PRIORITY=4 + PRIORITY=3 + PRIORITY=2 + PRIORITY=1 + PRIORITY=0
 
@@ -2099,7 +2103,7 @@ install_testuser() {
     # create unprivileged user for user manager tests
     mkdir -p "${initdir:?}/etc/sysusers.d"
     cat >"$initdir/etc/sysusers.d/testuser.conf" <<EOF
-u testuser    4711     "Test User" /home/testuser
+u testuser    4711     "Test User" /home/testuser /bin/bash
 EOF
 
     mkdir -p "$initdir/home/testuser"

@@ -15,7 +15,7 @@ pairs, encoded as JSON. Specifically:
 1. [`systemd-homed.service`](https://www.freedesktop.org/software/systemd/man/systemd-homed.service.html)
    manages `human` user home directories and embeds these JSON records
    directly in the home directory images
-   (see [Home Directories](HOME_DIRECTORY.md) for details).
+   (see [Home Directories](HOME_DIRECTORY) for details).
 
 2. [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
    processes these JSON records for users that log in, and applies various
@@ -72,11 +72,15 @@ the following extensions are envisioned:
 4. Default parameters for backup applications and similar
 
 Similar to JSON User Records there are also
-[JSON Group Records](GROUP_RECORD.md) that encapsulate UNIX groups.
+[JSON Group Records](GROUP_RECORD) that encapsulate UNIX groups.
+
+JSON User Records are not suitable for storing all identity information about
+the user, such as binary data or large unstructured blobs of text. These parts
+of a user's identity should be stored in the [Blob Directories](USER_RECORD_BLOB_DIRS).
 
 JSON User Records may be transferred or written to disk in various protocols
 and formats. To inquire about such records defined on the local system use the
-[User/Group Lookup API via Varlink](USER_GROUP_API.md). User/group records may
+[User/Group Lookup API via Varlink](USER_GROUP_API). User/group records may
 also be dropped in number of drop-in directories as files. See
 [`nss-systemd(8)`](https://www.freedesktop.org/software/systemd/man/nss-systemd.html)
 for details.
@@ -214,7 +218,7 @@ object. The following fields are currently defined:
 UNIX user name. This field is the only mandatory field, all others are
 optional. Corresponds with the `pw_name` field of `struct passwd` and the
 `sp_namp` field of `struct spwd` (i.e. the shadow user record stored in
-`/etc/shadow`). See [User/Group Name Syntax](USER_NAMES.md) for
+`/etc/shadow`). See [User/Group Name Syntax](USER_NAMES) for
 the (relaxed) rules the various systemd components enforce on user/group names.
 
 `realm` → The "realm" a user is defined in. This concept allows distinguishing
@@ -229,6 +233,16 @@ version has to match in both `userName` and `realm` field. This field is
 optional, when unset the user should not be considered part of any realm. A
 user record with a realm set is never compatible (for the purpose of updates,
 see above) with a user record without one set, even if the `userName` field matches.
+
+`blobDirectory` → The absolute path to a world-readable copy of the user's blob
+directory. See [Blob Directories](USER_RECORD_BLOB_DIRS) for more details.
+
+`blobManifest` → An object, which maps valid blob directory filenames (see
+[Blob Directories](USER_RECORD_BLOB_DIRS) for requirements) to SHA256 hashes
+formatted as hex strings. This exists for the purpose of including the contents
+of the blob directory in the record's signature. Managers that support blob
+directories and utilize signed user records (like `systemd-homed`) should use
+this field to verify the contents of the blob directory whenever appropriate.
 
 `realName` → The real name of the user, a string. This should contain the
 user's real ("human") name, and corresponds loosely to the GECOS field of
@@ -310,11 +324,22 @@ string. The string should be a `tzdata` compatible location string, for
 example: `Europe/Berlin`.
 
 `preferredLanguage` → A string indicating the preferred language/locale for the
-user. When logging in
+user. It is combined with the `additionalLanguages` field to initialize the `$LANG`
+and `$LANGUAGE` environment variables on login; see below for more details. This string
+should be in a format compatible with the `$LANG` environment variable, for example:
+`de_DE.UTF-8`.
+
+`additionalLanguages` → An array of strings indicating the preferred languages/locales
+that should be used in the event that translations for the `preferredLanguage` are
+missing, listed in order of descending priority. This allows multi-lingual users to
+specify all the languages that they know, so software lacking translations in the user's
+primary language can try another language that the user knows rather than falling back to
+the default English. All entries in this field must be valid locale names, compatible with
+the `$LANG` variable, for example: `de_DE.UTF-8`. When logging in
 [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
-will automatically initialize the `$LANG` environment variable from this
-string. The string hence should be in a format compatible with this environment
-variable, for example: `de_DE.UTF8`.
+will prepend `preferredLanguage` (if set) to this list (if set), remove duplicates,
+and then automatically initialize the `$LANGUAGE` variable with the resulting list.
+It will also initialize `$LANG` variable with the first entry in the resulting list.
 
 `niceLevel` → An integer value in the range -20…19. When logging in
 [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
@@ -543,6 +568,15 @@ it is bypassed.
 auto-login. Systems are supposed to automatically log in a user marked this way
 during boot, if there's exactly one user on it defined this way.
 
+`preferredSessionType` → A string that indicates the user's preferred session type
+(i.e. `x11`, `wayland`, or other values valid for `$XDG_SESSION_TYPE`). This should
+be used by the display manager to pre-select the correct environment to log into.
+
+`preferredSessionLauncher` → A string that indicates the user's preferred session launcher
+desktop entry file (i.e. `gnome`, `gnome-classic`, `plasma`, `kodi`, or others that appear
+in `/usr/share/xsessions/` or `/usr/share/wayland-sessions/`). This should be used by the
+display manager to pre-select the correct environment to launch when the user logs in.
+
 `stopDelayUSec` → An unsigned 64-bit integer, indicating the time in µs the
 per-user service manager is kept around after the user fully logged out.  This
 value is honored by
@@ -743,8 +777,8 @@ These two are the only two fields specific to this section. All other fields
 that may be used in this section are identical to the equally named ones in the
 `regular` section (i.e. at the top-level object). Specifically, these are:
 
-`iconName`, `location`, `shell`, `umask`, `environment`, `timeZone`,
-`preferredLanguage`, `niceLevel`, `resourceLimits`, `locked`, `notBeforeUSec`,
+`blobDirectory`, `blobManifest`, `iconName`, `location`, `shell`, `umask`, `environment`, `timeZone`,
+`preferredLanguage`, `additionalLanguages`, `niceLevel`, `resourceLimits`, `locked`, `notBeforeUSec`,
 `notAfterUSec`, `storage`, `diskSize`, `diskSizeRelative`, `skeletonDirectory`,
 `accessMode`, `tasksMax`, `memoryHigh`, `memoryMax`, `cpuWeight`, `ioWeight`,
 `mountNoDevices`, `mountNoSuid`, `mountNoExecute`, `cifsDomain`,
@@ -755,8 +789,8 @@ that may be used in this section are identical to the equally named ones in the
 `luksPbkdfType`, `luksPbkdfForceIterations`, `luksPbkdfTimeCostUSec`, `luksPbkdfMemoryCost`,
 `luksPbkdfParallelThreads`, `luksSectorSize`, `autoResizeMode`, `rebalanceWeight`,
 `rateLimitIntervalUSec`, `rateLimitBurst`, `enforcePasswordPolicy`,
-`autoLogin`, `stopDelayUSec`, `killProcesses`, `passwordChangeMinUSec`,
-`passwordChangeMaxUSec`, `passwordChangeWarnUSec`,
+`autoLogin`, `preferredSessionType`, `preferredSessionLauncher`, `stopDelayUSec`, `killProcesses`,
+`passwordChangeMinUSec`, `passwordChangeMaxUSec`, `passwordChangeWarnUSec`,
 `passwordChangeInactiveUSec`, `passwordChangeNow`, `pkcs11TokenUri`,
 `fido2HmacCredential`.
 
@@ -795,9 +829,9 @@ The following fields are defined in the `binding` section. They all have an
 identical format and override their equally named counterparts in the `regular`
 and `perMachine` sections:
 
-`imagePath`, `homeDirectory`, `partitionUuid`, `luksUuid`, `fileSystemUuid`,
-`uid`, `gid`, `storage`, `fileSystemType`, `luksCipher`, `luksCipherMode`,
-`luksVolumeKeySize`.
+`blobDirectory`, `imagePath`, `homeDirectory`, `partitionUuid`, `luksUuid`,
+`fileSystemUuid`, `uid`, `gid`, `storage`, `fileSystemType`, `luksCipher`,
+`luksCipherMode`, `luksVolumeKeySize`.
 
 ## Fields in the `status` section
 
@@ -902,6 +936,20 @@ itself.
 
 `fileSystemType` → The file system type backing the home directory: a short
 string, such as "btrfs", "ext4", "xfs".
+
+`fallbackShell`, `fallbackHomeDirectory` → These fields have the same contents
+and format as the `shell` and `homeDirectory` fields (see above). When the
+`useFallback` field (see below) is set to true, the data from these fields
+should override the fields of the same name without the `fallback` prefix.
+
+`useFallback` → A boolean that allows choosing between the regular `shell` and
+`homeDirectory` fields or the fallback fields of the same name (see above). If
+`true` the fallback fields should be used in place of the regular fields, if
+`false` or unset the regular fields should be used. This mechanism is used for
+enable subsystems such as SSH to allow logins into user accounts, whose homed
+directories need further unlocking (because the SSH native authentication
+cannot release a suitabable disk encryption key), which the fallback shell
+provides.
 
 ## Fields in the `signature` section
 
@@ -1073,6 +1121,7 @@ A fully featured user record associated with a home directory managed by
                         "fileSystemUuid" : "758e88c8-5851-4a2a-b88f-e7474279c111",
                         "gid" : 60232,
                         "homeDirectory" : "/home/grobie",
+                        "blobDirectory" : "/var/cache/systemd/homed/grobie/",
                         "imagePath" : "/home/grobie.home",
                         "luksCipher" : "aes",
                         "luksCipherMode" : "xts-plain64",
@@ -1082,6 +1131,10 @@ A fully featured user record associated with a home directory managed by
                         "storage" : "luks",
                         "uid" : 60232
                 }
+        },
+        "blobManifest" : {
+                "avatar" : "c0636851d25a62d817ff7da4e081d1e646e42c74d0ecb53425f75fcf1ba43b52",
+                "login-background" : "da7ad0222a6edbc6cd095149c72d38d92fd3114f606e4b57469857ef47fade18"
         },
         "disposition" : "regular",
         "enforcePasswordPolicy" : false,

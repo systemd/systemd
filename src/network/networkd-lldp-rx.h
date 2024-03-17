@@ -14,7 +14,6 @@ typedef enum LLDPMode {
 } LLDPMode;
 
 int link_lldp_rx_configure(Link *link);
-int link_lldp_save(Link *link);
 
 const char* lldp_mode_to_string(LLDPMode m) _const_;
 LLDPMode lldp_mode_from_string(const char *s) _pure_;

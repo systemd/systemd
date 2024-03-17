@@ -366,10 +366,11 @@
       <varlistentry>
         <term><option>--language=</option><replaceable>LANG</replaceable></term>
 
-        <listitem><para>Takes a specifier indicating the preferred language of the user. The
-        <varname>$LANG</varname> environment variable is initialized from this value on login, and thus a
-        value suitable for this environment variable is accepted here, for example
-        <option>--language=de_DE.UTF8</option>.</para>
+        <listitem><para>Takes a comma- or colon-separated list of languages preferred by the user, ordered
+        by descending priority. The <varname>$LANG</varname> and <varname>$LANGUAGE</varname> environment
+        variables are initialized from this value on login, and thus values suitible for these environment
+        variables are accepted here, for example <option>--language=de_DE.UTF-8</option>. This option may
+        be used more than once, in which case the language lists are concatenated.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
@@ -504,6 +505,40 @@
         may be entered instead of a regular password to unlock the account.</para>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+      </varlistentry>
+
+    <varlistentry>
+        <term><option>--blob=</option><replaceable>PATH</replaceable></term>
+        <term><option>-b</option> <replaceable>PATH</replaceable></term>
+        <term><option>--blob=</option><replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable></term>
+        <term><option>-b</option> <replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable></term>
+
+        <listitem><para>Accepts either a directory path, or a file name followed by a file path. If just a
+        directory path is specified, then the user's entire blob directory is replaced the specified path.
+        Note that this replacement is performed before per-file manipulations are applied, which means these per-file
+        manipulations will be applied on top of the specified directory. If a filename and file path are specified, then
+        the single specified blob file will be overwritten with the specified path. If completely blank, the entire blob
+        directory is emptied out (which also resets all previous blob-related flags up to this point). If a filename is
+        specified but the corresponding path is blank, that single file will be deleted from the blob directory. All changes
+        are performed in temporary copies of the specified files in directories, which means that the originals specified on
+        the command line are not modified. See <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob Directories</ulink>
+        for more information about blob directories.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+    <varlistentry>
+        <term><option>--avatar=</option><replaceable>PATH</replaceable></term>
+        <term><option>--login-background=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Accept a file path. If set, the specified file is used to overwrite the
+        corresponding file in the user's blob directory. If blank, the corresponding file is deleted
+        from the blob directory. Essentially, these options are shortcuts to
+        <option>--blob=</option><replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable>
+        for the known filenames defined in
+        <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob Directories</ulink>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -927,6 +962,28 @@
         this way automatic login is disabled.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--session-launcher=</option><replaceable>LAUNCHER</replaceable></term>
+
+        <listitem><para>Takes a string argument. Configures the user's preferred session launcher
+        .desktop entry file (i.e. <literal>gnome</literal>, <literal>plasma</literal>, or other names that
+        appear in <filename>/usr/share/xesssions/</filename> or <filename>/usr/share/wayland-sessions</filename>).
+        This is read by the display manager to pick the default session that is launched when the user logs in.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--session-type=</option><replaceable>TYPE</replaceable></term>
+
+        <listitem><para>Takes a string argument. Configures the user's preferred session type
+        (i.e. <literal>x11</literal>, <literal>wayland</literal>, and other values accepted by
+        <varname>$XDG_SESSION_TYPE</varname>). This is read by the display manage to pick the
+        default session type the user is logged into.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

@@ -30,13 +30,13 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 .uid = geteuid(),
                 .gid = getegid(),
         };
-        server_process_native_file(s, sealed_fd, &ucred, tv, label, label_len);
+        (void) server_process_native_file(s, sealed_fd, &ucred, tv, label, label_len);
 
         unsealed_fd = mkostemp_safe(name);
         assert_se(unsealed_fd >= 0);
         assert_se(write(unsealed_fd, data, size) == (ssize_t) size);
         assert_se(lseek(unsealed_fd, 0, SEEK_SET) == 0);
-        server_process_native_file(s, unsealed_fd, &ucred, tv, label, label_len);
+        (void) server_process_native_file(s, unsealed_fd, &ucred, tv, label, label_len);
 
         return 0;
 }

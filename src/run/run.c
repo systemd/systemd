@@ -22,6 +22,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "hostname-util.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -186,6 +187,13 @@ static int help_sudo_mode(void) {
                link);
 
         return 0;
+}
+
+static bool privileged_execution(void) {
+        if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
+                return false;
+
+        return !arg_exec_user || STR_IN_SET(arg_exec_user, "root", "0");
 }
 
 static int add_timer_property(const char *name, const char *val) {
@@ -941,7 +949,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         if (!arg_background && arg_stdio == ARG_STDIO_PTY) {
                 double hue;
 
-                if (!arg_exec_user || STR_IN_SET(arg_exec_user, "root", "0"))
+                if (privileged_execution())
                         hue = 0; /* red */
                 else
                         hue = 60 /* yellow */;
@@ -1544,8 +1552,6 @@ static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret)
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *object = NULL;
-        const void *p;
-        size_t l;
         int r;
 
         assert(bus);
@@ -1568,20 +1574,33 @@ static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret)
         if (r < 0)
                 return log_error_errno(r, "Failed to request invocation ID for unit: %s", bus_error_message(&error, r));
 
-        r = sd_bus_message_read_array(reply, 'y', &p, &l);
+        r = bus_message_read_id128(reply, ret);
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (l == 0) {
-                *ret = SD_ID128_NULL;
-                return 0; /* no uuid set */
-        }
+        return 0;
+}
 
-        if (l != sizeof(sd_id128_t))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid UUID size, %zu != %zu.", l, sizeof(sd_id128_t));
+static void set_window_title(PTYForward *f) {
+        _cleanup_free_ char *hn = NULL, *cl = NULL, *dot = NULL;
+        assert(f);
 
-        memcpy(ret, p, l);
-        return !sd_id128_is_null(*ret);
+        if (!arg_host)
+                (void) gethostname_strict(&hn);
+
+        cl = strv_join(arg_cmdline, " ");
+        if (!cl)
+                return (void) log_oom();
+
+        if (emoji_enabled())
+                dot = strjoin(special_glyph(privileged_execution() ? SPECIAL_GLYPH_RED_CIRCLE : SPECIAL_GLYPH_YELLOW_CIRCLE), " ");
+
+        if (arg_host || hn)
+                (void) pty_forward_set_titlef(f, "%s%s on %s", strempty(dot), cl, arg_host ?: hn);
+        else
+                (void) pty_forward_set_titlef(f, "%s%s", strempty(dot), cl);
+
+        (void) pty_forward_set_title_prefix(f, dot);
 }
 
 static int start_transient_service(sd_bus *bus) {
@@ -1721,9 +1740,9 @@ static int start_transient_service(sd_bus *bus) {
                         return log_error_errno(r, "Failed to get event loop: %m");
 
                 if (master >= 0) {
-                        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGWINCH, SIGTERM, SIGINT, -1) >= 0);
-                        (void) sd_event_add_signal(c.event, NULL, SIGINT, NULL, NULL);
-                        (void) sd_event_add_signal(c.event, NULL, SIGTERM, NULL, NULL);
+                        assert_se(sigprocmask_many(SIG_BLOCK, /* old_sigset=*/ NULL, SIGWINCH) >= 0);
+
+                        (void) sd_event_set_signal_exit(c.event, true);
 
                         if (!arg_quiet)
                                 log_info("Press ^] three times within 1s to disconnect TTY.");
@@ -1739,6 +1758,8 @@ static int start_transient_service(sd_bus *bus) {
 
                         if (!isempty(arg_background))
                                 (void) pty_forward_set_background_color(c.forward, arg_background);
+
+                        set_window_title(c.forward);
                 }
 
                 path = unit_dbus_path_from_name(service);

@@ -53,7 +53,7 @@ const NamingScheme* naming_scheme(void) {
                 return cache;
 
         /* Acquire setting from the kernel command line */
-        (void) proc_cmdline_get_key("net.naming-scheme", 0, &buffer);
+        (void) proc_cmdline_get_key("net.naming_scheme", 0, &buffer);
 
         /* Also acquire it from an env var */
         e = getenv("NET_NAMING_SCHEME");

@@ -63,6 +63,28 @@ int route_metric_compare_func(const RouteMetric *a, const RouteMetric *b) {
         return strcmp_ptr(a->tcp_congestion_control_algo, b->tcp_congestion_control_algo);
 }
 
+bool route_metric_can_update(const RouteMetric *a, const RouteMetric *b, bool expiration_by_kernel) {
+        assert(a);
+        assert(b);
+
+        /* If the kernel has expiration timer for the route, then only MTU can be updated. */
+
+        if (!expiration_by_kernel)
+                return route_metric_compare_func(a, b) == 0;
+
+        if (a->n_metrics != b->n_metrics)
+                return false;
+
+        for (size_t i = 1; i < a->n_metrics; i++) {
+                if (i != RTAX_MTU)
+                        continue;
+                if (a->metrics[i] != b->metrics[i])
+                        return false;
+        }
+
+        return streq_ptr(a->tcp_congestion_control_algo, b->tcp_congestion_control_algo);
+}
+
 int route_metric_set_full(RouteMetric *metric, uint16_t attr, uint32_t value, bool force) {
         assert(metric);
 

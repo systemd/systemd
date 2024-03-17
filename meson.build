@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 project('systemd', 'c',
-        version : '255',
+        version : files('meson.version'),
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu11',
@@ -18,8 +18,9 @@ libudev_version = '1.7.8'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
-conf.set('PROJECT_VERSION', meson.project_version(),
+conf.set('PROJECT_VERSION', meson.project_version().split('~')[0],
          description : 'Numerical project version (used where a simple number is expected)')
+conf.set_quoted('PROJECT_VERSION_FULL', meson.project_version(), description : 'Full project version')
 
 # This is to be used instead of meson.source_root(), as the latter will return
 # the wrong result when systemd is being built as a meson subproject
@@ -65,9 +66,9 @@ summary({'build mode' : get_option('mode')})
 #####################################################################
 
 # Try to install the git pre-commit hook
-add_git_hook_sh = find_program('tools/add-git-hook.sh', required : false)
-if add_git_hook_sh.found()
-        git_hook = run_command(add_git_hook_sh, check : false)
+git_setup_sh = find_program('tools/git-setup.sh', required : false)
+if git_setup_sh.found()
+        git_hook = run_command(git_setup_sh, check : false)
         if git_hook.returncode() == 0
                 message(git_hook.stdout().strip())
         endif
@@ -231,6 +232,7 @@ conf.set_quoted('ENVIRONMENT_DIR',                            environmentdir)
 conf.set_quoted('INCLUDE_DIR',                                includedir)
 conf.set_quoted('LIBDIR',                                     libdir)
 conf.set_quoted('LIBEXECDIR',                                 libexecdir)
+conf.set_quoted('KERNEL_INSTALL_DIR',                         kernelinstalldir)
 conf.set_quoted('MODPROBE_DIR',                               modprobedir)
 conf.set_quoted('MODULESLOAD_DIR',                            modulesloaddir)
 conf.set_quoted('PKGSYSCONFDIR',                              pkgsysconfdir)
@@ -313,7 +315,7 @@ meson_build_sh = find_program('tools/meson-build.sh')
 want_tests = get_option('tests')
 slow_tests = want_tests != 'false' and get_option('slow-tests')
 fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
-install_tests = get_option('install-tests')
+install_tests = want_tests != 'false' and get_option('install-tests')
 
 if add_languages('cpp', native : false, required : fuzzer_build)
         #  Used only for tests
@@ -700,8 +702,6 @@ foreach prog : progs
         conf.set_quoted(name, path)
 endforeach
 
-conf.set_quoted('TELINIT', get_option('telinit-path'))
-
 if run_command(ln, '--relative', '--help', check : false).returncode() != 0
         error('ln does not support --relative (added in coreutils 8.16)')
 endif
@@ -761,17 +761,6 @@ if fallback_hostname == '' or fallback_hostname[0] == '.' or fallback_hostname[0
         # the most obvious errors here so we don't fail with an assert later.
 endif
 conf.set_quoted('FALLBACK_HOSTNAME', fallback_hostname)
-
-default_hierarchy = get_option('default-hierarchy')
-conf.set_quoted('DEFAULT_HIERARCHY_NAME', default_hierarchy,
-                description : 'default cgroup hierarchy as string')
-if default_hierarchy == 'legacy'
-        conf.set('DEFAULT_HIERARCHY', 'CGROUP_UNIFIED_NONE')
-elif default_hierarchy == 'hybrid'
-        conf.set('DEFAULT_HIERARCHY', 'CGROUP_UNIFIED_SYSTEMD')
-else
-        conf.set('DEFAULT_HIERARCHY', 'CGROUP_UNIFIED_ALL')
-endif
 
 extra_net_naming_schemes = []
 extra_net_naming_map = []
@@ -1260,7 +1249,8 @@ foreach ident : ['crypt_set_metadata_size',
                  'crypt_token_max',
                  'crypt_reencrypt_init_by_passphrase',
                  'crypt_reencrypt',
-                 'crypt_set_data_offset']
+                 'crypt_set_data_offset',
+                 'crypt_set_keyring_to_link']
         have_ident = have and cc.has_function(
                 ident,
                 prefix : '#include <libcryptsetup.h>',
@@ -1381,16 +1371,19 @@ conf.set10('HAVE_BZIP2', libbzip2.found())
 libxz = dependency('liblzma',
                    required : get_option('xz'))
 conf.set10('HAVE_XZ', libxz.found())
+libxz_cflags = libxz.partial_dependency(includes: true, compile_args: true)
 
 liblz4 = dependency('liblz4',
                     version : '>= 1.3.0',
                     required : get_option('lz4'))
 conf.set10('HAVE_LZ4', liblz4.found())
+liblz4_cflags = liblz4.partial_dependency(includes: true, compile_args: true)
 
 libzstd = dependency('libzstd',
                      version : '>= 1.4.0',
                      required : get_option('zstd'))
 conf.set10('HAVE_ZSTD', libzstd.found())
+libzstd_cflags = libzstd.partial_dependency(includes: true, compile_args: true)
 
 conf.set10('HAVE_COMPRESSION', libxz.found() or liblz4.found() or libzstd.found())
 
@@ -1853,18 +1846,26 @@ xml_helper_py = find_program('tools/xml_helper.py')
 #####################################################################
 
 version_tag = get_option('version-tag')
+if version_tag == ''
+        version_tag = meson.project_version()
+endif
+
+conf.set_quoted('VERSION_TAG', version_tag)
+
+vcs_tag = get_option('vcs-tag')
+command = ['sh', '-c',
+           vcs_tag and fs.exists(project_source_root / '.git') ?
+                   'echo "-g$(git -C . describe --abbrev=7 --match="" --always --dirty=^)"' : ':']
 version_h = vcs_tag(
         input : 'src/version/version.h.in',
         output : 'version.h',
-        command: [project_source_root / 'tools/meson-vcs-tag.sh',
-                  project_source_root,
-                  meson.project_version(),
-                  version_tag,
-                 ])
+        fallback : '',
+        command : command,
+)
 
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''
-        shared_lib_tag = meson.project_version()
+        shared_lib_tag = meson.project_version().split('~')[0]
 endif
 
 #####################################################################
@@ -1881,7 +1882,7 @@ config_h = configure_file(
 
 userspace_c_args += ['-include', 'config.h']
 
-jinja2_cmdline = [meson_render_jinja2, config_h, version_h]
+jinja2_cmdline = [meson_render_jinja2, config_h]
 
 userspace = declare_dependency(
         compile_args : userspace_c_args,
@@ -1948,8 +1949,7 @@ libsystemd = shared_library(
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
         link_with : [libbasic,
-                     libbasic_gcrypt,
-                     libbasic_compress],
+                     libbasic_gcrypt],
         link_whole : [libsystemd_static],
         dependencies : [librt,
                         threads,
@@ -1966,7 +1966,6 @@ install_libsystemd_static = static_library(
         libsystemd_sources,
         basic_sources,
         basic_gcrypt_sources,
-        basic_compress_sources,
         fundamental_sources,
         include_directories : libsystemd_includes,
         build_by_default : static_libsystemd != 'false',
@@ -1978,12 +1977,12 @@ install_libsystemd_static = static_library(
                         libcap,
                         libdl,
                         libgcrypt,
-                        liblz4,
+                        liblz4_cflags,
                         libmount,
                         libopenssl,
                         librt,
-                        libxz,
-                        libzstd,
+                        libxz_cflags,
+                        libzstd_cflags,
                         threads,
                         userspace],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
@@ -2558,11 +2557,17 @@ foreach exec : public_programs
                      args : exec.full_path(),
                      depends: exec)
 
+                version = meson.project_version()
+                if name == 'udevadm'
+                        # For compatibility reasons we can't use the full version in udevadm.
+                        version = version.split('~')[0]
+                endif
+
                 test('check-version-' + name,
                      check_version,
                      suite : 'dist',
                      args : [exec.full_path(),
-                             meson.project_version()],
+                             version],
                      depends: exec)
         endif
 endforeach
@@ -2690,6 +2695,14 @@ if not meson.is_cross_build()
                 command : [export_dbus_interfaces_py, '@OUTPUT@', dbus_programs])
 endif
 
+meson_extract_unit_files = find_program('tools/meson-extract-unit-files.py')
+custom_target('installed-unit-files.txt',
+              output : 'installed-unit-files.txt',
+              capture : true,
+              install : want_tests != 'no' and install_tests,
+              install_dir : testdata_dir,
+              command : [meson_extract_unit_files, project_build_root])
+
 #####################################################################
 
 alt_time_epoch = run_command('date', '-Is', '-u', '-d', '@@0@'.format(time_epoch),
@@ -2741,9 +2754,8 @@ summary({
         'default LLMNR mode' :              default_llmnr,
         'default DNS servers' :             dns_servers.split(' '),
         'default NTP servers' :             ntp_servers.split(' '),
-        'default cgroup hierarchy' :        default_hierarchy,
-        'default net.naming-scheme value' : default_net_naming_scheme,
-        'default KillUserProcesses value' : kill_user_processes,
+        'default net.naming_scheme= value': default_net_naming_scheme,
+        'default KillUserProcesses= value': kill_user_processes,
         'default locale' :                  default_locale,
         'default nspawn locale' :           nspawn_locale,
         'default status unit format' :      status_unit_format_default,

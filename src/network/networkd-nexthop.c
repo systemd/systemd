@@ -869,7 +869,7 @@ static void link_mark_nexthops(Link *link, bool foreign) {
                         continue;
 
                 /* When 'foreign' is true, mark only foreign nexthops, and vice versa. */
-                if (foreign != (nexthop->source == NETWORK_CONFIG_SOURCE_FOREIGN))
+                if (nexthop->source != (foreign ? NETWORK_CONFIG_SOURCE_FOREIGN : NETWORK_CONFIG_SOURCE_STATIC))
                         continue;
 
                 /* Ignore nexthops not assigned yet or already removed. */

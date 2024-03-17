@@ -840,7 +840,7 @@ int route_section_verify_nexthops(Route *route) {
                                                  "Ignoring [Route] section from line %u.",
                                                  route->section->filename, route->section->line);
 
-                if (route->nexthop.family == AF_INET6 && !route->network->ipv6_accept_ra)
+                if (route->nexthop.family == AF_INET6 && route->network->ndisc == 0)
                         return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                                  "%s: Gateway=\"_ipv6ra\" is specified but IPv6AcceptRA= is disabled. "
                                                  "Ignoring [Route] section from line %u.",

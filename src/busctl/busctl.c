@@ -1366,7 +1366,7 @@ static int verb_monitor(int argc, char **argv, void *userdata) {
 static int verb_capture(int argc, char **argv, void *userdata) {
         _cleanup_free_ char *osname = NULL;
         static const char info[] =
-                "busctl (systemd) " STRINGIFY(PROJECT_VERSION) " (Git " GIT_VERSION ")";
+                "busctl (systemd) " PROJECT_VERSION_FULL " (Git " GIT_VERSION ")";
         int r;
 
         if (isatty(STDOUT_FILENO))
@@ -2020,6 +2020,15 @@ static int call(int argc, char **argv, void *userdata) {
         r = acquire_bus(false, &bus);
         if (r < 0)
                 return r;
+
+        if (!service_name_is_valid(argv[1]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid service name: %s", argv[1]);
+        if (!object_path_is_valid(argv[2]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid object path: %s", argv[2]);
+        if (!interface_name_is_valid(argv[3]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid interface name: %s", argv[3]);
+        if (!member_name_is_valid(argv[4]))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid member name: %s", argv[4]);
 
         r = sd_bus_message_new_method_call(bus, &m, argv[1], argv[2], argv[3], argv[4]);
         if (r < 0)

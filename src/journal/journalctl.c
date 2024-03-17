@@ -130,6 +130,7 @@ static const char *arg_field = NULL;
 static bool arg_catalog = false;
 static bool arg_reverse = false;
 static int arg_journal_type = 0;
+static int arg_journal_additional_open_flags = 0;
 static int arg_namespace_flags = 0;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
@@ -1152,6 +1153,9 @@ static int parse_argv(int argc, char *argv[]) {
                 if (arg_lines_needs_seek_end() && !arg_follow)
                         arg_reverse = true;
         }
+
+        if (!arg_follow)
+                arg_journal_additional_open_flags = SD_JOURNAL_ASSUME_IMMUTABLE;
 
         return 1;
 }
@@ -2322,7 +2326,8 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_VALIDATE_OS |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
-                                (arg_action == ACTION_UPDATE_CATALOG ? DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS : DISSECT_IMAGE_READ_ONLY),
+                                (arg_action == ACTION_UPDATE_CATALOG ? DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS : DISSECT_IMAGE_READ_ONLY) |
+                                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY,
                                 &mounted_dir,
                                 /* ret_dir_fd= */ NULL,
                                 &loop_device);
@@ -2413,21 +2418,21 @@ static int run(int argc, char *argv[]) {
         }
 
         if (arg_directory)
-                r = sd_journal_open_directory(&j, arg_directory, arg_journal_type);
+                r = sd_journal_open_directory(&j, arg_directory, arg_journal_type | arg_journal_additional_open_flags);
         else if (arg_root)
-                r = sd_journal_open_directory(&j, arg_root, arg_journal_type | SD_JOURNAL_OS_ROOT);
+                r = sd_journal_open_directory(&j, arg_root, arg_journal_type | arg_journal_additional_open_flags | SD_JOURNAL_OS_ROOT);
         else if (arg_file_stdin)
-                r = sd_journal_open_files_fd(&j, (int[]) { STDIN_FILENO }, 1, 0);
+                r = sd_journal_open_files_fd(&j, (int[]) { STDIN_FILENO }, 1, arg_journal_additional_open_flags);
         else if (arg_file)
-                r = sd_journal_open_files(&j, (const char**) arg_file, 0);
+                r = sd_journal_open_files(&j, (const char**) arg_file, arg_journal_additional_open_flags);
         else if (arg_machine)
-                r = journal_open_machine(&j, arg_machine);
+                r = journal_open_machine(&j, arg_machine, arg_journal_additional_open_flags);
         else
                 r = sd_journal_open_namespace(
                                 &j,
                                 arg_namespace,
                                 (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) |
-                                arg_namespace_flags | arg_journal_type);
+                                arg_namespace_flags | arg_journal_type | arg_journal_additional_open_flags);
         if (r < 0)
                 return log_error_errno(r, "Failed to open %s: %m", arg_directory ?: arg_file ? "files" : "journal");
 
@@ -2726,19 +2731,12 @@ static int run(int argc, char *argv[]) {
                         return r;
                 sig = r;
 
-                /* unref signal event sources. */
-                e = sd_event_unref(e);
-
                 r = update_cursor(j);
                 if (r < 0)
                         return r;
 
                 /* re-send the original signal. */
-                assert(SIGNAL_VALID(sig));
-                if (raise(sig) < 0)
-                        log_error("Failed to raise the original signal SIG%s, ignoring: %m", signal_to_string(sig));
-
-                return 0;
+                return sig;
         }
 
         r = show(&c);
@@ -2763,4 +2761,4 @@ static int run(int argc, char *argv[]) {
         return 0;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_SIGNAL(run);

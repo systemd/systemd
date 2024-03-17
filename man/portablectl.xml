@@ -45,12 +45,12 @@
     within the file system context of the image.</para>
 
     <para>Portable service images are an efficient way to bundle multiple related services and other units together,
-    and transfer them as a whole between systems. When these images are attached the local system the contained units
+    and transfer them as a whole between systems. When these images are attached to the local system, the contained units
     may run in most ways like regular system-provided units, either with full privileges or inside strict sandboxing,
     depending on the selected configuration. For more details, see
     <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services Documentation</ulink>.</para>
 
-    <para>Specifically portable service images may be of the following kind:</para>
+    <para>Portable service images may be of the following kinds:</para>
 
     <itemizedlist>
       <listitem><para>Directory trees containing an OS, including the top-level directories <filename>/usr/</filename>,
@@ -321,12 +321,14 @@
       <varlistentry>
         <term><option>--copy=</option></term>
 
-        <listitem><para>When attaching an image, select whether to prefer copying or symlinking of files installed into
-        the host system. Takes one of <literal>copy</literal> (to prefer copying of files), <literal>symlink</literal>
-        (to prefer creation of symbolic links) or <literal>auto</literal> for an intermediary mode where security
-        profile drop-ins are symlinked while unit files are copied. Note that this option expresses a preference only,
-        in cases where symbolic links cannot be created — for example when the image operated on is a raw disk image,
-        and hence not directly referentiable from the host file system — copying of files is used
+        <listitem><para>When attaching an image, select whether to prefer copying or symlinking of files
+        installed into the host system. Takes one of <literal>copy</literal> (files will be copied),
+        <literal>symlink</literal> (to prefer creation of symbolic links), <literal>auto</literal> for an
+        intermediary mode where security profile drop-ins and images are symlinked while unit files are
+        copied, or <literal>mixed</literal> (since v256) where security profile drop-ins are symlinked while
+        unit files and images are copied. Note that this option expresses a preference only, in cases where
+        symbolic links cannot be created — for example when the image operated on is a raw disk image, and
+        hence not directly referentiable from the host file system — copying of files is used
         unconditionally.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
@@ -509,6 +511,7 @@
       <member><citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>org.freedesktop.portable1</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-portabled.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 

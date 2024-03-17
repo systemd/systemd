@@ -43,22 +43,22 @@ bool pkcs11_uri_valid(const char *uri) {
 
 static void *p11kit_dl = NULL;
 
-char *(*sym_p11_kit_module_get_name)(CK_FUNCTION_LIST *module);
-void (*sym_p11_kit_modules_finalize_and_release)(CK_FUNCTION_LIST **modules);
-CK_FUNCTION_LIST **(*sym_p11_kit_modules_load_and_initialize)(int flags);
-const char *(*sym_p11_kit_strerror)(CK_RV rv);
-int (*sym_p11_kit_uri_format)(P11KitUri *uri, P11KitUriType uri_type, char **string);
-void (*sym_p11_kit_uri_free)(P11KitUri *uri);
-CK_ATTRIBUTE_PTR (*sym_p11_kit_uri_get_attributes)(P11KitUri *uri, CK_ULONG *n_attrs);
-CK_ATTRIBUTE_PTR (*sym_p11_kit_uri_get_attribute)(P11KitUri *uri, CK_ATTRIBUTE_TYPE attr_type);
-int (*sym_p11_kit_uri_set_attribute)(P11KitUri *uri, CK_ATTRIBUTE_PTR attr);
-CK_INFO_PTR (*sym_p11_kit_uri_get_module_info)(P11KitUri *uri);
-CK_SLOT_INFO_PTR (*sym_p11_kit_uri_get_slot_info)(P11KitUri *uri);
-CK_TOKEN_INFO_PTR (*sym_p11_kit_uri_get_token_info)(P11KitUri *uri);
-int (*sym_p11_kit_uri_match_token_info)(const P11KitUri *uri, const CK_TOKEN_INFO *token_info);
-const char *(*sym_p11_kit_uri_message)(int code);
-P11KitUri *(*sym_p11_kit_uri_new)(void);
-int (*sym_p11_kit_uri_parse)(const char *string, P11KitUriType uri_type, P11KitUri *uri);
+DLSYM_FUNCTION(p11_kit_module_get_name);
+DLSYM_FUNCTION(p11_kit_modules_finalize_and_release);
+DLSYM_FUNCTION(p11_kit_modules_load_and_initialize);
+DLSYM_FUNCTION(p11_kit_strerror);
+DLSYM_FUNCTION(p11_kit_uri_format);
+DLSYM_FUNCTION(p11_kit_uri_free);
+DLSYM_FUNCTION(p11_kit_uri_get_attributes);
+DLSYM_FUNCTION(p11_kit_uri_get_attribute);
+DLSYM_FUNCTION(p11_kit_uri_set_attribute);
+DLSYM_FUNCTION(p11_kit_uri_get_module_info);
+DLSYM_FUNCTION(p11_kit_uri_get_slot_info);
+DLSYM_FUNCTION(p11_kit_uri_get_token_info);
+DLSYM_FUNCTION(p11_kit_uri_match_token_info);
+DLSYM_FUNCTION(p11_kit_uri_message);
+DLSYM_FUNCTION(p11_kit_uri_new);
+DLSYM_FUNCTION(p11_kit_uri_parse);
 
 int dlopen_p11kit(void) {
         return dlopen_many_sym_or_warn(
@@ -291,12 +291,11 @@ int pkcs11_token_login(
                 CK_SLOT_ID slotid,
                 const CK_TOKEN_INFO *token_info,
                 const char *friendly_name,
-                const char *icon_name,
-                const char *key_name,
-                const char *credential_name,
+                const char *askpw_icon,
+                const char *askpw_keyring,
+                const char *askpw_credential,
                 usec_t until,
-                AskPasswordFlags ask_password_flags,
-                bool headless,
+                AskPasswordFlags askpw_flags,
                 char **ret_used_pin) {
 
         _cleanup_free_ char *token_uri_string = NULL, *token_uri_escaped = NULL, *id = NULL, *token_label = NULL;
@@ -351,7 +350,7 @@ int pkcs11_token_login(
                         if (!passwords)
                                 return log_oom();
 
-                } else if (headless)
+                } else if (FLAGS_SET(askpw_flags, ASK_PASSWORD_HEADLESS))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "PIN querying disabled via 'headless' option. Use the 'PIN' environment variable.");
                 else {
                         _cleanup_free_ char *text = NULL;
@@ -375,8 +374,16 @@ int pkcs11_token_login(
                         if (r < 0)
                                 return log_oom();
 
+                        AskPasswordRequest req = {
+                                .message = text,
+                                .icon = askpw_icon,
+                                .id = id,
+                                .keyring = askpw_keyring,
+                                .credential = askpw_credential,
+                        };
+
                         /* We never cache PINs, simply because it's fatal if we use wrong PINs, since usually there are only 3 tries */
-                        r = ask_password_auto(text, icon_name, id, key_name, credential_name, until, ask_password_flags, &passwords);
+                        r = ask_password_auto(&req, until, askpw_flags, &passwords);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to query PIN for security token '%s': %m", token_label);
                 }
@@ -873,7 +880,7 @@ int pkcs11_token_find_private_key(
         uint_fast8_t n_objects = 0;
         bool found_class = false;
         _cleanup_free_ CK_ATTRIBUTE *attributes_buffer = NULL;
-        CK_OBJECT_HANDLE object, candidate;
+        CK_OBJECT_HANDLE object = 0, candidate;
         static const CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
         CK_BBOOL decrypt_value, derive_value;
         CK_ATTRIBUTE optional_attributes[] = {
@@ -1643,9 +1650,8 @@ int pkcs11_find_token(
 struct pkcs11_acquire_public_key_callback_data {
         char *pin_used;
         EVP_PKEY *pkey;
-        const char *askpw_friendly_name, *askpw_icon_name;
+        const char *askpw_friendly_name, *askpw_icon, *askpw_credential;
         AskPasswordFlags askpw_flags;
-        bool headless;
 };
 
 static void pkcs11_acquire_public_key_callback_data_release(struct pkcs11_acquire_public_key_callback_data *data) {
@@ -1690,12 +1696,11 @@ static int pkcs11_acquire_public_key_callback(
                         slot_id,
                         token_info,
                         data->askpw_friendly_name,
-                        data->askpw_icon_name,
+                        data->askpw_icon,
                         "pkcs11-pin",
-                        "pkcs11-pin",
+                        data->askpw_credential,
                         UINT64_MAX,
                         data->askpw_flags,
-                        data->headless,
                         &pin_used);
         if (r < 0)
                 return r;
@@ -1821,13 +1826,17 @@ success:
 int pkcs11_acquire_public_key(
                 const char *uri,
                 const char *askpw_friendly_name,
-                const char *askpw_icon_name,
+                const char *askpw_icon,
+                const char *askpw_credential,
+                AskPasswordFlags askpw_flags,
                 EVP_PKEY **ret_pkey,
                 char **ret_pin_used) {
 
         _cleanup_(pkcs11_acquire_public_key_callback_data_release) struct pkcs11_acquire_public_key_callback_data data = {
                 .askpw_friendly_name = askpw_friendly_name,
-                .askpw_icon_name = askpw_icon_name,
+                .askpw_icon = askpw_icon,
+                .askpw_credential = askpw_credential,
+                .askpw_flags = askpw_flags,
         };
         int r;
 
@@ -2032,10 +2041,9 @@ int pkcs11_crypt_device_callback(
                         data->friendly_name,
                         "drive-harddisk",
                         "pkcs11-pin",
-                        "cryptsetup.pkcs11-pin",
+                        data->askpw_credential,
                         data->until,
                         data->askpw_flags,
-                        data->headless,
                         NULL);
         if (r < 0)
                 return r;

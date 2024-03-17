@@ -217,9 +217,7 @@
         <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         section "Files and Directories" for the precise search path.</para>
 
-        <para>In place of the directory path a <literal>.v/</literal> versioned directory may be specified, see
-        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details.</para>
+        <xi:include href="vpick.xml" xpointer="directory"/>
 
         <para>If neither <option>--directory=</option>, <option>--image=</option>, nor
         <option>--machine=</option> are specified, the current directory will be used. May not be specified
@@ -317,9 +315,7 @@
         <para>Any other partitions, such as foreign partitions or swap partitions are not mounted. May not be specified
         together with <option>--directory=</option>, <option>--template=</option>.</para>
 
-        <para>In place of the image path a <literal>.v/</literal> versioned directory may be specified, see
-        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details.</para>
+        <xi:include href="vpick.xml" xpointer="image"/>
 
         <xi:include href="version-info.xml" xpointer="v211"/></listitem>
       </varlistentry>
@@ -1491,12 +1487,12 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <para>Mount options are comma-separated. <option>rbind</option> and <option>norbind</option> control whether
         to create a recursive or a regular bind mount. Defaults to <option>rbind</option>. <option>noidmap</option>,
-        <option>idmap</option>, and <option>rootidmap</option> control ID mapping.</para>
+        <option>idmap</option>, <option>rootidmap</option> and <option>owneridmap</option> control ID mapping.</para>
 
-        <para>Using <option>idmap</option> or <option>rootidmap</option> requires support by the source filesystem
-        for user/group ID mapped mounts. Defaults to <option>noidmap</option>. With <option>x</option> being the container's UID range
-        offset, <option>y</option> being the length of the container's UID range, and <option>p</option> being the
-        owner UID of the bind mount source inode on the host:
+        <para>Using <option>idmap</option>, <option>rootidmap</option> or <option>owneridmap</option> requires support
+        by the source filesystem for user/group ID mapped mounts. Defaults to <option>noidmap</option>. With
+        <option>x</option> being the container's UID range offset, <option>y</option> being the length of the
+        container's UID range, and <option>p</option> being the owner UID of the bind mount source inode on the host:
 
         <itemizedlist>
           <listitem><para>If <option>noidmap</option> is used, any user <option>z</option> in the range
@@ -1512,10 +1508,15 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
           <listitem><para>If <option>rootidmap</option> is used, the user <option>0</option> seen from inside
           of the container is mapped to <option>p</option> on the host. Other host users are mapped to
           <option>nobody</option> inside the container.</para></listitem>
+
+          <listitem><para>If <option>owneridmap</option> is used, the owner of the target directory inside of the
+          container is mapped to <option>p</option> on the host. Other host users are mapped to
+          <option>nobody</option> inside the container.</para></listitem>
         </itemizedlist></para>
 
         <para>Whichever ID mapping option is used, the same mapping will be used for users and groups IDs. If
-        <option>rootidmap</option> is used, the group owning the bind mounted directory will have no effect.</para>
+        <option>rootidmap</option> or <option>owneridmap</option> are used, the group owning the bind mounted directory
+        will have no effect.</para>
 
         <para>Note that when this option is used in combination with <option>--private-users</option>, the resulting
         mount points will be owned by the <constant>nobody</constant> user. That's because the mount and its files and
@@ -1799,19 +1800,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
   <refsect1>
     <title>Examples</title>
 
-    <example>
-      <title>Download a
-      <ulink url="https://getfedora.org">Fedora</ulink> image and start a shell in it</title>
-
-      <programlisting># machinectl pull-raw --verify=no \
-      https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz \
-      Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86-64
-# systemd-nspawn -M Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86-64</programlisting>
-
-      <para>This downloads an image using
-      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-      and opens a shell in it.</para>
-    </example>
+    <xi:include href="importctl.xml" xpointer="example-import-tar" />
 
     <example>
       <title>Build and boot a minimal Fedora distribution in a container</title>
@@ -1920,6 +1909,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       <member><citerefentry project='mankier'><refentrytitle>zypper</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs.html'>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>

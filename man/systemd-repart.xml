@@ -355,6 +355,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--private-key-source=</option></term>
+
+        <listitem><para>Takes one of <literal>file</literal>, <literal>engine</literal> or
+        <literal>provider</literal>. In the latter two cases, it is followed by the name of a provider or
+        engine, separated by colon, that will be passed to OpenSSL's "engine" or "provider" logic.
+        Configures the signing mechanism to use when creating verity signature partitions with the
+        <varname>Verity=signature</varname> setting in partition files.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--certificate=</option></term>
 
         <listitem><para>Takes a file system path. Configures the PEM encoded X.509 certificate to use when
@@ -578,6 +590,28 @@
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--generate-fstab=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Specifies a path where to write fstab entries for the mountpoints configured with
+        <option>MountPoint=</option> in the root directory specified with <option>--copy-source=</option> or
+        <option>--root=</option> or in the host's root directory if neither is specified. Disabled by
+        default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--generate-crypttab=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Specifies a path where to write crypttab entries for the encrypted volumes configured
+        with <option>EncryptedVolume=</option> in the root directory specified with
+        <option>--copy-source=</option> or <option>--root=</option> or in the host's root directory if
+        neither is specified. Disabled by default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
@@ -614,6 +648,27 @@ systemd-confext refresh</programlisting>
 
       <para>The DDI generated that way may be applied to the system with
       <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+    </example>
+
+    <example>
+      <title>Generate a system extension image and sign it via PKCS11</title>
+
+      <para>The following creates a system extension DDI (sysext) for an
+      <filename>/usr/foo</filename> update and signs it with a hardware token via PKCS11.</para>
+
+      <programlisting>mkdir tree tree/usr tree/usr/lib/extension-release.d
+echo "Hello World" > tree/usr/foo
+cat > tree/usr/lib/extension-release.d/extension-release.my-foo &lt;&lt;EOF
+ID=fedora
+VERSION_ID=38
+IMAGE_ID=my-foo
+IMAGE_VERSION=7
+EOF
+systemd-repart --make-ddi=sysext --private-key-source=engine:pkcs11 --private-key="pkcs11:model=PKCS%2315%20emulated;manufacturer=piv_II;serial=0123456789abcdef;token=Some%20Cert" --certificate=cert.crt -s tree/ /var/lib/extensions/my-foo.sysext.raw
+systemd-sysext refresh</programlisting>
+
+      <para>The DDI generated that way may be applied to the system with
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
     </example>
 
   </refsect1>

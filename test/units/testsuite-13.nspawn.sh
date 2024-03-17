@@ -622,6 +622,76 @@ testcase_rootidmap() {
     fi
 }
 
+owneridmap_cleanup() {
+    local dir="${1:?}"
+
+    mountpoint -q "$dir/bind" && umount "$dir/bind"
+    rm -fr "$dir"
+}
+
+testcase_owneridmap() {
+    local root cmd permissions
+    local owner=1000
+
+    root="$(mktemp -d /var/lib/machines/testsuite-13.owneridmap-path.XXX)"
+    # Create ext4 image, as ext4 supports idmapped-mounts.
+    mkdir -p /tmp/owneridmap/bind
+    dd if=/dev/zero of=/tmp/owneridmap/ext4.img bs=4k count=2048
+    mkfs.ext4 /tmp/owneridmap/ext4.img
+    mount /tmp/owneridmap/ext4.img /tmp/owneridmap/bind
+    trap "owneridmap_cleanup /tmp/owneridmap/" RETURN
+
+    touch /tmp/owneridmap/bind/file
+    chown -R "$owner:$owner" /tmp/owneridmap/bind
+
+    # Allow users to read and execute / in order to execute binaries
+    chmod o+rx "$root"
+
+    create_dummy_container "$root"
+
+    # --user=
+    # "Fake" getent passwd's bare minimum, so we don't have to pull it in
+    # with all the DSO shenanigans
+    cat >"$root/bin/getent" <<\EOF
+#!/bin/bash
+
+if [[ $# -eq 0 ]]; then
+    :
+elif [[ $1 == passwd ]]; then
+    echo "testuser:x:1010:1010:testuser:/:/bin/sh"
+elif [[ $1 == initgroups ]]; then
+    echo "testuser"
+fi
+EOF
+    chmod +x "$root/bin/getent"
+
+    mkdir -p "$root/home/testuser"
+    chown 1010:1010 "$root/home/testuser"
+
+    cmd='PERMISSIONS=$(stat -c "%u:%g" /home/testuser/file); if [[ $PERMISSIONS != "1010:1010" ]]; then echo "*** wrong permissions: $PERMISSIONS"; return 1; fi; touch /home/testuser/other_file'
+    if ! SYSTEMD_LOG_TARGET=console \
+            systemd-nspawn --register=no \
+                           --directory="$root" \
+                           -U \
+                           --user=testuser \
+                           --bind=/tmp/owneridmap/bind:/home/testuser:owneridmap \
+                           ${COVERAGE_BUILD_DIR:+--bind="$COVERAGE_BUILD_DIR"} \
+                           /usr/bin/bash -c "$cmd" |& tee nspawn.out; then
+        if grep -q "Failed to map ids for bind mount.*: Function not implemented" nspawn.out; then
+            echo "idmapped mounts are not supported, skipping the test..."
+            return 0
+        fi
+
+        return 1
+    fi
+
+    permissions=$(stat -c "%u:%g" /tmp/owneridmap/bind/other_file)
+    if [[ $permissions != "$owner:$owner" ]]; then
+        echo "*** wrong permissions: $permissions"
+        [[ "$IS_USERNS_SUPPORTED" == "yes" ]] && return 1
+    fi
+}
+
 testcase_notification_socket() {
     # https://github.com/systemd/systemd/issues/4944
     local root

@@ -229,16 +229,23 @@ node /org/freedesktop/portable1 {
       for the current boot session, and a string representing the preferred copy mode
       (whether to copy the image or to just symlink it) with the following possible values:
       <itemizedlist>
-        <listitem><para>(null)</para></listitem>
+        <listitem><para>(empty)</para></listitem>
 
         <listitem><para>copy</para></listitem>
 
         <listitem><para>symlink</para></listitem>
+
+        <listitem><para>mixed</para></listitem>
       </itemizedlist>
-      This method returns the list of changes applied to the system (for example, which unit was
-      added and is now available as a system service). Each change is represented as a triplet of
-      strings: the type of change applied, the path on which it was applied, and the source
-      (if any). The type of change applied will be one of the following possible values:
+      If an empty string is passed the security profile drop-ins and images will be symlinked while unit
+      files will be copied, <varname>copy</varname> will copy, <varname>symlink</varname> will prefer
+      linking if possible (e.g.: a unit has to be copied out of an image), and <varname>mixed</varname> will
+      prefer linking the resources owned by the OS (e.g.: the portable profile located within the host's
+      /usr/ tree) but will copy the resources owned by the portable image (e.g.: the unit files and the
+      images). This method returns the list of changes applied to the system (for example, which unit was
+      added and is now available as a system service). Each change is represented as a triplet of strings:
+      the type of change applied, the path on which it was applied, and the source (if any). The type of
+      change applied will be one of the following possible values:
       <itemizedlist>
         <listitem><para>copy</para></listitem>
 

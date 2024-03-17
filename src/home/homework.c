@@ -4,13 +4,17 @@
 #include <sys/mount.h>
 
 #include "blockdev-util.h"
+#include "bus-unit-util.h"
 #include "chown-recursive.h"
 #include "copy.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "filesystems.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "home-util.h"
+#include "homework-blob.h"
 #include "homework-cifs.h"
 #include "homework-directory.h"
 #include "homework-fido2.h"
@@ -24,6 +28,7 @@
 #include "memory-util.h"
 #include "missing_magic.h"
 #include "mount-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "recovery-key.h"
 #include "rm-rf.h"
@@ -695,7 +700,7 @@ int home_load_embedded_identity(
         if (ret_new_home)
                 *ret_new_home = TAKE_PTR(new_home);
 
-        return 0;
+        return r; /* We pass along who won the reconciliation */
 }
 
 int home_store_embedded_identity(UserRecord *h, int root_fd, UserRecord *old_home) {
@@ -826,7 +831,7 @@ int home_refresh(
                 UserRecord **ret_new_home) {
 
         _cleanup_(user_record_unrefp) UserRecord *embedded_home = NULL, *new_home = NULL;
-        int r;
+        int r, reconciled;
 
         assert(h);
         assert(setup);
@@ -835,9 +840,9 @@ int home_refresh(
         /* When activating a home directory, does the identity work: loads the identity from the $HOME
          * directory, reconciles it with our idea, chown()s everything. */
 
-        r = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_ANY, cache, &embedded_home, &new_home);
-        if (r < 0)
-                return r;
+        reconciled = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_ANY, cache, &embedded_home, &new_home);
+        if (reconciled < 0)
+                return reconciled;
 
         r = home_maybe_shift_uid(h, flags, setup);
         if (r < 0)
@@ -848,6 +853,10 @@ int home_refresh(
                 return r;
 
         r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
+        if (r < 0)
+                return r;
+
+        r = home_reconcile_blob_dirs(new_home, setup->root_fd, reconciled);
         if (r < 0)
                 return r;
 
@@ -1068,6 +1077,10 @@ int home_populate(UserRecord *h, int dir_fd) {
                 return r;
 
         r = home_store_embedded_identity(h, dir_fd, NULL);
+        if (r < 0)
+                return r;
+
+        r = home_reconcile_blob_dirs(h, dir_fd, USER_RECONCILE_HOST_WON);
         if (r < 0)
                 return r;
 
@@ -1305,7 +1318,7 @@ static int determine_default_storage(UserStorage *ret) {
         return 0;
 }
 
-static int home_create(UserRecord *h, UserRecord **ret_home) {
+static int home_create(UserRecord *h, Hashmap *blobs, UserRecord **ret_home) {
         _cleanup_strv_free_erase_ char **effective_passwords = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
@@ -1366,6 +1379,10 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
                 return r;
         if (!IN_SET(r, USER_TEST_ABSENT, USER_TEST_UNDEFINED, USER_TEST_MAYBE))
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Image path %s already exists, refusing.", user_record_image_path(h));
+
+        r = home_apply_new_blob_dir(h, blobs);
+        if (r < 0)
+                return r;
 
         switch (user_record_storage(h)) {
 
@@ -1572,7 +1589,7 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags 
         return has_mount; /* return true if the home record is already active */
 }
 
-static int home_update(UserRecord *h, UserRecord **ret) {
+static int home_update(UserRecord *h, Hashmap *blobs, UserRecord **ret) {
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *header_home = NULL, *embedded_home = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
@@ -1588,6 +1605,10 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         assert(r > 0); /* Insist that a password was verified */
 
         r = home_validate_update(h, &setup, &flags);
+        if (r < 0)
+                return r;
+
+        r = home_apply_new_blob_dir(h, blobs);
         if (r < 0)
                 return r;
 
@@ -1608,6 +1629,10 @@ static int home_update(UserRecord *h, UserRecord **ret) {
                 return r;
 
         r = home_store_embedded_identity(new_home, setup.root_fd, embedded_home);
+        if (r < 0)
+                return r;
+
+        r = home_reconcile_blob_dirs(new_home, setup.root_fd, USER_RECONCILE_HOST_WON);
         if (r < 0)
                 return r;
 
@@ -1682,7 +1707,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
-        int r;
+        int r, reconciled;
 
         assert(h);
         assert(ret_home);
@@ -1702,9 +1727,9 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, &cache, &embedded_home, &new_home);
-        if (r < 0)
-                return r;
+        reconciled = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, &cache, &embedded_home, &new_home);
+        if (reconciled < 0)
+                return reconciled;
 
         r = home_maybe_shift_uid(h, flags, &setup);
         if (r < 0)
@@ -1733,6 +1758,10 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
                 return r;
 
         r = home_store_embedded_identity(new_home, setup.root_fd, embedded_home);
+        if (r < 0)
+                return r;
+
+        r = home_reconcile_blob_dirs(new_home, setup.root_fd, reconciled);
         if (r < 0)
                 return r;
 
@@ -1794,8 +1823,37 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         return 1;
 }
 
+static int user_session_freezer(uid_t uid, bool freeze_now, UnitFreezer *ret) {
+        _cleanup_free_ char *unit = NULL;
+        int r;
+
+        r = getenv_bool("SYSTEMD_HOME_LOCK_FREEZE_SESSION");
+        if (r < 0 && r != -ENXIO)
+                log_warning_errno(r, "Cannot parse value of $SYSTEMD_HOME_LOCK_FREEZE_SESSION, ignoring.");
+        else if (r == 0) {
+                if (freeze_now)
+                        log_notice("Session remains unfrozen on explicit request ($SYSTEMD_HOME_LOCK_FREEZE_SESSION "
+                                   "is set to false). This is not recommended, and might result in unexpected behavior "
+                                   "including data loss!");
+                *ret = (UnitFreezer) {};
+                return 0;
+        }
+
+        if (asprintf(&unit, "user-" UID_FMT ".slice", uid) < 0)
+                return log_oom();
+
+        if (freeze_now)
+                r = unit_freezer_new_freeze(unit, ret);
+        else
+                r = unit_freezer_new(unit, ret);
+        if (r < 0)
+                return r;
+        return 1;
+}
+
 static int home_lock(UserRecord *h) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(unit_freezer_done_thaw) UnitFreezer freezer = {};
         int r;
 
         assert(h);
@@ -1811,9 +1869,19 @@ static int home_lock(UserRecord *h) {
         if (r != USER_TEST_MOUNTED)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "Home directory of %s is not mounted, can't lock.", h->user_name);
 
+        r = user_session_freezer(h->uid, /* freeze_now= */ true, &freezer);
+        if (r < 0)
+                log_warning_errno(r, "Failed to freeze user session, ignoring: %m");
+        else if (r == 0)
+                log_info("User session freeze disabled, skipping.");
+        else
+                log_info("Froze user session.");
+
         r = home_lock_luks(h, &setup);
         if (r < 0)
                 return r;
+
+        unit_freezer_done(&freezer); /* Don't thaw the user session. */
 
         log_info("Everything completed.");
         return 1;
@@ -1821,6 +1889,7 @@ static int home_lock(UserRecord *h) {
 
 static int home_unlock(UserRecord *h) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(unit_freezer_done_thaw) UnitFreezer freezer = {};
         _cleanup_(password_cache_free) PasswordCache cache = {};
         int r;
 
@@ -1842,6 +1911,11 @@ static int home_unlock(UserRecord *h) {
         if (r < 0)
                 return r;
 
+        /* We want to thaw the session only after it's safe to access $HOME */
+        r = user_session_freezer(h->uid, /* freeze_now= */ false, &freezer);
+        if (r < 0)
+                log_warning_errno(r, "Failed to recover freezer for user session, ignoring: %m");
+
         log_info("Everything completed.");
         return 1;
 }
@@ -1850,10 +1924,12 @@ static int run(int argc, char *argv[]) {
         _cleanup_(user_record_unrefp) UserRecord *home = NULL, *new_home = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_fclose_ FILE *opened_file = NULL;
+        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
         unsigned line = 0, column = 0;
-        const char *json_path = NULL;
+        const char *json_path = NULL, *blob_filename;
         FILE *json_file;
         usec_t start;
+        JsonVariant *fdmap, *blob_fd_variant;
         int r;
 
         start = now(CLOCK_MONOTONIC);
@@ -1883,6 +1959,48 @@ static int run(int argc, char *argv[]) {
         r = json_parse_file(json_file, json_path, JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "[%s:%u:%u] Failed to parse JSON data: %m", json_path, line, column);
+
+        fdmap = json_variant_by_key(v, HOMEWORK_BLOB_FDMAP_FIELD);
+        if (fdmap) {
+                r = hashmap_ensure_allocated(&blobs, &blob_fd_hash_ops);
+                if (r < 0)
+                        return log_oom();
+
+                JSON_VARIANT_OBJECT_FOREACH(blob_filename, blob_fd_variant, fdmap) {
+                        _cleanup_free_ char *filename = NULL;
+                        _cleanup_close_ int fd = -EBADF;
+
+                        assert(json_variant_is_integer(blob_fd_variant));
+                        assert(json_variant_integer(blob_fd_variant) >= 0);
+                        assert(json_variant_integer(blob_fd_variant) <= INT_MAX - SD_LISTEN_FDS_START);
+                        fd = SD_LISTEN_FDS_START + (int) json_variant_integer(blob_fd_variant);
+
+                        if (DEBUG_LOGGING) {
+                                _cleanup_free_ char *resolved = NULL;
+                                r = fd_get_path(fd, &resolved);
+                                log_debug("Got blob from daemon: %s (%d) → %s",
+                                          blob_filename, fd, resolved ?: STRERROR(r));
+                        }
+
+                        filename = strdup(blob_filename);
+                        if (!filename)
+                                return log_oom();
+
+                        r = fd_cloexec(fd, true);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to enable O_CLOEXEC on blob %s: %m", filename);
+
+                        r = hashmap_put(blobs, filename, FD_TO_PTR(fd));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to insert blob %s into map: %m", filename);
+                        TAKE_PTR(filename); /* Ownership transfers to hashmap */
+                        TAKE_FD(fd);
+                }
+
+                r = json_variant_filter(&v, STRV_MAKE(HOMEWORK_BLOB_FDMAP_FIELD));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to strip internal fdmap from JSON: %m");
+        }
 
         home = user_record_new();
         if (!home)
@@ -1927,11 +2045,11 @@ static int run(int argc, char *argv[]) {
         else if (streq(argv[1], "deactivate-force"))
                 r = home_deactivate(home, true);
         else if (streq(argv[1], "create"))
-                r = home_create(home, &new_home);
+                r = home_create(home, blobs, &new_home);
         else if (streq(argv[1], "remove"))
                 r = home_remove(home);
         else if (streq(argv[1], "update"))
-                r = home_update(home, &new_home);
+                r = home_update(home, blobs, &new_home);
         else if (streq(argv[1], "resize")) /* Resize on user request */
                 r = home_resize(home, false, &new_home);
         else if (streq(argv[1], "resize-auto")) /* Automatic resize */

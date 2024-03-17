@@ -490,7 +490,7 @@ static int dns_append_json(Link *link, JsonVariant **v) {
                         }
                 }
 
-                if (link->network->ipv6_accept_ra_use_dns) {
+                if (link->network->ndisc_use_dns) {
                         NDiscRDNSS *a;
 
                         SET_FOREACH(a, link->ndisc_rdnss) {
@@ -730,7 +730,7 @@ static int domains_append_json(Link *link, bool is_route, JsonVariant **v) {
                                 }
                 }
 
-                if (link->network->ipv6_accept_ra_use_domains == use_domains) {
+                if (link->network->ndisc_use_domains == use_domains) {
                         NDiscDNSSL *a;
 
                         SET_FOREACH(a, link->ndisc_dnssl) {
@@ -869,7 +869,7 @@ static int pref64_append_json(Link *link, JsonVariant **v) {
         assert(link);
         assert(v);
 
-        if (!link->network || !link->network->ipv6_accept_ra_use_pref64)
+        if (!link->network || !link->network->ndisc_use_pref64)
                 return 0;
 
         SET_FOREACH(i, link->ndisc_pref64) {
@@ -890,67 +890,6 @@ static int pref64_append_json(Link *link, JsonVariant **v) {
         return json_variant_set_field_non_null(v, "NDisc", w);
 }
 
-static int dhcp_server_offered_leases_append_json(Link *link, JsonVariant **v) {
-        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
-        sd_dhcp_server_lease *lease;
-        int r;
-
-        assert(link);
-        assert(v);
-
-        if (!link->dhcp_server)
-                return 0;
-
-        HASHMAP_FOREACH(lease, link->dhcp_server->bound_leases_by_client_id) {
-                struct in_addr address = { .s_addr = lease->address };
-
-                r = json_variant_append_arrayb(
-                                &array,
-                                JSON_BUILD_OBJECT(
-                                                JSON_BUILD_PAIR_BYTE_ARRAY(
-                                                                "ClientId",
-                                                                lease->client_id.raw,
-                                                                lease->client_id.size),
-                                                JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Address", &address),
-                                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Hostname", lease->hostname),
-                                                JSON_BUILD_PAIR_FINITE_USEC(
-                                                                "ExpirationUSec", lease->expiration)));
-                if (r < 0)
-                        return r;
-        }
-
-        return json_variant_set_field_non_null(v, "Leases", array);
-}
-
-static int dhcp_server_static_leases_append_json(Link *link, JsonVariant **v) {
-        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
-        sd_dhcp_server_lease *lease;
-        int r;
-
-        assert(link);
-        assert(v);
-
-        if (!link->dhcp_server)
-                return 0;
-
-        HASHMAP_FOREACH(lease, link->dhcp_server->static_leases_by_client_id) {
-                struct in_addr address = { .s_addr = lease->address };
-
-                r = json_variant_append_arrayb(
-                               &array,
-                               JSON_BUILD_OBJECT(
-                                               JSON_BUILD_PAIR_BYTE_ARRAY(
-                                                               "ClientId",
-                                                               lease->client_id.raw,
-                                                               lease->client_id.size),
-                                               JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Address", &address)));
-                if (r < 0)
-                        return r;
-        }
-
-        return json_variant_set_field_non_null(v, "StaticLeases", array);
-}
-
 static int dhcp_server_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
         int r;
@@ -968,11 +907,11 @@ static int dhcp_server_append_json(Link *link, JsonVariant **v) {
         if (r < 0)
                 return r;
 
-        r = dhcp_server_offered_leases_append_json(link, &w);
+        r = dhcp_server_bound_leases_append_json(link->dhcp_server, &w);
         if (r < 0)
                 return r;
 
-        r = dhcp_server_static_leases_append_json(link, &w);
+        r = dhcp_server_static_leases_append_json(link->dhcp_server, &w);
         if (r < 0)
                 return r;
 
@@ -1076,6 +1015,29 @@ static int dhcp6_client_pd_append_json(Link *link, JsonVariant **v) {
         return json_variant_set_field_non_null(v, "Prefixes", array);
 }
 
+static int dhcp6_client_duid_append_json(Link *link, JsonVariant **v) {
+        const sd_dhcp_duid *duid;
+        const void *data;
+        size_t data_size;
+        int r;
+
+        assert(link);
+        assert(v);
+
+        if (!link->dhcp6_client)
+                return 0;
+
+        r = sd_dhcp6_client_get_duid(link->dhcp6_client, &duid);
+        if (r < 0)
+                return 0;
+
+        r = sd_dhcp_duid_get_raw(duid, &data, &data_size);
+        if (r < 0)
+                return 0;
+
+        return json_variant_merge_objectb(v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_BYTE_ARRAY("DUID", data, data_size)));
+}
+
 static int dhcp6_client_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
         int r;
@@ -1095,6 +1057,10 @@ static int dhcp6_client_append_json(Link *link, JsonVariant **v) {
                 return r;
 
         r = dhcp6_client_vendor_options_append_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_client_duid_append_json(link, &w);
         if (r < 0)
                 return r;
 
@@ -1193,6 +1159,29 @@ static int dhcp_client_private_options_append_json(Link *link, JsonVariant **v) 
         return json_variant_set_field_non_null(v, "PrivateOptions", array);
 }
 
+static int dhcp_client_id_append_json(Link *link, JsonVariant **v) {
+        const sd_dhcp_client_id *client_id;
+        const void *data;
+        size_t l;
+        int r;
+
+        assert(link);
+        assert(v);
+
+        if (!link->dhcp_client)
+                return 0;
+
+        r = sd_dhcp_client_get_client_id(link->dhcp_client, &client_id);
+        if (r < 0)
+                return 0;
+
+        r = sd_dhcp_client_id_get_raw(client_id, &data, &l);
+        if (r < 0)
+                return 0;
+
+        return json_variant_merge_objectb(v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_BYTE_ARRAY("ClientIdentifier", data, l)));
+}
+
 static int dhcp_client_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
         int r;
@@ -1212,6 +1201,10 @@ static int dhcp_client_append_json(Link *link, JsonVariant **v) {
                 return r;
 
         r = dhcp_client_private_options_append_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = dhcp_client_id_append_json(link, &w);
         if (r < 0)
                 return r;
 

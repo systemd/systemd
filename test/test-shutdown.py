@@ -4,6 +4,7 @@
 
 import argparse
 import logging
+import signal
 import sys
 import time
 
@@ -20,14 +21,17 @@ def run(args):
             "TERM": "linux",
         }, encoding='utf-8', timeout=60)
 
-    if args.verbose:
-        console.logfile = sys.stdout
-
     logger.debug("child pid %d", console.pid)
 
     try:
         logger.info("waiting for login prompt")
         console.expect('H login: ', 10)
+
+        if args.logfile:
+            logger.debug("Logging pexpect IOs to %s", args.logfile)
+            console.logfile = open(args.logfile, 'w')
+        elif args.verbose:
+            console.logfile = sys.stdout
 
         logger.info("log in and start screen")
         console.sendline('root')
@@ -43,7 +47,7 @@ def run(args):
         console.sendline('tty')
         console.expect(r'/dev/(pts/\d+)')
         pty = console.match.group(1)
-        logger.info("window 1 at line %s", pty)
+        logger.info("window 1 at tty %s", pty)
 
         logger.info("schedule reboot")
         console.sendline('shutdown -r')
@@ -91,13 +95,10 @@ def run(args):
     except Exception as e:
         logger.error(e)
         logger.info("killing child pid %d", console.pid)
-        # We can't use console.terminate(force=True) right away, since
-        # the internal delay between sending a signal and checking the process
-        # is just 0.1s [0], which means we'd get SIGKILLed pretty quickly.
-        # Let's send SIGHUP/SIGINT first, wait a bit, and then follow-up with
-        # SIGHUP/SIGINT/SIGKILL if the process is still alive.
-        # [0] https://github.com/pexpect/pexpect/blob/acb017a97332c19a9295660fe87316926a8adc55/pexpect/spawnbase.py#L71
-        console.terminate()
+
+        # Ask systemd-nspawn to stop and release the container's resources properly.
+        console.kill(signal.SIGTERM)
+
         for _ in range(10):
             if not console.isalive():
                 break
@@ -114,6 +115,7 @@ def run(args):
 def main():
     parser = argparse.ArgumentParser(description='test logind shutdown feature')
     parser.add_argument("-v", "--verbose", action="store_true", help="verbose")
+    parser.add_argument("--logfile", metavar='FILE', help="Save all test input/output to the given path")
     parser.add_argument("command", help="command to run")
     parser.add_argument("arg", nargs='*', help="args for command")
 

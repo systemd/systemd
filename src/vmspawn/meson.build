@@ -3,6 +3,9 @@
 libvmspawn_core_sources = files(
         'vmspawn-settings.c',
         'vmspawn-util.c',
+        'vmspawn-scope.c',
+        'vmspawn-mount.c',
+        'vmspawn-register.c',
 )
 libvmspawn_core = static_library(
         'vmspawn-core',
@@ -16,6 +19,10 @@ vmspawn_libs = [
         libshared,
 ]
 
+vmspawn_test_template = test_template + {
+        'link_with' : [vmspawn_libs],
+}
+
 executables += [
         executable_template + {
                 'name' : 'systemd-vmspawn',
@@ -23,5 +30,10 @@ executables += [
                 'conditions': ['ENABLE_VMSPAWN'],
                 'sources' : files('vmspawn.c'),
                 'link_with' : vmspawn_libs,
-        }
+                'dependencies' : [libblkid]
+        },
+        vmspawn_test_template + {
+                'conditions': ['ENABLE_VMSPAWN'],
+                'sources' : files('test-vmspawn-util.c'),
+        },
 ]

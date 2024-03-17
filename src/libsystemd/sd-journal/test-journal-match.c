@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(sd_journal_open(&j, 0) >= 0);
+        assert_se(sd_journal_open(&j, SD_JOURNAL_ASSUME_IMMUTABLE) >= 0);
 
         assert_se(sd_journal_add_match(j, "foobar", 0) < 0);
         assert_se(sd_journal_add_match(j, "foobar=waldo", 0) < 0);

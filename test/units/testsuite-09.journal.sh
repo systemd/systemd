@@ -70,3 +70,47 @@ journalctl --list-boots -o json | jq -r '.[] | [.index, .boot_id, .first_entry, 
             assert_eq "$entry_ts" "$last_ts"
         fi
     done
+
+verify_seqnum() {
+    if [[ "$REBOOT_COUNT" -ne "$NUM_REBOOT" ]]; then
+        return 0
+    fi
+
+    journalctl --flush
+    journalctl --sync
+
+    ls -lR /var/log/journal/
+    ls -lR /run/log/journal/
+
+    journalctl --system --header
+
+    (! journalctl --system -q -o short-monotonic -u systemd-journald.service --grep 'rotating')
+
+    set +x
+    previous_seqnum=0
+    previous_seqnum_id=
+    previous_boot_id=
+    journalctl --system -q -o json | jq -r '[.__SEQNUM, .__SEQNUM_ID, ._BOOT_ID] | @tsv' |
+        while read -r seqnum seqnum_id boot_id; do
+
+            if [[ -n "$previous_seqnum_id" ]]; then
+                if ! test "$seqnum" -gt "$previous_seqnum"; then
+                    echo "seqnum=$seqnum is not greater than previous_seqnum=$previous_seqnum"
+                    echo "seqnum_id=$seqnum_id, previous_seqnum_id=$previous_seqnum_id"
+                    echo "boot_id=$boot_id, previous_boot_id=$previous_boot_id"
+                    return 1
+                fi
+
+                assert_eq "$seqnum_id" "$previous_seqnum_id"
+            fi
+
+            previous_seqnum="$seqnum"
+            previous_seqnum_id="$seqnum_id"
+            previous_boot_id="$boot_id"
+        done
+    set -x
+
+    return 0
+}
+
+verify_seqnum

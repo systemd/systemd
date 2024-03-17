@@ -510,7 +510,7 @@ static int get_process_link_contents(pid_t pid, const char *proc_file, char **re
         p = procfs_file_alloca(pid, proc_file);
 
         r = readlink_malloc(p, ret);
-        return r == -ENOENT ? -ESRCH : r;
+        return (r == -ENOENT && proc_mounted() > 0) ? -ESRCH : r;
 }
 
 int get_process_exe(pid_t pid, char **ret) {
@@ -1303,7 +1303,7 @@ int opinionated_personality(unsigned long *ret) {
         if (current < 0)
                 return current;
 
-        if (((unsigned long) current & 0xffff) == PER_LINUX32)
+        if (((unsigned long) current & OPINIONATED_PERSONALITY_MASK) == PER_LINUX32)
                 *ret = PER_LINUX32;
         else
                 *ret = PER_LINUX;
@@ -1468,7 +1468,7 @@ static int fork_flags_to_signal(ForkFlags flags) {
 int safe_fork_full(
                 const char *name,
                 const int stdio_fds[3],
-                const int except_fds[],
+                int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
                 pid_t *ret_pid) {
@@ -1697,6 +1697,19 @@ int safe_fork_full(
                 }
         }
 
+        if (flags & FORK_PACK_FDS) {
+                /* FORK_CLOSE_ALL_FDS ensures that except_fds are the only FDs >= 3 that are
+                 * open, this is including the log. This is required by pack_fds, which will
+                 * get stuck in an infinite loop of any FDs other than except_fds are open. */
+                assert(FLAGS_SET(flags, FORK_CLOSE_ALL_FDS));
+
+                r = pack_fds(except_fds, n_except_fds);
+                if (r < 0) {
+                        log_full_errno(prio, r, "Failed to pack file descriptors: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
         if (flags & FORK_CLOEXEC_OFF) {
                 r = fd_cloexec_many(except_fds, n_except_fds, false);
                 if (r < 0) {
@@ -1736,7 +1749,7 @@ int safe_fork_full(
 int pidref_safe_fork_full(
                 const char *name,
                 const int stdio_fds[3],
-                const int except_fds[],
+                int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
                 PidRef *ret_pid) {
@@ -1760,7 +1773,7 @@ int pidref_safe_fork_full(
 int namespace_fork(
                 const char *outer_name,
                 const char *inner_name,
-                const int except_fds[],
+                int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
                 int pidns_fd,

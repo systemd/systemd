@@ -12,7 +12,7 @@ void server_process_native_message(
                 const char *label,
                 size_t label_len);
 
-void server_process_native_file(
+int server_process_native_file(
                 Server *s,
                 int fd,
                 const struct ucred *ucred,

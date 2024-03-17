@@ -124,11 +124,13 @@ Network.DNSOverTLS,                          config_parse_dns_over_tls_mode,    
 Network.DNSSEC,                              config_parse_dnssec_mode,                                 0,                             offsetof(Network, dnssec_mode)
 Network.DNSSECNegativeTrustAnchors,          config_parse_dnssec_negative_trust_anchors,               0,                             offsetof(Network, dnssec_negative_trust_anchors)
 Network.NTP,                                 config_parse_ntp,                                         0,                             offsetof(Network, ntp)
-Network.IPForward,                           config_parse_address_family_with_kernel,                  0,                             offsetof(Network, ip_forward)
+Network.IPForward,                           config_parse_ip_forward_deprecated,                       0,                             0
+Network.IPv4Forwarding,                      config_parse_tristate,                                    0,                             offsetof(Network, ip_forwarding[0])
+Network.IPv6Forwarding,                      config_parse_tristate,                                    0,                             offsetof(Network, ip_forwarding[1])
 Network.IPMasquerade,                        config_parse_ip_masquerade,                               0,                             offsetof(Network, ip_masquerade)
 Network.IPv6PrivacyExtensions,               config_parse_ipv6_privacy_extensions,                     0,                             offsetof(Network, ipv6_privacy_extensions)
-Network.IPv6AcceptRA,                        config_parse_tristate,                                    0,                             offsetof(Network, ipv6_accept_ra)
-Network.IPv6AcceptRouterAdvertisements,      config_parse_tristate,                                    0,                             offsetof(Network, ipv6_accept_ra)
+Network.IPv6AcceptRA,                        config_parse_tristate,                                    0,                             offsetof(Network, ndisc)
+Network.IPv6AcceptRouterAdvertisements,      config_parse_tristate,                                    0,                             offsetof(Network, ndisc)
 Network.IPv6DuplicateAddressDetection,       config_parse_int,                                         0,                             offsetof(Network, ipv6_dad_transmits)
 Network.IPv6HopLimit,                        config_parse_uint8,                                       0,                             offsetof(Network, ipv6_hop_limit)
 Network.IPv6RetransmissionTimeSec,           config_parse_sec,                                         0,                             offsetof(Network, ipv6_retransmission_time)
@@ -248,6 +250,7 @@ DHCPv4.RouteMetric,                          config_parse_dhcp_route_metric,    
 DHCPv4.RouteTable,                           config_parse_dhcp_or_ra_route_table,                      AF_INET,                       0
 DHCPv4.UseTimezone,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_timezone)
 DHCPv4.ListenPort,                           config_parse_uint16,                                      0,                             offsetof(Network, dhcp_client_port)
+DHCPv4.ServerPort,                           config_parse_uint16,                                      0,                             offsetof(Network, dhcp_port)
 DHCPv4.SendRelease,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_send_release)
 DHCPv4.SendDecline,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_send_decline)
 DHCPv4.DenyList,                             config_parse_in_addr_prefixes,                            AF_INET,                       offsetof(Network, dhcp_deny_listed_ip)
@@ -289,22 +292,22 @@ DHCPv6.RapidCommit,                          config_parse_bool,                 
 DHCPv6.NetLabel,                             config_parse_string,                                      CONFIG_PARSE_STRING_SAFE,      offsetof(Network, dhcp6_netlabel)
 DHCPv6.SendRelease,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp6_send_release)
 DHCPv6.NFTSet,                               config_parse_nft_set,                                     NFT_SET_PARSE_NETWORK,         offsetof(Network, dhcp6_nft_set_context)
-IPv6AcceptRA.UseGateway,                     config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_gateway)
-IPv6AcceptRA.UseRoutePrefix,                 config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_route_prefix)
-IPv6AcceptRA.UseAutonomousPrefix,            config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_autonomous_prefix)
-IPv6AcceptRA.UseOnLinkPrefix,                config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_onlink_prefix)
-IPv6AcceptRA.UsePREF64,                      config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_pref64)
-IPv6AcceptRA.UseDNS,                         config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_dns)
-IPv6AcceptRA.UseDomains,                     config_parse_ipv6_accept_ra_use_domains,                  0,                             offsetof(Network, ipv6_accept_ra_use_domains)
-IPv6AcceptRA.UseMTU,                         config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_mtu)
-IPv6AcceptRA.UseHopLimit,                    config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_hop_limit)
-IPv6AcceptRA.UseRetransmissionTime,          config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_retransmission_time)
-IPv6AcceptRA.UseICMP6RateLimit,              config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_icmp6_ratelimit)
-IPv6AcceptRA.DHCPv6Client,                   config_parse_ipv6_accept_ra_start_dhcp6_client,           0,                             offsetof(Network, ipv6_accept_ra_start_dhcp6_client)
+IPv6AcceptRA.UseGateway,                     config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_gateway)
+IPv6AcceptRA.UseRoutePrefix,                 config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_route_prefix)
+IPv6AcceptRA.UseAutonomousPrefix,            config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_autonomous_prefix)
+IPv6AcceptRA.UseOnLinkPrefix,                config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_onlink_prefix)
+IPv6AcceptRA.UsePREF64,                      config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_pref64)
+IPv6AcceptRA.UseDNS,                         config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_dns)
+IPv6AcceptRA.UseDomains,                     config_parse_ndisc_use_domains,                           0,                             offsetof(Network, ndisc_use_domains)
+IPv6AcceptRA.UseMTU,                         config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_mtu)
+IPv6AcceptRA.UseHopLimit,                    config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_hop_limit)
+IPv6AcceptRA.UseReachableTime,               config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_reachable_time)
+IPv6AcceptRA.UseRetransmissionTime,          config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_retransmission_time)
+IPv6AcceptRA.DHCPv6Client,                   config_parse_ndisc_start_dhcp6_client,                    0,                             offsetof(Network, ndisc_start_dhcp6_client)
 IPv6AcceptRA.RouteTable,                     config_parse_dhcp_or_ra_route_table,                      AF_INET6,                      0
-IPv6AcceptRA.RouteMetric,                    config_parse_ipv6_accept_ra_route_metric,                 0,                             0
-IPv6AcceptRA.QuickAck,                       config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_quickack)
-IPv6AcceptRA.UseCaptivePortal,               config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_captive_portal)
+IPv6AcceptRA.RouteMetric,                    config_parse_ndisc_route_metric,                          0,                             0
+IPv6AcceptRA.QuickAck,                       config_parse_bool,                                        0,                             offsetof(Network, ndisc_quickack)
+IPv6AcceptRA.UseCaptivePortal,               config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_captive_portal)
 IPv6AcceptRA.RouterAllowList,                config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_allow_listed_router)
 IPv6AcceptRA.RouterDenyList,                 config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_router)
 IPv6AcceptRA.PrefixAllowList,                config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_allow_listed_prefix)
@@ -607,7 +610,7 @@ DHCP.RapidCommit,                            config_parse_bool,                 
 DHCP.ForceDHCPv6PDOtherInformation,          config_parse_warn_compat,                                 DISABLED_LEGACY,               0
 DHCPv4.UseDomainName,                        config_parse_dhcp_use_domains,                            AF_INET,                       0
 DHCPv4.CriticalConnection,                   config_parse_tristate,                                    0,                             offsetof(Network, dhcp_critical)
-DHCPv6.RouteMetric,                          config_parse_ipv6_accept_ra_route_metric,                 AF_INET6,                      0
+DHCPv6.RouteMetric,                          config_parse_ndisc_route_metric,                          AF_INET6,                      0
 DHCPv6.ForceDHCPv6PDOtherInformation,        config_parse_warn_compat,                                 DISABLED_LEGACY,               0
 DHCPv6PrefixDelegation.SubnetId,             config_parse_dhcp_pd_subnet_id,                           0,                             offsetof(Network, dhcp_pd_subnet_id)
 DHCPv6PrefixDelegation.Announce,             config_parse_bool,                                        0,                             offsetof(Network, dhcp_pd_announce)
@@ -617,6 +620,7 @@ DHCPv6PrefixDelegation.Token,                config_parse_address_generation_typ
 DHCPv6PrefixDelegation.RouteMetric,          config_parse_uint32,                                      0,                             offsetof(Network, dhcp_pd_route_metric)
 IPv6AcceptRA.DenyList,                       config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_prefix)
 IPv6AcceptRA.BlackList,                      config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_prefix)
+IPv6AcceptRA.UseICMP6RateLimit,              config_parse_warn_compat,                                 DISABLED_LEGACY,               0
 TrafficControlQueueingDiscipline.Parent,                        config_parse_qdisc_parent,             _QDISC_KIND_INVALID,           0
 TrafficControlQueueingDiscipline.NetworkEmulatorDelaySec,       config_parse_network_emulator_delay,   0,                             0
 TrafficControlQueueingDiscipline.NetworkEmulatorDelayJitterSec, config_parse_network_emulator_delay,   0,                             0

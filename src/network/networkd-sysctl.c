@@ -4,6 +4,7 @@
 #include <linux/if.h>
 #include <linux/if_arp.h>
 
+#include "af-list.h"
 #include "missing_network.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -12,6 +13,40 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "sysctl-util.h"
+
+static void manager_set_ip_forwarding(Manager *manager, int family) {
+        int r, t;
+
+        assert(manager);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+
+        if (family == AF_INET6 && !socket_ipv6_is_supported())
+                return;
+
+        t = manager->ip_forwarding[family == AF_INET6];
+        if (t < 0)
+                return; /* keep */
+
+        /* First, set the default value. */
+        r = sysctl_write_ip_property_boolean(family, "default", "forwarding", t);
+        if (r < 0)
+                log_warning_errno(r, "Failed to %s the default %s forwarding: %m",
+                                  enable_disable(t), af_to_ipv4_ipv6(family));
+
+        /* Then, set the value to all interfaces. */
+        r = sysctl_write_ip_property_boolean(family, "all", "forwarding", t);
+        if (r < 0)
+                log_warning_errno(r, "Failed to %s %s forwarding for all interfaces: %m",
+                                  enable_disable(t), af_to_ipv4_ipv6(family));
+}
+
+void manager_set_sysctl(Manager *manager) {
+        assert(manager);
+        assert(!manager->test_mode);
+
+        manager_set_ip_forwarding(manager, AF_INET);
+        manager_set_ip_forwarding(manager, AF_INET6);
+}
 
 static bool link_is_configured_for_family(Link *link, int family) {
         assert(link);
@@ -70,48 +105,50 @@ static int link_set_proxy_arp_pvlan(Link *link) {
         return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "proxy_arp_pvlan", link->network->proxy_arp_pvlan > 0);
 }
 
-static bool link_ip_forward_enabled(Link *link, int family) {
+int link_get_ip_forwarding(Link *link, int family) {
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+
+        /* If it is explicitly specified, then honor the setting. */
+        int t = link->network->ip_forwarding[family == AF_INET6];
+        if (t >= 0)
+                return t;
+
+        /* If IPMasquerade= is enabled, also enable IP forwarding. */
+        if (family == AF_INET && FLAGS_SET(link->network->ip_masquerade, ADDRESS_FAMILY_IPV4))
+                return true;
+        if (family == AF_INET6 && FLAGS_SET(link->network->ip_masquerade, ADDRESS_FAMILY_IPV6))
+                return true;
+
+        /* If IPv6SendRA= is enabled, also enable IPv6 forwarding. */
+        if (family == AF_INET6 && link_radv_enabled(link))
+                return true;
+
+        /* Otherwise, use the global setting. */
+        return link->manager->ip_forwarding[family == AF_INET6];
+}
+
+static int link_set_ip_forwarding(Link *link, int family) {
+        int r, t;
+
         assert(link);
         assert(IN_SET(family, AF_INET, AF_INET6));
 
         if (!link_is_configured_for_family(link, family))
-                return false;
-
-        return link->network->ip_forward & (family == AF_INET ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_IPV6);
-}
-
-static int link_set_ipv4_forward(Link *link) {
-        assert(link);
-
-        if (!link_ip_forward_enabled(link, AF_INET))
                 return 0;
 
-        /* We propagate the forwarding flag from one interface to the
-         * global setting one way. This means: as long as at least one
-         * interface was configured at any time that had IP forwarding
-         * enabled the setting will stay on for good. We do this
-         * primarily to keep IPv4 and IPv6 packet forwarding behaviour
-         * somewhat in sync (see below). */
+        t = link_get_ip_forwarding(link, family);
+        if (t < 0)
+                return 0; /* keep */
 
-        return sysctl_write_ip_property(AF_INET, NULL, "ip_forward", "1");
-}
+        r = sysctl_write_ip_property_boolean(family, link->ifname, "forwarding", t);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to %s %s forwarding, ignoring: %m",
+                                              enable_disable(t), af_to_ipv4_ipv6(family));
 
-static int link_set_ipv6_forward(Link *link) {
-        assert(link);
-
-        if (!link_ip_forward_enabled(link, AF_INET6))
-                return 0;
-
-        /* On Linux, the IPv6 stack does not know a per-interface
-         * packet forwarding setting: either packet forwarding is on
-         * for all, or off for all. We hence don't bother with a
-         * per-interface setting, but simply propagate the interface
-         * flag, if it is set, to the global flag, one-way. Note that
-         * while IPv4 would allow a per-interface flag, we expose the
-         * same behaviour there and also propagate the setting from
-         * one to all, to keep things simple (see above). */
-
-        return sysctl_write_ip_property(AF_INET6, "all", "forwarding", "1");
+        return 0;
 }
 
 static int link_set_ipv4_rp_filter(Link *link) {
@@ -291,13 +328,8 @@ int link_set_sysctl(Link *link) {
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot configure proxy ARP private VLAN for interface, ignoring: %m");
 
-        r = link_set_ipv4_forward(link);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot turn on IPv4 packet forwarding, ignoring: %m");
-
-        r = link_set_ipv6_forward(link);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot configure IPv6 packet forwarding, ignoring: %m");
+        (void) link_set_ip_forwarding(link, AF_INET);
+        (void) link_set_ip_forwarding(link, AF_INET6);
 
         r = link_set_ipv6_privacy_extensions(link);
         if (r < 0)
@@ -371,3 +403,24 @@ static const char* const ip_reverse_path_filter_table[_IP_REVERSE_PATH_FILTER_MA
 DEFINE_STRING_TABLE_LOOKUP(ip_reverse_path_filter, IPReversePathFilter);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ip_reverse_path_filter, ip_reverse_path_filter, IPReversePathFilter,
                          "Failed to parse IP reverse path filter option");
+
+int config_parse_ip_forward_deprecated(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        assert(filename);
+
+        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                   "IPForward= setting is deprecated. "
+                   "Please use IPv4Forwarding= and/or IPv6Forwarding= in networkd.conf for global setting, "
+                   "and the same settings in .network files for per-interface setting.");
+        return 0;
+}

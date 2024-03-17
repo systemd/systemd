@@ -30,6 +30,7 @@
 #include "constants.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "glyph-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
@@ -1672,10 +1673,7 @@ static int user_and_machine_equivalent(const char *user_and_machine) {
                 return true;
 
         /* Otherwise, we have to figure out our user id and name, and compare things with that. */
-        char buf[DECIMAL_STR_MAX(uid_t)];
-        xsprintf(buf, UID_FMT, uid);
-
-        f = startswith(user_and_machine, buf);
+        f = startswith(user_and_machine, FORMAT_UID(uid));
         if (!f) {
                 un = getusername_malloc();
                 if (!un)

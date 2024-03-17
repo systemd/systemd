@@ -348,10 +348,10 @@ fi
 
 # Decrypt/encrypt via varlink
 
-echo -n '{"data":"Zm9vYmFyCg=="}' > /tmp/vlcredsdata
+echo '{"data":"Zm9vYmFyCg=="}' > /tmp/vlcredsdata
 
 varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "$(cat /tmp/vlcredsdata)" | \
-    varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt > /tmp/vlcredsdata2
+    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt > /tmp/vlcredsdata2
 
 cmp /tmp/vlcredsdata /tmp/vlcredsdata2
 rm /tmp/vlcredsdata /tmp/vlcredsdata2

@@ -79,7 +79,8 @@ static DissectImageFlags arg_flags =
         DISSECT_IMAGE_USR_NO_ROOT |
         DISSECT_IMAGE_GROWFS |
         DISSECT_IMAGE_PIN_PARTITION_DEVICES |
-        DISSECT_IMAGE_ADD_PARTITION_DEVICES;
+        DISSECT_IMAGE_ADD_PARTITION_DEVICES |
+        DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
 static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
@@ -1130,7 +1131,6 @@ static int list_print_item(
 
 static int get_file_sha256(int inode_fd, uint8_t ret[static SHA256_DIGEST_SIZE]) {
         _cleanup_close_ int fd = -EBADF;
-        struct sha256_ctx ctx;
 
         /* convert O_PATH fd into a regular one */
         fd = fd_reopen(inode_fd, O_RDONLY|O_CLOEXEC);
@@ -1140,23 +1140,7 @@ static int get_file_sha256(int inode_fd, uint8_t ret[static SHA256_DIGEST_SIZE])
         /* Calculating the SHA sum might be slow, hence let's flush STDOUT first, to give user an idea where we are slow. */
         fflush(stdout);
 
-        sha256_init_ctx(&ctx);
-
-        for (;;) {
-                uint8_t buffer[64 * 1024];
-                ssize_t n;
-
-                n = read(fd, buffer, sizeof(buffer));
-                if (n < 0)
-                        return -errno;
-                if (n == 0)
-                        break;
-
-                sha256_process_bytes(buffer, n, &ctx);
-        }
-
-        sha256_finish_ctx(&ctx, ret);
-        return 0;
+        return sha256_fd(fd, UINT64_MAX, ret);
 }
 
 static const char *pick_color_for_uid_gid(uid_t uid) {

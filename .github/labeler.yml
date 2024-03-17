@@ -40,6 +40,9 @@ documentation:
 env-generator:
   - changed-files:
     - any-glob-to-any-file: '**/*environment*generator*'
+escape:
+  - changed-files:
+    - any-glob-to-any-file: '**/*escape*'
 debug-generator:
   - changed-files:
     - any-glob-to-any-file: '**/debug-generator*'
@@ -133,6 +136,9 @@ sd-resolve:
 selinux:
   - changed-files:
     - any-glob-to-any-file: '**/*selinux*'
+shell-completion:
+  - changed-files:
+    - any-glob-to-any-file: 'shell-completion/*'
 sleep:
   - changed-files:
     - any-glob-to-any-file: ['src/shared/*sleep*', 'src/sleep/*']

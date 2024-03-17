@@ -521,14 +521,21 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
         assert(ret_path);
         assert(ret_idx);
 
+        /* This function returns an fd when it finds a candidate. When it fails, it returns the first error
+         * that occurred when the VC was being opened or -EBUSY when it finds some VCs but all are busy
+         * otherwise -ENOENT when there is no allocated VC. */
+
         for (unsigned i = 1; i <= 63; i++) {
                 _cleanup_close_ int fd = -EBADF;
                 _cleanup_free_ char *path = NULL;
 
+                /* We save the first error but we give less importance for the case where we previously fail
+                 * due to the VCs being not allocated. Similarly errors on opening a device has a higher
+                 * priority than errors due to devices either not allocated or busy. */
+
                 r = verify_vc_allocation(i);
                 if (r < 0) {
-                        log_debug_errno(r, "VC %u existence check failed, skipping: %m", i);
-                        RET_GATHER(err, r);
+                        RET_GATHER(err, log_debug_errno(r, "VC %u existence check failed, skipping: %m", i));
                         continue;
                 }
 
@@ -537,21 +544,29 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
 
                 fd = open_terminal(path, O_RDWR|O_CLOEXEC|O_NOCTTY);
                 if (fd < 0) {
-                        RET_GATHER(err, log_debug_errno(fd, "Failed to open terminal %s, ignoring: %m", path));
+                        log_debug_errno(fd, "Failed to open terminal %s, ignoring: %m", path);
+                        if (IN_SET(err, 0, -EBUSY, -ENOENT))
+                                err = fd;
                         continue;
                 }
 
                 r = verify_vc_kbmode(fd);
                 if (r < 0) {
-                        RET_GATHER(err, log_debug_errno(r, "Failed to check VC %s keyboard mode: %m", path));
+                        log_debug_errno(r, "Failed to check VC %s keyboard mode: %m", path);
+                        if (IN_SET(err, 0, -ENOENT))
+                                err = r;
                         continue;
                 }
 
                 r = verify_vc_display_mode(fd);
                 if (r < 0) {
-                        RET_GATHER(err, log_debug_errno(r, "Failed to check VC %s display mode: %m", path));
+                        log_debug_errno(r, "Failed to check VC %s display mode: %m", path);
+                        if (IN_SET(err, 0, -ENOENT))
+                                err = r;
                         continue;
                 }
+
+                log_debug("Selecting %s as source console", path);
 
                 /* all checks passed, return this one as a source console */
                 *ret_idx = i;
@@ -559,7 +574,7 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
                 return TAKE_FD(fd);
         }
 
-        return log_error_errno(err, "No usable source console found: %m");
+        return err;
 }
 
 static int verify_source_vc(char **ret_path, const char *src_vc) {
@@ -610,30 +625,37 @@ static int run(int argc, char **argv) {
 
         umask(0022);
 
-        if (argv[1])
+        if (argv[1]) {
                 fd = verify_source_vc(&vc, argv[1]);
-        else
+                if (fd < 0)
+                        return fd;
+        } else {
                 fd = find_source_vc(&vc, &idx);
-        if (fd < 0)
-                return fd;
+                if (fd < 0 && fd != -EBUSY)
+                        return log_error_errno(fd, "No usable source console found: %m");
+        }
 
         utf8 = is_locale_utf8();
+        (void) toggle_utf8_sysfs(utf8);
+
+        if (fd < 0) {
+                /* We found only busy VCs, which might happen during the boot process when the boot splash is
+                 * displayed on the only allocated VC. In this case we don't interfere and avoid initializing
+                 * the VC partially as some operations are likely to fail. */
+                log_notice("All allocated VCs are currently busy, skipping initialization of font and keyboard settings.");
+                return EXIT_SUCCESS;
+        }
 
         context_load_config(&c);
 
         /* Take lock around the remaining operation to avoid being interrupted by a tty reset operation
          * performed for services with TTYVHangup=yes. */
         lock_fd = lock_dev_console();
-        if (lock_fd < 0) {
-                log_full_errno(lock_fd == -ENOENT ? LOG_DEBUG : LOG_ERR,
-                               lock_fd,
-                               "Failed to lock /dev/console%s: %m",
-                               lock_fd == -ENOENT ? ", ignoring" : "");
-                if (lock_fd != -ENOENT)
-                        return lock_fd;
-        }
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(lock_fd))
+                log_debug_errno(lock_fd, "Device /dev/console does not exist, proceeding without locking it: %m");
+        else if (lock_fd < 0)
+                return log_error_errno(lock_fd, "Failed to lock /dev/console: %m");
 
-        (void) toggle_utf8_sysfs(utf8);
         (void) toggle_utf8_vc(vc, fd, utf8);
 
         r = font_load_and_wait(vc, &c);

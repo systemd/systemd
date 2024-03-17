@@ -171,19 +171,6 @@ static bool mount_propagate_stop(Mount *m) {
                                   * otherwise let's not bother. */
 }
 
-static bool mount_needs_quota(const MountParameters *p) {
-        assert(p);
-
-        if (p->fstype && !fstype_needs_quota(p->fstype))
-                return false;
-
-        if (mount_is_bind(p))
-                return false;
-
-        return fstab_test_option(p->options,
-                                 "usrquota\0" "grpquota\0" "quota\0" "usrjquota\0" "grpjquota\0");
-}
-
 static void mount_init(Unit *u) {
         Mount *m = MOUNT(u);
 
@@ -240,6 +227,7 @@ static void mount_done(Unit *u) {
         mount_parameters_done(&m->parameters_fragment);
 
         m->exec_runtime = exec_runtime_free(m->exec_runtime);
+
         exec_command_done_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
         m->control_command = NULL;
 
@@ -415,35 +403,6 @@ static int mount_add_device_dependencies(Mount *m) {
         r = unit_add_blockdev_dependency(UNIT(m), p->what, mask);
         if (r > 0)
                 log_unit_trace(UNIT(m), "Added %s dependency on %s", unit_dependency_to_string(UNIT_AFTER), p->what);
-
-        return 0;
-}
-
-static int mount_add_quota_dependencies(Mount *m) {
-        MountParameters *p;
-        int r;
-
-        assert(m);
-
-        if (!MANAGER_IS_SYSTEM(UNIT(m)->manager))
-                return 0;
-
-        p = get_mount_parameters_fragment(m);
-        if (!p)
-                return 0;
-
-        if (!mount_needs_quota(p))
-                return 0;
-
-        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTACHECK_SERVICE,
-                                              /* add_reference= */ true, UNIT_DEPENDENCY_FILE);
-        if (r < 0)
-                return r;
-
-        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_WANTS, SPECIAL_QUOTAON_SERVICE,
-                                              /* add_reference= */true, UNIT_DEPENDENCY_FILE);
-        if (r < 0)
-                return r;
 
         return 0;
 }
@@ -662,10 +621,6 @@ static int mount_add_non_exec_dependencies(Mount *m) {
         if (r < 0)
                 return r;
 
-        r = mount_add_quota_dependencies(m);
-        if (r < 0)
-                return r;
-
         r = mount_add_default_dependencies(m);
         if (r < 0)
                 return r;
@@ -815,8 +770,10 @@ static int mount_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(m->deserialized_state, MOUNT_DEAD, MOUNT_FAILED))
+        if (!IN_SET(m->deserialized_state, MOUNT_DEAD, MOUNT_FAILED)) {
                 (void) unit_setup_exec_runtime(u);
+                (void) unit_setup_cgroup_runtime(u);
+        }
 
         mount_set_state(m, m->deserialized_state);
         return 0;
@@ -1332,7 +1289,9 @@ static void mount_cycle_clear(Mount *m) {
         m->result = MOUNT_SUCCESS;
         m->reload_result = MOUNT_SUCCESS;
         exec_command_reset_status_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
-        UNIT(m)->reset_accounting = true;
+
+        if (m->cgroup_runtime)
+                m->cgroup_runtime->reset_accounting = true;
 }
 
 static int mount_start(Unit *u) {
@@ -1578,7 +1537,8 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
         if (IN_SET(m->state, MOUNT_REMOUNTING, MOUNT_REMOUNTING_SIGKILL, MOUNT_REMOUNTING_SIGTERM))
                 mount_set_reload_result(m, f);
-        else if (m->result == MOUNT_SUCCESS)
+        else if (m->result == MOUNT_SUCCESS && !IN_SET(m->state, MOUNT_MOUNTING, MOUNT_UNMOUNTING))
+                /* MOUNT_MOUNTING and MOUNT_UNMOUNTING states need to be patched, see below. */
                 m->result = f;
 
         if (m->control_command) {
@@ -1601,11 +1561,11 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         switch (m->state) {
 
         case MOUNT_MOUNTING:
-                /* Our mount point has not appeared in mountinfo.  Something went wrong. */
+                /* Our mount point has not appeared in mountinfo. Something went wrong. */
 
                 if (f == MOUNT_SUCCESS) {
-                        /* Either /bin/mount has an unexpected definition of success,
-                         * or someone raced us and we lost. */
+                        /* Either /bin/mount has an unexpected definition of success, or someone raced us
+                         * and we lost. */
                         log_unit_warning(UNIT(m), "Mount process finished, but there is no mount.");
                         f = MOUNT_FAILURE_PROTOCOL;
                 }
@@ -1623,9 +1583,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 break;
 
         case MOUNT_UNMOUNTING:
-
                 if (f == MOUNT_SUCCESS && m->from_proc_self_mountinfo) {
-
                         /* Still a mount point? If so, let's try again. Most likely there were multiple mount points
                          * stacked on top of each other. We might exceed the timeout specified by the user overall,
                          * but we will stop as soon as any one umount times out. */
@@ -1638,13 +1596,18 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 log_unit_warning(u, "Mount still present after %u attempts to unmount, giving up.", m->n_retry_umount);
                                 mount_enter_mounted(m, f);
                         }
+                } else if (f == MOUNT_FAILURE_EXIT_CODE && !m->from_proc_self_mountinfo) {
+                        /* Hmm, umount process spawned by us failed, but the mount disappeared anyway?
+                         * Maybe someone else is trying to unmount at the same time. */
+                        log_unit_notice(u, "Mount disappeared even though umount process failed, continuing.");
+                        mount_enter_dead(m, MOUNT_SUCCESS);
                 } else
                         mount_enter_dead_or_mounted(m, f);
 
                 break;
 
-        case MOUNT_UNMOUNTING_SIGKILL:
         case MOUNT_UNMOUNTING_SIGTERM:
+        case MOUNT_UNMOUNTING_SIGKILL:
                 mount_enter_dead_or_mounted(m, f);
                 break;
 
@@ -2189,7 +2152,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                                  * then remove it because of an internal error. E.g., fuse.sshfs seems
                                  * to do that when the connection fails. See #17617. To handle such the
                                  * case, let's once set the state back to mounting. Then, the unit can
-                                 * correctly enter the failed state later in mount_sigchld(). */
+                                 * correctly enter the failed state later in mount_sigchld_event(). */
                                 mount_set_state(mount, MOUNT_MOUNTING);
                                 break;
 
@@ -2448,6 +2411,7 @@ const UnitVTable mount_vtable = {
         .cgroup_context_offset = offsetof(Mount, cgroup_context),
         .kill_context_offset = offsetof(Mount, kill_context),
         .exec_runtime_offset = offsetof(Mount, exec_runtime),
+        .cgroup_runtime_offset = offsetof(Mount, cgroup_runtime),
 
         .sections =
                 "Unit\0"

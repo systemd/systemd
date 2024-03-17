@@ -18,6 +18,7 @@
 #include "audit-util.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
+#include "creds-util.h"
 #include "dirent-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -39,9 +40,11 @@
 #include "journald-native.h"
 #include "journald-rate-limit.h"
 #include "journald-server.h"
+#include "journald-socket.h"
 #include "journald-stream.h"
 #include "journald-syslog.h"
 #include "log.h"
+#include "memory-util.h"
 #include "missing_audit.h"
 #include "mkdir.h"
 #include "parse-util.h"
@@ -51,6 +54,7 @@
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "signal-util.h"
+#include "socket-netlink.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -289,11 +293,10 @@ static int server_open_journal(
                                 s->compress.threshold_bytes,
                                 metrics,
                                 s->mmap,
-                                /* template= */ NULL,
                                 &f);
         else
                 r = journal_file_open(
-                                /* fd= */ -1,
+                                /* fd= */ -EBADF,
                                 fname,
                                 open_flags,
                                 file_flags,
@@ -1152,6 +1155,8 @@ static void server_dispatch_message_real(
         else
                 journal_uid = 0;
 
+        (void) server_forward_socket(s, iovec, n, priority);
+
         server_write_to_journal(s, journal_uid, iovec, n, priority);
 }
 
@@ -1275,6 +1280,10 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
         if (!s->system_journal)
                 return 0;
 
+        /* Reset current seqnum data to avoid unnecessary rotation when switching to system journal.
+         * See issue #30092. */
+        zero(*s->seqnum);
+
         log_debug("Flushing to %s...", s->system_storage.path);
 
         start = now(CLOCK_MONOTONIC);
@@ -1348,12 +1357,29 @@ finish:
         if (s->system_journal)
                 journal_file_post_change(s->system_journal);
 
+        /* Save parent directories of runtime journals before closing runtime journals. */
+        _cleanup_strv_free_ char **dirs = NULL;
+        (void) journal_get_directories(j, &dirs);
+
+        /* First, close all runtime journals opened in the above. */
+        sd_journal_close(j);
+
+        /* Offline and close the 'main' runtime journal file. */
         s->runtime_journal = journal_file_offline_close(s->runtime_journal);
 
-        if (r >= 0)
+        /* Remove the runtime directory if the all entries are successfully flushed to /var/. */
+        if (r >= 0) {
                 (void) rm_rf(s->runtime_storage.path, REMOVE_ROOT);
 
-        sd_journal_close(j);
+                /* The initrd may have a different machine ID from the host's one. Typically, that happens
+                 * when our tests running on qemu, as the host's initrd is picked as is without updating
+                 * the machine ID in the initrd with the one used in the image. Even in such the case, the
+                 * runtime journals in the subdirectory named with the initrd's machine ID are flushed to
+                 * the persistent journal. To make not the runtime journal flushed multiple times, let's
+                 * also remove the runtime directories. */
+                STRV_FOREACH(p, dirs)
+                        (void) rm_rf(*p, REMOVE_ROOT);
+        }
 
         server_driver_message(s, 0, NULL,
                               LOG_MESSAGE("Time spent on flushing to %s is %s for %u entries.",
@@ -1512,7 +1538,7 @@ int server_process_datagram(
                 if (n > 0 && n_fds == 0)
                         server_process_native_message(s, s->buffer, n, ucred, tv, label, label_len);
                 else if (n == 0 && n_fds == 1)
-                        server_process_native_file(s, fds[0], ucred, tv, label, label_len);
+                        (void) server_process_native_file(s, fds[0], ucred, tv, label, label_len);
                 else if (n_fds > 0)
                         log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
                                               "Got too many file descriptors via native socket. Ignoring.");
@@ -1701,7 +1727,7 @@ static int server_setup_signals(Server *s) {
 
         assert(s);
 
-        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, SIGRTMIN+1, SIGRTMIN+18, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM, SIGUSR1, SIGUSR2, SIGRTMIN+1, SIGRTMIN+18) >= 0);
 
         r = sd_event_add_signal(s->event, &s->sigusr1_event_source, SIGUSR1, dispatch_sigusr1, s);
         if (r < 0)
@@ -1839,6 +1865,17 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else
                         s->max_level_wall = r;
 
+        } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_socket")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = log_level_from_string(value);
+                if (r < 0)
+                        log_warning("Failed to parse max level socket value \"%s\". Ignoring.", value);
+                else
+                        s->max_level_socket = r;
+
         } else if (startswith(key, "systemd.journald"))
                 log_warning("Unknown journald kernel command line option \"%s\". Ignoring.", key);
 
@@ -1847,16 +1884,21 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 }
 
 static int server_parse_config_file(Server *s) {
-        const char *conf_file = "journald.conf";
+        const char *conf_file;
 
         assert(s);
 
         if (s->namespace)
-                conf_file = strjoina("journald@", s->namespace, ".conf");
+                conf_file = strjoina("systemd/journald@", s->namespace, ".conf");
+        else
+                conf_file = "systemd/journald.conf";
 
-        return config_parse_config_file(conf_file, "Journal\0",
-                                        config_item_perf_lookup, journald_gperf_lookup,
-                                        CONFIG_PARSE_WARN, s);
+        return config_parse_standard_file_with_dropins(
+                        conf_file,
+                        "Journal\0",
+                        config_item_perf_lookup, journald_gperf_lookup,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ s);
 }
 
 static int server_dispatch_sync(sd_event_source *es, usec_t t, void *userdata) {
@@ -2444,6 +2486,25 @@ static int server_setup_memory_pressure(Server *s) {
         return 0;
 }
 
+static void server_load_credentials(Server *s) {
+        _cleanup_free_ void *data = NULL;
+        int r;
+
+        assert(s);
+
+        /* if we already have a forward address from config don't load the credential */
+        if (s->forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC)
+                return log_debug("Socket forward address already set not loading journal.forward_to_socket");
+
+        r = read_credential("journal.forward_to_socket", &data, NULL);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to read credential journal.forward_to_socket, ignoring: %m");
+
+        r = socket_address_parse(&s->forward_to_socket, data);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse credential journal.forward_to_socket, ignoring: %m");
+}
+
 int server_new(Server **ret) {
         _cleanup_(server_freep) Server *s = NULL;
 
@@ -2461,6 +2522,7 @@ int server_new(Server **ret) {
                 .audit_fd = -EBADF,
                 .hostname_fd = -EBADF,
                 .notify_fd = -EBADF,
+                .forward_socket_fd = -EBADF,
 
                 .compress.enabled = true,
                 .compress.threshold_bytes = UINT64_MAX,
@@ -2477,6 +2539,7 @@ int server_new(Server **ret) {
                 .ratelimit_burst = DEFAULT_RATE_LIMIT_BURST,
 
                 .forward_to_wall = true,
+                .forward_to_socket = { .sockaddr.sa.sa_family = AF_UNSPEC },
 
                 .max_file_usec = DEFAULT_MAX_FILE_USEC,
 
@@ -2485,6 +2548,7 @@ int server_new(Server **ret) {
                 .max_level_kmsg = LOG_NOTICE,
                 .max_level_console = LOG_INFO,
                 .max_level_wall = LOG_EMERG,
+                .max_level_socket = LOG_DEBUG,
 
                 .line_max = DEFAULT_LINE_MAX,
 
@@ -2524,6 +2588,8 @@ int server_init(Server *s, const char *namespace) {
         journal_reset_metrics(&s->runtime_storage.metrics);
 
         server_parse_config_file(s);
+
+        server_load_credentials(s);
 
         if (!s->namespace) {
                 /* Parse kernel command line, but only if we are not a namespace instance */
@@ -2797,6 +2863,7 @@ Server* server_free(Server *s) {
         safe_close(s->audit_fd);
         safe_close(s->hostname_fd);
         safe_close(s->notify_fd);
+        safe_close(s->forward_socket_fd);
 
         if (s->ratelimit)
                 journal_ratelimit_free(s->ratelimit);
@@ -2899,8 +2966,12 @@ int config_parse_compress(
                 void *data,
                 void *userdata) {
 
-        JournalCompressOptions* compress = data;
+        JournalCompressOptions* compress = ASSERT_PTR(data);
         int r;
+
+        assert(unit);
+        assert(filename);
+        assert(rvalue);
 
         if (isempty(rvalue)) {
                 compress->enabled = true;
@@ -2924,6 +2995,37 @@ int config_parse_compress(
                                 compress->enabled = true;
                 } else
                         compress->enabled = r;
+        }
+
+        return 0;
+}
+
+int config_parse_forward_to_socket(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        SocketAddress* addr = ASSERT_PTR(data);
+        int r;
+
+        assert(unit);
+        assert(filename);
+        assert(rvalue);
+
+        if (isempty(rvalue))
+                *addr = (SocketAddress) { .sockaddr.sa.sa_family = AF_UNSPEC };
+        else {
+                r = socket_address_parse(addr, rvalue);
+                if (r < 0)
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse ForwardToSocket= value, ignoring: %s", rvalue);
         }
 
         return 0;

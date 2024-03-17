@@ -719,15 +719,16 @@ SUBSYSTEM=="net", OPTIONS="log_level=debug"</programlisting></para>
           </varlistentry>
         </variablelist>
 
-        <para>The <varname>NAME</varname>, <varname>SYMLINK</varname>,
-        <varname>PROGRAM</varname>, <varname>OWNER</varname>,
-        <varname>GROUP</varname>, <varname>MODE</varname>, <varname>SECLABEL</varname>,
-        and <varname>RUN</varname> fields support simple string substitutions.
+        <para>The <varname>ENV</varname>, <varname>GROUP</varname>,
+        <varname>MODE</varname>, <varname>NAME</varname>,
+        <varname>OWNER</varname>, <varname>PROGRAM</varname>,
+        <varname>RUN</varname>, <varname>SECLABEL</varname>, and
+        <varname>SYMLINK</varname> fields support simple string substitutions.
         The <varname>RUN</varname> substitutions are performed after all rules
         have been processed, right before the program is executed, allowing for
-        the use of device properties set by earlier matching rules. For all other
-        fields, substitutions are performed while the individual rule is being
-        processed. The available substitutions are:</para>
+        the use of device properties set by earlier matching rules. For all
+        other fields, substitutions are performed while the individual rule is
+        being processed. The available substitutions are:</para>
         <variablelist class='udev-directives'>
           <varlistentry>
             <term><option>$kernel</option>, <option>%k</option></term>
