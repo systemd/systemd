@@ -4,8 +4,8 @@
 	branch = rawhide
 [submodule "pkg/opensuse"]
 	path = pkg/opensuse
-	url = https://code.opensuse.org/package/systemd
-	branch = master
+	url = https://src.opensuse.org/rpm/systemd
+	branch = factory
 [submodule "pkg/debian"]
 	path = pkg/debian
 	url = https://salsa.debian.org/systemd-team/systemd
