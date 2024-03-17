@@ -1364,13 +1364,22 @@ static void ndisc_dnr_hash_func(const NDiscDNR *x, struct siphash *state) {
                 siphash24_compress_typesafe(*addr, state);
 }
 
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                ndisc_dnr_hash_ops,
+                NDiscDNR,
+                ndisc_dnr_hash_func,
+                ndisc_dnr_compare_func,
+                ndisc_dnr_free);
+
 static int sd_dns_resolver_copy(const sd_dns_resolver *a, sd_dns_resolver *b) {
         int r;
 
         assert(a);
         assert(b);
 
-        *b = (sd_dns_resolver) {
+        _cleanup_(sd_dns_resolver_done) sd_dns_resolver c = {};
+
+        c = (sd_dns_resolver) {
                 .priority = a->priority,
                 .transports = a->transports,
                 .port = a->port,
@@ -1382,30 +1391,24 @@ static int sd_dns_resolver_copy(const sd_dns_resolver *a, sd_dns_resolver *b) {
         };
 
         /* auth_name */
-        r = strdup_or_null(a->auth_name, &b->auth_name);
+        r = strdup_or_null(a->auth_name, &c.auth_name);
         if (r < 0)
                 return r;
 
         /* addrs, n_addrs */
-        b->addrs = newdup(union in_addr_union, a->addrs, a->n_addrs);
-        if (!b->addrs)
+        c.addrs = newdup(union in_addr_union, a->addrs, a->n_addrs);
+        if (!c.addrs)
                 return r;
-        b->n_addrs = a->n_addrs;
+        c.n_addrs = a->n_addrs;
 
         /* dohpath */
-        r = strdup_or_null(a->dohpath, &b->dohpath);
+        r = strdup_or_null(a->dohpath, &c.dohpath);
         if (r < 0)
                 return r;
 
+        *b = TAKE_STRUCT(c);
         return 0;
 }
-
-DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
-                ndisc_dnr_hash_ops,
-                NDiscDNR,
-                ndisc_dnr_hash_func,
-                ndisc_dnr_compare_func,
-                ndisc_dnr_free);
 
 static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt) {
         int r = 0;
@@ -1416,8 +1419,7 @@ static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt) {
 
         struct in6_addr router;
         usec_t lifetime_usec;
-        sd_dns_resolver *res = NULL;
-        _cleanup_(sd_dns_resolver_done) sd_dns_resolver new_res = {};
+        sd_dns_resolver *res;
         _cleanup_(ndisc_dnr_freep) NDiscDNR *new_entry = NULL;
 
         if (!network_ndisc_use_dnr(link->network))
@@ -1443,15 +1445,14 @@ static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt) {
         if (!new_entry)
                 return log_oom();
 
-        r = sd_dns_resolver_copy(res, &new_res);
-        if (r < 0)
-                return log_oom();
-
         *new_entry = (NDiscDNR) {
                 .router = router,
-                .resolver = TAKE_STRUCT(new_res),
+                /* .resolver, */
                 .lifetime_usec = lifetime_usec,
         };
+        r = sd_dns_resolver_copy(res, &new_entry->resolver);
+        if (r < 0)
+                return log_oom();
 
         /* Not sorted by priority */
         r = set_ensure_put(&link->ndisc_dnr, &ndisc_dnr_hash_ops, new_entry);
