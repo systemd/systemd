@@ -22,4 +22,4 @@ After=tpm2.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={{LIBEXECDIR}}/systemd-tpm2-setup
+ExecStart={{LIBEXECDIR}}/systemd-tpm2-setup --graceful
