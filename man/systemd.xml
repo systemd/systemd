@@ -679,9 +679,13 @@
     <variablelist class='environment-variables'>
       <varlistentry>
         <term><varname>$SYSTEMD_LOG_LEVEL</varname></term>
+        <term><varname>$SYSTEMD_LOG_MAX_LEVEL_CONSOLE</varname></term>
+        <term><varname>$SYSTEMD_LOG_MAX_LEVEL_SYSLOG</varname></term>
+        <term><varname>$SYSTEMD_LOG_MAX_LEVEL_KMSG</varname></term>
+        <term><varname>$SYSTEMD_LOG_MAX_LEVEL_JOURNAL</varname></term>
         <listitem><xi:include href="common-variables.xml" xpointer="log-level-body" />
 
-        <para>This can be overridden with <option>--log-level=</option>.</para></listitem>
+        <para>The global log level can be overridden with <option>--log-level=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -929,6 +933,10 @@
       <varlistentry>
         <term><varname>systemd.log_color</varname></term>
         <term><varname>systemd.log_level=</varname></term>
+        <term><varname>systemd.log_max_level_console=</varname></term>
+        <term><varname>systemd.log_max_level_syslog=</varname></term>
+        <term><varname>systemd.log_max_level_kmsg=</varname></term>
+        <term><varname>systemd.log_max_level_journal=</varname></term>
         <term><varname>systemd.log_location</varname></term>
         <term><varname>systemd.log_target=</varname></term>
         <term><varname>systemd.log_time</varname></term>
@@ -937,6 +945,8 @@
 
         <listitem><para>Controls log output, with the same effect as the
         <varname>$SYSTEMD_LOG_COLOR</varname>, <varname>$SYSTEMD_LOG_LEVEL</varname>,
+        <varname>$SYSTEMD_LOG_MAX_LEVEL_CONSOLE</varname>, <varname>$SYSTEMD_LOG_MAX_LEVEL_SYSLOG</varname>,
+        <varname>$SYSTEMD_LOG_MAX_LEVEL_KMSG</varname>, <varname>$SYSTEMD_LOG_MAX_LEVEL_JOURNAL</varname>,
         <varname>$SYSTEMD_LOG_LOCATION</varname>, <varname>$SYSTEMD_LOG_TARGET</varname>,
         <varname>$SYSTEMD_LOG_TIME</varname>, <varname>$SYSTEMD_LOG_TID</varname> and
         <varname>$SYSTEMD_LOG_RATELIMIT_KMSG</varname> environment variables described above.

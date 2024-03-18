@@ -9,6 +9,10 @@
   <variablelist class='environment-variables'>
     <varlistentry id='log-level'>
       <term><varname>$SYSTEMD_LOG_LEVEL</varname></term>
+      <term><varname>$SYSTEMD_LOG_MAX_LEVEL_CONSOLE</varname></term>
+      <term><varname>$SYSTEMD_LOG_MAX_LEVEL_SYSLOG</varname></term>
+      <term><varname>$SYSTEMD_LOG_MAX_LEVEL_KMSG</varname></term>
+      <term><varname>$SYSTEMD_LOG_MAX_LEVEL_JOURNAL</varname></term>
 
       <listitem><para id='log-level-body'>The maximum log level of emitted messages (messages with a higher
       log level, i.e. less important ones, will be suppressed). Either one of (in order of decreasing
@@ -17,6 +21,8 @@
       <constant>info</constant>, <constant>debug</constant>, or an integer in the range 0…7. See
       <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       for more information.</para>
+
+      <para>The per target environment variables set the maximum log level when logging to that target.</para>
       </listitem>
     </varlistentry>
 
