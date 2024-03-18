@@ -8,7 +8,7 @@
 #include "tests.h"
 
 TEST(make_recovery_key) {
-        _cleanup_free_ char *recovery_key;
+        _cleanup_free_ char *recovery_key = NULL;
         size_t length;
         const int num_test = 10;
         char *generated_keys[num_test];
@@ -55,6 +55,9 @@ TEST(make_recovery_key) {
                         assert_se(!streq(generated_keys[test], generated_keys[prev]));
                 }
 
+        }
+        for (int i = 0; i < num_test; i++) {
+                free(generated_keys[i]);
         }
 }
 
@@ -104,7 +107,7 @@ TEST(decode_modhex_char) {
 }
 
 TEST(normalize_recovery_key) {
-        _cleanup_free_ char *normalized_key;
+        _cleanup_free_ char *normalized_key = NULL;
         int r;
 
         /* Case 1: Normalization without dashes */
