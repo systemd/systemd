@@ -2298,7 +2298,7 @@ static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResource
         return 1;
 }
 
-static int dns_transaction_request_dnssec_rr(DnsTransaction *t, DnsResourceKey *key) {
+static int dns_transaction_request_dnssec_rr_full(DnsTransaction *t, DnsResourceKey *key, DnsTransaction **ret) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *a = NULL;
         DnsTransaction *aux;
         int r;
@@ -2329,9 +2329,17 @@ static int dns_transaction_request_dnssec_rr(DnsTransaction *t, DnsResourceKey *
                 r = dns_transaction_go(aux);
                 if (r < 0)
                         return r;
+                if (ret)
+                        *ret = aux;
         }
 
         return 1;
+}
+
+static int dns_transaction_request_dnssec_rr(DnsTransaction *t, DnsResourceKey *key) {
+        assert(t);
+        assert(key);
+        return dns_transaction_request_dnssec_rr_full(t, key, NULL);
 }
 
 static int dns_transaction_negative_trust_anchor_lookup(DnsTransaction *t, const char *name) {
@@ -2479,6 +2487,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 case DNS_TYPE_RRSIG: {
                         /* For each RRSIG we request the matching DNSKEY */
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *dnskey = NULL;
+                        DnsTransaction *aux = NULL;
 
                         /* If this RRSIG is about a DNSKEY RR and the
                          * signer is the same as the owner, then we
@@ -2515,9 +2524,20 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
 
                         log_debug("Requesting DNSKEY to validate transaction %" PRIu16" (%s, RRSIG with key tag: %" PRIu16 ").",
                                   t->id, dns_resource_key_name(rr->key), rr->rrsig.key_tag);
-                        r = dns_transaction_request_dnssec_rr(t, dnskey);
+                        r = dns_transaction_request_dnssec_rr_full(t, dnskey, &aux);
                         if (r < 0)
                                 return r;
+
+                        /* If we are requesting a DNSKEY, we can anticiapte that we will want the matching DS
+                         * in the near future. Let's request it in advance so we don't have to wait in the
+                         * common case. */
+                        if (aux) {
+                                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds =
+                                        dns_resource_key_new(rr->key->class, DNS_TYPE_DS, dns_resource_key_name(dnskey));
+                                r = dns_transaction_request_dnssec_rr(t, ds);
+                                if (r < 0)
+                                        return r;
+                        }
                         break;
                 }
 
