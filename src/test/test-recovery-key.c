@@ -41,7 +41,7 @@ TEST(make_recovery_key) {
                         if (i % 9 == 8)
                                 assert_se(generated_keys[test][i] == '-');
                 }
-                /* check for uniqueness of each generated recovery key */
+                /* Check for uniqueness of each generated recovery key */
                 for (size_t prev = 0; prev < test; ++prev)
                         assert_se(!streq(generated_keys[test], generated_keys[prev]));
         }
