@@ -30,6 +30,7 @@ struct Manager {
         sd_device_monitor *device_monitor;
         Hashmap *polkit_registry;
         int ethtool_fd;
+        int persistent_storage_fd;
 
         KeepConfiguration keep_configuration;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
@@ -41,7 +42,6 @@ struct Manager {
         bool manage_foreign_routes;
         bool manage_foreign_rules;
         bool manage_foreign_nexthops;
-        bool persistent_storage_is_ready;
 
         Set *dirty_links;
         Set *new_wlan_ifindices;
