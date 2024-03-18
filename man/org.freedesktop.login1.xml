@@ -112,6 +112,7 @@ node /org/freedesktop/login1 {
       UnlockSession(in  s session_id);
       LockSessions();
       UnlockSessions();
+      SecureLockUsers();
       KillSession(in  s session_id,
                   in  s whom,
                   in  i signal_number);
@@ -351,6 +352,8 @@ node /org/freedesktop/login1 {
     <variablelist class="dbus-method" generated="True" extra-ref="LockSessions()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="UnlockSessions()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SecureLockUsers()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="KillSession()"/>
 
@@ -612,6 +615,8 @@ node /org/freedesktop/login1 {
       <para><function>LockSessions()</function> asks all sessions to activate their screen locks. This may be
       used to lock access to the entire machine in one action. Similarly, <function>UnlockSessions()</function>
       asks all sessions to deactivate their screen locks.</para>
+
+      <para><function>SecureLockUsers()</function> activates secure locks on all users that support them.</para>
 
       <para><function>KillSession()</function> may be used to send a Unix signal to one or all processes of a
       session. As arguments it takes the session id, either the string <literal>leader</literal> or
@@ -1746,6 +1751,7 @@ node /org/freedesktop/login1/session/1 {
       <varname>PreparingForShutdownWithMetadata</varname>, <varname>DesignatedMaintenanceTime</varname>,
       <varname>CanIdle</varname>, <varname>CanLock</varname>,
       and <varname>BlockWeakInhibited</varname> were added in version 257.</para>
+      <para><function>SecureLockUsers()</function> was added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>User Objects</title>
