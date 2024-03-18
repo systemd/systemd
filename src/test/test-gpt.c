@@ -34,15 +34,15 @@ TEST(gpt_types_against_architectures) {
                                 printf("%s %s\n", GREEN_CHECK_MARK(), joined);
 
                                 if (streq(prefix, "root-") && streq(suffix, ""))
-                                        assert_se(type.designator == PARTITION_ROOT);
+                                        ASSERT_EQ(type.designator, PARTITION_ROOT);
                                 if (streq(prefix, "root-") && streq(suffix, "-verity"))
-                                        assert_se(type.designator == PARTITION_ROOT_VERITY);
+                                        ASSERT_EQ(type.designator, PARTITION_ROOT_VERITY);
                                 if (streq(prefix, "usr-") && streq(suffix, ""))
-                                        assert_se(type.designator == PARTITION_USR);
+                                        ASSERT_EQ(type.designator, PARTITION_USR);
                                 if (streq(prefix, "usr-") && streq(suffix, "-verity"))
-                                        assert_se(type.designator == PARTITION_USR_VERITY);
+                                        ASSERT_EQ(type.designator, PARTITION_USR_VERITY);
 
-                                assert_se(type.arch == a);
+                                ASSERT_EQ(type.arch, a);
                         }
 }
 
@@ -72,38 +72,38 @@ TEST(type_alias_same) {
                 GptPartitionType x, y;
 
                 x = gpt_partition_type_from_uuid(t->uuid);                   /* search first by uuid */
-                assert_se(gpt_partition_type_from_string(t->name, &y) >= 0); /* search first by name */
+                ASSERT_GE(gpt_partition_type_from_string(t->name, &y), 0); /* search first by name */
 
-                assert_se(t->arch == x.arch);
-                assert_se(t->arch == y.arch);
-                assert_se(t->designator == x.designator);
-                assert_se(t->designator == y.designator);
+                ASSERT_EQ(t->arch, x.arch);
+                ASSERT_EQ(t->arch, y.arch);
+                ASSERT_EQ(t->designator, x.designator);
+                ASSERT_EQ(t->designator, y.designator);
         }
 }
 
 TEST(override_architecture) {
         GptPartitionType x, y;
 
-        assert_se(gpt_partition_type_from_string("root-x86-64", &x) >= 0);
-        assert_se(x.arch == ARCHITECTURE_X86_64);
+        ASSERT_GE(gpt_partition_type_from_string("root-x86-64", &x), 0);
+        ASSERT_EQ(x.arch, ARCHITECTURE_X86_64);
 
-        assert_se(gpt_partition_type_from_string("root-arm64", &y) >= 0);
-        assert(y.arch == ARCHITECTURE_ARM64);
+        ASSERT_GE(gpt_partition_type_from_string("root-arm64", &y), 0);
+        ASSERT_EQ(y.arch, ARCHITECTURE_ARM64);
 
         x = gpt_partition_type_override_architecture(x, ARCHITECTURE_ARM64);
-        assert_se(x.arch == y.arch);
-        assert_se(x.designator == y.designator);
+        ASSERT_EQ(x.arch, y.arch);
+        ASSERT_EQ(x.designator, y.designator);
         assert_se(sd_id128_equal(x.uuid, y.uuid));
         assert_se(streq(x.name, y.name));
 
         /* If the partition type does not have an architecture, nothing should change. */
 
-        assert_se(gpt_partition_type_from_string("esp", &x) >= 0);
+        ASSERT_GE(gpt_partition_type_from_string("esp", &x), 0);
         y = x;
 
         x = gpt_partition_type_override_architecture(x, ARCHITECTURE_ARM64);
-        assert_se(x.arch == y.arch);
-        assert_se(x.designator == y.designator);
+        ASSERT_EQ(x.arch, y.arch);
+        ASSERT_EQ(x.designator, y.designator);
         assert_se(sd_id128_equal(x.uuid, y.uuid));
         assert_se(streq(x.name, y.name));
 }
