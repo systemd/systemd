@@ -66,7 +66,7 @@ static int get_dir_fd(const char *dir_path, mode_t mode) {
         assert(dir_path);
         dir_fd = RET_NERRNO(open_mkdir_at(AT_FDCWD, dir_path, O_CLOEXEC, mode));
         if (dir_fd < 0)
-                return log_error_errno(dir_fd, "Error occured while opening directory =>: %m");
+                return log_error_errno(dir_fd, "Error occurred while opening directory =>: %m");
 
         return dir_fd;
 }
@@ -91,7 +91,7 @@ static int labelling_op(int dir_fd, const char *text, const char *path, mode_t m
         /* Write data to the file*/
         count = RET_NERRNO(write(write_fd, text, strlen(text)));
         if (count < 0)
-                return log_error_errno(count, "Error occured while opening file for writing =>: %m");
+                return log_error_errno(count, "Error occurred while opening file for writing =>: %m");
         return 0;
 }
 
