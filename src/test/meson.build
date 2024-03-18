@@ -147,6 +147,7 @@ simple_tests += files(
         'test-psi-util.c',
         'test-ratelimit.c',
         'test-raw-clone.c',
+        'test-recovery-key.c',
         'test-recurse-dir.c',
         'test-replace-var.c',
         'test-rlimit-util.c',
