@@ -23,6 +23,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ICMP6Packet*, icmp6_packet_unref);
 
 int icmp6_packet_get_sender_address(ICMP6Packet *p, struct in6_addr *ret);
 int icmp6_packet_get_timestamp(ICMP6Packet *p, clockid_t clock, usec_t *ret);
+const struct icmp6_hdr* icmp6_packet_get_header(ICMP6Packet *p);
 int icmp6_packet_get_type(ICMP6Packet *p);
 
 int icmp6_packet_receive(int fd, ICMP6Packet **ret);

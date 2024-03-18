@@ -3,8 +3,10 @@
 
 #include <inttypes.h>
 #include <net/ethernet.h>
+#include <netinet/icmp6.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
+#include <sys/uio.h>
 
 #include "sd-ndisc-protocol.h"
 
@@ -12,6 +14,11 @@
 #include "macro.h"
 #include "set.h"
 #include "time-util.h"
+
+typedef struct sd_ndisc_raw {
+        uint8_t *bytes;
+        size_t length;
+} sd_ndisc_raw;
 
 /* Mostly equivalent to struct nd_opt_prefix_info, but using usec_t. */
 typedef struct sd_ndisc_prefix {
@@ -51,6 +58,7 @@ typedef struct sd_ndisc_option {
         size_t offset;
 
         union {
+                sd_ndisc_raw raw;           /* for testing or unsupported options */
                 struct ether_addr mac;      /* SD_NDISC_OPTION_SOURCE_LL_ADDRESS or SD_NDISC_OPTION_TARGET_LL_ADDRESS */
                 sd_ndisc_prefix prefix;     /* SD_NDISC_OPTION_PREFIX_INFORMATION */
                 struct ip6_hdr hdr;         /* SD_NDISC_OPTION_REDIRECTED_HEADER */
@@ -107,6 +115,11 @@ static inline sd_ndisc_option* ndisc_option_get(Set *options, uint8_t type) {
 
 int ndisc_option_get_mac(Set *options, uint8_t type, struct ether_addr *ret);
 
+int ndisc_option_add_raw(
+                Set **options,
+                size_t offset,
+                size_t length,
+                const uint8_t *bytes);
 int ndisc_option_add_link_layer_address(
                 Set **options,
                 uint8_t opt,
@@ -160,3 +173,5 @@ int ndisc_option_add_prefix64(
                 uint8_t prefixlen,
                 const struct in6_addr *prefix,
                 usec_t lifetime);
+
+int ndisc_send(int fd, const struct sockaddr_in6 *dst, const struct icmp6_hdr *hdr, Set *options);
