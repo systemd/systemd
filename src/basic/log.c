@@ -49,6 +49,12 @@ static void *log_syntax_callback_userdata = NULL;
 
 static LogTarget log_target = LOG_TARGET_CONSOLE;
 static int log_max_level = LOG_INFO;
+static int log_target_max_level[] = {
+        [LOG_TARGET_CONSOLE] = LOG_DEBUG,
+        [LOG_TARGET_KMSG] = LOG_DEBUG,
+        [LOG_TARGET_SYSLOG] = LOG_DEBUG,
+        [LOG_TARGET_JOURNAL] = LOG_DEBUG,
+};
 static int log_facility = LOG_DAEMON;
 static bool ratelimit_kmsg = true;
 
@@ -439,6 +445,9 @@ static int write_to_console(
         if (console_fd < 0)
                 return 0;
 
+        if (_likely_(LOG_PRI(level) > log_target_max_level[LOG_TARGET_CONSOLE]))
+                return 0;
+
         if (log_target == LOG_TARGET_CONSOLE_PREFIXED) {
                 xsprintf(prefix, "<%i>", level);
                 iovec[n++] = IOVEC_MAKE_STRING(prefix);
@@ -523,6 +532,9 @@ static int write_to_syslog(
         if (syslog_fd < 0)
                 return 0;
 
+        if (_likely_(LOG_PRI(level) > log_target_max_level[LOG_TARGET_SYSLOG]))
+                return 0;
+
         xsprintf(header_priority, "<%i>", level);
 
         t = (time_t) (now(CLOCK_REALTIME) / USEC_PER_SEC);
@@ -590,6 +602,9 @@ static int write_to_kmsg(
              header_pid[4 + DECIMAL_STR_MAX(pid_t) + 1];
 
         if (kmsg_fd < 0)
+                return 0;
+
+        if (_likely_(LOG_PRI(level) > log_target_max_level[LOG_TARGET_KMSG]))
                 return 0;
 
         if (ratelimit_kmsg && !ratelimit_below(&ratelimit)) {
@@ -717,6 +732,9 @@ static int write_to_journal(
         struct iovec *iovec;
 
         if (journal_fd < 0)
+                return 0;
+
+        if (_likely_(LOG_PRI(level) > log_target_max_level[LOG_TARGET_JOURNAL]))
                 return 0;
 
         iovec_len = MIN(6 + _log_context_num_fields * 2, IOVEC_MAX);
@@ -1245,6 +1263,19 @@ bool log_get_assert_return_is_critical(void) {
         return assert_return_is_critical;
 }
 
+static int log_set_target_max_level_from_string(LogTarget target, const char *value) {
+        int r;
+
+        r = log_level_from_string(value);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse max %s log level value \"%s\", ignoring: %m",
+                                         log_target_to_string(target), value);
+
+        log_target_max_level[target] = r;
+
+        return 0;
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
 
         /*
@@ -1299,6 +1330,34 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 if (log_set_ratelimit_kmsg_from_string(value ?: "1") < 0)
                         log_warning("Failed to parse log ratelimit kmsg boolean '%s', ignoring.", value);
+
+        } else if (proc_cmdline_key_streq(key, "systemd.log_max_level_console")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                (void) log_set_target_max_level_from_string(LOG_TARGET_CONSOLE, value);
+
+        } else if (proc_cmdline_key_streq(key, "systemd.log_max_level_kmsg")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                (void) log_set_target_max_level_from_string(LOG_TARGET_KMSG, value);
+
+        } else if (proc_cmdline_key_streq(key, "systemd.log_max_level_journal")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                (void) log_set_target_max_level_from_string(LOG_TARGET_JOURNAL, value);
+
+        } else if (proc_cmdline_key_streq(key, "systemd.log_max_level_syslog")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                (void) log_set_target_max_level_from_string(LOG_TARGET_SYSLOG, value);
         }
 
         return 0;
@@ -1343,6 +1402,22 @@ void log_parse_environment_variables(void) {
         e = getenv("SYSTEMD_LOG_RATELIMIT_KMSG");
         if (e && log_set_ratelimit_kmsg_from_string(e) < 0)
                 log_warning("Failed to parse log ratelimit kmsg boolean '%s', ignoring.", e);
+
+        e = getenv("SYSTEMD_LOG_MAX_LEVEL_CONSOLE");
+        if (e)
+                (void) log_set_target_max_level_from_string(LOG_TARGET_CONSOLE, e);
+
+        e = getenv("SYSTEMD_LOG_MAX_LEVEL_KMSG");
+        if (e)
+                (void) log_set_target_max_level_from_string(LOG_TARGET_KMSG, e);
+
+        e = getenv("SYSTEMD_LOG_MAX_LEVEL_JOURNAL");
+        if (e)
+                (void) log_set_target_max_level_from_string(LOG_TARGET_JOURNAL, e);
+
+        e = getenv("SYSTEMD_LOG_MAX_LEVEL_SYSLOG");
+        if (e)
+                (void) log_set_target_max_level_from_string(LOG_TARGET_SYSLOG, e);
 }
 
 void log_parse_environment(void) {
