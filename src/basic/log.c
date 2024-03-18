@@ -49,6 +49,12 @@ static void *log_syntax_callback_userdata = NULL;
 
 static LogTarget log_target = LOG_TARGET_CONSOLE;
 static int log_max_level = LOG_INFO;
+static int log_target_max_level[] = {
+        [LOG_TARGET_CONSOLE] = INT_MAX,
+        [LOG_TARGET_KMSG]    = INT_MAX,
+        [LOG_TARGET_SYSLOG]  = INT_MAX,
+        [LOG_TARGET_JOURNAL] = INT_MAX,
+};
 static int log_facility = LOG_DAEMON;
 static bool ratelimit_kmsg = true;
 
@@ -439,6 +445,9 @@ static int write_to_console(
         if (console_fd < 0)
                 return 0;
 
+        if (_likely_(LOG_PRI(level) > log_target_max_level[LOG_TARGET_CONSOLE]))
+                return 0;
+
         if (log_target == LOG_TARGET_CONSOLE_PREFIXED) {
                 xsprintf(prefix, "<%i>", level);
                 iovec[n++] = IOVEC_MAKE_STRING(prefix);
@@ -523,6 +532,9 @@ static int write_to_syslog(
         if (syslog_fd < 0)
                 return 0;
 
+        if (_likely_(LOG_PRI(level) > log_target_max_level[LOG_TARGET_SYSLOG]))
+                return 0;
+
         xsprintf(header_priority, "<%i>", level);
 
         t = (time_t) (now(CLOCK_REALTIME) / USEC_PER_SEC);
@@ -590,6 +602,9 @@ static int write_to_kmsg(
              header_pid[4 + DECIMAL_STR_MAX(pid_t) + 1];
 
         if (kmsg_fd < 0)
+                return 0;
+
+        if (_likely_(LOG_PRI(level) > log_target_max_level[LOG_TARGET_KMSG]))
                 return 0;
 
         if (ratelimit_kmsg && !ratelimit_below(&ratelimit)) {
@@ -717,6 +732,9 @@ static int write_to_journal(
         struct iovec *iovec;
 
         if (journal_fd < 0)
+                return 0;
+
+        if (_likely_(LOG_PRI(level) > log_target_max_level[LOG_TARGET_JOURNAL]))
                 return 0;
 
         iovec_len = MIN(6 + _log_context_num_fields * 2, IOVEC_MAX);
@@ -1215,14 +1233,87 @@ int log_set_target_from_string(const char *e) {
         return 0;
 }
 
+static bool log_target_has_max_log_level(LogTarget target) {
+        return IN_SET(target, LOG_TARGET_KMSG, LOG_TARGET_JOURNAL, LOG_TARGET_SYSLOG, LOG_TARGET_CONSOLE);
+}
+
 int log_set_max_level_from_string(const char *e) {
         int r;
 
-        r = log_level_from_string(e);
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *prefix = NULL;
+                LogTarget target;
+                const char *colon;
+
+                r = extract_first_word(&e, &word, ",", 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                colon = strchr(word, ':');
+                if (!colon) {
+                        r = log_level_from_string(word);
+                        if (r < 0)
+                                return r;
+
+                        log_set_max_level(r);
+                        continue;
+                }
+
+                prefix = strndup(word, colon - word);
+                if (!prefix)
+                        return -ENOMEM;
+
+                target = log_target_from_string(prefix);
+                if (target < 0)
+                        return target;
+
+                if (!log_target_has_max_log_level(target))
+                        return -EINVAL;
+
+                r = log_level_from_string(colon + 1);
+                if (r < 0)
+                        return r;
+
+                log_target_max_level[target] = r;
+        }
+
+        return 0;
+}
+
+int log_max_levels_to_string(int level, char **ret) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(ret);
+
+        r = log_level_to_string_alloc(level, &s);
         if (r < 0)
                 return r;
 
-        log_set_max_level(r);
+        for (LogTarget target = 0; target < _LOG_TARGET_MAX; target++) {
+                _cleanup_free_ char *q = NULL, *l = NULL;
+
+                if (!log_target_has_max_log_level(target))
+                        continue;
+
+                if (log_target_max_level[target] == INT_MAX)
+                        continue;
+
+                r = log_level_to_string_alloc(log_target_max_level[target], &l);
+                if (r < 0)
+                        return r;
+
+                q = strjoin(log_target_to_string(target), ":", l);
+                if (!q)
+                        return -ENOMEM;
+
+                if (!strextend_with_separator(&s, ",", q))
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(s);
         return 0;
 }
 
@@ -1273,7 +1364,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
 
                 if (log_set_max_level_from_string(value) < 0)
-                        log_warning("Failed to parse log level '%s', ignoring.", value);
+                        log_warning("Failed to parse log level setting '%s', ignoring.", value);
 
         } else if (proc_cmdline_key_streq(key, "systemd.log_color")) {
 

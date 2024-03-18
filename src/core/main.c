@@ -1508,31 +1508,36 @@ static int become_shutdown(int objective, int retval) {
                 [MANAGER_KEXEC]    = "kexec",
         };
 
-        char log_level[STRLEN("--log-level=") + DECIMAL_STR_MAX(int)],
-             timeout[STRLEN("--timeout=") + DECIMAL_STR_MAX(usec_t) + STRLEN("us")],
+        char timeout[STRLEN("--timeout=") + DECIMAL_STR_MAX(usec_t) + STRLEN("us")],
              exit_code[STRLEN("--exit-code=") + DECIMAL_STR_MAX(uint8_t)];
 
         _cleanup_strv_free_ char **env_block = NULL;
+        _cleanup_free_ char *max_log_levels = NULL;
         usec_t watchdog_timer = 0;
         int r;
 
         assert(objective >= 0 && objective < _MANAGER_OBJECTIVE_MAX);
         assert(table[objective]);
 
-        xsprintf(log_level, "--log-level=%d", log_get_max_level());
         xsprintf(timeout, "--timeout=%" PRI_USEC "us", arg_defaults.timeout_stop_usec);
 
-        const char* command_line[10] = {
+        const char* command_line[11] = {
                 SYSTEMD_SHUTDOWN_BINARY_PATH,
                 table[objective],
-                log_level,
                 timeout,
                 /* Note that the last position is a terminator and must contain NULL. */
         };
-        size_t pos = 4;
+        size_t pos = 3;
 
         assert(command_line[pos-1]);
         assert(!command_line[pos]);
+
+        (void) log_max_levels_to_string(log_get_max_level(), &max_log_levels);
+
+        if (max_log_levels) {
+                command_line[pos++] = "--log-level";
+                command_line[pos++] = max_log_levels;
+        }
 
         switch (log_get_target()) {
 
