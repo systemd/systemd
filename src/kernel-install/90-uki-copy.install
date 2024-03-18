@@ -26,8 +26,6 @@ KERNEL_VERSION="${2:?}"
 ENTRY_DIR_ABS="$3"
 KERNEL_IMAGE="$4"
 
-[ "$KERNEL_INSTALL_LAYOUT" = "uki" ] || exit 0
-
 ENTRY_TOKEN="$KERNEL_INSTALL_ENTRY_TOKEN"
 BOOT_ROOT="$KERNEL_INSTALL_BOOT_ROOT"
 
@@ -47,6 +45,8 @@ case "$COMMAND" in
         exit 0
         ;;
 esac
+
+[ "$KERNEL_INSTALL_LAYOUT" = "uki" ] || exit 0
 
 if ! [ -d "$UKI_DIR" ]; then
     [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "creating $UKI_DIR"
