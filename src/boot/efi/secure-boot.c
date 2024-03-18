@@ -32,10 +32,46 @@ SecureBootMode secure_boot_mode(void) {
         return decode_secure_boot_mode(secure, audit, deployed, setup);
 }
 
+/*
+ * Custom mode allows to change secure boot certificate databases db, dbx, KEK and PK without the variable
+ * updates being signed. When enrolling certificates to an unconfigured system (no PK present yet) writing
+ * db, dbx and KEK updates without signature works fine even in standard mode. Writing PK updates without
+ * signature requires custom mode in any case.
+ *
+ * Enabling custom mode works only if a user is physically present. Note that OVMF has a dummy
+ * implementation for the user presence check (there is no useful way to implement a presence check for a
+ * virtual machine).
+ *
+ * FYI: Your firmware setup utility might offers the option to enroll certificates from *.crt files
+ * (DER-encoded x509 certificates) on the ESP; that uses custom mode too. Your firmware setup might also
+ * offer the option to switch the system into custom mode for the next boot.
+ */
+static bool custom_mode_enabled(void) {
+        bool enabled = false;
+
+        (void) efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_CUSTOM_MODE_ENABLE),
+                                     u"CustomMode", &enabled);
+        return enabled;
+}
+
+static EFI_STATUS set_custom_mode(bool enable) {
+        static char16_t name[] = u"CustomMode";
+        static uint32_t attr =
+                EFI_VARIABLE_NON_VOLATILE |
+                EFI_VARIABLE_BOOTSERVICE_ACCESS;
+        uint8_t mode = enable
+                ? 1   /* CUSTOM_SECURE_BOOT_MODE   */
+                : 0;  /* STANDARD_SECURE_BOOT_MODE */
+
+        return RT->SetVariable(name, MAKE_GUID_PTR(EFI_CUSTOM_MODE_ENABLE),
+                               attr, sizeof(mode), &mode);
+}
+
 EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force) {
         assert(root_dir);
         assert(path);
 
+        bool need_custom_mode = false;
         EFI_STATUS err;
 
         clear_screen(COLOR_NORMAL);
@@ -103,6 +139,30 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                         log_error_status(err, "Failed reading file %ls\\%ls: %m", path, sb_vars[i].filename);
                         goto out_deallocate;
                 }
+                if (streq16(sb_vars[i].name, u"PK") && sb_vars[i].size > 20) {
+                        assert(sb_vars[i].buffer);
+                        /*
+                         * The buffer should be EFI_TIME (16 bytes), followed by
+                         * EFI_VARIABLE_AUTHENTICATION_2 header.  First header field is the size.  If the
+                         * size covers only the header itself (8 bytes) plus the signature type guid (16
+                         * bytes), leaving no space for an actual signature, we can conclude that no
+                         * signature is present.
+                         */
+                        uint32_t *sigsize = (uint32_t*)(sb_vars[i].buffer + 16);
+                        if (*sigsize <= 24) {
+                                printf("PK is not signed (need custom mode).\n");
+                                need_custom_mode = true;
+                        }
+                }
+        }
+
+        if (need_custom_mode && !custom_mode_enabled()) {
+                err = set_custom_mode(/* enable */ true);
+                if (err != EFI_SUCCESS) {
+                        log_error_status(err, "Failed to enable custom mode: %m");
+                        goto out_deallocate;
+                }
+                printf("Custom mode enabled.\n");
         }
 
         for (size_t i = 0; i < ELEMENTSOF(sb_vars); i++) {
