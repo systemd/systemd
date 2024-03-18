@@ -139,17 +139,12 @@ struct Home {
         bool unregister_on_failure;
 
         /* The reading side of a FIFO stored in /run/systemd/home/, the writing side being used for reference
-         * counting. The references dropped to zero as soon as we see EOF. This concept exists thrice: once
-         * for clients that are fine if we lock the home directory on system suspend, once for clients
-         * that are not ok with that, and once for clients that are usually ok with it but temporarily
-         * want to opt-out so that they can implement more advanced behavior on their own. This allows
-         * us to determine for each home whether there are any clients that don't support suspend at this
-         * moment. */
+         * counting. The references dropped to zero as soon as we see EOF. This concept exists twice: once
+         * for clients that are fine if we suspend the home directory on system suspend, and once for clients
+         * that are not ok with that. This allows us to determine for each home whether there are any clients
+         * that support unsuspend. */
         sd_event_source *ref_event_source_please_suspend;
         sd_event_source *ref_event_source_dont_suspend;
-        /* This is distinct from ref_event_source_dont_suspend because it can be obtained from unprivileged
-         * code, and thus we don't count it as a reference on the home area. */
-        sd_event_source *inhibit_suspend_event_source;
 
         /* Any pending operations we still need to execute. These are for operations we want to queue if we
          * can't execute them right-away. */
@@ -215,15 +210,7 @@ int home_killall(Home *h);
 
 int home_augment_status(Home *h, UserRecordLoadFlags flags, UserRecord **ret);
 
-typedef enum {
-        HOME_FIFO_PLEASE_SUSPEND,
-        HOME_FIFO_DONT_SUSPEND,
-        HOME_FIFO_INHIBIT_SUSPEND,
-        _HOME_FIFO_TYPE_MAX,
-        _HOME_FIFO_TYPE_INVALID = -EINVAL,
-} HomeFifoType;
-int home_create_fifo(Home *h, HomeFifoType mode);
-
+int home_create_fifo(Home *h, bool please_suspend);
 int home_schedule_operation(Home *h, Operation *o, sd_bus_error *error);
 
 int home_auto_login(Home *h, char ***ret_seats);

@@ -415,7 +415,7 @@ int bus_home_method_authenticate(
         return 1;
 }
 
-int bus_home_method_update_record(
+int bus_home_update_record(
                 Home *h,
                 sd_bus_message *message,
                 UserRecord *hr,
@@ -487,7 +487,7 @@ int bus_home_method_update(
                         return r;
         }
 
-        return bus_home_method_update_record(h, message, hr, blobs, flags, error);
+        return bus_home_update_record(h, message, hr, blobs, flags, error);
 }
 
 int bus_home_method_resize(
@@ -657,7 +657,7 @@ int bus_home_method_acquire(
                 return r;
 
         /* This operation might not be something we can executed immediately, hence queue it */
-        fd = home_create_fifo(h, please_suspend ? HOME_FIFO_PLEASE_SUSPEND : HOME_FIFO_DONT_SUSPEND);
+        fd = home_create_fifo(h, please_suspend);
         if (fd < 0)
                 return sd_bus_reply_method_errnof(message, fd, "Failed to allocate FIFO for %s: %m", h->user_name);
 
@@ -716,7 +716,7 @@ int bus_home_method_ref(
                 }
         }
 
-        fd = home_create_fifo(h, please_suspend ? HOME_FIFO_PLEASE_SUSPEND : HOME_FIFO_DONT_SUSPEND);
+        fd = home_create_fifo(h, please_suspend);
         if (fd < 0)
                 return sd_bus_reply_method_errnof(message, fd, "Failed to allocate FIFO for %s: %m", h->user_name);
 
@@ -743,51 +743,6 @@ int bus_home_method_release(
                 return r;
 
         return 1;
-}
-
-int bus_home_method_inhibit_suspend(
-                sd_bus_message *message,
-                void *userdata,
-                sd_bus_error *error) {
-
-        _cleanup_close_ int fd = -EBADF;
-        Home *h = ASSERT_PTR(userdata);
-        HomeState state;
-        int r;
-
-        r = home_verify_polkit_async(
-                        h,
-                        message,
-                        "org.freedesktop.home1.inhibit-suspend",
-                        h->uid,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
-
-        state = home_get_state(h);
-        switch (state) {
-        case HOME_ABSENT:
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
-        case HOME_UNFIXATED:
-        case HOME_INACTIVE:
-        case HOME_DIRTY:
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_NOT_ACTIVE, "Home %s not active.", h->user_name);
-        case HOME_LOCKED:
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
-        default:
-                if (HOME_STATE_IS_ACTIVE(state))
-                        break;
-
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
-        }
-
-        fd = home_create_fifo(h, HOME_FIFO_INHIBIT_SUSPEND);
-        if (fd < 0)
-                return sd_bus_reply_method_errnof(message, fd, "Failed to allocate FIFO for %s: %m", h->user_name);
-
-        return sd_bus_reply_method_return(message, "h", fd);
 }
 
 /* We map a uid_t as uint32_t bus property, let's ensure this is safe. */
@@ -949,11 +904,6 @@ const sd_bus_vtable home_vtable[] = {
                                 bus_home_method_ref,
                                 0),
         SD_BUS_METHOD("Release", NULL, NULL, bus_home_method_release, 0),
-        SD_BUS_METHOD_WITH_ARGS("InhibitSuspend",
-                                SD_BUS_NO_ARGS,
-                                SD_BUS_RESULT("h", send_fd),
-                                bus_home_method_inhibit_suspend,
-                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 
