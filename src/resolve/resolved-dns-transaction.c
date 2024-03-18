@@ -2723,9 +2723,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
         if (r < 0)
                 return r;
         if (r > 0) {
-                const char *name, *signed_status;
-                name = dns_resource_key_name(dns_transaction_key(t));
-                signed_status = dns_answer_contains_nsec_or_nsec3(t->answer) ? "signed" : "unsigned";
+                const char *name = dns_resource_key_name(dns_transaction_key(t));
+                bool was_signed = dns_answer_contains_nsec_or_nsec3(t->answer);
 
                 /* If the response is empty, seek the DS for this name, just in case we're at a zone cut
                  * already, unless we just requested the DS, in which case we have to ask the parent to make
@@ -2735,7 +2734,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                  * setups there are too many broken DNS servers (Hello, incapdns.net!) where non-terminal
                  * zones return NXDOMAIN even though they have further children. */
 
-                if (chased_insecure)
+                if (chased_insecure || was_signed)
+                        /* In this case we already reqeusted what we need above. */
                         name = NULL;
                 else if (dns_transaction_key(t)->type == DNS_TYPE_DS)
                         /* If the DS response is empty, we'll walk up the dns labels requesting DS until we
@@ -2746,9 +2746,9 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 if (name) {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds = NULL;
 
-                        log_debug("Requesting DS (%s %s) to validate transaction %" PRIu16 " (%s, %s empty response).",
+                        log_debug("Requesting DS (%s %s) to validate transaction %" PRIu16 " (%s empty response).",
                                   special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), name, t->id,
-                                  dns_resource_key_name(dns_transaction_key(t)), signed_status);
+                                  dns_resource_key_name(dns_transaction_key(t)));
 
                         ds = dns_resource_key_new(dns_transaction_key(t)->class, DNS_TYPE_DS, name);
                         if (!ds)
