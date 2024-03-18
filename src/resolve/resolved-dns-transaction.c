@@ -2433,6 +2433,7 @@ static bool dns_transaction_dnssec_supported_full(DnsTransaction *t) {
 
 int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
         DnsResourceRecord *rr;
+        bool chased_negative = false;
 
         int r;
 
@@ -2590,6 +2591,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (r > 0)
                                 continue;
 
+                        chased_negative = true;
                         ds = dns_resource_key_new(rr->key->class, DNS_TYPE_DS, dns_resource_key_name(rr->key));
                         if (!ds)
                                 return -ENOMEM;
@@ -2658,11 +2660,11 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 }
 
                 default: {
-                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *soa = NULL;
+                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds = NULL;
 
                         /* For other unsigned RRsets (including
                          * NSEC/NSEC3!), look for proof the zone is
-                         * unsigned, by requesting the SOA RR of the
+                         * unsigned, by requesting the DS RR of the
                          * zone. However, do so only if they are
                          * directly relevant to our original
                          * question. */
@@ -2679,13 +2681,13 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (r > 0)
                                 continue;
 
-                        soa = dns_resource_key_new(rr->key->class, DNS_TYPE_SOA, dns_resource_key_name(rr->key));
-                        if (!soa)
+                        ds = dns_resource_key_new(rr->key->class, DNS_TYPE_DS, dns_resource_key_name(rr->key));
+                        if (!ds)
                                 return -ENOMEM;
 
-                        log_debug("Requesting SOA to validate transaction %" PRIu16 " (%s, unsigned non-SOA/NS RRset <%s>).",
+                        log_debug("Requesting DS to validate transaction %" PRIu16 " (%s, unsigned non-SOA/NS RRset <%s>).",
                                   t->id, dns_resource_key_name(rr->key), dns_resource_record_to_string(rr));
-                        r = dns_transaction_request_dnssec_rr(t, soa);
+                        r = dns_transaction_request_dnssec_rr(t, ds);
                         if (r < 0)
                                 return r;
                         break;
@@ -2714,10 +2716,9 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                  * to see if that is signed. */
 
                 if (dns_transaction_key(t)->type == DNS_TYPE_DS) {
-                        r = dns_name_parent(&name);
-                        if (r > 0) {
-                                type = DNS_TYPE_SOA;
-                                log_debug("Requesting parent SOA (%s %s) to validate transaction %" PRIu16 " (%s, %s empty DS response).",
+                        if (!chased_negative && dns_name_parent(&name) > 0) {
+                                type = DNS_TYPE_DS;
+                                log_debug("Requesting parent DS (%s %s) to validate transaction %" PRIu16 " (%s, %s empty DS response).",
                                           special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), name, t->id,
                                           dns_resource_key_name(dns_transaction_key(t)), signed_status);
                         } else
@@ -2729,20 +2730,21 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         log_debug("Requesting DS (%s %s) to validate transaction %" PRIu16 " (%s, %s empty SOA/NS response).",
                                   special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), name, t->id, name, signed_status);
 
-                } else {
-                        type = DNS_TYPE_SOA;
-                        log_debug("Requesting SOA (%s %s) to validate transaction %" PRIu16 " (%s, %s empty non-SOA/NS/DS response).",
+                } else if (!chased_negative) {
+                        type = DNS_TYPE_DS;
+                        log_debug("Requesting DS (%s %s) to validate transaction %" PRIu16 " (%s, %s empty non-SOA/NS/DS response).",
                                   special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), name, t->id, name, signed_status);
-                }
+                } else
+                        name = NULL;
 
                 if (name) {
-                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *soa = NULL;
+                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *needed = NULL;
 
-                        soa = dns_resource_key_new(dns_transaction_key(t)->class, type, name);
-                        if (!soa)
+                        needed = dns_resource_key_new(dns_transaction_key(t)->class, type, name);
+                        if (!needed)
                                 return -ENOMEM;
 
-                        r = dns_transaction_request_dnssec_rr(t, soa);
+                        r = dns_transaction_request_dnssec_rr(t, needed);
                         if (r < 0)
                                 return r;
                 }
@@ -2822,7 +2824,6 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                 DnsTransaction *dt;
 
                 /* For SOA or NS RRs we look for a matching DS transaction */
-
                 SET_FOREACH(dt, t->dnssec_transactions) {
 
                         if (dns_transaction_key(dt)->class != rr->key->class)
@@ -2830,7 +2831,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                         if (dns_transaction_key(dt)->type != DNS_TYPE_DS)
                                 continue;
 
-                        r = dns_name_equal(dns_resource_key_name(dns_transaction_key(dt)), dns_resource_key_name(rr->key));
+                        r = dns_name_endswith(dns_resource_key_name(rr->key), dns_resource_key_name(dns_transaction_key(dt)));
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -2859,16 +2860,16 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                 DnsTransaction *dt;
 
                 /*
-                 * CNAME/DNAME RRs cannot be located at a zone apex, hence look directly for the parent SOA.
+                 * CNAME/DNAME RRs cannot be located at a zone apex, hence look directly for the parent DS.
                  *
-                 * DS RRs are signed if the parent is signed, hence also look at the parent SOA
+                 * DS RRs are signed if the parent is signed, hence also look at the parent DS
                  */
 
                 SET_FOREACH(dt, t->dnssec_transactions) {
 
                         if (dns_transaction_key(dt)->class != rr->key->class)
                                 continue;
-                        if (dns_transaction_key(dt)->type != DNS_TYPE_SOA)
+                        if (dns_transaction_key(dt)->type != DNS_TYPE_DS)
                                 continue;
 
                         if (!parent) {
@@ -2886,7 +2887,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                                 }
                         }
 
-                        r = dns_name_equal(dns_resource_key_name(dns_transaction_key(dt)), parent);
+                        r = dns_name_endswith(parent, dns_resource_key_name(dns_transaction_key(dt)));
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -2901,24 +2902,23 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
         default: {
                 DnsTransaction *dt;
 
-                /* Any other kind of RR (including DNSKEY/NSEC/NSEC3). Let's see if our SOA lookup was authenticated */
+                /* Any other kind of RR (including DNSKEY/NSEC/NSEC3). Let's see if our DS lookup was authenticated */
 
                 SET_FOREACH(dt, t->dnssec_transactions) {
-
                         if (dns_transaction_key(dt)->class != rr->key->class)
                                 continue;
-                        if (dns_transaction_key(dt)->type != DNS_TYPE_SOA)
+                        if (dns_transaction_key(dt)->type != DNS_TYPE_DS)
                                 continue;
 
-                        r = dns_name_equal(dns_resource_key_name(dns_transaction_key(dt)), dns_resource_key_name(rr->key));
+                        r = dns_name_endswith(dns_resource_key_name(rr->key), dns_resource_key_name(dns_transaction_key(dt)));
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 continue;
 
-                        /* We found the transaction that was supposed to find the SOA RR for us. It was
+                        /* We found the transaction that was supposed to find the DS RR for us. It was
                          * successful, but found no RR for us. This means we are not at a zone cut. In this
-                         * case, we require authentication if the SOA lookup was authenticated too. */
+                         * case, we require authentication if the DS lookup was authenticated too. */
                         return FLAGS_SET(dt->answer_query_flags, SD_RESOLVED_AUTHENTICATED);
                 }
 
@@ -3035,30 +3035,33 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
                 if (r == 0)
                         return true;
 
-                type = DNS_TYPE_SOA;
+                type = DNS_TYPE_DS;
 
         } else if (IN_SET(dns_transaction_key(t)->type, DNS_TYPE_SOA, DNS_TYPE_NS))
                 /* We got a negative reply for this SOA/NS lookup? If so, check if there's a DS RR for this */
                 type = DNS_TYPE_DS;
         else
-                /* For all other negative replies, check for the SOA lookup */
-                type = DNS_TYPE_SOA;
+                /* For all other negative replies, check for the DS lookup */
+                type = DNS_TYPE_DS;
 
-        /* For all other RRs we check the SOA on the same level to see
+        /* For all other RRs we check the DS on the same level to see
          * if it's signed. */
 
         SET_FOREACH(dt, t->dnssec_transactions) {
-
                 if (dns_transaction_key(dt)->class != dns_transaction_key(t)->class)
                         continue;
                 if (dns_transaction_key(dt)->type != type)
                         continue;
 
-                r = dns_name_equal(dns_resource_key_name(dns_transaction_key(dt)), name);
+                r = dns_name_endswith(name, dns_resource_key_name(dns_transaction_key(dt)));
                 if (r < 0)
                         return r;
                 if (r == 0)
                         continue;
+
+                /* If the DS doesn't exist, we don't expect this to be signed. */
+                if (!dns_transaction_has_positive_answer(dt, NULL))
+                        return false;
 
                 return FLAGS_SET(dt->answer_query_flags, SD_RESOLVED_AUTHENTICATED);
         }
