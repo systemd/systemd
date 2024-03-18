@@ -593,6 +593,8 @@ node /org/freedesktop/login1 {
       used to lock access to the entire machine in one action. Similarly, <function>UnlockSessions()</function>
       asks all sessions to deactivate their screen locks.</para>
 
+      <para><function>SecureLockUsers()</function> activates secure locks on all users that support them.</para>
+
       <para><function>KillSession()</function> may be used to send a Unix signal to one or all processes of a
       session. As arguments it takes the session id, either the string <literal>leader</literal> or
       <literal>all</literal> and a signal number. If <literal>leader</literal> is passed only the session
@@ -1635,6 +1637,7 @@ node /org/freedesktop/login1/session/1 {
       <function>CanSleep()</function>,
       <varname>SleepOperation</varname>, and
       <function>ListSessionsEx()</function> were added in version 256.</para>
+      <para><function>SecureLockUsers()</function> was added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>User Objects</title>
