@@ -1495,6 +1495,10 @@ static int address_acquire(Link *link, const Address *address, union in_addr_uni
         assert(address);
         assert(ret);
 
+        r = address_acquire_from_dhcp_server_leases_file(link, address, ret);
+        if (r != -ENOENT)
+                return r;
+
         r = address_pool_acquire(link->manager, address->family, address->prefixlen, &a);
         if (r < 0)
                 return r;

@@ -5771,6 +5771,28 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         output = networkctl_status('veth-peer')
         self.assertIn(f'Offered DHCP leases: {client_address}', output)
 
+        # Check if the same addresses are used even if the service is restarted.
+        restart_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = check_output('ip -4 address show dev veth-peer')
+        print(output)
+        self.assertIn(f'{server_address}', output)
+
+        output = check_output('ip -4 address show dev veth99')
+        print(output)
+        self.assertIn(f'{client_address}', output)
+
+        output = networkctl_status('veth99')
+        print(output)
+        self.assertRegex(output, rf'Address: {client_address} \(DHCP4 via {server_address}\)')
+        self.assertIn(f'Gateway: {server_address}', output)
+        self.assertIn(f'DNS: {server_address}', output)
+        self.assertIn(f'NTP: {server_address}', output)
+
+        output = networkctl_status('veth-peer')
+        self.assertIn(f'Offered DHCP leases: {client_address}', output)
+
     def test_dhcp_server_with_uplink(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-downstream.network',
                           '12-dummy.netdev', '25-dhcp-server-uplink.network')
