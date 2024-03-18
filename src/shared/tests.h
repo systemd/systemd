@@ -200,3 +200,42 @@ static inline int run_test_table(void) {
         DEFINE_TEST_MAIN_FULL(log_level, intro, NULL)
 #define DEFINE_TEST_MAIN(log_level)                     \
         DEFINE_TEST_MAIN_FULL(log_level, NULL, NULL)
+
+#define ASSERT_OK(expr)                                                                  \
+    do {                                                                                 \
+        int result = (expr);                                                             \
+        if (result < 0) {                                                                \
+            log_error_errno("Assertion failed: %s (result: %d)", #expr, result);         \
+            abort();                                                                     \
+        }                                                                                \
+    } while (false)
+
+#define ASSERT_EQ(actual, expected)                                                      \
+    do {                                                                                 \
+        int _actual = (actual);                                                          \
+        int _expected = (expected);                                                      \
+        if (_actual != _expected) {                                                      \
+            log_error("Assertion failed: %s != %s (actual: %d, expected: %d)", #actual, #expected, _actual, _expected); \
+            abort();                                                                     \
+        }                                                                                \
+    } while (false)
+
+#define ASSERT_GE(actual, expected)                                                      \
+    do {                                                                                 \
+        int _actual = (actual);                                                          \
+        int _expected = (expected);                                                      \
+        if (_actual < _expected) {                                                       \
+            log_error("Assertion failed: %s < %s (actual: %d, expected: %d)", #actual, #expected, _actual, _expected); \
+            abort();                                                                     \
+        }                                                                                \
+    } while (false)
+
+#define ASSERT_LE(actual, expected)                                                     \
+    do {                                                                                \
+        int _actual = (actual);                                                         \
+        int _expected = (expected);                                                     \
+        if (_actual > _expected) {                                                      \
+            log_error("Assertion failed: %s > %s (actual: %d, expected: %d)", #actual, #expected, _actual, _expected); \
+            abort();                                                                    \
+        }                                                                               \
+    } while (false)
