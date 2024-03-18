@@ -185,12 +185,20 @@ static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *paramet
                 return r;
 
         if (ready) {
-                _cleanup_close_ int fd = -EBADF;
                 struct stat st, st_prev;
+                int fd;
 
-                fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY | O_PATH);
+                fd = varlink_peek_fd(vlink, 0);
                 if (fd < 0)
-                        return log_warning_errno(errno, "Failed to open /var/lib/systemd/network/: %m");
+                        return log_warning_errno(fd, "Failed to peek file descriptor of the persistent storage: %m");
+
+                r = fd_verify_safe_flags_full(fd, O_DIRECTORY);
+                if (r == -EREMOTEIO)
+                        return log_warning_errno(r, "Passed persistent storage fd has unexpected flags.");
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to verify flags of passed persistent storage fd: %m");
+                if (!FLAGS_SET(r, O_DIRECTORY))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Passed persistent storage is not a directory: %m");
 
                 r = fd_is_read_only_fs(fd);
                 if (r < 0)
@@ -201,7 +209,11 @@ static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *paramet
                 }
 
                 if (fstat(fd, &st) < 0)
-                        return log_warning_errno(r, "Failed to stat the persistent storage: %m");
+                        return log_warning_errno(r, "Failed to stat the passed persistent storage fd: %m");
+
+                r = stat_verify_directory(&st);
+                if (r < 0)
+                        return log_warning_errno(r, "The passed persistent storage fd is not a directory: %m");
 
                 if (manager->persistent_storage_fd >= 0 &&
                     fstat(manager->persistent_storage_fd, &st_prev) >= 0 &&
@@ -225,9 +237,9 @@ static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *paramet
         if (ready) {
                 _cleanup_close_ int fd = -EBADF;
 
-                fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY | O_PATH);
+                fd = varlink_take_fd(vlink, 0);
                 if (fd < 0)
-                        return log_warning_errno(errno, "Failed to open /var/lib/systemd/network/: %m");
+                        return log_warning_errno(fd, "Failed to take file descriptor of the persistent storage: %m");
 
                 close_and_replace(manager->persistent_storage_fd, fd);
         } else
@@ -236,6 +248,18 @@ static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *paramet
         manager_toggle_dhcp4_server_state(manager, ready);
 
         return varlink_reply(vlink, NULL);
+}
+
+static int on_connect(VarlinkServer *s, Varlink *vlink, void *userdata) {
+        int r;
+
+        assert(vlink);
+
+        r = varlink_set_allow_fd_passing_input(vlink, true);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to allow receiving file descriptor through varlink: %m");
+
+        return 0;
 }
 
 int manager_connect_varlink(Manager *m) {
@@ -273,6 +297,10 @@ int manager_connect_varlink(Manager *m) {
         r = varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
+
+        r = varlink_server_bind_connect(s, on_connect);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set on-connect callback for varlink: %m");
 
         m->varlink_server = TAKE_PTR(s);
         return 0;
