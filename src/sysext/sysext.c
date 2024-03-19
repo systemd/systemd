@@ -90,6 +90,7 @@ static const struct {
         const char *level_env;
         const char *scope_env;
         const char *name_env;
+        const char *mode_env;
         const ImagePolicy *default_image_policy;
         unsigned long default_mount_flags;
 } image_class_info[_IMAGE_CLASS_MAX] = {
@@ -102,6 +103,7 @@ static const struct {
                 .level_env = "SYSEXT_LEVEL",
                 .scope_env = "SYSEXT_SCOPE",
                 .name_env = "SYSTEMD_SYSEXT_HIERARCHIES",
+                .mode_env = "SYSTEMD_SYSEXT_MUTABLE_MODE",
                 .default_image_policy = &image_policy_sysext,
                 .default_mount_flags = MS_RDONLY|MS_NODEV,
         },
@@ -114,6 +116,7 @@ static const struct {
                 .level_env = "CONFEXT_LEVEL",
                 .scope_env = "CONFEXT_SCOPE",
                 .name_env = "SYSTEMD_CONFEXT_HIERARCHIES",
+                .mode_env = "SYSTEMD_CONFEXT_MUTABLE_MODE",
                 .default_image_policy = &image_policy_confext,
                 .default_mount_flags = MS_RDONLY|MS_NODEV|MS_NOSUID|MS_NOEXEC,
         }
@@ -2163,11 +2166,22 @@ static int sysext_main(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
+        const char* env_var;
         int r;
 
         log_setup();
 
         arg_image_class = invoked_as(argv, "systemd-confext") ? IMAGE_CONFEXT : IMAGE_SYSEXT;
+
+        env_var = getenv(image_class_info[arg_image_class].mode_env);
+        if (env_var) {
+                r = parse_mutable_mode(env_var);
+                if (r < 0)
+                        log_warning("Failed to parse %s environment variable value '%s'. Ignoring.",
+                                    image_class_info[arg_image_class].mode_env, env_var);
+                else
+                        arg_mutable = r;
+        }
 
         r = parse_argv(argc, argv);
         if (r <= 0)
