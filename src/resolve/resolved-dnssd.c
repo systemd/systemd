@@ -140,16 +140,10 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
 
 static int specifier_dnssd_hostname(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Manager *m = ASSERT_PTR(userdata);
-        char *n;
 
         assert(m->llmnr_hostname);
 
-        n = strdup(m->llmnr_hostname);
-        if (!n)
-                return -ENOMEM;
-
-        *ret = n;
-        return 0;
+        return strdup_to(ret, m->llmnr_hostname);
 }
 
 int dnssd_render_instance_name(Manager *m, DnssdService *s, char **ret) {
