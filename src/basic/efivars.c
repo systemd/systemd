@@ -398,16 +398,8 @@ int systemd_efi_options_variable(char **ret) {
 
         /* For testing purposes it is sometimes useful to be able to override this */
         e = secure_getenv("SYSTEMD_EFI_OPTIONS");
-        if (e) {
-                char *m;
-
-                m = strdup(e);
-                if (!m)
-                        return -ENOMEM;
-
-                *ret = m;
-                return 0;
-        }
+        if (e)
+                return strdup_to(ret, e);
 
         r = read_one_line_file(EFIVAR_CACHE_PATH(EFI_SYSTEMD_VARIABLE(SystemdOptions)), ret);
         if (r == -ENOENT)

@@ -116,16 +116,8 @@ int proc_cmdline(char **ret) {
 
         /* For testing purposes it is sometimes useful to be able to override what we consider /proc/cmdline to be */
         e = secure_getenv("SYSTEMD_PROC_CMDLINE");
-        if (e) {
-                char *m;
-
-                m = strdup(e);
-                if (!m)
-                        return -ENOMEM;
-
-                *ret = m;
-                return 0;
-        }
+        if (e)
+                return strdup_to(ret, e);
 
         if (detect_container() > 0)
                 return pid_get_cmdline(1, SIZE_MAX, 0, ret);
