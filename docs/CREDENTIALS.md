@@ -380,7 +380,8 @@ Various services shipped with `systemd` consume credentials for tweaking behavio
   to receive a notification via VSOCK when a virtual machine has finished booting.
   Note that in case the hypervisor does not support `SOCK_DGRAM` over `AF_VSOCK`,
   `SOCK_SEQPACKET` will be tried instead. The credential payload should be in the
-  form: `vsock:<CID>:<PORT>`. Also note that this requires support for VHOST to be
+  form: `vsock:<CID>:<PORT>`. `vsock` may be replaced with `vsock-stream`, `vsock-dgram` or `vsock-seqpacket`
+  to force usage of the corresponding socket type. Also note that this requires support for VHOST to be
   built-in both the guest and the host kernels, and the kernel modules to be loaded.
 
 * [`systemd-sysusers(8)`](https://www.freedesktop.org/software/systemd/man/systemd-sysusers.html)

@@ -485,12 +485,14 @@
     <constant>AF_VSOCK</constant> address, which is useful for hypervisors/VMMs or other processes on the
     host to receive a notification when a virtual machine has finished booting. Note that in case the
     hypervisor does not support <constant>SOCK_DGRAM</constant> over <constant>AF_VSOCK</constant>,
-    <constant>SOCK_SEQPACKET</constant> will be used instead. The address should be in the form:
-    <literal>vsock:CID:PORT</literal>. Note that unlike other uses of vsock, the CID is mandatory and cannot
-    be <literal>VMADDR_CID_ANY</literal>.  Note that PID1 will send the VSOCK packets from a privileged port
-    (i.e.: lower than 1024), as an attempt to address concerns that unprivileged processes in the guest might
-    try to send malicious notifications to the host, driving it to make destructive decisions based on
-    them.</para>
+    <constant>SOCK_SEQPACKET</constant> will be used instead. <literal>vsock-stream</literal>,
+    <literal>vsock-dgram</literal> and <literal>vsock-seqpacket</literal> can be used instead of
+    <literal>vsock</literal> to force usage of the corresponding socket type. The address should be in the
+    form: <literal>vsock:CID:PORT</literal>. Note that unlike other uses of vsock, the CID is mandatory and
+    cannot be <literal>VMADDR_CID_ANY</literal>.  Note that PID1 will send the VSOCK packets from a
+    privileged port (i.e.: lower than 1024), as an attempt to address concerns that unprivileged processes in
+    the guest might try to send malicious notifications to the host, driving it to make destructive decisions
+    based on them.</para>
   </refsect1>
 
   <refsect1>
