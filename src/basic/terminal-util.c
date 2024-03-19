@@ -1098,13 +1098,9 @@ int get_ctty(pid_t pid, dev_t *ret_devnr, char **ret) {
                 return -EINVAL;
 
         if (ret) {
-                _cleanup_free_ char *b = NULL;
-
-                b = strdup(w);
-                if (!b)
-                        return -ENOMEM;
-
-                *ret = TAKE_PTR(b);
+                r = strdup_to(ret, w);
+                if (r < 0)
+                        return r;
         }
 
         if (ret_devnr)
