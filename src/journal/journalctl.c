@@ -2146,8 +2146,16 @@ static int show(Context *c) {
 
         j = ASSERT_PTR(c->journal);
 
+        OutputFlags flags =
+                arg_all * OUTPUT_SHOW_ALL |
+                arg_full * OUTPUT_FULL_WIDTH |
+                colors_enabled() * OUTPUT_COLOR |
+                arg_catalog * OUTPUT_CATALOG |
+                arg_utc * OUTPUT_UTC |
+                arg_truncate_newline * OUTPUT_TRUNCATE_NEWLINE |
+                arg_no_hostname * OUTPUT_NO_HOSTNAME;
+
         while (arg_lines < 0 || n_shown < arg_lines || arg_follow) {
-                int flags;
                 size_t highlight[2] = {};
 
                 if (c->need_seek) {
@@ -2206,15 +2214,6 @@ static int show(Context *c) {
                                 continue;
                         }
                 }
-
-                flags =
-                        arg_all * OUTPUT_SHOW_ALL |
-                        arg_full * OUTPUT_FULL_WIDTH |
-                        colors_enabled() * OUTPUT_COLOR |
-                        arg_catalog * OUTPUT_CATALOG |
-                        arg_utc * OUTPUT_UTC |
-                        arg_truncate_newline * OUTPUT_TRUNCATE_NEWLINE |
-                        arg_no_hostname * OUTPUT_NO_HOSTNAME;
 
                 r = show_journal_entry(stdout, j, arg_output, 0, flags,
                                        arg_output_fields, highlight, &c->ellipsized,
