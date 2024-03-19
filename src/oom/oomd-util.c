@@ -321,17 +321,16 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
                 if (r == -ENOMEM)
                         return r; /* Treat oom as a hard error */
                 if (r < 0) {
-                        if (ret == 0)
-                                ret = r;
+                        RET_GATHER(ret, r);
                         continue; /* Try to find something else to kill */
                 }
 
                 dump_until = MAX(dump_until, i + 1);
-                char *selected = strdup(sorted[i]->path);
-                if (!selected)
-                        return -ENOMEM;
-                *ret_selected = selected;
+
                 ret = r;
+                r = strdup_to(ret_selected, sorted[i]->path);
+                if (r < 0)
+                        return r;
                 break;
         }
 
@@ -365,17 +364,16 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
                 if (r == -ENOMEM)
                         return r; /* Treat oom as a hard error */
                 if (r < 0) {
-                        if (ret == 0)
-                                ret = r;
+                        RET_GATHER(ret, r);
                         continue; /* Try to find something else to kill */
                 }
 
                 dump_until = MAX(dump_until, i + 1);
-                char *selected = strdup(sorted[i]->path);
-                if (!selected)
-                        return -ENOMEM;
-                *ret_selected = selected;
+
                 ret = r;
+                r = strdup_to(ret_selected, sorted[i]->path);
+                if (r < 0)
+                        return r;
                 break;
         }
 
@@ -442,9 +440,9 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
                         return log_debug_errno(r, "Error converting pgscan value to uint64_t: %m");
         }
 
-        ctx->path = strdup(empty_to_root(path));
-        if (!ctx->path)
-                return -ENOMEM;
+        r = strdup_to(&ctx->path, empty_to_root(path));
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(ctx);
         return 0;
