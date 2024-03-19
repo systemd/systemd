@@ -231,15 +231,15 @@ assert_eq "$KVER" "$UNIT_KVER"
 umount /proc/version
 rm -f "$TMP_KVER"
 
-# Check that invoking the tool under the uid0 alias name works
-uid0 ls /
-assert_eq "$(uid0 echo foo)" "foo"
+# Check that invoking the tool under the run0 alias name works
+run0 ls /
+assert_eq "$(run0 echo foo)" "foo"
 # Check if we set some expected environment variables
 for arg in "" "--user=root" "--user=testuser"; do
-    assert_eq "$(uid0 ${arg:+"$arg"} bash -c 'echo $SUDO_USER')" "$USER"
-    assert_eq "$(uid0 ${arg:+"$arg"} bash -c 'echo $SUDO_UID')" "$(id -u "$USER")"
-    assert_eq "$(uid0 ${arg:+"$arg"} bash -c 'echo $SUDO_GID')" "$(id -u "$USER")"
+    assert_eq "$(run0 ${arg:+"$arg"} bash -c 'echo $SUDO_USER')" "$USER"
+    assert_eq "$(run0 ${arg:+"$arg"} bash -c 'echo $SUDO_UID')" "$(id -u "$USER")"
+    assert_eq "$(run0 ${arg:+"$arg"} bash -c 'echo $SUDO_GID')" "$(id -u "$USER")"
 done
-# Let's chain a couple of uid0 calls together, for fun
-readarray -t cmdline < <(printf "%.0suid0\n" {0..31})
+# Let's chain a couple of run0 calls together, for fun
+readarray -t cmdline < <(printf "%.0srun0\n" {0..31})
 assert_eq "$("${cmdline[@]}" bash -c 'echo $SUDO_USER')" "$USER"

@@ -3,27 +3,27 @@
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="uid0"
+<refentry id="run0"
           xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
-    <title>uid0</title>
+    <title>run0</title>
     <productname>systemd</productname>
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>uid0</refentrytitle>
+    <refentrytitle>run0</refentrytitle>
     <manvolnum>1</manvolnum>
   </refmeta>
 
   <refnamediv>
-    <refname>uid0</refname>
+    <refname>run0</refname>
     <refpurpose>Elevate privileges</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>uid0</command>
+      <command>run0</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="opt" rep="repeat">COMMAND</arg>
     </cmdsynopsis>
@@ -32,7 +32,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>uid0</command> may be used to temporarily and interactively acquire elevated or different
+    <para><command>run0</command> may be used to temporarily and interactively acquire elevated or different
     privileges. It serves a similar purpose as <citerefentry
     project='man-pages'><refentrytitle>sudo</refentrytitle><manvolnum>8</manvolnum></citerefentry>, but
     operates differently in a couple of key areas:</para>
@@ -57,10 +57,10 @@
     setting the <varname>NoNewPrivileges=</varname> variable in
     <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).</para>
 
-    <para>Any session invoked via <command>uid0</command> will run through the
-    <literal>systemd-uid0</literal> PAM stack.</para>
+    <para>Any session invoked via <command>run0</command> will run through the
+    <literal>systemd-run0</literal> PAM stack.</para>
 
-    <para>Note that <command>uid0</command> is implemented as an alternative multi-call invocation of
+    <para>Note that <command>run0</command> is implemented as an alternative multi-call invocation of
     <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
   </refsect1>
 
@@ -123,11 +123,11 @@
         <term><option>--slice-inherit</option></term>
 
         <listitem><para>Make the new <filename>.service</filename> unit part of the slice the
-        <command>uid0</command> itself has been invoked in. This option may be combined with
+        <command>run0</command> itself has been invoked in. This option may be combined with
         <option>--slice=</option>, in which case the slice specified via <option>--slice=</option> is placed
-        within the slice the <command>uid0</command> command is invoked in.</para>
+        within the slice the <command>run0</command> command is invoked in.</para>
 
-        <para>Example: consider <command>uid0</command> being invoked in the slice
+        <para>Example: consider <command>run0</command> being invoked in the slice
         <filename>foo.slice</filename>, and the <option>--slice=</option> argument is
         <filename>bar</filename>. The unit will then be placed under
         <filename>foo-bar.slice</filename>.</para>
@@ -215,7 +215,7 @@
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned. If <command>uid0</command> failed to start the session or the specified command fails, a
+    <para>On success, 0 is returned. If <command>run0</command> failed to start the session or the specified command fails, a
     non-zero return value will be returned.</para>
   </refsect1>
 
