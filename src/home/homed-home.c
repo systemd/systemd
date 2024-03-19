@@ -3145,7 +3145,6 @@ int home_schedule_operation(Home *h, Operation *o, sd_bus_error *error) {
 
 static int home_get_image_path_seat(Home *h, char **ret) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        _cleanup_free_ char *c = NULL;
         const char *ip, *seat;
         struct stat st;
         int r;
@@ -3178,12 +3177,7 @@ static int home_get_image_path_seat(Home *h, char **ret) {
         else if (r < 0)
                 return r;
 
-        c = strdup(seat);
-        if (!c)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(c);
-        return 0;
+        return strdup_to(ret, seat);
 }
 
 int home_auto_login(Home *h, char ***ret_seats) {
