@@ -22,5 +22,5 @@ Before=shutdown.target
 ExecStart={{LIBEXECDIR}}/systemd-rfkill
 NoNewPrivileges=yes
 StateDirectory=systemd/rfkill
-TimeoutSec=30s
+TimeoutSec=90s
 Type=notify

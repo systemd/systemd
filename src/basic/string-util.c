@@ -620,6 +620,9 @@ char *cellescape(char *buf, size_t len, const char *s) {
 char* strshorten(char *s, size_t l) {
         assert(s);
 
+        if (l >= SIZE_MAX-1) /* Would not change anything */
+                return s;
+
         if (strnlen(s, l+1) > l)
                 s[l] = 0;
 

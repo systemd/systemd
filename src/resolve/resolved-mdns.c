@@ -437,7 +437,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
                                 /* Look at the cache 1 second later and remove stale entries.
                                  * This is particularly useful to keep service browsers updated on service removal,
-                                 * as there are no other reliable triggers to propogate that info. */
+                                 * as there are no other reliable triggers to propagate that info. */
                                 if (!scope->mdns_goodbye_event_source) {
                                         r = sd_event_add_time_relative(
                                                         scope->manager->event,

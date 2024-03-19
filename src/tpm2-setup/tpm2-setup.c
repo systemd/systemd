@@ -18,6 +18,7 @@
 
 static char *arg_tpm2_device = NULL;
 static bool arg_early = false;
+static bool arg_graceful = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 
@@ -43,6 +44,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --tpm2-device=PATH\n"
                "                          Pick TPM2 device\n"
                "     --early=BOOL         Store SRK public key in /run/ rather than /var/lib/\n"
+               "     --graceful           Exit gracefully if no TPM2 device is found\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -59,6 +61,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_TPM2_DEVICE,
                 ARG_EARLY,
+                ARG_GRACEFUL,
         };
 
         static const struct option options[] = {
@@ -66,6 +69,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",     no_argument,       NULL, ARG_VERSION     },
                 { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
                 { "early",       required_argument, NULL, ARG_EARLY       },
+                { "graceful",    no_argument,       NULL, ARG_GRACEFUL    },
                 {}
         };
 
@@ -98,6 +102,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse --early= argument: %s", optarg);
 
                         arg_early = r;
+                        break;
+
+                case ARG_GRACEFUL:
+                        arg_graceful = true;
                         break;
 
                 case '?':
@@ -246,6 +254,11 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_graceful && tpm2_support() != TPM2_SUPPORT_FULL) {
+                log_notice("No complete TPM2 support detected, exiting gracefully.");
+                return EXIT_SUCCESS;
+        }
 
         umask(0022);
 

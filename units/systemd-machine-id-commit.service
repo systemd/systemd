@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Commit a transient machine-id on disk
+Description=Save Transient machine-id to Disk
 Documentation=man:systemd-machine-id-commit.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
@@ -21,4 +21,4 @@ ConditionPathIsMountPoint=/etc/machine-id
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=systemd-machine-id-setup --commit
-TimeoutSec=30s
+TimeoutSec=90s

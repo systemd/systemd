@@ -19,7 +19,7 @@ Before=rescue.service
 [Service]
 Environment=HOME=/root
 WorkingDirectory=-/root
-ExecStartPre=-{{BINDIR}}/plymouth --wait quit
+ExecStartPre=-plymouth --wait quit
 ExecStart=-{{LIBEXECDIR}}/systemd-sulogin-shell emergency
 Type=idle
 StandardInput=tty-force

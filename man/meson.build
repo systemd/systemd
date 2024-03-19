@@ -59,7 +59,15 @@ foreach tuple : manpages
 
         mandirn = get_option('mandir') / ('man' + section)
 
-        if condition == '' or conf.get(condition) == 1
+        have = true
+        foreach word : condition.split()
+                if conf.get(word) != 1
+                        have = false
+                        break
+                endif
+        endforeach
+
+        if have
                 file = files(tuple[0] + '.xml')
                 source_xml_files += file
                 if tuple[0].startswith('org.freedesktop.')

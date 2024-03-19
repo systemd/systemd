@@ -239,7 +239,7 @@ int null_or_empty_path_with_root(const char *fn, const char *root) {
         return null_or_empty(&st);
 }
 
-static int fd_is_read_only_fs(int fd) {
+int fd_is_read_only_fs(int fd) {
         struct statvfs st;
 
         assert(fd >= 0);
@@ -364,8 +364,7 @@ bool stat_inode_same(const struct stat *a, const struct stat *b) {
         /* Returns if the specified stat structure references the same (though possibly modified) inode. Does
          * a thorough check, comparing inode nr, backing device and if the inode is still of the same type. */
 
-        return a && b &&
-                (a->st_mode & S_IFMT) != 0 && /* We use the check for .st_mode if the structure was ever initialized */
+        return stat_is_set(a) && stat_is_set(b) &&
                 ((a->st_mode ^ b->st_mode) & S_IFMT) == 0 &&  /* same inode type */
                 a->st_dev == b->st_dev &&
                 a->st_ino == b->st_ino;
@@ -393,9 +392,8 @@ bool statx_inode_same(const struct statx *a, const struct statx *b) {
 
         /* Same as stat_inode_same() but for struct statx */
 
-        return a && b &&
+        return statx_is_set(a) && statx_is_set(b) &&
                 FLAGS_SET(a->stx_mask, STATX_TYPE|STATX_INO) && FLAGS_SET(b->stx_mask, STATX_TYPE|STATX_INO) &&
-                (a->stx_mode & S_IFMT) != 0 &&
                 ((a->stx_mode ^ b->stx_mode) & S_IFMT) == 0 &&
                 a->stx_dev_major == b->stx_dev_major &&
                 a->stx_dev_minor == b->stx_dev_minor &&
@@ -403,7 +401,7 @@ bool statx_inode_same(const struct statx *a, const struct statx *b) {
 }
 
 bool statx_mount_same(const struct new_statx *a, const struct new_statx *b) {
-        if (!a || !b)
+        if (!new_statx_is_set(a) || !new_statx_is_set(b))
                 return false;
 
         /* if we have the mount ID, that's all we need */
@@ -537,6 +535,8 @@ const char* inode_type_to_string(mode_t m) {
                 return "sock";
         }
 
+        /* Note anonymous inodes in the kernel will have a zero type. Hence fstat() of an eventfd() will
+         * return an .st_mode where we'll return NULL here! */
         return NULL;
 }
 

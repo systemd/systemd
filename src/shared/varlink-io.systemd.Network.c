@@ -40,11 +40,19 @@ static VARLINK_DEFINE_METHOD(
                 VARLINK_DEFINE_INPUT(InterfaceName, VARLINK_STRING, VARLINK_NULLABLE),
                 VARLINK_DEFINE_OUTPUT_BY_TYPE(Neighbors, LLDPNeighborsByInterface, VARLINK_ARRAY));
 
+static VARLINK_DEFINE_METHOD(
+                SetPersistentStorage,
+                VARLINK_DEFINE_INPUT(Ready, VARLINK_BOOL, 0));
+
+static VARLINK_DEFINE_ERROR(StorageReadOnly);
+
 VARLINK_DEFINE_INTERFACE(
                 io_systemd_Network,
                 "io.systemd.Network",
                 &vl_method_GetStates,
                 &vl_method_GetNamespaceId,
                 &vl_method_GetLLDPNeighbors,
+                &vl_method_SetPersistentStorage,
                 &vl_type_LLDPNeighbor,
-                &vl_type_LLDPNeighborsByInterface);
+                &vl_type_LLDPNeighborsByInterface,
+                &vl_error_StorageReadOnly);

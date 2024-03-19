@@ -575,6 +575,7 @@ void manager_reset_failed(Manager *m);
 
 void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success);
 void manager_send_unit_plymouth(Manager *m, Unit *u);
+void manager_send_unit_supervisor(Manager *m, Unit *u, bool active);
 
 bool manager_unit_inactive_or_pending(Manager *m, const char *name);
 

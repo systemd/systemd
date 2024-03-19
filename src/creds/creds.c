@@ -742,12 +742,13 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --user               Select user-scoped credential encryption\n"
                "     --uid=UID            Select user for scoped credentials\n"
                "  -q --quiet              Suppress output for 'has-tpm2' verb\n"
-               "\nSee the %2$s for details.\n"
-               , program_invocation_short_name
-               , link
-               , ansi_underline(), ansi_normal()
-               , ansi_highlight(), ansi_normal()
-        );
+               "\nSee the %2$s for details.\n",
+               program_invocation_short_name,
+               link,
+               ansi_underline(),
+               ansi_normal(),
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
@@ -1192,7 +1193,6 @@ static int vl_method_encrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
                                 /* bus= */ NULL,
                                 "io.systemd.credentials.encrypt",
                                 /* details= */ NULL,
-                                /* good_user= */ UID_INVALID,
                                 polkit_registry);
                 if (r <= 0)
                         return r;
@@ -1297,7 +1297,6 @@ static int vl_method_decrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
                                         /* bus= */ NULL,
                                         "io.systemd.credentials.decrypt",
                                         /* details= */ NULL,
-                                        /* good_user= */ UID_INVALID,
                                         polkit_registry);
                         if (r <= 0)
                                 return r;

@@ -23,6 +23,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "dns-domain.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "firewall-util.h"
@@ -557,6 +558,29 @@ int manager_setup(Manager *m) {
         return 0;
 }
 
+static int persistent_storage_open(void) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        r = getenv_bool("SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY");
+        if (r < 0 && r != -ENXIO)
+                return log_debug_errno(r, "Failed to parse $SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY environment variable, ignoring: %m");
+        if (r <= 0)
+                return -EBADF;
+
+        fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY | O_PATH);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open /var/lib/systemd/network/, ignoring: %m");
+
+        r = fd_is_read_only_fs(fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check if /var/lib/systemd/network/ is writable: %m");
+        if (r > 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EROFS), "The directory /var/lib/systemd/network/ is on read-only filesystem.");
+
+        return TAKE_FD(fd);
+}
+
 int manager_new(Manager **ret, bool test_mode) {
         _cleanup_(manager_freep) Manager *m = NULL;
 
@@ -574,6 +598,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .manage_foreign_rules = true,
                 .manage_foreign_nexthops = true,
                 .ethtool_fd = -EBADF,
+                .persistent_storage_fd = persistent_storage_open(),
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
                 .duid_product_uuid.type = DUID_TYPE_UUID,
@@ -648,6 +673,7 @@ Manager* manager_free(Manager *m) {
         free(m->dynamic_hostname);
 
         safe_close(m->ethtool_fd);
+        safe_close(m->persistent_storage_fd);
 
         m->fw_ctx = fw_ctx_free(m->fw_ctx);
 

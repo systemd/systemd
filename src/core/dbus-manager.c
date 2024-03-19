@@ -1444,7 +1444,7 @@ static int method_dump(sd_bus_message *message, void *userdata, sd_bus_error *er
 static int reply_dump_by_fd(sd_bus_message *message, char *dump) {
         _cleanup_close_ int fd = -EBADF;
 
-        fd = acquire_data_fd(dump, strlen(dump), 0);
+        fd = acquire_data_fd(dump);
         if (fd < 0)
                 return fd;
 
@@ -2304,85 +2304,36 @@ static int send_unit_files_changed(sd_bus *bus, void *userdata) {
         return sd_bus_send(bus, message, NULL);
 }
 
-/* Create an error reply, using the error information from changes[]
- * if possible, and fall back to generating an error from error code c.
- * The error message only describes the first error.
- */
 static int install_error(
                 sd_bus_error *error,
                 int c,
                 InstallChange *changes,
                 size_t n_changes) {
 
+        int r;
+
+        /* Create an error reply, using the error information from changes[] if possible, and fall back to
+         * generating an error from error code c. The error message only describes the first error. */
+
+        assert(changes || n_changes == 0);
+
         CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
-        for (size_t i = 0; i < n_changes; i++)
+        FOREACH_ARRAY(i, changes, n_changes) {
+                _cleanup_free_ char *err_message = NULL;
+                const char *bus_error;
 
-                /* When making changes here, make sure to also change install_changes_dump() in install.c. */
+                if (i->type >= 0)
+                        continue;
 
-                switch (changes[i].type) {
-                case 0 ... _INSTALL_CHANGE_TYPE_MAX: /* not errors */
-                        break;
+                r = install_change_dump_error(i, &err_message, &bus_error);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "File %s: %m", i->path);
 
-                case -EEXIST:
-                        if (changes[i].source)
-                                return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS,
-                                                         "File %s already exists and is a symlink to %s.",
-                                                         changes[i].path, changes[i].source);
-                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS,
-                                                 "File %s already exists.",
-                                                 changes[i].path);
-
-                case -ERFKILL:
-                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED,
-                                                 "Unit file %s is masked.", changes[i].path);
-
-                case -EADDRNOTAVAIL:
-                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_GENERATED,
-                                                 "Unit %s is transient or generated.", changes[i].path);
-
-                case -ETXTBSY:
-                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_BAD_PATH,
-                                                 "File %s is under the systemd unit hierarchy already.", changes[i].path);
-
-                case -EBADSLT:
-                        return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
-                                                 "Invalid specifier in %s.", changes[i].path);
-
-                case -EIDRM:
-                        return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
-                                                 "Destination unit %s is a non-template unit.", changes[i].path);
-
-                case -EUCLEAN:
-                        return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
-                                                 "\"%s\" is not a valid unit name.",
-                                                 changes[i].path);
-
-                case -ELOOP:
-                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_LINKED,
-                                                 "Refusing to operate on alias name or linked unit file: %s",
-                                                 changes[i].path);
-
-                case -EXDEV:
-                        if (changes[i].source)
-                                return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
-                                                         "Cannot alias %s as %s.",
-                                                         changes[i].source, changes[i].path);
-                        return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
-                                                 "Invalid unit reference %s.", changes[i].path);
-
-                case -ENOENT:
-                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT,
-                                                 "Unit file %s does not exist.", changes[i].path);
-
-                case -EUNATCH:
-                        return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
-                                                 "Cannot resolve specifiers in %s.", changes[i].path);
-
-                default:
-                        assert(changes[i].type < 0); /* other errors */
-                        return sd_bus_error_set_errnof(error, changes[i].type, "File %s: %m", changes[i].path);
-                }
+                return sd_bus_error_set(error, bus_error, err_message);
+        }
 
         return c < 0 ? c : -EINVAL;
 }
@@ -2421,18 +2372,17 @@ static int reply_install_changes_and_free(
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < n_changes; i++) {
-
-                if (changes[i].type < 0) {
+        FOREACH_ARRAY(i, changes, n_changes) {
+                if (i->type < 0) {
                         bad = true;
                         continue;
                 }
 
                 r = sd_bus_message_append(
                                 reply, "(sss)",
-                                install_change_type_to_string(changes[i].type),
-                                changes[i].path,
-                                changes[i].source);
+                                install_change_type_to_string(i->type),
+                                i->path,
+                                i->source);
                 if (r < 0)
                         return r;
 

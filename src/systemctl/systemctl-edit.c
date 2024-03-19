@@ -15,7 +15,7 @@
 
 int verb_cat(int argc, char *argv[], void *userdata) {
         _cleanup_hashmap_free_ Hashmap *cached_id_map = NULL, *cached_name_map = NULL;
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
         sd_bus *bus;
         bool first = true;
@@ -198,7 +198,7 @@ static int find_paths_to_edit(
                 char **names) {
 
         _cleanup_hashmap_free_ Hashmap *cached_id_map = NULL, *cached_name_map = NULL;
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
+        _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_free_ char *drop_in_alloc = NULL, *suffix = NULL;
         const char *drop_in;
         int r;

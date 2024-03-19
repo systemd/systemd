@@ -19,6 +19,7 @@ case "$service" in
             {-t+,--identifier=}'[Set syslog identifier.]:syslog identifier:' \
             {-p+,--priority=}'[Set priority value.]:value:({0..7})' \
             '--level-prefix=[Control whether level prefix shall be parsed.]:boolean:(1 0)' \
+            '--namespace=[Connect to specified journal namespace.]:journal namespace:' \
             ':Message'
         ;;
     systemd-cgls)

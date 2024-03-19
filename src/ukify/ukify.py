@@ -824,6 +824,20 @@ def make_uki(opts):
     if pcrpkey is None:
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
             pcrpkey = opts.pcr_public_keys[0]
+            # If we are getting a certificate when using an engine, we need to convert it to public key format
+            if opts.signing_engine is not None and pathlib.Path(pcrpkey).exists():
+                from cryptography.hazmat.primitives import serialization
+                from cryptography.x509 import load_pem_x509_certificate
+
+                try:
+                    cert = load_pem_x509_certificate(pathlib.Path(pcrpkey).read_bytes())
+                except ValueError:
+                    raise ValueError(f'{pcrpkey} must be an X.509 certificate when signing with an engine')
+                else:
+                    pcrpkey = cert.public_key().public_bytes(
+                        encoding=serialization.Encoding.PEM,
+                        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                    )
         elif opts.pcr_private_keys and len(opts.pcr_private_keys) == 1:
             from cryptography.hazmat.primitives import serialization
             privkey = serialization.load_pem_private_key(pathlib.Path(opts.pcr_private_keys[0]).read_bytes(), password=None)
@@ -856,14 +870,19 @@ def make_uki(opts):
 
     if linux is not None:
         # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on either.
-        uki.add_section(Section.create('.sbat', merge_sbat([opts.stub, linux], opts.sbat), measure=True))
-    else:
-        # Addons don't use the stub so we add SBAT manually
+        input_pes = [opts.stub, linux]
         if not opts.sbat:
             opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
-uki,1,UKI,uki,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html
+uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/
 """]
-        uki.add_section(Section.create('.sbat', merge_sbat([], opts.sbat), measure=False))
+    else:
+        # Addons don't use the stub so we add SBAT manually
+        input_pes = []
+        if not opts.sbat:
+            opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html
+"""]
+    uki.add_section(Section.create('.sbat', merge_sbat(input_pes, opts.sbat), measure=linux is not None))
 
     # PCR measurement and signing
 

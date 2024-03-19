@@ -44,9 +44,9 @@ apt-get -q --allow-releaseinfo-change update
 apt-get -y dist-upgrade
 apt-get install -y eatmydata
 # The following four are needed as long as these deps are not covered by Debian's own packaging
-apt-get install -y fdisk tree libfdisk-dev libp11-kit-dev libssl-dev libpwquality-dev rpm
+apt-get install -y tree libpwquality-dev rpm libcurl4-openssl-dev libarchive-dev
 # autopkgtest doesn't consider backports
-apt-get install -y -t $RELEASE-backports debhelper libcurl4-openssl-dev libarchive-dev
+apt-get install -y -t $RELEASE-backports debhelper
 apt-get purge --auto-remove -y unattended-upgrades
 systemctl unmask systemd-networkd
 systemctl enable systemd-networkd
@@ -66,7 +66,7 @@ for phase in "${PHASES[@]}"; do
             sudo apt-get install -y -t "$UBUNTU_RELEASE-backports" lxc
             sudo apt-get install -y python3-debian git dpkg-dev fakeroot python3-jinja2
 
-            [ -d "$AUTOPKGTEST_DIR" ] || git clone --quiet --branch=debian/5.32 --depth=1 https://salsa.debian.org/ci-team/autopkgtest.git "$AUTOPKGTEST_DIR"
+            [ -d "$AUTOPKGTEST_DIR" ] || git clone --quiet --depth=1 https://salsa.debian.org/ci-team/autopkgtest.git "$AUTOPKGTEST_DIR"
 
             create_container
         ;;

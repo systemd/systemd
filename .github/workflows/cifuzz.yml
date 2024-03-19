@@ -39,6 +39,7 @@ jobs:
       security-events: write
 
     steps:
+      - run: sudo sysctl -w vm.mmap_rnd_bits=28
       - name: Build Fuzzers
         id: build
         uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@master
@@ -67,7 +68,7 @@ jobs:
           path: ./out/artifacts
       - name: Upload Sarif
         if: always() && steps.build.outcome == 'success'
-        uses: github/codeql-action/upload-sarif@8a470fddafa5cbb6266ee11b37ef4d8aae19c571
+        uses: github/codeql-action/upload-sarif@3ab4101902695724f9365a384f86c1074d94e18c
         with:
           # Path to SARIF file relative to the root of the repository
           sarif_file: cifuzz-sarif/results.sarif

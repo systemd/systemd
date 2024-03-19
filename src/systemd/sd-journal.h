@@ -57,6 +57,7 @@ int sd_journal_perror_with_location(const char *file, const char *line, const ch
 #endif
 
 int sd_journal_stream_fd(const char *identifier, int priority, int level_prefix);
+int sd_journal_stream_fd_with_namespace(const char *name_space, const char *identifier, int priority, int level_prefix);
 
 /* Browse journal stream */
 

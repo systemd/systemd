@@ -533,8 +533,8 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         /* Check if there's an existing fstab entry for ESP. If so, we just skip the gpt-auto logic. */
         r = fstab_has_node(p->node);
         if (r < 0)
-                return log_error_errno(r,
-                                       "Failed to check if fstab entry for device '%s' exists: %m", p->node);
+                log_warning_errno(r, "Failed to check if fstab entry for device '%s' exists, ignoring: %m",
+                                  p->node);
         if (r > 0)
                 return 0;
 

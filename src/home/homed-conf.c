@@ -9,9 +9,12 @@ int manager_parse_config_file(Manager *m) {
 
         assert(m);
 
-        return config_parse_config_file("homed.conf", "Home\0",
-                                        config_item_perf_lookup, homed_gperf_lookup,
-                                        CONFIG_PARSE_WARN, m);
+        return config_parse_standard_file_with_dropins(
+                        "systemd/homed.conf",
+                        "Home\0",
+                        config_item_perf_lookup, homed_gperf_lookup,
+                        CONFIG_PARSE_WARN,
+                        m);
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_default_storage, user_storage, UserStorage, "Failed to parse default storage setting");

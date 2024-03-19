@@ -12,6 +12,7 @@
 #include "random-util.h"
 #include "resolved-dnssd.h"
 #include "resolved-dns-scope.h"
+#include "resolved-dns-synthesize.h"
 #include "resolved-dns-zone.h"
 #include "resolved-llmnr.h"
 #include "resolved-mdns.h"
@@ -594,18 +595,43 @@ static DnsScopeMatch match_subnet_reverse_lookups(
         return _DNS_SCOPE_MATCH_INVALID;
 }
 
+/* https://www.iana.org/assignments/special-use-domain-names/special-use-domain-names.xhtml */
+/* https://www.iana.org/assignments/locally-served-dns-zones/locally-served-dns-zones.xhtml */
+static bool dns_refuse_special_use_domain(const char *domain, DnsQuestion *question) {
+        /* RFC9462 § 6.4: resolvers SHOULD respond to queries of any type other than SVCB for
+         * _dns.resolver.arpa. with NODATA and queries of any type for any domain name under
+         * resolver.arpa with NODATA. */
+        if (dns_name_equal(domain, "_dns.resolver.arpa") > 0) {
+                DnsResourceKey *t;
+
+                /* Only SVCB is permitted to _dns.resolver.arpa */
+                DNS_QUESTION_FOREACH(t, question)
+                        if (t->type == DNS_TYPE_SVCB)
+                                return false;
+
+                return true;
+        }
+
+        if (dns_name_endswith(domain, "resolver.arpa") > 0)
+                return true;
+
+        return false;
+}
+
 DnsScopeMatch dns_scope_good_domain(
                 DnsScope *s,
-                DnsQuery *q) {
+                DnsQuery *q,
+                uint64_t query_flags) {
 
         DnsQuestion *question;
         const char *domain;
         uint64_t flags;
-        int ifindex;
+        int ifindex, r;
 
         /* This returns the following return values:
          *
          *    DNS_SCOPE_NO         → This scope is not suitable for lookups of this domain, at all
+         *    DNS_SCOPE_LAST_RESORT→ This scope is not suitable, unless we have no alternative
          *    DNS_SCOPE_MAYBE      → This scope is suitable, but only if nothing else wants it
          *    DNS_SCOPE_YES_BASE+n → This scope is suitable, and 'n' suffix labels match
          *
@@ -648,11 +674,24 @@ DnsScopeMatch dns_scope_good_domain(
         if (dns_name_dont_resolve(domain))
                 return DNS_SCOPE_NO;
 
+        /* Avoid asking invalid questions of some special use domains */
+        if (dns_refuse_special_use_domain(domain, question))
+                return DNS_SCOPE_NO;
+
         /* Never go to network for the _gateway, _outbound, _localdnsstub, _localdnsproxy domain — they're something special, synthesized locally. */
         if (is_gateway_hostname(domain) ||
             is_outbound_hostname(domain) ||
             is_dns_stub_hostname(domain) ||
             is_dns_proxy_stub_hostname(domain))
+                return DNS_SCOPE_NO;
+
+        /* Don't look up the local host name via the network, unless user turned of local synthesis of it */
+        if (manager_is_own_hostname(s->manager, domain) && shall_synthesize_own_hostname_rrs())
+                return DNS_SCOPE_NO;
+
+        /* Never send SOA or NS or DNSSEC request to LLMNR, where they make little sense. */
+        r = dns_question_types_suitable_for_protocol(question, s->protocol);
+        if (r <= 0)
                 return DNS_SCOPE_NO;
 
         switch (s->protocol) {
@@ -710,7 +749,8 @@ DnsScopeMatch dns_scope_good_domain(
 
                 /* If ResolveUnicastSingleLabel=yes and the query is single-label, then bump match result
                    to prevent LLMNR monopoly among candidates. */
-                if (s->manager->resolve_unicast_single_label && dns_name_is_single_label(domain))
+                if ((s->manager->resolve_unicast_single_label || (query_flags & SD_RESOLVED_RELAX_SINGLE_LABEL)) &&
+                    dns_name_is_single_label(domain))
                         return DNS_SCOPE_YES_BASE + 1;
 
                 /* Let's return the number of labels in the best matching result */
@@ -754,7 +794,7 @@ DnsScopeMatch dns_scope_good_domain(
 
                 if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
                     (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0))
-                        return DNS_SCOPE_MAYBE;
+                        return DNS_SCOPE_LAST_RESORT;
 
                 if ((dns_name_endswith(domain, "local") > 0 && /* only resolve names ending in .local via mDNS */
                      dns_name_equal(domain, "local") == 0 &&   /* but not the single-label "local" name itself */
@@ -777,7 +817,7 @@ DnsScopeMatch dns_scope_good_domain(
 
                 if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
                     (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0))
-                        return DNS_SCOPE_MAYBE;
+                        return DNS_SCOPE_LAST_RESORT;
 
                 if ((dns_name_is_single_label(domain) && /* only resolve single label names via LLMNR */
                      dns_name_equal(domain, "local") == 0 && /* don't resolve "local" with LLMNR, it's the top-level domain of mDNS after all, see above */
@@ -1574,6 +1614,12 @@ int dns_scope_add_dnssd_services(DnsScope *scope) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to add PTR record to MDNS zone: %m");
 
+                if (service->sub_ptr_rr) {
+                        r = dns_zone_put(&scope->zone, scope, service->sub_ptr_rr, false);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to add selective PTR record to MDNS zone: %m");
+                }
+
                 r = dns_zone_put(&scope->zone, scope, service->srv_rr, true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add SRV record to MDNS zone: %m");
@@ -1606,6 +1652,7 @@ int dns_scope_remove_dnssd_services(DnsScope *scope) {
 
         HASHMAP_FOREACH(service, scope->manager->dnssd_services) {
                 dns_zone_remove_rr(&scope->zone, service->ptr_rr);
+                dns_zone_remove_rr(&scope->zone, service->sub_ptr_rr);
                 dns_zone_remove_rr(&scope->zone, service->srv_rr);
                 LIST_FOREACH(items, txt_data, service->txt_data_items)
                         dns_zone_remove_rr(&scope->zone, txt_data->rr);
@@ -1685,4 +1732,66 @@ int dns_scope_dump_cache_to_json(DnsScope *scope, JsonVariant **ret) {
                                           JSON_BUILD_PAIR_CONDITION(scope->link, "ifindex", JSON_BUILD_INTEGER(scope->link ? scope->link->ifindex : 0)),
                                           JSON_BUILD_PAIR_CONDITION(scope->link, "ifname", JSON_BUILD_STRING(scope->link ? scope->link->ifname : NULL)),
                                           JSON_BUILD_PAIR_VARIANT("cache", cache)));
+}
+
+int dns_type_suitable_for_protocol(uint16_t type, DnsProtocol protocol) {
+
+        /* Tests whether it makes sense to route queries for the specified DNS RR types to the specified
+         * protocol. For classic DNS pretty much all RR types are suitable, but for LLMNR/mDNS let's
+         * allowlist only a few that make sense. We use this when routing queries so that we can more quickly
+         * return errors for queries that will almost certainly fail/time-out otherwise. For example, this
+         * ensures that SOA, NS, or DS/DNSKEY queries are never routed to mDNS/LLMNR where they simply make
+         * no sense. */
+
+        if (dns_type_is_obsolete(type))
+                return false;
+
+        if (!dns_type_is_valid_query(type))
+                return false;
+
+        switch (protocol) {
+
+        case DNS_PROTOCOL_DNS:
+                return true;
+
+        case DNS_PROTOCOL_LLMNR:
+                return IN_SET(type,
+                              DNS_TYPE_ANY,
+                              DNS_TYPE_A,
+                              DNS_TYPE_AAAA,
+                              DNS_TYPE_CNAME,
+                              DNS_TYPE_PTR,
+                              DNS_TYPE_TXT);
+
+        case DNS_PROTOCOL_MDNS:
+                return IN_SET(type,
+                              DNS_TYPE_ANY,
+                              DNS_TYPE_A,
+                              DNS_TYPE_AAAA,
+                              DNS_TYPE_CNAME,
+                              DNS_TYPE_PTR,
+                              DNS_TYPE_TXT,
+                              DNS_TYPE_SRV,
+                              DNS_TYPE_NSEC,
+                              DNS_TYPE_HINFO);
+
+        default:
+                return -EPROTONOSUPPORT;
+        }
+}
+
+int dns_question_types_suitable_for_protocol(DnsQuestion *q, DnsProtocol protocol) {
+        DnsResourceKey *key;
+        int r;
+
+        /* Tests whether the types in the specified question make any sense to be routed to the specified
+         * protocol, i.e. if dns_type_suitable_for_protocol() is true for any of the contained RR types */
+
+        DNS_QUESTION_FOREACH(key, q) {
+                r = dns_type_suitable_for_protocol(key->type, protocol);
+                if (r != 0)
+                        return r;
+        }
+
+        return false;
 }

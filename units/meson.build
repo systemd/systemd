@@ -161,7 +161,11 @@ units = [
           'conditions' : ['ENABLE_BINFMT'],
         },
         {
-          'file' : 'quotaon.service.in',
+          'file' : 'quotaon@.service.in',
+          'conditions' : ['ENABLE_QUOTACHECK'],
+        },
+        {
+          'file' : 'quotaon-root.service.in',
           'conditions' : ['ENABLE_QUOTACHECK'],
         },
         {
@@ -199,6 +203,7 @@ units = [
         { 'file' : 'sockets.target' },
         { 'file' : 'soft-reboot.target' },
         { 'file' : 'sound.target' },
+        { 'file' : 'ssh-access.target' },
         {
           'file' : 'suspend-then-hibernate.target',
           'conditions' : ['ENABLE_HIBERNATE'],
@@ -268,7 +273,7 @@ units = [
           'conditions' : ['ENABLE_BOOTLOADER'],
         },
         {
-          'file' : 'systemd-bootctl@.service.in',
+          'file' : 'systemd-bootctl@.service',
           'conditions' : ['ENABLE_BOOTLOADER'],
         },
         {
@@ -429,6 +434,10 @@ units = [
         },
         { 'file' : 'systemd-network-generator.service.in' },
         {
+          'file' : 'systemd-networkd-persistent-storage.service',
+          'conditions' : ['ENABLE_NETWORKD'],
+        },
+        {
           'file' : 'systemd-networkd-wait-online.service.in',
           'conditions' : ['ENABLE_NETWORKD'],
         },
@@ -552,7 +561,11 @@ units = [
           'conditions' : ['ENABLE_PSTORE'],
         },
         {
-          'file' : 'systemd-quotacheck.service.in',
+          'file' : 'systemd-quotacheck@.service.in',
+          'conditions' : ['ENABLE_QUOTACHECK'],
+        },
+        {
+          'file' : 'systemd-quotacheck-root.service.in',
           'conditions' : ['ENABLE_QUOTACHECK'],
         },
         {
@@ -563,7 +576,7 @@ units = [
         { 'file' : 'systemd-reboot.service' },
         { 'file' : 'systemd-remount-fs.service.in' },
         {
-          'file' : 'systemd-repart.service.in',
+          'file' : 'systemd-repart.service',
           'conditions' : ['ENABLE_REPART'],
           'symlinks' : ['sysinit.target.wants/', 'initrd-root-fs.target.wants/'],
         },

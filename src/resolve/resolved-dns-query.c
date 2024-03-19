@@ -57,6 +57,21 @@ static void dns_query_candidate_stop(DnsQueryCandidate *c) {
         }
 }
 
+static void dns_query_candidate_abandon(DnsQueryCandidate *c) {
+        DnsTransaction *t;
+
+        assert(c);
+
+        /* Abandon all the DnsTransactions attached to this query */
+
+        while ((t = set_steal_first(c->transactions))) {
+                t->wait_for_answer = true;
+                set_remove(t->notify_query_candidates, c);
+                set_remove(t->notify_query_candidates_done, c);
+                dns_transaction_gc(t);
+        }
+}
+
 static DnsQueryCandidate* dns_query_candidate_unlink(DnsQueryCandidate *c) {
         assert(c);
 
@@ -354,6 +369,16 @@ static void dns_query_stop(DnsQuery *q) {
                 dns_query_candidate_stop(c);
 }
 
+static void dns_query_abandon(DnsQuery *q) {
+        assert(q);
+
+        /* Thankfully transactions have their own timeouts */
+        event_source_disable(q->timeout_event_source);
+
+        LIST_FOREACH(candidates_by_query, c, q->candidates)
+                dns_query_candidate_abandon(c);
+}
+
 static void dns_query_unlink_candidates(DnsQuery *q) {
         assert(q);
 
@@ -591,7 +616,7 @@ void dns_query_complete(DnsQuery *q, DnsTransactionState state) {
 
         (void) manager_monitor_send(q->manager, q);
 
-        dns_query_stop(q);
+        dns_query_abandon(q);
         if (q->complete)
                 q->complete(q);
 }
@@ -672,6 +697,8 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
                 q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL|SD_RESOLVED_SYNTHETIC;
                 *state = DNS_TRANSACTION_RCODE_FAILURE;
 
+                log_debug("Found synthetic NXDOMAIN response.");
+
                 return 0;
         }
         if (r <= 0)
@@ -686,6 +713,8 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
         q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL|SD_RESOLVED_SYNTHETIC;
 
         *state = DNS_TRANSACTION_SUCCESS;
+
+        log_debug("Found synthetic success response.");
 
         return 1;
 }
@@ -741,7 +770,7 @@ int dns_query_go(DnsQuery *q) {
         LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
                 DnsScopeMatch match;
 
-                match = dns_scope_good_domain(s, q);
+                match = dns_scope_good_domain(s, q, q->flags);
                 assert(match >= 0);
                 if (match > found) { /* Does this match better? If so, remember how well it matched, and the first one
                                       * that matches this well */
@@ -768,7 +797,7 @@ int dns_query_go(DnsQuery *q) {
         LIST_FOREACH(scopes, s, first->scopes_next) {
                 DnsScopeMatch match;
 
-                match = dns_scope_good_domain(s, q);
+                match = dns_scope_good_domain(s, q, q->flags);
                 assert(match >= 0);
                 if (match < found)
                         continue;

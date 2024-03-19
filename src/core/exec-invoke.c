@@ -41,6 +41,7 @@
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "iovec-util.h"
+#include "journal-send.h"
 #include "missing_ioprio.h"
 #include "missing_prctl.h"
 #include "missing_securebits.h"
@@ -159,9 +160,11 @@ static int connect_journal_socket(
         const char *j;
         int r;
 
-        j = log_namespace ?
-                strjoina("/run/systemd/journal.", log_namespace, "/stdout") :
-                "/run/systemd/journal/stdout";
+        assert(fd >= 0);
+
+        j = journal_stream_path(log_namespace);
+        if (!j)
+                return -EINVAL;
 
         if (gid_is_valid(gid)) {
                 oldgid = getgid();
@@ -410,7 +413,7 @@ static int setup_input(
         case EXEC_INPUT_DATA: {
                 int fd;
 
-                fd = acquire_data_fd(context->stdin_data, context->stdin_data_size, 0);
+                fd = acquire_data_fd_full(context->stdin_data, context->stdin_data_size, /* flags = */ 0);
                 if (fd < 0)
                         return fd;
 
@@ -4733,7 +4736,7 @@ int exec_invoke(
         }
 
         if (context->memory_ksm >= 0)
-                if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm) < 0) {
+                if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm, 0, 0, 0) < 0) {
                         if (ERRNO_IS_NOT_SUPPORTED(errno))
                                 log_exec_debug_errno(context,
                                                      params,

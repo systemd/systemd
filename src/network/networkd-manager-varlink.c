@@ -2,8 +2,12 @@
 
 #include <unistd.h>
 
+#include "bus-polkit.h"
+#include "fd-util.h"
 #include "lldp-rx-internal.h"
+#include "networkd-dhcp-server.h"
 #include "networkd-manager-varlink.h"
+#include "stat-util.h"
 #include "varlink.h"
 #include "varlink-io.systemd.Network.h"
 
@@ -164,6 +168,76 @@ static int vl_method_get_lldp_neighbors(Varlink *vlink, JsonVariant *parameters,
                                 JSON_BUILD_PAIR_CONDITION(!json_variant_is_blank_array(array), "Neighbors", JSON_BUILD_VARIANT(array))));
 }
 
+static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                { "Ready", JSON_VARIANT_BOOLEAN, json_dispatch_boolean, 0, 0 },
+                {}
+        };
+
+        Manager *manager = ASSERT_PTR(userdata);
+        bool ready;
+        int r;
+
+        assert(vlink);
+
+        r = varlink_dispatch(vlink, parameters, dispatch_table, &ready);
+        if (r != 0)
+                return r;
+
+        if (ready) {
+                _cleanup_close_ int fd = -EBADF;
+                struct stat st, st_prev;
+
+                fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY | O_PATH);
+                if (fd < 0)
+                        return log_warning_errno(errno, "Failed to open /var/lib/systemd/network/: %m");
+
+                r = fd_is_read_only_fs(fd);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to check if the persistent storage is writable: %m");
+                if (r > 0) {
+                        log_warning("The persistent storage is on read-only filesystem.");
+                        return varlink_error(vlink, "io.systemd.Network.StorageReadOnly", NULL);
+                }
+
+                if (fstat(fd, &st) < 0)
+                        return log_warning_errno(r, "Failed to stat the persistent storage: %m");
+
+                if (manager->persistent_storage_fd >= 0 &&
+                    fstat(manager->persistent_storage_fd, &st_prev) >= 0 &&
+                    stat_inode_same(&st, &st_prev))
+                        return varlink_reply(vlink, NULL);
+
+        } else {
+                if (manager->persistent_storage_fd < 0)
+                        return varlink_reply(vlink, NULL);
+        }
+
+        r = varlink_verify_polkit_async(
+                                vlink,
+                                manager->bus,
+                                "org.freedesktop.network1.set-persistent-storage",
+                                /* details= */ NULL,
+                                &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        if (ready) {
+                _cleanup_close_ int fd = -EBADF;
+
+                fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY | O_PATH);
+                if (fd < 0)
+                        return log_warning_errno(errno, "Failed to open /var/lib/systemd/network/: %m");
+
+                close_and_replace(manager->persistent_storage_fd, fd);
+        } else
+                manager->persistent_storage_fd = safe_close(manager->persistent_storage_fd);
+
+        manager_toggle_dhcp4_server_state(manager, ready);
+
+        return varlink_reply(vlink, NULL);
+}
+
 int manager_connect_varlink(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         int r;
@@ -187,7 +261,8 @@ int manager_connect_varlink(Manager *m) {
                         s,
                         "io.systemd.Network.GetStates", vl_method_get_states,
                         "io.systemd.Network.GetNamespaceId", vl_method_get_namespace_id,
-                        "io.systemd.Network.GetLLDPNeighbors", vl_method_get_lldp_neighbors);
+                        "io.systemd.Network.GetLLDPNeighbors", vl_method_get_lldp_neighbors,
+                        "io.systemd.Network.SetPersistentStorage", vl_method_set_persistent_storage);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 

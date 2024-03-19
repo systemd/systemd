@@ -276,6 +276,7 @@ libbasic = static_library(
         fundamental_sources,
         include_directories : basic_includes,
         dependencies : [libcap,
+                        libdl,
                         liblz4_cflags,
                         libm,
                         librt,

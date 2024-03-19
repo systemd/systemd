@@ -869,6 +869,49 @@ int fd_reopen(int fd, int flags) {
         return new_fd;
 }
 
+int fd_reopen_propagate_append_and_position(int fd, int flags) {
+        /* Invokes fd_reopen(fd, flags), but propagates O_APPEND if set on original fd, and also tries to
+         * keep current file position.
+         *
+         * You should use this if the original fd potentially is O_APPEND, otherwise we get rather
+         * "unexpected" behavior. Unless you intentionally want to overwrite pre-existing data, and have
+         * your output overwritten by the next user.
+         *
+         * Use case: "systemd-run --pty >> some-log".
+         *
+         * The "keep position" part is obviously nonsense for the O_APPEND case, but should reduce surprises
+         * if someone carefully pre-positioned the passed in original input or non-append output FDs. */
+
+        assert(fd >= 0);
+        assert(!(flags & (O_APPEND|O_DIRECTORY)));
+
+        int existing_flags = fcntl(fd, F_GETFL);
+        if (existing_flags < 0)
+                return -errno;
+
+        int new_fd = fd_reopen(fd, flags | (existing_flags & O_APPEND));
+        if (new_fd < 0)
+                return new_fd;
+
+        /* Try to adjust the offset, but ignore errors for now. */
+        off_t p = lseek(fd, 0, SEEK_CUR);
+        if (p <= 0)
+                return new_fd;
+
+        off_t new_p = lseek(new_fd, p, SEEK_SET);
+        if (new_p == (off_t) -1)
+                log_debug_errno(errno,
+                                "Failed to propagate file position for re-opened fd %d, ignoring: %m",
+                                fd);
+        else if (new_p != p)
+                log_debug("Failed to propagate file position for re-opened fd %d (%lld != %lld), ignoring: %m",
+                          fd,
+                          (long long) new_p,
+                          (long long) p);
+
+        return new_fd;
+}
+
 int fd_reopen_condition(
                 int fd,
                 int flags,
@@ -913,21 +956,21 @@ int fd_is_opath(int fd) {
         return FLAGS_SET(r, O_PATH);
 }
 
-int fd_verify_safe_flags(int fd) {
+int fd_verify_safe_flags_full(int fd, int extra_flags) {
         int flags, unexpected_flags;
 
         /* Check if an extrinsic fd is safe to work on (by a privileged service). This ensures that clients
          * can't trick a privileged service into giving access to a file the client doesn't already have
          * access to (especially via something like O_PATH).
          *
-         * O_NOFOLLOW: For some reason the kernel will return this flag from fcntl; it doesn't go away
+         * O_NOFOLLOW: For some reason the kernel will return this flag from fcntl(); it doesn't go away
          *             immediately after open(). It should have no effect whatsoever to an already-opened FD,
          *             and since we refuse O_PATH it should be safe.
          *
          * RAW_O_LARGEFILE: glibc secretly sets this and neglects to hide it from us if we call fcntl.
          *                  See comment in missing_fcntl.h for more details about this.
          *
-         * O_DIRECTORY: this is set for directories, which are totally fine
+         * If 'extra_flags' is specified as non-zero the included flags are also allowed.
          */
 
         assert(fd >= 0);
@@ -936,13 +979,13 @@ int fd_verify_safe_flags(int fd) {
         if (flags < 0)
                 return -errno;
 
-        unexpected_flags = flags & ~(O_ACCMODE|O_NOFOLLOW|RAW_O_LARGEFILE|O_DIRECTORY);
+        unexpected_flags = flags & ~(O_ACCMODE|O_NOFOLLOW|RAW_O_LARGEFILE|extra_flags);
         if (unexpected_flags != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EREMOTEIO),
                                        "Unexpected flags set for extrinsic fd: 0%o",
                                        (unsigned) unexpected_flags);
 
-        return 0;
+        return flags & (O_ACCMODE | extra_flags); /* return the flags variable, but remove the noise */
 }
 
 int read_nr_open(void) {

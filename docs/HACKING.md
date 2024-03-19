@@ -14,6 +14,14 @@ feature, please feel invited to fix it, and submit your work as a
 Please make sure to follow our [Coding Style](CODING_STYLE) when submitting
 patches. Also have a look at our [Contribution Guidelines](CONTRIBUTING).
 
+To start, run the following commands in the systemd git repository to set up
+git correctly (running `meson` will run these commands for you automatically):
+
+```shell
+$ git config submodule.recurse true
+$ git config fetch.recurseSubmodules on-demand
+```
+
 When adding new functionality, tests should be added. For shared functionality
 (in `src/basic/` and `src/shared/`) unit tests should be sufficient. The general
 policy is to keep tests in matching files underneath `src/test/`,
@@ -32,16 +40,16 @@ run the relevant tool from the build directory.
 
 For some components (most importantly, systemd/PID 1 itself) this is not
 possible, however. In order to simplify testing for cases like this we provide
-a set of `mkosi` build files directly in the source tree.
+a set of `mkosi` config files directly in the source tree.
 [mkosi](https://github.com/systemd/mkosi) is a tool for building clean OS images
 from an upstream distribution in combination with a fresh build of the project
-in the local working directory. To make use of this, please install `mkosi` v19
-or newer using your distribution's package manager or from the
-[GitHub repository](https://github.com/systemd/mkosi). `mkosi` will build an
-image for the host distro by default. First, run `mkosi genkey` to generate a key
-and certificate to be used for secure boot and verity signing. After that is done,
-it is sufficient to type `mkosi` in the systemd project directory to generate a disk
-image you can boot either in `systemd-nspawn` or in a UEFI-capable VM:
+in the local working directory. To make use of this, please install the latest
+version of mkosi from the [GitHub repository](https://github.com/systemd/mkosi).
+`mkosi` will build an image for the host distro by default. First, run
+`mkosi genkey` to generate a key and certificate to be used for secure boot and
+verity signing. After that is done, it is sufficient to type `mkosi` in the
+systemd project directory to generate a disk image you can boot either in
+`systemd-nspawn` or in a UEFI-capable VM:
 
 ```sh
 $ sudo mkosi boot # nspawn still needs sudo for now

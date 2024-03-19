@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-journal-gatewayd.service" conditional='HAVE_MICROHTTPD'
+<refentry id="systemd-journal-gatewayd.service" conditional='ENABLE_REMOTE HAVE_MICROHTTPD'
           xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>

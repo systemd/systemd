@@ -348,16 +348,22 @@ All tools:
   `systemd-gpt-auto-generator` to ensure the root partition is mounted writable
   in accordance to the GPT partition flags.
 
-`systemd-firstboot` and `localectl`:
+`systemd-firstboot`, `localectl`, and `systemd-localed`:
 
 * `$SYSTEMD_LIST_NON_UTF8_LOCALES=1` — if set, non-UTF-8 locales are listed among
   the installed ones. By default non-UTF-8 locales are suppressed from the
   selection, since we are living in the 21st century.
 
+* `$SYSTEMD_KEYMAP_DIRECTORIES=` — takes a colon (`:`) separated list of keymap
+  directories. The directories must be absolute and normalized. If unset, the
+  default keymap directories (/usr/share/keymaps/, /usr/share/kbd/keymaps/, and
+  /usr/lib/kbd/keymaps/) will be used.
+
 `systemd-resolved`:
 
 * `$SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME` — if set to "0", `systemd-resolved`
-  won't synthesize system hostname on both regular and reverse lookups.
+  won't synthesize A/AAAA/PTR RRs for the system hostname on either regular nor
+  reverse lookups.
 
 `systemd-sysext`:
 
@@ -557,6 +563,14 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   `mkfs` when formatting LUKS home directories. There's one variable for each
   of the supported file systems for the LUKS home directory backend.
 
+* `$SYSTEMD_HOME_LOCK_FREEZE_SESSION` - Takes a boolean. When false, the user's
+  session will not be frozen when the home directory is locked. Note that the kernel
+  may still freeze any task that tries to access data from the user's locked home
+  directory. This can lead to data loss, security leaks, or other undesired behavior
+  caused by parts of the session becoming unresponsive due to disk I/O while other
+  parts of the session continue running. Thus, we highly recommend that this variable
+  isn't used unless necessary. Defaults to true.
+
 `kernel-install`:
 
 * `$KERNEL_INSTALL_BYPASS` – If set to "1", execution of kernel-install is skipped
@@ -609,6 +623,13 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   `nftables`. Selects the firewall backend to use. If not specified tries to
   use `nftables` and falls back to `iptables` if that's not available.
 
+`systemd-networkd`:
+
+* `$SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY` – takes a boolean. If true,
+  systemd-networkd tries to open the persistent storage on start. To make this
+  work, ProtectSystem=strict in systemd-networkd.service needs to be downgraded
+  or disabled.
+
 `systemd-storagetm`:
 
 * `$SYSTEMD_NVME_MODEL`, `$SYSTEMD_NVME_FIRMWARE`, `$SYSTEMD_NVME_SERIAL`,
@@ -629,6 +650,14 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 * `$SYSTEMD_MEASURE_LOG_FIRMWARE` – the path to the `binary_bios_measurements`
   file (containing firmware measurement data) to read. This allows overriding
   the default of `/sys/kernel/security/tpm0/binary_bios_measurements`.
+
+`systemd-sleep`:
+
+* `$SYSTEMD_SLEEP_FREEZE_USER_SESSIONS` - Takes a boolean. When true (the default),
+  `user.slice` will be frozen during sleep. When false it will not be. We recommend
+  against using this variable, because it can lead to undesired behavior, especially
+  for systems that use home directory encryption and for
+  `systemd-suspend-then-hibernate.service`.
 
 Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 `busctl`):

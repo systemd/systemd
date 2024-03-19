@@ -64,6 +64,16 @@
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>io.systemd.boot.kernel-cmdline-extra=</varname><replaceable>CMDLINE</replaceable></term>
+
+        <listitem><para>This allows configuration of additional kernel command line options for Boot Loader
+        Specification Type 1 entries, and is read by <command>systemd-boot</command>. For details see
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

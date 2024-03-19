@@ -736,11 +736,12 @@ static int parse_config_file(void) {
         };
 
         if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
-                (void) config_parse_config_file("system.conf",
-                                                "Manager\0",
-                                                config_item_table_lookup, items,
-                                                CONFIG_PARSE_WARN,
-                                                NULL);
+                (void) config_parse_standard_file_with_dropins(
+                                "systemd/system.conf",
+                                "Manager\0",
+                                config_item_table_lookup, items,
+                                CONFIG_PARSE_WARN,
+                                /* userdata= */ NULL);
         else {
                 _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
                 int r;
@@ -3281,7 +3282,8 @@ finish:
 #endif
 
         if (r < 0)
-                (void) sd_notifyf(0, "ERRNO=%i", -r);
+                (void) sd_notifyf(/* unset_environment= */ false,
+                                  "ERRNO=%i", -r);
 
         /* Try to invoke the shutdown binary unless we already failed.
          * If we failed above, we want to freeze after finishing cleanup. */
@@ -3294,7 +3296,8 @@ finish:
 
         /* This is primarily useful when running systemd in a VM, as it provides the user running the VM with
          * a mechanism to pick up systemd's exit status in the VM. */
-        (void) sd_notifyf(0, "EXIT_STATUS=%i", retval);
+        (void) sd_notifyf(/* unset_environment= */ false,
+                          "EXIT_STATUS=%i", retval);
 
         watchdog_free_device();
         arg_watchdog_device = mfree(arg_watchdog_device);

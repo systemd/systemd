@@ -8,37 +8,471 @@ CHANGES WITH 256 in spe:
           dropped in a future release.
 
         * Support for cgroup v1 ('legacy' and 'hybrid' hierarchies) is now
-          considered obsolete and systemd by default will refuse to boot under it.
-          To forcibly reenable cgroup v1 support, SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1
-          must be set on kernel command line. The meson option 'default-hierarchy='
-          is also deprecated, i.e. only cgroup v2 ('unified' hierarchy) can be
-          selected as build-time default.
+          considered obsolete and systemd by default will refuse to boot under
+          it. To forcibly reenable cgroup v1 support,
+          SYSTEMD_CGROUP_ENABLE_LEGACY_FORCE=1 must be set on kernel command
+          line. The meson option 'default-hierarchy=' is also deprecated, i.e.
+          only cgroup v2 ('unified' hierarchy) can be selected as build-time
+          default.
 
-        * Previously, systemd-networkd did not explicitly remove any bridge VLAN
-          IDs assigned on bridge master and ports. Since v256, if a .network
-          file for an interface has at least one valid settings in [BridgeVLAN]
-          section, then all assigned VLAN IDs on the interface that are not
-          configured in the .network file are removed.
+        * Previously, systemd-networkd did not explicitly remove any bridge
+          VLAN IDs assigned on bridge master and ports. Since version 256, if a
+          .network file for an interface has at least one valid setting in the
+          [BridgeVLAN] section, then all assigned VLAN IDs on the interface
+          that are not configured in the .network file are removed.
 
         * systemd-gpt-auto-generator will stop generating units for ESP or
           XBOOTLDR partitions if it finds mount entries in the /boot/ or /efi/
           hierarchies in fstab. This is to prevent the generator from
           interfering with systems where ESP is explicitly configured to be
           mounted at some path, for example /boot/efi/ (this type of setup is
-          obsolete but is still commonly found).
+          obsolete but still commonly found).
+
+        * The behavior of systemd-sleep and systemd-homed has been updated to
+          freeze user sessions when entering the various sleep modes or when
+          locking a homed-managed home area. This is known to cause issues with
+          the proprietary NVIDIA drivers. Packagers of the NVIDIA proprietary
+          drivers may want to add drop-in configuration files that set
+          SYSTEMD_SLEEP_FREEZE_USER_SESSION=false for systemd-suspend.service
+          and related services, and SYSTEMD_HOME_LOCK_FREEZE_SESSION=false for
+          systemd-homed.service.
+
+        * systemd-tmpfiles and systemd-sysusers, when given a relative path
+          (with at least one directory separator '/'), will open the file
+          directly, instead of searching for the given partial path in the
+          standard locations. The old mode wasn't useful because tmpfiles.d and
+          sysusers.d configuration has a flat structure with no subdirectories
+          under the standard locations and this change makes it easier to work
+          with local files with those tools.
+
+        * systemd-tmpfiles now properly applies nested configuration to 'R' and
+          'D' stanzas. For example, with 'R /foo; x /foo/bar', /foo/bar will
+          now be excluded from removal.
+
+        General Changes and New Features:
+
+        * Various programs will load the main configuration from under
+          /usr/lib/, /usr/local/lib/, and /run/, not just from under /etc/. For
+          example, systemd-logind will look for /etc/systemd/logind.conf,
+          /run/systemd/logind.conf, /usr/local/lib/systemd/logind.conf, and
+          /usr/lib/systemd/logind.conf, and use the first file that is found.
+          This means that the location logic for the main config file and for
+          drop-ins is now the same.
+
+          ukify will look for the config files in /usr/lib/kernel/ and the
+          other locations, and now also supports drop-ins.
+
+          systemd-udevd now supports drop-ins for udev.conf.
+
+        * A new 'systemd-vpick' binary has been added. It implements the new
+          vpick protocol, where a .v directory may contain multiple files with
+          a version, following the UAPI version format specification, embedded
+          in the file name. The files are ordered by version and the newest one
+          is selected.
+
+          systemd-nspawn, systemd-dissect, and the RootDirectory=, RootImage=,
+          ExtensionImages=, and ExtensionDirectories= settings for units now
+          support the vpick protocol and allow the latest version to be
+          selected automatically if a "*.v/" directory is specified as the
+          source.
+
+        * Credentials can now be made accessible to and used by unprivileged
+          users. 'systemd-creds --user --uid=<user>' will encrypt or decrypt a
+          credential for a specific user.
+
+        * With systemd-homed, it is now possible to log in and activate an
+          encrypted home area over SSH.
+
+          homectl is now installed as a multi-call binary. When invoked as
+          systemd-home-fallback-shell it can be used as a temporary shell which
+          allows the home area to interactively unlocked. When the home area
+          becomes available, the temporary shell executes the normal one.
+
+          systemd-homed gained new methods
+          org.freedesktop.home1.Manager.RefHomeUnrestricted,
+          org.freedesktop.home1.Home.RefUnrestricted,
+          org.freedesktop.home1.Manager.ActivateHomeIfReferenced, and
+          org.freedesktop.home1.Home.ActivateIfReferenced to allow logging in
+          without activating the home area and then activating the home area
+          later.
+
+        * JSON User Records have been extended with a separate storage area
+          called "User Record Blob Directories". This is intended to store the
+          user's background image, avatar picture, and other similar items
+          which are too large to fit into the User Record itself.
+
+          systemd-homed, userdbctl, and homectl gained support for blob
+          directories.
+
+        * New command-line tool 'importctl' to download, import, and export
+          disk images via systemd-importd is added with the following verbs:
+          pull-tar, pull-raw, import-tar, import-raw, import-fs, export-tar,
+          export-raw, list-transfers, cancel-transfer.
+
+        Service Manager:
+
+        * New manager setting ProtectSystem= has been added. It is analogous to
+          the unit setting, but applies to the whole system. It is enabled by
+          default in the initrd.
+
+        * New unit setting WantsMountsFor= has been added. It is analogous to
+          RequiresMountsFor=, but with a Wants= dependency instead of
+          Requires=. This new logic is used in various places where mounts were
+          added as dependencies for other settings (WorkingDirectory=-…,
+          PrivateTmp=yes, cryptsetup lines with 'nofail').
+
+        * New unit setting MemoryZSwapWriteback= can be used to control the new
+          memory.zswap.writeback cgroup knob added in kernel 6.8.
+
+        * The manager gained a org.freedesktop.systemd1.StartAuxiliaryScope()
+          method to devolve some processes from a service into a new scope.
+          This new scope will remain even if the original service unit is
+          restarted. Cgroup properties of the new scope are copied from the
+          service, so various limits are retained.
+
+        * Units now expose properties EffectiveMemoryMax=,
+          EffectiveMemoryHigh=, and EffectiveTasksMax=, which report the
+          most stringent limit systemd is aware of for the given unit.
+
+        * A new specifier %D expands to $XDG_DATA_HOME.
+
+        * AllowedCPUs= now supports specifier expansion.
+
+        * What= setting in .mount and .swap units now accepts fstab-style
+          identifiers, for example UUID=… or LABEL=….
+
+        * RestrictNetworkInterfaces= now supports alternative network interface
+          names.
+
+        * PAMName= now implies SetLoginEnvironment=yes.
+
+        * homectl gained a new verb 'firstboot', and a new
+          systemd-homed-firstboot.service unit uses this verb to create users
+          in a first boot environment, either from credentials or by querying
+          interactively.
+
+        * systemd.firstboot=no can be used on the kernel command-line to
+          disable interactive queries, but allow other first boot configuration
+          to happen based on credentials.
+
+        * A new kernel command-line option systemd.default_debug_tty= can be
+          used to specify the TTY for the debug shell, independently of
+          enabling or disabling it.
+
+        * Systemd hostname can be configured via the systemd.hostname
+          credential.
+
+        The Journal:
+
+        * systemd-journald can now forward journal entries to a socket
+          (AF_INET, AF_INET6, AF_UNIX, or AF_VSOCK). The socket can be
+          specified in journald.conf via a new option ForwardAddress= or via
+          the 'journald.forward_address' credential.
+
+        * systemd-journal-remote now also accepts AF_VSOCK and AF_UNIX sockets
+          (so it can be used to receive entries forwarded by systemd-journald).
+
+        * systemd-vmspawn gained a new --forward-journal= option to forward the
+          virtual machine's journal entries to the host. This is done over a
+          AF_VSOCK socket, i.e. it does not require networking in the guest.
+
+        * journalctl gained option '-i' as a shortcut for --file=.
+
+        * journalctl gained a new -T/--exclude-identifier= option to filter
+          out certain syslog identifiers.
+
+        * journalctl gained a new --list-namespaces option.
+
+        * systemd-journal-gatewayd allows restricting the time range of
+          retrieved entries with realtime=[<since>]:[<until>].
+
+        Device Management:
+
+        * Udev now creates symlinks that combine by-path and by-{label,uuid}
+          information:
+            /dev/disk/by-path/<path>/by-<label|uuid|…>/<label|uuid|…>.
+          This allows distinguishing partitions with identical contents on
+          multiple storage devices. This is useful, for example, when copying
+          raw disk contents between devices.
+
+        * Udev now creates persistent /dev/media/by-path symlinks for media
+          controllers. For example, the uvcvideo driver may create /dev/media0
+          which will be linked as
+          /dev/media/by-path/pci-0000:04:00.3-usb-0:1:1.0-media-controller.
+
+        * An allowlist/denylist may be specified to filter which sysfs
+          attributes are used when crafting network interface names. Those
+          lists are stored as HWDB entries
+            ID_NET_NAME_ALLOW_<sysfsattr>=0|1
+          and
+            ID_NET_NAME_ALLOW=0|1.
+          The goal is to avoid unexpected changes to interface names when the
+          kernel is updated and new sysfs attributes become visible.
+
+        * A new unit tpm2.target has been added to provide a synchronization
+          point for units which expect the TPM hardware to be available.
+
+        * systemd-backlight now properly supports numbered devices which the
+          kernel creates to avoid collisions in the leds subsystem.
+
+        * systemd-hwdb update operation can be disabled with environment
+          variable SYSTEMD_HWDB_UPDATE_BYPASS=1.
+
+        * systemd-logind gained a new org.freedesktop.login1.Manager.Sleep()
+          method that automatically redirects to SuspendThenHibernate(),
+          Suspend(), HybridSleep(), or Hibernate(), depending on what is
+          supported and configured, a new configuration setting SleepOperation=,
+          and an accompanying helper method
+          org.freedesktop.login1.Manager.CanSleep() and property
+          org.freedesktop.login1.Manager.SleepOperation.
+
+          'systemctl sleep' calls the new method to automatically put the
+          machine to sleep in the most appropriate way.
+
+        * systemd-hostnamed now exposes the machine ID and boot ID via D-Bus.
+
+        * systemd-hostnamed now provides a Varlink interface.
+
+        * systemd-hostnamed exports the data in os-release(5) and
+          machine-info(5) via D-Bus and Varlink.
 
         Network Management:
+
+        * systemd-networkd now provides a Varlink interface.
 
         * systemd-networkd's proxy support gained a new option to configure
           a private VLAN variant of the proxy ARP supported by the kernel
           under the name IPv4ProxyARPPrivateVLAN=.
 
-        * TPM 1.2 PCR measurement support has been removed from
-          systemd-stub. TPM 1.2 is obsolete and — due to the (by today's
-          standards) weak cryptographic algorithms it only supports — does not
-          actually provide the security benefits it's supposed to
-          provide. Given that the rest of systemd's codebase never supported
-          TPM 1.2 the support has now been removed from systemd-stub as well.
+        * systemd-networkd now exports the NamespaceId and NamespaceNSID
+          properties via D-Bus and Varlink.
+
+        * systemd-networkd now supports IPv6RetransmissionTimeSec= and
+          UseRetransmissionTime= settings in .network files to configure
+          retransmission time for IPv6 neighbor solicitation messages.
+
+        * networkctl gained new verbs 'mask' and 'unmask'.
+
+        * 'networkctl edit --runtime' allows editing volatile configuration
+          under /run/systemd/network/.
+
+        * The implementation behind TTLPropagate= network setting has been
+          removed and the setting is now ignored.
+
+        * systemd-network-generator will now pick up .netdev/.link/.network
+          configuration from credentials.
+
+        * systemd-networkd will now pick up wireguard configuration from
+          credentials.
+
+        * systemd-ssh-proxy is a new SSH client plugin that allows connecting
+          to AF_SOCK or AF_UNIX sockets.
+
+        * systemd-nspawn now provides a /run/systemd/nspawn/unix-export/
+          directory where the container payload can expose AF_UNIX sockets to
+          allow them them to be accessed from outside.
+
+        * systemd-nspawn will tint the background for container output.
+          This can be controller with the new --backgroup= option.
+
+        * systemd-nspawn gained support for the 'owneridmap' option for bind
+          mounts to map the target directory owner from inside the container to
+          the owner of the directory bound from the host filesystem.
+
+        * An sshd config drop-in to allow ssh keys acquired via userdbctl to be
+          used for authorization.
+
+        * New generator systemd-ssh-generator can be used to bind a
+          socket-activated SSH instance to a local AF_SOCK or AF_UNIX socket.
+          This generator will automatically bind /run/host/unix-export/ssh.
+
+        * systemd-resolved now implements RFC 8914 EDE error codes.
+
+        * systemd-resolved and resolvectl now support RFC 9460 SVCB and HTTPS
+          records.
+
+        * resolvectl gained a new option --relax-single-label= to allow
+          querying single-label hostnames via DNS.
+
+        Systemd-boot and systemd-stub and Related Tools:
+
+        * TPM 1.2 PCR measurement support has been removed from systemd-stub.
+          TPM 1.2 is obsolete and – due to the (by today's standards) weak
+          cryptographic algorithms it only supports – does not actually provide
+          the security benefits it's supposed to provide. Given that the rest
+          of systemd's codebase never supported TPM 1.2, the support has now
+          been removed from systemd-stub as well.
+
+        * Confexts are loaded by systemd-stub from the ESP as well.
+
+        * The pcrlock policy is saved in an unencrypted credential file
+          "pcrlock.<entry-token>.cred" under XBOOTLDR/ESP in the
+          /loader/credentials/ directory. It will be picked up at boot by
+          systemd-stub and passed to the initrd, where it can be used to unlock
+          the root file system.
+
+        * kernel-install gained support for --root= for the 'list' verb.
+
+        * systemd-pcrlock gained an --entry-token= option to configure the
+          entry-token.
+
+        * systemd-pcrlock now provides a Varlink interface and can be
+          run as a daemon via a template unit.
+
+        * bootctl now provides a Varlink interface and can be run as a daemon
+          via a template unit.
+
+        * ukify gained support for signing of PCR signatures via OpenSSL's
+          engines and providers.
+
+        * ukify now supports zboot kernels.
+
+        Command-line tools:
+
+        * systemd-run is now a multi-call binary. When invoked as 'uid0', it
+          provides as interface similar to 'sudo', with all arguments starting
+          at the first non-option parameter being treated the command to
+          invoke as root. Unlike 'sudo' and similar tools, it does not make use
+          of setuid binaries or other privilege escalation methods, but instead
+          runs the specified command as a transient unit, which is started by
+          the system service manager, so privileges are dropped, rather than
+          gained, thus implementing a much more robust and safe security model.
+
+        * systemd-run gained a new option '--ignore-failure' to suppress
+          command failures.
+
+        * systemd-creds gained new options --user/--uid=.
+
+        * 'systemctl edit --stdin' allows creation of unit files and drop-ins
+          with contents supplied via standard input. This is useful when creating
+          configuration programmatically; the tool takes care of figuring out
+          the file name, creating any directories, and reloading the manager
+          afterwards.
+
+        * 'systemctl disable --now' and 'systemctl mask --now' now work
+          correctly with template units.
+
+        * 'systemd-analyze architectures' lists known CPU architectures.
+
+        * 'systemd-analyze --json=…' is supported for 'architectures',
+          'capability', 'exit-status'.
+
+        * 'systemd-tmpfiles --purge' will purge (remove) all files and
+          directories created via tmpfiles.d configuration.
+
+        * systemd-id128 gained new options --no-pager, --no-legend, and
+          -j/--json=.
+
+        * hostnamectl gained '-j' as shortcut for '--json=pretty' or
+          '--json=short'.
+
+        * loginctl now supports -j/--json=.
+
+        * resolvectl now supports -j/--json= for --type=.
+
+        * systemd-vmspawn gained a new --firmware= option to configure or list
+          firmware definitions for Qemu, a new --tpm= option to enable or
+          disable the use of a software TPM, a new --linux= option to specify a
+          kernel binary for direct kernel boot, a new --initrd= option to
+          specify an initrd for direct kernel boot, a new -D/--directory option
+          to use a plain directory as the root file system, a new
+          --private-users option similar to the one in systemd-nspawn, new
+          options --bind= and --bind-ro= to bind part of the host's file system
+          hierarchy into the guest, a new --extra-drive= option to attach
+          additional storage, and -n/--network-tap/--network-user-mode to
+          configure networking.
+
+        * A new systemd-vmspawn@.service can be used to launch systemd-vmspawn
+          as a service.
+
+        * varlinkctl gained support for the "ssh:" transport. This requires
+          OpenSSH 9.4 or newer.
+
+        * varlinkctl gained a new --collect switch to collect all responses of
+          a method call emitted in JSON_SEQ mode and turn them into normal
+          JSON.
+
+        * systemd-sysext gained support for mutable system extensions, where a
+          writeable upperdir is stored under /var/lib/extensions.mutable/, and
+          a new --mutable option to configure this behaviour.
+
+        * systemd-dissect gained a new --make-archive-option to generate an
+          archive file from a disk image.
+
+        * systemd-repart gained new options --generate-fstab= and
+          --generate-crypttab= to write the fstab and crypttab files.
+
+        * systemd-repart gained a new option --private-key-source= to allow
+          using OpenSSL's "engines" or "providers" as the signing mechanism to
+          use when creating verity signature partitions.
+
+        * systemd-measure gained new options --certificate=, --private-key=,
+          and --private-key-source= to allow using OpenSSL's "engines" or
+          "providers" as the signing mechanism to use when creating signed
+          TPM2 PCR measurement values.
+
+        * systemd-tmpfiles gained a new option --dry-run to print what would be
+          done without actually taking action.
+
+        * systemd-bsod gained a new option --tty= to specify the output TTY
+
+        * timedatectl and machinectl gained option '-P', an alias for
+          '--value --property=…'.
+
+        * Various tools that pretty-print config files will now highlight
+          configuration directives.
+
+        Libraries:
+
+        * libsystemd gained new call sd_bus_creds_new_from_pidfd to get a
+          credentials object for a pidfd and sd_bus_creds_get_pidfd_dup() to
+          retrieve the pidfd from a credentials object.
+
+        * RPM macro %_kernel_install_dir has been added with the path
+          to the directory for kernel-install plugins.
+
+        Other:
+
+        * systemd-logind now supports a new "background-light" session class
+          which does not pull in the user@.service unit. This is intended in
+          particular for cron jobs.
+
+          systemd-logind now also supports a new "user-incomplete" session
+          class for a user session that does not have a running user manager,
+          but may be upgraded to a full "user" session later on. This has
+          been hooked into the PAM stack to appropriately classify sessions
+          while they are being started.
+
+          systemd-logind gained a new org.freedesktop.login1.Session.SetClass()
+          method to change the session class.
+
+          systemd-logind will not allow background, background-light, manager,
+          and manager-early session types to take control of devices or change
+          the session type.
+
+        * systemd-logind gained a new
+          org.freedesktop.login1.Manager.ListSessionsEx() method that provides
+          additional metadata compared to ListSessions(). loginctl makes use of
+          this to list additional fields in list-sessions.
+
+        * systemd-cryptenroll can now enroll directly with a PKCS11 public key
+          (instead of a certificate).
+
+        * Core dumps are now retained for two weeks by default.
+
+        * systemd-cryptsetup gained support for crypttab option
+          link-volume-key= to enter the volume key into the kernel keyring when
+          the volume is opened.
+
+        * portablectl --copy= parameter gained a new 'mixed' argument, that will
+          result in resources owned by the OS (e.g.: portable profiles) to be linked
+          but resources owned by the portable image (e.g.: the unit files and the
+          images themselves) to be copied.
+
+        * The remaining documentation that was on
+          https://freedesktop.org/wiki/Software/systemd/ has been moved to
+          https://systemd.io.
+
 
 CHANGES WITH 255:
 
