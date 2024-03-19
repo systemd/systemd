@@ -112,8 +112,6 @@ node /org/freedesktop/home1 {
                           out h send_fd);
       @org.freedesktop.systemd1.Privileged("true")
       ReleaseHome(in  s user_name);
-      InhibitSuspendHome(in  s user_name,
-                         out h send_fd);
       @org.freedesktop.systemd1.Privileged("true")
       LockAllHomes();
       @org.freedesktop.systemd1.Privileged("true")
@@ -187,8 +185,6 @@ node /org/freedesktop/home1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="ReleaseHome()"/>
 
-    <variablelist class="dbus-method" generated="True" extra-ref="InhibitSuspendHome()"/>
-
     <variablelist class="dbus-method" generated="True" extra-ref="LockAllHomes()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="DeactivateAllHomes()"/>
@@ -208,7 +204,9 @@ node /org/freedesktop/home1 {
       the numeric UID and GID, the real name, home directory and shell. In addition it returns a state
       identifier describing the state the user's home directory is in, as well as a bus path referring to the
       bus object encapsulating the user record and home directory. This object implements the
-      <classname>org.freedesktop.home1.Home</classname> interface documented below.</para>
+      <classname>org.freedesktop.home1.Home</classname> interface documented below. This method, and most others
+      in this interface that take user names, will try to use the caller's home area if the specified user name is
+      an empty string.</para>
 
       <para><function>GetHomeByUID()</function> is similar to <function>GetHomeByName()</function> but
       acquires the information based on the numeric UID of the user.</para>
@@ -387,10 +385,9 @@ node /org/freedesktop/home1 {
       re-authenticate when the system comes back from suspending. It should be set by all clients that
       implement a secure lock screen running outside of the user's context, that is brought up when the
       system comes back from suspend and can be used to re-acquire the credentials to unlock the user's home
-      directory. A home directory is locked automatically at system suspend only if all clients with open
-      references to the home directory specify that they support this functionality, and no client has
-      temporarily inhibited it (see <function>InhibitSuspendHome()</function> below); otherwise the directory
-      remains unlocked. This method is equivalent to <function>Acquire()</function> on the
+      directory. If a home directory has at least one client with an open reference to the home directory
+      that does not support this it is not suspended automatically at system suspend, otherwise it is. This
+      method is equivalent to <function>Acquire()</function> on the
       <classname>org.freedesktop.home1.Home</classname> interface.</para>
 
       <para><function>RefHome()</function> is similar to <function>AcquireHome()</function> but takes no user
@@ -412,25 +409,9 @@ node /org/freedesktop/home1 {
       triggered deactivation is completed. This method is equivalent to <function>Release()</function> on the
       <classname>org.freedesktop.home1.Home</classname> interface.</para>
 
-      <para><function>InhibitSuspendHome()</function> temporarily inhibits automatic locking during system
-      suspend for a home directory. It returns a file descriptor that inhibits this functionality for as long
-      as it is open. As mentioned above, locking a home directory requires a secure lock screen running
-      outside of the user context, and is likely to freeze any process that attempts to access the directory.
-      Thus, locking a home directory is a trade-off: it increases security, but prevents the client from
-      displaying any user content on its secure lock screen, including notifications, media controls, contact
-      information for incoming phone calls, and much more. A client may use this method to implement more
-      complicated automatic locking behavior for home directories, in order to solve some of these UX issues.
-      For instance, the client may choose to only lock the home directory and switch to the secure lock screen
-      if the device has been suspended for over 24 hours. Note that this inhibitor does not prevent clients from
-      calling <function>LockHome()</function>, and in fact clients will need to call <function>LockHome()</function>
-      manually as part of their custom behavior to lock the home directory. Clients should take care to ensure that
-      the file descriptor is closed in the event that their custom behavior fails or is disabled. This method is
-      equivalent to <function>InhibitSuspend()</function> on the <classname>org.freedesktop.home1.Home</classname>
-      interface.</para>
-
       <para><function>LockAllHomes()</function> locks all active home directories that only have references
-      that opted into automatic locking during system suspend and have no clients inhibiting this behavior.
-      This is usually invoked automatically shortly before system suspend.</para>
+      that opted into automatic suspending during system suspend. This is usually invoked automatically
+      shortly before system suspend.</para>
 
       <para><function>DeactivateAllHomes()</function> deactivates all home areas that are currently
       active. This is usually invoked automatically shortly before system shutdown.</para>
@@ -492,7 +473,6 @@ node /org/freedesktop/home1/home {
                       out h send_fd);
       @org.freedesktop.systemd1.Privileged("true")
       Release();
-      InhibitSuspend(out h send_fd);
     properties:
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s UserName = '...';
@@ -556,8 +536,6 @@ node /org/freedesktop/home1/home {
 
     <variablelist class="dbus-method" generated="True" extra-ref="Release()"/>
 
-    <variablelist class="dbus-method" generated="True" extra-ref="InhibitSuspend()"/>
-
     <variablelist class="dbus-property" generated="True" extra-ref="UserName"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="UID"/>
@@ -579,14 +557,15 @@ node /org/freedesktop/home1/home {
       <function>Update()</function>, <function>UpdateEx()</function>, <function>Resize()</function>,
       <function>ChangePassword()</function>, <function>Lock()</function>, <function>Unlock()</function>,
       <function>Acquire()</function>, <function>Ref()</function>, <function>RefUnrestricted()</function>,
-      <function>Release()</function>, <function>InhibitSuspend()</function> operate like their matching counterparts
-      on the <classname>org.freedesktop.home1.Manager</classname> interface (see above). The main difference is that
-      they are methods of the home directory objects, and hence carry no additional user name
-      parameter. Which of the two flavors of methods to call depends on the handles to the user known on the
-      client side: if only the user name is known, it's preferable to use the methods on the manager object
-      since they operate with user names only. If however the home object path was already acquired some way
-      it is preferable to operate on the <classname>org.freedesktop.home1.Home</classname> objects
-      instead.</para>
+      <function>Release()</function>,
+      operate like their matching counterparts on the <classname>org.freedesktop.home1.Manager</classname>
+      interface (see above). The main difference is that they are methods of the home directory objects, and
+      hence carry no additional user name parameter. Which of the two flavors of methods to call depends on
+      the handles to the user known on the client side: if only the user name is known, it's preferable to use
+      the methods on the manager object since they operate with user names only. Clients can also easily operate
+      on their own home area by using the methods on the manager object with an empty string as the user name.
+      If the client has the home's object path already acquired in some way, however, it is preferable to operate
+      on the <classname>org.freedesktop.home1.Home</classname> objects instead.</para>
     </refsect2>
 
     <refsect2>
@@ -611,12 +590,12 @@ node /org/freedesktop/home1/home {
     <title>History</title>
     <refsect2>
       <title>The Manager Object</title>
-      <para><function>InhibitSuspendHome()</function>, <function>ActivateHomeIfReferenced()</function>, <function>RefHomeUnrestricted()</function>,
+      <para><function>ActivateHomeIfReferenced()</function>, <function>RefHomeUnrestricted()</function>,
       <function>CreateHomeEx()</function>, and <function>UpdateHomeEx()</function> were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Home Objects</title>
-      <para><function>InhibitSuspend()</function>, <function>ActivateIfReferenced()</function>, <function>RefUnrestricted()</function>, and
+      <para><function>ActivateIfReferenced()</function>, <function>RefUnrestricted()</function>, and
       <function>UpdateEx()</function> were added in version 256.</para>
     </refsect2>
   </refsect1>
