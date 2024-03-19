@@ -124,18 +124,20 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                 const char16_t *name;
                 const char16_t *filename;
                 const EFI_GUID vendor;
+                bool required;
                 char *buffer;
                 size_t size;
         } sb_vars[] = {
-                { u"db",  u"db.auth",  EFI_IMAGE_SECURITY_DATABASE_GUID, NULL, 0 },
-                { u"KEK", u"KEK.auth", EFI_GLOBAL_VARIABLE, NULL, 0 },
-                { u"PK",  u"PK.auth",  EFI_GLOBAL_VARIABLE, NULL, 0 },
+                { u"db",  u"db.auth",  EFI_IMAGE_SECURITY_DATABASE_GUID, true, NULL, 0 },
+                { u"dbx", u"dbx.auth", EFI_IMAGE_SECURITY_DATABASE_GUID, false, NULL, 0 },
+                { u"KEK", u"KEK.auth", EFI_GLOBAL_VARIABLE, true, NULL, 0 },
+                { u"PK",  u"PK.auth",  EFI_GLOBAL_VARIABLE, true, NULL, 0 },
         };
 
         /* Make sure all keys files exist before we start enrolling them by loading them from the disk first. */
         for (size_t i = 0; i < ELEMENTSOF(sb_vars); i++) {
                 err = file_read(dir, sb_vars[i].filename, 0, 0, &sb_vars[i].buffer, &sb_vars[i].size);
-                if (err != EFI_SUCCESS) {
+                if (err != EFI_SUCCESS && sb_vars[i].required) {
                         log_error_status(err, "Failed reading file %ls\\%ls: %m", path, sb_vars[i].filename);
                         goto out_deallocate;
                 }
@@ -172,6 +174,8 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                         EFI_VARIABLE_RUNTIME_ACCESS |
                         EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
 
+                if (sb_vars[i].size == 0)
+                        continue;
                 err = efivar_set_raw(&sb_vars[i].vendor, sb_vars[i].name, sb_vars[i].buffer, sb_vars[i].size, sb_vars_opts);
                 if (err != EFI_SUCCESS) {
                         log_error_status(err, "Failed to write %ls secure boot variable: %m", sb_vars[i].name);
