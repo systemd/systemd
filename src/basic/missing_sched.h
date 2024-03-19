@@ -25,10 +25,11 @@ assert_cc(CLONE_NEWTIME == 0x00000080);
 assert_cc(PF_KTHREAD == 0x00200000);
 #endif
 
-/* The maximum thread/process name length including trailing NUL byte. This mimics the kernel definition of the same
- * name, which we need in userspace at various places but is not defined in userspace currently, neither under this
- * name nor any other. */
-/* Not exposed yet. Defined at include/linux/sched.h */
+/* The maximum thread/process name length including trailing NUL byte. This mimics the kernel definition of
+ * the same name, which we need in userspace at various places but is not defined in userspace currently,
+ * neither under this name nor any other.
+ *
+ * Not exposed yet. Defined at include/linux/sched.h */
 #ifndef TASK_COMM_LEN
 #  define TASK_COMM_LEN 16
 #else
