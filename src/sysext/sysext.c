@@ -119,6 +119,22 @@ static const struct {
         }
 };
 
+static int parse_mutable_mode(const char *p) {
+        assert(p);
+
+        if (streq(p, "auto"))
+                return MUTABLE_AUTO;
+
+        if (streq(p, "import"))
+                return MUTABLE_IMPORT;
+
+        int r = parse_boolean(p);
+        if (r < 0)
+                return r;
+
+        return r ? MUTABLE_YES : MUTABLE_NO;
+}
+
 static int is_our_mount_point(
                 ImageClass image_class,
                 const char *p) {
@@ -2109,16 +2125,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MUTABLE:
-                        if (streq(optarg, "auto"))
-                                arg_mutable = MUTABLE_AUTO;
-                        else if (streq(optarg, "import"))
-                                arg_mutable = MUTABLE_IMPORT;
-                        else {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse argument to --mutable=: %s", optarg);
-                                arg_mutable = r ? MUTABLE_YES : MUTABLE_NO;
-                        }
+                        r = parse_mutable_mode(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse argument to --mutable=: %s", optarg);
+                        arg_mutable = r;
                         break;
 
                 case '?':
