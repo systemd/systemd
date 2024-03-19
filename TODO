@@ -2550,7 +2550,6 @@ Features:
    - allow Name= to be specified repeatedly in the [Match] section. Maybe also
      support Name=foo*|bar*|baz ?
    - whenever uplink info changes, make DHCP server send out FORCERENEW
-   - figure out spelling: NamespaceId vs. NamespaceNSID
 
 * in networkd, when matching device types, fix up DEVTYPE rubbish the kernel passes to us
 
