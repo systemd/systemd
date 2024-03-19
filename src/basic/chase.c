@@ -573,6 +573,7 @@ static int empty_or_root_to_null(const char **path) {
 int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path, int *ret_fd) {
         _cleanup_free_ char *root_abs = NULL, *absolute = NULL, *p = NULL;
         _cleanup_close_ int fd = -EBADF, pfd = -EBADF;
+        bool trailing_slash = false;
         int r;
 
         assert(path);
@@ -626,6 +627,9 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
                                       "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
                                       absolute, root);
 
+        /* Check if input has a trailing slash, '.' or '..' */
+        trailing_slash = path_implies_directory(path);
+
         fd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (fd < 0)
                 return -errno;
@@ -636,7 +640,6 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
 
         if (ret_path) {
                 if (!FLAGS_SET(flags, CHASE_EXTRACT_FILENAME)) {
-
                         /* When "root" points to the root directory, the result of chaseat() is always
                          * absolute, hence it is not necessary to prefix with the root. When "root" points to
                          * a non-root directory, the result path is always normalized and relative, hence
@@ -665,7 +668,7 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
         if (ret_fd)
                 *ret_fd = TAKE_FD(pfd);
 
-        return r;
+        return trailing_slash ? O_DIRECTORY : r;
 }
 
 int chaseat_prefix_root(const char *path, const char *root, char **ret) {
