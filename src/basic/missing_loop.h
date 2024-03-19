@@ -3,6 +3,8 @@
 
 #include <linux/loop.h>
 
+#include "macro.h"
+
 #ifndef LOOP_CONFIGURE
 struct loop_config {
         __u32 fd;
@@ -11,14 +13,19 @@ struct loop_config {
         __u64 __reserved[8];
 };
 
-#define LOOP_CONFIGURE 0x4C0A
+#  define LOOP_CONFIGURE 0x4C0A
+#else
+assert_cc(LOOP_CONFIGURE == 0x4C0A);
 #endif
 
 #ifndef LO_FLAGS_DIRECT_IO
-#define LO_FLAGS_DIRECT_IO 16
-#define LOOP_SET_DIRECT_IO 0x4C08
+#  define LO_FLAGS_DIRECT_IO 16
+#  define LOOP_SET_DIRECT_IO 0x4C08
+#else
+assert_cc(LO_FLAGS_DIRECT_IO == 16);
+assert_cc(LO_FLAGS_DIRECT_IO == 0x4C08);
 #endif
 
 #ifndef LOOP_SET_STATUS_SETTABLE_FLAGS
-#define LOOP_SET_STATUS_SETTABLE_FLAGS (LO_FLAGS_AUTOCLEAR | LO_FLAGS_PARTSCAN | LO_FLAGS_DIRECT_IO)
+#  define LOOP_SET_STATUS_SETTABLE_FLAGS (LO_FLAGS_AUTOCLEAR | LO_FLAGS_PARTSCAN | LO_FLAGS_DIRECT_IO)
 #endif
