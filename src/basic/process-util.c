@@ -1060,14 +1060,8 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
                 sum += r;
 
                 match = startswith(line, field);
-                if (match && *match == '=') {
-                        value = strdup(match + 1);
-                        if (!value)
-                                return -ENOMEM;
-
-                        *ret = value;
-                        return 1;
-                }
+                if (match && *match == '=')
+                        return strdup_to_full(ret, match + 1);
         }
 
         *ret = NULL;
