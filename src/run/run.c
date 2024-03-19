@@ -159,7 +159,7 @@ static int help_sudo_mode(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        r = terminal_urlify_man("uid0", "1", &link);
+        r = terminal_urlify_man("run0", "1", &link);
         if (r < 0)
                 return log_oom();
 
@@ -743,7 +743,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_BACKGROUND,
         };
 
-        /* If invoked as "uid0" binary, let's expose a more sudo-like interface. We add various extensions
+        /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
          * though (but limit the extension to long options). */
 
         static const struct option options[] = {
@@ -943,7 +943,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         if (strv_extendf(&arg_property, "LogExtraFields=ELEVATED_USER=%s", un) < 0)
                 return log_oom();
 
-        if (strv_extend(&arg_property, "PAMName=systemd-uid0") < 0)
+        if (strv_extend(&arg_property, "PAMName=systemd-run0") < 0)
                 return log_oom();
 
         if (!arg_background && arg_stdio == ARG_STDIO_PTY) {
@@ -2262,7 +2262,7 @@ static int run(int argc, char* argv[]) {
         log_parse_environment();
         log_open();
 
-        if (invoked_as(argv, "uid0"))
+        if (invoked_as(argv, "run0"))
                 r = parse_argv_sudo_mode(argc, argv);
         else
                 r = parse_argv(argc, argv);

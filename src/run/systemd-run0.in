@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # This file is part of systemd.
 #
-# Used by uid0 sessions
+# Used by run0 sessions
 
 {% if ENABLE_HOMED %}
 -account sufficient pam_systemd_home.so

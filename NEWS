@@ -329,7 +329,7 @@ CHANGES WITH 256 in spe:
 
         Command-line tools:
 
-        * systemd-run is now a multi-call binary. When invoked as 'uid0', it
+        * systemd-run is now a multi-call binary. When invoked as 'run0', it
           provides as interface similar to 'sudo', with all arguments starting
           at the first non-option parameter being treated the command to
           invoke as root. Unlike 'sudo' and similar tools, it does not make use
