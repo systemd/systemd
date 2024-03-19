@@ -91,37 +91,22 @@ static int specifier_cgroup(char specifier, const void *data, const char *root, 
 
         bad_specifier(u, specifier);
 
-        if (crt && crt->cgroup_path) {
-                char *n;
-
-                n = strdup(crt->cgroup_path);
-                if (!n)
-                        return -ENOMEM;
-
-                *ret = n;
-                return 0;
-        }
+        if (crt && crt->cgroup_path)
+                return strdup_to(ret, crt->cgroup_path);
 
         return unit_default_cgroup_path(u, ret);
 }
 
 static int specifier_cgroup_root(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = ASSERT_PTR(userdata);
-        char *n;
 
         bad_specifier(u, specifier);
 
-        n = strdup(u->manager->cgroup_root);
-        if (!n)
-                return -ENOMEM;
-
-        *ret = n;
-        return 0;
+        return strdup_to(ret, u->manager->cgroup_root);
 }
 
 static int specifier_cgroup_slice(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = ASSERT_PTR(userdata), *slice;
-        char *n;
 
         bad_specifier(u, specifier);
 
@@ -130,28 +115,18 @@ static int specifier_cgroup_slice(char specifier, const void *data, const char *
                 CGroupRuntime *crt = unit_get_cgroup_runtime(slice);
 
                 if (crt && crt->cgroup_path)
-                        n = strdup(crt->cgroup_path);
-                else
-                        return unit_default_cgroup_path(slice, ret);
-        } else
-                n = strdup(u->manager->cgroup_root);
-        if (!n)
-                return -ENOMEM;
+                        return strdup_to(ret, crt->cgroup_path);
 
-        *ret = n;
-        return 0;
+                return unit_default_cgroup_path(slice, ret);
+        }
+
+        return strdup_to(ret, u->manager->cgroup_root);
 }
 
 static int specifier_special_directory(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = ASSERT_PTR(userdata);
-        char *n;
 
-        n = strdup(u->manager->prefix[PTR_TO_UINT(data)]);
-        if (!n)
-                return -ENOMEM;
-
-        *ret = n;
-        return 0;
+        return strdup_to(ret, u->manager->prefix[PTR_TO_UINT(data)]);
 }
 
 static int specifier_credentials_dir(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
