@@ -145,13 +145,10 @@ int check_password_quality(const char *password, const char *old, const char *us
         r = sym_pwquality_check(pwq, password, old, username, &auxerror);
         if (r < 0) {
                 if (ret_error) {
-                        _cleanup_free_ char *e = NULL;
-
-                        e = strdup(sym_pwquality_strerror(buf, sizeof(buf), r, auxerror));
-                        if (!e)
-                                return -ENOMEM;
-
-                        *ret_error = TAKE_PTR(e);
+                        r = strdup_to(ret_error,
+                                      sym_pwquality_strerror(buf, sizeof(buf), r, auxerror));
+                        if (r < 0)
+                                return r;
                 }
 
                 return 0; /* all bad */

@@ -3220,11 +3220,9 @@ int unit_file_exists_full(RuntimeScope scope, const LookupPaths *lp, const char 
         if (ret_path) {
                 assert(info);
 
-                _cleanup_free_ char *p = strdup(info->path);
-                if (!p)
-                        return -ENOMEM;
-
-                *ret_path = TAKE_PTR(p);
+                r = strdup_to(ret_path, info->path);
+                if (r < 0)
+                        return r;
         }
 
         return 1;
