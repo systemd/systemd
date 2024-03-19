@@ -223,10 +223,7 @@ static int catalog_entry_lang(
                 const char* deflang,
                 char **ret) {
 
-        size_t c;
-        char *z;
-
-        c = strlen(t);
+        size_t c = strlen(t);
         if (c < 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "[%s:%u] Language too short.", filename, line);
@@ -243,12 +240,7 @@ static int catalog_entry_lang(
                 log_warning("[%s:%u] language differs from default for file", filename, line);
         }
 
-        z = strdup(t);
-        if (!z)
-                return -ENOMEM;
-
-        *ret = z;
-        return 0;
+        return strdup_to(ret, t);
 }
 
 int catalog_import_file(OrderedHashmap *h, const char *path) {
@@ -588,15 +580,14 @@ static const char *find_id(void *p, sd_id128_t id) {
                 le64toh(f->offset);
 }
 
-int catalog_get(const char* database, sd_id128_t id, char **_text) {
+int catalog_get(const char* database, sd_id128_t id, char **ret_text) {
         _cleanup_close_ int fd = -EBADF;
         void *p = NULL;
-        struct stat st = {};
-        char *text = NULL;
+        struct stat st;
         int r;
         const char *s;
 
-        assert(_text);
+        assert(ret_text);
 
         r = open_mmap(database, &fd, &st, &p);
         if (r < 0)
@@ -608,15 +599,7 @@ int catalog_get(const char* database, sd_id128_t id, char **_text) {
                 goto finish;
         }
 
-        text = strdup(s);
-        if (!text) {
-                r = -ENOMEM;
-                goto finish;
-        }
-
-        *_text = text;
-        r = 0;
-
+        r = strdup_to(ret_text, s);
 finish:
         (void) munmap(p, st.st_size);
 
