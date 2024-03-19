@@ -9,7 +9,6 @@
 
 int devname_from_devnum(mode_t mode, dev_t devnum, char **ret) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        _cleanup_free_ char *s = NULL;
         const char *devname;
         int r;
 
@@ -26,15 +25,10 @@ int devname_from_devnum(mode_t mode, dev_t devnum, char **ret) {
         if (r < 0)
                 return r;
 
-        s = strdup(devname);
-        if (!s)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(s);
-        return 0;
+        return strdup_to(ret, devname);
 }
 
-int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret) {
+int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret_devname) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
@@ -47,19 +41,16 @@ int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret) {
         if (fd < 0)
                 return fd;
 
-        if (ret) {
+        if (ret_devname) {
                 const char *devname;
-                char *s;
 
                 r = sd_device_get_devname(dev, &devname);
                 if (r < 0)
                         return r;
 
-                s = strdup(devname);
-                if (!s)
-                        return -ENOMEM;
-
-                *ret = s;
+                r = strdup_to(ret_devname, devname);
+                if (r < 0)
+                        return r;
         }
 
         return TAKE_FD(fd);
