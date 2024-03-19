@@ -182,6 +182,23 @@ bool dns_resource_key_is_dnssd_ptr(const DnsResourceKey *key) {
                 dns_name_endswith(dns_resource_key_name(key), "_udp.local");
 }
 
+bool dns_resource_key_is_dnssd_two_label_ptr(const DnsResourceKey *key) {
+        assert(key);
+
+        /* Check if this is a PTR resource key used in Service Instance
+         * Enumeration as described in RFC6763 § 4.1, excluding selective
+         * service names described in RFC6763 § 7.1. */
+
+        if (key->type != DNS_TYPE_PTR)
+                return false;
+
+        const char *name = dns_resource_key_name(key);
+        if (dns_name_parent(&name) <= 0)
+                return false;
+
+        return dns_name_equal(name, "_tcp.local") || dns_name_equal(name, "_udp.local");
+}
+
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b) {
         int r;
 
