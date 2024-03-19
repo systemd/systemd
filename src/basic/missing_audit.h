@@ -19,6 +19,8 @@
 #define MAX_AUDIT_MESSAGE_LENGTH 8970
 #endif
 
+/* Note: we check for AUDIT_NLGRP_MAX because it's a define, but we actually
+ * need AUDIT_NLGRP_READLOG which is an enum. */
 #ifndef AUDIT_NLGRP_MAX
 #define AUDIT_NLGRP_READLOG 1
 #endif
