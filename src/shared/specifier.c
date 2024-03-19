@@ -111,18 +111,7 @@ int specifier_printf(const char *text, size_t max_length, const Specifier table[
 /* Generic handler for simple string replacements */
 
 int specifier_string(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        char *n = NULL;
-
-        assert(ret);
-
-        if (!isempty(data)) {
-                n = strdup(data);
-                if (!n)
-                        return -ENOMEM;
-        }
-
-        *ret = n;
-        return 0;
+        return strdup_to(ASSERT_PTR(ret), empty_to_null(data));
 }
 
 int specifier_real_path(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
@@ -249,32 +238,18 @@ int specifier_pretty_hostname(char specifier, const void *data, const char *root
 
 int specifier_kernel_release(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         struct utsname uts;
-        char *n;
 
         assert(ret);
 
         if (uname(&uts) < 0)
                 return -errno;
 
-        n = strdup(uts.release);
-        if (!n)
-                return -ENOMEM;
-
-        *ret = n;
-        return 0;
+        return strdup_to(ret, uts.release);
 }
 
 int specifier_architecture(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
-        char *t;
-
-        assert(ret);
-
-        t = strdup(architecture_to_string(uname_architecture()));
-        if (!t)
-                return -ENOMEM;
-
-        *ret = t;
-        return 0;
+        return strdup_to(ASSERT_PTR(ret),
+                         architecture_to_string(uname_architecture()));
 }
 
 /* Note: fields in /etc/os-release might quite possibly be missing, even if everything is entirely valid
@@ -420,7 +395,6 @@ int specifier_user_shell(char specifier, const void *data, const char *root, con
 
 int specifier_tmp_dir(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const char *p;
-        char *copy;
         int r;
 
         assert(ret);
@@ -432,17 +406,12 @@ int specifier_tmp_dir(char specifier, const void *data, const char *root, const 
                 if (r < 0)
                         return r;
         }
-        copy = strdup(p);
-        if (!copy)
-                return -ENOMEM;
 
-        *ret = copy;
-        return 0;
+        return strdup_to(ret, p);
 }
 
 int specifier_var_tmp_dir(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const char *p;
-        char *copy;
         int r;
 
         assert(ret);
@@ -454,12 +423,8 @@ int specifier_var_tmp_dir(char specifier, const void *data, const char *root, co
                 if (r < 0)
                         return r;
         }
-        copy = strdup(p);
-        if (!copy)
-                return -ENOMEM;
 
-        *ret = copy;
-        return 0;
+        return strdup_to(ret, p);
 }
 
 int specifier_escape_strv(char **l, char ***ret) {
