@@ -101,7 +101,6 @@ int suggest_passwords(void) {
         _cleanup_strv_free_erase_ char **suggestions = NULL;
         _cleanup_(erase_and_freep) char *joined = NULL;
         char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
-        size_t i;
         int r;
 
         r = pwq_allocate_context(&pwq);
@@ -115,7 +114,7 @@ int suggest_passwords(void) {
         if (!suggestions)
                 return log_oom();
 
-        for (i = 0; i < N_SUGGESTIONS; i++) {
+        for (size_t i = 0; i < N_SUGGESTIONS; i++) {
                 r = sym_pwquality_generate(pwq, 64, suggestions + i);
                 if (r < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to generate password, ignoring: %s",
