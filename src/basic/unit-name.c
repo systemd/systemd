@@ -797,10 +797,6 @@ good:
 }
 
 int slice_build_parent_slice(const char *slice, char **ret) {
-        _cleanup_free_ char *s = NULL;
-        char *dash;
-        int r;
-
         assert(slice);
         assert(ret);
 
@@ -812,18 +808,16 @@ int slice_build_parent_slice(const char *slice, char **ret) {
                 return 0;
         }
 
-        s = strdup(slice);
+        _cleanup_free_ char *s = strdup(slice);
         if (!s)
                 return -ENOMEM;
 
-        dash = strrchr(s, '-');
-        if (dash)
-                strcpy(dash, ".slice");
-        else {
-                r = free_and_strdup(&s, SPECIAL_ROOT_SLICE);
-                if (r < 0)
-                        return r;
-        }
+        char *dash = strrchr(s, '-');
+        if (!dash)
+                return strdup_to_full(ret, SPECIAL_ROOT_SLICE);
+
+        /* We know that s ended with .slice before truncation, so we have enough space. */
+        strcpy(dash, ".slice");
 
         *ret = TAKE_PTR(s);
         return 1;
