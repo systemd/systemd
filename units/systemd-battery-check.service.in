@@ -13,6 +13,7 @@ Documentation=man:systemd-battery-check.service(8)
 ConditionVirtualization=no
 ConditionDirectoryNotEmpty=/sys/class/power_supply/
 ConditionKernelCommandLine=!systemd.battery_check=0
+ConditionKernelCommandLine=!systemd.battery-check=0
 AssertPathExists=/etc/initrd-release
 DefaultDependencies=no
 After=plymouth-start.service
