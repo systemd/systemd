@@ -1253,36 +1253,15 @@ int string_extract_line(const char *s, size_t i, char **ret) {
                                         return -ENOMEM;
 
                                 *ret = m;
-                                return !isempty(q + 1); /* more coming? */
-                        } else {
-                                if (p == s)
-                                        *ret = NULL; /* Just use the input string */
-                                else {
-                                        char *m;
-
-                                        m = strdup(p);
-                                        if (!m)
-                                                return -ENOMEM;
-
-                                        *ret = m;
-                                }
-
-                                return 0; /* The end */
-                        }
+                                return !isempty(q + 1); /* More coming? */
+                        } else
+                                /* Tell the caller to use the input string if equal */
+                                return strdup_to(ret, p != s ? p : NULL);
                 }
 
-                if (!q) {
-                        char *m;
-
+                if (!q)
                         /* No more lines, return empty line */
-
-                        m = strdup("");
-                        if (!m)
-                                return -ENOMEM;
-
-                        *ret = m;
-                        return 0; /* The end */
-                }
+                        return strdup_to(ret, "");
 
                 p = q + 1;
                 c++;
