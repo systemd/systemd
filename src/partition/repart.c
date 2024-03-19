@@ -29,6 +29,7 @@
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "efivars.h"
+#include "erofs.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fdisk-util.h"
@@ -59,6 +60,7 @@
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "repart-util.h"
 #include "resize-fs.h"
 #include "rm-rf.h"
 #include "sort-util.h"
@@ -390,20 +392,6 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP(empty_mode, EmptyMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(minimize_mode, MinimizeMode, MINIMIZE_BEST);
-
-static uint64_t round_down_size(uint64_t v, uint64_t p) {
-        return (v / p) * p;
-}
-
-static uint64_t round_up_size(uint64_t v, uint64_t p) {
-
-        v = DIV_ROUND_UP(v, p);
-
-        if (v > UINT64_MAX / p)
-                return UINT64_MAX; /* overflow */
-
-        return v * p;
-}
 
 static Partition *partition_new(void) {
         Partition *p;
