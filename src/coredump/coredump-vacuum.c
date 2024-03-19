@@ -179,18 +179,12 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
 
                         c = hashmap_get(h, UID_TO_PTR(uid));
                         if (c) {
-
                                 if (t < c->oldest_mtime) {
-                                        char *n;
-
-                                        n = strdup(de->d_name);
-                                        if (!n)
-                                                return log_oom();
-
-                                        free_and_replace(c->oldest_file, n);
+                                        r = free_and_strdup_warn(&c->oldest_file, de->d_name);
+                                        if (r < 0)
+                                                return r;
                                         c->oldest_mtime = t;
                                 }
-
                         } else {
                                 _cleanup_(vacuum_candidate_freep) VacuumCandidate *n = NULL;
 
@@ -198,10 +192,9 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                                 if (!n)
                                         return log_oom();
 
-                                n->oldest_file = strdup(de->d_name);
-                                if (!n->oldest_file)
-                                        return log_oom();
-
+                                r = free_and_strdup_warn(&n->oldest_file, de->d_name);
+                                if (r < 0)
+                                        return r;
                                 n->oldest_mtime = t;
 
                                 r = hashmap_put(h, UID_TO_PTR(uid), n);
