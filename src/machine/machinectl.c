@@ -159,24 +159,22 @@ static int call_get_os_release(sd_bus *bus, const char *method, const char *name
         if (r < 0)
                 return bus_log_parse_error(r);
 
+        r = 0;
         va_start(ap, query);
         for (count = 0; count < awaited_args; count++) {
-                char *val, **out;
+                char **out;
 
                 out = va_arg(ap, char **);
                 assert(out);
                 if (query_res[count]) {
-                        val = strdup(query_res[count]);
-                        if (!val) {
-                                va_end(ap);
-                                return -ENOMEM;
-                        }
-                        *out = val;
+                        r = strdup_to(out, query_res[count]);
+                        if (r < 0)
+                                break;
                 }
         }
         va_end(ap);
 
-        return 0;
+        return r;
 }
 
 static int call_get_addresses(
