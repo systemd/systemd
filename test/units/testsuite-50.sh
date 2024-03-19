@@ -808,6 +808,10 @@ prep_root() {
     local r=${1}; shift
     local h=${1}; shift
 
+    if [[ -d ${r} ]]; then
+        die "${r@Q} is being reused as a root, possibly a result of copy-pasting some test case and forgetting to rename the root directory name"
+    fi
+
     mkdir -p "${r}${h}" "${r}/usr/lib" "${r}/var/lib/extensions" "${r}/var/lib/extensions.mutable"
 }
 
