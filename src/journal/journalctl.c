@@ -2662,16 +2662,22 @@ static int run(int argc, char *argv[]) {
                         else
                                 arg_lines = 0;
                 }
-        } else if (arg_until_set && (arg_reverse || arg_lines_needs_seek_end())) {
-                /* If both --until and any of --reverse and --lines=N is specified, things get
-                 * a little tricky. We seek to the place of --until first. If only --reverse or
-                 * --reverse and --lines is specified, we search backwards and let the output
-                 * counter handle --lines for us. If only --lines is used, we just jump backwards
-                 * arg_lines and search afterwards from there. */
+        } else if (arg_until_set || arg_reverse || arg_lines_needs_seek_end()) {
+                /* If any of --until, --reverse, and --lines=N are specified, things get a little tricky.
+                 * First we seek to the place of --until if specified, or seek to tail. Then, if --reverse
+                 * is specified, we search backwards and let the output counter in show() handle --lines for
+                 * us. If --reverse is unspecified, we just jump backwards arg_lines and search afterwards
+                 * from there. */
 
-                r = sd_journal_seek_realtime_usec(j, arg_until);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to seek to date: %m");
+                if (arg_until_set) {
+                        r = sd_journal_seek_realtime_usec(j, arg_until);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to seek to date: %m");
+                } else {
+                        r = sd_journal_seek_tail(j);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to seek to tail: %m");
+                }
 
                 until_seeked = true;
 
@@ -2679,20 +2685,6 @@ static int run(int argc, char *argv[]) {
                         r = sd_journal_previous(j);
                 else /* arg_lines_needs_seek_end */
                         r = sd_journal_previous_skip(j, arg_lines);
-
-        } else if (arg_reverse) {
-                r = sd_journal_seek_tail(j);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to seek to tail: %m");
-
-                r = sd_journal_previous(j);
-
-        } else if (arg_lines_needs_seek_end()) {
-                r = sd_journal_seek_tail(j);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to seek to tail: %m");
-
-                r = sd_journal_previous_skip(j, arg_lines);
 
         } else if (arg_since_set) {
                 /* This is placed after arg_reverse and arg_lines. If --since is used without
