@@ -1506,7 +1506,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
 
                 /* Collect service types for _services._dns-sd._udp.local RRs in a set */
                 if (!scope->announced &&
-                    dns_resource_key_is_dnssd_ptr(z->rr->key)) {
+                    dns_resource_key_is_dnssd_two_label_ptr(z->rr->key)) {
                         if (!set_contains(types, dns_resource_key_name(z->rr->key))) {
                                 r = set_ensure_put(&types, &dns_name_hash_ops, dns_resource_key_name(z->rr->key));
                                 if (r < 0)
