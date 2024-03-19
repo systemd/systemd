@@ -498,13 +498,8 @@ static int mandatory_mount_drop_unapplicable_options(
         assert(where);
         assert(ret_options);
 
-        if (!(*flags & (MOUNT_NOAUTO|MOUNT_NOFAIL|MOUNT_AUTOMOUNT))) {
-                r = strdup_or_null(options, ret_options);
-                if (r < 0)
-                        return r;
-
-                return 0;
-        }
+        if (!(*flags & (MOUNT_NOAUTO|MOUNT_NOFAIL|MOUNT_AUTOMOUNT)))
+                return strdup_to(ret_options, options);
 
         log_debug("Mount '%s' is mandatory, ignoring 'noauto', 'nofail', and 'x-systemd.automount' options.",
                   where);
