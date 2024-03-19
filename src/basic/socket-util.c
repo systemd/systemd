@@ -453,6 +453,7 @@ int sockaddr_pretty(
 
         assert(sa);
         assert(salen >= sizeof(sa->sa.sa_family));
+        assert(ret);
 
         switch (sa->sa.sa_family) {
 
@@ -634,6 +635,7 @@ int socknameinfo_pretty(const struct sockaddr *sa, socklen_t salen, char **ret) 
 
         assert(sa);
         assert(salen > sizeof(sa_family_t));
+        assert(ret);
 
         r = getnameinfo(sa, salen, host, sizeof(host), /* service= */ NULL, /* service_len= */ 0, IDN_FLAGS);
         if (r != 0) {
@@ -647,15 +649,7 @@ int socknameinfo_pretty(const struct sockaddr *sa, socklen_t salen, char **ret) 
                 return sockaddr_pretty(sa, salen, /* translate_ipv6= */ true, /* include_port= */ true, ret);
         }
 
-        if (ret) {
-                char *copy = strdup(host);
-                if (!copy)
-                        return -ENOMEM;
-
-                *ret = copy;
-        }
-
-        return 0;
+        return strdup_to(ret, host);
 }
 
 static const char* const netlink_family_table[] = {
