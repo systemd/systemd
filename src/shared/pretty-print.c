@@ -141,16 +141,8 @@ int terminal_urlify_path(const char *path, const char *text, char **ret) {
         if (isempty(text))
                 text = path;
 
-        if (!urlify_enabled()) {
-                char *n;
-
-                n = strdup(text);
-                if (!n)
-                        return -ENOMEM;
-
-                *ret = n;
-                return 0;
-        }
+        if (!urlify_enabled())
+                return strdup_to(ret, text);
 
         r = file_url_from_path(path, &url);
         if (r < 0)
