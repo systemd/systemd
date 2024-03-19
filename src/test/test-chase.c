@@ -80,7 +80,7 @@ TEST(chase) {
 
         pslash = strjoina(p, "/");
         r = chase(pslash, NULL, 0, &result, NULL);
-        assert_se(r > 0);
+        assert_se(r == O_DIRECTORY);
         assert_se(path_equal(result, "/usr/"));
         result = mfree(result);
 
@@ -100,7 +100,7 @@ TEST(chase) {
         qslash = strjoina(q, "/");
 
         r = chase(pslash, temp, CHASE_NONEXISTENT, &result, NULL);
-        assert_se(r == 0);
+        assert_se(r == O_DIRECTORY);
         assert_se(path_equal(result, qslash));
         result = mfree(result);
 
@@ -112,7 +112,7 @@ TEST(chase) {
         result = mfree(result);
 
         r = chase(pslash, temp, 0, &result, NULL);
-        assert_se(r > 0);
+        assert_se(r == O_DIRECTORY);
         assert_se(path_equal(result, qslash));
         result = mfree(result);
 
@@ -208,12 +208,12 @@ TEST(chase) {
         /* Paths using . */
 
         r = chase("/etc/./.././", NULL, 0, &result, NULL);
-        assert_se(r > 0);
+        assert_se(r == O_DIRECTORY);
         assert_se(path_equal(result, "/"));
         result = mfree(result);
 
         r = chase("/etc/./.././", "/etc", 0, &result, NULL);
-        assert_se(r > 0 && path_equal(result, "/etc"));
+        assert_se(r == O_DIRECTORY && path_equal(result, "/etc"));
         result = mfree(result);
 
         r = chase("/../.././//../../etc", NULL, 0, &result, NULL);
