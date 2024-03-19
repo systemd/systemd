@@ -426,6 +426,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_server_emit_router = true,
                 .dhcp_server_emit_timezone = true,
                 .dhcp_server_rapid_commit = true,
+                .dhcp_server_persist_leases = -1,
 
                 .router_lifetime_usec = RADV_DEFAULT_ROUTER_LIFETIME_USEC,
                 .router_dns_lifetime_usec = RADV_DEFAULT_VALID_LIFETIME_USEC,
@@ -473,6 +474,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv4_rp_filter = _IP_REVERSE_PATH_FILTER_INVALID,
 
                 .ndisc = -1,
+                .ndisc_use_redirect = true,
                 .ndisc_use_dns = true,
                 .ndisc_use_gateway = true,
                 .ndisc_use_captive_portal = true,

@@ -6,7 +6,9 @@
 ***/
 
 #include <net/ethernet.h>
+#include <netinet/in.h>
 #include <stdbool.h>
+#include <sys/uio.h>
 
 #include "time-util.h"
 
@@ -19,7 +21,7 @@
               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } } }
 
 int icmp6_bind(int ifindex, bool is_router);
-int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr);
+int icmp6_send(int fd, const struct sockaddr_in6 *dst, const struct iovec *iov, size_t n_iov);
 int icmp6_receive(
                 int fd,
                 void *buffer,

@@ -40,6 +40,12 @@ sd_ndisc_router* ndisc_router_new(ICMP6Packet *packet) {
         return rt;
 }
 
+int sd_ndisc_router_set_sender_address(sd_ndisc_router *rt, const struct in6_addr *addr) {
+        assert_return(rt, -EINVAL);
+
+        return icmp6_packet_set_sender_address(rt->packet, addr);
+}
+
 int sd_ndisc_router_get_sender_address(sd_ndisc_router *rt, struct in6_addr *ret) {
         assert_return(rt, -EINVAL);
 
@@ -151,7 +157,7 @@ int sd_ndisc_router_get_flags(sd_ndisc_router *rt, uint64_t *ret) {
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        sd_ndisc_option *p = ndisc_option_get(rt->options, SD_NDISC_OPTION_FLAGS_EXTENSION);
+        sd_ndisc_option *p = ndisc_option_get_by_type(rt->options, SD_NDISC_OPTION_FLAGS_EXTENSION);
 
         *ret = rt->flags | (p ? p->extended_flags : 0);
         return 0;
@@ -184,7 +190,7 @@ int sd_ndisc_router_get_mtu(sd_ndisc_router *rt, uint32_t *ret) {
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        sd_ndisc_option *p = ndisc_option_get(rt->options, SD_NDISC_OPTION_MTU);
+        sd_ndisc_option *p = ndisc_option_get_by_type(rt->options, SD_NDISC_OPTION_MTU);
         if (!p)
                 return -ENODATA;
 
@@ -196,7 +202,7 @@ int sd_ndisc_router_get_captive_portal(sd_ndisc_router *rt, const char **ret) {
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        sd_ndisc_option *p = ndisc_option_get(rt->options, SD_NDISC_OPTION_CAPTIVE_PORTAL);
+        sd_ndisc_option *p = ndisc_option_get_by_type(rt->options, SD_NDISC_OPTION_CAPTIVE_PORTAL);
         if (!p)
                 return -ENODATA;
 
