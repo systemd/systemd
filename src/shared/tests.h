@@ -201,41 +201,62 @@ static inline int run_test_table(void) {
 #define DEFINE_TEST_MAIN(log_level)                     \
         DEFINE_TEST_MAIN_FULL(log_level, NULL, NULL)
 
-#define ASSERT_OK(expr)                                                                                  \
-        ({                                                                                               \
-                int _result = (expr);                                                                    \
-                if (_result < 0) {                                                                       \
-                        log_error_errno("Assertion failed: %s (result: %d, error: %m)", #expr, _result); \
-                        abort();                                                                         \
-                }                                                                                        \
+#define FMT(_pre_, x, sign) _Generic((x),                 \
+        char: _pre_ "%c" sign "%c",                       \
+        signed char: _pre_ "%hhd" sign "%hhd",            \
+        unsigned char: _pre_ "%hhu" sign "%hhu",          \
+        signed short: _pre_ "%hd" sign "%hd",             \
+        unsigned short: _pre_ "%hu" sign "%hu",           \
+        signed int: _pre_ "%d" sign "%d",                 \
+        unsigned int: _pre_ "%u" sign "%u",               \
+        long int: _pre_ "%ld" sign "%ld",                 \
+        unsigned long int: _pre_ "%lu" sign "%lu",        \
+        long long int: _pre_ "%lld" sign "%lld",          \
+        unsigned long long int: _pre_ "%llu" sign "%llu", \
+        float: _pre_ "%f" sign "%f",                      \
+        double: _pre_ "%f" sign "%f",                     \
+        long double: _pre_ "%Lf" sign "%Lf",              \
+        char *: _pre_ "%s" sign "%s",                     \
+        void *: _pre_ "%p" sign "%p")
+
+#define ASSERT_OK(expr)                                                                                          \
+        ({                                                                                                       \
+                typeof(expr) _result = (expr);                                                                   \
+                if (_result < 0) {                                                                               \
+                        log_error_errno(_result, "%s:%i: Unexpected error: %m", PROJECT_FILE, __LINE__);         \
+                        abort();                                                                                 \
+                }                                                                                                \
         })
 
-#define ASSERT_EQ(expr1, expr2)                                                                          \
-        ({                                                                                               \
-                int _expr1 = (expr1);                                                                    \
-                int _expr2 = (expr2);                                                                    \
-                if (_expr1 != _expr2) {                                                                  \
-                        log_error("Assertion failed: expected %s == %s, but %d != %d", #expr1, #expr2, _expr1, _expr2); \
-                        abort();                                                                         \
-                }                                                                                        \
+#define ASSERT_EQ(expr1, expr2)                                                                                  \
+        ({                                                                                                       \
+                typeof(expr1) _expr1 = (expr1);                                                                  \
+                typeof(expr2) _expr2 = (expr2);                                                                  \
+                if (_expr1 != _expr2) {                                                                          \
+                        log_error(FMT("%s:%i: Assertion failed: expected %s == %s, but ", _expr1, "!="),         \
+                                  PROJECT_FILE, __LINE__, #expr1, #expr2, _expr1, _expr2);                       \
+                        abort();                                                                                 \
+                }                                                                                                \
         })
 
-#define ASSERT_GE(expr1, expr2)                                                                          \
-        ({                                                                                               \
-                int _expr1 = (expr1);                                                                    \
-                int _expr2 = (expr2);                                                                    \
-                if (_expr1 < _expr2) {                                                                   \
-                        log_error("Assertion failed: expected %s >= %s, but %d < %d", #expr1, #expr2, _expr1, _expr2); \
-                        abort();                                                                         \
-                }                                                                                        \
+#define ASSERT_GE(expr1, expr2)                                                                                  \
+        ({                                                                                                       \
+                typeof(expr1) _expr1 = (expr1);                                                                  \
+                typeof(expr2) _expr2 = (expr2);                                                                  \
+                if (_expr1 < _expr2) {                                                                           \
+                        log_error(FMT("%s:%i: Assertion failed: expected %s >= %s, but ", _expr1, "<"),          \
+                                  PROJECT_FILE, __LINE__, #expr1, #expr2, _expr1, _expr2);                       \
+                        abort();                                                                                 \
+                }                                                                                                \
         })
 
-#define ASSERT_LE(expr1, expr2)                                                                          \
-        ({                                                                                               \
-                int _expr1 = (expr1);                                                                    \
-                int _expr2 = (expr2);                                                                    \
-                if (_expr1 > _expr2) {                                                                   \
-                        log_error("Assertion failed: expected %s <= %s, but %d > %d", #expr1, #expr2, _expr1, _expr2); \
-                        abort();                                                                         \
-                }                                                                                        \
+#define ASSERT_LE(expr1, expr2)                                                                                  \
+        ({                                                                                                       \
+                typeof(expr1) _expr1 = (expr1);                                                                  \
+                typeof(expr2) _expr2 = (expr2);                                                                  \
+                if (_expr1 > _expr2) {                                                                           \
+                        log_error(FMT("%s:%i: Assertion failed: expected %s >= %s, but ", _expr1, ">"),          \
+                                  PROJECT_FILE, __LINE__, #expr1, #expr2, _expr1, _expr2);                       \
+                        abort();                                                                                 \
+                }                                                                                                \
         })
