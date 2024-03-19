@@ -29,6 +29,7 @@
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "efivars.h"
+#include "erofs.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fdisk-util.h"
@@ -59,6 +60,7 @@
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "repart-util.h"
 #include "resize-fs.h"
 #include "rm-rf.h"
 #include "sort-util.h"
@@ -295,6 +297,7 @@ typedef struct Partition {
         uint64_t copy_blocks_size;
 
         char *format;
+        char **mkfs_options_extra;
         char **copy_files;
         char **exclude_files_source;
         char **exclude_files_target;
@@ -391,20 +394,6 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(encrypt_mode, Encryp
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(minimize_mode, MinimizeMode, MINIMIZE_BEST);
 
-static uint64_t round_down_size(uint64_t v, uint64_t p) {
-        return (v / p) * p;
-}
-
-static uint64_t round_up_size(uint64_t v, uint64_t p) {
-
-        v = DIV_ROUND_UP(v, p);
-
-        if (v > UINT64_MAX / p)
-                return UINT64_MAX; /* overflow */
-
-        return v * p;
-}
-
 static Partition *partition_new(void) {
         Partition *p;
 
@@ -459,6 +448,7 @@ static Partition* partition_free(Partition *p) {
         safe_close(p->copy_blocks_fd);
 
         free(p->format);
+        strv_free(p->mkfs_options_extra);
         strv_free(p->copy_files);
         strv_free(p->exclude_files_source);
         strv_free(p->exclude_files_target);
@@ -494,6 +484,7 @@ static void partition_foreignize(Partition *p) {
         p->copy_blocks_root = NULL;
 
         p->format = mfree(p->format);
+        p->mkfs_options_extra = strv_free(p->mkfs_options_extra);
         p->copy_files = strv_free(p->copy_files);
         p->exclude_files_source = strv_free(p->exclude_files_source);
         p->exclude_files_target = strv_free(p->exclude_files_target);
@@ -1855,6 +1846,27 @@ static int config_parse_encrypted_volume(
         return 0;
 }
 
+
+static int mkfs_options_from_config(
+                            const char *partition_format, 
+                            const char *root, 
+                            const char *path, 
+                            const char *const *conf_file_dirs, 
+                            char ***ret_options) {
+        if (!partition_format)
+                return -EINVAL;
+        
+        // Should probably rewrite all this with enums
+        int r;
+        if (strcmp(partition_format, "erofs") == 0){
+                r = parse_erofs_options(root, path, conf_file_dirs, ret_options);
+                if (r<0)
+                        return r;
+        }
+        /* default, and all OK */
+        return 0;
+}
+
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, VerityMode, VERITY_OFF, "Invalid verity mode");
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mode, MinimizeMode, MINIMIZE_OFF, "Invalid minimize mode");
 
@@ -1917,6 +1929,40 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                         &p->drop_in_files);
         if (r < 0)
                 return r;
+        
+        
+        /* Parse extra mkfs options from config and environment */
+        
+        _cleanup_strv_free_ char **extra_mkfs_options_config = NULL;
+        _cleanup_strv_free_ char **extra_mkfs_options_env = NULL;
+        
+        r = mkfs_options_from_config(
+                                p->format, 
+                                arg_definitions ? NULL : arg_root, 
+                                path,
+                                conf_file_dirs, 
+                                /* ret_options */ &extra_mkfs_options_config);
+        if (r < 0)
+                return log_oom();
+        
+        r = mkfs_options_from_env("REPART", p->format, &extra_mkfs_options_env);
+        if (r < 0)
+                return log_error_errno(r,
+                                       "Failed to determine mkfs command line options for '%s': %m",
+                                       p->format);
+        
+        if (!strv_isempty(extra_mkfs_options_config)) {
+                r = strv_extend_strv(&p->mkfs_options_extra, TAKE_PTR(extra_mkfs_options_config), /* filter_duplicates = */ false);
+                if (r < 0)
+                        return log_oom();
+        }
+        
+        if (!strv_isempty(extra_mkfs_options_env)) {
+                r = strv_extend_strv(&p->mkfs_options_extra, TAKE_PTR(extra_mkfs_options_env), /* filter_duplicates = */ false);
+                if (r < 0)
+                        return log_oom();
+        }
+        
 
         if (partition_type_exclude(&p->type))
                 return 0;
@@ -4975,7 +5021,6 @@ static int context_mkfs(Context *context) {
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
-                _cleanup_strv_free_ char **extra_mkfs_options = NULL;
 
                 if (p->dropped)
                         continue;
@@ -5033,15 +5078,9 @@ static int context_mkfs(Context *context) {
                                 return r;
                 }
 
-                r = mkfs_options_from_env("REPART", p->format, &extra_mkfs_options);
-                if (r < 0)
-                        return log_error_errno(r,
-                                               "Failed to determine mkfs command line options for '%s': %m",
-                                               p->format);
-
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
                                     p->fs_uuid, arg_discard, /* quiet = */ false,
-                                    context->fs_sector_size, extra_mkfs_options);
+                                    context->fs_sector_size, p->mkfs_options_extra);
                 if (r < 0)
                         return r;
 
@@ -6490,7 +6529,6 @@ static int context_minimize(Context *context) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(unlink_and_freep) char *temp = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-                _cleanup_strv_free_ char **extra_mkfs_options = NULL;
                 _cleanup_close_ int fd = -EBADF;
                 _cleanup_free_ char *hint = NULL;
                 sd_id128_t fs_uuid;
@@ -6569,12 +6607,6 @@ static int context_minimize(Context *context) {
                                 return r;
                 }
 
-                r = mkfs_options_from_env("REPART", p->format, &extra_mkfs_options);
-                if (r < 0)
-                        return log_error_errno(r,
-                                               "Failed to determine mkfs command line options for '%s': %m",
-                                               p->format);
-
                 r = make_filesystem(d ? d->node : temp,
                                     p->format,
                                     strempty(p->new_label),
@@ -6582,7 +6614,7 @@ static int context_minimize(Context *context) {
                                     fs_uuid,
                                     arg_discard, /* quiet = */ false,
                                     context->fs_sector_size,
-                                    extra_mkfs_options);
+                                    p->mkfs_options_extra);
                 if (r < 0)
                         return r;
 
@@ -6663,7 +6695,7 @@ static int context_minimize(Context *context) {
                                     arg_discard,
                                     /* quiet = */ false,
                                     context->fs_sector_size,
-                                    extra_mkfs_options);
+                                    p->mkfs_options_extra);
                 if (r < 0)
                         return r;
 
