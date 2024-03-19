@@ -3,8 +3,12 @@
 
 #include <sys/resource.h>
 
+#include "macro.h"
+
 #ifndef RLIMIT_RTTIME
-#define RLIMIT_RTTIME 15
+#  define RLIMIT_RTTIME 15
+#else
+assert_cc(RLIMIT_RTTIME == 15);
 #endif
 
 /* If RLIMIT_RTTIME is not defined, then we cannot use RLIMIT_NLIMITS as is */
