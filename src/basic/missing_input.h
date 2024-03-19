@@ -19,8 +19,8 @@ struct input_mask {
         __u64 codes_ptr;
 };
 
-#define EVIOCGMASK _IOR('E', 0x92, struct input_mask)
-#define EVIOCSMASK _IOW('E', 0x93, struct input_mask)
+#  define EVIOCGMASK _IOR('E', 0x92, struct input_mask)
+#  define EVIOCSMASK _IOW('E', 0x93, struct input_mask)
 #endif
 
 /* linux@7611392fe8ff95ecae528b01a815ae3d72ca6b95 (3.17) */
