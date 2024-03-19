@@ -3047,7 +3047,6 @@ int unit_file_get_default(
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
         InstallInfo *info;
-        char *n;
         int r;
 
         assert(scope >= 0);
@@ -3063,12 +3062,7 @@ int unit_file_get_default(
         if (r < 0)
                 return r;
 
-        n = strdup(info->name);
-        if (!n)
-                return -ENOMEM;
-
-        *name = n;
-        return 0;
+        return strdup_to(name, info->name);
 }
 
 int unit_file_lookup_state(
