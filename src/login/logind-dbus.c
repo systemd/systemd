@@ -989,53 +989,41 @@ static int create_session(
                 user->gc_mode = USER_GC_BY_PIN;
 
         if (!isempty(tty)) {
-                session->tty = strdup(tty);
-                if (!session->tty) {
-                        r = -ENOMEM;
+                r = strdup_to(&session->tty, tty);
+                if (r < 0)
                         goto fail;
-                }
 
                 session->tty_validity = TTY_FROM_PAM;
         }
 
         if (!isempty(display)) {
-                session->display = strdup(display);
-                if (!session->display) {
-                        r = -ENOMEM;
+                r = strdup_to(&session->display, display);
+                if (r < 0)
                         goto fail;
-                }
         }
 
         if (!isempty(remote_user)) {
-                session->remote_user = strdup(remote_user);
-                if (!session->remote_user) {
-                        r = -ENOMEM;
+                r = strdup_to(&session->remote_user, remote_user);
+                if (r < 0)
                         goto fail;
-                }
         }
 
         if (!isempty(remote_host)) {
-                session->remote_host = strdup(remote_host);
-                if (!session->remote_host) {
-                        r = -ENOMEM;
+                r = strdup_to(&session->remote_host, remote_host);
+                if (r < 0)
                         goto fail;
-                }
         }
 
         if (!isempty(service)) {
-                session->service = strdup(service);
-                if (!session->service) {
-                        r = -ENOMEM;
+                r = strdup_to(&session->service, service);
+                if (r < 0)
                         goto fail;
-                }
         }
 
         if (!isempty(desktop)) {
-                session->desktop = strdup(desktop);
-                if (!session->desktop) {
-                        r = -ENOMEM;
+                r = strdup_to(&session->desktop, desktop);
+                if (r < 0)
                         goto fail;
-                }
         }
 
         if (seat) {
