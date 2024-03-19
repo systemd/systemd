@@ -1022,7 +1022,6 @@ int kill_and_sigcont(pid_t pid, int sig) {
 
 int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
-        char *value = NULL;
         const char *path;
         size_t sum = 0;
         int r;
@@ -1031,22 +1030,8 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         assert(field);
         assert(ret);
 
-        if (pid == 0 || pid == getpid_cached()) {
-                const char *e;
-
-                e = getenv(field);
-                if (!e) {
-                        *ret = NULL;
-                        return 0;
-                }
-
-                value = strdup(e);
-                if (!value)
-                        return -ENOMEM;
-
-                *ret = value;
-                return 1;
-        }
+        if (pid == 0 || pid == getpid_cached())
+                return strdup_to_full(ret, getenv(field));
 
         if (!pid_is_valid(pid))
                 return -EINVAL;
