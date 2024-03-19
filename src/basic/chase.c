@@ -741,12 +741,7 @@ int chase_extract_filename(const char *path, const char *root, char **ret) {
                         return r;
         }
 
-        char *fname = strdup(".");
-        if (!fname)
-                return -ENOMEM;
-
-        *ret = fname;
-        return 0;
+        return strdup_to(ret, ".");
 }
 
 int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path) {

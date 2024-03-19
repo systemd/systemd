@@ -314,11 +314,7 @@ static int session_device_verify(SessionDevice *sd) {
         if (sd->device->seat != sd->session->seat)
                 return -EPERM;
 
-        sd->node = strdup(node);
-        if (!sd->node)
-                return -ENOMEM;
-
-        return 0;
+        return strdup_to(&sd->node, node);
 }
 
 int session_device_new(Session *s, dev_t dev, bool open_device, SessionDevice **ret) {

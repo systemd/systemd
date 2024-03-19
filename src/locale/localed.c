@@ -158,11 +158,7 @@ static int process_locale_list_item(
                 if (new_locale[p])
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale variable %s set twice, refusing.", name);
 
-                new_locale[p] = strdup(e);
-                if (!new_locale[p])
-                        return -ENOMEM;
-
-                return 0;
+                return strdup_to(&new_locale[p], e);
         }
 
         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale assignment %s not valid, refusing.", assignment);

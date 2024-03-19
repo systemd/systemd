@@ -32,14 +32,8 @@ int net_get_type_string(sd_device *device, uint16_t iftype, char **ret) {
 
         if (device &&
             sd_device_get_devtype(device, &t) >= 0 &&
-            !isempty(t)) {
-                p = strdup(t);
-                if (!p)
-                        return -ENOMEM;
-
-                *ret = p;
-                return 0;
-        }
+            !isempty(t))
+                return strdup_to(ret, t);
 
         t = arphrd_to_name(iftype);
         if (!t)

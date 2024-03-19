@@ -175,7 +175,7 @@ int unit_file_set_default(
 int unit_file_get_default(
                 RuntimeScope scope,
                 const char *root_dir,
-                char **name);
+                char **ret);
 int unit_file_add_dependency(
                 RuntimeScope scope,
                 UnitFileFlags flags,

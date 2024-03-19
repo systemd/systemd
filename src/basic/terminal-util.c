@@ -696,18 +696,10 @@ int vtnr_from_tty(const char *tty) {
                 tty = active;
         }
 
-        if (tty == active)
-                *ret = TAKE_PTR(active);
-        else {
-                char *tmp;
+        if (tty != active)
+                return strdup_to(ret, tty);
 
-                tmp = strdup(tty);
-                if (!tmp)
-                        return -ENOMEM;
-
-                *ret = tmp;
-        }
-
+        *ret = TAKE_PTR(active);
         return 0;
 }
 
@@ -987,7 +979,7 @@ bool on_tty(void) {
 }
 
 int getttyname_malloc(int fd, char **ret) {
-        char path[PATH_MAX], *c; /* PATH_MAX is counted *with* the trailing NUL byte */
+        char path[PATH_MAX]; /* PATH_MAX is counted *with* the trailing NUL byte */
         int r;
 
         assert(fd >= 0);
@@ -1000,12 +992,7 @@ int getttyname_malloc(int fd, char **ret) {
         if (r > 0)
                 return -r;
 
-        c = strdup(skip_dev_prefix(path));
-        if (!c)
-                return -ENOMEM;
-
-        *ret = c;
-        return 0;
+        return strdup_to(ret, skip_dev_prefix(path));
 }
 
 int getttyname_harder(int fd, char **ret) {

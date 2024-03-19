@@ -1094,7 +1094,6 @@ int path_extract_filename(const char *path, char **ret) {
 }
 
 int path_extract_directory(const char *path, char **ret) {
-        _cleanup_free_ char *a = NULL;
         const char *c, *next = NULL;
         int r;
 
@@ -1118,14 +1117,10 @@ int path_extract_directory(const char *path, char **ret) {
                 if (*path != '/') /* filename only */
                         return -EDESTADDRREQ;
 
-                a = strdup("/");
-                if (!a)
-                        return -ENOMEM;
-                *ret = TAKE_PTR(a);
-                return 0;
+                return strdup_to(ret, "/");
         }
 
-        a = strndup(path, next - path);
+        _cleanup_free_ char *a = strndup(path, next - path);
         if (!a)
                 return -ENOMEM;
 

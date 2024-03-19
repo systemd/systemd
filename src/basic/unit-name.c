@@ -793,12 +793,7 @@ int unit_name_mangle_with_suffix(
         return 1;
 
 good:
-        s = strdup(name);
-        if (!s)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(s);
-        return 0;
+        return strdup_to(ret, name);
 }
 
 int slice_build_parent_slice(const char *slice, char **ret) {

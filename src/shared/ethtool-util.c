@@ -182,7 +182,6 @@ int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret) {
         struct ifreq ifr = {
                 .ifr_data = (void*) &ecmd,
         };
-        char *d;
         int r;
 
         assert(ethtool_fd);
@@ -201,12 +200,7 @@ int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret) {
         if (isempty(ecmd.driver))
                 return -ENODATA;
 
-        d = strdup(ecmd.driver);
-        if (!d)
-                return -ENOMEM;
-
-        *ret = d;
-        return 0;
+        return strdup_to(ret, ecmd.driver);
 }
 
 int ethtool_get_link_info(
