@@ -152,7 +152,7 @@ TEST(path_is_mount_point) {
          */
 
         /* file mountpoints */
-        assert_se(mkdtemp(tmp_dir) != NULL);
+        ASSERT_NOT_NULL(mkdtemp(tmp_dir));
         file1 = path_join(tmp_dir, "file1");
         assert_se(file1);
         file2 = path_join(tmp_dir, "file2");

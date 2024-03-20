@@ -17,7 +17,7 @@ TEST(make_recovery_key) {
         /* Check for successful recovery-key creation */
         r = make_recovery_key(&recovery_key);
         assert_se(r == 0);
-        assert_se(recovery_key != NULL);
+        ASSERT_NOT_NULL(recovery_key);
 
         /* Check that length of formatted key is 72 with 64 modhex characters */
         length = strlen(recovery_key);

@@ -19,7 +19,7 @@ TEST(hmac) {
                               "",
                               result);
         hex_result = hexmem(result, sizeof(result));
-        assert_se(streq_ptr(hex_result, "cadd5e42114351181f3abff477641d88efb57d2b5641a1e5c6d623363a6d3bad"));
+        ASSERT_STREQ(hex_result, "cadd5e42114351181f3abff477641d88efb57d2b5641a1e5c6d623363a6d3bad");
         hex_result = mfree(hex_result);
 
         hmac_sha256_by_string("waldo",
