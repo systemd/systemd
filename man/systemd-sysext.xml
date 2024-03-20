@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-sysext"
+<refentry id="systemd-sysext" conditional='ENABLE_SYSEXT'
     xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
@@ -221,21 +221,30 @@
 
     <para>The following modes are supported:
     <orderedlist>
-      <listitem><para><option>disabled</option>: Force immutable mode even if write routing
-        directories exist below <filename>/var/lib/extensions.mutable/</filename>.
-        This is the default.</para></listitem>
-      <listitem><para><option>auto</option>: Automatic mode. Mutability is disabled by default
-        and only enabled if a corresponding write routing directory exists below
-        <filename>/var/lib/extensions.mutable/</filename>.</para></listitem>
+      <listitem><para><option>disabled</option>: Force immutable mode even if write routing directories exist
+      below <filename>/var/lib/extensions.mutable/</filename>. This is the default.</para></listitem>
+      <listitem><para><option>auto</option>: Automatic mode. Mutability is disabled by default and only
+      enabled if a corresponding write routing directory exists below
+      <filename>/var/lib/extensions.mutable/</filename>.</para></listitem>
       <listitem><para><option>enabled</option>: Force mutable mode and automatically create write routing
-        directories below <filename>/var/lib/extensions.mutable/</filename> when required.</para></listitem>
+      directories below <filename>/var/lib/extensions.mutable/</filename> when required.</para></listitem>
       <listitem><para><option>import</option>: Force immutable mode like <option>disabled</option> above, but
-        merge the contents of directories below <filename>/var/lib/extensions.mutable/</filename> into the host
-        file system.</para></listitem>
+      merge the contents of directories below <filename>/var/lib/extensions.mutable/</filename> into the host
+      file system.</para></listitem>
+      <listitem><para><option>ephemeral</option>: Force mutable mode like <option>enabled</option> above, but
+      instead of using write routing directory below <filename>/var/lib/extensions.mutable/</filename>,
+      <command>systemd-sysext</command> will use empty ephemeral directories. This means that the
+      modifications made in the merged hierarchies will be gone when the hierarchies are
+      unmerged.</para></listitem>
+      <listitem><para><option>ephemeral-import</option>: Force mutable mode like <option>ephemeral</option>
+      above, but instead of ignoring the contents of write routing directories under
+      <filename>/var/lib/extensions.mutable/</filename>, merge them into the host file system, like
+      <option>import</option> does.</para></listitem>
     </orderedlist>
     See "Options" below on specifying modes using the <option>--mutable=</option> command line option.</para>
 
-    <para>Mutable mode routes writes to subdirectories in <filename>/var/lib/extensions.mutable/</filename>.
+    <para>With exception of the ephemeral mode, the mutable mode routes writes to subdirectories in
+    <filename>/var/lib/extensions.mutable/</filename>.
     <simplelist type="horiz">
       <member>Writes to <filename>/usr/</filename> are directed to <filename>/var/lib/extensions.mutable/usr/</filename></member>,
       <member>writes to <filename>/opt/</filename> are directed to <filename>/var/lib/extensions.mutable/opt/</filename>, and</member>
@@ -253,10 +262,11 @@
     </simplelist>
     to route writes back to the original base directory hierarchy.</para>
 
-    <para> Alternatively, a temporary file system may be mounted to
+    <para>Alternatively, a temporary file system may be mounted to
     <filename>/var/lib/extensions.mutable/</filename>, or symlinks in
-    <filename>/var/lib/extensions.mutable/</filename> may point to sub-directories on a temporary
-    file system (e.g. below <filename>/tmp/</filename>) to only allow ephemeral changes.</para>
+    <filename>/var/lib/extensions.mutable/</filename> may point to sub-directories on a temporary file system
+    (e.g. below <filename>/tmp/</filename>) to only allow ephemeral changes. Note that this is not the same
+    as ephemeral mode, because the temporary file system will still exist after unmerging.</para>
 
     <xi:include href="version-info.xml" xpointer="v256"/>
   </refsect1>
@@ -401,6 +411,22 @@
             <term><option>import</option></term>
             <listitem><para>immutable mode, but with contents of write routing directories in
             <filename>/var/lib/extensions.mutable/</filename> also merged into the host file system.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>ephemeral</option></term>
+            <listitem><para>force mutable mode, but with contents of write routing directories in
+            <filename>/var/lib/extensions.mutable/</filename> being ignored, and modifications of the host
+            file system being discarded after unmerge.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>ephemeral-import</option></term>
+            <listitem><para>force mutable mode, with contents of write routing directories in
+            <filename>/var/lib/extensions.mutable/</filename> being merged into the host file system, but
+            with the modifications made to the host file system being discarded after unmerge.</para>
             <xi:include href="version-info.xml" xpointer="v256"/></listitem>
           </varlistentry>
         </variablelist>
