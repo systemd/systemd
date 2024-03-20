@@ -179,6 +179,7 @@ static Virtualization detect_vm_dmi_vendor(void) {
                 { "VMW",                   VIRTUALIZATION_VMWARE    },
                 { "innotek GmbH",          VIRTUALIZATION_ORACLE    },
                 { "VirtualBox",            VIRTUALIZATION_ORACLE    },
+                { "Oracle Corporation",    VIRTUALIZATION_ORACLE    }, /* Detect VirtualBox on some proprietary systems via the board_vendor */
                 { "Xen",                   VIRTUALIZATION_XEN       },
                 { "Bochs",                 VIRTUALIZATION_BOCHS     },
                 { "Parallels",             VIRTUALIZATION_PARALLELS },
