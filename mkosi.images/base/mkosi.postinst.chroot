@@ -65,17 +65,6 @@ fi
 mountpoint -q /etc/resolv.conf && umount /etc/resolv.conf
 rm -f /etc/resolv.conf
 
-. /usr/lib/os-release
-
-mkdir -p /usr/lib/sysusers.d
-cat >/usr/lib/sysusers.d/testuser.conf <<EOF
-u	testuser	4711	"Test User"	/home/testuser
-EOF
-mkdir -p /usr/lib/tmpfiles.d
-cat >/usr/lib/tmpfiles.d/testuser.conf <<EOF
-q	/home/testuser	0700	4711	4711
-EOF
-
 # sbsign is not available on CentOS Stream
 if command -v sbsign &>/dev/null; then
     # Ensure that side-loaded PE addons are loaded if signed, and ignored if not
