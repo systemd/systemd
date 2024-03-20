@@ -215,20 +215,21 @@ static int assess_user(
                 uint64_t *ret_badness,
                 char **ret_description) {
 
-        _cleanup_free_ char *d = NULL;
+        const char *d;
         uint64_t b;
+        int r;
 
         assert(ret_badness);
         assert(ret_description);
 
         if (streq_ptr(info->user, NOBODY_USER_NAME)) {
-                d = strdup("Service runs under as '" NOBODY_USER_NAME "' user, which should not be used for services");
+                d = "Service runs under as '" NOBODY_USER_NAME "' user, which should not be used for services";
                 b = 9;
         } else if (info->dynamic_user && !STR_IN_SET(info->user, "0", "root")) {
-                d = strdup("Service runs under a transient non-root user identity");
+                d = "Service runs under a transient non-root user identity";
                 b = 0;
         } else if (info->user && !STR_IN_SET(info->user, "0", "root", "")) {
-                d = strdup("Service runs under a static non-root user identity");
+                d = "Service runs under a static non-root user identity";
                 b = 0;
         } else {
                 *ret_badness = 10;
@@ -236,12 +237,11 @@ static int assess_user(
                 return 0;
         }
 
-        if (!d)
-                return log_oom();
+        r = strdup_to(ret_description, d);
+        if (r < 0)
+                return r;
 
         *ret_badness = b;
-        *ret_description = TAKE_PTR(d);
-
         return 0;
 }
 
@@ -254,7 +254,6 @@ static int assess_protect_home(
 
         const char *description;
         uint64_t badness;
-        char *copy;
         int r;
 
         assert(ret_badness);
@@ -277,13 +276,11 @@ static int assess_protect_home(
                 description = "Service has no access to home directories";
         }
 
-        copy = strdup(description);
-        if (!copy)
-                return log_oom();
+        r = strdup_to(ret_description, description);
+        if (r < 0)
+                return r;
 
         *ret_badness = badness;
-        *ret_description = copy;
-
         return 0;
 }
 
@@ -296,7 +293,6 @@ static int assess_protect_system(
 
         const char *description;
         uint64_t badness;
-        char *copy;
         int r;
 
         assert(ret_badness);
@@ -319,13 +315,11 @@ static int assess_protect_system(
                 description = "Service has limited write access to the OS file hierarchy";
         }
 
-        copy = strdup(description);
-        if (!copy)
-                return log_oom();
+        r = strdup_to(ret_description, description);
+        if (r < 0)
+                return r;
 
         *ret_badness = badness;
-        *ret_description = copy;
-
         return 0;
 }
 
@@ -370,9 +364,9 @@ static int assess_umask(
                 uint64_t *ret_badness,
                 char **ret_description) {
 
-        char *copy = NULL;
         const char *d;
         uint64_t b;
+        int r;
 
         assert(ret_badness);
         assert(ret_description);
@@ -394,13 +388,11 @@ static int assess_umask(
                 b = 0;
         }
 
-        copy = strdup(d);
-        if (!copy)
-                return log_oom();
+        r = strdup_to(ret_description, d);
+        if (r < 0)
+                return r;
 
         *ret_badness = b;
-        *ret_description = copy;
-
         return 0;
 }
 
@@ -537,30 +529,30 @@ static int assess_system_call_architectures(
                 uint64_t *ret_badness,
                 char **ret_description) {
 
-        char *d;
+        const char *d;
         uint64_t b;
+        int r;
 
         assert(ret_badness);
         assert(ret_description);
 
         if (set_isempty(info->system_call_architectures)) {
                 b = 10;
-                d = strdup("Service may execute system calls with all ABIs");
+                d = "Service may execute system calls with all ABIs";
         } else if (set_contains(info->system_call_architectures, "native") &&
                    set_size(info->system_call_architectures) == 1) {
                 b = 0;
-                d = strdup("Service may execute system calls only with native ABI");
+                d = "Service may execute system calls only with native ABI";
         } else {
                 b = 8;
-                d = strdup("Service may execute system calls with multiple ABIs");
+                d = "Service may execute system calls with multiple ABIs";
         }
 
-        if (!d)
-                return log_oom();
+        r = strdup_to(ret_description, d);
+        if (r < 0)
+                return r;
 
         *ret_badness = b;
-        *ret_description = d;
-
         return 0;
 }
 
@@ -607,12 +599,12 @@ static int assess_system_call_filter(
         assert(a->parameter < _SYSCALL_FILTER_SET_MAX);
         const SyscallFilterSet *f = syscall_filter_sets + a->parameter;
 
-        _cleanup_free_ char *d = NULL;
+        char *d;
         uint64_t b;
         int r;
 
         if (!info->system_call_filter_allow_list && set_isempty(info->system_call_filter)) {
-                r = free_and_strdup(&d, "Service does not filter system calls");
+                r = strdup_to(&d, "Service does not filter system calls");
                 b = 10;
         } else {
                 bool bad;
@@ -649,8 +641,8 @@ static int assess_system_call_filter(
         if (r < 0)
                 return log_oom();
 
+        *ret_description = d;
         *ret_badness = b;
-        *ret_description = TAKE_PTR(d);
 
         return 0;
 }
@@ -664,36 +656,36 @@ static int assess_ip_address_allow(
                 uint64_t *ret_badness,
                 char **ret_description) {
 
-        char *d = NULL;
+        const char *d;
         uint64_t b;
+        int r;
 
         assert(info);
         assert(ret_badness);
         assert(ret_description);
 
         if (info->ip_filters_custom_ingress || info->ip_filters_custom_egress) {
-                d = strdup("Service defines custom ingress/egress IP filters with BPF programs");
+                d = "Service defines custom ingress/egress IP filters with BPF programs";
                 b = 0;
         } else if (!info->ip_address_deny_all) {
-                d = strdup("Service does not define an IP address allow list");
+                d = "Service does not define an IP address allow list";
                 b = 10;
         } else if (info->ip_address_allow_other) {
-                d = strdup("Service defines IP address allow list with non-localhost entries");
+                d = "Service defines IP address allow list with non-localhost entries";
                 b = 5;
         } else if (info->ip_address_allow_localhost) {
-                d = strdup("Service defines IP address allow list with only localhost entries");
+                d = "Service defines IP address allow list with only localhost entries";
                 b = 2;
         } else {
-                d = strdup("Service blocks all IP address ranges");
+                d = "Service blocks all IP address ranges";
                 b = 0;
         }
 
-        if (!d)
-                return log_oom();
+        r = strdup_to(ret_description, d);
+        if (r < 0)
+                return r;
 
         *ret_badness = b;
-        *ret_description = d;
-
         return 0;
 }
 
@@ -704,7 +696,7 @@ static int assess_device_allow(
                 uint64_t *ret_badness,
                 char **ret_description) {
 
-        char *d = NULL;
+        char *d;
         uint64_t b;
 
         assert(info);
@@ -2828,7 +2820,6 @@ static int analyze_security(sd_bus *bus,
 
                 for (;;) {
                         UnitInfo info;
-                        char *copy = NULL;
 
                         r = bus_parse_unit_info(reply, &info);
                         if (r < 0)
@@ -2842,12 +2833,11 @@ static int analyze_security(sd_bus *bus,
                         if (!GREEDY_REALLOC(list, n + 2))
                                 return log_oom();
 
-                        copy = strdup(info.id);
-                        if (!copy)
-                                return log_oom();
+                        r = strdup_to(&list[n], info.id);
+                        if (r < 0)
+                                return r;
 
-                        list[n++] = copy;
-                        list[n] = NULL;
+                        list[++n] = NULL;
                 }
 
                 strv_sort(list);

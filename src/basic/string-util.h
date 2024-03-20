@@ -224,6 +224,12 @@ static inline int free_and_strdup_warn(char **p, const char *s) {
 }
 int free_and_strndup(char **p, const char *s, size_t l);
 
+int strdup_to_full(char **ret, const char *src);
+static inline int strdup_to(char **ret, const char *src) {
+        int r = strdup_to_full(ASSERT_PTR(ret), src);
+        return r < 0 ? r : 0;  /* Suppress return value of 1. */
+}
+
 bool string_is_safe(const char *p) _pure_;
 
 DISABLE_WARNING_STRINGOP_TRUNCATION;
@@ -296,26 +302,5 @@ bool version_is_valid(const char *s);
 bool version_is_valid_versionspec(const char *s);
 
 ssize_t strlevenshtein(const char *x, const char *y);
-
-static inline int strdup_or_null(const char *s, char **ret) {
-        char *c;
-
-        assert(ret);
-
-        /* This is a lot like strdup(), but is happy with NULL strings, and does not treat that as error, but
-         * copies the NULL value. */
-
-        if (!s) {
-                *ret = NULL;
-                return 0;
-        }
-
-        c = strdup(s);
-        if (!c)
-                return -ENOMEM;
-
-        *ret = c;
-        return 1;
-}
 
 char *strrstr(const char *haystack, const char *needle);

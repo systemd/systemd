@@ -126,7 +126,6 @@ static int probe_file_system_by_fd(
                 sd_id128_t *ret_uuid) {
 
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
-        _cleanup_free_ char *s = NULL;
         const char *fstype = NULL, *uuid = NULL;
         sd_id128_t id;
         int r;
@@ -168,13 +167,10 @@ static int probe_file_system_by_fd(
         if (r < 0)
                 return r;
 
-        s = strdup(fstype);
-        if (!s)
-                return -ENOMEM;
-
-        *ret_fstype = TAKE_PTR(s);
+        r = strdup_to(ret_fstype, fstype);
+        if (r < 0)
+                return r;
         *ret_uuid = id;
-
         return 0;
 }
 

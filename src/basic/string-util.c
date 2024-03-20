@@ -1126,6 +1126,24 @@ int free_and_strndup(char **p, const char *s, size_t l) {
         return 1;
 }
 
+int strdup_to_full(char **ret, const char *src) {
+        if (!src) {
+                if (ret)
+                        *ret = NULL;
+
+                return 0;
+        } else {
+                if (ret) {
+                        char *t = strdup(src);
+                        if (!t)
+                                return -ENOMEM;
+                        *ret = t;
+                }
+
+                return 1;
+        }
+};
+
 bool string_is_safe(const char *p) {
         if (!p)
                 return false;
@@ -1235,36 +1253,15 @@ int string_extract_line(const char *s, size_t i, char **ret) {
                                         return -ENOMEM;
 
                                 *ret = m;
-                                return !isempty(q + 1); /* more coming? */
-                        } else {
-                                if (p == s)
-                                        *ret = NULL; /* Just use the input string */
-                                else {
-                                        char *m;
-
-                                        m = strdup(p);
-                                        if (!m)
-                                                return -ENOMEM;
-
-                                        *ret = m;
-                                }
-
-                                return 0; /* The end */
-                        }
+                                return !isempty(q + 1); /* More coming? */
+                        } else
+                                /* Tell the caller to use the input string if equal */
+                                return strdup_to(ret, p != s ? p : NULL);
                 }
 
-                if (!q) {
-                        char *m;
-
+                if (!q)
                         /* No more lines, return empty line */
-
-                        m = strdup("");
-                        if (!m)
-                                return -ENOMEM;
-
-                        *ret = m;
-                        return 0; /* The end */
-                }
+                        return strdup_to(ret, "");
 
                 p = q + 1;
                 c++;
