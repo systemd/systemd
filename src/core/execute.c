@@ -362,7 +362,7 @@ int exec_spawn(Unit *unit,
                PidRef *ret) {
 
         char serialization_fd_number[DECIMAL_STR_MAX(int) + 1];
-        _cleanup_free_ char *subcgroup_path = NULL, *log_level = NULL, *executor_path = NULL;
+        _cleanup_free_ char *subcgroup_path = NULL, *max_log_levels = NULL, *executor_path = NULL;
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -435,9 +435,9 @@ int exec_spawn(Unit *unit,
         /* If LogLevelMax= is specified, then let's use the specified log level at the beginning of the
          * executor process. To achieve that the specified log level is passed as an argument, rather than
          * the one for the manager process. */
-        r = log_level_to_string_alloc(context->log_level_max >= 0 ? context->log_level_max : log_get_max_level(), &log_level);
+        r = log_max_levels_to_string(context->log_level_max >= 0 ? context->log_level_max : log_get_max_level(), &max_log_levels);
         if (r < 0)
-                return log_unit_error_errno(unit, r, "Failed to convert log level to string: %m");
+                return log_unit_error_errno(unit, r, "Failed to convert max log levels to string: %m");
 
         r = fd_get_path(unit->manager->executor_fd, &executor_path);
         if (r < 0)
@@ -450,7 +450,7 @@ int exec_spawn(Unit *unit,
                         FORMAT_PROC_FD_PATH(unit->manager->executor_fd),
                         STRV_MAKE(executor_path,
                                   "--deserialize", serialization_fd_number,
-                                  "--log-level", log_level,
+                                  "--log-level", max_log_levels,
                                   "--log-target", log_target_to_string(manager_get_executor_log_target(unit->manager))),
                         environ,
                         cg_unified() > 0 ? subcgroup_path : NULL,
