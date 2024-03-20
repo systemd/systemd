@@ -3,6 +3,8 @@
 
 #include <linux/types.h>
 
+#include "macro.h"
+
 /* linux/fs.h */
 #ifndef RENAME_NOREPLACE /* 0a7c3937a1f23f8cb5fc77ae01661e9968a51d0c (3.15) */
 #define RENAME_NOREPLACE (1 << 0)
@@ -28,43 +30,63 @@ struct file_clone_range {
 
 /* linux/fs.h or sys/mount.h */
 #ifndef MS_MOVE
-#define MS_MOVE 8192
+#  define MS_MOVE 8192
+#else
+assert_cc(MS_MOVE == 8192);
 #endif
 
 #ifndef MS_REC
-#define MS_REC 16384
+#  define MS_REC 16384
+#else
+assert_cc(MS_REC == 16384);
 #endif
 
 #ifndef MS_PRIVATE
-#define MS_PRIVATE      (1<<18)
+#  define MS_PRIVATE      (1<<18)
+#else
+assert_cc(MS_PRIVATE == (1<<18));
 #endif
 
 #ifndef MS_SLAVE
-#define MS_SLAVE        (1<<19)
+#  define MS_SLAVE        (1<<19)
+#else
+assert_cc(MS_SLAVE == (1<<19));
 #endif
 
 #ifndef MS_SHARED
-#define MS_SHARED       (1<<20)
+#  define MS_SHARED       (1<<20)
+#else
+assert_cc(MS_SHARED == (1<<20));
 #endif
 
 #ifndef MS_RELATIME
-#define MS_RELATIME     (1<<21)
+#  define MS_RELATIME     (1<<21)
+#else
+assert_cc(MS_RELATIME == (1<<21));
 #endif
 
 #ifndef MS_KERNMOUNT
-#define MS_KERNMOUNT    (1<<22)
+#  define MS_KERNMOUNT    (1<<22)
+#else
+assert_cc(MS_KERNMOUNT == (1<<22));
 #endif
 
 #ifndef MS_I_VERSION
-#define MS_I_VERSION    (1<<23)
+#  define MS_I_VERSION    (1<<23)
+#else
+assert_cc(MS_I_VERSION == (1<<23));
 #endif
 
 #ifndef MS_STRICTATIME
-#define MS_STRICTATIME  (1<<24)
+#  define MS_STRICTATIME  (1<<24)
+#else
+assert_cc(MS_STRICTATIME == (1 << 24));
 #endif
 
 #ifndef MS_LAZYTIME
-#define MS_LAZYTIME     (1<<25)
+#  define MS_LAZYTIME     (1<<25)
+#else
+assert_cc(MS_LAZYTIME == (1<<25));
 #endif
 
 /* Not exposed yet. Defined at fs/ext4/ext4.h */
@@ -78,10 +100,14 @@ struct file_clone_range {
 #endif
 
 #ifndef FS_PROJINHERIT_FL
-#define FS_PROJINHERIT_FL 0x20000000
+#  define FS_PROJINHERIT_FL 0x20000000
+#else
+assert_cc(FS_PROJINHERIT_FL == 0x20000000);
 #endif
 
 /* linux/fscrypt.h */
 #ifndef FS_KEY_DESCRIPTOR_SIZE
-#define FS_KEY_DESCRIPTOR_SIZE 8
+#  define FS_KEY_DESCRIPTOR_SIZE 8
+#else
+assert_cc(FS_KEY_DESCRIPTOR_SIZE == 8);
 #endif
