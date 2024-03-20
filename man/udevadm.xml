@@ -662,13 +662,10 @@
           <term><option>--log-level=<replaceable>value</replaceable></option></term>
           <listitem>
             <para>Set the internal log level of
-            <filename>systemd-udevd</filename>. Valid values are the
-            numerical syslog priorities or their textual
-            representations: <option>emerg</option>,
-            <option>alert</option>, <option>crit</option>,
-            <option>err</option>, <option>warning</option>,
-            <option>notice</option>, <option>info</option>, and
-            <option>debug</option>.</para>
+            <filename>systemd-udevd</filename>. Accepts the same values as <option>--log-level=</option>
+            described in
+            <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
