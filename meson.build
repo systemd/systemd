@@ -2498,12 +2498,12 @@ subdir('shell-completion/bash')
 subdir('shell-completion/zsh')
 subdir('sysctl.d')
 subdir('sysusers.d')
+subdir('templates')
 subdir('tmpfiles.d')
 subdir('units')
 
 install_subdir('factory/etc',
                install_dir : factorydir)
-subdir('factory/templates')
 
 if install_sysconfdir
         install_data('xorg/50-systemd-user.sh',
