@@ -2738,7 +2738,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                  * zones return NXDOMAIN even though they have further children. */
 
                 if (chased_insecure || was_signed)
-                        /* In this case we already reqeusted what we need above. */
+                        /* In this case we already requested what we need above. */
                         name = NULL;
                 else if (dns_transaction_key(t)->type == DNS_TYPE_DS)
                         /* If the DS response is empty, we'll walk up the dns labels requesting DS until we
