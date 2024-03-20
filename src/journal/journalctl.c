@@ -2071,6 +2071,7 @@ static int update_cursor(sd_journal *j) {
 typedef struct Context {
         sd_journal *journal;
         bool need_seek;
+        bool until_seeked;
         bool since_seeked;
         bool ellipsized;
         bool previous_boot_id_valid;
@@ -2078,6 +2079,64 @@ typedef struct Context {
         sd_id128_t previous_boot_id_output;
         dual_timestamp previous_ts_output;
 } Context;
+
+static int verify_realtime(Context *c) {
+        sd_journal *j = ASSERT_PTR(ASSERT_PTR(c)->journal);
+        usec_t usec;
+        int r;
+
+        /* This returns -EDOM if the caller should exit from the loop, 0 if the caller should skip the
+         * current journal entry, 1 if the check passes. */
+
+        /* Both --since and --until are unspecified. It is not necessary to check the timestamp. */
+        if (!arg_until_set && !arg_since_set)
+                return 1;
+
+        /* Only --until is specified, and we know that the current position is in the range. */
+        if (arg_until_set && !arg_since_set && c->until_seeked && arg_reverse)
+                return 1;
+
+        /* Only --since is specified, and we know that the current position is in the range. */
+        if (!arg_until_set && arg_since_set && c->since_seeked && !arg_reverse)
+                return 1;
+
+        r = sd_journal_get_realtime_usec(j, &usec);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine realtime timestamp: %m");
+
+        if (arg_until_set && usec > arg_until) {
+                if (c->until_seeked)
+                        return -EDOM;
+
+                /* This happens when one of the cursor argument is specified. */
+                r = sd_journal_seek_realtime_usec(j, arg_until);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seek to date: %m");
+
+                c->until_seeked = true;
+                c->need_seek = true;
+                return 0;
+        }
+
+        if (arg_since_set && usec < arg_since) {
+                if (c->since_seeked)
+                        return -EDOM;
+
+                /* This happens when arg_lines >= 0. We jumped arg_lines back and it seems to be too much. */
+                r = sd_journal_seek_realtime_usec(j, arg_since);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seek to date: %m");
+
+                c->since_seeked = true;
+                c->need_seek = true;
+                return 0;
+        }
+
+        /* Now we are really in the range, it is not necessary to seek again later. */
+        c->until_seeked = true;
+        c->since_seeked = true;
+        return 1;
+}
 
 static int show(Context *c) {
         sd_journal *j;
@@ -2087,8 +2146,16 @@ static int show(Context *c) {
 
         j = ASSERT_PTR(c->journal);
 
+        OutputFlags flags =
+                arg_all * OUTPUT_SHOW_ALL |
+                arg_full * OUTPUT_FULL_WIDTH |
+                colors_enabled() * OUTPUT_COLOR |
+                arg_catalog * OUTPUT_CATALOG |
+                arg_utc * OUTPUT_UTC |
+                arg_truncate_newline * OUTPUT_TRUNCATE_NEWLINE |
+                arg_no_hostname * OUTPUT_NO_HOSTNAME;
+
         while (arg_lines < 0 || n_shown < arg_lines || arg_follow) {
-                int flags;
                 size_t highlight[2] = {};
 
                 if (c->need_seek) {
@@ -2099,44 +2166,13 @@ static int show(Context *c) {
                                 break;
                 }
 
-                if (arg_until_set && !arg_reverse && (arg_lines < 0 || arg_since_set)) {
-                        /* If --lines= is set, we usually rely on the n_shown to tell us
-                         * when to stop. However, if --since= is set too, we may end up
-                         * having less than --lines= to output. In this case let's also
-                         * check if the entry is in range. */
-
-                        usec_t usec;
-
-                        r = sd_journal_get_realtime_usec(j, &usec);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to determine timestamp: %m");
-                        if (usec > arg_until)
-                                break;
-                }
-
-                if (arg_since_set && (arg_reverse || !c->since_seeked)) {
-                        usec_t usec;
-
-                        r = sd_journal_get_realtime_usec(j, &usec);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to determine timestamp: %m");
-
-                        if (usec < arg_since) {
-                                if (arg_reverse)
-                                        break; /* Reached the earliest entry */
-
-                                /* arg_lines >= 0 (!since_seeked):
-                                 * We jumped arg_lines back and it seems to be too much */
-                                r = sd_journal_seek_realtime_usec(j, arg_since);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to seek to date: %m");
-                                c->since_seeked = true;
-
-                                c->need_seek = true;
-                                continue;
-                        }
-                        c->since_seeked = true; /* We're surely within the range of --since now */
-                }
+                r = verify_realtime(c);
+                if (r == -EDOM)
+                        break;
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
 
                 if (!arg_merge && !arg_quiet) {
                         sd_id128_t boot_id;
@@ -2178,15 +2214,6 @@ static int show(Context *c) {
                                 continue;
                         }
                 }
-
-                flags =
-                        arg_all * OUTPUT_SHOW_ALL |
-                        arg_full * OUTPUT_FULL_WIDTH |
-                        colors_enabled() * OUTPUT_COLOR |
-                        arg_catalog * OUTPUT_CATALOG |
-                        arg_utc * OUTPUT_UTC |
-                        arg_truncate_newline * OUTPUT_TRUNCATE_NEWLINE |
-                        arg_no_hostname * OUTPUT_NO_HOSTNAME;
 
                 r = show_journal_entry(stdout, j, arg_output, 0, flags,
                                        arg_output_fields, highlight, &c->ellipsized,
@@ -2297,7 +2324,7 @@ static int setup_event(Context *c, int fd, sd_event **ret) {
 }
 
 static int run(int argc, char *argv[]) {
-        bool need_seek = false, since_seeked = false, after_cursor = false;
+        bool need_seek = false, since_seeked = false, until_seeked = false, after_cursor = false;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -2634,35 +2661,29 @@ static int run(int argc, char *argv[]) {
                         else
                                 arg_lines = 0;
                 }
-        } else if (arg_until_set && (arg_reverse || arg_lines_needs_seek_end())) {
-                /* If both --until and any of --reverse and --lines=N is specified, things get
-                 * a little tricky. We seek to the place of --until first. If only --reverse or
-                 * --reverse and --lines is specified, we search backwards and let the output
-                 * counter handle --lines for us. If only --lines is used, we just jump backwards
-                 * arg_lines and search afterwards from there. */
+        } else if (arg_reverse || arg_lines_needs_seek_end()) {
+                /* If --reverse and/or --lines=N are specified, things get a little tricky. First we seek to
+                 * the place of --until if specified, otherwise seek to tail. Then, if --reverse is
+                 * specified, we search backwards and let the output counter in show() handle --lines for us.
+                 * If --reverse is unspecified, we just jump backwards arg_lines and search afterwards from
+                 * there. */
 
-                r = sd_journal_seek_realtime_usec(j, arg_until);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to seek to date: %m");
+                if (arg_until_set) {
+                        r = sd_journal_seek_realtime_usec(j, arg_until);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to seek to date: %m");
+                } else {
+                        r = sd_journal_seek_tail(j);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to seek to tail: %m");
+                }
+
+                until_seeked = true;
 
                 if (arg_reverse)
                         r = sd_journal_previous(j);
                 else /* arg_lines_needs_seek_end */
                         r = sd_journal_previous_skip(j, arg_lines);
-
-        } else if (arg_reverse) {
-                r = sd_journal_seek_tail(j);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to seek to tail: %m");
-
-                r = sd_journal_previous(j);
-
-        } else if (arg_lines_needs_seek_end()) {
-                r = sd_journal_seek_tail(j);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to seek to tail: %m");
-
-                r = sd_journal_previous_skip(j, arg_lines);
 
         } else if (arg_since_set) {
                 /* This is placed after arg_reverse and arg_lines. If --since is used without
@@ -2713,6 +2734,7 @@ static int run(int argc, char *argv[]) {
         Context c = {
                 .journal = j,
                 .need_seek = need_seek,
+                .until_seeked = until_seeked,
                 .since_seeked = since_seeked,
         };
 
