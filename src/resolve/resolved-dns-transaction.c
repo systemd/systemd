@@ -2531,7 +2531,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (r < 0)
                                 return r;
 
-                        /* If we are requesting a DNSKEY, we can anticiapte that we will want the matching DS
+                        /* If we are requesting a DNSKEY, we can anticipate that we will want the matching DS
                          * in the near future. Let's request it in advance so we don't have to wait in the
                          * common case. */
                         if (aux) {
