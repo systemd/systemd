@@ -18,15 +18,16 @@ struct signalfd_siginfo;
 
 typedef enum LogTarget{
         LOG_TARGET_CONSOLE,
-        LOG_TARGET_CONSOLE_PREFIXED,
         LOG_TARGET_KMSG,
         LOG_TARGET_JOURNAL,
-        LOG_TARGET_JOURNAL_OR_KMSG,
         LOG_TARGET_SYSLOG,
+        LOG_TARGET_CONSOLE_PREFIXED,
+        LOG_TARGET_JOURNAL_OR_KMSG,
         LOG_TARGET_SYSLOG_OR_KMSG,
         LOG_TARGET_AUTO, /* console if stderr is not journal, JOURNAL_OR_KMSG otherwise */
         LOG_TARGET_NULL,
-        _LOG_TARGET_MAX,
+        _LOG_TARGET_SINGLE_MAX = LOG_TARGET_SYSLOG + 1,
+        _LOG_TARGET_MAX = LOG_TARGET_NULL + 1,
         _LOG_TARGET_INVALID = -EINVAL,
 } LogTarget;
 
@@ -59,6 +60,7 @@ void log_settle_target(void);
 void log_set_max_level(int level);
 int log_set_max_level_from_string(const char *e);
 int log_get_max_level(void) _pure_;
+int log_max_levels_to_string(int level, char **ret);
 
 void log_set_facility(int facility);
 
