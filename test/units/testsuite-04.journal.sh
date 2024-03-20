@@ -275,3 +275,11 @@ hello
 world
 EOF
 rm -f "$CURSOR_FILE"
+
+# Check that --until works with --after-cursor and --lines/-n
+# See: https://github.com/systemd/systemd/issues/31776
+CURSOR_FILE="$(mktemp)"
+journalctl -q -n 0 --cursor-file="$CURSOR_FILE"
+TIMESTAMP="$(journalctl -q -n 1 --cursor="$(<"$CURSOR_FILE")" --output=short-unix | cut -d ' ' -f 1 | cut -d '.' -f 1)"
+[[ -z "$(journalctl -q -n 10 --after-cursor="$(<"$CURSOR_FILE")" --until "@$((TIMESTAMP - 3))")" ]]
+rm -f "$CURSOR_FILE"
