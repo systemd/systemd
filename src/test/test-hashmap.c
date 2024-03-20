@@ -42,7 +42,7 @@ TEST(trivial_compare_func) {
 }
 
 TEST(string_compare_func) {
-        assert_se(string_compare_func("fred", "wilma") != 0);
+        ASSERT_NE(string_compare_func("fred", "wilma"), 0);
         assert_se(string_compare_func("fred", "fred") == 0);
 }
 
