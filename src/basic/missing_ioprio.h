@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sched.h>
+#if HAVE_LINUX_IOPRIO_H
+#  include <linux/ioprio.h>
+#endif
 
 /* Match values uses by the kernel internally, as no public header seems to exist. */
 
