@@ -14,7 +14,7 @@ TEST(make_recovery_key) {
         char *generated_keys[num_test];
         int r;
 
-        /* Check for succesful recovery-key creation */
+        /* Check for successful recovery-key creation */
         r = make_recovery_key(&recovery_key);
         assert_se(r == 0);
         assert_se(recovery_key != NULL);
@@ -124,7 +124,7 @@ TEST(normalize_recovery_key) {
         assert(r == 0);
         assert_se(streq(normalized_key3, "bfghiceh-hiuvlkji-hfhedlnt-ruvcdefj-ituvklni-jvtutkji-hdfbcbgh-ijhhfdbc"));
 
-        /* Case 6: Minimun password length */
+        /* Case 6: Minimum password length */
         r = normalize_recovery_key("", &normalized_key1);
         assert_se(r == -EINVAL);
 
