@@ -2771,7 +2771,7 @@ static int verb_lock_raw(int argc, char *argv[], void *userdata) {
 
         r = read_full_stream(f ?: stdin, &data, &size);
         if (r < 0)
-                return log_error_errno(r, "Failed to read data from stdin: %m");
+                return log_error_errno(r, "Failed to read data from %s: %m", f ? argv[1] : "stdin");
 
         for (uint32_t i = 0; i < TPM2_PCRS_MAX; i++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *record = NULL;
@@ -3810,7 +3810,7 @@ static int verb_lock_kernel_initrd(int argc, char *argv[], void *userdata) {
 
         r = read_full_stream(f ?: stdin, (char**) &data, &size);
         if (r < 0)
-                return log_error_errno(r, "Failed to read data from stdin: %m");
+                return log_error_errno(r, "Failed to read data from %s: %m", f ? argv[1] : "stdin");
 
         r = make_pcrlock_record(TPM2_PCR_KERNEL_INITRD /* = 9 */, data, size, &record);
         if (r < 0)
