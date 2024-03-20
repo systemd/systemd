@@ -1028,7 +1028,6 @@ static int get_bus_path_by_id(
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_free_ char *p = NULL;
         const char *path;
         int r;
 
@@ -1047,12 +1046,7 @@ static int get_bus_path_by_id(
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        p = strdup(path);
-        if (!p)
-                return log_oom();
-
-        *ret = TAKE_PTR(p);
-        return 0;
+        return strdup_to(ret, path);
 }
 
 static int show_session(int argc, char *argv[], void *userdata) {

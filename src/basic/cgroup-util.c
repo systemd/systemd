@@ -135,7 +135,7 @@ int cg_read_event(
                 return r;
 
         for (const char *p = content;;) {
-                _cleanup_free_ char *line = NULL, *key = NULL, *val = NULL;
+                _cleanup_free_ char *line = NULL, *key = NULL;
                 const char *q;
 
                 r = extract_first_word(&p, &line, "\n", 0);
@@ -154,12 +154,7 @@ int cg_read_event(
                 if (!streq(key, event))
                         continue;
 
-                val = strdup(q);
-                if (!val)
-                        return -ENOMEM;
-
-                *ret = TAKE_PTR(val);
-                return 0;
+                return strdup_to(ret, q);
         }
 }
 
@@ -234,20 +229,13 @@ int cg_read_subgroup(DIR *d, char **ret) {
         assert(ret);
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
-                char *b;
-
                 if (de->d_type != DT_DIR)
                         continue;
 
                 if (dot_or_dot_dot(de->d_name))
                         continue;
 
-                b = strdup(de->d_name);
-                if (!b)
-                        return -ENOMEM;
-
-                *ret = b;
-                return 1;
+                return strdup_to_full(ret, de->d_name);
         }
 
         *ret = NULL;
@@ -1125,44 +1113,29 @@ int cg_pid_get_path_shifted(pid_t pid, const char *root, char **ret_cgroup) {
         if (r < 0)
                 return r;
 
-        if (c == raw)
+        if (c == raw) {
                 *ret_cgroup = TAKE_PTR(raw);
-        else {
-                char *n;
-
-                n = strdup(c);
-                if (!n)
-                        return -ENOMEM;
-
-                *ret_cgroup = n;
+                return 0;
         }
 
-        return 0;
+        return strdup_to(ret_cgroup, c);
 }
 
 int cg_path_decode_unit(const char *cgroup, char **ret_unit) {
-        char *c, *s;
-        size_t n;
-
         assert(cgroup);
         assert(ret_unit);
 
-        n = strcspn(cgroup, "/");
+        size_t n = strcspn(cgroup, "/");
         if (n < 3)
                 return -ENXIO;
 
-        c = strndupa_safe(cgroup, n);
+        char *c = strndupa_safe(cgroup, n);
         c = cg_unescape(c);
 
         if (!unit_name_is_valid(c, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
                 return -ENXIO;
 
-        s = strdup(c);
-        if (!s)
-                return -ENOMEM;
-
-        *ret_unit = s;
-        return 0;
+        return strdup_to(ret_unit, c);
 }
 
 static bool valid_slice_name(const char *p, size_t n) {
@@ -1467,17 +1440,10 @@ int cg_path_get_session(const char *path, char **ret_session) {
         if (!session_id_valid(start))
                 return -ENXIO;
 
-        if (ret_session) {
-                char *rr;
+        if (!ret_session)
+                return 0;
 
-                rr = strdup(start);
-                if (!rr)
-                        return -ENOMEM;
-
-                *ret_session = rr;
-        }
-
-        return 0;
+        return strdup_to(ret_session, start);
 }
 
 int cg_pid_get_session(pid_t pid, char **ret_session) {
@@ -1538,30 +1504,19 @@ int cg_path_get_slice(const char *p, char **ret_slice) {
          * stops before we come to the first non-slice unit. */
 
         for (;;) {
-                size_t n;
-
                 p += strspn(p, "/");
 
-                n = strcspn(p, "/");
-                if (!valid_slice_name(p, n)) {
-
-                        if (!e) {
-                                char *s;
-
-                                s = strdup(SPECIAL_ROOT_SLICE);
-                                if (!s)
-                                        return -ENOMEM;
-
-                                *ret_slice = s;
-                                return 0;
-                        }
-
-                        return cg_path_decode_unit(e, ret_slice);
-                }
+                size_t n = strcspn(p, "/");
+                if (!valid_slice_name(p, n))
+                        break;
 
                 e = p;
                 p += n;
         }
+
+        if (e)
+                return cg_path_decode_unit(e, ret_slice);
+        return strdup_to(ret_slice, SPECIAL_ROOT_SLICE);
 }
 
 int cg_pid_get_slice(pid_t pid, char **ret_slice) {
@@ -1714,15 +1669,8 @@ int cg_slice_to_path(const char *unit, char **ret) {
         assert(unit);
         assert(ret);
 
-        if (streq(unit, SPECIAL_ROOT_SLICE)) {
-                char *x;
-
-                x = strdup("");
-                if (!x)
-                        return -ENOMEM;
-                *ret = x;
-                return 0;
-        }
+        if (streq(unit, SPECIAL_ROOT_SLICE))
+                return strdup_to(ret, "");
 
         if (!unit_name_is_valid(unit, UNIT_NAME_PLAIN))
                 return -EINVAL;

@@ -101,7 +101,6 @@ int suggest_passwords(void) {
         _cleanup_strv_free_erase_ char **suggestions = NULL;
         _cleanup_(erase_and_freep) char *joined = NULL;
         char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
-        size_t i;
         int r;
 
         r = pwq_allocate_context(&pwq);
@@ -115,7 +114,7 @@ int suggest_passwords(void) {
         if (!suggestions)
                 return log_oom();
 
-        for (i = 0; i < N_SUGGESTIONS; i++) {
+        for (size_t i = 0; i < N_SUGGESTIONS; i++) {
                 r = sym_pwquality_generate(pwq, 64, suggestions + i);
                 if (r < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to generate password, ignoring: %s",
@@ -145,13 +144,10 @@ int check_password_quality(const char *password, const char *old, const char *us
         r = sym_pwquality_check(pwq, password, old, username, &auxerror);
         if (r < 0) {
                 if (ret_error) {
-                        _cleanup_free_ char *e = NULL;
-
-                        e = strdup(sym_pwquality_strerror(buf, sizeof(buf), r, auxerror));
-                        if (!e)
-                                return -ENOMEM;
-
-                        *ret_error = TAKE_PTR(e);
+                        r = strdup_to(ret_error,
+                                      sym_pwquality_strerror(buf, sizeof(buf), r, auxerror));
+                        if (r < 0)
+                                return r;
                 }
 
                 return 0; /* all bad */

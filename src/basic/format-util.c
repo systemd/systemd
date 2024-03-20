@@ -25,7 +25,7 @@ int format_ifname_full(int ifindex, FormatIfnameFlag flag, char buf[static IF_NA
 }
 
 int format_ifname_full_alloc(int ifindex, FormatIfnameFlag flag, char **ret) {
-        char buf[IF_NAMESIZE], *copy;
+        char buf[IF_NAMESIZE];
         int r;
 
         assert(ret);
@@ -34,12 +34,7 @@ int format_ifname_full_alloc(int ifindex, FormatIfnameFlag flag, char **ret) {
         if (r < 0)
                 return r;
 
-        copy = strdup(buf);
-        if (!copy)
-                return -ENOMEM;
-
-        *ret = copy;
-        return 0;
+        return strdup_to(ret, buf);
 }
 
 char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag) {

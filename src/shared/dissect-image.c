@@ -268,16 +268,8 @@ int probe_filesystem_full(
         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
 
         if (fstype) {
-                char *t;
-
                 log_debug("Probed fstype '%s' on partition %s.", fstype, path);
-
-                t = strdup(fstype);
-                if (!t)
-                        return -ENOMEM;
-
-                *ret_fstype = t;
-                return 1;
+                return strdup_to_full(ret_fstype, fstype);
         }
 
 not_found:
