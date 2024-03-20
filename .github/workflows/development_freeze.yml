@@ -35,7 +35,9 @@ jobs:
           fetch-depth: 0
 
       - name: Development Freezer
-        uses: redhat-plumbers-in-action/devel-freezer@67aec4a153bd9fca5322e1c4dd4d7c419fb36362
+        uses: redhat-plumbers-in-action/devel-freezer@396c94ba8cb417474e6626c83a42addea210a403
         with:
           pr-number: ${{ fromJSON(steps.artifact.outputs.pr-metadata-json).number }}
+          # delay start of validation to allow for some milestone/labels tweaking
+          delay: 20
           token: ${{ secrets.GITHUB_TOKEN }}
