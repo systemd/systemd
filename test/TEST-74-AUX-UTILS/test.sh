@@ -8,9 +8,6 @@ NSPAWN_ARGUMENTS="--private-network"
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-# (Hopefully) a temporary workaround for https://github.com/systemd/systemd/issues/30573
-KERNEL_APPEND="${KERNEL_APPEND:-} SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST=100"
-
 # Make sure vsock is available in the VM
 CID=$((RANDOM + 3))
 QEMU_OPTIONS+=" -device vhost-vsock-pci,guest-cid=$CID"
