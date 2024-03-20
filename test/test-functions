@@ -3338,6 +3338,13 @@ test_cleanup_again() {
     [ -n "$TESTDIR" ] || return
     rm -rf "$TESTDIR/unprivileged-nspawn-root"
     [[ -n "$initdir" ]] && _umount_dir "$initdir"
+    # Test specific images are not reused, so delete them or we run out of disk space
+    if [[ -n "$IMAGE_PUBLIC" ]] && [ "$(basename "$IMAGE_PUBLIC")" != "default.img" ]; then
+        rm -vf "$IMAGE_PUBLIC"
+    fi
+    if [[ -n "$IMAGE_PRIVATE" ]] && [ "$(basename "$IMAGE_PRIVATE")" != "default.img" ]; then
+        rm -vf "$IMAGE_PRIVATE"
+    fi
 }
 
 test_create_image() {
