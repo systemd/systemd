@@ -779,6 +779,16 @@ static int ntas_append_json(Link *link, JsonVariant **v) {
         return json_variant_set_field_non_null(v, "DNSSECNegativeTrustAnchors", array);
 }
 
+/* static int trust_ad_append_json(Link *link, JsonVariant **v) { */
+/*         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL; */
+/*         int r; */
+
+/*         assert(link); */
+/*         assert(v); */
+
+/*         return json_variant_merge_objectb(v, JSON_BUILD_PAIR_BOOLEAN("TrustAD", link->trust_ad)); */
+/* } */
+
 static int dns_misc_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
         ResolveSupport resolve_support;

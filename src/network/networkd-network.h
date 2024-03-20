@@ -399,6 +399,7 @@ struct Network {
         DnssecMode dnssec_mode;
         DnsOverTlsMode dns_over_tls_mode;
         Set *dnssec_negative_trust_anchors;
+        bool trust_ad;
 
         /* NTP */
         char **ntp;

@@ -55,9 +55,11 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
                 if (l) {
                         s->dnssec_mode = link_get_dnssec_mode(l);
                         s->dns_over_tls_mode = link_get_dns_over_tls_mode(l);
+                        s->trust_ad = link_get_trust_ad(l);
                 } else {
                         s->dnssec_mode = manager_get_dnssec_mode(m);
                         s->dns_over_tls_mode = manager_get_dns_over_tls_mode(m);
+                        s->trust_ad = manager_get_trust_ad(m);
                 }
 
         } else {
@@ -329,12 +331,19 @@ int dns_scope_emit_udp(DnsScope *s, int fd, int af, DnsPacket *p) {
         assert(p->protocol == s->protocol);
         assert((s->protocol == DNS_PROTOCOL_DNS) == (fd >= 0));
 
+        /* If we trust this server, then request validation with the AD bit. */
+        if (s->trust_ad) {
+                assert(p->protocol == DNS_PROTOCOL_DNS);
+                DNS_PACKET_HEADER(p)->flags |= htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 0, 0, 1, 0, 0));
+        }
+
         do {
                 /* If there are multiple linked packets, set the TC bit in all but the last of them */
                 if (p->more) {
                         assert(p->protocol == DNS_PROTOCOL_MDNS);
                         dns_packet_set_flags(p, true, true);
                 }
+
 
                 r = dns_scope_emit_one(s, fd, af, p);
                 if (r < 0)

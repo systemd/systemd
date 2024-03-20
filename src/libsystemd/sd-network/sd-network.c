@@ -242,6 +242,10 @@ int sd_network_link_get_dnssec(int ifindex, char **ret) {
         return network_link_get_string(ifindex, "DNSSEC", ret);
 }
 
+int sd_network_link_get_trust_ad(int ifindex) {
+        return network_link_get_boolean(ifindex, "TRUST_AD");
+}
+
 int sd_network_link_get_dnssec_negative_trust_anchors(int ifindex, char ***ret) {
         return network_link_get_strv(ifindex, "DNSSEC_NTA", ret);
 }
