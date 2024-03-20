@@ -506,24 +506,24 @@ TEST(prefixes) {
                 log_error("---%s---", s);
                 assert_se(streq(s, values[i++]));
         }
-        assert_se(values[i] == NULL);
+        ASSERT_NULL(values[i]);
 
         i = 1;
         PATH_FOREACH_PREFIX(s, "/a/b/c/d") {
                 log_error("---%s---", s);
                 assert_se(streq(s, values[i++]));
         }
-        assert_se(values[i] == NULL);
+        ASSERT_NULL(values[i]);
 
         i = 0;
         PATH_FOREACH_PREFIX_MORE(s, "////a////b////c///d///////")
                 assert_se(streq(s, values[i++]));
-        assert_se(values[i] == NULL);
+        ASSERT_NULL(values[i]);
 
         i = 1;
         PATH_FOREACH_PREFIX(s, "////a////b////c///d///////")
                 assert_se(streq(s, values[i++]));
-        assert_se(values[i] == NULL);
+        ASSERT_NULL(values[i]);
 
         PATH_FOREACH_PREFIX(s, "////")
                 assert_not_reached();

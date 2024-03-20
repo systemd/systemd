@@ -137,8 +137,8 @@ TEST(parse_uid) {
 }
 
 TEST(uid_ptr) {
-        assert_se(UID_TO_PTR(0) != NULL);
-        assert_se(UID_TO_PTR(1000) != NULL);
+        ASSERT_NOT_NULL(UID_TO_PTR(0));
+        ASSERT_NOT_NULL(UID_TO_PTR(1000));
 
         assert_se(PTR_TO_UID(UID_TO_PTR(0)) == 0);
         assert_se(PTR_TO_UID(UID_TO_PTR(1000)) == 1000);
