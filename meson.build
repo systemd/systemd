@@ -738,14 +738,15 @@ if not cc.has_header('sys/capability.h')
         error('POSIX caps headers not found')
 endif
 foreach header : ['crypt.h',
+                  'linux/ioprio.h',
                   'linux/memfd.h',
+                  'linux/time_types.h',
                   'linux/vm_sockets.h',
                   'sys/auxv.h',
+                  'sys/sdt.h',
                   'threads.h',
                   'valgrind/memcheck.h',
                   'valgrind/valgrind.h',
-                  'linux/time_types.h',
-                  'sys/sdt.h',
                  ]
 
         conf.set10('HAVE_' + header.underscorify().to_upper(),
