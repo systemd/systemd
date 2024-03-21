@@ -218,9 +218,9 @@ static int method_list_machines(sd_bus_message *message, void *userdata, sd_bus_
         return sd_bus_send(NULL, reply, NULL);
 }
 
-static int method_create_or_register_machine(Manager *manager, sd_bus_message *message, bool read_network, Machine **_m, sd_bus_error *error) {
+static int method_create_or_register_machine(Manager *manager, sd_bus_message *message, bool read_network, bool read_ssh, Machine **_m, sd_bus_error *error) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        const char *name, *service, *class, *root_directory;
+        const char *name, *service, *class, *root_directory, *address = NULL, *ssh_private_key_path = NULL;
         const int32_t *netif = NULL;
         MachineClass c;
         uint32_t leader;
@@ -265,6 +265,12 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
                         if (netif[i] <= 0)
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid network interface index %i", netif[i]);
                 }
+        }
+
+        if (read_ssh) {
+                r = sd_bus_message_read(message, "ss", &address, &ssh_private_key_path);
+                if (r < 0)
+                        return r;
         }
 
         if (isempty(class))
@@ -337,6 +343,20 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
                 m->n_netif = n_netif;
         }
 
+        if (!isempty(address) && !isempty(ssh_private_key_path)) {
+                m->address = strdup(address);
+                if (!m->address) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                m->ssh_private_key_path = strdup(ssh_private_key_path);
+                if (!m->ssh_private_key_path) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+        }
+
         *_m = m;
 
         return 1;
@@ -346,14 +366,14 @@ fail:
         return r;
 }
 
-static int method_create_machine_internal(sd_bus_message *message, bool read_network, void *userdata, sd_bus_error *error) {
+static int method_create_machine_internal(sd_bus_message *message, bool read_network, bool read_ssh, void *userdata, sd_bus_error *error) {
         Manager *manager = ASSERT_PTR(userdata);
         Machine *m = NULL;
         int r;
 
         assert(message);
 
-        r = method_create_or_register_machine(manager, message, read_network, &m, error);
+        r = method_create_or_register_machine(manager, message, read_network, read_ssh, &m, error);
         if (r < 0)
                 return r;
 
@@ -374,14 +394,14 @@ fail:
 }
 
 static int method_create_machine_with_network(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_create_machine_internal(message, true, userdata, error);
+        return method_create_machine_internal(message, /* read_network= */ true, /* read_ssh= */ false, userdata, error);
 }
 
 static int method_create_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_create_machine_internal(message, false, userdata, error);
+        return method_create_machine_internal(message, /* read_network= */ false, /* read_ssh= */ false, userdata, error);
 }
 
-static int method_register_machine_internal(sd_bus_message *message, bool read_network, void *userdata, sd_bus_error *error) {
+static int method_register_machine_internal(sd_bus_message *message, bool read_network, bool read_ssh, void *userdata, sd_bus_error *error) {
         Manager *manager = ASSERT_PTR(userdata);
         _cleanup_free_ char *p = NULL;
         Machine *m = NULL;
@@ -389,7 +409,7 @@ static int method_register_machine_internal(sd_bus_message *message, bool read_n
 
         assert(message);
 
-        r = method_create_or_register_machine(manager, message, read_network, &m, error);
+        r = method_create_or_register_machine(manager, message, read_network, read_ssh, &m, error);
         if (r < 0)
                 return r;
 
@@ -418,12 +438,16 @@ fail:
         return r;
 }
 
+static int method_register_machine_with_ssh(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_register_machine_internal(message, /* read_network= */ false, /* read_ssh= */ true, userdata, error);
+}
+
 static int method_register_machine_with_network(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_register_machine_internal(message, true, userdata, error);
+        return method_register_machine_internal(message, /* read_network= */ true, /* read_ssh= */ false, userdata, error);
 }
 
 static int method_register_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_register_machine_internal(message, false, userdata, error);
+        return method_register_machine_internal(message, /* read_network= */ false, /* read_ssh= */ false, userdata, error);
 }
 
 static int redirect_method_to_machine(sd_bus_message *message, Manager *m, sd_bus_error *error, sd_bus_message_handler_t method) {
@@ -1047,6 +1071,10 @@ const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_ARGS("s", name, "ay", id, "s", service, "s", class, "u", leader, "s", root_directory, "ai", ifindices),
                                 SD_BUS_RESULT("o", path),
                                 method_register_machine_with_network, 0),
+        SD_BUS_METHOD_WITH_ARGS("RegisterMachineWithSSH",
+                                SD_BUS_ARGS("s", name, "ay", id, "s", service, "s", class, "u", leader, "s", root_directory, "s", address, "s", private_key_path),
+                                SD_BUS_RESULT("o", path),
+                                method_register_machine_with_ssh, 0),
         SD_BUS_METHOD_WITH_ARGS("UnregisterMachine",
                                 SD_BUS_ARGS("s", name),
                                 SD_BUS_NO_RESULT,
