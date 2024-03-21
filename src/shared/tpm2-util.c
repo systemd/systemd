@@ -5525,13 +5525,13 @@ int tpm2_unseal(Tpm2Context *c,
         if (r < 0)
                 return r;
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
-        r = tpm2_make_encryption_session(c, primary_handle, hmac_key, &encryption_session);
-        if (r < 0)
-                return r;
-
         _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
         for (unsigned i = RETRY_UNSEAL_MAX;; i--) {
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
+                r = tpm2_make_encryption_session(c, primary_handle, hmac_key, &encryption_session);
+                if (r < 0)
+                        return r;
+
                 _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
                 _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
                 r = tpm2_make_policy_session(
