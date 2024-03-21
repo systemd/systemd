@@ -36,12 +36,13 @@ typedef enum {
 } WriteStringFileFlags;
 
 typedef enum {
-        READ_FULL_FILE_SECURE              = 1 << 0, /* erase any buffers we employ internally, after use */
-        READ_FULL_FILE_UNBASE64            = 1 << 1, /* base64 decode what we read */
-        READ_FULL_FILE_UNHEX               = 1 << 2, /* hex decode what we read */
-        READ_FULL_FILE_WARN_WORLD_READABLE = 1 << 3, /* if regular file, log at LOG_WARNING level if access mode above 0700 */
-        READ_FULL_FILE_CONNECT_SOCKET      = 1 << 4, /* if socket inode, connect to it and read off it */
-        READ_FULL_FILE_FAIL_WHEN_LARGER    = 1 << 5, /* fail loading if file is larger than specified size */
+        READ_FULL_FILE_SECURE                     = 1 << 0, /* erase any buffers we employ internally, after use */
+        READ_FULL_FILE_UNBASE64                   = 1 << 1, /* base64 decode what we read */
+        READ_FULL_FILE_UNHEX                      = 1 << 2, /* hex decode what we read */
+        READ_FULL_FILE_WARN_WORLD_READABLE        = 1 << 3, /* if regular file, log at LOG_WARNING level if access mode above 0700 */
+        READ_FULL_FILE_CONNECT_SOCKET             = 1 << 4, /* if socket inode, connect to it and read off it */
+        READ_FULL_FILE_FAIL_WHEN_LARGER           = 1 << 5, /* fail loading if file is larger than specified size */
+        READ_FULL_FILE_IGNORE_READ_FULL_BYTES_MAX = 1 << 6, /* do not fail loading if file is larger than READ_FULL_BYTES_MAX */
 } ReadFullFileFlags;
 
 int fdopen_unlocked(int fd, const char *options, FILE **ret);
