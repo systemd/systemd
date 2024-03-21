@@ -2769,7 +2769,7 @@ static int verb_lock_raw(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open '%s': %m", argv[1]);
         }
 
-        r = read_full_stream(f ?: stdin, &data, &size);
+        r = read_full_stream_full(f ?: stdin, NULL, UINT64_MAX, SIZE_MAX, READ_FULL_FILE_LARGE_FILE, &data, &size);
         if (r < 0)
                 return log_error_errno(r, "Failed to read data from %s: %m", f ? argv[1] : "stdin");
 
@@ -3808,8 +3808,8 @@ static int verb_lock_kernel_initrd(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open '%s': %m", argv[1]);
         }
 
-        r = read_full_stream(f ?: stdin, (char**) &data, &size);
-        if (r < 0)
+        r = read_full_stream_full(f ?: stdin, NULL, UINT64_MAX, SIZE_MAX, READ_FULL_FILE_LARGE_FILE, (char**) &data, &size);
+         if (r < 0)
                 return log_error_errno(r, "Failed to read data from %s: %m", f ? argv[1] : "stdin");
 
         r = make_pcrlock_record(TPM2_PCR_KERNEL_INITRD /* = 9 */, data, size, &record);
