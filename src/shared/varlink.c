@@ -3377,7 +3377,7 @@ int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) 
         }
 
         _cleanup_free_ char *desc = NULL;
-        if (asprintf(&desc, "%s-%i", server->description ?: "varlink", v->fd) >= 0)
+        if (asprintf(&desc, "%s-%i", varlink_server_description(server), v->fd) >= 0)
                 v->description = TAKE_PTR(desc);
 
         /* Link up the server and the connection, and take reference in both directions. Note that the
