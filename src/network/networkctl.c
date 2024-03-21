@@ -37,6 +37,7 @@
 #include "glob-util.h"
 #include "hwdb-util.h"
 #include "ipvlan-util.h"
+#include "journal-internal.h"
 #include "local-addresses.h"
 #include "locale-util.h"
 #include "logs-show.h"
@@ -1613,22 +1614,12 @@ static int show_logs(const LinkInfo *info) {
                 return log_error_errno(r, "Failed to add boot matches: %m");
 
         if (info) {
-                char m1[STRLEN("_KERNEL_DEVICE=n") + DECIMAL_STR_MAX(int)];
-                const char *m2, *m3;
-
-                /* kernel */
-                xsprintf(m1, "_KERNEL_DEVICE=n%i", info->ifindex);
-                /* networkd */
-                m2 = strjoina("INTERFACE=", info->name);
-                /* udevd */
-                m3 = strjoina("DEVICE=", info->name);
-
-                (void)(
-                       (r = sd_journal_add_match(j, m1, 0)) ||
+                (void) (
+                       (r = journal_add_matchf(j, "_KERNEL_DEVICE=n%i", info->ifindex)) || /* kernel */
                        (r = sd_journal_add_disjunction(j)) ||
-                       (r = sd_journal_add_match(j, m2, 0)) ||
+                       (r = journal_add_match_pair(j, "INTERFACE", info->name)) || /* networkd */
                        (r = sd_journal_add_disjunction(j)) ||
-                       (r = sd_journal_add_match(j, m3, 0))
+                       (r = journal_add_match_pair(j, "DEVICE", info->name)) /* udevd */
                 );
                 if (r < 0)
                         return log_error_errno(r, "Failed to add link matches: %m");
