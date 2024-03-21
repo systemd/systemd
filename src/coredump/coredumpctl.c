@@ -74,29 +74,30 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static int add_match(sd_journal *j, const char *match) {
         _cleanup_free_ char *p = NULL;
-        const char* prefix, *pattern;
-        pid_t pid;
+        const char *field;
         int r;
 
         if (strchr(match, '='))
-                prefix = "";
-        else if (strchr(match, '/')) {
+                field = NULL;
+        else if (is_path(match)) {
                 r = path_make_absolute_cwd(match, &p);
                 if (r < 0)
                         return log_error_errno(r, "path_make_absolute_cwd(\"%s\"): %m", match);
 
                 match = p;
-                prefix = "COREDUMP_EXE=";
-        } else if (parse_pid(match, &pid) >= 0)
-                prefix = "COREDUMP_PID=";
+                field = "COREDUMP_EXE";
+        } else if (parse_pid(match, NULL) >= 0)
+                field = "COREDUMP_PID";
         else
-                prefix = "COREDUMP_COMM=";
+                field = "COREDUMP_COMM";
 
-        pattern = strjoina(prefix, match);
-        log_debug("Adding match: %s", pattern);
-        r = sd_journal_add_match(j, pattern, 0);
+        log_debug("Adding match: %s%s", strempty(field), match);
+        if (field)
+                r = journal_add_match_pair(j, field, match);
+        else
+                r = sd_journal_add_match(j, match, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match \"%s\": %m", match);
+                return log_error_errno(r, "Failed to add match \"%s%s\": %m", strempty(field), match);
 
         return 0;
 }
