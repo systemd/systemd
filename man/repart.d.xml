@@ -383,7 +383,7 @@
 
         <para>The file specified here must have a size that is a multiple of the basic block size 512 and not
         be empty. If this option is used, the size allocation algorithm is slightly altered: the partition is
-        created as least as big as required to fit the data in, i.e. the data size is an additional minimum
+        created at least as big as required to fit the data in, i.e. the data size is an additional minimum
         size value taken into consideration for the allocation algorithm, similar to and in addition to the
         <varname>SizeMin=</varname> value configured above.</para>
 
@@ -407,7 +407,7 @@
         <literal>squashfs</literal> or the special value <literal>swap</literal>. If specified and the partition
         is newly created it is formatted with the specified file system (or as swap device). The file system
         UUID and label are automatically derived from the partition UUID and label. If this option is used,
-        the size allocation algorithm is slightly altered: the partition is created as least as big as
+        the size allocation algorithm is slightly altered: the partition is created at least as big as
         required for the minimal file system of the specified type (or 4KiB if the minimal size is not
         known).</para>
 
