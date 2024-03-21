@@ -121,18 +121,13 @@ static OutputFlags get_output_flags(void) {
 static int call_get_os_release(sd_bus *bus, const char *method, const char *name, const char *query, ...) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *k, *v, **query_res = NULL;
-        size_t count = 0, awaited_args = 0;
         va_list ap;
         int r;
 
         assert(bus);
+        assert(method);
         assert(name);
         assert(query);
-
-        NULSTR_FOREACH(iter, query)
-                awaited_args++;
-        query_res = newa0(const char *, awaited_args);
 
         r = bus_call_method(bus, bus_machine_mgr, method, &error, &reply, "s", name);
         if (r < 0)
@@ -142,14 +137,23 @@ static int call_get_os_release(sd_bus *bus, const char *method, const char *name
         if (r < 0)
                 return bus_log_parse_error(r);
 
+        const char **res;
+        size_t n_fields = 0;
+
+        NULSTR_FOREACH(i, query)
+                n_fields++;
+
+        res = newa0(const char*, n_fields);
+
+        const char *k, *v;
         while ((r = sd_bus_message_read(reply, "{ss}", &k, &v)) > 0) {
-                count = 0;
-                NULSTR_FOREACH(iter, query) {
-                        if (streq(k, iter)) {
-                                query_res[count] = v;
+                size_t c = 0;
+                NULSTR_FOREACH(i, query) {
+                        if (streq(i, k)) {
+                                res[c] = v;
                                 break;
                         }
-                        count++;
+                        c++;
                 }
         }
         if (r < 0)
@@ -160,17 +164,12 @@ static int call_get_os_release(sd_bus *bus, const char *method, const char *name
                 return bus_log_parse_error(r);
 
         r = 0;
-        va_start(ap, query);
-        for (count = 0; count < awaited_args; count++) {
-                char **out;
 
-                out = va_arg(ap, char **);
-                assert(out);
-                if (query_res[count]) {
-                        r = strdup_to(out, query_res[count]);
-                        if (r < 0)
-                                break;
-                }
+        va_start(ap, query);
+        FOREACH_ARRAY(i, res, n_fields) {
+                r = strdup_to(va_arg(ap, char**), *i);
+                if (r < 0)
+                        break;
         }
         va_end(ap);
 
@@ -203,12 +202,12 @@ static int call_get_addresses(
         addresses = strdup(prefix);
         if (!addresses)
                 return log_oom();
-        prefix = "";
 
         r = sd_bus_message_enter_container(reply, 'a', "(iay)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
+        prefix = "";
         while ((r = sd_bus_message_enter_container(reply, 'r', "iay")) > 0) {
                 int family;
                 const void *a;
