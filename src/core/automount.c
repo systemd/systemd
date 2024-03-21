@@ -471,21 +471,14 @@ static int automount_send_ready(Automount *a, Set *tokens, int status) {
         r = 0;
 
         /* Autofs thankfully does not hand out 0 as a token */
-        while ((token = PTR_TO_UINT(set_steal_first(tokens)))) {
-                int k;
-
+        while ((token = PTR_TO_UINT(set_steal_first(tokens))))
                 /* Autofs fun fact:
                  *
-                 * if you pass a positive status code here, kernels
-                 * prior to 4.12 will freeze! Yay! */
-
-                k = autofs_send_ready(UNIT(a)->manager->dev_autofs_fd,
-                                      ioctl_fd,
-                                      token,
-                                      status);
-                if (k < 0)
-                        r = k;
-        }
+                 * if you pass a positive status code here, kernels prior to 4.12 will freeze! Yay! */
+                RET_GATHER(r, autofs_send_ready(UNIT(a)->manager->dev_autofs_fd,
+                                                ioctl_fd,
+                                                token,
+                                                status));
 
         return r;
 }

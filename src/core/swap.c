@@ -351,18 +351,16 @@ static int swap_load(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         /* Load a .swap file */
-        bool fragment_optional = s->from_proc_swaps;
-        r = unit_load_fragment_and_dropin(u, !fragment_optional);
+        r = unit_load_fragment_and_dropin(u, /* fragment_required = */ !s->from_proc_swaps);
 
         /* Add in some extras, and do so either when we successfully loaded something or when /proc/swaps is
          * already active. */
         if (u->load_state == UNIT_LOADED || s->from_proc_swaps)
-                q = swap_add_extras(s);
+                RET_GATHER(r, swap_add_extras(s));
 
         if (r < 0)
                 return r;
-        if (q < 0)
-                return q;
+
         if (u->load_state != UNIT_LOADED)
                 return 0;
 
@@ -1399,20 +1397,16 @@ int swap_process_device_new(Manager *m, sd_device *dev) {
 
 int swap_process_device_remove(Manager *m, sd_device *dev) {
         const char *dn;
-        int r;
         Swap *s;
+        int r;
 
         r = sd_device_get_devname(dev, &dn);
         if (r < 0)
                 return 0;
 
-        while ((s = hashmap_get(m->swaps_by_devnode, dn))) {
-                int q;
-
-                q = swap_set_devnode(s, NULL);
-                if (q < 0)
-                        r = q;
-        }
+        r = 0;
+        while ((s = hashmap_get(m->swaps_by_devnode, dn)))
+                RET_GATHER(r, swap_set_devnode(s, NULL));
 
         return r;
 }
