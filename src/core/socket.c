@@ -154,10 +154,8 @@ void socket_free_ports(Socket *s) {
 }
 
 static void socket_done(Unit *u) {
-        Socket *s = SOCKET(u);
+        Socket *s = ASSERT_PTR(SOCKET(u));
         SocketPeer *p;
-
-        assert(s);
 
         socket_free_ports(s);
 
@@ -254,6 +252,7 @@ static int socket_add_device_dependencies(Socket *s) {
 
 static int socket_add_default_dependencies(Socket *s) {
         int r;
+
         assert(s);
 
         if (!UNIT(s)->default_dependencies)
@@ -274,6 +273,7 @@ static int socket_add_default_dependencies(Socket *s) {
 
 static bool socket_has_exec(Socket *s) {
         unsigned i;
+
         assert(s);
 
         for (i = 0; i < _SOCKET_EXEC_COMMAND_MAX; i++)
@@ -284,10 +284,8 @@ static bool socket_has_exec(Socket *s) {
 }
 
 static int socket_add_extras(Socket *s) {
-        Unit *u = UNIT(s);
+        Unit *u = UNIT(ASSERT_PTR(s));
         int r;
-
-        assert(s);
 
         /* Pick defaults for the trigger limit, if nothing was explicitly configured. We pick a relatively high limit
          * in Accept=yes mode, and a lower limit for Accept=no. Reason: in Accept=yes mode we are invoking accept()
@@ -451,10 +449,9 @@ static int peer_address_compare_func(const SocketPeer *x, const SocketPeer *y) {
 DEFINE_PRIVATE_HASH_OPS(peer_address_hash_ops, SocketPeer, peer_address_hash_func, peer_address_compare_func);
 
 static int socket_load(Unit *u) {
-        Socket *s = SOCKET(u);
+        Socket *s = ASSERT_PTR(SOCKET(u));
         int r;
 
-        assert(u);
         assert(u->load_state == UNIT_STUB);
 
         r = unit_load_fragment_and_dropin(u, true);
@@ -510,8 +507,8 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **ret) {
         }, *i;
         int r;
 
-        assert(fd >= 0);
         assert(s);
+        assert(fd >= 0);
         assert(ret);
 
         if (getpeername(fd, &key.peer.sa, &key.peer_salen) < 0)
@@ -571,10 +568,9 @@ static const char* listen_lookup(int family, int type) {
 }
 
 static void socket_dump(Unit *u, FILE *f, const char *prefix) {
-        Socket *s = SOCKET(u);
+        Socket *s = ASSERT_PTR(SOCKET(u));
         const char *prefix2, *str;
 
-        assert(s);
         assert(f);
 
         prefix = strempty(prefix);
@@ -1305,6 +1301,9 @@ static int socket_symlink(Socket *s) {
 static int usbffs_write_descs(int fd, Service *s) {
         int r;
 
+        assert(fd >= 0);
+        assert(s);
+
         if (!s->usb_function_descriptors || !s->usb_function_strings)
                 return -EINVAL;
 
@@ -1375,6 +1374,9 @@ int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
          * If cfd < 0, then we don't have a connection yet. In case of Accept=yes sockets, use a fake
          * instance name.
          */
+
+        assert(s);
+        assert(ret);
 
         if (UNIT_ISSET(s->service)) {
                 *ret = UNIT_DEREF(s->service);
@@ -1801,6 +1803,7 @@ static int socket_check_open(Socket *s) {
 
 static void socket_set_state(Socket *s, SocketState state) {
         SocketState old_state;
+
         assert(s);
 
         if (s->state != state)
@@ -1837,10 +1840,9 @@ static void socket_set_state(Socket *s, SocketState state) {
 }
 
 static int socket_coldplug(Unit *u) {
-        Socket *s = SOCKET(u);
+        Socket *s = ASSERT_PTR(SOCKET(u));
         int r;
 
-        assert(s);
         assert(s->state == SOCKET_DEAD);
 
         if (s->deserialized_state == s->state)
@@ -1897,7 +1899,6 @@ static int socket_coldplug(Unit *u) {
 }
 
 static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
-
         _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(
                         EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN);
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
@@ -2033,6 +2034,7 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f);
 
 static void socket_enter_stop_post(Socket *s, SocketResult f) {
         int r;
+
         assert(s);
 
         if (s->result == SOCKET_SUCCESS)
@@ -2109,6 +2111,7 @@ fail:
 
 static void socket_enter_stop_pre(Socket *s, SocketResult f) {
         int r;
+
         assert(s);
 
         if (s->result == SOCKET_SUCCESS)
@@ -2135,6 +2138,7 @@ static void socket_enter_stop_pre(Socket *s, SocketResult f) {
 
 static void socket_enter_listening(Socket *s) {
         int r;
+
         assert(s);
 
         if (!s->accept && s->flush_pending) {
@@ -2154,6 +2158,7 @@ static void socket_enter_listening(Socket *s) {
 
 static void socket_enter_start_post(Socket *s) {
         int r;
+
         assert(s);
 
         socket_unwatch_control_pid(s);
@@ -2210,6 +2215,7 @@ fail:
 
 static void socket_enter_start_pre(Socket *s) {
         int r;
+
         assert(s);
 
         socket_unwatch_control_pid(s);
@@ -2253,7 +2259,6 @@ static void socket_enter_running(Socket *s, int cfd_in) {
         /* Note that this call takes possession of the connection fd passed. It either has to assign it
          * somewhere or close it. */
         _cleanup_close_ int cfd = cfd_in;
-
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
@@ -2422,10 +2427,8 @@ static void socket_run_next(Socket *s) {
 }
 
 static int socket_start(Unit *u) {
-        Socket *s = SOCKET(u);
+        Socket *s = ASSERT_PTR(SOCKET(u));
         int r;
-
-        assert(s);
 
         /* We cannot fulfill this request right now, try again later
          * please! */
@@ -2482,9 +2485,7 @@ static int socket_start(Unit *u) {
 }
 
 static int socket_stop(Unit *u) {
-        Socket *s = SOCKET(u);
-
-        assert(s);
+        Socket *s = ASSERT_PTR(SOCKET(u));
 
         /* Already on it */
         if (IN_SET(s->state,
@@ -2519,10 +2520,9 @@ static int socket_stop(Unit *u) {
 }
 
 static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
-        Socket *s = SOCKET(u);
+        Socket *s = ASSERT_PTR(SOCKET(u));
         int r;
 
-        assert(u);
         assert(f);
         assert(fds);
 
@@ -2574,10 +2574,9 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
 }
 
 static int socket_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
-        Socket *s = SOCKET(u);
+        Socket *s = ASSERT_PTR(SOCKET(u));
         int r;
 
-        assert(u);
         assert(key);
         assert(value);
 
@@ -2814,9 +2813,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
 }
 
 static void socket_distribute_fds(Unit *u, FDSet *fds) {
-        Socket *s = SOCKET(u);
-
-        assert(u);
+        Socket *s = ASSERT_PTR(SOCKET(u));
 
         LIST_FOREACH(port, p, s->ports) {
                 int fd;
@@ -2838,15 +2835,15 @@ static void socket_distribute_fds(Unit *u, FDSet *fds) {
 }
 
 static UnitActiveState socket_active_state(Unit *u) {
-        assert(u);
+        Socket *s = ASSERT_PTR(SOCKET(u));
 
-        return state_translation_table[SOCKET(u)->state];
+        return state_translation_table[s->state];
 }
 
 static const char *socket_sub_state_to_string(Unit *u) {
-        assert(u);
+        Socket *s = ASSERT_PTR(SOCKET(u));
 
-        return socket_state_to_string(SOCKET(u)->state);
+        return socket_state_to_string(s->state);
 }
 
 int socket_port_to_address(const SocketPort *p, char **ret) {
@@ -2884,7 +2881,6 @@ int socket_port_to_address(const SocketPort *p, char **ret) {
 }
 
 const char* socket_port_type_to_string(SocketPort *p) {
-
         assert(p);
 
         switch (p->type) {
@@ -2946,9 +2942,7 @@ SocketType socket_port_type_from_string(const char *s) {
 }
 
 static bool socket_may_gc(Unit *u) {
-        Socket *s = SOCKET(u);
-
-        assert(u);
+        Socket *s = ASSERT_PTR(SOCKET(u));
 
         return s->n_connections == 0;
 }
@@ -3086,10 +3080,9 @@ fail:
 }
 
 static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
-        Socket *s = SOCKET(u);
+        Socket *s = ASSERT_PTR(SOCKET(u));
         SocketResult f;
 
-        assert(s);
         assert(pid >= 0);
 
         if (pid != s->control_pid.pid)
@@ -3193,9 +3186,8 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 }
 
 static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {
-        Socket *s = SOCKET(userdata);
+        Socket *s = ASSERT_PTR(SOCKET(userdata));
 
-        assert(s);
         assert(s->timer_event_source == source);
 
         switch (s->state) {
@@ -3331,9 +3323,8 @@ void socket_connection_unref(Socket *s) {
 }
 
 static void socket_trigger_notify(Unit *u, Unit *other) {
-        Socket *s = SOCKET(u);
+        Socket *s = ASSERT_PTR(SOCKET(u));
 
-        assert(u);
         assert(other);
 
         /* Filter out invocations with bogus state */
@@ -3369,7 +3360,7 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
 }
 
 static int socket_get_timeout(Unit *u, usec_t *timeout) {
-        Socket *s = SOCKET(u);
+        Socket *s = ASSERT_PTR(SOCKET(u));
         usec_t t;
         int r;
 
@@ -3401,11 +3392,10 @@ static PidRef *socket_control_pid(Unit *u) {
 }
 
 static int socket_clean(Unit *u, ExecCleanMask mask) {
+        Socket *s = ASSERT_PTR(SOCKET(u));
         _cleanup_strv_free_ char **l = NULL;
-        Socket *s = SOCKET(u);
         int r;
 
-        assert(s);
         assert(mask != 0);
 
         if (s->state != SOCKET_DEAD)
@@ -3445,18 +3435,14 @@ fail:
 }
 
 static int socket_can_clean(Unit *u, ExecCleanMask *ret) {
-        Socket *s = SOCKET(u);
-
-        assert(s);
+        Socket *s = ASSERT_PTR(SOCKET(u));
 
         return exec_context_get_clean_mask(&s->exec_context, ret);
 }
 
 static int socket_can_start(Unit *u) {
-        Socket *s = SOCKET(u);
+        Socket *s = ASSERT_PTR(SOCKET(u));
         int r;
-
-        assert(s);
 
         r = unit_test_start_limit(u);
         if (r < 0) {
