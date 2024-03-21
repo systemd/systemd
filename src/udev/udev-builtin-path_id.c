@@ -24,7 +24,6 @@
 #include "sysexits.h"
 #include "udev-builtin.h"
 #include "udev-util.h"
-#include "device-util.h"
 
 _printf_(2,3)
 static void path_prepend(char **path, const char *fmt, ...) {
@@ -635,24 +634,37 @@ static int find_real_nvme_parent(sd_device *dev, sd_device **ret) {
         if (r < 0)
                 return r;
 
-        /* If the 'real parent' is (still) virtual, e.g. for nvmf disks, refuse to set ID_PATH. */
+        /* If the 'real parent' is (still) virtual, e.g. for nvmf disks, set ID_PATH. */
         if (path_startswith(devpath, "/devices/virtual/")) {
-		const char *syspath;
-		const char *addr, *fc_pn, *name, *nvme_pn;
-		struct sd_device *fcdev = NULL, *fc_parent = NULL;
+		_cleanup_(sd_device_unrefp) sd_device *fc_parent = NULL;
+		const char *addr, *fc_pn, *nvme_pn, *first, *second, *third;
 
-		sd_device_get_sysattr_value(nvme, "address", &addr);
-		nvme_pn = strrchr(addr, '-') + 1;
+		r = sd_device_get_sysattr_value(nvme, "address", &addr);
+		if (r < 0)
+			return r;
 
-		sd_device_new_from_syspath(&fc_parent, "/sys/class/fc_host");
-		FOREACH_DEVICE_CHILD_WITH_SUFFIX(fc_parent, child, name) {
-			fcdev = child;
-			sd_device_get_sysattr_value(fcdev, "port_name", &fc_pn);
-			if (strcmp(fc_pn, nvme_pn) == 0)
-				break;
+		r = extract_many_words(&addr, ":", 0, &first, &second, &third, NULL);
+		if (r < 3)
+			return -ENXIO;
+
+		r = extract_many_words(&third, "-", 0, &first, &nvme_pn, NULL);
+		if (r < 2)
+			return -ENXIO;
+
+		r = sd_device_new_from_syspath(&fc_parent, "/sys/class/fc_host");
+		if (r < 0)
+			return -ENXIO;
+
+		FOREACH_DEVICE_CHILD(fc_parent, child) {
+			r = sd_device_get_sysattr_value(child, "port_name", &fc_pn);
+			if (r < 0)
+				return r;
+
+			if (streq(fc_pn, nvme_pn)) {
+				*ret = sd_device_ref(child);
+				return 0;
+			}
 		}
-		sd_device_get_syspath(fcdev, &syspath);
-		nvme = fcdev;
 	}
 
         *ret = TAKE_PTR(nvme);
