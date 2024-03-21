@@ -168,6 +168,9 @@ if ! systemd-detect-virt -cq ; then
     homectl remove test-user2
 fi
 
+# Regression tests
+/usr/lib/systemd/tests/unit-tests/manual/test-homed-regression-release-31896 test-user
+
 # blob directory tests
 # See docs/USER_RECORD_BLOB_DIRS.md
 checkblob() {
