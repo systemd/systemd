@@ -35,7 +35,7 @@ def main():
 
     args = parser.parse_args()
 
-    args.output.mkdir(exist_ok=True)
+    args.output.mkdir(mode=0o755, exist_ok=True)
     for exe in args.executables:
         extract_interfaces_xml(args.output, exe)
 
