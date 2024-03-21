@@ -645,7 +645,7 @@ int read_full_stream_full(
                 n_next = size != SIZE_MAX && !FLAGS_SET(flags, READ_FULL_FILE_FAIL_WHEN_LARGER) ? size : LINE_MAX;
 
         /* Never read more than we need to determine that our own limit is hit */
-        if (n_next > READ_FULL_BYTES_MAX)
+        if (n_next > READ_FULL_BYTES_MAX && !FLAGS_SET(flags, READ_FULL_FILE_IGNORE_READ_FULL_BYTES_MAX))
                 n_next = READ_FULL_BYTES_MAX + 1;
 
         if (offset != UINT64_MAX && fseek(f, offset, SEEK_SET) < 0)
@@ -657,7 +657,7 @@ int read_full_stream_full(
                 size_t k;
 
                 /* If we shall fail when reading overly large data, then read exactly one byte more than the
-                 * specified size at max, since that'll tell us if there's anymore data beyond the limit*/
+                 * specified size at max, since that'll tell us if there's anymore data beyond the limit */
                 if (FLAGS_SET(flags, READ_FULL_FILE_FAIL_WHEN_LARGER) && n_next > size)
                         n_next = size + 1;
 
@@ -706,12 +706,14 @@ int read_full_stream_full(
                         goto finalize;
                 }
 
-                if (n >= READ_FULL_BYTES_MAX) {
+                if (n >= READ_FULL_BYTES_MAX && !FLAGS_SET(flags, READ_FULL_FILE_IGNORE_READ_FULL_BYTES_MAX)) {
                         r = -E2BIG;
                         goto finalize;
                 }
 
-                n_next = MIN(n * 2, READ_FULL_BYTES_MAX);
+                n_next = n * 2;
+                if (!FLAGS_SET(flags, READ_FULL_FILE_IGNORE_READ_FULL_BYTES_MAX))
+                        n_next = MIN(n_next, READ_FULL_BYTES_MAX);
         }
 
         if (flags & (READ_FULL_FILE_UNBASE64 | READ_FULL_FILE_UNHEX)) {
