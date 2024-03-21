@@ -118,14 +118,12 @@ if [[ ${#ARGS[@]} -ne 0 ]]; then
         RESULTS["$test"]="$result"
         TIMES["$test"]="$SECONDS"
 
-        [[ "$result" -ne 0 ]] && FAILURES=$((FAILURES + 1))
-    done
-fi
-
-# Run clean-again, if requested, and if no tests failed
-if [[ $FAILURES -eq 0 && $CLEAN_AGAIN -eq 1 ]]; then
-    for test in "${!RESULTS[@]}"; do
-        test_run "$test" make -C "$test" clean-again
+        # Run clean-again here to free up space, if requested, and if the test succeeded
+        if [[ "$result" -ne 0 ]]; then
+            FAILURES=$((FAILURES + 1))
+        elif [[ $CLEAN_AGAIN -eq 1 ]]; then
+            test_run "$test" make -C "$test" clean-again
+        fi
     done
 fi
 
