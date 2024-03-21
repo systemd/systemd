@@ -172,10 +172,8 @@ static bool mount_propagate_stop(Mount *m) {
 }
 
 static void mount_init(Unit *u) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
-        assert(m);
-        assert(u);
         assert(u->load_state == UNIT_STUB);
 
         m->timeout_usec = u->manager->defaults.timeout_start_usec;
@@ -217,9 +215,7 @@ static void mount_parameters_done(MountParameters *p) {
 }
 
 static void mount_done(Unit *u) {
-        Mount *m = MOUNT(u);
-
-        assert(m);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
         m->where = mfree(m->where);
 
@@ -244,6 +240,8 @@ static int update_parameters_proc_self_mountinfo(
 
         MountParameters *p;
         int r, q, w;
+
+        assert(m);
 
         p = &m->parameters_proc_self_mountinfo;
 
@@ -408,9 +406,8 @@ static int mount_add_device_dependencies(Mount *m) {
 }
 
 static bool mount_is_extrinsic(Unit *u) {
+        Mount *m = ASSERT_PTR(MOUNT(u));
         MountParameters *p;
-        Mount *m = MOUNT(u);
-        assert(m);
 
         /* Returns true for all units that are "magic" and should be excluded from the usual
          * start-up and shutdown dependencies. We call them "extrinsic" here, as they are generally
@@ -629,10 +626,8 @@ static int mount_add_non_exec_dependencies(Mount *m) {
 }
 
 static int mount_add_extras(Mount *m) {
-        Unit *u = UNIT(m);
+        Unit *u = UNIT(ASSERT_PTR(m));
         int r;
-
-        assert(m);
 
         /* Note: this call might be called after we already have been loaded once (and even when it has already been
          * activated), in case data from /proc/self/mountinfo has changed. This means all code here needs to be ready
@@ -678,7 +673,7 @@ static int mount_add_extras(Mount *m) {
 }
 
 static void mount_load_root_mount(Unit *u) {
-        assert(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
         if (!unit_has_name(u, SPECIAL_ROOT_MOUNT))
                 return;
@@ -687,19 +682,17 @@ static void mount_load_root_mount(Unit *u) {
         u->default_dependencies = false;
 
         /* The stdio/kmsg bridge socket is on /, in order to avoid a dep loop, don't use kmsg logging for -.mount */
-        MOUNT(u)->exec_context.std_output = EXEC_OUTPUT_NULL;
-        MOUNT(u)->exec_context.std_input = EXEC_INPUT_NULL;
+        m->exec_context.std_output = EXEC_OUTPUT_NULL;
+        m->exec_context.std_input = EXEC_INPUT_NULL;
 
         if (!u->description)
                 u->description = strdup("Root Mount");
 }
 
 static int mount_load(Unit *u) {
-        Mount *m = MOUNT(u);
-        int r, q = 0;
+        Mount *m = ASSERT_PTR(MOUNT(u));
+        int r;
 
-        assert(m);
-        assert(u);
         assert(u->load_state == UNIT_STUB);
 
         mount_load_root_mount(u);
@@ -726,6 +719,7 @@ static int mount_load(Unit *u) {
 
 static void mount_set_state(Mount *m, MountState state) {
         MountState old_state;
+
         assert(m);
 
         if (m->state != state)
@@ -748,10 +742,9 @@ static void mount_set_state(Mount *m, MountState state) {
 }
 
 static int mount_coldplug(Unit *u) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
         int r;
 
-        assert(m);
         assert(m->state == MOUNT_DEAD);
 
         if (m->deserialized_state == m->state)
@@ -780,9 +773,7 @@ static int mount_coldplug(Unit *u) {
 }
 
 static void mount_catchup(Unit *u) {
-        Mount *m = MOUNT(ASSERT_PTR(u));
-
-        assert(m);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
         /* Adjust the deserialized state. See comments in mount_process_proc_self_mountinfo(). */
         if (m->from_proc_self_mountinfo)
@@ -817,10 +808,9 @@ static void mount_catchup(Unit *u) {
 }
 
 static void mount_dump(Unit *u, FILE *f, const char *prefix) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
         MountParameters *p;
 
-        assert(m);
         assert(f);
 
         p = get_mount_parameters(m);
@@ -870,7 +860,6 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
 }
 
 static int mount_spawn(Mount *m, ExecCommand *c, PidRef *ret_pid) {
-
         _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(
                         EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN);
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
@@ -1115,9 +1104,9 @@ static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParamete
 }
 
 static void mount_enter_mounting(Mount *m) {
-        int r;
         MountParameters *p;
         bool source_is_dir = true;
+        int r;
 
         assert(m);
 
@@ -1226,8 +1215,8 @@ static void mount_set_reload_result(Mount *m, MountResult result) {
 }
 
 static void mount_enter_remounting(Mount *m) {
-        int r;
         MountParameters *p;
+        int r;
 
         assert(m);
 
@@ -1295,10 +1284,8 @@ static void mount_cycle_clear(Mount *m) {
 }
 
 static int mount_start(Unit *u) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
         int r;
-
-        assert(m);
 
         /* We cannot fulfill this request right now, try again later
          * please! */
@@ -1326,9 +1313,7 @@ static int mount_start(Unit *u) {
 }
 
 static int mount_stop(Unit *u) {
-        Mount *m = MOUNT(u);
-
-        assert(m);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
         /* When we directly call umount() for a path, then the state of the corresponding mount unit may be
          * outdated. Let's re-read mountinfo now and update the state. */
@@ -1380,9 +1365,8 @@ static int mount_stop(Unit *u) {
 }
 
 static int mount_reload(Unit *u) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
-        assert(m);
         assert(m->state == MOUNT_MOUNTED);
 
         mount_enter_remounting(m);
@@ -1391,9 +1375,8 @@ static int mount_reload(Unit *u) {
 }
 
 static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
-        assert(m);
         assert(f);
         assert(fds);
 
@@ -1410,11 +1393,9 @@ static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
 }
 
 static int mount_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
         int r;
 
-        assert(m);
-        assert(u);
         assert(key);
         assert(value);
         assert(fds);
@@ -1474,21 +1455,19 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
 }
 
 static UnitActiveState mount_active_state(Unit *u) {
-        assert(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
-        return state_translation_table[MOUNT(u)->state];
+        return state_translation_table[m->state];
 }
 
 static const char *mount_sub_state_to_string(Unit *u) {
-        assert(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
-        return mount_state_to_string(MOUNT(u)->state);
+        return mount_state_to_string(m->state);
 }
 
 static bool mount_may_gc(Unit *u) {
-        Mount *m = MOUNT(u);
-
-        assert(m);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
         if (m->from_proc_self_mountinfo)
                 return false;
@@ -1497,10 +1476,9 @@ static bool mount_may_gc(Unit *u) {
 }
 
 static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
         MountResult f;
 
-        assert(m);
         assert(pid >= 0);
 
         if (pid != m->control_pid.pid)
@@ -1627,9 +1605,8 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 }
 
 static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {
-        Mount *m = MOUNT(userdata);
+        Mount *m = ASSERT_PTR(MOUNT(userdata));
 
-        assert(m);
         assert(m->timer_event_source == source);
 
         switch (m->state) {
@@ -1761,14 +1738,15 @@ static int mount_setup_existing_unit(
                 const char *fstype,
                 MountProcFlags *ret_flags) {
 
+        Mount *m = ASSERT_PTR(MOUNT(u));
         int r;
 
         assert(u);
         assert(ret_flags);
 
-        if (!MOUNT(u)->where) {
-                MOUNT(u)->where = strdup(where);
-                if (!MOUNT(u)->where)
+        if (!m->where) {
+                m->where = strdup(where);
+                if (!m->where)
                         return -ENOMEM;
         }
 
@@ -1776,10 +1754,9 @@ static int mount_setup_existing_unit(
          * for the current unit. Note that the flags field is reset on each iteration of reading
          * /proc/self/mountinfo, hence we know for sure anything already set here is from the current
          * iteration and thus worthy of taking into account. */
-        MountProcFlags flags =
-                MOUNT(u)->proc_flags | MOUNT_PROC_IS_MOUNTED;
+        MountProcFlags flags = m->proc_flags | MOUNT_PROC_IS_MOUNTED;
 
-        r = update_parameters_proc_self_mountinfo(MOUNT(u), what, options, fstype);
+        r = update_parameters_proc_self_mountinfo(m, what, options, fstype);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -1792,10 +1769,10 @@ static int mount_setup_existing_unit(
          * from the serialized state), and need to catch up. Since we know that the MOUNT_MOUNTING state is
          * reached when we wait for the mount to appear we hence can assume that if we are in it, we are
          * actually seeing it established for the first time. */
-        if (!MOUNT(u)->from_proc_self_mountinfo || MOUNT(u)->state == MOUNT_MOUNTING)
+        if (!m->from_proc_self_mountinfo || m->state == MOUNT_MOUNTING)
                 flags |= MOUNT_PROC_JUST_MOUNTED;
 
-        MOUNT(u)->from_proc_self_mountinfo = true;
+        m->from_proc_self_mountinfo = true;
 
         if (IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_BAD_SETTING, UNIT_ERROR)) {
                 /* The unit was previously not found or otherwise not loaded. Now that the unit shows up in
@@ -1809,7 +1786,7 @@ static int mount_setup_existing_unit(
         if (FLAGS_SET(flags, MOUNT_PROC_JUST_CHANGED)) {
                 /* If things changed, then make sure that all deps are regenerated. Let's
                  * first remove all automatic deps, and then add in the new ones. */
-                r = mount_add_non_exec_dependencies(MOUNT(u));
+                r = mount_add_non_exec_dependencies(m);
                 if (r < 0)
                         return r;
         }
@@ -1925,12 +1902,9 @@ static void mount_shutdown(Manager *m) {
 }
 
 static int mount_get_timeout(Unit *u, usec_t *timeout) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
         usec_t t;
         int r;
-
-        assert(m);
-        assert(u);
 
         if (!m->timer_event_source)
                 return 0;
@@ -2301,18 +2275,14 @@ fail:
 }
 
 static int mount_can_clean(Unit *u, ExecCleanMask *ret) {
-        Mount *m = MOUNT(u);
-
-        assert(m);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
         return exec_context_get_clean_mask(&m->exec_context, ret);
 }
 
 static int mount_can_start(Unit *u) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
         int r;
-
-        assert(m);
 
         r = unit_test_start_limit(u);
         if (r < 0) {
