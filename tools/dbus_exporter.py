@@ -36,6 +36,8 @@ def main():
     args = parser.parse_args()
 
     args.output.mkdir(exist_ok=True)
+    # Make sure we don't inherit any setgid/setuid bit or such.
+    args.output.chmod(mode=0o755)
     for exe in args.executables:
         extract_interfaces_xml(args.output, exe)
 
