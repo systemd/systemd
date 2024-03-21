@@ -118,6 +118,9 @@
 #define DEFAULT_TASKS_MAX ((CGroupTasksMax) { 15U, 100U }) /* 15% */
 
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
+#if HAVE_PAM
+static int manager_dispatch_notify_pam_pid_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
+#endif
 static int manager_dispatch_cgroups_agent_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
@@ -895,6 +898,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 .show_status_overridden = _SHOW_STATUS_INVALID,
 
                 .notify_fd = -EBADF,
+                .notify_pam_pid_fds = EBADF_PAIR,
                 .cgroups_agent_fd = -EBADF,
                 .signal_fd = -EBADF,
                 .user_lookup_fds = EBADF_PAIR,
@@ -1117,6 +1121,49 @@ static int manager_setup_notify(Manager *m) {
                 (void) sd_event_source_set_description(m->notify_event_source, "manager-notify");
         }
 
+        return 0;
+}
+
+static int manager_setup_notify_pam_pid(Manager *m) {
+#if HAVE_PAM
+        int r;
+
+        if (m->notify_pam_pid_fds[0] < 0) {
+                _cleanup_close_pair_ int socket[2] = EBADF_PAIR;
+
+                assert(m->notify_pam_pid_fds[1] < 0);
+
+                m->notify_pam_pid_event_source = sd_event_source_disable_unref(m->notify_pam_pid_event_source);
+
+                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, socket) < 0)
+                        return log_error_errno(errno, "Failed to allocate notification socket for PAM: %m");
+
+                (void) fd_increase_rxbuf(socket[0], NOTIFY_RCVBUF_SIZE);
+
+                r = setsockopt_int(socket[0], SOL_SOCKET, SO_PASSCRED, true);
+                if (r < 0)
+                        return log_error_errno(r, "SO_PASSCRED failed: %m");
+
+                m->notify_pam_pid_fds[0] = TAKE_FD(socket[0]);
+                m->notify_pam_pid_fds[1] = TAKE_FD(socket[1]);
+        } else
+                assert(m->notify_pam_pid_fds[1] >= 0);
+
+        if (!m->notify_pam_pid_event_source) {
+                r = sd_event_add_io(m->event, &m->notify_pam_pid_event_source, m->notify_pam_pid_fds[0],
+                                    EPOLLIN, manager_dispatch_notify_pam_pid_fd, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate notify event source for PAM: %m");
+
+                /* Process notification messages a bit earlier than SIGCHLD, so that we can still identify to which
+                 * service an exit message belongs. */
+                r = sd_event_source_set_priority(m->notify_pam_pid_event_source, EVENT_PRIORITY_NOTIFY);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set priority of notify event source: %m");
+
+                (void) sd_event_source_set_description(m->notify_pam_pid_event_source, "manager-notify-pam-pid");
+        }
+#endif
         return 0;
 }
 
@@ -1655,6 +1702,7 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->signal_event_source);
         sd_event_source_unref(m->sigchld_event_source);
         sd_event_source_unref(m->notify_event_source);
+        sd_event_source_unref(m->notify_pam_pid_event_source);
         sd_event_source_unref(m->cgroups_agent_event_source);
         sd_event_source_unref(m->time_change_event_source);
         sd_event_source_unref(m->timezone_change_event_source);
@@ -1665,6 +1713,7 @@ Manager* manager_free(Manager *m) {
 
         safe_close(m->signal_fd);
         safe_close(m->notify_fd);
+        safe_close_pair(m->notify_pam_pid_fds);
         safe_close(m->cgroups_agent_fd);
         safe_close_pair(m->user_lookup_fds);
 
@@ -1981,6 +2030,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                 r = manager_setup_notify(m);
                 if (r < 0)
                         /* No sense to continue without notifications, our children would fail anyway. */
+                        return r;
+
+                r = manager_setup_notify_pam_pid(m);
+                if (r < 0)
                         return r;
 
                 r = manager_setup_cgroups_agent(m);
@@ -2748,6 +2801,142 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         return 0;
 }
 
+#if HAVE_PAM
+static int manager_dispatch_notify_pam_pid_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        char buf[DECIMAL_STR_MAX(pid_t) * 2 + STRLEN("\n") + 1];
+        struct iovec iovec = {
+                .iov_base = buf,
+                .iov_len = sizeof(buf)-1,
+        };
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int))) control;
+        struct msghdr msghdr = {
+                .msg_iov = &iovec,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        ssize_t n;
+        int r;
+
+        assert(m->notify_pam_pid_fds[0] == fd);
+
+        if (revents != EPOLLIN) {
+                log_warning("Got unexpected poll event for notify fd.");
+                return 0;
+        }
+
+        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
+        if (ERRNO_IS_NEG_TRANSIENT(n))
+                return 0; /* Spurious wakeup, try again */
+        if (n == -EXFULL) {
+                log_warning_errno(n, "Got message with truncated control data, ignoring: %m");
+                return 0;
+        }
+        if (n < 0)
+                /* If this is any other, real error, then stop processing this socket. This of course means
+                 * we won't take notification messages anymore, but that's still better than busy looping:
+                 * being woken up over and over again, but being unable to actually read the message from the
+                 * socket. */
+                return log_error_errno(n, "Failed to receive notification message for PAM pid: %m");
+
+        _cleanup_(pidref_done) PidRef parent_pidref = PIDREF_NULL, pam_pidref = PIDREF_NULL;
+
+        int *fds = CMSG_TYPED_DATA(cmsg_find(&msghdr, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int) * 2)), int);
+        if (fds) {
+                r = pidref_set_pidfd_consume(&parent_pidref, fds[0]);
+                if (r < 0) {
+                        log_warning_errno(r, "Received invalid main pid of PAM process, ignoring: %m");
+                        safe_close(fds[1]);
+                        return 0;
+                }
+
+                r = pidref_set_pidfd_consume(&pam_pidref, fds[1]);
+                if (r < 0) {
+                        log_warning_errno(r, "Received invalid PAM process for main pid ("PID_FMT"), ignoring: %m", parent_pidref.pid);
+                        return 0;
+                }
+        }
+
+        if (!fds) {
+                if ((size_t) n >= sizeof(buf) || (msghdr.msg_flags & MSG_TRUNC)) {
+                        log_warning("Received notify message exceeded maximum size. Ignoring.");
+                        return 0;
+                }
+
+                /* As extra safety check, let's make sure the string we get doesn't contain embedded NUL bytes.
+                 * We permit one trailing NUL byte in the message, but don't expect it. */
+                if (n > 1 && memchr(buf, 0, n-1)) {
+                        log_warning("Received notify message with embedded NUL bytes. Ignoring.");
+                        return 0;
+                }
+                /* Make sure it's NUL-terminated, then parse it to obtain the tags list. */
+                buf[n] = 0;
+
+                _cleanup_strv_free_ char **pidstrs = strv_split_newlines(buf);
+                if (!pidstrs) {
+                        log_oom();
+                        return 0;
+                }
+
+                if (strv_length(pidstrs) != 2) {
+                        log_warning("Received invalid pid string. Ignoring.");
+                        return 0;
+                }
+
+                r = pidref_set_pidstr(&parent_pidref, pidstrs[0]);
+                if (r < 0) {
+                        log_warning_errno(r, "Received invalid main pid (%s) of PAM process, ignoring: %m", pidstrs[0]);
+                        return 0;
+                }
+
+                r = pidref_set_pidstr(&pam_pidref, pidstrs[1]);
+                if (r < 0) {
+                        log_warning_errno(r, "Received invalid PAM process pid (%s) for main pid ("PID_FMT"), ignoring: %m",
+                                          pidstrs[1], parent_pidref.pid);
+                        return 0;
+                }
+        }
+
+        struct ucred *ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
+        if (!ucred || !pidref_equal(&pam_pidref, &PIDREF_MAKE_FROM_PID(ucred->pid))) {
+                log_warning("Received PAM notify message without valid credentials. Ignoring.");
+                return 0;
+        }
+
+        /* Notify every unit that might be interested, which might be multiple. */
+        Unit *u1 = manager_get_unit_by_pidref_cgroup(m, &parent_pidref);
+        Unit *u2 = hashmap_get(m->watch_pids, &parent_pidref);
+        Unit **array = hashmap_get(m->watch_pids_more, &parent_pidref);
+
+        bool watching = false;
+        /* And now invoke the per-unit callbacks. Note that manager_invoke_notify_message() will handle
+         * duplicate units make sure we only invoke each unit's handler once. */
+        if (u1 && unit_watch_pam_pidref(u1, &parent_pidref, &pam_pidref) > 0)
+                watching = true;
+        if (u2 && unit_watch_pam_pidref(u2, &parent_pidref, &pam_pidref) > 0)
+                watching = true;
+        for (size_t i = 0; array && array[i]; i++)
+                if (unit_watch_pam_pidref(array[i], &parent_pidref, &pam_pidref) > 0)
+                        watching = true;
+
+        if (!watching) {
+                _cleanup_free_ char *comm = NULL;
+
+                (void) pidref_get_comm(&parent_pidref, &comm);
+                log_warning("Cannot find unit for notified PAM process "PID_FMT" for process "PID_FMT" (%s). "
+                            "The parent process died too early? Killing the received PAM process.",
+                            pam_pidref.pid, parent_pidref.pid, strna(comm));
+
+                r = pidref_kill_and_sigcont(&pam_pidref, SIGTERM);
+                if (r < 0 && r != -ESRCH)
+                        log_warning_errno(r, "Failed to kill received PAM process "PID_FMT", ignoring.", pam_pidref.pid);
+        }
+
+        return 0;
+}
+#endif
+
 static void manager_invoke_sigchld_event(
                 Manager *m,
                 Unit *u,
@@ -2761,6 +2950,8 @@ static void manager_invoke_sigchld_event(
         if (u->sigchldgen == m->sigchldgen)
                 return;
         u->sigchldgen = m->sigchldgen;
+
+        (void) unit_kill_pam_by_parent(u, &PIDREF_MAKE_FROM_PID(si->si_pid), SIGTERM);
 
         log_unit_debug(u, "Child "PID_FMT" belongs to %s.", si->si_pid, u->id);
         unit_unwatch_pid(u, si->si_pid);
@@ -3622,6 +3813,7 @@ int manager_reload(Manager *m) {
 
         /* Re-register notify_fd as event source, and set up other sockets/communication channels we might need */
         (void) manager_setup_notify(m);
+        (void) manager_setup_notify_pam_pid(m);
         (void) manager_setup_cgroups_agent(m);
         (void) manager_setup_user_lookup_fd(m);
 

@@ -1403,6 +1403,10 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
         if (r < 0)
                 return r;
 
+        r = serialize_fd(f, fds, "exec-parameters-notify-pam-pid-fd", p->notify_pam_pid_fd);
+        if (r < 0)
+                return r;
+
         r = serialize_strv(f, "exec-parameters-files-env", p->files_env);
         if (r < 0)
                 return r;
@@ -1652,6 +1656,14 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 continue;
 
                         p->user_lookup_fd = fd;
+                } else if ((val = startswith(l, "exec-parameters-notify-pam-pid-fd="))) {
+                        int fd;
+
+                        fd = deserialize_fd(fds, val);
+                        if (fd < 0)
+                                continue;
+
+                        p->notify_pam_pid_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-files-env="))) {
                         r = deserialize_strv(val, &p->files_env);
                         if (r < 0)
