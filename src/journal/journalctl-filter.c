@@ -69,16 +69,11 @@ static int add_dmesg(sd_journal *j) {
         if (!arg_dmesg)
                 return 0;
 
-        r = sd_journal_add_match(j, "_TRANSPORT=kernel",
-                                 STRLEN("_TRANSPORT=kernel"));
+        r = sd_journal_add_match(j, "_TRANSPORT=kernel", 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match: %m");
+                return r;
 
-        r = sd_journal_add_conjunction(j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add conjunction: %m");
-
-        return 0;
+        return sd_journal_add_conjunction(j);
 }
 
 static int get_possible_units(
@@ -255,13 +250,11 @@ static int add_syslog_identifier(sd_journal *j) {
 
         assert(j);
 
-        STRV_FOREACH(i, arg_syslog_identifier) {
-                _cleanup_free_ char *u = NULL;
+        if (strv_isempty(arg_syslog_identifier))
+                return 0;
 
-                u = strjoin("SYSLOG_IDENTIFIER=", *i);
-                if (!u)
-                        return -ENOMEM;
-                r = sd_journal_add_match(j, u, 0);
+        STRV_FOREACH(i, arg_syslog_identifier) {
+                r = journal_add_match_pair(j, "SYSLOG_IDENTIFIER", *i);
                 if (r < 0)
                         return r;
                 r = sd_journal_add_disjunction(j);
@@ -269,11 +262,7 @@ static int add_syslog_identifier(sd_journal *j) {
                         return r;
         }
 
-        r = sd_journal_add_conjunction(j);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return sd_journal_add_conjunction(j);
 }
 
 static int add_exclude_identifier(sd_journal *j) {
@@ -290,42 +279,36 @@ static int add_exclude_identifier(sd_journal *j) {
 }
 
 static int add_priorities(sd_journal *j) {
-        char match[] = "PRIORITY=0";
-        int i, r;
+        int r;
 
         assert(j);
 
-        if (arg_priorities == 0xFF)
+        if (arg_priorities == 0)
                 return 0;
 
-        for (i = LOG_EMERG; i <= LOG_DEBUG; i++)
+        for (int i = LOG_EMERG; i <= LOG_DEBUG; i++)
                 if (arg_priorities & (1 << i)) {
-                        match[sizeof(match)-2] = '0' + i;
-
-                        r = sd_journal_add_match(j, match, strlen(match));
+                        r = journal_add_matchf(j, "PRIORITY=%d", i);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to add match: %m");
+                                return r;
                 }
 
-        r = sd_journal_add_conjunction(j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add conjunction: %m");
-
-        return 0;
+        return sd_journal_add_conjunction(j);
 }
 
 static int add_facilities(sd_journal *j) {
-        void *p;
         int r;
 
+        assert(j);
+
+        if (set_isempty(arg_facilities))
+                return 0;
+
+        void *p;
         SET_FOREACH(p, arg_facilities) {
-                char match[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
-
-                xsprintf(match, "SYSLOG_FACILITY=%d", PTR_TO_INT(p));
-
-                r = sd_journal_add_match(j, match, strlen(match));
+                r = journal_add_matchf(j, "SYSLOG_FACILITY=%d", PTR_TO_INT(p));
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add match: %m");
+                        return r;
         }
 
         return 0;
@@ -496,7 +479,7 @@ int add_filters(sd_journal *j, char **matches) {
 
         r = add_dmesg(j);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to add filter for dmesg: %m");
 
         r = add_units(j);
         if (r < 0)
@@ -512,11 +495,11 @@ int add_filters(sd_journal *j, char **matches) {
 
         r = add_priorities(j);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to add filter for priorities: %m");
 
         r = add_facilities(j);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to add filter for facilities: %m");
 
         r = add_matches(j, matches);
         if (r < 0)
