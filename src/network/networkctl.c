@@ -102,6 +102,8 @@ static int varlink_connect_networkd(Varlink **ret_varlink) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to network service /run/systemd/netif/io.systemd.Network: %m");
 
+        (void) varlink_set_description(vl, "varlink-network");
+
         r = varlink_set_allow_fd_passing_output(vl, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to allow passing file descriptor through varlink: %m");

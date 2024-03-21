@@ -275,6 +275,8 @@ int manager_connect_varlink(Manager *m) {
 
         varlink_server_set_userdata(s, m);
 
+        (void) varlink_server_set_description(s, "varlink-api-network");
+
         r = varlink_server_add_interface(s, &vl_interface_io_systemd_Network);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Network interface to varlink server: %m");
