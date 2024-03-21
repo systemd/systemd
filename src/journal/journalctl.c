@@ -57,7 +57,7 @@ bool arg_show_cursor = false;
 const char *arg_directory = NULL;
 char **arg_file = NULL;
 bool arg_file_stdin = false;
-int arg_priorities = 0xFF;
+int arg_priorities = 0;
 Set *arg_facilities = NULL;
 char *arg_verify_key = NULL;
 #if HAVE_GCRYPT
