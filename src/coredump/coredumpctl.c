@@ -879,7 +879,7 @@ static int dump_list(int argc, char **argv, void *userdata) {
 
         verb_is_info = argc >= 1 && streq(argv[0], "info");
 
-        r = acquire_journal(&j, argv + 1);
+        r = acquire_journal(&j, strv_skip(argv, 1));
         if (r < 0)
                 return r;
 
@@ -1130,7 +1130,7 @@ static int dump_core(int argc, char **argv, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --field/-F only makes sense with list");
 
-        r = acquire_journal(&j, argv + 1);
+        r = acquire_journal(&j, strv_skip(argv, 1));
         if (r < 0)
                 return r;
 
@@ -1203,7 +1203,7 @@ static int run_debug(int argc, char **argv, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --field/-F only makes sense with list");
 
-        r = acquire_journal(&j, argv + 1);
+        r = acquire_journal(&j, strv_skip(argv, 1));
         if (r < 0)
                 return r;
 
