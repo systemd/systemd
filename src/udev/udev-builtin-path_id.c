@@ -634,9 +634,38 @@ static int find_real_nvme_parent(sd_device *dev, sd_device **ret) {
         if (r < 0)
                 return r;
 
-        /* If the 'real parent' is (still) virtual, e.g. for nvmf disks, refuse to set ID_PATH. */
-        if (path_startswith(devpath, "/devices/virtual/"))
-                return -ENXIO;
+        /* If the 'real parent' is (still) virtual, e.g. for nvmf disks, set ID_PATH. */
+        if (path_startswith(devpath, "/devices/virtual/")) {
+		_cleanup_(sd_device_unrefp) sd_device *fc_parent = NULL;
+		const char *addr, *fc_pn, *nvme_pn, *first, *second, *third;
+
+		r = sd_device_get_sysattr_value(nvme, "address", &addr);
+		if (r < 0)
+			return r;
+
+		r = extract_many_words(&addr, ":", 0, &first, &second, &third, NULL);
+		if (r < 3)
+			return -ENXIO;
+
+		r = extract_many_words(&third, "-", 0, &first, &nvme_pn, NULL);
+		if (r < 2)
+			return -ENXIO;
+
+		r = sd_device_new_from_syspath(&fc_parent, "/sys/class/fc_host");
+		if (r < 0)
+			return -ENXIO;
+
+		FOREACH_DEVICE_CHILD(fc_parent, child) {
+			r = sd_device_get_sysattr_value(child, "port_name", &fc_pn);
+			if (r < 0)
+				return r;
+
+			if (streq(fc_pn, nvme_pn)) {
+				*ret = sd_device_ref(child);
+				return 0;
+			}
+		}
+	}
 
         *ret = TAKE_PTR(nvme);
         return 0;
