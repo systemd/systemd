@@ -91,13 +91,14 @@ static int add_match(sd_journal *j, const char *match) {
         else
                 field = "COREDUMP_COMM";
 
-        log_debug("Adding match: %s%s", strempty(field), match);
+        log_debug("Adding match: %s%s%s", strempty(field), field ? "=" : "", match);
         if (field)
                 r = journal_add_match_pair(j, field, match);
         else
                 r = sd_journal_add_match(j, match, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match \"%s%s\": %m", strempty(field), match);
+                return log_error_errno(r, "Failed to add match \"%s%s%s\": %m",
+                                       strempty(field), field ? "=" : "", match);
 
         return 0;
 }
@@ -878,7 +879,7 @@ static int dump_list(int argc, char **argv, void *userdata) {
 
         verb_is_info = argc >= 1 && streq(argv[0], "info");
 
-        r = acquire_journal(&j, argv + 1);
+        r = acquire_journal(&j, strv_skip(argv, 1));
         if (r < 0)
                 return r;
 
@@ -1129,7 +1130,7 @@ static int dump_core(int argc, char **argv, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --field/-F only makes sense with list");
 
-        r = acquire_journal(&j, argv + 1);
+        r = acquire_journal(&j, strv_skip(argv, 1));
         if (r < 0)
                 return r;
 
@@ -1202,7 +1203,7 @@ static int run_debug(int argc, char **argv, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --field/-F only makes sense with list");
 
-        r = acquire_journal(&j, argv + 1);
+        r = acquire_journal(&j, strv_skip(argv, 1));
         if (r < 0)
                 return r;
 
