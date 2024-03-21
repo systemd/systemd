@@ -1500,22 +1500,25 @@ int cg_path_get_slice(const char *p, char **ret_slice) {
         assert(p);
         assert(ret_slice);
 
-        /* Finds the right-most slice unit from the beginning, but
-         * stops before we come to the first non-slice unit. */
+        /* Finds the right-most slice unit from the beginning, but stops before we come to
+         * the first non-slice unit. */
 
         for (;;) {
-                p += strspn(p, "/");
+                const char *s;
+                int n;
 
-                size_t n = strcspn(p, "/");
-                if (!valid_slice_name(p, n))
+                n = path_find_first_component(&p, /* accept_dot_dot = */ false, &s);
+                if (n < 0)
+                        return n;
+                if (!valid_slice_name(s, n))
                         break;
 
-                e = p;
-                p += n;
+                e = s;
         }
 
         if (e)
                 return cg_path_decode_unit(e, ret_slice);
+
         return strdup_to(ret_slice, SPECIAL_ROOT_SLICE);
 }
 
