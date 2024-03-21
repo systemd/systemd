@@ -70,10 +70,8 @@ static int target_add_default_dependencies(Target *t) {
 }
 
 static int target_load(Unit *u) {
-        Target *t = TARGET(u);
+        Target *t = ASSERT_PTR(TARGET(u));
         int r;
-
-        assert(t);
 
         r = unit_load_fragment_and_dropin(u, true);
         if (r < 0)
@@ -87,9 +85,8 @@ static int target_load(Unit *u) {
 }
 
 static int target_coldplug(Unit *u) {
-        Target *t = TARGET(u);
+        Target *t = ASSERT_PTR(TARGET(u));
 
-        assert(t);
         assert(t->state == TARGET_DEAD);
 
         if (t->deserialized_state != t->state)
@@ -99,10 +96,10 @@ static int target_coldplug(Unit *u) {
 }
 
 static void target_dump(Unit *u, FILE *f, const char *prefix) {
-        Target *t = TARGET(u);
+        Target *t = ASSERT_PTR(TARGET(u));
 
-        assert(t);
         assert(f);
+        assert(prefix);
 
         fprintf(f,
                 "%sTarget State: %s\n",
@@ -110,10 +107,9 @@ static void target_dump(Unit *u, FILE *f, const char *prefix) {
 }
 
 static int target_start(Unit *u) {
-        Target *t = TARGET(u);
+        Target *t = ASSERT_PTR(TARGET(u));
         int r;
 
-        assert(t);
         assert(t->state == TARGET_DEAD);
 
         r = unit_acquire_invocation_id(u);
@@ -125,9 +121,8 @@ static int target_start(Unit *u) {
 }
 
 static int target_stop(Unit *u) {
-        Target *t = TARGET(u);
+        Target *t = ASSERT_PTR(TARGET(u));
 
-        assert(t);
         assert(t->state == TARGET_ACTIVE);
 
         target_set_state(t, TARGET_DEAD);
@@ -135,21 +130,18 @@ static int target_stop(Unit *u) {
 }
 
 static int target_serialize(Unit *u, FILE *f, FDSet *fds) {
-        Target *s = TARGET(u);
+        Target *t = ASSERT_PTR(TARGET(u));
 
-        assert(s);
         assert(f);
         assert(fds);
 
-        (void) serialize_item(f, "state", target_state_to_string(s->state));
+        (void) serialize_item(f, "state", target_state_to_string(t->state));
         return 0;
 }
 
 static int target_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
-        Target *s = TARGET(u);
+        Target *t = ASSERT_PTR(TARGET(u));
 
-        assert(s);
-        assert(u);
         assert(key);
         assert(value);
         assert(fds);
@@ -159,26 +151,26 @@ static int target_deserialize_item(Unit *u, const char *key, const char *value, 
 
                 state = target_state_from_string(value);
                 if (state < 0)
-                        log_debug("Failed to parse state value %s", value);
+                        log_unit_debug(u, "Failed to parse state: %s", value);
                 else
-                        s->deserialized_state = state;
+                        t->deserialized_state = state;
 
         } else
-                log_debug("Unknown serialization key '%s'", key);
+                log_unit_debug(u, "Unknown serialization key: %s", key);
 
         return 0;
 }
 
 static UnitActiveState target_active_state(Unit *u) {
-        assert(u);
+        Target *t = ASSERT_PTR(TARGET(u));
 
-        return state_translation_table[TARGET(u)->state];
+        return state_translation_table[t->state];
 }
 
 static const char *target_sub_state_to_string(Unit *u) {
-        assert(u);
+        Target *t = ASSERT_PTR(TARGET(u));
 
-        return target_state_to_string(TARGET(u)->state);
+        return target_state_to_string(t->state);
 }
 
 const UnitVTable target_vtable = {
