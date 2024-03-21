@@ -24,6 +24,117 @@ typedef struct Context {
         dual_timestamp previous_ts_output;
 } Context;
 
+static void context_done(Context *c) {
+        if (!c)
+                return;
+
+        sd_journal_close(c->journal);
+}
+
+static int seek_journal(Context *c) {
+        sd_journal *j = ASSERT_PTR(ASSERT_PTR(c)->journal);
+        _cleanup_free_ char *cursor_from_file = NULL;
+        const char *cursor = NULL;
+        bool after_cursor = false;
+        int r;
+
+        if (arg_cursor || arg_after_cursor) {
+                assert(!!arg_cursor != !!arg_after_cursor);
+
+                cursor = arg_cursor ?: arg_after_cursor;
+                after_cursor = arg_after_cursor;
+
+        } else if (arg_cursor_file) {
+                r = read_one_line_file(arg_cursor_file, &cursor_from_file);
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "Failed to read cursor file %s: %m", arg_cursor_file);
+                if (r > 0) {
+                        cursor = cursor_from_file;
+                        after_cursor = true;
+                }
+        }
+
+        if (cursor) {
+                c->has_cursor = true;
+
+                r = sd_journal_seek_cursor(j, cursor);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seek to cursor: %m");
+
+                r = sd_journal_step_one(j, !arg_reverse);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to iterate through journal: %m");
+
+                if (after_cursor && r > 0) {
+                        /* With --after-cursor=/--cursor-file= we want to skip the first entry only if it's
+                         * the entry the cursor is pointing at, otherwise, if some journal filters are used,
+                         * we might skip the first entry of the filter match, which leads to unexpectedly
+                         * missing journal entries. */
+                        int k;
+
+                        k = sd_journal_test_cursor(j, cursor);
+                        if (k < 0)
+                                return log_error_errno(k, "Failed to test cursor against current entry: %m");
+                        if (k > 0)
+                                /* Current entry matches the one our cursor is pointing at, so let's try
+                                 * to advance the next entry. */
+                                r = sd_journal_step_one(j, !arg_reverse);
+                }
+
+                if (r == 0 && !arg_follow)
+                        /* We couldn't find the next entry after the cursor. */
+                        arg_lines = 0;
+
+        } else if (arg_reverse || arg_lines_needs_seek_end()) {
+                /* If --reverse and/or --lines=N are specified, things get a little tricky. First we seek to
+                 * the place of --until if specified, otherwise seek to tail. Then, if --reverse is
+                 * specified, we search backwards and let the output counter in show() handle --lines for us.
+                 * If --reverse is unspecified, we just jump backwards arg_lines and search afterwards from
+                 * there. */
+
+                if (arg_until_set) {
+                        r = sd_journal_seek_realtime_usec(j, arg_until);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to seek to date: %m");
+                } else {
+                        r = sd_journal_seek_tail(j);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to seek to tail: %m");
+                }
+
+                if (arg_reverse)
+                        r = sd_journal_previous(j);
+                else /* arg_lines_needs_seek_end */
+                        r = sd_journal_previous_skip(j, arg_lines);
+
+        } else if (arg_since_set) {
+                /* This is placed after arg_reverse and arg_lines. If --since is used without
+                 * both, we seek to the place of --since and search afterwards from there.
+                 * If used with --reverse or --lines, we seek to the tail first and check if
+                 * the entry is within the range of --since later. */
+
+                r = sd_journal_seek_realtime_usec(j, arg_since);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seek to date: %m");
+                c->since_seeked = true;
+
+                r = sd_journal_next(j);
+
+        } else {
+                r = sd_journal_seek_head(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seek to head: %m");
+
+                r = sd_journal_next(j);
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to iterate through journal: %m");
+        if (r == 0)
+                c->need_seek = true;
+
+        return 0;
+}
+
 static int show(Context *c) {
         sd_journal *j = ASSERT_PTR(ASSERT_PTR(c)->journal);
         int r, n_shown = 0;
@@ -264,30 +375,31 @@ static int update_cursor(sd_journal *j) {
 }
 
 int action_show(char **matches) {
-        bool need_seek = false, since_seeked = false, after_cursor = false;
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_free_ char *cursor_from_file = NULL;
-        const char *cursor = NULL;
+        _cleanup_(context_done) Context c = {};
         int n_shown, r, poll_fd = -EBADF;
 
         assert(arg_action == ACTION_SHOW);
 
         (void) signal(SIGWINCH, columns_lines_cache_reset);
 
-        r = acquire_journal(&j);
+        r = acquire_journal(&c.journal);
         if (r < 0)
                 return r;
 
-        if (!journal_boot_has_effect(j))
+        if (!journal_boot_has_effect(c.journal))
                 return arg_compiled_pattern ? -ENOENT : 0;
 
-        r = add_filters(j, matches);
+        r = add_filters(c.journal, matches);
+        if (r < 0)
+                return r;
+
+        r = seek_journal(&c);
         if (r < 0)
                 return r;
 
         /* Opening the fd now means the first sd_journal_wait() will actually wait */
         if (arg_follow) {
-                poll_fd = sd_journal_get_fd(j);
+                poll_fd = sd_journal_get_fd(c.journal);
                 if (poll_fd == -EMFILE) {
                         log_warning_errno(poll_fd, "Insufficient watch descriptors available. Reverting to -n.");
                         arg_follow = false;
@@ -297,101 +409,6 @@ int action_show(char **matches) {
                         return log_error_errno(poll_fd, "Failed to get journal fd: %m");
         }
 
-        if (arg_cursor || arg_after_cursor || arg_cursor_file) {
-                cursor = arg_cursor ?: arg_after_cursor;
-
-                if (arg_cursor_file) {
-                        r = read_one_line_file(arg_cursor_file, &cursor_from_file);
-                        if (r < 0 && r != -ENOENT)
-                                return log_error_errno(r, "Failed to read cursor file %s: %m", arg_cursor_file);
-
-                        if (r > 0) {
-                                cursor = cursor_from_file;
-                                after_cursor = true;
-                        }
-                } else
-                        after_cursor = arg_after_cursor;
-        }
-
-        if (cursor) {
-                r = sd_journal_seek_cursor(j, cursor);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to seek to cursor: %m");
-
-                r = sd_journal_step_one(j, !arg_reverse);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to iterate through journal: %m");
-
-                if (after_cursor && r > 0) {
-                        /* With --after-cursor=/--cursor-file= we want to skip the first entry only if it's
-                         * the entry the cursor is pointing at, otherwise, if some journal filters are used,
-                         * we might skip the first entry of the filter match, which leads to unexpectedly
-                         * missing journal entries. */
-                        int k;
-
-                        k = sd_journal_test_cursor(j, cursor);
-                        if (k < 0)
-                                return log_error_errno(k, "Failed to test cursor against current entry: %m");
-                        if (k > 0)
-                                /* Current entry matches the one our cursor is pointing at, so let's try
-                                 * to advance the next entry. */
-                                r = sd_journal_step_one(j, !arg_reverse);
-                }
-
-                if (r == 0) {
-                        /* We couldn't find the next entry after the cursor. */
-                        if (arg_follow)
-                                need_seek = true;
-                        else
-                                arg_lines = 0;
-                }
-        } else if (arg_reverse || arg_lines_needs_seek_end()) {
-                /* If --reverse and/or --lines=N are specified, things get a little tricky. First we seek to
-                 * the place of --until if specified, otherwise seek to tail. Then, if --reverse is
-                 * specified, we search backwards and let the output counter in show() handle --lines for us.
-                 * If --reverse is unspecified, we just jump backwards arg_lines and search afterwards from
-                 * there. */
-
-                if (arg_until_set) {
-                        r = sd_journal_seek_realtime_usec(j, arg_until);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to seek to date: %m");
-                } else {
-                        r = sd_journal_seek_tail(j);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to seek to tail: %m");
-                }
-
-                if (arg_reverse)
-                        r = sd_journal_previous(j);
-                else /* arg_lines_needs_seek_end */
-                        r = sd_journal_previous_skip(j, arg_lines);
-
-        } else if (arg_since_set) {
-                /* This is placed after arg_reverse and arg_lines. If --since is used without
-                 * both, we seek to the place of --since and search afterwards from there.
-                 * If used with --reverse or --lines, we seek to the tail first and check if
-                 * the entry is within the range of --since later. */
-
-                r = sd_journal_seek_realtime_usec(j, arg_since);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to seek to date: %m");
-                since_seeked = true;
-
-                r = sd_journal_next(j);
-
-        } else {
-                r = sd_journal_seek_head(j);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to seek to head: %m");
-
-                r = sd_journal_next(j);
-        }
-        if (r < 0)
-                return log_error_errno(r, "Failed to iterate through journal: %m");
-        if (r == 0)
-                need_seek = true;
-
         if (!arg_follow)
                 pager_open(arg_pager_flags);
 
@@ -399,7 +416,7 @@ int action_show(char **matches) {
                 usec_t start, end;
                 char start_buf[FORMAT_TIMESTAMP_MAX], end_buf[FORMAT_TIMESTAMP_MAX];
 
-                r = sd_journal_get_cutoff_realtime_usec(j, &start, &end);
+                r = sd_journal_get_cutoff_realtime_usec(c.journal, &start, &end);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get cutoff: %m");
                 if (r > 0) {
@@ -412,13 +429,6 @@ int action_show(char **matches) {
                                        format_timestamp_maybe_utc(end_buf, sizeof(end_buf), end));
                 }
         }
-
-        Context c = {
-                .journal = j,
-                .has_cursor = cursor,
-                .need_seek = need_seek,
-                .since_seeked = since_seeked,
-        };
 
         if (arg_follow) {
                 _cleanup_(sd_event_unrefp) sd_event *e = NULL;
@@ -435,7 +445,7 @@ int action_show(char **matches) {
                         return r;
                 sig = r;
 
-                r = update_cursor(j);
+                r = update_cursor(c.journal);
                 if (r < 0)
                         return r;
 
@@ -451,7 +461,7 @@ int action_show(char **matches) {
         if (n_shown == 0 && !arg_quiet)
                 printf("-- No entries --\n");
 
-        r = update_cursor(j);
+        r = update_cursor(c.journal);
         if (r < 0)
                 return r;
 
