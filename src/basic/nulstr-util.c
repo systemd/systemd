@@ -4,7 +4,21 @@
 #include "string-util.h"
 #include "strv.h"
 
+const char* nulstr_get(const char *nulstr, const char *needle) {
+        if (!nulstr)
+                return NULL;
+
+        NULSTR_FOREACH(i, nulstr)
+                if (streq(i, needle))
+                        return i;
+
+        return NULL;
+}
+
 char** strv_parse_nulstr_full(const char *s, size_t l, bool drop_trailing_nuls) {
+        _cleanup_strv_free_ char **v = NULL;
+        size_t c = 0, i = 0;
+
         /* l is the length of the input data, which will be split at NULs into elements of the resulting
          * strv. Hence, the number of items in the resulting strv will be equal to one plus the number of NUL
          * bytes in the l bytes starting at s, unless s[l-1] is NUL, in which case the final empty string is
@@ -12,9 +26,6 @@ char** strv_parse_nulstr_full(const char *s, size_t l, bool drop_trailing_nuls) 
          *
          * Note that contrary to a normal nulstr which cannot contain empty strings, because the input data
          * is terminated by any two consequent NUL bytes, this parser accepts empty strings in s. */
-
-        _cleanup_strv_free_ char **v = NULL;
-        size_t c = 0, i = 0;
 
         assert(s || l <= 0);
 
@@ -36,7 +47,7 @@ char** strv_parse_nulstr_full(const char *s, size_t l, bool drop_trailing_nuls) 
         if (!v)
                 return NULL;
 
-        for (const char *p = s; p < s + l; ) {
+        for (const char *p = s; p < s + l;) {
                 const char *e;
 
                 e = memchr(p, 0, s + l - p);
@@ -44,7 +55,6 @@ char** strv_parse_nulstr_full(const char *s, size_t l, bool drop_trailing_nuls) 
                 v[i] = memdup_suffix0(p, e ? e - p : s + l - p);
                 if (!v[i])
                         return NULL;
-
                 i++;
 
                 if (!e)
@@ -74,6 +84,9 @@ char** strv_split_nulstr(const char *s) {
 }
 
 int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
+        _cleanup_free_ char *m = NULL;
+        size_t n = 0;
+
         /* Builds a nulstr and returns it together with the size. An extra NUL byte will be appended (⚠️ but
          * not included in the size! ⚠️). This is done so that the nulstr can be used both in
          * strv_parse_nulstr() and in NULSTR_FOREACH()/strv_split_nulstr() contexts, i.e. with and without a
@@ -84,21 +97,18 @@ int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
          * NUL bytes (which it will, if not empty). To ensure that this assumption *always* holds, we'll
          * return a buffer with two NUL bytes in that case, but return a size of zero. */
 
-        _cleanup_free_ char *m = NULL;
-        size_t n = 0;
-
         assert(ret);
 
         STRV_FOREACH(i, l) {
                 size_t z;
 
-                z = strlen(*i);
+                z = strlen(*i) + 1;
 
-                if (!GREEDY_REALLOC(m, n + z + 2))
+                if (!GREEDY_REALLOC(m, n + z + 1)) /* One extra NUL at the end as marker */
                         return -ENOMEM;
 
-                memcpy(m + n, *i, z + 1);
-                n += z + 1;
+                memcpy(m + n, *i, z);
+                n += z;
         }
 
         if (!m) {
@@ -109,7 +119,7 @@ int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
 
                 n = 0;
         } else
-                /* Make sure there is a second extra NUL at the end of resulting nulstr (not counted in return size) */
+                /* Extra NUL is not counted in size returned */
                 m[n] = '\0';
 
         *ret = TAKE_PTR(m);
@@ -131,15 +141,4 @@ int set_make_nulstr(Set *s, char **ret, size_t *ret_size) {
                 return -ENOMEM;
 
         return strv_make_nulstr(strv, ret, ret_size);
-}
-
-const char* nulstr_get(const char *nulstr, const char *needle) {
-        if (!nulstr)
-                return NULL;
-
-        NULSTR_FOREACH(i, nulstr)
-                if (streq(i, needle))
-                        return i;
-
-        return NULL;
 }
