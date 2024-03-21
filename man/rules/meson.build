@@ -1077,7 +1077,7 @@ manpages = [
  ['systemd-sysext',
   '8',
   ['systemd-confext', 'systemd-confext.service', 'systemd-sysext.service'],
-  ''],
+  'ENABLE_SYSEXT'],
  ['systemd-system-update-generator', '8', [], ''],
  ['systemd-system.conf',
   '5',
