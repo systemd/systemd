@@ -311,7 +311,7 @@ static int add_facilities(sd_journal *j) {
                         return r;
         }
 
-        return 0;
+        return sd_journal_add_conjunction(j);
 }
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
