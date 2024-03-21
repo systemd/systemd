@@ -2756,7 +2756,9 @@ int home_create_fifo(Home *h, bool please_suspend) {
 
                 (void) sd_event_source_set_description(*ss, "acquire-ref");
 
-                r = sd_event_source_set_priority(*ss, SD_EVENT_PRIORITY_IDLE-1);
+                /* We need to notice dropped refs before we process new bus requests (which
+                 * might try to obtain new refs) */
+                r = sd_event_source_set_priority(*ss, SD_EVENT_PRIORITY_NORMAL-10);
                 if (r < 0)
                         return r;
 
