@@ -1157,6 +1157,10 @@ static int parse_argv(int argc, char *argv[]) {
         if (!arg_follow)
                 arg_journal_additional_open_flags = SD_JOURNAL_ASSUME_IMMUTABLE;
 
+        if (!strv_isempty(strv_skip(argv, optind)) &&
+            !IN_SET(arg_action, ACTION_SHOW, ACTION_LIST_CATALOG, ACTION_DUMP_CATALOG, ACTION_LIST_FIELDS))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Command line has unexpected arguments.");
+
         return 1;
 }
 
