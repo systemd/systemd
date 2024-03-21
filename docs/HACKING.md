@@ -20,6 +20,7 @@ git correctly (running `meson` will run these commands for you automatically):
 ```shell
 $ git config submodule.recurse true
 $ git config fetch.recurseSubmodules on-demand
+$ git config push.recurseSubmodules no
 ```
 
 When adding new functionality, tests should be added. For shared functionality
