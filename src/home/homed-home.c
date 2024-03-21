@@ -2794,7 +2794,8 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
         case HOME_ABSENT:
                 r = sd_bus_error_setf(&error, BUS_ERROR_HOME_ABSENT,
                                       "Home %s is currently missing or not plugged in.", h->user_name);
-                goto check;
+                operation_result(o, r, &error);
+                return 1;
 
         case HOME_INACTIVE:
         case HOME_DIRTY:
@@ -2825,7 +2826,6 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
         if (r >= 0)
                 r = call(h, o->secret, for_state, &error);
 
- check:
         if (r != 0) /* failure or completed */
                 operation_result(o, r, &error);
         else /* ongoing */
@@ -2855,33 +2855,35 @@ static int home_dispatch_release(Home *h, Operation *o) {
         assert(o);
         assert(o->type == OPERATION_RELEASE);
 
-        if (home_is_referenced(h))
+        if (home_is_referenced(h)) {
                 /* If there's now a reference again, then let's abort the release attempt */
                 r = sd_bus_error_setf(&error, BUS_ERROR_HOME_BUSY, "Home %s is currently referenced.", h->user_name);
-        else {
-                switch (home_get_state(h)) {
+                operation_result(o, r, &error);
+                return 1;
+        }
 
-                case HOME_UNFIXATED:
-                case HOME_ABSENT:
-                case HOME_INACTIVE:
-                case HOME_DIRTY:
-                        r = 1; /* done */
-                        break;
+        switch (home_get_state(h)) {
 
-                case HOME_LOCKED:
-                        r = sd_bus_error_setf(&error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
-                        break;
+        case HOME_UNFIXATED:
+        case HOME_ABSENT:
+        case HOME_INACTIVE:
+        case HOME_DIRTY:
+                r = 1; /* done */
+                break;
 
-                case HOME_ACTIVE:
-                case HOME_LINGERING:
-                        r = home_deactivate_internal(h, false, &error);
-                        break;
+        case HOME_LOCKED:
+                r = sd_bus_error_setf(&error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
+                break;
 
-                default:
-                        /* All other cases means we are currently executing an operation, which means the job remains
-                         * pending. */
-                        return 0;
-                }
+        case HOME_ACTIVE:
+        case HOME_LINGERING:
+                r = home_deactivate_internal(h, false, &error);
+                break;
+
+        default:
+                /* All other cases means we are currently executing an operation, which means the job remains
+                 * pending. */
+                return 0;
         }
 
         assert(!h->current_operation);
@@ -3114,7 +3116,7 @@ int home_schedule_operation(Home *h, Operation *o, sd_bus_error *error) {
         assert(h);
 
         if (o) {
-                if (ordered_set_size(h->pending_operations) >= PENDING_OPERATIONS_MAX)
+                {if (ordered_set_size(h->pending_operations) >= PENDING_OPERATIONS_MAX)
                         return sd_bus_error_set(error, BUS_ERROR_TOO_MANY_OPERATIONS, "Too many client operations requested");
 
                 r = ordered_set_ensure_put(&h->pending_operations, &operation_hash_ops, o);
