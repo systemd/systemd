@@ -3042,17 +3042,16 @@ int unit_file_set_default(
 int unit_file_get_default(
                 RuntimeScope scope,
                 const char *root_dir,
-                char **name) {
+                char **ret) {
 
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
         InstallInfo *info;
-        char *n;
         int r;
 
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
-        assert(name);
+        assert(ret);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -3063,12 +3062,7 @@ int unit_file_get_default(
         if (r < 0)
                 return r;
 
-        n = strdup(info->name);
-        if (!n)
-                return -ENOMEM;
-
-        *name = n;
-        return 0;
+        return strdup_to(ret, info->name);
 }
 
 int unit_file_lookup_state(
@@ -3221,11 +3215,9 @@ int unit_file_exists_full(RuntimeScope scope, const LookupPaths *lp, const char 
         if (ret_path) {
                 assert(info);
 
-                _cleanup_free_ char *p = strdup(info->path);
-                if (!p)
-                        return -ENOMEM;
-
-                *ret_path = TAKE_PTR(p);
+                r = strdup_to(ret_path, info->path);
+                if (r < 0)
+                        return r;
         }
 
         return 1;

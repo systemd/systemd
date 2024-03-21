@@ -151,37 +151,37 @@ static int context_copy(const Context *source, Context *ret) {
                         return copy.rfd;
         }
 
-        r = strdup_or_null(source->layout_other, &copy.layout_other);
+        r = strdup_to(&copy.layout_other, source->layout_other);
         if (r < 0)
                 return r;
-        r = strdup_or_null(source->conf_root, &copy.conf_root);
+        r = strdup_to(&copy.conf_root, source->conf_root);
         if (r < 0)
                 return r;
-        r = strdup_or_null(source->boot_root, &copy.boot_root);
+        r = strdup_to(&copy.boot_root, source->boot_root);
         if (r < 0)
                 return r;
-        r = strdup_or_null(source->entry_token, &copy.entry_token);
+        r = strdup_to(&copy.entry_token, source->entry_token);
         if (r < 0)
                 return r;
-        r = strdup_or_null(source->entry_dir, &copy.entry_dir);
+        r = strdup_to(&copy.entry_dir, source->entry_dir);
         if (r < 0)
                 return r;
-        r = strdup_or_null(source->version, &copy.version);
+        r = strdup_to(&copy.version, source->version);
         if (r < 0)
                 return r;
-        r = strdup_or_null(source->kernel, &copy.kernel);
+        r = strdup_to(&copy.kernel, source->kernel);
         if (r < 0)
                 return r;
         r = strv_copy_unless_empty(source->initrds, &copy.initrds);
         if (r < 0)
                 return r;
-        r = strdup_or_null(source->initrd_generator, &copy.initrd_generator);
+        r = strdup_to(&copy.initrd_generator, source->initrd_generator);
         if (r < 0)
                 return r;
-        r = strdup_or_null(source->uki_generator, &copy.uki_generator);
+        r = strdup_to(&copy.uki_generator, source->uki_generator);
         if (r < 0)
                 return r;
-        r = strdup_or_null(source->staging_area, &copy.staging_area);
+        r = strdup_to(&copy.staging_area, source->staging_area);
         if (r < 0)
                 return r;
         r = strv_copy_unless_empty(source->plugins, &copy.plugins);

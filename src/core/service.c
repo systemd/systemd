@@ -5007,14 +5007,9 @@ int service_determine_exec_selinux_label(Service *s, char **ret) {
 
         /* Returns the SELinux label used for execution of the main service binary */
 
-        if (s->exec_context.selinux_context) { /* Prefer the explicitly configured label if there is one */
-                char *con = strdup(s->exec_context.selinux_context);
-                if (!con)
-                        return -ENOMEM;
-
-                *ret = con;
-                return 0;
-        }
+        if (s->exec_context.selinux_context)
+                /* Prefer the explicitly configured label if there is one */
+                return strdup_to(ret, s->exec_context.selinux_context);
 
         if (s->exec_context.root_image ||
             s->exec_context.n_extension_images > 0 ||

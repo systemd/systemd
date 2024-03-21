@@ -5338,7 +5338,7 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
 
         p->runtime_scope = u->manager->runtime_scope;
 
-        r = strdup_or_null(manager_get_confirm_spawn(u->manager), &p->confirm_spawn);
+        r = strdup_to(&p->confirm_spawn, manager_get_confirm_spawn(u->manager));
         if (r < 0)
                 return r;
 
