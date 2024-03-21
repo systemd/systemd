@@ -2070,6 +2070,7 @@ static int update_cursor(sd_journal *j) {
 
 typedef struct Context {
         sd_journal *journal;
+        bool has_cursor;
         bool need_seek;
         bool since_seeked;
         bool ellipsized;
@@ -2099,11 +2100,11 @@ static int show(Context *c) {
                                 break;
                 }
 
-                if (arg_until_set && !arg_reverse && (arg_lines < 0 || arg_since_set)) {
-                        /* If --lines= is set, we usually rely on the n_shown to tell us
-                         * when to stop. However, if --since= is set too, we may end up
-                         * having less than --lines= to output. In this case let's also
-                         * check if the entry is in range. */
+                if (arg_until_set && !arg_reverse && (arg_lines < 0 || arg_since_set || c->has_cursor)) {
+                        /* If --lines= is set, we usually rely on the n_shown to tell us when to stop.
+                         * However, if --since= or one of the cursor argument is set too, we may end up
+                         * having less than --lines= to output. In this case let's also check if the entry
+                         * is in range. */
 
                         usec_t usec;
 
@@ -2712,6 +2713,7 @@ static int run(int argc, char *argv[]) {
 
         Context c = {
                 .journal = j,
+                .has_cursor = cursor,
                 .need_seek = need_seek,
                 .since_seeked = since_seeked,
         };
