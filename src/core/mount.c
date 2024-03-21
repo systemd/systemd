@@ -697,20 +697,20 @@ static int mount_load(Unit *u) {
 
         mount_load_root_mount(u);
 
-        bool fragment_optional = m->from_proc_self_mountinfo || u->perpetual;
-        r = unit_load_fragment_and_dropin(u, !fragment_optional);
+        bool from_kernel = m->from_proc_self_mountinfo || u->perpetual;
+
+        r = unit_load_fragment_and_dropin(u, /* fragment_required = */ !from_kernel);
 
         /* Add in some extras. Note we do this in all cases (even if we failed to load the unit) when announced by the
          * kernel, because we need some things to be set up no matter what when the kernel establishes a mount and thus
          * we need to update the state in our unit to track it. After all, consider that we don't allow changing the
          * 'slice' field for a unit once it is active. */
-        if (u->load_state == UNIT_LOADED || m->from_proc_self_mountinfo || u->perpetual)
-                q = mount_add_extras(m);
+        if (u->load_state == UNIT_LOADED || from_kernel)
+                RET_GATHER(r, mount_add_extras(m));
 
         if (r < 0)
                 return r;
-        if (q < 0)
-                return q;
+
         if (u->load_state != UNIT_LOADED)
                 return 0;
 
