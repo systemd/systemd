@@ -112,6 +112,8 @@ Machine* machine_free(Machine *m) {
         free(m->service);
         free(m->root_directory);
         free(m->netif);
+        free(m->address);
+        free(m->ssh_private_key_path);
         return mfree(m);
 }
 
