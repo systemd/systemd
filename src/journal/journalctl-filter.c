@@ -85,14 +85,14 @@ static int get_possible_units(
                 sd_journal *j,
                 const char *fields,
                 char **patterns,
-                Set **units) {
+                Set **ret) {
 
-        _cleanup_set_free_free_ Set *found = NULL;
+        _cleanup_set_free_ Set *found = NULL;
         int r;
 
-        found = set_new(&string_hash_ops);
-        if (!found)
-                return -ENOMEM;
+        assert(j);
+        assert(fields);
+        assert(ret);
 
         NULSTR_FOREACH(field, fields) {
                 const void *data;
@@ -103,36 +103,31 @@ static int get_possible_units(
                         return r;
 
                 SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
-                        char *eq;
-                        size_t prefix;
                         _cleanup_free_ char *u = NULL;
+                        char *eq;
 
                         eq = memchr(data, '=', size);
-                        if (eq)
-                                prefix = eq - (char*) data + 1;
-                        else
-                                prefix = 0;
+                        if (eq) {
+                                size -= eq - (char*) data + 1;
+                                data = ++eq;
+                        }
 
-                        u = strndup((char*) data + prefix, size - prefix);
+                        u = strndup(data, size);
                         if (!u)
                                 return -ENOMEM;
 
-                        STRV_FOREACH(pattern, patterns)
-                                if (fnmatch(*pattern, u, FNM_NOESCAPE) == 0) {
-                                        log_debug("Matched %s with pattern %s=%s", u, field, *pattern);
+                        size_t i;
+                        if (!strv_fnmatch_full(patterns, u, FNM_NOESCAPE, &i))
+                                continue;
 
-                                        r = set_consume(found, u);
-                                        u = NULL;
-                                        if (r < 0 && r != -EEXIST)
-                                                return r;
-
-                                        break;
-                                }
+                        log_debug("Matched %s with pattern %s=%s", u, field, patterns[i]);
+                        r = set_ensure_consume(&found, &string_hash_ops_free, TAKE_PTR(u));
+                        if (r < 0)
+                                return r;
                 }
         }
 
-        *units = TAKE_PTR(found);
-
+        *ret = TAKE_PTR(found);
         return 0;
 }
 
@@ -155,9 +150,13 @@ static int get_possible_units(
 
 static int add_units(sd_journal *j) {
         _cleanup_strv_free_ char **patterns = NULL;
-        int r, count = 0;
+        bool added = false;
+        int r;
 
         assert(j);
+
+        if (strv_isempty(arg_system_units) && strv_isempty(arg_user_units))
+                return 0;
 
         STRV_FOREACH(i, arg_system_units) {
                 _cleanup_free_ char *u = NULL;
@@ -167,10 +166,9 @@ static int add_units(sd_journal *j) {
                         return r;
 
                 if (string_is_glob(u)) {
-                        r = strv_push(&patterns, u);
+                        r = strv_consume(&patterns, TAKE_PTR(u));
                         if (r < 0)
                                 return r;
-                        u = NULL;
                 } else {
                         r = add_matches_for_unit(j, u);
                         if (r < 0)
@@ -178,12 +176,12 @@ static int add_units(sd_journal *j) {
                         r = sd_journal_add_disjunction(j);
                         if (r < 0)
                                 return r;
-                        count++;
+                        added = true;
                 }
         }
 
         if (!strv_isempty(patterns)) {
-                _cleanup_set_free_free_ Set *units = NULL;
+                _cleanup_set_free_ Set *units = NULL;
                 char *u;
 
                 r = get_possible_units(j, SYSTEM_UNITS, patterns, &units);
@@ -197,7 +195,7 @@ static int add_units(sd_journal *j) {
                         r = sd_journal_add_disjunction(j);
                         if (r < 0)
                                 return r;
-                        count++;
+                        added = true;
                 }
         }
 
@@ -211,10 +209,9 @@ static int add_units(sd_journal *j) {
                         return r;
 
                 if (string_is_glob(u)) {
-                        r = strv_push(&patterns, u);
+                        r = strv_consume(&patterns, TAKE_PTR(u));
                         if (r < 0)
                                 return r;
-                        u = NULL;
                 } else {
                         r = add_matches_for_user_unit(j, u, getuid());
                         if (r < 0)
@@ -222,12 +219,12 @@ static int add_units(sd_journal *j) {
                         r = sd_journal_add_disjunction(j);
                         if (r < 0)
                                 return r;
-                        count++;
+                        added = true;
                 }
         }
 
         if (!strv_isempty(patterns)) {
-                _cleanup_set_free_free_ Set *units = NULL;
+                _cleanup_set_free_ Set *units = NULL;
                 char *u;
 
                 r = get_possible_units(j, USER_UNITS, patterns, &units);
@@ -241,20 +238,16 @@ static int add_units(sd_journal *j) {
                         r = sd_journal_add_disjunction(j);
                         if (r < 0)
                                 return r;
-                        count++;
+                        added = true;
                 }
         }
 
-        /* Complain if the user request matches but nothing whatsoever was
-         * found, since otherwise everything would be matched. */
-        if (!(strv_isempty(arg_system_units) && strv_isempty(arg_user_units)) && count == 0)
+        /* Complain if the user request matches but nothing whatsoever was found, since otherwise everything
+         * would be matched. */
+        if (!added)
                 return -ENODATA;
 
-        r = sd_journal_add_conjunction(j);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return sd_journal_add_conjunction(j);
 }
 
 static int add_syslog_identifier(sd_journal *j) {
