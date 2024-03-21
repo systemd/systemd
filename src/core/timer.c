@@ -35,9 +35,8 @@ static const UnitActiveState state_translation_table[_TIMER_STATE_MAX] = {
 static int timer_dispatch(sd_event_source *s, uint64_t usec, void *userdata);
 
 static void timer_init(Unit *u) {
-        Timer *t = TIMER(u);
+        Timer *t = ASSERT_PTR(TIMER(u));
 
-        assert(u);
         assert(u->load_state == UNIT_STUB);
 
         t->next_elapse_monotonic_or_boottime = USEC_INFINITY;
@@ -58,9 +57,7 @@ void timer_free_values(Timer *t) {
 }
 
 static void timer_done(Unit *u) {
-        Timer *t = TIMER(u);
-
-        assert(t);
+        Timer *t = ASSERT_PTR(TIMER(u));
 
         timer_free_values(t);
 
@@ -201,10 +198,9 @@ static uint64_t timer_get_fixed_delay_hash(Timer *t) {
 }
 
 static int timer_load(Unit *u) {
-        Timer *t = TIMER(u);
+        Timer *t = ASSERT_PTR(TIMER(u));
         int r;
 
-        assert(u);
         assert(u->load_state == UNIT_STUB);
 
         r = unit_load_fragment_and_dropin(u, true);
@@ -231,8 +227,11 @@ static int timer_load(Unit *u) {
 }
 
 static void timer_dump(Unit *u, FILE *f, const char *prefix) {
-        Timer *t = TIMER(u);
+        Timer *t = ASSERT_PTR(TIMER(u));
         Unit *trigger;
+
+        assert(f);
+        assert(prefix);
 
         trigger = UNIT_TRIGGER(u);
 
@@ -279,6 +278,7 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
 
 static void timer_set_state(Timer *t, TimerState state) {
         TimerState old_state;
+
         assert(t);
 
         if (t->state != state)
@@ -303,9 +303,8 @@ static void timer_set_state(Timer *t, TimerState state) {
 static void timer_enter_waiting(Timer *t, bool time_change);
 
 static int timer_coldplug(Unit *u) {
-        Timer *t = TIMER(u);
+        Timer *t = ASSERT_PTR(TIMER(u));
 
-        assert(t);
         assert(t->state == TIMER_DEAD);
 
         if (t->deserialized_state == t->state)
@@ -634,10 +633,9 @@ fail:
 }
 
 static int timer_start(Unit *u) {
-        Timer *t = TIMER(u);
+        Timer *t = ASSERT_PTR(TIMER(u));
         int r;
 
-        assert(t);
         assert(IN_SET(t->state, TIMER_DEAD, TIMER_FAILED));
 
         r = unit_test_trigger_loaded(u);
@@ -682,9 +680,8 @@ static int timer_start(Unit *u) {
 }
 
 static int timer_stop(Unit *u) {
-        Timer *t = TIMER(u);
+        Timer *t = ASSERT_PTR(TIMER(u));
 
-        assert(t);
         assert(IN_SET(t->state, TIMER_WAITING, TIMER_RUNNING, TIMER_ELAPSED));
 
         timer_enter_dead(t, TIMER_SUCCESS);
@@ -692,9 +689,8 @@ static int timer_stop(Unit *u) {
 }
 
 static int timer_serialize(Unit *u, FILE *f, FDSet *fds) {
-        Timer *t = TIMER(u);
+        Timer *t = ASSERT_PTR(TIMER(u));
 
-        assert(u);
         assert(f);
         assert(fds);
 
@@ -711,9 +707,8 @@ static int timer_serialize(Unit *u, FILE *f, FDSet *fds) {
 }
 
 static int timer_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
-        Timer *t = TIMER(u);
+        Timer *t = ASSERT_PTR(TIMER(u));
 
-        assert(u);
         assert(key);
         assert(value);
         assert(fds);
@@ -747,21 +742,19 @@ static int timer_deserialize_item(Unit *u, const char *key, const char *value, F
 }
 
 static UnitActiveState timer_active_state(Unit *u) {
-        assert(u);
+        Timer *t = ASSERT_PTR(TIMER(u));
 
-        return state_translation_table[TIMER(u)->state];
+        return state_translation_table[t->state];
 }
 
 static const char *timer_sub_state_to_string(Unit *u) {
-        assert(u);
+        Timer *t = ASSERT_PTR(TIMER(u));
 
-        return timer_state_to_string(TIMER(u)->state);
+        return timer_state_to_string(t->state);
 }
 
 static int timer_dispatch(sd_event_source *s, uint64_t usec, void *userdata) {
-        Timer *t = TIMER(userdata);
-
-        assert(t);
+        Timer *t = ASSERT_PTR(TIMER(userdata));
 
         if (t->state != TIMER_WAITING)
                 return 0;
@@ -772,9 +765,8 @@ static int timer_dispatch(sd_event_source *s, uint64_t usec, void *userdata) {
 }
 
 static void timer_trigger_notify(Unit *u, Unit *other) {
-        Timer *t = TIMER(u);
+        Timer *t = ASSERT_PTR(TIMER(u));
 
-        assert(u);
         assert(other);
 
         /* Filter out invocations with bogus state */
@@ -812,9 +804,7 @@ static void timer_trigger_notify(Unit *u, Unit *other) {
 }
 
 static void timer_reset_failed(Unit *u) {
-        Timer *t = TIMER(u);
-
-        assert(t);
+        Timer *t = ASSERT_PTR(TIMER(u));
 
         if (t->state == TIMER_FAILED)
                 timer_set_state(t, TIMER_DEAD);
@@ -823,10 +813,8 @@ static void timer_reset_failed(Unit *u) {
 }
 
 static void timer_time_change(Unit *u) {
-        Timer *t = TIMER(u);
+        Timer *t = ASSERT_PTR(TIMER(u));
         usec_t ts;
-
-        assert(u);
 
         if (t->state != TIMER_WAITING)
                 return;
@@ -849,9 +837,7 @@ static void timer_time_change(Unit *u) {
 }
 
 static void timer_timezone_change(Unit *u) {
-        Timer *t = TIMER(u);
-
-        assert(u);
+        Timer *t = ASSERT_PTR(TIMER(u));
 
         if (t->state != TIMER_WAITING)
                 return;
@@ -866,10 +852,9 @@ static void timer_timezone_change(Unit *u) {
 }
 
 static int timer_clean(Unit *u, ExecCleanMask mask) {
-        Timer *t = TIMER(u);
+        Timer *t = ASSERT_PTR(TIMER(u));
         int r;
 
-        assert(t);
         assert(mask != 0);
 
         if (t->state != TIMER_DEAD)
@@ -892,9 +877,8 @@ static int timer_clean(Unit *u, ExecCleanMask mask) {
 }
 
 static int timer_can_clean(Unit *u, ExecCleanMask *ret) {
-        Timer *t = TIMER(u);
+        Timer *t = ASSERT_PTR(TIMER(u));
 
-        assert(t);
         assert(ret);
 
         *ret = t->persistent ? EXEC_CLEAN_STATE : 0;
@@ -902,10 +886,8 @@ static int timer_can_clean(Unit *u, ExecCleanMask *ret) {
 }
 
 static int timer_can_start(Unit *u) {
-        Timer *t = TIMER(u);
+        Timer *t = ASSERT_PTR(TIMER(u));
         int r;
-
-        assert(t);
 
         r = unit_test_start_limit(u);
         if (r < 0) {
@@ -917,9 +899,8 @@ static int timer_can_start(Unit *u) {
 }
 
 static void activation_details_timer_serialize(ActivationDetails *details, FILE *f) {
-        ActivationDetailsTimer *t = ACTIVATION_DETAILS_TIMER(details);
+        ActivationDetailsTimer *t = ASSERT_PTR(ACTIVATION_DETAILS_TIMER(details));
 
-        assert(details);
         assert(f);
         assert(t);
 
@@ -950,10 +931,9 @@ static int activation_details_timer_deserialize(const char *key, const char *val
 }
 
 static int activation_details_timer_append_env(ActivationDetails *details, char ***strv) {
-        ActivationDetailsTimer *t = ACTIVATION_DETAILS_TIMER(details);
+        ActivationDetailsTimer *t = ASSERT_PTR(ACTIVATION_DETAILS_TIMER(details));
         int r;
 
-        assert(details);
         assert(strv);
         assert(t);
 
@@ -972,10 +952,9 @@ static int activation_details_timer_append_env(ActivationDetails *details, char 
 }
 
 static int activation_details_timer_append_pair(ActivationDetails *details, char ***strv) {
-        ActivationDetailsTimer *t = ACTIVATION_DETAILS_TIMER(details);
+        ActivationDetailsTimer *t = ASSERT_PTR(ACTIVATION_DETAILS_TIMER(details));
         int r;
 
-        assert(details);
         assert(strv);
         assert(t);
 
