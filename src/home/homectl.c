@@ -2263,17 +2263,21 @@ static int lock_all_homes(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
+        log_warning("This command has been deprecated. Please use 'loginctl secure-lock-users' instead.");
+
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
 
-        r = bus_message_new_method_call(bus, &m, bus_mgr, "LockAllHomes");
+        r = bus_message_new_method_call(bus, &m, bus_login_mgr, "SecureLockUsers");
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+        /* We disable timing out here because the user can configure how long SecureLockUsers takes
+         * via InhibitDelayMaxSec= in logind.conf */
+        r = sd_bus_call(bus, m, UINT64_MAX, &error, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to lock all homes: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to secure lock users: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -2561,7 +2565,6 @@ static int help(int argc, char *argv[], void *userdata) {
                "  resize USER SIZE             Resize a home area\n"
                "  lock USER…                   Temporarily lock an active home area\n"
                "  unlock USER…                 Unlock a temporarily locked home area\n"
-               "  lock-all                     Lock all suitable home areas\n"
                "  deactivate-all               Deactivate all active home areas\n"
                "  rebalance                    Rebalance free space between home areas\n"
                "  with USER [COMMAND…]         Run shell or command with access to a home area\n"
