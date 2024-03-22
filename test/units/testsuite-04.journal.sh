@@ -244,7 +244,7 @@ JOURNAL_DIR="$(mktemp -d)"
 while read -r file; do
     filename="${file##*/}"
     unzstd "$file" -o "$JOURNAL_DIR/${filename%*.zst}"
-done < <(find /test-journals/no-rtc -name "*.zst")
+done < <(find /usr/lib/systemd/tests/testdata/test-journals/no-rtc -name "*.zst")
 
 journalctl --directory="$JOURNAL_DIR" --list-boots --output=json >/tmp/lb1
 diff -u /tmp/lb1 - <<'EOF'
