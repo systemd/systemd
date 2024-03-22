@@ -512,15 +512,7 @@ static mhd_result request_parse_arguments_iterator(
                 }
 
                 if (r) {
-                        sd_id128_t bid;
-
-                        r = sd_id128_get_boot(&bid);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to get boot ID: %m");
-                                return MHD_NO;
-                        }
-
-                        r = add_match_boot_id(m->journal, bid);
+                        r = add_match_boot_id(m->journal, SD_ID128_NULL);
                         if (r < 0) {
                                 m->argument_parse_error = r;
                                 return MHD_NO;
