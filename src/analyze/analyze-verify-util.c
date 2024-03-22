@@ -275,7 +275,7 @@ int verify_units(
                 RecursiveErrors recursive_errors,
                 const char *root) {
 
-        const ManagerTestRunFlags flags =
+        static const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
                 MANAGER_TEST_DONT_OPEN_EXECUTOR |
