@@ -1636,10 +1636,21 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
 }
 
 int add_match_boot_id(sd_journal *j, sd_id128_t id) {
-        assert(j);
-        assert(!sd_id128_is_null(id));
+        int r;
 
-        return journal_add_match_pair(j, "_BOOT_ID", SD_ID128_TO_STRING(id));
+        assert(j);
+
+        if (sd_id128_is_null(id)) {
+                r = sd_id128_get_boot(&id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get boot ID: %m");
+        }
+
+        r = journal_add_match_pair(j, "_BOOT_ID", SD_ID128_TO_STRING(id));
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match: %m");
+
+        return 0;
 }
 
 int add_match_this_boot(sd_journal *j, const char *machine) {
@@ -1655,7 +1666,7 @@ int add_match_this_boot(sd_journal *j, const char *machine) {
 
         r = add_match_boot_id(j, boot_id);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match: %m");
+                return r;
 
         r = sd_journal_add_conjunction(j);
         if (r < 0)
