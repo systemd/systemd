@@ -409,9 +409,9 @@ node /org/freedesktop/home1 {
       triggered deactivation is completed. This method is equivalent to <function>Release()</function> on the
       <classname>org.freedesktop.home1.Home</classname> interface.</para>
 
-      <para><function>LockAllHomes()</function> locks all active home directories that only have references
-      that opted into automatic suspending during system suspend. This is usually invoked automatically
-      shortly before system suspend.</para>
+      <para><function>LockAllHomes()</function> is deprecated. You should call <function>SecureLockUsers()</function>
+      on <classname>org.freedesktop.login1.Manager</classname> interface. See
+      <citerefentry><refentrytitle>org.freedesktop.login1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
       <para><function>DeactivateAllHomes()</function> deactivates all home areas that are currently
       active. This is usually invoked automatically shortly before system shutdown.</para>
@@ -592,6 +592,7 @@ node /org/freedesktop/home1/home {
       <title>The Manager Object</title>
       <para><function>ActivateHomeIfReferenced()</function>, <function>RefHomeUnrestricted()</function>,
       <function>CreateHomeEx()</function>, and <function>UpdateHomeEx()</function> were added in version 256.</para>
+      <para><function>LockAllHomes()</function> was deprecated in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Home Objects</title>
