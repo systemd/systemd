@@ -4300,10 +4300,7 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
-        if (allow_pidfd)
-                r = bus_append_scope_pidref(m, pidref);
-        else
-                r = sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, (uint32_t) pidref->pid);
+        r = bus_append_scope_pidref(m, pidref, allow_pidfd);
         if (r < 0)
                 return r;
 
