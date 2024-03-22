@@ -3958,7 +3958,7 @@ static int outer_child(
 
         if (dissected_image) {
                 /* Now we know the uid shift, let's now mount everything else that might be in the image. */
-                r = dissected_image_mount(
+                r = dissected_image_mount_and_warn(
                                 dissected_image,
                                 directory,
                                 arg_uid_shift,
@@ -3967,10 +3967,8 @@ static int outer_child(
                                 determine_dissect_image_flags()|
                                 DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|
                                 (idmap ? DISSECT_IMAGE_MOUNT_IDMAPPED : 0));
-                if (r == -EUCLEAN)
-                        return log_error_errno(r, "File system check for image failed: %m");
                 if (r < 0)
-                        return log_error_errno(r, "Failed to mount image file system: %m");
+                        return r;
         }
 
         if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN) {
