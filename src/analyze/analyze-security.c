@@ -225,7 +225,7 @@ static int assess_user(
         if (streq_ptr(info->user, NOBODY_USER_NAME)) {
                 d = "Service runs under as '" NOBODY_USER_NAME "' user, which should not be used for services";
                 b = 9;
-        } else if (info->dynamic_user && !STR_IN_SET(info->user, "0", "root")) {
+        } else if (info->dynamic_user && info->user && !STR_IN_SET(info->user, "0", "root")) {
                 d = "Service runs under a transient non-root user identity";
                 b = 0;
         } else if (info->user && !STR_IN_SET(info->user, "0", "root", "")) {
