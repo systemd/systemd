@@ -16,5 +16,5 @@
 	branch = c9s-sig-hyperscale
 [submodule "pkg/arch"]
 	path = pkg/arch
-	url = https://gitlab.archlinux.org/daandemeyer/systemd.git
-	branch = strip
+	url = https://gitlab.archlinux.org/archlinux/packaging/packages/systemd
+	branch = main
