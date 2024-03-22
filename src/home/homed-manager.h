@@ -69,6 +69,9 @@ struct Manager {
          * running a rebalancing operation for. 'rebalance_queued_method_calls' are the method calls that
          * have been queued since then and that we'll operate on once we complete the current run. */
         Set *rebalance_pending_method_calls, *rebalance_queued_method_calls;
+
+        sd_bus_slot *slot_logind_user_new;
+        sd_bus_slot *slot_logind_user_removed;
 };
 
 int manager_new(Manager **ret);
