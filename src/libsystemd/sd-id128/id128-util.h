@@ -49,6 +49,9 @@ int id128_get_product(sd_id128_t *ret);
 
 sd_id128_t id128_digest(const void *data, size_t size);
 
+int id128_get_boot(sd_id128_t *ret);
+int id128_get_boot_for_machine(const char *machine, sd_id128_t *ret);
+
 /* A helper to check for the three relevant cases of "machine ID not initialized" */
 #define ERRNO_IS_NEG_MACHINE_ID_UNSET(r)        \
         IN_SET(r,                               \

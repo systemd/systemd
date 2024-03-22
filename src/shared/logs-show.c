@@ -5,7 +5,6 @@
 #include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <sys/socket.h>
 #include <syslog.h>
 #include <unistd.h>
 
@@ -27,11 +26,9 @@
 #include "log.h"
 #include "logs-show.h"
 #include "macro.h"
-#include "namespace-util.h"
 #include "output-mode.h"
 #include "parse-util.h"
 #include "pretty-print.h"
-#include "process-util.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -1638,73 +1635,6 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
         return r;
 }
 
-static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, rootfd = -EBADF;
-        char buf[SD_ID128_UUID_STRING_MAX];
-        pid_t pid, child;
-        ssize_t k;
-        int r;
-
-        assert(machine);
-        assert(boot_id);
-
-        r = container_get_leader(machine, &pid);
-        if (r < 0)
-                return r;
-
-        r = namespace_open(pid, &pidnsfd, &mntnsfd, /* ret_netns_fd = */ NULL, /* ret_userns_fd = */ NULL, &rootfd);
-        if (r < 0)
-                return r;
-
-        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
-                return -errno;
-
-        r = namespace_fork("(sd-bootidns)", "(sd-bootid)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
-                           pidnsfd, mntnsfd, -1, -1, rootfd, &child);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                int fd;
-
-                pair[0] = safe_close(pair[0]);
-
-                fd = open("/proc/sys/kernel/random/boot_id", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0)
-                        _exit(EXIT_FAILURE);
-
-                r = loop_read_exact(fd, buf, 36, false);
-                safe_close(fd);
-                if (r < 0)
-                        _exit(EXIT_FAILURE);
-
-                k = send(pair[1], buf, 36, MSG_NOSIGNAL);
-                if (k != 36)
-                        _exit(EXIT_FAILURE);
-
-                _exit(EXIT_SUCCESS);
-        }
-
-        pair[1] = safe_close(pair[1]);
-
-        r = wait_for_terminate_and_check("(sd-bootidns)", child, 0);
-        if (r < 0)
-                return r;
-        if (r != EXIT_SUCCESS)
-                return -EIO;
-
-        k = recv(pair[0], buf, 36, 0);
-        if (k != 36)
-                return -EIO;
-
-        buf[36] = 0;
-        r = sd_id128_from_string(buf, boot_id);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 int add_match_boot_id(sd_journal *j, sd_id128_t id) {
         assert(j);
         assert(!sd_id128_is_null(id));
@@ -1718,15 +1648,10 @@ int add_match_this_boot(sd_journal *j, const char *machine) {
 
         assert(j);
 
-        if (machine) {
-                r = get_boot_id_for_machine(machine, &boot_id);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get boot id of container %s: %m", machine);
-        } else {
-                r = sd_id128_get_boot(&boot_id);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get boot id: %m");
-        }
+        r = id128_get_boot_for_machine(machine, &boot_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get boot ID%s%s: %m",
+                                       isempty(machine) ? "" : " of container ", machine);
 
         r = add_match_boot_id(j, boot_id);
         if (r < 0)
