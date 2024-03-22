@@ -412,7 +412,7 @@ static int swap_setup_unit(
                 s = ASSERT_PTR(SWAP(u));
 
                 s->what = strdup(what);
-                if (s->what) {
+                if (!s->what) {
                         r = log_oom();
                         goto fail;
                 }
