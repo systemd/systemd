@@ -2,6 +2,8 @@
 
 #include "efi.h"
 #include "version.h"
+#include "pe.h"
+#include "addon-util.h"
 
 /* Magic string for recognizing our own binaries */
 DECLARE_NOALLOC_SECTION(".sdmagic", "#### LoaderInfo: systemd-addon " GIT_VERSION " ####");

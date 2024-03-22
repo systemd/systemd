@@ -425,6 +425,15 @@ static void dt_filenames_free(char16_t **dt_filenames, size_t n_dt) {
         free(dt_filenames);
 }
 
+static void items_free(char16_t **items, size_t n_items) {
+        assert(items || n_items == 0);
+
+        for (size_t i = 0; i < n_items; ++i)
+                free(items[i]);
+
+        free(items);
+}
+
 static EFI_STATUS load_addons(
                 EFI_HANDLE stub_image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
@@ -458,7 +467,7 @@ static EFI_STATUS load_addons(
 
         CLEANUP_ARRAY(dt_bases, n_dt, dt_bases_free);
         CLEANUP_ARRAY(dt_filenames, n_dt, dt_filenames_free);
-        CLEANUP_ARRAY(items, n_items, strv_free);
+        CLEANUP_ARRAY(items, n_items, items_free);
 
         err = open_volume(loaded_image->DeviceHandle, &root);
         if (err == EFI_UNSUPPORTED)

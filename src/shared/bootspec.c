@@ -1797,6 +1797,8 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                 _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
 
                 for (size_t i = 0; i < config->n_entries; i++) {
+                        _cleanup_free_ char *opts = NULL;
+                        const BootEntry *e = config->entries + i;
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
                         if (!strv_isempty(e->options)) {
