@@ -79,6 +79,10 @@ static int graph_one(
                 if (r < 0)
                         return r;
 
+                r = graph_one_property(bus, u, "BindsTo", "gold", patterns, from_patterns, to_patterns);
+                if (r < 0)
+                        return r;
+
                 r = graph_one_property(bus, u, "Wants", "grey66", patterns, from_patterns, to_patterns);
                 if (r < 0)
                         return r;
@@ -182,6 +186,7 @@ int verb_dot(int argc, char *argv[], void *userdata) {
 
         log_info("   Color legend: black     = Requires\n"
                  "                 dark blue = Requisite\n"
+                 "                 gold      = BindsTo\n"
                  "                 dark grey = Wants\n"
                  "                 red       = Conflicts\n"
                  "                 green     = After\n");
