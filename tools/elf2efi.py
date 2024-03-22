@@ -268,7 +268,7 @@ def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
         if elf_seg["p_type"] == "PT_LOAD" and elf_seg["p_align"] != SECTION_ALIGNMENT:
             raise BadSectionError(f"ELF segment {elf_seg['p_type']} is not properly aligned"
                                   f" ({elf_seg['p_align']} != {SECTION_ALIGNMENT})")
-        elif elf_seg["p_type"] == "PT_GNU_RELRO":
+        if elf_seg["p_type"] == "PT_GNU_RELRO":
             relro = elf_seg
 
     for elf_s in elf.iter_sections():
