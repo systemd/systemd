@@ -106,6 +106,21 @@ static inline void *memory_startswith(const void *p, size_t sz, const sd_char *t
 #define STRV_FOREACH(s, l)                      \
         _STRV_FOREACH(s, l, UNIQ_T(i, UNIQ))
 
+#if SD_BOOT
+static inline size_t strv_length(char16_t * const *l) {
+        size_t n = 0;
+
+        if (l == NULL)
+                return 0;
+
+        STRV_FOREACH(i, l)
+                n++;
+
+        return n;
+}
+#endif
+
+
 static inline bool ascii_isdigit(sd_char a) {
         /* A pure ASCII, locale independent version of isdigit() */
         return a >= '0' && a <= '9';
