@@ -2255,6 +2255,8 @@ static int lock_all_homes(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
+        log_warning("Locking all homes via homed is deprecated. Please use 'loginctl secure-lock-users' instead.");
+
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
@@ -2553,7 +2555,6 @@ static int help(int argc, char *argv[], void *userdata) {
                "  resize USER SIZE             Resize a home area\n"
                "  lock USER…                   Temporarily lock an active home area\n"
                "  unlock USER…                 Unlock a temporarily locked home area\n"
-               "  lock-all                     Lock all suitable home areas\n"
                "  deactivate-all               Deactivate all active home areas\n"
                "  rebalance                    Rebalance free space between home areas\n"
                "  with USER [COMMAND…]         Run shell or command with access to a home area\n"
