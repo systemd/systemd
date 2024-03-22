@@ -212,7 +212,7 @@ endif
 efi_arch_c_args = {
         'aarch64'     : ['-mgeneral-regs-only'],
         'arm'         : ['-mgeneral-regs-only'],
-	# Until -mgeneral-regs-only is supported in LoongArch, use the following option instead:
+        # Until -mgeneral-regs-only is supported in LoongArch, use the following option instead:
         'loongarch64' : ['-mno-lsx', '-mno-lasx'],
         # Pass -m64/32 explicitly to make building on x32 work.
         'x86_64'      : ['-m64', '-march=x86-64', '-mno-red-zone', '-mgeneral-regs-only'],
