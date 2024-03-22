@@ -6,3 +6,5 @@
 int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata);
 int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata);
 int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata);
+
+int vl_method_secure_lock_activate(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata);

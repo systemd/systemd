@@ -2,6 +2,7 @@
 
 #include "group-record.h"
 #include "homed-varlink.h"
+#include "homed-operation.h"
 #include "strv.h"
 #include "user-record-util.h"
 #include "user-record.h"
@@ -356,4 +357,43 @@ int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMet
         }
 
         return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+}
+
+typedef struct LockParameters {
+        const char *user_name;
+} LockParameters;
+
+int vl_method_secure_lock_activate(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                { "userName",  JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LockParameters, user_name),  JSON_SAFE },
+                {}
+        };
+
+        _cleanup_(operation_unrefp) Operation *o = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        LockParameters p = {};
+        Home *h;
+        int r;
+
+        assert(parameters);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (!p.user_name)
+                return varlink_error_invalid_parameter_name(link, "userName");
+
+        h = hashmap_get(m->homes_by_name, p.user_name);
+        if (!h)
+                return varlink_error(link, "io.systemd.SecureLockBackend.NoSuchUser", NULL);
+
+        log_info("Got request to secure lock %s.", h->user_name);
+
+        o = operation_new_varlink(OPERATION_SECURE_LOCK, link);
+        if (!o)
+                return log_oom();
+
+        home_schedule_operation(h, o, NULL);
+        return 1;
 }

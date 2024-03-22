@@ -12,6 +12,7 @@ typedef enum OperationType {
         OPERATION_LOCK_ALL,          /* enqueued on LockAllHomes() */
         OPERATION_DEACTIVATE_ALL,    /* enqueued on DeactivateAllHomes() */
         OPERATION_PIPE_EOF,          /* enqueued when we see EOF on the per-home reference pipes */
+        OPERATION_SECURE_LOCK,       /* enqueued when logind requests a secure lock from homed */
         OPERATION_DEACTIVATE_FORCE,  /* enqueued on hard $HOME unplug */
         OPERATION_IMMEDIATE,         /* this is never enqueued, it's just a marker we immediately started executing an operation without enqueuing anything first. */
         _OPERATION_MAX,

@@ -2053,9 +2053,20 @@ int home_unregister(Home *h, sd_bus_error *error) {
         return 1;
 }
 
-int home_lock(Home *h, sd_bus_error *error) {
+static int home_lock_internal(Home *h, sd_bus_error *error) {
         int r;
 
+        assert(h);
+
+        r = home_start_work(h, "lock", h->record, NULL, NULL, 0);
+        if (r < 0)
+                return r;
+
+        home_set_state(h, HOME_LOCKING);
+        return 0;
+}
+
+int home_lock(Home *h, sd_bus_error *error) {
         assert(h);
 
         switch (home_get_state(h)) {
@@ -2073,12 +2084,7 @@ int home_lock(Home *h, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
         }
 
-        r = home_start_work(h, "lock", h->record, NULL, NULL, 0);
-        if (r < 0)
-                return r;
-
-        home_set_state(h, HOME_LOCKING);
-        return 0;
+        return home_lock_internal(h, error);
 }
 
 static int home_unlock_internal(Home *h, UserRecord *secret, HomeState for_state, sd_bus_error *error) {
@@ -3046,6 +3052,50 @@ static int home_dispatch_pipe_eof(Home *h, Operation *o) {
         return 1;
 }
 
+static int home_dispatch_secure_lock(Home *h, Operation *o) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(h);
+        assert(o);
+        assert(o->type == OPERATION_SECURE_LOCK);
+
+        switch (home_get_state(h)) {
+
+        case HOME_UNFIXATED:
+        case HOME_ABSENT:
+        case HOME_INACTIVE:
+        case HOME_DIRTY:
+                log_info("Home %s is not active, not lock needed.", h->user_name);
+                r = 1; /* done */
+                break;
+
+        case HOME_LOCKED:
+                log_info("Home %s is already locked.", h->user_name);
+                r = 1; /* done */
+                break;
+
+        case HOME_ACTIVE:
+        case HOME_LINGERING:
+                r = home_lock_internal(h, &error);
+                break;
+
+        default:
+                /* All other cases means we are currently executing an operation, which means the job remains
+                 * pending. */
+                return 0;
+        }
+
+        assert(!h->current_operation);
+
+        if (r != 0) /* failure or completed */
+                operation_result(o, r, &error);
+        else /* ongoing */
+                h->current_operation = operation_ref(o);
+
+        return 1;
+}
+
 static int home_dispatch_deactivate_force(Home *h, Operation *o) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -3102,6 +3152,7 @@ static int on_pending(sd_event_source *s, void *userdata) {
                         [OPERATION_LOCK_ALL]         = home_dispatch_lock_all,
                         [OPERATION_DEACTIVATE_ALL]   = home_dispatch_deactivate_all,
                         [OPERATION_PIPE_EOF]         = home_dispatch_pipe_eof,
+                        [OPERATION_SECURE_LOCK]      = home_dispatch_secure_lock,
                         [OPERATION_DEACTIVATE_FORCE] = home_dispatch_deactivate_force,
                 };
 
