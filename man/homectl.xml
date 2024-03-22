@@ -1131,10 +1131,11 @@
 
         <listitem><para>Temporarily suspend access to the user's home directory and remove any associated
         cryptographic keys from memory. Any attempts to access the user's home directory will stall until the
-        home directory is unlocked again (i.e. re-authenticated). This functionality is primarily intended to
-        be used during system suspend to make sure the user's data cannot be accessed until the user
-        re-authenticates on resume. This operation is only defined for home directories that use the LUKS2
-        storage mechanism.</para>
+        home directory is unlocked again (i.e. re-authenticated). This is a privileged operation, and it is
+        performed immediately without notifying any session clients. This is thus a low-level operation, and
+        it shouldn't be used outside of testing. Please use <literal>loginctl secure-lock-user</literal> instead
+        (see <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>).
+        This operation is only defined for home directories that use the LUKS2 storage mechanism.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
@@ -1145,17 +1146,6 @@
         <listitem><para>Resume access to the user's home directory again, undoing the effect of
         <command>lock</command> above. This requires authentication of the user, as the cryptographic keys
         required for access to the home directory need to be reacquired.</para>
-
-        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><command>lock-all</command></term>
-
-        <listitem><para>Execute the <command>lock</command> command on all suitable home directories at
-        once. This operation is generally executed on system suspend (i.e. by <command>systemctl
-        suspend</command> and related commands), to ensure all active user's cryptographic keys for accessing
-        their home directories are removed from memory.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
