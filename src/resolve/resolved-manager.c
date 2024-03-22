@@ -1586,6 +1586,12 @@ bool manager_dnssec_supported(Manager *m) {
         return true;
 }
 
+bool manager_get_trust_ad(Manager *m) {
+        assert(m);
+
+        return m->trust_ad;
+}
+
 DnsOverTlsMode manager_get_dns_over_tls_mode(Manager *m) {
         assert(m);
 
