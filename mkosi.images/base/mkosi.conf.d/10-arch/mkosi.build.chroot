@@ -23,7 +23,7 @@ mount --mkdir --rbind "$PWD/pkg/$PKG_SUBDIR" "pkg/$PKG_SUBDIR/src/"
 # tmpfs during the build script so these changes don't end up in the image itself.
 tee --append /etc/makepkg.conf >/dev/null <<EOF
 CFLAGS="$CFLAGS -Og"
-OPTIONS=(!strip docs !libtool !staticlibs emptydirs !zipman purge debug !lto)
+OPTIONS=(!strip docs !libtool !staticlibs emptydirs !zipman purge !debug !lto)
 EOF
 
 # Linting the PKGBUILD takes multiple seconds every build so avoid that by nuking all the linting functions.
@@ -34,6 +34,10 @@ if [ -d .git/ ] && [ -z "$(git status --porcelain)" ]; then
 else
     TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 fi
+
+sed --in-place "pkg/$PKG_SUBDIR/PKGBUILD" \
+    --expression "s/^_tag=.*/_tag=$(cat meson.version)/" \
+    --expression "s/^pkgrel=.*/pkgrel=$(date "+%Y%m%d%H%M%S" --date "@$TS")/"
 
 # We get around makepkg's root check by setting EUID to something else.
 # shellcheck disable=SC2046
@@ -48,6 +52,4 @@ env --chdir="pkg/$PKG_SUBDIR" \
     BUILDDIR="$PWD/pkg/$PKG_SUBDIR" \
     PKGDEST="$PACKAGEDIR" \
     PKGEXT=".pkg.tar" \
-    PKGVER="$(cat meson.version)" \
-    PKGREL="$(date "+%Y%m%d%H%M%S" --date "@$TS")" \
     MESON_EXTRA_CONFIGURE_OPTIONS="-D mode=developer -D b_sanitize=${SANITIZERS:-none}"
