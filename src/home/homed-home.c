@@ -1019,14 +1019,7 @@ static void home_locking_finish(Home *h, int ret, UserRecord *hr) {
         return;
 
 finish:
-        /* If a specific home doesn't know the concept of locking, then that's totally OK, don't propagate
-         * the error if we are executing a LockAllHomes() operation. */
-
-        if (h->current_operation->type == OPERATION_LOCK_ALL && r == -ENOTTY)
-                h->current_operation = operation_result_unref(h->current_operation, 0, NULL);
-        else
-                h->current_operation = operation_result_unref(h->current_operation, r, &error);
-
+        h->current_operation = operation_result_unref(h->current_operation, r, &error);
         home_set_state(h, _HOME_STATE_INVALID);
 }
 
@@ -2910,51 +2903,6 @@ static int home_dispatch_release(Home *h, Operation *o) {
         return 1;
 }
 
-static int home_dispatch_lock_all(Home *h, Operation *o) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
-
-        assert(h);
-        assert(o);
-        assert(o->type == OPERATION_LOCK_ALL);
-
-        switch (home_get_state(h)) {
-
-        case HOME_UNFIXATED:
-        case HOME_ABSENT:
-        case HOME_INACTIVE:
-        case HOME_DIRTY:
-                log_info("Home %s is not active, no locking necessary.", h->user_name);
-                r = 1; /* done */
-                break;
-
-        case HOME_LOCKED:
-                log_info("Home %s is already locked.", h->user_name);
-                r = 1; /* done */
-                break;
-
-        case HOME_ACTIVE:
-        case HOME_LINGERING:
-                log_info("Locking home %s.", h->user_name);
-                r = home_lock(h, &error);
-                break;
-
-        default:
-                /* All other cases means we are currently executing an operation, which means the job remains
-                 * pending. */
-                return 0;
-        }
-
-        assert(!h->current_operation);
-
-        if (r != 0) /* failure or completed */
-                operation_result(o, r, &error);
-        else /* ongoing */
-                h->current_operation = operation_ref(o);
-
-        return 1;
-}
-
 static int home_dispatch_deactivate_all(Home *h, Operation *o) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -3097,7 +3045,6 @@ static int on_pending(sd_event_source *s, void *userdata) {
                 static int (* const operation_table[_OPERATION_MAX])(Home *h, Operation *o) = {
                         [OPERATION_ACQUIRE]          = home_dispatch_acquire,
                         [OPERATION_RELEASE]          = home_dispatch_release,
-                        [OPERATION_LOCK_ALL]         = home_dispatch_lock_all,
                         [OPERATION_DEACTIVATE_ALL]   = home_dispatch_deactivate_all,
                         [OPERATION_PIPE_EOF]         = home_dispatch_pipe_eof,
                         [OPERATION_DEACTIVATE_FORCE] = home_dispatch_deactivate_force,
