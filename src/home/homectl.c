@@ -2059,6 +2059,9 @@ static int lock_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
 
+        log_warning("Locking directly via homed is a low-level operation and is thus not recommended.");
+        log_warning("Please use 'loginctl secure-lock-user' instead.");
+
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;

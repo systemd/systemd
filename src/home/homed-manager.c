@@ -15,6 +15,7 @@
 #include "btrfs-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "clean-ipc.h"
@@ -1371,6 +1372,54 @@ static int manager_enumerate_devices(Manager *m) {
         return 0;
 }
 
+static int manager_on_logind_user(sd_bus_message *signal, void *userdata, sd_bus_error *ret_error) {
+        Manager *m = ASSERT_PTR(userdata);
+        uint32_t uid;
+        const char *path;
+        Home *h;
+        int r;
+
+        r = sd_bus_message_read(signal, "uo", &uid, &path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+        if (!uid_is_valid(uid))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID %" PRIu32 " is not valid.", uid);
+
+        h = hashmap_get(m->homes_by_uid, UID_TO_PTR(uid));
+        if (!h) /* Not managed by us! */
+                return 0;
+
+        if (endswith(sd_bus_message_get_member(signal), "Removed"))
+                path = NULL;
+
+        r = home_set_logind_path(h, path);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int manager_watch_logind(Manager *m) {
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot_new = NULL, *slot_rm = NULL;
+        int r;
+
+        assert(m);
+        assert(!m->slot_logind_user_new);
+        assert(!m->slot_logind_user_removed);
+
+        r = bus_match_signal(m->bus, &slot_new, bus_login_mgr, "UserNew", manager_on_logind_user, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to watch logind for UserNew: %m");
+
+        r = bus_match_signal(m->bus, &slot_rm, bus_login_mgr, "UserRemoved", manager_on_logind_user, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to watch logind for UserRemoved: %m");
+
+        m->slot_logind_user_new = TAKE_PTR(slot_new);
+        m->slot_logind_user_removed = TAKE_PTR(slot_rm);
+        return 0;
+}
+
 static int manager_load_key_pair(Manager *m) {
         _cleanup_fclose_ FILE *f = NULL;
         struct stat st;
@@ -1621,6 +1670,7 @@ int manager_startup(Manager *m) {
 
         manager_watch_home(m);
         (void) manager_watch_devices(m);
+        (void) manager_watch_logind(m);
 
         (void) manager_enumerate_records(m);
         (void) manager_enumerate_images(m);
