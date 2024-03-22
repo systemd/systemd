@@ -69,6 +69,10 @@ struct Manager {
          * running a rebalancing operation for. 'rebalance_queued_method_calls' are the method calls that
          * have been queued since then and that we'll operate on once we complete the current run. */
         Set *rebalance_pending_method_calls, *rebalance_queued_method_calls;
+
+        /* Client that called io.systemd.SecureLockBackend.Subscribe to be notified of users
+         * becoming secure-locked or unlocked */
+        Varlink *secure_lock_subscribed;
 };
 
 int manager_new(Manager **ret);
