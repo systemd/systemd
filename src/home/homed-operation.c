@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-error.h"
 #include "fd-util.h"
 #include "homed-operation.h"
 

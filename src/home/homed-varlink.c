@@ -2,6 +2,7 @@
 
 #include "group-record.h"
 #include "homed-varlink.h"
+#include "homed-operation.h"
 #include "strv.h"
 #include "user-record-util.h"
 #include "user-record.h"
@@ -356,4 +357,75 @@ int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMet
         }
 
         return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+}
+
+typedef struct LockParameters {
+        const char *service;
+        const char *user_name;
+} LockParameters;
+
+int vl_method_secure_lock_activate(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                { "service",  JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LockParameters, service),   JSON_SAFE },
+                { "userName", JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LockParameters, user_name), JSON_SAFE },
+                {}
+        };
+
+        _cleanup_(operation_unrefp) Operation *o = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        LockParameters p = {};
+        Home *h;
+        int r;
+
+        assert(parameters);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (!streq_ptr(p.service, m->userdb_service))
+                return varlink_error(link, "io.systemd.SecureLockBackend.BadService", NULL);
+
+        if (!p.user_name)
+                return varlink_error_invalid_parameter_name(link, "userName");
+
+        h = hashmap_get(m->homes_by_name, p.user_name);
+        if (!h)
+                return varlink_error(link, "io.systemd.SecureLockBackend.NoSuchUser", NULL);
+
+        log_info("Got request to secure lock %s.", h->user_name);
+
+        o = operation_new_varlink(OPERATION_SECURE_LOCK, link);
+        if (!o)
+                return log_oom();
+
+        home_schedule_operation(h, o, NULL);
+        return 1;
+}
+
+int vl_method_secure_lock_subscribe(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                { "service", JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LockParameters, service), JSON_SAFE },
+                {}
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
+        LockParameters p = {};
+        int r;
+
+        assert(parameters);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (!streq_ptr(p.service, m->userdb_service))
+                return varlink_error(link, "io.systemd.SecureLockBackend.BadService", NULL);
+
+        if (m->secure_lock_subscribed)
+                return varlink_error(link, "io.systemd.SecureLockBackend.AlreadySubscribed", NULL);
+
+        log_info("Logind subscribed to secure lock notifications.");
+        m->secure_lock_subscribed = varlink_ref(link);
+        return 0;
 }
