@@ -23,7 +23,7 @@ mount --mkdir --rbind "$PWD/pkg/$PKG_SUBDIR" "pkg/$PKG_SUBDIR/src/"
 # tmpfs during the build script so these changes don't end up in the image itself.
 tee --append /etc/makepkg.conf >/dev/null <<EOF
 CFLAGS="$CFLAGS -Og"
-OPTIONS=(!strip docs !libtool !staticlibs emptydirs !zipman purge debug !lto)
+OPTIONS=(!strip docs !libtool !staticlibs emptydirs !zipman purge !debug !lto)
 EOF
 
 # Linting the PKGBUILD takes multiple seconds every build so avoid that by nuking all the linting functions.
