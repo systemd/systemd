@@ -1689,6 +1689,7 @@ static int mount_setup_new_unit(
                 Unit **ret) {
 
         _cleanup_(unit_freep) Unit *u = NULL;
+        Mount *mnt;
         int r;
 
         assert(m);
@@ -1700,24 +1701,26 @@ static int mount_setup_new_unit(
         if (r < 0)
                 return r;
 
+        mnt = ASSERT_PTR(MOUNT(u));
+
         r = free_and_strdup(&u->source_path, "/proc/self/mountinfo");
         if (r < 0)
                 return r;
 
-        r = free_and_strdup(&MOUNT(u)->where, where);
+        r = free_and_strdup(&mnt->where, where);
         if (r < 0)
                 return r;
 
-        r = update_parameters_proc_self_mountinfo(MOUNT(u), what, options, fstype);
+        r = update_parameters_proc_self_mountinfo(mnt, what, options, fstype);
         if (r < 0)
                 return r;
 
         /* This unit was generated because /proc/self/mountinfo reported it. Remember this, so that by the
          * time we load the unit file for it (and thus add in extra deps right after) we know what source to
          * attributes the deps to. */
-        MOUNT(u)->from_proc_self_mountinfo = true;
+        mnt->from_proc_self_mountinfo = true;
 
-        r = mount_add_non_exec_dependencies(MOUNT(u));
+        r = mount_add_non_exec_dependencies(mnt);
         if (r < 0)
                 return r;
 
@@ -1742,6 +1745,7 @@ static int mount_setup_existing_unit(
         int r;
 
         assert(u);
+        assert(where);
         assert(ret_flags);
 
         if (!m->where) {
