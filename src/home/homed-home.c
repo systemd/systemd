@@ -13,6 +13,7 @@
 #include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-locator.h"
+#include "bus-util.h"
 #include "data-fd-util.h"
 #include "env-util.h"
 #include "errno-list.h"
@@ -102,6 +103,8 @@ static int suitable_home_record(UserRecord *hr) {
         return 0;
 }
 
+static int logind_lookup_complete(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error);
+
 int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
         _cleanup_(home_freep) Home *home = NULL;
         _cleanup_free_ char *nm = NULL, *ns = NULL, *blob = NULL;
@@ -150,6 +153,7 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
                 .signed_locally = -1,
                 .pin_fd = -EBADF,
                 .luks_lock_fd = -EBADF,
+                .secure_lock_fd = -EBADF,
         };
 
         r = hashmap_put(m->homes_by_name, home->user_name, home);
@@ -176,6 +180,10 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
         r = mkdir_safe(blob, 0755, 0, 0, MKDIR_IGNORE_EXISTING);
         if (r < 0)
                 log_warning_errno(r, "Failed to create blob dir for user '%s': %m", home->user_name);
+
+        r = bus_call_method_async(m->bus, NULL, bus_login_mgr, "GetUser", logind_lookup_complete, home, "u", (uint32_t) home->uid);
+        if (r < 0)
+                log_warning_errno(r, "Failed to get logind path for user '%s', ignoring: %m", home->user_name);
 
         (void) bus_manager_emit_auto_login_changed(m);
         (void) bus_home_emit_change(home);
@@ -235,6 +243,10 @@ Home *home_free(Home *h) {
 
         safe_close(h->pin_fd);
         safe_close(h->luks_lock_fd);
+
+        free(h->logind_path);
+        safe_close(h->secure_lock_fd);
+        sd_bus_slot_unref(h->secure_lock_slot);
 
         h->retry_deactivate_event_source = sd_event_source_disable_unref(h->retry_deactivate_event_source);
 
@@ -420,6 +432,128 @@ static void home_maybe_close_luks_lock_fd(Home *h, HomeState state) {
         log_debug("Successfully closed LUKS backing file lock for %s.", h->user_name);
 }
 
+static int enable_secure_lock_complete(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
+        _cleanup_close_ int dup = -EBADF;
+        Home *h = ASSERT_PTR(userdata);
+        const sd_bus_error *e;
+        int r, fd;
+
+        assert(reply);
+
+        e = sd_bus_message_get_error(reply);
+        if (e) {
+                r = sd_bus_error_get_errno(e);
+                log_warning_errno(r,
+                                  "Failed to enable secure locking for %s, ignoring: %s",
+                                  h->user_name,
+                                  bus_error_message(e, r));
+                return 1;
+        }
+
+        r = sd_bus_message_read(reply, "h", &fd);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        dup = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (dup < 0)
+                return log_warning_errno(dup, "Failed to duplicate secure lock FD for %s, ignoring: %m", h->user_name);
+
+        h->secure_lock_fd = TAKE_FD(dup);
+        return 1;
+}
+
+static void home_update_secure_lock_fd(Home *h, HomeState state) {
+        int r;
+
+        assert(h);
+
+        if (!h->logind_path)
+                return;
+
+        if (state < 0)
+                state = home_get_state(h);
+
+        if (!HOME_STATE_IS_ACTIVE(state)) {
+                if (h->secure_lock_fd < 0)
+                        return;
+
+                h->secure_lock_fd = safe_close(h->secure_lock_fd);
+                log_debug("Successfully closed secure lock backend FD for %s.", h->user_name);
+                return;
+        }
+
+        if (h->secure_lock_fd >= 0)
+                return;
+
+        r = sd_bus_call_method_async(h->manager->bus,
+                                     /* slot= */ NULL,
+                                     "org.freedesktop.login1",
+                                     h->logind_path,
+                                     "org.freedesktop.login1.User",
+                                     "EnableSecureLock",
+                                     enable_secure_lock_complete,
+                                     h,
+                                     NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to enable secure locking for %s, ignoring: %m", h->user_name);
+}
+
+static int home_trigger_secure_lock(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
+        _cleanup_(operation_unrefp) Operation *o = NULL;
+        Home *h = ASSERT_PTR(userdata);
+
+        log_info("Got notification that we should secure lock %s.", h->user_name);
+
+        o = operation_new(OPERATION_SECURE_LOCK, NULL);
+        if (!o)
+                return log_oom();
+
+        home_schedule_operation(h, o, NULL);
+        return 1;
+}
+
+static int logind_lookup_complete(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
+        Home *h = ASSERT_PTR(userdata);
+        const sd_bus_error *e;
+        const char *path;
+        int r;
+
+        assert(reply);
+
+        e = sd_bus_message_get_error(reply);
+        if (e) {
+                r = sd_bus_error_get_errno(e);
+                log_warning_errno(r,
+                                  "Failed to lookup logind path for %s, ignoring: %s",
+                                  h->user_name,
+                                  bus_error_message(e, r));
+                return 1;
+       }
+
+        r = sd_bus_message_read(reply, "o", &path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        h->logind_path = strdup(path);
+        if (!h->logind_path)
+                return log_oom();
+
+        r = sd_bus_match_signal_async(h->manager->bus,
+                                      &h->secure_lock_slot,
+                                      "org.freedestkop.login1",
+                                      path,
+                                      "org.freedesktop.login1.User",
+                                      "TriggerSecureLock",
+                                      home_trigger_secure_lock,
+                                      /* install_callback= */ NULL,
+                                      h);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to request match: %m");
+
+        home_update_secure_lock_fd(h, _HOME_STATE_INVALID);
+        return 1;
+}
+
 static void home_maybe_stop_retry_deactivate(Home *h, HomeState state) {
         assert(h);
 
@@ -511,6 +645,7 @@ static void home_set_state(Home *h, HomeState state) {
         home_update_pin_fd(h, new_state);
         home_maybe_close_luks_lock_fd(h, new_state);
         home_maybe_stop_retry_deactivate(h, new_state);
+        home_update_secure_lock_fd(h, new_state);
 
         if (HOME_STATE_IS_EXECUTING_OPERATION(old_state) && !HOME_STATE_IS_EXECUTING_OPERATION(new_state)) {
                 /* If we just finished executing some operation, process the queue of pending operations. And
@@ -2046,9 +2181,20 @@ int home_unregister(Home *h, sd_bus_error *error) {
         return 1;
 }
 
-int home_lock(Home *h, sd_bus_error *error) {
+static int home_lock_internal(Home *h, sd_bus_error *error) {
         int r;
 
+        assert(h);
+
+        r = home_start_work(h, "lock", h->record, NULL, NULL, 0);
+        if (r < 0)
+                return r;
+
+        home_set_state(h, HOME_LOCKING);
+        return 0;
+}
+
+int home_lock(Home *h, sd_bus_error *error) {
         assert(h);
 
         switch (home_get_state(h)) {
@@ -2066,12 +2212,7 @@ int home_lock(Home *h, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
         }
 
-        r = home_start_work(h, "lock", h->record, NULL, NULL, 0);
-        if (r < 0)
-                return r;
-
-        home_set_state(h, HOME_LOCKING);
-        return 0;
+        return home_lock_internal(h, error);
 }
 
 static int home_unlock_internal(Home *h, UserRecord *secret, HomeState for_state, sd_bus_error *error) {
@@ -2992,6 +3133,47 @@ static int home_dispatch_pipe_eof(Home *h, Operation *o) {
         return 1;
 }
 
+static int home_dispatch_secure_lock(Home *h, Operation *o) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(h);
+        assert(o);
+        assert(o->type == OPERATION_SECURE_LOCK);
+
+        switch (home_get_state(h)) {
+
+        case HOME_UNFIXATED:
+        case HOME_ABSENT:
+        case HOME_INACTIVE:
+        case HOME_DIRTY:
+                log_info("Home %s is not active, not lock needed.", h->user_name);
+                break;
+
+        case HOME_LOCKED:
+                log_info("Home %s is already locked.", h->user_name);
+                break;
+
+        case HOME_ACTIVE:
+        case HOME_LINGERING:
+                r = home_lock_internal(h, &error);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to lock %s, ignoring: %s", h->user_name, bus_error_message(&error, r));
+                break;
+
+        default:
+                /* All other cases means we are currently executing an operation, which means the job remains
+                 * pending. */
+                return 0;
+        }
+
+        /* Note that we don't call operation_fail() or operation_success() here, because this kind of
+         * operation has no message associated with it, and thus there's no need to propagate success. */
+
+        assert(!o->message);
+        return 1;
+}
+
 static int home_dispatch_deactivate_force(Home *h, Operation *o) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -3047,6 +3229,7 @@ static int on_pending(sd_event_source *s, void *userdata) {
                         [OPERATION_RELEASE]          = home_dispatch_release,
                         [OPERATION_DEACTIVATE_ALL]   = home_dispatch_deactivate_all,
                         [OPERATION_PIPE_EOF]         = home_dispatch_pipe_eof,
+                        [OPERATION_SECURE_LOCK]      = home_dispatch_secure_lock,
                         [OPERATION_DEACTIVATE_FORCE] = home_dispatch_deactivate_force,
                 };
 
