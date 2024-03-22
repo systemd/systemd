@@ -604,6 +604,7 @@ int machine_openpt(Machine *m, int flags, char **ret_slave) {
 
         switch (m->class) {
 
+        case MACHINE_VM:
         case MACHINE_HOST:
                 return openpt_allocate(flags, ret_slave);
 
@@ -623,6 +624,7 @@ int machine_open_terminal(Machine *m, const char *path, int mode) {
 
         switch (m->class) {
 
+        case MACHINE_VM:
         case MACHINE_HOST:
                 return open_terminal(path, mode);
 
