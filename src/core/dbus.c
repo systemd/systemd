@@ -1129,9 +1129,7 @@ int bus_foreach_bus(
         }
 
         /* Send to API bus, but only if somebody is subscribed */
-        if (m->api_bus &&
-            (sd_bus_track_count(m->subscribed) > 0 ||
-             sd_bus_track_count(subscribed2) > 0)) {
+        if (m->api_bus) {
                 r = send_message(m->api_bus, userdata);
                 if (r < 0)
                         ret = r;

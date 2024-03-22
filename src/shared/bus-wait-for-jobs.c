@@ -128,7 +128,7 @@ static int bus_process_wait(sd_bus *bus) {
                         return 0;
 
                 r = sd_bus_wait(bus, UINT64_MAX);
-                if (r < 0)
+                if (r <= 0)
                         return r;
         }
 }
