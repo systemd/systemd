@@ -174,6 +174,11 @@ struct Home {
 
         /* Whether a rebalance operation is pending */
         bool rebalance_pending;
+
+        /* Plumbing necessary to implement a backend for logind's SecureLock() */
+        char *logind_path;
+        int secure_lock_fd;
+        sd_bus_slot *secure_lock_slot;
 };
 
 int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret);
@@ -215,6 +220,7 @@ int home_schedule_operation(Home *h, Operation *o, sd_bus_error *error);
 
 int home_auto_login(Home *h, char ***ret_seats);
 
+int home_set_logind_path(Home *h, const char *path);
 int home_set_current_message(Home *h, sd_bus_message *m);
 
 int home_wait_for_worker(Home *h);
