@@ -482,6 +482,7 @@ static int container_bus_new(Machine *m, sd_bus_error *error, sd_bus **ret) {
 
         switch (m->class) {
 
+        case MACHINE_VM:
         case MACHINE_HOST:
                 *ret = NULL;
                 break;
@@ -585,7 +586,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         sd_bus *container_bus = NULL;
         _cleanup_close_ int master = -EBADF, slave = -EBADF;
         _cleanup_strv_free_ char **env = NULL, **args_wire = NULL, **args = NULL;
-        _cleanup_free_ char *command_line = NULL;
+        _cleanup_free_ char *command_line = NULL, *ssh_path = NULL;
         Machine *m = ASSERT_PTR(userdata);
         const char *p, *unit, *user, *path, *description, *utmp_id;
         int r;
@@ -637,6 +638,55 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                 return r;
         if (!strv_env_is_valid(env))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
+
+        /* if we are a VM we need to transform args/path/env into an SSH command line */
+        if (m->class == MACHINE_VM) {
+                _cleanup_strv_free_ char **ssh_cmdline = NULL;
+
+                if (isempty(m->address) || isempty(m->ssh_private_key_path))
+                        return -EOPNOTSUPP;
+
+                r = find_executable("ssh", &ssh_path);
+                if (r < 0)
+                        return r;
+
+                ssh_cmdline = strv_new("ssh", "-o", "IdentitiesOnly yes");
+                if (!ssh_cmdline)
+                        return -ENOMEM;
+
+                r = strv_extend(&ssh_cmdline, "-o");
+                if (r < 0)
+                    return r;
+
+                r = strv_extendf(&ssh_cmdline, "IdentityFile=%s", m->ssh_private_key_path);
+                if (r < 0)
+                    return r;
+
+                STRV_FOREACH(envvar, env) {
+                        r = strv_extend(&ssh_cmdline, "-o");
+                        if (r < 0)
+                            return r;
+
+                        r = strv_extendf(&ssh_cmdline, "SetEnv %s", *envvar);
+                        if (r < 0)
+                            return r;
+                }
+
+                r = strv_extend(&ssh_cmdline, m->address);
+                if (r < 0)
+                    return r;
+
+                r = strv_extend(&ssh_cmdline, path);
+                if (r < 0)
+                    return r;
+
+                r = strv_extend_strv(&ssh_cmdline, strv_skip(args, 1), /* filter_duplicates= */ false);
+                if (r < 0)
+                    return r;
+
+                path = ssh_path;
+                strv_free_and_replace(args, ssh_cmdline);
+        }
 
         command_line = strv_join(args, " ");
         if (!command_line)
@@ -718,7 +768,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        if (!strv_isempty(env)) {
+        if (!strv_isempty(env) && m->class != MACHINE_VM) {
                 r = sd_bus_message_open_container(tm, 'r', "sv");
                 if (r < 0)
                         return r;
