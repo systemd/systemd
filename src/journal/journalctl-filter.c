@@ -385,11 +385,7 @@ get_parent:
                         break;
         }
 
-        r = add_match_this_boot(j, arg_machine);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add match for the current boot: %m");
-
-        return 0;
+        return add_match_boot_id(j, SD_ID128_NULL);
 }
 
 static int add_matches_for_path(sd_journal *j, const char *path) {
