@@ -114,11 +114,9 @@ static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret)
 
         d = hashmap_get(m->dynamic_users, name);
         if (d) {
-                if (ret) {
+                if (ret)
                         /* We already have a structure for the dynamic user, let's increase the ref count and reuse it */
-                        d->n_ref++;
-                        *ret = d;
-                }
+                        *ret = dynamic_user_ref(d);
                 return 0;
         }
 
@@ -134,16 +132,13 @@ static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret)
 
         storage_socket[0] = storage_socket[1] = -EBADF;
 
-        if (ret) {
-                d->n_ref++;
-                *ret = d;
-        }
+        if (ret)
+                *ret = dynamic_user_ref(d);
 
         return 1;
 }
 
 static int make_uid_symlinks(uid_t uid, const char *name, bool b) {
-
         char path1[STRLEN("/run/systemd/dynamic-uid/direct:") + DECIMAL_STR_MAX(uid_t) + 1];
         const char *path2;
         int r = 0, k;
@@ -754,7 +749,6 @@ int dynamic_user_lookup_name(Manager *m, const char *name, uid_t *ret) {
 
 int dynamic_creds_make(Manager *m, const char *user, const char *group, DynamicCreds **ret) {
         _cleanup_(dynamic_creds_unrefp) DynamicCreds *creds = NULL;
-        bool acquired = false;
         int r;
 
         assert(m);
@@ -777,20 +771,14 @@ int dynamic_creds_make(Manager *m, const char *user, const char *group, DynamicC
                 r = dynamic_user_acquire(m, user, &creds->user);
                 if (r < 0)
                         return r;
-
-                acquired = true;
         }
 
-        if (creds->user && (!group || streq_ptr(user, group)))
-                creds->group = dynamic_user_ref(creds->user);
-        else if (group) {
+        if (group && !streq_ptr(user, group)) {
                 r = dynamic_user_acquire(m, group, &creds->group);
-                if (r < 0) {
-                        if (acquired)
-                                creds->user = dynamic_user_unref(creds->user);
+                if (r < 0)
                         return r;
-                }
-        }
+        } else
+                creds->group = ASSERT_PTR(dynamic_user_ref(creds->user));
 
         *ret = TAKE_PTR(creds);
 
