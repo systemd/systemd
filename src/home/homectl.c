@@ -2658,7 +2658,7 @@ static int acquire_group_list(char ***ret) {
 
         r = groupdb_all(&match, USERDB_SUPPRESS_SHADOW, &iterator);
         if (r == -ENOLINK)
-                log_debug_errno(r, "No groups found. (Didn't check via Varlink.)");
+                log_debug_errno(r, "No groups found. (Didn't check via sd_varlink.)");
         else if (r == -ESRCH)
                 log_debug_errno(r, "No groups found.");
         else if (r < 0)

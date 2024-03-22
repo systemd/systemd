@@ -3,6 +3,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "bus-error.h"
 #include "fd-util.h"
 #include "homed-operation.h"
 #include "log.h"
@@ -77,13 +78,13 @@ static void operation_propagate_result(Operation *o) {
         if (o->varlink) {
                 if (o->result) {
                         /* Success */
-                        assert(o->send_fd == -EBADF); /* We don't support this via Varlink */
+                        assert(o->send_fd == -EBADF); /* We don't support this via sd_varlink */
                         r = sd_varlink_reply(o->varlink, NULL);
                 } else {
                         /* Failure */
                         sd_varlink_get_current_method(o->varlink, &method);
                         if (sd_bus_error_is_set(&o->error))
-                                /* We can't pass an arbitrary message through Varlink, so let's at least log */
+                                /* We can't pass an arbitrary message through sd_varlink, so let's at least log */
                                 log_warning_errno(o->ret,
                                                   "Failed to execute operation for %s: %s",
                                                   method,

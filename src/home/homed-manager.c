@@ -66,6 +66,7 @@
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
+#include "varlink-io.systemd.SecureLockBackend.h"
 
 /* Where to look for private/public keys that are used to sign the user records. We are not using
  * CONF_PATHS_NULSTR() here since we want to insert /var/lib/systemd/home/ in the middle. And we insert that
@@ -1055,9 +1056,16 @@ static int manager_connect_bus(Manager *m) {
         return 0;
 }
 
+static void manager_varlink_disconnected(sd_varlink_server *server, sd_varlink *link, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        if (link == m->secure_lock_subscribed)
+                m->secure_lock_subscribed = sd_varlink_unref(m->secure_lock_subscribed);
+}
+
 static int manager_bind_varlink(Manager *m) {
-        _cleanup_free_ char *p = NULL;
-        const char *suffix, *socket_path;
+        _cleanup_free_ char *sp_suffixed = NULL, *slb_suffixed = NULL;
+        const char *suffix, *socket_path, *secure_lock_backend;
         int r;
 
         assert(m);
@@ -1077,6 +1085,10 @@ static int manager_bind_varlink(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add UserDatabase interface to varlink server: %m");
 
+        r = sd_varlink_server_add_interface(m->varlink_server, &vl_interface_io_systemd_SecureLockBackend);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add SecureLockBackend interface to varlink server: %m");
+
         r = sd_varlink_server_bind_method_many(
                         m->varlink_server,
                         "io.systemd.UserDatabase.GetUserRecord",  vl_method_get_user_record,
@@ -1084,24 +1096,43 @@ static int manager_bind_varlink(Manager *m) {
                         "io.systemd.UserDatabase.GetMemberships", vl_method_get_memberships,
                         "io.systemd.service.Ping",                varlink_method_ping,
                         "io.systemd.service.SetLogLevel",         varlink_method_set_log_level,
-                        "io.systemd.service.GetEnvironment",      varlink_method_get_environment);
+                        "io.systemd.service.GetEnvironment",      varlink_method_get_environment,
+                        "io.systemd.SecureLockBackend.Activate",  vl_method_secure_lock_activate,
+                        "io.systemd.SecureLockBackend.Subscribe", vl_method_secure_lock_subscribe);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
+
+        (void) mkdir_p("/run/systemd/secure-lock", 0755);
+
+        socket_path = "/run/systemd/userdb/io.systemd.Home";
+        secure_lock_backend = "/run/systemd/secure-lock/io.systemd.Home";
 
         /* To make things easier to debug, when working from a homed managed home directory, let's optionally
          * use a different varlink socket name */
         suffix = getenv("SYSTEMD_HOME_DEBUG_SUFFIX");
         if (suffix) {
-                p = strjoin("/run/systemd/userdb/io.systemd.Home.", suffix);
-                if (!p)
+                sp_suffixed = strjoin(socket_path, ".", suffix);
+                if (!sp_suffixed)
                         return log_oom();
-                socket_path = p;
-        } else
-                socket_path = "/run/systemd/userdb/io.systemd.Home";
+                socket_path = sp_suffixed;
+
+                slb_suffixed = strjoin(secure_lock_backend, ".", suffix);
+                if (!slb_suffixed)
+                        return log_oom();
+                secure_lock_backend = slb_suffixed;
+        }
 
         r = sd_varlink_server_listen_address(m->varlink_server, socket_path, 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", socket_path);
+                return log_error_errno(r, "Failed to bind to userdb varlink socket '%s': %m", socket_path);
+
+        r = sd_varlink_server_listen_address(m->varlink_server, secure_lock_backend, 0666);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to secure-lock backend varlink socket '%s': %m", socket_path);
+
+        r = sd_varlink_server_bind_disconnect(m->varlink_server, manager_varlink_disconnected);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind varlink disconnect callback: %m");
 
         r = sd_varlink_server_attach_event(m->varlink_server, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)

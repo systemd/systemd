@@ -12,6 +12,7 @@ typedef enum OperationType {
         OPERATION_LOCK_ALL,          /* enqueued on LockAllHomes() */
         OPERATION_DEACTIVATE_ALL,    /* enqueued on DeactivateAllHomes() */
         OPERATION_PIPE_EOF,          /* enqueued when we see EOF on the per-home reference pipes */
+        OPERATION_SECURE_LOCK,       /* enqueued when logind requests a secure lock from homed */
         OPERATION_DEACTIVATE_FORCE,  /* enqueued on hard $HOME unplug */
         OPERATION_IMMEDIATE,         /* this is never enqueued, it's just a marker we immediately started executing an operation without enqueuing anything first. */
         _OPERATION_MAX,
@@ -30,7 +31,7 @@ typedef enum OperationType {
  * operation applies to multiple homes the reference counter is increased once for each, and thus the
  * operation is fully completed only after it reached zero again.
  *
- * The object (optionally) contains a reference of the D-Bus/Varlink message triggering the operation, which is
+ * The object (optionally) contains a reference of the D-Bus/sd_varlink message triggering the operation, which is
  * replied to when the operation is fully completed, i.e. when n_ref reaches zero.
  */
 

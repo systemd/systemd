@@ -1031,6 +1031,22 @@ finish:
         home_set_state(h, _HOME_STATE_INVALID);
 }
 
+static void home_notify_logind_secure_locked(Home *h, bool locked) {
+        int r;
+
+        assert(h);
+
+        if (!h->manager->secure_lock_subscribed)
+                return;
+
+        r = sd_varlink_notifyb(h->manager->secure_lock_subscribed,
+                            SD_JSON_BUILD_OBJECT(
+                                SD_JSON_BUILD_PAIR_INTEGER("uid", h->uid),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("locked", locked)));
+        if (r < 0)
+                log_warning_errno(r, "Failed to notify logind of secure lock state, ignoring: %m");
+}
+
 static void home_locking_finish(Home *h, int ret, UserRecord *hr) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -1043,6 +1059,8 @@ static void home_locking_finish(Home *h, int ret, UserRecord *hr) {
                 r = log_error_errno(ret, "Locking operation failed: %m");
                 goto finish;
         }
+
+        home_notify_logind_secure_locked(h, true);
 
         log_debug("Locking operation of %s completed.", h->user_name);
         h->current_operation = operation_result_unref(h->current_operation, 0, NULL);
@@ -1080,6 +1098,8 @@ static void home_unlocking_finish(Home *h, int ret, UserRecord *hr) {
                 h->current_operation = operation_result_unref(h->current_operation, r, &error);
                 return;
         }
+
+        home_notify_logind_secure_locked(h, false);
 
         r = user_record_good_authentication(h->record);
         if (r < 0)
@@ -2080,9 +2100,20 @@ int home_unregister(Home *h, sd_bus_error *error) {
         return 1;
 }
 
-int home_lock(Home *h, sd_bus_error *error) {
+static int home_lock_internal(Home *h, sd_bus_error *error) {
         int r;
 
+        assert(h);
+
+        r = home_start_work(h, "lock", h->record, NULL, NULL, 0);
+        if (r < 0)
+                return r;
+
+        home_set_state(h, HOME_LOCKING);
+        return 0;
+}
+
+int home_lock(Home *h, sd_bus_error *error) {
         assert(h);
 
         switch (home_get_state(h)) {
@@ -2100,12 +2131,7 @@ int home_lock(Home *h, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
         }
 
-        r = home_start_work(h, "lock", h->record, NULL, NULL, 0);
-        if (r < 0)
-                return r;
-
-        home_set_state(h, HOME_LOCKING);
-        return 0;
+        return home_lock_internal(h, error);
 }
 
 static int home_unlock_internal(Home *h, UserRecord *secret, HomeState for_state, sd_bus_error *error) {
@@ -2693,6 +2719,8 @@ int home_augment_status(
                            SD_JSON_BUILD_PAIR_BOOLEAN("useFallback", !HOME_STATE_IS_ACTIVE(state)),
                            SD_JSON_BUILD_PAIR("fallbackShell", JSON_BUILD_CONST_STRING(BINDIR "/systemd-home-fallback-shell")),
                            SD_JSON_BUILD_PAIR("fallbackHomeDirectory", JSON_BUILD_CONST_STRING("/")),
+                           SD_JSON_BUILD_PAIR("fallbackHomeDirectory", JSON_BUILD_CONST_STRING("/")),
+                           SD_JSON_BUILD_PAIR("canSecureLock", SD_JSON_BUILD_BOOLEAN(user_record_storage(h->record) == USER_LUKS)),
                            SD_JSON_BUILD_PAIR_CONDITION(disk_size != UINT64_MAX, "diskSize", SD_JSON_BUILD_UNSIGNED(disk_size)),
                            SD_JSON_BUILD_PAIR_CONDITION(disk_usage != UINT64_MAX, "diskUsage", SD_JSON_BUILD_UNSIGNED(disk_usage)),
                            SD_JSON_BUILD_PAIR_CONDITION(disk_free != UINT64_MAX, "diskFree", SD_JSON_BUILD_UNSIGNED(disk_free)),
@@ -3078,6 +3106,50 @@ static int home_dispatch_pipe_eof(Home *h, Operation *o) {
         return 1;
 }
 
+static int home_dispatch_secure_lock(Home *h, Operation *o) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(h);
+        assert(o);
+        assert(o->type == OPERATION_SECURE_LOCK);
+
+        switch (home_get_state(h)) {
+
+        case HOME_UNFIXATED:
+        case HOME_ABSENT:
+        case HOME_INACTIVE:
+        case HOME_DIRTY:
+                log_info("Home %s is not active, not lock needed.", h->user_name);
+                r = 1; /* done */
+                break;
+
+        case HOME_LOCKED:
+                log_info("Home %s is already locked.", h->user_name);
+                r = 1; /* done */
+                break;
+
+        case HOME_ACTIVE:
+        case HOME_LINGERING:
+                r = home_lock_internal(h, &error);
+                break;
+
+        default:
+                /* All other cases means we are currently executing an operation, which means the job remains
+                 * pending. */
+                return 0;
+        }
+
+        assert(!h->current_operation);
+
+        if (r != 0) /* failure or completed */
+                operation_result(o, r, &error);
+        else /* ongoing */
+                h->current_operation = operation_ref(o);
+
+        return 1;
+}
+
 static int home_dispatch_deactivate_force(Home *h, Operation *o) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -3134,6 +3206,7 @@ static int on_pending(sd_event_source *s, void *userdata) {
                         [OPERATION_LOCK_ALL]         = home_dispatch_lock_all,
                         [OPERATION_DEACTIVATE_ALL]   = home_dispatch_deactivate_all,
                         [OPERATION_PIPE_EOF]         = home_dispatch_pipe_eof,
+                        [OPERATION_SECURE_LOCK]      = home_dispatch_secure_lock,
                         [OPERATION_DEACTIVATE_FORCE] = home_dispatch_deactivate_force,
                 };
 
