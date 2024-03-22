@@ -6354,7 +6354,7 @@ bool exec_context_maintains_privileges(const ExecContext *c) {
         if (!c->user)
                 return true;
 
-        if (streq(c->user, "root") || streq(c->user, "0"))
+        if (STR_IN_SET(c->user, "root", "0"))
                 return true;
 
         return false;
