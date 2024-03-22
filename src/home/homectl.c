@@ -2273,6 +2273,9 @@ static int verb_lock_home(int argc, char *argv[], uintptr_t _data, void *userdat
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
 
+        log_warning("Locking directly via homed is a low-level operation and is thus not recommended.\n"
+                    "Please use 'loginctl secure-lock-user' instead.");
+
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
