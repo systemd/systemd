@@ -1095,6 +1095,38 @@ static int show_session(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int lookup_user(const char *username, char **ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        uid_t uid;
+        char *path;
+        int r;
+
+        assert(ret);
+
+        if (username && !isempty(username)) {
+                r = get_user_creds(&username, &uid, NULL, NULL, NULL, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to look up user %s: %m", username);
+        } else {
+                uid = getuid();
+        }
+
+        r = bus_call_method(bus, bus_login_mgr, "GetUser", &error, &reply, "u", (uint32_t) uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get user: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "o", &path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = strdup_to(ref, path);
+        if (r < 0)
+                return r;
+
+        return uid == getuid();
+}
+
 static int show_user(int argc, char *argv[], void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         bool properties;
@@ -1115,22 +1147,11 @@ static int show_user(int argc, char *argv[], void *userdata) {
         }
 
         for (int i = 1, first = true; i < argc; i++, first = false) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                const char *path;
-                uid_t uid;
+                _cleanup_free_ char *path = NULL;
 
-                r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
+                r = lookup_user(argv[i], &path);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
-
-                r = bus_call_method(bus, bus_login_mgr, "GetUser", &error, &reply, "u", (uint32_t) uid);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get user: %s", bus_error_message(&error, r));
-
-                r = sd_bus_message_read(reply, "o", &path);
-                if (r < 0)
-                        return bus_log_parse_error(r);
+                        return r;
 
                 if (!first)
                         putchar('\n');
@@ -1438,6 +1459,81 @@ static int lock_sessions(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int secure_lock_user(int argc, char *argv[], void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        bool self = false;
+        int r;
+
+        assert(argv);
+
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        for (int i = 1; i < argc; i++) {
+                _cleanup_free_ char *path = NULL;
+
+                r = lookup_user(argv[i], &path);
+                if (r < 0)
+                        return r;
+                else if (r > 0) { /* locking ourselves -> defer */
+                        self = true;
+                        continue;
+                }
+
+                r = sd_bus_call_method_async(bus,
+                                             /* slot= */ NULL,
+                                             "org.freedesktop.login1",
+                                             path,
+                                             "org.freedesktop.login1.User",
+                                             "SecureLock",
+                                             /* callback= */ NULL,
+                                             /* userdata= */ NULL,
+                                             /* types= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Could not trigger secure lock for %s: %m", argv[i]);
+        }
+
+        /* If we're locking ourselves, we'll do it after locking every other requested user
+         * to make sure we don't get frozen until we're done requesting the locks */
+        if (self || argc < 2) {
+                r = sd_bus_call_method_async(bus,
+                                             /* slot= */ NULL,
+                                             "org.freedesktop.login1",
+                                             "/org/freedesktop/login1/user/self",
+                                             "org.freedesktop.login1.User",
+                                             "SecureLock",
+                                             /* callback= */ NULL,
+                                             /* userdata= */ NULL,
+                                             /* types= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Could not trigger secure lock for %s: %m", argv[i]);
+        }
+
+        return 0;
+}
+
+static int secure_lock_users(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_message_unref) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        assert(argv);
+
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        r = bus_message_new_method_call(bus, &m, bus_login_mgr, "SecureLockUsers");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* We disable timing out here because the user can configure how long SecureLockUsers takes
+         * via InhibitDelayMaxSec= in logind.conf */
+        r = sd_bus_call(bus, m, UINT64_MAX, &error, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Could not secure lock users: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
 static int terminate_seat(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1484,6 +1580,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "  list-users               List users\n"
                "  user-status [USER...]    Show user status\n"
                "  show-user [USER...]      Show properties of users or the manager\n"
+               "  secure-lock-user [USER...]\n"
+               "                           Secure lock one or more users\n"
+               "  secure-lock-users        Secure lock all users that support it\n"
                "  enable-linger [USER...]  Enable linger state of one or more users\n"
                "  disable-linger [USER...] Disable linger state of one or more users\n"
                "  terminate-user USER...   Terminate all sessions of one or more users\n"
@@ -1690,6 +1789,8 @@ static int loginctl_main(int argc, char *argv[], sd_bus *bus) {
                 { "unlock-session",    VERB_ANY, VERB_ANY, 0,            activate          },
                 { "lock-sessions",     VERB_ANY, 1,        0,            lock_sessions     },
                 { "unlock-sessions",   VERB_ANY, 1,        0,            lock_sessions     },
+                { "secure-lock-user",  VERB_ANY, VERB_ANY, 0,            secure_lock_user  },
+                { "secure-lock-users", VERB_ANY, 1,        0,            secure_lock_users },
                 { "terminate-session", 2,        VERB_ANY, 0,            activate          },
                 { "kill-session",      2,        VERB_ANY, 0,            kill_session      },
                 { "list-users",        VERB_ANY, 1,        0,            list_users        },
