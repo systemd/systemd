@@ -1150,17 +1150,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>lock-all</command></term>
-
-        <listitem><para>Execute the <command>lock</command> command on all suitable home directories at
-        once. This operation is generally executed on system suspend (i.e. by <command>systemctl
-        suspend</command> and related commands), to ensure all active user's cryptographic keys for accessing
-        their home directories are removed from memory.</para>
-
-        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><command>deactivate-all</command></term>
 
         <listitem><para>Execute the <command>deactivate</command> command on all active home directories at
