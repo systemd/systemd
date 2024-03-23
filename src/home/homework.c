@@ -66,9 +66,25 @@ int user_record_authenticate(
          * times over the course of an operation (think: on login we authenticate the host user record, the
          * record embedded in the LUKS record and the one embedded in $HOME). Hence we keep a list of
          * passwords we already decrypted, so that we don't have to do the (slow and potentially interactive)
-         * PKCS#11/FIDO2 dance for the relevant token again and again. */
+         * PKCS#11/FIDO2 dance for the relevant token again and again.
+         *
+         * The 'cache' parameter might also contain the LUKS volume key, loaded from the kernel keyring.
+         * In this case, authentication becomes optional - if a secret section is provided it will be
+         * verified, but if missing then authentication is skipped entirely. Thus, callers should
+         * consider carefuly whether it is safe to load the volume key into 'cache' before doing so.
+         * Note that most of the time this is safe, because the home area must be active for the key
+         * to exist in the keyring, and the user would have had to authenticate when activating their
+         * home area; however, for some methods (i.e. ChangePassword, Authenticate) it makes more sense
+         * to force re-authentication. */
 
-        /* First, let's see if the supplied plain-text passwords work? */
+        /* First, let's see if we already have a volume key from the keyring */
+        if (cache && cache->volume_key &&
+            json_variant_is_blank_object(json_variant_by_key(secret->json, "secret"))) {
+                log_info("LUKS volume key from keyring unlocks user record.");
+                return 1;
+        }
+
+        /* Next, let's see if the supplied plain-text passwords work? */
         r = user_record_test_password(h, secret);
         if (r == -ENOKEY)
                 need_password = true;
@@ -101,7 +117,7 @@ int user_record_authenticate(
         else
                 log_info("None of the supplied plaintext passwords unlock the user record's hashed recovery keys.");
 
-        /* Second, test cached PKCS#11 passwords */
+        /* Next, test cached PKCS#11 passwords */
         for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++)
                 STRV_FOREACH(pp, cache->pkcs11_passwords) {
                         r = test_password_one(h->pkcs11_encrypted_key[n].hashed_password, *pp);
@@ -113,7 +129,7 @@ int user_record_authenticate(
                         }
                 }
 
-        /* Third, test cached FIDO2 passwords */
+        /* Next, test cached FIDO2 passwords */
         for (size_t n = 0; n < h->n_fido2_hmac_salt; n++)
                 /* See if any of the previously calculated passwords work */
                 STRV_FOREACH(pp, cache->fido2_passwords) {
@@ -126,7 +142,7 @@ int user_record_authenticate(
                         }
                 }
 
-        /* Fourth, let's see if any of the PKCS#11 security tokens are plugged in and help us */
+        /* Next, let's see if any of the PKCS#11 security tokens are plugged in and help us */
         for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++) {
 #if HAVE_P11KIT
                 _cleanup_(pkcs11_callback_data_release) struct pkcs11_callback_data data = {
@@ -182,7 +198,7 @@ int user_record_authenticate(
 #endif
         }
 
-        /* Fifth, let's see if any of the FIDO2 security tokens are plugged in and help us */
+        /* Next, let's see if any of the FIDO2 security tokens are plugged in and help us */
         for (size_t n = 0; n < h->n_fido2_hmac_salt; n++) {
 #if HAVE_LIBFIDO2
                 _cleanup_(erase_and_freep) char *decrypted_password = NULL;
@@ -1535,6 +1551,21 @@ static int home_remove(UserRecord *h) {
         return 0;
 }
 
+static int home_basic_validate_update(UserRecord *h) {
+        assert(h);
+
+        if (!h->user_name)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks user name, refusing.");
+
+        if (!uid_is_valid(h->uid))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks UID, refusing.");
+
+        if (!IN_SET(user_record_storage(h), USER_LUKS, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT, USER_CIFS))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Processing home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
+
+        return 0;
+}
+
 static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags *flags) {
         bool has_mount = false;
         int r;
@@ -1542,12 +1573,9 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags 
         assert(h);
         assert(setup);
 
-        if (!h->user_name)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks user name, refusing.");
-        if (!uid_is_valid(h->uid))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks UID, refusing.");
-        if (!IN_SET(user_record_storage(h), USER_LUKS, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT, USER_CIFS))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Processing home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
+        r = home_basic_validate_update(h);
+        if (r < 0)
+                return r;
 
         r = user_record_test_home_directory_and_warn(h);
         if (r < 0)
@@ -1594,23 +1622,42 @@ static int home_update(UserRecord *h, Hashmap *blobs, UserRecord **ret) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
+        bool offline;
         int r;
 
         assert(h);
         assert(ret);
 
-        r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
-        if (r < 0)
-                return r;
-        assert(r > 0); /* Insist that a password was verified */
+        offline = getenv_bool("SYSTEMD_HOMEWORK_UPDATE_OFFLINE") > 0;
 
-        r = home_validate_update(h, &setup, &flags);
+        if (!offline) {
+                password_cache_load_keyring(h, &cache);
+
+                r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
+                if (r < 0)
+                        return r;
+                assert(r > 0); /* Insist that a password was verified */
+
+                r = home_validate_update(h, &setup, &flags);
+        } else {
+                /* In offline mode we skip all authentication, since we're
+                 * not propagating anything into the home area. The new home
+                 * records's authentication will still be checked when the user
+                 * next logs in, so this is fine */
+
+                r = home_basic_validate_update(h);
+        }
         if (r < 0)
                 return r;
 
         r = home_apply_new_blob_dir(h, blobs);
         if (r < 0)
                 return r;
+
+        if (offline) {
+                log_info("Offline update requested. Not touching embedded records.");
+                return user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, ret);
+        }
 
         r = home_setup(h, flags, &setup, &cache, &header_home);
         if (r < 0)
@@ -1654,7 +1701,7 @@ static int home_update(UserRecord *h, Hashmap *blobs, UserRecord **ret) {
         return 0;
 }
 
-static int home_resize(UserRecord *h, bool automatic, UserRecord **ret) {
+static int home_resize(UserRecord *h, UserRecord **ret) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
@@ -1666,25 +1713,16 @@ static int home_resize(UserRecord *h, bool automatic, UserRecord **ret) {
         if (h->disk_size == UINT64_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No target size specified, refusing.");
 
-        if (automatic)
-                /* In automatic mode don't want to ask the user for the password, hence load it from the kernel keyring */
-                password_cache_load_keyring(h, &cache);
-        else {
-                /* In manual mode let's ensure the user is fully authenticated */
-                r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
-                if (r < 0)
-                        return r;
-                assert(r > 0); /* Insist that a password was verified */
-        }
+        password_cache_load_keyring(h, &cache);
+
+        r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
+        if (r < 0)
+                return r;
+        assert(r > 0); /* Insist that a password was verified */
 
         r = home_validate_update(h, &setup, &flags);
         if (r < 0)
                 return r;
-
-        /* In automatic mode let's skip syncing identities, because we can't validate them, since we can't
-         * ask the user for reauthentication */
-        if (automatic)
-                flags |= HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES;
 
         switch (user_record_storage(h)) {
 
@@ -1883,6 +1921,9 @@ static int home_lock(UserRecord *h) {
 
         unit_freezer_done(&freezer); /* Don't thaw the user session. */
 
+        /* Explicitly flush any per-user key from the keyring */
+        (void) keyring_flush(h);
+
         log_info("Everything completed.");
         return 1;
 }
@@ -2050,10 +2091,8 @@ static int run(int argc, char *argv[]) {
                 r = home_remove(home);
         else if (streq(argv[1], "update"))
                 r = home_update(home, blobs, &new_home);
-        else if (streq(argv[1], "resize")) /* Resize on user request */
-                r = home_resize(home, false, &new_home);
-        else if (streq(argv[1], "resize-auto")) /* Automatic resize */
-                r = home_resize(home, true, &new_home);
+        else if (streq(argv[1], "resize"))
+                r = home_resize(home, &new_home);
         else if (streq(argv[1], "passwd"))
                 r = home_passwd(home, &new_home);
         else if (streq(argv[1], "inspect"))
