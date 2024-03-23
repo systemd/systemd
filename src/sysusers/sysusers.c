@@ -1642,7 +1642,7 @@ static int item_equivalent(Item *a, Item *b) {
 
         const char *a_shell = pick_shell(a),
                    *b_shell = pick_shell(b);
-        if (!path_equal_ptr(a_shell, b_shell) &&
+        if (!path_equal(a_shell, b_shell) &&
             !(is_nologin_shell(a_shell) && is_nologin_shell(b_shell))) {
                 _cleanup_free_ char *pa = NULL, *pb = NULL;
 

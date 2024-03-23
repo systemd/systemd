@@ -753,7 +753,7 @@ static int merge_credentials_trusted(const char *creds_dir) {
                 return 0;
 
         /* Do not try to merge initrd credentials into foreign credentials directories */
-        if (!path_equal_ptr(creds_dir, SYSTEM_CREDENTIALS_DIRECTORY)) {
+        if (!path_equal(creds_dir, SYSTEM_CREDENTIALS_DIRECTORY)) {
                 log_debug("Not importing initrd credentials, as foreign $CREDENTIALS_DIRECTORY has been set.");
                 return 0;
         }

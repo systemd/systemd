@@ -1915,7 +1915,7 @@ static int build_environment(
                  * to inherit the $TERM set for PID 1. This is useful for containers so that the $TERM the
                  * container manager passes to PID 1 ends up all the way in the console login shown. */
 
-                if (path_equal_ptr(tty_path, "/dev/console") && getppid() == 1)
+                if (path_equal(tty_path, "/dev/console") && getppid() == 1)
                         term = getenv("TERM");
                 else if (tty_path && in_charset(skip_dev_prefix(tty_path), ALPHANUMERICAL)) {
                         _cleanup_free_ char *key = NULL;
