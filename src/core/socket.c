@@ -2364,7 +2364,10 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                         goto fail;
                 }
 
-                TAKE_FD(cfd); /* We passed ownership of the fd to the service now. Forget it here. */
+                /* We passed ownership of the fd and socket peer to the service now. */
+                TAKE_FD(cfd);
+                TAKE_PTR(p);
+
                 s->n_connections++;
 
                 r = manager_add_job(UNIT(s)->manager, JOB_START, service, JOB_REPLACE, NULL, &error, NULL);
