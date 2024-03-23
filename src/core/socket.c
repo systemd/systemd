@@ -2353,13 +2353,6 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                         goto fail;
                 }
 
-                r = unit_add_two_dependencies(UNIT(s), UNIT_BEFORE, UNIT_TRIGGERS, service,
-                                              false, UNIT_DEPENDENCY_IMPLICIT);
-                if (r < 0) {
-                        log_unit_warning_errno(UNIT(s), r, "Failed to add Before=/Triggers= dependencies on connection unit: %m");
-                        goto fail;
-                }
-
                 s->n_accepted++;
 
                 r = service_set_socket_fd(SERVICE(service), cfd, s, p, s->selinux_context_from_net);
