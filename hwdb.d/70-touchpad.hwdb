@@ -28,6 +28,9 @@
 # Permitted keys:
 #   Specify if a touchpad is a built-in one or external:
 #   ID_INPUT_TOUCHPAD_INTEGRATION=internal|external
+#   Specify that a touchpad is a pressure pad, i.e. uses
+#   pressure to detect a button click:
+#   ID_INPUT_TOUCHPAD_PRESSUREPAD=1
 
 touchpad:i8042:*
 touchpad:rmi:*
@@ -46,10 +49,32 @@ touchpad:usb:v05acp0265:*
  ID_INPUT_TOUCHPAD_INTEGRATION=external
 
 ###########################################################
+# Dell
+###########################################################
+# Dell Mayabay
+touchpad:i2c:v06CBpCFA0:*
+ ID_INPUT_TOUCHPAD_PRESSUREPAD=1
+
+# Dell Precision 5680 (libinput#849)
+touchpad:i2c:v27C6p0F60:*
+ ID_INPUT_TOUCHPAD_PRESSUREPAD=1
+
+###########################################################
 # HP Elite x2 1013 G3
 ###########################################################
 touchpad:usb:v044ep1221:*
  ID_INPUT_TOUCHPAD_INTEGRATION=external
+
+###########################################################
+# Lenovo
+###########################################################
+# Yoga 9i (libinput#562)
+touchpad:i2c:v06CBpCE37:*
+ ID_INPUT_TOUCHPAD_PRESSUREPAD=1
+
+# Yoga Slim 9 14ITL5 (libinput#604)
+touchpad:i2c:v27C6p01E8:*
+ ID_INPUT_TOUCHPAD_PRESSUREPAD=1
 
 ###########################################################
 # Logitech

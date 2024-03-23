@@ -169,6 +169,7 @@ static bool test_pointers(sd_device *dev,
         bool is_mouse = false;
         bool is_abs_mouse = false;
         bool is_touchpad = false;
+        bool is_buttonpad = false;
         bool is_touchscreen = false;
         bool is_tablet = false;
         bool is_tablet_pad = false;
@@ -191,6 +192,7 @@ static bool test_pointers(sd_device *dev,
         }
 
         is_pointing_stick = test_bit(INPUT_PROP_POINTING_STICK, bitmask_props);
+        is_buttonpad = test_bit(INPUT_PROP_BUTTONPAD, bitmask_props);
         has_stylus = test_bit(BTN_STYLUS, bitmask_key);
         has_pen = test_bit(BTN_TOOL_PEN, bitmask_key);
         finger_but_no_pen = test_bit(BTN_TOOL_FINGER, bitmask_key) && !test_bit(BTN_TOOL_PEN, bitmask_key);
@@ -314,6 +316,8 @@ static bool test_pointers(sd_device *dev,
                 udev_builtin_add_property(dev, test, "ID_INPUT_MOUSE", "1");
         if (is_touchpad)
                 udev_builtin_add_property(dev, test, "ID_INPUT_TOUCHPAD", "1");
+        if (is_buttonpad)
+                udev_builtin_add_property(dev, test, "ID_INPUT_TOUCHPAD_BUTTONPAD", "1");
         if (is_touchscreen)
                 udev_builtin_add_property(dev, test, "ID_INPUT_TOUCHSCREEN", "1");
         if (is_joystick)
