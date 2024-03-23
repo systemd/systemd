@@ -3256,12 +3256,11 @@ static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *use
         return 0;
 }
 
-int socket_collect_fds(Socket *s, int **fds) {
-        size_t k = 0, n = 0;
-        int *rfds;
+int socket_collect_fds(Socket *s, int **ret) {
+        size_t n = 0, k = 0;
 
         assert(s);
-        assert(fds);
+        assert(ret);
 
         /* Called from the service code for requesting our fds */
 
@@ -3271,25 +3270,25 @@ int socket_collect_fds(Socket *s, int **fds) {
                 n += p->n_auxiliary_fds;
         }
 
-        if (n <= 0) {
-                *fds = NULL;
+        if (n == 0) {
+                *ret = NULL;
                 return 0;
         }
 
-        rfds = new(int, n);
-        if (!rfds)
+        int *fds = new(int, n);
+        if (!fds)
                 return -ENOMEM;
 
         LIST_FOREACH(port, p, s->ports) {
                 if (p->fd >= 0)
-                        rfds[k++] = p->fd;
-                for (size_t i = 0; i < p->n_auxiliary_fds; ++i)
-                        rfds[k++] = p->auxiliary_fds[i];
+                        fds[k++] = p->fd;
+                FOREACH_ARRAY(i, p->auxiliary_fds, p->n_auxiliary_fds)
+                        fds[k++] = *i;
         }
 
         assert(k == n);
 
-        *fds = rfds;
+        *ret = fds;
         return (int) n;
 }
 
