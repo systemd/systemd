@@ -180,13 +180,13 @@ fd00:dead:beef:cafe::1 ns1.unsigned.test
 127.128.0.5     localhost5 localhost5.localdomain localhost5.localdomain4 localhost.localdomain5 localhost5.localdomain5
 EOF
 
-mkdir -p /etc/systemd/network
-cat >/etc/systemd/network/10-dns0.netdev <<EOF
+mkdir -p /run/systemd/network
+cat >/run/systemd/network/10-dns0.netdev <<EOF
 [NetDev]
 Name=dns0
 Kind=dummy
 EOF
-cat >/etc/systemd/network/10-dns0.network <<EOF
+cat >/run/systemd/network/10-dns0.network <<EOF
 [Match]
 Name=dns0
 
@@ -197,12 +197,12 @@ DNSSEC=allow-downgrade
 DNS=10.0.0.1
 DNS=fd00:dead:beef:cafe::1
 EOF
-cat >/etc/systemd/network/10-dns1.netdev <<EOF
+cat >/run/systemd/network/10-dns1.netdev <<EOF
 [NetDev]
 Name=dns1
 Kind=dummy
 EOF
-cat >/etc/systemd/network/10-dns1.network <<EOF
+cat >/run/systemd/network/10-dns1.network <<EOF
 [Match]
 Name=dns1
 
