@@ -4760,7 +4760,7 @@ int service_set_socket_fd(
                                             "Failed to add After=/TriggeredBy= dependencies on socket unit: %m");
 
         s->socket_fd = fd;
-        s->socket_peer = socket_peer_ref(peer);
+        s->socket_peer = peer;
         s->socket_fd_selinux_context_net = selinux_context_net;
 
         unit_ref_set(&s->accept_socket, UNIT(s), UNIT(sock));
