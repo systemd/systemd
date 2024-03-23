@@ -1369,6 +1369,8 @@ clear:
 }
 
 int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
+        int r;
+
         /* Figure out what the unit that will be used to handle the connections on the socket looks like.
          *
          * If cfd < 0, then we don't have a connection yet. In case of Accept=yes sockets, use a fake
@@ -1388,7 +1390,6 @@ int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
 
         /* Build the instance name and load the unit */
         _cleanup_free_ char *prefix = NULL, *instance = NULL, *name = NULL;
-        int r;
 
         r = unit_name_to_prefix(UNIT(s)->id, &prefix);
         if (r < 0)
@@ -2295,8 +2296,8 @@ static void socket_enter_running(Socket *s, int cfd_in) {
 
                 if (!pending) {
                         if (!UNIT_ISSET(s->service)) {
-                                r = log_unit_warning_errno(UNIT(s), SYNTHETIC_ERRNO(ENOENT),
-                                                           "Service to activate vanished, refusing activation.");
+                                log_unit_warning(UNIT(s),
+                                                 "Service to activate vanished, refusing activation.");
                                 goto fail;
                         }
 
@@ -2340,11 +2341,15 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                 }
 
                 r = socket_load_service_unit(s, cfd, &service);
-                if (r < 0) {
-                        if (ERRNO_IS_DISCONNECT(r))
-                                return;
-
-                        log_unit_warning_errno(UNIT(s), r, "Failed to load connection service unit: %m");
+                if (ERRNO_IS_NEG_DISCONNECT(r))
+                        return;
+                if (r < 0 || UNIT_IS_LOAD_ERROR(service->load_state)) {
+                        log_unit_warning_errno(UNIT(s), r < 0 ? r : service->load_error,
+                                               "Failed to load connection service unit: %m");
+                        goto fail;
+                }
+                if (service->load_state == UNIT_MASKED) {
+                        log_unit_warning(UNIT(s), "Connection service unit is masked, refusing.");
                         goto fail;
                 }
 
@@ -2388,13 +2393,9 @@ refuse:
         return;
 
 queue_error:
-        if (ERRNO_IS_RESOURCE(r))
-                log_unit_warning(UNIT(s), "Failed to queue service startup job: %s",
-                                 bus_error_message(&error, r));
-        else
-                log_unit_warning(UNIT(s), "Failed to queue service startup job (Maybe the service file is missing or not a %s unit?): %s",
-                                 cfd >= 0 ? "template" : "non-template",
-                                 bus_error_message(&error, r));
+        log_unit_warning_errno(UNIT(s), r, "Failed to queue service startup job%s: %s",
+                               cfd >= 0 && !ERRNO_IS_RESOURCE(r) ? " (Maybe the service is missing or is a template unit?)" : "",
+                               bus_error_message(&error, r));
 
 fail:
         socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
