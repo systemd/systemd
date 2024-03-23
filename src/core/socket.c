@@ -2340,11 +2340,15 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                 }
 
                 r = socket_load_service_unit(s, cfd, &service);
-                if (r < 0) {
-                        if (ERRNO_IS_DISCONNECT(r))
-                                return;
-
-                        log_unit_warning_errno(UNIT(s), r, "Failed to load connection service unit: %m");
+                if (ERRNO_IS_NEG_DISCONNECT(r))
+                        return;
+                if (r < 0 || UNIT_IS_LOAD_ERROR(service->load_state)) {
+                        log_unit_warning_errno(UNIT(s), r < 0 ? r : service->load_error,
+                                               "Failed to load connection service unit: %m");
+                        goto fail;
+                }
+                if (service->load_state == UNIT_MASKED) {
+                        log_unit_warning(UNIT(s), "Connection service unit is masked, refusing.");
                         goto fail;
                 }
 
