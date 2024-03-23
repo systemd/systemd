@@ -438,6 +438,8 @@ static int swap_setup_unit(
         p->priority_set = true;
 
         unit_add_to_dbus_queue(u);
+        TAKE_PTR(new);
+
         return 0;
 }
 
