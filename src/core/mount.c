@@ -1778,7 +1778,7 @@ static int mount_setup_existing_unit(
 
         m->from_proc_self_mountinfo = true;
 
-        if (IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_BAD_SETTING, UNIT_ERROR)) {
+        if (UNIT_IS_LOAD_ERROR(u->load_state)) {
                 /* The unit was previously not found or otherwise not loaded. Now that the unit shows up in
                  * /proc/self/mountinfo we should reconsider it this, hence set it to UNIT_LOADED. */
                 u->load_state = UNIT_LOADED;
