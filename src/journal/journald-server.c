@@ -85,8 +85,6 @@
  * for a bit of additional metadata. */
 #define DEFAULT_LINE_MAX (48*1024)
 
-#define DEFERRED_CLOSES_MAX (4096)
-
 #define IDLE_TIMEOUT_USEC (30*USEC_PER_SEC)
 
 #define FAILED_TO_WRITE_ENTRY_RATELIMIT ((const RateLimit) { .interval = 1 * USEC_PER_SEC, .burst = 1 })
@@ -281,8 +279,6 @@ static int server_open_journal(
                 (s->compress.enabled ? JOURNAL_COMPRESS : 0) |
                 (seal ? JOURNAL_SEAL : 0) |
                 JOURNAL_STRICT_ORDER;
-
-        set_clear_with_destructor(s->deferred_closes, journal_file_offline_close);
 
         if (reliably)
                 r = journal_file_open_reliably(
@@ -544,7 +540,7 @@ static int server_do_rotate(
                 (seal ? JOURNAL_SEAL : 0) |
                 JOURNAL_STRICT_ORDER;
 
-        r = journal_file_rotate(f, s->mmap, file_flags, s->compress.threshold_bytes, s->deferred_closes);
+        r = journal_file_rotate(f, /* async = */ true, s->mmap, file_flags, s->compress.threshold_bytes);
         if (r < 0) {
                 if (*f)
                         return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
@@ -556,38 +552,6 @@ static int server_do_rotate(
 
         server_add_acls(*f, uid);
         return r;
-}
-
-static void server_process_deferred_closes(Server *s) {
-        JournalFile *f;
-
-        /* Perform any deferred closes which aren't still offlining. */
-        SET_FOREACH(f, s->deferred_closes) {
-                if (journal_file_is_offlining(f))
-                        continue;
-
-                (void) set_remove(s->deferred_closes, f);
-                (void) journal_file_offline_close(f);
-        }
-}
-
-static void server_vacuum_deferred_closes(Server *s) {
-        assert(s);
-
-        /* Make some room in the deferred closes list, so that it doesn't grow without bounds */
-        if (set_size(s->deferred_closes) < DEFERRED_CLOSES_MAX)
-                return;
-
-        /* Let's first remove all journal files that might already have completed closing */
-        server_process_deferred_closes(s);
-
-        /* And now, let's close some more until we reach the limit again. */
-        while (set_size(s->deferred_closes) >= DEFERRED_CLOSES_MAX) {
-                JournalFile *f;
-
-                assert_se(f = set_steal_first(s->deferred_closes));
-                journal_file_offline_close(f);
-        }
 }
 
 static int server_archive_offline_user_journals(Server *s) {
@@ -606,10 +570,10 @@ static int server_archive_offline_user_journals(Server *s) {
         }
 
         for (;;) {
+                _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
                 _cleanup_free_ char *full = NULL;
                 _cleanup_close_ int fd = -EBADF;
                 struct dirent *de;
-                JournalFile *f;
                 uid_t uid;
 
                 errno = 0;
@@ -646,9 +610,6 @@ static int server_archive_offline_user_journals(Server *s) {
                         continue;
                 }
 
-                /* Make some room in the set of deferred close()s */
-                server_vacuum_deferred_closes(s);
-
                 /* Open the file briefly, so that we can archive it */
                 r = journal_file_open(
                                 fd,
@@ -680,12 +641,9 @@ static int server_archive_offline_user_journals(Server *s) {
 
                 TAKE_FD(fd); /* Donated to journal_file_open() */
 
-                journal_file_write_final_tag(f);
-                r = journal_file_archive(f, NULL);
+                r = journal_file_archive(&f, /* async = */ true);
                 if (r < 0)
                         log_debug_errno(r, "Failed to archive journal file '%s', ignoring: %m", full);
-
-                journal_file_initiate_close(TAKE_PTR(f), s->deferred_closes);
         }
 
         return 0;
@@ -716,27 +674,17 @@ void server_rotate(Server *s) {
          * actually have access to /var, i.e. are not in the log-to-runtime-journal mode). */
         if (!s->runtime_journal)
                 (void) server_archive_offline_user_journals(s);
-
-        server_process_deferred_closes(s);
 }
 
 void server_sync(Server *s) {
         JournalFile *f;
         int r;
 
-        if (s->system_journal) {
-                r = journal_file_set_offline(s->system_journal, false);
-                if (r < 0)
-                        log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
-                                                    "Failed to sync system journal, ignoring: %m");
-        }
+        if (s->system_journal)
+                journal_file_finalize(s->system_journal, STATE_OFFLINE);
 
-        ORDERED_HASHMAP_FOREACH(f, s->user_journals) {
-                r = journal_file_set_offline(f, false);
-                if (r < 0)
-                        log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
-                                                    "Failed to sync user journal, ignoring: %m");
-        }
+        ORDERED_HASHMAP_FOREACH(f, s->user_journals)
+                journal_file_finalize(f, STATE_OFFLINE);
 
         if (s->sync_event_source) {
                 r = sd_event_source_set_enabled(s->sync_event_source, SD_EVENT_OFF);
@@ -1417,7 +1365,6 @@ static int server_relinquish_var(Server *s) {
 
         s->system_journal = journal_file_offline_close(s->system_journal);
         ordered_hashmap_clear_with_destructor(s->user_journals, journal_file_offline_close);
-        set_clear_with_destructor(s->deferred_closes, journal_file_offline_close);
 
         fn = strjoina(s->runtime_directory, "/flushed");
         if (unlink(fn) < 0 && errno != ENOENT)
@@ -2624,10 +2571,6 @@ int server_init(Server *s, const char *namespace) {
         if (!s->mmap)
                 return log_oom();
 
-        s->deferred_closes = set_new(NULL);
-        if (!s->deferred_closes)
-                return log_oom();
-
         r = sd_event_default(&s->event);
         if (r < 0)
                 return log_error_errno(r, "Failed to create event loop: %m");
@@ -2824,8 +2767,6 @@ Server* server_free(Server *s) {
 
         free(s->namespace);
         free(s->namespace_field);
-
-        set_free_with_destructor(s->deferred_closes, journal_file_offline_close);
 
         while (s->stdout_streams)
                 stdout_stream_free(s->stdout_streams);
