@@ -497,6 +497,11 @@ evdev:input:b0003v256Cp0068*
  EVDEV_ABS_00=::200
  EVDEV_ABS_01=::200
 
+# HUION Kamvas 19 Pro (GT-1902)
+evdev:input:b0003v256Cp006Be0110*
+ EVDEV_ABS_00=::68
+ EVDEV_ABS_01=::123
+
 #########################################
 # Lenovo
 #########################################
