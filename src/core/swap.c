@@ -422,7 +422,7 @@ static int swap_setup_unit(
 
         /* The unit is definitely around now, mark it as loaded if it was previously referenced but
          * could not be loaded. After all we can load it now, from the data in /proc/swaps. */
-        if (IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_BAD_SETTING, UNIT_ERROR)) {
+        if (UNIT_IS_LOAD_ERROR(u->load_state)) {
                 u->load_state = UNIT_LOADED;
                 u->load_error = 0;
         }
@@ -438,6 +438,8 @@ static int swap_setup_unit(
         p->priority_set = true;
 
         unit_add_to_dbus_queue(u);
+        TAKE_PTR(new);
+
         return 0;
 }
 

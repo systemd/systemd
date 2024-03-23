@@ -4722,6 +4722,8 @@ int service_set_socket_fd(
 
         assert(s);
         assert(fd >= 0);
+        assert(sock);
+        assert(peer);
 
         /* This is called by the socket code when instantiating a new service for a stream socket and the socket needs
          * to be configured. We take ownership of the passed fd on success. */
@@ -4753,9 +4755,10 @@ int service_set_socket_fd(
                         return r;
         }
 
-        r = unit_add_two_dependencies(UNIT(sock), UNIT_BEFORE, UNIT_TRIGGERS, UNIT(s), false, UNIT_DEPENDENCY_IMPLICIT);
+        r = unit_add_two_dependencies(UNIT(s), UNIT_AFTER, UNIT_TRIGGEREDBY, UNIT(sock), false, UNIT_DEPENDENCY_IMPLICIT);
         if (r < 0)
-                return r;
+                return log_unit_debug_errno(UNIT(s), r,
+                                            "Failed to add After=/TriggeredBy= dependencies on socket unit: %m");
 
         s->socket_fd = fd;
         s->socket_peer = socket_peer_ref(peer);
