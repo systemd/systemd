@@ -1941,6 +1941,16 @@ evdev:name:Toshiba*input*device:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnSatellite*P75-A:
  KEYBOARD_KEY_13f=f21                                   # Touchpad toggle
  KEYBOARD_KEY_9e=wlan
 
+# Portege Z830 ACPI quickstart buttons
+evdev:name:Quickstart Button 1:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnPORTEGEZ830:*
+ KEYBOARD_KEY_1=prog1					# TOSHIBA eco button
+
+evdev:name:Quickstart Button 2:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnPORTEGEZ830:*
+ KEYBOARD_KEY_1=prog2					# TOSHIBA Presentation button
+
+evdev:name:Quickstart Button 3:dmi:bvn*:bvr*:bd*:svnTOSHIBA*:pnPORTEGEZ830:*
+ KEYBOARD_KEY_1=f21					# Touchpad toggle
+
 ###########################################################
 # VIA
 ###########################################################
