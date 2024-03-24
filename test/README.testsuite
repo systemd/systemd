@@ -149,6 +149,19 @@ failed run, can be downloaded from the artifacts.tar.gz archive which will be
 reachable in the same URL parent directory as the logs.gz that gets linked on
 the Github CI status.
 
+The log URL can be derived following a simple algorithm, however the test
+completion timestamp is needed and it's not easy to find without access to the
+log itself. For example, a noble s390x job started on 2024-03-23 at 02:09:11
+will be stored at the following URL:
+
+https://autopkgtest.ubuntu.com/results/autopkgtest-noble-upstream-systemd-ci-systemd-ci/noble/s390x/s/systemd-upstream/20240323_020911_e8e88@/log.gz
+
+The 5 characters at the end of the last directory are not random, but the first
+5 characters of a SHA1 hash generated based on the set of parameters given to
+the build plus the completion timestamp, such as:
+
+$ echo -n 'systemd-upstream {"build-git": "https://salsa.debian.org/systemd-team/systemd.git#debian/master", "env": ["UPSTREAM_REPO=https://github.com/systemd/systemd.git", "CFLAGS=-O0", "DEB_BUILD_PROFILES=pkg.systemd.upstream noudeb", "TEST_UPSTREAM=1", "CONFFLAGS_UPSTREAM=--werror -Dslow-tests=true", "UPSTREAM_PULL_REQUEST=31444", "GITHUB_STATUSES_URL=https://api.github.com/repos/systemd/systemd/statuses/c27f600a1c47f10b22964eaedfb5e9f0d4279cd9"], "ppas": ["upstream-systemd-ci/systemd-ci"], "submit-time": "2024-02-27 17:06:27", "uuid": "02cd262f-af22-4f82-ac91-53fa5a9e7811"}' | sha1sum | cut -c1-5
+
 To add new dependencies or new binaries to the packages used during the tests,
 a merge request can be sent to: https://salsa.debian.org/systemd-team/systemd
 targeting the 'upstream-ci' branch.
