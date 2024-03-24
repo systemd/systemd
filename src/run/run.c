@@ -1265,18 +1265,13 @@ static int transient_scope_set_properties(sd_bus_message *m, bool allow_pidfd) {
         if (r < 0)
                 return r;
 
-        if (allow_pidfd) {
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
-                r = pidref_set_self(&pidref);
-                if (r < 0)
-                        return r;
+        r = pidref_set_self(&pidref);
+        if (r < 0)
+                return r;
 
-                r = bus_append_scope_pidref(m, &pidref);
-        } else
-                r = sd_bus_message_append(
-                                m, "(sv)",
-                                "PIDs", "au", 1, getpid_cached());
+        r = bus_append_scope_pidref(m, &pidref, allow_pidfd);
         if (r < 0)
                 return bus_log_create_error(r);
 
