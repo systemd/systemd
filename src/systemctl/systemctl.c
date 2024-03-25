@@ -10,6 +10,7 @@
 #include "bus-util.h"
 #include "dissect-image.h"
 #include "install.h"
+#include "json.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "output-mode.h"
@@ -114,7 +115,7 @@ bool arg_plain = false;
 bool arg_firmware_setup = false;
 usec_t arg_boot_loader_menu = USEC_INFINITY;
 const char *arg_boot_loader_entry = NULL;
-bool arg_now = false;
+bool arg_now = true;
 bool arg_jobs_before = false;
 bool arg_jobs_after = false;
 char **arg_clean_what = NULL;
@@ -466,6 +467,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_DROP_IN,
                 ARG_WHEN,
                 ARG_STDIN,
+                ARG_VERBOSE,
         };
 
         static const struct option options[] = {
@@ -533,7 +535,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "drop-in",             required_argument, NULL, ARG_DROP_IN             },
                 { "when",                required_argument, NULL, ARG_WHEN                },
                 { "stdin",               no_argument,       NULL, ARG_STDIN               },
-                {}
         };
 
         int c, r;
@@ -826,6 +827,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                                        optarg);
 
                         if (OUTPUT_MODE_IS_JSON(arg_output)) {
+                                JsonFormatFlags *ptr = NULL;
+                                ptr = get_flag_address();
+                                *ptr = output_mode_to_json_format_flags(arg_output);
                                 arg_legend = false;
                                 arg_plain = true;
                         }
