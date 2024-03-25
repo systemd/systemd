@@ -13,6 +13,7 @@
 #include "memstream-util.h"
 #include "qrcode-util.h"
 #include "random-util.h"
+#include "stat-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 
@@ -63,21 +64,19 @@ int action_setup_keys(void) {
         uint8_t *mpk, *seed, *state;
         _cleanup_close_ int fd = -EBADF;
         sd_id128_t machine, boot;
-        struct stat st;
         uint64_t n;
         int r;
 
         assert(arg_action == ACTION_SETUP_KEYS);
 
-        r = stat("/var/log/journal", &st);
-        if (r < 0 && !IN_SET(errno, ENOENT, ENOTDIR))
-                return log_error_errno(errno, "stat(\"%s\") failed: %m", "/var/log/journal");
-
-        if (r < 0 || !S_ISDIR(st.st_mode)) {
-                log_error("%s is not a directory, must be using persistent logging for FSS.",
-                          "/var/log/journal");
-                return r < 0 ? -errno : -ENOTDIR;
-        }
+        r = is_dir("/var/log/journal/", /* follow = */ false);
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR),
+                                       "/var/log/journal is not a directory, must be using persistent logging for FSS.");
+        if (r == -ENOENT)
+                return log_error_errno(r, "Directory /var/log/journal/ does not exist, must be using persistent logging for FSS.");
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if /var/log/journal/ is a directory: %m");
 
         r = sd_id128_get_machine(&machine);
         if (r < 0)
