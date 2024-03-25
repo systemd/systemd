@@ -206,6 +206,7 @@ bool dhcp6_option_can_request(uint16_t option) {
         case SD_DHCP6_OPTION_V6_DOTS_RI:
         case SD_DHCP6_OPTION_V6_DOTS_ADDRESS:
         case SD_DHCP6_OPTION_IPV6_ADDRESS_ANDSF:
+        case SD_DHCP6_OPTION_V6_DNR:
                 return true;
         default:
                 return false;
@@ -820,74 +821,6 @@ int dhcp6_option_parse_addresses(
         return 0;
 }
 
-static int parse_domain(const uint8_t **data, size_t *len, char **ret) {
-        _cleanup_free_ char *domain = NULL;
-        const uint8_t *optval;
-        size_t optlen, n = 0;
-        int r;
-
-        assert(data);
-        assert(len);
-        assert(*data || *len == 0);
-        assert(ret);
-
-        optval = *data;
-        optlen = *len;
-
-        if (optlen <= 1)
-                return -ENODATA;
-
-        for (;;) {
-                const char *label;
-                uint8_t c;
-
-                if (optlen == 0)
-                        break;
-
-                c = *optval;
-                optval++;
-                optlen--;
-
-                if (c == 0)
-                        /* End label */
-                        break;
-                if (c > 63)
-                        return -EBADMSG;
-                if (c > optlen)
-                        return -EMSGSIZE;
-
-                /* Literal label */
-                label = (const char*) optval;
-                optval += c;
-                optlen -= c;
-
-                if (!GREEDY_REALLOC(domain, n + (n != 0) + DNS_LABEL_ESCAPED_MAX))
-                        return -ENOMEM;
-
-                if (n != 0)
-                        domain[n++] = '.';
-
-                r = dns_label_escape(label, c, domain + n, DNS_LABEL_ESCAPED_MAX);
-                if (r < 0)
-                        return r;
-
-                n += r;
-        }
-
-        if (n > 0) {
-                if (!GREEDY_REALLOC(domain, n + 1))
-                        return -ENOMEM;
-
-                domain[n] = '\0';
-        }
-
-        *ret = TAKE_PTR(domain);
-        *data = optval;
-        *len = optlen;
-
-        return n;
-}
-
 int dhcp6_option_parse_domainname(const uint8_t *optval, size_t optlen, char **ret) {
         _cleanup_free_ char *domain = NULL;
         int r;
@@ -895,7 +828,7 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, size_t optlen, char **r
         assert(optval || optlen == 0);
         assert(ret);
 
-        r = parse_domain(&optval, &optlen, &domain);
+        r = dns_name_from_wire_format(&optval, &optlen, &domain);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -922,11 +855,11 @@ int dhcp6_option_parse_domainname_list(const uint8_t *optval, size_t optlen, cha
         while (optlen > 0) {
                 _cleanup_free_ char *name = NULL;
 
-                r = parse_domain(&optval, &optlen, &name);
+                r = dns_name_from_wire_format(&optval, &optlen, &name);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        continue;
+                if (dns_name_is_root(name)) /* root domain */
+                        return -EBADMSG;
 
                 r = strv_consume(&names, TAKE_PTR(name));
                 if (r < 0)
