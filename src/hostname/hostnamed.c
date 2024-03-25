@@ -26,7 +26,6 @@
 #include "json.h"
 #include "main-func.h"
 #include "missing_capability.h"
-#include "nscd-flush.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "parse-util.h"
@@ -581,8 +580,6 @@ static int context_update_kernel_hostname(
                 c->hostname_source = hns;
                 r = 1;
         }
-
-        (void) nscd_flush_cache(STRV_MAKE("hosts"));
 
         if (r == 0)
                 log_debug("Hostname was already set to <%s>.", hn);
