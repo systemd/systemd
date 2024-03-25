@@ -185,6 +185,7 @@ PAMName=
 PIDFile=
 PartOf=
 PassCredentials=
+PassFileDescriptorsToExec=
 PassSecurity=
 PassPacketInfo=
 PathChanged=
