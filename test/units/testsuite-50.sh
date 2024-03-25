@@ -808,7 +808,21 @@ prep_root() {
     local r=${1}; shift
     local h=${1}; shift
 
+    if [[ -d ${r} ]]; then
+        die "${r@Q} is being reused as a root, possibly a result of copy-pasting some test case and forgetting to rename the root directory name"
+    fi
+
     mkdir -p "${r}${h}" "${r}/usr/lib" "${r}/var/lib/extensions" "${r}/var/lib/extensions.mutable"
+}
+
+prep_env() {
+    local mode=${1}; shift
+
+    export SYSTEMD_SYSEXT_MUTABLE_MODE=${mode}
+}
+
+drop_env() {
+    unset -v SYSTEMD_SYSEXT_MUTABLE_MODE
 }
 
 gen_os_release() {
@@ -946,6 +960,7 @@ check_usual_suspects_after_unmerge() {
     check_usual_suspects "${r}" "${h}" "after unmerge" "${@}"
 }
 
+drop_env
 
 #
 # no extension data in /var/lib/extensions.mutable/…, read-only hierarchy,
@@ -977,6 +992,7 @@ SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" u
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 
 touch "${fake_root}${hierarchy}/should-still-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only after unmerge"
+
 
 #
 # no extension data in /var/lib/extensions.mutable/…, mutable hierarchy,
@@ -1307,7 +1323,7 @@ ln -sfTr "${real_ext_dir}" "${ext_data_path}"
 prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=auto merge || die "expected merge to fail"
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=auto merge && die "expected merge to fail"
 
 
 #
@@ -1474,6 +1490,427 @@ check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
 SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
+
+
+#
+# /var/lib/extensions.mutable/… does not exist, but mutability is enabled
+# through an env var
+#
+# mutable merged
+#
+
+
+fake_root=${fake_roots_dir}/enabled-env-var
+hierarchy=/usr
+
+prep_env "yes"
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+ext_data_path=$(hierarchy_ext_mut_path "${fake_root}" "${hierarchy}")
+
+prep_ro_hierarchy "${fake_root}" "${hierarchy}"
+
+touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
+
+test ! -d "${ext_data_path}" || die "extensions.mutable should not exist"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+
+test -d "${ext_data_path}" || die "extensions.mutable should exist now"
+touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
+check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
+test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable is not stored in expected location"
+
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+
+check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
+test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable disappeared from writable storage after unmerge"
+test ! -f "${fake_root}${hierarchy}/now-is-mutable" || die "now-is-mutable did not disappear from hierarchy after unmerge"
+drop_env
+
+
+#
+# /var/lib/extensions.mutable/… does not exist, auto-mutability through an env
+# var
+#
+# read-only merged
+#
+
+
+fake_root=${fake_roots_dir}/read-only-auto-env-var
+hierarchy=/usr
+
+prep_env "auto"
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+prep_ro_hierarchy "${fake_root}" "${hierarchy}"
+
+touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=auto merge
+
+touch "${fake_root}${hierarchy}/should-still-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
+check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
+
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+
+check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
+drop_env
+
+
+#
+# extension data in /var/lib/extensions.mutable/…, read-only hierarchy,
+# auto-mutability through an env var
+#
+# mutable merged
+#
+
+
+fake_root=${fake_roots_dir}/auto-mutable-env-var
+hierarchy=/usr
+
+prep_env "auto"
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+ext_data_path=$(hierarchy_ext_mut_path "${fake_root}" "${hierarchy}")
+prep_ext_mut "${ext_data_path}"
+
+prep_ro_hierarchy "${fake_root}" "${hierarchy}"
+
+touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+
+touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
+check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h u
+test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable is not stored in expected location"
+
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+
+check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
+test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable disappeared from writable storage after unmerge"
+test ! -f "${fake_root}${hierarchy}/now-is-mutable" || die "now-is-mutable did not disappear from hierarchy after unmerge"
+drop_env
+
+
+#
+# extension data in /var/lib/extensions.mutable/…, read-only hierarchy,
+# mutability disabled through an env var
+#
+# read-only merged
+#
+
+
+fake_root=${fake_roots_dir}/env-var-disabled
+hierarchy=/usr
+
+prep_env "no"
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+ext_data_path=$(hierarchy_ext_mut_path "${fake_root}" "${hierarchy}")
+prep_ext_mut "${ext_data_path}"
+
+prep_ro_hierarchy "${fake_root}" "${hierarchy}"
+
+touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+
+touch "${fake_root}${hierarchy}/should-be-read-only" && die "${fake_root}${hierarchy} is not read-only"
+check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
+
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+
+check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
+drop_env
+
+
+#
+# /var/lib/extensions.mutable/… exists, but it's imported instead through an
+# env var
+#
+# read-only merged
+#
+
+
+fake_root=${fake_roots_dir}/imported-env-var
+hierarchy=/usr
+
+prep_env "import"
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+ext_data_path=$(hierarchy_ext_mut_path "${fake_root}" "${hierarchy}")
+prep_ext_mut "${ext_data_path}"
+
+prep_ro_hierarchy "${fake_root}" "${hierarchy}"
+
+touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+
+touch "${fake_root}${hierarchy}/should-still-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
+
+check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h u
+
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+
+check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
+drop_env
+
+
+#
+# extension data in /var/lib/extensions.mutable/…, read-only hierarchy,
+# mutability enabled through an env var, but overridden with a command-line
+# option
+#
+# read-only merged
+#
+
+
+fake_root=${fake_roots_dir}/env-var-overridden
+hierarchy=/usr
+
+prep_env "yes"
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+ext_data_path=$(hierarchy_ext_mut_path "${fake_root}" "${hierarchy}")
+prep_ext_mut "${ext_data_path}"
+
+prep_ro_hierarchy "${fake_root}" "${hierarchy}"
+
+touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=no merge
+
+touch "${fake_root}${hierarchy}/should-be-read-only" && die "${fake_root}${hierarchy} is not read-only"
+check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
+
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+
+check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
+drop_env
+
+
+#
+# extension data in /var/lib/extensions.mutable/…, read-only hierarchy,
+# ephemeral mutability, so extension data contents are ignored
+#
+# mutable merged
+#
+
+
+fake_root=${fake_roots_dir}/ephemeral
+hierarchy=/usr
+
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+ext_data_path=$(hierarchy_ext_mut_path "${fake_root}" "${hierarchy}")
+prep_ext_mut "${ext_data_path}"
+
+prep_ro_hierarchy "${fake_root}" "${hierarchy}"
+
+touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=ephemeral merge
+
+touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
+check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
+test ! -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable should not be stored in extension data"
+
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+
+check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
+test ! -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable should not appear in writable storage after unmerge"
+test ! -f "${fake_root}${hierarchy}/now-is-mutable" || die "now-is-mutable did not disappear from hierarchy after unmerge"
+
+
+#
+# extension data in /var/lib/extensions.mutable/…, read-only hierarchy,
+# ephemeral mutability through an env var, so extension data contents are
+# ignored
+#
+# mutable merged
+#
+
+
+fake_root=${fake_roots_dir}/ephemeral-env-var
+hierarchy=/usr
+
+prep_env "ephemeral"
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+ext_data_path=$(hierarchy_ext_mut_path "${fake_root}" "${hierarchy}")
+prep_ext_mut "${ext_data_path}"
+
+prep_ro_hierarchy "${fake_root}" "${hierarchy}"
+
+touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+
+touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
+check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
+test ! -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable should not be stored in extension data"
+
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+
+check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
+test ! -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable should not appear in writable storage after unmerge"
+test ! -f "${fake_root}${hierarchy}/now-is-mutable" || die "now-is-mutable did not disappear from hierarchy after unmerge"
+drop_env
+
+
+#
+# extension data in /var/lib/extensions.mutable/…, read-only hierarchy,
+# ephemeral import mutability, so extension data contents are imported too
+#
+# mutable merged
+#
+
+
+fake_root=${fake_roots_dir}/ephemeral-import
+hierarchy=/usr
+
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+ext_data_path=$(hierarchy_ext_mut_path "${fake_root}" "${hierarchy}")
+prep_ext_mut "${ext_data_path}"
+
+prep_ro_hierarchy "${fake_root}" "${hierarchy}"
+
+touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=ephemeral-import merge
+
+touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
+check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h u
+test ! -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable should not be stored in extension data"
+
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+
+check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
+test ! -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable should not appear in writable storage after unmerge"
+test ! -f "${fake_root}${hierarchy}/now-is-mutable" || die "now-is-mutable did not disappear from hierarchy after unmerge"
+
+
+#
+# extension data in /var/lib/extensions.mutable/…, read-only hierarchy,
+# ephemeral mutability through an env var, so extension data contents are
+# imported too
+#
+# mutable merged
+#
+
+
+fake_root=${fake_roots_dir}/ephemeral-import-env-var
+hierarchy=/usr
+
+prep_env "ephemeral-import"
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+ext_data_path=$(hierarchy_ext_mut_path "${fake_root}" "${hierarchy}")
+prep_ext_mut "${ext_data_path}"
+
+prep_ro_hierarchy "${fake_root}" "${hierarchy}"
+
+touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+
+touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
+check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h u
+test ! -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable should not be stored in extension data"
+
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+
+check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
+test ! -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable should not appear in writable storage after unmerge"
+test ! -f "${fake_root}${hierarchy}/now-is-mutable" || die "now-is-mutable did not disappear from hierarchy after unmerge"
+drop_env
+
+
+#
+# extension data pointing to mutable hierarchy, ephemeral import mutability
+#
+# expecting a failure here
+#
+
+
+fake_root=${fake_roots_dir}/ephemeral-import-self
+hierarchy=/usr
+
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+ext_data_path=$(hierarchy_ext_mut_path "${fake_root}" "${hierarchy}")
+real_ext_dir="${fake_root}${hierarchy}"
+prep_ext_mut "${real_ext_dir}"
+ln -sfTr "${real_ext_dir}" "${ext_data_path}"
+
+prep_hierarchy "${fake_root}" "${hierarchy}"
+
+touch "${fake_root}${hierarchy}/should-succeed-on-read-only-fs" || die "${fake_root}${hierarchy} is not mutable"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=ephemeral-import merge && die 'expected merge to fail'
+
+
+#
+# extension data pointing to mutable hierarchy, import mutability
+#
+# expecting a failure here
+#
+
+
+fake_root=${fake_roots_dir}/import-self
+hierarchy=/usr
+
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+ext_data_path=$(hierarchy_ext_mut_path "${fake_root}" "${hierarchy}")
+real_ext_dir="${fake_root}${hierarchy}"
+prep_ext_mut "${real_ext_dir}"
+ln -sfTr "${real_ext_dir}" "${ext_data_path}"
+
+prep_hierarchy "${fake_root}" "${hierarchy}"
+
+touch "${fake_root}${hierarchy}/should-succeed-on-read-only-fs" || die "${fake_root}${hierarchy} is not mutable"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=import merge && die 'expected merge to fail'
 
 
 #
