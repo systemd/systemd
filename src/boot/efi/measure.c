@@ -187,9 +187,11 @@ bool tpm_present(void) {
         return tcg2_interface_check();
 }
 
-static EFI_STATUS _tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
+static EFI_STATUS tcg2_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
         EFI_TCG2_PROTOCOL *tpm2;
         EFI_STATUS err = EFI_SUCCESS;
+
+        assert(ret_measured);
 
         tpm2 = tcg2_interface_check();
         if (tpm2)
@@ -200,9 +202,11 @@ static EFI_STATUS _tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer,
         return err;
 }
 
-static EFI_STATUS _cc_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
+static EFI_STATUS cc_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char16_t *description, bool *ret_measured) {
         EFI_CC_MEASUREMENT_PROTOCOL *cc;
         EFI_STATUS err = EFI_SUCCESS;
+
+        assert(ret_measured);
 
         cc = cc_interface_check();
         if (cc)
@@ -230,11 +234,11 @@ EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t 
         }
 
         /* Measure into both CC and TPM if both are available to avoid a problem like CVE-2021-42299 */
-        err = _cc_log_event(pcrindex, buffer, buffer_size, description, &cc_ret_measured);
+        err = cc_log_event(pcrindex, buffer, buffer_size, description, &cc_ret_measured);
         if (err != EFI_SUCCESS)
                 return err;
 
-        err = _tpm_log_event(pcrindex, buffer, buffer_size, description, &tpm_ret_measured);
+        err = tcg2_log_event(pcrindex, buffer, buffer_size, description, &tpm_ret_measured);
 
         if (err == EFI_SUCCESS && ret_measured)
                 *ret_measured = tpm_ret_measured || cc_ret_measured;
