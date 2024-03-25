@@ -60,6 +60,7 @@ networkctl_bin = shutil.which('networkctl', path=which_paths)
 resolvectl_bin = shutil.which('resolvectl', path=which_paths)
 timedatectl_bin = shutil.which('timedatectl', path=which_paths)
 udevadm_bin = shutil.which('udevadm', path=which_paths)
+test_ndisc_send = None
 build_dir = None
 source_dir = None
 
@@ -1127,6 +1128,16 @@ class Utilities():
                 break
 
         self.assertRegex(output, route_regex)
+
+    def wait_route_dropped(self, link, route_regex, table='main', ipv='', timeout_sec=100):
+        for i in range(timeout_sec):
+            if i > 0:
+                time.sleep(1)
+            output = check_output(f'ip {ipv} route show dev {link} table {table}')
+            if not re.search(route_regex, output):
+                break
+
+        self.assertNotRegex(output, route_regex)
 
     def check_netlabel(self, interface, address, label='system_u:object_r:root_t:s0'):
         if not shutil.which('selinuxenabled'):
@@ -5488,6 +5499,9 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2002:da8:1:0')
 
+        self.check_ipv6_neigh_sysctl_attr('veth99', 'base_reachable_time_ms', '42000')
+        self.check_ipv6_neigh_sysctl_attr('veth99', 'retrans_time_ms', '500')
+
         self.check_netlabel('veth99', '2002:da8:1::/64')
         self.check_netlabel('veth99', '2002:da8:2::/64')
 
@@ -5528,6 +5542,38 @@ class NetworkdRATests(unittest.TestCase, Utilities):
             time.sleep(random.uniform(0, 0.1))
 
         self.check_ipv6_token_static()
+
+    def test_ndisc_redirect(self):
+        if not os.path.exists(test_ndisc_send):
+            self.skipTest(f"{test_ndisc_send} does not exist.")
+
+        copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-static.network')
+        start_networkd()
+
+        self.check_ipv6_token_static()
+
+        # Introduce two redirect routes.
+        check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address 2002:da8:1:1:1a:2b:3c:4d --redirect-destination 2002:da8:1:1:1a:2b:3c:4d')
+        check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address 2002:da8:1::1 --redirect-destination 2002:da8:1:2:1a:2b:3c:4d')
+        self.wait_route('veth99', r'2002:da8:1:1:1a:2b:3c:4d proto redirect', ipv='-6', timeout_sec=10)
+        self.wait_route('veth99', r'2002:da8:1:2:1a:2b:3c:4d via 2002:da8:1::1 proto redirect', ipv='-6', timeout_sec=10)
+
+        # Change the target address of the redirects.
+        check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address 2002:da8:1::2 --redirect-destination 2002:da8:1:1:1a:2b:3c:4d')
+        check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address 2002:da8:1::3 --redirect-destination 2002:da8:1:2:1a:2b:3c:4d')
+        self.wait_route_dropped('veth99', r'2002:da8:1:1:1a:2b:3c:4d proto redirect', ipv='-6', timeout_sec=10)
+        self.wait_route_dropped('veth99', r'2002:da8:1:2:1a:2b:3c:4d via 2002:da8:1::1 proto redirect', ipv='-6', timeout_sec=10)
+        self.wait_route('veth99', r'2002:da8:1:1:1a:2b:3c:4d via 2002:da8:1::2 proto redirect', ipv='-6', timeout_sec=10)
+        self.wait_route('veth99', r'2002:da8:1:2:1a:2b:3c:4d via 2002:da8:1::3 proto redirect', ipv='-6', timeout_sec=10)
+
+        # Send Neighbor Advertisement without the router flag to announce the default router is not available anymore.
+        # Then, verify that all redirect routes and the default route are dropped.
+        output = check_output('ip -6 address show dev veth-peer scope link')
+        veth_peer_ipv6ll = re.search('fe80:[:0-9a-f]*', output).group()
+        print(f'veth-peer IPv6LL address: {veth_peer_ipv6ll}')
+        check_output(f'{test_ndisc_send} --interface veth-peer --type neighbor-advertisement --target-address {veth_peer_ipv6ll} --is-router no')
+        self.wait_route_dropped('veth99', 'proto redirect', ipv='-6', timeout_sec=10)
+        self.wait_route_dropped('veth99', 'proto ra', ipv='-6', timeout_sec=10)
 
     def test_ipv6_token_prefixstable(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-prefixstable.network')
@@ -7586,6 +7632,11 @@ if __name__ == '__main__':
     timedatectl_cmd = valgrind_cmd.split() + [timedatectl_bin]
     udevadm_cmd = valgrind_cmd.split() + [udevadm_bin]
     wait_online_cmd = valgrind_cmd.split() + [wait_online_bin]
+
+    if build_dir:
+        test_ndisc_send = os.path.normpath(os.path.join(build_dir, 'test-ndisc-send'))
+    else:
+        test_ndisc_send = '/usr/lib/tests/test-ndisc-send'
 
     if asan_options:
         env.update({'ASAN_OPTIONS': asan_options})
