@@ -20,6 +20,7 @@
 #include "in-addr-util.h"
 #include "ip-protocol-list.h"
 #include "journal-file.h"
+#include "json.h"
 #include "list.h"
 #include "locale-util.h"
 #include "memory-util.h"
@@ -42,6 +43,12 @@
 #include "terminal-util.h"
 #include "utf8.h"
 
+JsonFormatFlags arg_format_json_flags = JSON_FORMAT_OFF;
+static int json_transform_array_or_struct(sd_bus_message *m, JsonVariant **ret);
+static int json_transform_and_append(sd_bus_message *m, JsonVariant **ret);
+static int json_transform_one(sd_bus_message *m, JsonVariant **ret);
+static int json_transform_variant(sd_bus_message *m, const char *contents, JsonVariant **ret);
+static int json_transform_dict_array(sd_bus_message *m, JsonVariant **ret);
 static OutputFlags get_output_flags(void) {
         return
                 FLAGS_SET(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) * OUTPUT_SHOW_ALL |
@@ -49,7 +56,9 @@ static OutputFlags get_output_flags(void) {
                 colors_enabled() * OUTPUT_COLOR |
                 !arg_quiet * OUTPUT_WARN_CUTOFF;
 }
-
+JsonFormatFlags *get_flag_address(void) {
+        return &arg_format_json_flags;
+}
 typedef struct ExecStatusInfo {
         char *name;
 
@@ -1977,6 +1986,346 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
         return 0;
 }
 
+static int json_transform_array_or_struct(sd_bus_message *m, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        int r;
+
+        assert(m);
+        assert(ret);
+        for (;;) {
+                r = sd_bus_message_at_end(m, false);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r > 0)
+                        break;
+
+                r = json_transform_and_append(m, &array);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!array)
+                return json_variant_new_array(ret, NULL, 0);
+
+        *ret = TAKE_PTR(array);
+        return 0;
+}
+
+static int json_transform_and_append(sd_bus_message *m, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *element = NULL;
+        int r;
+
+        assert(m);
+        assert(ret);
+        r = json_transform_one(m, &element);
+        if (r < 0)
+                return r;
+
+        return json_variant_append_array(ret, element);
+}
+
+static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        const char *contents;
+        char type;
+        int r;
+
+        assert(m);
+        assert(ret);
+        r = sd_bus_message_peek_type(m, &type, &contents);
+        if (r < 0)
+                return bus_log_parse_error(r);
+        switch (type) {
+
+        case SD_BUS_TYPE_BYTE: {
+                uint8_t b;
+
+                r = sd_bus_message_read_basic(m, type, &b);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = json_variant_new_unsigned(&v, b);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to transform byte: %m");
+
+                break;
+        }
+
+        case SD_BUS_TYPE_BOOLEAN: {
+                int b;
+
+                r = sd_bus_message_read_basic(m, type, &b);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = json_variant_new_boolean(&v, b);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to transform boolean: %m");
+
+                break;
+        }
+
+        case SD_BUS_TYPE_INT16: {
+                int16_t b;
+
+                r = sd_bus_message_read_basic(m, type, &b);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = json_variant_new_integer(&v, b);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to transform int16: %m");
+
+                break;
+        }
+
+        case SD_BUS_TYPE_UINT16: {
+                uint16_t b;
+
+                r = sd_bus_message_read_basic(m, type, &b);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = json_variant_new_unsigned(&v, b);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to transform uint16: %m");
+
+                break;
+        }
+
+        case SD_BUS_TYPE_INT32: {
+                int32_t b;
+
+                r = sd_bus_message_read_basic(m, type, &b);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = json_variant_new_integer(&v, b);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to transform int32: %m");
+
+                break;
+        }
+
+        case SD_BUS_TYPE_UINT32: {
+                uint32_t b;
+
+                r = sd_bus_message_read_basic(m, type, &b);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = json_variant_new_unsigned(&v, b);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to transform uint32: %m");
+
+                break;
+        }
+
+        case SD_BUS_TYPE_INT64: {
+                int64_t b;
+
+                r = sd_bus_message_read_basic(m, type, &b);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = json_variant_new_integer(&v, b);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to transform int64: %m");
+
+                break;
+        }
+
+        case SD_BUS_TYPE_UINT64: {
+                uint64_t b;
+
+                r = sd_bus_message_read_basic(m, type, &b);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = json_variant_new_unsigned(&v, b);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to transform uint64: %m");
+
+                break;
+        }
+
+        case SD_BUS_TYPE_DOUBLE: {
+                double d;
+
+                r = sd_bus_message_read_basic(m, type, &d);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = json_variant_new_real(&v, d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to transform double: %m");
+
+                break;
+        }
+
+        case SD_BUS_TYPE_STRING: {
+                const char *s;
+
+                r = sd_bus_message_read_basic(m, type, &s);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = json_variant_new_string(&v, s);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to transform string: %m");
+
+                break;
+        }
+        case SD_BUS_TYPE_OBJECT_PATH:
+        case SD_BUS_TYPE_SIGNATURE: {
+                const char *s;
+
+                r = sd_bus_message_read_basic(m, type, &s);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = json_variant_new_string(&v, s);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to transform string: %m");
+
+                break;
+        }
+
+        case SD_BUS_TYPE_UNIX_FD:
+                r = sd_bus_message_read_basic(m, type, NULL);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = json_variant_new_null(&v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to transform fd: %m");
+
+                break;
+
+        case SD_BUS_TYPE_ARRAY:
+        case SD_BUS_TYPE_VARIANT:
+        case SD_BUS_TYPE_STRUCT:
+                r = sd_bus_message_enter_container(m, type, contents);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                if (type == SD_BUS_TYPE_VARIANT)
+                        r = json_transform_variant(m, contents, &v);
+                else if (type == SD_BUS_TYPE_ARRAY && contents[0] == '{')
+                        r = json_transform_dict_array(m, &v);
+                else
+                        r = json_transform_array_or_struct(m, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(m);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int json_transform_variant(sd_bus_message *m, const char *contents, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *value = NULL;
+        int r;
+
+        assert(m);
+        assert(contents);
+        assert(ret);
+        r = json_transform_one(m, &value);
+        if (r < 0)
+                return r;
+
+        r = json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("data", JSON_BUILD_VARIANT(value))));
+        if (r < 0)
+                return log_oom();
+
+        return r;
+}
+
+static int json_transform_dict_array(sd_bus_message *m, JsonVariant **ret) {
+        JsonVariant **elements = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        size_t n_elements = 0;
+        int r;
+
+        assert(m);
+        assert(ret);
+        CLEANUP_ARRAY(elements, n_elements, json_variant_unref_many);
+
+        r = sd_bus_message_rewind(m, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{sv}");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while(sd_bus_message_enter_container(m, SD_BUS_TYPE_DICT_ENTRY, NULL) > 0) {
+                const char *key;
+                JsonVariant *value = NULL, *dict_entry = NULL;
+
+                /* Read the string */
+                r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &key);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                /* Enter the variant container */
+                r = sd_bus_message_enter_container(m, SD_BUS_TYPE_VARIANT, NULL);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                /* Transform variant as case may be */
+                r = json_transform_one(m, &value);
+                if (r < 0)
+                        return r;
+
+                /* Create a json object for the dict elements*/
+                r = json_variant_new_object(&dict_entry, NULL, 0);
+                if (r < 0)
+                        return r;
+                /* Add each key-value pair into the dictionary */
+                r = json_variant_set_field(&dict_entry, key, value);
+                if (r < 0)
+                        return r;
+
+                /* Append the dictionary entry to the array of elements */
+                elements = realloc(elements, (n_elements + 1) * sizeof(JsonVariant *));
+                if (!elements)
+                        return log_oom();
+
+                elements[n_elements++] = dict_entry;
+
+                /* Exit the containers */
+                r = sd_bus_message_exit_container(m);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+
+                r = sd_bus_message_exit_container(m);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        /* Exit array of dic_entry container */
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return json_variant_new_array(ret, elements, n_elements);
+}
+
 typedef enum SystemctlShowMode{
         SYSTEMCTL_SHOW_PROPERTIES,
         SYSTEMCTL_SHOW_STATUS,
@@ -2157,6 +2506,36 @@ static int show_one(
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
 
+        /* Perform json transformation of message */
+        if (!FLAGS_SET(arg_format_json_flags, JSON_FORMAT_OFF)) {
+                _cleanup_(json_variant_unrefp) JsonVariant *to_json = NULL;
+
+                if (arg_format_json_flags & (JSON_FORMAT_PRETTY | JSON_FORMAT_COLOR_AUTO)) {
+                        pager_open(arg_pager_flags);
+                        r = json_transform_dict_array(reply, &to_json);
+                        if (r < 0)
+                                return r;
+                        json_variant_dump(to_json, arg_format_json_flags, stdout, NULL);
+                        fflush(stdout);
+                }
+        }else {
+                if (arg_output == OUTPUT_VERBOSE) {
+                        pager_open(arg_pager_flags);
+                        r = sd_bus_message_dump(reply, stdout, 0);
+                                if (r < 0)
+                                return r;
+                }
+                else {
+                        r = sd_bus_message_rewind(reply, true);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
+
+                        r = bus_message_print_all_properties(reply, print_property, arg_properties, arg_print_flags, &found_properties);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                }
+        }
+
         if (unit && streq_ptr(info.load_state, "not-found") && streq_ptr(info.active_state, "inactive")) {
                 log_full(show_mode == SYSTEMCTL_SHOW_PROPERTIES ? LOG_DEBUG : LOG_ERR,
                          "Unit %s could not be found.", unit);
@@ -2184,14 +2563,6 @@ static int show_one(
                 show_unit_help(&info);
                 return 0;
         }
-
-        r = sd_bus_message_rewind(reply, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
-
-        r = bus_message_print_all_properties(reply, print_property, arg_properties, arg_print_flags, &found_properties);
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         STRV_FOREACH(pp, arg_properties)
                 if (!set_contains(found_properties, *pp))
@@ -2339,9 +2710,11 @@ int verb_show(int argc, char *argv[], void *userdata) {
                  */
 
                 if (!arg_states && !arg_types) {
-                        if (show_mode == SYSTEMCTL_SHOW_PROPERTIES)
+                        if (show_mode == SYSTEMCTL_SHOW_PROPERTIES) {
                                 /* systemctl show --all → show properties of the manager */
+                                printf("Showing properties of system manager\n");
                                 return show_one(bus, "/org/freedesktop/systemd1", NULL, show_mode, &new_line, &ellipsized);
+                        }
 
                         r = show_system_status(bus);
                         if (r < 0)
