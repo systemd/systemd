@@ -23,10 +23,8 @@ TEST (test_dirent_ensure_type) {
                 .d_name = "test",
         };
 
-        assert_se(de.d_type == DT_UNKNOWN);
-
         dir_fd = 0;
-        dirent_ensure_type(dir_fd, &de);
+        assert_se(dirent_ensure_type(dir_fd, &de) == -ENOTDIR);
 
         /* Test when d_name is "." or ".." */
         strcpy(de.d_name, ".");
