@@ -47,8 +47,8 @@ env --chdir="pkg/$PKG_SUBDIR" \
     --noextract \
     $( ((WITH_TESTS)) || echo --nocheck) \
     --force \
-    UPSTREAM=1 \
-    QUIET=1 \
+    _systemd_UPSTREAM=1 \
+    _systemd_QUIET=1 \
     BUILDDIR="$PWD/pkg/$PKG_SUBDIR" \
     PKGDEST="$PACKAGEDIR" \
     PKGEXT=".pkg.tar" \
