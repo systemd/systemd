@@ -52,7 +52,7 @@ int icmp6_packet_get_timestamp(ICMP6Packet *p, clockid_t clock, usec_t *ret) {
         return 0;
 }
 
-static const struct icmp6_hdr* icmp6_packet_get_header(ICMP6Packet *p) {
+const struct icmp6_hdr* icmp6_packet_get_header(ICMP6Packet *p) {
         assert(p);
 
         if (p->raw_size < sizeof(struct icmp6_hdr))

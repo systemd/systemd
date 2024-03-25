@@ -5,7 +5,9 @@
 #include "dns-domain.h"
 #include "ether-addr-util.h"
 #include "hostname-util.h"
+#include "icmp6-util.h"
 #include "in-addr-util.h"
+#include "iovec-util.h"
 #include "missing_network.h"
 #include "ndisc-option.h"
 #include "network-common.h"
@@ -65,6 +67,13 @@ static sd_ndisc_option* ndisc_option_new(uint8_t type, size_t offset) {
         return p;
 }
 
+static void ndisc_raw_done(sd_ndisc_raw *raw) {
+        if (!raw)
+                return;
+
+        free(raw->bytes);
+}
+
 static void ndisc_rdnss_done(sd_ndisc_rdnss *rdnss) {
         if (!rdnss)
                 return;
@@ -84,6 +93,10 @@ sd_ndisc_option* ndisc_option_free(sd_ndisc_option *option) {
                 return NULL;
 
         switch (option->type) {
+        case 0:
+                ndisc_raw_done(&option->raw);
+                break;
+
         case SD_NDISC_OPTION_RDNSS:
                 ndisc_rdnss_done(&option->rdnss);
                 break;
@@ -111,6 +124,9 @@ static int ndisc_option_compare_func(const sd_ndisc_option *x, const sd_ndisc_op
                 return r;
 
         switch (x->type) {
+        case 0:
+                return memcmp_nn(x->raw.bytes, x->raw.length, y->raw.bytes, y->raw.length);
+
         case SD_NDISC_OPTION_SOURCE_LL_ADDRESS:
         case SD_NDISC_OPTION_TARGET_LL_ADDRESS:
         case SD_NDISC_OPTION_REDIRECTED_HEADER:
@@ -155,6 +171,10 @@ static void ndisc_option_hash_func(const sd_ndisc_option *option, struct siphash
         siphash24_compress_typesafe(option->type, state);
 
         switch (option->type) {
+        case 0:
+                siphash24_compress(option->raw.bytes, option->raw.length, state);
+                break;
+
         case SD_NDISC_OPTION_SOURCE_LL_ADDRESS:
         case SD_NDISC_OPTION_TARGET_LL_ADDRESS:
         case SD_NDISC_OPTION_REDIRECTED_HEADER:
@@ -199,6 +219,44 @@ static int ndisc_option_consume(Set **options, sd_ndisc_option *p) {
         return set_ensure_consume(options, &ndisc_option_hash_ops, p);
 }
 
+int ndisc_option_add_raw(Set **options, size_t offset, size_t length, const uint8_t *bytes) {
+        _cleanup_free_ uint8_t *copy = NULL;
+
+        assert(options);
+        assert(bytes);
+
+        if (length == 0)
+                return -EINVAL;
+
+        copy = newdup(uint8_t, bytes, length);
+        if (!copy)
+                return -ENOMEM;
+
+        sd_ndisc_option *p = ndisc_option_new(/* type = */ 0, offset);
+        if (!p)
+                return -ENOMEM;
+
+        p->raw = (sd_ndisc_raw) {
+                .bytes = TAKE_PTR(copy),
+                .length = length,
+        };
+
+        return ndisc_option_consume(options, p);
+}
+
+static int ndisc_option_build_raw(const sd_ndisc_option *option, uint8_t **ret) {
+        assert(option);
+        assert(option->type == 0);
+        assert(ret);
+
+        _cleanup_free_ uint8_t *buf = newdup(uint8_t, option->raw.bytes, option->raw.length);
+        if (!buf)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(buf);
+        return 0;
+}
+
 int ndisc_option_add_link_layer_address(Set **options, uint8_t opt, size_t offset, const struct ether_addr *mac) {
         assert(options);
         assert(IN_SET(opt, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, SD_NDISC_OPTION_TARGET_LL_ADDRESS));
@@ -230,6 +288,25 @@ static int ndisc_option_parse_link_layer_address(Set **options, size_t offset, s
         memcpy(&mac, opt + 2, sizeof(struct ether_addr));
 
         return ndisc_option_add_link_layer_address(options, opt[0], offset, &mac);
+}
+
+static int ndisc_option_build_link_layer_address(const sd_ndisc_option *option, uint8_t **ret) {
+        assert(option);
+        assert(IN_SET(option->type, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, SD_NDISC_OPTION_TARGET_LL_ADDRESS));
+        assert(ret);
+
+        assert_cc(2 + sizeof(struct ether_addr) == 8);
+
+        _cleanup_free_ uint8_t *buf = new(uint8_t, 2 + sizeof(struct ether_addr));
+        if (!buf)
+                return -ENOMEM;
+
+        buf[0] = option->type;
+        buf[1] = 1;
+        memcpy(buf + 2, &option->mac, sizeof(struct ether_addr));
+
+        *ret = TAKE_PTR(buf);
+        return 0;
 }
 
 int ndisc_option_add_prefix(
@@ -292,6 +369,31 @@ static int ndisc_option_parse_prefix(Set **options, size_t offset, size_t len, c
         return ndisc_option_add_prefix(options, offset, flags, pi->nd_opt_pi_prefix_len, &pi->nd_opt_pi_prefix, valid, pref);
 }
 
+static int ndisc_option_build_prefix(const sd_ndisc_option *option, uint8_t **ret) {
+        assert(option);
+        assert(option->type == SD_NDISC_OPTION_PREFIX_INFORMATION);
+        assert(ret);
+
+        assert_cc(sizeof(struct nd_opt_prefix_info) % 8 == 0);
+
+        _cleanup_free_ struct nd_opt_prefix_info *buf = new(struct nd_opt_prefix_info, 1);
+        if (!buf)
+                return -ENOMEM;
+
+        *buf = (struct nd_opt_prefix_info) {
+                .nd_opt_pi_type = SD_NDISC_OPTION_PREFIX_INFORMATION,
+                .nd_opt_pi_len = sizeof(struct nd_opt_prefix_info) / 8,
+                .nd_opt_pi_prefix_len = option->prefix.prefixlen,
+                .nd_opt_pi_flags_reserved = option->prefix.flags,
+                .nd_opt_pi_valid_time = usec_to_be32_sec(option->prefix.valid_lifetime),
+                .nd_opt_pi_preferred_time = usec_to_be32_sec(option->prefix.preferred_lifetime),
+                .nd_opt_pi_prefix = option->prefix.address,
+        };
+
+        *ret = (uint8_t*) TAKE_PTR(buf);
+        return 0;
+}
+
 int ndisc_option_add_redirected_header(Set **options, size_t offset, const struct ip6_hdr *hdr) {
         assert(options);
         assert(hdr);
@@ -317,6 +419,32 @@ static int ndisc_option_parse_redirected_header(Set **options, size_t offset, si
                 return -EBADMSG;
 
         return ndisc_option_add_redirected_header(options, offset, (const struct ip6_hdr*) (opt + sizeof(struct nd_opt_rd_hdr)));
+}
+
+static int ndisc_option_build_redirected_header(const sd_ndisc_option *option, uint8_t **ret) {
+        assert(option);
+        assert(option->type == SD_NDISC_OPTION_REDIRECTED_HEADER);
+        assert(ret);
+
+        assert_cc((sizeof(struct nd_opt_rd_hdr) + sizeof(struct ip6_hdr)) % 8 == 0);
+
+        size_t len = DIV_ROUND_UP(sizeof(struct nd_opt_rd_hdr) + sizeof(struct ip6_hdr), 8);
+
+        _cleanup_free_ uint8_t *buf = new(uint8_t, len * 8);
+        if (!buf)
+                return -ENOMEM;
+
+        uint8_t *p;
+        p = mempcpy(buf,
+                    &(const struct nd_opt_rd_hdr) {
+                            .nd_opt_rh_type = SD_NDISC_OPTION_REDIRECTED_HEADER,
+                            .nd_opt_rh_len = len,
+                    },
+                    sizeof(struct nd_opt_rd_hdr));
+        memcpy(p, &option->hdr, sizeof(struct ip6_hdr));
+
+        *ret = TAKE_PTR(buf);
+        return 0;
 }
 
 int ndisc_option_add_mtu(Set **options, size_t offset, uint32_t mtu) {
@@ -346,6 +474,27 @@ static int ndisc_option_parse_mtu(Set **options, size_t offset, size_t len, cons
                 return -EBADMSG;
 
         return ndisc_option_add_mtu(options, offset, be32toh(pm->nd_opt_mtu_mtu));
+}
+
+static int ndisc_option_build_mtu(const sd_ndisc_option *option, uint8_t **ret) {
+        assert(option);
+        assert(option->type == SD_NDISC_OPTION_MTU);
+        assert(ret);
+
+        assert_cc(sizeof(struct nd_opt_mtu) % 8 == 0);
+
+        _cleanup_free_ struct nd_opt_mtu *buf = new(struct nd_opt_mtu, 1);
+        if (!buf)
+                return -ENOMEM;
+
+        *buf = (struct nd_opt_mtu) {
+                .nd_opt_mtu_type = SD_NDISC_OPTION_MTU,
+                .nd_opt_mtu_len = sizeof(struct nd_opt_mtu) / 8,
+                .nd_opt_mtu_mtu = htobe32(option->mtu),
+        };
+
+        *ret = (uint8_t*) TAKE_PTR(buf);
+        return 0;
 }
 
 int ndisc_option_add_route(
@@ -413,6 +562,30 @@ static int ndisc_option_parse_route(Set **options, size_t offset, size_t len, co
         return ndisc_option_add_route(options, offset, preference, prefixlen, &prefix, lifetime);
 }
 
+static int ndisc_option_build_route(const sd_ndisc_option *option, uint8_t **ret) {
+        assert(option);
+        assert(option->type == SD_NDISC_OPTION_ROUTE_INFORMATION);
+        assert(option->route.prefixlen <= 128);
+        assert(ret);
+
+        size_t len = 1 + DIV_ROUND_UP(option->route.prefixlen, 64);
+        be32_t lifetime = usec_to_be32_sec(option->route.lifetime);
+
+        _cleanup_free_ uint8_t *buf = new(uint8_t, len * 8);
+        if (!buf)
+                return -ENOMEM;
+
+        buf[0] = SD_NDISC_OPTION_ROUTE_INFORMATION;
+        buf[1] = len;
+        buf[2] = option->route.prefixlen;
+        buf[3] = option->route.preference << 3;
+        memcpy(buf + 4, &lifetime, sizeof(be32_t));
+        memcpy_safe(buf + 8, &option->route.address, (len - 1) * 8);
+
+        *ret = TAKE_PTR(buf);
+        return 0;
+}
+
 int ndisc_option_add_rdnss(
                 Set **options,
                 size_t offset,
@@ -459,6 +632,29 @@ static int ndisc_option_parse_rdnss(Set **options, size_t offset, size_t len, co
         return ndisc_option_add_rdnss(options, offset, n_addrs, (const struct in6_addr*) (opt + 8), lifetime);
 }
 
+static int ndisc_option_build_rdnss(const sd_ndisc_option *option, uint8_t **ret) {
+        assert(option);
+        assert(option->type == SD_NDISC_OPTION_RDNSS);
+        assert(ret);
+
+        size_t len = option->rdnss.n_addresses * 2 + 1;
+        be32_t lifetime = usec_to_be32_sec(option->rdnss.lifetime);
+
+        _cleanup_free_ uint8_t *buf = new(uint8_t, len * 8);
+        if (!buf)
+                return -ENOMEM;
+
+        buf[0] = SD_NDISC_OPTION_RDNSS;
+        buf[1] = len;
+        buf[2] = 0;
+        buf[3] = 0;
+        memcpy(buf + 4, &lifetime, sizeof(be32_t));
+        memcpy(buf + 8, option->rdnss.addresses, sizeof(struct in6_addr) * option->rdnss.n_addresses);
+
+        *ret = TAKE_PTR(buf);
+        return 0;
+}
+
 int ndisc_option_add_flags_extension(Set **options, size_t offset, uint64_t flags) {
         assert(options);
 
@@ -486,6 +682,23 @@ static int ndisc_option_parse_flags_extension(Set **options, size_t offset, size
 
         uint64_t flags = (unaligned_read_be64(opt) & UINT64_C(0xffffffffffff0000)) >> 8;
         return ndisc_option_add_flags_extension(options, offset, flags);
+}
+
+static int ndisc_option_build_flags_extension(const sd_ndisc_option *option, uint8_t **ret) {
+        assert(option);
+        assert(option->type == SD_NDISC_OPTION_FLAGS_EXTENSION);
+        assert(ret);
+
+        _cleanup_free_ uint8_t *buf = new(uint8_t, 8);
+        if (!buf)
+                return 0;
+
+        unaligned_write_be64(buf, (option->extended_flags & UINT64_C(0x00ffffffffffff00)) << 8);
+        buf[0] = SD_NDISC_OPTION_FLAGS_EXTENSION;
+        buf[1] = 1;
+
+        *ret = TAKE_PTR(buf);
+        return 0;
 }
 
 int ndisc_option_add_dnssl(Set **options, size_t offset, char * const *domains, usec_t lifetime) {
@@ -592,6 +805,50 @@ static int ndisc_option_parse_dnssl(Set **options, size_t offset, size_t len, co
         return ndisc_option_add_dnssl(options, offset, l, lifetime);
 }
 
+static int ndisc_option_build_dnssl(const sd_ndisc_option *option, uint8_t **ret) {
+        int r;
+
+        assert(option);
+        assert(option->type == SD_NDISC_OPTION_DNSSL);
+        assert(ret);
+
+        size_t len = 8;
+        STRV_FOREACH(s, option->dnssl.domains)
+                len += strlen(*s) + 2;
+        len = DIV_ROUND_UP(len, 8);
+
+        be32_t lifetime = usec_to_be32_sec(option->dnssl.lifetime);
+
+        _cleanup_free_ uint8_t *buf = new(uint8_t, len * 8);
+        if (!buf)
+                return -ENOMEM;
+
+        buf[0] = SD_NDISC_OPTION_DNSSL;
+        buf[1] = len;
+        buf[2] = 0;
+        buf[3] = 0;
+        memcpy(buf + 4, &lifetime, sizeof(be32_t));
+
+        size_t remaining = len * 8 - 8;
+        uint8_t *p = buf + 8;
+
+        STRV_FOREACH(s, option->dnssl.domains) {
+                r = dns_name_to_wire_format(*s, p, remaining, /* canonical = */ false);
+                if (r < 0)
+                        return r;
+
+                assert(remaining >= (size_t) r);
+                p += r;
+                remaining -= r;
+        }
+
+        if (remaining > 0)
+                memset(p, 0, remaining);
+
+        *ret = TAKE_PTR(buf);
+        return 0;
+}
+
 int ndisc_option_add_captive_portal(Set **options, size_t offset, const char *portal) {
         assert(options);
 
@@ -638,6 +895,30 @@ static int ndisc_option_parse_captive_portal(Set **options, size_t offset, size_
                 return -EBADMSG;
 
         return ndisc_option_add_captive_portal(options, offset, portal);
+}
+
+static int ndisc_option_build_captive_portal(const sd_ndisc_option *option, uint8_t **ret) {
+        assert(option);
+        assert(option->type == SD_NDISC_OPTION_CAPTIVE_PORTAL);
+        assert(ret);
+
+        size_t len_portal = strlen(option->captive_portal);
+        size_t len = DIV_ROUND_UP(len_portal + 1 + 2, 8);
+
+        _cleanup_free_ uint8_t *buf = new(uint8_t, len * 8);
+        if (!buf)
+                return -ENOMEM;
+
+        buf[0] = SD_NDISC_OPTION_CAPTIVE_PORTAL;
+        buf[1] = len;
+
+        uint8_t *p = mempcpy(buf + 2, option->captive_portal, len_portal);
+        size_t remaining = len * 8 - 2 - len_portal;
+        if (remaining > 0)
+                memset(p, 0, remaining);
+
+        *ret = TAKE_PTR(buf);
+        return 0;
 }
 
 static const uint8_t prefix_length_code_to_prefix_length[_PREFIX_LENGTH_CODE_MAX] = {
@@ -731,6 +1012,37 @@ static int ndisc_option_parse_prefix64(Set **options, size_t offset, size_t len,
         return ndisc_option_add_prefix64(options, offset, prefixlen, &prefix, lifetime);
 }
 
+static int ndisc_option_build_prefix64(const sd_ndisc_option *option, uint8_t **ret) {
+        int r;
+
+        assert(option);
+        assert(option->type == SD_NDISC_OPTION_PREF64);
+        assert(ret);
+
+        uint8_t code;
+        r = pref64_prefix_length_to_plc(option->prefix64.prefixlen, &code);
+        if (r < 0)
+                return r;
+
+        uint16_t lifetime;
+        if (option->prefix64.lifetime >= PREF64_SCALED_LIFETIME_MASK * USEC_PER_SEC)
+                lifetime = PREF64_SCALED_LIFETIME_MASK;
+        else
+                lifetime = (uint16_t) DIV_ROUND_UP(option->prefix64.lifetime, USEC_PER_SEC) & PREF64_SCALED_LIFETIME_MASK;
+
+        _cleanup_free_ uint8_t *buf = new(uint8_t, 2 * 8);
+        if (!buf)
+                return -ENOMEM;
+
+        buf[0] = SD_NDISC_OPTION_PREF64;
+        buf[1] = 2;
+        unaligned_write_be16(buf + 2, lifetime | code);
+        memcpy(buf + 4, &option->prefix64.prefix, 12);
+
+        *ret = TAKE_PTR(buf);
+        return 0;
+}
+
 static int ndisc_option_parse_default(Set **options, size_t offset, size_t len, const uint8_t *opt) {
         assert(options);
         assert(opt);
@@ -788,6 +1100,10 @@ int ndisc_parse_options(ICMP6Packet *packet, Set **ret_options) {
                         return log_debug_errno(r, "Failed to parse NDisc option header: %m");
 
                 switch (type) {
+                case 0:
+                        r = -EBADMSG;
+                        break;
+
                 case SD_NDISC_OPTION_SOURCE_LL_ADDRESS:
                 case SD_NDISC_OPTION_TARGET_LL_ADDRESS:
                         r = ndisc_option_parse_link_layer_address(&options, offset, length, opt);
@@ -852,4 +1168,95 @@ int ndisc_option_get_mac(Set *options, uint8_t type, struct ether_addr *ret) {
         if (ret)
                 *ret = p->mac;
         return 0;
+}
+
+int ndisc_send(int fd, const struct sockaddr_in6 *dst, const struct icmp6_hdr *hdr, Set *options) {
+        int r;
+
+        assert(fd >= 0);
+        assert(dst);
+        assert(hdr);
+
+        struct iovec *iov = NULL;
+        size_t n_iov = 0;
+        CLEANUP_ARRAY(iov, n_iov, iovec_array_free);
+
+        iov = new(struct iovec, 1 + set_size(options));
+        if (!iov)
+                return -ENOMEM;
+
+        r = ndisc_header_size(hdr->icmp6_type);
+        if (r < 0)
+                return r;
+        size_t hdr_size = r;
+
+        _cleanup_free_ uint8_t *copy = newdup(uint8_t, hdr, hdr_size);
+        if (!copy)
+                return -ENOMEM;
+
+        iov[n_iov++] = IOVEC_MAKE(TAKE_PTR(copy), hdr_size);
+
+        const sd_ndisc_option *option;
+        SET_FOREACH(option, options) {
+                _cleanup_free_ uint8_t *buf = NULL;
+
+                switch (option->type) {
+                case 0:
+                        r = ndisc_option_build_raw(option, &buf);
+                        break;
+
+                case SD_NDISC_OPTION_SOURCE_LL_ADDRESS:
+                case SD_NDISC_OPTION_TARGET_LL_ADDRESS:
+                        r = ndisc_option_build_link_layer_address(option, &buf);
+                        break;
+
+                case SD_NDISC_OPTION_PREFIX_INFORMATION:
+                        r = ndisc_option_build_prefix(option, &buf);
+                        break;
+
+                case SD_NDISC_OPTION_REDIRECTED_HEADER:
+                        r = ndisc_option_build_redirected_header(option, &buf);
+                        break;
+
+                case SD_NDISC_OPTION_MTU:
+                        r = ndisc_option_build_mtu(option, &buf);
+                        break;
+
+                case SD_NDISC_OPTION_ROUTE_INFORMATION:
+                        r = ndisc_option_build_route(option, &buf);
+                        break;
+
+                case SD_NDISC_OPTION_RDNSS:
+                        r = ndisc_option_build_rdnss(option, &buf);
+                        break;
+
+                case SD_NDISC_OPTION_FLAGS_EXTENSION:
+                        r = ndisc_option_build_flags_extension(option, &buf);
+                        break;
+
+                case SD_NDISC_OPTION_DNSSL:
+                        r = ndisc_option_build_dnssl(option, &buf);
+                        break;
+
+                case SD_NDISC_OPTION_CAPTIVE_PORTAL:
+                        r = ndisc_option_build_captive_portal(option, &buf);
+                        break;
+
+                case SD_NDISC_OPTION_PREF64:
+                        r = ndisc_option_build_prefix64(option, &buf);
+                        break;
+
+                default:
+                        continue;
+                }
+                if (r == -ENOMEM)
+                        return log_oom_debug();
+                if (r < 0)
+                        log_debug_errno(r, "Failed to build NDisc option %u, ignoring: %m", option->type);
+
+                iov[n_iov++] = IOVEC_MAKE(buf, buf[1] * 8);
+                TAKE_PTR(buf);
+        }
+
+        return icmp6_send(fd, dst, iov, n_iov);
 }
