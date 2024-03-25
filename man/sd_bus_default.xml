@@ -306,9 +306,7 @@
 
           <listitem><para>The requested bus type is not available because of invalid environment (for example
           the user session bus is not available because <varname>$XDG_RUNTIME_DIR</varname> is not set).
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -341,10 +339,10 @@
     <function>sd_bus_open_user()</function>,
     <function>sd_bus_open_system()</function>,
     <function>sd_bus_open_system_remote()</function>, and
-    <function>sd_bus_open_system_machine()</function> were added in version 220.</para>
+    <function>sd_bus_open_system_machine()</function> were added in version 221.</para>
     <para><function>sd_bus_open_with_description()</function>,
     <function>sd_bus_open_user_with_description()</function>, and
-    <function>sd_bus_open_system_with_description()</function> were added in version 240.</para>
+    <function>sd_bus_open_system_with_description()</function> were added in version 239.</para>
     <para><function>sd_bus_open_user_machine()</function> was added in version 248.</para>
   </refsect1>
 

@@ -286,9 +286,9 @@
     <title>History</title>
     <para><function>sd_bus_creds_new_from_pid()</function>,
     <function>sd_bus_creds_get_mask()</function>,
-    <function>sd_bus_creds_ref()</function>, and
-    <function>sd_bus_creds_unref()</function> were added in version 209.</para>
-    <para><function>sd_bus_creds_get_augmented_mask()</function> was added in version 223.</para>
+    <function>sd_bus_creds_ref()</function>,
+    <function>sd_bus_creds_unref()</function>, and
+    <function>sd_bus_creds_get_augmented_mask()</function> were added in version 221.</para>
     <para><function>sd_bus_creds_unrefp()</function> was added in version 229.</para>
     <para><function>sd_bus_creds_new_from_pidfd()</function> was added in version 256.</para>
   </refsect1>
