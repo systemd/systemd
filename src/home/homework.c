@@ -56,6 +56,7 @@ int user_record_authenticate(
 
         assert(h);
         assert(secret);
+        assert(cache);
 
         /* Tries to authenticate a user record with the supplied secrets. i.e. checks whether at least one
          * supplied plaintext passwords matches a hashed password field of the user record. Or if a
@@ -78,7 +79,7 @@ int user_record_authenticate(
          * to force re-authentication. */
 
         /* First, let's see if we already have a volume key from the keyring */
-        if (cache && cache->volume_key &&
+        if (cache->volume_key &&
             json_variant_is_blank_object(json_variant_by_key(secret->json, "secret"))) {
                 log_info("LUKS volume key from keyring unlocks user record.");
                 return 1;
