@@ -344,7 +344,7 @@ static int help_facilities(void) {
         for (int i = 0; i < LOG_NFACILITIES; i++) {
                 _cleanup_free_ char *t = NULL;
 
-                if (log_facility_unshifted_to_string_alloc(i, &t))
+                if (log_facility_unshifted_to_string_alloc(i, &t) < 0)
                         return log_oom();
                 puts(t);
         }
