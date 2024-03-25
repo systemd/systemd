@@ -18,6 +18,7 @@ at_exit() {
     return 0
 }
 
+# Needed for /usr/lib/systemd/system/$UNIT_NAME to test overrides in /etc and /run
 maybe_mount_usr_overlay
 trap at_exit EXIT
 
