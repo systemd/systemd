@@ -320,9 +320,9 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_event_prepare()</function>,
-    <function>sd_event_wait()</function>, and
-    <function>sd_event_dispatch()</function> were added in version 220.</para>
-    <para><function>sd_event_get_state()</function> was added in version 229.</para>
+    <function>sd_event_wait()</function>,
+    <function>sd_event_dispatch()</function>, and
+    <function>sd_event_get_state()</function> were added in version 221.</para>
     <para><function>sd_event_get_iteration()</function> was added in version 231.</para>
   </refsect1>
 
