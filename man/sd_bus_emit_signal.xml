@@ -214,33 +214,25 @@
 
           <listitem><para>One of the required parameters is <constant>NULL</constant> or invalid. A
           reserved D-Bus interface was passed as the <replaceable>interface</replaceable> parameter.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOPKG</constant></term>
 
-          <listitem><para>The bus cannot be resolved.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus cannot be resolved.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The bus was created in a different process, library or module instance.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus was created in a different process, library or module instance.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Memory allocation failed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>Memory allocation failed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -251,9 +243,7 @@
           <function>sd_bus_emit_object_added()</function> or
           <function>sd_bus_emit_object_removed()</function> was called on an object without an
           object manager registered on its own object path or one of its parent object paths.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          </para></listitem>
         </varlistentry>
       </variablelist>
 
@@ -270,15 +260,15 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_bus_emit_signal()</function>,
-    <function>sd_bus_emit_signalv()</function>,
     <function>sd_bus_emit_interfaces_added()</function>,
     <function>sd_bus_emit_interfaces_added_strv()</function>,
     <function>sd_bus_emit_interfaces_removed()</function>,
     <function>sd_bus_emit_interfaces_removed_strv()</function>,
     <function>sd_bus_emit_properties_changed()</function>,
-    <function>sd_bus_emit_properties_changed_strv()</function>,
-    <function>sd_bus_emit_object_added()</function>, and
-    <function>sd_bus_emit_object_removed()</function> were added in version 246.</para>
+    <function>sd_bus_emit_properties_changed_strv()</function>, were added in version 221.</para>
+    <para><function>sd_bus_emit_object_added()</function>, and
+    <function>sd_bus_emit_object_removed()</function> were added in version 222.</para>
+    <para><function>sd_bus_emit_signalv()</function> was added in version 246.</para>
     <para><function>sd_bus_emit_signal_to()</function> and
     <function>sd_bus_emit_signal_tov()</function> were added in version 253.</para>
   </refsect1>
