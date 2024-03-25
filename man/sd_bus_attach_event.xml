@@ -106,7 +106,7 @@
     <title>History</title>
     <para><function>sd_bus_attach_event()</function>,
     <function>sd_bus_detach_event()</function>, and
-    <function>sd_bus_get_event()</function> were added in version 240.</para>
+    <function>sd_bus_get_event()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>
