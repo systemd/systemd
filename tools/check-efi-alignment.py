@@ -4,7 +4,11 @@
 
 import sys
 
-import pefile
+try:
+    import pefile
+except ImportError as e:
+    print(str(e), file=sys.stderr)
+    sys.exit(77)
 
 
 def main():
