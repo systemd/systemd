@@ -11,6 +11,16 @@
 #include "string-util.h"
 
 #if HAVE_OPENSSL
+#  include <openssl/rsa.h>
+#  include <openssl/ec.h>
+
+#  if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
+#    include <openssl/engine.h>
+DISABLE_WARNING_DEPRECATED_DECLARATIONS;
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ENGINE*, ENGINE_free, NULL);
+REENABLE_WARNING;
+#  endif
+
 /* For each error in the OpenSSL thread error queue, log the provided message and the OpenSSL error
  * string. If there are no errors in the OpenSSL thread queue, this logs the message with "No OpenSSL
  * errors." This logs at level debug. Returns -EIO (or -ENOMEM). */
@@ -1344,6 +1354,7 @@ static int load_key_from_engine(const char *engine, const char *private_key_uri,
         assert(private_key_uri);
         assert(ret);
 
+#if !defined(OPENSSL_NO_ENGINE) && !defined(OPENSSL_NO_DEPRECATED_3_0)
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;
         _cleanup_(ENGINE_freep) ENGINE *e = ENGINE_by_id(engine);
         if (!e)
@@ -1364,6 +1375,9 @@ static int load_key_from_engine(const char *engine, const char *private_key_uri,
         *ret = TAKE_PTR(private_key);
 
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int openssl_load_key_from_token(

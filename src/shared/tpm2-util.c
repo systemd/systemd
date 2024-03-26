@@ -36,6 +36,10 @@
 #include "tpm2-util.h"
 #include "virt.h"
 
+#if HAVE_OPENSSL
+#  include <openssl/hmac.h>
+#endif
+
 #if HAVE_TPM2
 static void *libtss2_esys_dl = NULL;
 static void *libtss2_rc_dl = NULL;
