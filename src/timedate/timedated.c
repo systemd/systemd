@@ -62,6 +62,7 @@ typedef struct Context {
         bool local_rtc;
         Hashmap *polkit_registry;
         sd_bus_message *cache;
+        sd_bus_message *ntp_req;
 
         sd_bus_slot *slot_job_removed;
 
@@ -122,6 +123,7 @@ static void context_clear(Context *c) {
         free(c->zone);
         hashmap_free(c->polkit_registry);
         sd_bus_message_unref(c->cache);
+        sd_bus_message_unref(c->ntp_req);
 
         sd_bus_slot_unref(c->slot_job_removed);
 
@@ -467,6 +469,8 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
                 (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
                                                       "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP",
                                                       NULL);
+                (void) sd_bus_reply_method_return(c->ntp_req, NULL);
+                c->ntp_req = sd_bus_message_unref(c->ntp_req);
         }
 
         return 0;
@@ -938,6 +942,11 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
         /* This method may be called frequently. Forget the previous job if it has not completed yet. */
         LIST_FOREACH(units, u, c->units)
                 u->path = mfree(u->path);
+        /* Pretend success to forgotten requestors, only the last will wait properly */
+        if (c->ntp_req) {
+                (void) sd_bus_reply_method_return(c->ntp_req, NULL);
+                c->ntp_req = sd_bus_message_unref(c->ntp_req);
+        }
 
         if (!c->slot_job_removed) {
                 r = bus_match_signal_async(
@@ -993,11 +1002,12 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                 c->slot_job_removed = TAKE_PTR(slot);
 
         if (selected)
-                log_info("Set NTP to enabled (%s).", selected->name);
+                log_info("Set NTP to be enabled (%s).", selected->name);
         else
-                log_info("Set NTP to disabled.");
+                log_info("Set NTP to be disabled.");
 
-        return sd_bus_reply_method_return(m, NULL);
+        c->ntp_req = sd_bus_message_ref(m);
+        return 0;
 }
 
 static int method_list_timezones(sd_bus_message *m, void *userdata, sd_bus_error *error) {
