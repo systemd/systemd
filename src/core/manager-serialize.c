@@ -23,11 +23,12 @@ int manager_open_serialization(Manager *m, FILE **ret_f) {
         return open_serialization_file("systemd-state", ret_f);
 }
 
-static bool manager_timestamp_shall_serialize(ManagerTimestamp t) {
-        if (!in_initrd())
+static bool manager_timestamp_shall_serialize(ManagerObjective o, ManagerTimestamp t) {
+        if (!in_initrd() && o != MANAGER_SOFT_REBOOT)
                 return true;
 
-        /* The following timestamps only apply to the host system, hence only serialize them there */
+        /* The following timestamps only apply to the host system (or first boot in case of soft-reboot),
+         * hence only serialize them there. */
         return !IN_SET(t,
                        MANAGER_TIMESTAMP_USERSPACE, MANAGER_TIMESTAMP_FINISH,
                        MANAGER_TIMESTAMP_SECURITY_START, MANAGER_TIMESTAMP_SECURITY_FINISH,
@@ -111,7 +112,7 @@ int manager_serialize(
         for (ManagerTimestamp q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 _cleanup_free_ char *joined = NULL;
 
-                if (!manager_timestamp_shall_serialize(q))
+                if (!manager_timestamp_shall_serialize(m->objective, q))
                         continue;
 
                 joined = strjoin(manager_timestamp_to_string(q), "-timestamp");
