@@ -2183,7 +2183,7 @@ static int with_home(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "b", /* please_suspend = */ getenv_bool("SYSTEMD_PLEASE_SUSPEND_HOME") > 0);
+                r = sd_bus_message_append(m, "b", false); /* please_suspend (ignored) */
                 if (r < 0)
                         return bus_log_create_error(r);
 
