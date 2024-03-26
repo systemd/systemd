@@ -771,6 +771,11 @@ void dns_answer_dump(DnsAnswer *answer, FILE *f) {
         }
 }
 
+void dns_answer_empty(DnsAnswer *a) {
+        assert(a);
+        ordered_set_clear(a->items);
+}
+
 int dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname) {
         DnsResourceRecord *rr;
         int r;
