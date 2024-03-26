@@ -280,6 +280,8 @@ static int pin_capsule_socket(const char *capsule, const char *suffix, uid_t *re
 
         assert(capsule);
         assert(suffix);
+        assert(ret_uid);
+        assert(ret_gid);
 
         p = path_join("/run/capsules", capsule, suffix);
         if (!p)
@@ -303,59 +305,20 @@ static int pin_capsule_socket(const char *capsule, const char *suffix, uid_t *re
         return TAKE_FD(inode_fd);
 }
 
-int bus_connect_capsule_systemd(const char *capsule, sd_bus **ret_bus) {
-        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+static int bus_set_address_capsule(sd_bus *bus, const char *capsule, const char *suffix, int *ret_pin_fd) {
         _cleanup_close_ int inode_fd = -EBADF;
         _cleanup_free_ char *pp = NULL;
-        uid_t uid;
-        gid_t gid;
-        int r;
-
-        assert(capsule);
-        assert(ret_bus);
-
-        r = capsule_name_is_valid(capsule);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return -EINVAL;
-
-        /* Connects to a capsule's user bus. We need to do so under the capsule's UID/GID, otherwise the
-         * the service manager might refuse our connection. Hence fake it. */
-
-        inode_fd = pin_capsule_socket(capsule, "systemd/private", &uid, &gid);
-        if (inode_fd < 0)
-                return inode_fd;
-
-        pp = bus_address_escape(FORMAT_PROC_FD_PATH(inode_fd));
-        if (!pp)
-                return -ENOMEM;
-
-        r = sd_bus_new(&bus);
-        if (r < 0)
-                return r;
-
-        if (asprintf(&bus->address, "unix:path=%s,uid=" UID_FMT ",gid=" GID_FMT, pp, uid, gid) < 0)
-                return -ENOMEM;
-
-        r = sd_bus_start(bus);
-        if (r < 0)
-                return r;
-
-        *ret_bus = TAKE_PTR(bus);
-        return 0;
-}
-
-int bus_set_address_capsule_bus(sd_bus *bus, const char *capsule, int *ret_pin_fd) {
-        _cleanup_free_ char *pp = NULL;
-        _cleanup_close_ int inode_fd = -EBADF;
         uid_t uid;
         gid_t gid;
         int r;
 
         assert(bus);
         assert(capsule);
+        assert(suffix);
         assert(ret_pin_fd);
+
+        /* Connects to a capsule's user bus. We need to do so under the capsule's UID/GID, otherwise the
+         * the service manager might refuse our connection. Hence fake it. */
 
         r = capsule_name_is_valid(capsule);
         if (r < 0)
@@ -363,7 +326,7 @@ int bus_set_address_capsule_bus(sd_bus *bus, const char *capsule, int *ret_pin_f
         if (r == 0)
                 return -EINVAL;
 
-        inode_fd = pin_capsule_socket(capsule, "bus", &uid, &gid);
+        inode_fd = pin_capsule_socket(capsule, suffix, &uid, &gid);
         if (inode_fd < 0)
                 return inode_fd;
 
@@ -375,6 +338,34 @@ int bus_set_address_capsule_bus(sd_bus *bus, const char *capsule, int *ret_pin_f
                 return -ENOMEM;
 
         *ret_pin_fd = TAKE_FD(inode_fd); /* This fd must be kept pinned until the connection has been established */
+        return 0;
+}
+
+int bus_set_address_capsule_bus(sd_bus *bus, const char *capsule, int *ret_pin_fd) {
+        return bus_set_address_capsule(bus, capsule, "bus", ret_pin_fd);
+}
+
+int bus_connect_capsule_systemd(const char *capsule, sd_bus **ret_bus) {
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_close_ int inode_fd = -EBADF;
+        int r;
+
+        assert(capsule);
+        assert(ret_bus);
+
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return r;
+
+        r = bus_set_address_capsule(bus, capsule, "systemd/private", &inode_fd);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_start(bus);
+        if (r < 0)
+                return r;
+
+        *ret_bus = TAKE_PTR(bus);
         return 0;
 }
 
