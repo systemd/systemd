@@ -2318,13 +2318,16 @@ static int dns_transaction_request_dnssec_rr_full(DnsTransaction *t, DnsResource
                 if (r < 0)
                         return r;
 
+                *ret = NULL;
                 return 0;
         }
 
         /* This didn't work, ask for it via the network/cache then. */
         r = dns_transaction_add_dnssec_transaction(t, key, &aux);
-        if (r == -ELOOP) /* This would result in a cyclic dependency */
+        if (r == -ELOOP) { /* This would result in a cyclic dependency */
+                *ret = NULL;
                 return 0;
+        }
         if (r < 0)
                 return r;
 
@@ -2490,7 +2493,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 case DNS_TYPE_RRSIG: {
                         /* For each RRSIG we request the matching DNSKEY */
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *dnskey = NULL;
-                        DnsTransaction *aux = NULL;
+                        DnsTransaction *aux;
 
                         /* If this RRSIG is about a DNSKEY RR and the
                          * signer is the same as the owner, then we
@@ -2537,6 +2540,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (aux) {
                                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds =
                                         dns_resource_key_new(rr->key->class, DNS_TYPE_DS, dns_resource_key_name(dnskey));
+                                if (!ds)
+                                        return -ENOMEM;
                                 r = dns_transaction_request_dnssec_rr(t, ds);
                                 if (r < 0)
                                         return r;
