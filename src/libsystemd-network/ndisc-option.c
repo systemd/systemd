@@ -131,6 +131,7 @@ static int ndisc_option_compare_func(const sd_ndisc_option *x, const sd_ndisc_op
         case SD_NDISC_OPTION_TARGET_LL_ADDRESS:
         case SD_NDISC_OPTION_REDIRECTED_HEADER:
         case SD_NDISC_OPTION_MTU:
+        case SD_NDISC_OPTION_HOME_AGENT:
         case SD_NDISC_OPTION_FLAGS_EXTENSION:
         case SD_NDISC_OPTION_CAPTIVE_PORTAL:
                 /* These options cannot be specified multiple times. */
@@ -491,6 +492,63 @@ static int ndisc_option_build_mtu(const sd_ndisc_option *option, uint8_t **ret) 
                 .nd_opt_mtu_type = SD_NDISC_OPTION_MTU,
                 .nd_opt_mtu_len = sizeof(struct nd_opt_mtu) / 8,
                 .nd_opt_mtu_mtu = htobe32(option->mtu),
+        };
+
+        *ret = (uint8_t*) TAKE_PTR(buf);
+        return 0;
+}
+
+int ndisc_option_add_home_agent(Set **options, size_t offset, uint16_t preference, usec_t lifetime) {
+        assert(options);
+
+        if (lifetime > UINT16_MAX * USEC_PER_SEC)
+                return -EINVAL;
+
+        sd_ndisc_option *p = ndisc_option_new(SD_NDISC_OPTION_HOME_AGENT, offset);
+        if (!p)
+                return -ENOMEM;
+
+        p->home_agent = (sd_ndisc_home_agent) {
+                .preference = preference,
+                .lifetime = lifetime,
+        };
+
+        return ndisc_option_consume(options, p);
+}
+
+static int ndisc_option_parse_home_agent(Set **options, size_t offset, size_t len, const uint8_t *opt) {
+        const struct nd_opt_home_agent_info *p = (const struct nd_opt_home_agent_info*) ASSERT_PTR(opt);
+
+        assert(options);
+
+        if (len != sizeof(struct nd_opt_home_agent_info))
+                return -EBADMSG;
+
+        if (p->nd_opt_home_agent_info_type != SD_NDISC_OPTION_HOME_AGENT)
+                return -EBADMSG;
+
+        return ndisc_option_add_home_agent(
+                        options, offset,
+                        be16toh(p->nd_opt_home_agent_info_preference),
+                        be16_sec_to_usec(p->nd_opt_home_agent_info_lifetime, /* max_as_infinity = */ false));
+}
+
+static int ndisc_option_build_home_agent(const sd_ndisc_option *option, uint8_t **ret) {
+        assert(option);
+        assert(option->type == SD_NDISC_OPTION_HOME_AGENT);
+        assert(ret);
+
+        assert_cc(sizeof(struct nd_opt_home_agent_info) % 8 == 0);
+
+        _cleanup_free_ struct nd_opt_home_agent_info *buf = new(struct nd_opt_home_agent_info, 1);
+        if (!buf)
+                return -ENOMEM;
+
+        *buf = (struct nd_opt_home_agent_info) {
+                .nd_opt_home_agent_info_type = SD_NDISC_OPTION_HOME_AGENT,
+                .nd_opt_home_agent_info_len = sizeof(struct nd_opt_home_agent_info) / 8,
+                .nd_opt_home_agent_info_preference = htobe16(option->home_agent.preference),
+                .nd_opt_home_agent_info_lifetime = usec_to_be16_sec(option->home_agent.lifetime),
         };
 
         *ret = (uint8_t*) TAKE_PTR(buf);
@@ -1121,6 +1179,10 @@ int ndisc_parse_options(ICMP6Packet *packet, Set **ret_options) {
                         r = ndisc_option_parse_mtu(&options, offset, length, opt);
                         break;
 
+                case SD_NDISC_OPTION_HOME_AGENT:
+                        r = ndisc_option_parse_home_agent(&options, offset, length, opt);
+                        break;
+
                 case SD_NDISC_OPTION_ROUTE_INFORMATION:
                         r = ndisc_option_parse_route(&options, offset, length, opt);
                         break;
@@ -1226,6 +1288,10 @@ int ndisc_send(int fd, const struct sockaddr_in6 *dst, const struct icmp6_hdr *h
 
                 case SD_NDISC_OPTION_MTU:
                         r = ndisc_option_build_mtu(option, &buf);
+                        break;
+
+                case SD_NDISC_OPTION_HOME_AGENT:
+                        r = ndisc_option_build_home_agent(option, &buf);
                         break;
 
                 case SD_NDISC_OPTION_ROUTE_INFORMATION:
