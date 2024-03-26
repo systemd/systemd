@@ -8,6 +8,8 @@ typedef struct User User;
 #include "logind.h"
 #include "user-record.h"
 
+typedef void (*user_secure_lock_cb_t)(User *u, void *userdata, const sd_bus_error *error);
+
 typedef enum UserState {
         USER_OFFLINE,    /* Not logged in at all */
         USER_OPENING,    /* Is logging in */
@@ -54,6 +56,14 @@ struct User {
         /* Set up when the last session of the user logs out */
         sd_event_source *timer_event_source;
 
+        user_secure_lock_cb_t *secure_lock_callbacks;
+        void **secure_lock_userdata;
+        size_t n_pending_secure_locks;
+        sd_event_source *pending_secure_lock_timeout_source;
+        sd_event_source *delay_secure_lock_event_source;
+        sd_event_source *inhibit_auto_secure_lock_event_source;
+        sd_event_source *secure_lock_backend_event_source;
+
         UserGCMode gc_mode;
         bool in_gc_queue:1;
 
@@ -85,6 +95,13 @@ int user_kill(User *u, int signo);
 int user_check_linger_file(User *u);
 void user_elect_display(User *u);
 void user_update_last_session_timer(User *u);
+
+int user_can_secure_lock(User *u);
+int user_should_auto_secure_lock(User *u);
+int user_secure_lock(User *u, user_secure_lock_cb_t cb, void *userdata);
+int user_delay_secure_lock(User *u);
+int user_inhibit_auto_secure_lock(User *u);
+int user_enable_secure_lock(User *u);
 
 const char* user_state_to_string(UserState s) _const_;
 UserState user_state_from_string(const char *s) _pure_;
