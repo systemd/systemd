@@ -111,3 +111,8 @@ assert_cc(FS_PROJINHERIT_FL == 0x20000000);
 #else
 assert_cc(FS_KEY_DESCRIPTOR_SIZE == 8);
 #endif
+
+/* linux/exportfs.h */
+#ifndef FILEID_KERNFS
+#define FILEID_KERNFS 0xfe
+#endif
