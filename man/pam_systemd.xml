@@ -197,13 +197,48 @@
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
+    <varlistentry>
+        <term><varname>can-secure-lock=</varname></term>
+
+        <listitem><para>Takes a boolean argument. The <varname>$SYSTEMD_CAN_SECURE_LOCK</varname> environment variable
+        (see below) takes precedence. If true, the session is compatible with secure locking, otherwise the session is
+        incompatible. All of the sessions associated with any given user must support secure locking for the feature to
+        actually be available; any sessions that don't support the feature will disable it for as long as they exist.
+        Defaults to false.</para>
+
+        <para>Secure locking can greatly improve system security by removing secret key material from memory, potentially
+        including the encryption keys of the user's home directory. During system suspend, all users that support secure
+        locking will be automatically secure locked. Once the user is ready to unlock their session, they will need to
+        re-authenticate via PAM. This will re-establish secret key material back into memory, making it possible to
+        resume work.</para>
+
+        <para>Note that TTY logins generally do not support re-authentication. Re-authentication is primarily a concept
+        implementable in graphical environments, in the form of lock screens brought up automatically when the system is
+        secure locked. This means that if a user concurrently uses graphical login sessions that implement the required
+        re-authentication mechanism and console logins that do not, secure locking will be disabled for this user. That
+        said, it is possible to set this field for TTY logins too, ignoring the fact that TTY logins actually don't support
+        the re-authentication mechanism. In that case the TTY sessions will hang until the user logs in on another virtual
+        terminal (regradless if via another TTY session or graphically) which will unlock the user and thus unfreeze the
+        original TTY session. Do note that the ack of screen locking on TTY sessions means that even though the TTY session
+        is frozen during a secure lock, keypresses can still be queued into it, and the existing screen contents can be read.
+        </para>
+
+        <para>Turning this option on is highly recommended for all sessions, but only if the service managing these sessions
+        correctly implements the aforementioned re-authentication. Note that the re-authentication must take place from a
+        component running outside of the user's context, so that it does not require access to the user's home directory for
+        operation and does not get frozen as part of the secure lock. Traditionally, most desktop environments do not implement
+        secreen locking in this way, and need to be updated accordingly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+    </variablelist>
+
       <varlistentry>
         <term><varname>debug</varname><optional>=</optional></term>
 
         <listitem><para>Takes an optional boolean argument. If yes or without the argument, the module will log
         debugging information as it operates.</para></listitem>
       </varlistentry>
-    </variablelist>
   </refsect1>
 
   <refsect1>
@@ -319,6 +354,18 @@
         as <literal>seat0</literal>)</para>
 
         <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_CAN_SECURE_LOCK</varname></term>
+
+        <listitem><para>Whether or not the session supports secure locking. This may be used instead of
+        <varname>can-secure-lock=</varname> on the module parameter line, and is usually preferred.</para>
+
+        <para>The module will overwrite the value of this environment variable to either <literal>0</literal>
+        or <literal>1</literal> before exporting it to applications running in the session.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
     </variablelist>
 
