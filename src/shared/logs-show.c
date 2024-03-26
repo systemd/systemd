@@ -2056,7 +2056,7 @@ int journal_get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots) {
                         if (sd_id128_equal(i->id, boot.id))
                                 /* The boot id is already stored, something wrong with the journal files.
                                  * Exiting as otherwise this problem would cause an infinite loop. */
-                                break;
+                                goto finish;
 
                 if (!GREEDY_REALLOC(boots, n_boots + 1))
                         return -ENOMEM;
@@ -2064,6 +2064,7 @@ int journal_get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots) {
                 boots[n_boots++] = boot;
         }
 
+ finish:
         *ret_boots = TAKE_PTR(boots);
         *ret_n_boots = n_boots;
         return n_boots > 0;
