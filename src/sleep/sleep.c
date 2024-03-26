@@ -238,7 +238,7 @@ static int execute(
                 return log_error_errno(errno, "Failed to open /sys/power/state: %m");
 
         /* Configure hibernation settings if we are supposed to hibernate */
-        if (sleep_operation_is_hibernation(operation)) {
+        if (SLEEP_OPERATION_IS_HIBERNATION(operation)) {
                 _cleanup_(hibernation_device_done) HibernationDevice hibernation_device = {};
                 bool resume_set;
 
@@ -301,7 +301,7 @@ static int execute(
                 return 0;
 
 fail:
-        if (sleep_operation_is_hibernation(operation))
+        if (SLEEP_OPERATION_IS_HIBERNATION(operation))
                 clear_efi_hibernate_location_and_warn();
 
         return r;
