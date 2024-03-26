@@ -634,26 +634,34 @@ static int find_real_nvme_parent(sd_device *dev, sd_device **ret) {
         if (r < 0)
                 return r;
 
-        /* If the 'real parent' is (still) virtual, e.g. for nvmf disks, set ID_PATH. */
+        /* If the 'real parent' is (still) virtual, e.g. for nvmf disks, set ID_PATH
+	 * and nvmf devices will be showed up in by-path */
         if (path_startswith(devpath, "/devices/virtual/")) {
 		_cleanup_(sd_device_unrefp) sd_device *fc_parent = NULL;
-		const char *addr, *fc_pn, *nvme_pn, *first, *second, *third;
+		_cleanup_free_ char *first = NULL, *second = NULL, *nvme_pn =NULL;
+		const char *addr, *host_traddr, *pn, *fc_pn;
 
 		r = sd_device_get_sysattr_value(nvme, "address", &addr);
 		if (r < 0)
 			return r;
 
-		r = extract_many_words(&addr, ":", 0, &first, &second, &third, NULL);
-		if (r < 3)
-			return -ENXIO;
+		r = extract_many_words(&addr, ",", 0, &first, &second, NULL);
+		if (r != 2)
+			return -EINVAL;
 
-		r = extract_many_words(&third, "-", 0, &first, &nvme_pn, NULL);
-		if (r < 2)
-			return -ENXIO;
+		host_traddr = second;
+		r = extract_many_words(&host_traddr, "-", 0, &first, &second, NULL);
+		if (r != 2)
+			return -EINVAL;
+
+		pn = second;
+		r = extract_many_words(&pn, "-", 0, &first, &nvme_pn, NULL);
+		if (r != 2)
+			return -EINVAL;
 
 		r = sd_device_new_from_syspath(&fc_parent, "/sys/class/fc_host");
 		if (r < 0)
-			return -ENXIO;
+			return r;
 
 		FOREACH_DEVICE_CHILD(fc_parent, child) {
 			r = sd_device_get_sysattr_value(child, "port_name", &fc_pn);
