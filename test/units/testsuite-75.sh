@@ -273,7 +273,7 @@ resolvectl log-level debug
 
 # Start monitoring queries
 systemd-run -u resolvectl-monitor.service -p Type=notify resolvectl monitor
-systemd-run --setenv SYSTEMD_LOG_LEVEL=err -u resolvectl-monitor-json.service -p Type=notify resolvectl monitor --json=short
+systemd-run -u resolvectl-monitor-json.service -p Type=notify -p StandardError=journal resolvectl monitor --json=short
 
 # FIXME: knot, unfortunately, incorrectly complains about missing zone files for zones
 #        that are forwarded using the `dnsproxy` module. Until the issue is resolved,
