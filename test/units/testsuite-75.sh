@@ -102,12 +102,21 @@ assert_in '_localdnsproxy' "$(dig @127.0.0.53 -x 127.0.0.54)"
 mkdir -p /run/systemd/resolved.conf.d
 {
     echo "[Resolve]"
-    echo "MulticastDNS=yes"
-    echo "LLMNR=yes"
+    echo "MulticastDNS=no"
+    echo "LLMNR=no"
 } >/run/systemd/resolved.conf.d/mdns-llmnr.conf
 restart_resolved
 # make sure networkd is not running.
 systemctl stop systemd-networkd.service
+assert_in 'no' "$(resolvectl mdns hoge)"
+assert_in 'no' "$(resolvectl llmnr hoge)"
+# Tests that reloading works
+{
+    echo "[Resolve]"
+    echo "MulticastDNS=yes"
+    echo "LLMNR=yes"
+} >/run/systemd/resolved.conf.d/mdns-llmnr.conf
+systemctl reload systemd-resolved.service
 # defaults to yes (both the global and per-link settings are yes)
 assert_in 'yes' "$(resolvectl mdns hoge)"
 assert_in 'yes' "$(resolvectl llmnr hoge)"
@@ -130,7 +139,7 @@ assert_in 'no' "$(resolvectl llmnr hoge)"
     echo "MulticastDNS=resolve"
     echo "LLMNR=resolve"
 } >/run/systemd/resolved.conf.d/mdns-llmnr.conf
-restart_resolved
+systemctl reload systemd-resolved.service
 # set per-link setting
 resolvectl mdns hoge yes
 resolvectl llmnr hoge yes
@@ -150,7 +159,7 @@ assert_in 'no' "$(resolvectl llmnr hoge)"
     echo "MulticastDNS=no"
     echo "LLMNR=no"
 } >/run/systemd/resolved.conf.d/mdns-llmnr.conf
-restart_resolved
+systemctl reload systemd-resolved.service
 # set per-link setting
 resolvectl mdns hoge yes
 resolvectl llmnr hoge yes
@@ -180,13 +189,13 @@ fd00:dead:beef:cafe::1 ns1.unsigned.test
 127.128.0.5     localhost5 localhost5.localdomain localhost5.localdomain4 localhost.localdomain5 localhost5.localdomain5
 EOF
 
-mkdir -p /etc/systemd/network
-cat >/etc/systemd/network/10-dns0.netdev <<EOF
+mkdir -p /run/systemd/network
+cat >/run/systemd/network/10-dns0.netdev <<EOF
 [NetDev]
 Name=dns0
 Kind=dummy
 EOF
-cat >/etc/systemd/network/10-dns0.network <<EOF
+cat >/run/systemd/network/10-dns0.network <<EOF
 [Match]
 Name=dns0
 
@@ -197,12 +206,12 @@ DNSSEC=allow-downgrade
 DNS=10.0.0.1
 DNS=fd00:dead:beef:cafe::1
 EOF
-cat >/etc/systemd/network/10-dns1.netdev <<EOF
+cat >/run/systemd/network/10-dns1.netdev <<EOF
 [NetDev]
 Name=dns1
 Kind=dummy
 EOF
-cat >/etc/systemd/network/10-dns1.network <<EOF
+cat >/run/systemd/network/10-dns1.network <<EOF
 [Match]
 Name=dns1
 
@@ -254,7 +263,8 @@ ln -svf /etc/bind.keys /etc/bind/bind.keys
 # Start the services
 systemctl unmask systemd-networkd
 systemctl start systemd-networkd
-restart_resolved
+/usr/lib/systemd/systemd-networkd-wait-online --interface=dns1:routable --timeout=60
+systemctl reload systemd-resolved
 systemctl start resolved-dummy-server
 # Create knot's runtime dir, since from certain version it's provided only by
 # the package and not created by tmpfiles/systemd
@@ -720,7 +730,7 @@ if command -v nft >/dev/null; then
         echo "StaleRetentionSec=1d"
     } >/run/systemd/resolved.conf.d/test.conf
     ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-    restart_resolved
+    systemctl reload systemd-resolved.service
 
     run dig stale1.unsigned.test -t A
     grep -qE "NOERROR" "$RUN_OUT"
@@ -849,6 +859,21 @@ test "$(resolvectl --json=short query -t A localhost)" == '{"key":{"class":1,"ty
 # Test ResolveRecord RR resolving via Varlink
 test "$(varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveRecord '{"name":"localhost","type":1}' --json=short)" == '{"rrs":[{"ifindex":1,"rr":{"key":{"class":1,"type":1,"name":"localhost"},"address":[127,0,0,1]},"raw":"CWxvY2FsaG9zdAAAAQABAAAAAAAEfwAAAQ=="}],"flags":786945}'
 test "$(varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveRecord '{"name":"localhost","type":28}' --json=short)" == '{"rrs":[{"ifindex":1,"rr":{"key":{"class":1,"type":28,"name":"localhost"},"address":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]},"raw":"CWxvY2FsaG9zdAAAHAABAAAAAAAQAAAAAAAAAAAAAAAAAAAAAQ=="}],"flags":786945}'
+
+# Ensure that reloading keeps the manually configured address
+{
+    echo "[Resolve]"
+    echo "DNS=8.8.8.8"
+} >/run/systemd/resolved.conf.d/reload.conf
+resolvectl dns dns0 1.1.1.1
+systemctl reload systemd-resolved.service
+resolvectl status
+resolvectl dns dns0 | grep -qF "1.1.1.1"
+# For some reason piping this last command to grep fails with:
+# 'resolvectl[1378]: Failed to print table: Broken pipe'
+# so use an intermediate file in /tmp/
+resolvectl >/tmp/output
+grep -qF "DNS Servers: 8.8.8.8" /tmp/output
 
 # Check if resolved exits cleanly.
 restart_resolved

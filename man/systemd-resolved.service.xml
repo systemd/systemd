@@ -421,6 +421,16 @@ search foobar.com barbar.com
 
         <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><constant>SIGHUP</constant></term>
+
+        <listitem><para>Upon reception of the <constant>SIGHUP</constant> process signal
+        <command>systemd-resolved</command> will flush all caches it maintains, drop all open TCP
+        connections (if any), and reload its configuration files.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
