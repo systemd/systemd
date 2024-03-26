@@ -2,15 +2,10 @@
 
 from contextlib import contextmanager
 from os import uname
-from pathlib import Path
 from re import match
 from shlex import quote
 from shutil import which
 from subprocess import run, DEVNULL
-from tempfile import TemporaryDirectory
-
-
-ONE_MIBIBYTE = 1024 * 1024
 
 
 def find_qemu():
@@ -34,26 +29,22 @@ def setup(mkosi_args):
         exit(77)
 
     qemu_args = []
+    qemu_drives = []
 
     for i in range(4):
         qemu_args += ['-device', f"megasas-gen2,id=scsi{i}"]
 
-    with TemporaryDirectory() as td:
-        td = Path(td)
-        for i in range(128):
-            disk = td / f"disk{i}.img"
-            with open(disk, 'w') as f:
-                f.truncate(ONE_MIBIBYTE)
-                f.write(f"device{i}")
+    for i in range(128):
+        drive_id = f"drive{i}"
+        qemu_args += [
+            '-device',
+            f"scsi-hd,drive={drive_id},bus=scsi{i // 32}.0,channel=0,"
+            f"scsi-id={i % 32},lun=0",
+        ]
+        qemu_drives += [f"{drive_id}:1M::cache=unsafe"]
 
-            qemu_args += [
-                '-device',
-                f"scsi-hd,drive=drive{i},bus=scsi{i // 32}.0,channel=0,"
-                f"scsi-id={i % 32},lun=0",
-                '-drive',
-                f"format=raw,cache=unsafe,file={str(disk).replace(',', ',,')},"
-                f"if=none,id=drive{i}",
-            ]
-
-        mkosi_args += [f"--qemu-args={' '.join(quote(v) for v in qemu_args)}",]
-        yield
+    mkosi_args += [
+        f"--qemu-args={' '.join(quote(v) for v in qemu_args)}",
+        f"--qemu-drive={' '.join(qemu_drives)}",
+    ]
+    yield

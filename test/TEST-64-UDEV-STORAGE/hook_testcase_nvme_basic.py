@@ -2,15 +2,10 @@
 
 from contextlib import contextmanager
 from os import uname
-from pathlib import Path
 from re import match
 from shlex import quote
 from shutil import which
 from subprocess import run, DEVNULL
-from tempfile import TemporaryDirectory
-
-
-ONE_MIBIBYTE = 1024 * 1024
 
 
 def find_qemu():
@@ -34,34 +29,29 @@ def setup(mkosi_args):
         exit(77)
 
     qemu_args = []
+    qemu_drives = []
 
     for i in range(4):
         qemu_args += ['-device', f"megasas-gen2,id=scsi{i}"]
-    with TemporaryDirectory() as td:
-        td = Path(td)
-        for i in range(20):
-            disk = td / f"disk{i}.img"
-            with open(disk, 'w') as f:
-                f.truncate(ONE_MIBIBYTE)
-                f.write(f"device{i}")
 
-        def add_drive(i, serial):
-            nonlocal qemu_args
-            disk = str(td / f"disk{i}.img").replace(',', ',,')
-            qemu_args += [
-                '-device', f"nvme,drive=nvme{i},serial={serial},num_queues=8",
-                '-drive',
-                f"format=raw,cache=unsafe,file={disk},if=none,id=nvme{i}",
-            ]
+    def add_drive(i, serial):
+        nonlocal qemu_args
+        nonlocal qemu_drives
+        drive_id = f"nvme{i}"
+        qemu_args += ['-device', f"nvme,drive={drive_id},serial={serial},num_queues=8"]
+        qemu_drives += [f"{drive_id}:1M::cache=unsafe"]
 
-        for i in range(5):
-            add_drive(i, serial=f"deadbeef{i}")
-        for i in range(5, 10):
-            add_drive(i, serial=f"    deadbeef  {i}   ")
-        for i in range(10, 15):
-            add_drive(i, serial=f"    dead/beef/{i}   ")
-        for i in range(15, 20):
-            add_drive(i, serial=f"dead/../../beef/{i}")
+    for i in range(5):
+        add_drive(i, serial=f"deadbeef{i}")
+    for i in range(5, 10):
+        add_drive(i, serial=f"    deadbeef  {i}   ")
+    for i in range(10, 15):
+        add_drive(i, serial=f"    dead/beef/{i}   ")
+    for i in range(15, 20):
+        add_drive(i, serial=f"dead/../../beef/{i}")
 
-        mkosi_args += [f"--qemu-args={' '.join(quote(v) for v in qemu_args)}"]
-        yield
+    mkosi_args += [
+        f"--qemu-args={' '.join(quote(v) for v in qemu_args)}",
+        f"--qemu-drive={' '.join(qemu_drives)}",
+    ]
+    yield

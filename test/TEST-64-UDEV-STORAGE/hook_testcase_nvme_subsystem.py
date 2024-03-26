@@ -2,15 +2,10 @@
 
 from contextlib import contextmanager
 from os import uname
-from pathlib import Path
 from re import match
 from shlex import quote
 from shutil import which
 from subprocess import run, DEVNULL
-from tempfile import TemporaryDirectory
-
-
-ONE_MIBIBYTE = 1024 * 1024
 
 
 def find_qemu():
@@ -33,28 +28,23 @@ def setup(mkosi_args):
         print("nvme-subsystem device driver is not available, skipping test...")
         exit(77)
 
-    qemu_args = []
+    qemu_args = [
+        # Create an NVM Subsystem Device
+        '-device', 'nvme-subsys,id=nvme-subsys-64,nqn=subsys64',
+        # Attach two NVM controllers to it
+        '-device', 'nvme,subsys=nvme-subsys-64,serial=deadbeef',
+        '-device', 'nvme,subsys=nvme-subsys-64,serial=deadbeef',
+        # And create two shared namespaces attached to both controllers
+        '-device', 'nvme-ns,drive=nvme0,nsid=16,shared=on',
+        '-device', 'nvme-ns,drive=nvme1,nsid=17,shared=on',
+    ]
+    qemu_drives = [
+        "nvme0:1M::cache=unsafe",
+        "nvme1:1M::cache=unsafe",
+    ]
 
-    with TemporaryDirectory() as td:
-        td = Path(td)
-        for i in range(2):
-            disk = td / f"disk{i}.img"
-            with open(disk, 'w') as f:
-                f.truncate(ONE_MIBIBYTE)
-                f.write(f"device{i}")
-
-        qemu_args += [
-            # Create an NVM Subsystem Device
-            '-device', 'nvme-subsys,id=nvme-subsys-64,nqn=subsys64',
-            # Attach two NVM controllers to it
-            '-device', 'nvme,subsys=nvme-subsys-64,serial=deadbeef',
-            '-device', 'nvme,subsys=nvme-subsys-64,serial=deadbeef',
-            # And create two shared namespaces attached to both controllers
-            '-device', 'nvme-ns,drive=nvme0,nsid=16,shared=on',
-            '-drive', f'format=raw,cache=unsafe,file={str(td).replace(",", ",,")}/disk0.img,if=none,id=nvme0',
-            '-device', 'nvme-ns,drive=nvme1,nsid=17,shared=on',
-            '-drive', f'format=raw,cache=unsafe,file={str(td).replace(",", ",,")}/disk1.img,if=none,id=nvme1',
-        ]
-
-        mkosi_args += [f"--qemu-args={' '.join(quote(v) for v in qemu_args)}"]
-        yield
+    mkosi_args += [
+        f"--qemu-args={' '.join(quote(v) for v in qemu_args)}",
+        f"--qemu-drive={' '.join(qemu_drives)}",
+    ]
+    yield
