@@ -392,9 +392,6 @@ int dnstls_manager_init(Manager *manager) {
 
         assert(manager);
 
-        ERR_load_crypto_strings();
-        SSL_load_error_strings();
-
         manager->dnstls_data.ctx = SSL_CTX_new(TLS_client_method());
         if (!manager->dnstls_data.ctx)
                 return -ENOMEM;
