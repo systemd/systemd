@@ -59,7 +59,13 @@ basic_tests() {
 }
 
 testcase_bootctl_basic() {
-    assert_eq "$(bootctl --print-esp-path)" "/efi"
+    case "$(bootctl --print-esp-path)" in
+        /boot|/efi)
+            ;;
+        *)
+            assert_not_reached
+            ;;
+    esac
     case "$(bootctl --print-boot-path)" in
         /boot|/efi)
             ;;
@@ -272,8 +278,9 @@ EOF
 testcase_bootctl_varlink() {
     varlinkctl call --collect /run/systemd/io.systemd.BootControl io.systemd.BootControl.ListBootEntries '{}'
 
-    # We may not have UEFI in the test environment
-    # if we don't we want to test whether it fails cleanly.
+    # We may have UEFI in the test environment.
+    # If we don't have UEFI then we can test whether bootctl's varlink API fails cleanly.
+    # If we do have UEFI then the rest of the clean fail tests should be skipped.
     if ! ( SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.GetRebootToFirmware '{}' 2>&1 || true ) | grep -q io.systemd.BootControl.RebootToFirmwareNotSupported; then
         return 0
     fi
