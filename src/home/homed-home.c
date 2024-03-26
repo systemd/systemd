@@ -232,8 +232,7 @@ Home *home_free(Home *h) {
         free(h->user_name);
         free(h->sysfs);
 
-        h->ref_event_source_please_suspend = sd_event_source_disable_unref(h->ref_event_source_please_suspend);
-        h->ref_event_source_dont_suspend = sd_event_source_disable_unref(h->ref_event_source_dont_suspend);
+        h->ref_event_source = sd_event_source_disable_unref(h->ref_event_source);
 
         h->pending_operations = ordered_set_free(h->pending_operations);
         h->pending_event_source = sd_event_source_disable_unref(h->pending_event_source);
@@ -2848,14 +2847,8 @@ static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *u
 
         assert(s);
 
-        if (h->ref_event_source_please_suspend == s)
-                h->ref_event_source_please_suspend = sd_event_source_disable_unref(h->ref_event_source_please_suspend);
-
-        if (h->ref_event_source_dont_suspend == s)
-                h->ref_event_source_dont_suspend = sd_event_source_disable_unref(h->ref_event_source_dont_suspend);
-
-        if (home_is_referenced(h))
-                return 0;
+        assert(s == h->ref_event_source);
+        h->ref_event_source = sd_event_source_disable_unref(h->ref_event_source);
 
         log_info("Got notification that all sessions of user %s ended, deactivating automatically.", h->user_name);
 
@@ -2869,25 +2862,17 @@ static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *u
         return 0;
 }
 
-int home_create_fifo(Home *h, bool please_suspend) {
+int home_create_ref(Home *h) {
         _cleanup_close_ int ret_fd = -EBADF;
-        sd_event_source **ss;
-        const char *fn, *suffix;
+        const char *fn;
         int r;
 
         assert(h);
 
-        if (please_suspend) {
-                suffix = ".please-suspend";
-                ss = &h->ref_event_source_please_suspend;
-        } else {
-                suffix = ".dont-suspend";
-                ss = &h->ref_event_source_dont_suspend;
-        }
+        fn = strjoina("/run/systemd/home/", h->user_name, ".ref");
 
-        fn = strjoina("/run/systemd/home/", h->user_name, suffix);
-
-        if (!*ss) {
+        if (!h->ref_event_source) {
+                _cleanup_(sd_event_source_unrefp) sd_event_source *evt = NULL;
                 _cleanup_close_ int ref_fd = -EBADF;
 
                 (void) mkdir("/run/systemd/home/", 0755);
@@ -2898,23 +2883,24 @@ int home_create_fifo(Home *h, bool please_suspend) {
                 if (ref_fd < 0)
                         return log_error_errno(errno, "Failed to open FIFO %s for reading: %m", fn);
 
-                r = sd_event_add_io(h->manager->event, ss, ref_fd, 0, on_home_ref_eof, h);
+                r = sd_event_add_io(h->manager->event, &evt, ref_fd, 0, on_home_ref_eof, h);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate reference FIFO event source: %m");
 
-                (void) sd_event_source_set_description(*ss, "acquire-ref");
+                (void) sd_event_source_set_description(evt, "acquire-ref");
 
                 /* We need to notice dropped refs before we process new bus requests (which
                  * might try to obtain new refs) */
-                r = sd_event_source_set_priority(*ss, SD_EVENT_PRIORITY_NORMAL-10);
+                r = sd_event_source_set_priority(evt, SD_EVENT_PRIORITY_NORMAL-10);
                 if (r < 0)
                         return r;
 
-                r = sd_event_source_set_io_fd_own(*ss, true);
+                r = sd_event_source_set_io_fd_own(evt, true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to pass ownership of FIFO event fd to event source: %m");
-
                 TAKE_FD(ref_fd);
+
+                h->ref_event_source = TAKE_PTR(evt);
         }
 
         ret_fd = open(fn, O_WRONLY|O_CLOEXEC|O_NONBLOCK);
@@ -2987,14 +2973,7 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
 bool home_is_referenced(Home *h) {
         assert(h);
 
-        return h->ref_event_source_dont_suspend || h->ref_event_source_please_suspend;
-}
-
-bool home_shall_suspend(Home *h) {
-        assert(h);
-
-        /* Suspend if there's at least one client referencing this home directory that wants a suspend and none who does not. */
-        return h->ref_event_source_please_suspend && !h->ref_event_source_dont_suspend;
+        return !!h->ref_event_source;
 }
 
 static int home_dispatch_release(Home *h, Operation *o) {
