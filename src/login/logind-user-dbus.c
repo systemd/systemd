@@ -6,6 +6,7 @@
 #include "bus-get-properties.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
+#include "fd-util.h"
 #include "format-util.h"
 #include "logind-dbus.h"
 #include "logind-session-dbus.h"
@@ -186,6 +187,25 @@ static int property_get_linger(
         return sd_bus_message_append(reply, "b", r > 0);
 }
 
+static int property_get_can_secure_lock(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        User *u = ASSERT_PTR(userdata);
+        bool supported;
+
+        assert(bus);
+        assert(reply);
+
+        supported = user_can_secure_lock(u);
+        return sd_bus_message_append(reply, "b", supported);
+}
+
 int bus_user_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         User *u = ASSERT_PTR(userdata);
         int r;
@@ -244,6 +264,110 @@ int bus_user_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
                 return r;
 
         return sd_bus_reply_method_return(message, NULL);
+}
+
+static void secure_lock_cb(User *u, void *userdata, const sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = ASSERT_PTR(userdata);
+        int r;
+
+        if (error)
+                r = sd_bus_reply_method_error(message, error);
+        else
+                r = sd_bus_reply_method_return(message, NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to reply to SecureLock(): %m");
+}
+
+static int bus_user_method_secure_lock(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        User *u = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        r = bus_verify_polkit_async_full(
+                        message,
+                        "org.freedesktop.login1.secure-lock-users",
+                        /* details= */ NULL,
+                        u->user_record->uid,
+                        /* flags= */ 0,
+                        &u->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        if (!user_can_secure_lock(u))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "User doesn't support secure locking.");
+
+        return user_secure_lock(u, secure_lock_cb, sd_bus_message_ref(message));
+}
+
+static int bus_user_method_delay_secure_lock(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_close_ int fd = -EBADF;
+        User *u = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        r = bus_verify_polkit_async_full(
+                        message,
+                        "org.freedesktop.login1.delay-secure-lock",
+                        /* details= */ NULL,
+                        u->user_record->uid,
+                        /* flags= */ 0,
+                        &u->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        fd = user_delay_secure_lock(u);
+        if (fd < 0)
+                return fd;
+
+        return sd_bus_reply_method_return(message, "h", fd);
+}
+
+static int bus_user_method_inhibit_auto_secure_lock(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_close_ int fd = -EBADF;
+        User *u = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        r = bus_verify_polkit_async_full(
+                        message,
+                        "org.freedesktop.login1.inhibit-auto-secure-lock",
+                        /* details= */ NULL,
+                        u->user_record->uid,
+                        /* flags= */ 0,
+                        &u->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        fd = user_inhibit_auto_secure_lock(u);
+        if (fd < 0)
+                return fd;
+
+        return sd_bus_reply_method_return(message, "h", fd);
+}
+
+static int bus_user_method_enable_secure_lock(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_close_ int fd = -EBADF;
+        User *u = ASSERT_PTR(userdata);
+
+        assert(message);
+
+        fd = user_enable_secure_lock(u);
+        if (fd < 0)
+                return fd;
+
+        return sd_bus_reply_method_return(message, "h", fd);
 }
 
 static int user_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
@@ -365,6 +489,7 @@ static const sd_bus_vtable user_vtable[] = {
         SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Linger", "b", property_get_linger, 0, 0),
+        SD_BUS_PROPERTY("CanSecureLock", "b", property_get_can_secure_lock, 0, 0),
 
         SD_BUS_METHOD("Terminate", NULL, NULL, bus_user_method_terminate, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("Kill",
@@ -372,6 +497,28 @@ static const sd_bus_vtable user_vtable[] = {
                                 SD_BUS_NO_RESULT,
                                 bus_user_method_kill,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD("SecureLock", NULL, NULL, bus_user_method_secure_lock, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("DelaySecureLock",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("h", delay_fd),
+                                bus_user_method_delay_secure_lock,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("InhibitAutoSecureLock",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("h", inhibitor_fd),
+                                bus_user_method_inhibit_auto_secure_lock,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("EnableSecureLock",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("h", done_fd),
+                                bus_user_method_enable_secure_lock,
+                                0),
+
+        SD_BUS_SIGNAL_WITH_ARGS("PrepareForSecureLock",
+                                SD_BUS_ARGS("b", locking),
+                                0),
+        SD_BUS_SIGNAL("TriggerSecureLock", NULL, 0),
 
         SD_BUS_VTABLE_END
 };
@@ -416,4 +563,36 @@ int user_send_changed(User *u, const char *properties, ...) {
         l = strv_from_stdarg_alloca(properties);
 
         return sd_bus_emit_properties_changed_strv(u->manager->bus, p, "org.freedesktop.login1.User", l);
+}
+
+int user_send_trigger_secure_lock(User *u) {
+        _cleanup_free_ char *path = NULL;
+
+        assert(u);
+
+        path = user_bus_path(u);
+        if (!path)
+                return -ENOMEM;
+
+        return sd_bus_emit_signal(u->manager->bus,
+                                  path,
+                                  "org.freedesktop.login1.User",
+                                  "TriggerSecureLock",
+                                  NULL);
+}
+
+int user_send_prepare_for_secure_lock(User *u, bool locking) {
+        _cleanup_free_ char *path = NULL;
+
+        assert(u);
+
+        path = user_bus_path(u);
+        if (!path)
+                return -ENOMEM;
+
+        return sd_bus_emit_signal(u->manager->bus,
+                                  path,
+                                  "org.freedesktop.login1.User",
+                                  "PrepareForSecureLock",
+                                  "b", locking);
 }
