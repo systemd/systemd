@@ -910,6 +910,10 @@ int user_kill(User *u, int signo) {
 bool user_can_secure_lock(User *u) {
         assert(u);
 
+        LIST_FOREACH(sessions_by_user, s, u->sessions)
+                if (SESSION_CLASS_CAN_LOCK(s->class) && !s->can_secure_lock)
+                        return false;
+
         return !!u->secure_lock_backend_event_source;
 }
 
