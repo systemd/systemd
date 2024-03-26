@@ -45,6 +45,8 @@ struct DnssdService {
         Manager *manager;
 
         bool withdrawn:1;
+        /* Services registered via D-Bus are not removed on reload */
+        bool from_dbus:1;
         uid_t originator;
 };
 

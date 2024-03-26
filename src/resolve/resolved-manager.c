@@ -11,6 +11,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bus-polkit.h"
+#include "daemon-util.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
 #include "event-util.h"
@@ -565,6 +566,69 @@ static int manager_memory_pressure_listen(Manager *m) {
         return 0;
 }
 
+static int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        DnssdService *dnssd;
+        int r;
+
+        (void) sd_notifyf(/* unset= */ false,
+                          "RELOADING=1\n"
+                          "STATUS=Reloading configuration...\n"
+                          "MONOTONIC_USEC=" USEC_FMT, now(CLOCK_MONOTONIC));
+
+        m->llmnr_support = DEFAULT_LLMNR_MODE;
+        m->mdns_support = DEFAULT_MDNS_MODE;
+        m->dnssec_mode = DEFAULT_DNSSEC_MODE;
+        m->dns_over_tls_mode = DEFAULT_DNS_OVER_TLS_MODE;
+        m->enable_cache = DNS_CACHE_MODE_YES;
+        m->dns_stub_listener_mode = DNS_STUB_LISTENER_YES;
+        m->read_etc_hosts = true;
+        m->resolve_unicast_single_label = false;
+        m->cache_from_localhost = false;
+        m->stale_retention_usec = 0;
+
+        dns_server_unlink_on_reload(m->dns_servers);
+        dns_server_unlink_on_reload(m->fallback_dns_servers);
+        m->dns_extra_stub_listeners = ordered_set_free(m->dns_extra_stub_listeners);
+        HASHMAP_FOREACH(dnssd, m->dnssd_services)
+                if (!dnssd->from_dbus)
+                        dnssd_service_free(dnssd);
+        m->unicast_scope = dns_scope_free(m->unicast_scope);
+
+        dns_trust_anchor_flush(&m->trust_anchor);
+
+        r = dns_trust_anchor_load(&m->trust_anchor);
+        if (r < 0)
+                return r;
+
+        r = manager_parse_config_file(m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse config file, using defaults: %m");
+        else
+                log_info("Config file reloaded.");
+
+        r = dnssd_load(m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to load DNS-SD configuration files: %m");
+
+        r = dns_scope_new(m, &m->unicast_scope, NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
+        if (r < 0)
+                return r;
+
+        r = on_network_event(/* sd_event_source= */ NULL, -EBADF, /* revents= */ 0, m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to update network information: %m");
+
+        /* We have new configuration, which means potentially new servers, so close all connections and drop
+         * all caches, so that we can start fresh. */
+        (void) dns_stream_disconnect_all(m);
+        manager_flush_caches(m, LOG_INFO);
+        manager_verify_all(m);
+
+        (void) sd_notify(/* unset= */ false, NOTIFY_READY);
+        return 0;
+}
+
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -619,6 +683,7 @@ int manager_new(Manager **ret) {
 
         (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
         (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
 
         (void) sd_event_set_watchdog(m->event, true);
 
