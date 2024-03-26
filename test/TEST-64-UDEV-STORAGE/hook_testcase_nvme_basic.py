@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from os import uname
 from pathlib import Path
 from re import match
+from shlex import quote
 from shutil import which
 from subprocess import run, DEVNULL
 from tempfile import TemporaryDirectory
@@ -25,14 +26,17 @@ def find_qemu():
 
 
 @contextmanager
-def setup(mkosi_args, qemu_opts):
+def setup(mkosi_args):
     result = run([find_qemu(), '-device', 'help'],
                  check=True, capture_output=True, stdin=DEVNULL)
     if b'name "nvme"' not in result.stdout:
         print("nvme device driver is not available, skipping test...")
         exit(77)
+
+    qemu_args = []
+
     for i in range(4):
-        qemu_opts += ['-device', f"megasas-gen2,id=scsi{i}"]
+        qemu_args += ['-device', f"megasas-gen2,id=scsi{i}"]
     with TemporaryDirectory() as td:
         td = Path(td)
         for i in range(20):
@@ -42,9 +46,9 @@ def setup(mkosi_args, qemu_opts):
                 f.write(f"device{i}")
 
         def add_drive(i, serial):
-            nonlocal qemu_opts
+            nonlocal qemu_args
             disk = str(td / f"disk{i}.img").replace(',', ',,')
-            qemu_opts += [
+            qemu_args += [
                 '-device', f"nvme,drive=nvme{i},serial={serial},num_queues=8",
                 '-drive',
                 f"format=raw,cache=unsafe,file={disk},if=none,id=nvme{i}",
@@ -58,4 +62,6 @@ def setup(mkosi_args, qemu_opts):
             add_drive(i, serial=f"    dead/beef/{i}   ")
         for i in range(15, 20):
             add_drive(i, serial=f"dead/../../beef/{i}")
+
+        mkosi_args += [f"--qemu-args={' '.join(quote(v) for v in qemu_args)}"]
         yield

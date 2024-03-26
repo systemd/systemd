@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from os import uname
 from pathlib import Path
 from re import match
+from shlex import quote
 from shutil import copy, which
 from subprocess import run, DEVNULL
 from tempfile import TemporaryDirectory
@@ -25,7 +26,7 @@ def find_qemu():
 
 
 @contextmanager
-def setup(mkosi_args, qemu_opts):
+def setup(mkosi_args):
     result = run([find_qemu(), '-device', 'help'], check=True, capture_output=True, stdin=DEVNULL)
     if b'name "virtio-scsi-pci"' not in result.stdout:
         print("virtio-scsi-pci device driver is not available, skipping test...")
@@ -34,7 +35,7 @@ def setup(mkosi_args, qemu_opts):
     num_disk = 16
     num_part = 8
 
-    qemu_opts += ['-device', 'virtio-scsi-pci,id=scsi0,num_queues=4']
+    qemu_args = ['-device', 'virtio-scsi-pci,id=scsi0,num_queues=4']
 
     with TemporaryDirectory() as td:
         td = Path(td)
@@ -60,12 +61,16 @@ def setup(mkosi_args, qemu_opts):
             disk = td / f"namedpart{i}.img"
             if i > 0:
                 copy(namedpart0, disk)
-            qemu_opts += [
+            drive_id = f"drivenamedpart{i}"
+            qemu_args += [
                 '-device',
-                f"scsi-hd,drive=drive{i},bus=scsi0.0,channel=0,scsi-id=0,lun={i}",
+                f"scsi-hd,drive={drive_id},bus=scsi0.0,channel=0,scsi-id=0,lun={i}",
                 '-drive',
-                f"format=raw,cache=unsafe,file={str(disk).replace(',', ',,')},if=none,id=drive{i}",
+                f"format=raw,cache=unsafe,file={str(disk).replace(',', ',,')},if=none,id={drive_id}",
             ]
 
-        mkosi_args += ['--qemu-smp=1']
+        mkosi_args += [
+            '--qemu-smp=1',
+            f"--qemu-args={' '.join(quote(v) for v in qemu_args)}",
+        ]
         yield

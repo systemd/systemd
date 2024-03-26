@@ -182,13 +182,11 @@ def main():
                       ' '.join(BUILTIN_KERNEL_COMMAND_LINE_ARGS),
                      ] + args.mkosi_args
 
-        qemu_opts = []
-
         if hook is not None and hasattr(hook, 'setup'):
             # TODO: Think about the setup API supporting running vmspawn directly
-            stack.enter_context(hook.setup(mkosi_args, qemu_opts))
+            stack.enter_context(hook.setup(mkosi_args))
 
-        run_mkosi(mkosi_args + ['qemu'] + qemu_opts,
+        run_mkosi(mkosi_args + ['qemu'],
                   check=True, stderr=STDOUT, stdout=console_log,
                   **({'run': hook.wrap_run}
                      if hook is not None and hasattr(hook, 'wrap_run')

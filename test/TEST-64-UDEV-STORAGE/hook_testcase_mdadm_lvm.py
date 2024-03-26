@@ -1,31 +1,25 @@
 #!/usr/bin/python3
 
 from contextlib import contextmanager
-from pathlib import Path
-from tempfile import TemporaryDirectory
-
-
-ONE_MIBIBYTE = 1024 * 1024
+from shlex import quote
 
 
 @contextmanager
-def setup(mkosi_args, qemu_opts):
-    qemu_opts += ['-device', 'ahci,id=ahci0']
-    with TemporaryDirectory() as td:
-        td = Path(td)
+def setup(mkosi_args):
+    qemu_args = ['-device', 'ahci,id=ahci0']
+    qemu_drives = []
 
-        for i in range(5):
-            disk = td / f"mdadmlvm{i}.img"
-            with open(disk, 'w') as f:
-                f.truncate(64 * ONE_MIBIBYTE)
+    for i in range(5):
+        drive_id = f"drivemdadmlvm{i}"
+        qemu_args += [
+            '-device',
+            f"ide-hd,bus=ahci0.{i},drive={drive_id},model=foobar,"
+            f"serial=deadbeefmdadmlvm{i}",
+        ]
+        qemu_drives += [f"{drive_id}:64M::cache=unsafe"]
 
-            qemu_opts += [
-                '-device',
-                f"ide-hd,bus=ahci0.{i},drive=drive{i},model=foobar,"
-                f"serial=deadbeefmdadmlvm{i}",
-                '-drive',
-                f"format=raw,cache=unsafe,file={str(disk).replace(',', ',,')},"
-                f"if=none,id=drive{i}",
-            ]
-
-        yield
+    mkosi_args += [
+        f"--qemu-args={' '.join(quote(v) for v in qemu_args)}",
+        f"--qemu-drive={' '.join(qemu_drives)}",
+    ]
+    yield

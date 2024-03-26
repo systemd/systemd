@@ -3,21 +3,20 @@
 from contextlib import contextmanager
 from os import environ
 from pathlib import Path
+from shlex import quote
 from subprocess import run, DEVNULL
 from tempfile import TemporaryDirectory
 
 
-ONE_MIBIBYTE = 1024 * 1024
-
-
 @contextmanager
-def setup(mkosi_args, qemu_opts):
+def setup(mkosi_args):
+    qemu_args = []
     with TemporaryDirectory() as td:
         td = Path(td)
         repart_d = td / 'repart.d'
         repart_d.mkdir()
         partdisk = td / 'longsysfspath.img'
-        qemu_opts += [
+        qemu_args += [
             '-drive',
             "if=none,id=drive0,format=raw,cache=unsafe,"
             f"file={str(partdisk).replace(',', ',,')}",
@@ -56,14 +55,15 @@ def setup(mkosi_args, qemu_opts):
         # the last one. This should force udev into attempting to create a device
         # unit with a _really_ long name.
         for brid in range(1, 26):
-            qemu_opts += [
+            qemu_args += [
                 '-device',
                 f"pci-bridge,id=pci_bridge{brid},bus=pci_bridge{brid - 1},"
                 f"chassis_nr={64 + brid}"
             ]
-        qemu_opts += [
+        qemu_args += [
             '-device',
             f"virtio-blk-pci,drive=drive0,scsi=off,bus=pci_bridge{brid}"
         ]
 
+        mkosi_args += [f"--qemu-args={' '.join(quote(v) for v in qemu_args)}"]
         yield

@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from os import uname
 from pathlib import Path
 from re import match
+from shlex import quote
 from shutil import which
 from subprocess import run, DEVNULL
 from tempfile import TemporaryDirectory
@@ -25,14 +26,18 @@ def find_qemu():
 
 
 @contextmanager
-def setup(mkosi_args, qemu_opts):
+def setup(mkosi_args):
     result = run([find_qemu(), '-device', 'help'],
                  check=True, capture_output=True, stdin=DEVNULL)
     if b'name "megasas-gen2"' not in result.stdout:
         print("megasas-gen2 device driver is not available, skipping test...")
         exit(77)
+
+    qemu_args = []
+
     for i in range(4):
-        qemu_opts += ['-device', f"megasas-gen2,id=scsi{i}"]
+        qemu_args += ['-device', f"megasas-gen2,id=scsi{i}"]
+
     with TemporaryDirectory() as td:
         td = Path(td)
         for i in range(128):
@@ -40,7 +45,8 @@ def setup(mkosi_args, qemu_opts):
             with open(disk, 'w') as f:
                 f.truncate(ONE_MIBIBYTE)
                 f.write(f"device{i}")
-            qemu_opts += [
+
+            qemu_args += [
                 '-device',
                 f"scsi-hd,drive=drive{i},bus=scsi{i // 32}.0,channel=0,"
                 f"scsi-id={i % 32},lun=0",
@@ -48,4 +54,6 @@ def setup(mkosi_args, qemu_opts):
                 f"format=raw,cache=unsafe,file={str(disk).replace(',', ',,')},"
                 f"if=none,id=drive{i}",
             ]
+
+        mkosi_args += [f"--qemu-args={' '.join(quote(v) for v in qemu_args)}",]
         yield

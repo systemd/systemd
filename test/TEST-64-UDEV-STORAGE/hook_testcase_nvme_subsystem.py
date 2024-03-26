@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from os import uname
 from pathlib import Path
 from re import match
+from shlex import quote
 from shutil import which
 from subprocess import run, DEVNULL
 from tempfile import TemporaryDirectory
@@ -25,12 +26,14 @@ def find_qemu():
 
 
 @contextmanager
-def setup(mkosi_args, qemu_opts):
+def setup(mkosi_args):
     result = run([find_qemu(), '-device', 'help'],
                  check=True, capture_output=True, stdin=DEVNULL)
     if b'name "nvme-subsys"' not in result.stdout:
         print("nvme-subsystem device driver is not available, skipping test...")
         exit(77)
+
+    qemu_args = []
 
     with TemporaryDirectory() as td:
         td = Path(td)
@@ -39,7 +42,8 @@ def setup(mkosi_args, qemu_opts):
             with open(disk, 'w') as f:
                 f.truncate(ONE_MIBIBYTE)
                 f.write(f"device{i}")
-        qemu_opts += [
+
+        qemu_args += [
             # Create an NVM Subsystem Device
             '-device', 'nvme-subsys,id=nvme-subsys-64,nqn=subsys64',
             # Attach two NVM controllers to it
@@ -51,4 +55,6 @@ def setup(mkosi_args, qemu_opts):
             '-device', 'nvme-ns,drive=nvme1,nsid=17,shared=on',
             '-drive', f'format=raw,cache=unsafe,file={str(td).replace(",", ",,")}/disk1.img,if=none,id=nvme1',
         ]
+
+        mkosi_args += [f"--qemu-args={' '.join(quote(v) for v in qemu_args)}"]
         yield
