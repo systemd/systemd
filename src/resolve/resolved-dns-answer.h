@@ -54,6 +54,7 @@ DnsAnswer *dns_answer_unref(DnsAnswer *a);
                 *_a = _b;                       \
         } while(0)
 
+
 int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex, DnsAnswerFlags flags, DnsResourceRecord *rrsig);
 int dns_answer_add_extend(DnsAnswer **a, DnsResourceRecord *rr, int ifindex, DnsAnswerFlags flags, DnsResourceRecord *rrsig);
 int dns_answer_add_soa(DnsAnswer *a, const char *name, uint32_t ttl, int ifindex);
@@ -92,6 +93,8 @@ static inline bool dns_answer_isempty(DnsAnswer *a) {
 }
 
 void dns_answer_dump(DnsAnswer *answer, FILE *f);
+
+void dns_answer_empty(DnsAnswer *a);
 
 void dns_answer_randomize(DnsAnswer *a);
 
