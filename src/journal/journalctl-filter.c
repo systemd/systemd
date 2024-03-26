@@ -69,30 +69,25 @@ static int add_dmesg(sd_journal *j) {
         if (!arg_dmesg)
                 return 0;
 
-        r = sd_journal_add_match(j, "_TRANSPORT=kernel",
-                                 STRLEN("_TRANSPORT=kernel"));
+        r = sd_journal_add_match(j, "_TRANSPORT=kernel", 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match: %m");
+                return r;
 
-        r = sd_journal_add_conjunction(j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add conjunction: %m");
-
-        return 0;
+        return sd_journal_add_conjunction(j);
 }
 
 static int get_possible_units(
                 sd_journal *j,
                 const char *fields,
                 char **patterns,
-                Set **units) {
+                Set **ret) {
 
-        _cleanup_set_free_free_ Set *found = NULL;
+        _cleanup_set_free_ Set *found = NULL;
         int r;
 
-        found = set_new(&string_hash_ops);
-        if (!found)
-                return -ENOMEM;
+        assert(j);
+        assert(fields);
+        assert(ret);
 
         NULSTR_FOREACH(field, fields) {
                 const void *data;
@@ -103,36 +98,31 @@ static int get_possible_units(
                         return r;
 
                 SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
-                        char *eq;
-                        size_t prefix;
                         _cleanup_free_ char *u = NULL;
+                        char *eq;
 
                         eq = memchr(data, '=', size);
-                        if (eq)
-                                prefix = eq - (char*) data + 1;
-                        else
-                                prefix = 0;
+                        if (eq) {
+                                size -= eq - (char*) data + 1;
+                                data = ++eq;
+                        }
 
-                        u = strndup((char*) data + prefix, size - prefix);
+                        u = strndup(data, size);
                         if (!u)
                                 return -ENOMEM;
 
-                        STRV_FOREACH(pattern, patterns)
-                                if (fnmatch(*pattern, u, FNM_NOESCAPE) == 0) {
-                                        log_debug("Matched %s with pattern %s=%s", u, field, *pattern);
+                        size_t i;
+                        if (!strv_fnmatch_full(patterns, u, FNM_NOESCAPE, &i))
+                                continue;
 
-                                        r = set_consume(found, u);
-                                        u = NULL;
-                                        if (r < 0 && r != -EEXIST)
-                                                return r;
-
-                                        break;
-                                }
+                        log_debug("Matched %s with pattern %s=%s", u, field, patterns[i]);
+                        r = set_ensure_consume(&found, &string_hash_ops_free, TAKE_PTR(u));
+                        if (r < 0)
+                                return r;
                 }
         }
 
-        *units = TAKE_PTR(found);
-
+        *ret = TAKE_PTR(found);
         return 0;
 }
 
@@ -155,9 +145,13 @@ static int get_possible_units(
 
 static int add_units(sd_journal *j) {
         _cleanup_strv_free_ char **patterns = NULL;
-        int r, count = 0;
+        bool added = false;
+        int r;
 
         assert(j);
+
+        if (strv_isempty(arg_system_units) && strv_isempty(arg_user_units))
+                return 0;
 
         STRV_FOREACH(i, arg_system_units) {
                 _cleanup_free_ char *u = NULL;
@@ -167,10 +161,9 @@ static int add_units(sd_journal *j) {
                         return r;
 
                 if (string_is_glob(u)) {
-                        r = strv_push(&patterns, u);
+                        r = strv_consume(&patterns, TAKE_PTR(u));
                         if (r < 0)
                                 return r;
-                        u = NULL;
                 } else {
                         r = add_matches_for_unit(j, u);
                         if (r < 0)
@@ -178,12 +171,12 @@ static int add_units(sd_journal *j) {
                         r = sd_journal_add_disjunction(j);
                         if (r < 0)
                                 return r;
-                        count++;
+                        added = true;
                 }
         }
 
         if (!strv_isempty(patterns)) {
-                _cleanup_set_free_free_ Set *units = NULL;
+                _cleanup_set_free_ Set *units = NULL;
                 char *u;
 
                 r = get_possible_units(j, SYSTEM_UNITS, patterns, &units);
@@ -197,7 +190,7 @@ static int add_units(sd_journal *j) {
                         r = sd_journal_add_disjunction(j);
                         if (r < 0)
                                 return r;
-                        count++;
+                        added = true;
                 }
         }
 
@@ -211,10 +204,9 @@ static int add_units(sd_journal *j) {
                         return r;
 
                 if (string_is_glob(u)) {
-                        r = strv_push(&patterns, u);
+                        r = strv_consume(&patterns, TAKE_PTR(u));
                         if (r < 0)
                                 return r;
-                        u = NULL;
                 } else {
                         r = add_matches_for_user_unit(j, u, getuid());
                         if (r < 0)
@@ -222,12 +214,12 @@ static int add_units(sd_journal *j) {
                         r = sd_journal_add_disjunction(j);
                         if (r < 0)
                                 return r;
-                        count++;
+                        added = true;
                 }
         }
 
         if (!strv_isempty(patterns)) {
-                _cleanup_set_free_free_ Set *units = NULL;
+                _cleanup_set_free_ Set *units = NULL;
                 char *u;
 
                 r = get_possible_units(j, USER_UNITS, patterns, &units);
@@ -241,20 +233,16 @@ static int add_units(sd_journal *j) {
                         r = sd_journal_add_disjunction(j);
                         if (r < 0)
                                 return r;
-                        count++;
+                        added = true;
                 }
         }
 
-        /* Complain if the user request matches but nothing whatsoever was
-         * found, since otherwise everything would be matched. */
-        if (!(strv_isempty(arg_system_units) && strv_isempty(arg_user_units)) && count == 0)
+        /* Complain if the user request matches but nothing whatsoever was found, since otherwise everything
+         * would be matched. */
+        if (!added)
                 return -ENODATA;
 
-        r = sd_journal_add_conjunction(j);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return sd_journal_add_conjunction(j);
 }
 
 static int add_syslog_identifier(sd_journal *j) {
@@ -262,13 +250,11 @@ static int add_syslog_identifier(sd_journal *j) {
 
         assert(j);
 
-        STRV_FOREACH(i, arg_syslog_identifier) {
-                _cleanup_free_ char *u = NULL;
+        if (strv_isempty(arg_syslog_identifier))
+                return 0;
 
-                u = strjoin("SYSLOG_IDENTIFIER=", *i);
-                if (!u)
-                        return -ENOMEM;
-                r = sd_journal_add_match(j, u, 0);
+        STRV_FOREACH(i, arg_syslog_identifier) {
+                r = journal_add_match_pair(j, "SYSLOG_IDENTIFIER", *i);
                 if (r < 0)
                         return r;
                 r = sd_journal_add_disjunction(j);
@@ -276,11 +262,7 @@ static int add_syslog_identifier(sd_journal *j) {
                         return r;
         }
 
-        r = sd_journal_add_conjunction(j);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return sd_journal_add_conjunction(j);
 }
 
 static int add_exclude_identifier(sd_journal *j) {
@@ -297,40 +279,65 @@ static int add_exclude_identifier(sd_journal *j) {
 }
 
 static int add_priorities(sd_journal *j) {
-        char match[] = "PRIORITY=0";
-        int i, r;
+        int r;
 
         assert(j);
 
-        if (arg_priorities == 0xFF)
+        if (arg_priorities == 0)
                 return 0;
 
-        for (i = LOG_EMERG; i <= LOG_DEBUG; i++)
+        for (int i = LOG_EMERG; i <= LOG_DEBUG; i++)
                 if (arg_priorities & (1 << i)) {
-                        match[sizeof(match)-2] = '0' + i;
-
-                        r = sd_journal_add_match(j, match, strlen(match));
+                        r = journal_add_matchf(j, "PRIORITY=%d", i);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to add match: %m");
+                                return r;
                 }
 
-        r = sd_journal_add_conjunction(j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add conjunction: %m");
-
-        return 0;
+        return sd_journal_add_conjunction(j);
 }
 
 static int add_facilities(sd_journal *j) {
-        void *p;
         int r;
 
+        assert(j);
+
+        if (set_isempty(arg_facilities))
+                return 0;
+
+        void *p;
         SET_FOREACH(p, arg_facilities) {
-                char match[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
+                r = journal_add_matchf(j, "SYSLOG_FACILITY=%d", PTR_TO_INT(p));
+                if (r < 0)
+                        return r;
+        }
 
-                xsprintf(match, "SYSLOG_FACILITY=%d", PTR_TO_INT(p));
+        return sd_journal_add_conjunction(j);
+}
 
-                r = sd_journal_add_match(j, match, strlen(match));
+static int add_matches_for_executable(sd_journal *j, const char *path) {
+        _cleanup_free_ char *interpreter = NULL;
+        int r;
+
+        assert(j);
+        assert(path);
+
+        if (executable_is_script(path, &interpreter) > 0) {
+                _cleanup_free_ char *comm = NULL;
+
+                r = path_extract_filename(path, &comm);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename of '%s': %m", path);
+
+                r = journal_add_match_pair(j, "_COMM", strshorten(comm, TASK_COMM_LEN-1));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add match: %m");
+
+                /* Append _EXE only if the interpreter is not a link. Otherwise, it might be outdated often. */
+                path = is_symlink(interpreter) > 0 ? interpreter : NULL;
+        }
+
+        if (path) {
+                r = journal_add_match_pair(j, "_EXE", path);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add match: %m");
         }
@@ -340,28 +347,17 @@ static int add_facilities(sd_journal *j) {
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        sd_device *d = NULL;
-        struct stat st;
         int r;
 
         assert(j);
         assert(devpath);
 
-        if (!path_startswith(devpath, "/dev/"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Devpath does not start with /dev/");
-
-        if (stat(devpath, &st) < 0)
-                return log_error_errno(errno, "Couldn't stat file: %m");
-
-        r = sd_device_new_from_stat_rdev(&device, &st);
+        r = sd_device_new_from_devname(&device, devpath);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device from devnum " DEVNUM_FORMAT_STR ": %m", DEVNUM_FORMAT_VAL(st.st_rdev));
+                return log_error_errno(r, "Failed to get device '%s': %m", devpath);
 
-        for (d = device; d; ) {
-                _cleanup_free_ char *match = NULL;
-                const char *subsys, *sysname, *devnode;
-                sd_device *parent;
+        for (sd_device *d = device; d; ) {
+                const char *subsys, *sysname;
 
                 r = sd_device_get_subsystem(d, &subsys);
                 if (r < 0)
@@ -371,121 +367,87 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
                 if (r < 0)
                         goto get_parent;
 
-                match = strjoin("_KERNEL_DEVICE=+", subsys, ":", sysname);
-                if (!match)
-                        return log_oom();
-
-                r = sd_journal_add_match(j, match, 0);
+                r = journal_add_matchf(j, "_KERNEL_DEVICE=+%s:%s", subsys, sysname);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add match: %m");
 
-                if (sd_device_get_devname(d, &devnode) >= 0) {
-                        _cleanup_free_ char *match1 = NULL;
-
-                        r = stat(devnode, &st);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to stat() device node \"%s\": %m", devnode);
-
-                        r = asprintf(&match1, "_KERNEL_DEVICE=%c" DEVNUM_FORMAT_STR, S_ISBLK(st.st_mode) ? 'b' : 'c', DEVNUM_FORMAT_VAL(st.st_rdev));
-                        if (r < 0)
-                                return log_oom();
-
-                        r = sd_journal_add_match(j, match1, 0);
+                dev_t devnum;
+                if (sd_device_get_devnum(d, &devnum) >= 0) {
+                        r = journal_add_matchf(j, "_KERNEL_DEVICE=%c" DEVNUM_FORMAT_STR,
+                                               streq(subsys, "block") ? 'b' : 'c',
+                                               DEVNUM_FORMAT_VAL(devnum));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add match: %m");
                 }
 
 get_parent:
-                if (sd_device_get_parent(d, &parent) < 0)
+                if (sd_device_get_parent(d, &d) < 0)
                         break;
-
-                d = parent;
         }
 
-        r = add_match_this_boot(j, arg_machine);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add match for the current boot: %m");
+        return add_match_boot_id(j, SD_ID128_NULL);
+}
 
-        return 0;
+static int add_matches_for_path(sd_journal *j, const char *path) {
+        _cleanup_free_ char *p = NULL;
+        struct stat st;
+        int r;
+
+        assert(j);
+        assert(path);
+
+        if (arg_root || arg_machine)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "An extra path in match filter is currently not supported with --root, --image, or -M/--machine.");
+
+        r = chase_and_stat(path, NULL, 0, &p, &st);
+        if (r < 0)
+                return log_error_errno(r, "Couldn't canonicalize path '%s': %m", path);
+
+        if (S_ISREG(st.st_mode) && (0111 & st.st_mode))
+                return add_matches_for_executable(j, p);
+
+        if (S_ISCHR(st.st_mode) || S_ISBLK(st.st_mode))
+                return add_matches_for_device(j, p);
+
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File is neither a device node nor executable: %s", p);
 }
 
 static int add_matches(sd_journal *j, char **args) {
         bool have_term = false;
+        int r;
 
         assert(j);
 
-        STRV_FOREACH(i, args) {
-                int r;
+        if (strv_isempty(args))
+                return 0;
 
+        STRV_FOREACH(i, args)
                 if (streq(*i, "+")) {
                         if (!have_term)
                                 break;
+
                         r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add disjunction: %m");
+
                         have_term = false;
 
                 } else if (path_is_absolute(*i)) {
-                        _cleanup_free_ char *p = NULL, *t = NULL, *t2 = NULL, *interpreter = NULL;
-                        struct stat st;
-
-                        r = chase(*i, NULL, CHASE_TRAIL_SLASH, &p, NULL);
+                        r = add_matches_for_path(j, *i);
                         if (r < 0)
-                                return log_error_errno(r, "Couldn't canonicalize path: %m");
-
-                        if (lstat(p, &st) < 0)
-                                return log_error_errno(errno, "Couldn't stat file: %m");
-
-                        if (S_ISREG(st.st_mode) && (0111 & st.st_mode)) {
-                                if (executable_is_script(p, &interpreter) > 0) {
-                                        _cleanup_free_ char *comm = NULL;
-
-                                        r = path_extract_filename(p, &comm);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to extract filename of '%s': %m", p);
-
-                                        t = strjoin("_COMM=", strshorten(comm, TASK_COMM_LEN-1));
-                                        if (!t)
-                                                return log_oom();
-
-                                        /* Append _EXE only if the interpreter is not a link.
-                                           Otherwise, it might be outdated often. */
-                                        if (lstat(interpreter, &st) == 0 && !S_ISLNK(st.st_mode)) {
-                                                t2 = strjoin("_EXE=", interpreter);
-                                                if (!t2)
-                                                        return log_oom();
-                                        }
-                                } else {
-                                        t = strjoin("_EXE=", p);
-                                        if (!t)
-                                                return log_oom();
-                                }
-
-                                r = sd_journal_add_match(j, t, 0);
-
-                                if (r >=0 && t2)
-                                        r = sd_journal_add_match(j, t2, 0);
-
-                        } else if (S_ISCHR(st.st_mode) || S_ISBLK(st.st_mode)) {
-                                r = add_matches_for_device(j, p);
-                                if (r < 0)
-                                        return r;
-                        } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "File is neither a device node, nor regular file, nor executable: %s",
-                                                       *i);
-
+                                return r;
                         have_term = true;
+
                 } else {
                         r = sd_journal_add_match(j, *i, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add match '%s': %m", *i);
                         have_term = true;
                 }
 
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add match '%s': %m", *i);
-        }
-
-        if (!strv_isempty(args) && !have_term)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "\"+\" can only be used between terms");
+        if (!have_term)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "\"+\" can only be used between terms.");
 
         return 0;
 }
@@ -503,7 +465,7 @@ int add_filters(sd_journal *j, char **matches) {
 
         r = add_dmesg(j);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to add filter for dmesg: %m");
 
         r = add_units(j);
         if (r < 0)
@@ -519,11 +481,11 @@ int add_filters(sd_journal *j, char **matches) {
 
         r = add_priorities(j);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to add filter for priorities: %m");
 
         r = add_facilities(j);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to add filter for facilities: %m");
 
         r = add_matches(j, matches);
         if (r < 0)

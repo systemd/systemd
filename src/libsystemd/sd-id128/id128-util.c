@@ -9,6 +9,8 @@
 #include "hexdecoct.h"
 #include "id128-util.h"
 #include "io-util.h"
+#include "namespace-util.h"
+#include "process-util.h"
 #include "sha256.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -267,4 +269,65 @@ sd_id128_t id128_digest(const void *data, size_t size) {
         memcpy(id.bytes, sha256_direct(data, size, h), sizeof(id.bytes));
 
         return id128_make_v4_uuid(id);
+}
+
+int id128_get_boot_for_machine(const char *machine, sd_id128_t *ret) {
+        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, rootfd = -EBADF;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        pid_t pid, child;
+        sd_id128_t id;
+        ssize_t k;
+        int r;
+
+        assert(ret);
+
+        if (isempty(machine))
+                return sd_id128_get_boot(ret);
+
+        r = container_get_leader(machine, &pid);
+        if (r < 0)
+                return r;
+
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, /* ret_netns_fd = */ NULL, /* ret_userns_fd = */ NULL, &rootfd);
+        if (r < 0)
+                return r;
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
+                return -errno;
+
+        r = namespace_fork("(sd-bootidns)", "(sd-bootid)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
+                           pidnsfd, mntnsfd, -1, -1, rootfd, &child);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                pair[0] = safe_close(pair[0]);
+
+                r = id128_get_boot(&id);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                k = send(pair[1], &id, sizeof(id), MSG_NOSIGNAL);
+                if (k != sizeof(id))
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        r = wait_for_terminate_and_check("(sd-bootidns)", child, 0);
+        if (r < 0)
+                return r;
+        if (r != EXIT_SUCCESS)
+                return -EIO;
+
+        k = recv(pair[0], &id, sizeof(id), 0);
+        if (k != sizeof(id))
+                return -EIO;
+
+        if (sd_id128_is_null(id))
+                return -EIO;
+
+        *ret = id;
+        return 0;
 }
