@@ -138,6 +138,13 @@ User *user_free(User *u) {
 
         user_record_unref(u->user_record);
 
+        free(u->secure_lock_callbacks);
+        free(u->secure_lock_userdata);
+        sd_event_source_disable_unref(u->pending_secure_lock_timeout_source);
+        sd_event_source_disable_unref(u->delay_secure_lock_event_source);
+        sd_event_source_disable_unref(u->inhibit_auto_secure_lock_event_source);
+        sd_event_source_disable_unref(u->secure_lock_backend_event_source);
+
         return mfree(u);
 }
 
@@ -597,6 +604,8 @@ int user_stop(User *u, bool force) {
         return r;
 }
 
+static int user_finish_secure_lock(User *u, const sd_bus_error *error);
+
 int user_finalize(User *u) {
         int r = 0;
 
@@ -626,6 +635,15 @@ int user_finalize(User *u) {
         if (u->started) {
                 user_send_signal(u, false);
                 u->started = false;
+        }
+
+        if (u->n_pending_secure_locks > 0) { /* We have pending SecureLock() calls */
+                /* Stop waiting for whatever we were waiting for */
+                u->secure_lock_backend_event_source = sd_event_source_disable_unref(u->secure_lock_backend_event_source);
+                u->pending_secure_lock_timeout_source = sd_event_source_disable_unref(u->pending_secure_lock_timeout_source);
+
+                /* Return an error */
+                (void) user_finish_secure_lock(u, &SD_BUS_ERROR_MAKE_CONST(BUS_ERROR_NO_SUCH_USER, "User is exiting."));
         }
 
         return r;
@@ -845,6 +863,224 @@ int user_kill(User *u, int signo) {
         assert(u);
 
         return manager_kill_unit(u->manager, u->slice, KILL_ALL, signo, NULL);
+}
+
+int user_can_secure_lock(User *u) {
+        assert(u);
+
+        return !!u->secure_lock_backend_event_source;
+}
+
+int user_should_auto_secure_lock(User *u) {
+        int r;
+
+        assert(u);
+
+        r = user_can_secure_lock(u);
+        if (r <= 0)
+                return r;
+
+        return !u->inhibit_auto_secure_lock_event_source;
+}
+
+static int user_finish_secure_lock(User *u, const sd_bus_error *error) {
+        assert(u);
+
+        for (size_t i = 0; i < u->n_pending_secure_locks; i++) {
+                user_secure_lock_cb_t cb = u->secure_lock_callbacks[i];
+                void *userdata = u->secure_lock_userdata[i];
+
+                cb(u, userdata, error);
+        }
+
+        u->secure_lock_callbacks = mfree(u->secure_lock_callbacks);
+        u->secure_lock_userdata = mfree(u->secure_lock_userdata);
+        u->n_pending_secure_locks = 0;
+
+        return 0;
+}
+
+static int user_on_delayed_secure_lock(sd_event_source *s, uint64_t usec, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        User *u = ASSERT_PTR(userdata);
+        int r;
+
+        u->pending_secure_lock_timeout_source = sd_event_source_disable_unref(u->pending_secure_lock_timeout_source);
+
+        log_info("Delayed secure lock for user %s timed out, locking now.", u->user_record->user_name);
+
+        r = user_send_trigger_secure_lock(u);
+        if (r < 0) {
+                sd_bus_error_set_errnof(&error, r, "Failed to emit TriggerSecureLock(): %m");
+                return user_finish_secure_lock(u, &error);
+        }
+
+        return 0;
+}
+
+int user_secure_lock(User *u, user_secure_lock_cb_t cb, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(u);
+        assert(cb);
+
+        if (!GREEDY_REALLOC(u->secure_lock_callbacks, u->n_pending_secure_locks + 1))
+                return log_oom();
+        if (!GREEDY_REALLOC(u->secure_lock_userdata, u->n_pending_secure_locks + 1))
+                return log_oom();
+        u->secure_lock_callbacks[u->n_pending_secure_locks] = cb;
+        u->secure_lock_userdata[u->n_pending_secure_locks] = userdata;
+        u->n_pending_secure_locks++;
+
+        if (u->n_pending_secure_locks > 1) /* We're already processing another secure lock request */
+                return 0;
+
+        r = user_send_prepare_for_secure_lock(u, true);
+        if (r < 0)
+                log_warning_errno(r, "Failed to emit PrepareForSecureLock(true), ignoring: %m");
+
+        if (u->delay_secure_lock_event_source) {
+                log_info("Delaying secure lock for user %s.", u->user_record->user_name);
+
+                assert(!u->pending_secure_lock_timeout_source); /* Otherwise n_pending_secure_locks must be > 1 */
+
+                r = sd_event_add_time_relative(
+                                u->manager->event,
+                                &u->pending_secure_lock_timeout_source,
+                                CLOCK_MONOTONIC,
+                                u->manager->inhibit_delay_max,
+                                0 /* default accuracy */,
+                                user_on_delayed_secure_lock,
+                                u);
+                if (r >= 0) {
+                        (void) sd_event_source_set_description(u->pending_secure_lock_timeout_source, "pending-secure-lock");
+                        return 0;
+                }
+
+                log_warning_errno(r,
+                                  "Failed to schedule delayed secure lock for user %s, locking immediately: %m",
+                                  u->user_record->user_name);
+        }
+
+        r = user_send_trigger_secure_lock(u);
+        if (r < 0) {
+                sd_bus_error_set_errnof(&error, r, "Failed to emit TriggerSecureLock(): %m");
+                return user_finish_secure_lock(u, &error);
+        }
+
+        return 0;
+}
+
+static int secure_lock_open_fifo(User *u, sd_event_source **ret, const char *name, sd_event_io_handler_t handler) {
+        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *evt = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        const char *fn;
+        int r;
+
+        fn = strjoina("/run/systemd/secure-lock/", u->user_record->user_name, ".", name);
+
+        if (!*ret) {
+                _cleanup_close_ int read_fd = -EBADF;
+
+                (void) mkdir("/run/systemd/secure-lock/", 0755);
+                if (mkfifo(fn, 0600) < 0 && errno != EEXIST)
+                        return log_error_errno(errno, "Failed to create FIFO %s: %m", fn);
+
+                read_fd = open(fn, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (read_fd < 0)
+                        return log_error_errno(errno, "Failed to open FIFO %s for reading: %m", fn);
+
+                r = sd_event_add_io(u->manager->event, &evt, read_fd, 0, handler, u);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate %s FIFO event source: %m", name);
+
+                (void) sd_event_source_set_description(evt, name);
+
+                r = sd_event_source_set_io_fd_own(evt, true);
+                if (r < 0)
+                        return log_error_errno(r, "failed to pass ownership of FIFO event fd to event source: %m");
+                TAKE_FD(read_fd);
+        }
+
+        fd = open(fn, O_WRONLY|O_CLOEXEC|O_NONBLOCK);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open FIFO %s for writing: %m", fn);
+
+        *ret = TAKE_PTR(evt);
+        return TAKE_FD(fd);
+}
+
+static int user_secure_lock_backend_eof(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        User *u = ASSERT_PTR(userdata);
+
+        u->pending_secure_lock_timeout_source = sd_event_source_disable_unref(u->pending_secure_lock_timeout_source);
+        u->secure_lock_backend_event_source = sd_event_source_disable_unref(u->secure_lock_backend_event_source);
+
+        return user_finish_secure_lock(u, NULL);
+}
+
+int user_enable_secure_lock(User *u) {
+        int r;
+
+        assert(u);
+
+        if (u->secure_lock_backend_event_source)
+                return -EBUSY;
+
+        r = user_send_prepare_for_secure_lock(u, false);
+        if (r < 0)
+                return r;
+
+        return secure_lock_open_fifo(u,
+                                     &u->secure_lock_backend_event_source,
+                                     "secure-lock-backend",
+                                     user_secure_lock_backend_eof);
+}
+
+static int user_delay_secure_lock_eof(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        User *u = ASSERT_PTR(userdata);
+        int r;
+
+        u->delay_secure_lock_event_source = sd_event_source_disable_unref(u->delay_secure_lock_event_source);
+
+        if (!u->pending_secure_lock_timeout_source)
+                return 0;
+
+        log_info("All clients dropped requests to delay secure lock of user %s, locking now.", u->user_record->user_name);
+
+        u->pending_secure_lock_timeout_source = sd_event_source_disable_unref(u->pending_secure_lock_timeout_source);
+
+        r = user_send_trigger_secure_lock(u);
+        if (r < 0) {
+                sd_bus_error_set_errnof(&error, r, "Failed to emit TriggerSecureLock(): %m");
+                return user_finish_secure_lock(u, &error);
+        }
+
+        return 0;
+}
+
+int user_delay_secure_lock(User *u) {
+        assert(u);
+        return secure_lock_open_fifo(u,
+                                     &u->delay_secure_lock_event_source,
+                                     "delay-secure-lock",
+                                     user_delay_secure_lock_eof);
+}
+
+static int user_inhibit_auto_secure_lock_eof(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        User *u = ASSERT_PTR(userdata);
+        u->inhibit_auto_secure_lock_event_source = sd_event_source_disable_unref(u->inhibit_auto_secure_lock_event_source);
+        return 0;
+}
+
+int user_inhibit_auto_secure_lock(User *u) {
+        assert(u);
+        return secure_lock_open_fifo(u,
+                                     &u->delay_secure_lock_event_source,
+                                     "inhibit-auto-secure-lock",
+                                     user_inhibit_auto_secure_lock_eof);
 }
 
 static bool elect_display_filter(Session *s) {
