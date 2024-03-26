@@ -230,6 +230,7 @@ struct Network {
         char *dhcp_server_boot_filename;
         usec_t dhcp_server_ipv6_only_preferred_usec;
         bool dhcp_server_rapid_commit;
+        int dhcp_server_persist_leases;
 
         /* link-local addressing support */
         AddressFamily link_local;
@@ -242,6 +243,7 @@ struct Network {
         RADVPrefixDelegation router_prefix_delegation;
         usec_t router_lifetime_usec;
         uint8_t router_preference;
+        usec_t router_reachable_usec;
         usec_t router_retransmit_usec;
         uint8_t router_hop_limit;
         bool router_managed;
@@ -336,6 +338,7 @@ struct Network {
 
         /* NDisc support */
         int ndisc;
+        bool ndisc_use_redirect;
         bool ndisc_use_dns;
         bool ndisc_use_gateway;
         bool ndisc_use_route_prefix;
