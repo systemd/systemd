@@ -45,49 +45,6 @@
     <para>The following options are understood:</para>
 
     <variablelist class='pam-directives'>
-
-      <varlistentry>
-        <term><varname>suspend=</varname></term>
-
-        <listitem><para>Takes a boolean argument. If true, the home directory of the user will be suspended
-        automatically during system suspend; if false it will remain active. Automatic suspending of the home
-        directory improves security substantially as secret key material is automatically removed from memory
-        before the system is put to sleep and must be re-acquired (through user re-authentication) when
-        coming back from suspend. It is recommended to set this parameter for all PAM applications that have
-        support for automatically re-authenticating via PAM on system resume. If multiple sessions of the
-        same user are open in parallel the user's home directory will be left unsuspended on system suspend
-        as long as at least one of the sessions does not set this parameter to on. Defaults to
-        off.</para>
-
-        <para>Note that TTY logins generally do not support re-authentication on system resume.
-        Re-authentication on system resume is primarily a concept implementable in graphical environments, in
-        the form of lock screens brought up automatically when the system goes to sleep. This means that if a
-        user concurrently uses graphical login sessions that implement the required re-authentication
-        mechanism and console logins that do not, the home directory is not locked during suspend, due to the
-        logic explained above. That said, it is possible to set this field for TTY logins too, ignoring the
-        fact that TTY logins actually don't support the re-authentication mechanism. In that case the TTY
-        sessions will appear hung until the user logs in on another virtual terminal (regardless if via
-        another TTY session or graphically) which will resume the home directory and unblock the original TTY
-        session. (Do note that lack of screen locking on TTY sessions means even though the TTY session
-        appears hung, keypresses can still be queued into it, and the existing screen contents be read
-        without re-authentication; this limitation is unrelated to the home directory management
-        <command>pam_systemd_home</command> and <filename>systemd-homed.service</filename> implement.)</para>
-
-        <para>Turning this option on by default is highly recommended for all sessions, but only if the
-        service managing these sessions correctly implements the aforementioned re-authentication. Note that
-        the re-authentication must take place from a component running outside of the user's context, so that
-        it does not require access to the user's home directory for operation. Traditionally, most desktop
-        environments do not implement screen locking this way, and need to be updated
-        accordingly.</para>
-
-        <para>This setting may also be controlled via the <varname>$SYSTEMD_HOME_SUSPEND</varname>
-        environment variable (see below), which <command>pam_systemd_home</command> reads during initialization and sets
-        for sessions. If both the environment variable is set and the module parameter specified the latter
-        takes precedence.</para>
-
-        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
-      </varlistentry>
-
       <varlistentry>
         <term><varname>debug</varname><optional>=</optional></term>
 
@@ -126,18 +83,6 @@
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
-
-      <varlistentry>
-        <term><varname>$SYSTEMD_HOME_SUSPEND=</varname></term>
-
-        <listitem><para>Indicates whether the session has been registered with the suspend mechanism enabled
-        or disabled (see above). The variable's value is either <literal>0</literal> or
-        <literal>1</literal>. Note that the module both reads the variable when initializing, and sets it for
-        sessions.</para>
-
-        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
-      </varlistentry>
-
     </variablelist>
   </refsect1>
 
