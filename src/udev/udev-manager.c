@@ -274,15 +274,9 @@ static void manager_reload(Manager *manager, bool force) {
                         return;
 
                 /* If we eat this up, then tell our service manager to just continue */
-                (void) sd_notifyf(/* unset= */ false,
-                                  "RELOADING=1\n"
-                                  "STATUS=Skipping configuration reloading, nothing changed.\n"
-                                  "MONOTONIC_USEC=" USEC_FMT, now(CLOCK_MONOTONIC));
+                (void) notify_reloading_full("Skipping configuration reloading, nothing changed.");
         } else {
-                (void) sd_notifyf(/* unset= */ false,
-                                  "RELOADING=1\n"
-                                  "STATUS=Flushing configuration...\n"
-                                  "MONOTONIC_USEC=" USEC_FMT, now(CLOCK_MONOTONIC));
+                (void) notify_reloading();
 
                 manager_kill_workers(manager, false);
 

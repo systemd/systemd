@@ -1120,10 +1120,7 @@ int manager_reload(Manager *m, sd_bus_message *message) {
 
         assert(m);
 
-        (void) sd_notifyf(/* unset= */ false,
-                          "RELOADING=1\n"
-                          "STATUS=Reloading configuration...\n"
-                          "MONOTONIC_USEC=" USEC_FMT, now(CLOCK_MONOTONIC));
+        (void) notify_reloading();
 
         r = netdev_load(m, /* reload= */ true);
         if (r < 0)
