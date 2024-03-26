@@ -937,6 +937,11 @@ bool user_can_secure_lock(User *u) {
         /* Check if user record supports it */
         // TODO: Check if the user record itself reports that it doesn't support secure lock
 
+        /* Check if any session lacks support */
+        LIST_FOREACH(sessions_by_user, s, u->sessions)
+                if (SESSION_CLASS_CAN_LOCK(s->class) && !s->can_secure_lock)
+                        return false;
+
         /* Check if inhibited */
         if (FLAGS_SET(user_inhibit_what(u, INHIBIT_BLOCK), INHIBIT_SECURE_LOCK))
                 return false;
