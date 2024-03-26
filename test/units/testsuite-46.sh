@@ -210,6 +210,9 @@ PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
 wait_for_state test-user inactive
 homectl remove test-user
 
+# Regression tests
+/usr/lib/systemd/tests/unit-tests/manual/test-homed-regression-31896 test-user
+
 # blob directory tests
 # See docs/USER_RECORD_BLOB_DIRS.md
 checkblob() {
