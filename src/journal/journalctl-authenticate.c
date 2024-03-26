@@ -11,34 +11,30 @@
 #include "journalctl.h"
 #include "journalctl-authenticate.h"
 #include "memstream-util.h"
+#include "path-util.h"
 #include "qrcode-util.h"
 #include "random-util.h"
 #include "stat-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 
-static int format_journal_url(
+static int format_key(
                 const void *seed,
                 size_t seed_size,
                 uint64_t start,
                 uint64_t interval,
-                const char *hn,
-                sd_id128_t machine,
-                bool full,
-                char **ret_url) {
+                char **ret) {
 
         _cleanup_(memstream_done) MemStream m = {};
         FILE *f;
 
         assert(seed);
         assert(seed_size > 0);
+        assert(ret);
 
         f = memstream_init(&m);
         if (!f)
                 return -ENOMEM;
-
-        if (full)
-                fputs("fss://", f);
 
         for (size_t i = 0; i < seed_size; i++) {
                 if (i > 0 && i % 3 == 0)
@@ -48,13 +44,7 @@ static int format_journal_url(
 
         fprintf(f, "/%"PRIx64"-%"PRIx64, start, interval);
 
-        if (full) {
-                fprintf(f, "?machine=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(machine));
-                if (hn)
-                        fprintf(f, ";hostname=%s", hn);
-        }
-
-        return memstream_finalize(&m, ret_url, NULL);
+        return memstream_finalize(&m, ret, NULL);
 }
 
 int action_setup_keys(void) {
@@ -155,56 +145,59 @@ int action_setup_keys(void) {
 
         tmpfile = mfree(tmpfile);
 
-        _cleanup_free_ char *hn = NULL, *key = NULL;
-
-        r = format_journal_url(seed, seed_size, n, arg_interval, hn, machine, false, &key);
+        _cleanup_free_ char *key = NULL;
+        r = format_key(seed, seed_size, n, arg_interval, &key);
         if (r < 0)
                 return r;
 
-        if (on_tty()) {
-                hn = gethostname_malloc();
-                if (hn)
-                        hostname_cleanup(hn);
-
-                fprintf(stderr,
-                        "\nNew keys have been generated for host %s%s" SD_ID128_FORMAT_STR ".\n"
-                        "\n"
-                        "The %ssecret sealing key%s has been written to the following local file.\n"
-                        "This key file is automatically updated when the sealing key is advanced.\n"
-                        "It should not be used on multiple hosts.\n"
-                        "\n"
-                        "\t%s\n"
-                        "\n"
-                        "The sealing key is automatically changed every %s.\n"
-                        "\n"
-                        "Please write down the following %ssecret verification key%s. It should be stored\n"
-                        "in a safe location and should not be saved locally on disk.\n"
-                        "\n\t%s",
-                        strempty(hn), hn ? "/" : "",
-                        SD_ID128_FORMAT_VAL(machine),
-                        ansi_highlight(), ansi_normal(),
-                        p,
-                        FORMAT_TIMESPAN(arg_interval, 0),
-                        ansi_highlight(), ansi_normal(),
-                        ansi_highlight_red());
-                fflush(stderr);
+        if (!on_tty()) {
+                /* If we are not on a TTY, show only the key. */
+                puts(key);
+                return 0;
         }
+
+        _cleanup_free_ char *hn = NULL;
+        hn = gethostname_malloc();
+        if (hn)
+                hostname_cleanup(hn);
+
+        fprintf(stderr,
+                "\nNew keys have been generated for host %s%s" SD_ID128_FORMAT_STR ".\n"
+                "\n"
+                "The %ssecret sealing key%s has been written to the following local file.\n"
+                "This key file is automatically updated when the sealing key is advanced.\n"
+                "It should not be used on multiple hosts.\n"
+                "\n"
+                "\t%s\n"
+                "\n"
+                "The sealing key is automatically changed every %s.\n"
+                "\n"
+                "Please write down the following %ssecret verification key%s. It should be stored\n"
+                "in a safe location and should not be saved locally on disk.\n"
+                "\n\t%s",
+                strempty(hn), hn ? "/" : "",
+                SD_ID128_FORMAT_VAL(machine),
+                ansi_highlight(), ansi_normal(),
+                path,
+                FORMAT_TIMESPAN(arg_interval, 0),
+                ansi_highlight(), ansi_normal(),
+                ansi_highlight_red());
+        fflush(stderr);
 
         puts(key);
 
-        if (on_tty()) {
-                fprintf(stderr, "%s", ansi_normal());
-#if HAVE_QRENCODE
-                _cleanup_free_ char *url = NULL;
-                r = format_journal_url(seed, seed_size, n, arg_interval, hn, machine, true, &url);
-                if (r < 0)
-                        return r;
+        fprintf(stderr, "%s", ansi_normal());
 
-                (void) print_qrcode(stderr,
-                                    "To transfer the verification key to your phone scan the QR code below",
-                                    url);
+#if HAVE_QRENCODE
+        _cleanup_free_ char *url = NULL;
+        url = strjoin("fss://", key, "?machine=", SD_ID128_TO_STRING(machine), hn ? ";hostname=" : "", hn);
+        if (!url)
+                return log_oom();
+
+        (void) print_qrcode(stderr,
+                            "To transfer the verification key to your phone scan the QR code below",
+                            url);
 #endif
-        }
 
         return 0;
 }
