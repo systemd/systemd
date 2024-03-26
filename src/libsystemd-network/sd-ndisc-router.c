@@ -151,7 +151,7 @@ int sd_ndisc_router_get_flags(sd_ndisc_router *rt, uint64_t *ret) {
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        sd_ndisc_option *p = ndisc_option_get(rt->options, SD_NDISC_OPTION_FLAGS_EXTENSION);
+        sd_ndisc_option *p = ndisc_option_get_by_type(rt->options, SD_NDISC_OPTION_FLAGS_EXTENSION);
 
         *ret = rt->flags | (p ? p->extended_flags : 0);
         return 0;
@@ -184,7 +184,7 @@ int sd_ndisc_router_get_mtu(sd_ndisc_router *rt, uint32_t *ret) {
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        sd_ndisc_option *p = ndisc_option_get(rt->options, SD_NDISC_OPTION_MTU);
+        sd_ndisc_option *p = ndisc_option_get_by_type(rt->options, SD_NDISC_OPTION_MTU);
         if (!p)
                 return -ENODATA;
 
@@ -196,7 +196,7 @@ int sd_ndisc_router_get_captive_portal(sd_ndisc_router *rt, const char **ret) {
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        sd_ndisc_option *p = ndisc_option_get(rt->options, SD_NDISC_OPTION_CAPTIVE_PORTAL);
+        sd_ndisc_option *p = ndisc_option_get_by_type(rt->options, SD_NDISC_OPTION_CAPTIVE_PORTAL);
         if (!p)
                 return -ENODATA;
 
