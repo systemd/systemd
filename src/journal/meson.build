@@ -29,6 +29,20 @@ libjournal_core = static_library(
                        userspace],
         build_by_default : false)
 
+journalctl_sources = files(
+        'journalctl.c',
+        'journalctl-catalog.c',
+        'journalctl-filter.c',
+        'journalctl-misc.c',
+        'journalctl-show.c',
+        'journalctl-util.c',
+        'journalctl-varlink.c',
+)
+
+if conf.get('HAVE_GCRYPT') == 1
+        journalctl_sources += files('journalctl-authenticate.c')
+endif
+
 if get_option('link-journalctl-shared')
         journalctl_link_with = [libshared]
 else
@@ -91,7 +105,7 @@ executables += [
         executable_template + {
                 'name' : 'journalctl',
                 'public' : true,
-                'sources' : files('journalctl.c'),
+                'sources' : journalctl_sources,
                 'link_with' : journalctl_link_with,
                 'dependencies' : [
                         libdl,
