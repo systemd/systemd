@@ -1681,6 +1681,8 @@ static int service_spawn_internal(
 
                 exec_params.open_files = s->open_files;
 
+                exec_params.flags |= EXEC_PASS_FDS;
+
                 log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds);
         }
 
