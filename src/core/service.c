@@ -1437,10 +1437,9 @@ static int service_collect_fds(
                         Socket *sock;
                         int cn_fds;
 
-                        if (u->type != UNIT_SOCKET)
-                                continue;
-
                         sock = SOCKET(u);
+                        if (!sock)
+                                continue;
 
                         cn_fds = socket_collect_fds(sock, &cfds);
                         if (cn_fds < 0)
