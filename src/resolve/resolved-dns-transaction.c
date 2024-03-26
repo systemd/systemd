@@ -898,7 +898,9 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                         /* All good. */
                         break;
 
-                case DNS_TRANSACTION_DNSSEC_FAILED:
+                case DNS_TRANSACTION_DNSSEC_FAILED: {
+                        DnsAnswer *empty;
+
                         /* We handle DNSSEC failures different from other errors, as we care about the DNSSEC
                          * validation result */
 
@@ -917,8 +919,16 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                         if (r < 0)
                                 log_oom_debug();
 
+                        /* The answer would normally be replaced by the validated subset, but at this point
+                         * we aren't going to bother validating the rest, so just drop it. */
+                        empty = dns_answer_new(0);
+                        if (!empty)
+                                return -ENOMEM;
+                        DNS_ANSWER_REPLACE(t->answer, empty);
+
                         dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                         return 0;
+                }
 
                 default:
                         log_debug("Auxiliary DNSSEC RR query failed with %s", dns_transaction_state_to_string(dt->state));
@@ -3592,14 +3602,17 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 bool have_nsec = false;
 
                 r = dnssec_validate_records(t, phase, &have_nsec, &nvalidations, &validated);
-                if (r <= 0)
+                if (r <= 0) {
+                        DNS_ANSWER_REPLACE(t->answer, TAKE_PTR(validated));
                         return r;
+                }
 
                 if (nvalidations > DNSSEC_VALIDATION_MAX) {
                         /* This reply requires an onerous number of signature validations to verify. Let's
                          * not waste our time trying, as this shouldn't happen for well-behaved domains
                          * anyway. */
                         t->answer_dnssec_result = DNSSEC_TOO_MANY_VALIDATIONS;
+                        DNS_ANSWER_REPLACE(t->answer, TAKE_PTR(validated));
                         return 0;
                 }
 
