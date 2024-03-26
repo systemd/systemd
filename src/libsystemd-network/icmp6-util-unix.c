@@ -16,7 +16,7 @@ static struct in6_addr dummy_link_local = {
         },
 };
 
-int icmp6_bind(int ifindex, bool is_router) {
+int icmp6_bind(int ifindex, const struct in6_addr *ipv6ll, bool is_router) {
         if (!is_router && socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)
                 return -errno;
 

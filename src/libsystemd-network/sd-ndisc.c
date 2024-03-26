@@ -99,6 +99,7 @@ int sd_ndisc_get_ifname(sd_ndisc *nd, const char **ret) {
 
 int sd_ndisc_set_link_local_address(sd_ndisc *nd, const struct in6_addr *addr) {
         assert_return(nd, -EINVAL);
+        assert_return(!sd_ndisc_is_running(nd), -EBUSY);
         assert_return(!addr || in6_addr_is_link_local(addr), -EINVAL);
 
         if (addr)
@@ -374,7 +375,7 @@ static int ndisc_setup_recv_event(sd_ndisc *nd) {
         assert(nd->ifindex > 0);
 
         _cleanup_close_ int fd = -EBADF;
-        fd = icmp6_bind(nd->ifindex, /* is_router = */ false);
+        fd = icmp6_bind(nd->ifindex, &nd->link_local_addr, /* is_router = */ false);
         if (fd < 0)
                 return fd;
 

@@ -21,7 +21,7 @@
 #include "network-common.h"
 #include "socket-util.h"
 
-int icmp6_bind(int ifindex, bool is_router) {
+int icmp6_bind(int ifindex, const struct in6_addr *ipv6ll, bool is_router) {
         struct icmp6_filter filter = {};
         struct ipv6_mreq mreq;
         _cleanup_close_ int s = -EBADF;
@@ -53,6 +53,15 @@ int icmp6_bind(int ifindex, bool is_router) {
 
         if (setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
                 return -errno;
+
+        if (ipv6ll && in6_addr_is_link_local(ipv6ll)) {
+                mreq = (struct ipv6_mreq) {
+                        .ipv6mr_multiaddr = *ipv6ll,
+                        .ipv6mr_interface = ifindex,
+                };
+                if (setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0)
+                        return -errno;
+        }
 
         /* RFC 3315, section 6.7, bullet point 2 may indicate that an IPV6_PKTINFO socket option also applies
          * for ICMPv6 multicast. Empirical experiments indicates otherwise and therefore an IPV6_MULTICAST_IF
