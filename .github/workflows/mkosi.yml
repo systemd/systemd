@@ -64,10 +64,8 @@ jobs:
             release: "39"
           - distro: fedora
             release: rawhide
-          # TODO: Re-enable once https://lists.opensuse.org/archives/list/factory@lists.opensuse.org/thread/AU4NWTBXNA7MVAUXWR74XYCHCSZN4Z4K/
-          # is resolved or https://build.opensuse.org/request/show/1152118 is merged.
-          # - distro: opensuse
-          #   release: tumbleweed
+          - distro: opensuse
+            release: tumbleweed
           - distro: centos
             release: "9"
 
