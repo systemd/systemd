@@ -58,11 +58,11 @@ static int format_journal_url(
 }
 
 int action_setup_keys(void) {
-        size_t mpk_size, seed_size, state_size;
-        _cleanup_(unlink_and_freep) char *k = NULL;
-        _cleanup_free_ char *p = NULL;
-        uint8_t *mpk, *seed, *state;
+        _cleanup_(unlink_and_freep) char *tmpfile = NULL;
         _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *path = NULL;
+        size_t mpk_size, seed_size, state_size;
+        uint8_t *mpk, *seed, *state;
         sd_id128_t machine, boot;
         uint64_t n;
         int r;
@@ -86,21 +86,16 @@ int action_setup_keys(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get boot ID: %m");
 
-        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss",
-                     SD_ID128_FORMAT_VAL(machine)) < 0)
+        path = path_join("/var/log/journal/", SD_ID128_TO_STRING(machine), "/fss");
+        if (!path)
                 return log_oom();
 
         if (arg_force) {
-                r = unlink(p);
-                if (r < 0 && errno != ENOENT)
-                        return log_error_errno(errno, "unlink(\"%s\") failed: %m", p);
-        } else if (access(p, F_OK) >= 0)
+                if (unlink(path) < 0 && errno != ENOENT)
+                        return log_error_errno(errno, "Failed to remove \"%s\": %m", path);
+        } else if (access(path, F_OK) >= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
-                                       "Sealing key file %s exists already. Use --force to recreate.", p);
-
-        if (asprintf(&k, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss.tmp.XXXXXX",
-                     SD_ID128_FORMAT_VAL(machine)) < 0)
-                return log_oom();
+                                       "Sealing key file %s exists already. Use --force to recreate.", path);
 
         mpk_size = FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR);
         mpk = alloca_safe(mpk_size);
@@ -123,18 +118,17 @@ int action_setup_keys(void) {
         FSPRG_GenState0(state, mpk, seed, seed_size);
 
         assert(arg_interval > 0);
-
         n = now(CLOCK_REALTIME);
         n /= arg_interval;
 
-        fd = mkostemp_safe(k);
+        fd = open_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &tmpfile);
         if (fd < 0)
-                return log_error_errno(fd, "Failed to open %s: %m", k);
+                return log_error_errno(fd, "Failed to open a temporary file for %s: %m", path);
 
         r = chattr_secret(fd, CHATTR_WARN_UNSUPPORTED_FLAGS);
         if (r < 0)
                 log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING,
-                               r, "Failed to set file attributes on '%s', ignoring: %m", k);
+                               r, "Failed to set file attributes on a temporary file for '%s', ignoring: %m", path);
 
         struct FSSHeader h = {
                 .signature = { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' },
@@ -155,10 +149,11 @@ int action_setup_keys(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write state: %m");
 
-        if (rename(k, p) < 0)
-                return log_error_errno(errno, "Failed to link file: %m");
+        r = link_tmpfile(fd, tmpfile, path, /* flags = */ 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to link file: %m");
 
-        k = mfree(k);
+        tmpfile = mfree(tmpfile);
 
         _cleanup_free_ char *hn = NULL, *key = NULL;
 
