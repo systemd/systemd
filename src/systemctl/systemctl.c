@@ -8,6 +8,7 @@
 
 #include "build.h"
 #include "bus-util.h"
+#include "capsule-util.h"
 #include "dissect-image.h"
 #include "install.h"
 #include "main-func.h"
@@ -18,7 +19,6 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "capsule-util.h"
 #include "reboot-util.h"
 #include "rlimit-util.h"
 #include "sigbus.h"
