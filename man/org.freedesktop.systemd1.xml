@@ -340,6 +340,10 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t FinishTimestampMonotonic = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t SoftRebootStartTimestamp = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t SoftRebootStartTimestampMonotonic = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t SecurityStartTimestamp = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t SecurityStartTimestampMonotonic = ...;
@@ -1032,6 +1036,10 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="FinishTimestamp"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="FinishTimestampMonotonic"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SoftRebootStartTimestamp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SoftRebootStartTimestampMonotonic"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SecurityStartTimestamp"/>
 
@@ -1733,17 +1741,19 @@ node /org/freedesktop/systemd1 {
       <varname>KernelTimestamp</varname>, <varname>KernelTimestampMonotonic</varname>,
       <varname>InitRDTimestamp</varname>, <varname>InitRDTimestampMonotonic</varname>,
       <varname>UserspaceTimestamp</varname>, <varname>UserspaceTimestampMonotonic</varname>,
-      <varname>FinishTimestamp</varname>, and <varname>FinishTimestampMonotonic</varname> encode
-      <constant>CLOCK_REALTIME</constant> and <constant>CLOCK_MONOTONIC</constant> microsecond timestamps
-      taken when the firmware first began execution, when the boot loader first began execution, when the
-      kernel first began execution, when the initrd first began execution, when the main systemd instance
-      began execution and finally, when all queued startup jobs finished execution. These values are useful
-      for determining boot-time performance. Note that as monotonic time begins with the kernel startup, the
-      <varname>KernelTimestampMonotonic</varname> timestamp will always be 0 and
-      <varname>FirmwareTimestampMonotonic</varname> and <varname>LoaderTimestampMonotonic</varname> are to
-      be read as negative values. Also, not all fields are always available, depending on the used firmware,
-      boot loader or initrd implementation. In these cases the respective pairs of timestamps are both 0,
-      indicating that no data is available.</para>
+      <varname>FinishTimestamp</varname>, <varname>FinishTimestampMonotonic</varname>,
+      <varname>SoftRebootStartTimestamp</varname> and <varname>SoftRebootStartTimestampMonotonic</varname>
+      encode <constant>CLOCK_REALTIME</constant> and <constant>CLOCK_MONOTONIC</constant> microsecond
+      timestamps taken when the firmware first began execution, when the boot loader first began execution,
+      when the kernel first began execution, when the initrd first began execution, when the main systemd
+      instance began execution, when all queued startup jobs finished execution and finally, when a
+      <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      operation first began execution. These values are useful for determining boot-time performance. Note
+      that as monotonic time begins with the kernel startup, the <varname>KernelTimestampMonotonic</varname>
+      timestamp will always be 0 and <varname>FirmwareTimestampMonotonic</varname> and
+      <varname>LoaderTimestampMonotonic</varname> are to be read as negative values. Also, not all fields
+      are always available, depending on the used firmware, boot loader or initrd implementation. In these
+      cases the respective pairs of timestamps are both 0, indicating that no data is available.</para>
 
       <para><varname>UnitsLoadTimestamp</varname> and <varname>UnitsLoadTimestampMonotonic</varname> encode
       <constant>CLOCK_REALTIME</constant> and <constant>CLOCK_MONOTONIC</constant> microseconds timestamps
@@ -11982,7 +11992,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <function>QueueSignalUnit()</function>,
       <function>SoftReboot()</function>, and
       <function>DumpUnitFileDescriptorStore()</function> were added in version 254.</para>
-      <para><function>StartAuxiliaryScope()</function> was added in version 256.</para>
+      <para><function>StartAuxiliaryScope()</function>,
+      <varname>SoftRebootStartTimestamp</varname> and
+      <varname>SoftRebootStartTimestampMonotonic</varname> were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>

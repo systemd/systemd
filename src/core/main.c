@@ -2129,6 +2129,8 @@ static int invoke_main_loop(
                         manager_send_reloading(m);
                         manager_set_switching_root(m, true);
 
+                        dual_timestamp_now(m->timestamps + MANAGER_TIMESTAMP_SOFTREBOOT_START);
+
                         r = prepare_reexecute(m, &arg_serialization, ret_fds, /* switching_root= */ true);
                         if (r < 0) {
                                 *ret_error_message = "Failed to prepare for reexecution";
