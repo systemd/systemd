@@ -20,7 +20,7 @@
         { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } } }
 
-int icmp6_bind(int ifindex, bool is_router);
+int icmp6_bind(int ifindex, const struct in6_addr *ipv6ll, bool is_router);
 int icmp6_send(int fd, const struct sockaddr_in6 *dst, const struct iovec *iov, size_t n_iov);
 int icmp6_receive(
                 int fd,
