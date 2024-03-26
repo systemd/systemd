@@ -101,6 +101,10 @@ jobs:
         [Host]
         ToolsTree=default
         ToolsTreeDistribution=fedora
+        ToolsTreePackages=
+                softhsm
+                opensc
+                gnutls-utils
         QemuVsock=yes
         # Sometimes we run on a host with /dev/kvm, but it is broken, so explicitly disable it
         QemuKvm=yes

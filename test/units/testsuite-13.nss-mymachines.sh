@@ -17,8 +17,14 @@ at_exit() {
 
 trap at_exit EXIT
 
-mkdir -p /var/lib/machines
-mount -t tmpfs tmpfs /var/lib/machines
+if mountpoint /var/tmp; then
+    # If there's scratch mounted to /var/tmp use it
+    mount --bind "$(TMPDIR=/var/tmp mktemp -d)" /var/lib/machines
+else
+    # Mount tmpfs over /var/lib/machines to not pollute the image
+    mkdir -p /var/lib/machines
+    mount -t tmpfs tmpfs /var/lib/machines
+fi
 
 # Create a bunch of containers that:
 # 1) Have no IP addresses assigned

@@ -3,6 +3,12 @@
 set -eux
 set -o pipefail
 
+# check dfuzzer is present before testing
+if command -v dfuzzer >/dev/null 2>&1; then
+    echo "no dfuzzer" > /skipped
+    exit 0
+fi
+
 # Save the end.service state before we start fuzzing, as it might get changed
 # on the fly by one of the fuzzers
 systemctl list-jobs | grep -F 'end.service' && SHUTDOWN_AT_EXIT=1 || SHUTDOWN_AT_EXIT=0

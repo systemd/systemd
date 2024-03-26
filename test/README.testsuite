@@ -28,6 +28,22 @@ To run just one of the cases:
 
 $ sudo make -C test/TEST-01-BASIC clean setup run
 
+To run the meson-based integration test config
+enable integration tests with the following:
+
+$ meson configure build -Dintegration-tests=true
+
+Once enabled the integration tests can be run with:
+
+$ sudo meson test -C build/ --suite integration-tests --num-processes "$(($(getconf _NPROCESSORS_ONLN) / 2))"
+
+As usual, specific tests can be run in meson by appending the name of the test
+which is usually the name of the directory e.g.
+
+$ sudo meson test -C build/ --suite integration-tests --num-processes "$(($(getconf _NPROCESSORS_ONLN) / 2))" TEST-01-BASIC
+
+See `meson introspect build --tests` for a list of tests.
+
 Specifying the build directory
 ==============================
 

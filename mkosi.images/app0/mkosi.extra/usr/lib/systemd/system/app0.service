@@ -1,0 +1,7 @@
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/script0.sh
+TemporaryFileSystem=/var/lib
+StateDirectory=app0
+RuntimeDirectory=app0

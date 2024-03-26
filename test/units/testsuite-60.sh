@@ -6,6 +6,7 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+# Needed to create mount.mytmpfs helper
 maybe_mount_usr_overlay
 trap 'maybe_umount_usr_overlay' EXIT
 

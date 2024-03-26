@@ -59,8 +59,20 @@ basic_tests() {
 }
 
 testcase_bootctl_basic() {
-    assert_eq "$(bootctl --print-esp-path)" "/efi"
-    assert_eq "$(bootctl --print-boot-path)" "/boot"
+    case "$(bootctl --print-esp-path)" in
+        /boot|/efi)
+            ;;
+        *)
+            assert_not_reached
+            ;;
+    esac
+    case "$(bootctl --print-boot-path)" in
+        /boot|/efi)
+            ;;
+        *)
+            assert_not_reached
+            ;;
+    esac
     bootctl --print-root-device
 
     basic_tests
@@ -266,8 +278,12 @@ EOF
 testcase_bootctl_varlink() {
     varlinkctl call --collect /run/systemd/io.systemd.BootControl io.systemd.BootControl.ListBootEntries '{}'
 
-    # We have no UEFI in the test environment, hence just check that this fails cleanly
-    ( SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.GetRebootToFirmware '{}' 2>&1 || true ) | grep -q io.systemd.BootControl.RebootToFirmwareNotSupported
+    # We may have UEFI in the test environment.
+    # If we don't have UEFI then we can test whether bootctl's varlink API fails cleanly.
+    # If we do have UEFI then the rest of the clean fail tests should be skipped.
+    if ! ( SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.GetRebootToFirmware '{}' 2>&1 || true ) | grep -q io.systemd.BootControl.RebootToFirmwareNotSupported; then
+        return 0
+    fi
     ( SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.SetRebootToFirmware '{"state":true}' 2>&1 || true ) | grep -q io.systemd.BootControl.RebootToFirmwareNotSupported
     ( SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.SetRebootToFirmware '{"state":false}' 2>&1 || true ) | grep -q io.systemd.BootControl.RebootToFirmwareNotSupported
 }

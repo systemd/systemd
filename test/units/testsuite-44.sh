@@ -9,6 +9,8 @@ journalctl --list-namespaces -o json | jq .
 systemd-run --wait -p LogNamespace=foobar echo "hello world"
 systemd-run --wait -p LogNamespace=foobaz echo "hello world"
 
+sleep 3
+
 journalctl --namespace=foobar --sync
 journalctl --namespace=foobaz --sync
 ls -l /var/log/journal/
