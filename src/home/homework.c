@@ -72,7 +72,7 @@ int user_record_authenticate(
          * The 'cache' parameter might also contain the LUKS volume key, loaded from the kernel keyring.
          * In this case, authentication becomes optional - if a secret section is provided it will be
          * verified, but if missing then authentication is skipped entirely. Thus, callers should
-         * consider carefuly whether it is safe to load the volume key into 'cache' before doing so.
+         * consider carefully whether it is safe to load the volume key into 'cache' before doing so.
          * Note that most of the time this is safe, because the home area must be active for the key
          * to exist in the keyring, and the user would have had to authenticate when activating their
          * home area; however, for some methods (i.e. ChangePassword, Authenticate) it makes more sense
