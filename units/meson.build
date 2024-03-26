@@ -7,6 +7,8 @@ units = [
         { 'file' : 'blockdev@.target' },
         { 'file' : 'bluetooth.target' },
         { 'file' : 'boot-complete.target' },
+        { 'file' : 'capsule@.service.in' },
+        { 'file' : 'capsule.slice' },
         { 'file' : 'console-getty.service.in' },
         { 'file' : 'container-getty@.service.in' },
         {
@@ -746,8 +748,6 @@ units = [
         { 'file' : 'user-runtime-dir@.service.in' },
         { 'file' : 'user.slice' },
         { 'file' : 'user@.service.in' },
-        { 'file' : 'capsule@.service.in' },
-        { 'file' : 'capsule.slice' },
         {
           'file' : 'var-lib-machines.mount',
           'conditions' : ['ENABLE_MACHINED'],
