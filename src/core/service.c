@@ -1409,10 +1409,9 @@ static int service_collect_fds(
                         Socket *sock;
                         int cn_fds;
 
-                        if (u->type != UNIT_SOCKET)
-                                continue;
-
                         sock = SOCKET(u);
+                        if (!sock)
+                                continue;
 
                         cn_fds = socket_collect_fds(sock, &cfds);
                         if (cn_fds < 0)
@@ -1681,6 +1680,8 @@ static int service_spawn_internal(
                         return r;
 
                 exec_params.open_files = s->open_files;
+
+                exec_params.flags |= EXEC_PASS_FDS;
 
                 log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds);
         }
