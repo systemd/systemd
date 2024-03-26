@@ -1106,8 +1106,8 @@ static int manager_create_session_by_bus(
         if (!uid_is_valid(uid))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid UID");
 
-        if (flags != 0)
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be zero.");
+        if ((flags & ~SD_LOGIND_CREATE_SESSION_FLAGS_ALL) != 0)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         _cleanup_(pidref_done) PidRef leader = PIDREF_NULL;
         if (leader_pidfd >= 0)
@@ -1235,6 +1235,13 @@ static int manager_create_session_by_bus(
                         remote_host,
                         /* extra_device_access= */ NULL,
                         &session);
+
+        // FIXME: 19cd2b6 refactored how the session is created
+        // Originally, we would set the flag right after setting the session->type,class, etc in manager_create_session
+        // however, since 19cd2b6 its no longer possible to do so, as we don't pass the flags there.
+        // Double check and ask PR reviewers if its okay to set this here or should it be done beforehand.
+        session->can_secure_lock = FLAGS_SET(flags, SD_LOGIND_ENABLE_SECURE_LOCK);
+
         if (r == -EBUSY)
                 return sd_bus_error_set(error, BUS_ERROR_SESSION_BUSY, "Already running in a session or user slice");
         if (r == -EADDRNOTAVAIL)

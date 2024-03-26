@@ -197,6 +197,23 @@ static int property_get_locked_hint(
         return sd_bus_message_append(reply, "b", session_get_locked_hint(s) > 0);
 }
 
+static int property_get_can_secure_lock(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Session *s = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(reply);
+
+        return sd_bus_message_append(reply, "b", s->can_secure_lock);
+}
+
 int bus_session_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = ASSERT_PTR(userdata);
         int r;
@@ -1002,6 +1019,7 @@ static const sd_bus_vtable session_vtable[] = {
         SD_BUS_PROPERTY("CanIdle", "b", property_get_can_idle, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CanLock", "b", property_get_can_lock, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LockedHint", "b", property_get_locked_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("CanSecureLock", "b", property_get_can_secure_lock, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD("Terminate",
                       NULL,

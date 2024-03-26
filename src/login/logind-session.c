@@ -364,13 +364,15 @@ int session_save(Session *s) {
                 "IS_DISPLAY=%s\n"
                 "STATE=%s\n"
                 "REMOTE=%s\n"
-                "LEADER_FD_SAVED=%s\n",
+                "LEADER_FD_SAVED=%s\n"
+                "CAN_SECURE_LOCK=%s\n",
                 s->user->user_record->uid,
                 one_zero(session_is_active(s)),
                 one_zero(s->user->display == s),
                 session_state_to_string(session_get_state(s)),
                 one_zero(s->remote),
-                one_zero(s->leader_fd_saved));
+                one_zero(s->leader_fd_saved),
+                one_zero(s->can_secure_lock));
 
         env_file_fputs_assignment(f, "USER=", s->user->user_record->user_name);
 
@@ -536,7 +538,8 @@ int session_load(Session *s) {
                 *active = NULL,
                 *devices = NULL,
                 *is_display = NULL,
-                *fifo_path = NULL; /* compat only, not used */
+                *fifo_path = NULL, /* compat only, not used */
+                *can_secure_lock = NULL;
 
         int k, r;
 
@@ -571,7 +574,8 @@ int session_load(Session *s) {
                            "CONTROLLER",          &controller,
                            "ACTIVE",              &active,
                            "DEVICES",             &devices,
-                           "IS_DISPLAY",          &is_display);
+                           "IS_DISPLAY",          &is_display,
+                           "CAN_SECURE_LOCK",     &can_secure_lock);
         if (r < 0)
                 return log_error_errno(r, "Failed to read %s: %m", s->state_file);
 
@@ -732,6 +736,12 @@ int session_load(Session *s) {
                 r = session_load_leader(s, pidfdid);
                 if (r < 0)
                         return r;
+        }
+
+        if (can_secure_lock) {
+                k = parse_boolean(can_secure_lock);
+                if (k >= 0)
+                        s->can_secure_lock = k;
         }
 
         return 0;
