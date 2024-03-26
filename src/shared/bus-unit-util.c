@@ -2450,6 +2450,7 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                               "Transparent",
                               "Broadcast",
                               "PassCredentials",
+                              "PassFileDescriptorsToExec",
                               "PassSecurity",
                               "PassPacketInfo",
                               "ReusePort",
