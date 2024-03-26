@@ -374,7 +374,8 @@ int exec_spawn(Unit *unit,
         assert(command);
         assert(context);
         assert(params);
-        assert(params->fds || (params->n_socket_fds + params->n_storage_fds <= 0));
+        assert(!params->fds || FLAGS_SET(params->flags, EXEC_PASS_FDS));
+        assert(params->fds || (params->n_socket_fds + params->n_storage_fds == 0));
         assert(!params->files_env); /* We fill this field, ensure it comes NULL-initialized to us */
         assert(ret);
 
