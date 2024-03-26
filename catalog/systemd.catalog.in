@@ -768,3 +768,14 @@ Documentation: https://systemd.io/PORTABLE_SERVICES/
 A Portable Service @PORTABLE_ROOT@ (with extensions: @PORTABLE_EXTENSION@) has been
 detached from the system and is no longer available for use. The list of attached
 Portable Services can be queried with 'portablectl list'.
+
+-- 8ff478c20d67490cb893d29dc55c3f37
+Subject: bpfd data has been logged
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+bpfd has logged information about attached BPF programs and maps.
+
+Periodically, bpfd will gather data about all currently attached BPF programs
+and maps and then log it to journald. This includes program/map names, program/map
+types, memlock, and program run statistics.
