@@ -127,7 +127,6 @@ int action_setup_keys(void) {
         n = now(CLOCK_REALTIME);
         n /= arg_interval;
 
-        safe_close(fd);
         fd = mkostemp_safe(k);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s: %m", k);
