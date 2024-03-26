@@ -89,7 +89,7 @@ static bool arg_rmdir = false;
 static bool arg_in_memory = false;
 static char **arg_argv = NULL;
 static char *arg_loop_ref = NULL;
-static ImagePolicy* arg_image_policy = NULL;
+static ImagePolicy *arg_image_policy = NULL;
 static bool arg_mtree_hash = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -98,6 +98,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, verity_settings_done);
 STATIC_DESTRUCTOR_REGISTER(arg_argv, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_loop_ref, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
