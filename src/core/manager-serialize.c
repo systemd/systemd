@@ -109,6 +109,8 @@ int manager_serialize(
         (void) serialize_usec(f, "pretimeout-watchdog-overridden", m->watchdog_overridden[WATCHDOG_PRETIMEOUT]);
         (void) serialize_item(f, "pretimeout-watchdog-governor-overridden", m->watchdog_pretimeout_governor_overridden);
 
+        (void) serialize_item_format(f, "soft-reboots-count", "%u", m->soft_reboots_count);
+
         for (ManagerTimestamp q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 _cleanup_free_ char *joined = NULL;
 
@@ -517,7 +519,14 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 (void) varlink_server_deserialize_one(m->varlink_server, val, fds);
                 } else if ((val = startswith(l, "dump-ratelimit=")))
                         deserialize_ratelimit(&m->dump_ratelimit, "dump-ratelimit", val);
-                else {
+                else if ((val = startswith(l, "soft-reboots-count="))) {
+                        unsigned n;
+
+                        if (safe_atou(val, &n) < 0)
+                                log_notice("Failed to parse soft reboots counter '%s', ignoring.", val);
+                        else
+                                m->soft_reboots_count = n;
+                } else {
                         ManagerTimestamp q;
 
                         for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {

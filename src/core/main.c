@@ -3192,6 +3192,11 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        /* If we got a SoftRebootStart timestamp during deserialization, then we are in a new soft-reboot
+         * iteration, so bump the counter now before starting units, so that they can reliably read it. */
+        if (dual_timestamp_is_set(&m->timestamps[MANAGER_TIMESTAMP_SOFTREBOOT_START]))
+                m->soft_reboots_count++;
+
         /* This will close all file descriptors that were opened, but not claimed by any unit. */
         fds = fdset_free(fds);
         arg_serialization = safe_fclose(arg_serialization);

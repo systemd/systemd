@@ -27,6 +27,8 @@ if [ -f /run/testsuite82.touch3 ]; then
     echo "This is the fourth boot!"
     systemd-notify --status="Fourth Boot"
 
+    test "$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager SoftRebootsCount | jq -r '.data')" -eq 3
+
     rm /run/testsuite82.touch3
     mount
     rmdir /original-root /run/nextroot
@@ -51,6 +53,8 @@ if [ -f /run/testsuite82.touch3 ]; then
 elif [ -f /run/testsuite82.touch2 ]; then
     echo "This is the third boot!"
     systemd-notify --status="Third Boot"
+
+    test "$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager SoftRebootsCount | jq -r '.data')" -eq 2
 
     rm /run/testsuite82.touch2
 
@@ -94,6 +98,8 @@ elif [ -f /run/testsuite82.touch2 ]; then
 elif [ -f /run/testsuite82.touch ]; then
     echo "This is the second boot!"
     systemd-notify --status="Second Boot"
+
+    test "$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager SoftRebootsCount | jq -r '.data')" -eq 1
 
     # Clean up what we created earlier
     rm /run/testsuite82.touch
@@ -150,6 +156,8 @@ elif [ -f /run/testsuite82.touch ]; then
 else
     # This is the first boot
     systemd-notify --status="First Boot"
+
+    test "$(busctl -j get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager SoftRebootsCount | jq -r '.data')" -eq 0
 
     # Let's upload an fd to the fdstore, so that we can verify fdstore passing works correctly
     T="/dev/shm/fdstore.$RANDOM"
