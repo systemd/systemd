@@ -1914,6 +1914,41 @@ SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" -
 
 
 #
+# check if merging the hierarchy does not change its permissions
+#
+
+
+fake_root=${fake_roots_dir}/perm-checks
+hierarchy=/usr
+
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+prep_ro_hierarchy "${fake_root}" "${hierarchy}"
+
+full_path="${fake_root}/${hierarchy}"
+perms_before_merge=$(stat --format=%A "${full_path}")
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+
+perms_after_merge=$(stat --format=%A "${full_path}")
+
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+
+perms_after_unmerge=$(stat --format=%A "${full_path}")
+
+if [[ "${perms_before_merge}" != "${perms_after_merge}" ]]; then
+    die "broken hierarchy permissions after merging, expected ${perms_before_merge@Q}, got ${perms_after_merge@Q}"
+fi
+
+if [[ "${perms_before_merge}" != "${perms_after_unmerge}" ]]; then
+    die "broken hierarchy permissions after unmerging, expected ${perms_before_merge@Q}, got ${perms_after_unmerge@Q}"
+fi
+
+
+#
 # done
 #
 
