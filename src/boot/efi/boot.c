@@ -97,6 +97,10 @@ typedef struct {
         bool beep;
         int64_t console_mode;
         int64_t console_mode_efivar;
+        uint8_t color_normal;
+        uint8_t color_entry;
+        uint8_t color_highlight;
+        uint8_t color_edit;
 } Config;
 
 /* These values have been chosen so that the transitions the user sees could employ unsigned over-/underflow
@@ -147,7 +151,7 @@ static void cursor_right(size_t *cursor, size_t *first, size_t x_max, size_t len
                 (*first)++;
 }
 
-static bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos) {
+static bool line_edit(Config *config, char16_t **line_in, size_t x_max, size_t y_pos) {
         _cleanup_free_ char16_t *line = NULL, *print = NULL;
         size_t size, len, first = 0, cursor = 0, clear = 0;
 
@@ -164,7 +168,7 @@ static bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos) {
         for (;;) {
                 EFI_STATUS err;
                 uint64_t key;
-                size_t j, cursor_color = EFI_TEXT_ATTR_SWAP(COLOR_EDIT);
+                size_t j, cursor_color = EFI_TEXT_ATTR_SWAP(config->color_edit);
 
                 j = MIN(len - first, x_max);
                 memcpy(print, line + first, j * sizeof(char16_t));
@@ -175,7 +179,7 @@ static bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos) {
                 print[j] = '\0';
 
                 /* See comment at edit_line() call site for why we start at 1. */
-                print_at(1, y_pos, COLOR_EDIT, print);
+                print_at(1, y_pos, config->color_edit, print);
 
                 if (!print[cursor])
                         print[cursor] = ' ';
@@ -188,7 +192,7 @@ static bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos) {
                         if (!IN_SET(err, EFI_SUCCESS, EFI_TIMEOUT, EFI_NOT_READY))
                                 return false;
 
-                        print_at(cursor + 1, y_pos, COLOR_EDIT, print + cursor);
+                        print_at(cursor + 1, y_pos, config->color_edit, print + cursor);
                 } while (err != EFI_SUCCESS);
 
                 switch (key) {
@@ -484,7 +488,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
 
         assert(config);
 
-        clear_screen(COLOR_NORMAL);
+        clear_screen(config->color_normal);
         console_query_mode(&x_max, &y_max);
         query_screen_resolution(&screen_width, &screen_height);
 
@@ -691,7 +695,7 @@ static bool menu_run(
         err = console_set_mode(config->console_mode_efivar != CONSOLE_MODE_KEEP ?
                                config->console_mode_efivar : config->console_mode);
         if (err != EFI_SUCCESS) {
-                clear_screen(COLOR_NORMAL);
+                clear_screen(config->color_normal);
                 log_error_status(err, "Error switching console mode: %m");
         }
 
@@ -777,7 +781,7 @@ static bool menu_run(
                 }
 
                 if (clear) {
-                        clear_screen(COLOR_NORMAL);
+                        clear_screen(config->color_normal);
                         clear = false;
                         refresh = true;
                 }
@@ -785,27 +789,27 @@ static bool menu_run(
                 if (refresh) {
                         for (size_t i = idx_first; i <= idx_last && i < config->n_entries; i++) {
                                 print_at(x_start, y_start + i - idx_first,
-                                         i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
+                                         i == idx_highlight ? config->color_highlight : config->color_entry,
                                          lines[i]);
                                 if (i == config->idx_default_efivar)
                                         print_at(x_start,
                                                  y_start + i - idx_first,
-                                                 i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
+                                                 i == idx_highlight ? config->color_highlight : config->color_entry,
                                                  unicode_supported() ? u" ►" : u"=>");
                         }
                         refresh = false;
                 } else if (highlight) {
-                        print_at(x_start, y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, lines[idx_highlight_prev]);
-                        print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, lines[idx_highlight]);
+                        print_at(x_start, y_start + idx_highlight_prev - idx_first, config->color_entry, lines[idx_highlight_prev]);
+                        print_at(x_start, y_start + idx_highlight - idx_first, config->color_highlight, lines[idx_highlight]);
                         if (idx_highlight_prev == config->idx_default_efivar)
                                 print_at(x_start,
                                          y_start + idx_highlight_prev - idx_first,
-                                         COLOR_ENTRY,
+                                         config->color_entry,
                                          unicode_supported() ? u" ►" : u"=>");
                         if (idx_highlight == config->idx_default_efivar)
                                 print_at(x_start,
                                          y_start + idx_highlight - idx_first,
-                                         COLOR_HIGHLIGHT,
+                                         config->color_highlight,
                                          unicode_supported() ? u" ►" : u"=>");
                         highlight = false;
                 }
@@ -823,16 +827,16 @@ static bool menu_run(
                         size_t len = strnlen16(status, x_max - 1);
                         size_t x = (x_max - len) / 2;
                         status[len] = '\0';
-                        print_at(0, y_status, COLOR_NORMAL, clearline + x_max - x);
+                        print_at(0, y_status, config->color_normal, clearline + x_max - x);
                         ST->ConOut->OutputString(ST->ConOut, status);
                         ST->ConOut->OutputString(ST->ConOut, clearline + 1 + x + len);
 
                         len = MIN(MAX(len, line_width) + 2 * entry_padding, x_max);
                         x = (x_max - len) / 2;
-                        print_at(x, y_status - 1, COLOR_NORMAL, separator + x_max - len);
+                        print_at(x, y_status - 1, config->color_normal, separator + x_max - len);
                 } else {
-                        print_at(0, y_status - 1, COLOR_NORMAL, clearline);
-                        print_at(0, y_status, COLOR_NORMAL, clearline + 1); /* See comment above. */
+                        print_at(0, y_status - 1, config->color_normal, clearline);
+                        print_at(0, y_status, config->color_normal, clearline + 1); /* See comment above. */
                 }
 
                 /* Beep several times so that the selected entry can be distinguished. */
@@ -993,10 +997,10 @@ static bool menu_run(
                          * causing a scroll to happen that screws with our beautiful boot loader output.
                          * Since we cannot paint the last character of the edit line, we simply start
                          * at x-offset 1 for symmetry. */
-                        print_at(1, y_status, COLOR_EDIT, clearline + 2);
-                        if (line_edit(&config->entries[idx_highlight]->options, x_max - 2, y_status))
+                        print_at(1, y_status, config->color_edit, clearline + 2);
+                        if (line_edit(config, &config->entries[idx_highlight]->options, x_max - 2, y_status))
                                 action = ACTION_RUN;
-                        print_at(1, y_status, COLOR_NORMAL, clearline + 2);
+                        print_at(1, y_status, config->color_normal, clearline + 2);
 
                         /* The options string was now edited, hence we have to pass it to the invoked
                          * binary. */
@@ -1147,7 +1151,7 @@ static bool menu_run(
         }
 
         *chosen_entry = config->entries[idx_highlight];
-        clear_screen(COLOR_NORMAL);
+        clear_screen(config->color_normal);
         return action == ACTION_RUN;
 }
 
@@ -1189,6 +1193,26 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(BootEntry *, boot_entry_free);
+
+static bool parse_console_color(const char *v, uint8_t *color_out){
+        const char *color_names[] = {
+                "black", "blue", "green", "cyan",
+                "red", "magenta", "brown", "lightgray",
+                "bright", "darkgray", "lightblue", "lightgreen",
+                "lightcyan", "lightred", "lightmagenta", "yellow", "white"};;
+        uint8_t color_values[] = {
+                EFI_BLACK, EFI_BLUE, EFI_GREEN, EFI_CYAN,
+                EFI_RED, EFI_MAGENTA, EFI_BROWN, EFI_LIGHTGRAY,
+                EFI_BRIGHT, EFI_DARKGRAY, EFI_LIGHTBLUE, EFI_LIGHTGREEN,
+                EFI_LIGHTCYAN, EFI_LIGHTRED, EFI_LIGHTMAGENTA, EFI_YELLOW, EFI_WHITE};
+        for(int i = 0; i < 17; i++) {
+                if(streq8(v, color_names[i])) {
+                        *color_out = color_values[i];
+                        return true;
+                }
+        }
+        return false;
+}
 
 static void config_defaults_load_from_file(Config *config, char *content) {
         char *line;
@@ -1283,6 +1307,54 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 }
                                 config->console_mode = u;
                         }
+                } else if (streq8(key, "color-normal-foreground")) {
+                        uint8_t color;
+                        if(!parse_console_color(value, &color)) {
+                                log_error("Unknown color %s", value);
+                        }
+                        config->color_normal = (config->color_normal & 0xf0) | color;
+                } else if (streq8(key, "color-normal-background")) {
+                        uint8_t color;
+                        if(!parse_console_color(value, &color)) {
+                                log_error("Unknown color %s", value);
+                        }
+                        config->color_normal = (color << 4) | (config->color_normal & 0x0f);
+                } else if (streq8(key, "color-entry-foreground")) {
+                        uint8_t color;
+                        if(!parse_console_color(value, &color)) {
+                                log_error("Unknown color %s", value);
+                        }
+                        config->color_entry = (config->color_entry & 0xf0) | color;
+                } else if (streq8(key, "color-entry-background")) {
+                        uint8_t color;
+                        if(!parse_console_color(value, &color)) {
+                                log_error("Unknown color %s", value);
+                        }
+                        config->color_entry = (color << 4) | (config->color_entry & 0x0f);
+                } else if (streq8(key, "color-highlight-foreground")) {
+                        uint8_t color;
+                        if(!parse_console_color(value, &color)) {
+                                log_error("Unknown color %s", value);
+                        }
+                        config->color_highlight = (config->color_highlight & 0xf0) | color;
+                } else if (streq8(key, "color-highlight-background")) {
+                        uint8_t color;
+                        if(!parse_console_color(value, &color)) {
+                                log_error("Unknown color %s", value);
+                        }
+                        config->color_highlight = (color << 4) | (config->color_highlight & 0x0f);
+                } else if (streq8(key, "color-edit-foreground")) {
+                        uint8_t color;
+                        if(!parse_console_color(value, &color)) {
+                                log_error("Unknown color %s", value);
+                        }
+                        config->color_edit = (config->color_edit & 0xf0) | color;
+                } else if (streq8(key, "color-edit-background")) {
+                        uint8_t color;
+                        if(!parse_console_color(value, &color)) {
+                                log_error("Unknown color %s", value);
+                        }
+                        config->color_edit = (color << 4) | (config->color_edit & 0x0f);
                 }
 }
 
@@ -1567,6 +1639,11 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .console_mode_efivar = CONSOLE_MODE_KEEP,
                 .timeout_sec_config = TIMEOUT_UNSET,
                 .timeout_sec_efivar = TIMEOUT_UNSET,
+                .color_normal = COLOR_NORMAL,
+                .color_entry = COLOR_ENTRY,
+                .color_highlight = COLOR_HIGHLIGHT,
+                .color_edit = COLOR_EDIT,
+
         };
 
         err = file_read(root_dir, u"\\loader\\loader.conf", 0, 0, &content, &content_size);
