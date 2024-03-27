@@ -42,6 +42,7 @@ typedef enum {
         READ_FULL_FILE_WARN_WORLD_READABLE = 1 << 3, /* if regular file, log at LOG_WARNING level if access mode above 0700 */
         READ_FULL_FILE_CONNECT_SOCKET      = 1 << 4, /* if socket inode, connect to it and read off it */
         READ_FULL_FILE_FAIL_WHEN_LARGER    = 1 << 5, /* fail loading if file is larger than specified size */
+        READ_FULL_FILE_LARGE_FILE          = 1 << 6, /* read large files increasing limit to READ_FULL_LARGE_BYTES_MAX */
 } ReadFullFileFlags;
 
 int fdopen_unlocked(int fd, const char *options, FILE **ret);
