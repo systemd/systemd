@@ -65,6 +65,7 @@ int user_record_bad_authentication(UserRecord *h);
 int user_record_ratelimit(UserRecord *h);
 
 int user_record_is_supported(UserRecord *hr, sd_bus_error *error);
+int user_record_changes_are_safe(UserRecord *a, UserRecord *b);
 
 bool user_record_shall_rebalance(UserRecord *h);
 int user_record_set_rebalance_weight(UserRecord *h, uint64_t weight);
