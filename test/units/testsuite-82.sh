@@ -146,6 +146,11 @@ elif [ -f /run/testsuite82.touch ]; then
     # Restart the unit that is not supposed to survive
     systemd-run --collect --service-type=exec --unit=testsuite-82-nosurvive.service sleep infinity
 
+    # Now ensure there are no naming clashes and a bunch of transient units all succeed
+    for _ in $(seq 1 25); do
+        systemd-run --wait true
+    done
+
     # Now issue the soft reboot. We should be right back soon. Given /run/nextroot exists, we should
     # automatically do a softreboot instead of normal reboot.
     touch /run/testsuite82.touch2
@@ -226,6 +231,14 @@ EOF
     systemd-run --unit inhibit.service --service-type=exec \
         systemd-inhibit --what=shutdown --who=test --why=test --mode=delay \
             sleep infinity
+
+    # Enqueue a bunch of failing units to try and trigger the transient name clash that happens due to D-Bus
+    # being restarted and the "unique" bus IDs not being unique across restarts
+    for _ in $(seq 1 25); do
+        # Use --wait to ensure we connect to the system bus instead of the private bus (otherwise a UUID is
+        # used instead of the bus ID)
+        systemd-run --wait false || true
+    done
 
     # Now issue the soft reboot. We should be right back soon.
     touch /run/testsuite82.touch
