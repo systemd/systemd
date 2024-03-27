@@ -22,7 +22,7 @@ fi
 # change the sector size of a file, and we want to test both 512 and 4096 byte
 # sectors. If loopback devices are not supported, we can only test one sector
 # size, and the underlying device is likely to have a sector size of 512 bytes.
-if ! losetup --find >/dev/null 2>&1; then
+if [[ ! -e /dev/loop-control ]]; then
     echo "No loopback device support"
     SECTOR_SIZES="512"
 fi
@@ -108,7 +108,7 @@ for sector_size in $SECTOR_SIZES ; do
     rm -f "$BACKING_FILE"
     truncate -s "$disk_size" "$BACKING_FILE"
 
-    if losetup --find >/dev/null 2>&1; then
+    if [[ -e /dev/loop-control ]]; then
         # shellcheck disable=SC2086
         blockdev="$(losetup --find --show --sector-size $sector_size $BACKING_FILE)"
     else
