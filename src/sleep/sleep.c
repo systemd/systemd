@@ -151,22 +151,22 @@ static int write_state(int fd, char * const *states) {
         return r;
 }
 
-static int write_mode(char * const *modes) {
-        int r = 0;
+static int write_mode(const char *path, char * const *modes) {
+        int r, ret = 0;
+
+        assert(path);
 
         STRV_FOREACH(mode, modes) {
-                int k;
-
-                k = write_string_file("/sys/power/disk", *mode, WRITE_STRING_FILE_DISABLE_BUFFER);
-                if (k >= 0) {
-                        log_debug("Using sleep disk mode '%s'.", *mode);
+                r = write_string_file(path, *mode, WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (r >= 0) {
+                        log_debug("Using sleep mode '%s' for %s.", *mode, path);
                         return 0;
                 }
 
-                RET_GATHER(r, log_debug_errno(k, "Failed to write '%s' to /sys/power/disk: %m", *mode));
+                RET_GATHER(ret, log_debug_errno(r, "Failed to write '%s' to %s: %m", *mode, path));
         }
 
-        return r;
+        return ret;
 }
 
 static int lock_all_homes(void) {
@@ -259,7 +259,7 @@ static int execute(
                                 goto fail;
                 }
 
-                r = write_mode(sleep_config->modes[operation]);
+                r = write_mode("/sys/power/disk", sleep_config->modes[operation]);
                 if (r < 0) {
                         log_error_errno(r, "Failed to write mode to /sys/power/disk: %m");
                         goto fail;
