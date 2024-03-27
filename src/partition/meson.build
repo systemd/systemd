@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+subdir('repart')
+
 executables += [
         libexec_template + {
                 'name' : 'systemd-growfs',
@@ -13,7 +15,8 @@ executables += [
                 'name' : 'systemd-repart',
                 'public' : true,
                 'conditions' : ['ENABLE_REPART'],
-                'sources' : files('repart.c'),
+                'sources' : repart_makefs_files + files('repart.c'),
+                'include_directories': includes + repart_makefs_includes,
                 'link_with' : [
                         libshared,
                         libshared_fdisk,
