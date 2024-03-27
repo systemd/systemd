@@ -62,6 +62,7 @@ struct Link {
         DnsOverTlsMode dns_over_tls_mode;
         DnssecMode dnssec_mode;
         Set *dnssec_negative_trust_anchors;
+        int trust_ad;
 
         DnsScope *unicast_scope;
         DnsScope *llmnr_ipv4_scope;
@@ -102,6 +103,7 @@ void link_next_dns_server(Link *l, DnsServer *if_current);
 
 DnssecMode link_get_dnssec_mode(Link *l);
 bool link_dnssec_supported(Link *l);
+bool link_get_trust_ad(Link *l);
 
 DnsOverTlsMode link_get_dns_over_tls_mode(Link *l);
 

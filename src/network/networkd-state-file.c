@@ -768,6 +768,8 @@ static int link_save(Link *link) {
                 if (dnssec_mode != _DNSSEC_MODE_INVALID)
                         fprintf(f, "DNSSEC=%s\n", dnssec_mode_to_string(dnssec_mode));
 
+                fprintf(f, "TRUST_AD=%s\n", yes_no(link->network->trust_ad));
+
                 /************************************************************/
 
                 Set *nta_anchors = link->dnssec_negative_trust_anchors;

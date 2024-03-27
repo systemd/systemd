@@ -123,6 +123,7 @@ Network.MulticastDNS,                        config_parse_resolve_support,      
 Network.DNSOverTLS,                          config_parse_dns_over_tls_mode,                           0,                             offsetof(Network, dns_over_tls_mode)
 Network.DNSSEC,                              config_parse_dnssec_mode,                                 0,                             offsetof(Network, dnssec_mode)
 Network.DNSSECNegativeTrustAnchors,          config_parse_dnssec_negative_trust_anchors,               0,                             offsetof(Network, dnssec_negative_trust_anchors)
+Network.TrustAD,                             config_parse_bool,                                        0,                             offsetof(Network, trust_ad)
 Network.NTP,                                 config_parse_ntp,                                         0,                             offsetof(Network, ntp)
 Network.IPForward,                           config_parse_ip_forward_deprecated,                       0,                             0
 Network.IPv4Forwarding,                      config_parse_tristate,                                    0,                             offsetof(Network, ip_forwarding[0])
