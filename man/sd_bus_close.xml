@@ -108,8 +108,8 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_bus_close()</function> and
-    <function>sd_bus_flush()</function> were added in version 240.</para>
-    <para><function>sd_bus_default_flush_close()</function> was added in version 246.</para>
+    <function>sd_bus_flush()</function> were added in version 221.</para>
+    <para><function>sd_bus_default_flush_close()</function> was added in version 227.</para>
   </refsect1>
 
   <refsect1>

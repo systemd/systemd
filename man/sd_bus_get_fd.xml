@@ -150,9 +150,7 @@
         <varlistentry>
           <term><constant>-ENOPKG</constant></term>
 
-          <listitem><para>The bus cannot be resolved.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus cannot be resolved.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -162,9 +160,9 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_get_fd()</function> was added in version 231.</para>
-    <para><function>sd_bus_get_events()</function> and
-    <function>sd_bus_get_timeout()</function> were added in version 240.</para>
+    <para><function>sd_bus_get_fd()</function>,
+    <function>sd_bus_get_events()</function>, and
+    <function>sd_bus_get_timeout()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>

@@ -402,11 +402,11 @@
     <function>sd_bus_error_set_const()</function>,
     <function>sd_bus_error_set_errno()</function>,
     <function>sd_bus_error_set_errnof()</function>,
+    <function>sd_bus_error_set_errnofv()</function>,
     <function>sd_bus_error_get_errno()</function>,
     <function>sd_bus_error_copy()</function>,
     <function>sd_bus_error_is_set()</function>, and
-    <function>sd_bus_error_has_name()</function> were added in version 209.</para>
-    <para><function>sd_bus_error_set_errnofv()</function> was added in version 223.</para>
+    <function>sd_bus_error_has_name()</function> were added in version 221.</para>
     <para><function>sd_bus_error_move()</function> was added in version 240.</para>
     <para><function>sd_bus_error_has_names_sentinel()</function> was added in version 247.</para>
     <para><function>sd_bus_error_setfv()</function> was added in version 252.</para>

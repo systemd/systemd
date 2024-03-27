@@ -377,10 +377,7 @@
           combination of flags, see below.</para>
 
           <para><constant>SD_BUS_METHOD_WITH_ARGS()</constant> is a shorthand for calling
-          <constant>SD_BUS_METHOD_WITH_ARGS_OFFSET()</constant> with an offset of zero.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/>
-          </listitem>
+          <constant>SD_BUS_METHOD_WITH_ARGS_OFFSET()</constant> with an offset of zero.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -406,10 +403,7 @@
           <para>Prefer using <constant>SD_BUS_METHOD_WITH_ARGS_OFFSET()</constant> and
           <constant>SD_BUS_METHOD_WITH_ARGS()</constant> over these macros as they allow specifying argument
           types and names next to each other which is less error-prone than first specifying all argument
-          types followed by specifying all argument names.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/>
-          </listitem>
+          types followed by specifying all argument names.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -423,9 +417,7 @@
           <replaceable>args</replaceable>. If a signal has no parameters, pass
           <constant>SD_BUS_NO_ARGS</constant> to <replaceable>args</replaceable>. The elements at uneven
           indices describe the names of the signal's arguments. Parameter <replaceable>flags</replaceable> is
-          a combination of flags. See below for a complete example.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          a combination of flags. See below for a complete example.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -445,10 +437,7 @@
 
           <para>Prefer using <constant>SD_BUS_SIGNAL_WITH_ARGS()</constant> over these macros as it allows
           specifying argument types and names next to each other which is less error-prone than first
-          specifying all argument types followed by specifying all argument names.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/>
-          </listitem>
+          specifying all argument types followed by specifying all argument names.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -473,17 +462,13 @@
           </para>
 
           <para><constant>SD_BUS_PROPERTY()</constant> is used to define a read-only property.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>SD_BUS_PARAM()</constant></term>
           <listitem><para>Parameter names should be wrapped in this macro, see the example below.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          </para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -502,9 +487,7 @@
           <listitem><para>Mark this vtable entry as deprecated using the
           <constant>org.freedesktop.DBus.Deprecated</constant> annotation in introspection data. If
           specified for <constant>SD_BUS_VTABLE_START()</constant>, the annotation is applied to the
-          enclosing interface.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          enclosing interface.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -512,9 +495,7 @@
 
           <listitem><para>Make this vtable entry hidden. It will not be shown in introspection data.
           If specified for <constant>SD_BUS_VTABLE_START()</constant>, all entries in the array are
-          hidden.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          hidden.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -522,9 +503,7 @@
 
           <listitem><para>Mark this vtable entry as a method that will not return a reply using the
           <constant>org.freedesktop.DBus.Method.NoReply</constant> annotation in introspection data.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -543,9 +522,7 @@
           <constant>true</constant> and means that the signal is emitted.
           <constant>SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION</constant> corresponds to
           <constant>invalidates</constant> and means that the signal is emitted, but the value is
-          not included in the signal.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          not included in the signal.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -556,9 +533,7 @@
           cannot be combined with <constant>SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE</constant>, and will
           not be shown in property listings by default (e.g. <command>busctl introspect</command>).
           This corresponds to the <constant>org.freedesktop.systemd1.Explicit</constant> annotation
-          in introspection data.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          in introspection data.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -567,9 +542,7 @@
           <listitem><para>Mark this vtable method entry as processing sensitive data. When set,
           incoming method call messages and their outgoing reply messages are marked as sensitive using
           <citerefentry><refentrytitle>sd_bus_message_sensitive</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-          so that they are erased from memory when freed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          so that they are erased from memory when freed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -579,9 +552,7 @@
           its associated handler functions is determined slightly differently: instead of adding the offset
           parameter of the entry to the user data pointer specified during vtable registration, the offset is
           passed directly, converted to a pointer, without taking the user data pointer specified during
-          vtable registration into account.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          vtable registration into account.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -597,10 +568,7 @@
           for information about capabilities.</para>
 
           <para>Note that vtable entries may be marked as unprivileged and the whole bus may be marked as
-          trusted, see the discussion of <constant>SD_BUS_VTABLE_UNPRIVILEGED</constant> below.</para>
-
-          <xi:include href="version-info.xml" xpointer="v251"/>
-          </listitem>
+          trusted, see the discussion of <constant>SD_BUS_VTABLE_UNPRIVILEGED</constant> below.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -625,9 +593,7 @@
           additional policy that may permit or deny connections, see
           "CONFIGURATION FILE" in
           <citerefentry project='man-pages'><refentrytitle>dbus-daemon</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          </para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -667,33 +633,25 @@
 
           <listitem><para>One of the required parameters is <constant>NULL</constant> or invalid. A
           reserved D-Bus interface was passed as the <replaceable>interface</replaceable> parameter.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOPKG</constant></term>
 
-          <listitem><para>The bus cannot be resolved.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus cannot be resolved.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The bus was created in a different process, library or module instance.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus was created in a different process, library or module instance.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Memory allocation failed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>Memory allocation failed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -701,19 +659,14 @@
 
           <listitem><para><function>sd_bus_add_object_vtable()</function> and
           <function>sd_bus_add_fallback_vtable()</function> have been both called for the same bus
-          object path, which is not allowed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          object path, which is not allowed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EEXIST</constant></term>
 
           <listitem><para>This vtable has already been registered for this
-          <replaceable>interface</replaceable> and <replaceable>path</replaceable>.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <replaceable>interface</replaceable> and <replaceable>path</replaceable>.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -730,7 +683,7 @@
     <function>sd_bus_add_fallback()</function>,
     <function>sd_bus_add_object_vtable()</function>,
     <function>sd_bus_add_fallback_vtable()</function>, and
-    <function>sd_bus_add_filter()</function> were added in version 246.</para>
+    <function>sd_bus_add_filter()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>
