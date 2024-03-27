@@ -20,7 +20,8 @@ rpmbuild \
     -bb \
     --build-in-place \
     --with upstream \
-    $( ((WITH_TESTS)) || echo --nocheck) \
+    $( ((WITH_TESTS)) || echo "--nocheck") \
+    $( ((WITH_DOCS))  || echo "--without docs") \
     --define "_topdir /var/tmp" \
     --define "_sourcedir pkg/$PKG_SUBDIR" \
     --define "_rpmdir $PACKAGEDIR" \
