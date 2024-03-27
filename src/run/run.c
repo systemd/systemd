@@ -1313,6 +1313,8 @@ static int transient_timer_set_properties(sd_bus_message *m) {
 }
 
 static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
+        char soft_reboot_suffix[DECIMAL_STR_MAX(unsigned) + 2] = {0}; /* Add space for '-s' */
+        unsigned soft_reboots_count = 0;
         const char *unique, *id;
         char *p;
         int r;
@@ -1351,7 +1353,21 @@ static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
                                        "Unique name %s has unexpected format.",
                                        unique);
 
-        p = strjoin("run-u", id, ".", unit_type_to_string(t));
+        /* The unique D-Bus names are actually unique per D-Bus instance, so on soft-reboot they will wrap
+         * and start over since the D-Bus broker is restarted. If there's a failed unit left behind that
+         * hasn't been garbage collected, we'll conflict. Append the soft-reboot counter to avoid clashing. */
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        r = bus_get_property_trivial(
+                        bus, bus_systemd_mgr, "SoftRebootsCount", &error, 'u', &soft_reboots_count);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get SoftRebootsCount property, ignoring: %s", bus_error_message(&error, r));
+        else if (soft_reboots_count > 0) {
+                r = snprintf(soft_reboot_suffix, sizeof(soft_reboot_suffix), "-s%u", soft_reboots_count);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to format soft reboot counter, ignoring: %m");
+        }
+
+        p = strjoin("run-u", id, soft_reboot_suffix, ".", unit_type_to_string(t));
         if (!p)
                 return log_oom();
 
