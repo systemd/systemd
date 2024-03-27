@@ -43,9 +43,11 @@
 #define RADV_MAX_ROUTER_LIFETIME_USEC             (9000 * USEC_PER_SEC)
 #define RADV_DEFAULT_ROUTER_LIFETIME_USEC         (3 * RADV_DEFAULT_MAX_TIMEOUT_USEC)
 /* RFC 4861 section 4.2.
- * Retrans Timer
+ * Reachable Time and Retrans Timer
  * 32-bit unsigned integer. The time, in milliseconds. */
-#define RADV_MAX_RETRANSMIT_USEC                  (UINT32_MAX * USEC_PER_MSEC)
+#define RADV_MAX_UINT32_MSEC                      (UINT32_MAX * USEC_PER_MSEC)
+#define RADV_MAX_REACHABLE_TIME_USEC              RADV_MAX_UINT32_MSEC
+#define RADV_MAX_RETRANSMIT_USEC                  RADV_MAX_UINT32_MSEC
 /* draft-ietf-6man-slaac-renum-02 section 4.1.1.
  * AdvPreferredLifetime: max(AdvDefaultLifetime, 3 * MaxRtrAdvInterval)
  * AdvValidLifetime: 2 * AdvPreferredLifetime */
@@ -106,6 +108,7 @@ struct sd_radv {
         uint8_t hop_limit;
         uint8_t flags;
         uint32_t mtu;
+        usec_t reachable_usec;
         usec_t retransmit_usec;
         usec_t lifetime_usec; /* timespan */
 

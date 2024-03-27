@@ -602,6 +602,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
                 .duid_product_uuid.type = DUID_TYPE_UUID,
+                .dhcp_server_persist_leases = true,
                 .ip_forwarding = { -1, -1, },
         };
 

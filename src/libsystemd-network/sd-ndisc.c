@@ -16,6 +16,8 @@
 #include "in-addr-util.h"
 #include "memory-util.h"
 #include "ndisc-internal.h"
+#include "ndisc-neighbor-internal.h"
+#include "ndisc-redirect-internal.h"
 #include "ndisc-router-internal.h"
 #include "network-common.h"
 #include "random-util.h"
@@ -26,8 +28,10 @@
 #define NDISC_TIMEOUT_NO_RA_USEC (NDISC_ROUTER_SOLICITATION_INTERVAL * NDISC_MAX_ROUTER_SOLICITATIONS)
 
 static const char * const ndisc_event_table[_SD_NDISC_EVENT_MAX] = {
-        [SD_NDISC_EVENT_TIMEOUT] = "timeout",
-        [SD_NDISC_EVENT_ROUTER] = "router",
+        [SD_NDISC_EVENT_TIMEOUT]  = "timeout",
+        [SD_NDISC_EVENT_ROUTER]   = "router",
+        [SD_NDISC_EVENT_NEIGHBOR] = "neighbor",
+        [SD_NDISC_EVENT_REDIRECT] = "redirect",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(ndisc_event, sd_ndisc_event_t);
@@ -225,6 +229,55 @@ static int ndisc_handle_router(sd_ndisc *nd, ICMP6Packet *packet) {
         return 0;
 }
 
+static int ndisc_handle_neighbor(sd_ndisc *nd, ICMP6Packet *packet) {
+        _cleanup_(sd_ndisc_neighbor_unrefp) sd_ndisc_neighbor *na = NULL;
+        int r;
+
+        assert(nd);
+        assert(packet);
+
+        na = ndisc_neighbor_new(packet);
+        if (!na)
+                return -ENOMEM;
+
+        r = ndisc_neighbor_parse(nd, na);
+        if (r < 0)
+                return r;
+
+        log_ndisc(nd, "Received Neighbor Advertisement from %s: Router=%s, Solicited=%s, Override=%s",
+                  IN6_ADDR_TO_STRING(&na->packet->sender_address),
+                  yes_no(sd_ndisc_neighbor_is_router(na) > 0),
+                  yes_no(sd_ndisc_neighbor_is_solicited(na) > 0),
+                  yes_no(sd_ndisc_neighbor_is_override(na) > 0));
+
+        ndisc_callback(nd, SD_NDISC_EVENT_NEIGHBOR, na);
+        return 0;
+}
+
+static int ndisc_handle_redirect(sd_ndisc *nd, ICMP6Packet *packet) {
+        _cleanup_(sd_ndisc_redirect_unrefp) sd_ndisc_redirect *rd = NULL;
+        int r;
+
+        assert(nd);
+        assert(packet);
+
+        rd = ndisc_redirect_new(packet);
+        if (!rd)
+                return -ENOMEM;
+
+        r = ndisc_redirect_parse(nd, rd);
+        if (r < 0)
+                return r;
+
+        log_ndisc(nd, "Received Redirect message from %s: Target=%s, Destination=%s",
+                  IN6_ADDR_TO_STRING(&rd->packet->sender_address),
+                  IN6_ADDR_TO_STRING(&rd->target_address),
+                  IN6_ADDR_TO_STRING(&rd->destination_address));
+
+        ndisc_callback(nd, SD_NDISC_EVENT_REDIRECT, rd);
+        return 0;
+}
+
 static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
         sd_ndisc *nd = ASSERT_PTR(userdata);
@@ -262,6 +315,14 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
                 (void) ndisc_handle_router(nd, packet);
                 break;
 
+        case ND_NEIGHBOR_ADVERT:
+                (void) ndisc_handle_neighbor(nd, packet);
+                break;
+
+        case ND_REDIRECT:
+                (void) ndisc_handle_redirect(nd, packet);
+                break;
+
         default:
                 log_ndisc(nd, "Received an ICMPv6 packet with unexpected type %i, ignoring.", r);
         }
@@ -284,12 +345,12 @@ static int ndisc_send_router_solicitation(sd_ndisc *nd) {
         assert(nd);
 
         if (!ether_addr_is_null(&nd->mac_addr)) {
-                r = ndisc_option_add_link_layer_address(&options, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, 0, &nd->mac_addr);
+                r = ndisc_option_set_link_layer_address(&options, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, &nd->mac_addr);
                 if (r < 0)
                         return r;
         }
 
-        return ndisc_send(nd->fd, &dst, &header.nd_rs_hdr, options);
+        return ndisc_send(nd->fd, &dst, &header.nd_rs_hdr, options, USEC_INFINITY);
 }
 
 static usec_t ndisc_timeout_compute_random(usec_t val) {
