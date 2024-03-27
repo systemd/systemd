@@ -38,6 +38,7 @@ int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret) {
                 { "FinishTimestampMonotonic",                 "t", NULL, offsetof(BootTimes, finish_time)                   },
                 { "SecurityStartTimestampMonotonic",          "t", NULL, offsetof(BootTimes, security_start_time)           },
                 { "SecurityFinishTimestampMonotonic",         "t", NULL, offsetof(BootTimes, security_finish_time)          },
+                { "SoftRebootStartTimestampMonotonic",        "t", NULL, offsetof(BootTimes, softreboot_start_time)         },
                 { "GeneratorsStartTimestampMonotonic",        "t", NULL, offsetof(BootTimes, generators_start_time)         },
                 { "GeneratorsFinishTimestampMonotonic",       "t", NULL, offsetof(BootTimes, generators_finish_time)        },
                 { "UnitsLoadStartTimestampMonotonic",         "t", NULL, offsetof(BootTimes, unitsload_start_time)          },
@@ -81,7 +82,10 @@ int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret) {
         if (require_finished && times.finish_time <= 0)
                 return log_not_finished(times.finish_time);
 
-        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM && times.security_start_time > 0) {
+        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM && times.softreboot_start_time > 0)
+                /* On soft-reboot ignore kernel/firmware/initrd times as they are from the previous boot */
+                times.firmware_time = times.loader_time = times.kernel_time = times.initrd_time = 0;
+        else if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM && times.security_start_time > 0) {
                 /* security_start_time is set when systemd is not running under container environment. */
                 if (times.initrd_time > 0)
                         times.kernel_done_time = times.initrd_time;
@@ -182,6 +186,8 @@ int pretty_boot_time(sd_bus *bus, char **ret) {
         if (timestamp_is_set(t->kernel_done_time) && !strextend(&text, FORMAT_TIMESPAN(t->kernel_done_time, USEC_PER_MSEC), " (kernel) + "))
                 return log_oom();
         if (timestamp_is_set(t->initrd_time) && !strextend(&text, FORMAT_TIMESPAN(t->userspace_time - t->initrd_time, USEC_PER_MSEC), " (initrd) + "))
+                return log_oom();
+        if (timestamp_is_set(t->softreboot_start_time) && !strextend(&text, FORMAT_TIMESPAN(t->userspace_time - t->softreboot_start_time, USEC_PER_MSEC), " (soft reboot) + "))
                 return log_oom();
 
         if (!strextend(&text, FORMAT_TIMESPAN(t->finish_time - t->userspace_time, USEC_PER_MSEC), " (userspace) "))
