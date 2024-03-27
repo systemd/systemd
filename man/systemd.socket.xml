@@ -922,6 +922,20 @@
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>PassFileDescriptorsToExec=</varname></term>
+
+        <listitem><para>Takes a boolean argument. Defaults to off. If enabled, file descriptors created by
+        the socket unit are passed to <varname>ExecStartPost=</varname>, <varname>ExecStopPre=</varname>, and
+        <varname>ExecStopPost=</varname> commands from the socket unit. The passed file descriptors can be
+        accessed with
+        <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry> as
+        if the commands were invoked from the associated service units.  Note that
+        <varname>ExecStartPre=</varname> command cannot access socket file descriptors.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <xi:include href="systemd.service.xml" xpointer="shared-unit-options" />
