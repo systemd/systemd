@@ -86,4 +86,5 @@ if ! build; then
     build
 fi
 
-mv ../*.deb "$PACKAGEDIR"
+cp ../*.deb "$PACKAGEDIR"
+cp ../*.deb "$OUTPUTDIR"
