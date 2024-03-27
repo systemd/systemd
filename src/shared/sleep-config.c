@@ -69,8 +69,8 @@ static int config_parse_sleep_mode(
                 void *data,
                 void *userdata) {
 
-        _cleanup_strv_free_ char **modes = NULL;
         char ***sv = ASSERT_PTR(data);
+        _cleanup_strv_free_ char **modes = NULL;
         int r;
 
         assert(filename);
@@ -87,7 +87,7 @@ static int config_parse_sleep_mode(
                         return log_oom();
         }
 
-        return free_and_replace(*sv, modes);
+        return strv_free_and_replace(*sv, modes);
 }
 
 static void sleep_config_validate_state_and_mode(SleepConfig *sc) {
