@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "strv.h"
 #include "time-util.h"
 
 typedef enum SleepOperation {
@@ -29,6 +30,7 @@ typedef struct SleepConfig {
 
         char **states[_SLEEP_OPERATION_CONFIG_MAX];
         char **modes[_SLEEP_OPERATION_CONFIG_MAX]; /* Power mode after writing hibernation image */
+        char **mem_modes; /* /sys/power/mem_sleep */
 
         usec_t hibernate_delay_usec;
         usec_t suspend_estimation_usec;
@@ -38,6 +40,13 @@ SleepConfig* sleep_config_free(SleepConfig *sc);
 DEFINE_TRIVIAL_CLEANUP_FUNC(SleepConfig*, sleep_config_free);
 
 int parse_sleep_config(SleepConfig **sleep_config);
+
+static inline bool SLEEP_NEEDS_MEM_SLEEP(const SleepConfig *sc, SleepOperation operation) {
+        assert(sc);
+        assert(operation >= 0 && operation < _SLEEP_OPERATION_CONFIG_MAX);
+        return strv_contains(sc->states[operation], "mem") ||
+               strv_contains(sc->modes[operation], "suspend");
+}
 
 typedef enum SleepSupport {
         SLEEP_SUPPORTED,

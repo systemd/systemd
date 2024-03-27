@@ -54,6 +54,8 @@ SleepConfig* sleep_config_free(SleepConfig *sc) {
                 strv_free(sc->modes[i]);
         }
 
+        strv_free(sc->mem_modes);
+
         return mfree(sc);
 }
 
@@ -139,6 +141,8 @@ int parse_sleep_config(SleepConfig **ret) {
 
                 { "Sleep", "HybridSleepState",          config_parse_warn_compat, DISABLED_LEGACY, NULL                         },
                 { "Sleep", "HybridSleepMode",           config_parse_warn_compat, DISABLED_LEGACY, NULL                         },
+
+                { "Sleep", "SleepMemMode"               config_parse_sleep_mode,  0,               &sc->mem_modes               },
 
                 { "Sleep", "HibernateDelaySec",         config_parse_sec,         0,               &sc->hibernate_delay_usec    },
                 { "Sleep", "SuspendEstimationSec",      config_parse_sec,         0,               &sc->suspend_estimation_usec },
@@ -342,6 +346,16 @@ static int sleep_supported_internal(
         if (r == 0) {
                 *ret_support = SLEEP_STATE_OR_MODE_NOT_SUPPORTED;
                 return false;
+        }
+
+        if (SLEEP_NEEDS_MEM_SLEEP(sleep_config, operation)) {
+                r = sleep_mode_supported("/sys/power/mem_sleep", sleep_config->mem_modes);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        *ret_support = SLEEP_STATE_OR_MODE_NOT_SUPPORTED;
+                        return false;
+                }
         }
 
         if (SLEEP_OPERATION_IS_HIBERNATION(operation)) {
