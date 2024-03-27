@@ -457,6 +457,8 @@ struct ExecParameters {
 
         int bpf_restrict_fs_map_fd;
 
+        int notify_pam_pid_fd;
+
         /* Used for logging in the executor functions */
         char *unit_id;
         sd_id128_t invocation_id;
@@ -472,6 +474,7 @@ struct ExecParameters {
                 .exec_fd                = -EBADF, \
                 .bpf_restrict_fs_map_fd = -EBADF, \
                 .user_lookup_fd         = -EBADF, \
+                .notify_pam_pid_fd      = -EBADF, \
         }
 
 #include "unit.h"

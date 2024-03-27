@@ -57,6 +57,7 @@ static void exec_fuzz_one(FILE *f, FDSet *fdset) {
         params.exec_fd = -EBADF;
         params.user_lookup_fd = -EBADF;
         params.bpf_restrict_fs_map_fd = -EBADF;
+        params.notify_pam_pid_fd = -EBADF;
         if (!params.fds)
                 params.n_socket_fds = params.n_storage_fds = 0;
         for (size_t i = 0; params.fds && i < params.n_socket_fds + params.n_storage_fds; i++)

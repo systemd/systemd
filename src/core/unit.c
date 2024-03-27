@@ -2827,9 +2827,72 @@ int unit_watch_pid(Unit *u, pid_t pid, bool exclusive) {
         return unit_watch_pidref(u, &pidref, exclusive);
 }
 
+int unit_watch_pam_pidref(Unit *u, const PidRef *parent_pidref, const PidRef *pam_pidref) {
+        int r;
+
+        assert(u);
+        assert(pidref_is_set(parent_pidref));
+        assert(pidref_is_set(pam_pidref));
+
+        if (!UNIT_HAS_EXEC_CONTEXT(u))
+                return 0;
+
+        _cleanup_free_ char *comm = NULL;
+        (void) pidref_get_comm(parent_pidref, &comm);
+
+        PidRef *saved_parent_pidref = set_get(u->pids, parent_pidref);
+        if (!saved_parent_pidref)
+                return log_unit_warning_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                              "Received PAM process "PID_FMT" for unknown process "PID_FMT" (%s), ignoring: %m",
+                                              pam_pidref->pid, parent_pidref->pid, strna(comm));
+
+        /* Watch the PAM process. */
+        r = unit_watch_pidref(u, pam_pidref, /* exclusive = */ false);
+        if (r < 0)
+                return log_unit_warning_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                              "Failed to watch PAM process "PID_FMT" for process "PID_FMT" (%s), ignoring: %m",
+                                              pam_pidref->pid, parent_pidref->pid, strna(comm));
+
+        PidRef *saved_pam_pidref = set_get(u->pids, pam_pidref);
+        assert(pidref_is_set(saved_pam_pidref));
+
+        /* Create a map from parent to PAM process. */
+        r = hashmap_ensure_put(&u->pam_pids_by_parent, &pidref_hash_ops, saved_parent_pidref, saved_pam_pidref);
+        if (r < 0)
+                return log_unit_warning_errno(u, r,
+                                              "Failed to create a map to PAM process "PID_FMT" from process "PID_FMT" (%s), ignoring: %m",
+                                              pam_pidref->pid, parent_pidref->pid, strna(comm));
+
+        if (r > 0)
+                log_unit_debug(u, "Received PAM process "PID_FMT" for process "PID_FMT" (%s).",
+                               pam_pidref->pid, parent_pidref->pid, strna(comm));
+        return 1; /* watching */
+}
+
+static void unit_unwatch_pam_pidref(Unit *u, const PidRef *pid) {
+        assert(u);
+        assert(pidref_is_set(pid));
+
+        set_remove(u->killed_pam_pids, pid);
+
+        /* Check if this is a parent process. */
+        if (hashmap_remove(u->pam_pids_by_parent, pid))
+                return;
+
+        /* Check if this is a pam process. */
+        PidRef *pam, *parent;
+        HASHMAP_FOREACH_KEY(pam, parent, u->pam_pids_by_parent)
+                if (pidref_equal(pam, pid)) {
+                        hashmap_remove(u->pam_pids_by_parent, parent);
+                        return;
+                }
+}
+
 void unit_unwatch_pidref(Unit *u, const PidRef *pid) {
         assert(u);
         assert(pidref_is_set(pid));
+
+        unit_unwatch_pam_pidref(u, pid);
 
         /* Remove from the set we maintain for this unit. (And destroy the returned pid eventually) */
         _cleanup_(pidref_freep) PidRef *pid1 = set_remove(u->pids, pid);
@@ -2887,6 +2950,12 @@ void unit_unwatch_all_pids(Unit *u) {
                 unit_unwatch_pidref(u, set_first(u->pids));
 
         u->pids = set_free(u->pids);
+
+        assert(hashmap_isempty(u->pam_pids_by_parent));
+        u->pam_pids_by_parent = hashmap_free(u->pam_pids_by_parent);
+
+        assert(set_isempty(u->killed_pam_pids));
+        u->killed_pam_pids = set_free(u->killed_pam_pids);
 }
 
 void unit_unwatch_pidref_done(Unit *u, PidRef *pidref) {
@@ -3935,7 +4004,57 @@ static int unit_pid_set(Unit *u, Set **pid_set) {
                                 return r;
                 }
 
+        /* Also protect PAM processes of the processes assigned to this unit. */
+        HASHMAP_FOREACH(pid, u->pam_pids_by_parent) {
+                assert(pidref_is_set(pid));
+
+                r = set_ensure_put(pid_set, NULL, PID_TO_PTR(pid->pid));
+                if (r < 0)
+                        return r;
+        }
+
+        /* Also protect PAM processes we have already tried to kill.
+         * FIXME: This may leak PAM processes that they are in strange states. */
+        SET_FOREACH(pid, u->killed_pam_pids) {
+                assert(pidref_is_set(pid));
+
+                r = set_ensure_put(pid_set, NULL, PID_TO_PTR(pid->pid));
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
+}
+
+int unit_kill_pam_by_parent(Unit *u, const PidRef *parent_pidref, int signo) {
+        int r;
+
+        assert(u);
+        assert(SIGNAL_VALID(signo));
+
+        if (!pidref_is_set(parent_pidref))
+                return 0;
+
+        PidRef *pam_pidref = hashmap_get(u->pam_pids_by_parent, parent_pidref);
+        if (!pidref_is_set(pam_pidref))
+                return 0;
+
+        _cleanup_free_ char *comm = NULL;
+        (void) pidref_get_comm(parent_pidref, &comm);
+
+        r = pidref_kill_and_sigcont(pam_pidref, signo);
+        if (r < 0 && r != -ESRCH)
+                return log_unit_warning_errno(u, r,
+                                              "Failed to send SIG%s to PAM process "PID_FMT" for process "PID_FMT" (%s), ignoring: %m",
+                                              signal_to_string(signo), pam_pidref->pid, parent_pidref->pid, strna(comm));
+
+        r = set_ensure_put(&u->killed_pam_pids, &pidref_hash_ops, pam_pidref);
+        if (r < 0)
+                log_unit_warning_errno(u, r,
+                                       "Failed to save killed PAM process "PID_FMT" for process "PID_FMT" (%s), ignoring: %m",
+                                       pam_pidref->pid, parent_pidref->pid, strna(comm));
+
+        return 1; /* killed (or already killed) */
 }
 
 static int kill_common_log(const PidRef *pid, int signo, void *userdata) {
@@ -5367,6 +5486,7 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         }
 
         p->user_lookup_fd = u->manager->user_lookup_fds[1];
+        p->notify_pam_pid_fd = u->manager->notify_pam_pid_fds[1];
 
         p->cgroup_id = crt ? crt->cgroup_id : 0;
         p->invocation_id = u->invocation_id;
