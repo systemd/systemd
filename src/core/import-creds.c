@@ -5,6 +5,7 @@
 #include "confidential-virt.h"
 #include "copy.h"
 #include "creds-util.h"
+#include "efivars.h"
 #include "escape.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -29,13 +30,19 @@
  * generators invoked by it) can acquire credentials from outside, to mimic how we support it for containers,
  * but on VM/physical environments.
  *
- * This does four things:
+ * This does five things:
  *
  * 1. It imports credentials picked up by sd-boot (and placed in the /.extra/credentials/ dir in the initrd)
  *    and puts them in /run/credentials/@encrypted/. Note that during the initrd→host transition the initrd root
  *    file system is cleaned out, thus it is essential we pick up these files before they are deleted. Note
  *    that these credentials originate from an untrusted source, i.e. the ESP and are not
  *    pre-authenticated. They still have to be authenticated before use.
+ *
+ * 2. It imports credentials specified interactively in sd-boot by the user at the console (and placed in
+ *    the /.extra/interactive_credentials/ dir in the initrd) and puts them in /run/credentials/@system/. As
+ *    above, these need to be picked up before the transition. These credentials are not authenticated as
+ *    they are typed in by the user, so there is an allowlist mechanism via a kernel command line option when
+ *    SecureBoot is enabled.
  *
  * 2. It imports credentials from /proc/cmdline and puts them in /run/credentials/@system/. These come from a
  *    trusted environment (i.e. the boot loader), and are typically authenticated (if authentication is done
@@ -272,6 +279,125 @@ static int import_credentials_boot(void) {
                 r = finalize_credentials_dir(ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, "ENCRYPTED_CREDENTIALS_DIRECTORY");
                 if (r < 0)
                         return r;
+        }
+
+        return 0;
+}
+
+static int parse_proc_cmdline_allowlist_item(const char *key, const char *value, void *data) {
+        char ***allow_list = ASSERT_PTR(data);
+        int r;
+
+        assert(key);
+
+        if (!streq(key, "systemd.interactive_cred_allow"))
+                return 0;
+
+        if (proc_cmdline_value_missing(key, value))
+                return 0;
+
+        if (!credential_name_valid(value))
+                return 0;
+
+        r = strv_extend(allow_list, value);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+static int import_credentials_boot_interactive(ImportCredentialContext *c) {
+        _cleanup_strv_free_ char **allow_list = NULL;
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        _cleanup_close_ int source_dir_fd = -EBADF;
+        bool skip_allowlist = false;
+        int r;
+
+        assert(c);
+
+        /* systemd-stub will wrap credentials typed via the boot menu as files for the initrd */
+
+        if (!in_initrd())
+                return 0;
+
+        source_dir_fd = open("/.extra/interactive_credentials/", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (source_dir_fd < 0) {
+                if (errno == ENOENT) {
+                        log_debug("No credentials passed via /.extra/interactive_credentials/.");
+                        return 0;
+                }
+
+                return log_warning_errno(errno, "Failed to open '/.extra/interactive_credentials/': %m");
+        }
+
+        /* Given these credentials are neither trusted nor authenticated, an allowlist mechanism is used. If
+         * SecureBoot is disabled, or a single item '*' is passed, accept everything. */
+        r = proc_cmdline_parse(parse_proc_cmdline_allowlist_item, &allow_list, 0);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse kernel command line: %m");
+
+        if (!is_efi_secure_boot() || (strv_length(allow_list) == 1 && strv_contains(allow_list, "*")))
+                skip_allowlist = true;
+
+        r = readdir_all(source_dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read '/.extra/interactive_credentials/' contents: %m");
+
+        for (size_t i = 0; i < de->n_entries; i++) {
+                const struct dirent *d = de->entries[i];
+                _cleanup_close_ int cfd = -EBADF, nfd = -EBADF;
+                struct stat st;
+
+                if (!credential_name_valid(d->d_name)) {
+                        log_warning("Credential '%s' has invalid name, ignoring.", d->d_name);
+                        continue;
+                }
+
+                if (!skip_allowlist && !strv_contains(allow_list, d->d_name)) {
+                        log_debug("Credential '%s' is not on allow list, ignoring.", d->d_name);
+                        continue;
+                }
+
+                cfd = openat(source_dir_fd, d->d_name, O_RDONLY|O_CLOEXEC);
+                if (cfd < 0) {
+                        log_warning_errno(errno, "Failed to open %s, ignoring: %m", d->d_name);
+                        continue;
+                }
+
+                if (fstat(cfd, &st) < 0) {
+                        log_warning_errno(errno, "Failed to stat %s, ignoring: %m", d->d_name);
+                        continue;
+                }
+
+                r = stat_verify_regular(&st);
+                if (r < 0) {
+                        log_warning_errno(r, "Credential file %s is not a regular file, ignoring: %m", d->d_name);
+                        continue;
+                }
+
+                if (!credential_size_ok(c, d->d_name, st.st_size))
+                        continue;
+
+                r = acquire_credential_directory(c, SYSTEM_CREDENTIALS_DIRECTORY, /* with_mount= */ false);
+                if (r < 0)
+                        return r;
+
+                nfd = open_credential_file_for_write(c->target_dir_fd, SYSTEM_CREDENTIALS_DIRECTORY, d->d_name);
+                if (nfd == -EEXIST)
+                        continue;
+                if (nfd < 0)
+                        return nfd;
+
+                r = copy_bytes(cfd, nfd, st.st_size, 0);
+                if (r < 0) {
+                        (void) unlinkat(c->target_dir_fd, d->d_name, 0);
+                        return log_error_errno(r, "Failed to create credential '%s': %m", d->d_name);
+                }
+
+                c->size_sum += st.st_size;
+                c->n_credentials++;
+
+                log_debug("Successfully copied boot menu interactive credential '%s'.", d->d_name);
         }
 
         return 0;
@@ -716,28 +842,27 @@ static int import_credentials_trusted(void) {
         _cleanup_(import_credentials_context_free) ImportCredentialContext c = {
                 .target_dir_fd = -EBADF,
         };
-        int q, w, r, y;
+        int r = 0;
 
         /* This is invoked during early boot when no credentials have been imported so far. (Specifically, if
          * the $CREDENTIALS_DIRECTORY or $ENCRYPTED_CREDENTIALS_DIRECTORY environment variables are not set
          * yet.) */
 
-        r = import_credentials_qemu(&c);
-        w = import_credentials_smbios(&c);
-        q = import_credentials_proc_cmdline(&c);
-        y = import_credentials_initrd(&c);
+        RET_GATHER(r, import_credentials_qemu(&c));
+        RET_GATHER(r, import_credentials_smbios(&c));
+        RET_GATHER(r, import_credentials_proc_cmdline(&c));
+        RET_GATHER(r, import_credentials_initrd(&c));
+        RET_GATHER(r, import_credentials_boot_interactive(&c));
 
         if (c.n_credentials > 0) {
-                int z;
+                log_debug("Imported %u credentials from kernel command line/smbios/fw_cfg/initrd/boot menu.", c.n_credentials);
 
-                log_debug("Imported %u credentials from kernel command line/smbios/fw_cfg/initrd.", c.n_credentials);
-
-                z = finalize_credentials_dir(SYSTEM_CREDENTIALS_DIRECTORY, "CREDENTIALS_DIRECTORY");
-                if (z < 0)
-                        return z;
+                RET_GATHER(r, finalize_credentials_dir(SYSTEM_CREDENTIALS_DIRECTORY, "CREDENTIALS_DIRECTORY"));
+                if (r < 0)
+                        return r;
         }
 
-        return r < 0 ? r : w < 0 ? w : q < 0 ? q : y;
+        return r;
 }
 
 static int merge_credentials_trusted(const char *creds_dir) {
