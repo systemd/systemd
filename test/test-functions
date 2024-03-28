@@ -1494,7 +1494,7 @@ install_systemd() {
         # units using DynamicUser=yes. Do this only for services with test- prefix and a couple of
         # known-to-use DynamicUser=yes services, as setting this system-wide has many undesirable
         # side-effects, as it creates its own namespace.
-        for service in test- systemd-journal-{gatewayd,upload}; do
+        for service in capsule@ test- systemd-journal-{gatewayd,upload}; do
             mkdir -p "$initdir/etc/systemd/system/$service.service.d/"
             echo -ne "[Service]\nReadWritePaths=${BUILD_DIR:?}\n" >"$initdir/etc/systemd/system/$service.service.d/99-gcov-rwpaths-override.conf"
         done
