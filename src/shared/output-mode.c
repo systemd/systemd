@@ -14,7 +14,10 @@ JsonFormatFlags output_mode_to_json_format_flags(OutputMode m) {
                 return JSON_FORMAT_SEQ;
 
         case OUTPUT_JSON_PRETTY:
-                return JSON_FORMAT_PRETTY;
+                return JSON_FORMAT_PRETTY | JSON_FORMAT_COLOR_AUTO;
+
+        case OUTPUT_JSON:
+                return JSON_FORMAT_PRETTY | JSON_FORMAT_PRETTY_AUTO;
 
         default:
                 return JSON_FORMAT_NEWLINE;

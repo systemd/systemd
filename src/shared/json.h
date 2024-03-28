@@ -512,3 +512,4 @@ static inline int json_variant_unhex_iovec(JsonVariant *v, struct iovec *ret) {
 
 const char *json_variant_type_to_string(JsonVariantType t);
 JsonVariantType json_variant_type_from_string(const char *s);
+JsonFormatFlags *get_flag_address(void);
