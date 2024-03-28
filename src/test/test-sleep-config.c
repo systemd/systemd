@@ -52,10 +52,10 @@ TEST(sleep_supported) {
         log_info("Standby configured: %s", yes_no(sleep_state_supported(standby) > 0));
         log_info("Suspend configured: %s", yes_no(sleep_state_supported(mem) > 0));
         log_info("Hibernate configured: %s", yes_no(sleep_state_supported(disk) > 0));
-        log_info("Hibernate+Suspend (Hybrid-Sleep) configured: %s", yes_no(sleep_mode_supported(suspend) > 0));
-        log_info("Hibernate+Reboot configured: %s", yes_no(sleep_mode_supported(reboot) > 0));
-        log_info("Hibernate+Platform configured: %s", yes_no(sleep_mode_supported(platform) > 0));
-        log_info("Hibernate+Shutdown configured: %s", yes_no(sleep_mode_supported(shutdown) > 0));
+        log_info("Hibernate+Suspend (Hybrid-Sleep) configured: %s", yes_no(sleep_mode_supported("/sys/power/disk", suspend) > 0));
+        log_info("Hibernate+Reboot configured: %s", yes_no(sleep_mode_supported("/sys/power/disk", reboot) > 0));
+        log_info("Hibernate+Platform configured: %s", yes_no(sleep_mode_supported("/sys/power/disk", platform) > 0));
+        log_info("Hibernate+Shutdown configured: %s", yes_no(sleep_mode_supported("/sys/power/disk", shutdown) > 0));
         log_info("Freeze configured: %s", yes_no(sleep_state_supported(freeze) > 0));
 
         log_info("/= high-level sleep verbs =/");
