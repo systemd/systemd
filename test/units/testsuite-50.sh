@@ -1954,6 +1954,30 @@ done
 
 
 #
+# check if merging fails in case of invalid mutable directory permissions
+#
+
+
+fake_root=${fake_roots_dir}/mutable-directory-with-invalid-permissions
+hierarchy=/usr
+
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+ext_data_path=$(hierarchy_ext_mut_path "${fake_root}" "${hierarchy}")
+prep_ext_mut "${ext_data_path}"
+
+prep_hierarchy "${fake_root}" "${hierarchy}"
+
+chmod 0755 "${fake_root}/${hierarchy}"
+chmod 0700 "${ext_data_path}"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=yes merge && die 'expected merge to fail'
+
+
+#
 # done
 #
 
