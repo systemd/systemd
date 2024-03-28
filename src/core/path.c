@@ -502,7 +502,7 @@ static int path_coldplug(Unit *u) {
 static void path_enter_dead(Path *p, PathResult f) {
         assert(p);
 
-        if (p->result == PATH_SUCCESS)
+        if (f == PATH_SUCCESS || p->result == PATH_SUCCESS)
                 p->result = f;
 
         unit_log_result(UNIT(p), p->result == PATH_SUCCESS, path_result_to_string(p->result));

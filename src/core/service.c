@@ -1982,7 +1982,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         if (unit_stop_pending(UNIT(s)))
                 allow_restart = false;
 
-        if (s->result == SERVICE_SUCCESS)
+        if (f == SERVICE_SUCCESS || s->result == SERVICE_SUCCESS)
                 s->result = f;
 
         if (s->result == SERVICE_SUCCESS) {
@@ -2081,7 +2081,7 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
         int r;
         assert(s);
 
-        if (s->result == SERVICE_SUCCESS)
+        if (f == SERVICE_SUCCESS || s->result == SERVICE_SUCCESS)
                 s->result = f;
 
         service_unwatch_control_pid(s);
@@ -2137,7 +2137,7 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
 
         assert(s);
 
-        if (s->result == SERVICE_SUCCESS)
+        if (f == SERVICE_SUCCESS || s->result == SERVICE_SUCCESS)
                 s->result = f;
 
         /* Before sending any signal, make sure we track all members of this cgroup */
@@ -2204,7 +2204,7 @@ static void service_enter_stop(Service *s, ServiceResult f) {
 
         assert(s);
 
-        if (s->result == SERVICE_SUCCESS)
+        if (f == SERVICE_SUCCESS || s->result == SERVICE_SUCCESS)
                 s->result = f;
 
         service_unwatch_control_pid(s);
@@ -2257,7 +2257,7 @@ static void service_enter_running(Service *s, ServiceResult f) {
 
         assert(s);
 
-        if (s->result == SERVICE_SUCCESS)
+        if (f == SERVICE_SUCCESS || s->result == SERVICE_SUCCESS)
                 s->result = f;
 
         service_unwatch_control_pid(s);
@@ -3771,7 +3771,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 f == SERVICE_SUCCESS,
                                 code, status);
 
-                if (s->result == SERVICE_SUCCESS)
+                if (f == SERVICE_SUCCESS || s->result == SERVICE_SUCCESS)
                         s->result = f;
 
                 if (s->main_command &&
@@ -3911,7 +3911,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 success,
                                 code, status);
 
-                if (s->state != SERVICE_RELOAD && s->result == SERVICE_SUCCESS)
+                if (s->state != SERVICE_RELOAD && (f == SERVICE_SUCCESS || s->result == SERVICE_SUCCESS))
                         s->result = f;
 
                 if (s->control_command &&
@@ -4045,7 +4045,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                         case SERVICE_CLEANING:
 
-                                if (s->clean_result == SERVICE_SUCCESS)
+                                if (f == SERVICE_SUCCESS || s->clean_result == SERVICE_SUCCESS)
                                         s->clean_result = f;
 
                                 service_enter_dead(s, SERVICE_SUCCESS, false);
