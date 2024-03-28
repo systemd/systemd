@@ -7,41 +7,53 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Writing Resolver Clients
 
-_Or: How to look up hostnames and arbitrary DNS Resource Records via \_systemd-resolved_'s bus APIs\_
+_Or: How to look up hostnames and arbitrary DNS Resource Records via_ `systemd-resolved` _'s bus APIs_
 
-_(This is a longer explanation how to use some parts of \_systemd-resolved_ bus API. If you are just looking for an API reference, consult the [bus API documentation](https://wiki.freedesktop.org/www/Software/systemd/resolved/) instead.)\_
+_(This is a longer explanation how to use some parts of_ `systemd-resolved` _bus API. If you are just looking for an API reference, consult the [bus API documentation](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.resolve1.html) instead.)_
 
-_systemd-resolved_ provides a set of APIs on the bus for resolving DNS resource records. These are:
+_`systemd-resolved`_ provides a set of APIs on the bus for resolving DNS resource records. These are:
 
 1. _ResolveHostname()_ for resolving hostnames to acquire their IP addresses
 2. _ResolveAddress()_ for the reverse operation: acquire the hostname for an IP address
 3. _ResolveService()_ for resolving a DNS-SD or SRV service
 4. _ResolveRecord()_ for resolving arbitrary resource records.
 
-Below you'll find examples for two of these calls, to show how to use them. Note that glibc offers similar (and more portable) calls in _getaddrinfo()_, _getnameinfo()_ and _res_query()_. Of these _getaddrinfo()_ and _getnameinfo()_ are directed to the calls above via the _nss-resolve_ NSS module, but _req_query()_ is not. There are a number of reasons why it might be preferable to invoke _systemd-resolved_'s bus calls rather than the glibc APIs:
+Below you'll find examples for two of these calls, to show how to use them.
+Note that glibc offers similar (and more portable) calls in _getaddrinfo()_, _getnameinfo()_ and _res\_query()_.
+Of these _getaddrinfo()_ and _getnameinfo()_ are directed to the calls above via the _nss-resolve_ NSS module, but _req\_query()_ is not.
+There are a number of reasons why it might be preferable to invoke `systemd-resolved`'s bus calls rather than the glibc APIs:
 
 1. Bus APIs are naturally asynchronous, which the glibc APIs generally are not.
-2. The bus calls above pass back substantially more information about the resolved data, including where and how the data was found (i.e. which protocol was used: DNS, LLMNR, MulticastDNS, and on which network interface), and most importantly, whether the data could be authenticated via DNSSEC. This in particular makes these APIs useful for retrieving certificate data from the DNS, in order to implement DANE, SSHFP, OPENGPGKEY and IPSECKEY clients.
+2. The bus calls above pass back substantially more information about the resolved data, including where and how the data was found
+  (i.e. which protocol was used: DNS, LLMNR, MulticastDNS, and on which network interface), and most importantly, whether the data could be authenticated via DNSSEC.
+  This in particular makes these APIs useful for retrieving certificate data from the DNS, in order to implement DANE, SSHFP, OPENGPGKEY and IPSECKEY clients.
 3. _ResolveService()_ knows no counterpart in glibc, and has the benefit of being a single call that collects all data necessary to connect to a DNS-SD or pure SRV service in one step.
-4. _ResolveRecord()_ in contrast to _res_query()_ supports LLMNR and MulticastDNS as protocols on top of DNS, and makes use of _systemd-resolved_'s local DNS record cache. The processing of the request is done in the sandboxed _systemd-resolved_ process rather than in the local process, and all packets are pre-validated. Because this relies on _systemd-resolved_ the per-interface DNS zone handling is supported.
+4. _ResolveRecord()_ in contrast to _res\_query()_ supports LLMNR and MulticastDNS as protocols on top of DNS, and makes use of `systemd-resolved`'s local DNS record cache.
+  The processing of the request is done in the sandboxed `systemd-resolved` process rather than in the local process, and all packets are pre-validated.
+  Because this relies on `systemd-resolved` the per-interface DNS zone handling is supported.
 
-Of course, by using _systemd-resolved_ you lose some portability, but this could be handled via an automatic fallback to the glibc counterparts.
+Of course, by using `systemd-resolved` you lose some portability, but this could be handled via an automatic fallback to the glibc counterparts.
 
-Note that the various resolver calls provided by _systemd-resolved_ will consult _/etc/hosts_ and synthesize resource records for these entries in order to ensure that this file is honoured fully.
+Note that the various resolver calls provided by `systemd-resolved` will consult `/etc/hosts` and synthesize resource records for these entries in order to ensure that this file is honoured fully.
 
-The examples below use the _sd-bus_ D-Bus client implementation, which is part of _libsystemd_. Any other D-Bus library, including the original _libdbus_ or _GDBus_ may be used too.
+The examples below use the _sd-bus_ D-Bus client implementation, which is part of _libsystemd_.
+Any other D-Bus library, including the original _libdbus_ or _GDBus_ may be used too.
 
 ## Resolving a Hostname
 
-To resolve a hostname use the _ResolveHostname()_ call. For details on the function parameters see the [bus API documentation](https://wiki.freedesktop.org/www/Software/systemd/resolved/).
+To resolve a hostname use the _ResolveHostname()_ call. For details on the function parameters see the [bus API documentation](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.resolve1.html).
 
-This example specifies _AF_UNSPEC_ as address family for the requested address. This means both an _AF_INET_ (A) and an _AF_INET6_ (AAAA) record is looked for, depending on whether the local system has configured IPv4 and/or IPv6 connectivity. It is generally recommended to request _AF_UNSPEC_ addresses for best compatibility with both protocols, in particular on dual-stack systems.
+This example specifies `AF_UNSPEC` as address family for the requested address.
+This means both an _AF\_INET_ (A) and an _AF\_INET6_ (AAAA) record is looked for, depending on whether the local system has configured IPv4 and/or IPv6 connectivity.
+It is generally recommended to request `AF_UNSPEC` addresses for best compatibility with both protocols, in particular on dual-stack systems.
 
-The example specifies a network interface index of "0", i.e. does not specify any at all, so that the request may be done on any. Note that the interface index is primarily relevant for LLMNR and MulticastDNS lookups, which distinguish different scopes for each network interface index.
+The example specifies a network interface index of "0", i.e. does not specify any at all, so that the request may be done on any.
+Note that the interface index is primarily relevant for LLMNR and MulticastDNS lookups, which distinguish different scopes for each network interface index.
 
-This examples makes no use of either the input flags parameter, nor the output flags parameter. See the _ResolveRecord()_ example below for information how to make use of the _SD_RESOLVED_AUTHENTICATED_ bit in the returned flags parameter.
+This examples makes no use of either the input flags parameter, nor the output flags parameter.
+See the _ResolveRecord()_ example below for information how to make use of the _SD\_RESOLVED\_AUTHENTICATED_ bit in the returned flags parameter.
 
-```
+```c
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -137,16 +149,20 @@ gcc addrtest.c -o addrtest -Wall `pkg-config --cflags --libs libsystemd`
 
 ## Resolving an Arbitrary DNS Resource Record
 
-Use `ResolveRecord()` in order to resolve arbitrary resource records. The call will return the binary RRset data. This calls is useful to acquire resource records for which no high-level calls such as ResolveHostname(), ResolveAddress() and ResolveService() exist. In particular RRs such as MX, SSHFP, TLSA, CERT, OPENPGPKEY or IPSECKEY may be requested via this API.
+Use `ResolveRecord()` in order to resolve arbitrary resource records. The call will return the binary RRset data.
+This calls is useful to acquire resource records for which no high-level calls such as ResolveHostname(), ResolveAddress() and ResolveService() exist.
+In particular RRs such as MX, SSHFP, TLSA, CERT, OPENPGPKEY or IPSECKEY may be requested via this API.
 
 This example also shows how to determine whether the acquired data has been authenticated via DNSSEC (or another means) by checking the `SD_RESOLVED_AUTHENTICATED` bit in the
 returned `flags` parameter.
 
-This example contains a simple MX record parser. Note that the data comes pre-validated from `systemd-resolved`, hence we allow the example to parse the record slightly sloppily, to keep the example brief. For details on the MX RR binary format, see [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035.txt).
+This example contains a simple MX record parser.
+Note that the data comes pre-validated from `systemd-resolved`, hence we allow the example to parse the record slightly sloppily, to keep the example brief.
+For details on the MX RR binary format, see [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035.txt).
 
-For details on the function parameters see the [bus API documentation](https://wiki.freedesktop.org/www/Software/systemd/resolved/).
+For details on the function parameters see the [bus API documentation](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.resolve1.html).
 
-```
+```c
 #include <assert.h>
 #include <endian.h>
 #include <stdbool.h>

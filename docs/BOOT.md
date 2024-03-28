@@ -9,11 +9,15 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 systemd-boot is a UEFI boot manager which executes configured EFI images. The default entry is selected by a configured pattern (glob) or an on-screen menu.
 
-systemd-boot operates on the EFI System Partition (ESP) only. Configuration file fragments, kernels, initrds, other EFI images need to reside on the ESP. Linux kernels need to be built with CONFIG\_EFI\_STUB to be able to be directly executed as an EFI image.
+systemd-boot operates on the EFI System Partition (ESP) only. Configuration file fragments, kernels, initrds, other EFI images need to reside on the ESP.
+
+Linux kernels need to be built with CONFIG\_EFI\_STUB to be able to be directly executed as an EFI image.
 
 systemd-boot reads simple and entirely generic boot loader configuration files; one file per boot loader entry to select from. All files need to reside on the ESP.
 
-Pressing the Space key (or most other keys actually work too) during bootup will show an on-screen menu with all configured loader entries to select from. Pressing Enter on the selected entry loads and starts the EFI image.
+Pressing the Space key (or most other keys actually work too) during bootup will show an on-screen menu with all configured loader entries to select from.
+
+Pressing Enter on the selected entry loads and starts the EFI image.
 
 If no timeout is configured, which is the default setting, and no key pressed during bootup, the default entry is executed right away.
 
@@ -108,4 +112,4 @@ Links:
 
 [https://github.com/systemd/systemd](https://github.com/systemd/systemd)
 
-[http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec/](http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec/)
+[https://uapi-group.org/specifications/specs/boot_loader_specification/](https://uapi-group.org/specifications/specs/boot_loader_specification/)
