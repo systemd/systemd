@@ -758,4 +758,22 @@ for mutable_mode in no yes ephemeral; do
 done
 
 
+: "Check if merging fails in case of invalid mutable directory permissions"
+
+fake_root="$FAKE_ROOTS_DIR/mutable-directory-with-invalid-permissions"
+hierarchy=/usr
+extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+prepare_extension_mutable_dir "$extension_data_dir"
+prepare_hierarchy "$fake_root" "$hierarchy"
+
+chmod 0755 "$fake_root$hierarchy"
+chmod 0700 "$extension_data_dir"
+
+# run systemd-sysext
+(! SYSTEMD_SYSEXT_HIERARCHIES="$hierarchy" systemd-sysext --root="$fake_root" --mutable=yes merge)
+
+
 exit 0
