@@ -112,6 +112,7 @@ node /org/freedesktop/home1 {
                           out h send_fd);
       @org.freedesktop.systemd1.Privileged("true")
       ReleaseHome(in  s user_name);
+      @org.freedesktop.DBus.Deprecated("true")
       @org.freedesktop.systemd1.Privileged("true")
       LockAllHomes();
       @org.freedesktop.systemd1.Privileged("true")
@@ -388,14 +389,8 @@ node /org/freedesktop/home1 {
       the home directory is automatically deactivated again. This method is typically invoked when a user
       logs in, and the file descriptor is held until the user logs out again, thus ensuring the user's home
       directory can be unmounted automatically again in a robust fashion, when the user logs out. The third
-      argument is a boolean which indicates whether the client invoking the call is able to automatically
-      re-authenticate when the system comes back from suspending. It should be set by all clients that
-      implement a secure lock screen running outside of the user's context, that is brought up when the
-      system comes back from suspend and can be used to re-acquire the credentials to unlock the user's home
-      directory. If a home directory has at least one client with an open reference to the home directory
-      that does not support this it is not suspended automatically at system suspend, otherwise it is. This
-      method is equivalent to <function>Acquire()</function> on the
-      <classname>org.freedesktop.home1.Home</classname> interface.</para>
+      argument is deprecated as of systemd v257 and will be ignored. This method is equivalent to
+      <function>Acquire()</function> on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
 
       <para><function>RefHome()</function> is similar to <function>AcquireHome()</function> but takes no user
       record with <literal>secret</literal> section, i.e. will take an additional reference to an already
@@ -416,9 +411,9 @@ node /org/freedesktop/home1 {
       triggered deactivation is completed. This method is equivalent to <function>Release()</function> on the
       <classname>org.freedesktop.home1.Home</classname> interface.</para>
 
-      <para><function>LockAllHomes()</function> locks all active home directories that only have references
-      that opted into automatic suspending during system suspend. This is usually invoked automatically
-      shortly before system suspend.</para>
+      <para><function>LockAllHomes()</function> is deprecated. You should call <function>SecureLockUsers()</function>
+      on <classname>org.freedesktop.login1.Manager</classname> interface. See
+      <citerefentry><refentrytitle>org.freedesktop.login1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
       <para><function>DeactivateAllHomes()</function> deactivates all home areas that are currently
       active. This is usually invoked automatically shortly before system shutdown.</para>
@@ -599,6 +594,7 @@ node /org/freedesktop/home1/home {
       <title>The Manager Object</title>
       <para><function>ActivateHomeIfReferenced()</function>, <function>RefHomeUnrestricted()</function>,
       <function>CreateHomeEx()</function>, and <function>UpdateHomeEx()</function> were added in version 256.</para>
+      <para><function>LockAllHomes()</function> was deprecated in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Home Objects</title>

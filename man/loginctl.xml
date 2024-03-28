@@ -183,6 +183,31 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>secure-lock-user</command> <optional><replaceable>USER</replaceable>…</optional></term>
+
+        <listitem><para>Activates a secure lock on one or more users,
+        if the user supports it. Takes one or more user names or numeric
+        UIDs as arguments. If no argument is specified, the current use
+        is secure locked. A secure lock is different from a session lock
+        because it switches to a separate secure lock screen running outside
+        of the session, can freeze the execution of the session, asks that
+        various session components wipe sensitive data from memory, and can
+        potentially make the user's home directory inaccessible.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>secure-lock-users</command></term>
+
+        <listitem><para>Activates a secure lock on all users that
+        support it, and synchronously waits for the secure locks to be
+        activated.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>enable-linger</command> <optional><replaceable>USER</replaceable>…</optional></term>
         <term><command>disable-linger</command> <optional><replaceable>USER</replaceable>…</optional></term>
 

@@ -8,9 +8,9 @@
 typedef enum OperationType {
         OPERATION_ACQUIRE,           /* enqueued on AcquireHome() */
         OPERATION_RELEASE,           /* enqueued on ReleaseHome() */
-        OPERATION_LOCK_ALL,          /* enqueued on LockAllHomes() */
         OPERATION_DEACTIVATE_ALL,    /* enqueued on DeactivateAllHomes() */
         OPERATION_PIPE_EOF,          /* enqueued when we see EOF on the per-home reference pipes */
+        OPERATION_SECURE_LOCK,       /* enqueued when logind requests a secure lock from homed */
         OPERATION_DEACTIVATE_FORCE,  /* enqueued on hard $HOME unplug */
         OPERATION_IMMEDIATE,         /* this is never enqueued, it's just a marker we immediately started executing an operation without enqueuing anything first. */
         _OPERATION_MAX,
@@ -25,7 +25,7 @@ typedef enum OperationType {
  *     2) When executing an operation without enqueuing it first (OPERATION_IMMEDIATE)
  *
  * Note that a single operation object can encapsulate operations on multiple home directories. This is used
- * for the LockAllHomes() operation, which is one operation but applies to all homes at once. In case the
+ * for the DeactivateAllHomes() operation, which is one operation but applies to all homes at once. In case the
  * operation applies to multiple homes the reference counter is increased once for each, and thus the
  * operation is fully completed only after it reached zero again.
  *
