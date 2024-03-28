@@ -99,7 +99,7 @@ UdevBuiltinCommand udev_builtin_lookup(const char *command) {
         return _UDEV_BUILTIN_INVALID;
 }
 
-int udev_builtin_run(UdevEvent *event, UdevBuiltinCommand cmd, const char *command, bool test) {
+int udev_builtin_run(UdevEvent *event, UdevBuiltinCommand cmd, const char *command) {
         _cleanup_strv_free_ char **argv = NULL;
         int r;
 
@@ -117,10 +117,10 @@ int udev_builtin_run(UdevEvent *event, UdevBuiltinCommand cmd, const char *comma
 
         /* we need '0' here to reset the internal state */
         optind = 0;
-        return builtins[cmd]->cmd(event, strv_length(argv), argv, test);
+        return builtins[cmd]->cmd(event, strv_length(argv), argv);
 }
 
-int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const char *val) {
+int udev_builtin_add_property(sd_device *dev, EventMode mode, const char *key, const char *val) {
         int r;
 
         assert(dev);
@@ -131,13 +131,13 @@ int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const 
                 return log_device_debug_errno(dev, r, "Failed to add property '%s%s%s'",
                                               key, val ? "=" : "", strempty(val));
 
-        if (test)
+        if (mode == EVENT_UDEVADM_TEST_BUILTIN)
                 printf("%s=%s\n", key, strempty(val));
 
         return 0;
 }
 
-int udev_builtin_add_propertyf(sd_device *dev, bool test, const char *key, const char *valf, ...) {
+int udev_builtin_add_propertyf(sd_device *dev, EventMode mode, const char *key, const char *valf, ...) {
         _cleanup_free_ char *val = NULL;
         va_list ap;
         int r;
@@ -152,10 +152,10 @@ int udev_builtin_add_propertyf(sd_device *dev, bool test, const char *key, const
         if (r < 0)
                 return log_oom_debug();
 
-        return udev_builtin_add_property(dev, test, key, val);
+        return udev_builtin_add_property(dev, mode, key, val);
 }
 
-int udev_builtin_import_property(sd_device *dev, sd_device *src, bool test, const char *key) {
+int udev_builtin_import_property(sd_device *dev, sd_device *src, EventMode mode, const char *key) {
         const char *val;
         int r;
 
@@ -171,7 +171,7 @@ int udev_builtin_import_property(sd_device *dev, sd_device *src, bool test, cons
         if (r < 0)
                 return log_device_debug_errno(src, r, "Failed to get property \"%s\", ignoring: %m", key);
 
-        r = udev_builtin_add_property(dev, test, key, val);
+        r = udev_builtin_add_property(dev, mode, key, val);
         if (r < 0)
                 return r;
 

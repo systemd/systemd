@@ -17,7 +17,7 @@ static void test_event_spawn_core(bool with_pidfd, const char *cmd, char *result
         assert_se(setenv("SYSTEMD_PIDFD", yes_no(with_pidfd), 1) >= 0);
 
         assert_se(sd_device_new_from_syspath(&dev, "/sys/class/net/lo") >= 0);
-        assert_se(event = udev_event_new(dev, NULL));
+        assert_se(event = udev_event_new(dev, NULL, EVENT_TEST_SPAWN));
         assert_se(udev_event_spawn(event, false, cmd, result_buf, buf_size, NULL) == 0);
 
         assert_se(unsetenv("SYSTEMD_PIDFD") >= 0);
