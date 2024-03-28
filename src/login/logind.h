@@ -8,6 +8,7 @@
 #include "sd-device.h"
 #include "sd-event.h"
 
+#include "calendarspec.h"
 #include "conf-parser.h"
 #include "hashmap.h"
 #include "list.h"
@@ -141,6 +142,8 @@ struct Manager {
 
         char *efi_loader_entry_one_shot;
         struct stat efi_loader_entry_one_shot_stat;
+
+        CalendarSpec *maintenance_time;
 };
 
 void manager_reset_config(Manager *m);
