@@ -2035,6 +2035,7 @@ org.freedesktop.systemd1.Swap.WatchdogSignal
 org.freedesktop.systemd1.Swap.What
 org.freedesktop.systemd1.Swap.WorkingDirectory
 org.freedesktop.systemd1.Timer.AccuracyUSec
+org.freedesktop.systemd1.Timer.AlwaysRealtime
 org.freedesktop.systemd1.Timer.FixedRandomDelay
 org.freedesktop.systemd1.Timer.LastTriggerUSec
 org.freedesktop.systemd1.Timer.LastTriggerUSecMonotonic
