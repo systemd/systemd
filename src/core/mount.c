@@ -902,7 +902,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, PidRef *ret_pid) {
 static void mount_enter_dead(Mount *m, MountResult f) {
         assert(m);
 
-        if (m->result == MOUNT_SUCCESS)
+        if (f == MOUNT_SUCCESS || m->result == MOUNT_SUCCESS)
                 m->result = f;
 
         unit_log_result(UNIT(m), m->result == MOUNT_SUCCESS, mount_result_to_string(m->result));
@@ -924,7 +924,7 @@ static void mount_enter_dead(Mount *m, MountResult f) {
 static void mount_enter_mounted(Mount *m, MountResult f) {
         assert(m);
 
-        if (m->result == MOUNT_SUCCESS)
+        if (f == MOUNT_SUCCESS || m->result == MOUNT_SUCCESS)
                 m->result = f;
 
         mount_set_state(m, MOUNT_MOUNTED);
@@ -966,7 +966,7 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
 
         assert(m);
 
-        if (m->result == MOUNT_SUCCESS)
+        if (f == MOUNT_SUCCESS || m->result == MOUNT_SUCCESS)
                 m->result = f;
 
         r = unit_kill_context(UNIT(m), state_to_kill_operation(state));
@@ -1208,7 +1208,7 @@ static void mount_set_reload_result(Mount *m, MountResult result) {
         assert(m);
 
         /* Only store the first error we encounter */
-        if (m->reload_result != MOUNT_SUCCESS)
+        if (result == MOUNT_SUCCESS || m->reload_result != MOUNT_SUCCESS)
                 return;
 
         m->reload_result = result;
@@ -1515,7 +1515,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
         if (IN_SET(m->state, MOUNT_REMOUNTING, MOUNT_REMOUNTING_SIGKILL, MOUNT_REMOUNTING_SIGTERM))
                 mount_set_reload_result(m, f);
-        else if (m->result == MOUNT_SUCCESS && !IN_SET(m->state, MOUNT_MOUNTING, MOUNT_UNMOUNTING))
+        else if ((f == MOUNT_SUCCESS || m->result == MOUNT_SUCCESS) && !IN_SET(m->state, MOUNT_MOUNTING, MOUNT_UNMOUNTING))
                 /* MOUNT_MOUNTING and MOUNT_UNMOUNTING states need to be patched, see below. */
                 m->result = f;
 
@@ -1590,7 +1590,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 break;
 
         case MOUNT_CLEANING:
-                if (m->clean_result == MOUNT_SUCCESS)
+                if (f == MOUNT_SUCCESS || m->clean_result == MOUNT_SUCCESS)
                         m->clean_result = f;
 
                 mount_enter_dead(m, MOUNT_SUCCESS);

@@ -280,7 +280,7 @@ static void scope_dump(Unit *u, FILE *f, const char *prefix) {
 static void scope_enter_dead(Scope *s, ScopeResult f) {
         assert(s);
 
-        if (s->result == SCOPE_SUCCESS)
+        if (f == SCOPE_SUCCESS || s->result == SCOPE_SUCCESS)
                 s->result = f;
 
         unit_log_result(UNIT(s), s->result == SCOPE_SUCCESS, scope_result_to_string(s->result));
@@ -293,7 +293,7 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
 
         assert(s);
 
-        if (s->result == SCOPE_SUCCESS)
+        if (f == SCOPE_SUCCESS || s->result == SCOPE_SUCCESS)
                 s->result = f;
 
         /* Before sending any signal, make sure we track all members of this cgroup */

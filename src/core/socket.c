@@ -2034,7 +2034,7 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
 static void socket_enter_dead(Socket *s, SocketResult f) {
         assert(s);
 
-        if (s->result == SOCKET_SUCCESS)
+        if (f == SOCKET_SUCCESS || s->result == SOCKET_SUCCESS)
                 s->result = f;
 
         if (s->result == SOCKET_SUCCESS)
@@ -2060,7 +2060,7 @@ static void socket_enter_stop_post(Socket *s, SocketResult f) {
 
         assert(s);
 
-        if (s->result == SOCKET_SUCCESS)
+        if (f == SOCKET_SUCCESS || s->result == SOCKET_SUCCESS)
                 s->result = f;
 
         socket_unwatch_control_pid(s);
@@ -2097,7 +2097,7 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
 
         assert(s);
 
-        if (s->result == SOCKET_SUCCESS)
+        if (f == SOCKET_SUCCESS || s->result == SOCKET_SUCCESS)
                 s->result = f;
 
         r = unit_kill_context(UNIT(s), state_to_kill_operation(s, state));
@@ -2137,7 +2137,7 @@ static void socket_enter_stop_pre(Socket *s, SocketResult f) {
 
         assert(s);
 
-        if (s->result == SOCKET_SUCCESS)
+        if (f == SOCKET_SUCCESS || s->result == SOCKET_SUCCESS)
                 s->result = f;
 
         socket_unwatch_control_pid(s);
@@ -3134,7 +3134,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         f == SOCKET_SUCCESS,
                         code, status);
 
-        if (s->result == SOCKET_SUCCESS)
+        if (f == SOCKET_SUCCESS || s->result == SOCKET_SUCCESS)
                 s->result = f;
 
         if (s->control_command &&
@@ -3189,7 +3189,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                 case SOCKET_CLEANING:
 
-                        if (s->clean_result == SOCKET_SUCCESS)
+                        if (f == SOCKET_SUCCESS || s->clean_result == SOCKET_SUCCESS)
                                 s->clean_result = f;
 
                         socket_enter_dead(s, SOCKET_SUCCESS);

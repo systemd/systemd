@@ -325,7 +325,7 @@ static void automount_dump(Unit *u, FILE *f, const char *prefix) {
 static void automount_enter_dead(Automount *a, AutomountResult f) {
         assert(a);
 
-        if (a->result == AUTOMOUNT_SUCCESS)
+        if (f == AUTOMOUNT_SUCCESS || a->result == AUTOMOUNT_SUCCESS)
                 a->result = f;
 
         unit_log_result(UNIT(a), a->result == AUTOMOUNT_SUCCESS, automount_result_to_string(a->result));

@@ -653,7 +653,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, PidRef *ret_pid) {
 static void swap_enter_dead(Swap *s, SwapResult f) {
         assert(s);
 
-        if (s->result == SWAP_SUCCESS)
+        if (f == SWAP_SUCCESS || s->result == SWAP_SUCCESS)
                 s->result = f;
 
         unit_log_result(UNIT(s), s->result == SWAP_SUCCESS, swap_result_to_string(s->result));
@@ -670,7 +670,7 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
 static void swap_enter_active(Swap *s, SwapResult f) {
         assert(s);
 
-        if (s->result == SWAP_SUCCESS)
+        if (f == SWAP_SUCCESS || s->result == SWAP_SUCCESS)
                 s->result = f;
 
         swap_set_state(s, SWAP_ACTIVE);
@@ -705,7 +705,7 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
 
         assert(s);
 
-        if (s->result == SWAP_SUCCESS)
+        if (f == SWAP_SUCCESS || s->result == SWAP_SUCCESS)
                 s->result = f;
 
         r = unit_kill_context(UNIT(s), state_to_kill_operation(s, state));
@@ -1000,7 +1000,7 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         else
                 assert_not_reached();
 
-        if (s->result == SWAP_SUCCESS)
+        if (f == SWAP_SUCCESS || s->result == SWAP_SUCCESS)
                 s->result = f;
 
         if (s->control_command) {
@@ -1036,7 +1036,7 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 break;
 
         case SWAP_CLEANING:
-                if (s->clean_result == SWAP_SUCCESS)
+                if (f == SWAP_SUCCESS || s->clean_result == SWAP_SUCCESS)
                         s->clean_result = f;
 
                 swap_enter_dead(s, SWAP_SUCCESS);
