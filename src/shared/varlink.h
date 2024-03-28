@@ -156,11 +156,12 @@ int varlink_dispatch(Varlink *v, JsonVariant *parameters, const JsonDispatch tab
 
 /* Write outgoing fds into the socket (to be associated with the next enqueued message) */
 int varlink_push_fd(Varlink *v, int fd);
-int varlink_dup_fd(Varlink *v, int fd);
+int varlink_push_dup_fd(Varlink *v, int fd);
 int varlink_reset_fds(Varlink *v);
 
 /* Read incoming fds from the socket (associated with the currently handled message) */
 int varlink_peek_fd(Varlink *v, size_t i);
+int varlink_peek_dup_fd(Varlink *v, size_t i);
 int varlink_take_fd(Varlink *v, size_t i);
 
 int varlink_set_allow_fd_passing_input(Varlink *v, bool b);
@@ -173,6 +174,7 @@ void* varlink_set_userdata(Varlink *v, void *userdata);
 void* varlink_get_userdata(Varlink *v);
 
 int varlink_get_peer_uid(Varlink *v, uid_t *ret);
+int varlink_get_peer_gid(Varlink *v, gid_t *ret);
 int varlink_get_peer_pid(Varlink *v, pid_t *ret);
 int varlink_get_peer_pidref(Varlink *v, PidRef *ret);
 

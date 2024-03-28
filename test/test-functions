@@ -733,6 +733,7 @@ install_verity_minimal() {
         BASICTOOLS=(
             bash
             cat
+            echo
             grep
             mount
             sleep
