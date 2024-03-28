@@ -816,12 +816,6 @@ static int prefix_section_verify(Prefix *p) {
                 p->assign = false;
         }
 
-        if (p->valid_lifetime == 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: The valid lifetime of prefix cannot be zero. "
-                                         "Ignoring [IPv6Prefix] section from line %u.",
-                                         p->section->filename, p->section->line);
-
         if (p->preferred_lifetime > p->valid_lifetime)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: The preferred lifetime %s is longer than the valid lifetime %s. "
@@ -853,12 +847,6 @@ static int route_prefix_section_verify(RoutePrefix *p) {
                                          "%s: Invalid prefix length %u is specified in [IPv6RoutePrefix] section. "
                                          "Valid range is 0…128. Ignoring [IPv6RoutePrefix] section from line %u.",
                                          p->section->filename, p->prefixlen, p->section->line);
-
-        if (p->lifetime == 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: The lifetime of route cannot be zero. "
-                                         "Ignoring [IPv6RoutePrefix] section from line %u.",
-                                         p->section->filename, p->section->line);
 
         return 0;
 }
