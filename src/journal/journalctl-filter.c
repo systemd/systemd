@@ -385,11 +385,32 @@ get_parent:
                         break;
         }
 
-        r = add_match_this_boot(j, arg_machine);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add match for the current boot: %m");
+        return add_match_boot_id(j, SD_ID128_NULL);
+}
 
-        return 0;
+static int add_matches_for_path(sd_journal *j, const char *path) {
+        _cleanup_free_ char *p = NULL;
+        struct stat st;
+        int r;
+
+        assert(j);
+        assert(path);
+
+        if (arg_root || arg_machine)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "An extra path in match filter is currently not supported with --root, --image, or -M/--machine.");
+
+        r = chase_and_stat(path, NULL, 0, &p, &st);
+        if (r < 0)
+                return log_error_errno(r, "Couldn't canonicalize path '%s': %m", path);
+
+        if (S_ISREG(st.st_mode) && (0111 & st.st_mode))
+                return add_matches_for_executable(j, p);
+
+        if (S_ISCHR(st.st_mode) || S_ISBLK(st.st_mode))
+                return add_matches_for_device(j, p);
+
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File is neither a device node nor executable: %s", p);
 }
 
 static int add_matches_for_path(sd_journal *j, const char *path) {
