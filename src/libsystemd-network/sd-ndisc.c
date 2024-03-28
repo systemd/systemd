@@ -284,12 +284,12 @@ static int ndisc_send_router_solicitation(sd_ndisc *nd) {
         assert(nd);
 
         if (!ether_addr_is_null(&nd->mac_addr)) {
-                r = ndisc_option_add_link_layer_address(&options, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, 0, &nd->mac_addr);
+                r = ndisc_option_set_link_layer_address(&options, SD_NDISC_OPTION_SOURCE_LL_ADDRESS, &nd->mac_addr);
                 if (r < 0)
                         return r;
         }
 
-        return ndisc_send(nd->fd, &dst, &header.nd_rs_hdr, options);
+        return ndisc_send(nd->fd, &dst, &header.nd_rs_hdr, options, USEC_INFINITY);
 }
 
 static usec_t ndisc_timeout_compute_random(usec_t val) {
