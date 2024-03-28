@@ -1189,7 +1189,7 @@ static int mount_overlayfs_with_op(
                 const char *meta_path) {
 
         int r;
-        const char* top_layer = NULL;
+        const char *top_layer = NULL;
 
         assert(op);
         assert(overlay_path);
@@ -2336,7 +2336,7 @@ static int sysext_main(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        const char* env_var;
+        const char *env_var;
         int r;
 
         log_setup();
