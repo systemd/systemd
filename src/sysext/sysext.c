@@ -769,8 +769,39 @@ static int resolve_hierarchy(const char *hierarchy, char **ret_resolved_hierarch
         return 0;
 }
 
+static int mutable_directory_mode_matches_hierarchy(
+                const char *root,
+                const char *path,
+                mode_t hierarchy_mode) {
+
+        _cleanup_free_ char *path_in_root = NULL;
+        struct stat st;
+        mode_t actual_mode;
+
+        assert(root);
+        assert(path);
+
+        path_in_root = path_join(root, path);
+        if (!path_in_root)
+                return log_oom();
+
+        if (stat(path_in_root, &st) < 0) {
+                if (errno == ENOENT)
+                        return 0;
+                return log_error_errno(errno, "Failed to stat mutable directory '%s': %m", path_in_root);
+        }
+
+        actual_mode = st.st_mode & 0777;
+        if (actual_mode != hierarchy_mode) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Mutable directory '%s' has mode %04o, ought to have mode %04o", path_in_root, actual_mode, hierarchy_mode);
+        }
+
+        return 0;
+}
+
 static int resolve_mutable_directory(
                 const char *hierarchy,
+                mode_t hierarchy_mode,
                 const char *workspace,
                 char **ret_resolved_mutable_directory) {
 
@@ -801,6 +832,15 @@ static int resolve_mutable_directory(
         path = path_join(base, dir_name);
         if (!path)
                 return log_oom();
+
+        if (IN_SET(arg_mutable, MUTABLE_YES, MUTABLE_AUTO)) {
+                /* If there already is a mutable directory, check if its mode matches hierarchy. Merged
+                 * hierarchy will have the same mode as the mutable directory, so we want no surprising mode
+                 * changes here. */
+                r = mutable_directory_mode_matches_hierarchy(root, path, hierarchy_mode);
+                if (r < 0)
+                        return r;
+        }
 
         if (IN_SET(arg_mutable, MUTABLE_YES, MUTABLE_EPHEMERAL, MUTABLE_EPHEMERAL_IMPORT)) {
                 _cleanup_free_ char *path_in_root = NULL;
@@ -848,7 +888,7 @@ static int overlayfs_paths_new(const char *hierarchy, const char *workspace_path
         } else
                 hierarchy_mode = 0755;
 
-        r = resolve_mutable_directory(hierarchy, workspace_path, &resolved_mutable_directory);
+        r = resolve_mutable_directory(hierarchy, hierarchy_mode, workspace_path, &resolved_mutable_directory);
         if (r < 0)
                 return r;
 
