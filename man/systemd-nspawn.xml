@@ -584,7 +584,14 @@
 
         <listitem><para>After transitioning into the container, change to the specified user defined in the
         container's user database. Like all other systemd-nspawn features, this is not a security feature and
-        provides protection against accidental destructive operations only.</para></listitem>
+        provides protection against accidental destructive operations only.</para>
+
+        <para>Note that if credentials are used in combination with a non-root <option>--user=</option>
+        (e.g.: <option>--set-credential=</option>, <option>--load-credential=</option> or
+        <option>--import-credential=</option>), then <option>--no-new-privileges=yes</option> must be used, and
+        <option>--boot</option> or <option>--as-pid2</option> must not be used, as the credentials would
+        otherwise be unreadable by the container due to missing privileges after switching to the specified
+        user.</para></listitem>
       </varlistentry>
 
       <varlistentry>
