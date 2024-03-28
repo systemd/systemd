@@ -1914,6 +1914,70 @@ SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" -
 
 
 #
+# check if merging the hierarchy does not change its permissions
+#
+# checking read-only, forced mutable and ephemeral modes
+#
+
+for mutable_mode in no yes ephemeral; do
+
+    fake_root=${fake_roots_dir}/perm-checks-mutable-${mutable_mode}
+    hierarchy=/usr
+
+    prep_root "${fake_root}" "${hierarchy}"
+    gen_os_release "${fake_root}"
+    gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+    prep_ro_hierarchy "${fake_root}" "${hierarchy}"
+
+    full_path="${fake_root}/${hierarchy}"
+    perms_before_merge=$(stat --format=%A "${full_path}")
+
+    # run systemd-sysext
+    SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=${mutable_mode} merge
+
+    perms_after_merge=$(stat --format=%A "${full_path}")
+
+    SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+
+    perms_after_unmerge=$(stat --format=%A "${full_path}")
+
+    if [[ "${perms_before_merge}" != "${perms_after_merge}" ]]; then
+        die "broken hierarchy permissions after merging with mutable mode ${mutable_mode@Q}, expected ${perms_before_merge@Q}, got ${perms_after_merge@Q}"
+    fi
+
+    if [[ "${perms_before_merge}" != "${perms_after_unmerge}" ]]; then
+        die "broken hierarchy permissions after unmerging with mutable mode ${mutable_mode@Q}, expected ${perms_before_merge@Q}, got ${perms_after_unmerge@Q}"
+    fi
+
+done
+
+
+#
+# check if merging fails in case of invalid mutable directory permissions
+#
+
+
+fake_root=${fake_roots_dir}/mutable-directory-with-invalid-permissions
+hierarchy=/usr
+
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+ext_data_path=$(hierarchy_ext_mut_path "${fake_root}" "${hierarchy}")
+prep_ext_mut "${ext_data_path}"
+
+prep_hierarchy "${fake_root}" "${hierarchy}"
+
+chmod 0755 "${fake_root}/${hierarchy}"
+chmod 0700 "${ext_data_path}"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=yes merge && die 'expected merge to fail'
+
+
+#
 # done
 #
 

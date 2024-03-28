@@ -198,7 +198,7 @@ static int is_our_mount_point(
                 return log_error_errno(r, "Failed to parse device major/minor stored in '%s/dev' file on '%s': %m", image_class_info[image_class].dot_directory_name, p);
 
         if (lstat(p, &st) < 0)
-                return log_error_errno(r, "Failed to stat %s: %m", p);
+                return log_error_errno(errno, "Failed to stat %s: %m", p);
 
         if (st.st_dev != dev) {
                 log_debug("Hierarchy '%s' reports a different device major/minor than what we are seeing, assuming offline copy.", p);
@@ -538,7 +538,7 @@ static int verb_status(int argc, char **argv, void *userdata) {
                         return log_oom();
 
                 if (stat(*p, &st) < 0)
-                        return log_error_errno(r, "Failed to stat() '%s': %m", *p);
+                        return log_error_errno(errno, "Failed to stat() '%s': %m", *p);
 
                 r = table_add_many(
                                 t,
@@ -673,10 +673,10 @@ static int paths_on_same_fs(const char *path1, const char *path2) {
         assert(path1);
         assert(path2);
 
-        if (stat(path1, &st1))
+        if (stat(path1, &st1) < 0)
                 return log_error_errno(errno, "Failed to stat '%s': %m", path1);
 
-        if (stat(path2, &st2))
+        if (stat(path2, &st2) < 0)
                 return log_error_errno(errno, "Failed to stat '%s': %m", path2);
 
         return st1.st_dev == st2.st_dev;
@@ -725,6 +725,7 @@ static int work_dir_for_hierarchy(
 
 typedef struct OverlayFSPaths {
         char *hierarchy;
+        mode_t hierarchy_mode;
         char *resolved_hierarchy;
         char *resolved_mutable_directory;
 
@@ -768,8 +769,39 @@ static int resolve_hierarchy(const char *hierarchy, char **ret_resolved_hierarch
         return 0;
 }
 
+static int mutable_directory_mode_matches_hierarchy(
+                const char *root,
+                const char *path,
+                mode_t hierarchy_mode) {
+
+        _cleanup_free_ char *path_in_root = NULL;
+        struct stat st;
+        mode_t actual_mode;
+
+        assert(root);
+        assert(path);
+
+        path_in_root = path_join(root, path);
+        if (!path_in_root)
+                return log_oom();
+
+        if (stat(path_in_root, &st) < 0) {
+                if (errno == ENOENT)
+                        return 0;
+                return log_error_errno(errno, "Failed to stat mutable directory '%s': %m", path_in_root);
+        }
+
+        actual_mode = st.st_mode & 0777;
+        if (actual_mode != hierarchy_mode) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Mutable directory '%s' has mode %04o, ought to have mode %04o", path_in_root, actual_mode, hierarchy_mode);
+        }
+
+        return 0;
+}
+
 static int resolve_mutable_directory(
                 const char *hierarchy,
+                mode_t hierarchy_mode,
                 const char *workspace,
                 char **ret_resolved_mutable_directory) {
 
@@ -801,6 +833,15 @@ static int resolve_mutable_directory(
         if (!path)
                 return log_oom();
 
+        if (IN_SET(arg_mutable, MUTABLE_YES, MUTABLE_AUTO)) {
+                /* If there already is a mutable directory, check if its mode matches hierarchy. Merged
+                 * hierarchy will have the same mode as the mutable directory, so we want no surprising mode
+                 * changes here. */
+                r = mutable_directory_mode_matches_hierarchy(root, path, hierarchy_mode);
+                if (r < 0)
+                        return r;
+        }
+
         if (IN_SET(arg_mutable, MUTABLE_YES, MUTABLE_EPHEMERAL, MUTABLE_EPHEMERAL_IMPORT)) {
                 _cleanup_free_ char *path_in_root = NULL;
 
@@ -823,6 +864,8 @@ static int resolve_mutable_directory(
 
 static int overlayfs_paths_new(const char *hierarchy, const char *workspace_path, OverlayFSPaths **ret_op) {
         _cleanup_free_ char *hierarchy_copy = NULL, *resolved_hierarchy = NULL, *resolved_mutable_directory = NULL;
+        mode_t hierarchy_mode;
+
         int r;
 
         assert (hierarchy);
@@ -835,7 +878,17 @@ static int overlayfs_paths_new(const char *hierarchy, const char *workspace_path
         r = resolve_hierarchy(hierarchy, &resolved_hierarchy);
         if (r < 0)
                 return r;
-        r = resolve_mutable_directory(hierarchy, workspace_path, &resolved_mutable_directory);
+
+        if (resolved_hierarchy) {
+                struct stat st;
+
+                if (stat(resolved_hierarchy, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", resolved_hierarchy);
+                hierarchy_mode = st.st_mode & 0777;
+        } else
+                hierarchy_mode = 0755;
+
+        r = resolve_mutable_directory(hierarchy, hierarchy_mode, workspace_path, &resolved_mutable_directory);
         if (r < 0)
                 return r;
 
@@ -846,6 +899,7 @@ static int overlayfs_paths_new(const char *hierarchy, const char *workspace_path
 
         *op = (OverlayFSPaths) {
                 .hierarchy = TAKE_PTR(hierarchy_copy),
+                .hierarchy_mode = hierarchy_mode,
                 .resolved_hierarchy = TAKE_PTR(resolved_hierarchy),
                 .resolved_mutable_directory = TAKE_PTR(resolved_mutable_directory),
         };
@@ -1138,6 +1192,7 @@ static int mount_overlayfs_with_op(
                 const char *meta_path) {
 
         int r;
+        const char* top_layer = NULL;
 
         assert(op);
         assert(overlay_path);
@@ -1154,7 +1209,18 @@ static int mount_overlayfs_with_op(
                 r = mkdir_p(op->work_dir, 0700);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make directory '%s': %m", op->work_dir);
+                top_layer = op->upper_dir;
+        } else {
+                assert(!strv_isempty(op->lower_dirs));
+                top_layer = op->lower_dirs[0];
         }
+
+        /* Overlayfs merged directory has the same mode as the top layer (either first lowerdir in options in
+         * read-only case, or upperdir for mutable case. Set up top overlayfs layer to the same mode as the
+         * unmerged hierarchy, otherwise we might end up with merged hierarchy owned by root and with mode
+         * being 0700. */
+        if (chmod(top_layer, op->hierarchy_mode) < 0)
+                return log_error_errno(errno, "Failed to set permissions of '%s' to %04o: %m", top_layer, op->hierarchy_mode);
 
         r = mount_overlayfs(image_class, noexec, overlay_path, op->lower_dirs, op->upper_dir, op->work_dir);
         if (r < 0)
