@@ -114,7 +114,7 @@ libudevd_core = static_library(
         include_directories : includes + include_directories('net'),
         link_with : udev_link_with,
         dependencies : [libblkid,
-                        libkmod,
+                        libkmod_cflags,
                         userspace],
         build_by_default : false)
 
