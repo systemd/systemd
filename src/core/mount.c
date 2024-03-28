@@ -1572,7 +1572,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 mount_enter_unmounting(m);
                         } else {
                                 log_unit_warning(u, "Mount still present after %u attempts to unmount, giving up.", m->n_retry_umount);
-                                mount_enter_mounted(m, f);
+                                mount_enter_mounted(m, MOUNT_FAILURE_PROTOCOL);
                         }
                 } else if (f == MOUNT_FAILURE_EXIT_CODE && !m->from_proc_self_mountinfo) {
                         /* Hmm, umount process spawned by us failed, but the mount disappeared anyway?
