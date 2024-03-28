@@ -303,6 +303,7 @@ class Uname:
 DEFAULT_SECTIONS_TO_SHOW = {
         '.linux'    : 'binary',
         '.initrd'   : 'binary',
+        '.ucode'    : 'binary',
         '.splash'   : 'binary',
         '.dtb'      : 'binary',
         '.cmdline'  : 'text',
@@ -855,6 +856,7 @@ def make_uki(opts):
         ('.splash',  opts.splash,     True ),
         ('.pcrpkey', pcrpkey,         True ),
         ('.initrd',  initrd,          True ),
+        ('.ucode',   opts.ucode,      True ),
 
         # linux shall be last to leave breathing room for decompression.
         # We'll add it later.
@@ -1277,6 +1279,14 @@ CONFIG_ITEMS = [
         help = 'initrd file [part of .initrd section]',
         config_key = 'UKI/Initrd',
         config_push = ConfigItem.config_list_prepend,
+    ),
+
+    ConfigItem(
+        '--ucode',
+        metavar = 'UCODE',
+        type = pathlib.Path,
+        help = 'ucode file [.ucode section]',
+        config_key = 'UKI/Ucode',
     ),
 
     ConfigItem(
