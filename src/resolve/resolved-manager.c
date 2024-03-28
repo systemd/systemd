@@ -48,6 +48,7 @@
 
 static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        bool changed = false;
         uint16_t type;
         Link *l;
         int ifindex, r;
@@ -83,6 +84,7 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
                 r = link_update(l);
                 if (r < 0)
                         goto fail;
+                changed = r > 0;
 
                 if (is_new)
                         log_debug("Found new link %i/%s", ifindex, l->ifname);
@@ -95,10 +97,14 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
                         log_debug("Removing link %i/%s", l->ifindex, l->ifname);
                         link_remove_user(l);
                         link_free(l);
+                        changed = true;
                 }
 
                 break;
         }
+
+        if (changed)
+                manager_flush_caches(m, LOG_DEBUG);
 
         return 0;
 
@@ -289,7 +295,10 @@ static int manager_reload_links(Manager *m) {
 static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
-        (void) manager_reload_links(m);
+        if (manager_reload_links(m) != 0)
+                /* We have new configuration, which means potentially new servers, so drop all caches. */
+                manager_flush_caches(m, LOG_DEBUG);
+
         return 0;
 }
 
