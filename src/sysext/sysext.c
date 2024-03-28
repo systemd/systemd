@@ -198,7 +198,7 @@ static int is_our_mount_point(
                 return log_error_errno(r, "Failed to parse device major/minor stored in '%s/dev' file on '%s': %m", image_class_info[image_class].dot_directory_name, p);
 
         if (lstat(p, &st) < 0)
-                return log_error_errno(r, "Failed to stat %s: %m", p);
+                return log_error_errno(errno, "Failed to stat %s: %m", p);
 
         if (st.st_dev != dev) {
                 log_debug("Hierarchy '%s' reports a different device major/minor than what we are seeing, assuming offline copy.", p);
@@ -538,7 +538,7 @@ static int verb_status(int argc, char **argv, void *userdata) {
                         return log_oom();
 
                 if (stat(*p, &st) < 0)
-                        return log_error_errno(r, "Failed to stat() '%s': %m", *p);
+                        return log_error_errno(errno, "Failed to stat() '%s': %m", *p);
 
                 r = table_add_many(
                                 t,
@@ -673,10 +673,10 @@ static int paths_on_same_fs(const char *path1, const char *path2) {
         assert(path1);
         assert(path2);
 
-        if (stat(path1, &st1))
+        if (stat(path1, &st1) < 0)
                 return log_error_errno(errno, "Failed to stat '%s': %m", path1);
 
-        if (stat(path2, &st2))
+        if (stat(path2, &st2) < 0)
                 return log_error_errno(errno, "Failed to stat '%s': %m", path2);
 
         return st1.st_dev == st2.st_dev;
