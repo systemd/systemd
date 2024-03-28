@@ -2,6 +2,7 @@
 
 #include <netinet/icmp6.h>
 
+#include "dns-resolver-internal.h"
 #include "dns-domain.h"
 #include "ether-addr-util.h"
 #include "hostname-util.h"
@@ -88,6 +89,13 @@ static void ndisc_dnssl_done(sd_ndisc_dnssl *dnssl) {
         strv_free(dnssl->domains);
 }
 
+static void ndisc_dnr_done(sd_ndisc_dnr *dnr) {
+        if (!dnr)
+                return;
+
+        sd_dns_resolver_unref(dnr->resolver);
+}
+
 sd_ndisc_option* ndisc_option_free(sd_ndisc_option *option) {
         if (!option)
                 return NULL;
@@ -107,6 +115,10 @@ sd_ndisc_option* ndisc_option_free(sd_ndisc_option *option) {
 
         case SD_NDISC_OPTION_CAPTIVE_PORTAL:
                 free(option->captive_portal);
+                break;
+
+        case SD_NDISC_OPTION_ENCRYPTED_DNS:
+                ndisc_dnr_done(&option->encrypted_dns);
                 break;
         }
 
@@ -1101,6 +1113,139 @@ static int ndisc_option_build_prefix64(const sd_ndisc_option *option, uint8_t **
         return 0;
 }
 
+int ndisc_option_add_encrypted_dns(Set **options, size_t offset, sd_dns_resolver *res, usec_t lifetime) {
+        assert(options);
+
+        sd_ndisc_option *p = ndisc_option_new(SD_NDISC_OPTION_ENCRYPTED_DNS, offset);
+        if (!p)
+                return -ENOMEM;
+
+        p->encrypted_dns = (sd_ndisc_dnr) {
+                .resolver = res,
+                .lifetime = lifetime,
+        };
+
+        return ndisc_option_consume(options, p);
+}
+
+static int ndisc_get_dns_name(const uint8_t *optval, size_t optlen, char **ret) {
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        assert(optval || optlen == 0);
+        assert(ret);
+
+        r = dns_name_from_wire_format(&optval, &optlen, &name);
+        if (r < 0)
+                return -EBADMSG; /* ndisc doesn't handle other errcodes atm */
+        if (r == 0 || optlen != 0)
+                return -EBADMSG;
+
+        *ret = TAKE_PTR(name);
+        return r;
+}
+
+static int ndisc_option_parse_encrypted_dns(Set **options, size_t offset, size_t len, const uint8_t *opt) {
+        int r;
+
+        assert(options);
+        assert(opt);
+        _cleanup_(sd_dns_resolver_done) sd_dns_resolver res = {};
+        usec_t lifetime;
+        size_t ilen;
+
+        /* Every field up to and including adn must be present */
+        if (len < 2*8 )
+                return -EBADMSG;
+
+        if (opt[0] != SD_NDISC_OPTION_ENCRYPTED_DNS)
+                return -EBADMSG;
+
+        size_t off = 2;
+
+        /* Priority */
+        res.priority = unaligned_read_be16(opt + off);
+        /* Alias mode is not allowed */
+        if (res.priority == 0)
+                return -EBADMSG;
+        off += sizeof(uint16_t);
+
+        /* Lifetime */
+        lifetime = unaligned_read_be32(opt + off);
+        off += sizeof(uint32_t);
+
+        /* adn field (length + dns-name) */
+        ilen = unaligned_read_be16(opt + off);
+        off += sizeof(uint16_t);
+        if (off + ilen > len)
+                return -EBADMSG;
+
+        r = ndisc_get_dns_name(opt + off, ilen, &res.auth_name);
+        if (r < 0)
+                return r;
+        if (dns_name_is_root(res.auth_name))
+                return -EBADMSG;
+        off += ilen;
+
+        /* This is the last field in adn-only mode, sans padding */
+        if (8 * DIV_ROUND_UP(off, 8) == len && memcmp(opt + off, (uint8_t[8]) {0}, len - off)) {
+                log_debug("Received ADN-only encrypted DNS option, ignoring.");
+                return 0;
+        }
+
+        /* Fields following the variable (octets) length adn field are no longer certain to be aligned. */
+
+        /* addrs (length + packed struct in6_addr) */
+        if (off + sizeof(uint16_t) > len)
+                return -EBADMSG;
+        ilen = unaligned_read_be16(opt + off);
+        off += sizeof(uint16_t);
+        if (off + ilen > len || ilen % (sizeof(struct in6_addr)) != 0)
+                return -EBADMSG;
+
+        size_t n_addrs = ilen / (sizeof(struct in6_addr));
+        if (n_addrs == 0)
+                return -EBADMSG;
+        res.addrs = new(union in_addr_union, n_addrs);
+        if (!res.addrs)
+                return -ENOMEM;
+
+        for (size_t i = 0; i < n_addrs; i++) {
+                union in_addr_union addr;
+                memcpy(&addr.in6, opt + off, sizeof(struct in6_addr));
+                if (in_addr_is_multicast(AF_INET6, &addr) ||
+                    in_addr_is_localhost(AF_INET, &addr))
+                        return -EBADMSG;
+                res.addrs[i] = addr;
+                off += sizeof(struct in6_addr);
+        }
+        res.n_addrs = n_addrs;
+        res.family = AF_INET6;
+
+        /* SvcParam field. (length + SvcParams) */
+        ilen = unaligned_read_be16(opt + off);
+        off += sizeof(uint16_t);
+        if (off + ilen > len)
+                return -EBADMSG;
+
+        r = dnr_parse_svc_params(opt + off, ilen, &res);
+        if (r < 0)
+                return r;
+        off += ilen;
+
+        /* the remaining padding bytes must be zeroed */
+        if (len - off >= 8 || memcmp(opt + off, (uint8_t[8]) {0}, len - off) != 0)
+                return -EBADMSG;
+
+        sd_dns_resolver *new_res = new(sd_dns_resolver, 1);
+        if (!new_res)
+                return -ENOMEM;
+
+        *new_res = TAKE_STRUCT(res);
+
+        return ndisc_option_add_encrypted_dns(options, offset, new_res, lifetime);
+}
+
 static int ndisc_option_parse_default(Set **options, size_t offset, size_t len, const uint8_t *opt) {
         assert(options);
         assert(opt);
@@ -1205,6 +1350,10 @@ int ndisc_parse_options(ICMP6Packet *packet, Set **ret_options) {
 
                 case SD_NDISC_OPTION_PREF64:
                         r = ndisc_option_parse_prefix64(&options, offset, length, opt);
+                        break;
+
+                case SD_NDISC_OPTION_ENCRYPTED_DNS:
+                        r = ndisc_option_parse_encrypted_dns(&options, offset, length, opt);
                         break;
 
                 default:
