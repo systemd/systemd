@@ -1572,12 +1572,16 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 mount_enter_unmounting(m);
                         } else {
                                 log_unit_warning(u, "Mount still present after %u attempts to unmount, giving up.", m->n_retry_umount);
-                                mount_enter_mounted(m, f);
+                                mount_enter_mounted(m, MOUNT_FAILURE_PROTOCOL);
                         }
                 } else if (f == MOUNT_FAILURE_EXIT_CODE && !m->from_proc_self_mountinfo) {
                         /* Hmm, umount process spawned by us failed, but the mount disappeared anyway?
                          * Maybe someone else is trying to unmount at the same time. */
                         log_unit_notice(u, "Mount disappeared even though umount process failed, continuing.");
+
+                        /* We could have failed attempts before, but now it's actually unmounted, so clear
+                         * previous result and count this towards success. */
+                        m->result = MOUNT_SUCCESS;
                         mount_enter_dead(m, MOUNT_SUCCESS);
                 } else
                         mount_enter_dead_or_mounted(m, f);
@@ -2121,7 +2125,11 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                         switch (mount->state) {
 
                         case MOUNT_MOUNTED:
-                                /* This has just been unmounted by somebody else, follow the state change. */
+                                /* This has just been unmounted by somebody else, follow the state change.
+                                 * Also explicitly override the results here, so that previous failed attempts
+                                 * are forgot. This mostly matches with what we do in mount_sigchld_event(),
+                                 * but more aggressive since the state change is extrinsic. */
+                                mount_cycle_clear(mount);
                                 mount_enter_dead(mount, MOUNT_SUCCESS);
                                 break;
 
