@@ -721,4 +721,41 @@ touch "$fake_root$hierarchy/should-succeed-on-read-only-fs"
 
 (! SYSTEMD_SYSEXT_HIERARCHIES="$hierarchy" systemd-sysext --root="$fake_root" --mutable=import merge)
 
+
+for mutable_mode in no yes ephemeral; do
+    : "Check if merging the hierarchy does not change its permissions, checking with --mutable=${mutable_mode}"
+
+    fake_root="$FAKE_ROOTS_DIR/perm-checks-mutable-$mutable_mode"
+    hierarchy=/usr
+    extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
+
+    prepare_root "$fake_root" "$hierarchy"
+    prepare_extension_image "$fake_root" "$hierarchy"
+    prepare_extension_mutable_dir "$extension_data_dir"
+    prepare_read_only_hierarchy "${fake_root}" "${hierarchy}"
+
+    full_path="$fake_root$hierarchy"
+    permissions_before_merge=$(stat --format=%A "$full_path")
+
+    # run systemd-sysext
+    SYSTEMD_SYSEXT_HIERARCHIES="$hierarchy" systemd-sysext --root="$fake_root" "--mutable=$mutable_mode" merge
+
+    permissions_after_merge=$(stat --format=%A "$full_path")
+
+    SYSTEMD_SYSEXT_HIERARCHIES="$hierarchy" systemd-sysext --root="$fake_root" unmerge
+
+    permissions_after_unmerge=$(stat --format=%A "$full_path")
+
+    if [[ "$permissions_before_merge" != "$permissions_after_merge" ]]; then
+        echo >&2 "Broken hierarchy permissions after merging with mutable mode ${mutable_mode@Q}, expected ${permissions_before_merge@Q}, got ${permissions_after_merge@Q}"
+        exit 1
+    fi
+
+    if [[ "$permissions_before_merge" != "$permissions_after_unmerge" ]]; then
+        echo >&2 "Broken hierarchy permissions after unmerging with mutable mode ${mutable_mode@Q}, expected ${permissions_before_merge@Q}, got ${permissions_after_unmerge@Q}"
+        exit 1
+    fi
+done
+
+
 exit 0
