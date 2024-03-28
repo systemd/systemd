@@ -46,8 +46,17 @@
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
 
+void manager_refresh(Manager *m, int log_level) {
+        /* When we have new configuration, e.g. new servers, close all connections and drop all caches,
+         * so that we can start fresh. */
+        (void) dns_stream_disconnect_all(m);
+        manager_flush_caches(m, log_level);
+        manager_verify_all(m);
+}
+
 static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        bool changed = false;
         uint16_t type;
         Link *l;
         int ifindex, r;
@@ -83,6 +92,7 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
                 r = link_update(l);
                 if (r < 0)
                         goto fail;
+                changed = r > 0;
 
                 if (is_new)
                         log_debug("Found new link %i/%s", ifindex, l->ifname);
@@ -95,10 +105,14 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
                         log_debug("Removing link %i/%s", l->ifindex, l->ifname);
                         link_remove_user(l);
                         link_free(l);
+                        changed = true;
                 }
 
                 break;
         }
+
+        if (changed)
+                manager_refresh(m, LOG_DEBUG);
 
         return 0;
 
@@ -289,7 +303,9 @@ static int manager_reload_links(Manager *m) {
 static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
-        (void) manager_reload_links(m);
+        if (manager_reload_links(m) != 0)
+                manager_refresh(m, LOG_DEBUG);
+
         return 0;
 }
 
@@ -631,11 +647,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         if (r < 0)
                 log_warning_errno(r, "Failed to update network information: %m");
 
-        /* We have new configuration, which means potentially new servers, so close all connections and drop
-         * all caches, so that we can start fresh. */
-        (void) dns_stream_disconnect_all(m);
-        manager_flush_caches(m, LOG_INFO);
-        manager_verify_all(m);
+        manager_refresh(m, LOG_INFO);
 
         (void) sd_notify(/* unset= */ false, NOTIFY_READY);
         return 0;

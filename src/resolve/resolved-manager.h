@@ -215,6 +215,7 @@ void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResource
 
 bool manager_routable(Manager *m);
 
+void manager_refresh(Manager *m, int log_level);
 void manager_flush_caches(Manager *m, int log_level);
 void manager_reset_server_features(Manager *m);
 

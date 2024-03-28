@@ -298,6 +298,8 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
                         log_link_info(l, "Bus client set DNS server list to: %s", j);
                 else
                         log_link_info(l, "Bus client reset DNS server list.");
+
+                manager_refresh(l->manager, LOG_INFO);
         }
 
         r = sd_bus_reply_method_return(message, NULL);
@@ -426,6 +428,8 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                         log_link_info(l, "Bus client set search domain list to: %s", j);
                 else
                         log_link_info(l, "Bus client reset search domain list.");
+
+                manager_refresh(l->manager, LOG_INFO);
         }
 
         return sd_bus_reply_method_return(message, NULL);
@@ -469,6 +473,8 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
                 (void) manager_write_resolv_conf(l->manager);
 
                 log_link_info(l, "Bus client set default route setting: %s", yes_no(b));
+
+                manager_refresh(l->manager, LOG_INFO);
         }
 
         return sd_bus_reply_method_return(message, NULL);
@@ -519,6 +525,8 @@ int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_er
                 (void) link_save_user(l);
 
                 log_link_info(l, "Bus client set LLMNR setting: %s", resolve_support_to_string(mode));
+
+                manager_refresh(l->manager, LOG_INFO);
         }
 
         return sd_bus_reply_method_return(message, NULL);
@@ -569,6 +577,8 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
                 (void) link_save_user(l);
 
                 log_link_info(l, "Bus client set MulticastDNS setting: %s", resolve_support_to_string(mode));
+
+                manager_refresh(l->manager, LOG_INFO);
         }
 
         return sd_bus_reply_method_return(message, NULL);
@@ -618,6 +628,8 @@ int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd
 
                 log_link_info(l, "Bus client set DNSOverTLS setting: %s",
                               mode < 0 ? "default" : dns_over_tls_mode_to_string(mode));
+
+                manager_refresh(l->manager, LOG_INFO);
         }
 
         return sd_bus_reply_method_return(message, NULL);
@@ -667,6 +679,8 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
 
                 log_link_info(l, "Bus client set DNSSEC setting: %s",
                               mode < 0 ? "default" : dnssec_mode_to_string(mode));
+
+                manager_refresh(l->manager, LOG_INFO);
         }
 
         return sd_bus_reply_method_return(message, NULL);
@@ -732,6 +746,8 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
                         log_link_info(l, "Bus client set NTA list to: %s", j);
                 else
                         log_link_info(l, "Bus client reset NTA list.");
+
+                manager_refresh(l->manager, LOG_INFO);
         }
 
         return sd_bus_reply_method_return(message, NULL);
@@ -767,6 +783,7 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
         (void) link_save_user(l);
         (void) manager_write_resolv_conf(l->manager);
         (void) manager_send_changed(l->manager, "DNS");
+        manager_refresh(l->manager, LOG_INFO);
 
         return sd_bus_reply_method_return(message, NULL);
 }
