@@ -200,6 +200,7 @@ cat >/run/systemd/network/10-dns0.network <<EOF
 Name=dns0
 
 [Network]
+IPv6AcceptRA=no
 Address=10.0.0.1/24
 Address=fd00:dead:beef:cafe::1/64
 DNSSEC=allow-downgrade
@@ -216,6 +217,7 @@ cat >/run/systemd/network/10-dns1.network <<EOF
 Name=dns1
 
 [Network]
+IPv6AcceptRA=no
 Address=10.99.0.1/24
 DNSSEC=no
 EOF
