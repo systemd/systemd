@@ -920,9 +920,15 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         route->dst_prefixlen = prefixlen;
         route->lifetime_usec = lifetime_usec;
 
-        r = ndisc_request_route(route, link, rt);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Could not request additional route: %m");
+        if (lifetime_usec != 0) {
+                r = ndisc_request_route(route, link, rt);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not request additional route: %m");
+        } else {
+                r = ndisc_remove_route(route, link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not remove additional route with zero lifetime: %m");
+        }
 
         return 0;
 }
