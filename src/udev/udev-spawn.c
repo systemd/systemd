@@ -225,8 +225,18 @@ int udev_event_spawn(
         int r;
 
         assert(event);
+        assert(IN_SET(event->event_mode, EVENT_UDEV_WORKER, EVENT_UDEVADM_TEST, EVENT_TEST_RULE_RUNNER, EVENT_TEST_SPAWN));
         assert(event->dev);
+        assert(cmd);
         assert(result || result_size == 0);
+
+        if (event->event_mode == EVENT_UDEVADM_TEST &&
+            !STARTSWITH_SET(cmd, "ata_id", "cdrom_id", "dmi_memory_id", "fido_id", "mtd_probe", "scsi_id")) {
+                log_device_debug(event->dev, "Running in test mode, skipping execution of '%s'.", cmd);
+                result[0] = '\0';
+                ret_truncated = false;
+                return 0;
+        }
 
         int timeout_signal = event->worker ? event->worker->timeout_signal : SIGKILL;
         usec_t timeout_usec = event->worker ? event->worker->timeout_usec : DEFAULT_WORKER_TIMEOUT_USEC;
@@ -333,7 +343,7 @@ void udev_event_execute_run(UdevEvent *event) {
 
                 if (builtin_cmd != _UDEV_BUILTIN_INVALID) {
                         log_device_debug(event->dev, "Running built-in command \"%s\"", command);
-                        r = udev_builtin_run(event, builtin_cmd, command, false);
+                        r = udev_builtin_run(event, builtin_cmd, command);
                         if (r < 0)
                                 log_device_debug_errno(event->dev, r, "Failed to run built-in command \"%s\", ignoring: %m", command);
                 } else {

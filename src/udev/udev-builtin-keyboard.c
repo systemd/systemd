@@ -159,13 +159,18 @@ static int set_trackpoint_sensitivity(sd_device *dev, const char *value) {
         return 0;
 }
 
-static int builtin_keyboard(UdevEvent *event, int argc, char *argv[], bool test) {
+static int builtin_keyboard(UdevEvent *event, int argc, char *argv[]) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         unsigned release[1024];
         unsigned release_count = 0;
         _cleanup_close_ int fd = -EBADF;
         const char *node;
         int has_abs = -1, r;
+
+        if (event->event_mode != EVENT_UDEV_WORKER) {
+                log_device_debug(dev, "Running in test mode, skipping execution of 'keyboard' builtin command.");
+                return 0;
+        }
 
         r = sd_device_get_devname(dev, &node);
         if (r < 0)
