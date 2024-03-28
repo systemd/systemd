@@ -9,6 +9,7 @@
 #include <sys/uio.h>
 
 #include "sd-ndisc-protocol.h"
+#include "sd-dns-resolver.h"
 
 #include "icmp6-packet.h"
 #include "macro.h"
@@ -58,6 +59,11 @@ typedef struct sd_ndisc_prefix64 {
         usec_t lifetime;
 } sd_ndisc_prefix64;
 
+typedef struct sd_ndisc_dnr {
+        sd_dns_resolver *resolver;
+        usec_t lifetime;
+} sd_ndisc_dnr;
+
 typedef struct sd_ndisc_option {
         uint8_t type;
         size_t offset;
@@ -75,6 +81,7 @@ typedef struct sd_ndisc_option {
                 sd_ndisc_dnssl dnssl;           /* SD_NDISC_OPTION_DNSSL */
                 char *captive_portal;           /* SD_NDISC_OPTION_CAPTIVE_PORTAL */
                 sd_ndisc_prefix64 prefix64;     /* SD_NDISC_OPTION_PREF64 */
+                sd_ndisc_dnr encrypted_dns;     /* SD_NDISC_OPTION_ENCRYPTED_DNS */
         };
 } sd_ndisc_option;
 
@@ -192,6 +199,12 @@ int ndisc_option_add_prefix64(
                 size_t offset,
                 uint8_t prefixlen,
                 const struct in6_addr *prefix,
+                usec_t lifetime);
+
+int ndisc_option_add_encrypted_dns(
+                Set **options,
+                size_t offset,
+                sd_dns_resolver *res,
                 usec_t lifetime);
 
 int ndisc_send(int fd, const struct sockaddr_in6 *dst, const struct icmp6_hdr *hdr, Set *options);
