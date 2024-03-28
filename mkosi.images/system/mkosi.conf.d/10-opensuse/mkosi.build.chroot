@@ -29,7 +29,7 @@ build() {
         $( ((WITH_TESTS)) || echo --nocheck) \
         --define "_topdir /var/tmp" \
         --define "_sourcedir pkg/$PKG_SUBDIR" \
-        --define "_rpmdir $PACKAGEDIR" \
+        --define "_rpmdir $OUTPUTDIR" \
         ${BUILDDIR:+--define} \
         ${BUILDDIR:+"_vpath_builddir $BUILDDIR"} \
         --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
@@ -61,3 +61,5 @@ if ! build; then
     cat /tmp/unpackaged-files >>"pkg/$PKG_SUBDIR/files.systemd"
     build --noprep --nocheck
 fi
+
+cp "$OUTPUTDIR"/*.rpm "$PACKAGEDIR"
