@@ -392,8 +392,8 @@ int dnstls_manager_init(Manager *manager) {
 
         assert(manager);
 
-        ERR_load_crypto_strings();
-        SSL_load_error_strings();
+        OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
+        OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS | OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
 
         manager->dnstls_data.ctx = SSL_CTX_new(TLS_client_method());
         if (!manager->dnstls_data.ctx)
