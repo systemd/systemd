@@ -241,6 +241,12 @@ status="$(portablectl is-attached --extension app0 minimal_0)"
 status="$(portablectl is-attached --extension app1 minimal_0)"
 [[ "${status}" == "attached-runtime" ]]
 
+# Ensure 'portablectl list' shows the correct status for both images
+portablectl list
+portablectl list | grep -F "minimal_0" | grep -q -F "attached-runtime"
+portablectl list | grep -F "app0" | grep -q -F "attached-runtime"
+portablectl list | grep -F "app1" | grep -q -F "attached-runtime"
+
 portablectl detach --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app
 
 status="$(portablectl is-attached --extension app1 minimal_0)"

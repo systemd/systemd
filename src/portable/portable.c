@@ -1664,7 +1664,7 @@ int portable_attach(
         return 0;
 }
 
-static bool marker_matches_images(const char *marker, const char *name_or_path, char **extension_image_paths) {
+static bool marker_matches_images(const char *marker, const char *name_or_path, char **extension_image_paths, bool match_all) {
         _cleanup_strv_free_ char **root_and_extensions = NULL;
         int r;
 
@@ -1675,7 +1675,9 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
          * list of images/paths. We enforce strict 1:1 matching, so that we are sure
          * we are detaching exactly what was attached.
          * For each image, starting with the root, we look for a token in the marker,
-         * and return a negative answer on any non-matching combination. */
+         * and return a negative answer on any non-matching combination.
+         * If a partial match is allowed, then return immediately once it is found, otherwise
+         * ensure that everything matches. */
 
         root_and_extensions = strv_new(name_or_path);
         if (!root_and_extensions)
@@ -1704,11 +1706,14 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", *image_name_or_path);
 
-                        if (!streq(base_image, base_image_name_or_path))
-                                return false;
+                        if (!streq(base_image, base_image_name_or_path)) {
+                                if (match_all)
+                                        return false;
+                        } else if (!match_all)
+                                return true;
                 }
 
-        return true;
+        return match_all;
 }
 
 static int test_chroot_dropin(
@@ -1763,7 +1768,9 @@ static int test_chroot_dropin(
         if (!name_or_path)
                 r = true;
         else
-                r = marker_matches_images(marker, name_or_path, extension_image_paths);
+                /* When detaching we want to match exactly on all images, but when inspecting we only need
+                 * to get the state of one component */
+                r = marker_matches_images(marker, name_or_path, extension_image_paths, ret_marker != NULL);
 
         if (ret_marker)
                 *ret_marker = TAKE_PTR(marker);
