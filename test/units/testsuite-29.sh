@@ -224,6 +224,30 @@ test -f /run/systemd/system.attached/app0.service
 test -L /run/systemd/system.attached/app0.service.d/10-profile.conf
 portablectl detach --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app0
 
+# Ensure that when two portables share the same base image, removing one doesn't remove the other too
+
+portablectl "${ARGS[@]}" attach --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app0
+portablectl "${ARGS[@]}" attach --runtime --extension /usr/share/app1.raw /usr/share/minimal_0.raw app1
+
+status="$(portablectl is-attached --extension app0 minimal_0)"
+[[ "${status}" == "attached-runtime" ]]
+status="$(portablectl is-attached --extension app1 minimal_0)"
+[[ "${status}" == "attached-runtime" ]]
+
+(! portablectl detach --runtime /usr/share/minimal_0.raw app)
+
+status="$(portablectl is-attached --extension app0 minimal_0)"
+[[ "${status}" == "attached-runtime" ]]
+status="$(portablectl is-attached --extension app1 minimal_0)"
+[[ "${status}" == "attached-runtime" ]]
+
+portablectl detach --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app
+
+status="$(portablectl is-attached --extension app1 minimal_0)"
+[[ "${status}" == "attached-runtime" ]]
+
+portablectl detach --runtime --extension /usr/share/app1.raw /usr/share/minimal_0.raw app
+
 # portablectl also works with directory paths rather than images
 
 mkdir /tmp/rootdir /tmp/app0 /tmp/app1 /tmp/overlay /tmp/os-release-fix /tmp/os-release-fix/etc

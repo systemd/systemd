@@ -1685,26 +1685,28 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(image_name_or_path, root_and_extensions) {
-                _cleanup_free_ char *image = NULL, *base_image = NULL, *base_image_name_or_path = NULL;
+        /* Ensure the number of images passed matches the number of images listed in the marker */
+        while (!isempty(marker))
+                STRV_FOREACH(image_name_or_path, root_and_extensions) {
+                        _cleanup_free_ char *image = NULL, *base_image = NULL, *base_image_name_or_path = NULL;
 
-                r = extract_first_word(&marker, &image, ":", EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to parse marker: %s", marker);
-                if (r == 0)
-                        return false;
+                        r = extract_first_word(&marker, &image, ":", EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to parse marker: %s", marker);
+                        if (r == 0)
+                                return false;
 
-                r = path_extract_image_name(image, &base_image);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", image);
+                        r = path_extract_image_name(image, &base_image);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", image);
 
-                r = path_extract_image_name(*image_name_or_path, &base_image_name_or_path);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", *image_name_or_path);
+                        r = path_extract_image_name(*image_name_or_path, &base_image_name_or_path);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", *image_name_or_path);
 
-                if (!streq(base_image, base_image_name_or_path))
-                        return false;
-        }
+                        if (!streq(base_image, base_image_name_or_path))
+                                return false;
+                }
 
         return true;
 }
