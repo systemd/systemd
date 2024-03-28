@@ -6,14 +6,15 @@ set -eux
 set -o pipefail
 
 SYSUPDATE=/lib/systemd/systemd-sysupdate
-SECTOR_SIZES="512 4096"
-BACKING_FILE=/var/tmp/72-joined.raw
-export SYSTEMD_ESP_PATH=/var/tmp/72-esp
-export SYSTEMD_XBOOTLDR_PATH=/var/tmp/72-xbootldr
+SECTOR_SIZES=(512 4096)
+WORKDIR="$(mktemp -d /var/tmp/test-72-XXXXXX)"
+BACKING_FILE="$WORKDIR/joined.raw"
+export SYSTEMD_ESP_PATH="$WORKDIR/esp"
+export SYSTEMD_XBOOTLDR_PATH="$WORKDIR/xbootldr"
 export SYSTEMD_PAGER=cat
 export SYSTEMD_LOG_LEVEL=debug
 
-if ! test -x "$SYSUPDATE"; then
+if [[ ! -x "$SYSUPDATE" ]]; then
     echo "no systemd-sysupdate" >/skipped
     exit 0
 fi
@@ -22,95 +23,95 @@ fi
 # change the sector size of a file, and we want to test both 512 and 4096 byte
 # sectors. If loopback devices are not supported, we can only test one sector
 # size, and the underlying device is likely to have a sector size of 512 bytes.
-if ! losetup --find >/dev/null 2>&1; then
+if [[ ! -e /dev/loop-control ]]; then
     echo "No loopback device support"
-    SECTOR_SIZES="512"
+    SECTOR_SIZES=(512)
 fi
 
-trap cleanup ERR
-cleanup() {
-    set +o pipefail
-    blockdev="$( losetup --list --output NAME,BACK-FILE | grep $BACKING_FILE | cut -d' ' -f1)"
-    [ -n "$blockdev" ] && losetup --detach "$blockdev"
-    rm -f "$BACKING_FILE"
-    rm -rf /var/tmp/72-{dirs,defs,source,xbootldr,esp}
-    rm -f /testok
+at_exit() {
+    set +e
+
+    losetup -n --output NAME --associated "$BACKING_FILE" | while read -r loop_dev; do
+        losetup --detach "$loop_dev"
+    done
+
+    rm -rf "$WORKDIR"
 }
 
+trap at_exit EXIT
+
 new_version() {
-    # Inputs:
-    # $1: sector size
-    # $2: version
+    local sector_size="${1:?}"
+    local version="${2:?}"
 
     # Create a pair of random partition payloads, and compress one
-    dd if=/dev/urandom of="/var/tmp/72-source/part1-$2.raw" bs="$1" count=2048
-    dd if=/dev/urandom of="/var/tmp/72-source/part2-$2.raw" bs="$1" count=2048
-    gzip -k -f "/var/tmp/72-source/part2-$2.raw"
+    dd if=/dev/urandom of="$WORKDIR/source/part1-$version.raw" bs="$sector_size" count=2048
+    dd if=/dev/urandom of="$WORKDIR/source/part2-$version.raw" bs="$sector_size" count=2048
+    gzip -k -f "$WORKDIR/source/part2-$version.raw"
 
     # Create a random "UKI" payload
-    echo $RANDOM >"/var/tmp/72-source/uki-$2.efi"
+    echo $RANDOM >"$WORKDIR/source/uki-$version.efi"
 
     # Create a random extra payload
-    echo $RANDOM >"/var/tmp/72-source/uki-extra-$2.efi"
+    echo $RANDOM >"$WORKDIR/source/uki-extra-$version.efi"
 
     # Create tarball of a directory
-    mkdir -p "/var/tmp/72-source/dir-$2"
-    echo $RANDOM >"/var/tmp/72-source/dir-$2/foo.txt"
-    echo $RANDOM >"/var/tmp/72-source/dir-$2/bar.txt"
-    tar --numeric-owner -C "/var/tmp/72-source/dir-$2/" -czf "/var/tmp/72-source/dir-$2.tar.gz" .
+    mkdir -p "$WORKDIR/source/dir-$version"
+    echo $RANDOM >"$WORKDIR/source/dir-$version/foo.txt"
+    echo $RANDOM >"$WORKDIR/source/dir-$version/bar.txt"
+    tar --numeric-owner -C "$WORKDIR/source/dir-$version/" -czf "$WORKDIR/source/dir-$version.tar.gz" .
 
-    ( cd /var/tmp/72-source/ && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS )
+    (cd "$WORKDIR/source" && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS)
 }
 
 update_now() {
     # Update to newest version. First there should be an update ready, then we
     # do the update, and then there should not be any ready anymore
 
-    "$SYSUPDATE" --definitions=/var/tmp/72-defs --verify=no check-new
-    "$SYSUPDATE" --definitions=/var/tmp/72-defs --verify=no update
-    ( ! "$SYSUPDATE" --definitions=/var/tmp/72-defs --verify=no check-new )
+    "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no check-new
+    "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no update
+    (! "$SYSUPDATE" --definitions="$WORKDIR/defs" --verify=no check-new)
 }
 
 verify_version() {
-    # Inputs:
-    # $1: block device
-    # $2: sector size
-    # $3: version
-    # $4: partition number of part1
-    # $5: partition number of part2
+    local block_device="${1:?}"
+    local sector_size="${2:?}"
+    local version="${3:?}"
+    local part1_number="${4:?}"
+    local part2_number="${5:?}"
+    local gpt_reserved_sectors part1_offset part2_offset
 
-    gpt_reserved_sectors=$(( 1024 * 1024 / $2 ))
-    part1_offset=$(( ( $4 - 1 ) * 2048 + gpt_reserved_sectors ))
-    part2_offset=$(( ( $5 - 1 ) * 2048 + gpt_reserved_sectors ))
+    gpt_reserved_sectors=$((1024 * 1024 / sector_size))
+    part1_offset=$(((part1_number - 1) * 2048 + gpt_reserved_sectors))
+    part2_offset=$(((part2_number - 1) * 2048 + gpt_reserved_sectors))
 
     # Check the partitions
-    dd if="$1" bs="$2" skip="$part1_offset" count=2048 | cmp "/var/tmp/72-source/part1-$3.raw"
-    dd if="$1" bs="$2" skip="$part2_offset" count=2048 | cmp "/var/tmp/72-source/part2-$3.raw"
+    dd if="$block_device" bs="$sector_size" skip="$part1_offset" count=2048 | cmp "$WORKDIR/source/part1-$version.raw"
+    dd if="$block_device" bs="$sector_size" skip="$part2_offset" count=2048 | cmp "$WORKDIR/source/part2-$version.raw"
 
     # Check the UKI
-    cmp "/var/tmp/72-source/uki-$3.efi" "/var/tmp/72-xbootldr/EFI/Linux/uki_$3+3-0.efi"
-    test -z "$(ls -A /var/tmp/72-esp/EFI/Linux)"
+    cmp "$WORKDIR/source/uki-$version.efi" "$WORKDIR/xbootldr/EFI/Linux/uki_$version+3-0.efi"
+    test -z "$(ls -A "$WORKDIR/esp/EFI/Linux")"
 
     # Check the extra efi
-    cmp "/var/tmp/72-source/uki-extra-$3.efi" "/var/tmp/72-xbootldr/EFI/Linux/uki_$3.efi.extra.d/extra.addon.efi"
+    cmp "$WORKDIR/source/uki-extra-$version.efi" "$WORKDIR/xbootldr/EFI/Linux/uki_$version.efi.extra.d/extra.addon.efi"
 
     # Check the directories
-    cmp "/var/tmp/72-source/dir-$3/foo.txt" /var/tmp/72-dirs/current/foo.txt
-    cmp "/var/tmp/72-source/dir-$3/bar.txt" /var/tmp/72-dirs/current/bar.txt
+    cmp "$WORKDIR/source/dir-$version/foo.txt" "$WORKDIR/dirs/current/foo.txt"
+    cmp "$WORKDIR/source/dir-$version/bar.txt" "$WORKDIR/dirs/current/bar.txt"
 }
 
-for sector_size in $SECTOR_SIZES ; do
+for sector_size in "${SECTOR_SIZES[@]}"; do
     # Disk size of:
     # - 1MB for GPT
     # - 4 partitions of 2048 sectors each
     # - 1MB for backup GPT
-    disk_size=$(( sector_size * 2048 * 4 + 1024 * 1024 * 2 ))
+    disk_size=$((sector_size * 2048 * 4 + 1024 * 1024 * 2))
     rm -f "$BACKING_FILE"
     truncate -s "$disk_size" "$BACKING_FILE"
 
-    if losetup --find >/dev/null 2>&1; then
-        # shellcheck disable=SC2086
-        blockdev="$(losetup --find --show --sector-size $sector_size $BACKING_FILE)"
+    if [[ -e /dev/loop-control ]]; then
+        blockdev="$(losetup --find --show --sector-size "$sector_size" "$BACKING_FILE")"
     else
         blockdev="$BACKING_FILE"
     fi
@@ -126,16 +127,15 @@ size=2048, type=2c7357ed-ebd2-46d9-aec1-23d437ec2bf5, name=_empty
 size=2048, type=2c7357ed-ebd2-46d9-aec1-23d437ec2bf5, name=_empty
 EOF
 
-    rm -rf /var/tmp/72-dirs
-    mkdir -p /var/tmp/72-dirs
+    for d in "dirs" "defs"; do
+        rm -rf "${WORKDIR:?}/$d"
+        mkdir -p "$WORKDIR/$d"
+    done
 
-    rm -rf /var/tmp/72-defs
-    mkdir -p /var/tmp/72-defs
-
-    cat >/var/tmp/72-defs/01-first.conf <<EOF
+    cat >"$WORKDIR/defs/01-first.conf" <<EOF
 [Source]
 Type=regular-file
-Path=/var/tmp/72-source
+Path=$WORKDIR/source
 MatchPattern=part1-@v.raw
 
 [Target]
@@ -145,10 +145,10 @@ MatchPattern=part1-@v
 MatchPartitionType=root-x86-64
 EOF
 
-    cat >/var/tmp/72-defs/02-second.conf <<EOF
+    cat >"$WORKDIR/defs/02-second.conf" <<EOF
 [Source]
 Type=regular-file
-Path=/var/tmp/72-source
+Path=$WORKDIR/source
 MatchPattern=part2-@v.raw.gz
 
 [Target]
@@ -158,24 +158,24 @@ MatchPattern=part2-@v
 MatchPartitionType=root-x86-64-verity
 EOF
 
-    cat >/var/tmp/72-defs/03-third.conf <<EOF
+    cat >"$WORKDIR/defs/03-third.conf" <<EOF
 [Source]
 Type=directory
-Path=/var/tmp/72-source
+Path=$WORKDIR/source
 MatchPattern=dir-@v
 
 [Target]
 Type=directory
-Path=/var/tmp/72-dirs
-CurrentSymlink=/var/tmp/72-dirs/current
+Path=$WORKDIR/dirs
+CurrentSymlink=$WORKDIR/dirs/current
 MatchPattern=dir-@v
 InstancesMax=3
 EOF
 
-    cat >/var/tmp/72-defs/04-fourth.conf <<EOF
+    cat >"$WORKDIR/defs/04-fourth.conf" <<EOF
 [Source]
 Type=regular-file
-Path=/var/tmp/72-source
+Path=$WORKDIR/source
 MatchPattern=uki-@v.efi
 
 [Target]
@@ -191,10 +191,10 @@ TriesDone=0
 InstancesMax=2
 EOF
 
-    cat >/var/tmp/72-defs/05-fifth.conf <<EOF
+    cat >"$WORKDIR/defs/05-fifth.conf" <<EOF
 [Source]
 Type=regular-file
-Path=/var/tmp/72-source
+Path=$WORKDIR/source
 MatchPattern=uki-extra-@v.efi
 
 [Target]
@@ -206,11 +206,8 @@ Mode=0444
 InstancesMax=2
 EOF
 
-    rm -rf /var/tmp/72-esp /var/tmp/72-xbootldr
-    mkdir -p /var/tmp/72-esp/EFI/Linux /var/tmp/72-xbootldr/EFI/Linux
-
-    rm -rf /var/tmp/72-source
-    mkdir -p /var/tmp/72-source
+    rm -rf "${WORKDIR:?}"/{esp,xbootldr,source}
+    mkdir -p "$WORKDIR"/{source,esp/EFI/Linux,xbootldr/EFI/Linux}
 
     # Install initial version and verify
     new_version "$sector_size" v1
@@ -226,9 +223,9 @@ EOF
     new_version "$sector_size" v3
     update_now
     verify_version "$blockdev" "$sector_size" v3 1 3
-    test ! -f "/var/tmp/72-xbootldr/EFI/Linux/uki_v1+3-0.efi"
-    test ! -f "/var/tmp/72-xbootldr/EFI/Linux/uki_v1.efi.extra.d/extra.addon.efi"
-    test ! -d "/var/tmp/72-xbootldr/EFI/Linux/uki_v1.efi.extra.d"
+    test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v1+3-0.efi"
+    test ! -f "$WORKDIR/xbootldr/EFI/Linux/uki_v1.efi.extra.d/extra.addon.efi"
+    test ! -d "$WORKDIR/xbootldr/EFI/Linux/uki_v1.efi.extra.d"
 
     # Create fourth version, and update through a file:// URL. This should be
     # almost as good as testing HTTP, but is simpler for us to set up. file:// is
@@ -238,10 +235,10 @@ EOF
     # see above)
     new_version "$sector_size" v4
 
-    cat >/var/tmp/72-defs/02-second.conf <<EOF
+    cat >"$WORKDIR/defs/02-second.conf" <<EOF
 [Source]
 Type=url-file
-Path=file:///var/tmp/72-source
+Path=file://$WORKDIR/source
 MatchPattern=part2-@v.raw.gz
 
 [Target]
@@ -251,16 +248,16 @@ MatchPattern=part2-@v
 MatchPartitionType=root-x86-64-verity
 EOF
 
-    cat >/var/tmp/72-defs/03-third.conf <<EOF
+    cat >"$WORKDIR/defs/03-third.conf" <<EOF
 [Source]
 Type=url-tar
-Path=file:///var/tmp/72-source
+Path=file://$WORKDIR/source
 MatchPattern=dir-@v.tar.gz
 
 [Target]
 Type=directory
-Path=/var/tmp/72-dirs
-CurrentSymlink=/var/tmp/72-dirs/current
+Path=$WORKDIR/dirs
+CurrentSymlink=$WORKDIR/dirs/current
 MatchPattern=dir-@v
 InstancesMax=3
 EOF
@@ -269,10 +266,8 @@ EOF
     verify_version "$blockdev" "$sector_size" v4 2 4
 
     # Cleanup
-    [ -b "$blockdev" ] && losetup --detach "$blockdev"
+    [[ -b "$blockdev" ]] && losetup --detach "$blockdev"
     rm "$BACKING_FILE"
 done
-
-rm -r /var/tmp/72-{dirs,defs,source,xbootldr,esp}
 
 touch /testok
