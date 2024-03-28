@@ -77,24 +77,26 @@ rm -fv /run/systemd/coredump.conf.d/99-external.conf
 # Wait a bit for the coredumps to get processed
 timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
 
-# Make sure we can forward crashes back to containers
-CONTAINER="testsuite-74-container"
+if cgroupfs_supports_user_xattrs; then
+    # Make sure we can forward crashes back to containers
+    CONTAINER="testsuite-74-container"
 
-mkdir -p "/var/lib/machines/$CONTAINER"
-mkdir -p "/run/systemd/system/systemd-nspawn@$CONTAINER.service.d"
-# Bind-mounting /etc into the container kinda defeats the purpose of --volatile=,
-# but we need the ASan-related overrides scattered across /etc
-cat > "/run/systemd/system/systemd-nspawn@$CONTAINER.service.d/override.conf" << EOF
+    mkdir -p "/var/lib/machines/$CONTAINER"
+    mkdir -p "/run/systemd/system/systemd-nspawn@$CONTAINER.service.d"
+    # Bind-mounting /etc into the container kinda defeats the purpose of --volatile=,
+    # but we need the ASan-related overrides scattered across /etc
+    cat > "/run/systemd/system/systemd-nspawn@$CONTAINER.service.d/override.conf" <<EOF
 [Service]
 ExecStart=
 ExecStart=systemd-nspawn --quiet --link-journal=try-guest --keep-unit --machine=%i --boot \
                          --volatile=yes --directory=/ --bind-ro=/etc --inaccessible=/etc/machine-id
 EOF
-systemctl daemon-reload
+    systemctl daemon-reload
 
-if cgroupfs_supports_user_xattrs; then
+    [[ "$(systemd-detect-virt)" == "qemu" ]] && TIMEOUT=120 || TIMEOUT=60
+
     machinectl start "$CONTAINER"
-    timeout 60 bash -xec "until systemd-run -M '$CONTAINER' -q --wait --pipe true; do sleep .5; done"
+    timeout "$TIMEOUT" bash -xec "until systemd-run -M '$CONTAINER' -q --wait --pipe true; do sleep .5; done"
 
     [[ "$(systemd-run -M "$CONTAINER" -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l)" -eq 0 ]]
     machinectl copy-to "$CONTAINER" "$MAKE_DUMP_SCRIPT"
@@ -102,6 +104,8 @@ if cgroupfs_supports_user_xattrs; then
     systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "/usr/bin/sleep" "SIGTRAP"
     # Wait a bit for the coredumps to get processed
     timeout 30 bash -c "while [[ \$(systemd-run -M $CONTAINER -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l) -lt 2 ]]; do sleep 1; done"
+
+    rm -rf "/var/lib/machines/$CONTAINER"
 fi
 
 coredumpctl
