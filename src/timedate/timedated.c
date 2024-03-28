@@ -1011,7 +1011,7 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
         else
                 log_info("Set NTP to be disabled.");
 
-        /* Asynchrounous reply to m in match_job_removed() */
+        /* Asynchronous reply to m in match_job_removed() */
         return set_ensure_consume(&c->set_ntp_calls, &bus_message_hash_ops, sd_bus_message_ref(m));
 }
 
