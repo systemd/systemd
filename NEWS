@@ -474,6 +474,82 @@ CHANGES WITH 256 in spe:
           https://systemd.io.
 
 
+        * A small new unit generator "systemd-ssh-generator" has been added. It
+          checks if the sshd binary is installed. If so, it binds it via
+          per-connection socket activation to various sockets depending on the
+          execution context:
+
+            • If the system is run in a VM providing AF_VSOCK support, it
+              automatically binds sshd to AF_VSOCK port 22.
+
+            • If the system is invoked as a full-OS container and the container
+              manager pre-mounts a directory /run/host/unix-export/, it will
+              bind sshd to an AF_UNIX socket /run/host/unix-export/ssh. The
+              idea is the container manager bind mounts the directory to an
+              appropriate place on the host as well, so that the AF_UNIX socket
+              may be used to easily connect from the host to the container.
+
+            • sshd is also bound to an AF_UNIX socket
+              /run/ssh-unix-local/socket, which may be to use ssh/sftp in a
+              "sudo"-like fashion to access resources of other local users.
+
+            • Via the kernel command line option "systemd.ssh_listen=" and the
+              system credential "ssh.listen" sshd may be bound to additional,
+              explicitly configured options, including AF_INET/AF_INET6 ports.
+
+          In particular the first two mechanisms should make dealing with local
+          VMs and full OS containers a lot easier, as SSH connections will
+          *just* *work* from the host – even if no networking is available
+          whatsoever.
+
+          systemd-ssh-generator optionally generates a per-connection
+          socket activation service file wrapping sshd. This is only done if
+          the distribution does not provide one on its own under the name
+          "sshd@.service". The generated unit only works correctly if the SSH
+          privilege separation ("privsep") directory exists. Unfortunately
+          distributions vary wildly where they place this directory. An
+          incomprehensive list:
+
+            • /usr/share/empty.sshd/  (new fedora)
+            • /var/empty/
+            • /var/empty/sshd/
+            • /run/sshd/              (debian/ubuntu?)
+
+          If the SSH privsep directory is placed below /var/ or /run/ care
+          needs to be taken that the directory is created automatically at boot
+          if needed, since these directories possibly or always come up
+          empty. This can be done via a tmpfiles.d/ drop-in. You may use the
+          "sshdprivsepdir" meson option provided by systemd to configure the
+          directory, in case you want systemd to create the directory as needed
+          automatically, if your distribution does not cover this natively.
+
+          Recommendations to distributions, in order to make things just work:
+
+            • Please provide a per-connection SSH service file under the name
+              "sshd@.service".
+
+            • Please move the SSH privsep dir into /usr/ (so that it is truly
+              immutable on image-based operating systems, is strictly under
+              package manager control, and never requires recreation if the
+              system boots up with an empty /run/ or /var/).
+
+            • As an extension of this: please consider following Fedora's lead
+              here, and use /usr/share/empty.sshd/ to minimize needless
+              differences between distributions.
+
+            • If your distribution insists on placing the directory in /var/ or
+              /run/ then please at least provide a tmpfiles.d/ drop-in to
+              recreate it automatically at boot, so that the sshd binary just
+              works, regardless in which context it is called.
+
+        * A small tool "systemd-ssh-proxy" has been added, which is supposed to
+          act as counterpart to "systemd-ssh-generator". It's a small plug-in
+          for the SSH client (via ProxyCommand/ProxyUseFdpass) to allow it to
+          connect to AF_VSOCK or AF_UNIX sockets. Example: "ssh vsock/4711"
+          connects to a local VM with cid 4711, or "ssh
+          unix/run/ssh-unix-local/socket" to connect to the local host via the
+          AF_UNIX socket /run/ssh-unix-local/socket.
+
 CHANGES WITH 255:
 
         Announcements of Future Feature Removals and Incompatible Changes:
