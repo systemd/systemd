@@ -266,22 +266,30 @@ static int manager_rtnl_listen(Manager *m) {
         return r;
 }
 
-static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        Manager *m = ASSERT_PTR(userdata);
-        Link *l;
-        int r;
+static int manager_reload_links(Manager *m) {
+        int r, ret = 0;
+
+        assert(m);
 
         sd_network_monitor_flush(m->network_monitor);
 
+        Link *l;
         HASHMAP_FOREACH(l, m->links) {
                 r = link_update(l);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to update monitor information for %i: %m", l->ifindex);
+                        RET_GATHER(ret, log_warning_errno(r, "Failed to update monitor information for %i: %m", l->ifindex));
         }
 
-        (void) manager_write_resolv_conf(m);
-        (void) manager_send_changed(m, "DNS");
+        RET_GATHER(ret, manager_write_resolv_conf(m));
+        RET_GATHER(ret, manager_send_changed(m, "DNS"));
 
+        return ret;
+}
+
+static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        (void) manager_reload_links(m);
         return 0;
 }
 
@@ -619,7 +627,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 
         /* The configuration has changed, so reload the per-interface configuration too in order to take
          * into account any changes (e.g.: enable/disable DNSSEC). */
-        r = on_network_event(/* sd_event_source= */ NULL, -EBADF, /* revents= */ 0, m);
+        r = manager_reload_links(m);
         if (r < 0)
                 log_warning_errno(r, "Failed to update network information: %m");
 
