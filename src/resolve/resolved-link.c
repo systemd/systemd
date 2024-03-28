@@ -273,18 +273,23 @@ static int link_update_dns_server_one(Link *l, const char *str) {
                 return 0;
         }
 
-        return dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a, port, 0, name, RESOLVE_CONFIG_SOURCE_NETWORKD);
+        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a, port, 0, name, RESOLVE_CONFIG_SOURCE_NETWORKD);
+        if (r < 0)
+                return r;
+
+        return 1; /* added */
 }
 
 static int link_update_dns_servers(Link *l) {
         _cleanup_strv_free_ char **nameservers = NULL;
+        bool changed = false;
         int r;
 
         assert(l);
 
         r = sd_network_link_get_dns(l->ifindex, &nameservers);
         if (r == -ENODATA) {
-                r = 0;
+                r = !!l->dns_servers;
                 goto clear;
         }
         if (r < 0)
@@ -296,10 +301,13 @@ static int link_update_dns_servers(Link *l) {
                 r = link_update_dns_server_one(l, *nameserver);
                 if (r < 0)
                         goto clear;
+                changed = changed || r > 0;
         }
 
-        dns_server_unlink_marked(l->dns_servers);
-        return 0;
+        if (dns_server_unlink_marked(l->dns_servers))
+                changed = true;
+
+        return changed;
 
 clear:
         dns_server_unlink_all(l->dns_servers);
@@ -313,67 +321,78 @@ static int link_update_default_route(Link *l) {
 
         r = sd_network_link_get_dns_default_route(l->ifindex);
         if (r == -ENODATA) {
-                r = 0;
+                r = l->default_route >= 0;
                 goto clear;
         }
         if (r < 0)
                 goto clear;
 
-        l->default_route = r > 0;
-        return 0;
+        if (l->default_route == (r > 0))
+                return false;
+
+        l->default_route = (r > 0);
+        return true;
 
 clear:
         l->default_route = -1;
         return r;
 }
 
+static bool update_resolve_support(ResolveSupport *dest, ResolveSupport val) {
+        assert(dest);
+
+        if (*dest == val)
+                return false;
+
+        *dest = val;
+        return true;
+}
+
 static int link_update_llmnr_support(Link *l) {
         _cleanup_free_ char *b = NULL;
+        ResolveSupport s;
         int r;
 
         assert(l);
 
-        l->llmnr_support = RESOLVE_SUPPORT_YES; /* yes, yes, we set it twice which is ugly */
-
         r = sd_network_link_get_llmnr(l->ifindex, &b);
         if (r == -ENODATA)
-                return 0;
+                return update_resolve_support(&l->llmnr_support, RESOLVE_SUPPORT_YES);
         if (r < 0)
                 return r;
 
-        r = resolve_support_from_string(b);
-        if (r < 0)
-                return r;
+        s = resolve_support_from_string(b);
+        if (s < 0)
+                return s;
 
-        l->llmnr_support = r;
-        return 0;
+        return update_resolve_support(&l->llmnr_support, s);
 }
 
 static int link_update_mdns_support(Link *l) {
         _cleanup_free_ char *b = NULL;
+        ResolveSupport s;
         int r;
 
         assert(l);
 
-        l->mdns_support = RESOLVE_SUPPORT_YES;
-
         r = sd_network_link_get_mdns(l->ifindex, &b);
         if (r == -ENODATA)
-                return 0;
+                return update_resolve_support(&l->mdns_support, RESOLVE_SUPPORT_YES);
         if (r < 0)
                 return r;
 
-        r = resolve_support_from_string(b);
-        if (r < 0)
-                return r;
+        s = resolve_support_from_string(b);
+        if (s < 0)
+                return s;
 
-        l->mdns_support = r;
-        return 0;
+        return update_resolve_support(&l->mdns_support, s);
 }
 
-void link_set_dns_over_tls_mode(Link *l, DnsOverTlsMode mode) {
-
+bool link_set_dns_over_tls_mode(Link *l, DnsOverTlsMode mode) {
         assert(l);
+
+        if (l->dns_over_tls_mode == mode)
+                return false;
 
 #if ! ENABLE_DNS_OVER_TLS
         if (mode != DNS_OVER_TLS_NO)
@@ -381,38 +400,39 @@ void link_set_dns_over_tls_mode(Link *l, DnsOverTlsMode mode) {
                                  "DNS-over-TLS option for the link cannot be enabled or set to opportunistic "
                                  "when systemd-resolved is built without DNS-over-TLS support. "
                                  "Turning off DNS-over-TLS support.");
-        return;
+        return false;
 #endif
 
         l->dns_over_tls_mode = mode;
         l->unicast_scope = dns_scope_free(l->unicast_scope);
+        return true;
 }
 
 static int link_update_dns_over_tls_mode(Link *l) {
         _cleanup_free_ char *b = NULL;
+        DnsOverTlsMode mode;
         int r;
 
         assert(l);
 
-        l->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
-
         r = sd_network_link_get_dns_over_tls(l->ifindex, &b);
         if (r == -ENODATA)
-                return 0;
+                return link_set_dns_over_tls_mode(l, _DNS_OVER_TLS_MODE_INVALID);
         if (r < 0)
                 return r;
 
-        r = dns_over_tls_mode_from_string(b);
-        if (r < 0)
-                return r;
+        mode = dns_over_tls_mode_from_string(b);
+        if (mode < 0)
+                return mode;
 
-        l->dns_over_tls_mode = r;
-        return 0;
+        return link_set_dns_over_tls_mode(l, mode);
 }
 
-void link_set_dnssec_mode(Link *l, DnssecMode mode) {
-
+bool link_set_dnssec_mode(Link *l, DnssecMode mode) {
         assert(l);
+
+        if (l->dnssec_mode == mode)
+                return false;
 
 #if !HAVE_OPENSSL_OR_GCRYPT
         if (IN_SET(mode, DNSSEC_YES, DNSSEC_ALLOW_DOWNGRADE))
@@ -420,14 +440,12 @@ void link_set_dnssec_mode(Link *l, DnssecMode mode) {
                                  "DNSSEC option for the link cannot be enabled or set to allow-downgrade "
                                  "when systemd-resolved is built without a cryptographic library. "
                                  "Turning off DNSSEC support.");
-        return;
+        return false;
 #endif
-
-        if (l->dnssec_mode == mode)
-                return;
 
         l->dnssec_mode = mode;
         l->unicast_scope = dns_scope_free(l->unicast_scope);
+        return true;
 }
 
 static int link_update_dnssec_mode(Link *l) {
@@ -437,11 +455,9 @@ static int link_update_dnssec_mode(Link *l) {
 
         assert(l);
 
-        l->dnssec_mode = _DNSSEC_MODE_INVALID;
-
         r = sd_network_link_get_dnssec(l->ifindex, &m);
         if (r == -ENODATA)
-                return 0;
+                return link_set_dnssec_mode(l, _DNSSEC_MODE_INVALID);
         if (r < 0)
                 return r;
 
@@ -449,8 +465,7 @@ static int link_update_dnssec_mode(Link *l) {
         if (mode < 0)
                 return mode;
 
-        link_set_dnssec_mode(l, mode);
-        return 0;
+        return link_set_dnssec_mode(l, mode);
 }
 
 static int link_update_dnssec_negative_trust_anchors(Link *l) {
@@ -460,24 +475,36 @@ static int link_update_dnssec_negative_trust_anchors(Link *l) {
 
         assert(l);
 
-        l->dnssec_negative_trust_anchors = set_free_free(l->dnssec_negative_trust_anchors);
-
         r = sd_network_link_get_dnssec_negative_trust_anchors(l->ifindex, &ntas);
-        if (r == -ENODATA)
-                return 0;
+        if (r == -ENODATA) {
+                ns = TAKE_PTR(l->dnssec_negative_trust_anchors);
+                return set_isempty(ns);
+        }
         if (r < 0)
                 return r;
+
+        if (strv_length(ntas) == set_size(l->dnssec_negative_trust_anchors)) {
+                bool need_update = false;
+                STRV_FOREACH(i, ntas)
+                        if (!set_contains(l->dnssec_negative_trust_anchors, *i)) {
+                                need_update = true;
+                                break;
+                        }
+                if (!need_update)
+                        return false;
+        }
 
         ns = set_new(&dns_name_hash_ops);
         if (!ns)
                 return -ENOMEM;
 
-        r = set_put_strdupv(&ns, ntas);
+        r = set_put_strdupv_full(&ns, &dns_name_hash_ops, ntas);
         if (r < 0)
                 return r;
 
+        set_free_free(l->dnssec_negative_trust_anchors);
         l->dnssec_negative_trust_anchors = TAKE_PTR(ns);
-        return 0;
+        return true;
 }
 
 static int link_update_search_domain_one(Link *l, const char *name, bool route_only) {
@@ -490,20 +517,26 @@ static int link_update_search_domain_one(Link *l, const char *name, bool route_o
         r = dns_search_domain_find(l->search_domains, name, &d);
         if (r < 0)
                 return r;
-        if (r > 0)
+        if (r > 0) {
                 dns_search_domain_move_back_and_unmark(d);
-        else {
-                r = dns_search_domain_new(l->manager, &d, DNS_SEARCH_DOMAIN_LINK, l, name);
-                if (r < 0)
-                        return r;
+                if (d->route_only == route_only)
+                        return false;
+
+                d->route_only = route_only;
+                return true;
         }
 
+        r = dns_search_domain_new(l->manager, &d, DNS_SEARCH_DOMAIN_LINK, l, name);
+        if (r < 0)
+                return r;
+
         d->route_only = route_only;
-        return 0;
+        return true;
 }
 
 static int link_update_search_domains(Link *l) {
         _cleanup_strv_free_ char **sdomains = NULL, **rdomains = NULL;
+        bool changed = false;
         int r, q;
 
         assert(l);
@@ -520,26 +553,28 @@ static int link_update_search_domains(Link *l) {
 
         if (r == -ENODATA && q == -ENODATA) {
                 /* networkd knows nothing about this interface, and that's fine. */
-                r = 0;
+                r = !!l->search_domains;
                 goto clear;
         }
 
         dns_search_domain_mark_all(l->search_domains);
 
         STRV_FOREACH(i, sdomains) {
-                r = link_update_search_domain_one(l, *i, false);
+                r = link_update_search_domain_one(l, *i, /* route_only = */ false);
                 if (r < 0)
                         goto clear;
+                changed = changed || r > 0;
         }
 
         STRV_FOREACH(i, rdomains) {
-                r = link_update_search_domain_one(l, *i, true);
+                r = link_update_search_domain_one(l, *i, /* route_only = */ true);
                 if (r < 0)
                         goto clear;
+                changed = changed || r > 0;
         }
 
         dns_search_domain_unlink_marked(l->search_domains);
-        return 0;
+        return changed;
 
 clear:
         dns_search_domain_unlink_all(l->search_domains);
@@ -561,17 +596,22 @@ static int link_is_managed(Link *l) {
         return !STR_IN_SET(state, "pending", "initialized", "unmanaged");
 }
 
-static void link_enter_unmanaged(Link *l) {
+static bool link_enter_unmanaged(Link *l) {
+        bool changed = false;
         assert(l);
 
         /* If this link used to be managed, but is now unmanaged, flush all our settings — but only once. */
-        if (l->is_managed)
+        if (l->is_managed) {
                 link_flush_settings(l);
+                changed = true;
+        }
 
         l->is_managed = false;
+        return changed;
 }
 
-static void link_read_settings(Link *l) {
+static int link_read_settings(Link *l) {
+        bool changed = false;
         struct stat st;
         int r;
 
@@ -583,21 +623,23 @@ static void link_read_settings(Link *l) {
         if (r == -ENOENT)
                 return link_enter_unmanaged(l);
         if (r < 0)
-                return (void) log_link_warning_errno(l, r, "Failed to stat() networkd's link state file, ignoring: %m");
+                return log_link_warning_errno(l, r, "Failed to stat() networkd's link state file, ignoring: %m");
 
         if (stat_inode_unmodified(&l->networkd_state_file_stat, &st))
                 /* The state file is unmodified. Not necessary to re-read settings. */
-                return;
+                return false;
 
         /* Save the new stat for the next event. */
         l->networkd_state_file_stat = st;
 
         r = link_is_managed(l);
         if (r < 0)
-                return (void) log_link_warning_errno(l, r, "Failed to determine whether the interface is managed, ignoring: %m");
+                return log_link_warning_errno(l, r, "Failed to determine whether the interface is managed, ignoring: %m");
         if (r == 0)
                 return link_enter_unmanaged(l);
 
+        if (!l->is_managed)
+                changed = true;
         l->is_managed = true;
 
         r = network_link_get_operational_state(l->ifindex, &l->networkd_operstate);
@@ -607,45 +649,61 @@ static void link_read_settings(Link *l) {
         r = link_update_dns_servers(l);
         if (r < 0)
                 log_link_warning_errno(l, r, "Failed to read DNS servers for the interface, ignoring: %m");
+        changed = changed || r > 0;
 
         r = link_update_llmnr_support(l);
         if (r < 0)
                 log_link_warning_errno(l, r, "Failed to read LLMNR support for the interface, ignoring: %m");
+        changed = changed || r > 0;
 
         r = link_update_mdns_support(l);
         if (r < 0)
                 log_link_warning_errno(l, r, "Failed to read mDNS support for the interface, ignoring: %m");
+        changed = changed || r > 0;
 
         r = link_update_dns_over_tls_mode(l);
         if (r < 0)
                 log_link_warning_errno(l, r, "Failed to read DNS-over-TLS mode for the interface, ignoring: %m");
+        changed = changed || r > 0;
 
         r = link_update_dnssec_mode(l);
         if (r < 0)
                 log_link_warning_errno(l, r, "Failed to read DNSSEC mode for the interface, ignoring: %m");
+        changed = changed || r > 0;
 
         r = link_update_dnssec_negative_trust_anchors(l);
         if (r < 0)
                 log_link_warning_errno(l, r, "Failed to read DNSSEC negative trust anchors for the interface, ignoring: %m");
+        changed = changed || r > 0;
 
         r = link_update_search_domains(l);
         if (r < 0)
                 log_link_warning_errno(l, r, "Failed to read search domains for the interface, ignoring: %m");
+        changed = changed || r > 0;
 
         r = link_update_default_route(l);
         if (r < 0)
                 log_link_warning_errno(l, r, "Failed to read default route setting for the interface, proceeding anyway: %m");
+        changed = changed || r > 0;
+
+        return changed;
 }
 
 int link_update(Link *l) {
+        bool changed = false;
         int r;
 
         assert(l);
 
-        link_read_settings(l);
+        r = link_read_settings(l);
+        if (r < 0)
+                return r;
+        changed = r > 0;
+
         r = link_load_user(l);
         if (r < 0)
                 return r;
+        changed = changed || r > 0;
 
         if (link_get_llmnr_support(l) != RESOLVE_SUPPORT_NO) {
                 r = manager_llmnr_start(l->manager);
@@ -662,7 +720,7 @@ int link_update(Link *l) {
         link_allocate_scopes(l);
         link_add_rrs(l, false);
 
-        return 0;
+        return changed;
 }
 
 bool link_relevant(Link *l, int family, bool local_multicast) {
@@ -1408,7 +1466,7 @@ int link_load_user(Link *l) {
                 l->dnssec_negative_trust_anchors = TAKE_PTR(ns);
         }
 
-        return 0;
+        return 1; /* loaded */
 
 fail:
         return log_link_error_errno(l, r, "Failed to load link data %s: %m", l->state_file);
