@@ -211,6 +211,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>HandleSecureAttentionKeyPress=</varname></term>
+
+        <listitem><para>Specifies if the Secure Attention Sequence (Ctrl+Alt+Shift+Esc) should be handled or not</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>HandlePowerKey=</varname></term>
         <term><varname>HandlePowerKeyLongPress=</varname></term>
         <term><varname>HandleRebootKey=</varname></term>
