@@ -300,6 +300,7 @@ typedef struct Partition {
         char **exclude_files_target;
         char **make_directories;
         char **subvolumes;
+        char *default_subvolume;
         EncryptMode encrypt;
         VerityMode verity;
         char *verity_match_key;
@@ -1668,6 +1669,41 @@ static int config_parse_make_dirs(
         }
 }
 
+static int config_parse_default_subvolume(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **subvol = ASSERT_PTR(data);
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        if (isempty(rvalue)) {
+                *subvol = mfree(*subvol);
+                return 0;
+        }
+
+        r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &p);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in DefaultSubvolume= parameter, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        r = path_simplify_and_warn(p, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        if (r < 0)
+                return 0;
+
+        return free_and_replace(*subvol, p);
+}
+
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_encrypt, encrypt_mode, EncryptMode, ENCRYPT_OFF, "Invalid encryption mode");
 
 static int config_parse_gpt_flags(
@@ -1861,37 +1897,38 @@ static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mod
 static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
 
         ConfigTableItem table[] = {
-                { "Partition", "Type",                     config_parse_type,             0, &p->type                    },
-                { "Partition", "Label",                    config_parse_label,            0, &p->new_label               },
-                { "Partition", "UUID",                     config_parse_uuid,             0, p                           },
-                { "Partition", "Priority",                 config_parse_int32,            0, &p->priority                },
-                { "Partition", "Weight",                   config_parse_weight,           0, &p->weight                  },
-                { "Partition", "PaddingWeight",            config_parse_weight,           0, &p->padding_weight          },
-                { "Partition", "SizeMinBytes",             config_parse_size4096,        -1, &p->size_min                },
-                { "Partition", "SizeMaxBytes",             config_parse_size4096,         1, &p->size_max                },
-                { "Partition", "PaddingMinBytes",          config_parse_size4096,        -1, &p->padding_min             },
-                { "Partition", "PaddingMaxBytes",          config_parse_size4096,         1, &p->padding_max             },
-                { "Partition", "FactoryReset",             config_parse_bool,             0, &p->factory_reset           },
-                { "Partition", "CopyBlocks",               config_parse_copy_blocks,      0, p                           },
-                { "Partition", "Format",                   config_parse_fstype,           0, &p->format                  },
-                { "Partition", "CopyFiles",                config_parse_copy_files,       0, &p->copy_files              },
-                { "Partition", "ExcludeFiles",             config_parse_exclude_files,    0, &p->exclude_files_source    },
-                { "Partition", "ExcludeFilesTarget",       config_parse_exclude_files,    0, &p->exclude_files_target    },
-                { "Partition", "MakeDirectories",          config_parse_make_dirs,        0, &p->make_directories        },
-                { "Partition", "Encrypt",                  config_parse_encrypt,          0, &p->encrypt                 },
-                { "Partition", "Verity",                   config_parse_verity,           0, &p->verity                  },
-                { "Partition", "VerityMatchKey",           config_parse_string,           0, &p->verity_match_key        },
-                { "Partition", "Flags",                    config_parse_gpt_flags,        0, &p->gpt_flags               },
-                { "Partition", "ReadOnly",                 config_parse_tristate,         0, &p->read_only               },
-                { "Partition", "NoAuto",                   config_parse_tristate,         0, &p->no_auto                 },
-                { "Partition", "GrowFileSystem",           config_parse_tristate,         0, &p->growfs                  },
-                { "Partition", "SplitName",                config_parse_string,           0, &p->split_name_format       },
-                { "Partition", "Minimize",                 config_parse_minimize,         0, &p->minimize                },
-                { "Partition", "Subvolumes",               config_parse_make_dirs,        0, &p->subvolumes              },
-                { "Partition", "VerityDataBlockSizeBytes", config_parse_block_size,       0, &p->verity_data_block_size  },
-                { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,       0, &p->verity_hash_block_size  },
-                { "Partition", "MountPoint",               config_parse_mountpoint,       0, p                           },
-                { "Partition", "EncryptedVolume",          config_parse_encrypted_volume, 0, p                           },
+                { "Partition", "Type",                     config_parse_type,              0, &p->type                    },
+                { "Partition", "Label",                    config_parse_label,             0, &p->new_label               },
+                { "Partition", "UUID",                     config_parse_uuid,              0, p                           },
+                { "Partition", "Priority",                 config_parse_int32,             0, &p->priority                },
+                { "Partition", "Weight",                   config_parse_weight,            0, &p->weight                  },
+                { "Partition", "PaddingWeight",            config_parse_weight,            0, &p->padding_weight          },
+                { "Partition", "SizeMinBytes",             config_parse_size4096,         -1, &p->size_min                },
+                { "Partition", "SizeMaxBytes",             config_parse_size4096,          1, &p->size_max                },
+                { "Partition", "PaddingMinBytes",          config_parse_size4096,         -1, &p->padding_min             },
+                { "Partition", "PaddingMaxBytes",          config_parse_size4096,          1, &p->padding_max             },
+                { "Partition", "FactoryReset",             config_parse_bool,              0, &p->factory_reset           },
+                { "Partition", "CopyBlocks",               config_parse_copy_blocks,       0, p                           },
+                { "Partition", "Format",                   config_parse_fstype,            0, &p->format                  },
+                { "Partition", "CopyFiles",                config_parse_copy_files,        0, &p->copy_files              },
+                { "Partition", "ExcludeFiles",             config_parse_exclude_files,     0, &p->exclude_files_source    },
+                { "Partition", "ExcludeFilesTarget",       config_parse_exclude_files,     0, &p->exclude_files_target    },
+                { "Partition", "MakeDirectories",          config_parse_make_dirs,         0, &p->make_directories        },
+                { "Partition", "Encrypt",                  config_parse_encrypt,           0, &p->encrypt                 },
+                { "Partition", "Verity",                   config_parse_verity,            0, &p->verity                  },
+                { "Partition", "VerityMatchKey",           config_parse_string,            0, &p->verity_match_key        },
+                { "Partition", "Flags",                    config_parse_gpt_flags,         0, &p->gpt_flags               },
+                { "Partition", "ReadOnly",                 config_parse_tristate,          0, &p->read_only               },
+                { "Partition", "NoAuto",                   config_parse_tristate,          0, &p->no_auto                 },
+                { "Partition", "GrowFileSystem",           config_parse_tristate,          0, &p->growfs                  },
+                { "Partition", "SplitName",                config_parse_string,            0, &p->split_name_format       },
+                { "Partition", "Minimize",                 config_parse_minimize,          0, &p->minimize                },
+                { "Partition", "Subvolumes",               config_parse_make_dirs,         0, &p->subvolumes              },
+                { "Partition", "DefaultSubvolume",         config_parse_default_subvolume, 0, &p->default_subvolume       },
+                { "Partition", "VerityDataBlockSizeBytes", config_parse_block_size,        0, &p->verity_data_block_size  },
+                { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,        0, &p->verity_hash_block_size  },
+                { "Partition", "MountPoint",               config_parse_mountpoint,        0, p                           },
+                { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0, p                           },
                 {}
         };
         int r;
@@ -2017,6 +2054,14 @@ static int partition_read_definition(Partition *p, const char *path, const char 
         if (!strv_isempty(p->subvolumes) && arg_offline > 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                   "Subvolumes= cannot be used with --offline=yes");
+
+        if (p->default_subvolume && arg_offline > 0)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                  "DefaultSubvolume= cannot be used with --offline=yes");
+
+        if (p->default_subvolume && !path_strv_contains(p->subvolumes, p->default_subvolume))
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "DefaultSubvolume= must be one of the paths in Subvolumes=");
 
         /* Verity partitions are read only, let's imply the RO flag hence, unless explicitly configured otherwise. */
         if ((IN_SET(p->type.designator,
@@ -3736,6 +3781,11 @@ static int prepare_temporary_file(PartitionTarget *t, uint64_t size) {
         return 0;
 }
 
+static bool loop_device_error_is_fatal(const Partition *p, int r) {
+        assert(p);
+        return arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r)) || !strv_isempty(p->subvolumes) || p->default_subvolume;
+}
+
 static int partition_target_prepare(
                 Context *context,
                 Partition *p,
@@ -3775,7 +3825,7 @@ static int partition_target_prepare(
 
         if (arg_offline <= 0) {
                 r = loop_device_make(whole_fd, O_RDWR, p->offset, size, context->sector_size, 0, LOCK_EX, &d);
-                if (r < 0 && (arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r)) || !strv_isempty(p->subvolumes)))
+                if (r < 0 && loop_device_error_is_fatal(p, r))
                         return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
                 if (r >= 0) {
                         t->loop = TAKE_PTR(d);
@@ -4878,6 +4928,27 @@ static int do_make_directories(Partition *p, const char *root) {
         return 0;
 }
 
+static int set_default_subvolume(Partition *p, const char *root) {
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(p);
+        assert(root);
+
+        if (!p->default_subvolume)
+                return 0;
+
+        path = path_join(root, p->default_subvolume);
+        if (!path)
+                return log_oom();
+
+        r = btrfs_subvol_make_default(path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make '%s' the default subvolume: %m", p->default_subvolume);
+
+        return 0;
+}
+
 static bool partition_needs_populate(Partition *p) {
         assert(p);
         return !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories);
@@ -4950,6 +5021,9 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
                         _exit(EXIT_FAILURE);
 
                 if (do_make_directories(p, fs) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (set_default_subvolume(p, fs) < 0)
                         _exit(EXIT_FAILURE);
 
                 r = syncfs_path(AT_FDCWD, fs);
@@ -6547,7 +6621,7 @@ static int context_minimize(Context *context) {
 
                         if (arg_offline <= 0) {
                                 r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, context->sector_size, 0, LOCK_EX, &d);
-                                if (r < 0 && (arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r)) || !strv_isempty(p->subvolumes)))
+                                if (r < 0 && loop_device_error_is_fatal(p, r))
                                         return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
                         }
 
