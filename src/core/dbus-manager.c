@@ -1599,7 +1599,7 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
         log_caller(message, m, "Reloading");
 
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
-        if (!ratelimit_below(&m->reload_ratelimit)) {
+        if (!ratelimit_below(&m->reload_reexec_ratelimit)) {
                 log_warning("Reloading request rejected due to rate limit.");
                 return sd_bus_error_setf(error,
                                          SD_BUS_ERROR_LIMITS_EXCEEDED,
@@ -1643,6 +1643,14 @@ static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_erro
 
         /* Write a log message noting the unit or process who requested the Reexecute() */
         log_caller(message, m, "Reexecuting");
+
+        /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
+        if (!ratelimit_below(&m->reload_reexec_ratelimit)) {
+                log_warning("Reexecuting request rejected due to rate limit.");
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                         "Reexecute() request rejected due to rate limit.");
+        }
 
         /* We don't send a reply back here, the client should
          * just wait for us disconnecting. */

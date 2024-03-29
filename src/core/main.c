@@ -810,8 +810,8 @@ static void set_manager_settings(Manager *m) {
         m->cad_burst_action = arg_cad_burst_action;
         /* Note that we don't do structured initialization here, otherwise it will reset the rate limit
          * counter on every daemon-reload. */
-        m->reload_ratelimit.interval = arg_reload_limit_interval_sec;
-        m->reload_ratelimit.burst = arg_reload_limit_burst;
+        m->reload_reexec_ratelimit.interval = arg_reload_limit_interval_sec;
+        m->reload_reexec_ratelimit.burst = arg_reload_limit_burst;
 
         manager_set_watchdog(m, WATCHDOG_RUNTIME, arg_runtime_watchdog);
         manager_set_watchdog(m, WATCHDOG_REBOOT, arg_reboot_watchdog);
