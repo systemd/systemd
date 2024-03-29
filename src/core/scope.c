@@ -23,13 +23,13 @@
 #include "user-util.h"
 
 static const UnitActiveState state_translation_table[_SCOPE_STATE_MAX] = {
-        [SCOPE_DEAD] = UNIT_INACTIVE,
-        [SCOPE_START_CHOWN] = UNIT_ACTIVATING,
-        [SCOPE_RUNNING] = UNIT_ACTIVE,
-        [SCOPE_ABANDONED] = UNIT_ACTIVE,
+        [SCOPE_DEAD]         = UNIT_INACTIVE,
+        [SCOPE_START_CHOWN]  = UNIT_ACTIVATING,
+        [SCOPE_RUNNING]      = UNIT_ACTIVE,
+        [SCOPE_ABANDONED]    = UNIT_ACTIVE,
         [SCOPE_STOP_SIGTERM] = UNIT_DEACTIVATING,
         [SCOPE_STOP_SIGKILL] = UNIT_DEACTIVATING,
-        [SCOPE_FAILED] = UNIT_FAILED,
+        [SCOPE_FAILED]       = UNIT_FAILED,
 };
 
 static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
