@@ -30,15 +30,15 @@
 #include "virt.h"
 
 static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
-        [SWAP_DEAD] = UNIT_INACTIVE,
-        [SWAP_ACTIVATING] = UNIT_ACTIVATING,
-        [SWAP_ACTIVATING_DONE] = UNIT_ACTIVE,
-        [SWAP_ACTIVE] = UNIT_ACTIVE,
-        [SWAP_DEACTIVATING] = UNIT_DEACTIVATING,
+        [SWAP_DEAD]                 = UNIT_INACTIVE,
+        [SWAP_ACTIVATING]           = UNIT_ACTIVATING,
+        [SWAP_ACTIVATING_DONE]      = UNIT_ACTIVE,
+        [SWAP_ACTIVE]               = UNIT_ACTIVE,
+        [SWAP_DEACTIVATING]         = UNIT_DEACTIVATING,
         [SWAP_DEACTIVATING_SIGTERM] = UNIT_DEACTIVATING,
         [SWAP_DEACTIVATING_SIGKILL] = UNIT_DEACTIVATING,
-        [SWAP_FAILED] = UNIT_FAILED,
-        [SWAP_CLEANING] = UNIT_MAINTENANCE,
+        [SWAP_FAILED]               = UNIT_FAILED,
+        [SWAP_CLEANING]             = UNIT_MAINTENANCE,
 };
 
 static int swap_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);

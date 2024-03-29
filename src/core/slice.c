@@ -16,8 +16,8 @@
 #include "unit.h"
 
 static const UnitActiveState state_translation_table[_SLICE_STATE_MAX] = {
-        [SLICE_DEAD] = UNIT_INACTIVE,
-        [SLICE_ACTIVE] = UNIT_ACTIVE
+        [SLICE_DEAD]   = UNIT_INACTIVE,
+        [SLICE_ACTIVE] = UNIT_ACTIVE,
 };
 
 static void slice_init(Unit *u) {
