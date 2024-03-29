@@ -22,8 +22,7 @@
 
 typedef enum AcquireHomeFlags {
         ACQUIRE_MUST_AUTHENTICATE = 1 << 0,
-        ACQUIRE_PLEASE_SUSPEND    = 1 << 1,
-        ACQUIRE_REF_ANYWAY        = 1 << 2,
+        ACQUIRE_REF_ANYWAY        = 1 << 1,
 } AcquireHomeFlags;
 
 static int parse_argv(
@@ -38,16 +37,7 @@ static int parse_argv(
         for (int i = 0; i < argc; i++) {
                 const char *v;
 
-                if ((v = startswith(argv[i], "suspend="))) {
-                        int k;
-
-                        k = parse_boolean(v);
-                        if (k < 0)
-                                pam_syslog(handle, LOG_WARNING, "Failed to parse suspend= argument, ignoring: %s", v);
-                        else if (flags)
-                                SET_FLAG(*flags, ACQUIRE_PLEASE_SUSPEND, k);
-
-                } else if (streq(argv[i], "debug")) {
+                if (streq(argv[i], "debug")) {
                         if (debug)
                                 *debug = true;
 
@@ -58,39 +48,11 @@ static int parse_argv(
                                 pam_syslog(handle, LOG_WARNING, "Failed to parse debug= argument, ignoring: %s", v);
                         else if (debug)
                                 *debug = k;
-
-                } else
+                } else if (startswith(argv[i], "suspend="))
+                        pam_syslog(handle, LOG_NOTICE, "Parameter 'suspend=' is ignored since systemd v257. Please use 'can-secure-lock' on pam_systemd instead.");
+                else
                         pam_syslog(handle, LOG_WARNING, "Unknown parameter '%s', ignoring", argv[i]);
         }
-
-        return 0;
-}
-
-static int parse_env(
-                pam_handle_t *handle,
-                AcquireHomeFlags *flags) {
-
-        const char *v;
-        int r;
-
-        /* Let's read the suspend setting from an env var in addition to the PAM command line. That makes it
-         * easy to declare the features of a display manager in code rather than configuration, and this is
-         * really a feature of code */
-
-        v = pam_getenv(handle, "SYSTEMD_HOME_SUSPEND");
-        if (!v) {
-                /* Also check the process env block, so that people can control this via an env var from the
-                 * outside of our process. */
-                v = secure_getenv("SYSTEMD_HOME_SUSPEND");
-                if (!v)
-                        return 0;
-        }
-
-        r = parse_boolean(v);
-        if (r < 0)
-                pam_syslog(handle, LOG_WARNING, "Failed to parse $SYSTEMD_HOME_SUSPEND argument, ignoring: %s", v);
-        else if (flags)
-                SET_FLAG(*flags, ACQUIRE_PLEASE_SUSPEND, r);
 
         return 0;
 }
@@ -615,7 +577,7 @@ static int acquire_home(
                                 return pam_bus_log_create_error(handle, r);
                 }
 
-                r = sd_bus_message_append(m, "b", FLAGS_SET(flags, ACQUIRE_PLEASE_SUSPEND));
+                r = sd_bus_message_append(m, "b", true); /* please_suspend is ignored as of v257... */
                 if (r < 0)
                         return pam_bus_log_create_error(handle, r);
 
@@ -750,9 +712,6 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
         AcquireHomeFlags flags = 0;
         bool debug = false;
 
-        if (parse_env(handle, &flags) < 0)
-                return PAM_AUTH_ERR;
-
         if (parse_argv(handle,
                        argc, argv,
                        &flags,
@@ -811,9 +770,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         bool debug = false;
         int r;
 
-        if (parse_env(handle, &flags) < 0)
-                return PAM_SESSION_ERR;
-
         if (parse_argv(handle,
                        argc, argv,
                        &flags,
@@ -842,11 +798,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r,
                                             "Failed to set PAM environment variable $SYSTEMD_HOME: @PAMERR@");
-
-        r = pam_putenv(handle, FLAGS_SET(flags, ACQUIRE_PLEASE_SUSPEND) ? "SYSTEMD_HOME_SUSPEND=1" : "SYSTEMD_HOME_SUSPEND=0");
-        if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r,
-                                            "Failed to set PAM environment variable $SYSTEMD_HOME_SUSPEND: @PAMERR@");
 
         return PAM_SUCCESS;
 }
@@ -921,9 +872,6 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         bool debug = false;
         usec_t t;
         int r;
-
-        if (parse_env(handle, &flags) < 0)
-                return PAM_AUTH_ERR;
 
         if (parse_argv(handle,
                        argc, argv,

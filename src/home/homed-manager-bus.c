@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "bus-locator.h"
 #include "bus-polkit.h"
 #include "format-util.h"
 #include "home-util.h"
@@ -626,42 +627,37 @@ static int method_release_home(sd_bus_message *message, void *userdata, sd_bus_e
         return generic_home_method(userdata, message, bus_home_method_release, error);
 }
 
+static int secure_lock_users_cb(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = ASSERT_PTR(userdata);
+
+        if (sd_bus_message_is_method_error(reply, NULL))
+                return sd_bus_reply_method_error(message, sd_bus_message_get_error(reply));
+        else
+                return sd_bus_reply_method_return(message, NULL);
+}
+
 static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(operation_unrefp) Operation *o = NULL;
-        bool waiting = false;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *call = NULL, *msg_ref = NULL;
         Manager *m = ASSERT_PTR(userdata);
-        Home *h;
         int r;
 
-        /* This is called from logind when we are preparing for system suspend. We enqueue a lock operation
-         * for every suitable home we have and only when all of them completed we send a reply indicating
-         * completion. */
+        /* This used to be called from sd-sleep to lock all homes before entering system suspend,
+         * but this functionality has since moved into logind so let's just proxy the call across */
 
-        HASHMAP_FOREACH(h, m->homes_by_name) {
+        r = bus_message_new_method_call(m->bus, &call, bus_login_mgr, "SecureLockUsers");
+        if (r < 0)
+                return bus_log_create_error(r);
 
-                if (!home_shall_suspend(h))
-                        continue;
+        msg_ref = sd_bus_message_ref(message);
 
-                if (!o) {
-                        o = operation_new(OPERATION_LOCK_ALL, message);
-                        if (!o)
-                                return -ENOMEM;
-                }
+        /* We disable timing out here because the user can configure how long SecureLockUsers takes
+         * via InhibitDelayMaxSec= in logind.conf */
+        r = sd_bus_call_async(m->bus, NULL, call, secure_lock_users_cb, msg_ref, UINT64_MAX);
+        if (r < 0)
+                return r;
+        TAKE_PTR(msg_ref);
 
-                log_info("Automatically locking home of user %s.", h->user_name);
-
-                r = home_schedule_operation(h, o, error);
-                if (r < 0)
-                        return r;
-
-                waiting = true;
-        }
-
-        if (waiting) /* At least one lock operation was enqeued, let's leave here without a reply: it will
-                      * be sent as soon as the last of the lock operations completed. */
-                return 1;
-
-        return sd_bus_reply_method_return(message, NULL);
+        return 1;
 }
 
 static int method_deactivate_all_homes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -901,7 +897,7 @@ static const sd_bus_vtable manager_vtable[] = {
                                 0),
 
         /* An operation that acts on all homes that allow it */
-        SD_BUS_METHOD("LockAllHomes", NULL, NULL, method_lock_all_homes, 0),
+        SD_BUS_METHOD("LockAllHomes", NULL, NULL, method_lock_all_homes, SD_BUS_VTABLE_DEPRECATED),
         SD_BUS_METHOD("DeactivateAllHomes", NULL, NULL, method_deactivate_all_homes, 0),
         SD_BUS_METHOD("Rebalance", NULL, NULL, method_rebalance, 0),
 
