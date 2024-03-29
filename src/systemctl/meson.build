@@ -44,8 +44,7 @@ if get_option('link-systemctl-shared')
         systemctl_link_with = [libshared]
 else
         systemctl_link_with = [libsystemd_static,
-                               libshared_static,
-                               libbasic_gcrypt]
+                               libshared_static]
 endif
 
 executables += [
