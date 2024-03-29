@@ -789,8 +789,8 @@ static int create_session(
         if (!uid_is_valid(uid))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid UID");
 
-        if (flags != 0)
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be zero.");
+        if ((flags & ~SD_LOGIND_CREATE_SESSION_FLAGS_ALL) != 0)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         if (leader_pidfd >= 0)
                 r = pidref_set_pidfd(&leader, leader_pidfd);
@@ -979,6 +979,7 @@ static int create_session(
         session->remote = remote;
         session->vtnr = vtnr;
         session->class = c;
+        session->can_secure_lock = FLAGS_SET(flags, SD_LOGIND_ENABLE_SECURE_LOCK);
 
         /* Once the first session that is of a pinning class shows up we'll change the GC mode for the user
          * from USER_GC_BY_ANY to USER_GC_BY_PIN, so that the user goes away once the last pinning session
@@ -1292,6 +1293,90 @@ static int method_lock_sessions(sd_bus_message *message, void *userdata, sd_bus_
                 return r;
 
         return sd_bus_reply_method_return(message, NULL);
+}
+
+typedef struct {
+        unsigned n_ref;
+        sd_bus_message *message;
+        sd_bus_error error;
+} SecureLockUsers;
+
+static SecureLockUsers *secure_lock_users_done(SecureLockUsers *p) {
+        int r;
+
+        if (sd_bus_error_is_set(&p->error))
+                r = sd_bus_reply_method_error(p->message, &p->error);
+        else
+                r = sd_bus_reply_method_return(p->message, NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to reply to SecureLockUsers(): %m");
+
+        sd_bus_message_unref(p->message);
+        sd_bus_error_free(&p->error);
+        return mfree(p);
+}
+
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(SecureLockUsers, secure_lock_users, secure_lock_users_done);
+DEFINE_TRIVIAL_CLEANUP_FUNC(SecureLockUsers*, secure_lock_users_unref);
+
+static void secure_lock_users_cb(User *u, void *userdata, const sd_bus_error *error) {
+        SecureLockUsers *data = ASSERT_PTR(userdata);
+
+        /* Keep the first error we encounter */
+        if (error && !sd_bus_error_is_set(&data->error))
+                (void) sd_bus_error_copy(&data->error, error);
+
+        secure_lock_users_unref(data);
+}
+
+static int method_secure_lock_users(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(secure_lock_users_unrefp) SecureLockUsers *data = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        User *user;
+        int r;
+
+        assert(message);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.login1.secure-lock-users",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
+        data = new(SecureLockUsers, 1);
+        *data = (SecureLockUsers) {
+                .n_ref = 1,
+                .message = sd_bus_message_ref(message),
+                .error = SD_BUS_ERROR_NULL,
+        };
+
+        r = 0;
+        HASHMAP_FOREACH(user, m->users) {
+                _cleanup_(secure_lock_users_unrefp) SecureLockUsers *data_ref = NULL;
+                int k;
+
+                data_ref = secure_lock_users_ref(data);
+
+                if (!user_should_auto_secure_lock(user))
+                        continue;
+
+                k = user_secure_lock(user, secure_lock_users_cb, data_ref);
+                if (k < 0) {
+                        r = k;
+                        continue;
+                }
+                TAKE_PTR(data_ref);
+        }
+
+        if (r < 0 && !sd_bus_error_is_set(&data->error))
+                (void) sd_bus_error_set_errno(&data->error, r);
+
+        return 1;
 }
 
 static int method_kill_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1788,7 +1873,7 @@ static int strdup_job(sd_bus_message *reply, char **ret) {
         return 0;
 }
 
-static int execute_shutdown_or_sleep(
+static int execute_action_now(
                 Manager *m,
                 const HandleActionData *a,
                 sd_bus_error *error) {
@@ -1829,6 +1914,85 @@ fail:
         (void) send_prepare_for(m, a, false);
 
         return r;
+}
+
+typedef struct {
+        unsigned n_ref;
+        Manager *manager;
+        const HandleActionData *action;
+} SleepSecureLock;
+
+static SleepSecureLock *sleep_secure_lock_done(SleepSecureLock *p) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = execute_action_now(p->manager, p->action, &error);
+        if (r < 0) {
+                log_warning("Error suspending after secure lock (already returend success to client): %s",
+                            bus_error_message(&error, r));
+
+                p->manager->delayed_action = NULL;
+        }
+
+        return mfree(p);
+}
+
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(SleepSecureLock, sleep_secure_lock, sleep_secure_lock_done);
+DEFINE_TRIVIAL_CLEANUP_FUNC(SleepSecureLock*, sleep_secure_lock_unref);
+
+static void sleep_secure_lock_cb(User *u, void *userdata, const sd_bus_error *error) {
+        SleepSecureLock *data = ASSERT_PTR(userdata);
+
+        if (error)
+                log_warning("Failed to secure lock user %s for sleep, ignoring: %s",
+                            u->user_record->user_name,
+                            error->message ?: "Unknown error");
+
+        sleep_secure_lock_unref(data);
+}
+
+static int execute_shutdown_or_sleep(
+                Manager *m,
+                const HandleActionData *a,
+                sd_bus_error *error) {
+        _cleanup_(sleep_secure_lock_unrefp) SleepSecureLock *data = NULL;
+        User *user;
+        int r;
+
+        assert(m);
+        assert(!m->action_job);
+        assert(a);
+
+        if (a->inhibit_what != INHIBIT_SLEEP)
+                return execute_action_now(m, a, error);
+
+        /* We're about to suspend, so we should secure lock all the users that support it first. */
+
+        data = new(SleepSecureLock, 1);
+        *data = (SleepSecureLock) {
+                .n_ref = 1,
+                .manager = m,
+                .action = a,
+        };
+
+        HASHMAP_FOREACH(user, m->users) {
+                _cleanup_(sleep_secure_lock_unrefp) SleepSecureLock *ref = NULL;
+
+                if (!user_should_auto_secure_lock(user))
+                        continue;
+
+                ref = sleep_secure_lock_ref(data);
+                r = user_secure_lock(user, sleep_secure_lock_cb, ref);
+                if (r < 0) {
+                        log_warning_errno(r,
+                                          "Failed to secure lock user %s for sleep, ignoring: %m",
+                                          user->user_record->user_name);
+                        continue;
+                }
+                TAKE_PTR(ref);
+        }
+
+        return 0;
 }
 
 int manager_dispatch_delayed(Manager *manager, bool timeout) {
@@ -3783,6 +3947,11 @@ static const sd_bus_vtable manager_vtable[] = {
                       NULL,
                       NULL,
                       method_lock_sessions,
+                      SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SecureLockUsers",
+                      NULL,
+                      NULL,
+                      method_secure_lock_users,
                       SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("KillSession",
                                 SD_BUS_ARGS("s", session_id, "s", who, "i", signal_number),
