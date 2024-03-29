@@ -812,6 +812,10 @@ static void set_manager_settings(Manager *m) {
          * counter on every daemon-reload. */
         m->reload_ratelimit.interval = arg_reload_limit_interval_sec;
         m->reload_ratelimit.burst = arg_reload_limit_burst;
+        /* We use the same configuration for both operations for now, as it's unlikely that one wants to
+         * ratelimit one but not the other anyway. */
+        m->reexec_ratelimit.interval = arg_reload_limit_interval_sec;
+        m->reexec_ratelimit.burst = arg_reload_limit_burst;
 
         manager_set_watchdog(m, WATCHDOG_RUNTIME, arg_runtime_watchdog);
         manager_set_watchdog(m, WATCHDOG_REBOOT, arg_reboot_watchdog);

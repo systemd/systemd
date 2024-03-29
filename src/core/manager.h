@@ -491,8 +491,9 @@ struct Manager {
         /* Reference to RestrictFileSystems= BPF program */
         struct restrict_fs_bpf *restrict_fs;
 
-        /* Allow users to configure a rate limit for Reload() operations */
+        /* Allow users to configure a rate limit for Reload()/Reexecute() operations */
         RateLimit reload_ratelimit;
+        RateLimit reexec_ratelimit;
         /* Dump*() are slow, so always rate limit them to 10 per 10 minutes */
         RateLimit dump_ratelimit;
 
