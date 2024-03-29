@@ -2659,46 +2659,46 @@ ExecCleanMask exec_clean_mask_from_string(const char *s) {
 }
 
 static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
-        [EXEC_INPUT_NULL] = "null",
-        [EXEC_INPUT_TTY] = "tty",
+        [EXEC_INPUT_NULL]      = "null",
+        [EXEC_INPUT_TTY]       = "tty",
         [EXEC_INPUT_TTY_FORCE] = "tty-force",
-        [EXEC_INPUT_TTY_FAIL] = "tty-fail",
-        [EXEC_INPUT_SOCKET] = "socket",
-        [EXEC_INPUT_NAMED_FD] = "fd",
-        [EXEC_INPUT_DATA] = "data",
-        [EXEC_INPUT_FILE] = "file",
+        [EXEC_INPUT_TTY_FAIL]  = "tty-fail",
+        [EXEC_INPUT_SOCKET]    = "socket",
+        [EXEC_INPUT_NAMED_FD]  = "fd",
+        [EXEC_INPUT_DATA]      = "data",
+        [EXEC_INPUT_FILE]      = "file",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);
 
 static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
-        [EXEC_OUTPUT_INHERIT] = "inherit",
-        [EXEC_OUTPUT_NULL] = "null",
-        [EXEC_OUTPUT_TTY] = "tty",
-        [EXEC_OUTPUT_KMSG] = "kmsg",
-        [EXEC_OUTPUT_KMSG_AND_CONSOLE] = "kmsg+console",
-        [EXEC_OUTPUT_JOURNAL] = "journal",
+        [EXEC_OUTPUT_INHERIT]             = "inherit",
+        [EXEC_OUTPUT_NULL]                = "null",
+        [EXEC_OUTPUT_TTY]                 = "tty",
+        [EXEC_OUTPUT_KMSG]                = "kmsg",
+        [EXEC_OUTPUT_KMSG_AND_CONSOLE]    = "kmsg+console",
+        [EXEC_OUTPUT_JOURNAL]             = "journal",
         [EXEC_OUTPUT_JOURNAL_AND_CONSOLE] = "journal+console",
-        [EXEC_OUTPUT_SOCKET] = "socket",
-        [EXEC_OUTPUT_NAMED_FD] = "fd",
-        [EXEC_OUTPUT_FILE] = "file",
-        [EXEC_OUTPUT_FILE_APPEND] = "append",
-        [EXEC_OUTPUT_FILE_TRUNCATE] = "truncate",
+        [EXEC_OUTPUT_SOCKET]              = "socket",
+        [EXEC_OUTPUT_NAMED_FD]            = "fd",
+        [EXEC_OUTPUT_FILE]                = "file",
+        [EXEC_OUTPUT_FILE_APPEND]         = "append",
+        [EXEC_OUTPUT_FILE_TRUNCATE]       = "truncate",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
 
 static const char* const exec_utmp_mode_table[_EXEC_UTMP_MODE_MAX] = {
-        [EXEC_UTMP_INIT] = "init",
+        [EXEC_UTMP_INIT]  = "init",
         [EXEC_UTMP_LOGIN] = "login",
-        [EXEC_UTMP_USER] = "user",
+        [EXEC_UTMP_USER]  = "user",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_utmp_mode, ExecUtmpMode);
 
 static const char* const exec_preserve_mode_table[_EXEC_PRESERVE_MODE_MAX] = {
-        [EXEC_PRESERVE_NO] = "no",
-        [EXEC_PRESERVE_YES] = "yes",
+        [EXEC_PRESERVE_NO]      = "no",
+        [EXEC_PRESERVE_YES]     = "yes",
         [EXEC_PRESERVE_RESTART] = "restart",
 };
 
@@ -2706,10 +2706,10 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(exec_preserve_mode, ExecPreserveMode, EX
 
 /* This table maps ExecDirectoryType to the setting it is configured with in the unit */
 static const char* const exec_directory_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
-        [EXEC_DIRECTORY_RUNTIME] = "RuntimeDirectory",
-        [EXEC_DIRECTORY_STATE] = "StateDirectory",
-        [EXEC_DIRECTORY_CACHE] = "CacheDirectory",
-        [EXEC_DIRECTORY_LOGS] = "LogsDirectory",
+        [EXEC_DIRECTORY_RUNTIME]       = "RuntimeDirectory",
+        [EXEC_DIRECTORY_STATE]         = "StateDirectory",
+        [EXEC_DIRECTORY_CACHE]         = "CacheDirectory",
+        [EXEC_DIRECTORY_LOGS]          = "LogsDirectory",
         [EXEC_DIRECTORY_CONFIGURATION] = "ConfigurationDirectory",
 };
 
@@ -2740,10 +2740,10 @@ DEFINE_STRING_TABLE_LOOKUP(exec_directory_type_mode, ExecDirectoryType);
  * one is supposed to be generic enough to be used for unit types that don't use ExecContext and per-unit
  * directories, specifically .timer units with their timestamp touch file. */
 static const char* const exec_resource_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
-        [EXEC_DIRECTORY_RUNTIME] = "runtime",
-        [EXEC_DIRECTORY_STATE] = "state",
-        [EXEC_DIRECTORY_CACHE] = "cache",
-        [EXEC_DIRECTORY_LOGS] = "logs",
+        [EXEC_DIRECTORY_RUNTIME]       = "runtime",
+        [EXEC_DIRECTORY_STATE]         = "state",
+        [EXEC_DIRECTORY_CACHE]         = "cache",
+        [EXEC_DIRECTORY_LOGS]          = "logs",
         [EXEC_DIRECTORY_CONFIGURATION] = "configuration",
 };
 
@@ -2752,7 +2752,7 @@ DEFINE_STRING_TABLE_LOOKUP(exec_resource_type, ExecDirectoryType);
 static const char* const exec_keyring_mode_table[_EXEC_KEYRING_MODE_MAX] = {
         [EXEC_KEYRING_INHERIT] = "inherit",
         [EXEC_KEYRING_PRIVATE] = "private",
-        [EXEC_KEYRING_SHARED] = "shared",
+        [EXEC_KEYRING_SHARED]  = "shared",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_keyring_mode, ExecKeyringMode);

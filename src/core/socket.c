@@ -57,20 +57,20 @@ struct SocketPeer {
 };
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
-        [SOCKET_DEAD] = UNIT_INACTIVE,
-        [SOCKET_START_PRE] = UNIT_ACTIVATING,
-        [SOCKET_START_CHOWN] = UNIT_ACTIVATING,
-        [SOCKET_START_POST] = UNIT_ACTIVATING,
-        [SOCKET_LISTENING] = UNIT_ACTIVE,
-        [SOCKET_RUNNING] = UNIT_ACTIVE,
-        [SOCKET_STOP_PRE] = UNIT_DEACTIVATING,
+        [SOCKET_DEAD]             = UNIT_INACTIVE,
+        [SOCKET_START_PRE]        = UNIT_ACTIVATING,
+        [SOCKET_START_CHOWN]      = UNIT_ACTIVATING,
+        [SOCKET_START_POST]       = UNIT_ACTIVATING,
+        [SOCKET_LISTENING]        = UNIT_ACTIVE,
+        [SOCKET_RUNNING]          = UNIT_ACTIVE,
+        [SOCKET_STOP_PRE]         = UNIT_DEACTIVATING,
         [SOCKET_STOP_PRE_SIGTERM] = UNIT_DEACTIVATING,
         [SOCKET_STOP_PRE_SIGKILL] = UNIT_DEACTIVATING,
-        [SOCKET_STOP_POST] = UNIT_DEACTIVATING,
-        [SOCKET_FINAL_SIGTERM] = UNIT_DEACTIVATING,
-        [SOCKET_FINAL_SIGKILL] = UNIT_DEACTIVATING,
-        [SOCKET_FAILED] = UNIT_FAILED,
-        [SOCKET_CLEANING] = UNIT_MAINTENANCE,
+        [SOCKET_STOP_POST]        = UNIT_DEACTIVATING,
+        [SOCKET_FINAL_SIGTERM]    = UNIT_DEACTIVATING,
+        [SOCKET_FINAL_SIGKILL]    = UNIT_DEACTIVATING,
+        [SOCKET_FAILED]           = UNIT_FAILED,
+        [SOCKET_CLEANING]         = UNIT_MAINTENANCE,
 };
 
 static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
@@ -3476,7 +3476,7 @@ static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {
         [SOCKET_EXEC_START_CHOWN] = "ExecStartChown",
         [SOCKET_EXEC_START_POST]  = "ExecStartPost",
         [SOCKET_EXEC_STOP_PRE]    = "ExecStopPre",
-        [SOCKET_EXEC_STOP_POST]   = "ExecStopPost"
+        [SOCKET_EXEC_STOP_POST]   = "ExecStopPost",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_exec_command, SocketExecCommand);
@@ -3490,7 +3490,7 @@ static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
         [SOCKET_FAILURE_CORE_DUMP]               = "core-dump",
         [SOCKET_FAILURE_START_LIMIT_HIT]         = "start-limit-hit",
         [SOCKET_FAILURE_TRIGGER_LIMIT_HIT]       = "trigger-limit-hit",
-        [SOCKET_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit"
+        [SOCKET_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_result, SocketResult);

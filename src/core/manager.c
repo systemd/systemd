@@ -710,18 +710,18 @@ static int manager_setup_prefix(Manager *m) {
         };
 
         static const struct table_entry paths_system[_EXEC_DIRECTORY_TYPE_MAX] = {
-                [EXEC_DIRECTORY_RUNTIME] =       { SD_PATH_SYSTEM_RUNTIME,       NULL },
-                [EXEC_DIRECTORY_STATE] =         { SD_PATH_SYSTEM_STATE_PRIVATE, NULL },
-                [EXEC_DIRECTORY_CACHE] =         { SD_PATH_SYSTEM_STATE_CACHE,   NULL },
-                [EXEC_DIRECTORY_LOGS] =          { SD_PATH_SYSTEM_STATE_LOGS,    NULL },
+                [EXEC_DIRECTORY_RUNTIME]       = { SD_PATH_SYSTEM_RUNTIME,       NULL },
+                [EXEC_DIRECTORY_STATE]         = { SD_PATH_SYSTEM_STATE_PRIVATE, NULL },
+                [EXEC_DIRECTORY_CACHE]         = { SD_PATH_SYSTEM_STATE_CACHE,   NULL },
+                [EXEC_DIRECTORY_LOGS]          = { SD_PATH_SYSTEM_STATE_LOGS,    NULL },
                 [EXEC_DIRECTORY_CONFIGURATION] = { SD_PATH_SYSTEM_CONFIGURATION, NULL },
         };
 
         static const struct table_entry paths_user[_EXEC_DIRECTORY_TYPE_MAX] = {
-                [EXEC_DIRECTORY_RUNTIME] =       { SD_PATH_USER_RUNTIME,       NULL  },
-                [EXEC_DIRECTORY_STATE] =         { SD_PATH_USER_STATE_PRIVATE, NULL  },
-                [EXEC_DIRECTORY_CACHE] =         { SD_PATH_USER_STATE_CACHE,   NULL  },
-                [EXEC_DIRECTORY_LOGS] =          { SD_PATH_USER_STATE_PRIVATE, "log" },
+                [EXEC_DIRECTORY_RUNTIME]       = { SD_PATH_USER_RUNTIME,       NULL  },
+                [EXEC_DIRECTORY_STATE]         = { SD_PATH_USER_STATE_PRIVATE, NULL  },
+                [EXEC_DIRECTORY_CACHE]         = { SD_PATH_USER_STATE_CACHE,   NULL  },
+                [EXEC_DIRECTORY_LOGS]          = { SD_PATH_USER_STATE_PRIVATE, "log" },
                 [EXEC_DIRECTORY_CONFIGURATION] = { SD_PATH_USER_CONFIGURATION, NULL  },
         };
 
@@ -3008,9 +3008,9 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         const char *target;
                         JobMode mode;
                 } target_table[] = {
-                        [0] = { SPECIAL_DEFAULT_TARGET,     JOB_ISOLATE },
-                        [1] = { SPECIAL_RESCUE_TARGET,      JOB_ISOLATE },
-                        [2] = { SPECIAL_EMERGENCY_TARGET,   JOB_ISOLATE },
+                        [0] = { SPECIAL_DEFAULT_TARGET,     JOB_ISOLATE              },
+                        [1] = { SPECIAL_RESCUE_TARGET,      JOB_ISOLATE              },
+                        [2] = { SPECIAL_EMERGENCY_TARGET,   JOB_ISOLATE              },
                         [3] = { SPECIAL_HALT_TARGET,        JOB_REPLACE_IRREVERSIBLY },
                         [4] = { SPECIAL_POWEROFF_TARGET,    JOB_REPLACE_IRREVERSIBLY },
                         [5] = { SPECIAL_REBOOT_TARGET,      JOB_REPLACE_IRREVERSIBLY },
@@ -3915,8 +3915,8 @@ static int manager_run_environment_generators(Manager *m) {
         _cleanup_strv_free_ char **paths = NULL;
         void* args[] = {
                 [STDOUT_GENERATE] = &tmp,
-                [STDOUT_COLLECT] = &tmp,
-                [STDOUT_CONSUME] = &m->transient_environment,
+                [STDOUT_COLLECT]  = &tmp,
+                [STDOUT_CONSUME]  = &m->transient_environment,
         };
         int r;
 
