@@ -2100,7 +2100,7 @@ static int udev_rule_apply_token_to_event(
                         return false;
                 }
 
-                log_event_debug(dev, token, "Running PROGRAM '%s'", buf);
+                log_event_debug(dev, token, "Running PROGRAM=\"%s\"", buf);
 
                 r = udev_event_spawn(event, /* accept_failure = */ true, buf, result, sizeof(result), NULL);
                 if (r != 0) {
@@ -2264,7 +2264,7 @@ static int udev_rule_apply_token_to_event(
 
                 log_event_debug(dev, token, "Importing properties from results of builtin command '%s'", buf);
 
-                r = udev_builtin_run(event, cmd, buf, false);
+                r = udev_builtin_run(event, cmd, buf);
                 if (r < 0) {
                         /* remember failure */
                         log_event_debug_errno(dev, token, r, "Failed to run builtin '%s': %m", buf);
