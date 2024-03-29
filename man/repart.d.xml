@@ -552,6 +552,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DefaultSubvolume=</varname></term>
+
+        <listitem><para>Takes an absolute path specifying the default subvolume within the new filesystem.
+        Note that this setting does not create the subvolume itself, that can be configured with
+        <varname>Subvolumes=</varname>.</para>
+
+        <para>Note that this option only takes effect if the target filesystem supports subvolumes, such as
+        <literal>btrfs</literal>.</para>
+
+        <para>Note that due to limitations of <literal>mkfs.btrfs</literal>, this option is only supported
+        when running with <option>--offline=no</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Encrypt=</varname></term>
 
         <listitem><para>Takes one of <literal>off</literal>, <literal>key-file</literal>,
