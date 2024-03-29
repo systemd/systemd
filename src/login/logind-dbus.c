@@ -1873,7 +1873,7 @@ static int strdup_job(sd_bus_message *reply, char **ret) {
         return 0;
 }
 
-static int execute_shutdown_or_sleep(
+static int execute_action_now(
                 Manager *m,
                 const HandleActionData *a,
                 sd_bus_error *error) {
@@ -1914,6 +1914,85 @@ fail:
         (void) send_prepare_for(m, a, false);
 
         return r;
+}
+
+typedef struct {
+        unsigned n_ref;
+        Manager *manager;
+        const HandleActionData *action;
+} SleepSecureLock;
+
+static SleepSecureLock *sleep_secure_lock_done(SleepSecureLock *p) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = execute_action_now(p->manager, p->action, &error);
+        if (r < 0) {
+                log_warning("Error suspending after secure lock (already returend success to client): %s",
+                            bus_error_message(&error, r));
+
+                p->manager->delayed_action = NULL;
+        }
+
+        return mfree(p);
+}
+
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(SleepSecureLock, sleep_secure_lock, sleep_secure_lock_done);
+DEFINE_TRIVIAL_CLEANUP_FUNC(SleepSecureLock*, sleep_secure_lock_unref);
+
+static void sleep_secure_lock_cb(User *u, void *userdata, const sd_bus_error *error) {
+        SleepSecureLock *data = ASSERT_PTR(userdata);
+
+        if (error)
+                log_warning("Failed to secure lock user %s for sleep, ignoring: %s",
+                            u->user_record->user_name,
+                            error->message ?: "Unknown error");
+
+        sleep_secure_lock_unref(data);
+}
+
+static int execute_shutdown_or_sleep(
+                Manager *m,
+                const HandleActionData *a,
+                sd_bus_error *error) {
+        _cleanup_(sleep_secure_lock_unrefp) SleepSecureLock *data = NULL;
+        User *user;
+        int r;
+
+        assert(m);
+        assert(!m->action_job);
+        assert(a);
+
+        if (a->inhibit_what != INHIBIT_SLEEP)
+                return execute_action_now(m, a, error);
+
+        /* We're about to suspend, so we should secure lock all the users that support it first. */
+
+        data = new(SleepSecureLock, 1);
+        *data = (SleepSecureLock) {
+                .n_ref = 1,
+                .manager = m,
+                .action = a,
+        };
+
+        HASHMAP_FOREACH(user, m->users) {
+                _cleanup_(sleep_secure_lock_unrefp) SleepSecureLock *ref = NULL;
+
+                if (!user_should_auto_secure_lock(user))
+                        continue;
+
+                ref = sleep_secure_lock_ref(data);
+                r = user_secure_lock(user, sleep_secure_lock_cb, ref);
+                if (r < 0) {
+                        log_warning_errno(r,
+                                          "Failed to secure lock user %s for sleep, ignoring: %m",
+                                          user->user_record->user_name);
+                        continue;
+                }
+                TAKE_PTR(ref);
+        }
+
+        return 0;
 }
 
 int manager_dispatch_delayed(Manager *manager, bool timeout) {
