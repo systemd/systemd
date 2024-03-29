@@ -431,7 +431,9 @@ static int pull_job_open_disk(PullJob *j) {
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                "Failed to initialize hash context.");
 #else
-                initialize_libgcrypt(false);
+                r = initialize_libgcrypt(false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load libgcrypt: %m");
 
                 if (gcry_md_open(&j->checksum_ctx, GCRY_MD_SHA256, 0) != 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
