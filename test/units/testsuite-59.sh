@@ -99,6 +99,10 @@ systemctl daemon-reload
 # The timeout will hit (and the test will fail) if the reloads are not rate-limited
 timeout 15 bash -c 'while systemctl daemon-reload --no-block; do true; done'
 
+# Ensure that the rate limit is not lost on reexec
+systemctl daemon-reexec
+(! systemctl daemon-reload)
+
 # Rate limit should reset after 9s
 sleep 10
 
