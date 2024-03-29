@@ -358,7 +358,6 @@ libshared = shared_library(
         link_depends : libshared_sym_path,
         link_whole : [libshared_static,
                       libbasic,
-                      libbasic_gcrypt,
                       libsystemd_static],
         dependencies : [libshared_deps,
                         userspace],
