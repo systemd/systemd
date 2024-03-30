@@ -14,6 +14,8 @@
 #include "systemctl.h"
 #include "terminal-util.h"
 
+#define MAP_SIZE 100
+
 static int get_unit_list_recursive(
                 sd_bus *bus,
                 char **patterns,
@@ -105,11 +107,201 @@ static char *format_unit_id(const char *unit, const char *machine) {
         return machine ? strjoin(machine, ":", unit) : strdup(unit);
 }
 
-static int output_units_list(const UnitInfo *unit_infos, size_t c) {
+/* Structure to represents units under slices*/
+typedef struct {
+        char **units;
+        size_t num_units;
+} UnitsUnderSlice;
+
+/* Hashmap node structure to hold slices and units under them */
+typedef struct MapNode {
+        char slice_name[256];
+        UnitsUnderSlice units_under_slice;
+        LIST_FIELDS(struct MapNode, hashmap);
+} MapNode;
+
+/* Hash map definition*/
+MapNode *hash_map[MAP_SIZE] = {NULL};
+
+/* Function to calculate hash value of the slice name */
+static size_t hash(const char *slice_name) {
+        assert(slice_name);
+
+        size_t hash_value = 0;
+        for (const char *p = slice_name; *p != '\0'; ++p)
+                hash_value = 31 * hash_value + (*p);
+
+        return hash_value % MAP_SIZE;
+}
+
+/* Function to insert or update units under slice unit in the hash map */
+static void insert_units_under_slice(const char *slice_name, char **units, size_t num_units) {
+        size_t index;
+        MapNode *new_node, *current = NULL;
+
+        assert(slice_name);
+        assert(units);
+        assert(num_units);
+        index = hash(slice_name);
+
+        /* Create a new hash map node */
+        new_node = new(MapNode, sizeof(MapNode));
+        if (new_node == NULL)
+                (void) log_oom();
+
+        /* Copy slice name and units */
+        strcpy(new_node->slice_name, slice_name);
+        /* Allocate memory for the units array and copy content into it*/
+        new_node->units_under_slice.units = new(char *, num_units);
+        if (new_node->units_under_slice.units == NULL) {
+                mfree(new_node);
+                (void) log_oom();
+        }
+        for(size_t i = 0; i < num_units; i++) {
+                new_node->units_under_slice.units[i] = strdup(units[i]);
+                if (new_node->units_under_slice.units[i] == NULL) {
+                        for (size_t j = 0; j < i; j++)
+                                free(new_node->units_under_slice.units[j]);
+
+                        mfree(new_node->units_under_slice.units);
+                        mfree(new_node);
+                        (void) log_oom();
+                }
+
+        }
+        new_node->units_under_slice.num_units = num_units;
+        new_node->hashmap_next = NULL;
+
+        /* Insert or update the node in the hash map */
+        if (hash_map[index] == NULL)
+                hash_map[index] = new_node;
+        else {
+                /* Append new node to end of the list */
+                current = hash_map[index];
+                while(current->hashmap_next != NULL)
+                        current = current->hashmap_next;
+                current->hashmap_next = new_node;
+        }
+        return current;
+}
+
+/* Function to free memory allocation for units under a slice */
+static void free_units_under_slice(UnitsUnderSlice *units_under_slice) {
+        for (size_t i = 0; i < units_under_slice->num_units; i++) {
+                mfree(units_under_slice->units[i]);
+        }
+        mfree(units_under_slice->units);
+}
+
+static void free_hash_map(void) {
+        MapNode *current = NULL, *next = NULL;
+
+        for(size_t i = 0; i < MAP_SIZE; i++) {
+              current =  hash_map[i];
+              while (current != NULL) {
+                next = current->hashmap_next;
+                free_units_under_slice(&current->units_under_slice);
+                mfree(current);
+                current = next;
+              }
+        }
+}
+/* Function to retrieve units under a slice from the hash map */
+static UnitsUnderSlice *get_units_under_slice(const char *slice_name) {
+        size_t index;
+        MapNode *current;
+
+        assert(slice_name);
+        index = hash(slice_name);
+
+        /* Search for the slice in the hashmap */
+        current = hash_map[index];
+        while(current != NULL) {
+                if (streq(current->slice_name, slice_name))
+                        return &current->units_under_slice;
+                current = current->hashmap_next;
+        }
+        return NULL;
+}
+
+static bool is_slice(const char *slice_name) {
+        assert(slice_name);
+
+        for (size_t i = 0; i < MAP_SIZE; ++i) {
+                MapNode *child_slice = hash_map[i];
+                while(child_slice != NULL) {
+                        if (strneq(child_slice->slice_name, slice_name, strlen(slice_name))) {
+                                return true;
+                        }
+                        child_slice = child_slice->hashmap_next;
+                }
+        }
+        return false;
+}
+
+/* Function to print units under a slice recursively */
+static void print_units_under_slice(const char *slice_name, int level) {
+        UnitsUnderSlice *units_under_slice;
+        char **units;
+        size_t num_units;
+
+        assert(slice_name);
+        assert(level >= 0);
+        /* Retrieve units under the current slice from the hashmap */
+        units_under_slice = get_units_under_slice(slice_name);
+        if (units_under_slice == NULL)
+                return;
+
+        for(int i = 0; i < level; ++i)
+                printf("|   ");
+        printf("|__ %s\n", slice_name);
+
+        /* Print the units under the current slice */
+        units = units_under_slice->units;
+        num_units = units_under_slice->num_units;
+        for (size_t i = 0; i < num_units; ++i) {
+
+                /* Print child slices recursively */
+                if (is_slice(units[i]))
+                        print_units_under_slice(units[i], level + 1);
+                else {
+                        for (int j = 0; j < level + 1; ++j)
+                                printf("|   ");
+                        printf("|___%s\n", units[i]);
+                }
+        }
+
+}
+
+static int output_units_list(sd_bus *bus, const UnitInfo *unit_infos, size_t c) {
         _cleanup_(table_unrefp) Table *table = NULL;
         size_t job_count = 0;
         int r;
 
+        if (arg_list_by_slice) {
+                FOREACH_ARRAY(u, unit_infos, c) {
+                        _cleanup_strv_free_ char **units = NULL;
+                        size_t num_units;
+                        if (endswith(u->id, ".slice")) {
+                                /* Get units under a slice units from sd_bus */
+                                r = sd_bus_get_property_strv(
+                                        bus,
+                                        "org.freedesktop.systemd1", u->unit_path,
+                                        "org.freedesktop.systemd1.Unit",
+                                        "SliceOf",
+                                        NULL,
+                                        &units);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+                                num_units = strv_length((char * const *)units);
+                                insert_units_under_slice(u->id, units, num_units);
+                        }
+                }
+                /* Print tree structure */
+                print_units_under_slice("-.slice", 0);
+                free_hash_map();
+                return 0;
+        }
         table = table_new("", "unit", "load", "active", "sub", "job", "description");
         if (!table)
                 return log_oom();
@@ -278,7 +470,7 @@ int verb_list_units(int argc, char *argv[], void *userdata) {
         }
 
         typesafe_qsort(unit_infos, r, unit_info_compare);
-        return output_units_list(unit_infos, r);
+        return output_units_list(bus, unit_infos, r);
 }
 
 static int get_triggered_units(
