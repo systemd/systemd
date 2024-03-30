@@ -104,6 +104,7 @@ int arg_kill_value;
 bool arg_kill_value_set = false;
 char *arg_root = NULL;
 char *arg_image = NULL;
+bool arg_list_by_slice = false;
 usec_t arg_when = 0;
 bool arg_stdin = false;
 const char *arg_reboot_argument = NULL;
@@ -469,6 +470,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_DROP_IN,
                 ARG_WHEN,
                 ARG_STDIN,
+                ARG_LIST_BY_SLICE,
         };
 
         static const struct option options[] = {
@@ -537,6 +539,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "drop-in",             required_argument, NULL, ARG_DROP_IN             },
                 { "when",                required_argument, NULL, ARG_WHEN                },
                 { "stdin",               no_argument,       NULL, ARG_STDIN               },
+                { "by-slice",              no_argument,     NULL, ARG_LIST_BY_SLICE               },
                 {}
         };
 
@@ -946,6 +949,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_WITH_DEPENDENCIES:
                         arg_with_dependencies = true;
+                        break;
+
+                case ARG_LIST_BY_SLICE:
+                        arg_list_by_slice = true;
                         break;
 
                 case ARG_WHAT:
