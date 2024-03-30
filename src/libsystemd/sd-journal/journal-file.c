@@ -20,6 +20,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "gcrypt-util.h"
 #include "id128-util.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
@@ -307,7 +308,7 @@ JournalFile* journal_file_close(JournalFile *f) {
         free(f->fsprg_seed);
 
         if (f->hmac)
-                gcry_md_close(f->hmac);
+                sym_gcry_md_close(f->hmac);
 #endif
 
         return mfree(f);
