@@ -891,7 +891,8 @@ static int dnssec_rrset_verify_sig(
         void *hash;
         size_t hash_size;
 
-        initialize_libgcrypt(false);
+        if (initialize_libgcrypt(false) < 0)
+                return -EOPNOTSUPP;
 #endif
 
         switch (rrsig->rrsig.algorithm) {
@@ -1407,7 +1408,8 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (md_algorithm < 0)
                 return -EOPNOTSUPP;
 
-        initialize_libgcrypt(false);
+        if (initialize_libgcrypt(false))
+                return -EOPNOTSUPP;
 
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
 
@@ -1552,7 +1554,8 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         if (algorithm < 0)
                 return algorithm;
 
-        initialize_libgcrypt(false);
+        if (initialize_libgcrypt(false) < 0)
+                return -EOPNOTSUPP;
 
         unsigned hash_size = gcry_md_get_algo_dlen(algorithm);
         assert(hash_size > 0);
