@@ -101,6 +101,12 @@ systemctl list-units --type=loaded
 systemctl list-units --type=loaded,socket
 systemctl list-units --legend=yes -a "systemd-*"
 systemctl list-units --state=active
+systemctl list-units --all --by-slice
+systemctl list-units --by-slice
+systemctl list-units --state=active --by-slice
+systemctl list-units --type=slice --by-slice
+systemctl list-units --by-slice -- -.slice system.slice
+systemctl list-units --by-slice -- -.slice user.slice
 systemctl list-units --with-dependencies systemd-journald.service
 systemctl list-units --with-dependencies --after systemd-journald.service
 systemctl list-units --with-dependencies --before --reverse systemd-journald.service
