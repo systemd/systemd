@@ -1992,7 +1992,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         } else if (s->result == SERVICE_SKIP_CONDITION) {
                 unit_log_skip(UNIT(s), service_result_to_string(s->result));
                 end_state = service_determine_dead_state(s);
-                restart_state = SERVICE_DEAD_BEFORE_AUTO_RESTART;
+                restart_state = _SERVICE_STATE_INVALID; /* Never restart if skipped due to condition failure */
         } else {
                 unit_log_failure(UNIT(s), service_result_to_string(s->result));
                 end_state = SERVICE_FAILED;
@@ -2013,6 +2013,9 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
         if (allow_restart) {
                 usec_t restart_usec_next;
+
+                assert(restart_state >= 0);
+                assert(restart_state < _SERVICE_STATE_MAX);
 
                 /* We make two state changes here: one that maps to the high-level UNIT_INACTIVE/UNIT_FAILED
                  * state (i.e. a state indicating deactivation), and then one that that maps to the
@@ -2513,7 +2516,6 @@ static void service_enter_condition(Service *s) {
                                   service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
-
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'exec-condition' task: %m");
                         goto fail;
