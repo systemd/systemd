@@ -1319,6 +1319,9 @@ if not have
         # link to neither of the libs if one is not found
         libgcrypt = []
         libgpg_error = []
+        libgcrypt_cflags = []
+else
+        libgcrypt_cflags = libgcrypt.partial_dependency(includes: true, compile_args: true)
 endif
 conf.set10('HAVE_GCRYPT', have)
 
@@ -1951,10 +1954,10 @@ libsystemd = shared_library(
         include_directories : libsystemd_includes,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
-        link_with : [libbasic,
-                     libbasic_gcrypt],
+        link_with : [libbasic],
         link_whole : [libsystemd_static],
         dependencies : [librt,
+                        libgcrypt_cflags,
                         threads,
                         userspace],
         link_depends : libsystemd_sym,
@@ -1968,7 +1971,6 @@ install_libsystemd_static = static_library(
         'systemd',
         libsystemd_sources,
         basic_sources,
-        basic_gcrypt_sources,
         fundamental_sources,
         include_directories : libsystemd_includes,
         build_by_default : static_libsystemd != 'false',
@@ -1979,7 +1981,7 @@ install_libsystemd_static = static_library(
         dependencies : [libblkid,
                         libcap,
                         libdl,
-                        libgcrypt,
+                        libgcrypt_cflags,
                         liblz4_cflags,
                         libmount,
                         libopenssl,
