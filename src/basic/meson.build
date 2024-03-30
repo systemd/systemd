@@ -35,6 +35,7 @@ basic_sources = files(
         'filesystems.c',
         'format-util.c',
         'fs-util.c',
+        'gcrypt-util.c',
         'glob-util.c',
         'glyph-util.c',
         'gunicode.c',
@@ -283,23 +284,6 @@ libbasic = static_library(
                         libxz_cflags,
                         libzstd_cflags,
                         threads,
-                        userspace],
-        c_args : ['-fvisibility=default'],
-        build_by_default : false)
-
-############################################################
-
-basic_gcrypt_sources = files(
-        'gcrypt-util.c',
-)
-
-# A convenience library that is separate from libbasic to avoid
-# unnecessary linking to libgcrypt.
-libbasic_gcrypt = static_library(
-        'basic-gcrypt',
-        basic_gcrypt_sources,
-        include_directories : basic_includes,
-        dependencies : [libgcrypt,
                         userspace],
         c_args : ['-fvisibility=default'],
         build_by_default : false)
