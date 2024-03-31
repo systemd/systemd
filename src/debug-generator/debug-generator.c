@@ -6,7 +6,6 @@
 #include "dropin.h"
 #include "generator.h"
 #include "initrd-util.h"
-#include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
