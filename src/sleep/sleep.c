@@ -308,7 +308,7 @@ static int execute(
 
 fail:
         if (SLEEP_OPERATION_IS_HIBERNATION(operation))
-                clear_efi_hibernate_location_and_warn();
+                (void) clear_efi_hibernate_location_and_warn();
 
         return r;
 }
