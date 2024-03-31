@@ -17,6 +17,7 @@
 #include "terminal-util.h"
 
 static HibernateInfo arg_info = {};
+static bool arg_clear = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_info, hibernate_info_done);
 
@@ -32,6 +33,7 @@ static int help(void) {
                "\n%sInitiate resume from hibernation.%s\n\n"
                "  -h --help            Show this help\n"
                "     --version         Show package version\n"
+               "     --clear           Clear hibernation storage information from EFI and exit\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -45,11 +47,13 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_CLEAR,
         };
 
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, 'h'           },
                 { "version",   no_argument,       NULL, ARG_VERSION   },
+                { "clear",     no_argument,       NULL, ARG_CLEAR     },
                 {}
         };
 
@@ -68,12 +72,20 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERSION:
                         return version();
 
+                case ARG_CLEAR:
+                        arg_clear = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
                 default:
                         assert_not_reached();
                 }
+
+        if (argc > optind && arg_clear)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Extraneous arguments specified with --clear, refusing.");
 
         return 1;
 }
@@ -94,6 +106,24 @@ static int setup_hibernate_info_and_warn(void) {
         return 1;
 }
 
+static int action_clear(void) {
+        int r;
+
+        assert(arg_clear);
+
+        /* Let's insist that the system identifier is verified still. After all if things don't match,
+         * the resume wouldn't get triggered in the first place. We should not erase the var if booted
+         * from LiveCD/portable systems/... */
+        r = get_efi_hibernate_location(/* ret = */ NULL);
+        if (r <= 0)
+                return r;
+
+        r = clear_efi_hibernate_location_and_warn();
+        if (r > 0)
+                log_notice("Successfully cleared HibernateLocation EFI variable.");
+        return r;
+}
+
 static int run(int argc, char *argv[]) {
         struct stat st;
         int r;
@@ -109,8 +139,12 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
+        if (arg_clear)
+                return action_clear();
+
         if (!in_initrd())
-                return 0;
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Not running in initrd, refusing to initiate resume from hibernation.");
 
         if (argc <= optind) {
                 r = setup_hibernate_info_and_warn();
