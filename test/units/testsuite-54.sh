@@ -200,6 +200,10 @@ elif [ -d /sys/firmware/qemu_fw_cfg/by_name ]; then
     [ "$(cat /tmp/sourcedfromcredential)" = "tmpfilessecret" ]
     [ "$(cat /etc/motd.d/50-provision.conf)" = "hello" ]
     [ "$(cat /etc/issue.d/50-provision.conf)" = "welcome" ]
+
+    # Verify that adding a unit and drop-in via credentials worked
+    systemctl start my-service
+    test -f /tmp/unit-dropin
 else
     echo "qemu_fw_cfg support missing in kernel. Sniff!"
     expected_credential=""
