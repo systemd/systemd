@@ -141,14 +141,14 @@ static int generate_wants_symlinks(void) {
         return r;
 }
 
-static void install_debug_shell_dropin(const char *dir) {
+static void install_debug_shell_dropin(void) {
         const char *tty = arg_debug_tty ?: arg_default_debug_tty;
         int r;
 
         if (!tty || path_equal(tty, skip_dev_prefix(DEBUGTTY)))
                 return;
 
-        r = write_drop_in_format(dir, "debug-shell.service", 50, "tty",
+        r = write_drop_in_format(arg_dest, "debug-shell.service", 50, "tty",
                         "[Unit]\n"
                         "Description=Early root shell on /dev/%s FOR DEBUGGING ONLY\n"
                         "ConditionPathExists=\n"
@@ -173,7 +173,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 if (r < 0)
                         return log_oom();
 
-                install_debug_shell_dropin(arg_dest);
+                install_debug_shell_dropin();
         }
 
         r = generate_mask_symlinks();
