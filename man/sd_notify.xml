@@ -493,6 +493,11 @@
     privileged port (i.e.: lower than 1024), as an attempt to address concerns that unprivileged processes in
     the guest might try to send malicious notifications to the host, driving it to make destructive decisions
     based on them.</para>
+
+    <para>Note that, while using this library should be preferred, it is also possible to reimplement the
+    simple readiness notification protocol without external dependencies. For a self-contained example, see
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
   </refsect1>
 
   <refsect1>
