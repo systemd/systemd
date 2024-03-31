@@ -86,6 +86,16 @@
     — are fully thread-safe and may be called from multiple threads in parallel.</para>
   </refsect1>
 
+  <refsect1>
+    <title>Optional dependencies</title>
+
+    <para>Depending on what build-time options are enabled, functions that operate on
+    <structname>sd_journal</structname> objects might cause optional dependencies to be dynamically loaded
+    via <citerefentry><refentrytitle>dlopen</refentrytitle><manvolnum>3</manvolnum></citerefentry>, such as
+    decompression libraries like xz, gzip or zstd, and cryptographic primitives libraries like gcrypt.
+    </para>
+  </refsect1>
+
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
