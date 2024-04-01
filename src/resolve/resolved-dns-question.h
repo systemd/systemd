@@ -31,6 +31,7 @@ DnsQuestion *dns_question_unref(DnsQuestion *q);
 int dns_question_new_address(DnsQuestion **ret, int family, const char *name, bool convert_idna);
 int dns_question_new_reverse(DnsQuestion **ret, int family, const union in_addr_union *a);
 int dns_question_new_service(DnsQuestion **ret, const char *service, const char *type, const char *domain, bool with_txt, bool convert_idna);
+int dns_question_new_service_type(DnsQuestion **ret, const char *service, const char *type, const char *domain, bool convert_idna, uint16_t record_type);
 
 int dns_question_add_raw(DnsQuestion *q, DnsResourceKey *key, DnsQuestionFlags flags);
 int dns_question_add(DnsQuestion *q, DnsResourceKey *key, DnsQuestionFlags flags);
