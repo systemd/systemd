@@ -16,6 +16,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "find-esp.h"
+#include "json.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "recurse-dir.h"
@@ -415,96 +416,219 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         r = log_warning_errno(k, "Failed to read EFI variable LoaderDevicePartUUID: %m");
 
                 SecureBootMode secure = efi_get_secure_boot_mode();
-                printf("%sSystem:%s\n", ansi_underline(), ansi_normal());
-                printf("      Firmware: %s%s (%s)%s\n", ansi_highlight(), strna(fw_type), strna(fw_info), ansi_normal());
-                printf(" Firmware Arch: %s\n", get_efi_arch());
-                printf("   Secure Boot: %s%s%s",
-                       IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED) ? ansi_highlight_green() : ansi_normal(),
-                       enabled_disabled(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)),
-                       ansi_normal());
+                s = tpm2_support();
+                const char *tpm2_support_str = FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER) ? "yes" :
+                                                       (s & TPM2_SUPPORT_FIRMWARE) ? "firmware only, driver unavailable" :
+                                                       (s & TPM2_SUPPORT_DRIVER) ? "driver only, firmware unavailable" : "no";
+                if (arg_json_format_flags != JSON_FORMAT_OFF) {
 
-                if (secure != SECURE_BOOT_DISABLED)
-                        printf(" (%s)\n", secure_boot_mode_to_string(secure));
-                else
+                        const char *efi_arch = get_efi_arch();
+                        const char *secure_boot = IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED) ? "enabled" : "disabled";
+                        const char *secure_boot_mode = secure != SECURE_BOOT_DISABLED ? secure_boot_mode_to_string(secure) : NULL;
+                        const char *measured_uki;
+                        const char *boot_into_fw;
+                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                        k = efi_get_reboot_to_firmware();
+                        if (k > 0)
+                                boot_into_fw = "active";
+                        else if (k == 0)
+                                boot_into_fw = "supported";
+                        else if (k == -EOPNOTSUPP)
+                                boot_into_fw = "not supported";
+                        else {
+                                errno = -k;
+                                boot_into_fw = "failed";
+                        }
+
+                        k = efi_measured_uki(LOG_DEBUG);
+                        if (k > 0)
+                                measured_uki = "yes";
+                        else if (k == 0)
+                                measured_uki = "no";
+                        else {
+                                errno = -k;
+                                measured_uki = "failed";
+                        }
+                        char firmware[256];
+                        snprintf(firmware, sizeof(firmware), "%s (%s)",
+                                 strna(fw_type), strna(fw_info));
+
+                        r = json_variant_merge_objectb(&v, JSON_BUILD_OBJECT(
+                            JSON_BUILD_PAIR("System", JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR("Firmware", JSON_BUILD_STRING(firmware)),
+                                JSON_BUILD_PAIR("FirmwareArch", JSON_BUILD_STRING(efi_arch)),
+                                JSON_BUILD_PAIR("SecureBoot", JSON_BUILD_STRING(secure_boot)),
+                                JSON_BUILD_PAIR_CONDITION(secure_boot_mode, "SecureBootMode", JSON_BUILD_STRING(secure_boot_mode)),
+                                JSON_BUILD_PAIR("TPM2Support", JSON_BUILD_STRING(tpm2_support_str)),
+                                JSON_BUILD_PAIR("MeasuredUKI", JSON_BUILD_STRING(measured_uki)),
+                                JSON_BUILD_PAIR("BootIntoFW", JSON_BUILD_STRING(boot_into_fw))
+                            ))
+                        ));
+                        if (r < 0)
+                                return log_oom();
+                        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+                        for (size_t i = 0; i < ELEMENTSOF(loader_flags); i++) {
+                                const char *value = loader_flags[i].name;
+                                r = json_variant_append_arrayb(&array, JSON_BUILD_STRING(value));
+                        }
+
+                        sd_id128_t bootloader_esp_uuid;
+                        bool have_bootloader_esp_uuid = efi_loader_get_device_part_uuid(&bootloader_esp_uuid) >= 0;
+                        const char *bootloader_esp_info = have_bootloader_esp_uuid ? "Boot loader sets ESP information" : "Boot loader does not set ESP information";
+                        if (have_bootloader_esp_uuid && !sd_id128_is_null(esp_uuid) &&
+                            !sd_id128_equal(esp_uuid, bootloader_esp_uuid))
+                                printf("WARNING: The boot loader reports a different ESP UUID than detected ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
+                                       SD_ID128_FORMAT_VAL(bootloader_esp_uuid),
+                                       SD_ID128_FORMAT_VAL(esp_uuid));
+                        r = json_variant_append_arrayb(&array, JSON_BUILD_STRING(bootloader_esp_info));
+
+                        char esp_info[256];
+                        if (!sd_id128_is_null(loader_part_uuid))
+                                snprintf(esp_info, sizeof(esp_info), "ESP: /dev/disk/by-partuuid/" SD_ID128_FORMAT_STR,
+                                         SD_ID128_FORMAT_VAL(loader_part_uuid));
+                        else
+                                snprintf(esp_info, sizeof(esp_info), "ESP: n/a");
+                        _cleanup_(json_variant_unrefp) JsonVariant *stub_array = NULL;
+                        if (stub) {
+                                for (size_t i = 0; i < ELEMENTSOF(stub_flags); i++) {
+                                        const char *stub_value = stub_flags[i].name;
+                                        r = json_variant_append_arrayb(&stub_array, JSON_BUILD_STRING(stub_value));
+                                }
+                        }
+                        r = json_variant_merge_objectb(&v, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR("CurrentBootLoader", JSON_BUILD_OBJECT(
+                                    JSON_BUILD_PAIR("Product", JSON_BUILD_STRING(strna(loader))),
+                                    JSON_BUILD_PAIR("Features", JSON_BUILD_VARIANT(array)),
+                                    JSON_BUILD_PAIR_CONDITION(stub_array, "Stub", JSON_BUILD_STRING(stub)),
+                                    JSON_BUILD_PAIR_CONDITION(stub_array, "Features", JSON_BUILD_VARIANT(stub_array)),
+                                    JSON_BUILD_PAIR("ESP", JSON_BUILD_STRING(esp_info)),
+                                    JSON_BUILD_PAIR("File", JSON_BUILD_STRING(strna(loader_path)))
+                                ))
+                        ));
+
+                        if (r < 0)
+                                return log_oom();
+                        have = access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderSystemToken)), F_OK) >= 0;
+
+                        if (arg_esp_path) {
+                                _cleanup_free_ char *p = NULL;
+
+                                p = path_join(arg_esp_path, "/loader/random-seed");
+                                if (!p)
+                                        return log_oom();
+
+                                have = access(p, F_OK) >= 0;
+
+                                r = json_variant_merge_objectb(&v, JSON_BUILD_OBJECT(
+                                    JSON_BUILD_PAIR_CONDITION(have, "RandomSeed", JSON_BUILD_OBJECT(
+                                    JSON_BUILD_PAIR("SystemToken", JSON_BUILD_STRING(have ? "set" : "not set")),
+                                        JSON_BUILD_PAIR("Exists", JSON_BUILD_STRING(yes_no(have)))
+                                    ))
+                                ));
+                                if (r < 0)
+                                        return log_oom();
+                        } else {
+                                r = json_variant_merge_objectb(&v, JSON_BUILD_OBJECT(
+                                    JSON_BUILD_PAIR("RandomSeed", JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR("SystemToken", JSON_BUILD_STRING(have ? "set" : "not set"))
+                                    ))
+                                ));
+                                if (r < 0)
+                                        return log_oom();
+                        }
+
+                        json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+                        return 0;
+                } else {
+                        printf("%sSystem:%s\n", ansi_underline(), ansi_normal());
+                        printf("      Firmware: %s%s (%s)%s\n", ansi_highlight(), strna(fw_type), strna(fw_info), ansi_normal());
+                        printf(" Firmware Arch: %s\n", get_efi_arch());
+                        printf("   Secure Boot: %s%s%s",
+                               IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED) ? ansi_highlight_green() : ansi_normal(),
+                               enabled_disabled(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)),
+                               ansi_normal());
+
+                        if (secure != SECURE_BOOT_DISABLED)
+                                printf(" (%s)\n", secure_boot_mode_to_string(secure));
+                        else
+                                printf("\n");
+
+                        printf("  TPM2 Support: %s%s%s\n",
+                               FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER) ? ansi_highlight_green() :
+                               (s & (TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER)) != 0 ? ansi_highlight_red() : ansi_highlight_yellow(),
+                               tpm2_support_str, ansi_normal());
+
+                        k = efi_measured_uki(LOG_DEBUG);
+                        if (k > 0)
+                                printf("  Measured UKI: %syes%s\n", ansi_highlight_green(), ansi_normal());
+                        else if (k == 0)
+                                printf("  Measured UKI: no\n");
+                        else {
+                                errno = -k;
+                                printf("  Measured UKI: %sfailed%s (%m)\n", ansi_highlight_red(), ansi_normal());
+                        }
+
+                        k = efi_get_reboot_to_firmware();
+                        if (k > 0)
+                                printf("  Boot into FW: %sactive%s\n", ansi_highlight_yellow(), ansi_normal());
+                        else if (k == 0)
+                                printf("  Boot into FW: supported\n");
+                        else if (k == -EOPNOTSUPP)
+                                printf("  Boot into FW: not supported\n");
+                        else {
+                                errno = -k;
+                                printf("  Boot into FW: %sfailed%s (%m)\n", ansi_highlight_red(), ansi_normal());
+                        }
                         printf("\n");
 
-                s = tpm2_support();
-                printf("  TPM2 Support: %s%s%s\n",
-                       FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER) ? ansi_highlight_green() :
-                       (s & (TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER)) != 0 ? ansi_highlight_red() : ansi_highlight_yellow(),
-                       FLAGS_SET(s, TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER) ? "yes" :
-                       (s & TPM2_SUPPORT_FIRMWARE) ? "firmware only, driver unavailable" :
-                       (s & TPM2_SUPPORT_DRIVER) ? "driver only, firmware unavailable" : "no",
-                       ansi_normal());
+                        printf("%sCurrent Boot Loader:%s\n", ansi_underline(), ansi_normal());
+                        printf("      Product: %s%s%s\n", ansi_highlight(), strna(loader), ansi_normal());
 
-                k = efi_measured_uki(LOG_DEBUG);
-                if (k > 0)
-                        printf("  Measured UKI: %syes%s\n", ansi_highlight_green(), ansi_normal());
-                else if (k == 0)
-                        printf("  Measured UKI: no\n");
-                else {
-                        errno = -k;
-                        printf("  Measured UKI: %sfailed%s (%m)\n", ansi_highlight_red(), ansi_normal());
+                        for (size_t i = 0; i < ELEMENTSOF(loader_flags); i++)
+                                print_yes_no_line(i == 0, FLAGS_SET(loader_features, loader_flags[i].flag), loader_flags[i].name);
+
+
+                        sd_id128_t bootloader_esp_uuid;
+                        bool have_bootloader_esp_uuid = efi_loader_get_device_part_uuid(&bootloader_esp_uuid) >= 0;
+
+                        print_yes_no_line(false, have_bootloader_esp_uuid, "Boot loader sets ESP information");
+                        if (have_bootloader_esp_uuid && !sd_id128_is_null(esp_uuid) &&
+                            !sd_id128_equal(esp_uuid, bootloader_esp_uuid))
+                                printf("WARNING: The boot loader reports a different ESP UUID than detected ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
+                                       SD_ID128_FORMAT_VAL(bootloader_esp_uuid),
+                                       SD_ID128_FORMAT_VAL(esp_uuid));
+
+                        if (stub) {
+                                printf("         Stub: %s\n", stub);
+                                for (size_t i = 0; i < ELEMENTSOF(stub_flags); i++)
+                                        print_yes_no_line(i == 0, FLAGS_SET(stub_features, stub_flags[i].flag), stub_flags[i].name);
+                        }
+                        if (!sd_id128_is_null(loader_part_uuid))
+                                printf("          ESP: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
+                                       SD_ID128_FORMAT_VAL(loader_part_uuid));
+                        else
+                                printf("          ESP: n/a\n");
+                        printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
+                        printf("\n");
+
+                        printf("%sRandom Seed:%s\n", ansi_underline(), ansi_normal());
+                        have = access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderSystemToken)), F_OK) >= 0;
+                        printf(" System Token: %s\n", have ? "set" : "not set");
+
+                        if (arg_esp_path) {
+                                _cleanup_free_ char *p = NULL;
+
+                                p = path_join(arg_esp_path, "/loader/random-seed");
+                                if (!p)
+                                        return log_oom();
+
+                                have = access(p, F_OK) >= 0;
+                                printf("       Exists: %s\n", yes_no(have));
+                        }
+
+                        printf("\n");
                 }
-
-                k = efi_get_reboot_to_firmware();
-                if (k > 0)
-                        printf("  Boot into FW: %sactive%s\n", ansi_highlight_yellow(), ansi_normal());
-                else if (k == 0)
-                        printf("  Boot into FW: supported\n");
-                else if (k == -EOPNOTSUPP)
-                        printf("  Boot into FW: not supported\n");
-                else {
-                        errno = -k;
-                        printf("  Boot into FW: %sfailed%s (%m)\n", ansi_highlight_red(), ansi_normal());
-                }
-                printf("\n");
-
-                printf("%sCurrent Boot Loader:%s\n", ansi_underline(), ansi_normal());
-                printf("      Product: %s%s%s\n", ansi_highlight(), strna(loader), ansi_normal());
-
-                for (size_t i = 0; i < ELEMENTSOF(loader_flags); i++)
-                        print_yes_no_line(i == 0, FLAGS_SET(loader_features, loader_flags[i].flag), loader_flags[i].name);
-
-                sd_id128_t bootloader_esp_uuid;
-                bool have_bootloader_esp_uuid = efi_loader_get_device_part_uuid(&bootloader_esp_uuid) >= 0;
-
-                print_yes_no_line(false, have_bootloader_esp_uuid, "Boot loader sets ESP information");
-                if (have_bootloader_esp_uuid && !sd_id128_is_null(esp_uuid) &&
-                    !sd_id128_equal(esp_uuid, bootloader_esp_uuid))
-                        printf("WARNING: The boot loader reports a different ESP UUID than detected ("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR")!\n",
-                               SD_ID128_FORMAT_VAL(bootloader_esp_uuid),
-                               SD_ID128_FORMAT_VAL(esp_uuid));
-
-                if (stub) {
-                        printf("         Stub: %s\n", stub);
-                        for (size_t i = 0; i < ELEMENTSOF(stub_flags); i++)
-                                print_yes_no_line(i == 0, FLAGS_SET(stub_features, stub_flags[i].flag), stub_flags[i].name);
-                }
-                if (!sd_id128_is_null(loader_part_uuid))
-                        printf("          ESP: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
-                               SD_ID128_FORMAT_VAL(loader_part_uuid));
-                else
-                        printf("          ESP: n/a\n");
-                printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
-                printf("\n");
-
-                printf("%sRandom Seed:%s\n", ansi_underline(), ansi_normal());
-                have = access(EFIVAR_PATH(EFI_LOADER_VARIABLE(LoaderSystemToken)), F_OK) >= 0;
-                printf(" System Token: %s\n", have ? "set" : "not set");
-
-                if (arg_esp_path) {
-                        _cleanup_free_ char *p = NULL;
-
-                        p = path_join(arg_esp_path, "/loader/random-seed");
-                        if (!p)
-                                return log_oom();
-
-                        have = access(p, F_OK) >= 0;
-                        printf("       Exists: %s\n", yes_no(have));
-                }
-
-                printf("\n");
         } else
                 printf("%sSystem:%s\n"
                        "Not booted with EFI\n\n",
