@@ -48,6 +48,27 @@ basic_tests() {
     bootctl "$@"
     bootctl "$@" status
     bootctl "$@" status --quiet
+    bootctl "$@" status --json=short
+    bootctl "$@" status --json=pretty
+    bootctl "$@" status --json=short | jq
+    bootctl "$@" status --json=pretty | jq
+
+    bootctl "$@" status --json=short | jq '.' | grep -q 'System'
+    bootctl "$@" status --json=short | jq '.' | grep -q 'CurrentBootLoader'
+    bootctl "$@" status --json=short | jq '.' | grep -q 'RandomSeed'
+    bootctl "$@" status --json=short | jq '.' | grep -q 'Available Boot Loaders on ESP'
+    bootctl "$@" status --json=short | jq '.' | grep -q 'Boot Loaders Listed in EFI Variables'
+    bootctl "$@" status --json=short | jq '.' | grep -q 'Boot Loader Entries'
+    bootctl "$@" status --json=short | jq '.' | grep -q 'Default Boot Loader Entry'
+
+    bootctl "$@" status --json=pretty | jq '.' | grep -q 'System'
+    bootctl "$@" status --json=pretty | jq '.' | grep -q 'CurrentBootLoader'
+    bootctl "$@" status --json=pretty | jq '.' | grep -q 'RandomSeed'
+    bootctl "$@" status --json=pretty | jq '.' | grep -q 'Available Boot Loaders on ESP'
+    bootctl "$@" status --json=pretty | jq '.' | grep -q 'Boot Loaders Listed in EFI Variables'
+    bootctl "$@" status --json=pretty | jq '.' | grep -q 'Boot Loader Entries'
+    bootctl "$@" status --json=pretty | jq '.' | grep -q 'Default Boot Loader Entry'
+
     bootctl "$@" list
     bootctl "$@" list --quiet
     bootctl "$@" list --json=short
