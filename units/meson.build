@@ -317,6 +317,11 @@ units = [
           'conditions' : ['ENABLE_HIBERNATE'],
         },
         {
+          'file' : 'systemd-hibernate-resume-clear-efi.service.in',
+          'conditions' : ['ENABLE_HIBERNATE', 'ENABLE_EFI'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
           'file' : 'systemd-hibernate.service.in',
           'conditions' : ['ENABLE_HIBERNATE'],
         },
