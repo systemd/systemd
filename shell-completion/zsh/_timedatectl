@@ -59,11 +59,11 @@ _timedatectl_command(){
 }
 
 _arguments -s \
-    {-h,--help}'[Show this help]' \
-    '--version[Show package version]' \
+    '(- *)'{-h,--help}'[Show this help]' \
+    '(- *)--version[Show package version]' \
     '--adjust-system-clock[Adjust system clock when changing local RTC mode]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-ask-password[Do not prompt for password]' \
-    {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
-    {-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
+    '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    '(-M --machine)'{-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
     '*::timedatectl commands:_timedatectl_command'
