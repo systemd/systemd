@@ -3671,7 +3671,8 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         r = extract_many_words(&val, " ", 0, &id, &encrypted, &data);
                         if (r < 0)
                                 return r;
-                        if (r != 3)
+                        /* The "data" part of the credential can be empty, e.g. with SetCredential=mycred: */
+                        if (r < 2 || r > 3)
                                 return -EINVAL;
 
                         r = parse_boolean(encrypted);
