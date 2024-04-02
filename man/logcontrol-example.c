@@ -43,13 +43,10 @@
 
 #define _cleanup_(f) __attribute__((cleanup(f)))
 
-#define check(log_level, x) ({                  \
-  int _r = (x);                                 \
-  errno = _r < 0 ? -_r : 0;                     \
-  sd_journal_print((log_level), #x ": %m");     \
-  if (_r < 0)                                   \
-    return EXIT_FAILURE;                        \
-  })
+static int log_error(int log_level, int error, const char *str) {
+  sd_journal_print(log_level, "%s failed: %s", str, strerror(-error));
+  return error;
+}
 
 typedef enum LogTarget {
   LOG_TARGET_JOURNAL,
@@ -193,6 +190,7 @@ int main(int argc, char **argv) {
     .log_target = LOG_TARGET_JOURNAL,
     .syslog_identifier = "example",
   };
+  int r;
 
   /* https://man7.org/linux/man-pages/man3/setlogmask.3.html
    * Programs using syslog() instead of sd_journal can use this API to cut logs
@@ -203,37 +201,49 @@ int main(int argc, char **argv) {
   /* Acquire a connection to the bus, letting the library work out the details.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_default.html
    */
-  check(o.log_level, sd_bus_default(&bus));
+  r = sd_bus_default(&bus);
+  if (r < 0)
+    return log_error(o.log_level, r, "sd_bus_default()");
 
   /* Publish an interface on the bus, specifying our well-known object access
    * path and public interface name.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_add_object.html
    * https://dbus.freedesktop.org/doc/dbus-tutorial.html
    */
-  check(o.log_level, sd_bus_add_object_vtable(bus, NULL,
-                                              "/org/freedesktop/LogControl1",
-                                              "org.freedesktop.LogControl1",
-                                              vtable,
-                                              &o));
+  r = sd_bus_add_object_vtable(bus, NULL,
+                               "/org/freedesktop/LogControl1",
+                               "org.freedesktop.LogControl1",
+                               vtable,
+                               &o);
+  if (r < 0)
+    return log_error(o.log_level, r, "sd_bus_add_object_vtable()");
 
   /* By default the service is assigned an ephemeral name. Also add a fixed
    * one, so that clients know whom to call.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_request_name.html
    */
-  check(o.log_level, sd_bus_request_name(bus, "org.freedesktop.Example", 0));
+  r = sd_bus_request_name(bus, "org.freedesktop.Example", 0);
+  if (r < 0)
+    return log_error(o.log_level, r, "sd_bus_request_name()");
 
   for (;;) {
     /* https://www.freedesktop.org/software/systemd/man/sd_bus_wait.html
      */
-    check(o.log_level, sd_bus_wait(bus, UINT64_MAX));
+    r = sd_bus_wait(bus, UINT64_MAX);
+    if (r < 0)
+      return log_error(o.log_level, r, "sd_bus_wait()");
     /* https://www.freedesktop.org/software/systemd/man/sd_bus_process.html
      */
-    check(o.log_level, sd_bus_process(bus, NULL));
+    r = sd_bus_process(bus, NULL);
+    if (r < 0)
+      return log_error(o.log_level, r, "sd_bus_process()");
   }
 
   /* https://www.freedesktop.org/software/systemd/man/sd_bus_release_name.html
    */
-  check(o.log_level, sd_bus_release_name(bus, "org.freedesktop.Example"));
+  r = sd_bus_release_name(bus, "org.freedesktop.Example");
+  if (r < 0)
+    return log_error(o.log_level, r, "sd_bus_release_name()");
 
   return 0;
 }

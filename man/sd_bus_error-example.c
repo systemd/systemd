@@ -14,5 +14,5 @@ int writer_with_negative_errno_return(int fd, sd_bus_error *error) {
 
   /* On error, initialize the error structure, and also propagate the errno
    * value that write(2) set for us. */
-  return sd_bus_error_set_errnof(error, errno, "Failed to write to fd %i: %m", fd);
+  return sd_bus_error_set_errnof(error, errno, "Failed to write to fd %i: %s", fd, strerror(errno));
 }

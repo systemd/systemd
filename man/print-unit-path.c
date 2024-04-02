@@ -21,8 +21,7 @@
 #define MEMBER      "GetUnitByPID"
 
 static int log_error(int error, const char *message) {
-  errno = -error;
-  fprintf(stderr, "%s: %m\n", message);
+  fprintf(stderr, "%s: %s\n", message, strerror(-error));
   return error;
 }
 

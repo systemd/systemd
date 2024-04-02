@@ -9,20 +9,14 @@
 
 #define _cleanup_(f) __attribute__((cleanup(f)))
 
-#define check(x) ({                             \
-  int r = (x);                                  \
-  errno = r < 0 ? -r : 0;                       \
-  printf(#x ": %m\n");                          \
-  if (r < 0)                                    \
-    return EXIT_FAILURE;                        \
-  })
-
 typedef struct object {
   char *name;
   uint32_t number;
 } object;
 
 static int method(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+  int r;
+
   printf("Got called with userdata=%p\n", userdata);
 
   if (sd_bus_message_is_method_call(m,
@@ -31,8 +25,17 @@ static int method(sd_bus_message *m, void *userdata, sd_bus_error *error) {
     return 1;
 
   const char *string;
-  check(sd_bus_message_read(m, "s", &string));
-  check(sd_bus_reply_method_return(m, "s", string));
+  r = sd_bus_message_read(m, "s", &string);
+  if (r < 0) {
+    fprintf(stderr, "sd_bus_message_read() failed: %s\n", strerror(-r));
+    return 0;
+  }
+
+  r = sd_bus_reply_method_return(m, "s", string);
+  if (r < 0) {
+    fprintf(stderr, "sd_bus_reply_method_return() failed: %s\n", strerror(-r));
+    return 0;
+  }
 
   return 1;
 }
@@ -84,28 +87,55 @@ static const sd_bus_vtable vtable[] = {
 
 int main(int argc, char **argv) {
   _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+  int r;
 
   sd_bus_default(&bus);
 
   object object = { .number = 666 };
-  check((object.name = strdup("name")) != NULL);
-
-  check(sd_bus_add_object_vtable(bus, NULL,
-                                 "/org/freedesktop/systemd/VtableExample",
-                                 "org.freedesktop.systemd.VtableExample",
-                                 vtable,
-                                 &object));
-
-  check(sd_bus_request_name(bus,
-                            "org.freedesktop.systemd.VtableExample",
-                            0));
-
-  for (;;) {
-    check(sd_bus_wait(bus, UINT64_MAX));
-    check(sd_bus_process(bus, NULL));
+  object.name = strdup("name");
+  if (!object.name) {
+    fprintf(stderr, "OOM\n");
+    return EXIT_FAILURE;
   }
 
-  check(sd_bus_release_name(bus, "org.freedesktop.systemd.VtableExample"));
+  r = sd_bus_add_object_vtable(bus, NULL,
+                               "/org/freedesktop/systemd/VtableExample",
+                               "org.freedesktop.systemd.VtableExample",
+                               vtable,
+                               &object);
+  if (r < 0) {
+    fprintf(stderr, "sd_bus_add_object_vtable() failed: %s\n", strerror(-r));
+    return EXIT_FAILURE;
+  }
+
+  r = sd_bus_request_name(bus,
+                          "org.freedesktop.systemd.VtableExample",
+                          0);
+  if (r < 0) {
+    fprintf(stderr, "sd_bus_request_name() failed: %s\n", strerror(-r));
+    return EXIT_FAILURE;
+  }
+
+  for (;;) {
+    r = sd_bus_wait(bus, UINT64_MAX);
+    if (r < 0) {
+      fprintf(stderr, "sd_bus_wait() failed: %s\n", strerror(-r));
+      return EXIT_FAILURE;
+    }
+
+    r = sd_bus_process(bus, NULL);
+    if (r < 0) {
+      fprintf(stderr, "sd_bus_process() failed: %s\n", strerror(-r));
+      return EXIT_FAILURE;
+    }
+  }
+
+  r = sd_bus_release_name(bus, "org.freedesktop.systemd.VtableExample");
+  if (r < 0) {
+    fprintf(stderr, "sd_bus_release_name() failed: %s\n", strerror(-r));
+    return EXIT_FAILURE;
+  }
+
   free(object.name);
 
   return 0;
