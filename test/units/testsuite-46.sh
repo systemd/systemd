@@ -42,13 +42,16 @@ mount -t tmpfs tmpfs /home -o size=290M
 
 # we enable --luks-discard= since we run our tests in a tight VM, hence don't
 # needlessly pressure for storage. We also set the cheapest KDF, since we don't
-# want to waste CI CPU cycles on it.
+# want to waste CI CPU cycles on it. We also effectively disable rate-limiting on
+# the user by allowing 1000 logins per second
 NEWPASSWORD=xEhErW0ndafV4s homectl create test-user \
            --disk-size=min \
            --luks-discard=yes \
            --image-path=/home/test-user.home \
            --luks-pbkdf-type=pbkdf2 \
-           --luks-pbkdf-time-cost=1ms
+           --luks-pbkdf-time-cost=1ms \
+           --rate-limit-interval=1s \
+           --rate-limit-burst=1000
 inspect test-user
 
 PASSWORD=xEhErW0ndafV4s homectl authenticate test-user
@@ -74,20 +77,57 @@ inspect test-user
 homectl deactivate test-user
 inspect test-user
 
+homectl update test-user --real-name "Offline test" --offline
+inspect test-user
+
+PASSWORD=xEhErW0ndafV4s homectl activate test-user
+inspect test-user
+
+# Ensure that the offline changes were propagated in
+grep "Offline test" /home/test-user/.identity
+
+homectl deactivate test-user
+inspect test-user
+
+PASSWORD=xEhErW0ndafV4s homectl update test-user --real-name="Inactive test"
+inspect test-user
+
 PASSWORD=xEhErW0ndafV4s homectl activate test-user
 inspect test-user
 
 homectl deactivate test-user
 inspect test-user
 
-PASSWORD=xEhErW0ndafV4s homectl update test-user --real-name="Offline test"
-inspect test-user
+# Do some keyring tests, but only on real kernels, since keyring access inside of containers will fail
+# (See: https://github.com/systemd/systemd/issues/17606)
+if ! systemd-detect-virt -cq ; then
+        PASSWORD=xEhErW0ndafV4s homectl activate test-user
+        inspect test-user
 
-PASSWORD=xEhErW0ndafV4s homectl activate test-user
-inspect test-user
+        # Key should now be in the keyring
+        homectl update test-user --real-name "Keyring Test"
+        inspect test-user
 
-homectl deactivate test-user
-inspect test-user
+        # These commands shouldn't use the keyring
+        (! timeout 5s homectl authenticate test-user )
+        (! NEWPASSWORD="foobar" timeout 5s homectl passwd test-user )
+
+        homectl lock test-user
+        inspect test-user
+
+        # Key should be gone from keyring
+        (! timeout 5s homectl update test-user --real-name "Keyring Test 2" )
+
+        PASSWORD=xEhErW0ndafV4s homectl unlock test-user
+        inspect test-user
+
+        # Key should have been re-instantiated into the keyring
+        homectl update test-user --real-name "Keyring Test 3"
+        inspect test-user
+
+        homectl deactivate test-user
+        inspect test-user
+fi
 
 # Do some resize tests, but only if we run on real kernels, as quota inside of containers will fail
 if ! systemd-detect-virt -cq ; then
@@ -131,7 +171,9 @@ if ! systemd-detect-virt -cq ; then
            --luks-discard=yes \
            --image-path=/home/test-user2.home \
            --luks-pbkdf-type=pbkdf2 \
-           --luks-pbkdf-time-cost=1ms
+           --luks-pbkdf-time-cost=1ms \
+           --rate-limit-interval=1s \
+           --rate-limit-burst=1000
     inspect test-user2
 
     # activate second user
@@ -150,23 +192,27 @@ if ! systemd-detect-virt -cq ; then
     homectl rebalance
     inspect test-user
     inspect test-user2
+
+    wait_for_state test-user2 active
+    homectl deactivate test-user2
+    wait_for_state test-user2 inactive
+    homectl remove test-user2
 fi
 
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
 (! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz)
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- touch /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz
-# CAREFUL adding more `homectl with` tests here. Auth can get rate-limited and cause the tests to fail.
+PASSWORD=xEhErW0ndafV4s homectl with test-user -- rm /home/test-user/xyz
+PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
+(! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz)
+
+# Regression tests
+wait_for_state test-user inactive
+/usr/lib/systemd/tests/unit-tests/manual/test-homed-regression-31896 test-user
 
 wait_for_state test-user inactive
 homectl remove test-user
-
-if ! systemd-detect-virt -cq ; then
-    wait_for_state test-user2 active
-    homectl deactivate test-user2
-    wait_for_state test-user2 inactive
-    homectl remove test-user2
-fi
 
 # blob directory tests
 # See docs/USER_RECORD_BLOB_DIRS.md
@@ -196,6 +242,7 @@ dd if=/dev/urandom of=/tmp/external-toobig bs=1M count=65
 NEWPASSWORD=EMJuc3zQaMibJo homectl create blob-user \
            --disk-size=min --luks-discard=yes \
            --luks-pbkdf-type=pbkdf2 --luks-pbkdf-time-cost=1ms \
+           --rate-limit-interval=1s --rate-limit-burst=1000 \
            --uid=12345 \
            --blob=/tmp/blob1
 inspect blob-user
@@ -296,6 +343,16 @@ checkblob barely-fits /tmp/external-barely-fits
 (! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b with=equals=/tmp/external-test3 )
 (! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b файл=/tmp/external-test3 )
 (! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b special@chars=/tmp/external-test3 )
+
+# Make sure offline updates to blobs get propagated in
+homectl deactivate blob-user
+inspect blob-user
+homectl update blob-user --offline -b barely-fits= -b propagated=/tmp/external-test3
+inspect blob-user
+PASSWORD=EMJuc3zQaMibJo homectl activate blob-user
+inspect blob-user
+(! checkblob barely-fits /tmp/external-barely-fits )
+checkblob propagated /tmp/external-test3
 
 homectl deactivate blob-user
 wait_for_state blob-user inactive
@@ -466,6 +523,8 @@ if command -v ssh &>/dev/null && command -v sshd &>/dev/null && ! [[ -v ASAN_OPT
                        --luks-discard=yes \
                        --luks-pbkdf-type=pbkdf2 \
                        --luks-pbkdf-time-cost=1ms \
+                       --rate-limit-interval=1s \
+                       --rate-limit-burst=1000 \
                        --enforce-password-policy=no \
                        --ssh-authorized-keys=@/tmp/homed.id_ecdsa.pub \
                        --stop-delay=0 \

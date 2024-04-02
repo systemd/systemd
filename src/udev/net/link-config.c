@@ -483,7 +483,7 @@ int link_get_config(LinkConfigContext *ctx, Link *link) {
         return -ENOENT;
 }
 
-static int link_apply_ethtool_settings(Link *link, int *ethtool_fd) {
+static int link_apply_ethtool_settings(Link *link, int *ethtool_fd, EventMode mode) {
         LinkConfig *config;
         const char *name;
         int r;
@@ -491,6 +491,11 @@ static int link_apply_ethtool_settings(Link *link, int *ethtool_fd) {
         assert(link);
         assert(link->config);
         assert(ethtool_fd);
+
+        if (mode != EVENT_UDEV_WORKER) {
+                log_link_debug(link, "Running in test mode, skipping application of ethtool settings.");
+                return 0;
+        }
 
         config = link->config;
         name = link->ifname;
@@ -684,7 +689,7 @@ finalize:
         return 0;
 }
 
-static int link_apply_rtnl_settings(Link *link, sd_netlink **rtnl) {
+static int link_apply_rtnl_settings(Link *link, sd_netlink **rtnl, EventMode mode) {
         struct hw_addr_data hw_addr = {};
         LinkConfig *config;
         int r;
@@ -692,6 +697,11 @@ static int link_apply_rtnl_settings(Link *link, sd_netlink **rtnl) {
         assert(link);
         assert(link->config);
         assert(rtnl);
+
+        if (mode != EVENT_UDEV_WORKER) {
+                log_link_debug(link, "Running in test mode, skipping application of rtnl settings.");
+                return 0;
+        }
 
         config = link->config;
 
@@ -896,7 +906,7 @@ static int sr_iov_configure(Link *link, sd_netlink **rtnl, SRIOV *sr_iov) {
         return 0;
 }
 
-static int link_apply_sr_iov_config(Link *link, sd_netlink **rtnl) {
+static int link_apply_sr_iov_config(Link *link, sd_netlink **rtnl, EventMode mode) {
         SRIOV *sr_iov;
         uint32_t n;
         int r;
@@ -904,6 +914,11 @@ static int link_apply_sr_iov_config(Link *link, sd_netlink **rtnl) {
         assert(link);
         assert(link->config);
         assert(link->device);
+
+        if (mode != EVENT_UDEV_WORKER) {
+                log_link_debug(link, "Running in test mode, skipping application of SR-IOV settings.");
+                return 0;
+        }
 
         r = sr_iov_set_num_vfs(link->device, link->config->sr_iov_num_vfs, link->config->sr_iov_by_section);
         if (r < 0)
@@ -938,13 +953,18 @@ static int link_apply_sr_iov_config(Link *link, sd_netlink **rtnl) {
         return 0;
 }
 
-static int link_apply_rps_cpu_mask(Link *link) {
+static int link_apply_rps_cpu_mask(Link *link, EventMode mode) {
         _cleanup_free_ char *mask_str = NULL;
         LinkConfig *config;
         int r;
 
         assert(link);
         config = ASSERT_PTR(link->config);
+
+        if (mode != EVENT_UDEV_WORKER) {
+                log_link_debug(link, "Running in test mode, skipping application of RPS setting.");
+                return 0;
+        }
 
         /* Skip if the config is not specified. */
         if (!config->rps_cpu_mask)
@@ -981,7 +1001,7 @@ static int link_apply_rps_cpu_mask(Link *link) {
         return 0;
 }
 
-static int link_apply_udev_properties(Link *link, bool test) {
+static int link_apply_udev_properties(Link *link, EventMode mode) {
         LinkConfig *config;
         sd_device *device;
 
@@ -992,7 +1012,7 @@ static int link_apply_udev_properties(Link *link, bool test) {
 
         /* 1. apply ImportProperty=. */
         STRV_FOREACH(p, config->import_properties)
-                (void) udev_builtin_import_property(device, link->device_db_clone, test, *p);
+                (void) udev_builtin_import_property(device, link->device_db_clone, mode, *p);
 
         /* 2. apply Property=. */
         STRV_FOREACH(p, config->properties) {
@@ -1007,15 +1027,15 @@ static int link_apply_udev_properties(Link *link, bool test) {
                 if (!key)
                         return log_oom();
 
-                (void) udev_builtin_add_property(device, test, key, eq + 1);
+                (void) udev_builtin_add_property(device, mode, key, eq + 1);
         }
 
         /* 3. apply UnsetProperty=. */
         STRV_FOREACH(p, config->unset_properties)
-                (void) udev_builtin_add_property(device, test, *p, NULL);
+                (void) udev_builtin_add_property(device, mode, *p, NULL);
 
         /* 4. set the default properties. */
-        (void) udev_builtin_add_property(device, test, "ID_NET_LINK_FILE", config->filename);
+        (void) udev_builtin_add_property(device, mode, "ID_NET_LINK_FILE", config->filename);
 
         _cleanup_free_ char *joined = NULL;
         STRV_FOREACH(d, config->dropins) {
@@ -1029,26 +1049,26 @@ static int link_apply_udev_properties(Link *link, bool test) {
                         return log_oom();
         }
 
-        (void) udev_builtin_add_property(device, test, "ID_NET_LINK_FILE_DROPINS", joined);
+        (void) udev_builtin_add_property(device, mode, "ID_NET_LINK_FILE_DROPINS", joined);
 
         if (link->new_name)
-                (void) udev_builtin_add_property(device, test, "ID_NET_NAME", link->new_name);
+                (void) udev_builtin_add_property(device, mode, "ID_NET_NAME", link->new_name);
 
         return 0;
 }
 
-int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link, bool test) {
+int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link, EventMode mode) {
         int r;
 
         assert(ctx);
         assert(rtnl);
         assert(link);
 
-        r = link_apply_ethtool_settings(link, &ctx->ethtool_fd);
+        r = link_apply_ethtool_settings(link, &ctx->ethtool_fd, mode);
         if (r < 0)
                 return r;
 
-        r = link_apply_rtnl_settings(link, rtnl);
+        r = link_apply_rtnl_settings(link, rtnl, mode);
         if (r < 0)
                 return r;
 
@@ -1060,19 +1080,15 @@ int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link, boo
         if (r < 0)
                 return r;
 
-        r = link_apply_sr_iov_config(link, rtnl);
+        r = link_apply_sr_iov_config(link, rtnl, mode);
         if (r < 0)
                 return r;
 
-        r = link_apply_udev_properties(link, test);
+        r = link_apply_rps_cpu_mask(link, mode);
         if (r < 0)
                 return r;
 
-        r = link_apply_rps_cpu_mask(link);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return link_apply_udev_properties(link, mode);
 }
 
 int config_parse_udev_property(

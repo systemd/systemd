@@ -50,61 +50,61 @@
 #define service_spawn(...) service_spawn_internal(__func__, __VA_ARGS__)
 
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
-        [SERVICE_DEAD] = UNIT_INACTIVE,
-        [SERVICE_CONDITION] = UNIT_ACTIVATING,
-        [SERVICE_START_PRE] = UNIT_ACTIVATING,
-        [SERVICE_START] = UNIT_ACTIVATING,
-        [SERVICE_START_POST] = UNIT_ACTIVATING,
-        [SERVICE_RUNNING] = UNIT_ACTIVE,
-        [SERVICE_EXITED] = UNIT_ACTIVE,
-        [SERVICE_RELOAD] = UNIT_RELOADING,
-        [SERVICE_RELOAD_SIGNAL] = UNIT_RELOADING,
-        [SERVICE_RELOAD_NOTIFY] = UNIT_RELOADING,
-        [SERVICE_STOP] = UNIT_DEACTIVATING,
-        [SERVICE_STOP_WATCHDOG] = UNIT_DEACTIVATING,
-        [SERVICE_STOP_SIGTERM] = UNIT_DEACTIVATING,
-        [SERVICE_STOP_SIGKILL] = UNIT_DEACTIVATING,
-        [SERVICE_STOP_POST] = UNIT_DEACTIVATING,
-        [SERVICE_FINAL_WATCHDOG] = UNIT_DEACTIVATING,
-        [SERVICE_FINAL_SIGTERM] = UNIT_DEACTIVATING,
-        [SERVICE_FINAL_SIGKILL] = UNIT_DEACTIVATING,
-        [SERVICE_FAILED] = UNIT_FAILED,
-        [SERVICE_DEAD_BEFORE_AUTO_RESTART] = UNIT_INACTIVE,
+        [SERVICE_DEAD]                       = UNIT_INACTIVE,
+        [SERVICE_CONDITION]                  = UNIT_ACTIVATING,
+        [SERVICE_START_PRE]                  = UNIT_ACTIVATING,
+        [SERVICE_START]                      = UNIT_ACTIVATING,
+        [SERVICE_START_POST]                 = UNIT_ACTIVATING,
+        [SERVICE_RUNNING]                    = UNIT_ACTIVE,
+        [SERVICE_EXITED]                     = UNIT_ACTIVE,
+        [SERVICE_RELOAD]                     = UNIT_RELOADING,
+        [SERVICE_RELOAD_SIGNAL]              = UNIT_RELOADING,
+        [SERVICE_RELOAD_NOTIFY]              = UNIT_RELOADING,
+        [SERVICE_STOP]                       = UNIT_DEACTIVATING,
+        [SERVICE_STOP_WATCHDOG]              = UNIT_DEACTIVATING,
+        [SERVICE_STOP_SIGTERM]               = UNIT_DEACTIVATING,
+        [SERVICE_STOP_SIGKILL]               = UNIT_DEACTIVATING,
+        [SERVICE_STOP_POST]                  = UNIT_DEACTIVATING,
+        [SERVICE_FINAL_WATCHDOG]             = UNIT_DEACTIVATING,
+        [SERVICE_FINAL_SIGTERM]              = UNIT_DEACTIVATING,
+        [SERVICE_FINAL_SIGKILL]              = UNIT_DEACTIVATING,
+        [SERVICE_FAILED]                     = UNIT_FAILED,
+        [SERVICE_DEAD_BEFORE_AUTO_RESTART]   = UNIT_INACTIVE,
         [SERVICE_FAILED_BEFORE_AUTO_RESTART] = UNIT_FAILED,
-        [SERVICE_DEAD_RESOURCES_PINNED] = UNIT_INACTIVE,
-        [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING,
-        [SERVICE_AUTO_RESTART_QUEUED] = UNIT_ACTIVATING,
-        [SERVICE_CLEANING] = UNIT_MAINTENANCE,
+        [SERVICE_DEAD_RESOURCES_PINNED]      = UNIT_INACTIVE,
+        [SERVICE_AUTO_RESTART]               = UNIT_ACTIVATING,
+        [SERVICE_AUTO_RESTART_QUEUED]        = UNIT_ACTIVATING,
+        [SERVICE_CLEANING]                   = UNIT_MAINTENANCE,
 };
 
 /* For Type=idle we never want to delay any other jobs, hence we
  * consider idle jobs active as soon as we start working on them */
 static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = {
-        [SERVICE_DEAD] = UNIT_INACTIVE,
-        [SERVICE_CONDITION] = UNIT_ACTIVE,
-        [SERVICE_START_PRE] = UNIT_ACTIVE,
-        [SERVICE_START] = UNIT_ACTIVE,
-        [SERVICE_START_POST] = UNIT_ACTIVE,
-        [SERVICE_RUNNING] = UNIT_ACTIVE,
-        [SERVICE_EXITED] = UNIT_ACTIVE,
-        [SERVICE_RELOAD] = UNIT_RELOADING,
-        [SERVICE_RELOAD_SIGNAL] = UNIT_RELOADING,
-        [SERVICE_RELOAD_NOTIFY] = UNIT_RELOADING,
-        [SERVICE_STOP] = UNIT_DEACTIVATING,
-        [SERVICE_STOP_WATCHDOG] = UNIT_DEACTIVATING,
-        [SERVICE_STOP_SIGTERM] = UNIT_DEACTIVATING,
-        [SERVICE_STOP_SIGKILL] = UNIT_DEACTIVATING,
-        [SERVICE_STOP_POST] = UNIT_DEACTIVATING,
-        [SERVICE_FINAL_WATCHDOG] = UNIT_DEACTIVATING,
-        [SERVICE_FINAL_SIGTERM] = UNIT_DEACTIVATING,
-        [SERVICE_FINAL_SIGKILL] = UNIT_DEACTIVATING,
-        [SERVICE_FAILED] = UNIT_FAILED,
-        [SERVICE_DEAD_BEFORE_AUTO_RESTART] = UNIT_INACTIVE,
+        [SERVICE_DEAD]                       = UNIT_INACTIVE,
+        [SERVICE_CONDITION]                  = UNIT_ACTIVE,
+        [SERVICE_START_PRE]                  = UNIT_ACTIVE,
+        [SERVICE_START]                      = UNIT_ACTIVE,
+        [SERVICE_START_POST]                 = UNIT_ACTIVE,
+        [SERVICE_RUNNING]                    = UNIT_ACTIVE,
+        [SERVICE_EXITED]                     = UNIT_ACTIVE,
+        [SERVICE_RELOAD]                     = UNIT_RELOADING,
+        [SERVICE_RELOAD_SIGNAL]              = UNIT_RELOADING,
+        [SERVICE_RELOAD_NOTIFY]              = UNIT_RELOADING,
+        [SERVICE_STOP]                       = UNIT_DEACTIVATING,
+        [SERVICE_STOP_WATCHDOG]              = UNIT_DEACTIVATING,
+        [SERVICE_STOP_SIGTERM]               = UNIT_DEACTIVATING,
+        [SERVICE_STOP_SIGKILL]               = UNIT_DEACTIVATING,
+        [SERVICE_STOP_POST]                  = UNIT_DEACTIVATING,
+        [SERVICE_FINAL_WATCHDOG]             = UNIT_DEACTIVATING,
+        [SERVICE_FINAL_SIGTERM]              = UNIT_DEACTIVATING,
+        [SERVICE_FINAL_SIGKILL]              = UNIT_DEACTIVATING,
+        [SERVICE_FAILED]                     = UNIT_FAILED,
+        [SERVICE_DEAD_BEFORE_AUTO_RESTART]   = UNIT_INACTIVE,
         [SERVICE_FAILED_BEFORE_AUTO_RESTART] = UNIT_FAILED,
-        [SERVICE_DEAD_RESOURCES_PINNED] = UNIT_INACTIVE,
-        [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING,
-        [SERVICE_AUTO_RESTART_QUEUED] = UNIT_ACTIVATING,
-        [SERVICE_CLEANING] = UNIT_MAINTENANCE,
+        [SERVICE_DEAD_RESOURCES_PINNED]      = UNIT_INACTIVE,
+        [SERVICE_AUTO_RESTART]               = UNIT_ACTIVATING,
+        [SERVICE_AUTO_RESTART_QUEUED]        = UNIT_ACTIVATING,
+        [SERVICE_CLEANING]                   = UNIT_MAINTENANCE,
 };
 
 static int service_dispatch_inotify_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
@@ -1409,10 +1409,9 @@ static int service_collect_fds(
                         Socket *sock;
                         int cn_fds;
 
-                        if (u->type != UNIT_SOCKET)
-                                continue;
-
                         sock = SOCKET(u);
+                        if (!sock)
+                                continue;
 
                         cn_fds = socket_collect_fds(sock, &cfds);
                         if (cn_fds < 0)
@@ -1681,6 +1680,8 @@ static int service_spawn_internal(
                         return r;
 
                 exec_params.open_files = s->open_files;
+
+                exec_params.flags |= EXEC_PASS_FDS;
 
                 log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds);
         }
@@ -1991,7 +1992,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         } else if (s->result == SERVICE_SKIP_CONDITION) {
                 unit_log_skip(UNIT(s), service_result_to_string(s->result));
                 end_state = service_determine_dead_state(s);
-                restart_state = SERVICE_DEAD_BEFORE_AUTO_RESTART;
+                restart_state = _SERVICE_STATE_INVALID; /* Never restart if skipped due to condition failure */
         } else {
                 unit_log_failure(UNIT(s), service_result_to_string(s->result));
                 end_state = SERVICE_FAILED;
@@ -2012,6 +2013,8 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
         if (allow_restart) {
                 usec_t restart_usec_next;
+
+                assert(restart_state >= 0 && restart_state < _SERVICE_STATE_MAX);
 
                 /* We make two state changes here: one that maps to the high-level UNIT_INACTIVE/UNIT_FAILED
                  * state (i.e. a state indicating deactivation), and then one that that maps to the
@@ -2512,7 +2515,6 @@ static void service_enter_condition(Service *s) {
                                   service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
-
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'exec-condition' task: %m");
                         goto fail;
@@ -4722,6 +4724,7 @@ int service_set_socket_fd(
 
         assert(s);
         assert(fd >= 0);
+        assert(sock);
 
         /* This is called by the socket code when instantiating a new service for a stream socket and the socket needs
          * to be configured. We take ownership of the passed fd on success. */
@@ -4753,12 +4756,13 @@ int service_set_socket_fd(
                         return r;
         }
 
-        r = unit_add_two_dependencies(UNIT(sock), UNIT_BEFORE, UNIT_TRIGGERS, UNIT(s), false, UNIT_DEPENDENCY_IMPLICIT);
+        r = unit_add_two_dependencies(UNIT(s), UNIT_AFTER, UNIT_TRIGGERED_BY, UNIT(sock), false, UNIT_DEPENDENCY_IMPLICIT);
         if (r < 0)
-                return r;
+                return log_unit_debug_errno(UNIT(s), r,
+                                            "Failed to add After=/TriggeredBy= dependencies on socket unit: %m");
 
         s->socket_fd = fd;
-        s->socket_peer = socket_peer_ref(peer);
+        s->socket_peer = peer;
         s->socket_fd_selinux_context_net = selinux_context_net;
 
         unit_ref_set(&s->accept_socket, UNIT(s), UNIT(sock));
@@ -5026,7 +5030,7 @@ DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);
 
 static const char* const service_restart_mode_table[_SERVICE_RESTART_MODE_MAX] = {
         [SERVICE_RESTART_MODE_NORMAL] = "normal",
-        [SERVICE_RESTART_MODE_DIRECT]  = "direct",
+        [SERVICE_RESTART_MODE_DIRECT] = "direct",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_restart_mode, ServiceRestartMode);

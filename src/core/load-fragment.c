@@ -249,7 +249,7 @@ int unit_is_likely_recursive_template_dependency(Unit *u, const char *name, cons
 
         /* Fragment paths should also be equal as a custom fragment for a specific template instance
          * wouldn't necessarily lead to infinite recursion. */
-        if (!path_equal_ptr(u->fragment_path, fragment_path))
+        if (!path_equal(u->fragment_path, fragment_path))
                 return false;
 
         if (!contains_instance_specifier_superset(format))

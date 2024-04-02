@@ -39,18 +39,18 @@
 #define RETRY_UMOUNT_MAX 32
 
 static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
-        [MOUNT_DEAD] = UNIT_INACTIVE,
-        [MOUNT_MOUNTING] = UNIT_ACTIVATING,
-        [MOUNT_MOUNTING_DONE] = UNIT_ACTIVATING,
-        [MOUNT_MOUNTED] = UNIT_ACTIVE,
-        [MOUNT_REMOUNTING] = UNIT_RELOADING,
-        [MOUNT_UNMOUNTING] = UNIT_DEACTIVATING,
+        [MOUNT_DEAD]               = UNIT_INACTIVE,
+        [MOUNT_MOUNTING]           = UNIT_ACTIVATING,
+        [MOUNT_MOUNTING_DONE]      = UNIT_ACTIVATING,
+        [MOUNT_MOUNTED]            = UNIT_ACTIVE,
+        [MOUNT_REMOUNTING]         = UNIT_RELOADING,
+        [MOUNT_UNMOUNTING]         = UNIT_DEACTIVATING,
         [MOUNT_REMOUNTING_SIGTERM] = UNIT_RELOADING,
         [MOUNT_REMOUNTING_SIGKILL] = UNIT_RELOADING,
         [MOUNT_UNMOUNTING_SIGTERM] = UNIT_DEACTIVATING,
         [MOUNT_UNMOUNTING_SIGKILL] = UNIT_DEACTIVATING,
-        [MOUNT_FAILED] = UNIT_FAILED,
-        [MOUNT_CLEANING] = UNIT_MAINTENANCE,
+        [MOUNT_FAILED]             = UNIT_FAILED,
+        [MOUNT_CLEANING]           = UNIT_MAINTENANCE,
 };
 
 static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
@@ -1778,7 +1778,7 @@ static int mount_setup_existing_unit(
 
         m->from_proc_self_mountinfo = true;
 
-        if (IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_BAD_SETTING, UNIT_ERROR)) {
+        if (UNIT_IS_LOAD_ERROR(u->load_state)) {
                 /* The unit was previously not found or otherwise not loaded. Now that the unit shows up in
                  * /proc/self/mountinfo we should reconsider it this, hence set it to UNIT_LOADED. */
                 u->load_state = UNIT_LOADED;

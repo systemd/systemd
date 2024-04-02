@@ -426,6 +426,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_server_emit_router = true,
                 .dhcp_server_emit_timezone = true,
                 .dhcp_server_rapid_commit = true,
+                .dhcp_server_persist_leases = -1,
 
                 .router_lifetime_usec = RADV_DEFAULT_ROUTER_LIFETIME_USEC,
                 .router_dns_lifetime_usec = RADV_DEFAULT_VALID_LIFETIME_USEC,

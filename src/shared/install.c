@@ -162,9 +162,10 @@ static int path_is_generator(const LookupPaths *lp, const char *path) {
         if (r < 0)
                 return r;
 
-        return path_equal_ptr(parent, lp->generator) ||
-               path_equal_ptr(parent, lp->generator_early) ||
-               path_equal_ptr(parent, lp->generator_late);
+        return PATH_IN_SET(parent,
+                           lp->generator,
+                           lp->generator_early,
+                           lp->generator_late);
 }
 
 static int path_is_transient(const LookupPaths *lp, const char *path) {
@@ -178,7 +179,7 @@ static int path_is_transient(const LookupPaths *lp, const char *path) {
         if (r < 0)
                 return r;
 
-        return path_equal_ptr(parent, lp->transient);
+        return path_equal(parent, lp->transient);
 }
 
 static int path_is_control(const LookupPaths *lp, const char *path) {
@@ -192,8 +193,9 @@ static int path_is_control(const LookupPaths *lp, const char *path) {
         if (r < 0)
                 return r;
 
-        return path_equal_ptr(parent, lp->persistent_control) ||
-               path_equal_ptr(parent, lp->runtime_control);
+        return PATH_IN_SET(parent,
+                           lp->persistent_control,
+                           lp->runtime_control);
 }
 
 static int path_is_config(const LookupPaths *lp, const char *path, bool check_parent) {
@@ -214,8 +216,9 @@ static int path_is_config(const LookupPaths *lp, const char *path, bool check_pa
                 path = parent;
         }
 
-        return path_equal_ptr(path, lp->persistent_config) ||
-               path_equal_ptr(path, lp->runtime_config);
+        return PATH_IN_SET(path,
+                           lp->persistent_config,
+                           lp->runtime_config);
 }
 
 static int path_is_runtime(const LookupPaths *lp, const char *path, bool check_parent) {
@@ -241,12 +244,13 @@ static int path_is_runtime(const LookupPaths *lp, const char *path, bool check_p
                 path = parent;
         }
 
-        return path_equal_ptr(path, lp->runtime_config) ||
-               path_equal_ptr(path, lp->generator) ||
-               path_equal_ptr(path, lp->generator_early) ||
-               path_equal_ptr(path, lp->generator_late) ||
-               path_equal_ptr(path, lp->transient) ||
-               path_equal_ptr(path, lp->runtime_control);
+        return PATH_IN_SET(path,
+                           lp->runtime_config,
+                           lp->generator,
+                           lp->generator_early,
+                           lp->generator_late,
+                           lp->transient,
+                           lp->runtime_control);
 }
 
 static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) {
@@ -1038,7 +1042,7 @@ static int find_symlinks_in_scope(
                 if (r > 0) {
                         /* We found symlinks in this dir? Yay! Let's see where precisely it is enabled. */
 
-                        if (path_equal_ptr(*p, lp->persistent_config)) {
+                        if (path_equal(*p, lp->persistent_config)) {
                                 /* This is the best outcome, let's return it immediately. */
                                 *state = UNIT_FILE_ENABLED;
                                 return 1;
@@ -1059,7 +1063,7 @@ static int find_symlinks_in_scope(
                                 enabled_at_all = true;
 
                 } else if (same_name_link) {
-                        if (path_equal_ptr(*p, lp->persistent_config))
+                        if (path_equal(*p, lp->persistent_config))
                                 same_name_link_config = true;
                         else {
                                 r = path_is_runtime(lp, *p, false);

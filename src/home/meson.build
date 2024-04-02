@@ -106,6 +106,11 @@ executables += [
                         threads,
                 ],
         },
+        test_template + {
+                'sources' : files('test-homed-regression-31896.c'),
+                'conditions' : ['ENABLE_HOMED'],
+                'type' : 'manual',
+        },
 ]
 
 modules += [

@@ -634,7 +634,7 @@ int socknameinfo_pretty(const struct sockaddr *sa, socklen_t salen, char **ret) 
         int r;
 
         assert(sa);
-        assert(salen > sizeof(sa_family_t));
+        assert(salen >= sizeof(sa_family_t));
         assert(ret);
 
         r = getnameinfo(sa, salen, host, sizeof(host), /* service= */ NULL, /* service_len= */ 0, IDN_FLAGS);

@@ -2450,6 +2450,7 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                               "Transparent",
                               "Broadcast",
                               "PassCredentials",
+                              "PassFileDescriptorsToExec",
                               "PassSecurity",
                               "PassPacketInfo",
                               "ReusePort",
@@ -2821,13 +2822,13 @@ int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char
         return 0;
 }
 
-int bus_append_scope_pidref(sd_bus_message *m, const PidRef *pidref) {
+int bus_append_scope_pidref(sd_bus_message *m, const PidRef *pidref, bool allow_pidfd) {
         assert(m);
 
         if (!pidref_is_set(pidref))
                 return -ESRCH;
 
-        if (pidref->fd >= 0)
+        if (pidref->fd >= 0 && allow_pidfd)
                 return sd_bus_message_append(
                                 m, "(sv)",
                                 "PIDFDs", "ah", 1, pidref->fd);

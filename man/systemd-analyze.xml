@@ -1018,16 +1018,12 @@ x86-64      native</programlisting>
         <term><option>--order</option></term>
         <term><option>--require</option></term>
 
-        <listitem><para>When used in conjunction with the
-        <command>dot</command> command (see above), selects which
-        dependencies are shown in the dependency graph. If
-        <option>--order</option> is passed, only dependencies of type
-        <varname>After=</varname> or <varname>Before=</varname> are
-        shown. If <option>--require</option> is passed, only
-        dependencies of type <varname>Requires=</varname>,
-        <varname>Requisite=</varname>,
-        <varname>Wants=</varname> and <varname>Conflicts=</varname>
-        are shown. If neither is passed, this shows dependencies of
+        <listitem><para>When used in conjunction with the <command>dot</command> command (see above),
+        selects which dependencies are shown in the dependency graph. If <option>--order</option> is passed,
+        only dependencies of type <varname>After=</varname> or <varname>Before=</varname> are shown.
+        If <option>--require</option> is passed, only dependencies of type <varname>Requires=</varname>,
+        <varname>Requisite=</varname>, <varname>BindsTo=</varname>, <varname>Wants=</varname>, and
+        <varname>Conflicts=</varname> are shown. If neither is passed, this shows dependencies of
         all these types.</para>
 
         <xi:include href="version-info.xml" xpointer="v198"/></listitem>

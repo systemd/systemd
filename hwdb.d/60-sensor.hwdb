@@ -182,6 +182,9 @@ sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:*pn*TP412UA:*
 sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:pn*BR1100FKA:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
 
+sensor:modalias:acpi:BMA250E*:dmi:*:*svn*ASUSTeK*:pnT300FA:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
 #########################################
 # Axxo
 #########################################

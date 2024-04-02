@@ -1785,6 +1785,24 @@ int btrfs_subvol_auto_qgroup(const char *path, uint64_t subvol_id, bool create_i
         return btrfs_subvol_auto_qgroup_fd(fd, subvol_id, create_intermediary_qgroup);
 }
 
+int btrfs_subvol_make_default(const char *path) {
+        _cleanup_close_ int fd = -EBADF;
+        uint64_t id;
+        int r;
+
+        assert(path);
+
+        fd = open(path, O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        if (fd < 0)
+                return -errno;
+
+        r = btrfs_subvol_get_id_fd(fd, &id);
+        if (r < 0)
+                return r;
+
+        return RET_NERRNO(ioctl(fd, BTRFS_IOC_DEFAULT_SUBVOL, &id));
+}
+
 int btrfs_subvol_get_parent(int fd, uint64_t subvol_id, uint64_t *ret) {
 
         struct btrfs_ioctl_search_args args = {

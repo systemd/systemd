@@ -129,6 +129,7 @@ struct Socket {
         bool transparent;
         bool broadcast;
         bool pass_cred;
+        bool pass_fds_to_exec;
         bool pass_sec;
         bool pass_pktinfo;
         SocketTimestamping timestamping;
@@ -171,7 +172,7 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(SocketPeer*, socket_peer_unref);
 
 /* Called from the service code when collecting fds */
-int socket_collect_fds(Socket *s, int **fds);
+int socket_collect_fds(Socket *s, int **ret);
 
 /* Called from the service code when a per-connection service ended */
 void socket_connection_unref(Socket *s);

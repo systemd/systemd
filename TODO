@@ -356,12 +356,6 @@ Features:
     policy from currently booted kernel/event log, to close gap for first boot
     for pre-built images
 
-* add a new systemd-project@.service that is very similar to user@.service but
-  uses DynamicUser=1 and no PAMName= to invoke an unprivileged somewhat
-  light-weight service manager. Use HOME=/var/lib/systemd/projects/%i as home
-  dir. Similar for $XDG_RUNTIME_DIR. Start project@%i.target. Use LogField= to
-  add a field identifying the project.
-
 * in sd-boot and sd-stub measure the SMBIOS vendor strings to some PCR (at
   least some subset of them that look like systemd stuff), because apparently
   some firmware does not, but systemd honours it. avoid duplicate measurement
@@ -2277,8 +2271,6 @@ Features:
   - fingerprint authentication, pattern authentication, …
   - make sure "classic" user records can also be managed by homed
   - make size of $XDG_RUNTIME_DIR configurable in user record
-  - query password from kernel keyring first
-  - update even if record is "absent"
   - move acct mgmt stuff from pam_systemd_home to pam_systemd?
   - when "homectl --pkcs11-token-uri=" is used, synthesize ssh-authorized-keys records for all keys we have private keys on the stick for
   - make slice for users configurable (requires logind rework)

@@ -602,6 +602,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
                 .duid_product_uuid.type = DUID_TYPE_UUID,
+                .dhcp_server_persist_leases = true,
                 .ip_forwarding = { -1, -1, },
         };
 
@@ -1120,10 +1121,7 @@ int manager_reload(Manager *m, sd_bus_message *message) {
 
         assert(m);
 
-        (void) sd_notifyf(/* unset= */ false,
-                          "RELOADING=1\n"
-                          "STATUS=Reloading configuration...\n"
-                          "MONOTONIC_USEC=" USEC_FMT, now(CLOCK_MONOTONIC));
+        (void) notify_reloading();
 
         r = netdev_load(m, /* reload= */ true);
         if (r < 0)

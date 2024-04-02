@@ -538,7 +538,7 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
       Base64 decoding is applied to the credential contents.</para>
 
       <para>Note that for all line types that result in creation of any kind of file node
-      (i.e. <varname>f</varname>/<varname>F</varname>,
+      (i.e. <varname>f</varname>,
       <varname>d</varname>/<varname>D</varname>/<varname>v</varname>/<varname>q</varname>/<varname>Q</varname>,
       <varname>p</varname>, <varname>L</varname>, <varname>c</varname>/<varname>b</varname> and <varname>C</varname>)
       leading directories are implicitly created if needed, owned by root with an access mode of 0755. In order to
@@ -697,7 +697,7 @@ d /tmp/foo/bar - - - bmA:1h -</programlisting></para>
 
       <para>For <varname>L</varname> lines determines the destination path of the symlink. For <varname>c</varname> and
       <varname>b</varname>, determines the major/minor of the device node, with major and minor formatted as integers,
-      separated by <literal>:</literal>, e.g.  <literal>1:3</literal>. For <varname>f</varname>, <varname>F</varname>,
+      separated by <literal>:</literal>, e.g. <literal>1:3</literal>. For <varname>f</varname>
       and <varname>w</varname>, the argument may be used to specify a short string that is written to the file,
       suffixed by a newline. For <varname>C</varname>, specifies the source file or directory. For <varname>t</varname>
       and <varname>T</varname>, determines extended attributes to be set. For <varname>a</varname> and

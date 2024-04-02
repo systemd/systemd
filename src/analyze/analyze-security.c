@@ -1756,15 +1756,14 @@ static int assess(const SecurityInfo *info,
                         (void) table_set_display(details_table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 7);
         }
 
-        for (i = 0; i < ELEMENTSOF(security_assessor_table); i++) {
-                const struct security_assessor *a = security_assessor_table + i;
+        FOREACH_ARRAY(a, security_assessor_table, ELEMENTSOF(security_assessor_table)) {
                 _cleanup_free_ char *d = NULL;
                 uint64_t badness;
                 void *data;
                 uint64_t weight = access_weight(a, policy);
                 uint64_t range = access_range(a, policy);
 
-                data = (uint8_t *) info + a->offset;
+                data = (uint8_t*) info + a->offset;
 
                 if (a->default_dependencies_only && !info->default_dependencies) {
                         badness = UINT64_MAX;

@@ -109,6 +109,12 @@ def parse_args(args=None):
     return opts
 
 def we_are_wanted() -> bool:
+    KERNEL_INSTALL_IMAGE_TYPE = os.getenv('KERNEL_INSTALL_IMAGE_TYPE')
+
+    if KERNEL_INSTALL_IMAGE_TYPE == 'uki':
+        log('The image being installed is already a UKI, quitting.')
+        return False
+
     KERNEL_INSTALL_LAYOUT = os.getenv('KERNEL_INSTALL_LAYOUT')
 
     if KERNEL_INSTALL_LAYOUT != 'uki':

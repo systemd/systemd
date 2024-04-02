@@ -192,7 +192,7 @@ int home_deactivate(Home *h, bool force, sd_bus_error *error);
 int home_create(Home *h, UserRecord *secret, Hashmap *blobs, uint64_t flags, sd_bus_error *error);
 int home_remove(Home *h, sd_bus_error *error);
 int home_update(Home *h, UserRecord *new_record, Hashmap *blobs, uint64_t flags, sd_bus_error *error);
-int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, bool automatic, sd_bus_error *error);
+int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *error);
 int home_passwd(Home *h, UserRecord *new_secret, UserRecord *old_secret, sd_bus_error *error);
 int home_unregister(Home *h, sd_bus_error *error);
 int home_lock(Home *h, sd_bus_error *error);
