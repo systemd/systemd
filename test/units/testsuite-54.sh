@@ -8,13 +8,20 @@ set -eux
 
 systemd-analyze log-level debug
 
-run_with_cred_compare() {
+run_with_cred_compare() (
     local cred="${1:?}"
     local exp="${2?}"
+    local log_file
     shift 2
 
-    diff <(systemd-run -p SetCredential="$cred" --wait --pipe -- systemd-creds "$@") <(echo -ne "$exp")
-}
+    log_file="$(mktemp)"
+    # shellcheck disable=SC2064
+    trap "rm -f '$log_file'" RETURN
+
+    set -o pipefail
+    systemd-run -p SetCredential="$cred" --wait --pipe -- systemd-creds "$@" | tee "$log_file"
+    diff "$log_file" <(echo -ne "$exp")
+)
 
 # Sanity checks
 #
