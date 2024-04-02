@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <sd-hwdb.h>
+#include <systemd/sd-hwdb.h>
 
 int print_usb_properties(uint16_t vid, uint16_t pid) {
   char match[128];
