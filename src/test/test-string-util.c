@@ -375,31 +375,31 @@ TEST(strjoin) {
 
         actual = strjoin("", "foo", "bar");
         assert_se(streq(actual, "foobar"));
-        mfree(actual);
+        free(actual);
 
         actual = strjoin("foo", "bar", "baz");
         assert_se(streq(actual, "foobarbaz"));
-        mfree(actual);
+        free(actual);
 
         actual = strjoin("foo", "", "bar", "baz");
         assert_se(streq(actual, "foobarbaz"));
-        mfree(actual);
+        free(actual);
 
         actual = strjoin("foo", NULL);
         assert_se(streq(actual, "foo"));
-        mfree(actual);
+        free(actual);
 
         actual = strjoin(NULL, NULL);
         assert_se(streq(actual, ""));
-        mfree(actual);
+        free(actual);
 
         actual = strjoin(NULL, "foo");
         assert_se(streq(actual, ""));
-        mfree(actual);
+        free(actual);
 
         actual = strjoin("foo", NULL, "bar");
         assert_se(streq(actual, "foo"));
-        mfree(actual);
+        free(actual);
 }
 
 TEST(strcmp_ptr) {
