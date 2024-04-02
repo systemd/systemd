@@ -33,7 +33,6 @@ executables += [
                 'c_args' : '-DSTANDALONE',
                 'link_with' : [
                         libbasic,
-                        libbasic_gcrypt,
                         libshared_fdisk,
                         libshared_static,
                         libsystemd_static,
