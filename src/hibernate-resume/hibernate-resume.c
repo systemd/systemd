@@ -67,7 +67,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(errno, "Failed to stat resume device '%s': %m", arg_info.device);
 
         if (!S_ISBLK(st.st_mode))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK),
                                        "Resume device '%s' is not a block device.", arg_info.device);
 
         /* The write shall not return if a resume takes place. */
