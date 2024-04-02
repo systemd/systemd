@@ -47,7 +47,6 @@ if get_option('link-journalctl-shared')
         journalctl_link_with = [libshared]
 else
         journalctl_link_with = [
-                libbasic_gcrypt,
                 libshared_static,
                 libsystemd_static,
         ]
