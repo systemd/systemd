@@ -248,3 +248,70 @@ update_man_rules = custom_target(
                    '@0@/man/*.xml'.format(project_source_root),
                    '@0@/rules/meson.build'.format(meson.current_source_dir())],
         depends : man_page_depends)
+
+############################################################
+
+simple_examples = files(
+        'event-quick-child.c',
+        'hwdb-usb-device.c',
+        'id128-app-specific.c',
+        'inotify-watch-tmp.c',
+        'journal-enumerate-fields.c',
+        'journal-iterate-foreach.c',
+        'journal-iterate-poll.c',
+        'journal-iterate-unique.c',
+        'journal-iterate-wait.c',
+        'journal-stream-fd.c',
+        'logcontrol-example.c',
+        'notify-selfcontained-example.c',
+        'path-documents.c',
+        'print-unit-path-call-method.c',
+        'print-unit-path.c',
+        'sd-bus-container-append.c',
+        'sd-bus-container-read.c',
+        'sd_bus_error-example.c',
+        'sd_bus_service_reconnect.c',
+        'send-unit-files-changed.c',
+        'vtable-example.c',
+)
+
+examples = []
+foreach example : simple_examples
+        examples += [ { 'file' : example } ]
+endforeach
+
+if conf.get('HAVE_GLIB') == 1
+        examples += [
+                {
+                        'file' : files('glib-event-glue.c'),
+                        'opts' : [
+                                '-I', libglib.get_variable('includedir') / 'glib-2.0',
+                                '-I', libglib.get_variable('libdir') / 'glib-2.0/include',
+                        ],
+                },
+        ]
+endif
+
+default_args = [
+        cc.cmd_array(),
+        '-c',
+        '-x', 'c',
+        '-std=gnu11',
+        '-Wall',
+        '-Wextra',
+        '-Werror',
+        '-pedantic',
+        '-Wno-long-long',
+        '-Wno-unused-parameter',
+        '-Wno-variadic-macros',
+        '-o/dev/null',
+        '-I', meson.current_source_dir() / '../src',
+]
+
+foreach item : examples
+        file = item.get('file')
+        test('cc-' + fs.name(file),
+             env,
+             suite : 'example',
+             args : default_args + item.get('opts', []) + [file])
+endforeach
