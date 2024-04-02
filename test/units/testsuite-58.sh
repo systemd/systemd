@@ -9,7 +9,7 @@ set -o pipefail
 
 if ! command -v systemd-repart >/dev/null; then
     echo "no systemd-repart" >/skipped
-    exit 0
+    exit 77
 fi
 
 # shellcheck source=test/units/test-control.sh

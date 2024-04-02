@@ -16,7 +16,7 @@ test "$(cat /sys/fs/cgroup/init.scope/memory.high)" != "max"
 [[ "$(get_cgroup_hierarchy)" == "unified" ]] || echo "no cgroupsv2" >>/skipped
 [[ -x /usr/lib/systemd/systemd-oomd ]] || echo "no oomd" >>/skipped
 if [[ -s /skipped ]]; then
-    exit 0
+    exit 77
 fi
 
 rm -rf /run/systemd/system/testsuite-55-testbloat.service.d
