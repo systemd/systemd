@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <sd-event.h>
+#include <systemd/sd-event.h>
 
 int main(int argc, char **argv) {
   pid_t pid = fork();

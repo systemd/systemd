@@ -3,7 +3,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include <sd-bus.h>
+#include <systemd/sd-bus.h>
 
 int writer_with_negative_errno_return(int fd, sd_bus_error *error) {
   const char *message = "Hello, World!\n";
