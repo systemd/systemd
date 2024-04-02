@@ -75,9 +75,9 @@
         <listitem><para>Pre-calculate the expected values seen in PCR register 11 after boot-up of a unified
         kernel image consisting of the components specified with <option>--linux=</option>,
         <option>--osrel=</option>, <option>--cmdline=</option>, <option>--initrd=</option>,
-        <option>--splash=</option>, <option>--dtb=</option>, <option>--uname=</option>,
-        <option>--sbat=</option>, <option>--pcrpkey=</option> see below. Only <option>--linux=</option> is
-        mandatory. (Alternatively, specify <option>--current</option> to use the current values of PCR
+        <option>--ucode=</option>, <option>--splash=</option>, <option>--dtb=</option>,
+        <option>--uname=</option>, <option>--sbat=</option>, <option>--pcrpkey=</option> see below.
+        Only <option>--linux=</option> is mandatory. (Alternatively, specify <option>--current</option> to use the current values of PCR
         register 11 instead.)</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/>
@@ -118,6 +118,7 @@
         <term><option>--osrel=<replaceable>PATH</replaceable></option></term>
         <term><option>--cmdline=<replaceable>PATH</replaceable></option></term>
         <term><option>--initrd=<replaceable>PATH</replaceable></option></term>
+        <term><option>--ucode=<replaceable>PATH</replaceable></option></term>
         <term><option>--splash=<replaceable>PATH</replaceable></option></term>
         <term><option>--dtb=<replaceable>PATH</replaceable></option></term>
         <term><option>--uname=<replaceable>PATH</replaceable></option></term>
