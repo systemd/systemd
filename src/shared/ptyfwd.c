@@ -478,7 +478,7 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                  * since we cannot lookahead to see if the Esc is followed by a \
                                  * we cut a corner here and assume it will be \. */
 
-                                if (c == '\x07' || c == '\x1b') {
+                                if (IN_SET(c, '\x07', '\x1b')) {
                                         r = insert_window_title_fix(f, i+1);
                                         if (r < 0)
                                                 return r;

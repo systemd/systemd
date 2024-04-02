@@ -68,7 +68,7 @@ TEST (test_dirent_is_file) {
         }
 
         dir = opendir(t);
-        if (dir == NULL) {
+        if (!dir) {
                 log_error_errno(errno, "Failed to open directory '%s': %m", t);
                 exit(EXIT_FAILURE);
         }
@@ -144,7 +144,7 @@ TEST (test_dirent_is_file_with_suffix) {
         }
 
         dir = opendir(t);
-        if (dir == NULL) {
+        if (!dir) {
                 log_error_errno(errno, "Failed to open directory '%s': %m", t);
                 exit(EXIT_FAILURE);
         }

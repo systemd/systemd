@@ -748,8 +748,7 @@ static OverlayFSPaths *overlayfs_paths_free(OverlayFSPaths *op) {
         free(op->work_dir);
         strv_free(op->lower_dirs);
 
-        free(op);
-        return NULL;
+        return mfree(op);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(OverlayFSPaths *, overlayfs_paths_free);
 
