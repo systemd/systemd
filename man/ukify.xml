@@ -67,6 +67,7 @@
 
       <para>Additional sections will be inserted into the UKI, either automatically or only if a specific
       option is provided. See the discussions of
+      <varname>Ucode=</varname>/<option>--ucode=</option>,
       <varname>Cmdline=</varname>/<option>--cmdline=</option>,
       <varname>OSRelease=</varname>/<option>--os-release=</option>,
       <varname>DeviceTree=</varname>/<option>--devicetree=</option>,
@@ -300,6 +301,16 @@
           the config file first.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>Ucode=<replaceable>UCODE</replaceable></varname></term>
+          <term><option>--ucode=<replaceable>UCODE</replaceable></option></term>
+
+          <listitem><para>Path to initrd containing microcode updates. If not specified, the section
+          will not be present.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
 
         <varlistentry>

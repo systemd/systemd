@@ -13,6 +13,7 @@ const char* const unified_sections[_UNIFIED_SECTION_MAX + 1] = {
         [UNIFIED_SECTION_OSREL]   = ".osrel",
         [UNIFIED_SECTION_CMDLINE] = ".cmdline",
         [UNIFIED_SECTION_INITRD]  = ".initrd",
+        [UNIFIED_SECTION_UCODE]   = ".ucode",
         [UNIFIED_SECTION_SPLASH]  = ".splash",
         [UNIFIED_SECTION_DTB]     = ".dtb",
         [UNIFIED_SECTION_UNAME]   = ".uname",
