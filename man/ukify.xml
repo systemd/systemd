@@ -70,6 +70,7 @@
 
       <para>Additional sections will be inserted into the UKI, either automatically or only if a specific
       option is provided. See the discussions of
+      <varname>Microcode=</varname>/<option>--microcode=</option>,
       <varname>Cmdline=</varname>/<option>--cmdline=</option>,
       <varname>OSRelease=</varname>/<option>--os-release=</option>,
       <varname>DeviceTree=</varname>/<option>--devicetree=</option>,
@@ -283,6 +284,16 @@
           <listitem><para>Zero or more initrd paths. In the configuration file, items are separated by
           whitespace. The initrds are combined in the order of specification, with the initrds specified in
           the config file first.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>Microcode=<replaceable>UCODE</replaceable></varname></term>
+          <term><option>--microcode=<replaceable>UCODE</replaceable></option></term>
+
+          <listitem><para>Path to initrd containing microcode updates. If not specified, the section
+          will not be present.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
 
         <varlistentry>
