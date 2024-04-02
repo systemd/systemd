@@ -70,6 +70,9 @@
 
       <listitem><para>An <literal>.initrd</literal> section with the initrd.</para></listitem>
 
+      <listitem><para>A <literal>.ucode</literal> section with a initrd containing microcode, to be handed
+      to the kernel before any other initrd.</para></listitem>
+
       <listitem><para>A <literal>.splash</literal> section with an image (in the Windows
       <filename>.BMP</filename> format) to show on screen before invoking the kernel.</para></listitem>
 
@@ -233,7 +236,7 @@
     core kernel, the embedded initrd and kernel command line (see above for a full list).</para>
 
     <para>Also note that the Linux kernel will measure all initrds it receives into TPM PCR 9. This means
-    every type of initrd will be measured two or three times: the initrd embedded in the kernel image will be
+    every type of initrd will be measured two or three times: the initrds embedded in the kernel image will be
     measured to PCR 4, PCR 9 and PCR 11; the initrd synthesized from credentials (and the one synthesized
     from configuration extensions) will be measured to both PCR 9 and PCR 12; the initrd synthesized from
     system extensions will be measured to both PCR 4 and PCR 9. Let's summarize the OS resources and the PCRs
@@ -271,6 +274,11 @@
 
           <row>
             <entry>Main initrd (embedded in unified PE binary)</entry>
+            <entry>4 + 9 + 11</entry>
+          </row>
+
+          <row>
+            <entry>Microcode initrd (embedded in unified PE binary)</entry>
             <entry>4 + 9 + 11</entry>
           </row>
 
@@ -425,6 +433,15 @@
     the initial file system hierarchy in the initrd execution environment:</para>
 
     <variablelist>
+      <varlistentry>
+        <term><filename>/</filename></term>
+
+        <listitem><para>The microcode initrd from the <literal>.ucode</literal> PE section of the unified kernel
+        image, if present.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><filename>/</filename></term>
 
