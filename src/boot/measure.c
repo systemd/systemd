@@ -92,6 +92,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --osrel=PATH        Path to os-release file                %7$s .osrel\n"
                "     --cmdline=PATH      Path to file with kernel command line  %7$s .cmdline\n"
                "     --initrd=PATH       Path to initrd image file              %7$s .initrd\n"
+               "     --ucode=PATH        Path to microcode image file           %7$s .ucode\n"
                "     --splash=PATH       Path to splash bitmap file             %7$s .splash\n"
                "     --dtb=PATH          Path to Devicetree file                %7$s .dtb\n"
                "     --uname=PATH        Path to 'uname -r' file                %7$s .uname\n"
@@ -133,6 +134,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_OSREL,
                 ARG_CMDLINE,
                 ARG_INITRD,
+                ARG_UCODE,
                 ARG_SPLASH,
                 ARG_DTB,
                 ARG_UNAME,
@@ -159,6 +161,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "osrel",              required_argument, NULL, ARG_OSREL              },
                 { "cmdline",            required_argument, NULL, ARG_CMDLINE            },
                 { "initrd",             required_argument, NULL, ARG_INITRD             },
+                { "ucode",              required_argument, NULL, ARG_UCODE              },
                 { "splash",             required_argument, NULL, ARG_SPLASH             },
                 { "dtb",                required_argument, NULL, ARG_DTB                },
                 { "uname",              required_argument, NULL, ARG_UNAME              },
