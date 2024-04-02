@@ -7,6 +7,7 @@
 #include "compress.h"
 #include "cryptsetup-util.h"
 #include "elf-util.h"
+#include "gcrypt-util.h"
 #include "idn-util.h"
 #include "libarchive-util.h"
 #include "libfido2-util.h"
@@ -86,6 +87,10 @@ static int run(int argc, char **argv) {
 
 #if HAVE_XZ
         assert_se(dlopen_lzma() >= 0);
+#endif
+
+#if HAVE_GCRYPT
+        assert_se(initialize_libgcrypt(/* secmem= */ false) >= 0);
 #endif
 
         return 0;
