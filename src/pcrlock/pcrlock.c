@@ -2691,6 +2691,93 @@ static int make_pcrlock_record(
         return 0;
 }
 
+static void evp_md_ctx_free_all(EVP_MD_CTX *(*md)[TPM2_N_HASH_ALGORITHMS]) {
+        for (size_t i = 0; i < sizeof(*md) / sizeof(**md); i++)
+                if ((*md)[i])
+                        EVP_MD_CTX_free((*md)[i]);
+}
+
+static int make_pcrlock_record_from_stream(
+                uint32_t pcr,
+                FILE *f,
+                JsonVariant **ret_record) {
+        _cleanup_(json_variant_unrefp) JsonVariant *digests = NULL;
+        _cleanup_(evp_md_ctx_free_all) EVP_MD_CTX *mdctx[TPM2_N_HASH_ALGORITHMS] = { NULL };
+        int r;
+
+        assert(f);
+        assert(ret_record);
+
+        for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++) {
+                const char *a;
+                const EVP_MD *md;
+
+                assert_se(a = tpm2_hash_alg_to_string(tpm2_hash_algorithms[i]));
+                assert_se(md = EVP_get_digestbyname(a));
+
+                mdctx[i] = EVP_MD_CTX_new();
+                if (!mdctx[i])
+                        return log_oom();
+
+                if (EVP_DigestInit_ex(mdctx[i], md, NULL) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to allocate message digest for %s.", a);
+        }
+
+        for (;;) {
+                uint8_t buffer[64*1024];
+                size_t n = 0;
+
+                n = fread(buffer, 1, sizeof(buffer), f);
+                if (ferror(f))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to read file: %m");
+                if (n == 0 && feof(f))
+                        break;
+
+                for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++) {
+                        if (EVP_DigestUpdate(mdctx[i], buffer, n) != 1)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Unable to hash data.");
+                }
+        }
+
+        for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++) {
+                _cleanup_free_ unsigned char *hash = NULL;
+                const char *a;
+                int hash_ssize;
+                unsigned hash_usize;
+
+                assert_se(a = tpm2_hash_alg_to_string(tpm2_hash_algorithms[i]));
+                hash_ssize = EVP_MD_CTX_size(mdctx[i]);
+                assert_se(hash_ssize > 0);
+                hash_usize = hash_ssize;
+
+                hash = malloc(hash_usize);
+                if (!hash)
+                        return log_oom();
+
+                if (EVP_DigestFinal_ex(mdctx[i], hash, &hash_usize) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to finalize hash context for algorithn '%s'.", a);
+
+                r = json_variant_append_arrayb(
+                                &digests,
+                                JSON_BUILD_OBJECT(
+                                                JSON_BUILD_PAIR("hashAlg", JSON_BUILD_STRING(a)),
+                                                JSON_BUILD_PAIR("digest", JSON_BUILD_HEX(hash, hash_usize))));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build JSON digest object: %m");
+        }
+
+        r = json_build(ret_record,
+                       JSON_BUILD_OBJECT(
+                                       JSON_BUILD_PAIR("pcr", JSON_BUILD_UNSIGNED(pcr)),
+                                       JSON_BUILD_PAIR("digests", JSON_BUILD_VARIANT(digests))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build record object: %m");
+
+        return 0;
+}
+
 static const char *pcrlock_path(const char *default_pcrlock_path) {
         return arg_pcrlock_path ?: arg_pcrlock_auto ? default_pcrlock_path : NULL;
 }
@@ -2755,9 +2842,7 @@ static int unlink_pcrlock(const char *default_pcrlock_path) {
 
 static int verb_lock_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
-        _cleanup_free_ char *data = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        size_t size;
         int r;
 
         if (arg_pcr_mask == 0)
@@ -2769,17 +2854,13 @@ static int verb_lock_raw(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open '%s': %m", argv[1]);
         }
 
-        r = read_full_stream(f ?: stdin, &data, &size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read data from stdin: %m");
-
         for (uint32_t i = 0; i < TPM2_PCRS_MAX; i++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *record = NULL;
 
                 if (!FLAGS_SET(arg_pcr_mask, UINT32_C(1) << i))
                         continue;
 
-                r = make_pcrlock_record(i, data, size, &record);
+                r = make_pcrlock_record_from_stream(i, f ?: stdin, &record);
                 if (r < 0)
                         return r;
 
@@ -3797,9 +3878,7 @@ static int verb_unlock_kernel_cmdline(int argc, char *argv[], void *userdata) {
 
 static int verb_lock_kernel_initrd(int argc, char *argv[], void *userdata) {
         _cleanup_(json_variant_unrefp) JsonVariant *record = NULL, *array = NULL;
-        _cleanup_free_ void *data = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        size_t size;
         int r;
 
         if (argc >= 2) {
@@ -3808,11 +3887,7 @@ static int verb_lock_kernel_initrd(int argc, char *argv[], void *userdata) {
                         return log_error_errno(errno, "Failed to open '%s': %m", argv[1]);
         }
 
-        r = read_full_stream(f ?: stdin, (char**) &data, &size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read data from stdin: %m");
-
-        r = make_pcrlock_record(TPM2_PCR_KERNEL_INITRD /* = 9 */, data, size, &record);
+        r = make_pcrlock_record_from_stream(TPM2_PCR_KERNEL_INITRD /* = 9 */, f ?: stdin, &record);
         if (r < 0)
                 return r;
 
