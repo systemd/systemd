@@ -1439,8 +1439,6 @@ Features:
     - kmod-libs (only when called from PID 1)
     - libblkid (only in RootImage= handling in PID 1, but not elsewhere)
     - libpam (only when called from PID 1)
-    - bzip2 (always — gzip should probably stay static dep the way it is,
-      since it's so basic and our defaults)
 
 * seccomp: maybe use seccomp_merge() to merge our filters per-arch if we can.
   Apparently kernel performance is much better with fewer larger seccomp
