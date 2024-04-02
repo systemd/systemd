@@ -26,28 +26,27 @@ DECLARE_NOALLOC_SECTION(".sdmagic", "#### LoaderInfo: systemd-stub " GIT_VERSION
 
 DECLARE_SBAT(SBAT_STUB_SECTION_TEXT);
 
-static EFI_STATUS combine_initrd(
-                EFI_PHYSICAL_ADDRESS initrd_base, size_t initrd_size,
-                const void * const extra_initrds[], const size_t extra_initrd_sizes[], size_t n_extra_initrds,
+/* Combine initrds by concatenation in memory */
+static EFI_STATUS combine_initrds(
+                const void * const initrds[], const size_t initrd_sizes[], size_t n_initrds,
                 Pages *ret_initr_pages, size_t *ret_initrd_size) {
 
-        size_t n;
+        size_t n = 0;
 
         assert(ret_initr_pages);
         assert(ret_initrd_size);
 
-        /* Combines four initrds into one, by simple concatenation in memory */
-
-        n = ALIGN4(initrd_size); /* main initrd might not be padded yet */
-
-        for (size_t i = 0; i < n_extra_initrds; i++) {
-                if (!extra_initrds[i])
+        for (size_t i = 0; i < n_initrds; i++) {
+                if (!initrds[i])
                         continue;
 
-                if (n > SIZE_MAX - extra_initrd_sizes[i])
+                /* some initrds (the ones from UKI sections) need padding,
+                 * pad all to be safe */
+                size_t initrd_size = ALIGN4(initrd_sizes[i]);
+                if (n > SIZE_MAX - initrd_size)
                         return EFI_OUT_OF_RESOURCES;
 
-                n += extra_initrd_sizes[i];
+                n += initrd_size;
         }
 
         _cleanup_pages_ Pages pages = xmalloc_pages(
@@ -56,25 +55,19 @@ static EFI_STATUS combine_initrd(
                         EFI_SIZE_TO_PAGES(n),
                         UINT32_MAX /* Below 4G boundary. */);
         uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
-        if (initrd_base != 0) {
+        for (size_t i = 0; i < n_initrds; i++) {
+                if (!initrds[i])
+                        continue;
+
                 size_t pad;
 
-                /* Order matters, the real initrd must come first, since it might include microcode updates
-                 * which the kernel only looks for in the first cpio archive */
-                p = mempcpy(p, PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
+                p = mempcpy(p, initrds[i], initrd_sizes[i]);
 
-                pad = ALIGN4(initrd_size) - initrd_size;
+                pad = ALIGN4(initrd_sizes[i]) - initrd_sizes[i];
                 if (pad > 0)  {
                         memzero(p, pad);
                         p += pad;
                 }
-        }
-
-        for (size_t i = 0; i < n_extra_initrds; i++) {
-                if (!extra_initrds[i])
-                        continue;
-
-                p = mempcpy(p, extra_initrds[i], extra_initrd_sizes[i]);
         }
 
         assert(PHYSICAL_ADDRESS_TO_POINTER(pages.addr + n) == p);
@@ -503,8 +496,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
         void **dt_bases_addons_global = NULL, **dt_bases_addons_uki = NULL;
         char16_t **dt_filenames_addons_global = NULL, **dt_filenames_addons_uki = NULL;
         _cleanup_free_ size_t *dt_sizes_addons_global = NULL, *dt_sizes_addons_uki = NULL;
-        size_t linux_size, initrd_size, dt_size, n_dts_addons_global = 0, n_dts_addons_uki = 0;
-        EFI_PHYSICAL_ADDRESS linux_base, initrd_base, dt_base;
+        size_t linux_size, initrd_size, ucode_size, dt_size, n_dts_addons_global = 0, n_dts_addons_uki = 0;
+        EFI_PHYSICAL_ADDRESS linux_base, initrd_base, ucode_base, dt_base;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         size_t addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
@@ -792,12 +785,18 @@ static EFI_STATUS run(EFI_HANDLE image) {
         initrd_size = szs[UNIFIED_SECTION_INITRD];
         initrd_base = initrd_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_INITRD] : 0;
 
+        ucode_size = szs[UNIFIED_SECTION_UCODE];
+        ucode_base = ucode_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_UCODE] : 0;
+
         _cleanup_pages_ Pages initrd_pages = {};
-        if (credential_initrd || global_credential_initrd || sysext_initrd || confext_initrd || pcrsig_initrd || pcrpkey_initrd) {
-                /* If we have generated initrds dynamically, let's combine them with the built-in initrd. */
-                err = combine_initrd(
-                                initrd_base, initrd_size,
+        if (ucode_base || credential_initrd || global_credential_initrd || sysext_initrd || confext_initrd || pcrsig_initrd || pcrpkey_initrd) {
+                /* If we have generated initrds dynamically or there is a microcode initrd, combine them with the built-in initrd. */
+                err = combine_initrds(
                                 (const void*const[]) {
+                                        /* Microcode must always be first as kernel only scans uncompressed cpios
+                                         * and later initrds might be compressed. */
+                                        PHYSICAL_ADDRESS_TO_POINTER(ucode_base),
+                                        PHYSICAL_ADDRESS_TO_POINTER(initrd_base),
                                         credential_initrd,
                                         global_credential_initrd,
                                         sysext_initrd,
@@ -806,6 +805,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                         pcrpkey_initrd,
                                 },
                                 (const size_t[]) {
+                                        ucode_size,
+                                        initrd_size,
                                         credential_initrd_size,
                                         global_credential_initrd_size,
                                         sysext_initrd_size,
@@ -813,7 +814,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                         pcrsig_initrd_size,
                                         pcrpkey_initrd_size,
                                 },
-                                6,
+                                2,
                                 &initrd_pages, &initrd_size);
                 if (err != EFI_SUCCESS)
                         return err;
