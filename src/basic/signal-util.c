@@ -268,7 +268,7 @@ int pop_pending_signal_internal(int sig, ...) {
         if (r < 0)
                 return r;
 
-        r = sigtimedwait(&ss, NULL, &(struct timespec) { 0, 0 });
+        r = sigtimedwait(&ss, NULL, &(const struct timespec) {});
         if (r < 0) {
                 if (errno == EAGAIN)
                         return 0;
