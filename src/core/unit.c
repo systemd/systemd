@@ -1249,10 +1249,10 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 if (!u->manager->prefix[dt])
                         continue;
 
-                for (size_t i = 0; i < c->directories[dt].n_items; i++) {
+                FOREACH_ARRAY(i, c->directories[dt].items, c->directories[dt].n_items) {
                         _cleanup_free_ char *p = NULL;
 
-                        p = path_join(u->manager->prefix[dt], c->directories[dt].items[i].path);
+                        p = path_join(u->manager->prefix[dt], i->path);
                         if (!p)
                                 return -ENOMEM;
 
