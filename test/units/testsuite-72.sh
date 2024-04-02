@@ -16,7 +16,7 @@ export SYSTEMD_LOG_LEVEL=debug
 
 if [[ ! -x "$SYSUPDATE" ]]; then
     echo "no systemd-sysupdate" >/skipped
-    exit 0
+    exit 77
 fi
 
 # Loopback devices may not be supported. They are used because sfdisk cannot
