@@ -71,8 +71,8 @@ typedef enum TimestampStyle {
 
 #define TIME_T_MAX (time_t)((UINTMAX_C(1) << ((sizeof(time_t) << 3) - 1)) - 1)
 
-#define DUAL_TIMESTAMP_NULL ((struct dual_timestamp) {})
-#define TRIPLE_TIMESTAMP_NULL ((struct triple_timestamp) {})
+#define DUAL_TIMESTAMP_NULL ((dual_timestamp) {})
+#define TRIPLE_TIMESTAMP_NULL ((triple_timestamp) {})
 
 usec_t now(clockid_t clock);
 nsec_t now_nsec(clockid_t clock);
@@ -117,12 +117,12 @@ nsec_t timespec_load_nsec(const struct timespec *ts) _pure_;
 struct timespec* timespec_store(struct timespec *ts, usec_t u);
 struct timespec* timespec_store_nsec(struct timespec *ts, nsec_t n);
 
-#define TIMESPEC_STORE(u) timespec_store(&(struct timespec) {}, (u))
+#define TIMESPEC_STORE(u) timespec_store(&(const struct timespec) {}, (u))
 
 usec_t timeval_load(const struct timeval *tv) _pure_;
 struct timeval* timeval_store(struct timeval *tv, usec_t u);
 
-#define TIMEVAL_STORE(u) timeval_store(&(struct timeval) {}, (u))
+#define TIMEVAL_STORE(u) timeval_store(&(const struct timeval) {}, (u))
 
 char* format_timestamp_style(char *buf, size_t l, usec_t t, TimestampStyle style) _warn_unused_result_;
 char* format_timestamp_relative_full(char *buf, size_t l, usec_t t, clockid_t clock, bool implicit_left) _warn_unused_result_;
