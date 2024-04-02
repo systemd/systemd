@@ -697,7 +697,7 @@ d /tmp/foo/bar - - - bmA:1h -</programlisting></para>
 
       <para>For <varname>L</varname> lines determines the destination path of the symlink. For <varname>c</varname> and
       <varname>b</varname>, determines the major/minor of the device node, with major and minor formatted as integers,
-      separated by <literal>:</literal>, e.g.  <literal>1:3</literal>. For <varname>f</varname>
+      separated by <literal>:</literal>, e.g. <literal>1:3</literal>. For <varname>f</varname>
       and <varname>w</varname>, the argument may be used to specify a short string that is written to the file,
       suffixed by a newline. For <varname>C</varname>, specifies the source file or directory. For <varname>t</varname>
       and <varname>T</varname>, determines extended attributes to be set. For <varname>a</varname> and
