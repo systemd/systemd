@@ -138,6 +138,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>is-supported</command></term>
+
+        <listitem><para>Checks whether a TPM is present has has the necessary features to support creating a
+        pcrlock policy</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>make-policy</command></term>
 
         <listitem><para>This predicts the PCR state for future boots, much like the
@@ -420,6 +430,14 @@
 
     <variablelist>
       <varlistentry>
+        <term><option>--full</option></term>
+
+        <listitem><para>Show full hash value instead of abbreviating to 7 characters.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--raw-description</option></term>
 
         <listitem><para>When displaying the TPM2 event log do not attempt to decode the records to provide a
@@ -553,6 +571,15 @@
         <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> option of
         the same regarding expected values. This switch has an effect on the
         <command>make-policy</command> command only.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--strict=</option></term>
+
+        <listitem><para>Takes a boolean. Defaults to false. Honoured by <command>make-policy</command>. If
+        true all specified PCRs must be included in the policy otherwise the command returns failure.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>

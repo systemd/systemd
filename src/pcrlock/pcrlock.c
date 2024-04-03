@@ -66,8 +66,11 @@ static bool arg_recovery_pin = false;
 static char *arg_policy_path = NULL;
 static bool arg_force = false;
 static BootEntryTokenType arg_entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
+static bool arg_strict = false;
 static char *arg_entry_token = NULL;
 static bool arg_varlink = false;
+/* abbreviate to 7 chars, just like git */
+static size_t arg_abbreviate_hash = 7;
 
 STATIC_DESTRUCTOR_REGISTER(arg_components, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pcrlock_path, freep);
@@ -213,6 +216,9 @@ struct EventLog {
 
         /* PCRs mask indicating all PCRs touched by unrecognized components */
         uint32_t missing_component_pcrs;
+
+        /* PCRs mask indicating component found for the pcr */
+        uint32_t has_component_pcrs;
 };
 
 static EventLogRecordBank *event_log_record_bank_free(EventLogRecordBank *bank) {
@@ -766,6 +772,16 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                     rec->firmware_payload_size - offsetof(UEFI_IMAGE_LOAD_EVENT, devicePath)) {
                         log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Device path size does not match, ignoring.");
                         goto invalid;
+                }
+
+                /* device path could be empty. Don't mark that as invalid but leave as don't know.
+                 * Happens eg with shim https://github.com/rhboot/shim/issues/642 */
+                if (load->lengthOfDevicePath == 0) {
+                        rec->description = strdup("File: <unspecified>");
+                        if (!rec->description)
+                                return log_oom();
+
+                        return 1;
                 }
 
                 const packed_EFI_DEVICE_PATH *dp = (const packed_EFI_DEVICE_PATH*) load->devicePath;
@@ -1804,7 +1820,7 @@ static int event_log_validate_fully_recognized(EventLog *el) {
                                 continue;
 
                         if (rec->n_mapped == 0) {
-                                log_notice("Event log record %zu (PCR %" PRIu32 ", \"%s\") not matching any component.",
+                                log_info("Event log record %zu (PCR %" PRIu32 ", \"%s\") not matching any component.",
                                            (size_t) (rr - el->records), rec->pcr, strna(rec->description));
                                 fully_recognized = false;
                                 break;
@@ -1917,6 +1933,8 @@ static int event_log_map_components(EventLog *el) {
                                 continue;
                         }
 
+                        el->has_component_pcrs |= event_log_component_variant_pcrs(*ii);
+
                         r = event_log_match_component_variant(el, 0, i, 0, n_matching + n_empty == 0);
                         if (r < 0)
                                 return r;
@@ -1933,7 +1951,7 @@ static int event_log_map_components(EventLog *el) {
                         if (arg_location_start && strcmp(c->id, arg_location_start) >= 0)
                                 log_info("Didn't find component '%s' in event log, assuming system hasn't reached it yet.", c->id);
                         else {
-                                log_notice("Couldn't find component '%s' in event log.", c->id);
+                                log_info("Couldn't find component '%s' in event log.", c->id);
                                 el->n_missing_components++;
                                 el->missing_component_pcrs |= event_log_component_pcrs(c);
                         }
@@ -1942,11 +1960,35 @@ static int event_log_map_components(EventLog *el) {
         }
 
         if (n_skipped > 0)
-                log_notice("Skipped %u components after location '%s' (%s).", n_skipped, arg_location_end, skipped_ids);
+                log_info("Skipped %u components after location '%s' (%s).", n_skipped, arg_location_end, skipped_ids);
         if (el->n_missing_components > 0)
-                log_notice("Unable to recognize %zu components in event log.", el->n_missing_components);
+                log_debug("Unable to recognize %zu components in event log.", el->n_missing_components);
 
         return event_log_validate_fully_recognized(el);
+}
+
+static int tpm2_check_and_allocate(Tpm2Context** ret_tc) {
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
+        int r;
+
+        if (tpm2_support() != TPM2_SUPPORT_FULL)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Sorry, system lacks full TPM2 support.");
+
+        r = tpm2_context_new(NULL, &tc);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create TPM2 context: %m");
+
+        if (!tpm2_supports_command(tc, TPM2_CC_PolicyAuthorizeNV))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 does not support PolicyAuthorizeNV command, refusing.");
+
+        if (ret_tc)
+                *ret_tc = TAKE_PTR(tc);
+
+        return 0;
+}
+
+static int verb_is_supported(int argc, char *argv[], void *userdata) {
+        return tpm2_check_and_allocate(NULL);
 }
 
 #define ANSI_TRUE_COLOR_MAX (7U + 3U + 1U + 3U + 1U + 3U + 2U)
@@ -1954,6 +1996,19 @@ static int event_log_map_components(EventLog *el) {
 static const char *ansi_true_color(uint8_t r, uint8_t g, uint8_t b, char ret[static ANSI_TRUE_COLOR_MAX]) {
         snprintf(ret, ANSI_TRUE_COLOR_MAX, "\x1B[38;2;%u;%u;%um", r, g, b);
         return ret;
+}
+
+/* red and green colors usually have good/bad meaning. So exclude color ranges that look too red- or
+ * greenish. See https://en.wikipedia.org/wiki/Hue */
+static double map_pcr_to_hue(uint32_t pcr) {
+        double exclude_red_range = 60.0;
+        double exclude_green_range = 60.0;
+        double h = (360.0 - exclude_red_range - exclude_green_range) / (TPM2_PCRS_MAX - 1) * pcr;
+        h += exclude_red_range/2;
+        if (h > 120-exclude_green_range/2)
+                h += exclude_green_range;
+        assert(h <= 360-exclude_red_range/2);
+        return h;
 }
 
 static char *color_for_pcr(EventLog *el, uint32_t pcr) {
@@ -1966,7 +2021,7 @@ static char *color_for_pcr(EventLog *el, uint32_t pcr) {
         if (el->registers[pcr].color)
                 return el->registers[pcr].color;
 
-        hsv_to_rgb(360.0 / (TPM2_PCRS_MAX - 1) * pcr, 100, 90, &r, &g, &b);
+        hsv_to_rgb(map_pcr_to_hue(pcr), 100, 90, &r, &g, &b);
         ansi_true_color(r, g, b, color);
 
         el->registers[pcr].color = strdup(color);
@@ -2069,6 +2124,9 @@ static int show_log_table(EventLog *el, JsonVariant **ret_variant) {
         FOREACH_ARRAY(rr, el->records, el->n_records) {
                 EventLogRecord *record = *rr;
 
+                if (arg_pcr_mask != 0 && !FLAGS_SET(arg_pcr_mask, UINT32_C(1) << record->pcr))
+                        continue;
+
                 r = table_add_many(table,
                                    TABLE_UINT32, record->pcr,
                                    TABLE_STRING, special_glyph(SPECIAL_GLYPH_FULL_BLOCK),
@@ -2111,6 +2169,8 @@ static int show_log_table(EventLog *el, JsonVariant **ret_variant) {
                                 hex = hexmem(bank->hash.buffer, bank->hash.size);
                                 if (!hex)
                                         return log_oom();
+
+                                strshorten(hex, arg_abbreviate_hash);
 
                                 r = table_add_cell(table, NULL, TABLE_STRING, hex);
                         } else
@@ -2207,20 +2267,33 @@ static int show_pcr_table(EventLog *el, JsonVariant **ret_variant) {
         (void) table_set_json_field_name(table, 7, "noMissingComponents");
 
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
+
+                if (arg_pcr_mask != 0 && !FLAGS_SET(arg_pcr_mask, UINT32_C(1) << pcr))
+                        continue;
+
                 /* Check if the PCR hash value matches the event log data */
                 bool hash_match = event_log_pcr_checks_out(el, el->registers + pcr);
 
                 /* Whether all records in this PCR have a matching component */
                 bool fully_recognized = el->registers[pcr].fully_recognized;
 
+                bool seen = el->registers[pcr].n_measurements > 0;
+
                 /* Whether any unmatched components touch this PCR */
                 bool missing_components = FLAGS_SET(el->missing_component_pcrs, UINT32_C(1) << pcr);
+                bool has_components = FLAGS_SET(el->has_component_pcrs, UINT32_C(1) << pcr);
 
-                const char *emoji = special_glyph(
-                                !hash_match ? SPECIAL_GLYPH_DEPRESSED_SMILEY :
-                                !fully_recognized ? SPECIAL_GLYPH_UNHAPPY_SMILEY :
-                                missing_components ?  SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY :
-                                SPECIAL_GLYPH_HAPPY_SMILEY);
+                const char *emoji = "";
+                if (seen || has_components) {
+                        if (!hash_match)
+                                emoji = special_glyph(SPECIAL_GLYPH_DEPRESSED_SMILEY);
+                        else if (!fully_recognized)
+                                emoji = special_glyph(SPECIAL_GLYPH_UNHAPPY_SMILEY);
+                        else if (!missing_components)
+                                emoji = special_glyph(SPECIAL_GLYPH_HAPPY_SMILEY);
+                        else
+                                emoji = special_glyph(SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY);
+                }
 
                 r = table_add_many(table,
                                    TABLE_UINT32, pcr,
@@ -2239,11 +2312,11 @@ static int show_pcr_table(EventLog *el, JsonVariant **ret_variant) {
                         return table_log_add_error(r);
 
                 r = table_add_many(table,
-                                   TABLE_BOOLEAN_CHECKMARK, hash_match,
+                                   TABLE_STRING, seen ? special_glyph_check_mark(hash_match) : " ",
                                    TABLE_SET_COLOR, ansi_highlight_green_red(hash_match),
-                                   TABLE_BOOLEAN_CHECKMARK, fully_recognized,
+                                   TABLE_STRING, seen ? special_glyph_check_mark(fully_recognized) : " ",
                                    TABLE_SET_COLOR, ansi_highlight_green_red(fully_recognized),
-                                   TABLE_BOOLEAN_CHECKMARK, !missing_components,
+                                   TABLE_STRING, has_components ? special_glyph_check_mark(!missing_components) : " ",
                                    TABLE_SET_COLOR, ansi_highlight_green_red(!missing_components));
                 if (r < 0)
                         return table_log_add_error(r);
@@ -2259,6 +2332,8 @@ static int show_pcr_table(EventLog *el, JsonVariant **ret_variant) {
                                 hex = hexmem(el->registers[pcr].banks[i].calculated.buffer, el->registers[pcr].banks[i].calculated.size);
                                 if (!hex)
                                         return log_oom();
+
+                                strshorten(hex, arg_abbreviate_hash);
 
                                 r = table_add_many(table,
                                                    TABLE_STRING, hex,
@@ -2278,6 +2353,8 @@ static int show_pcr_table(EventLog *el, JsonVariant **ret_variant) {
                         hex = hexmem(el->registers[pcr].banks[i].observed.buffer, el->registers[pcr].banks[i].observed.size);
                         if (!hex)
                                 return log_oom();
+
+                        strshorten(hex, arg_abbreviate_hash);
 
                         color = !hash_match ? ANSI_HIGHLIGHT_RED :
                                 is_unset_pcr(el->registers[pcr].banks[i].observed.buffer, el->registers[pcr].banks[i].observed.size) ? ANSI_GREY : NULL;
@@ -2306,7 +2383,7 @@ static int show_pcr_table(EventLog *el, JsonVariant **ret_variant) {
                 printf("\n"
                        "%sLegend: H → PCR hash value matches event log%s\n"
                        "%s        R → All event log records for this PCR have a matching component%s\n"
-                       "%s        C → No components that couldn't be matched with log records affect this PCR%s\n",
+                       "%s        C → Component exists and found in event log%s\n",
                        ansi_grey(), ansi_normal(), /* less on small screens automatically resets the color after long lines, hence we set it anew for each line */
                        ansi_grey(), ansi_normal(),
                        ansi_grey(), ansi_normal());
@@ -2558,6 +2635,9 @@ static int verb_list_components(int argc, char *argv[], void *userdata) {
 
         FOREACH_ARRAY(c, el->components, el->n_components) {
 
+                if (arg_pcr_mask != 0 && (arg_pcr_mask & event_log_component_pcrs(*c)) == 0)
+                        continue;
+
                 if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
                         _cleanup_free_ char *marker = NULL;
 
@@ -2728,7 +2808,7 @@ static int write_pcrlock(JsonVariant *array, const char *default_pcrlock_path) {
                 return log_error_errno(r, "Failed to output JSON object: %m");
 
         if (p)
-                log_info("%s written.", p);
+                log_debug("%s written.", p);
 
         return 0;
 }
@@ -2999,7 +3079,7 @@ static int verb_lock_secureboot_authority(int argc, char *argv[], void *userdata
          * checks, and that's what we should bind policy to. Moreover it's hard to predict, since extension
          * card firmware validation will result in additional records here. */
 
-        if (!is_efi_secure_boot()) {
+        if (!is_efi_secure_boot() && !arg_force) {
                 log_info("SecureBoot disabled, not generating authority .pcrlock file.");
                 return unlink_pcrlock(PCRLOCK_SECUREBOOT_AUTHORITY_PATH);
         }
@@ -3693,6 +3773,7 @@ static int verb_lock_uki(int argc, char *argv[], void *userdata) {
 
 static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
         _cleanup_free_ char *dropped = NULL, *kept = NULL;
+        uint32_t dropped_relevant_pcr = 0;
 
         assert(el);
         assert(pcrs);
@@ -3727,7 +3808,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
                         goto drop;
                 }
 
-                log_info("PCR %" PRIu32 " (%s) matches event log and fully consists of recognized measurements. Including in set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
+                log_debug("PCR %" PRIu32 " (%s) matches event log and fully consists of recognized measurements. Including in set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
 
                 if (strextendf_with_separator(&kept, ", ", "%" PRIu32 " (%s)", pcr, tpm2_pcr_index_to_string(pcr)) < 0)
                         return log_oom();
@@ -3735,6 +3816,9 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
                 continue;
 
         drop:
+                if (arg_strict && FLAGS_SET(*pcrs, UINT32_C(1) << pcr))
+                        dropped_relevant_pcr |= pcr;
+
                 *pcrs &= ~(UINT32_C(1) << pcr);
 
                 if (strextendf_with_separator(&dropped, ", ", "%" PRIu32 " (%s)", pcr, tpm2_pcr_index_to_string(pcr)) < 0)
@@ -3742,7 +3826,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
         }
 
         if (dropped)
-                log_notice("PCRs dropped from protection mask: %s", dropped);
+                log_full(dropped_relevant_pcr != 0 ? LOG_ERR : LOG_NOTICE, "PCRs dropped from protection mask: %s", dropped);
         else
                 log_debug("No PCRs dropped from protection mask.");
 
@@ -3751,7 +3835,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
         else
                 log_notice("No PCRs kept in protection mask.");
 
-        return 0;
+        return arg_strict && dropped_relevant_pcr != 0 ? -ENOEXEC : 0;
 }
 
 static int verb_lock_kernel_cmdline(int argc, char *argv[], void *userdata) {
@@ -4321,7 +4405,12 @@ static int write_boot_policy_file(const char *json_text) {
 }
 
 static int make_policy(bool force, bool recovery_pin) {
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
         int r;
+
+        r = tpm2_check_and_allocate(&tc);
+        if (r < 0)
+                return r;
 
         /* Here's how this all works: after predicting all possible PCR values for next boot (with
          * alternatives) we'll calculate a policy from it as a combination of PolicyPCR + PolicyOR
@@ -4365,7 +4454,7 @@ static int make_policy(bool force, bool recovery_pin) {
         if (r < 0)
                 return r;
 
-        log_info("Predicted future PCRs in %s.", FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), predict_start_usec), 1));
+        log_debug("Predicted future PCRs in %s.", FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), predict_start_usec), 1));
 
         _cleanup_(json_variant_unrefp) JsonVariant *new_prediction_json = NULL;
         r = tpm2_pcr_prediction_to_json(&new_prediction, el->primary_algorithm, &new_prediction_json);
@@ -4402,14 +4491,6 @@ static int make_policy(bool force, bool recovery_pin) {
                         return 0; /* NOP */
                 }
         }
-
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
-        r = tpm2_context_new(NULL, &tc);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate TPM2 context: %m");
-
-        if (!tpm2_supports_command(tc, TPM2_CC_PolicyAuthorizeNV))
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 does not support PolicyAuthorizeNV command, refusing.");
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *srk_handle = NULL;
 
@@ -4843,6 +4924,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  list-components             List defined .pcrlock components\n"
                "  predict                     Predict PCR values\n"
                "  make-policy                 Predict PCR values and generate TPM2 policy from it\n"
+               "  is-supported                Check whether there's sufficient TPM supports PolicyAuthorizeNV\n"
                "  remove-policy               Remove TPM2 policy\n"
                "\n%3$sProtections:%4$s\n"
                "  lock-firmware-code          Generate a .pcrlock file from current firmware code\n"
@@ -4873,6 +4955,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -h --help                   Show this help\n"
                "     --version                Print version\n"
                "     --no-pager               Do not pipe output into a pager\n"
+               "     --full                   Print full hash in measurement log\n"
                "     --json=pretty|short|off  Generate JSON output\n"
                "     --raw-description        Show raw firmware record data as description in table\n"
                "     --pcr=NR                 Generate .pcrlock for specified PCR\n"
@@ -4886,6 +4969,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --force                  Write policy even if it matches existing policy\n"
                "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
                "                              Boot entry token to use for this installation\n"
+               "     --strict                 Require all PCRs configured via --pcr= included in policy\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -4912,12 +4996,14 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_POLICY,
                 ARG_FORCE,
                 ARG_ENTRY_TOKEN,
+                ARG_STRICT,
         };
 
         static const struct option options[] = {
                 { "help",            no_argument,       NULL, 'h'                 },
                 { "version",         no_argument,       NULL, ARG_VERSION         },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
+                { "full",            no_argument,       NULL, 'f'                 },
                 { "json",            required_argument, NULL, ARG_JSON            },
                 { "raw-description", no_argument,       NULL, ARG_RAW_DESCRIPTION },
                 { "pcr",             required_argument, NULL, ARG_PCR             },
@@ -4929,6 +5015,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "policy",          required_argument, NULL, ARG_POLICY          },
                 { "force",           no_argument,       NULL, ARG_FORCE           },
                 { "entry-token",     required_argument, NULL, ARG_ENTRY_TOKEN     },
+                { "strict",          required_argument, NULL, ARG_STRICT          },
                 {}
         };
 
@@ -4950,6 +5037,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case 'f':
+                        arg_abbreviate_hash = SIZE_MAX;
                         break;
 
                 case ARG_JSON:
@@ -5082,6 +5173,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_STRICT:
+                        r = parse_boolean_argument("--strict", optarg, &arg_strict);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -5145,6 +5242,7 @@ static int pcrlock_main(int argc, char *argv[]) {
                 { "lock-raw",                    VERB_ANY, 2,        0,            verb_lock_raw                    },
                 { "unlock-raw",                  VERB_ANY, 1,        0,            verb_unlock_simple               },
                 { "make-policy",                 VERB_ANY, 1,        0,            verb_make_policy                 },
+                { "is-supported",                VERB_ANY, 1,        0,            verb_is_supported                },
                 { "remove-policy",               VERB_ANY, 1,        0,            verb_remove_policy               },
                 {}
         };
