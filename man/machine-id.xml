@@ -104,6 +104,8 @@
     (on KVM systems), the Xen hypervisor <filename>uuid</filename>, and finally a randomly
     generated UUID.</para>
 
+    <para>The vm logic can be enabled manually by setting the <varname>systemd.machine_id_smbios</varname> kernel command line option.</para>
+
     <para>After the machine ID is established,
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     will attempt to save it to <filename>/etc/machine-id</filename>. If this fails, it
