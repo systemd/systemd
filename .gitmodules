@@ -1,10 +1,10 @@
 [submodule "pkg/fedora"]
 	path = pkg/fedora
-	url = https://src.fedoraproject.org/rpms/systemd
+	url = https://src.fedoraproject.org/rpms/systemd.git
 	branch = rawhide
 [submodule "pkg/opensuse"]
 	path = pkg/opensuse
-	url = https://src.opensuse.org/rpm/systemd
+	url = https://src.opensuse.org/rpm/systemd.git
 	branch = factory
 [submodule "pkg/debian"]
 	path = pkg/debian
@@ -12,9 +12,9 @@
 	branch = debian/master
 [submodule "pkg/centos"]
 	path = pkg/centos
-	url = https://git.centos.org/rpms/systemd
+	url = https://git.centos.org/rpms/systemd.git
 	branch = c9s-sig-hyperscale
 [submodule "pkg/arch"]
 	path = pkg/arch
-	url = https://gitlab.archlinux.org/daandemeyer/systemd.git
-	branch = strip
+	url = https://gitlab.archlinux.org/archlinux/packaging/packages/systemd.git
+	branch = main

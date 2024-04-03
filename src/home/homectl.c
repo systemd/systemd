@@ -61,6 +61,7 @@ static bool arg_legend = true;
 static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
+static bool arg_offline = false;
 static const char *arg_identity = NULL;
 static JsonVariant *arg_identity_extra = NULL;
 static JsonVariant *arg_identity_extra_privileged = NULL;
@@ -1712,6 +1713,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *buffer = NULL;
         _cleanup_hashmap_free_ Hashmap *blobs = NULL;
         const char *username;
+        uint64_t flags = 0;
         int r;
 
         if (argc >= 2)
@@ -1754,6 +1756,9 @@ static int update_home(int argc, char *argv[], void *userdata) {
         if (arg_and_resize || arg_and_change_password)
                 log_info("Updating home directory.");
 
+        if (arg_offline)
+                flags |= SD_HOMED_UPDATE_OFFLINE;
+
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -1777,7 +1782,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "t", UINT64_C(0));
+                r = sd_bus_message_append(m, "t", flags);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -2564,6 +2569,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --no-pager                Do not pipe output into a pager\n"
                "     --no-legend               Do not show the headers and footers\n"
                "     --no-ask-password         Do not ask for system passwords\n"
+               "     --offline                 Don't update record embedded in home directory\n"
                "  -H --host=[USER@]HOST        Operate on remote host\n"
                "  -M --machine=CONTAINER       Operate on local container\n"
                "     --identity=PATH           Read JSON identity from file\n"
@@ -2723,6 +2729,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
                 ARG_NO_ASK_PASSWORD,
+                ARG_OFFLINE,
                 ARG_REALM,
                 ARG_EMAIL_ADDRESS,
                 ARG_DISK_SIZE,
@@ -2808,6 +2815,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",                    no_argument,       NULL, ARG_NO_PAGER                    },
                 { "no-legend",                   no_argument,       NULL, ARG_NO_LEGEND                   },
                 { "no-ask-password",             no_argument,       NULL, ARG_NO_ASK_PASSWORD             },
+                { "offline",                     no_argument,       NULL, ARG_OFFLINE                     },
                 { "host",                        required_argument, NULL, 'H'                             },
                 { "machine",                     required_argument, NULL, 'M'                             },
                 { "identity",                    required_argument, NULL, 'I'                             },
@@ -2931,6 +2939,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_ASK_PASSWORD:
                         arg_ask_password = false;
+                        break;
+
+                case ARG_OFFLINE:
+                        arg_offline = true;
                         break;
 
                 case 'H':

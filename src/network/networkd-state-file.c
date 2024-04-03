@@ -127,7 +127,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 NDiscRDNSS *a;
 
                 SET_FOREACH(a, link->ndisc_rdnss) {
-                        r = ordered_set_put_in6_addrv(s, &a->router, 1);
+                        r = ordered_set_put_in6_addrv(s, &a->address, 1);
                         if (r < 0)
                                 return r;
                 }

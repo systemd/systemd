@@ -25,11 +25,11 @@
 #include "virt.h"
 
 static const UnitActiveState state_translation_table[_TIMER_STATE_MAX] = {
-        [TIMER_DEAD] = UNIT_INACTIVE,
+        [TIMER_DEAD]    = UNIT_INACTIVE,
         [TIMER_WAITING] = UNIT_ACTIVE,
         [TIMER_RUNNING] = UNIT_ACTIVE,
         [TIMER_ELAPSED] = UNIT_ACTIVE,
-        [TIMER_FAILED] = UNIT_FAILED
+        [TIMER_FAILED]  = UNIT_FAILED,
 };
 
 static int timer_dispatch(sd_event_source *s, uint64_t usec, void *userdata);
@@ -993,7 +993,7 @@ static const char* const timer_base_table[_TIMER_BASE_MAX] = {
         [TIMER_STARTUP]       = "OnStartupSec",
         [TIMER_UNIT_ACTIVE]   = "OnUnitActiveSec",
         [TIMER_UNIT_INACTIVE] = "OnUnitInactiveSec",
-        [TIMER_CALENDAR]      = "OnCalendar"
+        [TIMER_CALENDAR]      = "OnCalendar",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(timer_base, TimerBase);

@@ -428,9 +428,12 @@
           Defaults to <literal>no</literal>. Further settings for the DHCP server may be set in the
           [DHCPServer] section described below.</para>
 
-          <para>Even if this is enabled, the DHCP server will not be started automatically. It will be
-          started after <filename>systemd-networkd-persistent-storage.service</filename> is started, which
-          calls <command>networkctl persistent-storage yes</command>. See
+          <para>Even if this is enabled, the DHCP server will not be started automatically and wait for the
+          persistent storage being ready to load/save leases in the storage, unless
+          <varname>RelayTarget=</varname> or <varname>PersistLeases=no</varname> are specified in the
+          [DHCPServer] section. It will be started after
+          <filename>systemd-networkd-persistent-storage.service</filename> is started, which calls
+          <command>networkctl persistent-storage yes</command>. See
           <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
           for more details.</para>
 
@@ -3900,6 +3903,22 @@ ServerAddress=192.168.0.1/24</programlisting>
           a DHCPACK message to the client, instead of DHCPOFFER. Defaults to true.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PersistLeases=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the DHCP server will load and save leases in the persistent
+          storage. When false, the DHCP server will neither load nor save leases in the persistent storage.
+          Hence, bound leases will be lost when the interface is reconfigured e.g. by
+          <command>networkctl reconfigure</command>, or <filename>systemd-networkd.service</filename>
+          is restarted. That may cause address conflict on the network. So, please take an extra care when
+          disable this setting. When unspecified, the value specified in the same setting in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          which defaults to <literal>yes</literal>, will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
 

@@ -378,6 +378,13 @@ All tools:
   `$SYSTEMD_CONFEXT_HIERARCHIES` works for confext images and supports the
   systemd-confext multi-call functionality of sysext.
 
+* `$SYSTEMD_SYSEXT_MUTABLE_MODE` — this variable may be used to override the
+  default mutability mode for hierarchies managed by `systemd-sysext`. It takes
+  the same values the `--mutable=` command line switch does. Note that the
+  command line still overrides the effect of the environment
+  variable. Similarly, `$SYSTEMD_CONFEXT_MUTABLE_MODE` works for confext images
+  and supports the systemd-confext multi-call functionality of sysext.
+
 `systemd-tmpfiles`:
 
 * `$SYSTEMD_TMPFILES_FORCE_SUBVOL` — if unset, `v`/`q`/`Q` lines will create

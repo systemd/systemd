@@ -13,22 +13,22 @@
 #include "virt.h"
 
 static const char* const emergency_action_table[_EMERGENCY_ACTION_MAX] = {
-        [EMERGENCY_ACTION_NONE] =               "none",
-        [EMERGENCY_ACTION_REBOOT] =             "reboot",
-        [EMERGENCY_ACTION_REBOOT_FORCE] =       "reboot-force",
-        [EMERGENCY_ACTION_REBOOT_IMMEDIATE] =   "reboot-immediate",
-        [EMERGENCY_ACTION_POWEROFF] =           "poweroff",
-        [EMERGENCY_ACTION_POWEROFF_FORCE] =     "poweroff-force",
+        [EMERGENCY_ACTION_NONE]               = "none",
+        [EMERGENCY_ACTION_REBOOT]             = "reboot",
+        [EMERGENCY_ACTION_REBOOT_FORCE]       = "reboot-force",
+        [EMERGENCY_ACTION_REBOOT_IMMEDIATE]   = "reboot-immediate",
+        [EMERGENCY_ACTION_POWEROFF]           = "poweroff",
+        [EMERGENCY_ACTION_POWEROFF_FORCE]     = "poweroff-force",
         [EMERGENCY_ACTION_POWEROFF_IMMEDIATE] = "poweroff-immediate",
-        [EMERGENCY_ACTION_EXIT] =               "exit",
-        [EMERGENCY_ACTION_EXIT_FORCE] =         "exit-force",
-        [EMERGENCY_ACTION_SOFT_REBOOT] =        "soft-reboot",
-        [EMERGENCY_ACTION_SOFT_REBOOT_FORCE] =  "soft-reboot-force",
-        [EMERGENCY_ACTION_KEXEC] =              "kexec",
-        [EMERGENCY_ACTION_KEXEC_FORCE] =        "kexec-force",
-        [EMERGENCY_ACTION_HALT] =               "halt",
-        [EMERGENCY_ACTION_HALT_FORCE] =         "halt-force",
-        [EMERGENCY_ACTION_HALT_IMMEDIATE] =     "halt-immediate",
+        [EMERGENCY_ACTION_EXIT]               = "exit",
+        [EMERGENCY_ACTION_EXIT_FORCE]         = "exit-force",
+        [EMERGENCY_ACTION_SOFT_REBOOT]        = "soft-reboot",
+        [EMERGENCY_ACTION_SOFT_REBOOT_FORCE]  = "soft-reboot-force",
+        [EMERGENCY_ACTION_KEXEC]              = "kexec",
+        [EMERGENCY_ACTION_KEXEC_FORCE]        = "kexec-force",
+        [EMERGENCY_ACTION_HALT]               = "halt",
+        [EMERGENCY_ACTION_HALT_FORCE]         = "halt-force",
+        [EMERGENCY_ACTION_HALT_IMMEDIATE]     = "halt-immediate",
 };
 
 static void log_and_status(Manager *m, bool warn, const char *message, const char *reason) {

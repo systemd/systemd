@@ -210,6 +210,10 @@ if sshdconfdir == ''
         sshdconfdir = sysconfdir / 'ssh/sshd_config.d'
 endif
 
+sshdprivsepdir = get_option('sshdprivsepdir')
+conf.set10('CREATE_SSHDPRIVSEPDIR', sshdprivsepdir != 'no' and not sshdprivsepdir.startswith('/usr/'))
+conf.set('SSHDPRIVSEPDIR', sshdprivsepdir, description : 'SSH privilege separation directory')
+
 libcryptsetup_plugins_dir = get_option('libcryptsetup-plugins-dir')
 if libcryptsetup_plugins_dir == ''
         libcryptsetup_plugins_dir = libdir / 'cryptsetup'
@@ -1251,7 +1255,8 @@ foreach ident : ['crypt_set_metadata_size',
                  'crypt_reencrypt_init_by_passphrase',
                  'crypt_reencrypt',
                  'crypt_set_data_offset',
-                 'crypt_set_keyring_to_link']
+                 'crypt_set_keyring_to_link',
+                 'crypt_resume_by_volume_key']
         have_ident = have and cc.has_function(
                 ident,
                 prefix : '#include <libcryptsetup.h>',
@@ -1318,6 +1323,9 @@ if not have
         # link to neither of the libs if one is not found
         libgcrypt = []
         libgpg_error = []
+        libgcrypt_cflags = []
+else
+        libgcrypt_cflags = libgcrypt.partial_dependency(includes: true, compile_args: true)
 endif
 conf.set10('HAVE_GCRYPT', have)
 
@@ -1564,7 +1572,8 @@ conf.set10('ENABLE_IMPORTD', have)
 have = get_option('homed').require(
         conf.get('HAVE_OPENSSL') == 1 and
         conf.get('HAVE_LIBFDISK') == 1 and
-        conf.get('HAVE_LIBCRYPTSETUP') == 1,
+        conf.get('HAVE_LIBCRYPTSETUP') == 1 and
+        conf.get('HAVE_CRYPT_RESUME_BY_VOLUME_KEY') == 1,
         error_message : 'openssl, fdisk and libcryptsetup required').allowed()
 conf.set10('ENABLE_HOMED', have)
 
@@ -1693,7 +1702,6 @@ if conf.get('BPF_FRAMEWORK') == 1
                 '-std=gnu11',
                 '-fno-stack-protector',
                 '-O2',
-                '-mkernel=5.2',
                 '-mcpu=v3',
                 '-mco-re',
                 '-gbtf',
@@ -1742,7 +1750,7 @@ if conf.get('BPF_FRAMEWORK') == 1
 
         bpf_o_unstripped_cmd += ['-I.']
 
-        if not meson.is_cross_build() and bpf_compiler == 'clang'
+        if not meson.is_cross_build()
                 target_triplet_cmd = run_command('gcc', '-dumpmachine', check: false)
                 if target_triplet_cmd.returncode() == 0
                         target_triplet = target_triplet_cmd.stdout().strip()
@@ -1828,6 +1836,7 @@ conf.set10('ENABLE_UKIFY', want_ukify)
 
 #####################################################################
 
+check_efi_alignment_py = find_program('tools/check-efi-alignment.py')
 check_version_history_py = find_program('tools/check-version-history.py')
 elf2efi_py = find_program('tools/elf2efi.py')
 export_dbus_interfaces_py = find_program('tools/dbus_exporter.py')
@@ -1949,8 +1958,7 @@ libsystemd = shared_library(
         include_directories : libsystemd_includes,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
-        link_with : [libbasic,
-                     libbasic_gcrypt],
+        link_with : [libbasic],
         link_whole : [libsystemd_static],
         dependencies : [librt,
                         threads,
@@ -1966,7 +1974,6 @@ install_libsystemd_static = static_library(
         'systemd',
         libsystemd_sources,
         basic_sources,
-        basic_gcrypt_sources,
         fundamental_sources,
         include_directories : libsystemd_includes,
         build_by_default : static_libsystemd != 'false',
@@ -1977,7 +1984,7 @@ install_libsystemd_static = static_library(
         dependencies : [libblkid,
                         libcap,
                         libdl,
-                        libgcrypt,
+                        libgcrypt_cflags,
                         liblz4_cflags,
                         libmount,
                         libopenssl,
@@ -2720,6 +2727,7 @@ summary({
         'PAM modules directory' :           pamlibdir,
         'PAM configuration directory' :     pamconfdir,
         'ssh server configuration directory' : sshdconfdir,
+        'ssh server privilege separation directory' : sshdprivsepdir,
         'ssh client configuration directory' : sshconfdir,
         'libcryptsetup plugins directory' : libcryptsetup_plugins_dir,
         'RPM macros directory' :            rpmmacrosdir,

@@ -2,14 +2,16 @@
 #pragma once
 
 #include "conf-parser.h"
+#include "in-addr-util.h"
 #include "set.h"
 
+typedef struct Address Address;
 typedef struct Link Link;
 typedef struct Manager Manager;
 typedef struct Network Network;
 
 int network_adjust_dhcp_server(Network *network, Set **addresses);
-
+int address_acquire_from_dhcp_server_leases_file(Link *link, const Address *address, union in_addr_union *ret);
 int link_request_dhcp_server(Link *link);
 
 int link_start_dhcp4_server(Link *link);

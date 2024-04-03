@@ -88,37 +88,15 @@ int icmp6_bind(int ifindex, bool is_router) {
         return TAKE_FD(s);
 }
 
-int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
-        struct sockaddr_in6 dst = {
-                .sin6_family = AF_INET6,
-                .sin6_addr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
-        };
-        struct {
-                struct nd_router_solicit rs;
-                struct nd_opt_hdr rs_opt;
-                struct ether_addr rs_opt_mac;
-        } _packed_ rs = {
-                .rs.nd_rs_type = ND_ROUTER_SOLICIT,
-                .rs_opt.nd_opt_type = ND_OPT_SOURCE_LINKADDR,
-                .rs_opt.nd_opt_len = 1,
-        };
-        struct iovec iov = {
-                .iov_base = &rs,
-                .iov_len = sizeof(rs),
-        };
+int icmp6_send(int fd, const struct sockaddr_in6 *dst, const struct iovec *iov, size_t n_iov) {
         struct msghdr msg = {
-                .msg_name = &dst,
-                .msg_namelen = sizeof(dst),
-                .msg_iov = &iov,
-                .msg_iovlen = 1,
+                .msg_name = (struct sockaddr_in6*) dst,
+                .msg_namelen = sizeof(struct sockaddr_in6),
+                .msg_iov = (struct iovec*) iov,
+                .msg_iovlen = n_iov,
         };
 
-        assert(s >= 0);
-        assert(ether_addr);
-
-        rs.rs_opt_mac = *ether_addr;
-
-        if (sendmsg(s, &msg, 0) < 0)
+        if (sendmsg(fd, &msg, 0) < 0)
                 return -errno;
 
         return 0;

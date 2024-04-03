@@ -120,6 +120,9 @@ typedef enum ManagerTimestamp {
         MANAGER_TIMESTAMP_INITRD_GENERATORS_FINISH,
         MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_START,
         MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_FINISH,
+
+        MANAGER_TIMESTAMP_SOFTREBOOT_START,
+
         _MANAGER_TIMESTAMP_MAX,
         _MANAGER_TIMESTAMP_INVALID = -EINVAL,
 } ManagerTimestamp;
@@ -488,8 +491,8 @@ struct Manager {
         /* Reference to RestrictFileSystems= BPF program */
         struct restrict_fs_bpf *restrict_fs;
 
-        /* Allow users to configure a rate limit for Reload() operations */
-        RateLimit reload_ratelimit;
+        /* Allow users to configure a rate limit for Reload()/Reexecute() operations */
+        RateLimit reload_reexec_ratelimit;
         /* Dump*() are slow, so always rate limit them to 10 per 10 minutes */
         RateLimit dump_ratelimit;
 
@@ -501,6 +504,8 @@ struct Manager {
         /* Pin the systemd-executor binary, so that it never changes until re-exec, ensuring we don't have
          * serialization/deserialization compatibility issues during upgrades. */
         int executor_fd;
+
+        unsigned soft_reboots_count;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {

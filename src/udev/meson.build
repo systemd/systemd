@@ -205,6 +205,7 @@ executables += [
         },
         udev_test_template + {
                 'sources' : files('net/test-link-config-tables.c'),
+                'include_directories' : includes + include_directories('.'),
                 'suite' : 'udev',
         },
         udev_test_template + {
@@ -240,6 +241,7 @@ executables += [
         },
         udev_fuzz_template + {
                 'sources' : files('net/fuzz-link-parser.c'),
+                'include_directories' : includes + include_directories('.'),
         },
         udev_fuzz_template + {
                 'sources' : files('fuzz-udev-rule-parse-value.c'),

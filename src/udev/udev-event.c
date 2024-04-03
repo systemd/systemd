@@ -16,7 +16,7 @@
 #include "udev-util.h"
 #include "user-util.h"
 
-UdevEvent *udev_event_new(sd_device *dev, UdevWorker *worker) {
+UdevEvent *udev_event_new(sd_device *dev, UdevWorker *worker, EventMode mode) {
         int log_level = worker ? worker->log_level : log_get_max_level();
         UdevEvent *event;
 
@@ -36,6 +36,7 @@ UdevEvent *udev_event_new(sd_device *dev, UdevWorker *worker) {
                 .mode = MODE_INVALID,
                 .log_level_was_debug = log_level == LOG_DEBUG,
                 .default_log_level = log_level,
+                .event_mode = mode,
         };
 
         return event;
@@ -109,6 +110,9 @@ static int rename_netif(UdevEvent *event) {
         int ifindex, r;
 
         assert(event);
+
+        if (!EVENT_MODE_DESTRUCTIVE(event))
+                return 0;
 
         if (!event->name)
                 return 0; /* No new name is requested. */
@@ -222,6 +226,9 @@ static int assign_altnames(UdevEvent *event) {
         int ifindex, r;
         const char *s;
 
+        if (!EVENT_MODE_DESTRUCTIVE(event))
+                return 0;
+
         if (strv_isempty(event->altnames))
                 return 0;
 
@@ -249,6 +256,9 @@ static int assign_altnames(UdevEvent *event) {
 static int update_devnode(UdevEvent *event) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         int r;
+
+        if (!EVENT_MODE_DESTRUCTIVE(event))
+                return 0;
 
         r = sd_device_get_devnum(dev, NULL);
         if (r == -ENOENT)
@@ -291,18 +301,22 @@ static int event_execute_rules_on_remove(UdevEvent *event, UdevRules *rules) {
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to read database under /run/udev/data/: %m");
 
-        r = device_tag_index(dev, NULL, false);
-        if (r < 0)
-                log_device_debug_errno(dev, r, "Failed to remove corresponding tag files under /run/udev/tag/, ignoring: %m");
+        if (EVENT_MODE_DESTRUCTIVE(event)) {
+                r = device_tag_index(dev, NULL, false);
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to remove corresponding tag files under /run/udev/tag/, ignoring: %m");
 
-        r = device_delete_db(dev);
-        if (r < 0)
-                log_device_debug_errno(dev, r, "Failed to delete database under /run/udev/data/, ignoring: %m");
+                r = device_delete_db(dev);
+                if (r < 0)
+                        log_device_debug_errno(dev, r, "Failed to delete database under /run/udev/data/, ignoring: %m");
+        }
 
         r = udev_rules_apply_to_event(rules, event);
 
-        if (sd_device_get_devnum(dev, NULL) >= 0)
-                (void) udev_node_remove(dev);
+        if (EVENT_MODE_DESTRUCTIVE(event)) {
+                if (sd_device_get_devnum(dev, NULL) >= 0)
+                        (void) udev_node_remove(dev);
+        }
 
         return r;
 }
@@ -324,12 +338,45 @@ static int copy_all_tags(sd_device *d, sd_device *s) {
         return 0;
 }
 
+static int update_clone(UdevEvent *event) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev_db_clone);
+        int r;
+
+        if (!EVENT_MODE_DESTRUCTIVE(event))
+                return 0;
+
+        /* Drop previously added property for safety to make IMPORT{db}="ID_RENAMING" not work. This is
+         * mostly for 'move' uevent, but let's do unconditionally. Why? If a network interface is renamed in
+         * initrd, then udevd may lose the 'move' uevent during switching root. Usually, we do not set the
+         * persistent flag for network interfaces, but user may set it. Just for safety. */
+
+        r = device_add_property(dev, "ID_RENAMING", NULL);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to remove 'ID_RENAMING' property: %m");
+
+        /* If the database file already exists, append ID_PROCESSING property to the existing database,
+         * to indicate that the device is being processed by udevd. */
+        if (device_has_db(dev) > 0) {
+                r = device_add_property(dev, "ID_PROCESSING", "1");
+                if (r < 0)
+                        return log_device_warning_errno(dev, r, "Failed to add 'ID_PROCESSING' property: %m");
+
+                r = device_update_db(dev);
+                if (r < 0)
+                        return log_device_warning_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
+        }
+
+        return 0;
+}
+
 int udev_event_execute_rules(UdevEvent *event, UdevRules *rules) {
         sd_device_action_t action;
         sd_device *dev;
         int r;
 
-        dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
+        assert(event);
+        assert(IN_SET(event->event_mode, EVENT_UDEV_WORKER, EVENT_UDEVADM_TEST, EVENT_TEST_RULE_RUNNER));
+        dev = ASSERT_PTR(event->dev);
         assert(rules);
 
         r = sd_device_get_action(dev, &action);
@@ -347,25 +394,9 @@ int udev_event_execute_rules(UdevEvent *event, UdevRules *rules) {
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to copy all tags from old database entry, ignoring: %m");
 
-        /* Drop previously added property for safety to make IMPORT{db}="ID_RENAMING" not work. This is
-         * mostly for 'move' uevent, but let's do unconditionally. Why? If a network interface is renamed in
-         * initrd, then udevd may lose the 'move' uevent during switching root. Usually, we do not set the
-         * persistent flag for network interfaces, but user may set it. Just for safety. */
-        r = device_add_property(event->dev_db_clone, "ID_RENAMING", NULL);
+        r = update_clone(event);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to remove 'ID_RENAMING' property: %m");
-
-        /* If the database file already exists, append ID_PROCESSING property to the existing database,
-         * to indicate that the device is being processed by udevd. */
-        if (device_has_db(event->dev_db_clone) > 0) {
-                r = device_add_property(event->dev_db_clone, "ID_PROCESSING", "1");
-                if (r < 0)
-                        return log_device_warning_errno(event->dev_db_clone, r, "Failed to add 'ID_PROCESSING' property: %m");
-
-                r = device_update_db(event->dev_db_clone);
-                if (r < 0)
-                        return log_device_warning_errno(event->dev_db_clone, r, "Failed to update database under /run/udev/data/: %m");
-        }
+                return r;
 
         DEVICE_TRACE_POINT(rules_start, dev);
 
@@ -392,10 +423,12 @@ int udev_event_execute_rules(UdevEvent *event, UdevRules *rules) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to set initialization timestamp: %m");
 
-        /* (re)write database file */
-        r = device_tag_index(dev, event->dev_db_clone, true);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to update tags under /run/udev/tag/: %m");
+        if (EVENT_MODE_DESTRUCTIVE(event)) {
+                /* (re)write database file */
+                r = device_tag_index(dev, event->dev_db_clone, true);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to update tags under /run/udev/tag/: %m");
+        }
 
         /* If the database file for the device will be created below, add ID_PROCESSING=1 to indicate that
          * the device is still being processed by udevd, as commands specified in RUN are invoked after
@@ -406,9 +439,11 @@ int udev_event_execute_rules(UdevEvent *event, UdevRules *rules) {
                         return log_device_warning_errno(dev, r, "Failed to add 'ID_PROCESSING' property: %m");
         }
 
-        r = device_update_db(dev);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
+        if (EVENT_MODE_DESTRUCTIVE(event)) {
+                r = device_update_db(dev);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
+        }
 
         device_set_is_initialized(dev);
 

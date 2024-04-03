@@ -105,10 +105,6 @@ static inline int path_simplify_alloc(const char *path, char **ret) {
         return 0;
 }
 
-static inline bool path_equal_ptr(const char *a, const char *b) {
-        return !!a == !!b && (!a || path_equal(a, b));
-}
-
 /* Note: the search terminates on the first NULL item. */
 #define PATH_IN_SET(p, ...) path_strv_contains(STRV_MAKE(__VA_ARGS__), p)
 

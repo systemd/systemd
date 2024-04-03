@@ -61,15 +61,12 @@ int start_transient_scope(sd_bus *bus, const char *machine_name, bool allow_pidf
                                   "AddRef",      "b",  1,
                                   "CollectMode", "s",  "inactive-or-failed");
 
-        if (allow_pidfd) {
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-                r = pidref_set_pid(&pidref, getpid_cached());
-                if (r < 0)
-                        return log_error_errno(r, "Failed to allocate PID reference: %m");
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_set_self(&pidref);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate PID reference: %m");
 
-                r = bus_append_scope_pidref(m, &pidref);
-        } else
-                r = sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, getpid_cached());
+        r = bus_append_scope_pidref(m, &pidref, allow_pidfd);
         if (r < 0)
                 return bus_log_create_error(r);
 

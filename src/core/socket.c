@@ -57,20 +57,20 @@ struct SocketPeer {
 };
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
-        [SOCKET_DEAD] = UNIT_INACTIVE,
-        [SOCKET_START_PRE] = UNIT_ACTIVATING,
-        [SOCKET_START_CHOWN] = UNIT_ACTIVATING,
-        [SOCKET_START_POST] = UNIT_ACTIVATING,
-        [SOCKET_LISTENING] = UNIT_ACTIVE,
-        [SOCKET_RUNNING] = UNIT_ACTIVE,
-        [SOCKET_STOP_PRE] = UNIT_DEACTIVATING,
+        [SOCKET_DEAD]             = UNIT_INACTIVE,
+        [SOCKET_START_PRE]        = UNIT_ACTIVATING,
+        [SOCKET_START_CHOWN]      = UNIT_ACTIVATING,
+        [SOCKET_START_POST]       = UNIT_ACTIVATING,
+        [SOCKET_LISTENING]        = UNIT_ACTIVE,
+        [SOCKET_RUNNING]          = UNIT_ACTIVE,
+        [SOCKET_STOP_PRE]         = UNIT_DEACTIVATING,
         [SOCKET_STOP_PRE_SIGTERM] = UNIT_DEACTIVATING,
         [SOCKET_STOP_PRE_SIGKILL] = UNIT_DEACTIVATING,
-        [SOCKET_STOP_POST] = UNIT_DEACTIVATING,
-        [SOCKET_FINAL_SIGTERM] = UNIT_DEACTIVATING,
-        [SOCKET_FINAL_SIGKILL] = UNIT_DEACTIVATING,
-        [SOCKET_FAILED] = UNIT_FAILED,
-        [SOCKET_CLEANING] = UNIT_MAINTENANCE,
+        [SOCKET_STOP_POST]        = UNIT_DEACTIVATING,
+        [SOCKET_FINAL_SIGTERM]    = UNIT_DEACTIVATING,
+        [SOCKET_FINAL_SIGKILL]    = UNIT_DEACTIVATING,
+        [SOCKET_FAILED]           = UNIT_FAILED,
+        [SOCKET_CLEANING]         = UNIT_MAINTENANCE,
 };
 
 static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
@@ -590,6 +590,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTransparent: %s\n"
                 "%sBroadcast: %s\n"
                 "%sPassCredentials: %s\n"
+                "%sPassFileDescriptorsToExec: %s\n"
                 "%sPassSecurity: %s\n"
                 "%sPassPacketInfo: %s\n"
                 "%sTCPCongestion: %s\n"
@@ -610,6 +611,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->transparent),
                 prefix, yes_no(s->broadcast),
                 prefix, yes_no(s->pass_cred),
+                prefix, yes_no(s->pass_fds_to_exec),
                 prefix, yes_no(s->pass_sec),
                 prefix, yes_no(s->pass_pktinfo),
                 prefix, strna(s->tcp_congestion),
@@ -1369,6 +1371,8 @@ clear:
 }
 
 int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
+        int r;
+
         /* Figure out what the unit that will be used to handle the connections on the socket looks like.
          *
          * If cfd < 0, then we don't have a connection yet. In case of Accept=yes sockets, use a fake
@@ -1388,7 +1392,6 @@ int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
 
         /* Build the instance name and load the unit */
         _cleanup_free_ char *prefix = NULL, *instance = NULL, *name = NULL;
-        int r;
 
         r = unit_name_to_prefix(UNIT(s)->id, &prefix);
         if (r < 0)
@@ -1920,6 +1923,26 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
         if (r < 0)
                 return r;
 
+        /* Note that ExecStartPre= command doesn't inherit any FDs. It runs before we open listen FDs. */
+        if (s->pass_fds_to_exec) {
+                _cleanup_strv_free_ char **fd_names = NULL;
+                _cleanup_free_ int *fds = NULL;
+                int n_fds;
+
+                n_fds = socket_collect_fds(s, &fds);
+                if (n_fds < 0)
+                        return n_fds;
+
+                r = strv_extend_n(&fd_names, socket_fdname(s), n_fds);
+                if (r < 0)
+                        return r;
+
+                exec_params.flags |= EXEC_PASS_FDS;
+                exec_params.fds = TAKE_PTR(fds);
+                exec_params.fd_names = TAKE_PTR(fd_names);
+                exec_params.n_socket_fds = n_fds;
+        }
+
         r = exec_spawn(UNIT(s),
                        c,
                        &s->exec_context,
@@ -2295,8 +2318,8 @@ static void socket_enter_running(Socket *s, int cfd_in) {
 
                 if (!pending) {
                         if (!UNIT_ISSET(s->service)) {
-                                r = log_unit_warning_errno(UNIT(s), SYNTHETIC_ERRNO(ENOENT),
-                                                           "Service to activate vanished, refusing activation.");
+                                log_unit_warning(UNIT(s),
+                                                 "Service to activate vanished, refusing activation.");
                                 goto fail;
                         }
 
@@ -2340,18 +2363,15 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                 }
 
                 r = socket_load_service_unit(s, cfd, &service);
-                if (r < 0) {
-                        if (ERRNO_IS_DISCONNECT(r))
-                                return;
-
-                        log_unit_warning_errno(UNIT(s), r, "Failed to load connection service unit: %m");
+                if (ERRNO_IS_NEG_DISCONNECT(r))
+                        return;
+                if (r < 0 || UNIT_IS_LOAD_ERROR(service->load_state)) {
+                        log_unit_warning_errno(UNIT(s), r < 0 ? r : service->load_error,
+                                               "Failed to load connection service unit: %m");
                         goto fail;
                 }
-
-                r = unit_add_two_dependencies(UNIT(s), UNIT_BEFORE, UNIT_TRIGGERS, service,
-                                              false, UNIT_DEPENDENCY_IMPLICIT);
-                if (r < 0) {
-                        log_unit_warning_errno(UNIT(s), r, "Failed to add Before=/Triggers= dependencies on connection unit: %m");
+                if (service->load_state == UNIT_MASKED) {
+                        log_unit_warning(UNIT(s), "Connection service unit is masked, refusing.");
                         goto fail;
                 }
 
@@ -2366,7 +2386,10 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                         goto fail;
                 }
 
-                TAKE_FD(cfd); /* We passed ownership of the fd to the service now. Forget it here. */
+                /* We passed ownership of the fd and socket peer to the service now. */
+                TAKE_FD(cfd);
+                TAKE_PTR(p);
+
                 s->n_connections++;
 
                 r = manager_add_job(UNIT(s)->manager, JOB_START, service, JOB_REPLACE, NULL, &error, NULL);
@@ -2388,13 +2411,9 @@ refuse:
         return;
 
 queue_error:
-        if (ERRNO_IS_RESOURCE(r))
-                log_unit_warning(UNIT(s), "Failed to queue service startup job: %s",
-                                 bus_error_message(&error, r));
-        else
-                log_unit_warning(UNIT(s), "Failed to queue service startup job (Maybe the service file is missing or not a %s unit?): %s",
-                                 cfd >= 0 ? "template" : "non-template",
-                                 bus_error_message(&error, r));
+        log_unit_warning_errno(UNIT(s), r, "Failed to queue service startup job%s: %s",
+                               cfd >= 0 && !ERRNO_IS_RESOURCE(r) ? " (Maybe the service is missing or is a template unit?)" : "",
+                               bus_error_message(&error, r));
 
 fail:
         socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
@@ -3259,12 +3278,11 @@ static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *use
         return 0;
 }
 
-int socket_collect_fds(Socket *s, int **fds) {
-        size_t k = 0, n = 0;
-        int *rfds;
+int socket_collect_fds(Socket *s, int **ret) {
+        size_t n = 0, k = 0;
 
         assert(s);
-        assert(fds);
+        assert(ret);
 
         /* Called from the service code for requesting our fds */
 
@@ -3274,25 +3292,25 @@ int socket_collect_fds(Socket *s, int **fds) {
                 n += p->n_auxiliary_fds;
         }
 
-        if (n <= 0) {
-                *fds = NULL;
+        if (n == 0) {
+                *ret = NULL;
                 return 0;
         }
 
-        rfds = new(int, n);
-        if (!rfds)
+        int *fds = new(int, n);
+        if (!fds)
                 return -ENOMEM;
 
         LIST_FOREACH(port, p, s->ports) {
                 if (p->fd >= 0)
-                        rfds[k++] = p->fd;
-                for (size_t i = 0; i < p->n_auxiliary_fds; ++i)
-                        rfds[k++] = p->auxiliary_fds[i];
+                        fds[k++] = p->fd;
+                FOREACH_ARRAY(i, p->auxiliary_fds, p->n_auxiliary_fds)
+                        fds[k++] = *i;
         }
 
         assert(k == n);
 
-        *fds = rfds;
+        *ret = fds;
         return (int) n;
 }
 
@@ -3458,7 +3476,7 @@ static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {
         [SOCKET_EXEC_START_CHOWN] = "ExecStartChown",
         [SOCKET_EXEC_START_POST]  = "ExecStartPost",
         [SOCKET_EXEC_STOP_PRE]    = "ExecStopPre",
-        [SOCKET_EXEC_STOP_POST]   = "ExecStopPost"
+        [SOCKET_EXEC_STOP_POST]   = "ExecStopPost",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_exec_command, SocketExecCommand);
@@ -3472,7 +3490,7 @@ static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
         [SOCKET_FAILURE_CORE_DUMP]               = "core-dump",
         [SOCKET_FAILURE_START_LIMIT_HIT]         = "start-limit-hit",
         [SOCKET_FAILURE_TRIGGER_LIMIT_HIT]       = "trigger-limit-hit",
-        [SOCKET_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit"
+        [SOCKET_FAILURE_SERVICE_START_LIMIT_HIT] = "service-start-limit-hit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_result, SocketResult);

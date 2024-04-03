@@ -30,15 +30,15 @@
 #include "virt.h"
 
 static const UnitActiveState state_translation_table[_SWAP_STATE_MAX] = {
-        [SWAP_DEAD] = UNIT_INACTIVE,
-        [SWAP_ACTIVATING] = UNIT_ACTIVATING,
-        [SWAP_ACTIVATING_DONE] = UNIT_ACTIVE,
-        [SWAP_ACTIVE] = UNIT_ACTIVE,
-        [SWAP_DEACTIVATING] = UNIT_DEACTIVATING,
+        [SWAP_DEAD]                 = UNIT_INACTIVE,
+        [SWAP_ACTIVATING]           = UNIT_ACTIVATING,
+        [SWAP_ACTIVATING_DONE]      = UNIT_ACTIVE,
+        [SWAP_ACTIVE]               = UNIT_ACTIVE,
+        [SWAP_DEACTIVATING]         = UNIT_DEACTIVATING,
         [SWAP_DEACTIVATING_SIGTERM] = UNIT_DEACTIVATING,
         [SWAP_DEACTIVATING_SIGKILL] = UNIT_DEACTIVATING,
-        [SWAP_FAILED] = UNIT_FAILED,
-        [SWAP_CLEANING] = UNIT_MAINTENANCE,
+        [SWAP_FAILED]               = UNIT_FAILED,
+        [SWAP_CLEANING]             = UNIT_MAINTENANCE,
 };
 
 static int swap_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
@@ -422,7 +422,7 @@ static int swap_setup_unit(
 
         /* The unit is definitely around now, mark it as loaded if it was previously referenced but
          * could not be loaded. After all we can load it now, from the data in /proc/swaps. */
-        if (IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_BAD_SETTING, UNIT_ERROR)) {
+        if (UNIT_IS_LOAD_ERROR(u->load_state)) {
                 u->load_state = UNIT_LOADED;
                 u->load_error = 0;
         }
@@ -438,6 +438,8 @@ static int swap_setup_unit(
         p->priority_set = true;
 
         unit_add_to_dbus_queue(u);
+        TAKE_PTR(new);
+
         return 0;
 }
 

@@ -44,12 +44,12 @@ MINOR_REQUIRED=7
 
 if [[ "$KERNEL_MAJOR" -lt $MAJOR_REQUIRED || ("$KERNEL_MAJOR" -eq $MAJOR_REQUIRED && "$KERNEL_MINOR" -lt $MINOR_REQUIRED) ]]; then
     echo "kernel is not 5.7+" >>/skipped
-    exit 0
+    exit 77
 fi
 
 if systemctl --version | grep -q -F -- "-BPF_FRAMEWORK"; then
     echo "bpf-framework is disabled" >>/skipped
-    exit 0
+    exit 77
 fi
 
 trap teardown EXIT
