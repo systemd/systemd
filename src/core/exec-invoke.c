@@ -4304,8 +4304,10 @@ int exec_invoke(
 
         _cleanup_free_ char *fname = NULL;
         r = path_extract_filename(command->path, &fname);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to extract filename from path '%s', ignoring: %m", command->path);
+        if (r < 0) {
+                *exit_status = EXIT_STDOUT;
+                return log_exec_error_errno(context, params, r, "Failed to extract filename from path %s: %m", command->path);
+        }
 
         r = setup_output(context, params, STDOUT_FILENO, socket_fd, named_iofds, fname, uid, gid, &journal_stream_dev, &journal_stream_ino);
         if (r < 0) {
