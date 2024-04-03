@@ -1493,6 +1493,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'dstport 1000 ')
         self.assertRegex(output, 'ethertype ip ')
+        self.assertRegex(output, 'multiproto ip ')
 
     @expectedFailureIfModuleIsNotAvailable('batman-adv')
     def test_batadv(self):
