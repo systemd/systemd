@@ -313,6 +313,11 @@ units = [
         { 'file' : 'systemd-growfs@.service.in' },
         { 'file' : 'systemd-halt.service' },
         {
+          'file' : 'systemd-hibernate-clear.service.in',
+          'conditions' : ['ENABLE_HIBERNATE', 'ENABLE_EFI'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
           'file' : 'systemd-hibernate-resume.service.in',
           'conditions' : ['ENABLE_HIBERNATE'],
         },

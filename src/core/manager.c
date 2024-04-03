@@ -2586,22 +2586,17 @@ static void manager_invoke_notify_message(
                 UNIT_VTABLE(u)->notify_message(u, ucred, tags, fds);
 
         else if (DEBUG_LOGGING) {
-                _cleanup_free_ char *buf = NULL, *x = NULL, *y = NULL;
+                _cleanup_free_ char *joined = strv_join(tags, ", ");
+                char buf[CELLESCAPE_DEFAULT_LENGTH];
 
-                buf = strv_join(tags, ", ");
-                if (buf)
-                        x = ellipsize(buf, 20, 90);
-                if (x)
-                        y = cescape(x);
-
-                log_unit_debug(u, "Got notification message \"%s\", ignoring.", strnull(y));
+                log_unit_debug(u, "Got notification message from unexpected unit type, ignoring: %s",
+                               joined ? cellescape(buf, sizeof(buf), joined) : "(null)");
         }
 }
 
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-
-        _cleanup_fdset_free_ FDSet *fds = NULL;
         Manager *m = ASSERT_PTR(userdata);
+        _cleanup_fdset_free_ FDSet *fds = NULL;
         char buf[NOTIFY_BUFFER_MAX+1];
         struct iovec iovec = {
                 .iov_base = buf,

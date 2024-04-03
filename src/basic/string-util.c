@@ -562,7 +562,9 @@ char *cellescape(char *buf, size_t len, const char *s) {
 
         size_t i = 0, last_char_width[4] = {}, k = 0;
 
+        assert(buf);
         assert(len > 0); /* at least a terminating NUL */
+        assert(s);
 
         for (;;) {
                 char four[4];
@@ -612,7 +614,7 @@ char *cellescape(char *buf, size_t len, const char *s) {
         else
                 assert(i + 1 <= len);
 
- done:
+done:
         buf[i] = '\0';
         return buf;
 }
