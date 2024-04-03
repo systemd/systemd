@@ -6,3 +6,4 @@ Name=bareudp99
 [BareUDP]
 DestinationPort=1000
 EtherType=ipv4
+MultiPort=yes
