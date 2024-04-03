@@ -102,10 +102,14 @@ int action_setup_keys(void) {
                 return log_error_errno(r, "Failed to acquire random seed: %m");
 
         log_info("Generating key pair...");
-        FSPRG_GenMK(NULL, mpk, seed, seed_size, FSPRG_RECOMMENDED_SECPAR);
+        r = FSPRG_GenMK(NULL, mpk, seed, seed_size, FSPRG_RECOMMENDED_SECPAR);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate key pair: %m");
 
         log_info("Generating sealing key...");
-        FSPRG_GenState0(state, mpk, seed, seed_size);
+        r = FSPRG_GenState0(state, mpk, seed, seed_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate sealing key: %m");
 
         assert(arg_interval > 0);
         n = now(CLOCK_REALTIME);
