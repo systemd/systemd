@@ -237,6 +237,7 @@ Bridge.MulticastIGMPVersion,              config_parse_uint8,                   
 VRF.TableId,                              config_parse_uint32,                       0,                             offsetof(Vrf, table) /* deprecated */
 VRF.Table,                                config_parse_uint32,                       0,                             offsetof(Vrf, table)
 BareUDP.DestinationPort,                  config_parse_ip_port,                      0,                             offsetof(BareUDP, dest_port)
+BareUDP.MinimumSourcePort,                config_parse_ip_port,                      0,                             offsetof(BareUDP, min_port)
 BareUDP.EtherType,                        config_parse_bare_udp_iftype,              0,                             offsetof(BareUDP, iftype)
 WireGuard.FirewallMark,                   config_parse_unsigned,                     0,                             offsetof(Wireguard, fwmark)
 WireGuard.FwMark,                         config_parse_unsigned,                     0,                             offsetof(Wireguard, fwmark) /* deprecated */
