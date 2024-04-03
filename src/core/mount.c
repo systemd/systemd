@@ -8,6 +8,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "bus-error.h"
 #include "dbus-mount.h"
 #include "dbus-unit.h"
 #include "device.h"
@@ -669,6 +670,9 @@ static int mount_add_extras(Mount *m) {
         if (r < 0)
                 return r;
 
+        if (mount_is_credentials(m))
+                m->rmdir_on_stop = true;
+
         return 0;
 }
 
@@ -904,6 +908,9 @@ static void mount_enter_dead(Mount *m, MountResult f, bool flush_result) {
 
         if (m->result == MOUNT_SUCCESS || flush_result)
                 m->result = f;
+
+        if (m->rmdir_on_stop)
+                (void) rmdir(m->where);
 
         unit_log_result(UNIT(m), m->result == MOUNT_SUCCESS, mount_result_to_string(m->result));
         unit_warn_leftover_processes(UNIT(m), unit_log_leftover_process_stop);
@@ -1318,11 +1325,6 @@ static int mount_start(Unit *u) {
 static int mount_stop(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
 
-        /* When we directly call umount() for a path, then the state of the corresponding mount unit may be
-         * outdated. Let's re-read mountinfo now and update the state. */
-        if (m->invalidated_state)
-                (void) mount_process_proc_self_mountinfo(u->manager);
-
         switch (m->state) {
 
         case MOUNT_UNMOUNTING:
@@ -1357,14 +1359,36 @@ static int mount_stop(Unit *u) {
                 mount_enter_signal(m, MOUNT_UNMOUNTING_SIGKILL, MOUNT_SUCCESS);
                 return 0;
 
-        case MOUNT_DEAD:
-        case MOUNT_FAILED:
-                /* The mount has just been unmounted by somebody else. */
-                return 0;
-
         default:
                 assert_not_reached();
         }
+}
+
+int mount_stop_by_path(Manager *manager, const char *path) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *name = NULL;
+        Unit *u;
+        int r;
+
+        assert(manager);
+        assert(path);
+
+        /* This returns 1 when the path will be unmounted, 0 if no relevant mount unit for the path exists,
+         * negative errno otherwise. */
+
+        r = unit_name_from_path(path, ".mount", &name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to generate unit name from path \"%s\", ignoring: %m", path);
+
+        u = manager_get_unit(manager, name);
+        if (!u)
+                return 0;
+
+        r = manager_add_job(manager, JOB_STOP, u, JOB_REPLACE, NULL, &error, NULL);
+        if (r < 0)
+                return log_unit_debug_errno(u, r, "Failed to enqueue stop job, ignoring: %s", bus_error_message(&error, r));
+
+        return 1;
 }
 
 static int mount_reload(Unit *u) {
@@ -2110,8 +2134,6 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
         LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT]) {
                 Mount *mount = MOUNT(u);
 
-                mount->invalidated_state = false;
-
                 if (!mount_is_mounted(mount)) {
 
                         /* A mount point is not around right now. It might be gone, or might never have
@@ -2206,26 +2228,6 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
         assert(revents & EPOLLIN);
 
         return mount_process_proc_self_mountinfo(m);
-}
-
-int mount_invalidate_state_by_path(Manager *manager, const char *path) {
-        _cleanup_free_ char *name = NULL;
-        Unit *u;
-        int r;
-
-        assert(manager);
-        assert(path);
-
-        r = unit_name_from_path(path, ".mount", &name);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to generate unit name from path \"%s\", ignoring: %m", path);
-
-        u = manager_get_unit(manager, name);
-        if (!u)
-                return -ENOENT;
-
-        MOUNT(u)->invalidated_state = true;
-        return 0;
 }
 
 static void mount_reset_failed(Unit *u) {
