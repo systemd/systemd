@@ -2631,8 +2631,9 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 else
                         s->n_refused += k;
         } else if (streq(key, "control-pid")) {
-                pidref_done(&s->control_pid);
-                (void) deserialize_pidref(fds, value, &s->control_pid);
+
+                if (!pidref_is_set(&s->control_pid))
+                        (void) deserialize_pidref(fds, value, &s->control_pid);
 
         } else if (streq(key, "control-command")) {
                 SocketExecCommand id;
