@@ -141,7 +141,7 @@ static int device_wait_for_initialization_internal(
         }
 
         if (device) {
-                if (sd_device_get_is_initialized(device) > 0) {
+                if (device_is_processed(device) > 0) {
                         if (ret)
                                 *ret = sd_device_ref(device);
                         return 0;
@@ -204,7 +204,7 @@ static int device_wait_for_initialization_internal(
                 if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r))
                         return log_error_errno(r, "Failed to create sd-device object from %s: %m", devlink);
         }
-        if (device && sd_device_get_is_initialized(device) > 0) {
+        if (device && device_is_processed(device) > 0) {
                 if (ret)
                         *ret = sd_device_ref(device);
                 return 0;
