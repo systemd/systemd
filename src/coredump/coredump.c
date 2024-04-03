@@ -751,28 +751,11 @@ static int get_process_container_parent_cmdline(pid_t pid, char** cmdline) {
         return 1;
 }
 
-static int change_uid_gid(const Context *context) {
-        uid_t uid = context->uid;
-        gid_t gid = context->gid;
-        int r;
-
-        if (uid_is_system(uid)) {
-                const char *user = "systemd-coredump";
-
-                r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
-                if (r < 0) {
-                        log_warning_errno(r, "Cannot resolve %s user. Proceeding to dump core as root: %m", user);
-                        uid = gid = 0;
-                }
-        }
-
-        return drop_privileges(uid, gid, 0);
-}
-
 static int submit_coredump(
                 const Context *context,
                 struct iovec_wrapper *iovw,
-                int input_fd) {
+                int input_fd,
+                int mntns_fd) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *json_metadata = NULL;
         _cleanup_close_ int coredump_fd = -EBADF, coredump_node_fd = -EBADF;
@@ -814,14 +797,6 @@ static int submit_coredump(
                 (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, arg_keep_free, arg_max_use);
         }
 
-        /* Now, let's drop privileges to become the user who owns the segfaulted process and allocate the
-         * coredump memory under the user's uid. This also ensures that the credentials journald will see are
-         * the ones of the coredumping user, thus making sure the user gets access to the core dump. Let's
-         * also get rid of all capabilities, if we run as root, we won't need them anymore. */
-        r = change_uid_gid(context);
-        if (r < 0)
-                return log_error_errno(r, "Failed to drop privileges: %m");
-
         if (written) {
                 /* Try to get a stack trace if we can */
                 if (coredump_size > arg_process_size_max)
@@ -832,12 +807,24 @@ static int submit_coredump(
                         bool skip = startswith(context->meta[META_COMM], "systemd-coredum"); /* COMM is 16 bytes usually */
 
                         (void) parse_elf_object(coredump_fd,
+                                                mntns_fd,
+                                                context->uid,
+                                                context->gid,
                                                 context->meta[META_EXE],
                                                 /* fork_disable_dump= */ skip, /* avoid loops */
                                                 &stacktrace,
                                                 &json_metadata);
                 }
         }
+
+        /* Now, let's drop privileges to become the user who owns the segfaulted process. This also ensures
+         * that the credentials journald will see are the ones of the coredumping user, thus making sure
+         * the user gets access to the core dump. Let's also get rid of all capabilities, if we run as root,
+         * we won't need them anymore. */
+        r = drop_privileges(context->uid, context->gid, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to drop privileges: %m");
+
 
         _cleanup_free_ char *core_message = NULL;
         core_message = strjoin(
@@ -995,11 +982,11 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
 }
 
 static int process_socket(int fd) {
-        _cleanup_close_ int input_fd = -EBADF;
+        _cleanup_close_ int input_fd = -EBADF, mntns_fd = -EBADF;
         Context context = {};
         struct iovec_wrapper iovw = {};
         struct iovec iovec;
-        int r;
+        int iterations = 0, r;
 
         assert(fd >= 0);
 
@@ -1039,23 +1026,45 @@ static int process_socket(int fd) {
                         goto finish;
                 }
 
-                /* The final zero-length datagram carries the file descriptor and tells us
+                /* The final zero-length datagram carries the file descriptors and tells us
                  * that we're done. */
                 if (n == 0) {
                         struct cmsghdr *found;
 
                         free(iovec.iov_base);
 
-                        found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int)));
-                        if (!found) {
-                                cmsg_close_all(&mh);
-                                r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                                    "Coredump file descriptor missing.");
-                                goto finish;
+                        found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int) * 2));
+                        if (found) {
+                                int fds[2] = { -EBADF, -EBADF };
+
+                                memcpy(fds, CMSG_TYPED_DATA(found, int), sizeof(int) * 2);
+
+                                assert(mntns_fd < 0);
+
+                                /* Maybe we already got coredump FD in previous iteration? */
+                                safe_close(input_fd);
+
+                                input_fd = fds[0];
+                                mntns_fd = fds[1];
+
+                                /* We have all FDs we need let's take a shortcut here. */
+                                break;
+                        } else {
+                                found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int)));
+                                if (!found) {
+                                        cmsg_close_all(&mh);
+                                        r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                             "Coredump file descriptor missing.");
+                                        goto finish;
+                                }
+
+                                input_fd = *CMSG_TYPED_DATA(found, int);
                         }
 
-                        assert(input_fd < 0);
-                        input_fd = *CMSG_TYPED_DATA(found, int);
+                        /* This is the first message that carries file descriptors, maybe there will be one more that actually contains array of descriptors. */
+                        if (iterations++ == 0)
+                                continue;
+
                         break;
                 } else
                         cmsg_close_all(&mh);
@@ -1085,16 +1094,16 @@ static int process_socket(int fd) {
                         goto finish;
                 }
 
-        r = submit_coredump(&context, &iovw, input_fd);
+        r = submit_coredump(&context, &iovw, input_fd, mntns_fd);
 
 finish:
         iovw_free_contents(&iovw, true);
         return r;
 }
 
-static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
+static int send_iovec(const struct iovec_wrapper *iovw, int input_fd, int mntns_fd) {
         _cleanup_close_ int fd = -EBADF;
-        int r;
+         int r;
 
         assert(iovw);
         assert(input_fd >= 0);
@@ -1148,6 +1157,11 @@ static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
         r = send_one_fd(fd, input_fd, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to send coredump fd: %m");
+
+
+        r = send_many_fds(fd, (int[]) { input_fd, mntns_fd }, 2, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to send coredump fds: %m");
 
         return 0;
 }
@@ -1527,7 +1541,7 @@ static int forward_coredump_to_container(Context *context) {
                         _exit(EXIT_FAILURE);
                 }
 
-                r = send_iovec(iovw, STDIN_FILENO);
+                r = send_iovec(iovw, STDIN_FILENO, -EBADF);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to send iovec to coredump socket: %m");
                         _exit(EXIT_FAILURE);
@@ -1558,7 +1572,7 @@ static int forward_coredump_to_container(Context *context) {
 static int process_kernel(int argc, char* argv[]) {
         _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
         Context context = {};
-        int r, signo;
+        int r, signo, mntns_fd = -EBADF;
 
         /* When we're invoked by the kernel, stdout/stderr are closed which is dangerous because the fds
          * could get reallocated. To avoid hard to debug issues, let's instead bind stdout/stderr to
@@ -1597,12 +1611,36 @@ static int process_kernel(int argc, char* argv[]) {
         if (r < 0)
                 log_debug_errno(r, "Failed to check pidns of crashing process, ignoring: %m");
         if (r == 0) {
+                int fd;
+
                 /* If this fails, fallback to the old behavior so that
                  * there is still some record of the crash. */
                 r = forward_coredump_to_container(&context);
                 if (r >= 0)
                         return 0;
+
+                /* We couldn't forward coredump to the container (maybe container is not running systemd),
+                   but we still need to collect backtrace in the container, hence let's open mount namespace
+                   of crashing process so we can enter it when generating backtrace. */
+                r = namespace_open(context.pid,  NULL, &fd, NULL, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open mntns of crashing process: %m");
+
+                mntns_fd = fd;
+        } else {
+                /* Crashing process is not running in the container but we still need to send mount namespace fd
+                   along side coredump fd so let's just open our own mount namespace. Entering it will be NOP but
+                   that is OK. */
+                int fd;
+
+                r = namespace_open(getpid_cached(),  NULL, &fd, NULL, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open our mntns: %m");
+
+                mntns_fd = fd;
         }
+
+        assert(mntns_fd >= 0 && fd_is_ns(mntns_fd, CLONE_NEWNS) > 0);
 
         /* If this is PID 1 disable coredump collection, we'll unlikely be able to process
          * it later on.
@@ -1619,9 +1657,9 @@ static int process_kernel(int argc, char* argv[]) {
         (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
         if (context.is_journald || context.is_pid1)
-                return submit_coredump(&context, iovw, STDIN_FILENO);
+                return submit_coredump(&context, iovw, STDIN_FILENO, mntns_fd);
 
-        return send_iovec(iovw, STDIN_FILENO);
+        return send_iovec(iovw, STDIN_FILENO, mntns_fd);
 }
 
 static int process_backtrace(int argc, char *argv[]) {
