@@ -62,7 +62,7 @@ static void test_with_icmp6_packet(const uint8_t *data, size_t size) {
         if (icmp6_packet_receive(fd_pair[0], &packet) < 0)
                 return;
 
-        (void) ndisc_parse_options(packet, &options);
+        assert_se(ndisc_parse_options(packet, &options) >= 0);
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
