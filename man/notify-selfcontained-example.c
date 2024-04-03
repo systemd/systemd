@@ -7,6 +7,7 @@
  * This protocol is guaranteed to be stable as per:
  * https://systemd.io/PORTABILITY_AND_STABILITY/ */
 
+#define _GNU_SOURCE 1
 #include <errno.h>
 #include <inttypes.h>
 #include <signal.h>
