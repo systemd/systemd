@@ -505,7 +505,7 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         if (!isempty(optarg) && !path_is_absolute(optarg) && !startswith(optarg, "./"))
-                                return log_error_errno(SYNTHETIC_ERRNO(errno), "Absolute path or path starting with './' required.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Absolute path or path starting with './' required.");
 
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_firmware);
                         if (r < 0)
