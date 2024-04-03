@@ -2702,14 +2702,18 @@ static int udev_rule_apply_token_to_event(
                         break;
                 }
 
-                log_event_debug(dev, token, "ATTR '%s' writing '%s'", buf, value);
-                r = write_string_file(buf, value,
-                                      WRITE_STRING_FILE_VERIFY_ON_FAILURE |
-                                      WRITE_STRING_FILE_DISABLE_BUFFER |
-                                      WRITE_STRING_FILE_AVOID_NEWLINE |
-                                      WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE);
-                if (r < 0)
-                        log_event_error_errno(dev, token, r, "Failed to write ATTR{%s}, ignoring: %m", buf);
+                if (EVENT_MODE_DESTRUCTIVE(event)) {
+                        log_event_debug(dev, token, "Writing ATTR{'%s'}=\"%s\".", buf, value);
+                        r = write_string_file(buf, value,
+                                              WRITE_STRING_FILE_VERIFY_ON_FAILURE |
+                                              WRITE_STRING_FILE_DISABLE_BUFFER |
+                                              WRITE_STRING_FILE_AVOID_NEWLINE |
+                                              WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE);
+                        if (r < 0)
+                                log_event_error_errno(dev, token, r, "Failed to write ATTR{%s}=\"%s\", ignoring: %m", buf, value);
+                } else
+                        log_event_debug(dev, token, "Running in test mode, skipping writing ATTR{%s}=\"%s\".", buf, value);
+
                 break;
         }
         case TK_A_SYSCTL: {
@@ -2731,10 +2735,15 @@ static int udev_rule_apply_token_to_event(
                 }
 
                 sysctl_normalize(buf);
-                log_event_debug(dev, token, "SYSCTL '%s' writing '%s'", buf, value);
-                r = sysctl_write(buf, value);
-                if (r < 0)
-                        log_event_error_errno(dev, token, r, "Failed to write SYSCTL{%s}='%s', ignoring: %m", buf, value);
+
+                if (EVENT_MODE_DESTRUCTIVE(event)) {
+                        log_event_debug(dev, token, "Writing SYSCTL{%s}=\"%s\".", buf, value);
+                        r = sysctl_write(buf, value);
+                        if (r < 0)
+                                log_event_error_errno(dev, token, r, "Failed to write SYSCTL{%s}=\"%s\", ignoring: %m", buf, value);
+                } else
+                        log_event_debug(dev, token, "Running in test mode, skipping writing SYSCTL{%s}=\"%s\".", buf, value);
+
                 break;
         }
         case TK_A_RUN_BUILTIN:
