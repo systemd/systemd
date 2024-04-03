@@ -48,6 +48,8 @@ basic_tests() {
     bootctl "$@"
     bootctl "$@" status
     bootctl "$@" status --quiet
+    bootctl "$@" status --json=short
+    bootctl "$@" status --json=pretty
     bootctl "$@" list
     bootctl "$@" list --quiet
     bootctl "$@" list --json=short
