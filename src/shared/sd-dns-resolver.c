@@ -166,6 +166,32 @@ const char *format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX
         return snprintf_ok(buf, DECIMAL_STR_MAX(uint16_t)+3, "key%i", i);
 }
 
+int sd_dns_resolver_transports_to_strv(sd_dns_alpn_flags transports, char ***ret) {
+        _cleanup_strv_free_ char **ans = NULL;
+
+        assert(ret);
+
+        if (FLAGS_SET(transports, SD_DNS_ALPN_DO53)) {
+                /* Do53 has no ALPN, this flag is only for our own usage. */
+        }
+
+        if (FLAGS_SET(transports, SD_DNS_ALPN_HTTP_2_TLS))
+                if (strv_extend(&ans, "h2") < 0)
+                        return -ENOMEM;
+        if (FLAGS_SET(transports, SD_DNS_ALPN_HTTP_3))
+                if (strv_extend(&ans, "h3") < 0)
+                        return -ENOMEM;
+        if (FLAGS_SET(transports, SD_DNS_ALPN_DOT))
+                if (strv_extend(&ans, "dot") < 0)
+                        return -ENOMEM;
+        if (FLAGS_SET(transports, SD_DNS_ALPN_DOQ))
+                if (strv_extend(&ans, "doq") < 0)
+                        return -ENOMEM;
+
+        *ret = TAKE_PTR(ans);
+        return 0;
+}
+
 int dnr_parse_svc_params(const uint8_t *option, size_t len, sd_dns_resolver *resolver) {
         size_t offset = 0;
         int r;
