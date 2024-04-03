@@ -305,30 +305,30 @@ default_args = [
         '-I', meson.current_source_dir() / '../src',
 ]
 
-std_args_in = [
-        [ '-std=c99', '-D_GNU_SOURCE', ],
-        [ '-std=c11', '-D_GNU_SOURCE', ],
-        [ '-std=c17', '-D_GNU_SOURCE', ],
-        [ '-std=c23', '-D_GNU_SOURCE', ],
-        [ '-std=gnu99', ],
-        [ '-std=gnu11', ],
-        [ '-std=gnu17', ],
-        [ '-std=gnu23', ],
+standards = [
+        '-std=c99',
+        '-std=c11',
+        '-std=c17',
+        '-std=c23',
+        '-std=gnu99',
+        '-std=gnu11',
+        '-std=gnu17',
+        '-std=gnu23',
 ]
 
-std_args = []
-foreach std : std_args_in
-        if cc.has_argument(std[0])
-                std_args += [std]
+supported_standards = []
+foreach std : standards
+        if cc.has_argument(std)
+                supported_standards += [std]
         endif
 endforeach
 
 foreach item : examples
-        foreach std : std_args
+        foreach std : supported_standards
                 file = item.get('file')
-                test('cc-' + fs.stem(file) + '-' + std[0].split('=')[1],
+                test('cc-' + fs.stem(file) + '-' + std.split('=')[1],
                      env,
                      suite : 'example',
-                     args : default_args + std + item.get('opts', []) + [file])
+                     args : default_args + [std] + item.get('opts', []) + [file])
         endforeach
 endforeach
