@@ -238,6 +238,7 @@ VRF.TableId,                              config_parse_uint32,                  
 VRF.Table,                                config_parse_uint32,                       0,                             offsetof(Vrf, table)
 BareUDP.DestinationPort,                  config_parse_ip_port,                      0,                             offsetof(BareUDP, dest_port)
 BareUDP.EtherType,                        config_parse_bare_udp_iftype,              0,                             offsetof(BareUDP, iftype)
+BareUDP.MultiPort,                        config_parse_bool,                         0,                             offsetof(BareUDP, multi_proto)
 WireGuard.FirewallMark,                   config_parse_unsigned,                     0,                             offsetof(Wireguard, fwmark)
 WireGuard.FwMark,                         config_parse_unsigned,                     0,                             offsetof(Wireguard, fwmark) /* deprecated */
 WireGuard.ListenPort,                     config_parse_wireguard_listen_port,        0,                             offsetof(Wireguard, port)
