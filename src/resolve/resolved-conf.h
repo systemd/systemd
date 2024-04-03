@@ -3,6 +3,14 @@
 
 #include "conf-parser.h"
 
+typedef enum ResolveConfigSource {
+        RESOLVE_CONFIG_SOURCE_FILE,
+        RESOLVE_CONFIG_SOURCE_NETWORKD,
+        RESOLVE_CONFIG_SOURCE_DBUS,
+        _RESOLVE_CONFIG_SOURCE_MAX,
+        _RESOLVE_CONFIG_SOURCE_INVALID = -EINVAL,
+} ResolveConfigSource;
+
 #include "resolved-dns-server.h"
 
 int manager_parse_config_file(Manager *m);

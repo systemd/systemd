@@ -56,6 +56,7 @@ int user_record_authenticate(
 
         assert(h);
         assert(secret);
+        assert(cache);
 
         /* Tries to authenticate a user record with the supplied secrets. i.e. checks whether at least one
          * supplied plaintext passwords matches a hashed password field of the user record. Or if a
@@ -71,14 +72,14 @@ int user_record_authenticate(
          * The 'cache' parameter might also contain the LUKS volume key, loaded from the kernel keyring.
          * In this case, authentication becomes optional - if a secret section is provided it will be
          * verified, but if missing then authentication is skipped entirely. Thus, callers should
-         * consider carefuly whether it is safe to load the volume key into 'cache' before doing so.
+         * consider carefully whether it is safe to load the volume key into 'cache' before doing so.
          * Note that most of the time this is safe, because the home area must be active for the key
          * to exist in the keyring, and the user would have had to authenticate when activating their
          * home area; however, for some methods (i.e. ChangePassword, Authenticate) it makes more sense
          * to force re-authentication. */
 
         /* First, let's see if we already have a volume key from the keyring */
-        if (cache && cache->volume_key &&
+        if (cache->volume_key &&
             json_variant_is_blank_object(json_variant_by_key(secret->json, "secret"))) {
                 log_info("LUKS volume key from keyring unlocks user record.");
                 return 1;
@@ -118,9 +119,9 @@ int user_record_authenticate(
                 log_info("None of the supplied plaintext passwords unlock the user record's hashed recovery keys.");
 
         /* Next, test cached PKCS#11 passwords */
-        for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++)
+        FOREACH_ARRAY(i, h->pkcs11_encrypted_key, h->n_pkcs11_encrypted_key)
                 STRV_FOREACH(pp, cache->pkcs11_passwords) {
-                        r = test_password_one(h->pkcs11_encrypted_key[n].hashed_password, *pp);
+                        r = test_password_one(i->hashed_password, *pp);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to check supplied PKCS#11 password: %m");
                         if (r > 0) {
@@ -130,10 +131,10 @@ int user_record_authenticate(
                 }
 
         /* Next, test cached FIDO2 passwords */
-        for (size_t n = 0; n < h->n_fido2_hmac_salt; n++)
+        FOREACH_ARRAY(i, h->fido2_hmac_salt, h->n_fido2_hmac_salt)
                 /* See if any of the previously calculated passwords work */
                 STRV_FOREACH(pp, cache->fido2_passwords) {
-                        r = test_password_one(h->fido2_hmac_salt[n].hashed_password, *pp);
+                        r = test_password_one(i->hashed_password, *pp);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to check supplied FIDO2 password: %m");
                         if (r > 0) {
@@ -143,12 +144,12 @@ int user_record_authenticate(
                 }
 
         /* Next, let's see if any of the PKCS#11 security tokens are plugged in and help us */
-        for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++) {
+        FOREACH_ARRAY(i, h->pkcs11_encrypted_key, h->n_pkcs11_encrypted_key) {
 #if HAVE_P11KIT
                 _cleanup_(pkcs11_callback_data_release) struct pkcs11_callback_data data = {
                         .user_record = h,
                         .secret = secret,
-                        .encrypted_key = h->pkcs11_encrypted_key + n,
+                        .encrypted_key = i,
                 };
 
                 r = pkcs11_find_token(data.encrypted_key->uri, pkcs11_callback, &data);
@@ -182,7 +183,9 @@ int user_record_authenticate(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to test PKCS#11 password: %m");
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Configured PKCS#11 security token %s does not decrypt encrypted key correctly.", data.encrypted_key->uri);
+                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                       "Configured PKCS#11 security token %s does not decrypt encrypted key correctly.",
+                                                       data.encrypted_key->uri);
 
                         log_info("Decrypted password from PKCS#11 security token %s unlocks user record.", data.encrypted_key->uri);
 
@@ -199,11 +202,11 @@ int user_record_authenticate(
         }
 
         /* Next, let's see if any of the FIDO2 security tokens are plugged in and help us */
-        for (size_t n = 0; n < h->n_fido2_hmac_salt; n++) {
+        FOREACH_ARRAY(i, h->fido2_hmac_salt, h->n_fido2_hmac_salt) {
 #if HAVE_LIBFIDO2
                 _cleanup_(erase_and_freep) char *decrypted_password = NULL;
 
-                r = fido2_use_token(h, secret, h->fido2_hmac_salt + n, &decrypted_password);
+                r = fido2_use_token(h, secret, i, &decrypted_password);
                 switch (r) {
                 case -EAGAIN:
                         need_token = true;
@@ -230,11 +233,12 @@ int user_record_authenticate(
                         if (r < 0)
                                 return r;
 
-                        r = test_password_one(h->fido2_hmac_salt[n].hashed_password, decrypted_password);
+                        r = test_password_one(i->hashed_password, decrypted_password);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to test FIDO2 password: %m");
                         if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Configured FIDO2 security token does not decrypt encrypted key correctly.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                       "Configured FIDO2 security token does not decrypt encrypted key correctly.");
 
                         log_info("Decrypted password from FIDO2 security token unlocks user record.");
 
@@ -1117,7 +1121,6 @@ static int user_record_compile_effective_passwords(
                 char ***ret_effective_passwords) {
 
         _cleanup_strv_free_erase_ char **effective = NULL;
-        size_t n;
         int r;
 
         assert(h);
@@ -1162,17 +1165,16 @@ static int user_record_compile_effective_passwords(
                         return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Missing plaintext password for defined hashed password");
         }
 
-        for (n = 0; n < h->n_recovery_key; n++) {
+        FOREACH_ARRAY(i, h->recovery_key, h->n_recovery_key) {
                 bool found = false;
 
-                log_debug("Looking for plaintext recovery key for: %s", h->recovery_key[n].hashed_password);
+                log_debug("Looking for plaintext recovery key for: %s", i->hashed_password);
 
                 STRV_FOREACH(j, h->password) {
                         _cleanup_(erase_and_freep) char *mangled = NULL;
                         const char *p;
 
-                        if (streq(h->recovery_key[n].type, "modhex64")) {
-
+                        if (streq(i->type, "modhex64")) {
                                 r = normalize_recovery_key(*j, &mangled);
                                 if (r == -EINVAL) /* Not properly formatted, probably a regular password. */
                                         continue;
@@ -1183,7 +1185,7 @@ static int user_record_compile_effective_passwords(
                         } else
                                 p = *j;
 
-                        r = test_password_one(h->recovery_key[n].hashed_password, p);
+                        r = test_password_one(i->hashed_password, p);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to test plaintext recovery key: %m");
                         if (r > 0) {
@@ -1200,15 +1202,16 @@ static int user_record_compile_effective_passwords(
                 }
 
                 if (!found)
-                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTEIO), "Missing plaintext recovery key for defined recovery key");
+                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTEIO),
+                                               "Missing plaintext recovery key for defined recovery key.");
         }
 
-        for (n = 0; n < h->n_pkcs11_encrypted_key; n++) {
+        FOREACH_ARRAY(i, h->pkcs11_encrypted_key, h->n_pkcs11_encrypted_key) {
 #if HAVE_P11KIT
                 _cleanup_(pkcs11_callback_data_release) struct pkcs11_callback_data data = {
                         .user_record = h,
                         .secret = h,
-                        .encrypted_key = h->pkcs11_encrypted_key + n,
+                        .encrypted_key = i,
                 };
 
                 r = pkcs11_find_token(data.encrypted_key->uri, pkcs11_callback, &data);
@@ -1237,19 +1240,20 @@ static int user_record_compile_effective_passwords(
 #endif
         }
 
-        for (n = 0; n < h->n_fido2_hmac_salt; n++) {
+        FOREACH_ARRAY(i, h->fido2_hmac_salt, h->n_fido2_hmac_salt) {
 #if HAVE_LIBFIDO2
                 _cleanup_(erase_and_freep) char *decrypted_password = NULL;
 
-                r = fido2_use_token(h, h, h->fido2_hmac_salt + n, &decrypted_password);
+                r = fido2_use_token(h, h, i, &decrypted_password);
                 if (r < 0)
                         return r;
 
-                r = test_password_one(h->fido2_hmac_salt[n].hashed_password, decrypted_password);
+                r = test_password_one(i->hashed_password, decrypted_password);
                 if (r < 0)
                         return log_error_errno(r, "Failed to test FIDO2 password: %m");
                 if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Decrypted password from token is not correct, refusing.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                               "Decrypted password from token is not correct, refusing.");
 
                 if (ret_effective_passwords) {
                         r = strv_extend(&effective, decrypted_password);

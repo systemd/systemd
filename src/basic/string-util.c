@@ -1268,18 +1268,16 @@ int string_extract_line(const char *s, size_t i, char **ret) {
         }
 }
 
-int string_contains_word_strv(const char *string, const char *separators, char **words, const char **ret_word) {
-        /* In the default mode with no separators specified, we split on whitespace and
-         * don't coalesce separators. */
+int string_contains_word_strv(const char *string, const char *separators, char * const *words, const char **ret_word) {
+        /* In the default mode with no separators specified, we split on whitespace and coalesce separators. */
         const ExtractFlags flags = separators ? EXTRACT_DONT_COALESCE_SEPARATORS : 0;
-
         const char *found = NULL;
+        int r;
 
-        for (const char *p = string;;) {
+        for (;;) {
                 _cleanup_free_ char *w = NULL;
-                int r;
 
-                r = extract_first_word(&p, &w, separators, flags);
+                r = extract_first_word(&string, &w, separators, flags);
                 if (r < 0)
                         return r;
                 if (r == 0)

@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <netinet/icmp6.h>
 #include <netinet/ip6.h>
 #include <unistd.h>
 
 #include "fd-util.h"
 #include "icmp6-util-unix.h"
 
-send_ra_t send_ra_function = NULL;
 int test_fd[2] = EBADF_PAIR;
 
 static struct in6_addr dummy_link_local = {
@@ -23,11 +23,8 @@ int icmp6_bind(int ifindex, bool is_router) {
         return test_fd[is_router];
 }
 
-int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
-        if (!send_ra_function)
-                return 0;
-
-        return send_ra_function(0);
+int icmp6_send(int fd, const struct sockaddr_in6 *dst, const struct iovec *iov, size_t n_iov) {
+        return writev(fd, iov, n_iov);
 }
 
 int icmp6_receive(

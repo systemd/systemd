@@ -286,8 +286,7 @@ node /org/freedesktop/portable1 {
       <para><function>DetachImageWithExtensions()</function> detaches a portable image from the system.
       This method is a superset of <function>DetachImage()</function> with the addition of
       a list of extensions as input parameter, which were overlaid on top of the main
-      image via <function>AttachImageWithExtensions()</function>.
-      The <varname>flag</varname> parameter is currently unused and reserved for future purposes.</para>
+      image via <function>AttachImageWithExtensions()</function>.</para>
 
       <para><function>ReattachImage()</function> combines the effects of the
       <function>AttachImage()</function> method and the <function>DetachImage()</function> method.
@@ -304,7 +303,7 @@ node /org/freedesktop/portable1 {
       image. For more details on this functionality, see the <varname>MountImages=</varname> entry on
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       and <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-      The <varname>flag</varname> parameter is currently unused and reserved for future purposes</para>
+      </para>
 
       <para><function>RemoveImage()</function> removes the image with the specified name.</para>
 

@@ -57,6 +57,16 @@ DnssdService *dnssd_service_free(DnssdService *service) {
         return mfree(service);
 }
 
+void dnssd_service_clear_on_reload(Hashmap *services) {
+        DnssdService *service;
+
+        HASHMAP_FOREACH(service, services)
+                if (service->config_source == RESOLVE_CONFIG_SOURCE_FILE) {
+                        hashmap_remove(services, service->name);
+                        dnssd_service_free(service);
+                }
+}
+
 static int dnssd_service_load(Manager *manager, const char *filename) {
         _cleanup_(dnssd_service_freep) DnssdService *service = NULL;
         _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;

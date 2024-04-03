@@ -20,10 +20,11 @@ rpmbuild \
     -bb \
     --build-in-place \
     --with upstream \
-    $( ((WITH_TESTS)) || echo --nocheck) \
+    $( ((WITH_TESTS)) || echo "--nocheck") \
+    $( ((WITH_DOCS))  || echo "--without docs") \
     --define "_topdir /var/tmp" \
     --define "_sourcedir pkg/$PKG_SUBDIR" \
-    --define "_rpmdir $PACKAGEDIR" \
+    --define "_rpmdir $OUTPUTDIR" \
     ${BUILDDIR:+--define} \
     ${BUILDDIR:+"_vpath_builddir $BUILDDIR"} \
     --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
@@ -45,3 +46,5 @@ rpmbuild \
     --define "__script_requires %{nil}" \
     --undefine _lto_cflags \
     "pkg/$PKG_SUBDIR/systemd.spec"
+
+cp "$OUTPUTDIR"/*.rpm "$PACKAGEDIR"

@@ -898,7 +898,9 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                         /* All good. */
                         break;
 
-                case DNS_TRANSACTION_DNSSEC_FAILED:
+                case DNS_TRANSACTION_DNSSEC_FAILED: {
+                        DnsAnswer *empty;
+
                         /* We handle DNSSEC failures different from other errors, as we care about the DNSSEC
                          * validation result */
 
@@ -917,8 +919,16 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                         if (r < 0)
                                 log_oom_debug();
 
+                        /* The answer would normally be replaced by the validated subset, but at this point
+                         * we aren't going to bother validating the rest, so just drop it. */
+                        empty = dns_answer_new(0);
+                        if (!empty)
+                                return -ENOMEM;
+                        DNS_ANSWER_REPLACE(t->answer, empty);
+
                         dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                         return 0;
+                }
 
                 default:
                         log_debug("Auxiliary DNSSEC RR query failed with %s", dns_transaction_state_to_string(dt->state));
@@ -2318,13 +2328,18 @@ static int dns_transaction_request_dnssec_rr_full(DnsTransaction *t, DnsResource
                 if (r < 0)
                         return r;
 
+                if (ret)
+                        *ret = NULL;
                 return 0;
         }
 
         /* This didn't work, ask for it via the network/cache then. */
         r = dns_transaction_add_dnssec_transaction(t, key, &aux);
-        if (r == -ELOOP) /* This would result in a cyclic dependency */
+        if (r == -ELOOP) { /* This would result in a cyclic dependency */
+                if (ret)
+                        *ret = NULL;
                 return 0;
+        }
         if (r < 0)
                 return r;
 
@@ -2490,7 +2505,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 case DNS_TYPE_RRSIG: {
                         /* For each RRSIG we request the matching DNSKEY */
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *dnskey = NULL;
-                        DnsTransaction *aux = NULL;
+                        DnsTransaction *aux;
 
                         /* If this RRSIG is about a DNSKEY RR and the
                          * signer is the same as the owner, then we
@@ -2537,6 +2552,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (aux) {
                                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds =
                                         dns_resource_key_new(rr->key->class, DNS_TYPE_DS, dns_resource_key_name(dnskey));
+                                if (!ds)
+                                        return -ENOMEM;
                                 r = dns_transaction_request_dnssec_rr(t, ds);
                                 if (r < 0)
                                         return r;
@@ -3585,14 +3602,17 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 bool have_nsec = false;
 
                 r = dnssec_validate_records(t, phase, &have_nsec, &nvalidations, &validated);
-                if (r <= 0)
+                if (r <= 0) {
+                        DNS_ANSWER_REPLACE(t->answer, TAKE_PTR(validated));
                         return r;
+                }
 
                 if (nvalidations > DNSSEC_VALIDATION_MAX) {
                         /* This reply requires an onerous number of signature validations to verify. Let's
                          * not waste our time trying, as this shouldn't happen for well-behaved domains
                          * anyway. */
                         t->answer_dnssec_result = DNSSEC_TOO_MANY_VALIDATIONS;
+                        DNS_ANSWER_REPLACE(t->answer, TAKE_PTR(validated));
                         return 0;
                 }
 

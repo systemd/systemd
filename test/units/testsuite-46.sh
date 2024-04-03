@@ -6,7 +6,7 @@ set -o pipefail
 # Check if homectl is installed, and if it isn't bail out early instead of failing
 if ! test -x /usr/bin/homectl ; then
         echo "no homed" >/skipped
-        exit 0
+        exit 77
 fi
 
 inspect() {
@@ -206,6 +206,10 @@ PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- rm /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
 (! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz)
+
+# Regression tests
+wait_for_state test-user inactive
+/usr/lib/systemd/tests/unit-tests/manual/test-homed-regression-31896 test-user
 
 wait_for_state test-user inactive
 homectl remove test-user

@@ -22,9 +22,14 @@ _printf_(6,0) static void udev_kmod_log(void *data, int priority, const char *fi
         log_internalv(priority, 0, file, line, fn, format, args);
 }
 
-static int builtin_kmod(UdevEvent *event, int argc, char *argv[], bool test) {
+static int builtin_kmod(UdevEvent *event, int argc, char *argv[]) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         int r;
+
+        if (event->event_mode != EVENT_UDEV_WORKER) {
+                log_device_debug(dev, "Running in test mode, skipping execution of 'kmod' builtin command.");
+                return 0;
+        }
 
         if (!ctx)
                 return 0;

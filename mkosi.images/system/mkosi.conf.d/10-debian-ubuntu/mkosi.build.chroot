@@ -28,7 +28,7 @@ fi
 # Add a new changelog entry to update the version. We use a fixed date since a dynamic one causes a full
 # rebuild every time.
 cat >debian/changelog.new <<EOF
-systemd ($(cat meson.version).$(date "+%Y%m%d%H%M%S" --date "@$TS")) UNRELEASED; urgency=low
+systemd ($(cat meson.version)-$(date "+%Y%m%d%H%M%S" --date "@$TS")) UNRELEASED; urgency=low
 
   * Automatic build from mkosi
 
@@ -86,4 +86,5 @@ if ! build; then
     build
 fi
 
-mv ../*.deb "$PACKAGEDIR"
+cp ../*.deb "$PACKAGEDIR"
+cp ../*.deb "$OUTPUTDIR"

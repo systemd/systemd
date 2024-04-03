@@ -11,8 +11,8 @@
 #include "unit.h"
 
 static const UnitActiveState state_translation_table[_TARGET_STATE_MAX] = {
-        [TARGET_DEAD] = UNIT_INACTIVE,
-        [TARGET_ACTIVE] = UNIT_ACTIVE
+        [TARGET_DEAD]   = UNIT_INACTIVE,
+        [TARGET_ACTIVE] = UNIT_ACTIVE,
 };
 
 static void target_set_state(Target *t, TargetState state) {

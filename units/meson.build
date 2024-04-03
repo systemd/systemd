@@ -7,6 +7,8 @@ units = [
         { 'file' : 'blockdev@.target' },
         { 'file' : 'bluetooth.target' },
         { 'file' : 'boot-complete.target' },
+        { 'file' : 'capsule@.service.in' },
+        { 'file' : 'capsule.slice' },
         { 'file' : 'console-getty.service.in' },
         { 'file' : 'container-getty@.service.in' },
         {

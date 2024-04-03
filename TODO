@@ -356,12 +356,6 @@ Features:
     policy from currently booted kernel/event log, to close gap for first boot
     for pre-built images
 
-* add a new systemd-project@.service that is very similar to user@.service but
-  uses DynamicUser=1 and no PAMName= to invoke an unprivileged somewhat
-  light-weight service manager. Use HOME=/var/lib/systemd/projects/%i as home
-  dir. Similar for $XDG_RUNTIME_DIR. Start project@%i.target. Use LogField= to
-  add a field identifying the project.
-
 * in sd-boot and sd-stub measure the SMBIOS vendor strings to some PCR (at
   least some subset of them that look like systemd stuff), because apparently
   some firmware does not, but systemd honours it. avoid duplicate measurement
@@ -1445,8 +1439,6 @@ Features:
     - kmod-libs (only when called from PID 1)
     - libblkid (only in RootImage= handling in PID 1, but not elsewhere)
     - libpam (only when called from PID 1)
-    - bzip2 (always — gzip should probably stay static dep the way it is,
-      since it's so basic and our defaults)
 
 * seccomp: maybe use seccomp_merge() to merge our filters per-arch if we can.
   Apparently kernel performance is much better with fewer larger seccomp

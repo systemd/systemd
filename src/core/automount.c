@@ -38,10 +38,10 @@
 #include "unit.h"
 
 static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
-        [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
+        [AUTOMOUNT_DEAD]    = UNIT_INACTIVE,
         [AUTOMOUNT_WAITING] = UNIT_ACTIVE,
         [AUTOMOUNT_RUNNING] = UNIT_ACTIVE,
-        [AUTOMOUNT_FAILED] = UNIT_FAILED
+        [AUTOMOUNT_FAILED]  = UNIT_FAILED,
 };
 
 static int open_dev_autofs(Manager *m);

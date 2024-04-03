@@ -273,7 +273,7 @@ static int link_update_dns_server_one(Link *l, const char *str) {
                 return 0;
         }
 
-        return dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a, port, 0, name);
+        return dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a, port, 0, name, RESOLVE_CONFIG_SOURCE_NETWORKD);
 }
 
 static int link_update_dns_servers(Link *l) {

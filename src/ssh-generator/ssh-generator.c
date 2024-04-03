@@ -401,10 +401,8 @@ static int parse_credentials(void) {
         int r;
 
         r = read_credential_with_decryption("ssh.listen", (void*) &b, &sz);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 0;
 
         _cleanup_fclose_ FILE *f = NULL;
         f = fmemopen_unlocked(b, sz, "r");

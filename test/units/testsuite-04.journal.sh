@@ -133,6 +133,8 @@ journalctl -b -n 1 -r --user-unit "*"
 
 # Facilities & priorities
 journalctl --facility help
+journalctl --facility help | grep -F 'kern'
+journalctl --facility help | grep -F 'mail'
 journalctl --facility kern -n 1
 journalctl --facility syslog --priority 0..3 -n 1
 journalctl --facility syslog --priority 3..0 -n 1
@@ -144,6 +146,8 @@ journalctl --facility daemon --priority 5..crit -n 1
 
 # Assorted combinations
 journalctl -o help
+journalctl -o help | grep -F 'short'
+journalctl -o help | grep -F 'export'
 journalctl -q -n all -a | grep . >/dev/null
 journalctl -q --no-full | grep . >/dev/null
 journalctl -q --user --system | grep . >/dev/null

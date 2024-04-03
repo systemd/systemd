@@ -1068,10 +1068,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         Manager *m = userdata;
         int r;
 
-        (void) sd_notifyf(/* unset= */ false,
-                          "RELOADING=1\n"
-                          "STATUS=Reloading configuration...\n"
-                          "MONOTONIC_USEC=" USEC_FMT, now(CLOCK_MONOTONIC));
+        (void) notify_reloading();
 
         manager_reset_config(m);
         r = manager_parse_config_file(m);
