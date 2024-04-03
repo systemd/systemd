@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT-0 */
 
+#define _GNU_SOURCE 1
 #include <stdio.h>
 #include <stdint.h>
 #include <systemd/sd-hwdb.h>

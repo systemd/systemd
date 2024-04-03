@@ -306,10 +306,10 @@ default_args = [
 ]
 
 std_args_in = [
-        [ '-std=c99', '-D_GNU_SOURCE', ],
-        [ '-std=c11', '-D_GNU_SOURCE', ],
-        [ '-std=c17', '-D_GNU_SOURCE', ],
-        [ '-std=c23', '-D_GNU_SOURCE', ],
+        [ '-std=c99', ],
+        [ '-std=c11', ],
+        [ '-std=c17', ],
+        [ '-std=c23', ],
         [ '-std=gnu99', ],
         [ '-std=gnu11', ],
         [ '-std=gnu17', ],
