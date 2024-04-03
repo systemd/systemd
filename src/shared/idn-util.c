@@ -50,7 +50,10 @@ int dlopen_idn(void) {
                 if (!dl)
                         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "libidn support is not installed: %s", dlerror());
-        }
+                log_debug("Loaded 'libidn.so.11' via dlopen()");
+        } else
+                log_debug("Loaded 'libidn.so.12' via dlopen()");
+
 
         r = dlsym_many_or_warn(
                         dl,
