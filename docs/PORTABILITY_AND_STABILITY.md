@@ -19,7 +19,7 @@ The stable interfaces are:
   [sd_notify(3)](https://www.freedesktop.org/software/systemd/man/sd_notify.html). Note that, although using
   libsystemd is a good choice, this protocol can also be reimplemented without external dependencies, as
   demonstrated in the example listed in
-  [systemd.service(5)](https://www.freedesktop.org/software/systemd/man/systemd.service.html)
+  [sd_notify(3)](https://www.freedesktop.org/software/systemd/man/devel/sd_notify.html#Notes)
 
 * Some of the **"special" unit names** and their semantics. To be precise the ones that are necessary for normal services, and not those required only for early boot and late shutdown, with very few exceptions. To list them here: `basic.target`, `shutdown.target`, `sockets.target`, `network.target`, `getty.target`, `graphical.target`, `multi-user.target`, `rescue.target`, `emergency.target`, `poweroff.target`, `reboot.target`, `halt.target`, `runlevel[1-5].target`.
 
