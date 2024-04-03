@@ -2590,9 +2590,10 @@ static void manager_invoke_notify_message(
 
                 buf = strv_join(tags, ", ");
                 if (buf)
-                        x = ellipsize(buf, 20, 90);
+                        x = ellipsize(buf, 60, 90);
                 if (x)
-                        y = cescape(x);
+                        y = cescape(x); /* FIXME: This also escapes "…", and the log message becomes
+                                         * spurious if ellipsized in the above. */
 
                 log_unit_debug(u, "Got notification message \"%s\", ignoring.", strnull(y));
         }
