@@ -4302,13 +4302,20 @@ int exec_invoke(
                 return log_exec_error_errno(context, params, r, "Failed to set up standard input: %m");
         }
 
-        r = setup_output(context, params, STDOUT_FILENO, socket_fd, named_iofds, basename(command->path), uid, gid, &journal_stream_dev, &journal_stream_ino);
+        _cleanup_free_ char *fname = NULL;
+        r = path_extract_filename(command->path, &fname);
+        if (r < 0) {
+                *exit_status = EXIT_STDOUT;
+                return log_exec_error_errno(context, params, r, "Failed to extract filename from path %s: %m", command->path);
+        }
+
+        r = setup_output(context, params, STDOUT_FILENO, socket_fd, named_iofds, fname, uid, gid, &journal_stream_dev, &journal_stream_ino);
         if (r < 0) {
                 *exit_status = EXIT_STDOUT;
                 return log_exec_error_errno(context, params, r, "Failed to set up standard output: %m");
         }
 
-        r = setup_output(context, params, STDERR_FILENO, socket_fd, named_iofds, basename(command->path), uid, gid, &journal_stream_dev, &journal_stream_ino);
+        r = setup_output(context, params, STDERR_FILENO, socket_fd, named_iofds, fname, uid, gid, &journal_stream_dev, &journal_stream_ino);
         if (r < 0) {
                 *exit_status = EXIT_STDERR;
                 return log_exec_error_errno(context, params, r, "Failed to set up standard error output: %m");
