@@ -108,6 +108,10 @@ static int notify_reloading(void) {
   return notify(reload_message);
 }
 
+static int notify_stopping(void) {
+  return notify("STOPPING=1");
+}
+
 static volatile sig_atomic_t reloading = 0;
 static volatile sig_atomic_t terminating = 0;
 
@@ -168,6 +172,14 @@ int main(int argc, char **argv) {
     /* Do some daemon work here … */
     sleep(5);
   }
+
+  r = notify_stopping();
+  if (r < 0) {
+    fprintf(stderr, "Failed to report termination to $NOTIFY_SOCKET: %s\n", strerror(-r));
+    return EXIT_FAILURE;
+  }
+
+  /* Do some shutdown work here … */
 
   return EXIT_SUCCESS;
 }
