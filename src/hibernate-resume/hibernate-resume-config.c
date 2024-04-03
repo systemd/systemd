@@ -28,20 +28,7 @@ static KernelHibernateLocation* kernel_hibernate_location_free(KernelHibernateLo
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(KernelHibernateLocation*, kernel_hibernate_location_free);
 
-typedef struct EFIHibernateLocation {
-        char *device;
-
-        sd_id128_t uuid;
-        uint64_t offset;
-
-        char *kernel_version;
-        char *id;
-        char *image_id;
-        char *version_id;
-        char *image_version;
-} EFIHibernateLocation;
-
-static EFIHibernateLocation* efi_hibernate_location_free(EFIHibernateLocation *e) {
+EFIHibernateLocation* efi_hibernate_location_free(EFIHibernateLocation *e) {
         if (!e)
                 return NULL;
 
@@ -54,8 +41,6 @@ static EFIHibernateLocation* efi_hibernate_location_free(EFIHibernateLocation *e
 
         return mfree(e);
 }
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(EFIHibernateLocation*, efi_hibernate_location_free);
 
 void hibernate_info_done(HibernateInfo *info) {
         assert(info);
@@ -140,7 +125,7 @@ static bool validate_efi_hibernate_location(EFIHibernateLocation *e) {
 
         if (!streq_ptr(id, e->id) ||
             !streq_ptr(image_id, e->image_id)) {
-                log_notice("HibernateLocation system identifier doesn't match currently running system, not resuming from it.");
+                log_notice("HibernateLocation system identifier doesn't match currently running system, would not resume from it.");
                 return false;
         }
 
@@ -152,8 +137,9 @@ static bool validate_efi_hibernate_location(EFIHibernateLocation *e) {
 
         return true;
 }
+#endif
 
-static int get_efi_hibernate_location(EFIHibernateLocation **ret) {
+int get_efi_hibernate_location(EFIHibernateLocation **ret) {
 
         static const JsonDispatch dispatch_table[] = {
                 { "uuid",                  JSON_VARIANT_STRING,        json_dispatch_id128,  offsetof(EFIHibernateLocation, uuid),           JSON_MANDATORY             },
@@ -220,6 +206,7 @@ skip:
 }
 
 void compare_hibernate_location_and_warn(const HibernateInfo *info) {
+#if ENABLE_EFI
         int r;
 
         assert(info);
@@ -243,8 +230,8 @@ void compare_hibernate_location_and_warn(const HibernateInfo *info) {
         if (info->cmdline->offset != info->efi->offset)
                 log_warning("resume_offset=%" PRIu64 " doesn't match with EFI HibernateLocation offset %" PRIu64 ", proceeding anyway with resume_offset=.",
                             info->cmdline->offset, info->efi->offset);
-}
 #endif
+}
 
 int acquire_hibernate_info(HibernateInfo *ret) {
         _cleanup_(hibernate_info_done) HibernateInfo i = {};
@@ -254,11 +241,9 @@ int acquire_hibernate_info(HibernateInfo *ret) {
         if (r < 0)
                 return r;
 
-#if ENABLE_EFI
         r = get_efi_hibernate_location(&i.efi);
         if (r < 0)
                 return r;
-#endif
 
         if (i.cmdline) {
                 i.device = i.cmdline->device;
