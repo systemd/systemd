@@ -306,10 +306,12 @@ default_args = [
 ]
 
 std_args_in = [
+        [ '-std=c90', '-Wno-variadic-macros', '-Wno-pedantic', ],
         [ '-std=c99', ],
         [ '-std=c11', ],
         [ '-std=c17', ],
         [ '-std=c23', ],
+        [ '-std=gnu90', '-Wno-variadic-macros', '-Wno-pedantic', ],
         [ '-std=gnu99', ],
         [ '-std=gnu11', ],
         [ '-std=gnu17', ],

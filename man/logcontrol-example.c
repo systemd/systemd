@@ -124,7 +124,8 @@ static int property_set(
     return r;
 
   if (strcmp(property, "LogLevel") == 0) {
-    for (int i = 0; i < LOG_DEBUG + 1; i++)
+    int i;
+    for (i = 0; i < LOG_DEBUG + 1; i++)
       if (strcmp(value, log_level_table[i]) == 0) {
         o->log_level = i;
         setlogmask(LOG_UPTO(i));
@@ -138,7 +139,8 @@ static int property_set(
   }
 
   if (strcmp(property, "LogTarget") == 0) {
-    for (LogTarget i = 0; i < _LOG_TARGET_MAX; i++)
+    LogTarget i;
+    for (i = 0; i < _LOG_TARGET_MAX; i++)
       if (strcmp(value, log_target_table[i]) == 0) {
         o->log_target = i;
         return 0;
