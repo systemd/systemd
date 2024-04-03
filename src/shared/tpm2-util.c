@@ -668,6 +668,8 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
                 if (!context->tcti_dl)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to load %s: %s", fn, dlerror());
 
+                log_debug("Loaded '%s' via dlopen()", fn);
+
                 func = dlsym(context->tcti_dl, TSS2_TCTI_INFO_SYMBOL);
                 if (!func)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
