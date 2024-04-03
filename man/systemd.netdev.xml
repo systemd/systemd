@@ -1007,6 +1007,18 @@
         <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
       </varlistentry>
+
+
+      <varlistentry>
+        <term><varname>MultiProto=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. When true, allows bareudp tunnels to handle several protocols of the same family.
+          Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
