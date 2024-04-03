@@ -98,19 +98,19 @@ static int help_main(int argc, char *argv[], void *userdata) {
 
 static int udevadm_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "info",         VERB_ANY, VERB_ANY, 0, info_main    },
-                { "trigger",      VERB_ANY, VERB_ANY, 0, trigger_main },
-                { "settle",       VERB_ANY, VERB_ANY, 0, settle_main  },
-                { "control",      VERB_ANY, VERB_ANY, 0, control_main },
-                { "monitor",      VERB_ANY, VERB_ANY, 0, monitor_main },
-                { "hwdb",         VERB_ANY, VERB_ANY, 0, hwdb_main    },
-                { "test",         VERB_ANY, VERB_ANY, 0, test_main    },
-                { "test-builtin", VERB_ANY, VERB_ANY, 0, builtin_main },
-                { "wait",         VERB_ANY, VERB_ANY, 0, wait_main    },
-                { "lock",         VERB_ANY, VERB_ANY, 0, lock_main    },
-                { "verify",       VERB_ANY, VERB_ANY, 0, verify_main  },
-                { "version",      VERB_ANY, VERB_ANY, 0, version_main },
-                { "help",         VERB_ANY, VERB_ANY, 0, help_main    },
+                { "info",         VERB_ANY, VERB_ANY, 0,            info_main    },
+                { "trigger",      VERB_ANY, VERB_ANY, 0,            trigger_main },
+                { "settle",       VERB_ANY, VERB_ANY, 0,            settle_main  },
+                { "control",      VERB_ANY, VERB_ANY, 0,            control_main },
+                { "monitor",      VERB_ANY, VERB_ANY, 0,            monitor_main },
+                { "hwdb",         VERB_ANY, VERB_ANY, 0,            hwdb_main    },
+                { "test",         VERB_ANY, VERB_ANY, 0,            test_main    },
+                { "test-builtin", VERB_ANY, VERB_ANY, 0,            builtin_main },
+                { "wait",         VERB_ANY, VERB_ANY, 0,            wait_main    },
+                { "lock",         VERB_ANY, VERB_ANY, 0,            lock_main    },
+                { "verify",       VERB_ANY, VERB_ANY, 0,            verify_main  },
+                { "version",      VERB_ANY, VERB_ANY, 0,            version_main },
+                { "help",         VERB_ANY, VERB_ANY, VERB_DEFAULT, help_main    },
                 {}
         };
 

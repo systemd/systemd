@@ -41,6 +41,7 @@ static int help(void) {
                "\nCommands:\n"
                "  update          Update the hwdb database\n"
                "  query MODALIAS  Query database and print result\n"
+               "  help            Show this help\n"
                "\nOptions:\n"
                "  -h --help       Show this help\n"
                "     --version    Show package version\n"
@@ -54,6 +55,10 @@ static int help(void) {
                link);
 
         return 0;
+}
+
+static int verb_help(int argc, char **argv, void *userdata) {
+        return help();
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -109,8 +114,9 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int hwdb_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "update", 1, 1, 0, verb_update },
-                { "query",  2, 2, 0, verb_query  },
+                { "update", 1,        1,        0,            verb_update },
+                { "query",  2,        2,        0,            verb_query  },
+                { "help",   VERB_ANY, VERB_ANY, VERB_DEFAULT, verb_help   },
                 {},
         };
 

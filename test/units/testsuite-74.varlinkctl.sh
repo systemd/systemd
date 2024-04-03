@@ -6,6 +6,7 @@ set -o pipefail
 # Unset $PAGER so we don't have to use --no-pager everywhere
 export PAGER=
 
+varlinkctl
 varlinkctl --help
 varlinkctl help --no-pager
 varlinkctl --version
@@ -88,7 +89,6 @@ find /run/systemd/ -name "io.systemd*" -type s | while read -r socket; do
     done
 done
 
-(! varlinkctl)
 (! varlinkctl "")
 (! varlinkctl info)
 (! varlinkctl info "")

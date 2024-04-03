@@ -292,12 +292,12 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int id128_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "new",            VERB_ANY, 1,        0,  verb_new           },
-                { "machine-id",     VERB_ANY, 1,        0,  verb_machine_id    },
-                { "boot-id",        VERB_ANY, 1,        0,  verb_boot_id       },
-                { "invocation-id",  VERB_ANY, 1,        0,  verb_invocation_id },
-                { "show",           VERB_ANY, VERB_ANY, 0,  verb_show          },
-                { "help",           VERB_ANY, VERB_ANY, 0,  verb_help          },
+                { "new",            VERB_ANY, 1,        0,            verb_new           },
+                { "machine-id",     VERB_ANY, 1,        0,            verb_machine_id    },
+                { "boot-id",        VERB_ANY, 1,        0,            verb_boot_id       },
+                { "invocation-id",  VERB_ANY, 1,        0,            verb_invocation_id },
+                { "show",           VERB_ANY, VERB_ANY, 0,            verb_show          },
+                { "help",           VERB_ANY, VERB_ANY, VERB_DEFAULT, verb_help          },
                 {}
         };
 
