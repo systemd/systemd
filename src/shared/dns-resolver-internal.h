@@ -43,6 +43,8 @@ struct sd_dns_resolver {
 
 void siphash24_compress_resolver(const sd_dns_resolver *res, struct siphash *state);
 
+int sd_dns_resolver_transports_to_strv(sd_dns_alpn_flags transports, char ***ret);
+
 int sd_dns_resolvers_to_dot_addrs(const sd_dns_resolver *resolvers, size_t n_resolvers,
                 struct in_addr_full ***ret_addrs, size_t *ret_n_addrs);
 
