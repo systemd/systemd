@@ -48,7 +48,7 @@ static int network_save(Network *network, const char *dest_dir) {
 
         r = conservative_rename(temp_path, p);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to rename '%s' to '%s': %m", temp_path, p);
 
         temp_path = mfree(temp_path);
         return 0;
@@ -79,7 +79,7 @@ static int netdev_save(NetDev *netdev, const char *dest_dir) {
 
         r = conservative_rename(temp_path, p);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to rename '%s' to '%s': %m", temp_path, p);
 
         temp_path = mfree(temp_path);
         return 0;
@@ -113,7 +113,7 @@ static int link_save(Link *link, const char *dest_dir) {
 
         r = conservative_rename(temp_path, p);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to rename '%s' to '%s': %m", temp_path, p);
 
         temp_path = mfree(temp_path);
         return 0;
