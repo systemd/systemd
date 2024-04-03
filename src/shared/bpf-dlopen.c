@@ -82,12 +82,13 @@ int dlopen_bpf(void) {
 #if MODERN_LIBBPF
                                 /* Don't exist anymore in new libbpf, hence cannot type check them */
                                 DLSYM_ARG_FORCE(bpf_create_map),
-                                DLSYM_ARG_FORCE(bpf_probe_prog_type));
+                                DLSYM_ARG_FORCE(bpf_probe_prog_type)
 #else
                                 DLSYM_ARG(bpf_create_map),
-                                DLSYM_ARG(bpf_probe_prog_type));
+                                DLSYM_ARG(bpf_probe_prog_type)
 #endif
-        } else {
+                );
+        } else
                 /* symbols available from 0.7.0 */
                 r = dlsym_many_or_warn(
                                 dl, LOG_DEBUG,
@@ -100,7 +101,8 @@ int dlopen_bpf(void) {
                                 DLSYM_ARG_FORCE(libbpf_probe_bpf_prog_type)
 #endif
                 );
-        }
+        if (r < 0)
+                return r;
 
         r = dlsym_many_or_warn(
                         dl, LOG_DEBUG,
