@@ -533,12 +533,12 @@ static int verb_validate_idl(int argc, char *argv[], void *userdata) {
 
 static int varlinkctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "info",            2,        2,        0, verb_info         },
-                { "list-interfaces", 2,        2,        0, verb_info         },
-                { "introspect",      3,        3,        0, verb_introspect   },
-                { "call",            3,        4,        0, verb_call         },
-                { "validate-idl",    1,        2,        0, verb_validate_idl },
-                { "help",            VERB_ANY, VERB_ANY, 0, verb_help         },
+                { "info",            2,        2,        0,            verb_info         },
+                { "list-interfaces", 2,        2,        0,            verb_info         },
+                { "introspect",      3,        3,        0,            verb_introspect   },
+                { "call",            3,        4,        0,            verb_call         },
+                { "validate-idl",    1,        2,        0,            verb_validate_idl },
+                { "help",            VERB_ANY, VERB_ANY, VERB_DEFAULT, verb_help         },
                 {}
         };
 

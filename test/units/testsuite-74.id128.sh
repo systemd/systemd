@@ -6,6 +6,7 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+systemd-id128
 systemd-id128 --help
 systemd-id128 help
 systemd-id128 show
@@ -49,7 +50,6 @@ assert_eq "$(systemd-id128 boot-id --uuid)" "$(</proc/sys/kernel/random/boot_id)
 # shellcheck disable=SC2016
 systemd-run --wait --pipe bash -euxc '[[ $INVOCATION_ID == "$(systemd-id128 invocation-id)" ]]'
 
-(! systemd-id128)
 (! systemd-id128 new -a '')
 (! systemd-id128 new -a '0')
 (! systemd-id128 invocation-id -a 4f68bce3e8cd4db196e7fbcaf984b709)
