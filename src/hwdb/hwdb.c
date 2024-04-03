@@ -76,6 +76,9 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
+        if (argv_looks_like_help(argc, argv))
+                return help();
+
         while ((c = getopt_long(argc, argv, "sr:h", options, NULL)) >= 0)
                 switch (c) {
 
