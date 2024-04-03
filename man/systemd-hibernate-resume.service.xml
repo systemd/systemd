@@ -17,12 +17,14 @@
 
   <refnamediv>
     <refname>systemd-hibernate-resume.service</refname>
+    <refname>systemd-hibernate-clear.service</refname>
     <refname>systemd-hibernate-resume</refname>
     <refpurpose>Resume from hibernation</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename>systemd-hibernate-resume.service</filename></para>
+    <para><filename>systemd-hibernate-clear.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-hibernate-resume</filename></para>
   </refsynopsisdiv>
 
@@ -36,6 +38,12 @@
     Internally, it works by writing the major:minor of selected device node to
     <filename>/sys/power/resume</filename>, along with the offset in memory pages
     (<filename>/sys/power/resume_offset</filename>) if supported.</para>
+
+    <para>The resume device node is either passed directly through arguments, or automatically acquired
+    from kernel command line options and/or <varname>HibernateLocation</varname> EFI variable. The latter
+    will normally be cleared by <filename>systemd-hibernate-resume.service</filename> on resumption.
+    If a stale variable is detected, it would be cleared by
+    <filename>systemd-hibernate-clear.service</filename>.</para>
 
     <para>Failing to initiate a resume is not an error condition. It may mean that there was
     no resume image (e. g. if the system has been simply powered off and not hibernated).
