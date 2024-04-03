@@ -208,6 +208,7 @@ struct sd_bus_vtable {
                                 _41, _42, _43, _44, _45, _46, _47, _48, _49, _50, \
                                 NAME, ...) NAME
 
+#define _SD_VARARGS_FOREACH_EVEN_00(FN)
 #define _SD_VARARGS_FOREACH_EVEN_01(FN, X)         FN(X)
 #define _SD_VARARGS_FOREACH_EVEN_02(FN, X, Y)      FN(X)
 #define _SD_VARARGS_FOREACH_EVEN_04(FN, X, Y, ...) FN(X) _SD_VARARGS_FOREACH_EVEN_02(FN, __VA_ARGS__)
@@ -261,9 +262,11 @@ struct sd_bus_vtable {
                                 _SD_VARARGS_FOREACH_EVEN_08, _SD_VARARGS_FOREACH_EVEN_07, \
                                 _SD_VARARGS_FOREACH_EVEN_06, _SD_VARARGS_FOREACH_EVEN_05, \
                                 _SD_VARARGS_FOREACH_EVEN_04, _SD_VARARGS_FOREACH_EVEN_03, \
-                                _SD_VARARGS_FOREACH_EVEN_02, _SD_VARARGS_FOREACH_EVEN_01) \
+                                _SD_VARARGS_FOREACH_EVEN_02, _SD_VARARGS_FOREACH_EVEN_01, \
+                                _SD_VARARGS_FOREACH_EVEN_00)                              \
                                 (FN, __VA_ARGS__)
 
+#define _SD_VARARGS_FOREACH_ODD_00(FN)
 #define _SD_VARARGS_FOREACH_ODD_01(FN, X)
 #define _SD_VARARGS_FOREACH_ODD_02(FN, X, Y)      FN(Y)
 #define _SD_VARARGS_FOREACH_ODD_04(FN, X, Y, ...) FN(Y) _SD_VARARGS_FOREACH_ODD_02(FN, __VA_ARGS__)
@@ -317,7 +320,8 @@ struct sd_bus_vtable {
                                 _SD_VARARGS_FOREACH_ODD_08, _SD_VARARGS_FOREACH_ODD_07, \
                                 _SD_VARARGS_FOREACH_ODD_06, _SD_VARARGS_FOREACH_ODD_05, \
                                 _SD_VARARGS_FOREACH_ODD_04, _SD_VARARGS_FOREACH_ODD_03, \
-                                _SD_VARARGS_FOREACH_ODD_02, _SD_VARARGS_FOREACH_ODD_01) \
+                                _SD_VARARGS_FOREACH_ODD_02, _SD_VARARGS_FOREACH_ODD_01, \
+                                _SD_VARARGS_FOREACH_ODD_00)                             \
                                 (FN, __VA_ARGS__)
 
 #define SD_BUS_ARGS(...) __VA_ARGS__
