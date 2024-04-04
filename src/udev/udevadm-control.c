@@ -40,6 +40,17 @@ static int arg_start_exec_queue = -1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_env, strv_freep);
 
+static bool arg_has_control_commands(void) {
+        return
+                arg_exit ||
+                arg_log_level >= 0 ||
+                arg_start_exec_queue >= 0 ||
+                arg_reload ||
+                !strv_isempty(arg_env) ||
+                arg_max_children >= 0 ||
+                arg_ping;
+}
+
 static int help(void) {
         printf("%s control OPTION\n\n"
                "Control the udev daemon.\n\n"
@@ -87,10 +98,6 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        if (argc <= 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This command expects one or more options.");
-
         while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
                 switch (c) {
 
@@ -123,7 +130,6 @@ static int parse_argv(int argc, char *argv[]) {
                         r = strv_extend(&arg_env, optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extend environment: %m");
-
                         break;
 
                 case 'm': {
@@ -157,6 +163,10 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached();
                 }
+
+        if (!arg_has_control_commands())
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No control command option is specified.");
 
         if (optind < argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
