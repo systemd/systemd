@@ -623,7 +623,7 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
                                 arg_tpm2_signature,
                                 arg_uid,
                                 &input,
-                                /* flags= */ 0,
+                                CREDENTIAL_ALLOW_NULL,
                                 &plaintext);
         if (r < 0)
                 return r;
