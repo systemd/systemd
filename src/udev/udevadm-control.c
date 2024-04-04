@@ -19,8 +19,15 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "copy.h"
+#include "creds-util.h"
+#include "errno-util.h"
+#include "fd-util.h"
+#include "fs-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
+#include "recurse-dir.h"
 #include "static-destruct.h"
 #include "strv.h"
 #include "syslog-util.h"
@@ -28,6 +35,8 @@
 #include "udevadm.h"
 #include "udev-ctrl.h"
 #include "virt.h"
+
+#define UDEV_RULES_RUNTIME_DIR "/run/udev/rules.d/"
 
 static char **arg_env = NULL;
 static usec_t arg_timeout = 60 * USEC_PER_SEC;
@@ -37,8 +46,20 @@ static bool arg_exit = false;
 static int arg_max_children = -1;
 static int arg_log_level = -1;
 static int arg_start_exec_queue = -1;
+static bool arg_load_credentials = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_env, strv_freep);
+
+static bool arg_has_control_commands(void) {
+        return
+                arg_exit ||
+                arg_log_level >= 0 ||
+                arg_start_exec_queue >= 0 ||
+                arg_reload ||
+                !strv_isempty(arg_env) ||
+                arg_max_children >= 0 ||
+                arg_ping;
+}
 
 static int help(void) {
         printf("%s control OPTION\n\n"
@@ -53,7 +74,8 @@ static int help(void) {
                "  -p --property=KEY=VALUE  Set a global property for all events\n"
                "  -m --children-max=N      Maximum number of children\n"
                "     --ping                Wait for udev to respond to a ping message\n"
-               "  -t --timeout=SECONDS     Maximum time to block for a reply\n",
+               "  -t --timeout=SECONDS     Maximum time to block for a reply\n"
+               "  -L --load-credentials    Load udev rules from credentials\n",
                program_invocation_short_name);
 
         return 0;
@@ -77,6 +99,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "children-max",     required_argument, NULL, 'm'      },
                 { "ping",             no_argument,       NULL, ARG_PING },
                 { "timeout",          required_argument, NULL, 't'      },
+                { "load-credentials", no_argument,       NULL, 'L'      },
                 { "version",          no_argument,       NULL, 'V'      },
                 { "help",             no_argument,       NULL, 'h'      },
                 {}
@@ -87,11 +110,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        if (argc <= 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This command expects one or more options.");
-
-        while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "el:sSRp:m:t:LVh", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'e':
@@ -145,6 +164,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse timeout value '%s': %m", optarg);
                         break;
 
+                case 'L':
+                        arg_load_credentials = true;
+                        break;
+
                 case 'V':
                         return print_version();
 
@@ -158,6 +181,10 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
+        if (!arg_has_control_commands() && !arg_load_credentials)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No control command option is specified.");
+
         if (optind < argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Extraneous argument: %s", argv[optind]);
@@ -165,18 +192,67 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int control_main(int argc, char *argv[], void *userdata) {
-        _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
-        int r;
+static int pick_up_credentials(void) {
+        _cleanup_close_ int credential_dir_fd = -EBADF, udev_rules_dir_fd = -EBADF;
+        int r, ret = 0;
 
-        if (running_in_chroot() > 0) {
-                log_info("Running in chroot, ignoring request.");
+        credential_dir_fd = open_credentials_dir();
+        if (IN_SET(credential_dir_fd, -ENXIO, -ENOENT)) {
+                /* Credential env var not set, or dir doesn't exist. */
+                log_debug("No credentials found.");
                 return 0;
         }
+        if (credential_dir_fd < 0)
+                return log_error_errno(credential_dir_fd, "Failed to open credentials directory: %m");
 
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                return r;
+        _cleanup_free_ DirectoryEntries *des = NULL;
+        r = readdir_all(credential_dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &des);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate credentials: %m");
+
+        FOREACH_ARRAY(i, des->entries, des->n_entries) {
+                struct dirent *de = *i;
+
+                if (de->d_type != DT_REG)
+                        continue;
+
+                const char *e = startswith(de->d_name, "udev.rules.");
+                if (!e)
+                        continue;
+
+                _cleanup_free_ char *fn = strjoin(e, ".rules");
+                if (!fn)
+                        return log_oom();
+
+                if (!filename_is_valid(fn)) {
+                        log_warning("Passed credential '%s' would result in invalid filename '%s', ignoring.", de->d_name, fn);
+                        continue;
+                }
+
+                if (udev_rules_dir_fd < 0) {
+                        udev_rules_dir_fd = xopenat_full(AT_FDCWD, UDEV_RULES_RUNTIME_DIR, O_CLOEXEC | O_CREAT | O_DIRECTORY, 0, 0755);
+                        if (udev_rules_dir_fd < 0)
+                                return log_error_errno(udev_rules_dir_fd, "Failed to open "UDEV_RULES_RUNTIME_DIR": %m");
+                }
+
+                r = copy_file_at(
+                                credential_dir_fd, de->d_name,
+                                udev_rules_dir_fd, fn,
+                                /* open_flags= */ 0,
+                                0644,
+                                /* flags= */ 0);
+                if (r < 0)
+                        RET_GATHER(ret, log_warning_errno(r, "Failed to copy credential %s → file "UDEV_RULES_RUNTIME_DIR"%s: %m", de->d_name, fn));
+                else
+                        log_info("Installed "UDEV_RULES_RUNTIME_DIR"%s from credential.", fn);
+        }
+
+        return ret;
+}
+
+static int send_control_commands(void) {
+        _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
+        int r;
 
         r = udev_ctrl_new(&uctrl);
         if (r < 0)
@@ -234,6 +310,33 @@ int control_main(int argc, char *argv[], void *userdata) {
         r = udev_ctrl_wait(uctrl, arg_timeout);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for daemon to reply: %m");
+
+        return 0;
+}
+
+int control_main(int argc, char *argv[], void *userdata) {
+        int r;
+
+        if (running_in_chroot() > 0) {
+                log_info("Running in chroot, ignoring request.");
+                return 0;
+        }
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        if (arg_load_credentials) {
+                r = pick_up_credentials();
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_has_control_commands()) {
+                r = send_control_commands();
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
