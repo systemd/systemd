@@ -1365,8 +1365,11 @@ static int manager_enumerate_devices(Manager *m) {
         if (r < 0)
                 return r;
 
-        FOREACH_DEVICE(e, d)
+        FOREACH_DEVICE(e, d) {
+                if (device_is_processed(d) <= 0)
+                        continue;
                 (void) manager_add_device(m, d);
+        }
 
         return 0;
 }

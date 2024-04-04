@@ -1630,9 +1630,9 @@ static int link_check_initialized(Link *link) {
                 return 0;
         }
 
-        r = sd_device_get_is_initialized(device);
+        r = device_is_processed(device);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Could not determine whether the device is initialized: %m");
+                return log_link_warning_errno(link, r, "Could not determine whether the device is processed by udevd: %m");
         if (r == 0) {
                 /* not yet ready */
                 log_link_debug(link, "link pending udev initialization...");
@@ -1644,14 +1644,6 @@ static int link_check_initialized(Link *link) {
                 return log_link_warning_errno(link, r, "Failed to determine the device is being renamed: %m");
         if (r > 0) {
                 log_link_debug(link, "Interface is being renamed, pending initialization.");
-                return 0;
-        }
-
-        r = device_is_processing(device);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to determine whether the device is being processed: %m");
-        if (r > 0) {
-                log_link_debug(link, "Interface is being processed by udevd, pending initialization.");
                 return 0;
         }
 
