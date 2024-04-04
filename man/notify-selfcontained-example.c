@@ -41,16 +41,18 @@ static int notify(const char *message) {
   _cleanup_(closep) int fd = -1;
   const char *socket_path;
 
-  socket_path = getenv("NOTIFY_SOCKET");
-  if (!socket_path)
-    return 0; /* Not running under systemd? Nothing to do */
-
+  /* Verify the argument first */
   if (!message)
     return -EINVAL;
 
   message_length = strlen(message);
   if (message_length == 0)
     return -EINVAL;
+
+  /* If the variable is not set, the protocol is a noop */
+  socket_path = getenv("NOTIFY_SOCKET");
+  if (!socket_path)
+    return 0; /* Not set? Nothing to do */
 
   /* Only AF_UNIX is supported, with path or abstract sockets */
   if (socket_path[0] != '/' && socket_path[0] != '@')

@@ -743,11 +743,9 @@ static int remove_marked_symlinks_fd(
                                         continue;
                                 }
 
-                                r = path_extract_filename(dest, &fname);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to extract filename from path %s: %m", dest);
-                                        return r;
-                                }
+                                q = path_extract_filename(dest, &fname);
+                                if (q < 0)
+                                        return log_debug_errno(q, "Failed to extract filename from path %s: %m", dest);
 
                                 found = set_contains(remove_symlinks_to, dest) ||
                                         set_contains(remove_symlinks_to, fname);
@@ -895,11 +893,10 @@ static int find_symlinks_in_directory(
                                 free_and_replace(dest, x);
                         }
 
-                        r = path_extract_filename(dest, &fname);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to extract filename from path %s: %m", dest);
-                                return r;
-                        }
+                        q = path_extract_filename(dest, &fname);
+                        if (q < 0)
+                                return log_debug_errno(q, "Failed to extract filename from path %s: %m", dest);
+
                         /* Check if what the symlink points to matches what we are looking for */
                         found_dest = streq(fname, info->name);
                 }
@@ -1199,10 +1196,8 @@ static int install_info_add(
         assert(ctx);
         if (!name) {
                 r = path_extract_filename(path, &fname);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to extract filename from path %s: %m", path);
-                        return r;
-                }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to extract filename from path %s: %m", path);
                 name = fname;
         }
 
@@ -1671,10 +1666,9 @@ static int install_info_follow(
                 return -EINVAL;
 
         r = path_extract_filename(info->symlink_target, &fname);
-        if (r < 0) {
-                log_error_errno(r, "Failed to extract filename from path %s: %m", info->symlink_target);
-                return r;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to extract filename from path %s: %m", info->symlink_target);
+
         /* If the basename doesn't match, the caller should add a complete new entry for this. */
         if (!ignore_different_name && !streq(fname, info->name))
                 return -EXDEV;
@@ -1731,10 +1725,8 @@ static int install_info_traverse(
                         const char *bn;
 
                         r = path_extract_filename(i->symlink_target, &fname);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to extract filename from path %s: %m", i->symlink_target);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract filename from path %s: %m", i->symlink_target);
 
                         /* Target is an alias, create a new install info object and continue with that. */
 
@@ -2507,20 +2499,14 @@ int unit_file_link(
                 return -ENXIO;
 
         STRV_FOREACH(file, files) {
-                _cleanup_free_ char *full = NULL, *fname = NULL;
+                _cleanup_free_ char *full = NULL;
                 struct stat st;
                 char *fn;
 
                 if (!path_is_absolute(*file))
                         return install_changes_add(changes, n_changes, -EINVAL, *file, NULL);
 
-                r = path_extract_filename(*file, &fname);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to extract filename from path %s: %m", *file);
-                        return r;
-                }
-
-                fn = fname;
+                fn = basename(*file);
                 if (!unit_name_is_valid(fn, UNIT_NAME_ANY))
                         return install_changes_add(changes, n_changes, -EUCLEAN, *file, NULL);
 
@@ -2564,10 +2550,8 @@ int unit_file_link(
         STRV_FOREACH(i, todo) {
                 _cleanup_free_ char *new_path = NULL, *fname = NULL;
                 r = path_extract_filename(*i, &fname);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to extract filename from path %s: %m", *i);
+                if (r < 0)
                         return r;
-                }
 
                 new_path = path_make_absolute(fname, config_path);
                 if (!new_path)
@@ -2972,6 +2956,7 @@ static int normalize_linked_files(
                 r = path_extract_filename(*a, &n);
                 if (r < 0)
                         return r;
+
                 if (r == O_DIRECTORY)
                         return log_debug_errno(SYNTHETIC_ERRNO(EISDIR),
                                                "Unexpected path to a directory \"%s\", refusing.", *a);
@@ -3148,10 +3133,9 @@ int unit_file_lookup_state(
         case INSTALL_MODE_REGULAR:
                 _cleanup_free_ char *fname = NULL;
                 r = path_extract_filename(info->path, &fname);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to extract filename from path %s: %m", info->path);
+                if (r < 0)
                         return r;
-                }
+
                 /* Check if the name we were querying is actually an alias */
                 if (!streq(name, fname) && !unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
                         state = UNIT_FILE_ALIAS;
@@ -3815,10 +3799,8 @@ int unit_file_get_list(
                                 continue;
 
                         r = path_extract_filename(f->path, &fname);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to extract filename from path %s: %m", f->path);
+                        if (r < 0)
                                 return r;
-                        }
 
                         r = hashmap_put(h, fname, f);
                         if (r < 0)

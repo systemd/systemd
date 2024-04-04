@@ -177,11 +177,18 @@ int test_main(int argc, char *argv[], void *userdata) {
                         (void) device_get_devnode_mode(dev, &mode);
                 if (mode != MODE_INVALID)
                         printf("%sDevice node permission:%s\n  %04o\n", ansi_highlight(), ansi_normal(), mode);
+
+                if (!ordered_hashmap_isempty(event->seclabel_list)) {
+                        const char *name, *label;
+                        printf("%sDevice node security label:%s\n", ansi_highlight(), ansi_normal());
+                        ORDERED_HASHMAP_FOREACH_KEY(label, name, event->seclabel_list)
+                                printf("  %s : %s\n", name, label);
+                }
         }
 
         if (sd_device_get_ifindex(dev, NULL) >= 0) {
                 if (!isempty(event->name))
-                        printf("%sNetwork interface name:%s  %s\n", ansi_highlight(), ansi_normal(), event->name);
+                        printf("%sNetwork interface name:%s\n  %s\n", ansi_highlight(), ansi_normal(), event->name);
 
                 if (!strv_isempty(event->altnames)) {
                         bool space = true;
