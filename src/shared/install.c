@@ -729,7 +729,7 @@ static int remove_marked_symlinks_fd(
                         }
 
                         if (!found) {
-                                _cleanup_free_ char *dest = NULL;
+                                _cleanup_free_ char *dest = NULL, *fname = NULL;
 
                                 q = chase(p, lp->root_dir, CHASE_NONEXISTENT, &dest, NULL);
                                 if (q == -ENOENT)
@@ -743,8 +743,12 @@ static int remove_marked_symlinks_fd(
                                         continue;
                                 }
 
+                                q = path_extract_filename(dest, &fname);
+                                if (q < 0)
+                                        return log_debug_errno(q, "Failed to extract filename from path %s: %m", dest);
+
                                 found = set_contains(remove_symlinks_to, dest) ||
-                                        set_contains(remove_symlinks_to, basename(dest));
+                                        set_contains(remove_symlinks_to, fname);
 
                         }
 
@@ -866,7 +870,7 @@ static int find_symlinks_in_directory(
                         continue;
 
                 if (!ignore_destination) {
-                        _cleanup_free_ char *dest = NULL;
+                        _cleanup_free_ char *dest = NULL, *fname = NULL;
 
                         /* Acquire symlink destination */
                         q = readlinkat_malloc(dirfd(dir), de->d_name, &dest);
@@ -889,8 +893,12 @@ static int find_symlinks_in_directory(
                                 free_and_replace(dest, x);
                         }
 
+                        q = path_extract_filename(dest, &fname);
+                        if (q < 0)
+                                return log_debug_errno(q, "Failed to extract filename from path %s: %m", dest);
+
                         /* Check if what the symlink points to matches what we are looking for */
-                        found_dest = streq(basename(dest), info->name);
+                        found_dest = streq(fname, info->name);
                 }
 
                 assert(unit_name_is_valid(info->name, UNIT_NAME_ANY));
@@ -1182,16 +1190,15 @@ static int install_info_add(
                 bool auxiliary,
                 InstallInfo **ret) {
 
+        _cleanup_free_ char *fname = NULL;
         int r;
 
         assert(ctx);
-
         if (!name) {
-                /* 'name' and 'path' must not both be null. Check here 'path' using assert_se() to
-                 * workaround a bug in gcc that generates a -Wnonnull warning when calling basename(),
-                 * but this cannot be possible in any code path (See #6119). */
-                assert_se(path);
-                name = basename(path);
+                r = path_extract_filename(path, &fname);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to extract filename from path %s: %m", path);
+                name = fname;
         }
 
         if (!unit_name_is_valid(name, UNIT_NAME_ANY))
@@ -1647,6 +1654,9 @@ static int install_info_follow(
                 SearchFlags flags,
                 bool ignore_different_name) {
 
+        _cleanup_free_ char *fname = NULL;
+        int r;
+
         assert(ctx);
         assert(info);
 
@@ -1655,9 +1665,12 @@ static int install_info_follow(
         if (!info->symlink_target)
                 return -EINVAL;
 
-        /* If the basename doesn't match, the caller should add a complete new entry for this. */
+        r = path_extract_filename(info->symlink_target, &fname);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to extract filename from path %s: %m", info->symlink_target);
 
-        if (!ignore_different_name && !streq(basename(info->symlink_target), info->name))
+        /* If the basename doesn't match, the caller should add a complete new entry for this. */
+        if (!ignore_different_name && !streq(fname, info->name))
                 return -EXDEV;
 
         free_and_replace(info->path, info->symlink_target);
@@ -1708,12 +1721,16 @@ static int install_info_traverse(
                                         /* If linked, don't look at the target name */
                                         /* ignore_different_name= */ i->install_mode == INSTALL_MODE_LINKED);
                 if (r == -EXDEV && i->symlink_target) {
-                        _cleanup_free_ char *buffer = NULL;
+                        _cleanup_free_ char *buffer = NULL, *fname;
                         const char *bn;
+
+                        r = path_extract_filename(i->symlink_target, &fname);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract filename from path %s: %m", i->symlink_target);
 
                         /* Target is an alias, create a new install info object and continue with that. */
 
-                        bn = basename(i->symlink_target);
+                        bn = fname;
 
                         if (unit_name_is_valid(i->name, UNIT_NAME_INSTANCE) &&
                             unit_name_is_valid(bn, UNIT_NAME_TEMPLATE)) {
@@ -2531,9 +2548,12 @@ int unit_file_link(
 
         r = 0;
         STRV_FOREACH(i, todo) {
-                _cleanup_free_ char *new_path = NULL;
+                _cleanup_free_ char *new_path = NULL, *fname = NULL;
+                r = path_extract_filename(*i, &fname);
+                if (r < 0)
+                        return r;
 
-                new_path = path_make_absolute(basename(*i), config_path);
+                new_path = path_make_absolute(fname, config_path);
                 if (!new_path)
                         return -ENOMEM;
 
@@ -2936,6 +2956,7 @@ static int normalize_linked_files(
                 r = path_extract_filename(*a, &n);
                 if (r < 0)
                         return r;
+
                 if (r == O_DIRECTORY)
                         return log_debug_errno(SYNTHETIC_ERRNO(EISDIR),
                                                "Unexpected path to a directory \"%s\", refusing.", *a);
@@ -3110,8 +3131,13 @@ int unit_file_lookup_state(
                 break;
 
         case INSTALL_MODE_REGULAR:
+                _cleanup_free_ char *fname = NULL;
+                r = path_extract_filename(info->path, &fname);
+                if (r < 0)
+                        return r;
+
                 /* Check if the name we were querying is actually an alias */
-                if (!streq(name, basename(info->path)) && !unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
+                if (!streq(name, fname) && !unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
                         state = UNIT_FILE_ALIAS;
                         break;
                 }
@@ -3714,7 +3740,8 @@ int unit_file_get_list(
                 char **states,
                 char **patterns) {
 
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
+       _cleanup_(lookup_paths_done) LookupPaths lp = {};
+       _cleanup_free_ char *fname = NULL;
         int r;
 
         assert(scope >= 0);
@@ -3771,7 +3798,11 @@ int unit_file_get_list(
                             !strv_contains(states, unit_file_state_to_string(f->state)))
                                 continue;
 
-                        r = hashmap_put(h, basename(f->path), f);
+                        r = path_extract_filename(f->path, &fname);
+                        if (r < 0)
+                                return r;
+
+                        r = hashmap_put(h, fname, f);
                         if (r < 0)
                                 return r;
 
