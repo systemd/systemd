@@ -15,6 +15,7 @@ int acquire_luks2_key(
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
                 const char *pin,
+                const char *pcrlock_path,
                 uint16_t primary_alg,
                 const void *key_data,
                 size_t key_data_size,
