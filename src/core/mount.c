@@ -1438,8 +1438,8 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
 
         } else if (streq(key, "control-pid")) {
 
-                pidref_done(&m->control_pid);
-                (void) deserialize_pidref(fds, value, &m->control_pid);
+                if (!pidref_is_set(&m->control_pid))
+                        (void) deserialize_pidref(fds, value, &m->control_pid);
 
         } else if (streq(key, "control-command")) {
                 MountExecCommand id;
