@@ -4,6 +4,7 @@
 
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "hashmap.h"
 #include "format-table.h"
 #include "locale-util.h"
 #include "path-util.h"
@@ -105,11 +106,200 @@ static char *format_unit_id(const char *unit, const char *machine) {
         return machine ? strjoin(machine, ":", unit) : strdup(unit);
 }
 
-static int output_units_list(const UnitInfo *unit_infos, size_t c) {
+static Hashmap *slice_unit_map = NULL;
+typedef struct {
+        char ** units;
+        size_t num_units;
+}SliceUnits;
+
+/* Function to insert or update units under slice unit in the hash map */
+static int insert_units_under_slice(const char *slice_name, char **units, size_t num_units) {
+        SliceUnits *slice_units = NULL;
+        int r;
+
+        assert(slice_name);
+        assert(units && num_units > 0);
+        /* Initialize the hashmap */
+        if (!slice_unit_map)
+                slice_unit_map = hashmap_new(&string_hash_ops);
+
+        /* Allocate memory for array of unit names for a slice */
+        slice_units = new(SliceUnits, sizeof(SliceUnits));
+        if (!slice_units) {
+                mfree(slice_units);
+                return log_oom();
+        }
+
+        slice_units->units = new(char *, sizeof(char *) * num_units);
+        if (!slice_units->units) {
+                mfree(slice_units->units);
+                return log_oom();
+        }
+
+        /* Copy units names into the array */
+        for (size_t i = 0; i < num_units; i++) {
+                slice_units->units[i] = strdup(units[i]);
+                if (!slice_units->units[i]) {
+                        for (size_t j = 0; j < i; j++)
+                                mfree(slice_units->units[j]);
+                        mfree(slice_units->units);
+                        mfree(slice_units);
+                        return log_oom();
+                }
+        }
+        slice_units->num_units = num_units;
+
+        /* Insert the slice name and corresponding units into the hashmap */
+        r = hashmap_put(slice_unit_map, slice_name, slice_units);
+        if (r < 0) {
+                for (size_t i = 0; i < num_units; i++)
+                        mfree(slice_units->units[i]);
+                mfree(slice_units->units);
+                mfree(slice_units);
+                return log_oom();
+        }
+        return r;
+}
+
+/* Function to retrieve units under a slice from the hash map */
+static SliceUnits *get_units_under_slice(const char *slice_name) {
+        SliceUnits *slice_units;
+
+        assert(slice_name);
+        if (!slice_unit_map)
+                return NULL;
+
+        /* Retrieve units under slice */
+        slice_units = hashmap_get(slice_unit_map, slice_name);
+        if (!slice_units)
+                return NULL;
+
+        return slice_units;
+}
+
+static bool is_slice(const char *slice_name) {
+        assert(slice_name);
+
+        if (!slice_unit_map)
+                return false;
+
+        return hashmap_contains(slice_unit_map, slice_name);
+}
+
+static void free_slice_units(SliceUnits *slice_units) {
+        if (slice_units) {
+                for (size_t i = 0; i < slice_units->num_units; i++)
+                        mfree(slice_units->units[i]);
+                mfree(slice_units->units);
+                mfree(slice_units);
+        }
+}
+
+static void free_hash_map(void) {
+        SliceUnits *slice_units;
+        void *v, *k;
+
+      if (slice_unit_map) {
+        HASHMAP_FOREACH_KEY(v, k, slice_unit_map) {
+                slice_units = hashmap_get(slice_unit_map, k);
+                free_slice_units(slice_units);
+        }
+
+        hashmap_free(slice_unit_map);
+        }
+}
+
+/* Function to print units under a slice recursively */
+static int print_units_under_slice(const char *slice_name, int level) {
+        SliceUnits *slice_units = NULL;
+        char **units;
+        size_t num_units;
+
+        assert(slice_name);
+        assert(level >= 0);
+        /* Retrieve units under the current slice from the hashmap */
+        slice_units = get_units_under_slice(slice_name);
+        if (slice_units == NULL)
+                return log_oom();
+
+        for(int i = 0; i < level; ++i)
+                printf("|   ");
+        printf("|__ %s\n", slice_name);
+
+        /* Print the units under the current slice */
+        units = slice_units->units;
+        num_units = slice_units->num_units;
+        for (size_t i = 0; i < num_units; ++i) {
+
+                /* Print child slices recursively */
+                if (is_slice(units[i]))
+                        print_units_under_slice(units[i], level + 1);
+                else {
+                        for (int j = 0; j < level + 1; ++j)
+                                printf("|   ");
+                        printf("|___%s\n", units[i]);
+                }
+        }
+        return 0;
+}
+
+static int fetch_bus_property(sd_bus *bus, const UnitInfo *unit_infos, size_t c) {
+        bool arg_has_root_slice = false;
+        int r;
+
+        /* Ensure argv contains the root slice '-.slice' */
+        for (size_t i = 0; i < c; i++) {
+                if (streq(unit_infos[i].id, "-.slice")) {
+                        arg_has_root_slice = true;
+                        break;
+                }
+                continue;
+        }
+        if (!arg_has_root_slice) {
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                "No root slice in loaded units.\nLoaded units must have root slice '-.slice' to print slice tree structure.\n");
+        }
+        FOREACH_ARRAY(u, unit_infos, c) {
+                _cleanup_strv_free_ char **units = NULL;
+                size_t num_units;
+                if (endswith(u->id, ".slice")) {
+                        /* Get units under a slice units from sd_bus */
+                        r = sd_bus_get_property_strv(
+                                bus,
+                                "org.freedesktop.systemd1", u->unit_path,
+                                "org.freedesktop.systemd1.Unit",
+                                "SliceOf",
+                                NULL,
+                                &units);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                        num_units = strv_length((char * const *)units);
+                        r = insert_units_under_slice(u->id, units, num_units);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to insert slice units: %m");
+
+                }
+        }
+        return 0;
+
+}
+
+static int output_units_list(sd_bus *bus, const UnitInfo *unit_infos, size_t c) {
         _cleanup_(table_unrefp) Table *table = NULL;
         size_t job_count = 0;
         int r;
 
+        if (arg_list_by_slice) {
+                /* Get units from Dbus property and store in hashmap */
+                r = fetch_bus_property(bus, unit_infos, c);
+                if (r < 0)
+                        return r;
+
+                /* Print tree structure */
+                print_units_under_slice("-.slice", 0);
+                free_hash_map();
+                return 0;
+        }
         table = table_new("", "unit", "load", "active", "sub", "job", "description");
         if (!table)
                 return log_oom();
@@ -278,7 +468,7 @@ int verb_list_units(int argc, char *argv[], void *userdata) {
         }
 
         typesafe_qsort(unit_infos, r, unit_info_compare);
-        return output_units_list(unit_infos, r);
+        return output_units_list(bus, unit_infos, r);
 }
 
 static int get_triggered_units(
