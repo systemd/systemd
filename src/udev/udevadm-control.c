@@ -37,6 +37,7 @@ static bool arg_exit = false;
 static int arg_max_children = -1;
 static int arg_log_level = -1;
 static int arg_start_exec_queue = -1;
+static int arg_has_control_commands = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_env, strv_freep);
 
@@ -87,33 +88,34 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        if (argc <= 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This command expects one or more options.");
-
         while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'e':
                         arg_exit = true;
+                        arg_has_control_commands = true;
                         break;
 
                 case 'l':
                         arg_log_level = log_level_from_string(optarg);
                         if (arg_log_level < 0)
                                 return log_error_errno(arg_log_level, "Failed to parse log level '%s': %m", optarg);
+                        arg_has_control_commands = true;
                         break;
 
                 case 's':
                         arg_start_exec_queue = false;
+                        arg_has_control_commands = true;
                         break;
 
                 case 'S':
                         arg_start_exec_queue = true;
+                        arg_has_control_commands = true;
                         break;
 
                 case 'R':
                         arg_reload = true;
+                        arg_has_control_commands = true;
                         break;
 
                 case 'p':
@@ -124,6 +126,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extend environment: %m");
 
+                        arg_has_control_commands = true;
                         break;
 
                 case 'm': {
@@ -132,11 +135,13 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse maximum number of children '%s': %m", optarg);
                         arg_max_children = i;
+                        arg_has_control_commands = true;
                         break;
                 }
 
                 case ARG_PING:
                         arg_ping = true;
+                        arg_has_control_commands = true;
                         break;
 
                 case 't':
@@ -157,6 +162,10 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached();
                 }
+
+        if (!arg_has_control_commands)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No control command option is specified.");
 
         if (optind < argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
