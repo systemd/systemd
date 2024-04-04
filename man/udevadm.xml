@@ -727,6 +727,21 @@
           </listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><option>-L</option></term>
+          <term><option>--load-credentials</option></term>
+          <listitem>
+            <para>Load udev rules from credentials named as <varname>udev.rules.*</varname> and store at
+            <filename>/run/udev/rules.d/</filename>. Each credentials must be a valid
+            <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+            rules file. From each matching credential a separate file is created. Example: a passed
+            credential <filename>udev.rules.50-foobar</filename> will be copied into a configuration file
+            <filename>50-foobar.rules</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
