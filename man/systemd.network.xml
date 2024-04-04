@@ -3192,6 +3192,16 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
 
     <variablelist class='network-directives'>
       <varlistentry>
+        <term><varname>UseRedirect=</varname></term>
+        <listitem>
+          <para>When true (the default), Redirect message sent by the current first-hop router will be
+          accepted, and configures routes to redirected nodes will be configured.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Token=</varname></term>
         <listitem>
           <para>Specifies an optional address generation mode for the Stateless Address
