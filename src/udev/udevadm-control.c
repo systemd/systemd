@@ -176,18 +176,9 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int control_main(int argc, char *argv[], void *userdata) {
+static int send_control_commands(void) {
         _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
         int r;
-
-        if (running_in_chroot() > 0) {
-                log_info("Running in chroot, ignoring request.");
-                return 0;
-        }
-
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                return r;
 
         r = udev_ctrl_new(&uctrl);
         if (r < 0)
@@ -245,6 +236,27 @@ int control_main(int argc, char *argv[], void *userdata) {
         r = udev_ctrl_wait(uctrl, arg_timeout);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for daemon to reply: %m");
+
+        return 0;
+}
+
+int control_main(int argc, char *argv[], void *userdata) {
+        int r;
+
+        if (running_in_chroot() > 0) {
+                log_info("Running in chroot, ignoring request.");
+                return 0;
+        }
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        if (arg_has_control_commands()) {
+                r = send_control_commands();
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
