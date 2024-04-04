@@ -944,7 +944,7 @@ manpages = [
  ['systemd-hibernate-resume-generator', '8', [], 'ENABLE_HIBERNATE'],
  ['systemd-hibernate-resume.service',
   '8',
-  ['systemd-hibernate-resume', 'systemd-hibernate-clear.service'],
+  ['systemd-hibernate-clear.service', 'systemd-hibernate-resume'],
   'ENABLE_HIBERNATE'],
  ['systemd-homed.service', '8', ['systemd-homed'], 'ENABLE_HOMED'],
  ['systemd-hostnamed.service', '8', ['systemd-hostnamed'], 'ENABLE_HOSTNAMED'],
