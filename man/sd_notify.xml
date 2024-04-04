@@ -25,6 +25,9 @@
     <refname>sd_pid_notifyf_with_fds</refname>
     <refname>sd_notify_barrier</refname>
     <refname>sd_pid_notify_barrier</refname>
+    <refname>sd_notify_inline</refname>
+    <refname>sd_notifyf_inline</refname>
+
     <refpurpose>Notify service manager about start-up completion and other service status changes</refpurpose>
   </refnamediv>
 
@@ -90,6 +93,21 @@
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
         <paramdef>int <parameter>unset_environment</parameter></paramdef>
         <paramdef>uint64_t <parameter>timeout</parameter></paramdef>
+      </funcprototype>
+
+      <funcsynopsisinfo>#include &lt;systemd/sd-notify-inline.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_notify_inline</function></funcdef>
+        <paramdef>int <parameter>unset_environment</parameter></paramdef>
+        <paramdef>const char *<parameter>state</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_notifyf_inline</function></funcdef>
+        <paramdef>int <parameter>unset_environment</parameter></paramdef>
+        <paramdef>const char *<parameter>format</parameter></paramdef>
+        <paramdef>…</paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -166,6 +184,21 @@
 
     <para><function>sd_pid_notify_barrier()</function> is just like <function>sd_notify_barrier()</function>,
     but allows specifying the originating PID for the notification message.</para>
+
+    <refsect2>
+      <title>Inline reimplementations</title>
+
+      <para>The <function>sd_notify_inline()</function> and <function>sd_notifyf_inline()</function> function
+      are like <function>sd_notify()</function> and <function>sd_notifyf()</function>, but are defined as
+      "static inline", so that the compiled program does not have to link to <constant>libsystemd</constant>,
+      but instead the definition that was current at the time of compilation is embedded in the binary.
+      </para>
+
+      <para>Those functions are intended to be used as lightweight replacement when other parts of the
+      library are not needed to avoid the additional dependendency. Using the non-inline versions is
+      generally preferred, because in case of a bug in the inline version, all users need to be recompiled.
+      </para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -493,11 +526,6 @@
     privileged port (i.e.: lower than 1024), as an attempt to address concerns that unprivileged processes in
     the guest might try to send malicious notifications to the host, driving it to make destructive decisions
     based on them.</para>
-
-    <para>Note that, while using this library should be preferred in order to avoid code duplication, it is
-    also possible to reimplement the simple readiness notification protocol without external dependencies,
-    as demonstrated in the following self-contained example:
-    <programlisting><xi:include href="notify-selfcontained-example.c" parse="text"/></programlisting></para>
   </refsect1>
 
   <refsect1>
@@ -573,6 +601,44 @@ sd_notify(0, "READY=1");
 sd_notify_barrier(0, 5 * 1000000);
       </programlisting>
     </example>
+
+    <refsect2>
+      <title>Inline variants and stand-alone implementations</title>
+
+      <para>Note that, while using this library should be preferred in order to avoid code duplication, two
+      other approaches are possible. The inline functions <function>sd_notify_inline()</function> and
+      <function>sd_notifyf_inline()</function> can be used as a replacement for
+      <function>sd_notify()</function> or <function>sd_notifyf()</function>. The header file is permissively
+      licensed and does not require linking to the library.</para>
+
+      <example>
+        <title>Using the inline notification functions</title>
+
+        <programlisting>/* SPDX-License-Identifier: MIT-0 */
+#include &lt;systemd/sd-notify-inline.h>
+
+static void notify(const char *message) {
+  /* "Wrap" the inline function in a local function to have a single copy. */
+  sd_notify_inline(0, message);
+}
+
+static int restart(...) {
+  ...
+  notify("RELOADING=1");
+  ...
+  notify("READY=1");
+}
+        </programlisting>
+      </example>
+
+      <para>It is also possible to reimplement the protocol in own code as demonstrated below.</para>
+
+      <example>
+        <title>Open reimplementation of the readiness protocol</title>
+
+        <programlisting><xi:include href="notify-selfcontained-example.c" parse="text"/></programlisting>
+      </example>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -583,6 +649,8 @@ sd_notify_barrier(0, 5 * 1000000);
     <para><function>sd_notify_barrier()</function> was added in version 246.</para>
     <para><function>sd_pid_notifyf_with_fds()</function> and
     <function>sd_pid_notify_barrier()</function> were added in version 254.</para>
+    <para><function>sd_notify_inline()</function> and
+    <function>sd_notifyf_inline()</function> were added in version 256.</para>
   </refsect1>
 
   <refsect1>
