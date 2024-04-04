@@ -523,7 +523,7 @@ int clear_efi_hibernate_location_and_warn(void) {
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_warning_errno(r, "Failed to clear EFI variable HibernateLocation: %m");
+                return log_warning_errno(r, "Failed to clear HibernateLocation EFI variable: %m");
 
         return 1;
 }
