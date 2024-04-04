@@ -207,6 +207,11 @@ elif [ -d /sys/firmware/qemu_fw_cfg/by_name ]; then
     [ "$(cat /tmp/sourcedfromcredential)" = "tmpfilessecret" ]
     [ "$(cat /etc/motd.d/50-provision.conf)" = "hello" ]
     [ "$(cat /etc/issue.d/50-provision.conf)" = "welcome" ]
+
+    # Verify that adding a unit and drop-in via credentials worked
+    systemctl start my-service
+    sleep 1
+    assert_eq "$(journalctl --grep foobarquux | wc -l)" 2
 else
     echo "qemu_fw_cfg support missing in kernel. Sniff!"
     expected_credential=""
