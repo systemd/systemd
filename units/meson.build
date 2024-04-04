@@ -688,6 +688,7 @@ units = [
           'conditions' : ['ENABLE_TMPFILES'],
           'symlinks' : ['sysinit.target.wants/'],
         },
+        { 'file' : 'systemd-udev-load-credentials.service' },
         { 'file' : 'systemd-udev-settle.service' },
         {
           'file' : 'systemd-udev-trigger.service',
