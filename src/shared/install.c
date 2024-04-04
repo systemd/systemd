@@ -117,17 +117,23 @@ static int in_search_path(const LookupPaths *lp, const char *path) {
 
         /* Check if 'path' is in lp->search_path. */
 
-        r = path_extract_directory(ASSERT_PTR(path), &parent);
+        assert(lp);
+        assert(path);
+
+        r = path_extract_directory(path, &parent);
         if (r < 0)
                 return r;
 
-        return path_strv_contains(ASSERT_PTR(lp)->search_path, parent);
+        return path_strv_contains(lp->search_path, parent);
 }
 
-static int underneath_search_path(const LookupPaths *lp, const char *path) {
+static bool underneath_search_path(const LookupPaths *lp, const char *path) {
         /* Check if 'path' is underneath lp->search_path. */
 
-        return !!path_startswith_strv(ASSERT_PTR(path), ASSERT_PTR(lp)->search_path);
+        assert(lp);
+        assert(path);
+
+        return path_startswith_strv(path, lp->search_path);
 }
 
 static const char* skip_root(const char *root_dir, const char *path) {
@@ -496,75 +502,61 @@ void install_changes_dump(
                 log_error_errno(error, "Failed to %s unit: %m.", verb);
 }
 
-/**
- * Checks if two symlink targets (starting from src) are equivalent as far as the unit enablement logic is
- * concerned. If the target is in the unit search path, then anything with the same name is equivalent.
- * If outside the unit search path, paths must be identical.
- */
 static int chroot_unit_symlinks_equivalent(
                 const LookupPaths *lp,
-                const char *src,
-                const char *target_a,
-                const char *target_b) {
+                const char *link_src,
+                const char *new_target,
+                const char *existing_target) {
 
-        assert(lp);
-        assert(src);
-        assert(target_a);
-        assert(target_b);
-
-        /* This will give incorrect results if the paths are relative and go outside
-         * of the chroot. False negatives are possible. */
-
-        const char *root = lp->root_dir ?: "/";
-        _cleanup_free_ char *dirname = NULL;
+        _cleanup_free_ char *new_target_resolved = NULL;
         int r;
 
-        if (!path_is_absolute(target_a) || !path_is_absolute(target_b)) {
-                r = path_extract_directory(src, &dirname);
+        assert(lp);
+        assert(link_src);
+        assert(new_target);
+        assert(existing_target);
+        assert(!lp->root_dir || path_startswith(link_src, lp->root_dir));
+        assert(path_is_absolute(existing_target));
+        assert(!lp->root_dir || path_startswith(existing_target, lp->root_dir));
+
+        if (!path_is_absolute(new_target)) {
+                _cleanup_free_ char *link_dir = NULL, *new_target_abs = NULL;
+
+                r = path_extract_directory(link_src, &link_dir);
                 if (r < 0)
                         return r;
+
+                new_target_abs = path_make_absolute(new_target, link_dir);
+                if (!new_target_absolute)
+                        return -ENOMEM;
+
+                r = chase(new_target_abs, lp->root_dir, CHASE)
+
+                new_target = new_target_absolute;
         }
 
-        _cleanup_free_ char *a = path_join(path_is_absolute(target_a) ? root : dirname, target_a);
-        _cleanup_free_ char *b = path_join(path_is_absolute(target_b) ? root : dirname, target_b);
-        if (!a || !b)
-                return log_oom();
-
-        r = path_equal_or_inode_same(a, b, 0);
-        if (r != 0)
-                return r;
-
-        _cleanup_free_ char *a_name = NULL, *b_name = NULL;
-        r = path_extract_filename(a, &a_name);
-        if (r < 0)
-                return r;
-        r = path_extract_filename(b, &b_name);
-        if (r < 0)
-                return r;
-
-        return streq(a_name, b_name) &&
-               path_startswith_strv(a, lp->search_path) &&
-               path_startswith_strv(b, lp->search_path);
+        if ((r > 0 && path_equal_or_inode_same(existing_target, link_target, /* flags = */ 0)) ||
+            (path_startswith_strv(existing_target, lp->search_path) &&
+             path_startswith_strv(link_target, lp->search_path) &&
+             path_equal_filename(existing_target, link_target))) {
 }
 
 static int create_symlink(
                 const LookupPaths *lp,
-                const char *old_path,
-                const char *new_path,
+                const char *link_target,
+                const char *link_src,
                 bool force,
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_free_ char *dest = NULL;
-        const char *rp;
+        const char *link_target_in_root;
         int r;
 
-        assert(old_path);
-        assert(new_path);
+        assert(lp);
+        assert(link_target);
+        assert(link_src);
 
-        rp = skip_root(lp->root_dir, old_path);
-        if (rp)
-                old_path = rp;
+        link_target_in_root = skip_root(lp->root_dir, link_target) ?: link_target;
 
         /* Actually create a symlink, and remember that we did. This function is
          * smart enough to check if there's already a valid symlink in place.
@@ -575,42 +567,50 @@ static int create_symlink(
 
         (void) mkdir_parents_label(new_path, 0755);
 
-        if (symlink(old_path, new_path) >= 0) {
-                r = install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, new_path, old_path);
+        if (symlink(link_target_in_root, link_src) >= 0) {
+                r = install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, link_src, link_target_in_root);
                 if (r < 0)
                         return r;
                 return 1;
         }
-
         if (errno != EEXIST)
-                return install_changes_add(changes, n_changes, -errno, new_path, NULL);
+                return install_changes_add(changes, n_changes, -errno, link_src, NULL);
 
-        r = readlink_malloc(new_path, &dest);
-        if (r < 0) {
-                /* translate EINVAL (non-symlink exists) to EEXIST */
-                if (r == -EINVAL)
-                        r = -EEXIST;
+        r = is_symlink(link_src);
+        if (r < 0)
+                return install_changes_add(changes, n_changes, r, link_src, NULL);
+        if (r == 0)
+                return install_changes_add(changes, n_changes, -EEXIST, link_src, NULL);
 
-                return install_changes_add(changes, n_changes, r, new_path, NULL);
-        }
+        /* Check if the existing symlink is equivalent to the one shall be created by us, as far as
+         * the unit enablement logic is concerned. If the symlink target is in the unit search path,
+         * then anything with the same name is equivalent. If outside the unit search path, paths must
+         * be identical. */
+        _cleanup_free_ char *existing_target = NULL;
 
-        if (chroot_unit_symlinks_equivalent(lp, new_path, dest, old_path)) {
-                log_debug("Symlink %s %s %s already exists",
-                          new_path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dest);
+        r = chase(link_src, lp->root_dir, CHASE_NONEXISTENT, &existing_target, /* ret_fd = */ NULL);
+        if (r < 0)
+                return install_changes_add(changes, n_changes, r, link_src, NULL);
+        if ((r > 0 && path_equal_or_inode_same(existing_target, link_target, /* flags = */ 0)) ||
+            (path_startswith_strv(existing_target, lp->search_path) &&
+             path_startswith_strv(link_target, lp->search_path) &&
+             path_equal_filename(existing_target, link_target))) {
+                log_debug("Symlink '%s' %s '%s' (or equivalent) already exists.",
+                          link_src, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), link_target);
                 return 1;
         }
 
         if (!force)
-                return install_changes_add(changes, n_changes, -EEXIST, new_path, dest);
+                return install_changes_add(changes, n_changes, -EEXIST, link_src, existing_target);
 
-        r = symlink_atomic(old_path, new_path);
+        r = symlink_atomic(link_target, link_src);
         if (r < 0)
-                return install_changes_add(changes, n_changes, r, new_path, NULL);
+                return install_changes_add(changes, n_changes, r, link_src, NULL);
 
-        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, new_path, NULL);
+        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_UNLINK, link_src, NULL);
         if (r < 0)
                 return r;
-        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, new_path, old_path);
+        r = install_changes_add(changes, n_changes, INSTALL_CHANGE_SYMLINK, link_src, link_target);
         if (r < 0)
                 return r;
 
@@ -2460,14 +2460,13 @@ int unit_file_link(
                 RuntimeScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
-                char **files,
+                char * const *files,
                 InstallChange **changes,
                 size_t *n_changes) {
 
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_strv_free_ char **todo = NULL;
+        _cleanup_hashmap_free_ Hashmap *todo = NULL;
         const char *config_path;
-        size_t n_todo = 0;
         int r;
 
         assert(scope >= 0);
@@ -2477,19 +2476,20 @@ int unit_file_link(
         if (r < 0)
                 return r;
 
-        config_path = (flags & UNIT_FILE_RUNTIME) ? lp.runtime_config : lp.persistent_config;
+        config_path = FLAG_SET(flags, UNIT_FILE_RUNTIME) ? lp.runtime_config : lp.persistent_config;
         if (!config_path)
                 return -ENXIO;
 
         STRV_FOREACH(file, files) {
-                _cleanup_free_ char *full = NULL;
-                struct stat st;
-                char *fn;
+                _cleanup_free_ char *fn = NULL, *path = NULL, *full = NULL;
 
                 if (!path_is_absolute(*file))
                         return install_changes_add(changes, n_changes, -EINVAL, *file, NULL);
 
-                fn = basename(*file);
+                r = path_extract_filename(*file, &fn);
+                if (r < 0)
+                        return install_changes_add(changes, n_changes, r, *file, NULL);
+
                 if (!unit_name_is_valid(fn, UNIT_NAME_ANY))
                         return install_changes_add(changes, n_changes, -EUCLEAN, *file, NULL);
 
@@ -2497,10 +2497,7 @@ int unit_file_link(
                 if (!full)
                         return -ENOMEM;
 
-                if (lstat(full, &st) < 0)
-                        return install_changes_add(changes, n_changes, -errno, *file, NULL);
-
-                r = stat_verify_regular(&st);
+                r = verify_regular_at(AT_FDCWD, full, /* follow = */ false);
                 if (r < 0)
                         return install_changes_add(changes, n_changes, r, *file, NULL);
 
@@ -2511,33 +2508,36 @@ int unit_file_link(
                         /* A silent noop if the file is already in the search path. */
                         continue;
 
-                r = underneath_search_path(&lp, *file);
-                if (r > 0)
-                        r = -ETXTBSY;
+                if (underneath_search_path(&lp, *file))
+                        return install_changes_add(changes, n_changes, -ETXTBSY, *file, NULL);
+
+                path = strdup(*file);
+                if (!path)
+                        return -ENOMEM;
+
+                /* We use path as key and filename as value here, not the other way around. This way
+                 * if multiple paths with same filename are specified, we still do the right thing with
+                 * the first one, and allow create_symlink to create a error with 'source' for others */
+                r = hashmap_ensure_put(&todo, &path_hash_ops_free_free, path, fn);
                 if (r < 0)
-                        return install_changes_add(changes, n_changes, r, *file, NULL);
-
-                if (!GREEDY_REALLOC0(todo, n_todo + 2))
-                        return -ENOMEM;
-
-                todo[n_todo] = strdup(*file);
-                if (!todo[n_todo])
-                        return -ENOMEM;
-
-                n_todo++;
+                        return r;
+                if (r > 0) {
+                        TAKE_PTR(path);
+                        TAKE_PTR(fn);
+                }
         }
 
-        strv_uniq(todo);
+        const char *path, *fn;
 
         r = 0;
-        STRV_FOREACH(i, todo) {
+        HASHMAP_FOREACH_KEY(path, fn, todo) {
                 _cleanup_free_ char *new_path = NULL;
 
-                new_path = path_make_absolute(basename(*i), config_path);
+                new_path = path_make_absolute(fn, config_path);
                 if (!new_path)
                         return -ENOMEM;
 
-                RET_GATHER(r, create_symlink(&lp, *i, new_path, flags & UNIT_FILE_FORCE, changes, n_changes));
+                RET_GATHER(r, create_symlink(&lp, path, new_path, flags & UNIT_FILE_FORCE, changes, n_changes));
         }
 
         return r;
