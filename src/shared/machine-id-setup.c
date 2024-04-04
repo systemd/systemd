@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <proc-cmdline.h>
 #include <sched.h>
 #include <sys/mount.h>
 #include <unistd.h>
@@ -48,6 +49,19 @@ static int acquire_machine_id_from_credential(sd_id128_t *ret) {
         return 0;
 }
 
+static bool machine_id_firmware(void) {
+        _cleanup_free_ char *buf = NULL;
+        int r;
+
+        r = proc_cmdline_get_key("systemd.machine_id_smbios", PROC_CMDLINE_VALUE_OPTIONAL, &buf);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to read systemd.machine_id_smbios from kernel command line, ignoring: %m");
+                return false;
+        }
+
+        return strcmp(buf, "firmware");
+}
+
 static int generate_machine_id(const char *root, sd_id128_t *ret) {
         _cleanup_close_ int fd = -EBADF;
         int r;
@@ -80,14 +94,14 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
                                 return 0;
                         }
 
-                } else if (IN_SET(detect_vm(), VIRTUALIZATION_KVM, VIRTUALIZATION_AMAZON, VIRTUALIZATION_QEMU, VIRTUALIZATION_XEN)) {
+                } else if (IN_SET(detect_vm(), VIRTUALIZATION_KVM, VIRTUALIZATION_AMAZON, VIRTUALIZATION_QEMU, VIRTUALIZATION_XEN) || machine_id_firmware()) {
 
                         /* If we are not running in a container, see if we are running in a VM that provides
                          * a system UUID via the SMBIOS/DMI interfaces.  Such environments include QEMU/KVM
                          * with the -uuid on the qemu command line or the Amazon EC2 Nitro hypervisor. */
 
                         if (id128_get_product(ret) >= 0) {
-                                log_info("Initializing machine ID from VM UUID.");
+                                log_info("Initializing machine ID from SMBIOS/DMI UUID.");
                                 return 0;
                         }
                 }
