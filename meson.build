@@ -1701,6 +1701,7 @@ if conf.get('BPF_FRAMEWORK') == 1
         bpf_gcc_flags = [
                 '-std=gnu11',
                 '-fno-stack-protector',
+                '-fno-ssa-phiopt',
                 '-O2',
                 '-mcpu=v3',
                 '-mco-re',
