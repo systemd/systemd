@@ -23,12 +23,12 @@ __systemctl() {
     }
 
 _arguments \
-    {-G,--collect}'[Unload the transient unit after it completed]' \
+    '(-G --collect)'{-G,--collect}'[Unload the transient unit after it completed]' \
     '--description=[Description for unit]:description' \
     '--gid=[Run as system group]:group:_groups' \
-    {-h,--help}'[Show help message]' \
-    {-H+,--host=}'[Operate on remote host]:[user@]host:_sd_hosts_or_user_at_host' \
-    {-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
+    '(- *)'{-h,--help}'[Show help message]' \
+    '(-H --host)'{-H+,--host=}'[Operate on remote host]:[user@]host:_sd_hosts_or_user_at_host' \
+    '(-M --machine)'{-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
     '--nice=[Nice level]:nice level' \
     '--no-ask-password[Do not query the user for authentication]' \
     '--no-block[Do not synchronously wait for the unit start operation to finish]' \
@@ -41,8 +41,8 @@ _arguments \
     '--on-unit-active=[Run SEC seconds after the last activation]:SEC' \
     '--on-unit-inactive=[Run SEC seconds after the last deactivation]:SEC' \
     '--path-property=[Set path unit property]:NAME=VALUE' \
-    {-P,--pipe}'[Inherit standard input, output, and error]' \
-    {-p+,--property=}'[Set unit property]:NAME=VALUE:(( \
+    '(-P --pipe)'{-P,--pipe}'[Inherit standard input, output, and error]' \
+    '(-p --property)'{-p+,--property=}'[Set unit property]:NAME=VALUE:(( \
                 CPUAccounting= MemoryAccounting= BlockIOAccounting= SendSIGHUP= \
                 SendSIGKILL= MemoryLimit= CPUShares= BlockIOWeight= User= Group= \
                 DevicePolicy= KillMode= ExitType= DeviceAllow= BlockIOReadBandwidth= \
@@ -57,22 +57,22 @@ _arguments \
                 ReadOnlyPaths= InaccessiblePaths= EnvironmentFile= \
                 ProtectSystem= ProtectHome= RuntimeDirectory= PassEnvironment= \
                 ))' \
-    {-t,--pty}'[The service connects to the terminal]' \
-    {-q,--quiet}'[Suppresses additional informational output]' \
-    {-r,--remain-after-exit}'[Leave service around until explicitly stopped]' \
-    {-d,--same-dir}'[Run on the current working directory]' \
+    '(-t --pty)'{-t,--pty}'[The service connects to the terminal]' \
+    '(-q --quiet)'{-q,--quiet}'[Suppresses additional informational output]' \
+    '(-r --remain-after-exit)'{-r,--remain-after-exit}'[Leave service around until explicitly stopped]' \
+    '(-d --same-dir)'{-d,--same-dir}'[Run on the current working directory]' \
     '--scope[Run this as scope rather than service]' \
     '--send-sighup[Send SIGHUP when terminating]' \
     '--service-type=[Service type]:type:(simple forking oneshot dbus notify idle)' \
-    {-E+,--setenv=}'[Set environment]:NAME=VALUE' \
-    {-S,--shell}'[requests an interactive shell in the current working directory]' \
+    '(-E --setenv)'{-E+,--setenv=}'[Set environment]:NAME=VALUE' \
+    '(-S --shell)'{-S,--shell}'[requests an interactive shell in the current working directory]' \
     '--slice=[Run in the specified slice]:slices:__systemd-run_slices' \
     '--slice-inherit[Run in the inherited slice]' \
     '--socket-property=[Set socket unit property]:NAME=VALUE' \
     '--system[Run as system unit]' \
     '--timer-property=[Set timer unit property]:NAME=VALUE' \
     '--uid=[Run as system user]:user:_users' \
-    {-u+,--unit=}'[Run under the specified unit name]:unit name' \
+    '(-u --unit)'{-u+,--unit=}'[Run under the specified unit name]:unit name' \
     '--user[Run as user unit]' \
     '--version[Show package version]' \
     '--wait=[Wait until service stopped again]' \
