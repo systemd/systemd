@@ -181,7 +181,7 @@ int test_main(int argc, char *argv[], void *userdata) {
 
         if (sd_device_get_ifindex(dev, NULL) >= 0) {
                 if (!isempty(event->name))
-                        printf("%sNetwork interface name:%s  %s\n", ansi_highlight(), ansi_normal(), event->name);
+                        printf("%sNetwork interface name:%s\n  %s\n", ansi_highlight(), ansi_normal(), event->name);
 
                 if (!strv_isempty(event->altnames)) {
                         bool space = true;
