@@ -203,8 +203,8 @@ testcase_second_unreachable() {
 : "Setup host & containers"
 # Note: create the drop-in intentionally under /etc, so it gets automagically propagated
 #       to the container we create later
-mkdir /etc/systemd/system/resolved.conf.d/
-cat >/etc/systemd/system/resolved.conf.d/99-mdns-llmnr.conf <<EOF
+mkdir /etc/systemd/resolved.conf.d/
+cat >/etc/systemd/resolved.conf.d/99-mdns-llmnr.conf <<EOF
 [Resolve]
 MulticastDNS=yes
 LLMNR=yes
@@ -226,10 +226,12 @@ for container in "$CONTAINER_1" "$CONTAINER_2"; do
     # Wait until the veth interface is configured and turn on mDNS and LLMNR
     systemd-run -M "$container" --wait --pipe -- \
         /usr/lib/systemd/systemd-networkd-wait-online --ipv4 --ipv6 --interface=host0 --operational-state=degraded --timeout=30
-    systemd-run -M "$container" --wait --pipe -- resolvectl mdns host0 on
-    systemd-run -M "$container" --wait --pipe -- resolvectl llmnr host0 on
-    systemd-run -M "$container" --wait --pipe -- networkctl status --no-pager host0
-    systemd-run -M "$container" --wait --pipe -- resolvectl status --no-pager host0
+    systemd-run -M "$container" --wait --pipe -- resolvectl mdns host0 yes
+    systemd-run -M "$container" --wait --pipe -- resolvectl llmnr host0 yes
+    systemd-run -M "$container" --wait --pipe -- networkctl status --no-pager
+    systemd-run -M "$container" --wait --pipe -- resolvectl status --no-pager
+    [[ "$(systemd-run -M "$container" --wait --pipe -- resolvectl mdns host0)" =~ :\ yes$ ]]
+    [[ "$(systemd-run -M "$container" --wait --pipe -- resolvectl llmnr host0)" =~ :\ yes$ ]]
 done
 
 BRIDGE_INDEX="$(<"/sys/class/net/vz-$CONTAINER_ZONE/ifindex")"
