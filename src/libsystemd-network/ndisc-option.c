@@ -1422,6 +1422,141 @@ static int ndisc_option_parse_encrypted_dns(Set **options, size_t offset, size_t
         return ndisc_option_add_encrypted_dns(options, offset, new_res, lifetime);
 }
 
+static int ndisc_option_build_encrypted_dns(const sd_ndisc_option *option, usec_t timestamp, uint8_t **ret) {
+        int r;
+
+        assert(option);
+        assert(option->type == SD_NDISC_OPTION_ENCRYPTED_DNS);
+        assert(ret);
+
+        size_t off, len, ilen, plen, poff;
+
+        /* Everything up to adn field is required, so we need at least 2*8 bytes */
+        _cleanup_free_ uint8_t *buf = new(uint8_t, 2 * 8);
+        if (!buf)
+                return -ENOMEM;
+
+        _cleanup_strv_free_ char **alpns = NULL;
+        const sd_dns_resolver *res = option->encrypted_dns.resolver;
+        be32_t lifetime = usec_to_be32_sec(MIN(option->encrypted_dns.lifetime,
+                                               usec_sub_unsigned(option->encrypted_dns.valid_until, timestamp)));
+
+        /* Type (Length field filled in last) */
+        buf[0] = option->type;
+
+        /* Priority */
+        off = 2;
+        unaligned_write_be16(buf + off, res->priority);
+        off += sizeof(be16_t);
+
+        /* Lifetime */
+        memcpy(buf + off, &lifetime, sizeof(be32_t));
+        off += sizeof(be32_t);
+
+        /* ADN */
+        //FIXME can the wire format be longer than this?
+        ilen = strlen(res->auth_name) + 2;
+
+        /* From now on, there isn't guaranteed to be enough space to put each field */
+        if (!GREEDY_REALLOC(buf, off + sizeof(uint16_t) + ilen))
+                return -ENOMEM;
+
+        r = dns_name_to_wire_format(res->auth_name, buf + off + sizeof(uint16_t), ilen, /* canonical = */ false);
+        if (r < 0)
+                return r;
+        unaligned_write_be16(buf + off, (uint16_t) r);
+        off += sizeof(uint16_t) + r;
+
+        /* ADN-only mode */
+        if (res->n_addrs == 0)
+                goto padding;
+
+        /* addrs */
+        if (size_multiply_overflow(sizeof(struct in6_addr), res->n_addrs))
+                return -ENOMEM;
+
+        ilen = res->n_addrs * sizeof(struct in6_addr);
+        if (!GREEDY_REALLOC(buf, off + sizeof(uint16_t) + ilen))
+                return -ENOMEM;
+
+        unaligned_write_be16(buf + off, ilen);
+        off += sizeof(uint16_t);
+
+        FOREACH_ARRAY(addr, res->addrs, res->n_addrs) {
+                memcpy(buf + off, &addr->in6, sizeof(struct in6_addr));
+                off += sizeof(struct in6_addr);
+        }
+
+        /* SvcParam, MUST appear in order */
+        poff = off + sizeof(uint16_t);
+
+        /* ALPN */
+        sd_dns_resolver_transports_to_strv(res->transports, &alpns);
+
+        /* res needs to have at least one valid transport */
+        if (strv_isempty(alpns))
+                return -EINVAL;
+
+        plen = 0;
+        STRV_FOREACH(alpn, alpns)
+                plen += sizeof(uint8_t) + strlen(*alpn);
+
+        if (!GREEDY_REALLOC(buf, poff + 2 * sizeof(uint16_t) + plen))
+                return -ENOMEM;
+
+        unaligned_write_be16(buf + poff, (uint16_t) DNS_SVC_PARAM_KEY_ALPN);
+        poff += sizeof(uint16_t);
+        unaligned_write_be16(buf + poff, plen);
+        poff += sizeof(uint16_t);
+
+        STRV_FOREACH(alpn, alpns) {
+                size_t alen = strlen(*alpn);
+                buf[poff++] = alen;
+                memcpy(buf + poff, *alpn, alen);
+                poff += alen;
+        }
+
+        /* port */
+        if (res->port > 0) {
+                plen = 2;
+                if (!GREEDY_REALLOC(buf, poff + 2 * sizeof(uint16_t) + plen))
+                        return -ENOMEM;
+
+                unaligned_write_be16(buf + poff, (uint16_t) DNS_SVC_PARAM_KEY_PORT);
+                poff += sizeof(uint16_t);
+                unaligned_write_be16(buf + poff, plen);
+                poff += sizeof(uint16_t);
+                unaligned_write_be16(buf + poff, res->port);
+                poff += sizeof(uint16_t);
+        }
+
+        /* dohpath */
+        if (res->dohpath) {
+                plen = strlen(res->dohpath);
+                if (!GREEDY_REALLOC(buf, poff + 2 * sizeof(uint16_t) + plen))
+                        return -ENOMEM;
+
+                unaligned_write_be16(buf + poff, (uint16_t) DNS_SVC_PARAM_KEY_DOHPATH);
+                poff += sizeof(uint16_t);
+                unaligned_write_be16(buf + poff, plen);
+                poff += sizeof(uint16_t);
+                memcpy(buf + poff, res->dohpath, plen);
+                poff += plen;
+        }
+
+        unaligned_write_be16(buf + off, LESS_BY(poff, off));
+        off = poff;
+
+padding:
+        len = DIV_ROUND_UP(off, 8);
+        for (uint8_t *p = buf + off; p < buf + 8 * len; p++)
+                *p = 0;
+
+        buf[1] = len;
+        *ret = TAKE_PTR(buf);
+        return 0;
+}
+
 static int ndisc_option_parse_default(Set **options, size_t offset, size_t len, const uint8_t *opt) {
         assert(options);
         assert(opt);
@@ -1641,6 +1776,10 @@ int ndisc_send(int fd, const struct sockaddr_in6 *dst, const struct icmp6_hdr *h
 
                 case SD_NDISC_OPTION_PREF64:
                         r = ndisc_option_build_prefix64(option, timestamp, &buf);
+                        break;
+
+                case SD_NDISC_OPTION_ENCRYPTED_DNS:
+                        r = ndisc_option_build_encrypted_dns(option, timestamp, &buf);
                         break;
 
                 default:
