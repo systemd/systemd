@@ -68,6 +68,7 @@
         <term><varname>systemd.default_standard_error=</varname></term>
         <term><varname>systemd.setenv=</varname></term>
         <term><varname>systemd.machine_id=</varname></term>
+        <term><varname>systemd.machine_id_smbios</varname></term>
         <term><varname>systemd.set_credential=</varname></term>
         <term><varname>systemd.set_credential_binary=</varname></term>
         <term><varname>systemd.import_credentials=</varname></term>
