@@ -3,13 +3,17 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "creds-util.h"
 #include "dropin.h"
+#include "errno-util.h"
+#include "fd-util.h"
+#include "fileio-label.h"
 #include "generator.h"
 #include "initrd-util.h"
-#include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
+#include "recurse-dir.h"
 #include "special.h"
 #include "string-util.h"
 #include "strv.h"
@@ -141,14 +145,14 @@ static int generate_wants_symlinks(void) {
         return r;
 }
 
-static void install_debug_shell_dropin(const char *dir) {
+static void install_debug_shell_dropin(void) {
         const char *tty = arg_debug_tty ?: arg_default_debug_tty;
         int r;
 
         if (!tty || path_equal(tty, skip_dev_prefix(DEBUGTTY)))
                 return;
 
-        r = write_drop_in_format(dir, "debug-shell.service", 50, "tty",
+        r = write_drop_in_format(arg_dest, "debug-shell.service", 50, "tty",
                         "[Unit]\n"
                         "Description=Early root shell on /dev/%s FOR DEBUGGING ONLY\n"
                         "ConditionPathExists=\n"
@@ -159,8 +163,74 @@ static void install_debug_shell_dropin(const char *dir) {
                 log_warning_errno(r, "Failed to write drop-in for debug-shell.service, ignoring: %m");
 }
 
+static int process_unit_credentials(const char *credentials_dir) {
+        int r;
+
+        assert(credentials_dir);
+
+        _cleanup_free_ DirectoryEntries *des = NULL;
+        r = readdir_all_at(AT_FDCWD, credentials_dir, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &des);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate credentials from credentials directory '%s': %m", credentials_dir);
+
+        FOREACH_ARRAY(i, des->entries, des->n_entries) {
+                _cleanup_free_ void *d = NULL;
+                struct dirent *de = *i;
+                const char *unit, *dropin;
+
+                if (de->d_type != DT_REG)
+                        continue;
+
+                unit = startswith(de->d_name, "systemd.extra-unit.");
+                dropin = startswith(de->d_name, "systemd.unit-dropin.");
+
+                if (!unit && !dropin)
+                        continue;
+
+                if (!unit_name_is_valid(unit ?: dropin, UNIT_NAME_ANY)) {
+                        log_warning("Invalid unit name '%s' in credential '%s', ignoring.",
+                                    unit ?: dropin, de->d_name);
+                        continue;
+                }
+
+                r = read_credential_with_decryption(de->d_name, &d, NULL);
+                if (r < 0)
+                        continue;
+
+                if (unit) {
+                        _cleanup_free_ char *p = NULL;
+
+                        p = path_join(arg_dest, unit);
+                        if (!p)
+                                return log_oom();
+
+                        r = write_string_file_atomic_label(p, d);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to write unit file '%s' from credential '%s', ignoring: %m",
+                                                  unit, de->d_name);
+                                continue;
+                        }
+
+                        log_debug("Wrote unit file '%s' from credential '%s'", unit, de->d_name);
+
+                } else {
+                        r = write_drop_in(arg_dest, dropin, 50, "credential", d);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to write drop-in for unit '%s' from credential '%s', ignoring: %m",
+                                                  dropin, de->d_name);
+                                continue;
+                        }
+
+                        log_debug("Wrote drop-in for unit '%s' from credential '%s'", dropin, de->d_name);
+                }
+        }
+
+        return 0;
+}
+
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
-        int r, q;
+        const char *credentials_dir;
+        int r = 0;
 
         assert_se(arg_dest = dest_early);
 
@@ -173,13 +243,19 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 if (r < 0)
                         return log_oom();
 
-                install_debug_shell_dropin(arg_dest);
+                install_debug_shell_dropin();
         }
 
-        r = generate_mask_symlinks();
-        q = generate_wants_symlinks();
+        if (get_credentials_dir(&credentials_dir) >= 0)
+                RET_GATHER(r, process_unit_credentials(credentials_dir));
 
-        return r < 0 ? r : q;
+        if (get_encrypted_credentials_dir(&credentials_dir) >= 0)
+                RET_GATHER(r, process_unit_credentials(credentials_dir));
+
+        RET_GATHER(r, generate_mask_symlinks());
+        RET_GATHER(r, generate_wants_symlinks());
+
+        return r;
 }
 
 DEFINE_MAIN_GENERATOR_FUNCTION(run);
