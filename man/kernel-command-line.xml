@@ -600,6 +600,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>resume_offset=</varname></term>
+
+        <listitem><para>Configure the page offset of the swap space from the resume device. For details, see
+        <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.firstboot=</varname></term>
 
         <listitem><para>Takes a boolean argument, defaults to on. If off,
