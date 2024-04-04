@@ -553,6 +553,12 @@ static int radv_configure(Link *link) {
                         return r;
         }
 
+        if (link->network->router_reachable_usec > 0) {
+                r = sd_radv_set_reachable_time(link->radv, link->network->router_reachable_usec);
+                if (r < 0)
+                        return r;
+        }
+
         if (link->network->router_retransmit_usec > 0) {
                 r = sd_radv_set_retransmit(link->radv, link->network->router_retransmit_usec);
                 if (r < 0)
@@ -816,12 +822,6 @@ static int prefix_section_verify(Prefix *p) {
                 p->assign = false;
         }
 
-        if (p->valid_lifetime == 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: The valid lifetime of prefix cannot be zero. "
-                                         "Ignoring [IPv6Prefix] section from line %u.",
-                                         p->section->filename, p->section->line);
-
         if (p->preferred_lifetime > p->valid_lifetime)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: The preferred lifetime %s is longer than the valid lifetime %s. "
@@ -853,12 +853,6 @@ static int route_prefix_section_verify(RoutePrefix *p) {
                                          "%s: Invalid prefix length %u is specified in [IPv6RoutePrefix] section. "
                                          "Valid range is 0…128. Ignoring [IPv6RoutePrefix] section from line %u.",
                                          p->section->filename, p->prefixlen, p->section->line);
-
-        if (p->lifetime == 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: The lifetime of route cannot be zero. "
-                                         "Ignoring [IPv6RoutePrefix] section from line %u.",
-                                         p->section->filename, p->section->line);
 
         return 0;
 }
@@ -1499,7 +1493,7 @@ int config_parse_router_lifetime(
         return 0;
 }
 
-int config_parse_router_retransmit(
+int config_parse_router_uint32_msec(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1511,7 +1505,7 @@ int config_parse_router_retransmit(
                 void *data,
                 void *userdata) {
 
-        usec_t usec, *router_retransmit_usec = ASSERT_PTR(data);
+        usec_t usec, *router_usec = ASSERT_PTR(data);
         int r;
 
         assert(filename);
@@ -1520,7 +1514,7 @@ int config_parse_router_retransmit(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                *router_retransmit_usec = 0;
+                *router_usec = 0;
                 return 0;
         }
 
@@ -1532,13 +1526,13 @@ int config_parse_router_retransmit(
         }
 
         if (usec != USEC_INFINITY &&
-            usec > RADV_MAX_RETRANSMIT_USEC) {
+            usec > RADV_MAX_UINT32_MSEC) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid [%s] %s=, ignoring assignment: %s", section, lvalue, rvalue);
                 return 0;
         }
 
-        *router_retransmit_usec = usec;
+        *router_usec = usec;
         return 0;
 }
 
