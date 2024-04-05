@@ -16,7 +16,7 @@
 #include "proc-cmdline.h"
 #include "recurse-dir.h"
 
-#define NETWORKD_UNIT_DIRECTORY "/run/systemd/network"
+#define NETWORK_UNIT_DIRECTORY "/run/systemd/network/"
 
 static const char *arg_root = NULL;
 
@@ -125,11 +125,11 @@ static int context_save(Context *context) {
         Link *link;
         int r;
 
-        const char *p = prefix_roota(arg_root, NETWORKD_UNIT_DIRECTORY);
+        const char *p = prefix_roota(arg_root, NETWORK_UNIT_DIRECTORY);
 
         r = mkdir_p(p, 0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to create directory " NETWORKD_UNIT_DIRECTORY ": %m");
+                return log_error_errno(r, "Failed to create directory " NETWORK_UNIT_DIRECTORY ": %m");
 
         HASHMAP_FOREACH(network, context->networks_by_name)
                 RET_GATHER(r, network_save(network, p));
@@ -194,7 +194,7 @@ static int pick_up_credentials(void) {
                         continue;
                 }
 
-                _cleanup_free_ char *output = path_join(NETWORKD_UNIT_DIRECTORY, fn);
+                _cleanup_free_ char *output = path_join(NETWORK_UNIT_DIRECTORY, fn);
                 if (!output)
                         return log_oom();
 
