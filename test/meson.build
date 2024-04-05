@@ -405,6 +405,7 @@ foreach test_number, dirname : integration_tests
                 'mkosi_args' : [],
                 'timeout' : 1800,
                 'mask_supporting_services' : true,
+                'skip_shutdown' : false,
                 'storage': 'volatile',
         }
 
@@ -425,6 +426,11 @@ foreach test_number, dirname : integration_tests
 
         if test_params['mask_supporting_services'] == false
                 args += ['--unmask-supporting-services']
+        endif
+
+
+        if test_params['skip_shutdown'] == true
+                args += ['--skip-shutdown']
         endif
 
         args += ['--'] + test_params['mkosi_args']

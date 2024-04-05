@@ -57,6 +57,7 @@ def main():
     parser.add_argument('--test-name', required=True)
     parser.add_argument('--test-number', required=True)
     parser.add_argument('--unmask-supporting-services', dest='mask_supporting_services', default=True, action='store_false')
+    parser.add_argument('--skip-shutdown', default=False, action='store_true')
     parser.add_argument('--storage', required=True)
     parser.add_argument('mkosi_args', nargs="*")
     args = parser.parse_args()
@@ -75,14 +76,15 @@ def main():
     )
 
     if not sys.stderr.isatty():
-        dropin += textwrap.dedent(
-            """
-            [Unit]
-            SuccessAction=exit
-            SuccessActionExitStatus=123
-            FailureAction=exit
-            """
-        )
+        if not args.skip_shutdown:
+            dropin += textwrap.dedent(
+                """
+                [Unit]
+                SuccessAction=exit
+                SuccessActionExitStatus=123
+                FailureAction=exit
+                """
+            )
 
         journal_file = (args.meson_build_dir / (f"test/journal/{args.test_name}.journal")).absolute()
         journal_file.unlink(missing_ok=True)
@@ -142,7 +144,7 @@ def main():
 
     result = subprocess.run(cmd)
     # Return code 123 is the expected success code
-    if result.returncode != (0 if sys.stderr.isatty() else 123):
+    if result.returncode != (0 if sys.stderr.isatty() or args.skip_shutdown else 123):
         if result.returncode != 77 and journal_file:
             cmd = [
                 'journalctl',
