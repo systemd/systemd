@@ -222,10 +222,10 @@ static int service_set_main_pidref(Service *s, PidRef pidref_consume) {
         r = pidref_is_my_child(&s->main_pid);
         if (r < 0)
                 log_unit_warning_errno(UNIT(s), r, "Can't determine if process "PID_FMT" is our child, assuming it is not: %m", s->main_pid.pid);
-        else if (r == 0)
+        else if (r == 0) // FIXME: Supervise through pidfd here
                 log_unit_warning(UNIT(s), "Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.", s->main_pid.pid);
-
         s->main_pid_alien = r <= 0;
+
         return 0;
 }
 
