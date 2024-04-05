@@ -4381,7 +4381,7 @@ static void service_notify_message(
                                         log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, but we'll accept it as the request to change it came from a privileged process.", new_main_pid.pid);
                                         r = 1;
                                 } else
-                                        log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, refusing.", new_main_pid.pid);
+                                        log_unit_warning(u, "New main PID "PID_FMT" does not belong to service, refusing.", new_main_pid.pid);
                         }
                         if (r > 0) {
                                 (void) service_set_main_pidref(s, TAKE_PIDREF(new_main_pid));
