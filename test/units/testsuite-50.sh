@@ -803,7 +803,8 @@ fi
 
 if test -f /usr/lib/systemd/system/systemd-mountfsd.socket -a -f /usr/lib/systemd/system/systemd-nsresourced.socket && \
         command -v command -v mksquashfs >/dev/null 2>&1 && \
-        grep -q bpf /sys/kernel/security/lsm ; then
+        grep -q bpf /sys/kernel/security/lsm && \
+        test "$(find /usr/lib*  -name libbpf.so.1 2>/dev/null)" != "" ; then
 
     cleanunprivfiles() {
         umount -R /tmp/unpriv/mount
