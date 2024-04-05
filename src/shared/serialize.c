@@ -180,7 +180,7 @@ int serialize_strv(FILE *f, const char *key, char **l) {
 }
 
 int serialize_pidref(FILE *f, FDSet *fds, const char *key, PidRef *pidref) {
-        int r;
+        int copy;
 
         assert(f);
         assert(fds);
@@ -188,21 +188,18 @@ int serialize_pidref(FILE *f, FDSet *fds, const char *key, PidRef *pidref) {
         if (!pidref_is_set(pidref))
                 return 0;
 
-        /* We always serialize the pid, to keep downgrades mostly working (older versions will deserialize
-         * the pid and silently fail to deserialize the pidfd). If we also have a pidfd, we serialize it
-         * first and encode the fd number prefixed by "@" in the serialization. */
+        /* If we have a pidfd and serialization of it was not explicitly disabled at build-time, we serialize
+         * the fd and encode the fd number prefixed by "@" in the serialization. Otherwise we serialize the
+         * numeric PID as it is. */
 
-        if (pidref->fd >= 0) {
-                int copy = fdset_put_dup(fds, pidref->fd);
-                if (copy < 0)
-                        return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
+        if (pidref->fd < 0 || !SERIALIZE_PIDFD)
+                return serialize_item_format(f, key, PID_FMT, pidref->pid);
 
-                r = serialize_item_format(f, key, "@%i", copy);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to serialize PID file descriptor: %m");
-        }
+        copy = fdset_put_dup(fds, pidref->fd);
+        if (copy < 0)
+                return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
 
-        return serialize_item_format(f, key, PID_FMT, pidref->pid);
+        return serialize_item_format(f, key, "@%i", copy);
 }
 
 int serialize_ratelimit(FILE *f, const char *key, const RateLimit *rl) {

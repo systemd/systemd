@@ -182,6 +182,8 @@ option('html', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'd
        description : 'build and install html pages')
 option('translations', type : 'boolean', value : true,
        description : 'build and install translations')
+option('serialize-pidfd', type : 'boolean', value : true,
+       description : 'Whether to serialize pid file descriptors in pid1')
 
 option('certificate-root', type : 'string', value : '/etc/ssl',
        description : 'the prefix for TLS certificates')
