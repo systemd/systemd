@@ -424,6 +424,10 @@ foreach test_number, dirname : integration_tests
                 '--storage', test_params['storage'],
         ]
 
+        if test_params.has_key('hook_module')
+                args += ['--hook-module', test_params['hook_module']]
+        endif
+
         if test_params['mask_supporting_services'] == false
                 args += ['--unmask-supporting-services']
         endif

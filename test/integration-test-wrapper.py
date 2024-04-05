@@ -9,6 +9,7 @@ with the expectation that as part of formally defining the API it will be tidy.
 '''
 
 import argparse
+import importlib
 import os
 import shlex
 import subprocess
@@ -59,10 +60,18 @@ def main():
     parser.add_argument('--unmask-supporting-services', dest='mask_supporting_services', default=True, action='store_false')
     parser.add_argument('--skip-shutdown', default=False, action='store_true')
     parser.add_argument('--storage', required=True)
+    parser.add_argument('--hook-module', type=Path, default=None)
     parser.add_argument('mkosi_args', nargs="*")
     args = parser.parse_args()
 
     test_unit = f"testsuite-{args.test_number}.service"
+
+    hook = None
+    if args.hook_module is not None:
+        spec = importlib.util.spec_from_file_location('hook', args.hook_module)
+        hook = importlib.util.module_from_spec(spec)
+        sys.modules['hook'] = hook
+        spec.loader.exec_module(hook)
 
     dropin = textwrap.dedent(
         """\
@@ -143,11 +152,19 @@ def main():
         ]),
         '--credential', f"journal.storage={'persistent' if sys.stderr.isatty() else args.storage}" ,
         *args.mkosi_args,
+    ]
+
+    if hook is not None and hasattr(hook, 'setup'):
+        # TODO: Think about the setup API supporting running vmspawn directly
+        stack.enter_context(hook.setup(cmd))
+
+    cmd += [
         'qemu',
     ]
 
     tee = subprocess.Popen(['tee', console_log], stdin=subprocess.PIPE)
-    result = subprocess.run(cmd, stderr=subprocess.STDOUT, stdout=tee.stdin)
+    run = hook.wrap_run if hook is not None and hasattr(hook, 'wrap_run') else subprocess.run
+    result = run(cmd, stderr=subprocess.STDOUT, stdout=tee.stdin)
     tee.stdin.close()
     tee.wait()
     # Return code 123 is the expected success code
