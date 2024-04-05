@@ -191,33 +191,32 @@ static void service_unwatch_pid_file(Service *s) {
         s->pid_file_pathspec = mfree(s->pid_file_pathspec);
 }
 
-static int service_set_main_pidref(Service *s, PidRef *pidref) {
+static int service_set_main_pidref(Service *s, PidRef pidref_consume) {
+        _cleanup_(pidref_done) PidRef pidref = pidref_consume;
         int r;
 
         assert(s);
 
-        /* Takes ownership of the specified pidref on success, but not on failure. */
+        /* Takes ownership of the specified pidref on both success and failure. */
 
-        if (!pidref_is_set(pidref))
+        if (!pidref_is_set(&pidref))
                 return -ESRCH;
 
-        if (pidref->pid <= 1)
+        if (pidref.pid <= 1)
                 return -EINVAL;
 
-        if (pidref_is_self(pidref))
+        if (pidref_is_self(&pidref))
                 return -EINVAL;
 
-        if (pidref_equal(&s->main_pid, pidref) && s->main_pid_known) {
-                pidref_done(pidref);
+        if (s->main_pid_known && pidref_equal(&s->main_pid, &pidref))
                 return 0;
-        }
 
-        if (!pidref_equal(&s->main_pid, pidref)) {
+        if (!pidref_equal(&s->main_pid, &pidref)) {
                 service_unwatch_main_pid(s);
-                exec_status_start(&s->main_exec_status, pidref->pid);
+                exec_status_start(&s->main_exec_status, pidref.pid);
         }
 
-        s->main_pid = TAKE_PIDREF(*pidref);
+        s->main_pid = TAKE_PIDREF(pidref);
         s->main_pid_known = true;
 
         r = pidref_is_my_child(&s->main_pid);
@@ -1166,7 +1165,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         } else
                 log_unit_debug(UNIT(s), "Main PID loaded: "PID_FMT, pidref.pid);
 
-        r = service_set_main_pidref(s, &pidref);
+        r = service_set_main_pidref(s, TAKE_PIDREF(pidref));
         if (r < 0)
                 return r;
 
@@ -1196,7 +1195,7 @@ static void service_search_main_pid(Service *s) {
                 return;
 
         log_unit_debug(UNIT(s), "Main PID guessed: "PID_FMT, pid.pid);
-        if (service_set_main_pidref(s, &pid) < 0)
+        if (service_set_main_pidref(s, TAKE_PIDREF(pid)) < 0)
                 return;
 
         r = unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
@@ -2427,7 +2426,7 @@ static void service_enter_start(Service *s) {
                 /* For simple services we immediately start
                  * the START_POST binaries. */
 
-                (void) service_set_main_pidref(s, &pidref);
+                (void) service_set_main_pidref(s, TAKE_PIDREF(pidref));
                 service_enter_start_post(s);
 
         } else  if (s->type == SERVICE_FORKING) {
@@ -2446,7 +2445,7 @@ static void service_enter_start(Service *s) {
                 /* For D-Bus services we know the main pid right away, but wait for the bus name to appear on the
                  * bus. 'notify' and 'exec' services are similar. */
 
-                (void) service_set_main_pidref(s, &pidref);
+                (void) service_set_main_pidref(s, TAKE_PIDREF(pidref));
                 service_set_state(s, SERVICE_START);
         } else
                 assert_not_reached();
@@ -2719,7 +2718,7 @@ static void service_run_next_main(Service *s) {
                 return;
         }
 
-        (void) service_set_main_pidref(s, &pidref);
+        (void) service_set_main_pidref(s, TAKE_PIDREF(pidref));
 }
 
 static int service_start(Unit *u) {
@@ -3193,10 +3192,10 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         (void) deserialize_pidref(fds, value, &s->control_pid);
 
         } else if (streq(key, "main-pid")) {
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                PidRef pidref;
 
                 if (deserialize_pidref(fds, value, &pidref) >= 0)
-                        (void) service_set_main_pidref(s, &pidref);
+                        (void) service_set_main_pidref(s, pidref);
 
         } else if (streq(key, "main-pid-known")) {
                 int b;
@@ -4385,7 +4384,7 @@ static void service_notify_message(
                                         log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, refusing.", new_main_pid.pid);
                         }
                         if (r > 0) {
-                                (void) service_set_main_pidref(s, &new_main_pid);
+                                (void) service_set_main_pidref(s, TAKE_PIDREF(new_main_pid));
 
                                 r = unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
                                 if (r < 0)
@@ -4658,7 +4657,7 @@ static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, s
 
         log_unit_debug(UNIT(s), "D-Bus name %s is now owned by process " PID_FMT, s->bus_name, pidref.pid);
 
-        (void) service_set_main_pidref(s, &pidref);
+        (void) service_set_main_pidref(s, TAKE_PIDREF(pidref));
         (void) unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
         return 1;
 }
