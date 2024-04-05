@@ -308,6 +308,7 @@ conf.set('DEFAULT_USER_TIMEOUT_SEC',                          get_option('defaul
 conf.set('UPDATE_HELPER_USER_TIMEOUT_SEC',                    get_option('update-helper-user-timeout-sec'))
 
 conf.set10('ENABLE_FIRST_BOOT_FULL_PRESET',                   get_option('first-boot-full-preset'))
+conf.set10('SERIALIZE_PIDFD',                                 get_option('serialize-pidfd'))
 
 #####################################################################
 

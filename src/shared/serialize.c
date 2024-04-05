@@ -188,10 +188,11 @@ int serialize_pidref(FILE *f, FDSet *fds, const char *key, PidRef *pidref) {
         if (!pidref_is_set(pidref))
                 return 0;
 
-        /* If we have a pidfd we serialize the fd and encode the fd number prefixed by "@" in the
-         * serialization. Otherwise we serialize the numeric PID as it is. */
+        /* If we have a pidfd and serialization of it was not explicitly disabled at build-time, we serialize
+         * the fd and encode the fd number prefixed by "@" in the serialization. Otherwise we serialize the
+         * numeric PID as it is. */
 
-        if (pidref->fd < 0)
+        if (pidref->fd < 0 || !SERIALIZE_PIDFD)
                 return serialize_item_format(f, key, PID_FMT, pidref->pid);
 
         copy = fdset_put_dup(fds, pidref->fd);
