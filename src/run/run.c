@@ -1354,12 +1354,17 @@ static int make_unit_name(sd_bus *bus, UnitType t, char **ret) {
 
         /* The unique D-Bus names are actually unique per D-Bus instance, so on soft-reboot they will wrap
          * and start over since the D-Bus broker is restarted. If there's a failed unit left behind that
-         * hasn't been garbage collected, we'll conflict. Append the soft-reboot counter to avoid clashing. */
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        r = bus_get_property_trivial(
-                        bus, bus_systemd_mgr, "SoftRebootsCount", &error, 'u', &soft_reboots_count);
-        if (r < 0)
-                log_debug_errno(r, "Failed to get SoftRebootsCount property, ignoring: %s", bus_error_message(&error, r));
+         * hasn't been garbage collected, we'll conflict. Append the soft-reboot counter to avoid clashing.
+         * */
+        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                r = bus_get_property_trivial(
+                                bus, bus_systemd_mgr, "SoftRebootsCount", &error, 'u', &soft_reboots_count);
+                if (r < 0)
+                        log_debug_errno(r,
+                                        "Failed to get SoftRebootsCount property, ignoring: %s",
+                                        bus_error_message(&error, r));
+        }
 
         if (soft_reboots_count > 0) {
                 if (asprintf(&p, "run-u%s-s%u.%s", id, soft_reboots_count, unit_type_to_string(t)) < 0)
