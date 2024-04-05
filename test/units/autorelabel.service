@@ -3,9 +3,14 @@
 Description=Relabel all filesystems
 DefaultDependencies=no
 Requires=local-fs.target
-Conflicts=shutdown.target
 After=local-fs.target
-Before=sysinit.target shutdown.target
+Conflicts=shutdown.target
+Before=shutdown.target
+Before=multi-user.target
+# Needs to access /var, which may not have been populated yet
+After=systemd-tmpfiles-setup.service
+# Must wait for systemd-machine-id-commit or firstboot-autorelabel will reactivate autorelabel
+After=systemd-machine-id-commit.service
 ConditionSecurity=selinux
 ConditionPathExists=|/.autorelabel
 
@@ -16,4 +21,4 @@ TimeoutSec=infinity
 RemainAfterExit=yes
 
 [Install]
-WantedBy=basic.target
+WantedBy=multi-user.target
