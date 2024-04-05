@@ -331,3 +331,44 @@ if want_tests != 'false' and conf.get('ENABLE_KERNEL_INSTALL') == 1
              depends : deps,
              suite : 'kernel-install')
 endif
+
+############################################################
+
+if get_option('integration-tests') != false
+        integration_test_wrapper = find_program('integration_test_wrapper.py')
+        integration_tests = {
+                '01': 'TEST-01-BASIC',
+                '02': 'TEST-02-UNITTESTS',
+        }
+        foreach test_number, dirname : integration_tests
+                test_unit_name = f'testsuite-@test_number@.service'
+                test_params = {
+                        'test_name' : dirname,
+                        'mkosi_image_name' : 'system',
+                        'mkosi_output_path' : system_mkosi,
+                        'test_number' : test_number,
+                        'mkosi_args' : [],
+                        'depends' : [system_mkosi],
+                        'timeout' : 600,
+                }
+
+                # TODO: This fs.exists call isn't included in rebuild logic
+                # so if you add a new meson.build in a subdir
+                # you need to touch another build file to get it to reparse.
+                if fs.exists(dirname / 'meson.build')
+                        subdir(dirname)
+                endif
+                args = ['--test-name', test_params['test_name'],
+                        '--mkosi-image-name', test_params['mkosi_image_name'],
+                        '--mkosi-output-path', test_params['mkosi_output_path'],
+                        '--test-number', test_params['test_number']]
+                args += ['--'] + test_params['mkosi_args']
+                test(test_params['test_name'],
+                     integration_test_wrapper,
+                     env: test_env,
+                     args : args,
+                     depends : test_params['depends'],
+                     timeout : test_params['timeout'],
+                     suite : 'integration-tests')
+        endforeach
+endif
