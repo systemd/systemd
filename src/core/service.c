@@ -3190,13 +3190,20 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         } else if (streq(key, "control-pid")) {
 
                 if (!pidref_is_set(&s->control_pid))
-                        (void) deserialize_pidref(fds, value, &s->control_pid);
+                        (void) deserialize_pidref(fds, value, !u->deserialize_got_pidfd, &s->control_pid);
+
+                if (s->control_pid.fd >= 0)
+                        u->deserialize_got_pidfd = true;
 
         } else if (streq(key, "main-pid")) {
                 _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
-                if (deserialize_pidref(fds, value, &pidref) >= 0)
+                if (deserialize_pidref(fds, value, !u->deserialize_got_pidfd, &pidref) >= 0) {
+                        if (pidref.fd >= 0)
+                                u->deserialize_got_pidfd = true;
+
                         (void) service_set_main_pidref(s, &pidref);
+                }
 
         } else if (streq(key, "main-pid-known")) {
                 int b;

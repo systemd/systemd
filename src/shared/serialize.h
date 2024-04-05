@@ -46,7 +46,7 @@ int deserialize_usec(const char *value, usec_t *ret);
 int deserialize_dual_timestamp(const char *value, dual_timestamp *ret);
 int deserialize_environment(const char *value, char ***environment);
 int deserialize_strv(const char *value, char ***l);
-int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret);
+int deserialize_pidref(FDSet *fds, const char *value, bool allow_pid, PidRef *ret);
 void deserialize_ratelimit(RateLimit *rl, const char *name, const char *value);
 
 int open_serialization_fd(const char *ident);
