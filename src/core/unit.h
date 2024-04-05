@@ -460,6 +460,9 @@ typedef struct Unit {
         bool exported_log_ratelimit_interval:1;
         bool exported_log_ratelimit_burst:1;
 
+        /* Whether we've seen a pidfd during deserialization of this unit. */
+        bool deserialize_got_pidfd:1;
+
         /* When writing transient unit files, stores which section we stored last. If < 0, we didn't write any yet. If
          * == 0 we are in the [Unit] section, if > 0 we are in the unit type-specific section. */
         signed int last_section_private:2;

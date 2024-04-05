@@ -955,8 +955,11 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
                         s->result = f;
         } else if (streq(key, "control-pid")) {
 
+                if (startswith(value, "@"))
+                        u->deserialize_got_pidfd = true;
+
                 if (!pidref_is_set(&s->control_pid))
-                        (void) deserialize_pidref(fds, value, &s->control_pid);
+                        (void) deserialize_pidref(fds, value, !u->deserialize_got_pidfd, &s->control_pid);
 
         } else if (streq(key, "control-command")) {
                 SwapExecCommand id;

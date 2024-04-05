@@ -195,6 +195,9 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
         assert(f);
         assert(fds);
 
+        /* Reset state before we start deserializing. */
+        u->deserialize_got_pidfd = false;
+
         for (;;) {
                 _cleanup_free_ char *l  = NULL;
                 size_t k;
