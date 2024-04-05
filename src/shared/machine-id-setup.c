@@ -41,6 +41,11 @@ static int acquire_machine_id_from_credential(sd_id128_t *ret) {
         if (r == 0) /* not found */
                 return -ENXIO;
 
+        if (streq(buf, "firmware")) {
+                *ret = SD_ID128_FIRMWARE;
+                return 0;
+        }
+
         r = sd_id128_from_string(buf, ret);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse system.machine_id credential, ignoring: %m");
