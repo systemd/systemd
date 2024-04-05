@@ -5,6 +5,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
+#include "proc-cmdline.h"
 #include "sd-daemon.h"
 #include "sd-id128.h"
 
@@ -39,6 +40,11 @@ static int acquire_machine_id_from_credential(sd_id128_t *ret) {
                 return log_warning_errno(r, "Failed to read system.machine_id credential, ignoring: %m");
         if (r == 0) /* not found */
                 return -ENXIO;
+
+        if (streq(buf, "firmware")) {
+                *ret = SD_ID128_FIRMWARE;
+                return 0;
+        }
 
         r = sd_id128_from_string(buf, ret);
         if (r < 0)
@@ -80,14 +86,14 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
                                 return 0;
                         }
 
-                } else if (IN_SET(detect_vm(), VIRTUALIZATION_KVM, VIRTUALIZATION_AMAZON, VIRTUALIZATION_QEMU, VIRTUALIZATION_XEN)) {
+                } else if (IN_SET(detect_vm(), VIRTUALIZATION_KVM, VIRTUALIZATION_AMAZON, VIRTUALIZATION_QEMU, VIRTUALIZATION_XEN) || sd_id128_is_firmware(*ret)) {
 
                         /* If we are not running in a container, see if we are running in a VM that provides
                          * a system UUID via the SMBIOS/DMI interfaces.  Such environments include QEMU/KVM
                          * with the -uuid on the qemu command line or the Amazon EC2 Nitro hypervisor. */
 
                         if (id128_get_product(ret) >= 0) {
-                                log_info("Initializing machine ID from VM UUID.");
+                                log_info("Initializing machine ID from SMBIOS/DMI UUID.");
                                 return 0;
                         }
                 }
@@ -140,7 +146,7 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
         }
 
         /* A we got a valid machine ID argument, that's what counts */
-        if (sd_id128_is_null(machine_id)) {
+        if (sd_id128_is_null(machine_id) || sd_id128_is_firmware(machine_id)) {
 
                 /* Try to read any existing machine ID */
                 if (id128_read_fd(fd, ID128_FORMAT_PLAIN, &machine_id) >= 0)
