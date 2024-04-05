@@ -956,7 +956,10 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
         } else if (streq(key, "control-pid")) {
 
                 if (!pidref_is_set(&s->control_pid))
-                        (void) deserialize_pidref(fds, value, &s->control_pid);
+                        (void) deserialize_pidref(fds, value, !u->deserialize_got_pidfd, &s->control_pid);
+
+                if (s->control_pid.fd >= 0)
+                        u->deserialize_got_pidfd = true;
 
         } else if (streq(key, "control-command")) {
                 SwapExecCommand id;
