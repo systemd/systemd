@@ -508,6 +508,106 @@ static int dns_append_json(Link *link, JsonVariant **v) {
         return json_variant_set_field_non_null(v, "DNS", array);
 }
 
+static int dnr_append_json_one(Link *link, const struct sd_dns_resolver *res, NetworkConfigSource s, const union in_addr_union *p, JsonVariant **array) {
+        _cleanup_(json_variant_unrefp) JsonVariant *addrs_array = NULL;
+        _cleanup_strv_free_ char **transports = NULL;
+        assert(link);
+        assert(res);
+        assert(array);
+
+        FOREACH_ARRAY(addr, res->addrs, res->n_addrs) {
+                json_variant_append_arrayb(
+                                &addrs_array,
+                                JSON_BUILD_IN_ADDR(addr, res->family));
+        }
+
+        sd_dns_resolver_transports_to_strv(res->transports, &transports);
+
+        //FIXME ifindex?
+        return json_variant_append_arrayb(
+                        array,
+                        JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_INTEGER("Family", res->family),
+                                        JSON_BUILD_PAIR_INTEGER("Priority", res->priority),
+                                        JSON_BUILD_PAIR_VARIANT_NON_NULL("Addresses", addrs_array),
+                                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("Port", res->port),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ServerName", res->auth_name),
+                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("DoHPath", res->dohpath),
+                                        JSON_BUILD_PAIR_STRV_NON_EMPTY("Transports", transports),
+                                        JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
+                                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, res->family)));
+}
+
+static int dnr_append_json(Link *link, JsonVariant **v) {
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        int r;
+
+        assert(link);
+        assert(v);
+
+        if (!link->network)
+                return 0;
+
+        if (link->dhcp_lease && network_dhcp_use_dnr(link->network)) {
+                struct sd_dns_resolver *dnr;
+                union in_addr_union s;
+                int n_dnr;
+
+                r = sd_dhcp_lease_get_server_identifier(link->dhcp_lease, &s.in);
+                if (r < 0)
+                        return r;
+
+                n_dnr = sd_dhcp_lease_get_dnr(link->dhcp_lease, &dnr);
+                for (int i = 0; i < n_dnr; i++) {
+
+                        r = dnr_append_json_one(link,
+                                                &dnr[i],
+                                                NETWORK_CONFIG_SOURCE_DHCP4,
+                                                &s,
+                                                &array);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        if (link->dhcp6_lease && network_dhcp6_use_dnr(link->network)) {
+                struct sd_dns_resolver *dnr;
+                union in_addr_union s;
+                int n_dnr;
+
+                r = sd_dhcp6_lease_get_server_address(link->dhcp6_lease, &s.in6);
+                if (r < 0)
+                        return r;
+
+                n_dnr = sd_dhcp6_lease_get_dnr(link->dhcp6_lease, &dnr);
+                for (int i = 0; i < n_dnr; i++) {
+                        r = dnr_append_json_one(link,
+                                                &dnr[i],
+                                                NETWORK_CONFIG_SOURCE_DHCP6,
+                                                &s,
+                                                &array);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        if (network_ndisc_use_dnr(link->network)) {
+                NDiscDNR *a;
+
+                SET_FOREACH(a, link->ndisc_dnr) {
+                        r = dnr_append_json_one(link,
+                                                &a->resolver,
+                                                NETWORK_CONFIG_SOURCE_NDISC,
+                                                &(union in_addr_union) { .in6 = a->router },
+                                                &array);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return json_variant_set_field_non_null(v, "DNR", array);
+}
+
 static int server_append_json_one_addr(int family, const union in_addr_union *a, NetworkConfigSource s, const union in_addr_union *p, JsonVariant **array) {
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(a);
@@ -1275,6 +1375,10 @@ int link_build_json(Link *link, JsonVariant **ret) {
                 return r;
 
         r = dns_append_json(link, &v);
+        if (r < 0)
+                return r;
+
+        r = dnr_append_json(link, &v);
         if (r < 0)
                 return r;
 
