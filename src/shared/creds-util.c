@@ -12,6 +12,7 @@
 #include "capability-util.h"
 #include "chattr-util.h"
 #include "constants.h"
+#include "copy.h"
 #include "creds-util.h"
 #include "efi-api.h"
 #include "env-util.h"
@@ -26,6 +27,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"
+#include "recurse-dir.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
 #include "tmpfile-util.h"
@@ -1651,4 +1653,92 @@ int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp,
                 return r;
 
         return 0;
+}
+
+static int pick_up_credential_one(
+                int credential_dir_fd,
+                const char *credential_name,
+                const PickUpCredential *table_entry) {
+
+        _cleanup_free_ char *fn = NULL, *target_path = NULL;
+        _cleanup_close_ int target_dir_fd = -EBADF;
+        const char *e;
+        int r;
+
+        assert(credential_dir_fd >= 0);
+        assert(credential_name);
+        assert(table_entry);
+
+        e = startswith(credential_name, table_entry->credential_prefix);
+        if (!e)
+                return 0; /* unmatched */
+
+        fn = strjoin(e, table_entry->filename_suffix);
+        if (!fn)
+                return log_oom();
+
+        if (!filename_is_valid(fn))
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "Passed credential '%s' would result in invalid filename '%s', ignoring.",
+                                         credential_name, fn);
+
+        target_dir_fd = xopenat_full(AT_FDCWD, table_entry->target_dir, O_CLOEXEC | O_CREAT | O_DIRECTORY, /* xopen_flags = */ 0, 0755);
+        if (target_dir_fd < 0)
+                return log_warning_errno(target_dir_fd, "Failed to open %s: %m", table_entry->target_dir);
+
+        target_path = path_join(table_entry->target_dir, fn);
+        if (!target_path)
+                return log_oom();
+
+        r = copy_file_at(
+                        credential_dir_fd, credential_name,
+                        target_dir_fd, fn,
+                        /* open_flags= */ 0,
+                        0644,
+                        /* flags= */ 0);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to copy credential %s → file %s: %m",
+                                         credential_name, target_path);
+
+        log_info("Installed %s from credential.", target_path);
+        return 1; /* done */
+}
+
+int pick_up_credentials(const PickUpCredential *table, size_t n_table_entry) {
+        _cleanup_close_ int credential_dir_fd = -EBADF;
+        int r, ret = 0;
+
+        assert(table);
+        assert(n_table_entry > 0);
+
+        credential_dir_fd = open_credentials_dir();
+        if (IN_SET(credential_dir_fd, -ENXIO, -ENOENT)) {
+                /* Credential env var not set, or dir doesn't exist. */
+                log_debug("No credentials found.");
+                return 0;
+        }
+        if (credential_dir_fd < 0)
+                return log_error_errno(credential_dir_fd, "Failed to open credentials directory: %m");
+
+        _cleanup_free_ DirectoryEntries *des = NULL;
+        r = readdir_all(credential_dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &des);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate credentials: %m");
+
+        FOREACH_ARRAY(i, des->entries, des->n_entries) {
+                struct dirent *de = *i;
+
+                if (de->d_type != DT_REG)
+                        continue;
+
+                FOREACH_ARRAY(t, table, n_table_entry) {
+                        r = pick_up_credential_one(credential_dir_fd, de->d_name, t);
+                        if (r != 0) {
+                                RET_GATHER(ret, r);
+                                break; /* Done, or failed. Let's move to the next credential. */
+                        }
+                }
+        }
+
+        return ret;
 }
