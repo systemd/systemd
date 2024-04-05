@@ -1264,7 +1264,11 @@ static void test_exec_specifier(Manager *m) {
 static void test_exec_standardinput(Manager *m) {
         test(m, "exec-standardinput-data.service", 0, CLD_EXITED);
         test(m, "exec-standardinput-file.service", 0, CLD_EXITED);
+
+        ExecOutput saved = m->defaults.std_output;
+        m->defaults.std_output = EXEC_OUTPUT_NULL;
         test(m, "exec-standardinput-file-cat.service", 0, CLD_EXITED);
+        m->defaults.std_output = saved;
 }
 
 static void test_exec_standardoutput(Manager *m) {
@@ -1387,7 +1391,7 @@ static void run_tests(RuntimeScope scope, char **patterns) {
                 return (void) log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
 
-        m->defaults.std_output = EXEC_OUTPUT_NULL; /* don't rely on host journald */
+        m->defaults.std_output = EXEC_OUTPUT_INHERIT; /* don't rely on host journald */
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         /* Uncomment below if you want to make debugging logs stored to journal. */
