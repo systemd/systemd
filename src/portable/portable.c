@@ -1664,9 +1664,8 @@ int portable_attach(
         return 0;
 }
 
-static bool marker_matches_images(const char *marker, const char *name_or_path, char **extension_image_paths) {
+static bool marker_matches_images(const char *marker, const char *name_or_path, char **extension_image_paths, bool match_all) {
         _cleanup_strv_free_ char **root_and_extensions = NULL;
-        const char *a;
         int r;
 
         assert(marker);
@@ -1676,7 +1675,9 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
          * list of images/paths. We enforce strict 1:1 matching, so that we are sure
          * we are detaching exactly what was attached.
          * For each image, starting with the root, we look for a token in the marker,
-         * and return a negative answer on any non-matching combination. */
+         * and return a negative answer on any non-matching combination.
+         * If a partial match is allowed, then return immediately once it is found, otherwise
+         * ensure that everything matches. */
 
         root_and_extensions = strv_new(name_or_path);
         if (!root_and_extensions)
@@ -1686,70 +1687,33 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(image_name_or_path, root_and_extensions) {
-                _cleanup_free_ char *image = NULL;
+        /* Ensure the number of images passed matches the number of images listed in the marker */
+        while (!isempty(marker))
+                STRV_FOREACH(image_name_or_path, root_and_extensions) {
+                        _cleanup_free_ char *image = NULL, *base_image = NULL, *base_image_name_or_path = NULL;
 
-                r = extract_first_word(&marker, &image, ":", EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to parse marker: %s", marker);
-                if (r == 0)
-                        return false;
-
-                a = last_path_component(image);
-
-                if (image_name_is_valid(*image_name_or_path)) {
-                        const char *e, *underscore;
-
-                        /* We shall match against an image name. In that case let's compare the last component, and optionally
-                        * allow either a suffix of ".raw" or a series of "/".
-                        * But allow matching on a different version of the same image, when a "_" is used as a separator. */
-                        underscore = strchr(*image_name_or_path, '_');
-                        if (underscore) {
-                                if (strneq(a, *image_name_or_path, underscore - *image_name_or_path))
-                                        continue;
-                                return false;
-                        }
-
-                        e = startswith(a, *image_name_or_path);
-                        if (!e)
+                        r = extract_first_word(&marker, &image, ":", EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to parse marker: %s", marker);
+                        if (r == 0)
                                 return false;
 
-                        if(!(e[strspn(e, "/")] == 0 || streq(e, ".raw")))
-                                return false;
-                } else {
-                        const char *b, *underscore;
-                        size_t l;
+                        r = path_extract_image_name(image, &base_image);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", image);
 
-                        /* We shall match against a path. Let's ignore any prefix here though, as often there are many ways to
-                         * reach the same file. However, in this mode, let's validate any file suffix.
-                         * But also ensure that we don't fail if both components don't have a '/' at all
-                         * (strcspn returns the full length of the string in that case, which might not
-                         * match as the versions might differ). */
+                        r = path_extract_image_name(*image_name_or_path, &base_image_name_or_path);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", *image_name_or_path);
 
-                        l = strcspn(a, "/");
-                        b = last_path_component(*image_name_or_path);
-
-                        if ((a[l] != '/') != !strchr(b, '/')) /* One is a directory, the other is not */
-                                return false;
-
-                        if (a[l] != 0 && strcspn(b, "/") != l)
-                                return false;
-
-                        underscore = strchr(b, '_');
-                        if (underscore)
-                                l = underscore - b;
-                        else { /* Either component could be versioned */
-                                underscore = strchr(a, '_');
-                                if (underscore)
-                                        l = underscore - a;
-                        }
-
-                        if (!strneq(a, b, l))
-                                return false;
+                        if (!streq(base_image, base_image_name_or_path)) {
+                                if (match_all)
+                                        return false;
+                        } else if (!match_all)
+                                return true;
                 }
-        }
 
-        return true;
+        return match_all;
 }
 
 static int test_chroot_dropin(
@@ -1804,7 +1768,9 @@ static int test_chroot_dropin(
         if (!name_or_path)
                 r = true;
         else
-                r = marker_matches_images(marker, name_or_path, extension_image_paths);
+                /* When detaching we want to match exactly on all images, but when inspecting we only need
+                 * to get the state of one component */
+                r = marker_matches_images(marker, name_or_path, extension_image_paths, ret_marker != NULL);
 
         if (ret_marker)
                 *ret_marker = TAKE_PTR(marker);

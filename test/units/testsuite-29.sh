@@ -139,6 +139,19 @@ grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app" /run/systemd
 
 portablectl detach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_1.raw app0
 
+# Ensure versioned images are accepted without needing to use --force to override the extension-release
+# matching
+
+cp /usr/share/app0.raw /tmp/app0_1.0.raw
+portablectl "${ARGS[@]}" attach --now --runtime --extension /tmp/app0_1.0.raw /usr/share/minimal_0.raw app0
+
+systemctl is-active app0.service
+status="$(portablectl is-attached --extension app0_1 minimal_0)"
+[[ "${status}" == "running-runtime" ]]
+
+portablectl detach --now --runtime --extension /tmp/app0_1.0.raw /usr/share/minimal_1.raw app0
+rm -f /tmp/app0_1.0.raw
+
 portablectl "${ARGS[@]}" attach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_0.raw app1
 
 systemctl is-active app1.service
@@ -210,6 +223,36 @@ test -f /run/portables/minimal_0.raw
 test -f /run/systemd/system.attached/app0.service
 test -L /run/systemd/system.attached/app0.service.d/10-profile.conf
 portablectl detach --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app0
+
+# Ensure that when two portables share the same base image, removing one doesn't remove the other too
+
+portablectl "${ARGS[@]}" attach --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app0
+portablectl "${ARGS[@]}" attach --runtime --extension /usr/share/app1.raw /usr/share/minimal_0.raw app1
+
+status="$(portablectl is-attached --extension app0 minimal_0)"
+[[ "${status}" == "attached-runtime" ]]
+status="$(portablectl is-attached --extension app1 minimal_0)"
+[[ "${status}" == "attached-runtime" ]]
+
+(! portablectl detach --runtime /usr/share/minimal_0.raw app)
+
+status="$(portablectl is-attached --extension app0 minimal_0)"
+[[ "${status}" == "attached-runtime" ]]
+status="$(portablectl is-attached --extension app1 minimal_0)"
+[[ "${status}" == "attached-runtime" ]]
+
+# Ensure 'portablectl list' shows the correct status for both images
+portablectl list
+portablectl list | grep -F "minimal_0" | grep -q -F "attached-runtime"
+portablectl list | grep -F "app0" | grep -q -F "attached-runtime"
+portablectl list | grep -F "app1" | grep -q -F "attached-runtime"
+
+portablectl detach --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app
+
+status="$(portablectl is-attached --extension app1 minimal_0)"
+[[ "${status}" == "attached-runtime" ]]
+
+portablectl detach --runtime --extension /usr/share/app1.raw /usr/share/minimal_0.raw app
 
 # portablectl also works with directory paths rather than images
 
