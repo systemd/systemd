@@ -1032,7 +1032,7 @@ static int verb_refresh(int argc, char **argv, void *userdata) {
          * 4. If there was no overlayfs mount so far, and no extensions installed, we implement a NOP.
          */
 
-        return 0;
+        return r;
 }
 
 static int verb_list(int argc, char **argv, void *userdata) {
