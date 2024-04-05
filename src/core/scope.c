@@ -571,7 +571,10 @@ static int scope_deserialize_item(Unit *u, const char *key, const char *value, F
         } else if (streq(key, "pids")) {
                 _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
-                if (deserialize_pidref(fds, value, &pidref) >= 0) {
+                if (startswith(value, "@"))
+                        deserialize_got_pidfd = true;
+
+                if (deserialize_pidref(fds, value, !deserialize_got_pidfd, &pidref) >= 0) {
                         r = unit_watch_pidref(u, &pidref, /* exclusive= */ false);
                         if (r < 0)
                                 log_unit_debug(u, "Failed to watch PID, ignoring: %s", value);

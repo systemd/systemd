@@ -743,6 +743,7 @@ typedef struct UnitVTable {
         int audit_stop_message_type;
 } UnitVTable;
 
+extern bool deserialize_got_pidfd;
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 
 static inline const UnitVTable* UNIT_VTABLE(const Unit *u) {
