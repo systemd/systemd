@@ -3,7 +3,6 @@
 #include <getopt.h>
 
 #include "build.h"
-#include "copy.h"
 #include "creds-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -14,7 +13,6 @@
 #include "network-generator.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
-#include "recurse-dir.h"
 
 #define NETWORK_UNIT_DIRECTORY "/run/systemd/network/"
 
@@ -143,76 +141,6 @@ static int context_save(Context *context) {
         return r;
 }
 
-static int pick_up_credentials(void) {
-        _cleanup_close_ int credential_dir_fd = -EBADF;
-        int r, ret = 0;
-
-        credential_dir_fd = open_credentials_dir();
-        if (IN_SET(credential_dir_fd, -ENXIO, -ENOENT)) /* Credential env var not set, or dir doesn't exist. */
-                return 0;
-        if (credential_dir_fd < 0)
-                return log_error_errno(credential_dir_fd, "Failed to open credentials directory: %m");
-
-        _cleanup_free_ DirectoryEntries *des = NULL;
-        r = readdir_all(credential_dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &des);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enumerate credentials: %m");
-
-        FOREACH_ARRAY(i, des->entries, des->n_entries) {
-                static const struct {
-                        const char *credential_prefix;
-                        const char *filename_suffix;
-                } table[] = {
-                        { "network.link.",    ".link"    },
-                        { "network.netdev.",  ".netdev"  },
-                        { "network.network.", ".network" },
-                };
-
-                _cleanup_free_ char *fn = NULL;
-                struct dirent *de = *i;
-
-                if (de->d_type != DT_REG)
-                        continue;
-
-                FOREACH_ARRAY(t, table, ELEMENTSOF(table)) {
-                        const char *e = startswith(de->d_name, t->credential_prefix);
-
-                        if (e) {
-                                fn = strjoin(e, t->filename_suffix);
-                                if (!fn)
-                                        return log_oom();
-
-                                break;
-                        }
-                }
-
-                if (!fn)
-                        continue;
-
-                if (!filename_is_valid(fn)) {
-                        log_warning("Passed credential '%s' would result in invalid filename '%s', ignoring.", de->d_name, fn);
-                        continue;
-                }
-
-                _cleanup_free_ char *output = path_join(NETWORK_UNIT_DIRECTORY, fn);
-                if (!output)
-                        return log_oom();
-
-                r = copy_file_at(
-                                credential_dir_fd, de->d_name,
-                                AT_FDCWD, output,
-                                /* open_flags= */ 0,
-                                0644,
-                                /* flags= */ 0);
-                if (r < 0)
-                        RET_GATHER(ret, log_warning_errno(r, "Failed to copy credential %s → file %s: %m", de->d_name, output));
-                else
-                        log_info("Installed %s from credential.", output);
-        }
-
-        return ret;
-}
-
 static int help(void) {
         printf("%s [OPTIONS...] [-- KERNEL_CMDLINE]\n"
                "  -h --help                       Show this help\n"
@@ -304,7 +232,13 @@ static int run(int argc, char *argv[]) {
                 return log_warning_errno(r, "Failed to merge multiple command line options: %m");
 
         RET_GATHER(ret, context_save(&context));
-        RET_GATHER(ret, pick_up_credentials());
+
+        static const PickUpCredential table[] = {
+                { "network.link.",    NETWORK_UNIT_DIRECTORY, ".link"    },
+                { "network.netdev.",  NETWORK_UNIT_DIRECTORY, ".netdev"  },
+                { "network.network.", NETWORK_UNIT_DIRECTORY, ".network" },
+        };
+        RET_GATHER(ret, pick_up_credentials(table, ELEMENTSOF(table)));
 
         return ret;
 }
