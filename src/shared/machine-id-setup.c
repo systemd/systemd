@@ -5,7 +5,6 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-#include "proc-cmdline.h"
 #include "sd-daemon.h"
 #include "sd-id128.h"
 
@@ -40,6 +39,11 @@ static int acquire_machine_id_from_credential(sd_id128_t *ret) {
                 return log_warning_errno(r, "Failed to read system.machine_id credential, ignoring: %m");
         if (r == 0) /* not found */
                 return -ENXIO;
+
+        if (streq(buf, "firmware")) {
+                *ret = SD_ID128_FIRMWARE;
+                return 0;
+        }
 
         r = sd_id128_from_string(buf, ret);
         if (r < 0)
