@@ -19,6 +19,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "creds-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "static-destruct.h"
@@ -37,8 +38,20 @@ static bool arg_exit = false;
 static int arg_max_children = -1;
 static int arg_log_level = -1;
 static int arg_start_exec_queue = -1;
+static bool arg_load_credentials = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_env, strv_freep);
+
+static bool arg_has_control_commands(void) {
+        return
+                arg_exit ||
+                arg_log_level >= 0 ||
+                arg_start_exec_queue >= 0 ||
+                arg_reload ||
+                !strv_isempty(arg_env) ||
+                arg_max_children >= 0 ||
+                arg_ping;
+}
 
 static int help(void) {
         printf("%s control OPTION\n\n"
@@ -53,7 +66,8 @@ static int help(void) {
                "  -p --property=KEY=VALUE  Set a global property for all events\n"
                "  -m --children-max=N      Maximum number of children\n"
                "     --ping                Wait for udev to respond to a ping message\n"
-               "  -t --timeout=SECONDS     Maximum time to block for a reply\n",
+               "  -t --timeout=SECONDS     Maximum time to block for a reply\n"
+               "  -L --load-credentials    Load udev rules from credentials\n",
                program_invocation_short_name);
 
         return 0;
@@ -77,6 +91,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "children-max",     required_argument, NULL, 'm'      },
                 { "ping",             no_argument,       NULL, ARG_PING },
                 { "timeout",          required_argument, NULL, 't'      },
+                { "load-credentials", no_argument,       NULL, 'L'      },
                 { "version",          no_argument,       NULL, 'V'      },
                 { "help",             no_argument,       NULL, 'h'      },
                 {}
@@ -87,11 +102,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        if (argc <= 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This command expects one or more options.");
-
-        while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "el:sSRp:m:t:LVh", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'e':
@@ -145,6 +156,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse timeout value '%s': %m", optarg);
                         break;
 
+                case 'L':
+                        arg_load_credentials = true;
+                        break;
+
                 case 'V':
                         return print_version();
 
@@ -158,6 +173,10 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
+        if (!arg_has_control_commands() && !arg_load_credentials)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No control command option is specified.");
+
         if (optind < argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Extraneous argument: %s", argv[optind]);
@@ -165,18 +184,9 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int control_main(int argc, char *argv[], void *userdata) {
+static int send_control_commands(void) {
         _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
         int r;
-
-        if (running_in_chroot() > 0) {
-                log_info("Running in chroot, ignoring request.");
-                return 0;
-        }
-
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                return r;
 
         r = udev_ctrl_new(&uctrl);
         if (r < 0)
@@ -234,6 +244,37 @@ int control_main(int argc, char *argv[], void *userdata) {
         r = udev_ctrl_wait(uctrl, arg_timeout);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for daemon to reply: %m");
+
+        return 0;
+}
+
+int control_main(int argc, char *argv[], void *userdata) {
+        int r;
+
+        if (running_in_chroot() > 0) {
+                log_info("Running in chroot, ignoring request.");
+                return 0;
+        }
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        if (arg_load_credentials) {
+                static const PickUpCredential table[] = {
+                        { "udev.conf.",  "/run/udev/udev.conf.d/", ".conf"  },
+                        { "udev.rules.", "/run/udev/rules.d/",     ".rules" },
+                };
+                r = pick_up_credentials(table, ELEMENTSOF(table));
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_has_control_commands()) {
+                r = send_control_commands();
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
