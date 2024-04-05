@@ -7,6 +7,7 @@
 
 #include "sd-event.h"
 
+#include "build-path.h"
 #include "capability-util.h"
 #include "cpu-set-util.h"
 #include "copy.h"
@@ -1428,7 +1429,8 @@ static int prepare_ns(const char *process_name) {
                       NULL);
         assert_se(r >= 0);
         if (r == 0) {
-                _cleanup_free_ char *unit_dir = NULL;
+                _cleanup_free_ char *unit_dir = NULL, *build_dir = NULL, *build_dir_mount = NULL;
+                int ret;
 
                 /* Make "/" read-only. */
                 assert_se(mount_nofollow_verbose(LOG_DEBUG, NULL, "/", NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL) >= 0);
@@ -1440,14 +1442,41 @@ static int prepare_ns(const char *process_name) {
 
                 assert_se(mkdir_p(PRIVATE_UNIT_DIR, 0755) >= 0);
                 assert_se(mount_nofollow_verbose(LOG_DEBUG, "tmpfs", PRIVATE_UNIT_DIR, "tmpfs", MS_NOSUID|MS_NODEV, NULL) >= 0);
+                /* Mark our test "playground" as MS_SLAVE, so we can MS_MOVE mounts underneath it. */
+                assert_se(mount_nofollow_verbose(LOG_DEBUG, NULL, PRIVATE_UNIT_DIR, NULL, MS_SLAVE, NULL) >= 0);
 
                 /* Copy unit files to make them accessible even when unprivileged. */
                 assert_se(get_testdata_dir("test-execute/", &unit_dir) >= 0);
                 assert_se(copy_directory_at(AT_FDCWD, unit_dir, AT_FDCWD, PRIVATE_UNIT_DIR, COPY_MERGE_EMPTY) >= 0);
 
                 /* Mount tmpfs on the following directories to make not StateDirectory= or friends disturb the host. */
+                ret = get_build_exec_dir(&build_dir);
+                assert_se(ret >= 0 || ret == -ENOEXEC);
+
+                if (build_dir) {
+                        /* Account for a build directory being in one of the soon-to-be-tmpfs directories. If we
+                         * overmount it with an empty tmpfs, manager_new() will pin the wrong systemd-executor binary,
+                         * which can then lead to unexpected (and painful to debug) test fails. */
+                        assert_se(access(build_dir, F_OK) >= 0);
+                        assert_se(build_dir_mount = path_join(PRIVATE_UNIT_DIR, "build_dir"));
+                        assert_se(mkdir_p(build_dir_mount, 0755) >= 0);
+                        assert_se(mount_nofollow_verbose(LOG_DEBUG, build_dir, build_dir_mount, NULL, MS_BIND, NULL) >= 0);
+                }
+
                 FOREACH_STRING(p, "/dev/shm", "/root", "/tmp", "/var/tmp", "/var/lib")
                         assert_se(mount_nofollow_verbose(LOG_DEBUG, "tmpfs", p, "tmpfs", MS_NOSUID|MS_NODEV, NULL) >= 0);
+
+                if (build_dir_mount) {
+                        ret = RET_NERRNO(access(build_dir, F_OK));
+                        assert_se(ret >= 0 || ret == -ENOENT);
+
+                        if (ret == -ENOENT) {
+                                /* The build directory got overmounted by tmpfs, so let's use the "backup" bind mount to
+                                 * bring it back. */
+                                assert_se(mkdir_p(build_dir, 0755) >= 0);
+                                assert_se(mount_nofollow_verbose(LOG_DEBUG, build_dir_mount, build_dir, NULL, MS_MOVE, NULL) >= 0);
+                        }
+                }
 
                 /* Prepare credstore like tmpfiles.d/credstore.conf for LoadCredential= tests. */
                 FOREACH_STRING(p, "/run/credstore", "/run/credstore.encrypted") {
