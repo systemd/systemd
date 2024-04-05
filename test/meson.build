@@ -331,3 +331,62 @@ if want_tests != 'false' and conf.get('ENABLE_KERNEL_INSTALL') == 1
              depends : deps,
              suite : 'kernel-install')
 endif
+
+############################################################
+
+if get_option('integration-tests') != false
+        integration_test_wrapper = find_program('integration_test_wrapper.py')
+        integration_tests = {
+                '01': 'TEST-01-BASIC',
+                '02': 'TEST-02-UNITTESTS',
+        }
+        foreach test_number, dirname : integration_tests
+                test_unit_name = f'testsuite-@test_number@.service'
+                test_params = {
+                        'test_name' : dirname,
+                        'mkosi_image_name' : 'system',
+                        'mkosi_output_path' : system_mkosi,
+                        'test_unit_name' : test_unit_name,
+                        'mkosi_args' : [
+                                '--kernel-command-line-extra',
+                                ' '.join([
+                                        'apparmor=0',
+                                        'selinux=0',
+                                        'enforcing=0',
+                                        f'SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-@test_number@.units:/usr/lib/systemd/tests/testdata/units:',
+                                        'systemd.unit=testsuite.target',
+                                        f'systemd.wants=@test_unit_name@',
+                                        'systemd.wants=end.service',
+                                ])
+                        ],
+                        'depends' : [system_mkosi, executables_by_name['systemd-dissect']],
+                        'timeout' : 600,
+                        'skip_default_test' : false,
+                }
+
+                # TODO: This fs.exists call isn't included in rebuild logic
+                # so if you add a new meson.build in a subdir
+                # you need to touch another build file to get it to reparse.
+                if fs.exists(dirname / 'meson.build')
+                        subdir(dirname)
+                endif
+                if test_params['skip_default_test'] == true
+                        continue
+                endif
+                args = ['--test-name', test_params['test_name'],
+                        '--mkosi-image-name', test_params['mkosi_image_name'],
+                        '--mkosi-output-path', test_params['mkosi_output_path'],
+                        '--test-unit-name', test_params['test_unit_name']]
+                if test_params.has_key('hook_module')
+                        args += ['--hook-module', test_params['hook_module']]
+                endif
+                args += ['--'] + test_params['mkosi_args']
+                test(test_params['test_name'],
+                     integration_test_wrapper,
+                     env: test_env,
+                     args : args,
+                     depends : test_params['depends'],
+                     timeout : test_params['timeout'],
+                     suite : 'integration-tests')
+        endforeach
+endif
