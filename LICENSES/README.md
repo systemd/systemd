@@ -28,8 +28,9 @@ The following exceptions apply:
    verbatim from the Linux kernel source tree and are licensed under **GPL-2.0 WITH
    Linux-syscall-note** and are used within the scope of the Linux-syscall-note
    exception provisions
- * the src/shared/initreq.h header is licensed under original license,
-   **LGPL-2.0-or-later**.
+ * the following sources are licensed under the **LGPL-2.0-or-later** license:
+   - src/basic/utf8.c
+   - src/shared/initreq.h
  * the src/shared/linux/bpf_insn.h header is copied from the Linux kernel
    source tree and is licensed under either **BSD-2-Clause** or **GPL-2.0-only**,
    and thus is included in the systemd build under the BSD-2-Clause license.
