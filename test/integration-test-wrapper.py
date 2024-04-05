@@ -91,6 +91,10 @@ def main():
     else:
         journal_file = None
 
+    console_log = (Path(args.meson_build_dir) / (f"test/console/{args.test_name}.txt")).absolute()
+    console_log.parent.mkdir(parents=True, exist_ok=True)
+    console_log.unlink(missing_ok=True)
+
     cmd = [
         'mkosi',
         '--debug',
@@ -142,7 +146,10 @@ def main():
         'qemu',
     ]
 
-    result = subprocess.run(cmd)
+    tee = subprocess.Popen(['tee', console_log], stdin=subprocess.PIPE)
+    result = subprocess.run(cmd, stderr=subprocess.STDOUT, stdout=tee.stdin)
+    tee.stdin.close()
+    tee.wait()
     # Return code 123 is the expected success code
     if result.returncode != (0 if sys.stderr.isatty() or args.skip_shutdown else 123):
         if result.returncode != 77 and journal_file:
@@ -158,9 +165,10 @@ def main():
                   f"{shlex.join(str(a) for a in cmd)}\n", file=sys.stderr)
         exit(result.returncode or 1)
 
-    # Do not keep journal files for tests that don't fail.
+    # Do not keep journal files or console log for tests that don't fail.
     if journal_file:
         journal_file.unlink(missing_ok=True)
+    console_log.unlink(missing_ok=True)
 
 
 if __name__ == '__main__':
