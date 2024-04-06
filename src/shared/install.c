@@ -3805,7 +3805,7 @@ int unit_file_get_list(
                         if (r < 0)
                                 return r;
 
-                        r = hashmap_put(h, fname, f);
+                        r = hashmap_put(h, basename(f->path), f);
                         if (r < 0)
                                 return r;
 
