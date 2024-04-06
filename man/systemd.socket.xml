@@ -759,7 +759,7 @@
       <varlistentry>
         <term><varname>TCPCongestion=</varname></term>
         <listitem><para>Takes a string value. Controls the TCP congestion algorithm used by this
-        socket. Should be one of <literal>westwood</literal>, <literal>veno</literal>,
+        socket. Should be one of <literal>westwood</literal>, <literal>reno</literal>,
         <literal>cubic</literal>, <literal>lp</literal> or any other available algorithm supported by the IP
         stack. This setting applies only to stream sockets.</para></listitem>
       </varlistentry>
