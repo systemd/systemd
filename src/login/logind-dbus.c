@@ -2154,7 +2154,7 @@ static int method_do_shutdown_or_sleep(
 
                         case SLEEP_RESUME_NOT_SUPPORTED:
                                 return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
-                                                        "Not running on EFI and resume= is not set. No available method to resume from hibernation");
+                                                        "Not running on EFI and resume= is not set, or noresume is set. No available method to resume from hibernation");
 
                         case SLEEP_NOT_ENOUGH_SWAP_SPACE:
                                 return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
