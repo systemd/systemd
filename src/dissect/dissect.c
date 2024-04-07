@@ -31,10 +31,12 @@
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"
+#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
+#include "nsresource.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -91,6 +93,7 @@ static char **arg_argv = NULL;
 static char *arg_loop_ref = NULL;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_mtree_hash = true;
+static bool arg_via_service = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -704,6 +707,18 @@ static int parse_argv(int argc, char *argv[]) {
                 assert_not_reached();
         }
 
+        r = getenv_bool("SYSTEMD_USE_MOUNTFSD");
+        if (r < 0) {
+                if (r != -ENXIO)
+                        return log_error_errno(r, "Failed to parse $SYSTEMD_USE_MOUNTFSD: %m");
+        } else
+                arg_via_service = r;
+
+        if (!IN_SET(arg_action, ACTION_DISSECT, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_DISCOVER, ACTION_VALIDATE) && geteuid() != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be root.");
+
+        SET_FLAG(arg_flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH, isatty(STDIN_FILENO));
+
         return 1;
 }
 
@@ -841,7 +856,11 @@ static int get_extension_scopes(DissectedImage *m, ImageClass class, char ***ret
         return 1;
 }
 
-static int action_dissect(DissectedImage *m, LoopDevice *d) {
+static int action_dissect(
+                DissectedImage *m,
+                LoopDevice *d,
+                int userns_fd) {
+
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *bn = NULL;
@@ -849,7 +868,6 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         int r;
 
         assert(m);
-        assert(d);
 
         r = path_extract_filename(arg_image, &bn);
         if (r < 0)
@@ -875,7 +893,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                 fflush(stdout);
         }
 
-        r = dissected_image_acquire_metadata(m, 0);
+        r = dissected_image_acquire_metadata(m, userns_fd, /* extra_flags= */ 0);
         if (r == -ENXIO)
                 return log_error_errno(r, "No root partition discovered.");
         if (r == -EUCLEAN)
@@ -1087,7 +1105,6 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
         int r;
 
         assert(m);
-        assert(d);
         assert(arg_action == ACTION_MOUNT);
 
         r = dissected_image_mount_and_warn(
@@ -1100,9 +1117,11 @@ static int action_mount(DissectedImage *m, LoopDevice *d) {
         if (r < 0)
                 return r;
 
-        r = loop_device_flock(d, LOCK_UN);
-        if (r < 0)
-                return log_error_errno(r, "Failed to unlock loopback block device: %m");
+        if (d) {
+                r = loop_device_flock(d, LOCK_UN);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to unlock loopback block device: %m");
+        }
 
         r = dissected_image_relinquish(m);
         if (r < 0)
@@ -1390,8 +1409,8 @@ static int archive_item(
 }
 #endif
 
-static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopDevice *d) {
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
+static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopDevice *d, int userns_fd) {
+        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_free_ char *t = NULL;
         const char *root;
         int r;
@@ -1400,12 +1419,16 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
         if (arg_image) {
                 assert(m);
-                assert(d);
 
-                r = detach_mount_namespace();
+                if (userns_fd < 0)
+                        r = detach_mount_namespace_harder(0, 0);
+                else
+                        r = detach_mount_namespace_userns(userns_fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to detach mount namespace: %m");
 
+                /* Create a place we can mount things onto soon. We use a fixed path shared by all invocations. Given
+                 * the mounts are done in a mount namespace there's not going to be a collision here */
                 r = get_common_dissect_directory(&t);
                 if (r < 0)
                         return log_error_errno(r, "Failed generate private mount directory: %m");
@@ -1422,9 +1445,11 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
                 mounted_dir = TAKE_PTR(t);
 
-                r = loop_device_flock(d, LOCK_UN);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to unlock loopback block device: %m");
+                if (d) {
+                        r = loop_device_flock(d, LOCK_UN);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to unlock loopback block device: %m");
+                }
 
                 r = dissected_image_relinquish(m);
                 if (r < 0)
@@ -1432,6 +1457,8 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
         }
 
         root = mounted_dir ?: arg_root;
+
+        dissected_image_close(m);
 
         switch (arg_action) {
 
@@ -1716,7 +1743,6 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
         int r, rcode;
 
         assert(m);
-        assert(d);
         assert(arg_action == ACTION_WITH);
 
         r = tempfn_random_child(NULL, program_invocation_short_name, &temp);
@@ -1745,9 +1771,11 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
         if (r < 0)
                 return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
 
-        r = loop_device_flock(d, LOCK_UN);
-        if (r < 0)
-                return log_error_errno(r, "Failed to unlock loopback block device: %m");
+        if (d) {
+                r = loop_device_flock(d, LOCK_UN);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to unlock loopback block device: %m");
+        }
 
         rcode = safe_fork("(with)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, NULL);
         if (rcode == 0) {
@@ -1788,14 +1816,16 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
         }
 
         /* Let's manually detach everything, to make things synchronous */
-        r = loop_device_flock(d, LOCK_SH);
-        if (r < 0)
-                log_warning_errno(r, "Failed to lock loopback block device, ignoring: %m");
+        if (d) {
+                r = loop_device_flock(d, LOCK_SH);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to lock loopback block device, ignoring: %m");
+        }
 
         r = umount_recursive(mounted_dir, 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to unmount '%s', ignoring: %m", mounted_dir);
-        else
+        else if (d)
                 loop_device_unrelinquish(d); /* Let's try to destroy the loopback device */
 
         created_dir = TAKE_PTR(mounted_dir);
@@ -1982,8 +2012,8 @@ static int action_validate(void) {
 static int run(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        uint32_t loop_flags;
-        int open_flags, r;
+        _cleanup_close_ int userns_fd = -EBADF;
+        int r;
 
         log_setup();
 
@@ -2015,7 +2045,7 @@ static int run(int argc, char *argv[]) {
                 return action_discover();
 
         default:
-                /* All other actions need the image dissected */
+                /* All other actions need the image dissected (except for ACTION_VALIDATE, see below) */
                 break;
         }
 
@@ -2031,50 +2061,92 @@ static int run(int argc, char *argv[]) {
                                                                         * hence if there's external Verity data
                                                                         * available we turn off partition table
                                                                         * support */
+        }
 
-                if (arg_action == ACTION_VALIDATE)
-                        return action_validate();
+        if (arg_action == ACTION_VALIDATE)
+                return action_validate();
 
-                open_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR;
-                loop_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN;
-                if (arg_in_memory)
-                        r = loop_device_make_by_path_memory(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, LOCK_SH, &d);
-                else
-                        r = loop_device_make_by_path(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, LOCK_SH, &d);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
+        if (arg_image) {
+                /* First try locally, if we are allowed to */
+                if (!arg_via_service) {
+                        uint32_t loop_flags;
+                        int open_flags;
 
-                if (arg_loop_ref) {
-                        r = loop_device_set_filename(d, arg_loop_ref);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to set loop reference string to '%s', ignoring: %m", arg_loop_ref);
+                        open_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR;
+                        loop_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN;
+
+                        if (arg_in_memory)
+                                r = loop_device_make_by_path_memory(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, LOCK_SH, &d);
+                        else
+                                r = loop_device_make_by_path(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, LOCK_SH, &d);
+                        if (r < 0) {
+                                if (!ERRNO_IS_PRIVILEGE(r) || !IN_SET(arg_action, ACTION_DISSECT, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO))
+                                        return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
+
+                                log_debug_errno(r, "Lacking permissions to set up loopback block device for %s, using service: %m", arg_image);
+                                arg_via_service = true;
+                        } else {
+                                if (arg_loop_ref) {
+                                        r = loop_device_set_filename(d, arg_loop_ref);
+                                        if (r < 0)
+                                                log_warning_errno(r, "Failed to set loop reference string to '%s', ignoring: %m", arg_loop_ref);
+                                }
+
+                                r = dissect_loop_device_and_warn(
+                                                d,
+                                                &arg_verity_settings,
+                                                /* mount_options= */ NULL,
+                                                arg_image_policy,
+                                                arg_flags,
+                                                &m);
+                                if (r < 0)
+                                        return r;
+
+                                if (arg_action == ACTION_ATTACH)
+                                        return action_attach(m, d);
+
+                                r = dissected_image_load_verity_sig_partition(
+                                                m,
+                                                d->fd,
+                                                &arg_verity_settings);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to load verity signature partition: %m");
+
+                                if (arg_action != ACTION_DISSECT) {
+                                        r = dissected_image_decrypt_interactively(
+                                                        m, NULL,
+                                                        &arg_verity_settings,
+                                                        arg_flags);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
                 }
 
-                r = dissect_loop_device_and_warn(
-                                d,
-                                &arg_verity_settings,
-                                /* mount_options= */ NULL,
-                                arg_image_policy,
-                                arg_flags,
-                                &m);
-                if (r < 0)
-                        return r;
+                /* Try via service */
+                if (arg_via_service) {
+                        if (arg_in_memory)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--in-memory= not supported when operating via systemd-mountfsd.");
 
-                if (arg_action == ACTION_ATTACH)
-                        return action_attach(m, d);
+                        if (arg_loop_ref)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--loop-ref= not supported when operating via systemd-mountfsd.");
 
-                r = dissected_image_load_verity_sig_partition(
-                                m,
-                                d->fd,
-                                &arg_verity_settings);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to load verity signature partition: %m");
+                        if (verity_settings_set(&arg_verity_settings))
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Externally configured verity settings not supported when operating via systemd-mountfsd.");
 
-                if (arg_action != ACTION_DISSECT) {
-                        r = dissected_image_decrypt_interactively(
-                                        m, NULL,
-                                        &arg_verity_settings,
-                                        arg_flags);
+                        /* Don't run things in private userns, if the mount shall be attached to the host */
+                        if (!IN_SET(arg_action, ACTION_MOUNT, ACTION_WITH)) {
+                                userns_fd = nsresource_allocate_userns(/* name= */ NULL, UINT64_C(0x10000)); /* allocate 64K users by default */
+                                if (userns_fd < 0)
+                                        return log_error_errno(userns_fd, "Failed to allocate user namespace with 64K users: %m");
+                        }
+
+                        r = mountfsd_mount_image(
+                                        arg_image,
+                                        userns_fd,
+                                        arg_image_policy,
+                                        arg_flags,
+                                        &m);
                         if (r < 0)
                                 return r;
                 }
@@ -2083,7 +2155,7 @@ static int run(int argc, char *argv[]) {
         switch (arg_action) {
 
         case ACTION_DISSECT:
-                return action_dissect(m, d);
+                return action_dissect(m, d, userns_fd);
 
         case ACTION_MOUNT:
                 return action_mount(m, d);
@@ -2093,7 +2165,7 @@ static int run(int argc, char *argv[]) {
         case ACTION_COPY_FROM:
         case ACTION_COPY_TO:
         case ACTION_MAKE_ARCHIVE:
-                return action_list_or_mtree_or_copy_or_make_archive(m, d);
+                return action_list_or_mtree_or_copy_or_make_archive(m, d, userns_fd);
 
         case ACTION_WITH:
                 return action_with(m, d);

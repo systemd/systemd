@@ -39,6 +39,8 @@ os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os
 # shellcheck source=/dev/null
 source "$os_release"
 [[ "$ID" == "debian" || " $ID_LIKE " == *" debian "* ]] && LOOKS_LIKE_DEBIAN=yes || LOOKS_LIKE_DEBIAN=no
+# shellcheck disable=SC2034
+[[ "$ID" == "ubuntu" ]] && LOOKS_LIKE_UBUNTU=yes || LOOKS_LIKE_UBUNTU=no
 [[ "$ID" == "arch" || " $ID_LIKE " == *" arch "* ]] && LOOKS_LIKE_ARCH=yes || LOOKS_LIKE_ARCH=no
 [[ "$ID" == "fedora" ]] && LOOKS_LIKE_FEDORA=yes || LOOKS_LIKE_FEDORA=no
 [[ " $ID_LIKE " == *" suse "* ]] && LOOKS_LIKE_SUSE=yes || LOOKS_LIKE_SUSE=no
@@ -733,6 +735,7 @@ install_verity_minimal() {
         BASICTOOLS=(
             bash
             cat
+            echo
             grep
             mount
             sleep
