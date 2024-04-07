@@ -30,18 +30,18 @@ _coredumpctl_commands(){
 }
 
 _arguments \
-    {-o+,--output=}'[Write output to FILE]:output file:_files' \
-    {-F+,--field=}'[Show field in list output]:field' \
+    '(-o --output)'{-o+,--output=}'[Write output to FILE]:output file:_files' \
+    '(-F --field)'{-F+,--field=}'[Show field in list output]:field' \
     '-1[Show information about most recent entry only]' \
-    {-S,--since}'[Print entries since the specified date]' \
-    {-U,--until}'[Print entries until the specified date]' \
-    {-r,--reverse}'[Show the newest entries first]' \
+    '(-S --since)'{-S,--since}'[Print entries since the specified date]' \
+    '(-U --until)'{-U,--until}'[Print entries until the specified date]' \
+    '(-r --reverse)'{-r,--reverse}'[Show the newest entries first]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-legend[Do not print the column headers]' \
-    {-h,--help}'[Show this help]' \
-    '--version[Show package version]' \
+    '(- *)'{-h,--help}'[Show this help]' \
+    '(- *)--version[Show package version]' \
     '--debugger=[Use the given debugger]:debugger: _command_names -e' \
-    {-D,--directory=}'[Use the journal files in the specified dir]:directory: _directories' \
-    {-q,--quiet}'[Do not show info messages and privilege warning]' \
+    '(-D --directory)'{-D,--directory=}'[Use the journal files in the specified dir]:directory: _directories' \
+    '(-q --quiet)'{-q,--quiet}'[Do not show info messages and privilege warning]' \
     '--all[Look at all journal files instead of local ones]' \
     '*::coredumpctl commands:_coredumpctl_commands'

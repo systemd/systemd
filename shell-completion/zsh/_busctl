@@ -259,14 +259,14 @@ local -a _modes; _modes=("--user" "--system")
 local _bus_address=${${words:*_modes}[(R)(${(j.|.)_modes})]}
 local curcontext=$curcontext state line
 _arguments \
-    {-h,--help}'[Prints a short help text and exits.]' \
-    '--version[Prints a short version string and exits.]' \
+    '(- *)'{-h,--help}'[Prints a short help text and exits.]' \
+    '(- *)--version[Prints a short version string and exits.]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-legend[Do not show the headers and footers]' \
     '--system[Connect to system manager]' \
     '--user[Connect to user service manager]' \
-    {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
-    {-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
+    '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    '(-M --machine)'{-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
     '--address=[Connect to the bus specified by address]:address' \
     '--show-machine[Show machine ID column in list]' \
     '--unique[Only show unique names]' \
@@ -274,7 +274,7 @@ _arguments \
     '--activatable[Only show activatable names]' \
     '--match=[Only show matching messages]:match:__dbus_matchspec' \
     '--list[Do not show tree, but simple object path list]' \
-    {-q,--quiet}'[Do not show method call reply]'\
+    '(-q --quiet)'{-q,--quiet}'[Do not show method call reply]'\
     '--verbose[Show result values in long format]' \
     '--xml-interface[Dump the XML description in introspect command]' \
     '--json=[Show result values in long format]:format:_busctl_get_json' \

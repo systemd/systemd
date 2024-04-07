@@ -96,37 +96,37 @@ while (( i++ < n )); do
     fi
 done
 _arguments -s \
-    {-h,--help}'[Show this help]' \
-    '--version[Show package version]' \
+    '(- *)'{-h,--help}'[Show this help]' \
+    '(- *)--version[Show package version]' \
     '--no-pager[Do not pipe output into a pager]' \
     --no-hostname"[Don't show the hostname of local log messages]" \
-    {-l,--full}'[Show long fields in full]' \
-    {-a,--all}'[Show all fields, including long and unprintable]' \
-    {-f,--follow}'[Follow journal]' \
-    {-e,--pager-end}'[Jump to the end of the journal in the pager]' \
-    {-n+,--lines=}'[Number of journal entries to show]:integer' \
+    '(-l --full)'{-l,--full}'[Show long fields in full]' \
+    '(-a --all)'{-a,--all}'[Show all fields, including long and unprintable]' \
+    '(-f --follow)'{-f,--follow}'[Follow journal]' \
+    '(-e --pager-end)'{-e,--pager-end}'[Jump to the end of the journal in the pager]' \
+    '(-n --lines)'{-n+,--lines=}'[Number of journal entries to show]:integer' \
     '--no-tail[Show all lines, even in follow mode]' \
-    {-r,--reverse}'[Reverse output]' \
-    {-o+,--output=}'[Change journal output mode]:output modes:_sd_outputmodes' \
-    {-x,--catalog}'[Show explanatory texts with each log line]' \
-    {-q,--quiet}"[Don't show privilege warning]" \
-    {-m,--merge}'[Show entries from all available journals]' \
-    {-b+,--boot=}'[Show data only from the specified boot or offset]::boot id or offset:_journalctl_boots' \
+    '(-r --reverse)'{-r,--reverse}'[Reverse output]' \
+    '(-o --output)'{-o+,--output=}'[Change journal output mode]:output modes:_sd_outputmodes' \
+    '(-x --catalog)'{-x,--catalog}'[Show explanatory texts with each log line]' \
+    '(-q --quiet)'{-q,--quiet}"[Don't show privilege warning]" \
+    '(-m --merge)'{-m,--merge}'[Show entries from all available journals]' \
+    '(-b --boot)'{-b+,--boot=}'[Show data only from the specified boot or offset]::boot id or offset:_journalctl_boots' \
     '--list-boots[List boots ordered by time]' \
-    {-k,--dmesg}'[Show only kernel messages from the current boot]' \
-    {-u+,--unit=}'[Show data only from the specified unit]:units:_journalctl_field_values _SYSTEMD_UNIT' \
+    '(-k --dmesg)'{-k,--dmesg}'[Show only kernel messages from the current boot]' \
+    '(-u --unit)'{-u+,--unit=}'[Show data only from the specified unit]:units:_journalctl_field_values _SYSTEMD_UNIT' \
     '--user-unit=[Show data only from the specified user session unit]:units:_journalctl_field_values USER_UNIT' \
-    {-p+,--priority=}'[Show only messages within the specified priority range]:priority:_journalctl_field_values PRIORITY' \
+    '(-p --priority)'{-p+,--priority=}'[Show only messages within the specified priority range]:priority:_journalctl_field_values PRIORITY' \
     '--facility=[Filter messages by facility]:facility:_journalctl_facilities' \
-    {-t+,--identifier=}'[Filter messages by syslog identifier]:identifier:_journalctl_field_values SYSLOG_IDENTIFIER' \
-    {-c+,--cursor=}'[Start showing entries from the specified cursor]:cursors:_journalctl_field_values __CURSORS' \
+    '(-t --identifier)'{-t+,--identifier=}'[Filter messages by syslog identifier]:identifier:_journalctl_field_values SYSLOG_IDENTIFIER' \
+    '(-c --cursor)'{-c+,--cursor=}'[Start showing entries from the specified cursor]:cursors:_journalctl_field_values __CURSORS' \
     '--cursor-file=[Show entries using cursor stored in file]:file:_files' \
     '--after-cursor=[Start showing entries from after the specified cursor]:cursors:_journalctl_field_values __CURSORS' \
     '--since=[Start showing entries on or newer than the specified date]:YYYY-MM-DD HH\:MM\:SS' \
     '--until=[Stop showing entries on or older than the specified date]:YYYY-MM-DD HH\:MM\:SS' \
-    {-g+,--grep=}'[Show entries with MESSAGE field matching PCRE pattern]' \
+    '(-g --grep)'{-g+,--grep=}'[Show entries with MESSAGE field matching PCRE pattern]' \
     '--case-sensitive=[Force case sensitive or insensitive matching]:boolean:(true false)' \
-    {-F,--field=}'[List all values a certain field takes]:Fields:_journalctl_fields' \
+    '(-F --field)'{-F,--field=}'[List all values a certain field takes]:Fields:_journalctl_fields' \
     '--system[Show system and kernel messages]' \
     '--user[Show messages from user services]' \
     '(--directory -D -M --machine --root --file)'{-M+,--machine=}'[Operate on local container]:machines:_sd_machines' \
