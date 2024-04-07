@@ -336,8 +336,10 @@ static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
          * the lock on the socket taken. */
 
         k = receive_one_fd_iov(d->storage_socket[0], &iov, 1, MSG_DONTWAIT, &lock_fd);
-        if (k < 0)
+        if (k < 0) {
+                assert(errno_is_valid(-k));
                 return (int) k;
+        }
 
         *ret_uid = uid;
         *ret_lock_fd = lock_fd;
