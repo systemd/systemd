@@ -1405,8 +1405,8 @@ static int service_collect_fds(
 
                 UNIT_FOREACH_DEPENDENCY(u, UNIT(s), UNIT_ATOM_TRIGGERED_BY) {
                         _cleanup_free_ int *cfds = NULL;
-                        Socket *sock;
                         int cn_fds;
+                        Socket *sock;
 
                         sock = SOCKET(u);
                         if (!sock)
@@ -1422,18 +1422,8 @@ static int service_collect_fds(
                         if (!rfds) {
                                 rfds = TAKE_PTR(cfds);
                                 rn_socket_fds = cn_fds;
-                        } else {
-                                int *t;
-
-                                t = reallocarray(rfds, rn_socket_fds + cn_fds, sizeof(int));
-                                if (!t)
-                                        return -ENOMEM;
-
-                                memcpy(t + rn_socket_fds, cfds, cn_fds * sizeof(int));
-
-                                rfds = t;
-                                rn_socket_fds += cn_fds;
-                        }
+                        } else if (!GREEDY_REALLOC_APPEND(rfds, rn_socket_fds, cfds, cn_fds))
+                                return -ENOMEM;
 
                         r = strv_extend_n(&rfd_names, socket_fdname(sock), cn_fds);
                         if (r < 0)
