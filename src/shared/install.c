@@ -3799,12 +3799,7 @@ int unit_file_get_list(
                         if (!strv_isempty(states) &&
                             !strv_contains(states, unit_file_state_to_string(f->state)))
                                 continue;
-
-                        _cleanup_free_ char *fname = NULL;
-                        r = path_extract_filename(f->path, &fname);
-                        if (r < 0)
-                                return r;
-
+                        
                         r = hashmap_put(h, basename(f->path), f);
                         if (r < 0)
                                 return r;
