@@ -2088,10 +2088,10 @@ static int method_do_shutdown_or_sleep(
                                                 "Both reboot via kexec and soft reboot selected, which is not supported");
 
                 if (action != HANDLE_REBOOT) {
-                        if (flags & SD_LOGIND_REBOOT_VIA_KEXEC)
+                        if (FLAGS_SET(flags, SD_LOGIND_REBOOT_VIA_KEXEC))
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
                                                         "Reboot via kexec option is only applicable with reboot operations");
-                        if ((flags & SD_LOGIND_SOFT_REBOOT) || (flags & SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP))
+                        if (flags & (SD_LOGIND_SOFT_REBOOT|SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP) != 0)
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
                                                         "Soft reboot option is only applicable with reboot operations");
                 }
@@ -2110,10 +2110,10 @@ static int method_do_shutdown_or_sleep(
 
         const HandleActionData *a = NULL;
 
-        if ((flags & SD_LOGIND_SOFT_REBOOT) ||
-            ((flags & SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP) && path_is_os_tree("/run/nextroot") > 0))
+        if (FLAGS_SET(flags, SD_LOGIND_SOFT_REBOOT) ||
+            (FLAGS_SET(flags, SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP) && path_is_os_tree("/run/nextroot") > 0))
                 a = handle_action_lookup(HANDLE_SOFT_REBOOT);
-        else if ((flags & SD_LOGIND_REBOOT_VIA_KEXEC) && kexec_loaded())
+        else if (FLAGS_SET(flags, SD_LOGIND_REBOOT_VIA_KEXEC) && kexec_loaded())
                 a = handle_action_lookup(HANDLE_KEXEC);
 
         if (action == HANDLE_SLEEP) {
