@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for Personality=s390x
+
+[Service]
+ExecStart=sh -x -c 'c=$$(uname -m); test "$$c" = "s390x"'
+Type=oneshot
+Personality=s390x
