@@ -2,3 +2,4 @@
 #pragma once
 
 int verb_show(int argc, char *argv[], void *userdata);
+JsonFormatFlags *get_flag_address(void);
