@@ -3,6 +3,10 @@
 
 #include <sys/wait.h>
 
+#include "macro.h"
+
 #ifndef P_PIDFD
-#define P_PIDFD 3
+#  define P_PIDFD 3
+#else
+assert_cc(P_PIDFD == 3);
 #endif

@@ -7,6 +7,7 @@ cd "${MESON_SOURCE_ROOT:?}"
 if [ -e .git ]; then
     git config submodule.recurse true
     git config fetch.recurseSubmodules on-demand
+    git config push.recurseSubmodules no
 fi
 
 if [ ! -f .git/hooks/pre-commit.sample ] || [ -f .git/hooks/pre-commit ]; then

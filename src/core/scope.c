@@ -23,21 +23,20 @@
 #include "user-util.h"
 
 static const UnitActiveState state_translation_table[_SCOPE_STATE_MAX] = {
-        [SCOPE_DEAD] = UNIT_INACTIVE,
-        [SCOPE_START_CHOWN] = UNIT_ACTIVATING,
-        [SCOPE_RUNNING] = UNIT_ACTIVE,
-        [SCOPE_ABANDONED] = UNIT_ACTIVE,
+        [SCOPE_DEAD]         = UNIT_INACTIVE,
+        [SCOPE_START_CHOWN]  = UNIT_ACTIVATING,
+        [SCOPE_RUNNING]      = UNIT_ACTIVE,
+        [SCOPE_ABANDONED]    = UNIT_ACTIVE,
         [SCOPE_STOP_SIGTERM] = UNIT_DEACTIVATING,
         [SCOPE_STOP_SIGKILL] = UNIT_DEACTIVATING,
-        [SCOPE_FAILED] = UNIT_FAILED,
+        [SCOPE_FAILED]       = UNIT_FAILED,
 };
 
 static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 
 static void scope_init(Unit *u) {
-        Scope *s = SCOPE(u);
+        Scope *s = ASSERT_PTR(SCOPE(u));
 
-        assert(u);
         assert(u->load_state == UNIT_STUB);
 
         s->runtime_max_usec = USEC_INFINITY;
@@ -48,9 +47,7 @@ static void scope_init(Unit *u) {
 }
 
 static void scope_done(Unit *u) {
-        Scope *s = SCOPE(u);
-
-        assert(u);
+        Scope *s = ASSERT_PTR(SCOPE(u));
 
         s->controller = mfree(s->controller);
         s->controller_track = sd_bus_track_unref(s->controller_track);
@@ -84,6 +81,7 @@ static int scope_arm_timer(Scope *s, bool relative, usec_t usec) {
 
 static void scope_set_state(Scope *s, ScopeState state) {
         ScopeState old_state;
+
         assert(s);
 
         if (s->state != state)
@@ -101,7 +99,8 @@ static void scope_set_state(Scope *s, ScopeState state) {
         }
 
         if (state != old_state)
-                log_debug("%s changed %s -> %s", UNIT(s)->id, scope_state_to_string(old_state), scope_state_to_string(state));
+                log_unit_debug(UNIT(s), "Changed %s -> %s",
+                               scope_state_to_string(old_state), scope_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
 }
@@ -181,10 +180,9 @@ static int scope_add_extras(Scope *s) {
 }
 
 static int scope_load(Unit *u) {
-        Scope *s = SCOPE(u);
+        Scope *s = ASSERT_PTR(SCOPE(u));
         int r;
 
-        assert(s);
         assert(u->load_state == UNIT_STUB);
 
         if (!u->transient && !MANAGER_IS_RELOADING(u->manager))
@@ -227,10 +225,9 @@ static usec_t scope_coldplug_timeout(Scope *s) {
 }
 
 static int scope_coldplug(Unit *u) {
-        Scope *s = SCOPE(u);
+        Scope *s = ASSERT_PTR(SCOPE(u));
         int r;
 
-        assert(s);
         assert(s->state == SCOPE_DEAD);
 
         if (s->deserialized_state == s->state)
@@ -260,10 +257,10 @@ static int scope_coldplug(Unit *u) {
 }
 
 static void scope_dump(Unit *u, FILE *f, const char *prefix) {
-        Scope *s = SCOPE(u);
+        Scope *s = ASSERT_PTR(SCOPE(u));
 
-        assert(s);
         assert(f);
+        assert(prefix);
 
         fprintf(f,
                 "%sScope State: %s\n"
@@ -277,7 +274,7 @@ static void scope_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, FORMAT_TIMESPAN(s->runtime_rand_extra_usec, USEC_PER_SEC),
                 prefix, oom_policy_to_string(s->oom_policy));
 
-        cgroup_context_dump(UNIT(s), f, prefix);
+        cgroup_context_dump(u, f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
 }
 
@@ -346,11 +343,10 @@ fail:
 }
 
 static int scope_enter_start_chown(Scope *s) {
+        Unit *u = UNIT(ASSERT_PTR(s));
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        Unit *u = UNIT(s);
         int r;
 
-        assert(s);
         assert(s->user);
 
         if (!s->cgroup_runtime)
@@ -410,10 +406,8 @@ fail:
 }
 
 static int scope_enter_running(Scope *s) {
-        Unit *u = UNIT(s);
+        Unit *u = UNIT(ASSERT_PTR(s));
         int r;
-
-        assert(s);
 
         (void) bus_scope_track_controller(s);
 
@@ -457,9 +451,7 @@ fail:
 }
 
 static int scope_start(Unit *u) {
-        Scope *s = SCOPE(u);
-
-        assert(s);
+        Scope *s = ASSERT_PTR(SCOPE(u));
 
         if (unit_has_name(u, SPECIAL_INIT_SCOPE))
                 return -EPERM;
@@ -488,9 +480,7 @@ static int scope_start(Unit *u) {
 }
 
 static int scope_stop(Unit *u) {
-        Scope *s = SCOPE(u);
-
-        assert(s);
+        Scope *s = ASSERT_PTR(SCOPE(u));
 
         if (IN_SET(s->state, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL))
                 return 0;
@@ -502,9 +492,7 @@ static int scope_stop(Unit *u) {
 }
 
 static void scope_reset_failed(Unit *u) {
-        Scope *s = SCOPE(u);
-
-        assert(s);
+        Scope *s = ASSERT_PTR(SCOPE(u));
 
         if (s->state == SCOPE_FAILED)
                 scope_set_state(s, SCOPE_DEAD);
@@ -513,7 +501,7 @@ static void scope_reset_failed(Unit *u) {
 }
 
 static int scope_get_timeout(Unit *u, usec_t *timeout) {
-        Scope *s = SCOPE(u);
+        Scope *s = ASSERT_PTR(SCOPE(u));
         usec_t t;
         int r;
 
@@ -531,10 +519,9 @@ static int scope_get_timeout(Unit *u, usec_t *timeout) {
 }
 
 static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
-        Scope *s = SCOPE(u);
+        Scope *s = ASSERT_PTR(SCOPE(u));
         PidRef *pid;
 
-        assert(s);
         assert(f);
         assert(fds);
 
@@ -551,10 +538,9 @@ static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
 }
 
 static int scope_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
-        Scope *s = SCOPE(u);
+        Scope *s = ASSERT_PTR(SCOPE(u));
         int r;
 
-        assert(u);
         assert(key);
         assert(value);
         assert(fds);
@@ -597,8 +583,7 @@ static int scope_deserialize_item(Unit *u, const char *key, const char *value, F
 }
 
 static void scope_notify_cgroup_empty_event(Unit *u) {
-        Scope *s = SCOPE(u);
-        assert(u);
+        Scope *s = ASSERT_PTR(SCOPE(u));
 
         log_unit_debug(u, "cgroup is empty");
 
@@ -607,7 +592,7 @@ static void scope_notify_cgroup_empty_event(Unit *u) {
 }
 
 static void scope_notify_cgroup_oom_event(Unit *u, bool managed_oom) {
-        Scope *s = SCOPE(u);
+        Scope *s = ASSERT_PTR(SCOPE(u));
 
         if (managed_oom)
                 log_unit_debug(u, "Process(es) of control group were killed by systemd-oomd.");
@@ -639,9 +624,7 @@ static void scope_notify_cgroup_oom_event(Unit *u, bool managed_oom) {
 }
 
 static void scope_sigchld_event(Unit *u, pid_t pid, int code, int status) {
-        Scope *s = SCOPE(u);
-
-        assert(s);
+        Scope *s = ASSERT_PTR(SCOPE(u));
 
         if (s->state == SCOPE_START_CHOWN) {
                 if (!is_clean_exit(code, status, EXIT_CLEAN_COMMAND, NULL))
@@ -659,9 +642,8 @@ static void scope_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 }
 
 static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {
-        Scope *s = SCOPE(userdata);
+        Scope *s = ASSERT_PTR(SCOPE(userdata));
 
-        assert(s);
         assert(s->timer_event_source == source);
 
         switch (s->state) {
@@ -723,15 +705,15 @@ int scope_abandon(Scope *s) {
 }
 
 static UnitActiveState scope_active_state(Unit *u) {
-        assert(u);
+        Scope *s = ASSERT_PTR(SCOPE(u));
 
-        return state_translation_table[SCOPE(u)->state];
+        return state_translation_table[s->state];
 }
 
 static const char *scope_sub_state_to_string(Unit *u) {
-        assert(u);
+        Scope *s = ASSERT_PTR(SCOPE(u));
 
-        return scope_state_to_string(SCOPE(u)->state);
+        return scope_state_to_string(s->state);
 }
 
 static void scope_enumerate_perpetual(Manager *m) {

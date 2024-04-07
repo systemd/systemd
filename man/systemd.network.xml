@@ -428,9 +428,12 @@
           Defaults to <literal>no</literal>. Further settings for the DHCP server may be set in the
           [DHCPServer] section described below.</para>
 
-          <para>Even if this is enabled, the DHCP server will not be started automatically. It will be
-          started after <filename>systemd-networkd-persistent-storage.service</filename> is started, which
-          calls <command>networkctl persistent-storage yes</command>. See
+          <para>Even if this is enabled, the DHCP server will not be started automatically and wait for the
+          persistent storage being ready to load/save leases in the storage, unless
+          <varname>RelayTarget=</varname> or <varname>PersistLeases=no</varname> are specified in the
+          [DHCPServer] section. It will be started after
+          <filename>systemd-networkd-persistent-storage.service</filename> is started, which calls
+          <command>networkctl persistent-storage yes</command>. See
           <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
           for more details.</para>
 
@@ -857,7 +860,7 @@ Table=1234</programlisting></para>
           <literal>ipv4</literal>, <literal>ipv6</literal>, <literal>both</literal>, or
           <literal>no</literal>. Defaults to <literal>no</literal>.</para>
           <para>Note. Any positive boolean values such as <literal>yes</literal> or
-          <literal>true</literal> are now deprecated. Please use one of the values in the above.</para>
+          <literal>true</literal> are now deprecated. Please use one of the values above.</para>
 
           <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
@@ -3611,7 +3614,7 @@ Address=192.168.0.1/24
 Address=192.168.0.2/24
 [DHCPServer]
 ServerAddress=192.168.0.1/24</programlisting>
-          are equivalent to the following.
+          are equivalent to the following:
           <programlisting>[Network]
 DHCPServer=yes
 Address=192.168.0.2/24
@@ -3903,6 +3906,22 @@ ServerAddress=192.168.0.1/24</programlisting>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>PersistLeases=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the DHCP server will load and save leases in the persistent
+          storage. When false, the DHCP server will neither load nor save leases in the persistent storage.
+          Hence, bound leases will be lost when the interface is reconfigured e.g. by
+          <command>networkctl reconfigure</command>, or <filename>systemd-networkd.service</filename>
+          is restarted. That may cause address conflict on the network. So, please take an extra care when
+          disable this setting. When unspecified, the value specified in the same setting in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          which defaults to <literal>yes</literal>, will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
@@ -3973,7 +3992,7 @@ ServerAddress=192.168.0.1/24</programlisting>
 
         <listitem><para>Takes a timespan. Configures the retransmit time, used by clients to retransmit Neighbor
         Solicitation messages on address resolution and the Neighbor Unreachability Detection algorithm.
-        An integer the default unit of seconds, in the range 0…4294967295 msec. Defaults to 0.</para>
+        An integer, the default unit is seconds, in the range 0…4294967295 msec. Defaults to 0.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
@@ -4062,8 +4081,8 @@ ServerAddress=192.168.0.1/24</programlisting>
       <varlistentry>
         <term><varname>HomeAgent=</varname></term>
 
-        <listitem><para>Takes a boolean. Specifies that IPv6 router advertisements which indicates to hosts that
-        the router acts as a Home Agent and includes a Home Agent Option. Defaults to false. See
+        <listitem><para>Takes a boolean. Specifies that IPv6 router advertisements which indicate to hosts that
+        the router acts as a Home Agent and includes a Home Agent option. Defaults to false. See
         <ulink url="https://tools.ietf.org/html/rfc6275">RFC 6275</ulink> for further details.</para>
 
          <xi:include href="version-info.xml" xpointer="v255"/>
@@ -4073,7 +4092,7 @@ ServerAddress=192.168.0.1/24</programlisting>
       <varlistentry>
         <term><varname>HomeAgentLifetimeSec=</varname></term>
 
-        <listitem><para>Takes a timespan. Specifies the lifetime of the Home Agent. An integer the default unit of seconds,
+        <listitem><para>Takes a timespan. Specifies the lifetime of the Home Agent. An integer, the default unit is seconds,
         in the range 1…65535. Defaults to the value set to <varname>RouterLifetimeSec=</varname>.</para>
 
          <xi:include href="version-info.xml" xpointer="v255"/>

@@ -133,6 +133,8 @@ journalctl -b -n 1 -r --user-unit "*"
 
 # Facilities & priorities
 journalctl --facility help
+journalctl --facility help | grep -F 'kern'
+journalctl --facility help | grep -F 'mail'
 journalctl --facility kern -n 1
 journalctl --facility syslog --priority 0..3 -n 1
 journalctl --facility syslog --priority 3..0 -n 1
@@ -144,6 +146,8 @@ journalctl --facility daemon --priority 5..crit -n 1
 
 # Assorted combinations
 journalctl -o help
+journalctl -o help | grep -F 'short'
+journalctl -o help | grep -F 'export'
 journalctl -q -n all -a | grep . >/dev/null
 journalctl -q --no-full | grep . >/dev/null
 journalctl -q --user --system | grep . >/dev/null
@@ -244,7 +248,7 @@ JOURNAL_DIR="$(mktemp -d)"
 while read -r file; do
     filename="${file##*/}"
     unzstd "$file" -o "$JOURNAL_DIR/${filename%*.zst}"
-done < <(find /test-journals/no-rtc -name "*.zst")
+done < <(find /usr/lib/systemd/tests/testdata/test-journals/no-rtc -name "*.zst")
 
 journalctl --directory="$JOURNAL_DIR" --list-boots --output=json >/tmp/lb1
 diff -u /tmp/lb1 - <<'EOF'
@@ -274,4 +278,12 @@ hello
 + echo world
 world
 EOF
+rm -f "$CURSOR_FILE"
+
+# Check that --until works with --after-cursor and --lines/-n
+# See: https://github.com/systemd/systemd/issues/31776
+CURSOR_FILE="$(mktemp)"
+journalctl -q -n 0 --cursor-file="$CURSOR_FILE"
+TIMESTAMP="$(journalctl -q -n 1 --cursor="$(<"$CURSOR_FILE")" --output=short-unix | cut -d ' ' -f 1 | cut -d '.' -f 1)"
+[[ -z "$(journalctl -q -n 10 --after-cursor="$(<"$CURSOR_FILE")" --until "@$((TIMESTAMP - 3))")" ]]
 rm -f "$CURSOR_FILE"

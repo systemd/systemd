@@ -5,7 +5,6 @@
 #include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <sys/socket.h>
 #include <syslog.h>
 #include <unistd.h>
 
@@ -27,11 +26,9 @@
 #include "log.h"
 #include "logs-show.h"
 #include "macro.h"
-#include "namespace-util.h"
 #include "output-mode.h"
 #include "parse-util.h"
 #include "pretty-print.h"
-#include "process-util.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -1562,181 +1559,98 @@ int show_journal(
 }
 
 int add_matches_for_unit(sd_journal *j, const char *unit) {
-        const char *m1, *m2, *m3, *m4;
         int r;
 
         assert(j);
         assert(unit);
 
-        m1 = strjoina("_SYSTEMD_UNIT=", unit);
-        m2 = strjoina("COREDUMP_UNIT=", unit);
-        m3 = strjoina("UNIT=", unit);
-        m4 = strjoina("OBJECT_SYSTEMD_UNIT=", unit);
-
-        (void)(
+        (void) (
             /* Look for messages from the service itself */
-            (r = sd_journal_add_match(j, m1, 0)) ||
+            (r = journal_add_match_pair(j, "_SYSTEMD_UNIT", unit)) ||
 
             /* Look for coredumps of the service */
             (r = sd_journal_add_disjunction(j)) ||
             (r = sd_journal_add_match(j, "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1", 0)) ||
             (r = sd_journal_add_match(j, "_UID=0", 0)) ||
-            (r = sd_journal_add_match(j, m2, 0)) ||
+            (r = journal_add_match_pair(j, "COREDUMP_UNIT", unit)) ||
 
              /* Look for messages from PID 1 about this service */
             (r = sd_journal_add_disjunction(j)) ||
             (r = sd_journal_add_match(j, "_PID=1", 0)) ||
-            (r = sd_journal_add_match(j, m3, 0)) ||
+            (r = journal_add_match_pair(j, "UNIT", unit)) ||
 
             /* Look for messages from authorized daemons about this service */
             (r = sd_journal_add_disjunction(j)) ||
             (r = sd_journal_add_match(j, "_UID=0", 0)) ||
-            (r = sd_journal_add_match(j, m4, 0))
+            (r = journal_add_match_pair(j, "OBJECT_SYSTEMD_UNIT", unit))
         );
 
-        if (r == 0 && endswith(unit, ".slice")) {
-                const char *m5;
-
-                m5 = strjoina("_SYSTEMD_SLICE=", unit);
-
+        if (r == 0 && endswith(unit, ".slice"))
                 /* Show all messages belonging to a slice */
-                (void)(
+                (void) (
                         (r = sd_journal_add_disjunction(j)) ||
-                        (r = sd_journal_add_match(j, m5, 0))
-                        );
-        }
+                        (r = journal_add_match_pair(j, "_SYSTEMD_SLICE", unit))
+                );
 
         return r;
 }
 
 int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
         int r;
-        char *m1, *m2, *m3, *m4;
-        char muid[sizeof("_UID=") + DECIMAL_STR_MAX(uid_t)];
 
         assert(j);
         assert(unit);
 
-        m1 = strjoina("_SYSTEMD_USER_UNIT=", unit);
-        m2 = strjoina("USER_UNIT=", unit);
-        m3 = strjoina("COREDUMP_USER_UNIT=", unit);
-        m4 = strjoina("OBJECT_SYSTEMD_USER_UNIT=", unit);
-        sprintf(muid, "_UID="UID_FMT, uid);
-
         (void) (
                 /* Look for messages from the user service itself */
-                (r = sd_journal_add_match(j, m1, 0)) ||
-                (r = sd_journal_add_match(j, muid, 0)) ||
+                (r = journal_add_match_pair(j, "_SYSTEMD_USER_UNIT", unit)) ||
+                (r = journal_add_matchf(j, "_UID="UID_FMT, uid)) ||
 
                 /* Look for messages from systemd about this service */
                 (r = sd_journal_add_disjunction(j)) ||
-                (r = sd_journal_add_match(j, m2, 0)) ||
-                (r = sd_journal_add_match(j, muid, 0)) ||
+                (r = journal_add_match_pair(j, "USER_UNIT", unit)) ||
+                (r = journal_add_matchf(j, "_UID="UID_FMT, uid)) ||
 
                 /* Look for coredumps of the service */
                 (r = sd_journal_add_disjunction(j)) ||
-                (r = sd_journal_add_match(j, m3, 0)) ||
-                (r = sd_journal_add_match(j, muid, 0)) ||
+                (r = journal_add_match_pair(j, "COREDUMP_USER_UNIT", unit)) ||
+                (r = journal_add_matchf(j, "_UID="UID_FMT, uid)) ||
                 (r = sd_journal_add_match(j, "_UID=0", 0)) ||
 
                 /* Look for messages from authorized daemons about this service */
                 (r = sd_journal_add_disjunction(j)) ||
-                (r = sd_journal_add_match(j, m4, 0)) ||
-                (r = sd_journal_add_match(j, muid, 0)) ||
+                (r = journal_add_match_pair(j, "OBJECT_SYSTEMD_USER_UNIT", unit)) ||
+                (r = journal_add_matchf(j, "_UID="UID_FMT, uid)) ||
                 (r = sd_journal_add_match(j, "_UID=0", 0))
         );
 
-        if (r == 0 && endswith(unit, ".slice")) {
-                const char *m5;
-
-                m5 = strjoina("_SYSTEMD_USER_SLICE=", unit);
-
+        if (r == 0 && endswith(unit, ".slice"))
                 /* Show all messages belonging to a slice */
-                (void)(
+                (void) (
                         (r = sd_journal_add_disjunction(j)) ||
-                        (r = sd_journal_add_match(j, m5, 0)) ||
-                        (r = sd_journal_add_match(j, muid, 0))
-                        );
-        }
+                        (r = journal_add_match_pair(j, "_SYSTEMD_USER_SLICE", unit)) ||
+                        (r = journal_add_matchf(j, "_UID="UID_FMT, uid))
+                );
 
         return r;
 }
 
-static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, rootfd = -EBADF;
-        char buf[SD_ID128_UUID_STRING_MAX];
-        pid_t pid, child;
-        ssize_t k;
+int add_match_boot_id(sd_journal *j, sd_id128_t id) {
         int r;
 
-        assert(machine);
-        assert(boot_id);
+        assert(j);
 
-        r = container_get_leader(machine, &pid);
-        if (r < 0)
-                return r;
-
-        r = namespace_open(pid, &pidnsfd, &mntnsfd, /* ret_netns_fd = */ NULL, /* ret_userns_fd = */ NULL, &rootfd);
-        if (r < 0)
-                return r;
-
-        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
-                return -errno;
-
-        r = namespace_fork("(sd-bootidns)", "(sd-bootid)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
-                           pidnsfd, mntnsfd, -1, -1, rootfd, &child);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                int fd;
-
-                pair[0] = safe_close(pair[0]);
-
-                fd = open("/proc/sys/kernel/random/boot_id", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0)
-                        _exit(EXIT_FAILURE);
-
-                r = loop_read_exact(fd, buf, 36, false);
-                safe_close(fd);
+        if (sd_id128_is_null(id)) {
+                r = sd_id128_get_boot(&id);
                 if (r < 0)
-                        _exit(EXIT_FAILURE);
-
-                k = send(pair[1], buf, 36, MSG_NOSIGNAL);
-                if (k != 36)
-                        _exit(EXIT_FAILURE);
-
-                _exit(EXIT_SUCCESS);
+                        return log_error_errno(r, "Failed to get boot ID: %m");
         }
 
-        pair[1] = safe_close(pair[1]);
-
-        r = wait_for_terminate_and_check("(sd-bootidns)", child, 0);
+        r = journal_add_match_pair(j, "_BOOT_ID", SD_ID128_TO_STRING(id));
         if (r < 0)
-                return r;
-        if (r != EXIT_SUCCESS)
-                return -EIO;
-
-        k = recv(pair[0], buf, 36, 0);
-        if (k != 36)
-                return -EIO;
-
-        buf[36] = 0;
-        r = sd_id128_from_string(buf, boot_id);
-        if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to add match: %m");
 
         return 0;
-}
-
-int add_match_boot_id(sd_journal *j, sd_id128_t id) {
-        char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX];
-
-        assert(j);
-        assert(!sd_id128_is_null(id));
-
-        sd_id128_to_string(id, stpcpy(match, "_BOOT_ID="));
-        return sd_journal_add_match(j, match, strlen(match));
 }
 
 int add_match_this_boot(sd_journal *j, const char *machine) {
@@ -1745,19 +1659,14 @@ int add_match_this_boot(sd_journal *j, const char *machine) {
 
         assert(j);
 
-        if (machine) {
-                r = get_boot_id_for_machine(machine, &boot_id);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get boot id of container %s: %m", machine);
-        } else {
-                r = sd_id128_get_boot(&boot_id);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get boot id: %m");
-        }
+        r = id128_get_boot_for_machine(machine, &boot_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get boot ID%s%s: %m",
+                                       isempty(machine) ? "" : " of container ", machine);
 
         r = add_match_boot_id(j, boot_id);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match: %m");
+                return r;
 
         r = sd_journal_add_conjunction(j);
         if (r < 0)
@@ -2083,7 +1992,7 @@ int journal_get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots) {
                         if (sd_id128_equal(i->id, boot.id))
                                 /* The boot id is already stored, something wrong with the journal files.
                                  * Exiting as otherwise this problem would cause an infinite loop. */
-                                break;
+                                goto finish;
 
                 if (!GREEDY_REALLOC(boots, n_boots + 1))
                         return -ENOMEM;
@@ -2091,6 +2000,7 @@ int journal_get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots) {
                 boots[n_boots++] = boot;
         }
 
+ finish:
         *ret_boots = TAKE_PTR(boots);
         *ret_n_boots = n_boots;
         return n_boots > 0;

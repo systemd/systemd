@@ -194,8 +194,11 @@ static int manager_enumerate_devices(Manager *m) {
 
         r = 0;
 
-        FOREACH_DEVICE(e, d)
+        FOREACH_DEVICE(e, d) {
+                if (device_is_processed(d) <= 0)
+                        continue;
                 RET_GATHER(r, manager_process_seat_device(m, d));
+        }
 
         return r;
 }
@@ -225,8 +228,11 @@ static int manager_enumerate_buttons(Manager *m) {
 
         r = 0;
 
-        FOREACH_DEVICE(e, d)
+        FOREACH_DEVICE(e, d) {
+                if (device_is_processed(d) <= 0)
+                        continue;
                 RET_GATHER(r, manager_process_button_device(m, d));
+        }
 
         return r;
 }
@@ -1068,10 +1074,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         Manager *m = userdata;
         int r;
 
-        (void) sd_notifyf(/* unset= */ false,
-                          "RELOADING=1\n"
-                          "STATUS=Reloading configuration...\n"
-                          "MONOTONIC_USEC=" USEC_FMT, now(CLOCK_MONOTONIC));
+        (void) notify_reloading();
 
         manager_reset_config(m);
         r = manager_parse_config_file(m);

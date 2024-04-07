@@ -991,7 +991,7 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
-        r = sd_bus_attach_event(m->bus, m->event, 0);
+        r = sd_bus_attach_event(m->bus, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
@@ -1365,8 +1365,11 @@ static int manager_enumerate_devices(Manager *m) {
         if (r < 0)
                 return r;
 
-        FOREACH_DEVICE(e, d)
+        FOREACH_DEVICE(e, d) {
+                if (device_is_processed(d) <= 0)
+                        continue;
                 (void) manager_add_device(m, d);
+        }
 
         return 0;
 }
@@ -2025,7 +2028,7 @@ static int manager_rebalance_apply(Manager *m) {
 
                 h->rebalance_pending = false;
 
-                r = home_resize(h, h->rebalance_goal, /* secret= */ NULL, /* automatic= */ true, &error);
+                r = home_resize(h, h->rebalance_goal, /* secret= */ NULL, &error);
                 if (r < 0)
                         log_warning_errno(r, "Failed to resize home '%s' for rebalancing, ignoring: %s",
                                           h->user_name, bus_error_message(&error, r));

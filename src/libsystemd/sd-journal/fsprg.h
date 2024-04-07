@@ -39,22 +39,22 @@ size_t FSPRG_mpkinbytes(unsigned secpar) _const_;
 size_t FSPRG_stateinbytes(unsigned secpar) _const_;
 
 /* Setup msk and mpk. Providing seed != NULL makes this algorithm deterministic. */
-void FSPRG_GenMK(void *msk, void *mpk, const void *seed, size_t seedlen, unsigned secpar);
+int FSPRG_GenMK(void *msk, void *mpk, const void *seed, size_t seedlen, unsigned secpar);
 
 /* Initialize state deterministically in dependence on seed. */
 /* Note: in case one wants to run only one GenState0 per GenMK it is safe to use
    the same seed for both GenMK and GenState0.
 */
-void FSPRG_GenState0(void *state, const void *mpk, const void *seed, size_t seedlen);
+int FSPRG_GenState0(void *state, const void *mpk, const void *seed, size_t seedlen);
 
-void FSPRG_Evolve(void *state);
+int FSPRG_Evolve(void *state);
 
 uint64_t FSPRG_GetEpoch(const void *state) _pure_;
 
 /* Seek to any arbitrary state (by providing msk together with seed from GenState0). */
-void FSPRG_Seek(void *state, uint64_t epoch, const void *msk, const void *seed, size_t seedlen);
+int FSPRG_Seek(void *state, uint64_t epoch, const void *msk, const void *seed, size_t seedlen);
 
-void FSPRG_GetKey(const void *state, void *key, size_t keylen, uint32_t idx);
+int FSPRG_GetKey(const void *state, void *key, size_t keylen, uint32_t idx);
 
 #ifdef __cplusplus
 }

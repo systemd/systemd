@@ -35,12 +35,14 @@ PrivateNetwork=true
 **/etc/systemd/system/my-nginx.socket**
 
 ```
+[Unit]
+After=network.target
+Requires=network.target
+
 [Socket]
 ListenStream=80
 ListenStream=0.0.0.0:80
 BindIPv6Only=ipv6-only
-After=network.target
-Requires=network.target
 
 [Install]
 WantedBy=sockets.target

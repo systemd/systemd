@@ -23,6 +23,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "dns-domain.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "firewall-util.h"
@@ -557,27 +558,27 @@ int manager_setup(Manager *m) {
         return 0;
 }
 
-static bool persistent_storage_is_ready(void) {
+static int persistent_storage_open(void) {
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
-        if (access("/run/systemd/netif/persistent-storage-ready", F_OK) < 0) {
-                if (errno != ENOENT)
-                        log_debug_errno(errno, "Failed to check if /run/systemd/netif/persistent-storage-ready exists, assuming not: %m");
-                return false;
-        }
+        r = getenv_bool("SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY");
+        if (r < 0 && r != -ENXIO)
+                return log_debug_errno(r, "Failed to parse $SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY environment variable, ignoring: %m");
+        if (r <= 0)
+                return -EBADF;
 
-        r = path_is_read_only_fs("/var/lib/systemd/network/");
-        if (r == 0)
-                return true;
+        fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY | O_PATH);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open /var/lib/systemd/network/, ignoring: %m");
+
+        r = fd_is_read_only_fs(fd);
         if (r < 0)
-                log_debug_errno(r, "Failed to check if /var/lib/systemd/network/ is writable: %m");
-        else
-                log_debug("The directory /var/lib/systemd/network/ is read-only.");
+                return log_debug_errno(r, "Failed to check if /var/lib/systemd/network/ is writable: %m");
+        if (r > 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EROFS), "The directory /var/lib/systemd/network/ is on read-only filesystem.");
 
-        if (unlink("/run/systemd/netif/persistent-storage-ready") < 0 && errno != ENOENT)
-                log_debug_errno(errno, "Failed to remove /run/systemd/netif/persistent-storage-ready, ignoring: %m");
-
-        return false;
+        return TAKE_FD(fd);
 }
 
 int manager_new(Manager **ret, bool test_mode) {
@@ -591,16 +592,17 @@ int manager_new(Manager **ret, bool test_mode) {
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
                 .ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO,
                 .test_mode = test_mode,
-                .persistent_storage_is_ready = persistent_storage_is_ready(),
                 .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
                 .online_state = _LINK_ONLINE_STATE_INVALID,
                 .manage_foreign_routes = true,
                 .manage_foreign_rules = true,
                 .manage_foreign_nexthops = true,
                 .ethtool_fd = -EBADF,
+                .persistent_storage_fd = persistent_storage_open(),
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
                 .duid_product_uuid.type = DUID_TYPE_UUID,
+                .dhcp_server_persist_leases = true,
                 .ip_forwarding = { -1, -1, },
         };
 
@@ -672,6 +674,7 @@ Manager* manager_free(Manager *m) {
         free(m->dynamic_hostname);
 
         safe_close(m->ethtool_fd);
+        safe_close(m->persistent_storage_fd);
 
         m->fw_ctx = fw_ctx_free(m->fw_ctx);
 
@@ -1118,10 +1121,7 @@ int manager_reload(Manager *m, sd_bus_message *message) {
 
         assert(m);
 
-        (void) sd_notifyf(/* unset= */ false,
-                          "RELOADING=1\n"
-                          "STATUS=Reloading configuration...\n"
-                          "MONOTONIC_USEC=" USEC_FMT, now(CLOCK_MONOTONIC));
+        (void) notify_reloading();
 
         r = netdev_load(m, /* reload= */ true);
         if (r < 0)

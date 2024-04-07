@@ -362,7 +362,7 @@ int exec_spawn(Unit *unit,
                PidRef *ret) {
 
         char serialization_fd_number[DECIMAL_STR_MAX(int) + 1];
-        _cleanup_free_ char *subcgroup_path = NULL, *log_level = NULL, *executor_path = NULL;
+        _cleanup_free_ char *subcgroup_path = NULL, *max_log_levels = NULL, *executor_path = NULL;
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -374,7 +374,8 @@ int exec_spawn(Unit *unit,
         assert(command);
         assert(context);
         assert(params);
-        assert(params->fds || (params->n_socket_fds + params->n_storage_fds <= 0));
+        assert(!params->fds || FLAGS_SET(params->flags, EXEC_PASS_FDS));
+        assert(params->fds || (params->n_socket_fds + params->n_storage_fds == 0));
         assert(!params->files_env); /* We fill this field, ensure it comes NULL-initialized to us */
         assert(ret);
 
@@ -435,9 +436,9 @@ int exec_spawn(Unit *unit,
         /* If LogLevelMax= is specified, then let's use the specified log level at the beginning of the
          * executor process. To achieve that the specified log level is passed as an argument, rather than
          * the one for the manager process. */
-        r = log_level_to_string_alloc(context->log_level_max >= 0 ? context->log_level_max : log_get_max_level(), &log_level);
+        r = log_max_levels_to_string(context->log_level_max >= 0 ? context->log_level_max : log_get_max_level(), &max_log_levels);
         if (r < 0)
-                return log_unit_error_errno(unit, r, "Failed to convert log level to string: %m");
+                return log_unit_error_errno(unit, r, "Failed to convert max log levels to string: %m");
 
         r = fd_get_path(unit->manager->executor_fd, &executor_path);
         if (r < 0)
@@ -450,7 +451,7 @@ int exec_spawn(Unit *unit,
                         FORMAT_PROC_FD_PATH(unit->manager->executor_fd),
                         STRV_MAKE(executor_path,
                                   "--deserialize", serialization_fd_number,
-                                  "--log-level", log_level,
+                                  "--log-level", max_log_levels,
                                   "--log-target", log_target_to_string(manager_get_executor_log_target(unit->manager))),
                         environ,
                         cg_unified() > 0 ? subcgroup_path : NULL,
@@ -1403,7 +1404,7 @@ bool exec_context_maintains_privileges(const ExecContext *c) {
         if (!c->user)
                 return true;
 
-        if (streq(c->user, "root") || streq(c->user, "0"))
+        if (STR_IN_SET(c->user, "root", "0"))
                 return true;
 
         return false;
@@ -2658,46 +2659,46 @@ ExecCleanMask exec_clean_mask_from_string(const char *s) {
 }
 
 static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
-        [EXEC_INPUT_NULL] = "null",
-        [EXEC_INPUT_TTY] = "tty",
+        [EXEC_INPUT_NULL]      = "null",
+        [EXEC_INPUT_TTY]       = "tty",
         [EXEC_INPUT_TTY_FORCE] = "tty-force",
-        [EXEC_INPUT_TTY_FAIL] = "tty-fail",
-        [EXEC_INPUT_SOCKET] = "socket",
-        [EXEC_INPUT_NAMED_FD] = "fd",
-        [EXEC_INPUT_DATA] = "data",
-        [EXEC_INPUT_FILE] = "file",
+        [EXEC_INPUT_TTY_FAIL]  = "tty-fail",
+        [EXEC_INPUT_SOCKET]    = "socket",
+        [EXEC_INPUT_NAMED_FD]  = "fd",
+        [EXEC_INPUT_DATA]      = "data",
+        [EXEC_INPUT_FILE]      = "file",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);
 
 static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
-        [EXEC_OUTPUT_INHERIT] = "inherit",
-        [EXEC_OUTPUT_NULL] = "null",
-        [EXEC_OUTPUT_TTY] = "tty",
-        [EXEC_OUTPUT_KMSG] = "kmsg",
-        [EXEC_OUTPUT_KMSG_AND_CONSOLE] = "kmsg+console",
-        [EXEC_OUTPUT_JOURNAL] = "journal",
+        [EXEC_OUTPUT_INHERIT]             = "inherit",
+        [EXEC_OUTPUT_NULL]                = "null",
+        [EXEC_OUTPUT_TTY]                 = "tty",
+        [EXEC_OUTPUT_KMSG]                = "kmsg",
+        [EXEC_OUTPUT_KMSG_AND_CONSOLE]    = "kmsg+console",
+        [EXEC_OUTPUT_JOURNAL]             = "journal",
         [EXEC_OUTPUT_JOURNAL_AND_CONSOLE] = "journal+console",
-        [EXEC_OUTPUT_SOCKET] = "socket",
-        [EXEC_OUTPUT_NAMED_FD] = "fd",
-        [EXEC_OUTPUT_FILE] = "file",
-        [EXEC_OUTPUT_FILE_APPEND] = "append",
-        [EXEC_OUTPUT_FILE_TRUNCATE] = "truncate",
+        [EXEC_OUTPUT_SOCKET]              = "socket",
+        [EXEC_OUTPUT_NAMED_FD]            = "fd",
+        [EXEC_OUTPUT_FILE]                = "file",
+        [EXEC_OUTPUT_FILE_APPEND]         = "append",
+        [EXEC_OUTPUT_FILE_TRUNCATE]       = "truncate",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
 
 static const char* const exec_utmp_mode_table[_EXEC_UTMP_MODE_MAX] = {
-        [EXEC_UTMP_INIT] = "init",
+        [EXEC_UTMP_INIT]  = "init",
         [EXEC_UTMP_LOGIN] = "login",
-        [EXEC_UTMP_USER] = "user",
+        [EXEC_UTMP_USER]  = "user",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_utmp_mode, ExecUtmpMode);
 
 static const char* const exec_preserve_mode_table[_EXEC_PRESERVE_MODE_MAX] = {
-        [EXEC_PRESERVE_NO] = "no",
-        [EXEC_PRESERVE_YES] = "yes",
+        [EXEC_PRESERVE_NO]      = "no",
+        [EXEC_PRESERVE_YES]     = "yes",
         [EXEC_PRESERVE_RESTART] = "restart",
 };
 
@@ -2705,10 +2706,10 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(exec_preserve_mode, ExecPreserveMode, EX
 
 /* This table maps ExecDirectoryType to the setting it is configured with in the unit */
 static const char* const exec_directory_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
-        [EXEC_DIRECTORY_RUNTIME] = "RuntimeDirectory",
-        [EXEC_DIRECTORY_STATE] = "StateDirectory",
-        [EXEC_DIRECTORY_CACHE] = "CacheDirectory",
-        [EXEC_DIRECTORY_LOGS] = "LogsDirectory",
+        [EXEC_DIRECTORY_RUNTIME]       = "RuntimeDirectory",
+        [EXEC_DIRECTORY_STATE]         = "StateDirectory",
+        [EXEC_DIRECTORY_CACHE]         = "CacheDirectory",
+        [EXEC_DIRECTORY_LOGS]          = "LogsDirectory",
         [EXEC_DIRECTORY_CONFIGURATION] = "ConfigurationDirectory",
 };
 
@@ -2739,10 +2740,10 @@ DEFINE_STRING_TABLE_LOOKUP(exec_directory_type_mode, ExecDirectoryType);
  * one is supposed to be generic enough to be used for unit types that don't use ExecContext and per-unit
  * directories, specifically .timer units with their timestamp touch file. */
 static const char* const exec_resource_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
-        [EXEC_DIRECTORY_RUNTIME] = "runtime",
-        [EXEC_DIRECTORY_STATE] = "state",
-        [EXEC_DIRECTORY_CACHE] = "cache",
-        [EXEC_DIRECTORY_LOGS] = "logs",
+        [EXEC_DIRECTORY_RUNTIME]       = "runtime",
+        [EXEC_DIRECTORY_STATE]         = "state",
+        [EXEC_DIRECTORY_CACHE]         = "cache",
+        [EXEC_DIRECTORY_LOGS]          = "logs",
         [EXEC_DIRECTORY_CONFIGURATION] = "configuration",
 };
 
@@ -2751,7 +2752,7 @@ DEFINE_STRING_TABLE_LOOKUP(exec_resource_type, ExecDirectoryType);
 static const char* const exec_keyring_mode_table[_EXEC_KEYRING_MODE_MAX] = {
         [EXEC_KEYRING_INHERIT] = "inherit",
         [EXEC_KEYRING_PRIVATE] = "private",
-        [EXEC_KEYRING_SHARED] = "shared",
+        [EXEC_KEYRING_SHARED]  = "shared",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_keyring_mode, ExecKeyringMode);

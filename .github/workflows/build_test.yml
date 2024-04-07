@@ -28,14 +28,11 @@ jobs:
           - { COMPILER: "gcc",   COMPILER_VERSION: "11", LINKER: "bfd",  CRYPTOLIB: "gcrypt"  }
           - { COMPILER: "gcc",   COMPILER_VERSION: "13", LINKER: "mold", CRYPTOLIB: "openssl" }
           - { COMPILER: "clang", COMPILER_VERSION: "14", LINKER: "mold", CRYPTOLIB: "gcrypt"  }
-          - { COMPILER: "clang", COMPILER_VERSION: "15", LINKER: "bfd",  CRYPTOLIB: "openssl" }
-          - { COMPILER: "clang", COMPILER_VERSION: "17", LINKER: "lld",  CRYPTOLIB: "auto"    }
+          - { COMPILER: "clang", COMPILER_VERSION: "16", LINKER: "bfd",  CRYPTOLIB: "openssl" }
+          - { COMPILER: "clang", COMPILER_VERSION: "18", LINKER: "lld",  CRYPTOLIB: "auto"    }
     env: ${{ matrix.env }}
     steps:
       - name: Repository checkout
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
-      # FIXME: drop once https://github.com/actions/runner-images/issues/9491  is resolved
-      - name: Reduce ASLR entropy
-        run: sudo sysctl -w vm.mmap_rnd_bits=28
       - name: Build check
         run: .github/workflows/build_test.sh

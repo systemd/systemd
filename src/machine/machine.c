@@ -385,7 +385,7 @@ static int machine_start_scope(
         if (r < 0)
                 return r;
 
-        r = bus_append_scope_pidref(m, &machine->leader);
+        r = bus_append_scope_pidref(m, &machine->leader, /* allow_pidfd = */ true);
         if (r < 0)
                 return r;
 

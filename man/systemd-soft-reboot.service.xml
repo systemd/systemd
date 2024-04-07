@@ -104,7 +104,7 @@
       via <varname>SurviveFinalKillSignal=yes</varname>, and also be configured to avoid being stopped on
       isolate via <varname>IgnoreOnIsolate=yes</varname>. They also have to be configured to be stopped on
       normal shutdown, reboot and maintenance mode. Finally, they have to be ordered after
-      <constant>basic.target</constant> to ensure correct ordeering on boot. Note that in case any new or
+      <constant>basic.target</constant> to ensure correct ordering on boot. Note that in case any new or
       custom units are used to isolate to, or that implement an equivalent shutdown functionality, they will
       also have to be configured manually for correct ordering and conflicting. For example:</para>
 

@@ -1167,7 +1167,9 @@
           <constant>SOCK_DGRAM</constant> over <constant>AF_VSOCK</constant>,
           <constant>SOCK_SEQPACKET</constant> will be tried instead. The credential payload for
           <constant>AF_VSOCK</constant> should be a string in the form
-          <literal>vsock:CID:PORT</literal>.</para>
+          <literal>vsock:CID:PORT</literal>. <literal>vsock-stream</literal>, <literal>vsock-dgram</literal>
+          and <literal>vsock-seqpacket</literal> can be used instead of <literal>vsock</literal> to force
+          usage of the corresponding socket type.</para>
 
           <para>This feature is useful for machine managers or other processes on the host to receive a
           notification via VSOCK when a virtual machine has finished booting.</para>

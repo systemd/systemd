@@ -125,7 +125,7 @@ This is based on crypttab(5).
       <varlistentry>
         <term><option>uuid=<replaceable>UUID</replaceable></option></term>
 
-        <listitem><para>Use the provided <replaceable>UUID</replaceable> for format command instead of generating new one. The <replaceable>UUID</replaceable> must be
+        <listitem><para>Use the provided <replaceable>UUID</replaceable> instead of generating new one. The <replaceable>UUID</replaceable> must be
         provided in standard <acronym>UUID</acronym> format, e.g. <literal>12345678-1234-1234-1234-123456789abc</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
@@ -186,8 +186,8 @@ This is based on crypttab(5).
         <term><option>fec-device=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Use forward error correction (<acronym>FEC</acronym>) to recover from corruption if hash verification fails. Use
-        encoding data from the specified device. The fec device argument can be block device or file image. For format,
-        if fec device path doesn't exist, it will be created as file. Note: block sizes for data and hash devices must
+        encoding data from the specified device. The fec device argument can be block device or file image.
+        If fec device path doesn't exist, it will be created as file. Note: block sizes for data and hash devices must
         match. Also, if the verity data_device is encrypted the fec_device should be too.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>

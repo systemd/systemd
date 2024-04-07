@@ -1504,9 +1504,10 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                         continue;
                 }
 
-                /* Collect service types for _services._dns-sd._udp.local RRs in a set */
+                /* Collect service types for _services._dns-sd._udp.local RRs in a set. Only two-label names
+                 * (not selective names) are considered according to RFC6763 § 9. */
                 if (!scope->announced &&
-                    dns_resource_key_is_dnssd_ptr(z->rr->key)) {
+                    dns_resource_key_is_dnssd_two_label_ptr(z->rr->key)) {
                         if (!set_contains(types, dns_resource_key_name(z->rr->key))) {
                                 r = set_ensure_put(&types, &dns_name_hash_ops, dns_resource_key_name(z->rr->key));
                                 if (r < 0)
@@ -1614,6 +1615,12 @@ int dns_scope_add_dnssd_services(DnsScope *scope) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to add PTR record to MDNS zone: %m");
 
+                if (service->sub_ptr_rr) {
+                        r = dns_zone_put(&scope->zone, scope, service->sub_ptr_rr, false);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to add selective PTR record to MDNS zone: %m");
+                }
+
                 r = dns_zone_put(&scope->zone, scope, service->srv_rr, true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add SRV record to MDNS zone: %m");
@@ -1646,6 +1653,7 @@ int dns_scope_remove_dnssd_services(DnsScope *scope) {
 
         HASHMAP_FOREACH(service, scope->manager->dnssd_services) {
                 dns_zone_remove_rr(&scope->zone, service->ptr_rr);
+                dns_zone_remove_rr(&scope->zone, service->sub_ptr_rr);
                 dns_zone_remove_rr(&scope->zone, service->srv_rr);
                 LIST_FOREACH(items, txt_data, service->txt_data_items)
                         dns_zone_remove_rr(&scope->zone, txt_data->rr);

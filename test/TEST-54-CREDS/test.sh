@@ -9,6 +9,19 @@ NSPAWN_CREDS=(
 )
 NSPAWN_ARGUMENTS="${NSPAWN_ARGUMENTS:-} ${NSPAWN_CREDS[*]}"
 
+UNIT_CRED=$(base64 -w 0 <<EOF
+[Service]
+Type=oneshot
+ExecStart=touch /tmp/unit-cred
+EOF
+)
+DROPIN_CRED=$(base64 -w 0 <<EOF
+[Service]
+ExecStart=
+ExecStart=touch /tmp/unit-dropin
+EOF
+)
+
 QEMU_CREDS=(
     "-fw_cfg name=opt/io.systemd.credentials/myqemucredential,string=othervalue"
     "-smbios type=11,value=io.systemd.credential:smbioscredential=magicdata"
@@ -17,6 +30,8 @@ QEMU_CREDS=(
     "-smbios type=11,value=io.systemd.credential.binary:tmpfiles.extra=ZiAvdG1wL3NvdXJjZWRmcm9tY3JlZGVudGlhbCAtIC0gLSAtIHRtcGZpbGVzc2VjcmV0Cg=="
     "-smbios type=11,value=io.systemd.credential.binary:fstab.extra=aW5qZWN0ZWQgL2luamVjdGVkIHRtcGZzIFgtbW91bnQubWtkaXIgMCAwCg=="
     "-smbios type=11,value=io.systemd.credential:getty.ttys.container=idontexist"
+    "-smbios type=11,value=io.systemd.credential.binary:systemd.extra-unit.my-service.service=$UNIT_CRED"
+    "-smbios type=11,value=io.systemd.credential.binary:systemd.unit-dropin.my-service.service=$DROPIN_CRED"
 )
 QEMU_OPTIONS="${QEMU_OPTIONS:-} ${QEMU_CREDS[*]}"
 

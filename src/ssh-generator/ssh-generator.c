@@ -108,8 +108,9 @@ static int make_sshd_template_unit(
                         "Description=OpenSSH Per-Connection Server Daemon\n"
                         "Documentation=man:systemd-ssh-generator(8) man:sshd(8)\n"
                         "[Service]\n"
-                        "ExecStart=-%s -i\n"
-                        "StandardInput=socket",
+                        "ExecStart=-%s -i -o \"AuthorizedKeysFile ${CREDENTIALS_DIRECTORY}/ssh.ephemeral-authorized_keys-all .ssh/authorized_keys\"\n"
+                        "StandardInput=socket\n"
+                        "ImportCredential=ssh.ephemeral-authorized_keys-all",
                         sshd_binary);
 
                 r = fflush_and_check(f);
@@ -400,10 +401,8 @@ static int parse_credentials(void) {
         int r;
 
         r = read_credential_with_decryption("ssh.listen", (void*) &b, &sz);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 0;
 
         _cleanup_fclose_ FILE *f = NULL;
         f = fmemopen_unlocked(b, sz, "r");

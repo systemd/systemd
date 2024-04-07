@@ -143,7 +143,6 @@ static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret)
 }
 
 static int make_uid_symlinks(uid_t uid, const char *name, bool b) {
-
         char path1[STRLEN("/run/systemd/dynamic-uid/direct:") + DECIMAL_STR_MAX(uid_t) + 1];
         const char *path2;
         int r = 0, k;
@@ -337,8 +336,10 @@ static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
          * the lock on the socket taken. */
 
         k = receive_one_fd_iov(d->storage_socket[0], &iov, 1, MSG_DONTWAIT, &lock_fd);
-        if (k < 0)
+        if (k < 0) {
+                assert(errno_is_valid(-k));
                 return (int) k;
+        }
 
         *ret_uid = uid;
         *ret_lock_fd = lock_fd;
@@ -754,7 +755,6 @@ int dynamic_user_lookup_name(Manager *m, const char *name, uid_t *ret) {
 
 int dynamic_creds_make(Manager *m, const char *user, const char *group, DynamicCreds **ret) {
         _cleanup_(dynamic_creds_unrefp) DynamicCreds *creds = NULL;
-        bool acquired = false;
         int r;
 
         assert(m);
@@ -777,20 +777,14 @@ int dynamic_creds_make(Manager *m, const char *user, const char *group, DynamicC
                 r = dynamic_user_acquire(m, user, &creds->user);
                 if (r < 0)
                         return r;
-
-                acquired = true;
         }
 
-        if (creds->user && (!group || streq_ptr(user, group)))
-                creds->group = dynamic_user_ref(creds->user);
-        else if (group) {
+        if (group && !streq_ptr(user, group)) {
                 r = dynamic_user_acquire(m, group, &creds->group);
-                if (r < 0) {
-                        if (acquired)
-                                creds->user = dynamic_user_unref(creds->user);
+                if (r < 0)
                         return r;
-                }
-        }
+        } else
+                creds->group = ASSERT_PTR(dynamic_user_ref(creds->user));
 
         *ret = TAKE_PTR(creds);
 

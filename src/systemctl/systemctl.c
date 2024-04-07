@@ -8,6 +8,7 @@
 
 #include "build.h"
 #include "bus-util.h"
+#include "capsule-util.h"
 #include "dissect-image.h"
 #include "install.h"
 #include "json.h"
@@ -64,6 +65,7 @@
 #include "systemctl.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "user-util.h"
 #include "verbs.h"
 #include "virt.h"
 
@@ -264,6 +266,7 @@ static int systemctl_help(void) {
                "     --version           Show package version\n"
                "     --system            Connect to system manager\n"
                "     --user              Connect to user service manager\n"
+               "  -C --capsule=NAME      Connect to service manager of specified capsule\n"
                "  -H --host=[USER@]HOST  Operate on remote host\n"
                "  -M --machine=CONTAINER Operate on a local container\n"
                "  -t --type=TYPE         List units of a particular type\n"
@@ -495,6 +498,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "user",                no_argument,       NULL, ARG_USER                },
                 { "system",              no_argument,       NULL, ARG_SYSTEM              },
                 { "global",              no_argument,       NULL, ARG_GLOBAL              },
+                { "capsule",             required_argument, NULL, 'C'                     },
                 { "wait",                no_argument,       NULL, ARG_WAIT                },
                 { "no-block",            no_argument,       NULL, ARG_NO_BLOCK            },
                 { "legend",              required_argument, NULL, ARG_LEGEND              },
@@ -683,6 +687,18 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_GLOBAL:
                         arg_runtime_scope = RUNTIME_SCOPE_GLOBAL;
+                        break;
+
+                case 'C':
+                        r = capsule_name_is_valid(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Unable to validate capsule name '%s': %m", optarg);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capsule name: %s", optarg);
+
+                        arg_host = optarg;
+                        arg_transport = BUS_TRANSPORT_CAPSULE;
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
                 case ARG_WAIT:

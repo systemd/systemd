@@ -613,12 +613,12 @@ int address_dup(const Address *src, Address **ret) {
         dest->nft_set_context.n_sets = 0;
 
         if (src->family == AF_INET) {
-                r = strdup_or_null(src->label, &dest->label);
+                r = strdup_to(&dest->label, src->label);
                 if (r < 0)
                         return r;
         }
 
-        r = strdup_or_null(src->netlabel, &dest->netlabel);
+        r = strdup_to(&dest->netlabel, src->netlabel);
         if (r < 0)
                 return r;
 
@@ -1494,6 +1494,10 @@ static int address_acquire(Link *link, const Address *address, union in_addr_uni
         assert(link);
         assert(address);
         assert(ret);
+
+        r = address_acquire_from_dhcp_server_leases_file(link, address, ret);
+        if (r != -ENOENT)
+                return r;
 
         r = address_pool_acquire(link->manager, address->family, address->prefixlen, &a);
         if (r < 0)

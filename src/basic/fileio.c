@@ -1504,7 +1504,7 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
 
 int read_stripped_line(FILE *f, size_t limit, char **ret) {
         _cleanup_free_ char *s = NULL;
-        int r;
+        int r, k;
 
         assert(f);
 
@@ -1513,23 +1513,17 @@ int read_stripped_line(FILE *f, size_t limit, char **ret) {
                 return r;
 
         if (ret) {
-                const char *p;
-
-                p = strstrip(s);
+                const char *p = strstrip(s);
                 if (p == s)
                         *ret = TAKE_PTR(s);
                 else {
-                        char *copy;
-
-                        copy = strdup(p);
-                        if (!copy)
-                                return -ENOMEM;
-
-                        *ret = copy;
+                        k = strdup_to(ret, p);
+                        if (k < 0)
+                                return k;
                 }
         }
 
-        return r;
+        return r > 0;          /* Return 1 if something was read. */
 }
 
 int safe_fgetc(FILE *f, char *ret) {

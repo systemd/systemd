@@ -37,6 +37,7 @@
 #include "glob-util.h"
 #include "hwdb-util.h"
 #include "ipvlan-util.h"
+#include "journal-internal.h"
 #include "local-addresses.h"
 #include "locale-util.h"
 #include "logs-show.h"
@@ -93,7 +94,7 @@ JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 STATIC_DESTRUCTOR_REGISTER(arg_drop_in, freep);
 
 static int varlink_connect_networkd(Varlink **ret_varlink) {
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(varlink_flush_close_unrefp) Varlink *vl = NULL;
         JsonVariant *reply;
         uint64_t id;
         int r;
@@ -101,6 +102,12 @@ static int varlink_connect_networkd(Varlink **ret_varlink) {
         r = varlink_connect_address(&vl, "/run/systemd/netif/io.systemd.Network");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to network service /run/systemd/netif/io.systemd.Network: %m");
+
+        (void) varlink_set_description(vl, "varlink-network");
+
+        r = varlink_set_allow_fd_passing_output(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allow passing file descriptor through varlink: %m");
 
         r = varlink_call_and_log(vl, "io.systemd.Network.GetNamespaceId", /* parameters= */ NULL, &reply);
         if (r < 0)
@@ -1607,22 +1614,12 @@ static int show_logs(const LinkInfo *info) {
                 return log_error_errno(r, "Failed to add boot matches: %m");
 
         if (info) {
-                char m1[STRLEN("_KERNEL_DEVICE=n") + DECIMAL_STR_MAX(int)];
-                const char *m2, *m3;
-
-                /* kernel */
-                xsprintf(m1, "_KERNEL_DEVICE=n%i", info->ifindex);
-                /* networkd */
-                m2 = strjoina("INTERFACE=", info->name);
-                /* udevd */
-                m3 = strjoina("DEVICE=", info->name);
-
-                (void)(
-                       (r = sd_journal_add_match(j, m1, 0)) ||
+                (void) (
+                       (r = journal_add_matchf(j, "_KERNEL_DEVICE=n%i", info->ifindex)) || /* kernel */
                        (r = sd_journal_add_disjunction(j)) ||
-                       (r = sd_journal_add_match(j, m2, 0)) ||
+                       (r = journal_add_match_pair(j, "INTERFACE", info->name)) || /* networkd */
                        (r = sd_journal_add_disjunction(j)) ||
-                       (r = sd_journal_add_match(j, m3, 0))
+                       (r = journal_add_match_pair(j, "DEVICE", info->name)) /* udevd */
                 );
                 if (r < 0)
                         return log_error_errno(r, "Failed to add link matches: %m");
@@ -2427,7 +2424,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(varlink_flush_close_unrefp) Varlink *vl = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         int r, c;
 
@@ -2589,7 +2586,7 @@ static int dump_lldp_neighbors_json(JsonVariant *reply, char * const *patterns) 
 }
 
 static int link_lldp_status(int argc, char *argv[], void *userdata) {
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(varlink_flush_close_unrefp) Varlink *vl = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         JsonVariant *reply;
         uint64_t all = 0;
@@ -2930,7 +2927,7 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_persistent_storage(int argc, char *argv[], void *userdata) {
-        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_(varlink_flush_close_unrefp) Varlink *vl = NULL;
         bool ready;
         int r;
 
@@ -2942,6 +2939,20 @@ static int verb_persistent_storage(int argc, char *argv[], void *userdata) {
         r = varlink_connect_networkd(&vl);
         if (r < 0)
                 return r;
+
+        if (ready) {
+                _cleanup_close_ int fd = -EBADF;
+
+                fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open /var/lib/systemd/network/: %m");
+
+                r = varlink_push_fd(vl, fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to push file descriptor of /var/lib/systemd/network/ into varlink: %m");
+
+                TAKE_FD(fd);
+        }
 
         return varlink_callb_and_log(vl, "io.systemd.Network.SetPersistentStorage", /* reply = */ NULL,
                                      JSON_BUILD_OBJECT(JSON_BUILD_PAIR_BOOLEAN("Ready", ready)));

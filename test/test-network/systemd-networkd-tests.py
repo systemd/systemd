@@ -5721,11 +5721,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
-    def test_dhcp_server(self):
-        copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server.network')
-        start_networkd()
-        self.wait_online('veth99:routable', 'veth-peer:routable')
-
+    def check_dhcp_server(self, persist_leases=True):
         output = networkctl_status('veth99')
         print(output)
         self.assertRegex(output, r'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
@@ -5737,6 +5733,19 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, "Offered DHCP leases: 192.168.5.[0-9]*")
 
+        if persist_leases:
+            with open('/var/lib/systemd/network/dhcp-server-lease/veth-peer', encoding='utf-8') as f:
+                check_json(f.read())
+        else:
+            self.assertFalse(os.path.exists('/var/lib/systemd/network/dhcp-server-lease/veth-peer'))
+
+    def test_dhcp_server(self):
+        copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server.network')
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        self.check_dhcp_server()
+
         networkctl_reconfigure('veth-peer')
         self.wait_online('veth-peer:routable')
 
@@ -5747,6 +5756,22 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
             time.sleep(.2)
         else:
             self.fail()
+
+    def test_dhcp_server_persist_leases_no(self):
+        copy_networkd_conf_dropin('persist-leases-no.conf')
+        copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server.network')
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        self.check_dhcp_server(persist_leases=False)
+
+        remove_networkd_conf_dropin('persist-leases-no.conf')
+        with open(os.path.join(network_unit_dir, '25-dhcp-server.network'), mode='a', encoding='utf-8') as f:
+            f.write('[DHCPServer]\nPersistLeases=no')
+        restart_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        self.check_dhcp_server(persist_leases=False)
 
     def test_dhcp_server_null_server_address(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-null-server-address.network')
@@ -5760,6 +5785,28 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         output = check_output('ip --json address show dev veth99')
         client_address = json.loads(output)[0]['addr_info'][0]['local']
         print(client_address)
+
+        output = networkctl_status('veth99')
+        print(output)
+        self.assertRegex(output, rf'Address: {client_address} \(DHCP4 via {server_address}\)')
+        self.assertIn(f'Gateway: {server_address}', output)
+        self.assertIn(f'DNS: {server_address}', output)
+        self.assertIn(f'NTP: {server_address}', output)
+
+        output = networkctl_status('veth-peer')
+        self.assertIn(f'Offered DHCP leases: {client_address}', output)
+
+        # Check if the same addresses are used even if the service is restarted.
+        restart_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = check_output('ip -4 address show dev veth-peer')
+        print(output)
+        self.assertIn(f'{server_address}', output)
+
+        output = check_output('ip -4 address show dev veth99')
+        print(output)
+        self.assertIn(f'{client_address}', output)
 
         output = networkctl_status('veth99')
         print(output)

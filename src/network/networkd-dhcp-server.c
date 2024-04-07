@@ -7,6 +7,7 @@
 #include "sd-dhcp-server.h"
 
 #include "dhcp-protocol.h"
+#include "dhcp-server-lease-internal.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "network-common.h"
@@ -82,6 +83,7 @@ int network_adjust_dhcp_server(Network *network, Set **addresses) {
                         /* TODO: check if the prefix length is small enough for the pool. */
 
                         network->dhcp_server_address = address;
+                        address->used_by_dhcp_server = true;
                         break;
                 }
                 if (!network->dhcp_server_address) {
@@ -128,6 +130,7 @@ int network_adjust_dhcp_server(Network *network, Set **addresses) {
                 a->prefixlen = network->dhcp_server_address_prefixlen;
                 a->in_addr.in = network->dhcp_server_address_in_addr;
                 a->requested_as_null = !in4_addr_is_set(&network->dhcp_server_address_in_addr);
+                a->used_by_dhcp_server = true;
 
                 r = address_section_verify(a);
                 if (r < 0)
@@ -144,6 +147,66 @@ int network_adjust_dhcp_server(Network *network, Set **addresses) {
         return 0;
 }
 
+static bool dhcp_server_persist_leases(Link *link) {
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+
+        if (in4_addr_is_set(&link->network->dhcp_server_relay_target))
+                return false; /* On relay mode. Nothing saved in the persistent storage. */
+
+        if (link->network->dhcp_server_persist_leases >= 0)
+                return link->network->dhcp_server_persist_leases;
+
+        return link->manager->dhcp_server_persist_leases;
+}
+
+int address_acquire_from_dhcp_server_leases_file(Link *link, const Address *address, union in_addr_union *ret) {
+        struct in_addr a;
+        uint8_t prefixlen;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(address);
+        assert(ret);
+
+        /* If the DHCP server address is configured as a null address, reuse the server address of the
+         * previous instance. */
+        if (address->family != AF_INET)
+                return -ENOENT;
+
+        if (!address->used_by_dhcp_server)
+                return -ENOENT;
+
+        if (!link_dhcp4_server_enabled(link))
+                return -ENOENT;
+
+        if (!dhcp_server_persist_leases(link))
+                return -ENOENT;
+
+        if (link->manager->persistent_storage_fd < 0)
+                return -EBUSY; /* The persistent storage is not ready, try later again. */
+
+        _cleanup_free_ char *lease_file = path_join("dhcp-server-lease", link->ifname);
+        if (!lease_file)
+                return -ENOMEM;
+
+        r = dhcp_server_leases_file_get_server_address(
+                        link->manager->persistent_storage_fd,
+                        lease_file,
+                        &a,
+                        &prefixlen);
+        if (r < 0)
+                return r;
+
+        if (prefixlen != address->prefixlen)
+                return -ENOENT;
+
+        ret->in = a;
+        return 0;
+}
+
 int link_start_dhcp4_server(Link *link) {
         int r;
 
@@ -156,12 +219,25 @@ int link_start_dhcp4_server(Link *link) {
         if (!link_has_carrier(link))
                 return 0;
 
+        if (sd_dhcp_server_is_running(link->dhcp_server))
+                return 0; /* already started. */
+
         /* TODO: Maybe, also check the system time is synced. If the system does not have RTC battery, then
          * the realtime clock in not usable in the early boot stage, and all saved leases may be wrongly
          * handled as expired and dropped. */
-        if (!sd_dhcp_server_is_in_relay_mode(link->dhcp_server) &&
-            !link->manager->persistent_storage_is_ready)
-                return 0;
+        if (dhcp_server_persist_leases(link)) {
+
+                if (link->manager->persistent_storage_fd < 0)
+                        return 0; /* persistent storage is not ready. */
+
+                _cleanup_free_ char *lease_file = path_join("dhcp-server-lease", link->ifname);
+                if (!lease_file)
+                        return -ENOMEM;
+
+                r = sd_dhcp_server_set_lease_file(link->dhcp_server, link->manager->persistent_storage_fd, lease_file);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_dhcp_server_start(link->dhcp_server);
         if (r < 0)
@@ -180,16 +256,21 @@ void manager_toggle_dhcp4_server_state(Manager *manager, bool start) {
         HASHMAP_FOREACH(link, manager->links_by_index) {
                 if (!link->dhcp_server)
                         continue;
-                if (sd_dhcp_server_is_in_relay_mode(link->dhcp_server))
+                if (!dhcp_server_persist_leases(link))
                         continue;
 
-                if (start)
-                        r = link_start_dhcp4_server(link);
-                else
-                        r = sd_dhcp_server_stop(link->dhcp_server);
+                /* Even if 'start' is true, first we need to stop the server. Otherwise, we cannot (re)set
+                 * the lease file in link_start_dhcp4_server(). */
+                r = sd_dhcp_server_stop(link->dhcp_server);
                 if (r < 0)
-                        log_link_debug_errno(link, r, "Failed to %s DHCP server, ignoring: %m",
-                                             start ? "start" : "stop");
+                        log_link_debug_errno(link, r, "Failed to stop DHCP server, ignoring: %m");
+
+                if (!start)
+                        continue;
+
+                r = link_start_dhcp4_server(link);
+                if (r < 0)
+                        log_link_debug_errno(link, r, "Failed to start DHCP server, ignoring: %m");
         }
 }
 
@@ -570,16 +651,6 @@ static int dhcp4_server_configure(Link *link) {
                 r = sd_dhcp_server_set_static_lease(link->dhcp_server, &static_lease->address, static_lease->client_id, static_lease->client_id_size);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to set DHCPv4 static lease for DHCP server: %m");
-        }
-
-        if (!sd_dhcp_server_is_in_relay_mode(link->dhcp_server)) {
-                _cleanup_free_ char *lease_file = path_join("/var/lib/systemd/network/dhcp-server-lease/", link->ifname);
-                if (!lease_file)
-                        return log_oom();
-
-                r = sd_dhcp_server_set_lease_file(link->dhcp_server, AT_FDCWD, lease_file);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Failed to load DHCPv4 server leases, ignoring: %m");
         }
 
         r = link_start_dhcp4_server(link);

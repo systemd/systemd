@@ -3,7 +3,7 @@
 #include <unistd.h>
 
 #include "bus-polkit.h"
-#include "fs-util.h"
+#include "fd-util.h"
 #include "lldp-rx-internal.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-manager-varlink.h"
@@ -185,13 +185,42 @@ static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *paramet
                 return r;
 
         if (ready) {
-                r = path_is_read_only_fs("/var/lib/systemd/network/");
+                struct stat st, st_prev;
+                int fd;
+
+                fd = varlink_peek_fd(vlink, 0);
+                if (fd < 0)
+                        return log_warning_errno(fd, "Failed to peek file descriptor of the persistent storage: %m");
+
+                r = fd_verify_safe_flags_full(fd, O_DIRECTORY);
+                if (r == -EREMOTEIO)
+                        return log_warning_errno(r, "Passed persistent storage fd has unexpected flags, refusing.");
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to check if /var/lib/systemd/network/ is writable: %m");
+                        return log_warning_errno(r, "Failed to verify flags of passed persistent storage fd: %m");
+
+                r = fd_is_read_only_fs(fd);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to check if the persistent storage is writable: %m");
                 if (r > 0) {
-                        log_warning("The directory /var/lib/systemd/network/ is read-only.");
+                        log_warning("The persistent storage is on read-only filesystem.");
                         return varlink_error(vlink, "io.systemd.Network.StorageReadOnly", NULL);
                 }
+
+                if (fstat(fd, &st) < 0)
+                        return log_warning_errno(r, "Failed to stat the passed persistent storage fd: %m");
+
+                r = stat_verify_directory(&st);
+                if (r < 0)
+                        return log_warning_errno(r, "The passed persistent storage fd is not a directory, refusing: %m");
+
+                if (manager->persistent_storage_fd >= 0 &&
+                    fstat(manager->persistent_storage_fd, &st_prev) >= 0 &&
+                    stat_inode_same(&st, &st_prev))
+                        return varlink_reply(vlink, NULL);
+
+        } else {
+                if (manager->persistent_storage_fd < 0)
+                        return varlink_reply(vlink, NULL);
         }
 
         r = varlink_verify_polkit_async(
@@ -203,20 +232,32 @@ static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *paramet
         if (r <= 0)
                 return r;
 
-        manager->persistent_storage_is_ready = ready;
-
         if (ready) {
-                r = touch("/run/systemd/netif/persistent-storage-ready");
-                if (r < 0)
-                        log_debug_errno(r, "Failed to create /run/systemd/netif/persistent-storage-ready, ignoring: %m");
-        } else {
-                if (unlink("/run/systemd/netif/persistent-storage-ready") < 0 && errno != ENOENT)
-                        log_debug_errno(errno, "Failed to remove /run/systemd/netif/persistent-storage-ready, ignoring: %m");
-        }
+                _cleanup_close_ int fd = -EBADF;
+
+                fd = varlink_take_fd(vlink, 0);
+                if (fd < 0)
+                        return log_warning_errno(fd, "Failed to take file descriptor of the persistent storage: %m");
+
+                close_and_replace(manager->persistent_storage_fd, fd);
+        } else
+                manager->persistent_storage_fd = safe_close(manager->persistent_storage_fd);
 
         manager_toggle_dhcp4_server_state(manager, ready);
 
         return varlink_reply(vlink, NULL);
+}
+
+static int on_connect(VarlinkServer *s, Varlink *vlink, void *userdata) {
+        int r;
+
+        assert(vlink);
+
+        r = varlink_set_allow_fd_passing_input(vlink, true);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to allow receiving file descriptor through varlink: %m");
+
+        return 0;
 }
 
 int manager_connect_varlink(Manager *m) {
@@ -233,6 +274,8 @@ int manager_connect_varlink(Manager *m) {
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
         varlink_server_set_userdata(s, m);
+
+        (void) varlink_server_set_description(s, "varlink-api-network");
 
         r = varlink_server_add_interface(s, &vl_interface_io_systemd_Network);
         if (r < 0)
@@ -254,6 +297,10 @@ int manager_connect_varlink(Manager *m) {
         r = varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
+
+        r = varlink_server_bind_connect(s, on_connect);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set on-connect callback for varlink: %m");
 
         m->varlink_server = TAKE_PTR(s);
         return 0;

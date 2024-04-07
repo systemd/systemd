@@ -162,9 +162,10 @@ static int path_is_generator(const LookupPaths *lp, const char *path) {
         if (r < 0)
                 return r;
 
-        return path_equal_ptr(parent, lp->generator) ||
-               path_equal_ptr(parent, lp->generator_early) ||
-               path_equal_ptr(parent, lp->generator_late);
+        return PATH_IN_SET(parent,
+                           lp->generator,
+                           lp->generator_early,
+                           lp->generator_late);
 }
 
 static int path_is_transient(const LookupPaths *lp, const char *path) {
@@ -178,7 +179,7 @@ static int path_is_transient(const LookupPaths *lp, const char *path) {
         if (r < 0)
                 return r;
 
-        return path_equal_ptr(parent, lp->transient);
+        return path_equal(parent, lp->transient);
 }
 
 static int path_is_control(const LookupPaths *lp, const char *path) {
@@ -192,8 +193,9 @@ static int path_is_control(const LookupPaths *lp, const char *path) {
         if (r < 0)
                 return r;
 
-        return path_equal_ptr(parent, lp->persistent_control) ||
-               path_equal_ptr(parent, lp->runtime_control);
+        return PATH_IN_SET(parent,
+                           lp->persistent_control,
+                           lp->runtime_control);
 }
 
 static int path_is_config(const LookupPaths *lp, const char *path, bool check_parent) {
@@ -214,8 +216,9 @@ static int path_is_config(const LookupPaths *lp, const char *path, bool check_pa
                 path = parent;
         }
 
-        return path_equal_ptr(path, lp->persistent_config) ||
-               path_equal_ptr(path, lp->runtime_config);
+        return PATH_IN_SET(path,
+                           lp->persistent_config,
+                           lp->runtime_config);
 }
 
 static int path_is_runtime(const LookupPaths *lp, const char *path, bool check_parent) {
@@ -241,12 +244,13 @@ static int path_is_runtime(const LookupPaths *lp, const char *path, bool check_p
                 path = parent;
         }
 
-        return path_equal_ptr(path, lp->runtime_config) ||
-               path_equal_ptr(path, lp->generator) ||
-               path_equal_ptr(path, lp->generator_early) ||
-               path_equal_ptr(path, lp->generator_late) ||
-               path_equal_ptr(path, lp->transient) ||
-               path_equal_ptr(path, lp->runtime_control);
+        return PATH_IN_SET(path,
+                           lp->runtime_config,
+                           lp->generator,
+                           lp->generator_early,
+                           lp->generator_late,
+                           lp->transient,
+                           lp->runtime_control);
 }
 
 static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) {
@@ -1038,7 +1042,7 @@ static int find_symlinks_in_scope(
                 if (r > 0) {
                         /* We found symlinks in this dir? Yay! Let's see where precisely it is enabled. */
 
-                        if (path_equal_ptr(*p, lp->persistent_config)) {
+                        if (path_equal(*p, lp->persistent_config)) {
                                 /* This is the best outcome, let's return it immediately. */
                                 *state = UNIT_FILE_ENABLED;
                                 return 1;
@@ -1059,7 +1063,7 @@ static int find_symlinks_in_scope(
                                 enabled_at_all = true;
 
                 } else if (same_name_link) {
-                        if (path_equal_ptr(*p, lp->persistent_config))
+                        if (path_equal(*p, lp->persistent_config))
                                 same_name_link_config = true;
                         else {
                                 r = path_is_runtime(lp, *p, false);
@@ -1941,7 +1945,7 @@ static int install_info_symlink_alias(
         assert(config_path);
 
         STRV_FOREACH(s, info->aliases) {
-                _cleanup_free_ char *alias_path = NULL, *dst = NULL, *dst_updated = NULL;
+                _cleanup_free_ char *alias_path = NULL, *alias_target = NULL, *dst = NULL, *dst_updated = NULL;
 
                 r = install_name_printf(scope, info, *s, &dst);
                 if (r < 0) {
@@ -1960,6 +1964,18 @@ static int install_info_symlink_alias(
                 if (!alias_path)
                         return -ENOMEM;
 
+                r = in_search_path(lp, info->path);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        /* The unit path itself is outside of the search path. To
+                         * correctly apply the alias, we need the alias symlink to
+                         * point to the symlink that was created in the search path. */
+                        alias_target = path_join(config_path, info->name);
+                        if (!alias_target)
+                                return -ENOMEM;
+                }
+
                 bool broken;
                 r = chase(alias_path, lp->root_dir, CHASE_NONEXISTENT, /* ret_path = */ NULL, /* ret_fd = */ NULL);
                 if (r < 0 && r != -ENOENT) {
@@ -1968,7 +1984,7 @@ static int install_info_symlink_alias(
                 }
                 broken = r == 0; /* symlink target does not exist? */
 
-                RET_GATHER(ret, create_symlink(lp, info->path, alias_path, force || broken, changes, n_changes));
+                RET_GATHER(ret, create_symlink(lp, alias_target ?: info->path, alias_path, force || broken, changes, n_changes));
         }
 
         return ret;
@@ -3030,17 +3046,16 @@ int unit_file_set_default(
 int unit_file_get_default(
                 RuntimeScope scope,
                 const char *root_dir,
-                char **name) {
+                char **ret) {
 
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
         InstallInfo *info;
-        char *n;
         int r;
 
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
-        assert(name);
+        assert(ret);
 
         r = lookup_paths_init(&lp, scope, 0, root_dir);
         if (r < 0)
@@ -3051,12 +3066,7 @@ int unit_file_get_default(
         if (r < 0)
                 return r;
 
-        n = strdup(info->name);
-        if (!n)
-                return -ENOMEM;
-
-        *name = n;
-        return 0;
+        return strdup_to(ret, info->name);
 }
 
 int unit_file_lookup_state(
@@ -3209,11 +3219,9 @@ int unit_file_exists_full(RuntimeScope scope, const LookupPaths *lp, const char 
         if (ret_path) {
                 assert(info);
 
-                _cleanup_free_ char *p = strdup(info->path);
-                if (!p)
-                        return -ENOMEM;
-
-                *ret_path = TAKE_PTR(p);
+                r = strdup_to(ret_path, info->path);
+                if (r < 0)
+                        return r;
         }
 
         return 1;

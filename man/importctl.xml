@@ -36,7 +36,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>importctl</command> may be used to download, import export disk images via
+    <para><command>importctl</command> may be used to download, import, and export disk images via
     <citerefentry><refentrytitle>systemd-importd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
     <para><command>importctl</command> operates both on block-level disk images (such as DDIs) as well as

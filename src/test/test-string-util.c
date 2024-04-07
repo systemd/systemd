@@ -88,6 +88,35 @@ TEST(free_and_strndup) {
         }
 }
 
+TEST(strdup_to_full) {
+        _cleanup_free_ char *dst;
+
+        assert_se(strdup_to_full(NULL, NULL) == 0);
+        assert_se(strdup_to_full(&dst, NULL) == 0);
+
+        assert_se(strdup_to_full(NULL, "") == 1);
+        assert_se(strdup_to_full(&dst, "") == 1);
+        assert_se(streq_ptr(dst, ""));
+        dst = mfree(dst);
+
+        assert_se(strdup_to_full(NULL, "x") == 1);
+        assert_se(strdup_to_full(&dst, "x") == 1);
+        assert_se(streq_ptr(dst, "x"));
+}
+
+TEST(strdup_to) {
+        _cleanup_free_ char *dst;
+
+        assert_se(strdup_to(&dst, NULL) == 0);
+
+        assert_se(strdup_to(&dst, "") == 0);
+        assert_se(streq_ptr(dst, ""));
+        dst = mfree(dst);
+
+        assert_se(strdup_to(&dst, "x") == 0);
+        assert_se(streq_ptr(dst, "x"));
+}
+
 TEST(ascii_strcasecmp_n) {
         assert_se(ascii_strcasecmp_n("", "", 0) == 0);
         assert_se(ascii_strcasecmp_n("", "", 1) == 0);
@@ -346,31 +375,31 @@ TEST(strjoin) {
 
         actual = strjoin("", "foo", "bar");
         assert_se(streq(actual, "foobar"));
-        mfree(actual);
+        free(actual);
 
         actual = strjoin("foo", "bar", "baz");
         assert_se(streq(actual, "foobarbaz"));
-        mfree(actual);
+        free(actual);
 
         actual = strjoin("foo", "", "bar", "baz");
         assert_se(streq(actual, "foobarbaz"));
-        mfree(actual);
+        free(actual);
 
         actual = strjoin("foo", NULL);
         assert_se(streq(actual, "foo"));
-        mfree(actual);
+        free(actual);
 
         actual = strjoin(NULL, NULL);
         assert_se(streq(actual, ""));
-        mfree(actual);
+        free(actual);
 
         actual = strjoin(NULL, "foo");
         assert_se(streq(actual, ""));
-        mfree(actual);
+        free(actual);
 
         actual = strjoin("foo", NULL, "bar");
         assert_se(streq(actual, "foo"));
-        mfree(actual);
+        free(actual);
 }
 
 TEST(strcmp_ptr) {

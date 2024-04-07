@@ -226,7 +226,6 @@ Home *home_free(Home *h) {
 
         h->ref_event_source_please_suspend = sd_event_source_disable_unref(h->ref_event_source_please_suspend);
         h->ref_event_source_dont_suspend = sd_event_source_disable_unref(h->ref_event_source_dont_suspend);
-        h->inhibit_suspend_event_source = sd_event_source_disable_unref(h->inhibit_suspend_event_source);
 
         h->pending_operations = ordered_set_free(h->pending_operations);
         h->pending_event_source = sd_event_source_disable_unref(h->pending_event_source);
@@ -956,9 +955,12 @@ static void home_create_finish(Home *h, int ret, UserRecord *hr) {
 
 static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        uint64_t flags;
         int r;
 
         assert(h);
+
+        flags = h->current_operation ? h->current_operation->call_flags : 0;
 
         if (ret < 0) {
                 (void) home_count_bad_authentication(h, ret, /* save= */ true);
@@ -970,17 +972,22 @@ static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         }
 
         if (hr) {
-                r = home_set_record(h, hr);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to update home record, ignoring: %m");
-                else {
+                if (!FLAGS_SET(flags, SD_HOMED_UPDATE_OFFLINE)) {
                         r = user_record_good_authentication(h->record);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to increase good authentication counter, ignoring: %m");
+                }
 
+                r = home_set_record(h, hr);
+                if (r >= 0)
                         r = home_save_record(h);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to write home record to disk, ignoring: %m");
+                if (r < 0) {
+                        if (FLAGS_SET(flags, SD_HOMED_UPDATE_OFFLINE)) {
+                                log_error_errno(r, "Failed to update home record and write it to disk: %m");
+                                sd_bus_error_set(&error, SD_BUS_ERROR_FAILED, "Failed to cache changes to home record");
+                                goto finish;
+                        } else
+                                log_warning_errno(r, "Failed to update home record, ignoring: %m");
                 }
         }
 
@@ -1312,6 +1319,11 @@ static int home_start_work(
                                 log_error_errno(errno, "Failed to set $SYSTEMD_HOME_DEFAULT_FILE_SYSTEM_TYPE: %m");
                                 _exit(EXIT_FAILURE);
                         }
+
+                if (setenv("SYSTEMD_HOMEWORK_UPDATE_OFFLINE", one_zero(FLAGS_SET(flags, SD_HOMED_UPDATE_OFFLINE)), 1) < 0) {
+                        log_error_errno(errno, "Failed to set $SYSTEMD_HOMEWORK_UPDATE_OFFLINE: %m");
+                        _exit(EXIT_FAILURE);
+                }
 
                 r = setenv_systemd_exec_pid(true);
                 if (r < 0)
@@ -1784,7 +1796,9 @@ int home_update(Home *h, UserRecord *hr, Hashmap *blobs, uint64_t flags, sd_bus_
         case HOME_UNFIXATED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_UNFIXATED, "Home %s has not been fixated yet.", h->user_name);
         case HOME_ABSENT:
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
+                if (!FLAGS_SET(flags, SD_HOMED_UPDATE_OFFLINE))
+                        return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
+                break; /* offline updates are compatible w/ an absent home area */
         case HOME_LOCKED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
         case HOME_INACTIVE:
@@ -1811,7 +1825,6 @@ int home_update(Home *h, UserRecord *hr, Hashmap *blobs, uint64_t flags, sd_bus_
 int home_resize(Home *h,
                 uint64_t disk_size,
                 UserRecord *secret,
-                bool automatic,
                 sd_bus_error *error) {
 
         _cleanup_(user_record_unrefp) UserRecord *c = NULL;
@@ -1887,7 +1900,7 @@ int home_resize(Home *h,
                 c = TAKE_PTR(signed_c);
         }
 
-        r = home_update_internal(h, automatic ? "resize-auto" : "resize", c, secret, NULL, 0, error);
+        r = home_update_internal(h, "resize", c, secret, NULL, 0, error);
         if (r < 0)
                 return r;
 
@@ -2707,9 +2720,6 @@ static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *u
         if (h->ref_event_source_dont_suspend == s)
                 h->ref_event_source_dont_suspend = sd_event_source_disable_unref(h->ref_event_source_dont_suspend);
 
-        if (h->inhibit_suspend_event_source == s)
-                h->inhibit_suspend_event_source = sd_event_source_disable_unref(h->inhibit_suspend_event_source);
-
         if (home_is_referenced(h))
                 return 0;
 
@@ -2725,42 +2735,25 @@ static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *u
         return 0;
 }
 
-int home_create_fifo(Home *h, HomeFifoType type) {
-        static const struct {
-                const char *suffix;
-                const char *description;
-                size_t event_source;
-        } table[_HOME_FIFO_TYPE_MAX] = {
-                [HOME_FIFO_PLEASE_SUSPEND] = {
-                        .suffix = ".please-suspend",
-                        .description = "acquire-ref",
-                        .event_source = offsetof(Home, ref_event_source_please_suspend),
-                },
-                [HOME_FIFO_DONT_SUSPEND] = {
-                        .suffix = ".dont-suspend",
-                        .description = "acquire-ref-dont-suspend",
-                        .event_source = offsetof(Home, ref_event_source_dont_suspend),
-                },
-                [HOME_FIFO_INHIBIT_SUSPEND] = {
-                        .suffix = ".inhibit-suspend",
-                        .description = "inhibit-suspend",
-                        .event_source = offsetof(Home, inhibit_suspend_event_source),
-                },
-        };
-
+int home_create_fifo(Home *h, bool please_suspend) {
         _cleanup_close_ int ret_fd = -EBADF;
-        sd_event_source **evt;
-        const char *fn;
+        sd_event_source **ss;
+        const char *fn, *suffix;
         int r;
 
         assert(h);
-        assert(type >= 0 && type < _HOME_FIFO_TYPE_MAX);
 
-        evt = (sd_event_source**) ((uint8_t*) h + table[type].event_source);
+        if (please_suspend) {
+                suffix = ".please-suspend";
+                ss = &h->ref_event_source_please_suspend;
+        } else {
+                suffix = ".dont-suspend";
+                ss = &h->ref_event_source_dont_suspend;
+        }
 
-        fn = strjoina("/run/systemd/home/", h->user_name, table[type].suffix);
+        fn = strjoina("/run/systemd/home/", h->user_name, suffix);
 
-        if (!*evt) {
+        if (!*ss) {
                 _cleanup_close_ int ref_fd = -EBADF;
 
                 (void) mkdir("/run/systemd/home/", 0755);
@@ -2771,19 +2764,22 @@ int home_create_fifo(Home *h, HomeFifoType type) {
                 if (ref_fd < 0)
                         return log_error_errno(errno, "Failed to open FIFO %s for reading: %m", fn);
 
-                r = sd_event_add_io(h->manager->event, evt, ref_fd, 0, on_home_ref_eof, h);
+                r = sd_event_add_io(h->manager->event, ss, ref_fd, 0, on_home_ref_eof, h);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate reference FIFO event source: %m");
 
-                (void) sd_event_source_set_description(*evt, table[type].description);
+                (void) sd_event_source_set_description(*ss, "acquire-ref");
 
-                r = sd_event_source_set_priority(*evt, SD_EVENT_PRIORITY_IDLE-1);
+                /* We need to notice dropped refs before we process new bus requests (which
+                 * might try to obtain new refs) */
+                r = sd_event_source_set_priority(*ss, SD_EVENT_PRIORITY_NORMAL-10);
                 if (r < 0)
                         return r;
 
-                r = sd_event_source_set_io_fd_own(*evt, true);
+                r = sd_event_source_set_io_fd_own(*ss, true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to pass ownership of FIFO event fd to event source: %m");
+
                 TAKE_FD(ref_fd);
         }
 
@@ -2814,7 +2810,8 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
         case HOME_ABSENT:
                 r = sd_bus_error_setf(&error, BUS_ERROR_HOME_ABSENT,
                                       "Home %s is currently missing or not plugged in.", h->user_name);
-                goto check;
+                operation_result(o, r, &error);
+                return 1;
 
         case HOME_INACTIVE:
         case HOME_DIRTY:
@@ -2845,7 +2842,6 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
         if (r >= 0)
                 r = call(h, o->secret, for_state, &error);
 
- check:
         if (r != 0) /* failure or completed */
                 operation_result(o, r, &error);
         else /* ongoing */
@@ -2863,10 +2859,8 @@ bool home_is_referenced(Home *h) {
 bool home_shall_suspend(Home *h) {
         assert(h);
 
-        /* We lock the home area on suspend if... */
-        return h->ref_event_source_please_suspend && /* at least one client supports suspend, and... */
-               !h->ref_event_source_dont_suspend && /* no clients lack support for suspend, and... */
-               !h->inhibit_suspend_event_source; /* no client is temporarily inhibiting suspend */
+        /* Suspend if there's at least one client referencing this home directory that wants a suspend and none who does not. */
+        return h->ref_event_source_please_suspend && !h->ref_event_source_dont_suspend;
 }
 
 static int home_dispatch_release(Home *h, Operation *o) {
@@ -2877,33 +2871,35 @@ static int home_dispatch_release(Home *h, Operation *o) {
         assert(o);
         assert(o->type == OPERATION_RELEASE);
 
-        if (home_is_referenced(h))
+        if (home_is_referenced(h)) {
                 /* If there's now a reference again, then let's abort the release attempt */
                 r = sd_bus_error_setf(&error, BUS_ERROR_HOME_BUSY, "Home %s is currently referenced.", h->user_name);
-        else {
-                switch (home_get_state(h)) {
+                operation_result(o, r, &error);
+                return 1;
+        }
 
-                case HOME_UNFIXATED:
-                case HOME_ABSENT:
-                case HOME_INACTIVE:
-                case HOME_DIRTY:
-                        r = 1; /* done */
-                        break;
+        switch (home_get_state(h)) {
 
-                case HOME_LOCKED:
-                        r = sd_bus_error_setf(&error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
-                        break;
+        case HOME_UNFIXATED:
+        case HOME_ABSENT:
+        case HOME_INACTIVE:
+        case HOME_DIRTY:
+                r = 1; /* done */
+                break;
 
-                case HOME_ACTIVE:
-                case HOME_LINGERING:
-                        r = home_deactivate_internal(h, false, &error);
-                        break;
+        case HOME_LOCKED:
+                r = sd_bus_error_setf(&error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
+                break;
 
-                default:
-                        /* All other cases means we are currently executing an operation, which means the job remains
-                         * pending. */
-                        return 0;
-                }
+        case HOME_ACTIVE:
+        case HOME_LINGERING:
+                r = home_deactivate_internal(h, false, &error);
+                break;
+
+        default:
+                /* All other cases means we are currently executing an operation, which means the job remains
+                 * pending. */
+                return 0;
         }
 
         assert(!h->current_operation);
@@ -3167,7 +3163,6 @@ int home_schedule_operation(Home *h, Operation *o, sd_bus_error *error) {
 
 static int home_get_image_path_seat(Home *h, char **ret) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        _cleanup_free_ char *c = NULL;
         const char *ip, *seat;
         struct stat st;
         int r;
@@ -3200,12 +3195,7 @@ static int home_get_image_path_seat(Home *h, char **ret) {
         else if (r < 0)
                 return r;
 
-        c = strdup(seat);
-        if (!c)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(c);
-        return 0;
+        return strdup_to(ret, seat);
 }
 
 int home_auto_login(Home *h, char ***ret_seats) {

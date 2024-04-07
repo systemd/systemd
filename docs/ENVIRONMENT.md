@@ -348,11 +348,16 @@ All tools:
   `systemd-gpt-auto-generator` to ensure the root partition is mounted writable
   in accordance to the GPT partition flags.
 
-`systemd-firstboot` and `localectl`:
+`systemd-firstboot`, `localectl`, and `systemd-localed`:
 
 * `$SYSTEMD_LIST_NON_UTF8_LOCALES=1` — if set, non-UTF-8 locales are listed among
   the installed ones. By default non-UTF-8 locales are suppressed from the
   selection, since we are living in the 21st century.
+
+* `$SYSTEMD_KEYMAP_DIRECTORIES=` — takes a colon (`:`) separated list of keymap
+  directories. The directories must be absolute and normalized. If unset, the
+  default keymap directories (/usr/share/keymaps/, /usr/share/kbd/keymaps/, and
+  /usr/lib/kbd/keymaps/) will be used.
 
 `systemd-resolved`:
 
@@ -372,6 +377,13 @@ All tools:
   particular, do not specify the root directory `/` here. Similarly,
   `$SYSTEMD_CONFEXT_HIERARCHIES` works for confext images and supports the
   systemd-confext multi-call functionality of sysext.
+
+* `$SYSTEMD_SYSEXT_MUTABLE_MODE` — this variable may be used to override the
+  default mutability mode for hierarchies managed by `systemd-sysext`. It takes
+  the same values the `--mutable=` command line switch does. Note that the
+  command line still overrides the effect of the environment
+  variable. Similarly, `$SYSTEMD_CONFEXT_MUTABLE_MODE` works for confext images
+  and supports the systemd-confext multi-call functionality of sysext.
 
 `systemd-tmpfiles`:
 
@@ -618,6 +630,13 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   `nftables`. Selects the firewall backend to use. If not specified tries to
   use `nftables` and falls back to `iptables` if that's not available.
 
+`systemd-networkd`:
+
+* `$SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY` – takes a boolean. If true,
+  systemd-networkd tries to open the persistent storage on start. To make this
+  work, ProtectSystem=strict in systemd-networkd.service needs to be downgraded
+  or disabled.
+
 `systemd-storagetm`:
 
 * `$SYSTEMD_NVME_MODEL`, `$SYSTEMD_NVME_FIRMWARE`, `$SYSTEMD_NVME_SERIAL`,
@@ -657,3 +676,21 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   service. Takes a file system path: if specified the tool will listen on an
   `AF_UNIX` stream socket on the specified path in addition to whatever else it
   would listen on.
+
+`systemd-mountfsd`:
+
+* `$SYSTEMD_MOUNTFSD_TRUSTED_DIRECTORIES` – takes a boolean argument. If true
+  disk images from the usual disk image directories (`/var/lib/machines/`,
+  `/var/lib/confexts/`, …) will be considered "trusted", i.e. are validated
+  with a more relaxed image policy (typically not requiring Verity signature
+  checking) than those from other directories (where Verity signature checks
+  are mandatory). If false all images are treated the same, regardless if
+  placed in the usual disk image directories or elsewhere. If not set defaults
+  to a compile time setting.
+
+* `$SYSTEMD_MOUNTFSD_IMAGE_POLICY_TRUSTED`,
+  `$SYSTEMD_MOUNTFSD_IMAGE_POLICY_UNTRUSTED` – the default image policy to
+  apply to trusted and untrusted disk images. An image is considered trusted if
+  placed in a trusted disk image directory (see above), or if suitable polkit
+  authentication was acquired. See `systemd.image-policy(7)` for the valid
+  syntax for image policy strings.

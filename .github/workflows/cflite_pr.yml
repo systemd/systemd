@@ -23,7 +23,6 @@ jobs:
       matrix:
         sanitizer: [address, undefined, memory]
     steps:
-    - run: sudo sysctl -w vm.mmap_rnd_bits=28
     - name: Build Fuzzers
       id: build
       uses: google/clusterfuzzlite/actions/build_fuzzers@v1

@@ -23,7 +23,7 @@ TEST(print_paths) {
 }
 
 TEST(path) {
-        assert_se(path_is_absolute("/"));
+        assert_se( path_is_absolute("/"));
         assert_se(!path_is_absolute("./"));
 
         assert_se(streq(basename("./aa/bb/../file.da."), "file.da."));
@@ -31,17 +31,19 @@ TEST(path) {
         assert_se(streq(basename("/aa///file..."), "file..."));
         assert_se(streq(basename("file.../"), ""));
 
-        assert_se(PATH_IN_SET("/bin", "/", "/bin", "/foo"));
-        assert_se(PATH_IN_SET("/bin", "/bin"));
-        assert_se(PATH_IN_SET("/bin", "/foo/bar", "/bin"));
-        assert_se(PATH_IN_SET("/", "/", "/", "/foo/bar"));
+        assert_se( PATH_IN_SET("/bin", "/", "/bin", "/foo"));
+        assert_se( PATH_IN_SET("/bin", "/bin"));
+        assert_se( PATH_IN_SET("/bin", "/foo/bar", "/bin"));
+        assert_se( PATH_IN_SET("/", "/", "/", "/foo/bar"));
         assert_se(!PATH_IN_SET("/", "/abc", "/def"));
 
-        assert_se(path_equal_ptr(NULL, NULL));
-        assert_se(path_equal_ptr("/a", "/a"));
-        assert_se(!path_equal_ptr("/a", "/b"));
-        assert_se(!path_equal_ptr("/a", NULL));
-        assert_se(!path_equal_ptr(NULL, "/a"));
+        assert_se( path_equal(NULL, NULL));
+        assert_se( path_equal("/a", "/a"));
+        assert_se(!path_equal("/a", "/b"));
+        assert_se(!path_equal("/a", NULL));
+        assert_se(!path_equal(NULL, "/a"));
+        assert_se(!path_equal("a", NULL));
+        assert_se(!path_equal(NULL, "a"));
 }
 
 TEST(is_path) {
@@ -506,24 +508,24 @@ TEST(prefixes) {
                 log_error("---%s---", s);
                 assert_se(streq(s, values[i++]));
         }
-        assert_se(values[i] == NULL);
+        ASSERT_NULL(values[i]);
 
         i = 1;
         PATH_FOREACH_PREFIX(s, "/a/b/c/d") {
                 log_error("---%s---", s);
                 assert_se(streq(s, values[i++]));
         }
-        assert_se(values[i] == NULL);
+        ASSERT_NULL(values[i]);
 
         i = 0;
         PATH_FOREACH_PREFIX_MORE(s, "////a////b////c///d///////")
                 assert_se(streq(s, values[i++]));
-        assert_se(values[i] == NULL);
+        ASSERT_NULL(values[i]);
 
         i = 1;
         PATH_FOREACH_PREFIX(s, "////a////b////c///d///////")
                 assert_se(streq(s, values[i++]));
-        assert_se(values[i] == NULL);
+        ASSERT_NULL(values[i]);
 
         PATH_FOREACH_PREFIX(s, "////")
                 assert_not_reached();
@@ -759,11 +761,11 @@ static void test_prefix_root_one(const char *r, const char *p, const char *expec
         const char *t;
 
         assert_se(s = path_join(r, p));
-        assert_se(path_equal_ptr(s, expected));
+        assert_se(path_equal(s, expected));
 
         t = prefix_roota(r, p);
         assert_se(t);
-        assert_se(path_equal_ptr(t, expected));
+        assert_se(path_equal(t, expected));
 }
 
 TEST(prefix_root) {

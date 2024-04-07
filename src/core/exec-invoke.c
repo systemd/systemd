@@ -1771,10 +1771,10 @@ static const char *exec_directory_env_name_to_string(ExecDirectoryType t);
 /* And this table also maps ExecDirectoryType, to the environment variable we pass the selected directory to
  * the service payload in. */
 static const char* const exec_directory_env_name_table[_EXEC_DIRECTORY_TYPE_MAX] = {
-        [EXEC_DIRECTORY_RUNTIME] = "RUNTIME_DIRECTORY",
-        [EXEC_DIRECTORY_STATE] = "STATE_DIRECTORY",
-        [EXEC_DIRECTORY_CACHE] = "CACHE_DIRECTORY",
-        [EXEC_DIRECTORY_LOGS] = "LOGS_DIRECTORY",
+        [EXEC_DIRECTORY_RUNTIME]       = "RUNTIME_DIRECTORY",
+        [EXEC_DIRECTORY_STATE]         = "STATE_DIRECTORY",
+        [EXEC_DIRECTORY_CACHE]         = "CACHE_DIRECTORY",
+        [EXEC_DIRECTORY_LOGS]          = "LOGS_DIRECTORY",
         [EXEC_DIRECTORY_CONFIGURATION] = "CONFIGURATION_DIRECTORY",
 };
 
@@ -1915,7 +1915,7 @@ static int build_environment(
                  * to inherit the $TERM set for PID 1. This is useful for containers so that the $TERM the
                  * container manager passes to PID 1 ends up all the way in the console login shown. */
 
-                if (path_equal_ptr(tty_path, "/dev/console") && getppid() == 1)
+                if (path_equal(tty_path, "/dev/console") && getppid() == 1)
                         term = getenv("TERM");
                 else if (tty_path && in_charset(skip_dev_prefix(tty_path), ALPHANUMERICAL)) {
                         _cleanup_free_ char *key = NULL;
@@ -2269,10 +2269,10 @@ static int setup_exec_directory(
                 int *exit_status) {
 
         static const int exit_status_table[_EXEC_DIRECTORY_TYPE_MAX] = {
-                [EXEC_DIRECTORY_RUNTIME] = EXIT_RUNTIME_DIRECTORY,
-                [EXEC_DIRECTORY_STATE] = EXIT_STATE_DIRECTORY,
-                [EXEC_DIRECTORY_CACHE] = EXIT_CACHE_DIRECTORY,
-                [EXEC_DIRECTORY_LOGS] = EXIT_LOGS_DIRECTORY,
+                [EXEC_DIRECTORY_RUNTIME]       = EXIT_RUNTIME_DIRECTORY,
+                [EXEC_DIRECTORY_STATE]         = EXIT_STATE_DIRECTORY,
+                [EXEC_DIRECTORY_CACHE]         = EXIT_CACHE_DIRECTORY,
+                [EXEC_DIRECTORY_LOGS]          = EXIT_LOGS_DIRECTORY,
                 [EXEC_DIRECTORY_CONFIGURATION] = EXIT_CONFIGURATION_DIRECTORY,
         };
         int r;
@@ -4302,13 +4302,20 @@ int exec_invoke(
                 return log_exec_error_errno(context, params, r, "Failed to set up standard input: %m");
         }
 
-        r = setup_output(context, params, STDOUT_FILENO, socket_fd, named_iofds, basename(command->path), uid, gid, &journal_stream_dev, &journal_stream_ino);
+        _cleanup_free_ char *fname = NULL;
+        r = path_extract_filename(command->path, &fname);
+        if (r < 0) {
+                *exit_status = EXIT_STDOUT;
+                return log_exec_error_errno(context, params, r, "Failed to extract filename from path %s: %m", command->path);
+        }
+
+        r = setup_output(context, params, STDOUT_FILENO, socket_fd, named_iofds, fname, uid, gid, &journal_stream_dev, &journal_stream_ino);
         if (r < 0) {
                 *exit_status = EXIT_STDOUT;
                 return log_exec_error_errno(context, params, r, "Failed to set up standard output: %m");
         }
 
-        r = setup_output(context, params, STDERR_FILENO, socket_fd, named_iofds, basename(command->path), uid, gid, &journal_stream_dev, &journal_stream_ino);
+        r = setup_output(context, params, STDERR_FILENO, socket_fd, named_iofds, fname, uid, gid, &journal_stream_dev, &journal_stream_ino);
         if (r < 0) {
                 *exit_status = EXIT_STDERR;
                 return log_exec_error_errno(context, params, r, "Failed to set up standard error output: %m");

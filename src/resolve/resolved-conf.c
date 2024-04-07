@@ -55,7 +55,7 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
                 return 0;
         }
 
-        return dns_server_new(m, NULL, type, NULL, family, &address, port, ifindex, server_name);
+        return dns_server_new(m, NULL, type, NULL, family, &address, port, ifindex, server_name, RESOLVE_CONFIG_SOURCE_FILE);
 }
 
 int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string) {
@@ -297,6 +297,37 @@ int config_parse_dnssd_service_type(
                 return log_oom();
 
         return 0;
+}
+
+int config_parse_dnssd_service_subtype(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        DnssdService *s = ASSERT_PTR(userdata);
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                s->subtype = mfree(s->subtype);
+                return 0;
+        }
+
+        if (!dns_subtype_name_is_valid(rvalue)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Service subtype is invalid. Ignoring.");
+                return 0;
+        }
+
+        return free_and_strdup_warn(&s->subtype, rvalue);
 }
 
 int config_parse_dnssd_txt(

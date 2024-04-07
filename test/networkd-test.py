@@ -921,7 +921,7 @@ EOF
 
 # For the networkd instance invoked below cannot support varlink connection.
 # Hence, 'networkctl persistent-storage yes' cannot be used.
-touch /run/systemd/netif/persistent-storage-ready
+export SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY=1
 
 # run networkd as in systemd-networkd.service
 exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ {{ s/^.*=//; s/^[@+-]//; s/^!*//; p}}')

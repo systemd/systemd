@@ -39,23 +39,23 @@
 #define RETRY_UMOUNT_MAX 32
 
 static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
-        [MOUNT_DEAD] = UNIT_INACTIVE,
-        [MOUNT_MOUNTING] = UNIT_ACTIVATING,
-        [MOUNT_MOUNTING_DONE] = UNIT_ACTIVATING,
-        [MOUNT_MOUNTED] = UNIT_ACTIVE,
-        [MOUNT_REMOUNTING] = UNIT_RELOADING,
-        [MOUNT_UNMOUNTING] = UNIT_DEACTIVATING,
+        [MOUNT_DEAD]               = UNIT_INACTIVE,
+        [MOUNT_MOUNTING]           = UNIT_ACTIVATING,
+        [MOUNT_MOUNTING_DONE]      = UNIT_ACTIVATING,
+        [MOUNT_MOUNTED]            = UNIT_ACTIVE,
+        [MOUNT_REMOUNTING]         = UNIT_RELOADING,
+        [MOUNT_UNMOUNTING]         = UNIT_DEACTIVATING,
         [MOUNT_REMOUNTING_SIGTERM] = UNIT_RELOADING,
         [MOUNT_REMOUNTING_SIGKILL] = UNIT_RELOADING,
         [MOUNT_UNMOUNTING_SIGTERM] = UNIT_DEACTIVATING,
         [MOUNT_UNMOUNTING_SIGKILL] = UNIT_DEACTIVATING,
-        [MOUNT_FAILED] = UNIT_FAILED,
-        [MOUNT_CLEANING] = UNIT_MAINTENANCE,
+        [MOUNT_FAILED]             = UNIT_FAILED,
+        [MOUNT_CLEANING]           = UNIT_MAINTENANCE,
 };
 
 static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
-static void mount_enter_dead(Mount *m, MountResult f);
+static void mount_enter_dead(Mount *m, MountResult f, bool flush_result);
 static void mount_enter_mounted(Mount *m, MountResult f);
 static void mount_cycle_clear(Mount *m);
 static int mount_process_proc_self_mountinfo(Manager *m);
@@ -172,10 +172,8 @@ static bool mount_propagate_stop(Mount *m) {
 }
 
 static void mount_init(Unit *u) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
-        assert(m);
-        assert(u);
         assert(u->load_state == UNIT_STUB);
 
         m->timeout_usec = u->manager->defaults.timeout_start_usec;
@@ -217,9 +215,7 @@ static void mount_parameters_done(MountParameters *p) {
 }
 
 static void mount_done(Unit *u) {
-        Mount *m = MOUNT(u);
-
-        assert(m);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
         m->where = mfree(m->where);
 
@@ -244,6 +240,8 @@ static int update_parameters_proc_self_mountinfo(
 
         MountParameters *p;
         int r, q, w;
+
+        assert(m);
 
         p = &m->parameters_proc_self_mountinfo;
 
@@ -408,9 +406,8 @@ static int mount_add_device_dependencies(Mount *m) {
 }
 
 static bool mount_is_extrinsic(Unit *u) {
+        Mount *m = ASSERT_PTR(MOUNT(u));
         MountParameters *p;
-        Mount *m = MOUNT(u);
-        assert(m);
 
         /* Returns true for all units that are "magic" and should be excluded from the usual
          * start-up and shutdown dependencies. We call them "extrinsic" here, as they are generally
@@ -629,10 +626,8 @@ static int mount_add_non_exec_dependencies(Mount *m) {
 }
 
 static int mount_add_extras(Mount *m) {
-        Unit *u = UNIT(m);
+        Unit *u = UNIT(ASSERT_PTR(m));
         int r;
-
-        assert(m);
 
         /* Note: this call might be called after we already have been loaded once (and even when it has already been
          * activated), in case data from /proc/self/mountinfo has changed. This means all code here needs to be ready
@@ -678,7 +673,7 @@ static int mount_add_extras(Mount *m) {
 }
 
 static void mount_load_root_mount(Unit *u) {
-        assert(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
         if (!unit_has_name(u, SPECIAL_ROOT_MOUNT))
                 return;
@@ -687,37 +682,35 @@ static void mount_load_root_mount(Unit *u) {
         u->default_dependencies = false;
 
         /* The stdio/kmsg bridge socket is on /, in order to avoid a dep loop, don't use kmsg logging for -.mount */
-        MOUNT(u)->exec_context.std_output = EXEC_OUTPUT_NULL;
-        MOUNT(u)->exec_context.std_input = EXEC_INPUT_NULL;
+        m->exec_context.std_output = EXEC_OUTPUT_NULL;
+        m->exec_context.std_input = EXEC_INPUT_NULL;
 
         if (!u->description)
                 u->description = strdup("Root Mount");
 }
 
 static int mount_load(Unit *u) {
-        Mount *m = MOUNT(u);
-        int r, q = 0;
+        Mount *m = ASSERT_PTR(MOUNT(u));
+        int r;
 
-        assert(m);
-        assert(u);
         assert(u->load_state == UNIT_STUB);
 
         mount_load_root_mount(u);
 
-        bool fragment_optional = m->from_proc_self_mountinfo || u->perpetual;
-        r = unit_load_fragment_and_dropin(u, !fragment_optional);
+        bool from_kernel = m->from_proc_self_mountinfo || u->perpetual;
+
+        r = unit_load_fragment_and_dropin(u, /* fragment_required = */ !from_kernel);
 
         /* Add in some extras. Note we do this in all cases (even if we failed to load the unit) when announced by the
          * kernel, because we need some things to be set up no matter what when the kernel establishes a mount and thus
          * we need to update the state in our unit to track it. After all, consider that we don't allow changing the
          * 'slice' field for a unit once it is active. */
-        if (u->load_state == UNIT_LOADED || m->from_proc_self_mountinfo || u->perpetual)
-                q = mount_add_extras(m);
+        if (u->load_state == UNIT_LOADED || from_kernel)
+                RET_GATHER(r, mount_add_extras(m));
 
         if (r < 0)
                 return r;
-        if (q < 0)
-                return q;
+
         if (u->load_state != UNIT_LOADED)
                 return 0;
 
@@ -726,6 +719,7 @@ static int mount_load(Unit *u) {
 
 static void mount_set_state(Mount *m, MountState state) {
         MountState old_state;
+
         assert(m);
 
         if (m->state != state)
@@ -748,10 +742,9 @@ static void mount_set_state(Mount *m, MountState state) {
 }
 
 static int mount_coldplug(Unit *u) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
         int r;
 
-        assert(m);
         assert(m->state == MOUNT_DEAD);
 
         if (m->deserialized_state == m->state)
@@ -780,9 +773,7 @@ static int mount_coldplug(Unit *u) {
 }
 
 static void mount_catchup(Unit *u) {
-        Mount *m = MOUNT(ASSERT_PTR(u));
-
-        assert(m);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
         /* Adjust the deserialized state. See comments in mount_process_proc_self_mountinfo(). */
         if (m->from_proc_self_mountinfo)
@@ -809,7 +800,7 @@ static void mount_catchup(Unit *u) {
                         break;
                 case MOUNT_MOUNTED:
                         assert(!pidref_is_set(&m->control_pid));
-                        mount_enter_dead(m, MOUNT_SUCCESS);
+                        mount_enter_dead(m, MOUNT_SUCCESS, /* flush_result = */ false);
                         break;
                 default:
                         break;
@@ -817,10 +808,9 @@ static void mount_catchup(Unit *u) {
 }
 
 static void mount_dump(Unit *u, FILE *f, const char *prefix) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
         MountParameters *p;
 
-        assert(m);
         assert(f);
 
         p = get_mount_parameters(m);
@@ -870,7 +860,6 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
 }
 
 static int mount_spawn(Mount *m, ExecCommand *c, PidRef *ret_pid) {
-
         _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(
                         EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN);
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
@@ -910,10 +899,10 @@ static int mount_spawn(Mount *m, ExecCommand *c, PidRef *ret_pid) {
         return 0;
 }
 
-static void mount_enter_dead(Mount *m, MountResult f) {
+static void mount_enter_dead(Mount *m, MountResult f, bool flush_result) {
         assert(m);
 
-        if (m->result == MOUNT_SUCCESS)
+        if (m->result == MOUNT_SUCCESS || flush_result)
                 m->result = f;
 
         unit_log_result(UNIT(m), m->result == MOUNT_SUCCESS, mount_result_to_string(m->result));
@@ -941,17 +930,20 @@ static void mount_enter_mounted(Mount *m, MountResult f) {
         mount_set_state(m, MOUNT_MOUNTED);
 }
 
-static void mount_enter_dead_or_mounted(Mount *m, MountResult f) {
+static void mount_enter_dead_or_mounted(Mount *m, MountResult f, bool flush_result) {
         assert(m);
 
-        /* Enter DEAD or MOUNTED state, depending on what the kernel currently says about the mount point. We use this
-         * whenever we executed an operation, so that our internal state reflects what the kernel says again, after all
-         * ultimately we just mirror the kernel's internal state on this. */
+        /* Enter DEAD or MOUNTED state, depending on what the kernel currently says about the mount point.
+         * We use this whenever we executed an operation, so that our internal state reflects what
+         * the kernel says again, after all ultimately we just mirror the kernel's internal state on this.
+         *
+         * Note that flush_result only applies to mount_enter_dead(), since that's when the result gets
+         * turned into unit end state. */
 
         if (m->from_proc_self_mountinfo)
                 mount_enter_mounted(m, f);
         else
-                mount_enter_dead(m, f);
+                mount_enter_dead(m, f, flush_result);
 }
 
 static int state_to_kill_operation(MountState state) {
@@ -1001,12 +993,12 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
         else if (state == MOUNT_UNMOUNTING_SIGTERM && m->kill_context.send_sigkill)
                 mount_enter_signal(m, MOUNT_UNMOUNTING_SIGKILL, MOUNT_SUCCESS);
         else
-                mount_enter_dead_or_mounted(m, MOUNT_SUCCESS);
+                mount_enter_dead_or_mounted(m, MOUNT_SUCCESS, /* flush_result = */ false);
 
         return;
 
 fail:
-        mount_enter_dead_or_mounted(m, MOUNT_FAILURE_RESOURCES);
+        mount_enter_dead_or_mounted(m, MOUNT_FAILURE_RESOURCES, /* flush_result = */ false);
 }
 
 static int mount_set_umount_command(Mount *m, ExecCommand *c) {
@@ -1068,7 +1060,7 @@ static void mount_enter_unmounting(Mount *m) {
         return;
 
 fail:
-        mount_enter_dead_or_mounted(m, MOUNT_FAILURE_RESOURCES);
+        mount_enter_dead_or_mounted(m, MOUNT_FAILURE_RESOURCES, /* flush_result = */ false);
 }
 
 static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParameters *p) {
@@ -1115,9 +1107,9 @@ static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParamete
 }
 
 static void mount_enter_mounting(Mount *m) {
-        int r;
         MountParameters *p;
         bool source_is_dir = true;
+        int r;
 
         assert(m);
 
@@ -1212,7 +1204,7 @@ static void mount_enter_mounting(Mount *m) {
         return;
 
 fail:
-        mount_enter_dead_or_mounted(m, MOUNT_FAILURE_RESOURCES);
+        mount_enter_dead_or_mounted(m, MOUNT_FAILURE_RESOURCES, /* flush_result = */ false);
 }
 
 static void mount_set_reload_result(Mount *m, MountResult result) {
@@ -1226,8 +1218,8 @@ static void mount_set_reload_result(Mount *m, MountResult result) {
 }
 
 static void mount_enter_remounting(Mount *m) {
-        int r;
         MountParameters *p;
+        int r;
 
         assert(m);
 
@@ -1278,7 +1270,7 @@ static void mount_enter_remounting(Mount *m) {
 
 fail:
         mount_set_reload_result(m, MOUNT_FAILURE_RESOURCES);
-        mount_enter_dead_or_mounted(m, MOUNT_SUCCESS);
+        mount_enter_dead_or_mounted(m, MOUNT_SUCCESS, /* flush_result = */ false);
 }
 
 static void mount_cycle_clear(Mount *m) {
@@ -1295,10 +1287,8 @@ static void mount_cycle_clear(Mount *m) {
 }
 
 static int mount_start(Unit *u) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
         int r;
-
-        assert(m);
 
         /* We cannot fulfill this request right now, try again later
          * please! */
@@ -1326,9 +1316,7 @@ static int mount_start(Unit *u) {
 }
 
 static int mount_stop(Unit *u) {
-        Mount *m = MOUNT(u);
-
-        assert(m);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
         /* When we directly call umount() for a path, then the state of the corresponding mount unit may be
          * outdated. Let's re-read mountinfo now and update the state. */
@@ -1380,9 +1368,8 @@ static int mount_stop(Unit *u) {
 }
 
 static int mount_reload(Unit *u) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
-        assert(m);
         assert(m->state == MOUNT_MOUNTED);
 
         mount_enter_remounting(m);
@@ -1391,9 +1378,8 @@ static int mount_reload(Unit *u) {
 }
 
 static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
-        assert(m);
         assert(f);
         assert(fds);
 
@@ -1410,11 +1396,9 @@ static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
 }
 
 static int mount_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
         int r;
 
-        assert(m);
-        assert(u);
         assert(key);
         assert(value);
         assert(fds);
@@ -1454,8 +1438,8 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
 
         } else if (streq(key, "control-pid")) {
 
-                pidref_done(&m->control_pid);
-                (void) deserialize_pidref(fds, value, &m->control_pid);
+                if (!pidref_is_set(&m->control_pid))
+                        (void) deserialize_pidref(fds, value, &m->control_pid);
 
         } else if (streq(key, "control-command")) {
                 MountExecCommand id;
@@ -1474,21 +1458,19 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
 }
 
 static UnitActiveState mount_active_state(Unit *u) {
-        assert(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
-        return state_translation_table[MOUNT(u)->state];
+        return state_translation_table[m->state];
 }
 
 static const char *mount_sub_state_to_string(Unit *u) {
-        assert(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
-        return mount_state_to_string(MOUNT(u)->state);
+        return mount_state_to_string(m->state);
 }
 
 static bool mount_may_gc(Unit *u) {
-        Mount *m = MOUNT(u);
-
-        assert(m);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
         if (m->from_proc_self_mountinfo)
                 return false;
@@ -1497,10 +1479,9 @@ static bool mount_may_gc(Unit *u) {
 }
 
 static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
         MountResult f;
 
-        assert(m);
         assert(pid >= 0);
 
         if (pid != m->control_pid.pid)
@@ -1569,7 +1550,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         log_unit_warning(UNIT(m), "Mount process finished, but there is no mount.");
                         f = MOUNT_FAILURE_PROTOCOL;
                 }
-                mount_enter_dead(m, f);
+                mount_enter_dead(m, f, /* flush_result = */ false);
                 break;
 
         case MOUNT_MOUNTING_DONE:
@@ -1579,7 +1560,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         case MOUNT_REMOUNTING:
         case MOUNT_REMOUNTING_SIGTERM:
         case MOUNT_REMOUNTING_SIGKILL:
-                mount_enter_dead_or_mounted(m, MOUNT_SUCCESS);
+                mount_enter_dead_or_mounted(m, MOUNT_SUCCESS, /* flush_result = */ false);
                 break;
 
         case MOUNT_UNMOUNTING:
@@ -1594,28 +1575,33 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 mount_enter_unmounting(m);
                         } else {
                                 log_unit_warning(u, "Mount still present after %u attempts to unmount, giving up.", m->n_retry_umount);
-                                mount_enter_mounted(m, f);
+                                mount_enter_mounted(m, MOUNT_FAILURE_PROTOCOL);
                         }
                 } else if (f == MOUNT_FAILURE_EXIT_CODE && !m->from_proc_self_mountinfo) {
                         /* Hmm, umount process spawned by us failed, but the mount disappeared anyway?
                          * Maybe someone else is trying to unmount at the same time. */
                         log_unit_notice(u, "Mount disappeared even though umount process failed, continuing.");
-                        mount_enter_dead(m, MOUNT_SUCCESS);
+                        mount_enter_dead(m, MOUNT_SUCCESS, /* flush_result = */ true);
                 } else
-                        mount_enter_dead_or_mounted(m, f);
+                        /* At this point, either the unmount succeeded or unexpected error occurred. We usually
+                         * remember the first error in 'result', but here let's update that forcibly, since
+                         * there could previous failed attempts yet we only care about the most recent
+                         * attempt. IOW, if we eventually managed to unmount the stuff, don't enter failed
+                         * end state. */
+                        mount_enter_dead_or_mounted(m, f, /* flush_result = */ true);
 
                 break;
 
         case MOUNT_UNMOUNTING_SIGTERM:
         case MOUNT_UNMOUNTING_SIGKILL:
-                mount_enter_dead_or_mounted(m, f);
+                mount_enter_dead_or_mounted(m, f, /* flush_result = */ false);
                 break;
 
         case MOUNT_CLEANING:
                 if (m->clean_result == MOUNT_SUCCESS)
                         m->clean_result = f;
 
-                mount_enter_dead(m, MOUNT_SUCCESS);
+                mount_enter_dead(m, MOUNT_SUCCESS, /* flush_result = */ false);
                 break;
 
         default:
@@ -1627,9 +1613,8 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 }
 
 static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {
-        Mount *m = MOUNT(userdata);
+        Mount *m = ASSERT_PTR(MOUNT(userdata));
 
-        assert(m);
         assert(m->timer_event_source == source);
 
         switch (m->state) {
@@ -1654,7 +1639,7 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
                         mount_enter_signal(m, MOUNT_REMOUNTING_SIGKILL, MOUNT_SUCCESS);
                 } else {
                         log_unit_warning(UNIT(m), "Remounting timed out. Skipping SIGKILL. Ignoring.");
-                        mount_enter_dead_or_mounted(m, MOUNT_SUCCESS);
+                        mount_enter_dead_or_mounted(m, MOUNT_SUCCESS, /* flush_result = */ false);
                 }
                 break;
 
@@ -1662,7 +1647,7 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
                 mount_set_reload_result(m, MOUNT_FAILURE_TIMEOUT);
 
                 log_unit_warning(UNIT(m), "Mount process still around after SIGKILL. Ignoring.");
-                mount_enter_dead_or_mounted(m, MOUNT_SUCCESS);
+                mount_enter_dead_or_mounted(m, MOUNT_SUCCESS, /* flush_result = */ false);
                 break;
 
         case MOUNT_UNMOUNTING:
@@ -1676,13 +1661,13 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
                         mount_enter_signal(m, MOUNT_UNMOUNTING_SIGKILL, MOUNT_FAILURE_TIMEOUT);
                 } else {
                         log_unit_warning(UNIT(m), "Mount process timed out. Skipping SIGKILL. Ignoring.");
-                        mount_enter_dead_or_mounted(m, MOUNT_FAILURE_TIMEOUT);
+                        mount_enter_dead_or_mounted(m, MOUNT_FAILURE_TIMEOUT, /* flush_result = */ false);
                 }
                 break;
 
         case MOUNT_UNMOUNTING_SIGKILL:
                 log_unit_warning(UNIT(m), "Mount process still around after SIGKILL. Ignoring.");
-                mount_enter_dead_or_mounted(m, MOUNT_FAILURE_TIMEOUT);
+                mount_enter_dead_or_mounted(m, MOUNT_FAILURE_TIMEOUT, /* flush_result = */ false);
                 break;
 
         case MOUNT_CLEANING:
@@ -1712,6 +1697,7 @@ static int mount_setup_new_unit(
                 Unit **ret) {
 
         _cleanup_(unit_freep) Unit *u = NULL;
+        Mount *mnt;
         int r;
 
         assert(m);
@@ -1723,24 +1709,26 @@ static int mount_setup_new_unit(
         if (r < 0)
                 return r;
 
+        mnt = ASSERT_PTR(MOUNT(u));
+
         r = free_and_strdup(&u->source_path, "/proc/self/mountinfo");
         if (r < 0)
                 return r;
 
-        r = free_and_strdup(&MOUNT(u)->where, where);
+        r = free_and_strdup(&mnt->where, where);
         if (r < 0)
                 return r;
 
-        r = update_parameters_proc_self_mountinfo(MOUNT(u), what, options, fstype);
+        r = update_parameters_proc_self_mountinfo(mnt, what, options, fstype);
         if (r < 0)
                 return r;
 
         /* This unit was generated because /proc/self/mountinfo reported it. Remember this, so that by the
          * time we load the unit file for it (and thus add in extra deps right after) we know what source to
          * attributes the deps to. */
-        MOUNT(u)->from_proc_self_mountinfo = true;
+        mnt->from_proc_self_mountinfo = true;
 
-        r = mount_add_non_exec_dependencies(MOUNT(u));
+        r = mount_add_non_exec_dependencies(mnt);
         if (r < 0)
                 return r;
 
@@ -1761,14 +1749,16 @@ static int mount_setup_existing_unit(
                 const char *fstype,
                 MountProcFlags *ret_flags) {
 
+        Mount *m = ASSERT_PTR(MOUNT(u));
         int r;
 
         assert(u);
+        assert(where);
         assert(ret_flags);
 
-        if (!MOUNT(u)->where) {
-                MOUNT(u)->where = strdup(where);
-                if (!MOUNT(u)->where)
+        if (!m->where) {
+                m->where = strdup(where);
+                if (!m->where)
                         return -ENOMEM;
         }
 
@@ -1776,10 +1766,9 @@ static int mount_setup_existing_unit(
          * for the current unit. Note that the flags field is reset on each iteration of reading
          * /proc/self/mountinfo, hence we know for sure anything already set here is from the current
          * iteration and thus worthy of taking into account. */
-        MountProcFlags flags =
-                MOUNT(u)->proc_flags | MOUNT_PROC_IS_MOUNTED;
+        MountProcFlags flags = m->proc_flags | MOUNT_PROC_IS_MOUNTED;
 
-        r = update_parameters_proc_self_mountinfo(MOUNT(u), what, options, fstype);
+        r = update_parameters_proc_self_mountinfo(m, what, options, fstype);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -1792,12 +1781,12 @@ static int mount_setup_existing_unit(
          * from the serialized state), and need to catch up. Since we know that the MOUNT_MOUNTING state is
          * reached when we wait for the mount to appear we hence can assume that if we are in it, we are
          * actually seeing it established for the first time. */
-        if (!MOUNT(u)->from_proc_self_mountinfo || MOUNT(u)->state == MOUNT_MOUNTING)
+        if (!m->from_proc_self_mountinfo || m->state == MOUNT_MOUNTING)
                 flags |= MOUNT_PROC_JUST_MOUNTED;
 
-        MOUNT(u)->from_proc_self_mountinfo = true;
+        m->from_proc_self_mountinfo = true;
 
-        if (IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_BAD_SETTING, UNIT_ERROR)) {
+        if (UNIT_IS_LOAD_ERROR(u->load_state)) {
                 /* The unit was previously not found or otherwise not loaded. Now that the unit shows up in
                  * /proc/self/mountinfo we should reconsider it this, hence set it to UNIT_LOADED. */
                 u->load_state = UNIT_LOADED;
@@ -1809,7 +1798,7 @@ static int mount_setup_existing_unit(
         if (FLAGS_SET(flags, MOUNT_PROC_JUST_CHANGED)) {
                 /* If things changed, then make sure that all deps are regenerated. Let's
                  * first remove all automatic deps, and then add in the new ones. */
-                r = mount_add_non_exec_dependencies(MOUNT(u));
+                r = mount_add_non_exec_dependencies(m);
                 if (r < 0)
                         return r;
         }
@@ -1925,12 +1914,9 @@ static void mount_shutdown(Manager *m) {
 }
 
 static int mount_get_timeout(Unit *u, usec_t *timeout) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
         usec_t t;
         int r;
-
-        assert(m);
-        assert(u);
 
         if (!m->timer_event_source)
                 return 0;
@@ -2143,8 +2129,11 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                         switch (mount->state) {
 
                         case MOUNT_MOUNTED:
-                                /* This has just been unmounted by somebody else, follow the state change. */
-                                mount_enter_dead(mount, MOUNT_SUCCESS);
+                                /* This has just been unmounted by somebody else, follow the state change.
+                                 * Also explicitly override the result (see the comment in mount_sigchld_event()),
+                                 * but more aggressively here since the state change is extrinsic. */
+                                mount_cycle_clear(mount);
+                                mount_enter_dead(mount, MOUNT_SUCCESS, /* flush_result = */ true);
                                 break;
 
                         case MOUNT_MOUNTING_DONE:
@@ -2301,22 +2290,18 @@ fail:
 }
 
 static int mount_can_clean(Unit *u, ExecCleanMask *ret) {
-        Mount *m = MOUNT(u);
-
-        assert(m);
+        Mount *m = ASSERT_PTR(MOUNT(u));
 
         return exec_context_get_clean_mask(&m->exec_context, ret);
 }
 
 static int mount_can_start(Unit *u) {
-        Mount *m = MOUNT(u);
+        Mount *m = ASSERT_PTR(MOUNT(u));
         int r;
-
-        assert(m);
 
         r = unit_test_start_limit(u);
         if (r < 0) {
-                mount_enter_dead(m, MOUNT_FAILURE_START_LIMIT_HIT);
+                mount_enter_dead(m, MOUNT_FAILURE_START_LIMIT_HIT, /* flush_result = */ false);
                 return r;
         }
 

@@ -39,6 +39,8 @@ os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os
 # shellcheck source=/dev/null
 source "$os_release"
 [[ "$ID" == "debian" || " $ID_LIKE " == *" debian "* ]] && LOOKS_LIKE_DEBIAN=yes || LOOKS_LIKE_DEBIAN=no
+# shellcheck disable=SC2034
+[[ "$ID" == "ubuntu" ]] && LOOKS_LIKE_UBUNTU=yes || LOOKS_LIKE_UBUNTU=no
 [[ "$ID" == "arch" || " $ID_LIKE " == *" arch "* ]] && LOOKS_LIKE_ARCH=yes || LOOKS_LIKE_ARCH=no
 [[ "$ID" == "fedora" ]] && LOOKS_LIKE_FEDORA=yes || LOOKS_LIKE_FEDORA=no
 [[ " $ID_LIKE " == *" suse "* ]] && LOOKS_LIKE_SUSE=yes || LOOKS_LIKE_SUSE=no
@@ -733,6 +735,7 @@ install_verity_minimal() {
         BASICTOOLS=(
             bash
             cat
+            echo
             grep
             mount
             sleep
@@ -1494,7 +1497,7 @@ install_systemd() {
         # units using DynamicUser=yes. Do this only for services with test- prefix and a couple of
         # known-to-use DynamicUser=yes services, as setting this system-wide has many undesirable
         # side-effects, as it creates its own namespace.
-        for service in test- systemd-journal-{gatewayd,upload}; do
+        for service in capsule@ test- systemd-journal-{gatewayd,upload}; do
             mkdir -p "$initdir/etc/systemd/system/$service.service.d/"
             echo -ne "[Service]\nReadWritePaths=${BUILD_DIR:?}\n" >"$initdir/etc/systemd/system/$service.service.d/99-gcov-rwpaths-override.conf"
         done
@@ -1555,7 +1558,7 @@ install_missing_libraries() {
     local lib path
     # A number of dependencies is now optional via dlopen, so the install
     # script will not pick them up, since it looks at linkage.
-    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu tss2-tcti-device libfido2 libbpf libelf libdw xkbcommon p11-kit-1 libarchive; do
+    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu tss2-tcti-device libfido2 libbpf libelf libdw xkbcommon p11-kit-1 libarchive libgcrypt libkmod; do
         ddebug "Searching for $lib via pkg-config"
         if pkg-config --exists "$lib"; then
                 path="$(pkg-config --variable=libdir "$lib")"
@@ -3338,6 +3341,13 @@ test_cleanup_again() {
     [ -n "$TESTDIR" ] || return
     rm -rf "$TESTDIR/unprivileged-nspawn-root"
     [[ -n "$initdir" ]] && _umount_dir "$initdir"
+    # Test specific images are not reused, so delete them or we run out of disk space
+    if [[ -n "$IMAGE_PUBLIC" ]] && [ "$(basename "$IMAGE_PUBLIC")" != "default.img" ]; then
+        rm -vf "$IMAGE_PUBLIC"
+    fi
+    if [[ -n "$IMAGE_PRIVATE" ]] && [ "$(basename "$IMAGE_PRIVATE")" != "default.img" ]; then
+        rm -vf "$IMAGE_PRIVATE"
+    fi
 }
 
 test_create_image() {

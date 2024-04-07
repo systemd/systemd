@@ -383,7 +383,7 @@
 
         <para>The file specified here must have a size that is a multiple of the basic block size 512 and not
         be empty. If this option is used, the size allocation algorithm is slightly altered: the partition is
-        created as least as big as required to fit the data in, i.e. the data size is an additional minimum
+        created at least as big as required to fit the data in, i.e. the data size is an additional minimum
         size value taken into consideration for the allocation algorithm, similar to and in addition to the
         <varname>SizeMin=</varname> value configured above.</para>
 
@@ -407,7 +407,7 @@
         <literal>squashfs</literal> or the special value <literal>swap</literal>. If specified and the partition
         is newly created it is formatted with the specified file system (or as swap device). The file system
         UUID and label are automatically derived from the partition UUID and label. If this option is used,
-        the size allocation algorithm is slightly altered: the partition is created as least as big as
+        the size allocation algorithm is slightly altered: the partition is created at least as big as
         required for the minimal file system of the specified type (or 4KiB if the minimal size is not
         known).</para>
 
@@ -549,6 +549,22 @@
         when running with <option>--offline=no</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultSubvolume=</varname></term>
+
+        <listitem><para>Takes an absolute path specifying the default subvolume within the new filesystem.
+        Note that this setting does not create the subvolume itself, that can be configured with
+        <varname>Subvolumes=</varname>.</para>
+
+        <para>Note that this option only takes effect if the target filesystem supports subvolumes, such as
+        <literal>btrfs</literal>.</para>
+
+        <para>Note that due to limitations of <literal>mkfs.btrfs</literal>, this option is only supported
+        when running with <option>--offline=no</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -851,6 +867,19 @@
           </tbody>
         </tgroup>
       </table>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <para>Extra filesystem formatting options can be provided using filesystem-specific environment variables:
+    <varname>$SYSTEMD_REPART_MKFS_OPTIONS_BTRFS</varname>, <varname>$SYSTEMD_REPART_MKFS_OPTIONS_XFS</varname>,
+    <varname>$SYSTEMD_REPART_MKFS_OPTIONS_VFAT</varname>, <varname>$SYSTEMD_REPART_MKFS_OPTIONS_EROFS</varname>,
+    and <varname>$SYSTEMD_REPART_MKFS_OPTIONS_SQUASHFS</varname>. Each variable accepts valid
+    <command>mkfs.<replaceable>filesystem</replaceable></command> command-line arguments.
+    The content of those variables is passed as-is to the command, without any verification.
+    </para>
+
   </refsect1>
 
   <refsect1>

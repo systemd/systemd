@@ -4,6 +4,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "string-util.h"
+#include "time-util.h"
 
 static int notify_remove_fd_warn(const char *name) {
         int r;
@@ -73,4 +74,19 @@ int notify_push_fdf(int fd, const char *format, ...) {
                 return -ENOMEM;
 
         return notify_push_fd(fd, name);
+}
+
+int notify_reloading_full(const char *status) {
+        int r;
+
+        r = sd_notifyf(/* unset_environment = */ false,
+                       "RELOADING=1\n"
+                       "MONOTONIC_USEC=" USEC_FMT
+                       "%s%s",
+                       now(CLOCK_MONOTONIC),
+                       status ? "\nSTATUS=" : "", strempty(status));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to notify service manager for reloading status: %m");
+
+        return 0;
 }
