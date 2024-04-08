@@ -82,7 +82,7 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
 
         assert_se(sd_netlink_call(rtnl, m, -1, 0) == 1);
 
-        assert_se((m = sd_netlink_message_unref(m)) == NULL);
+        ASSERT_NULL((m = sd_netlink_message_unref(m)));
 
         /* sit */
         assert_se(sd_rtnl_message_new_link(rtnl, &n, RTM_NEWLINK, 0) >= 0);
@@ -108,7 +108,7 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
 
         assert_se(sd_netlink_call(rtnl, n, -1, 0) == 1);
 
-        assert_se((n = sd_netlink_message_unref(n)) == NULL);
+        ASSERT_NULL((n = sd_netlink_message_unref(n)));
 
         return EXIT_SUCCESS;
 }
@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
 
         r = test_tunnel_configure(rtnl);
 
-        assert_se((rtnl = sd_netlink_unref(rtnl)) == NULL);
+        ASSERT_NULL((rtnl = sd_netlink_unref(rtnl)));
 
         return r;
 }

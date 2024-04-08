@@ -23,28 +23,28 @@ TEST(read_credential_strings) {
                 assert_se(saved = strdup(e));
 
         assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
-        assert_se(x == NULL);
-        assert_se(y == NULL);
+        ASSERT_NULL(x);
+        ASSERT_NULL(y);
 
         assert_se(mkdtemp_malloc(NULL, &tmp) >= 0);
 
         assert_se(setenv("CREDENTIALS_DIRECTORY", tmp, /* override= */ true) >= 0);
 
         assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
-        assert_se(x == NULL);
-        assert_se(y == NULL);
+        ASSERT_NULL(x);
+        ASSERT_NULL(y);
 
         assert_se(p = path_join(tmp, "bar"));
         assert_se(write_string_file(p, "piff", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
 
         assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
-        assert_se(x == NULL);
+        ASSERT_NULL(x);
         assert_se(streq(y, "piff"));
 
         assert_se(write_string_file(p, "paff", WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
 
         assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
-        assert_se(x == NULL);
+        ASSERT_NULL(x);
         assert_se(streq(y, "paff"));
 
         p = mfree(p);

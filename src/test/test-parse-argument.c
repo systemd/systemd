@@ -26,7 +26,7 @@ TEST(parse_path_argument) {
         assert_se(streq(path, "/"));
 
         assert_se(parse_path_argument("/", true, &path) == 0);
-        assert_se(path == NULL);
+        ASSERT_NULL(path);
 }
 
 TEST(parse_signal_argument) {

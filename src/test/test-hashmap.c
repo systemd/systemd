@@ -98,8 +98,8 @@ TEST(iterated_cache) {
         hashmap_clear(m);
         compare_cache(m, c);
 
-        assert_se(hashmap_free(m) == NULL);
-        assert_se(iterated_cache_free(c) == NULL);
+        ASSERT_NULL(hashmap_free(m));
+        ASSERT_NULL(iterated_cache_free(c));
 }
 
 TEST(hashmap_put_strdup) {
@@ -147,7 +147,7 @@ TEST(hashmap_put_strdup_null) {
         assert_se(hashmap_contains(m, "xxx"));
 
         s = hashmap_get(m, "xxx");
-        assert_se(s == NULL);
+        ASSERT_NULL(s);
 }
 
 /* This file tests in test-hashmap-plain.c, and tests in test-hashmap-ordered.c, which is generated

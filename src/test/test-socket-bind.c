@@ -66,7 +66,7 @@ static int test_socket_bind(
         fputc('\n', stderr);
 
         exec_start = strjoin("-timeout --preserve-status -sSIGTERM 1s ", netcat_path, " -l ", port, " -vv");
-        assert_se(exec_start != NULL);
+        ASSERT_NOT_NULL(exec_start);
 
         r = config_parse_exec(u->id, "filename", 1, "Service", 1, "ExecStart",
                         SERVICE_EXEC_START, exec_start, SERVICE(u)->exec_command, u);

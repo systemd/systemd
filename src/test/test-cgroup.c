@@ -31,13 +31,13 @@ TEST(cg_split_spec) {
         assert_se(cg_split_spec("fo/obar:/", &c, &p) < 0);
 
         assert_se(cg_split_spec("/", &c, &p) >= 0);
-        assert_se(c == NULL);
+        ASSERT_NULL(c);
         assert_se(streq(p, "/"));
         p = mfree(p);
 
         assert_se(cg_split_spec("foo", &c, &p) >= 0);
         assert_se(streq(c, "foo"));
-        assert_se(p == NULL);
+        ASSERT_NULL(p);
         c = mfree(c);
 }
 
