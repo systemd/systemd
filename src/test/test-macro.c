@@ -500,12 +500,12 @@ TEST(FOREACH_ARGUMENT) {
         FOREACH_ARGUMENT(p, p_1, NULL, p_2, p_3, NULL, p_4, NULL) {
                 switch (i++) {
                 case 0: assert_se(p == p_1); break;
-                case 1: assert_se(p == NULL); break;
+                case 1: ASSERT_NULL(p); break;
                 case 2: assert_se(p == p_2); break;
                 case 3: assert_se(p == p_3); break;
-                case 4: assert_se(p == NULL); break;
+                case 4: ASSERT_NULL(p); break;
                 case 5: assert_se(p == p_4); break;
-                case 6: assert_se(p == NULL); break;
+                case 6: ASSERT_NULL(p); break;
                 default: assert_se(false);
                 }
         }
@@ -525,20 +525,20 @@ TEST(FOREACH_ARGUMENT) {
         FOREACH_ARGUMENT(v, v_1, NULL, u32p, v_3, p_2, p_4, v_2, NULL) {
                 switch (i++) {
                 case 0: assert_se(v == v_1); break;
-                case 1: assert_se(v == NULL); break;
+                case 1: ASSERT_NULL(v); break;
                 case 2: assert_se(v == u32p); break;
                 case 3: assert_se(v == v_3); break;
                 case 4: assert_se(v == p_2); break;
                 case 5: assert_se(v == p_4); break;
                 case 6: assert_se(v == v_2); break;
-                case 7: assert_se(v == NULL); break;
+                case 7: ASSERT_NULL(v); break;
                 default: assert_se(false);
                 }
         }
         assert_se(i == 8);
         i = 0;
         FOREACH_ARGUMENT(v, NULL) {
-                assert_se(v == NULL);
+                ASSERT_NULL(v);
                 assert_se(i++ == 0);
         }
         assert_se(i == 1);

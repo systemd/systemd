@@ -377,7 +377,7 @@ static void test_config_parse_one(unsigned i, const char *s) {
 
         case 15 ... 16:
                 assert_se(r == -ENOBUFS);
-                assert_se(setting1 == NULL);
+                ASSERT_NULL(setting1);
                 break;
 
         case 17:

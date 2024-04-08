@@ -687,7 +687,7 @@ TEST(path_strv_resolve) {
         _cleanup_strv_free_ char **search_dirs = NULL;
         _cleanup_strv_free_ char **absolute_dirs = NULL;
 
-        assert_se(mkdtemp(tmp_dir) != NULL);
+        ASSERT_NOT_NULL(mkdtemp(tmp_dir));
 
         search_dirs = strv_new("/dir1", "/dir2", "/dir3");
         assert_se(search_dirs);
@@ -986,7 +986,7 @@ TEST(path_find_last_component) {
 }
 
 TEST(last_path_component) {
-        assert_se(last_path_component(NULL) == NULL);
+        ASSERT_NULL(last_path_component(NULL));
         assert_se(streq(last_path_component("a/b/c"), "c"));
         assert_se(streq(last_path_component("a/b/c/"), "c/"));
         assert_se(streq(last_path_component("/"), "/"));
