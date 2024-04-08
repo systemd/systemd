@@ -392,6 +392,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--clean</option></term>
+
+        <listitem><para>When detaching ensure the configuration, state, logs, cache and runtime data
+        directories of the portable service are removed from the host system.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--extension=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Add an additional image <replaceable>PATH</replaceable> as an overlay on

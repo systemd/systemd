@@ -304,7 +304,11 @@ grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app" /run/systemd
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app1" /run/systemd/system.attached/app1.service.d/20-portable.conf
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app_1" /run/systemd/system.attached/app1.service.d/20-portable.conf
 
-portablectl detach --now --runtime --extension /tmp/app0 --extension /tmp/app1 /tmp/rootdir app0 app1
+portablectl detach --clean --now --runtime --extension /tmp/app0 --extension /tmp/app1 /tmp/rootdir app0 app1
+
+# Ensure --clean remove state and other directories belonging to the portable image being detached
+test ! -d /var/lib/app0
+test ! -d /run/app0
 
 # Ensure that mixed mode copies the images and units (client-owned) but symlinks the profile (OS owned)
 portablectl "${ARGS[@]}" attach --copy=mixed --runtime --extension /tmp/app0 --extension /tmp/app1 /tmp/rootdir app0 app1
