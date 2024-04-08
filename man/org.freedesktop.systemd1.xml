@@ -575,8 +575,6 @@ node /org/freedesktop/systemd1 {
 
     <!--method EnqueueUnitJob is not documented!-->
 
-    <!--method CleanUnit is not documented!-->
-
     <!--method FreezeUnit is not documented!-->
 
     <!--method ThawUnit is not documented!-->
@@ -1585,6 +1583,12 @@ node /org/freedesktop/systemd1 {
       shouldn't be bound to a lifecycle of the service, e.g. they should continue running after the restart
       of the service. Note that the main PID of the service can not be migrated to an auxiliary scope.
       Also, <varname>flags</varname> argument must be 0 and is reserved for future extensions.</para>
+
+      <para><function>CleanUnit()</function> deletes the configuration, state, logs, cache and runtime data
+      directories and clear out the file descriptors store for the unit, as specified in the mask
+      parameters. The possible values are <literal>configuration</literal>, <literal>state</literal>,
+      <literal>logs</literal>, <literal>cache</literal>, <literal>runtime</literal>,
+      <literal>fdstore</literal> and <literal>all</literal>.</para>
     </refsect2>
 
     <refsect2>
