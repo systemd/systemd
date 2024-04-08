@@ -12,50 +12,50 @@ int main(int argc, const char *argv[]) {
         b = bitmap_new();
         assert_se(b);
 
-        assert_se(bitmap_ensure_allocated(&b) == 0);
+        ASSERT_EQ(bitmap_ensure_allocated(&b), 0);
         b = bitmap_free(b);
-        assert_se(bitmap_ensure_allocated(&b) == 0);
+        ASSERT_EQ(bitmap_ensure_allocated(&b), 0);
 
-        assert_se(bitmap_isset(b, 0) == false);
-        assert_se(bitmap_isset(b, 1) == false);
-        assert_se(bitmap_isset(b, 256) == false);
-        assert_se(bitmap_isclear(b) == true);
+        ASSERT_FALSE(bitmap_isset(b, 0));
+        ASSERT_FALSE(bitmap_isset(b, 1));
+        ASSERT_FALSE(bitmap_isset(b, 256));
+        ASSERT_TRUE(bitmap_isclear(b));
 
-        assert_se(bitmap_set(b, 0) == 0);
-        assert_se(bitmap_isset(b, 0) == true);
-        assert_se(bitmap_isclear(b) == false);
+        ASSERT_EQ(bitmap_set(b, 0), 0);
+        ASSERT_TRUE(bitmap_isset(b, 0));
+        ASSERT_FALSE(bitmap_isclear(b));
         bitmap_unset(b, 0);
-        assert_se(bitmap_isset(b, 0) == false);
-        assert_se(bitmap_isclear(b) == true);
+        ASSERT_FALSE(bitmap_isset(b, 0));
+        ASSERT_TRUE(bitmap_isclear(b));
 
-        assert_se(bitmap_set(b, 1) == 0);
-        assert_se(bitmap_isset(b, 1) == true);
-        assert_se(bitmap_isclear(b) == false);
+        ASSERT_EQ(bitmap_set(b, 1), 0);
+        ASSERT_TRUE(bitmap_isset(b, 1));
+        ASSERT_FALSE(bitmap_isclear(b));
         bitmap_unset(b, 1);
-        assert_se(bitmap_isset(b, 1) == false);
-        assert_se(bitmap_isclear(b) == true);
+        ASSERT_FALSE(bitmap_isset(b, 1));
+        ASSERT_TRUE(bitmap_isclear(b));
 
-        assert_se(bitmap_set(b, 256) == 0);
-        assert_se(bitmap_isset(b, 256) == true);
-        assert_se(bitmap_isclear(b) == false);
+        ASSERT_EQ(bitmap_set(b, 256), 0);
+        ASSERT_TRUE(bitmap_isset(b, 256));
+        ASSERT_FALSE(bitmap_isclear(b));
         bitmap_unset(b, 256);
-        assert_se(bitmap_isset(b, 256) == false);
-        assert_se(bitmap_isclear(b) == true);
+        ASSERT_FALSE(bitmap_isset(b, 256));
+        ASSERT_TRUE(bitmap_isclear(b));
 
-        assert_se(bitmap_set(b, 32) == 0);
+        ASSERT_EQ(bitmap_set(b, 32), 0);
         bitmap_unset(b, 0);
-        assert_se(bitmap_isset(b, 32) == true);
+        ASSERT_TRUE(bitmap_isset(b, 32));
         bitmap_unset(b, 32);
 
         BITMAP_FOREACH(n, NULL)
                 assert_not_reached();
 
-        assert_se(bitmap_set(b, 0) == 0);
-        assert_se(bitmap_set(b, 1) == 0);
-        assert_se(bitmap_set(b, 256) == 0);
+        ASSERT_EQ(bitmap_set(b, 0), 0);
+        ASSERT_EQ(bitmap_set(b, 1), 0);
+        ASSERT_EQ(bitmap_set(b, 256), 0);
 
         BITMAP_FOREACH(n, b) {
-                assert_se(n == i);
+                ASSERT_EQ(n, i);
                 if (i == 0)
                         i = 1;
                 else if (i == 1)
@@ -64,12 +64,12 @@ int main(int argc, const char *argv[]) {
                         i = UINT_MAX;
         }
 
-        assert_se(i == UINT_MAX);
+        ASSERT_EQ(i, UINT_MAX);
 
         i = 0;
 
         BITMAP_FOREACH(n, b) {
-                assert_se(n == i);
+                ASSERT_EQ(n, i);
                 if (i == 0)
                         i = 1;
                 else if (i == 1)
@@ -78,38 +78,38 @@ int main(int argc, const char *argv[]) {
                         i = UINT_MAX;
         }
 
-        assert_se(i == UINT_MAX);
+        ASSERT_EQ(i, UINT_MAX);
 
         b2 = bitmap_copy(b);
         assert_se(b2);
-        assert_se(bitmap_equal(b, b2) == true);
-        assert_se(bitmap_equal(b, b) == true);
-        assert_se(bitmap_equal(b, NULL) == false);
-        assert_se(bitmap_equal(NULL, b) == false);
-        assert_se(bitmap_equal(NULL, NULL) == true);
+        ASSERT_TRUE(bitmap_equal(b, b2));
+        ASSERT_TRUE(bitmap_equal(b, b));
+        ASSERT_FALSE(bitmap_equal(b, NULL));
+        ASSERT_FALSE(bitmap_equal(NULL, b));
+        ASSERT_TRUE(bitmap_equal(NULL, NULL));
 
         bitmap_clear(b);
-        assert_se(bitmap_isclear(b) == true);
-        assert_se(bitmap_equal(b, b2) == false);
+        ASSERT_TRUE(bitmap_isclear(b));
+        ASSERT_FALSE(bitmap_equal(b, b2));
         b2 = bitmap_free(b2);
 
         assert_se(bitmap_set(b, UINT_MAX) == -ERANGE);
 
         b = bitmap_free(b);
-        assert_se(bitmap_ensure_allocated(&b) == 0);
-        assert_se(bitmap_ensure_allocated(&b2) == 0);
+        ASSERT_EQ(bitmap_ensure_allocated(&b), 0);
+        ASSERT_EQ(bitmap_ensure_allocated(&b2), 0);
 
         assert_se(bitmap_equal(b, b2));
-        assert_se(bitmap_set(b, 0) == 0);
+        ASSERT_EQ(bitmap_set(b, 0), 0);
         bitmap_unset(b, 0);
         assert_se(bitmap_equal(b, b2));
 
-        assert_se(bitmap_set(b, 1) == 0);
+        ASSERT_EQ(bitmap_set(b, 1), 0);
         bitmap_clear(b);
         assert_se(bitmap_equal(b, b2));
 
-        assert_se(bitmap_set(b, 0) == 0);
-        assert_se(bitmap_set(b2, 0) == 0);
+        ASSERT_EQ(bitmap_set(b, 0), 0);
+        ASSERT_EQ(bitmap_set(b2, 0), 0);
         assert_se(bitmap_equal(b, b2));
 
         return 0;
