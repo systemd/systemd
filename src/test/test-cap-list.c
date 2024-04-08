@@ -160,8 +160,8 @@ TEST(capability_set_to_string_negative) {
                 uint64_t m =
                         random_u64() % (UINT64_C(1) << (cap_last_cap() + 1));
 
-                assert_se(capability_set_to_string(m, &a) >= 0);
-                assert_se(capability_set_to_string_negative(m, &b) >= 0);
+                ASSERT_OK(capability_set_to_string(m, &a));
+                ASSERT_OK(capability_set_to_string_negative(m, &b));
 
                 printf("%s (%zu) → ", a, strlen(a));
 
@@ -170,7 +170,7 @@ TEST(capability_set_to_string_negative) {
                 else
                         printf("%s (%zu)\n", b, strlen(b));
 
-                assert_se(strlen(b) <= strlen(a));
+                ASSERT_LE(strlen(b), strlen(a));
         }
 }
 
