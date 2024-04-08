@@ -535,7 +535,7 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
         FOREACH_ARRAY(i, uid_range_table, ELEMENTSOF(uid_range_table)) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
 
-                if (!uid_range_covers(p, i->first, i->last))
+                if (!uid_range_covers(p, i->first, i->last - i->first + 1))
                         continue;
 
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
