@@ -1,10 +1,11 @@
 # This file is part of systemd.
 #
-# This file contains 3 types of metadata to apply to keyboards and
+# This file contains 4 types of metadata to apply to keyboards and
 # keyboard-like input devices:
 # - Key mapping
 # - Hard-coded layouts
 # - Absence of modifier LEDs
+# - Chassis keys (usually to ignore for unidling the device)
 #
 # The matching process is the same for the different types of metadata.
 #
