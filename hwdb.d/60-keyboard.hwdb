@@ -1678,6 +1678,10 @@ evdev:input:b0003v047FpC006*
 # evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v4*:*
 #  KEYBOARD_KEY_56=backslash
 
+# Purism Librem 11 tablet. 114,115 are the volume keys
+evdev:atkbd:dmi:bvn*:bvr*:svnPurism:pnLibrem11:*
+ CHASSIS_KEYS=114 115
+
 ###########################################################
 # Quanta
 ###########################################################
@@ -2188,7 +2192,3 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX1Carbon3rd:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnFalco:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPeppy:*
  XKB_FIXED_MODEL=chromebook
-
-######################### Chassis KEYS #######################################
-# This section lists keys that are exposed on the outside chassis of a
-# devices.Examples are capacitive buttons or volume keys on phones or tablets.
