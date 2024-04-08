@@ -181,6 +181,7 @@ def property_grammar():
              ('XKB_FIXED_MODEL', xkb_setting),
              ('KEYBOARD_LED_NUMLOCK', Literal('0')),
              ('KEYBOARD_LED_CAPSLOCK', Literal('0')),
+             ('CHASSIS_KEYS', Group(OneOrMore(INTEGER))),
              ('ACCEL_MOUNT_MATRIX', mount_matrix),
              ('ACCEL_LOCATION', Or(('display', 'base'))),
              ('PROXIMITY_NEAR_LEVEL', INTEGER),
