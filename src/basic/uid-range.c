@@ -173,9 +173,9 @@ bool uid_range_covers(const UIDRange *range, uid_t start, uid_t nr) {
         if (!range)
                 return false;
 
-        for (size_t i = 0; i < range->n_entries; i++)
-                if (start >= range->entries[i].start &&
-                    start + nr <= range->entries[i].start + range->entries[i].nr)
+        FOREACH_ARRAY(i, range->entries, range->n_entries)
+                if (start >= i->start &&
+                    start + nr <= i->start + i->nr)
                         return true;
 
         return false;
