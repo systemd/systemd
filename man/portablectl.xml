@@ -141,6 +141,8 @@
         immediately started (blocking operation unless <option>--no-block</option> is passed) and/or enabled after
         attaching the image.</para>
 
+        <xi:include href="vpick.xml" xpointer="image"/>
+        <xi:include href="vpick.xml" xpointer="directory"/>
         <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
@@ -412,6 +414,8 @@
         <para>Note that the same extensions have to be specified, in the same order, when attaching
         and detaching.</para>
 
+        <xi:include href="vpick.xml" xpointer="image"/>
+        <xi:include href="vpick.xml" xpointer="directory"/>
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 

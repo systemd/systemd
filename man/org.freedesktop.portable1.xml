@@ -259,6 +259,9 @@ node /org/freedesktop/portable1 {
       on the system. Note that this method returns only after all the listed operations are completed,
       and due to the I/O involved it might take some time.</para>
 
+      <xi:include href="vpick.xml" xpointer="image"/>
+      <xi:include href="vpick.xml" xpointer="directory"/>
+
       <para><function>AttachImageWithExtensions()</function> attaches a portable image to the system.
       This method is a superset of <function>AttachImage()</function> with the addition of
       a list of extensions as input parameter, which will be overlaid on top of the main
