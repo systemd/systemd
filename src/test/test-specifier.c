@@ -138,6 +138,8 @@ TEST(specifiers) {
                 xsprintf(spec, "%%%c", s->specifier);
 
                 r = specifier_printf(spec, SIZE_MAX, specifier_table, NULL, NULL, &resolved);
+                if (s->specifier == 'A' && r == -EUNATCH) /* os-release might be missing in build chroots */
+                        continue;
                 if (s->specifier == 'm' && IN_SET(r, -EUNATCH, -ENOMEDIUM, -ENOPKG)) /* machine-id might be missing in build chroots */
                         continue;
                 assert_se(r >= 0);
