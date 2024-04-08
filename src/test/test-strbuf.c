@@ -37,7 +37,7 @@ TEST(strbuf) {
         assert_se(streq(l[2], "foo"));
         assert_se(streq(l[3], "bar"));
         assert_se(streq(l[4], "waldorf"));
-        assert_se(l[5] == NULL);
+        ASSERT_NULL(l[5]);
 
         assert_se(sb->nodes_count == 5); /* root + 4 non-duplicates */
         assert_se(sb->dedup_count == 4);
@@ -67,7 +67,7 @@ TEST(strbuf) {
         assert_se(streq(sb->buf + h, ""));
 
         strbuf_complete(sb);
-        assert_se(sb->root == NULL);
+        ASSERT_NULL(sb->root);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
