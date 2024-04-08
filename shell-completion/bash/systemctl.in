@@ -193,7 +193,7 @@ _systemctl () {
                 comps='auto yes no'
                 ;;
             --what)
-                comps='configuration state cache logs runtime all'
+                comps='configuration state cache logs runtime fdstore all'
                 ;;
             --image)
                 comps=$(compgen -A file -- "$cur")
