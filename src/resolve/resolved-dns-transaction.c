@@ -2347,9 +2347,9 @@ static int dns_transaction_request_dnssec_rr_full(DnsTransaction *t, DnsResource
                 r = dns_transaction_go(aux);
                 if (r < 0)
                         return r;
-                if (ret)
-                        *ret = aux;
         }
+        if (ret)
+                *ret = aux;
 
         return 1;
 }
