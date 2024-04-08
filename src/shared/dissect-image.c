@@ -1648,7 +1648,7 @@ void dissected_image_close(DissectedImage *m) {
         if (!m)
                 return;
 
-        /* Closes all fds we keep open assocated with this, but nothing else */
+        /* Closes all fds we keep open associated with this, but nothing else */
 
         FOREACH_ARRAY(p, m->partitions, _PARTITION_DESIGNATOR_MAX) {
                 p->mount_node_fd = safe_close(p->mount_node_fd);
