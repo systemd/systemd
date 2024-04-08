@@ -17,6 +17,7 @@
 #include "memory-util.h"
 #include "ndisc-internal.h"
 #include "ndisc-neighbor-internal.h"
+#include "ndisc-redirect-internal.h"
 #include "ndisc-router-internal.h"
 #include "network-common.h"
 #include "random-util.h"
@@ -30,6 +31,7 @@ static const char * const ndisc_event_table[_SD_NDISC_EVENT_MAX] = {
         [SD_NDISC_EVENT_TIMEOUT]  = "timeout",
         [SD_NDISC_EVENT_ROUTER]   = "router",
         [SD_NDISC_EVENT_NEIGHBOR] = "neighbor",
+        [SD_NDISC_EVENT_REDIRECT] = "redirect",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(ndisc_event, sd_ndisc_event_t);
@@ -257,6 +259,35 @@ static int ndisc_handle_neighbor(sd_ndisc *nd, ICMP6Packet *packet) {
         return 0;
 }
 
+static int ndisc_handle_redirect(sd_ndisc *nd, ICMP6Packet *packet) {
+        _cleanup_(sd_ndisc_redirect_unrefp) sd_ndisc_redirect *rd = NULL;
+        struct in6_addr a;
+        int r;
+
+        assert(nd);
+        assert(packet);
+
+        rd = ndisc_redirect_new(packet);
+        if (!rd)
+                return -ENOMEM;
+
+        r = ndisc_redirect_parse(nd, rd);
+        if (r < 0)
+                return r;
+
+        r = sd_ndisc_redirect_get_sender_address(rd, &a);
+        if (r < 0)
+                return r;
+
+        log_ndisc(nd, "Received Redirect message from %s: Target=%s, Destination=%s",
+                  IN6_ADDR_TO_STRING(&a),
+                  IN6_ADDR_TO_STRING(&rd->target_address),
+                  IN6_ADDR_TO_STRING(&rd->destination_address));
+
+        ndisc_callback(nd, SD_NDISC_EVENT_REDIRECT, rd);
+        return 0;
+}
+
 static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
         sd_ndisc *nd = ASSERT_PTR(userdata);
@@ -296,6 +327,10 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
 
         case ND_NEIGHBOR_ADVERT:
                 (void) ndisc_handle_neighbor(nd, packet);
+                break;
+
+        case ND_REDIRECT:
+                (void) ndisc_handle_redirect(nd, packet);
                 break;
 
         default:

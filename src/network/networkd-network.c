@@ -474,6 +474,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv4_rp_filter = _IP_REVERSE_PATH_FILTER_INVALID,
 
                 .ndisc = -1,
+                .ndisc_use_redirect = true,
                 .ndisc_use_dns = true,
                 .ndisc_use_gateway = true,
                 .ndisc_use_captive_portal = true,
