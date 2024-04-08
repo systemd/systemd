@@ -20,7 +20,7 @@ sed --expression 's/^[ \t]*//' "pkg/$PKG_SUBDIR/.SRCINFO" |
 # We get makedepends from the PKGBUILD as .SRCINFO can't encode conditional dependencies depending on
 # whether some environment variable is set or not.
 # shellcheck source=/dev/null
-UPSTREAM=1 . "pkg/$PKG_SUBDIR/PKGBUILD"
+_systemd_UPSTREAM=1 . "pkg/$PKG_SUBDIR/PKGBUILD"
 
 # shellcheck disable=SC2154
 mkosi-install "${makedepends[@]}"
