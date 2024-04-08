@@ -1283,11 +1283,6 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get route prefix length: %m");
 
-        if (in6_addr_is_null(&dst) && prefixlen == 0) {
-                log_link_debug(link, "Route prefix is ::/0, ignoring");
-                return 0;
-        }
-
         if (in6_prefix_is_filtered(&dst, prefixlen,
                                    link->network->ndisc_allow_listed_route_prefix,
                                    link->network->ndisc_deny_listed_route_prefix)) {
@@ -1331,9 +1326,15 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         route->dst_prefixlen = prefixlen;
         route->lifetime_usec = lifetime_usec;
 
-        r = ndisc_request_route(route, link, rt);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Could not request additional route: %m");
+        if (lifetime_usec != 0) {
+                r = ndisc_request_route(route, link, rt);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not request additional route: %m");
+        } else {
+                r = ndisc_remove_route(route, link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not remove additional route with zero lifetime: %m");
+        }
 
         return 0;
 }
