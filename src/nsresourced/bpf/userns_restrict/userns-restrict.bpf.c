@@ -20,7 +20,9 @@
 #include <bpf/bpf_core_read.h>
 #include <errno.h>
 
+#ifndef bpf_core_cast
 void *bpf_rdonly_cast(void *, __u32) __ksym;
+#endif
 
 /* BPF module that implements an allowlist of mounts (identified by mount ID) for user namespaces (identified
  * by their inode number in nsfs) that restricts creation of inodes (which would inherit the callers UID/GID)
