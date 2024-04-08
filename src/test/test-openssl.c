@@ -95,7 +95,7 @@ TEST(invalid) {
 
         DEFINE_HEX_PTR(key, "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b7b");
         assert_se(openssl_pkey_from_pem(key, key_len, &pkey) == -EIO);
-        assert_se(pkey == NULL);
+        ASSERT_NULL(pkey);
 }
 
 static const struct {

@@ -31,7 +31,7 @@ TEST(glob_first) {
         assert_se(r == 0);
         r = glob_first("/tmp/test-glob_first*", &first);
         assert_se(r == 0);
-        assert_se(first == NULL);
+        ASSERT_NULL(first);
 }
 
 TEST(glob_exists) {
@@ -110,7 +110,7 @@ TEST(safe_glob) {
         assert_se(r == 0);
         assert_se(g.gl_pathc == 1);
         assert_se(streq(g.gl_pathv[0], fname));
-        assert_se(g.gl_pathv[1] == NULL);
+        ASSERT_NULL(g.gl_pathv[1]);
 
         (void) rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL);
 }

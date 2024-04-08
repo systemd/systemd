@@ -139,7 +139,7 @@ TEST(config_parse_exec) {
                               "LValue", 0, "/RValue/ argv0 r1",
                               &c, u);
         assert_se(r == -ENOEXEC);
-        assert_se(c1->command_next == NULL);
+        ASSERT_NULL(c1->command_next);
 
         log_info("/* honour_argv0 */");
         r = config_parse_exec(NULL, "fake", 3, "section", 1,
@@ -154,14 +154,14 @@ TEST(config_parse_exec) {
                               "LValue", 0, "@/RValue",
                               &c, u);
         assert_se(r == -ENOEXEC);
-        assert_se(c1->command_next == NULL);
+        ASSERT_NULL(c1->command_next);
 
         log_info("/* no command, whitespace only, reset */");
         r = config_parse_exec(NULL, "fake", 3, "section", 1,
                               "LValue", 0, "",
                               &c, u);
         assert_se(r == 0);
-        assert_se(c == NULL);
+        ASSERT_NULL(c);
 
         log_info("/* ignore && honour_argv0 */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
@@ -184,14 +184,14 @@ TEST(config_parse_exec) {
                               "LValue", 0, "--/RValue argv0 r1",
                               &c, u);
         assert_se(r == 0);
-        assert_se(c1->command_next == NULL);
+        ASSERT_NULL(c1->command_next);
 
         log_info("/* ignore && ignore (2) */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "-@-/RValue argv0 r1",
                               &c, u);
         assert_se(r == 0);
-        assert_se(c1->command_next == NULL);
+        ASSERT_NULL(c1->command_next);
 
         log_info("/* semicolon */");
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
@@ -227,7 +227,7 @@ TEST(config_parse_exec) {
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
 
-        assert_se(c1->command_next == NULL);
+        ASSERT_NULL(c1->command_next);
 
         log_info("/* trailing semicolon, no whitespace */");
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
@@ -238,7 +238,7 @@ TEST(config_parse_exec) {
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
 
-        assert_se(c1->command_next == NULL);
+        ASSERT_NULL(c1->command_next);
 
         log_info("/* trailing semicolon in single quotes */");
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
@@ -366,7 +366,7 @@ TEST(config_parse_exec) {
                                       "LValue", 0, path,
                                       &c, u);
                 assert_se(r == -ENOEXEC);
-                assert_se(c1->command_next == NULL);
+                ASSERT_NULL(c1->command_next);
         }
 
         log_info("/* valid character: \\s */");
@@ -392,35 +392,35 @@ TEST(config_parse_exec) {
                               "LValue", 0, "/path\\",
                               &c, u);
         assert_se(r == -ENOEXEC);
-        assert_se(c1->command_next == NULL);
+        ASSERT_NULL(c1->command_next);
 
         log_info("/* missing ending ' */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "/path 'foo",
                               &c, u);
         assert_se(r == -ENOEXEC);
-        assert_se(c1->command_next == NULL);
+        ASSERT_NULL(c1->command_next);
 
         log_info("/* missing ending ' with trailing backslash */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "/path 'foo\\",
                               &c, u);
         assert_se(r == -ENOEXEC);
-        assert_se(c1->command_next == NULL);
+        ASSERT_NULL(c1->command_next);
 
         log_info("/* invalid space between modifiers */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "- /path",
                               &c, u);
         assert_se(r == 0);
-        assert_se(c1->command_next == NULL);
+        ASSERT_NULL(c1->command_next);
 
         log_info("/* only modifiers, no path */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "-",
                               &c, u);
         assert_se(r == 0);
-        assert_se(c1->command_next == NULL);
+        ASSERT_NULL(c1->command_next);
 
         log_info("/* long arg */"); /* See issue #22957. */
 
@@ -442,7 +442,7 @@ TEST(config_parse_exec) {
                               "LValue", 0, "",
                               &c, u);
         assert_se(r == 0);
-        assert_se(c == NULL);
+        ASSERT_NULL(c);
 
         exec_command_free_list(c);
 }

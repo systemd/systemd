@@ -328,7 +328,7 @@ static int run(int argc, char *argv[]) {
         log_notice("All threads started now.");
 
         if (arg_n_threads == 1)
-                assert_se(thread_func(FD_TO_PTR(fd)) == NULL);
+                ASSERT_NULL(thread_func(FD_TO_PTR(fd)));
         else
                 for (unsigned i = 0; i < arg_n_threads; i++) {
                         log_notice("Joining thread #%u.", i);
