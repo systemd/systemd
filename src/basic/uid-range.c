@@ -205,7 +205,7 @@ int uid_map_read_one(FILE *f, uid_t *ret_base, uid_t *ret_shift, uid_t *ret_rang
         return 0;
 }
 
-int uid_range_load_userns(UIDRange **ret, const char *path, UIDRangeUsernsMode mode) {
+int uid_range_load_userns(const char *path, UIDRangeUsernsMode mode, UIDRange **ret) {
         _cleanup_(uid_range_freep) UIDRange *range = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -216,9 +216,9 @@ int uid_range_load_userns(UIDRange **ret, const char *path, UIDRangeUsernsMode m
          *
          * To simplify things this will modify the passed array in case of later failure. */
 
-        assert(ret);
         assert(mode >= 0);
         assert(mode < _UID_RANGE_USERNS_MODE_MAX);
+        assert(ret);
 
         if (!path)
                 path = IN_SET(mode, UID_RANGE_USERNS_INSIDE, UID_RANGE_USERNS_OUTSIDE) ? "/proc/self/uid_map" : "/proc/self/gid_map";
@@ -318,7 +318,7 @@ int uid_range_load_userns_by_fd(int userns_fd, UIDRangeUsernsMode mode, UIDRange
                         pid,
                         IN_SET(mode, UID_RANGE_USERNS_INSIDE, UID_RANGE_USERNS_OUTSIDE) ? "uid_map" : "gid_map");
 
-        return uid_range_load_userns(ret, p, mode);
+        return uid_range_load_userns(p, mode, ret);
 }
 
 bool uid_range_overlaps(const UIDRange *range, uid_t start, uid_t nr) {

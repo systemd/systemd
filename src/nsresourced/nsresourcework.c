@@ -453,7 +453,7 @@ static int allocate_now(
                 assert_not_reached();
         }
 
-        r = uid_range_load_userns(&valid_range, /* path= */ NULL, UID_RANGE_USERNS_INSIDE);
+        r = uid_range_load_userns(/* path= */ NULL, UID_RANGE_USERNS_INSIDE, &valid_range);
         if (r < 0)
                 return r;
 
