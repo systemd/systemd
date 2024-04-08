@@ -174,19 +174,19 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
 
         assert(table);
 
-        for (size_t i = 0; i < ELEMENTSOF(uid_range_table); i++) {
+        FOREACH_ARRAY(i, uid_range_table, ELEMENTSOF(uid_range_table)) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
 
-                if (!uid_range_covers(p, uid_range_table[i].first, uid_range_table[i].last - uid_range_table[i].first + 1))
+                if (!uid_range_covers(p, i->first, i->last - i->first + 1))
                         continue;
 
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
-                               " begin ", uid_range_table[i].name, " users ",
+                               " begin ", i->name, " users ",
                                special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
                 if (!name)
                         return log_oom();
 
-                comment = strjoin("First ", uid_range_table[i].name, " user");
+                comment = strjoin("First ", i->name, " user");
                 if (!comment)
                         return log_oom();
 
@@ -195,9 +195,9 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
                                 TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
+                                TABLE_STRING, user_disposition_to_string(i->disposition),
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_UID, uid_range_table[i].first,
+                                TABLE_UID, i->first,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_EMPTY,
                                 TABLE_STRING, comment,
@@ -210,13 +210,13 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
 
                 free(name);
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
-                               " end ", uid_range_table[i].name, " users ",
+                               " end ", i->name, " users ",
                                special_glyph(SPECIAL_GLYPH_ARROW_UP));
                 if (!name)
                         return log_oom();
 
                 free(comment);
-                comment = strjoin("Last ", uid_range_table[i].name, " user");
+                comment = strjoin("Last ", i->name, " user");
                 if (!comment)
                         return log_oom();
 
@@ -225,9 +225,9 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
                                 TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
+                                TABLE_STRING, user_disposition_to_string(i->disposition),
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_UID, uid_range_table[i].last,
+                                TABLE_UID, i->last,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_EMPTY,
                                 TABLE_STRING, comment,
@@ -313,9 +313,7 @@ static int table_add_uid_map(
         if (!p)
                 return 0;
 
-        for (size_t i = 0; p && i < p->n_entries; i++) {
-                UIDRangeEntry *x = p->entries + i;
-
+        FOREACH_ARRAY(x, p->entries, p->n_entries) {
                 if (focus < x->start) {
                         r = add_unavailable(table, focus, x->start-1);
                         if (r < 0)
@@ -534,19 +532,19 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
 
         assert(table);
 
-        for (size_t i = 0; i < ELEMENTSOF(uid_range_table); i++) {
+        FOREACH_ARRAY(i, uid_range_table, ELEMENTSOF(uid_range_table)) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
 
-                if (!uid_range_covers(p, uid_range_table[i].first, uid_range_table[i].last))
+                if (!uid_range_covers(p, i->first, i->last))
                         continue;
 
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
-                               " begin ", uid_range_table[i].name, " groups ",
+                               " begin ", i->name, " groups ",
                                special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
                 if (!name)
                         return log_oom();
 
-                comment = strjoin("First ", uid_range_table[i].name, " group");
+                comment = strjoin("First ", i->name, " group");
                 if (!comment)
                         return log_oom();
 
@@ -555,9 +553,9 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
                                 TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
+                                TABLE_STRING, user_disposition_to_string(i->disposition),
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_GID, uid_range_table[i].first,
+                                TABLE_GID, i->first,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, comment,
                                 TABLE_SET_COLOR, ansi_grey(),
@@ -567,13 +565,13 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
 
                 free(name);
                 name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
-                               " end ", uid_range_table[i].name, " groups ",
+                               " end ", i->name, " groups ",
                                special_glyph(SPECIAL_GLYPH_ARROW_UP));
                 if (!name)
                         return log_oom();
 
                 free(comment);
-                comment = strjoin("Last ", uid_range_table[i].name, " group");
+                comment = strjoin("Last ", i->name, " group");
                 if (!comment)
                         return log_oom();
 
@@ -582,9 +580,9 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
                                 TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
+                                TABLE_STRING, user_disposition_to_string(i->disposition),
                                 TABLE_SET_COLOR, ansi_grey(),
-                                TABLE_GID, uid_range_table[i].last,
+                                TABLE_GID, i->last,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, comment,
                                 TABLE_SET_COLOR, ansi_grey(),
