@@ -2,17 +2,20 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -ex
 
-if [ ! -f "pkg/$PKG_SUBDIR/PKGBUILD" ]; then
-    echo "PKGBUILD not found at pkg/$PKG_SUBDIR/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
+# shellcheck source=/dev/null
+. /usr/lib/os-release
+
+if [ ! -f "pkg/$ID/PKGBUILD" ]; then
+    echo "PKGBUILD not found at pkg/$ID/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
     exit 1
 fi
 
 # We can't configure the source or build directory so we use bind mounts instead to make sure they are in the
 # expected locations.
-mount --mkdir --bind "$SRCDIR" "pkg/$PKG_SUBDIR/systemd-stable/"
-mount --mkdir --bind "$BUILDDIR" "pkg/$PKG_SUBDIR/build/"
+mount --mkdir --bind "$SRCDIR" "pkg/$ID/systemd-stable/"
+mount --mkdir --bind "$BUILDDIR" "pkg/$ID/build/"
 # Because we run with --noextract we are responsible for making sure the source files appear in src/.
-mount --mkdir --rbind "$PWD/pkg/$PKG_SUBDIR" "pkg/$PKG_SUBDIR/src/"
+mount --mkdir --rbind "$PWD/pkg/$ID" "pkg/$ID/src/"
 
 # shellcheck source=/dev/null
 . /etc/makepkg.conf
@@ -35,13 +38,13 @@ else
     TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 fi
 
-sed --in-place "pkg/$PKG_SUBDIR/PKGBUILD" \
+sed --in-place "pkg/$ID/PKGBUILD" \
     --expression "s/^_tag=.*/_tag=$(cat meson.version)/" \
     --expression "s/^pkgrel=.*/pkgrel=$(date "+%Y%m%d%H%M%S" --date "@$TS")/"
 
 # We get around makepkg's root check by setting EUID to something else.
 # shellcheck disable=SC2046
-env --chdir="pkg/$PKG_SUBDIR" \
+env --chdir="pkg/$ID" \
     EUID=123 \
     makepkg \
     --noextract \
@@ -49,7 +52,7 @@ env --chdir="pkg/$PKG_SUBDIR" \
     --force \
     _systemd_UPSTREAM=1 \
     _systemd_QUIET=1 \
-    BUILDDIR="$PWD/pkg/$PKG_SUBDIR" \
+    BUILDDIR="$PWD/pkg/$ID" \
     PKGDEST="$OUTPUTDIR" \
     PKGEXT=".pkg.tar" \
     MESON_EXTRA_CONFIGURE_OPTIONS="-D mode=developer -D b_sanitize=${SANITIZERS:-none}"

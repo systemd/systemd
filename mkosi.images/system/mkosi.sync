@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if [ -z "$(ls --almost-all "pkg/$PKG_SUBDIR")" ] || [ -f "pkg/$PKG_SUBDIR/.git" ]; then
-    git submodule sync "pkg/$PKG_SUBDIR"
-    git submodule update --init "pkg/$PKG_SUBDIR"
+if [ -z "$(ls --almost-all "pkg/$DISTRIBUTION")" ] || [ -f "pkg/$DISTRIBUTION/.git" ]; then
+    PKG_SUBDIR="$(realpath "pkg/$DISTRIBUTION" --relative-to "$PWD")"
+    git submodule sync "$PKG_SUBDIR"
+    git submodule update --init "$PKG_SUBDIR"
 fi
