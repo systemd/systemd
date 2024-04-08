@@ -2,8 +2,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if [ ! -f "pkg/$PKG_SUBDIR/systemd.spec" ]; then
-    echo "spec not found at pkg/$PKG_SUBDIR/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
+# shellcheck source=/dev/null
+. /usr/lib/os-release
+
+if [ ! -f "pkg/$ID/systemd.spec" ]; then
+    echo "spec not found at pkg/$ID/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
     exit 1
 fi
 
@@ -23,7 +26,7 @@ rpmbuild \
     $( ((WITH_TESTS)) || echo "--nocheck") \
     $( ((WITH_DOCS))  || echo "--without docs") \
     --define "_topdir /var/tmp" \
-    --define "_sourcedir pkg/$PKG_SUBDIR" \
+    --define "_sourcedir pkg/$ID" \
     --define "_rpmdir $OUTPUTDIR" \
     ${BUILDDIR:+--define} \
     ${BUILDDIR:+"_vpath_builddir $BUILDDIR"} \
@@ -45,6 +48,6 @@ rpmbuild \
     --define "__elf_exclude_path ^/usr/lib/systemd/tests/unit-tests/.*$" \
     --define "__script_requires %{nil}" \
     --undefine _lto_cflags \
-    "pkg/$PKG_SUBDIR/systemd.spec"
+    "pkg/$ID/systemd.spec"
 
 cp "$OUTPUTDIR"/*.rpm "$PACKAGEDIR"
