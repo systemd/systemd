@@ -349,8 +349,8 @@ static int vl_method_mount_image(
         if (r <= 0)
                 return r;
 
-        /* Generate the commmon dissection directory here. We are not going to use it, but the clients might,
-         * and they likely are unprivileged, hence cannot create it themselves. Hence let's jsut create it
+        /* Generate the common dissection directory here. We are not going to use it, but the clients might,
+         * and they likely are unprivileged, hence cannot create it themselves. Hence let's just create it
          * here, if it is missing. */
         r = get_common_dissect_directory(NULL);
         if (r < 0)
@@ -544,7 +544,7 @@ static int vl_method_mount_image(
 }
 
 static int process_connection(VarlinkServer *server, int _fd) {
-        _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possesion */
+        _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possession */
         _cleanup_(varlink_close_unrefp) Varlink *vl = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
