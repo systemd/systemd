@@ -181,6 +181,7 @@ def property_grammar():
              ('XKB_FIXED_MODEL', xkb_setting),
              ('KEYBOARD_LED_NUMLOCK', Literal('0')),
              ('KEYBOARD_LED_CAPSLOCK', Literal('0')),
+             ('WAKEUP_KEY_DEFAULT', Or((Literal('0'), Literal('1')))),
              ('ACCEL_MOUNT_MATRIX', mount_matrix),
              ('ACCEL_LOCATION', Or(('display', 'base'))),
              ('PROXIMITY_NEAR_LEVEL', INTEGER),
@@ -204,8 +205,12 @@ def property_grammar():
                  - Suppress('=') -
                  Word('-' + nums + ':')('VALUE')
                 ]
+    wakeup_props = [Regex(r'WAKEUP_KEY_[0-9]+')('NAME')
+                    - Suppress('=') -
+                    Word(nums)('VALUE')
+                   ]
 
-    grammar = Or(fixed_props + kbd_props + abs_props) + EOL
+    grammar = Or(fixed_props + kbd_props + abs_props + wakeup_props) + EOL
 
     return grammar
 
