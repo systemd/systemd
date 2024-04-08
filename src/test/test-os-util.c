@@ -20,10 +20,12 @@ TEST(path_is_os_tree) {
 }
 
 TEST(parse_os_release) {
-        /* Let's assume that we're running in a valid system, so os-release is available */
         _cleanup_free_ char *id = NULL, *id2 = NULL, *name = NULL, *foobar = NULL;
-        ASSERT_EQ(parse_os_release(NULL, "ID", &id), 0);
-        log_info("ID: %s", id);
+
+        if (access("/etc/os-release", F_OK) >= 0 || access("/usr/lib/os-release", F_OK) >= 0) {
+                ASSERT_EQ(parse_os_release(NULL, "ID", &id), 0);
+                log_info("ID: %s", id);
+        }
 
         ASSERT_EQ(setenv("SYSTEMD_OS_RELEASE", "/dev/null", 1), 0);
         ASSERT_EQ(parse_os_release(NULL, "ID", &id2), 0);
