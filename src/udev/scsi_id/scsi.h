@@ -1,17 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-/*
- * scsi.h
- *
- * General scsi and linux scsi specific defines and structs.
- *
- * Copyright (C) IBM Corp. 2003
- *
- *        This program is free software; you can redistribute it and/or modify it
- *        under the terms of the GNU General Public License as published by the
- *        Free Software Foundation version 2 of the License.
- */
+/* Copyright (C) IBM Corp. 2003 */
 
 #include <scsi/scsi.h>
 
