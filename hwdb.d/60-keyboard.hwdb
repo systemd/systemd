@@ -2192,3 +2192,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPeppy:*
 ######################### Chassis KEYS #######################################
 # This section lists keys that are exposed on the outside chassis of a
 # devices.Examples are capacitive buttons or volume keys on phones or tablets.
+
+# Purism Librem 11 tablet
+evdev:atkbd:dmi:bvn*:bvr*:svnPurism:pnLibrem11:*
+ CHASSIS_KEYS=114 115
