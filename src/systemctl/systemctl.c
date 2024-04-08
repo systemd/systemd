@@ -11,6 +11,7 @@
 #include "capsule-util.h"
 #include "dissect-image.h"
 #include "install.h"
+#include "json.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "output-mode.h"
@@ -96,6 +97,7 @@ bool arg_show_transaction = false;
 int arg_force = 0;
 bool arg_ask_password = false;
 bool arg_runtime = false;
+JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 UnitFilePresetMode arg_preset_mode = UNIT_FILE_PRESET_FULL;
 char **arg_wall = NULL;
 const char *arg_kill_whom = NULL;
@@ -342,6 +344,8 @@ static int systemctl_help(void) {
                "     --when=TIME         Schedule halt/power-off/reboot/kexec action after\n"
                "                         a certain timestamp\n"
                "     --stdin             Read contents of edited file from stdin\n"
+               " -j  --json=STRING       Systemctl show output format\n"
+               "                                short, pretty, off\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -469,6 +473,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_DROP_IN,
                 ARG_WHEN,
                 ARG_STDIN,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -537,6 +542,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "drop-in",             required_argument, NULL, ARG_DROP_IN             },
                 { "when",                required_argument, NULL, ARG_WHEN                },
                 { "stdin",               no_argument,       NULL, ARG_STDIN               },
+                {"json",                 required_argument, NULL, ARG_JSON                },
                 {}
         };
 
@@ -845,6 +851,17 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 arg_legend = false;
                                 arg_plain = true;
                         }
+                        break;
+
+                case 'j':
+                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
                         break;
 
                 case 'i':

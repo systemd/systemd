@@ -38,7 +38,7 @@ int parse_json_argument(const char *s, JsonFormatFlags *ret) {
         if (streq(s, "pretty"))
                 *ret = JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO;
         else if (streq(s, "short"))
-                *ret = JSON_FORMAT_NEWLINE;
+                *ret = JSON_FORMAT_NEWLINE|JSON_FORMAT_PRETTY;
         else if (streq(s, "off"))
                 *ret = JSON_FORMAT_OFF;
         else if (streq(s, "help")) {

@@ -73,6 +73,7 @@ extern bool arg_recursive;
 extern bool arg_with_dependencies;
 extern bool arg_show_transaction;
 extern int arg_force;
+extern JsonFormatFlags arg_json_format_flags;
 extern bool arg_ask_password;
 extern bool arg_runtime;
 extern UnitFilePresetMode arg_preset_mode;
