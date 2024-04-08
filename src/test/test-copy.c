@@ -290,7 +290,7 @@ TEST(copy_tree_at_symlink) {
         fd = safe_close(fd);
 }
 
-TEST(copy_bytes) {
+TEST_RET(copy_bytes) {
         _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
         _cleanup_close_ int infd = -EBADF;
         int r, r2;
@@ -299,7 +299,8 @@ TEST(copy_bytes) {
         infd = open("/usr/lib/os-release", O_RDONLY|O_CLOEXEC);
         if (infd < 0)
                 infd = open("/etc/os-release", O_RDONLY|O_CLOEXEC);
-        assert_se(infd >= 0);
+        if (infd < 0)
+                return log_tests_skipped_errno(errno, "Could not open /usr/lib/os-release or /etc/os-release: %m");
 
         assert_se(pipe2(pipefd, O_CLOEXEC) == 0);
 
