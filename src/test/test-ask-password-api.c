@@ -15,9 +15,9 @@ TEST(ask_password) {
 
         r = ask_password_tty(-EBADF, &req, /* until= */ 0, /* flags= */ ASK_PASSWORD_CONSOLE_COLOR, /* flag_file= */ NULL, &ret);
         if (r == -ECANCELED)
-                assert_se(ret == NULL);
+                ASSERT_NULL(ret);
         else {
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 assert_se(strv_length(ret) == 1);
                 log_info("Got \"%s\"", *ret);
         }
