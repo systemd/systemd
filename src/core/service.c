@@ -4355,7 +4355,7 @@ static void service_notify_message(
 
         /* Interpret MAINPID= */
         e = strv_find_startswith(tags, "MAINPID=");
-        if (e && IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY)) {
+        if (e && IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_STOP_SIGTERM, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY)) {
                 _cleanup_(pidref_done) PidRef new_main_pid = PIDREF_NULL;
 
                 r = pidref_set_pidstr(&new_main_pid, e);
