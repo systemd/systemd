@@ -20,9 +20,9 @@
 static void log_cgroup_mask(CGroupMask got, CGroupMask expected) {
         _cleanup_free_ char *e_store = NULL, *g_store = NULL;
 
-        assert_se(cg_mask_to_string(expected, &e_store) >= 0);
+        ASSERT_OK(cg_mask_to_string(expected, &e_store));
         log_info("Expected mask: %s", e_store);
-        assert_se(cg_mask_to_string(got, &g_store) >= 0);
+        ASSERT_OK(cg_mask_to_string(got, &g_store));
         log_info("Got mask: %s", g_store);
 }
 
@@ -39,8 +39,8 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
 
         /* Prepare the manager. */
         _cleanup_free_ char *unit_dir = NULL;
-        assert_se(get_testdata_dir("units", &unit_dir) >= 0);
-        assert_se(set_unit_path(unit_dir) >= 0);
+        ASSERT_OK(get_testdata_dir("units", &unit_dir));
+        ASSERT_OK(set_unit_path(unit_dir));
         assert_se(runtime_dir = setup_fake_runtime_dir());
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);
         if (IN_SET(r, -EPERM, -EACCES)) {
@@ -63,13 +63,13 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         /* Load units and verify hierarchy. */
-        assert_se(manager_load_startable_unit_or_warn(m, "parent.slice", NULL, &parent) >= 0);
-        assert_se(manager_load_startable_unit_or_warn(m, "son.service", NULL, &son) >= 0);
-        assert_se(manager_load_startable_unit_or_warn(m, "daughter.service", NULL, &daughter) >= 0);
-        assert_se(manager_load_startable_unit_or_warn(m, "grandchild.service", NULL, &grandchild) >= 0);
-        assert_se(manager_load_startable_unit_or_warn(m, "parent-deep.slice", NULL, &parent_deep) >= 0);
-        assert_se(manager_load_startable_unit_or_warn(m, "nomem.slice", NULL, &nomem_parent) >= 0);
-        assert_se(manager_load_startable_unit_or_warn(m, "nomemleaf.service", NULL, &nomem_leaf) >= 0);
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "parent.slice", NULL, &parent));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "son.service", NULL, &son));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "daughter.service", NULL, &daughter));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "grandchild.service", NULL, &grandchild));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "parent-deep.slice", NULL, &parent_deep));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "nomem.slice", NULL, &nomem_parent));
+        ASSERT_OK(manager_load_startable_unit_or_warn(m, "nomemleaf.service", NULL, &nomem_leaf));
         assert_se(UNIT_GET_SLICE(son) == parent);
         assert_se(UNIT_GET_SLICE(daughter) == parent);
         assert_se(UNIT_GET_SLICE(parent_deep) == parent);
