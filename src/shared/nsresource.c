@@ -146,15 +146,16 @@ int nsresource_register_userns(const char *name, int userns_fd) {
 
 int nsresource_add_mount(int userns_fd, int mount_fd) {
         _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_close_ int _userns_fd = -EBADF;
         int r, userns_fd_idx, mount_fd_idx;
         const char *error_id;
 
         assert(mount_fd >= 0);
 
         if (userns_fd < 0) {
-                int _userns_fd = namespace_open_by_type(NAMESPACE_USER);
+                _userns_fd = namespace_open_by_type(NAMESPACE_USER);
                 if (_userns_fd < 0)
-                        return -errno;
+                        return _userns_fd;
 
                 userns_fd = _userns_fd;
         }
