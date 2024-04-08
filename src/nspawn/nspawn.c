@@ -5095,7 +5095,7 @@ static int run_container(
         if (arg_privileged) {
                 assert(userns_fd < 0);
 
-                /* If we have no user namespace then we'll clone and create a new mount namepsace right-away. */
+                /* If we have no user namespace then we'll clone and create a new mount namespace right-away. */
 
                 *pid = raw_clone(SIGCHLD|CLONE_NEWNS);
                 if (*pid < 0)
