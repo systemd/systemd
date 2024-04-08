@@ -569,6 +569,51 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             these three types of resources are generally redundant and reproducible on the next invocation of
             the unit). Note that the specified units must be stopped to invoke this operation.</para>
 
+            <table>
+              <title>
+                Possible values for <option>--what=</option>
+              </title>
+
+              <tgroup cols='2'>
+                <thead>
+                  <row>
+                    <entry>Value</entry>
+                    <entry>Unit Setting</entry>
+                  </row>
+                </thead>
+                <tbody>
+                  <row>
+                    <entry><literal>runtime</literal></entry>
+                    <entry><varname>RuntimeDirectory=</varname></entry>
+                  </row>
+                  <row>
+                    <entry><literal>state</literal></entry>
+                    <entry><varname>StateDirectory=</varname></entry>
+                  </row>
+                  <row>
+                    <entry><literal>cache</literal></entry>
+                    <entry><varname>CacheDirectory=</varname></entry>
+                  </row>
+                  <row>
+                    <entry><literal>logs</literal></entry>
+                    <entry><varname>LogsDirectory=</varname></entry>
+                  </row>
+                  <row>
+                    <entry><literal>configuration</literal></entry>
+                    <entry><varname>ConfigurationDirectory=</varname></entry>
+                  </row>
+                  <row>
+                    <entry><literal>fdstore</literal></entry>
+                    <entry><varname>FileDescriptorStorePreserve=</varname></entry>
+                  </row>
+                  <row>
+                    <entry><literal>all</literal></entry>
+                    <entry>All of the above</entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+
             <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
