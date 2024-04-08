@@ -249,9 +249,8 @@ static inline int run_test_table(void) {
 
 #define ASSERT_STREQ(expr1, expr2)                                                                              \
         ({                                                                                                      \
-                const char* _expr1 = (expr1);                                                                   \
-                const char* _expr2 = (expr2);                                                                   \
-                if (strcmp(_expr1, _expr2) != 0) {                                                              \
+                const char *_expr1 = (expr1), *_expr2 = (expr2);                                                \
+                if (!streq_ptr(_expr1, _expr2)) {                                                               \
                         log_error("%s:%i: Assertion failed: expected \"%s == %s\", but \"%s != %s\"",           \
                                   PROJECT_FILE, __LINE__, #expr1, #expr2, _expr1, _expr2);                      \
                         abort();                                                                                \
