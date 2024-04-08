@@ -76,12 +76,18 @@ meson:
 mkosi:
   - changed-files:
     - any-glob-to-any-file: ['.mkosi/*', 'mkosi.build']
+mountfsd:
+  - changed-files:
+    - any-glob-to-any-file: ['src/mountfsd/*']
 network:
   - changed-files:
     - any-glob-to-any-file: ['src/libsystemd-network/**/*', 'src/network/**/*']
 nspawn:
   - changed-files:
     - any-glob-to-any-file: '**/*nspawn*'
+nsresource:
+  - changed-files:
+    - any-glob-to-any-file: '**/*nsresource*'
 portable:
   - changed-files:
     - any-glob-to-any-file: 'src/portable/**/*'
