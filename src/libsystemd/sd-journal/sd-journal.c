@@ -233,7 +233,11 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
         assert_return(!journal_origin_changed(j), -ECHILD);
         assert_return(data, -EINVAL);
 
-        if (size == 0)
+        /* If the size is unspecified, assume it's a string. Note: 0 is the public value we document for
+         * this, for historical reasons. Internally, we pretty widely started using SIZE_MAX for this in
+         * similar cases however, hence accept that too. And internally we actually prefer it, to make things
+         * less surprising. */
+        if (IN_SET(size, 0, SIZE_MAX))
                 size = strlen(data);
 
         if (!match_is_valid(data, size))
@@ -336,7 +340,7 @@ int journal_add_match_pair(sd_journal *j, const char *field, const char *value) 
         if (!s)
                 return -ENOMEM;
 
-        return sd_journal_add_match(j, s, 0);
+        return sd_journal_add_match(j, s, SIZE_MAX);
 }
 
 int journal_add_matchf(sd_journal *j, const char *format, ...) {
@@ -353,7 +357,7 @@ int journal_add_matchf(sd_journal *j, const char *format, ...) {
         if (r < 0)
                 return -ENOMEM;
 
-        return sd_journal_add_match(j, s, 0);
+        return sd_journal_add_match(j, s, SIZE_MAX);
 }
 
 _public_ int sd_journal_add_conjunction(sd_journal *j) {
