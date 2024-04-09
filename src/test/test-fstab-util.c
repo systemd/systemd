@@ -39,8 +39,8 @@ static void do_fstab_filter_options(const char *opts,
                  opts, r, strnull(name), value, filtered,
                  r_expected, strnull(name_expected), strnull(value_expected), filtered_expected ?: opts);
         assert_se(r == r_expected);
-        assert_se(streq_ptr(name, name_expected));
-        assert_se(streq_ptr(value, value_expected));
+        ASSERT_TRUE(streq_ptr(name, name_expected));
+        ASSERT_TRUE(streq_ptr(value, value_expected));
         assert_se(streq_ptr(filtered, filtered_expected ?: opts));
 
         /* test mode which returns all the values */
@@ -52,7 +52,7 @@ static void do_fstab_filter_options(const char *opts,
                  r_values_expected, strnull(name_expected), strnull(values_expected));
         assert_se(r == r_values_expected);
         assert_se(streq_ptr(name, r_values_expected > 0 ? name_expected : NULL));
-        assert_se(streq_ptr(joined, values_expected));
+        ASSERT_TRUE(streq_ptr(joined, values_expected));
 
         /* also test the malloc-less mode */
         r = fstab_filter_options(opts, remove, &name, NULL, NULL, NULL);
@@ -60,7 +60,7 @@ static void do_fstab_filter_options(const char *opts,
                  opts, r, strnull(name),
                  r_expected, strnull(name_expected));
         assert_se(r == r_expected);
-        assert_se(streq_ptr(name, name_expected));
+        ASSERT_TRUE(streq_ptr(name, name_expected));
 }
 
 TEST(fstab_filter_options) {
@@ -135,16 +135,16 @@ TEST(fstab_find_pri) {
         assert_se(pri == -1);
 
         assert_se(fstab_find_pri("pri=11", &pri) == 1);
-        assert_se(pri == 11);
+        ASSERT_EQ(pri, 11);
 
         assert_se(fstab_find_pri("pri=-2", &pri) == 1);
         assert_se(pri == -2);
 
         assert_se(fstab_find_pri("opt,pri=12,opt", &pri) == 1);
-        assert_se(pri == 12);
+        ASSERT_EQ(pri, 12);
 
         assert_se(fstab_find_pri("opt,opt,pri=12,pri=13", &pri) == 1);
-        assert_se(pri == 13);
+        ASSERT_EQ(pri, 13);
 }
 
 TEST(fstab_yes_no_option) {

@@ -22,9 +22,9 @@ TEST(ordered_hashmap_next) {
                 assert_se(ordered_hashmap_put(m, INT_TO_PTR(i), INT_TO_PTR(i+10)) == 1);
         for (i = -2; i <= 1; i++)
                 assert_se(ordered_hashmap_next(m, INT_TO_PTR(i)) == INT_TO_PTR(i+11));
-        assert_se(!ordered_hashmap_next(m, INT_TO_PTR(2)));
-        assert_se(!ordered_hashmap_next(NULL, INT_TO_PTR(1)));
-        assert_se(!ordered_hashmap_next(m, INT_TO_PTR(3)));
+        ASSERT_FALSE(ordered_hashmap_next(m, INT_TO_PTR(2)));
+        ASSERT_FALSE(ordered_hashmap_next(NULL, INT_TO_PTR(1)));
+        ASSERT_FALSE(ordered_hashmap_next(m, INT_TO_PTR(3)));
 }
 
 TEST(uint64_compare_func) {
@@ -36,14 +36,14 @@ TEST(uint64_compare_func) {
 }
 
 TEST(trivial_compare_func) {
-        assert_se(trivial_compare_func(INT_TO_PTR('a'), INT_TO_PTR('a')) == 0);
+        ASSERT_EQ(trivial_compare_func(INT_TO_PTR('a'), INT_TO_PTR('a')), 0);
         assert_se(trivial_compare_func(INT_TO_PTR('a'), INT_TO_PTR('b')) == -1);
-        assert_se(trivial_compare_func(INT_TO_PTR('b'), INT_TO_PTR('a')) == 1);
+        ASSERT_EQ(trivial_compare_func(INT_TO_PTR('b'), INT_TO_PTR('a')), 1);
 }
 
 TEST(string_compare_func) {
         ASSERT_NE(string_compare_func("fred", "wilma"), 0);
-        assert_se(string_compare_func("fred", "fred") == 0);
+        ASSERT_EQ(string_compare_func("fred", "fred"), 0);
 }
 
 static void compare_cache(Hashmap *map, IteratedCache *cache) {
@@ -98,8 +98,8 @@ TEST(iterated_cache) {
         hashmap_clear(m);
         compare_cache(m, c);
 
-        assert_se(hashmap_free(m) == NULL);
-        assert_se(iterated_cache_free(c) == NULL);
+        ASSERT_NULL(hashmap_free(m));
+        ASSERT_NULL(iterated_cache_free(c));
 }
 
 TEST(hashmap_put_strdup) {
@@ -113,19 +113,19 @@ TEST(hashmap_put_strdup) {
         assert_se(hashmap_put_strdup(&m, "foo", "bar") == 0);
         assert_se(hashmap_put_strdup(&m, "foo", "BAR") == -EEXIST);
         assert_se(hashmap_put_strdup(&m, "foo", "bar") == 0);
-        assert_se(hashmap_contains(m, "foo"));
+        ASSERT_TRUE(hashmap_contains(m, "foo"));
 
         s = hashmap_get(m, "foo");
-        assert_se(streq(s, "bar"));
+        ASSERT_TRUE(streq(s, "bar"));
 
         assert_se(hashmap_put_strdup(&m, "xxx", "bar") == 1);
         assert_se(hashmap_put_strdup(&m, "xxx", "bar") == 0);
         assert_se(hashmap_put_strdup(&m, "xxx", "BAR") == -EEXIST);
         assert_se(hashmap_put_strdup(&m, "xxx", "bar") == 0);
-        assert_se(hashmap_contains(m, "xxx"));
+        ASSERT_TRUE(hashmap_contains(m, "xxx"));
 
         s = hashmap_get(m, "xxx");
-        assert_se(streq(s, "bar"));
+        ASSERT_TRUE(streq(s, "bar"));
 }
 
 TEST(hashmap_put_strdup_null) {
@@ -136,18 +136,18 @@ TEST(hashmap_put_strdup_null) {
         assert_se(hashmap_put_strdup(&m, "foo", "bar") == 0);
         assert_se(hashmap_put_strdup(&m, "foo", NULL) == -EEXIST);
         assert_se(hashmap_put_strdup(&m, "foo", "bar") == 0);
-        assert_se(hashmap_contains(m, "foo"));
+        ASSERT_TRUE(hashmap_contains(m, "foo"));
 
         s = hashmap_get(m, "foo");
-        assert_se(streq(s, "bar"));
+        ASSERT_TRUE(streq(s, "bar"));
 
         assert_se(hashmap_put_strdup(&m, "xxx", NULL) == 1);
         assert_se(hashmap_put_strdup(&m, "xxx", "bar") == -EEXIST);
         assert_se(hashmap_put_strdup(&m, "xxx", NULL) == 0);
-        assert_se(hashmap_contains(m, "xxx"));
+        ASSERT_TRUE(hashmap_contains(m, "xxx"));
 
         s = hashmap_get(m, "xxx");
-        assert_se(s == NULL);
+        ASSERT_NULL(s);
 }
 
 /* This file tests in test-hashmap-plain.c, and tests in test-hashmap-ordered.c, which is generated
@@ -158,13 +158,13 @@ TEST(hashmap_put_strdup_null) {
 int n_extern_tests_run = 0;
 
 static int intro(void) {
-        assert_se(n_extern_tests_run == 0);
+        ASSERT_EQ(n_extern_tests_run, 0);
         return EXIT_SUCCESS;
 }
 
 static int outro(void) {
         /* Ensure hashmap and ordered_hashmap were tested. */
-        assert_se(n_extern_tests_run == 2);
+        ASSERT_EQ(n_extern_tests_run, 2);
         return EXIT_SUCCESS;
 }
 

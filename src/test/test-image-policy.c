@@ -25,11 +25,11 @@ static void test_policy(const ImagePolicy *p, const char *name) {
         printf("%s\n", ansi_normal());
 
         assert_se(image_policy_from_string(as_string, &parsed) >= 0);
-        assert_se(image_policy_equal(p, parsed));
+        ASSERT_TRUE(image_policy_equal(p, parsed));
         parsed = image_policy_free(parsed);
 
         assert_se(image_policy_from_string(as_string_simplified, &parsed) >= 0);
-        assert_se(image_policy_equivalent(p, parsed));
+        ASSERT_TRUE(image_policy_equivalent(p, parsed));
         parsed = image_policy_free(parsed);
 
         for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++) {
@@ -39,7 +39,7 @@ static void test_policy(const ImagePolicy *p, const char *name) {
                 f = image_policy_get(p, d);
                 if (f < 0) {
                         f = image_policy_get_exhaustively(p, d);
-                        assert_se(f >= 0);
+                        ASSERT_OK(f);
                         assert_se(partition_policy_flags_to_string(f, /* simplified= */ true, &k) >= 0);
 
                         printf("%s\t%s → n/a (exhaustively: %s)%s\n", ansi_grey(), partition_designator_to_string(d), k, ansi_normal());
@@ -66,7 +66,7 @@ static void test_policy_equiv(const char *s, bool (*func)(const ImagePolicy *p))
 
         assert_se(image_policy_from_string(s, &p) >= 0);
 
-        assert_se(func(p));
+        ASSERT_TRUE(func(p));
         assert_se(func == image_policy_equiv_ignore || !image_policy_equiv_ignore(p));
         assert_se(func == image_policy_equiv_allow || !image_policy_equiv_allow(p));
         assert_se(func == image_policy_equiv_deny || !image_policy_equiv_deny(p));
@@ -147,7 +147,7 @@ static void test_policy_intersect_one(const char *a, const char *b, const char *
 
         log_info("%s ^ %s → %s vs. %s", s1, s2, s3, s4);
 
-        assert_se(image_policy_equivalent(z, t) > 0);
+        ASSERT_GT(image_policy_equivalent(z, t), 0);
 }
 
 TEST(image_policy_intersect) {

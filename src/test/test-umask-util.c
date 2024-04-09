@@ -14,41 +14,41 @@ int main(int argc, char *argv[]) {
 
         n = 0;
         WITH_UMASK(0123) {
-                assert_se(umask(000) == 0123);
+                ASSERT_EQ(umask(000), 0123u);
                 n++;
 
                 assert_se(get_process_umask(0, &t) == 0);
-                assert_se(t == 000);
+                ASSERT_EQ(t, 000u);
         }
 
-        assert_se(n == 1);
-        assert_se(umask(u) == 0111);
+        ASSERT_EQ(n, 1u);
+        ASSERT_EQ(umask(u), 0111u);
 
         assert_se(get_process_umask(getpid_cached(), &t) == 0);
         assert_se(t == u);
 
         WITH_UMASK(0135) {
-                assert_se(umask(000) == 0135);
+                ASSERT_EQ(umask(000), 0135u);
                 n++;
 
                 assert_se(get_process_umask(0, &t) == 0);
-                assert_se(t == 000);
+                ASSERT_EQ(t, 000u);
         }
 
-        assert_se(n == 2);
+        ASSERT_EQ(n, 2u);
         assert_se(umask(0111) == u);
 
         assert_se(get_process_umask(0, &t) == 0);
-        assert_se(t == 0111);
+        ASSERT_EQ(t, 0111u);
 
         WITH_UMASK(0315) {
-                assert_se(umask(000) == 0315);
+                ASSERT_EQ(umask(000), 0315u);
                 n++;
                 break;
         }
 
-        assert_se(n == 3);
-        assert_se(umask(u) == 0111);
+        ASSERT_EQ(n, 3u);
+        ASSERT_EQ(umask(u), 0111u);
 
         assert_se(get_process_umask(0, &t) == 0);
         assert_se(t == u);

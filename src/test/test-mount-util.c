@@ -31,15 +31,15 @@ TEST(mount_option_mangle) {
 
         assert_se(mount_option_mangle(NULL, MS_RDONLY|MS_NOSUID, &f, &opts) == 0);
         assert_se(f == (MS_RDONLY|MS_NOSUID));
-        assert_se(opts == NULL);
+        ASSERT_NULL(opts);
 
         assert_se(mount_option_mangle("", MS_RDONLY|MS_NOSUID, &f, &opts) == 0);
         assert_se(f == (MS_RDONLY|MS_NOSUID));
-        assert_se(opts == NULL);
+        ASSERT_NULL(opts);
 
         assert_se(mount_option_mangle("ro,nosuid,nodev,noexec", 0, &f, &opts) == 0);
         assert_se(f == (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC));
-        assert_se(opts == NULL);
+        ASSERT_NULL(opts);
 
         assert_se(mount_option_mangle("ro,nosuid,nodev,noexec,mode=0755", 0, &f, &opts) == 0);
         assert_se(f == (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC));
@@ -53,7 +53,7 @@ TEST(mount_option_mangle) {
 
         assert_se(mount_option_mangle("rw,nosuid,nodev,noexec,relatime,net_cls,net_prio", MS_RDONLY, &f, &opts) == 0);
         assert_se(f == (MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_RELATIME));
-        assert_se(streq(opts, "net_cls,net_prio"));
+        ASSERT_TRUE(streq(opts, "net_cls,net_prio"));
         opts = mfree(opts);
 
         assert_se(mount_option_mangle("rw,nosuid,nodev,relatime,size=1630748k,mode=0700,uid=1000,gid=1000", MS_RDONLY, &f, &opts) == 0);
@@ -79,7 +79,7 @@ TEST(mount_option_mangle) {
         assert_se(mount_option_mangle("rw,relatime,fmask=0022,dmask=0022,\"hogehoge", MS_RDONLY, &f, &opts) < 0);
 
         assert_se(mount_option_mangle("mode=01777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\"", 0, &f, &opts) == 0);
-        assert_se(f == 0);
+        ASSERT_EQ(f, 0u);
         assert_se(streq(opts, "mode=01777,size=10%,nr_inodes=400k,uid=496107520,gid=496107520,context=\"system_u:object_r:svirt_sandbox_file_t:s0:c0,c1\""));
         opts = mfree(opts);
 }
@@ -90,8 +90,8 @@ static void test_mount_flags_to_string_one(unsigned long flags, const char *expe
 
         r = mount_flags_to_string(flags, &x);
         log_info("flags: %#lX → %d/\"%s\"", flags, r, strnull(x));
-        assert_se(r >= 0);
-        assert_se(streq(x, expected));
+        ASSERT_OK(r);
+        ASSERT_TRUE(streq(x, expected));
 }
 
 TEST(mount_flags_to_string) {
@@ -141,37 +141,37 @@ TEST(bind_remount_recursive) {
 
         assert_se(mkdtemp_malloc("/tmp/XXXXXX", &tmp) >= 0);
         subdir = path_join(tmp, "subdir");
-        assert_se(subdir);
-        assert_se(mkdir(subdir, 0755) >= 0);
+        ASSERT_TRUE(subdir);
+        ASSERT_OK(mkdir(subdir, 0755));
 
         FOREACH_STRING(p, "/usr", "/sys", "/", tmp) {
                 pid_t pid;
 
                 pid = fork();
-                assert_se(pid >= 0);
+                ASSERT_OK(pid);
 
                 if (pid == 0) {
                         struct statvfs svfs;
                         /* child */
-                        assert_se(detach_mount_namespace() >= 0);
+                        ASSERT_OK(detach_mount_namespace());
 
                         /* Check that the subdir is writable (it must be because it's in /tmp) */
                         assert_se(statvfs(subdir, &svfs) >= 0);
-                        assert_se(!FLAGS_SET(svfs.f_flag, ST_RDONLY));
+                        ASSERT_FALSE(FLAGS_SET(svfs.f_flag, ST_RDONLY));
 
                         /* Make the subdir a bind mount */
                         assert_se(mount_nofollow(subdir, subdir, NULL, MS_BIND|MS_REC, NULL) >= 0);
 
                         /* Ensure it's still writable */
                         assert_se(statvfs(subdir, &svfs) >= 0);
-                        assert_se(!FLAGS_SET(svfs.f_flag, ST_RDONLY));
+                        ASSERT_FALSE(FLAGS_SET(svfs.f_flag, ST_RDONLY));
 
                         /* Now mark the path we currently run for read-only */
                         assert_se(bind_remount_recursive(p, MS_RDONLY, MS_RDONLY, path_equal(p, "/sys") ? STRV_MAKE("/sys/kernel") : NULL) >= 0);
 
                         /* Ensure that this worked on the top-level */
                         assert_se(statvfs(p, &svfs) >= 0);
-                        assert_se(FLAGS_SET(svfs.f_flag, ST_RDONLY));
+                        ASSERT_TRUE(FLAGS_SET(svfs.f_flag, ST_RDONLY));
 
                         /* And ensure this had an effect on the subdir exactly if we are talking about a path above the subdir */
                         assert_se(statvfs(subdir, &svfs) >= 0);
@@ -193,14 +193,14 @@ TEST(bind_remount_one) {
         }
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
                 /* child */
 
                 _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
 
-                assert_se(detach_mount_namespace() >= 0);
+                ASSERT_OK(detach_mount_namespace());
 
                 assert_se(fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo) >= 0);
 
@@ -216,12 +216,12 @@ TEST(bind_remount_one) {
         assert_se(wait_for_terminate_and_check("test-remount-one-with-mountinfo", pid, WAIT_LOG) == EXIT_SUCCESS);
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
                 /* child */
 
-                assert_se(detach_mount_namespace() >= 0);
+                ASSERT_OK(detach_mount_namespace());
 
                 assert_se(bind_remount_one("/run", MS_RDONLY, MS_RDONLY) >= 0);
                 assert_se(bind_remount_one("/run", MS_NOEXEC, MS_RDONLY|MS_NOEXEC) >= 0);
@@ -247,23 +247,23 @@ TEST(make_mount_point_inode) {
         dst_file = strjoina(d, "/dst/file");
         dst_dir = strjoina(d, "/dst/dir");
 
-        assert_se(mkdir_p(src_dir, 0755) >= 0);
-        assert_se(mkdir_parents(dst_file, 0755) >= 0);
-        assert_se(touch(src_file) >= 0);
+        ASSERT_OK(mkdir_p(src_dir, 0755));
+        ASSERT_OK(mkdir_parents(dst_file, 0755));
+        ASSERT_OK(touch(src_file));
 
-        assert_se(make_mount_point_inode_from_path(src_file, dst_file, 0755) >= 0);
-        assert_se(make_mount_point_inode_from_path(src_dir, dst_dir, 0755) >= 0);
+        ASSERT_OK(make_mount_point_inode_from_path(src_file, dst_file, 0755));
+        ASSERT_OK(make_mount_point_inode_from_path(src_dir, dst_dir, 0755));
 
         assert_se(stat(dst_dir, &st) == 0);
-        assert_se(S_ISDIR(st.st_mode));
+        ASSERT_TRUE(S_ISDIR(st.st_mode));
         assert_se(stat(dst_file, &st) == 0);
-        assert_se(S_ISREG(st.st_mode));
+        ASSERT_TRUE(S_ISREG(st.st_mode));
         assert_se(!(S_IXUSR & st.st_mode));
         assert_se(!(S_IXGRP & st.st_mode));
         assert_se(!(S_IXOTH & st.st_mode));
 
-        assert_se(unlink(dst_file) == 0);
-        assert_se(rmdir(dst_dir) == 0);
+        ASSERT_EQ(unlink(dst_file), 0);
+        ASSERT_EQ(rmdir(dst_dir), 0);
 
         assert_se(stat(src_file, &st) == 0);
         assert_se(make_mount_point_inode_from_stat(&st, dst_file, 0755) >= 0);
@@ -271,9 +271,9 @@ TEST(make_mount_point_inode) {
         assert_se(make_mount_point_inode_from_stat(&st, dst_dir, 0755) >= 0);
 
         assert_se(stat(dst_dir, &st) == 0);
-        assert_se(S_ISDIR(st.st_mode));
+        ASSERT_TRUE(S_ISDIR(st.st_mode));
         assert_se(stat(dst_file, &st) == 0);
-        assert_se(S_ISREG(st.st_mode));
+        ASSERT_TRUE(S_ISREG(st.st_mode));
         assert_se(!(S_IXUSR & st.st_mode));
         assert_se(!(S_IXGRP & st.st_mode));
         assert_se(!(S_IXOTH & st.st_mode));
@@ -292,8 +292,8 @@ TEST(make_mount_switch_root) {
         assert_se(mkdtemp_malloc(NULL, &t) >= 0);
 
         assert_se(asprintf(&s, "%s/somerandomname%" PRIu64, t, random_u64()) >= 0);
-        assert_se(s);
-        assert_se(touch(s) >= 0);
+        ASSERT_TRUE(s);
+        ASSERT_OK(touch(s));
 
         struct {
                 const char *path;
@@ -316,7 +316,7 @@ TEST(make_mount_switch_root) {
                               FORK_NEW_MOUNTNS |
                               FORK_MOUNTNS_SLAVE,
                               NULL);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 if (r == 0) {
                         assert_se(make_mount_point(i->path) >= 0);
@@ -374,7 +374,7 @@ TEST(umount_recursive) {
                 if (ERRNO_IS_NEG_PRIVILEGE(r))
                         return (void) log_notice("Skipping umount_recursive() test, lacking privileges");
 
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 if (r == 0) { /* child */
                         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
                         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
@@ -431,8 +431,8 @@ TEST(fd_make_mount_point) {
         assert_se(mkdtemp_malloc(NULL, &t) >= 0);
 
         assert_se(asprintf(&s, "%s/somerandomname%" PRIu64, t, random_u64()) >= 0);
-        assert_se(s);
-        assert_se(mkdir(s, 0700) >= 0);
+        ASSERT_TRUE(s);
+        ASSERT_OK(mkdir(s, 0700));
 
         r = safe_fork("(make_mount-point)",
                       FORK_RESET_SIGNALS |
@@ -444,24 +444,24 @@ TEST(fd_make_mount_point) {
                       FORK_NEW_MOUNTNS |
                       FORK_MOUNTNS_SLAVE,
                       NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
 
                 fd = open(s, O_PATH|O_CLOEXEC);
-                assert_se(fd >= 0);
+                ASSERT_OK(fd);
 
-                assert_se(fd_is_mount_point(fd, NULL, AT_SYMLINK_FOLLOW) == 0);
+                ASSERT_EQ(fd_is_mount_point(fd, NULL, AT_SYMLINK_FOLLOW), 0);
 
-                assert_se(fd_make_mount_point(fd) > 0);
+                ASSERT_GT(fd_make_mount_point(fd), 0);
 
                 /* Reopen the inode so that we end up on the new mount */
                 fd2 = open(s, O_PATH|O_CLOEXEC);
 
-                assert_se(fd_is_mount_point(fd2, NULL, AT_SYMLINK_FOLLOW) > 0);
+                ASSERT_GT(fd_is_mount_point(fd2, NULL, AT_SYMLINK_FOLLOW), 0);
 
-                assert_se(fd_make_mount_point(fd2) == 0);
+                ASSERT_EQ(fd_make_mount_point(fd2), 0);
 
                 _exit(EXIT_SUCCESS);
         }
@@ -477,64 +477,64 @@ TEST(bind_mount_submounts) {
         if (ERRNO_IS_NEG_PRIVILEGE(r))
                 return (void) log_tests_skipped("Skipping bind_mount_submounts() test, lacking privileges");
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         assert_se(x = path_join(a, "foo"));
-        assert_se(touch(x) >= 0);
+        ASSERT_OK(touch(x));
         free(x);
 
         assert_se(x = path_join(a, "x"));
-        assert_se(mkdir(x, 0755) >= 0);
-        assert_se(mount_nofollow_verbose(LOG_INFO, "tmpfs", x, "tmpfs", 0, NULL) >= 0);
+        ASSERT_OK(mkdir(x, 0755));
+        ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", x, "tmpfs", 0, NULL));
         free(x);
 
         assert_se(x = path_join(a, "x/xx"));
-        assert_se(touch(x) >= 0);
+        ASSERT_OK(touch(x));
         free(x);
 
         assert_se(x = path_join(a, "y"));
-        assert_se(mkdir(x, 0755) >= 0);
-        assert_se(mount_nofollow_verbose(LOG_INFO, "tmpfs", x, "tmpfs", 0, NULL) >= 0);
+        ASSERT_OK(mkdir(x, 0755));
+        ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", x, "tmpfs", 0, NULL));
         free(x);
 
         assert_se(x = path_join(a, "y/yy"));
-        assert_se(touch(x) >= 0);
+        ASSERT_OK(touch(x));
         free(x);
 
         assert_se(mkdtemp_malloc(NULL, &b) >= 0);
-        assert_se(mount_nofollow_verbose(LOG_INFO, "tmpfs", b, "tmpfs", 0, NULL) >= 0);
+        ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", b, "tmpfs", 0, NULL));
 
         assert_se(x = path_join(b, "x"));
-        assert_se(mkdir(x, 0755) >= 0);
+        ASSERT_OK(mkdir(x, 0755));
         free(x);
 
         assert_se(x = path_join(b, "y"));
-        assert_se(mkdir(x, 0755) >= 0);
+        ASSERT_OK(mkdir(x, 0755));
         free(x);
 
-        assert_se(bind_mount_submounts(a, b) >= 0);
+        ASSERT_OK(bind_mount_submounts(a, b));
 
         assert_se(x = path_join(b, "foo"));
         assert_se(access(x, F_OK) < 0 && errno == ENOENT);
         free(x);
 
         assert_se(x = path_join(b, "x/xx"));
-        assert_se(access(x, F_OK) >= 0);
+        ASSERT_OK(access(x, F_OK));
         free(x);
 
         assert_se(x = path_join(b, "y/yy"));
-        assert_se(access(x, F_OK) >= 0);
+        ASSERT_OK(access(x, F_OK));
         free(x);
 
         assert_se(x = path_join(b, "x"));
-        assert_se(path_is_mount_point(x) > 0);
+        ASSERT_GT(path_is_mount_point(x), 0);
         free(x);
 
         assert_se(x = path_join(b, "y"));
-        assert_se(path_is_mount_point(x) > 0);
+        ASSERT_GT(path_is_mount_point(x), 0);
 
-        assert_se(umount_recursive(a, 0) >= 0);
-        assert_se(umount_recursive(b, 0) >= 0);
+        ASSERT_OK(umount_recursive(a, 0));
+        ASSERT_OK(umount_recursive(b, 0));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

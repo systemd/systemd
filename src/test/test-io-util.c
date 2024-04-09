@@ -13,17 +13,17 @@
 static void test_sparse_write_one(int fd, const char *buffer, size_t n) {
         char check[n];
 
-        assert_se(lseek(fd, 0, SEEK_SET) == 0);
-        assert_se(ftruncate(fd, 0) >= 0);
+        ASSERT_EQ(lseek(fd, 0, SEEK_SET), 0);
+        ASSERT_OK(ftruncate(fd, 0));
         assert_se(sparse_write(fd, buffer, n, 4) == (ssize_t) n);
 
         assert_se(lseek(fd, 0, SEEK_CUR) == (off_t) n);
-        assert_se(ftruncate(fd, n) >= 0);
+        ASSERT_OK(ftruncate(fd, n));
 
-        assert_se(lseek(fd, 0, SEEK_SET) == 0);
+        ASSERT_EQ(lseek(fd, 0, SEEK_SET), 0);
         assert_se(read(fd, check, n) == (ssize_t) n);
 
-        assert_se(memcmp(buffer, check, n) == 0);
+        ASSERT_EQ(memcmp(buffer, check, n), 0);
 }
 
 TEST(sparse_write) {
@@ -36,7 +36,7 @@ TEST(sparse_write) {
         char fn[] = "/tmp/sparseXXXXXX";
 
         fd = mkostemp(fn, O_CLOEXEC);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         (void) unlink(fn);
 
         test_sparse_write_one(fd, test_a, sizeof(test_a));

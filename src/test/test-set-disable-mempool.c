@@ -12,12 +12,12 @@
 static void* thread(void *p) {
         Set **s = p;
 
-        assert_se(s);
+        ASSERT_TRUE(s);
         assert_se(*s);
 
-        assert_se(!is_main_thread());
-        assert_se(mempool_enabled);
-        assert_se(!mempool_enabled());
+        ASSERT_FALSE(is_main_thread());
+        ASSERT_TRUE(mempool_enabled);
+        ASSERT_FALSE(mempool_enabled());
 
         assert_se(set_size(*s) == NUM);
         *s = set_free(*s);
@@ -32,20 +32,20 @@ static void test_one(const char *val) {
         Set *s;
 
         log_info("Testing with SYSTEMD_MEMPOOL=%s", val);
-        assert_se(setenv("SYSTEMD_MEMPOOL", val, true) == 0);
+        ASSERT_EQ(setenv("SYSTEMD_MEMPOOL", val, true), 0);
 
-        assert_se(is_main_thread());
-        assert_se(mempool_enabled);    /* It is a weak symbol, but we expect it to be available */
-        assert_se(!mempool_enabled());
+        ASSERT_TRUE(is_main_thread());
+        ASSERT_TRUE(mempool_enabled);    /* It is a weak symbol, but we expect it to be available */
+        ASSERT_FALSE(mempool_enabled());
 
         assert_se(s = set_new(NULL));
         for (i = 0; i < NUM; i++)
                 assert_se(set_put(s, &x[i]));
 
         assert_se(pthread_create(&t, NULL, thread, &s) == 0);
-        assert_se(pthread_join(t, NULL) == 0);
+        ASSERT_EQ(pthread_join(t, NULL), 0);
 
-        assert_se(!s);
+        ASSERT_FALSE(s);
 }
 
 TEST(disable_mempool) {

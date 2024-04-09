@@ -18,15 +18,15 @@ TEST(errno_list) {
 
 #ifdef ECANCELLED
         /* ECANCELLED is an alias of ECANCELED. */
-        assert_se(streq(errno_to_name(ECANCELLED), "ECANCELED"));
+        ASSERT_TRUE(streq(errno_to_name(ECANCELLED), "ECANCELED"));
 #endif
-        assert_se(streq(errno_to_name(ECANCELED), "ECANCELED"));
+        ASSERT_TRUE(streq(errno_to_name(ECANCELED), "ECANCELED"));
 
 #ifdef EREFUSED
         /* EREFUSED is an alias of ECONNREFUSED. */
-        assert_se(streq(errno_to_name(EREFUSED), "ECONNREFUSED"));
+        ASSERT_TRUE(streq(errno_to_name(EREFUSED), "ECONNREFUSED"));
 #endif
-        assert_se(streq(errno_to_name(ECONNREFUSED), "ECONNREFUSED"));
+        ASSERT_TRUE(streq(errno_to_name(ECONNREFUSED), "ECONNREFUSED"));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
         assert_se(sigbus_pop(&addr) == 0);
 
         assert_se((fd = mkostemp(template, O_RDWR|O_CREAT|O_EXCL)) >= 0);
-        assert_se(unlink(template) >= 0);
+        ASSERT_OK(unlink(template));
         assert_se(posix_fallocate_loop(fd, 0, page_size() * 8) >= 0);
 
         p = mmap(NULL, page_size() * 16, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
