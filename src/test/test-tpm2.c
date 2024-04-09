@@ -581,14 +581,14 @@ TEST(parse_pcr_argument) {
         _cleanup_free_ Tpm2PCRValue *t0p = NULL;
         size_t n_t0p;
         assert_se(tpm2_parse_pcr_argument("", &t0p, &n_t0p) == 0);
-        ASSERT_EQ(n_t0p, 0);
+        ASSERT_EQ(n_t0p, 0u);
         assert_se(tpm2_parse_pcr_argument_append("", &t0p, &n_t0p) == 0);
-        ASSERT_EQ(n_t0p, 0);
+        ASSERT_EQ(n_t0p, 0u);
         uint32_t m0 = 0xf;
         assert_se(tpm2_parse_pcr_argument_to_mask("", &m0) == 0);
-        ASSERT_EQ(m0, 0);
+        ASSERT_EQ(m0, 0u);
         assert_se(tpm2_parse_pcr_argument_to_mask("", &m0) == 0);
-        ASSERT_EQ(m0, 0);
+        ASSERT_EQ(m0, 0u);
 
         Tpm2PCRValue t1[] = {
                 TPM2_PCR_VALUE_MAKE(0, 0, {}),
@@ -679,7 +679,7 @@ TEST(parse_pcr_argument) {
         assert_se(tpm2_parse_pcr_argument("1,2:invalid", &v, &n_v) < 0);
         assert_se(tpm2_parse_pcr_argument("1:sha1=invalid", &v, &n_v) < 0);
         ASSERT_NULL(v);
-        ASSERT_EQ(n_v, 0);
+        ASSERT_EQ(n_v, 0u);
 
         check_parse_pcr_argument_to_mask("", 0x0);
         check_parse_pcr_argument_to_mask("0", 0x1);
