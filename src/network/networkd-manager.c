@@ -568,7 +568,7 @@ static int persistent_storage_open(void) {
         if (r <= 0)
                 return -EBADF;
 
-        fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY | O_PATH);
+        fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY);
         if (fd < 0)
                 return log_debug_errno(errno, "Failed to open /var/lib/systemd/network/, ignoring: %m");
 
