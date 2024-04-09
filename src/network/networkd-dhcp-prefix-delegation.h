@@ -8,6 +8,7 @@
 
 #include "conf-parser.h"
 
+typedef struct Address Address;
 typedef struct Link Link;
 
 bool link_dhcp_pd_is_enabled(Link *link);
@@ -19,5 +20,6 @@ int dhcp4_pd_prefix_acquired(Link *uplink);
 int dhcp6_pd_prefix_acquired(Link *uplink);
 void dhcp_pd_prefix_lost(Link *uplink);
 void dhcp4_pd_prefix_lost(Link *uplink);
+int dhcp_pd_reconfigure_address(Address *address, Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_pd_subnet_id);
