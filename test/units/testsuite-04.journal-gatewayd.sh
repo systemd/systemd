@@ -27,37 +27,37 @@ systemctl start systemd-journal-gatewayd.socket
 
 # /browse
 # We should get redirected to /browse by default
-curl -Lfs http://localhost:19531 | grep -qF "<title>Journal</title>"
-curl -Lfs http://localhost:19531/browse | grep -qF "<title>Journal</title>"
-(! curl -Lfs http://localhost:19531/foo/bar/baz)
-(! curl -Lfs http://localhost:19531/foo/../../../bar/../baz)
+curl -LSfs http://localhost:19531 | grep -F "<title>Journal</title>" >/dev/null
+curl -LSfs http://localhost:19531/browse | grep -F "<title>Journal</title>" >/dev/null
+(! curl -LSfs http://localhost:19531/foo/bar/baz)
+(! curl -LSfs http://localhost:19531/foo/../../../bar/../baz)
 
 # /entries
 # Accept: text/plain should be the default
-curl -Lfs http://localhost:19531/entries | \
-    grep -qE " $TEST_TAG\[[0-9]+\]: $TEST_MESSAGE"
-curl -Lfs --header "Accept: text/plain" http://localhost:19531/entries | \
-    grep -qE " $TEST_TAG\[[0-9]+\]: $TEST_MESSAGE"
-curl -Lfs --header "Accept: application/json" http://localhost:19531/entries | \
+curl -LSfs http://localhost:19531/entries | \
+    grep -E " $TEST_TAG\[[0-9]+\]: $TEST_MESSAGE" >/dev/null
+curl -LSfs --header "Accept: text/plain" http://localhost:19531/entries | \
+    grep -E " $TEST_TAG\[[0-9]+\]: $TEST_MESSAGE" >/dev/null
+curl -LSfs --header "Accept: application/json" http://localhost:19531/entries | \
     jq -se ".[] | select(.MESSAGE == \"$TEST_MESSAGE\")"
-curl -Lfs --header "Accept: application/json" http://localhost:19531/entries?boot | \
+curl -LSfs --header "Accept: application/json" http://localhost:19531/entries?boot | \
     jq -se ".[] | select(.MESSAGE == \"$TEST_MESSAGE\")"
-curl -Lfs --header "Accept: application/json" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
+curl -LSfs --header "Accept: application/json" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
     jq -se "length == 1 and select(.[].MESSAGE == \"$TEST_MESSAGE\")"
 # Show 10 entries starting from $BOOT_CURSOR, skip the first 5
-curl -Lfs --header "Accept: application/json" --header "Range: entries=$BOOT_CURSOR:5:10" http://localhost:19531/entries | \
+curl -LSfs --header "Accept: application/json" --header "Range: entries=$BOOT_CURSOR:5:10" http://localhost:19531/entries | \
     jq -se "length == 10"
 # Check if the specified cursor refers to an existing entry and return just that entry
-curl -Lfs --header "Accept: application/json" --header "Range: entries=$TEST_CURSOR" http://localhost:19531/entries?discrete | \
+curl -LSfs --header "Accept: application/json" --header "Range: entries=$TEST_CURSOR" http://localhost:19531/entries?discrete | \
     jq -se "length == 1 and select(.[].MESSAGE == \"$TEST_MESSAGE\")"
 # Check entry is present (resp. absent) when filtering by timestamp
-curl -Lfs --header "Range: realtime=$BEFORE_TIMESTAMP:" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
-    grep -qE " $TEST_TAG\[[0-9]+\]: $TEST_MESSAGE"
-curl -Lfs --header "Range: realtime=:$AFTER_TIMESTAMP" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
-    grep -qE " $TEST_TAG\[[0-9]+\]: $TEST_MESSAGE"
-curl -Lfs --header "Accept: application/json" --header "Range: realtime=:$BEFORE_TIMESTAMP" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
+curl -LSfs --header "Range: realtime=$BEFORE_TIMESTAMP:" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
+    grep -E " $TEST_TAG\[[0-9]+\]: $TEST_MESSAGE" >/dev/null
+curl -LSfs --header "Range: realtime=:$AFTER_TIMESTAMP" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
+    grep -E " $TEST_TAG\[[0-9]+\]: $TEST_MESSAGE" >/dev/null
+curl -LSfs --header "Accept: application/json" --header "Range: realtime=:$BEFORE_TIMESTAMP" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
     jq -se "length == 0"
-curl -Lfs --header "Accept: application/json" --header "Range: realtime=$AFTER_TIMESTAMP:" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
+curl -LSfs --header "Accept: application/json" --header "Range: realtime=$AFTER_TIMESTAMP:" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
     jq -se "length == 0"
 # Check positive and negative skip when filtering by timestamp
 echo "-= This is a second test message =-" | systemd-cat -t "$TEST_TAG"
@@ -67,18 +67,18 @@ echo "-= This is a third test message =-" | systemd-cat -t "$TEST_TAG"
 journalctl --sync
 sleep 1
 END_TIMESTAMP="$(date +%s)"
-curl -Lfs --header "Accept: application/json" --header "Range: realtime=$BEFORE_TIMESTAMP::1:1" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
+curl -LSfs --header "Accept: application/json" --header "Range: realtime=$BEFORE_TIMESTAMP::1:1" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
     jq -se "length == 1 and select(.[].__CURSOR == \"$TEST2_CURSOR\")"
-curl -Lfs --header "Accept: application/json" --header "Range: realtime=$END_TIMESTAMP::-1:1" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
+curl -LSfs --header "Accept: application/json" --header "Range: realtime=$END_TIMESTAMP::-1:1" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
     jq -se "length == 1 and select(.[].__CURSOR == \"$TEST2_CURSOR\")"
 
 # No idea how to properly parse this (jq won't cut it), so let's at least do some sanity checks that every
 # line is either empty or begins with data:
-curl -Lfs --header "Accept: text/event-stream" http://localhost:19531/entries | \
+curl -LSfs --header "Accept: text/event-stream" http://localhost:19531/entries | \
     awk '!/^(data: \{.+\}|)$/ { exit 1; }'
 # Same thing as journalctl --output=export
 mkdir /tmp/remote-journal
-curl -Lfs --header "Accept: application/vnd.fdo.journal" http://localhost:19531/entries | \
+curl -LSfs --header "Accept: application/vnd.fdo.journal" http://localhost:19531/entries | \
     /usr/lib/systemd/systemd-journal-remote --output=/tmp/remote-journal/system.journal --split-mode=none -
 journalctl --directory=/tmp/remote-journal -t "$TEST_TAG" --grep "$TEST_MESSAGE"
 rm -rf /tmp/remote-journal/*
@@ -90,13 +90,13 @@ journalctl --directory=/tmp/remote-journal -t "$TEST_TAG" --grep "$TEST_MESSAGE"
 rm -rf /tmp/remote-journal
 
 # /machine
-curl -Lfs http://localhost:19531/machine | jq
+curl -LSfs http://localhost:19531/machine | jq
 
 # /fields
-curl -Lfs http://localhost:19531/fields/MESSAGE | grep -qE -- "$TEST_MESSAGE"
-curl -Lfs http://localhost:19531/fields/_TRANSPORT
-(! curl -Lfs http://localhost:19531/fields)
-(! curl -Lfs http://localhost:19531/fields/foo-bar-baz)
+curl -LSfs http://localhost:19531/fields/MESSAGE | grep -E -- "$TEST_MESSAGE" >/dev/null
+curl -LSfs http://localhost:19531/fields/_TRANSPORT
+(! curl -LSfs http://localhost:19531/fields)
+(! curl -LSfs http://localhost:19531/fields/foo-bar-baz)
 
 systemctl stop systemd-journal-gatewayd.{socket,service}
 
@@ -133,13 +133,13 @@ GATEWAYD_PID=$!
 sleep 1
 
 # Do a limited set of tests, since the underlying code should be the same past the HTTPS transport
-curl -Lfsk https://localhost:19531 | grep -qF "<title>Journal</title>"
-curl -Lfsk https://localhost:19531/entries | \
-    grep -qE " $TEST_TAG\[[0-9]+\]: $TEST_MESSAGE"
-curl -Lfsk --header "Accept: application/json" https://localhost:19531/entries | \
+curl -LSfsk https://localhost:19531 | grep -F "<title>Journal</title>" >/dev/null
+curl -LSfsk https://localhost:19531/entries | \
+    grep -E " $TEST_TAG\[[0-9]+\]: $TEST_MESSAGE" >/dev/null
+curl -LSfsk --header "Accept: application/json" https://localhost:19531/entries | \
     jq -se ".[] | select(.MESSAGE == \"$TEST_MESSAGE\")"
-curl -Lfsk https://localhost:19531/machine | jq
-curl -Lfsk https://localhost:19531/fields/_TRANSPORT
+curl -LSfsk https://localhost:19531/machine | jq
+curl -LSfsk https://localhost:19531/fields/_TRANSPORT
 
 kill "$GATEWAYD_PID"
 
@@ -161,18 +161,18 @@ curl --fail-with-body --upload-file "$GATEWAYD_FILE" -L http://localhost:19531/u
 (! grep '[^[:print:]]' "$OUT")
 rm -rf "$OUT"
 
-curl -Lfs http://localhost:19531/browse | grep -qF "<title>Journal</title>"
+curl -LSfs http://localhost:19531/browse | grep -F "<title>Journal</title>" >/dev/null
 # Nuke the file behind the /browse endpoint
 mv /usr/share/systemd/gatewayd/browse.html /usr/share/systemd/gatewayd/browse.html.bak
 (! curl --fail-with-body -L http://localhost:19531/browse)
 mv /usr/share/systemd/gatewayd/browse.html.bak /usr/share/systemd/gatewayd/browse.html
-curl -Lfs http://localhost:19531/browse | grep -qF "<title>Journal</title>"
+curl -LSfs http://localhost:19531/browse | grep -F "<title>Journal</title>" >/dev/null
 
 # Nuke the journal file
 mv "$GATEWAYD_FILE" "$GATEWAYD_FILE.bak"
 (! curl --fail-with-body -L http://localhost:19531/fields/_PID)
 mv "$GATEWAYD_FILE.bak" "$GATEWAYD_FILE"
-curl -Lfs http://localhost:19531/fields/_PID
+curl -LSfs http://localhost:19531/fields/_PID
 
 systemctl stop test-gatewayd.{socket,service}
 rm -f "$GATEWAYD_FILE"
