@@ -47,18 +47,18 @@ TEST(sysctl_read) {
         assert_se(sysctl_read("kernel/random/boot_id", &s) >= 0);
         assert_se(sd_id128_from_string(s, &a) >= 0);
         assert_se(sd_id128_get_boot(&b) >= 0);
-        assert_se(sd_id128_equal(a, b));
+        ASSERT_TRUE(sd_id128_equal(a, b));
         s = mfree(s);
 
         assert_se(sysctl_read_ip_property(AF_INET, "lo", "forwarding", &s));
-        assert_se(STR_IN_SET(s, "0", "1"));
+        ASSERT_TRUE(STR_IN_SET(s, "0", "1"));
 
         r = sysctl_write_ip_property(AF_INET, "lo", "forwarding", s);
         assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r) || r == -EROFS);
         s = mfree(s);
 
         assert_se(sysctl_read_ip_property(AF_INET, NULL, "ip_forward", &s));
-        assert_se(STR_IN_SET(s, "0", "1"));
+        ASSERT_TRUE(STR_IN_SET(s, "0", "1"));
 
         r = sysctl_write_ip_property(AF_INET, NULL, "ip_forward", s);
         assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r) || r == -EROFS);
@@ -66,7 +66,7 @@ TEST(sysctl_read) {
 
         assert_se(sysctl_read("kernel/hostname", &s) >= 0);
         assert_se(uname(&u) >= 0);
-        assert_se(streq_ptr(s, u.nodename));
+        ASSERT_TRUE(streq_ptr(s, u.nodename));
 
         r = sysctl_write("kernel/hostname", s);
         assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r) || r == -EROFS);

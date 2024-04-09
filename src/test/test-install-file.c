@@ -18,15 +18,15 @@ TEST(install_file) {
         assert_se(b = path_join(p, "bar"));
 
         WITH_UMASK(0077)
-                assert_se(write_string_file(a, "wups", WRITE_STRING_FILE_CREATE) >= 0);
+                ASSERT_OK(write_string_file(a, "wups", WRITE_STRING_FILE_CREATE));
 
         assert_se(lstat(a, &stat1) >= 0);
-        assert_se(S_ISREG(stat1.st_mode));
+        ASSERT_TRUE(S_ISREG(stat1.st_mode));
 
-        assert_se(install_file(AT_FDCWD, a, AT_FDCWD, b, 0) >= 0);
-        assert_se(install_file(AT_FDCWD, b, AT_FDCWD, a, INSTALL_FSYNC) >= 0);
+        ASSERT_OK(install_file(AT_FDCWD, a, AT_FDCWD, b, 0));
+        ASSERT_OK(install_file(AT_FDCWD, b, AT_FDCWD, a, INSTALL_FSYNC));
 
-        assert_se(write_string_file(b, "ttss", WRITE_STRING_FILE_CREATE) >= 0);
+        ASSERT_OK(write_string_file(b, "ttss", WRITE_STRING_FILE_CREATE));
         assert_se(install_file(AT_FDCWD, a, AT_FDCWD, b, INSTALL_FSYNC_FULL) == -EEXIST);
         assert_se(install_file(AT_FDCWD, a, AT_FDCWD, b, INSTALL_FSYNC_FULL|INSTALL_REPLACE) >= 0);
 
@@ -42,9 +42,9 @@ TEST(install_file) {
         assert_se(stat1.st_ino == stat2.st_ino);
         assert_se((stat2.st_mode & 0222) == 0); /* read-only */
 
-        assert_se(mkdir(b, 0755) >= 0);
+        ASSERT_OK(mkdir(b, 0755));
         assert_se(c = path_join(b, "dir"));
-        assert_se(mkdir(c, 0755) >= 0);
+        ASSERT_OK(mkdir(c, 0755));
         free(c);
         assert_se(c = path_join(b, "reg"));
         assert_se(mknod(c, S_IFREG|0755, 0) >= 0);
@@ -55,7 +55,7 @@ TEST(install_file) {
         assert_se(install_file(AT_FDCWD, b, AT_FDCWD, a, INSTALL_FSYNC_FULL) == -EEXIST);
         assert_se(install_file(AT_FDCWD, b, AT_FDCWD, a, INSTALL_FSYNC_FULL|INSTALL_REPLACE) == 0);
 
-        assert_se(write_string_file(b, "ttss", WRITE_STRING_FILE_CREATE) >= 0);
+        ASSERT_OK(write_string_file(b, "ttss", WRITE_STRING_FILE_CREATE));
 
         assert_se(install_file(AT_FDCWD, b, AT_FDCWD, a, INSTALL_FSYNC_FULL) == -EEXIST);
         assert_se(install_file(AT_FDCWD, b, AT_FDCWD, a, INSTALL_FSYNC_FULL|INSTALL_REPLACE) == 0);

@@ -20,13 +20,13 @@ TEST(parse_path_argument) {
         _cleanup_free_ char *path = NULL;
 
         assert_se(parse_path_argument("help", false, &path) == 0);
-        assert_se(streq(basename(path), "help"));
+        ASSERT_TRUE(streq(basename(path), "help"));
 
         assert_se(parse_path_argument("/", false, &path) == 0);
         assert_se(streq(path, "/"));
 
         assert_se(parse_path_argument("/", true, &path) == 0);
-        assert_se(path == NULL);
+        ASSERT_NULL(path);
 }
 
 TEST(parse_signal_argument) {

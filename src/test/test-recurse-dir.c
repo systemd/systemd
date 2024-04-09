@@ -64,8 +64,8 @@ static int recurse_dir_callback(
 
         char ***l = userdata;
 
-        assert_se(path);
-        assert_se(de);
+        ASSERT_TRUE(path);
+        ASSERT_TRUE(de);
 
         switch (event) {
 
@@ -76,7 +76,7 @@ static int recurse_dir_callback(
                           de->d_type == DT_LNK ? ", ignoring." : "");
 
                 if (de->d_type != DT_LNK)
-                        assert_se(strv_extend(l, path) >= 0);
+                        ASSERT_OK(strv_extend(l, path));
                 break;
 
         case RECURSE_DIR_ENTER:
@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
         fd = open(p, O_DIRECTORY|O_CLOEXEC);
         if (fd < 0 && errno == ENOENT)
                 return log_tests_skipped_errno(errno, "Couldn't open directory %s", p);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         /* If the test directory is on an overlayfs then files and their directory may return different
          * st_dev in stat results, which confuses nftw into thinking they're on different filesystems and

@@ -50,49 +50,49 @@ TEST(chown_recursive) {
         assert_se(mkdtemp_malloc(NULL, &t) >= 0);
 
         p = strjoina(t, "/dir");
-        assert_se(mkdir(p, 0777) >= 0);
+        ASSERT_OK(mkdir(p, 0777));
         assert_se(lstat(p, &st) >= 0);
-        assert_se(S_ISDIR(st.st_mode));
+        ASSERT_TRUE(S_ISDIR(st.st_mode));
         assert_se((st.st_mode & 07777) == 0755);
         assert_se(st.st_uid == uid);
         assert_se(st.st_gid == gid);
-        assert_se(!has_xattr(p));
+        ASSERT_FALSE(has_xattr(p));
 
         p = strjoina(t, "/dir/symlink");
         assert_se(symlink("../../", p) >= 0);
         assert_se(lstat(p, &st) >= 0);
-        assert_se(S_ISLNK(st.st_mode));
+        ASSERT_TRUE(S_ISLNK(st.st_mode));
         assert_se((st.st_mode & 07777) == 0777);
         assert_se(st.st_uid == uid);
         assert_se(st.st_gid == gid);
-        assert_se(!has_xattr(p));
+        ASSERT_FALSE(has_xattr(p));
 
         p = strjoina(t, "/dir/reg");
         assert_se(mknod(p, S_IFREG|0777, 0) >= 0);
         assert_se(lstat(p, &st) >= 0);
-        assert_se(S_ISREG(st.st_mode));
+        ASSERT_TRUE(S_ISREG(st.st_mode));
         assert_se((st.st_mode & 07777) == 0755);
         assert_se(st.st_uid == uid);
         assert_se(st.st_gid == gid);
-        assert_se(!has_xattr(p));
+        ASSERT_FALSE(has_xattr(p));
 
         p = strjoina(t, "/dir/sock");
         assert_se(mknod(p, S_IFSOCK|0777, 0) >= 0);
         assert_se(lstat(p, &st) >= 0);
-        assert_se(S_ISSOCK(st.st_mode));
+        ASSERT_TRUE(S_ISSOCK(st.st_mode));
         assert_se((st.st_mode & 07777) == 0755);
         assert_se(st.st_uid == uid);
         assert_se(st.st_gid == gid);
-        assert_se(!has_xattr(p));
+        ASSERT_FALSE(has_xattr(p));
 
         p = strjoina(t, "/dir/fifo");
         assert_se(mknod(p, S_IFIFO|0777, 0) >= 0);
         assert_se(lstat(p, &st) >= 0);
-        assert_se(S_ISFIFO(st.st_mode));
+        ASSERT_TRUE(S_ISFIFO(st.st_mode));
         assert_se((st.st_mode & 07777) == 0755);
         assert_se(st.st_uid == uid);
         assert_se(st.st_gid == gid);
-        assert_se(!has_xattr(p));
+        ASSERT_FALSE(has_xattr(p));
 
         /* We now apply an xattr to the dir, and check it again */
         p = strjoina(t, "/dir");
@@ -100,56 +100,56 @@ TEST(chown_recursive) {
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return (void) log_tests_skipped_errno(r, "no acl supported on /tmp");
 
-        assert_se(r >= 0);
-        assert_se(setxattr(p, "system.posix_acl_default", default_acl, sizeof(default_acl), 0) >= 0);
+        ASSERT_OK(r);
+        ASSERT_OK(setxattr(p, "system.posix_acl_default", default_acl, sizeof(default_acl), 0));
         assert_se(lstat(p, &st) >= 0);
-        assert_se(S_ISDIR(st.st_mode));
+        ASSERT_TRUE(S_ISDIR(st.st_mode));
         assert_se((st.st_mode & 07777) == 0775); /* acl change changed the mode too */
         assert_se(st.st_uid == uid);
         assert_se(st.st_gid == gid);
-        assert_se(has_xattr(p));
+        ASSERT_TRUE(has_xattr(p));
 
-        assert_se(path_chown_recursive(t, 1, 2, 07777, 0) >= 0);
+        ASSERT_OK(path_chown_recursive(t, 1, 2, 07777, 0));
 
         p = strjoina(t, "/dir");
         assert_se(lstat(p, &st) >= 0);
-        assert_se(S_ISDIR(st.st_mode));
+        ASSERT_TRUE(S_ISDIR(st.st_mode));
         assert_se((st.st_mode & 07777) == 0775);
-        assert_se(st.st_uid == 1);
-        assert_se(st.st_gid == 2);
-        assert_se(!has_xattr(p));
+        ASSERT_EQ(st.st_uid, 1);
+        ASSERT_EQ(st.st_gid, 2);
+        ASSERT_FALSE(has_xattr(p));
 
         p = strjoina(t, "/dir/symlink");
         assert_se(lstat(p, &st) >= 0);
-        assert_se(S_ISLNK(st.st_mode));
+        ASSERT_TRUE(S_ISLNK(st.st_mode));
         assert_se((st.st_mode & 07777) == 0777);
-        assert_se(st.st_uid == 1);
-        assert_se(st.st_gid == 2);
-        assert_se(!has_xattr(p));
+        ASSERT_EQ(st.st_uid, 1);
+        ASSERT_EQ(st.st_gid, 2);
+        ASSERT_FALSE(has_xattr(p));
 
         p = strjoina(t, "/dir/reg");
         assert_se(lstat(p, &st) >= 0);
-        assert_se(S_ISREG(st.st_mode));
+        ASSERT_TRUE(S_ISREG(st.st_mode));
         assert_se((st.st_mode & 07777) == 0755);
-        assert_se(st.st_uid == 1);
-        assert_se(st.st_gid == 2);
-        assert_se(!has_xattr(p));
+        ASSERT_EQ(st.st_uid, 1);
+        ASSERT_EQ(st.st_gid, 2);
+        ASSERT_FALSE(has_xattr(p));
 
         p = strjoina(t, "/dir/sock");
         assert_se(lstat(p, &st) >= 0);
-        assert_se(S_ISSOCK(st.st_mode));
+        ASSERT_TRUE(S_ISSOCK(st.st_mode));
         assert_se((st.st_mode & 07777) == 0755);
-        assert_se(st.st_uid == 1);
-        assert_se(st.st_gid == 2);
-        assert_se(!has_xattr(p));
+        ASSERT_EQ(st.st_uid, 1);
+        ASSERT_EQ(st.st_gid, 2);
+        ASSERT_FALSE(has_xattr(p));
 
         p = strjoina(t, "/dir/fifo");
         assert_se(lstat(p, &st) >= 0);
-        assert_se(S_ISFIFO(st.st_mode));
+        ASSERT_TRUE(S_ISFIFO(st.st_mode));
         assert_se((st.st_mode & 07777) == 0755);
-        assert_se(st.st_uid == 1);
-        assert_se(st.st_gid == 2);
-        assert_se(!has_xattr(p));
+        ASSERT_EQ(st.st_uid, 1);
+        ASSERT_EQ(st.st_gid, 2);
+        ASSERT_FALSE(has_xattr(p));
 }
 
 static int intro(void) {

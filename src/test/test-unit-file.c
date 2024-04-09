@@ -52,7 +52,7 @@ TEST(unit_file_build_name_map) {
         log_debug("Last modification time: %s", format_timestamp(buf, sizeof buf, mtime));
 
         r = unit_file_build_name_map(&lp, &mtime, &unit_ids, &unit_names, NULL);
-        assert_se(IN_SET(r, 0, 1));
+        ASSERT_TRUE(IN_SET(r, 0, 1));
         if (r == 0)
                 log_debug("Cache rebuild skipped based on mtime.");
 
@@ -65,7 +65,7 @@ TEST(unit_file_build_name_map) {
                                              *id,
                                              &fragment,
                                              &names);
-                 assert_se(r == 0);
+                 ASSERT_EQ(r, 0);
                  log_info("fragment: %s", fragment);
                  log_info("names:");
                  SET_FOREACH(name, names)
@@ -81,25 +81,25 @@ TEST(unit_file_build_name_map) {
                                              *id,
                                              &fragment,
                                              NULL);
-                 assert_se(r == 0);
+                 ASSERT_EQ(r, 0);
                  log_info("fragment: %s", fragment);
         }
 }
 
 TEST(runlevel_to_target) {
         in_initrd_force(false);
-        assert_se(streq_ptr(runlevel_to_target(NULL), NULL));
+        ASSERT_TRUE(streq_ptr(runlevel_to_target(NULL), NULL));
         assert_se(streq_ptr(runlevel_to_target("unknown-runlevel"), NULL));
         assert_se(streq_ptr(runlevel_to_target("rd.unknown-runlevel"), NULL));
-        assert_se(streq_ptr(runlevel_to_target("3"), SPECIAL_MULTI_USER_TARGET));
-        assert_se(streq_ptr(runlevel_to_target("rd.rescue"), NULL));
+        ASSERT_TRUE(streq_ptr(runlevel_to_target("3"), SPECIAL_MULTI_USER_TARGET));
+        ASSERT_TRUE(streq_ptr(runlevel_to_target("rd.rescue"), NULL));
 
         in_initrd_force(true);
-        assert_se(streq_ptr(runlevel_to_target(NULL), NULL));
+        ASSERT_TRUE(streq_ptr(runlevel_to_target(NULL), NULL));
         assert_se(streq_ptr(runlevel_to_target("unknown-runlevel"), NULL));
         assert_se(streq_ptr(runlevel_to_target("rd.unknown-runlevel"), NULL));
-        assert_se(streq_ptr(runlevel_to_target("3"), NULL));
-        assert_se(streq_ptr(runlevel_to_target("rd.rescue"), SPECIAL_RESCUE_TARGET));
+        ASSERT_TRUE(streq_ptr(runlevel_to_target("3"), NULL));
+        ASSERT_TRUE(streq_ptr(runlevel_to_target("rd.rescue"), SPECIAL_RESCUE_TARGET));
 }
 
 static int intro(void) {

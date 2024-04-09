@@ -93,8 +93,8 @@ TEST(override_architecture) {
         x = gpt_partition_type_override_architecture(x, ARCHITECTURE_ARM64);
         ASSERT_EQ(x.arch, y.arch);
         ASSERT_EQ(x.designator, y.designator);
-        assert_se(sd_id128_equal(x.uuid, y.uuid));
-        assert_se(streq(x.name, y.name));
+        ASSERT_TRUE(sd_id128_equal(x.uuid, y.uuid));
+        ASSERT_TRUE(streq(x.name, y.name));
 
         /* If the partition type does not have an architecture, nothing should change. */
 
@@ -104,8 +104,8 @@ TEST(override_architecture) {
         x = gpt_partition_type_override_architecture(x, ARCHITECTURE_ARM64);
         ASSERT_EQ(x.arch, y.arch);
         ASSERT_EQ(x.designator, y.designator);
-        assert_se(sd_id128_equal(x.uuid, y.uuid));
-        assert_se(streq(x.name, y.name));
+        ASSERT_TRUE(sd_id128_equal(x.uuid, y.uuid));
+        ASSERT_TRUE(streq(x.name, y.name));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

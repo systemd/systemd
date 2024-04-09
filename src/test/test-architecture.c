@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
         ASSERT_OK(a);
 
         p = architecture_to_string(a);
-        assert_se(p);
+        ASSERT_TRUE(p);
         log_info("uname architecture=%s", p);
         ASSERT_EQ(architecture_from_string(p), a);
 
@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
         ASSERT_OK(a);
 
         p = architecture_to_string(a);
-        assert_se(p);
+        ASSERT_TRUE(p);
         log_info("native architecture=%s", p);
         ASSERT_EQ(architecture_from_string(p), a);
 
