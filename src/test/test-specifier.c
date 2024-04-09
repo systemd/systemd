@@ -70,7 +70,7 @@ TEST(specifier_printf) {
 
         r = specifier_printf("xxx a=%X b=%Y e=%e yyy", SIZE_MAX, table, NULL, NULL, &w);
         ASSERT_OK(r);
-        assert_se(w);
+        ASSERT_TRUE(w);
 
         puts(w);
         assert_se(streq(w, "xxx a=AAAA b=BBBB e= yyy"));
@@ -78,7 +78,7 @@ TEST(specifier_printf) {
         free(w);
         r = specifier_printf("boot=%b, host=%H, pretty=%q, version=%v, arch=%a, empty=%e", SIZE_MAX, table, NULL, NULL, &w);
         ASSERT_OK(r);
-        assert_se(w);
+        ASSERT_TRUE(w);
         puts(w);
 
         w = mfree(w);

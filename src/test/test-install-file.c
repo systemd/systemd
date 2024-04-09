@@ -21,7 +21,7 @@ TEST(install_file) {
                 assert_se(write_string_file(a, "wups", WRITE_STRING_FILE_CREATE) >= 0);
 
         assert_se(lstat(a, &stat1) >= 0);
-        assert_se(S_ISREG(stat1.st_mode));
+        ASSERT_TRUE(S_ISREG(stat1.st_mode));
 
         assert_se(install_file(AT_FDCWD, a, AT_FDCWD, b, 0) >= 0);
         assert_se(install_file(AT_FDCWD, b, AT_FDCWD, a, INSTALL_FSYNC) >= 0);

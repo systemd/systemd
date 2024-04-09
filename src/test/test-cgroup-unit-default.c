@@ -112,7 +112,7 @@ TEST_RET(default_memory_low, .sd_booted = true) {
         assert_se(UNIT_GET_SLICE(dml_discard_set_ml) == dml_discard);
 
         assert_se(root = UNIT_GET_SLICE(dml));
-        assert_se(!UNIT_GET_SLICE(root));
+        ASSERT_FALSE(UNIT_GET_SLICE(root));
 
         assert_se(unit_get_ancestor_memory_low(root) == CGROUP_LIMIT_MIN);
 

@@ -76,30 +76,30 @@ TEST(read_credential_strings) {
 TEST(credential_name_valid) {
         char buf[NAME_MAX+2];
 
-        assert_se(!credential_name_valid(NULL));
-        assert_se(!credential_name_valid(""));
-        assert_se(!credential_name_valid("."));
-        assert_se(!credential_name_valid(".."));
+        ASSERT_FALSE(credential_name_valid(NULL));
+        ASSERT_FALSE(credential_name_valid(""));
+        ASSERT_FALSE(credential_name_valid("."));
+        ASSERT_FALSE(credential_name_valid(".."));
         assert_se(!credential_name_valid("foo/bar"));
-        assert_se(credential_name_valid("foo"));
+        ASSERT_TRUE(credential_name_valid("foo"));
 
         memset(buf, 'x', sizeof(buf)-1);
         buf[sizeof(buf)-1] = 0;
-        assert_se(!credential_name_valid(buf));
+        ASSERT_FALSE(credential_name_valid(buf));
 
         buf[sizeof(buf)-2] = 0;
-        assert_se(credential_name_valid(buf));
+        ASSERT_TRUE(credential_name_valid(buf));
 }
 
 TEST(credential_glob_valid) {
         char buf[NAME_MAX+2];
 
-        assert_se(!credential_glob_valid(NULL));
-        assert_se(!credential_glob_valid(""));
-        assert_se(!credential_glob_valid("."));
-        assert_se(!credential_glob_valid(".."));
+        ASSERT_FALSE(credential_glob_valid(NULL));
+        ASSERT_FALSE(credential_glob_valid(""));
+        ASSERT_FALSE(credential_glob_valid("."));
+        ASSERT_FALSE(credential_glob_valid(".."));
         assert_se(!credential_glob_valid("foo/bar"));
-        assert_se(credential_glob_valid("foo"));
+        ASSERT_TRUE(credential_glob_valid("foo"));
         assert_se(credential_glob_valid("foo*"));
         assert_se(credential_glob_valid("x*"));
         assert_se(credential_glob_valid("*"));
@@ -111,13 +111,13 @@ TEST(credential_glob_valid) {
 
         memset(buf, 'x', sizeof(buf)-1);
         buf[sizeof(buf)-1] = 0;
-        assert_se(!credential_glob_valid(buf));
+        ASSERT_FALSE(credential_glob_valid(buf));
 
         buf[sizeof(buf)-2] = 0;
-        assert_se(credential_glob_valid(buf));
+        ASSERT_TRUE(credential_glob_valid(buf));
 
         buf[sizeof(buf)-2] = '*';
-        assert_se(credential_glob_valid(buf));
+        ASSERT_TRUE(credential_glob_valid(buf));
 }
 
 static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
@@ -205,7 +205,7 @@ TEST(credential_encrypt_decrypt) {
 
         assert_se(mkdtemp_malloc(NULL, &d) >= 0);
         j = path_join(d, "secret");
-        assert_se(j);
+        ASSERT_TRUE(j);
 
         const char *e = getenv("SYSTEMD_CREDENTIAL_SECRET");
         _cleanup_free_ char *ec = NULL;

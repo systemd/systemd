@@ -66,7 +66,7 @@ static void test_policy_equiv(const char *s, bool (*func)(const ImagePolicy *p))
 
         assert_se(image_policy_from_string(s, &p) >= 0);
 
-        assert_se(func(p));
+        ASSERT_TRUE(func(p));
         assert_se(func == image_policy_equiv_ignore || !image_policy_equiv_ignore(p));
         assert_se(func == image_policy_equiv_allow || !image_policy_equiv_allow(p));
         assert_se(func == image_policy_equiv_deny || !image_policy_equiv_deny(p));

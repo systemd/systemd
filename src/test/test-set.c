@@ -11,7 +11,7 @@ TEST(set_steal_first) {
         char *val;
 
         m = set_new(&string_hash_ops);
-        assert_se(m);
+        ASSERT_TRUE(m);
 
         assert_se(set_put(m, (void*) "1") == 1);
         assert_se(set_put(m, (void*) "22") == 1);
@@ -22,7 +22,7 @@ TEST(set_steal_first) {
 
         assert_se(seen[0] == 1 && seen[1] == 1 && seen[2] == 1);
 
-        assert_se(set_isempty(m));
+        ASSERT_TRUE(set_isempty(m));
 }
 
 typedef struct Item {
@@ -68,7 +68,7 @@ TEST(set_put) {
         _cleanup_set_free_ Set *m = NULL;
 
         m = set_new(&string_hash_ops);
-        assert_se(m);
+        ASSERT_TRUE(m);
 
         assert_se(set_put(m, (void*) "1") == 1);
         assert_se(set_put(m, (void*) "22") == 1);
@@ -141,7 +141,7 @@ TEST(set_ensure_allocated) {
         assert_se(set_ensure_allocated(&m, &string_hash_ops) == 1);
         assert_se(set_ensure_allocated(&m, &string_hash_ops) == 0);
         assert_se(set_ensure_allocated(&m, NULL) == 0);
-        assert_se(set_isempty(m));
+        ASSERT_TRUE(set_isempty(m));
 }
 
 TEST(set_copy) {
@@ -150,16 +150,16 @@ TEST(set_copy) {
         char *key1, *key2, *key3, *key4;
 
         key1 = strdup("key1");
-        assert_se(key1);
+        ASSERT_TRUE(key1);
         key2 = strdup("key2");
-        assert_se(key2);
+        ASSERT_TRUE(key2);
         key3 = strdup("key3");
-        assert_se(key3);
+        ASSERT_TRUE(key3);
         key4 = strdup("key4");
-        assert_se(key4);
+        ASSERT_TRUE(key4);
 
         s = set_new(&string_hash_ops);
-        assert_se(s);
+        ASSERT_TRUE(s);
 
         assert_se(set_put(s, key1) >= 0);
         assert_se(set_put(s, key2) >= 0);
@@ -167,7 +167,7 @@ TEST(set_copy) {
         assert_se(set_put(s, key4) >= 0);
 
         copy = set_copy(s);
-        assert_se(copy);
+        ASSERT_TRUE(copy);
 
         assert_se(set_equal(s, copy));
 }
@@ -212,21 +212,21 @@ TEST(set_strjoin) {
 
         /* Empty set */
         assert_se(set_strjoin(m, NULL, false, &joined) >= 0);
-        assert_se(!joined);
+        ASSERT_FALSE(joined);
         assert_se(set_strjoin(m, "", false, &joined) >= 0);
-        assert_se(!joined);
+        ASSERT_FALSE(joined);
         assert_se(set_strjoin(m, " ", false, &joined) >= 0);
-        assert_se(!joined);
+        ASSERT_FALSE(joined);
         assert_se(set_strjoin(m, "xxx", false, &joined) >= 0);
-        assert_se(!joined);
+        ASSERT_FALSE(joined);
         assert_se(set_strjoin(m, NULL, true, &joined) >= 0);
-        assert_se(!joined);
+        ASSERT_FALSE(joined);
         assert_se(set_strjoin(m, "", true, &joined) >= 0);
-        assert_se(!joined);
+        ASSERT_FALSE(joined);
         assert_se(set_strjoin(m, " ", true, &joined) >= 0);
-        assert_se(!joined);
+        ASSERT_FALSE(joined);
         assert_se(set_strjoin(m, "xxx", true, &joined) >= 0);
-        assert_se(!joined);
+        ASSERT_FALSE(joined);
 
         /* Single entry */
         assert_se(set_put_strdup(&m, "aaa") == 1);

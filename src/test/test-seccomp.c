@@ -112,7 +112,7 @@ TEST(seccomp_arch_to_string) {
         a = seccomp_arch_native();
         ASSERT_GT(a, 0);
         name = seccomp_arch_to_string(a);
-        assert_se(name);
+        ASSERT_TRUE(name);
         assert_se(seccomp_arch_from_string(name, &b) >= 0);
         assert_se(a == b);
 }
@@ -156,9 +156,9 @@ TEST(architecture_table) {
 }
 
 TEST(syscall_filter_set_find) {
-        assert_se(!syscall_filter_set_find(NULL));
-        assert_se(!syscall_filter_set_find(""));
-        assert_se(!syscall_filter_set_find("quux"));
+        ASSERT_FALSE(syscall_filter_set_find(NULL));
+        ASSERT_FALSE(syscall_filter_set_find(""));
+        ASSERT_FALSE(syscall_filter_set_find("quux"));
         assert_se(!syscall_filter_set_find("@quux"));
 
         assert_se(syscall_filter_set_find("@clock") == syscall_filter_sets + SYSCALL_FILTER_SET_CLOCK);
@@ -804,7 +804,7 @@ TEST(load_syscall_filter_set_raw) {
                 log_debug("has faccessat2()");
 #endif
 
-                assert_se(!hashmap_isempty(s));
+                ASSERT_FALSE(hashmap_isempty(s));
                 assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
@@ -844,7 +844,7 @@ TEST(load_syscall_filter_set_raw) {
                 log_debug("has ppoll_time64()");
 #endif
 
-                assert_se(!hashmap_isempty(s));
+                ASSERT_FALSE(hashmap_isempty(s));
                 assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUNATCH), true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
@@ -924,7 +924,7 @@ TEST(native_syscalls_filtered) {
                 log_debug("has faccessat2()");
 #endif
 
-                assert_se(!hashmap_isempty(s));
+                ASSERT_FALSE(hashmap_isempty(s));
                 assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EUCLEAN), true) >= 0);
 
                 assert_se(access("/", F_OK) < 0);
@@ -1046,7 +1046,7 @@ TEST(restrict_suid_sgid) {
                 fd = mkostemp_safe(path);
                 ASSERT_OK(fd);
 
-                assert_se(mkdtemp(dir));
+                ASSERT_TRUE(mkdtemp(dir));
                 z = strjoina(dir, "/test");
 
                 assert_se(chmod(path, 0755 | S_ISUID) >= 0);

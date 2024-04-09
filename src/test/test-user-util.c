@@ -296,23 +296,23 @@ TEST(valid_user_group_name_or_numeric) {
 }
 
 TEST(valid_gecos) {
-        assert_se(!valid_gecos(NULL));
-        assert_se(valid_gecos(""));
-        assert_se(valid_gecos("test"));
+        ASSERT_FALSE(valid_gecos(NULL));
+        ASSERT_TRUE(valid_gecos(""));
+        ASSERT_TRUE(valid_gecos("test"));
         assert_se(valid_gecos("Ümläüt"));
         assert_se(!valid_gecos("In\nvalid"));
         assert_se(!valid_gecos("In:valid"));
 }
 
 TEST(valid_home) {
-        assert_se(!valid_home(NULL));
-        assert_se(!valid_home(""));
-        assert_se(!valid_home("."));
+        ASSERT_FALSE(valid_home(NULL));
+        ASSERT_FALSE(valid_home(""));
+        ASSERT_FALSE(valid_home("."));
         assert_se(!valid_home("/home/.."));
         assert_se(!valid_home("/home/../"));
         assert_se(!valid_home("/home\n/foo"));
         assert_se(!valid_home("./piep"));
-        assert_se(!valid_home("piep"));
+        ASSERT_FALSE(valid_home("piep"));
         assert_se(!valid_home("/home/user:lennart"));
 
         assert_se(valid_home("/"));
@@ -428,7 +428,7 @@ TEST(gid_lists_ops) {
 
         nresult = getgroups_alloc(&gids);
         assert_se(nresult >= 0 || nresult == -EINVAL || nresult == -ENOMEM);
-        assert_se(gids);
+        ASSERT_TRUE(gids);
 }
 
 TEST(parse_uid_range) {
@@ -467,7 +467,7 @@ static void test_mangle_gecos_one(const char *input, const char *expected) {
 
         assert_se(p = mangle_gecos(input));
         assert_se(streq(p, expected));
-        assert_se(valid_gecos(p));
+        ASSERT_TRUE(valid_gecos(p));
 }
 
 TEST(mangle_gecos) {

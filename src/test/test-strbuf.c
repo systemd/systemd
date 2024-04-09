@@ -30,7 +30,7 @@ TEST(strbuf) {
 
         /* check the content of the buffer directly */
         l = strv_parse_nulstr(sb->buf, sb->len);
-        assert_se(l);
+        ASSERT_TRUE(l);
 
         assert_se(streq(l[0], "")); /* root */
         assert_se(streq(l[1], "waldo"));

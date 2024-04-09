@@ -48,7 +48,7 @@ TEST_RET(unit_file_get_set) {
         UnitFileList *p;
 
         h = hashmap_new(&unit_file_list_hash_ops_free);
-        assert_se(h);
+        ASSERT_TRUE(h);
 
         r = unit_file_get_list(RUNTIME_SCOPE_SYSTEM, NULL, h, NULL, NULL);
         if (IN_SET(r, -EPERM, -EACCES))
@@ -73,7 +73,7 @@ static void check_execcommand(ExecCommand *c,
                               bool ignore) {
         size_t n;
 
-        assert_se(c);
+        ASSERT_TRUE(c);
         log_info("expect: \"%s\" [\"%s\" \"%s\" \"%s\"]",
                  path, argv0 ?: path, strnull(argv1), strnull(argv2));
         n = strv_length(c->argv);
@@ -546,7 +546,7 @@ TEST(install_printf, .sd_booted = true) {
                         printf("%s\n", t);                              \
                         assert_se(streq(t, result));                    \
                 } else                                                  \
-                        assert_se(!t);                                  \
+                        ASSERT_FALSE(t);                                  \
                 strcpy(i.name, d1);                                     \
                 strcpy(i.path, d2);                                     \
         } while (false)
@@ -650,7 +650,7 @@ TEST(config_parse_capability_set) {
                               "CapabilityBoundingSet", 0, "~",
                               &capability_bounding_set, NULL);
         ASSERT_OK(r);
-        assert_se(cap_test_all(capability_bounding_set));
+        ASSERT_TRUE(cap_test_all(capability_bounding_set));
 
         capability_bounding_set = 0;
         r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
@@ -801,7 +801,7 @@ TEST(config_parse_pass_environ) {
                                       "PassEnvironment", 0, "",
                                       &passenv, NULL);
         ASSERT_OK(r);
-        assert_se(strv_isempty(passenv));
+        ASSERT_TRUE(strv_isempty(passenv));
 
         r = config_parse_pass_environ(NULL, "fake", 1, "section", 1,
                                       "PassEnvironment", 0, "'invalid name' 'normal_name' A=1 'special_name$$' \\",
@@ -845,7 +845,7 @@ TEST(config_parse_unit_env_file) {
                                       "EnvironmentFile", 0, "not-absolute",
                                        &files, u);
         ASSERT_EQ(r, 0);
-        assert_se(strv_isempty(files));
+        ASSERT_TRUE(strv_isempty(files));
 
         r = config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
                                       "EnvironmentFile", 0, "/absolute1",
@@ -865,7 +865,7 @@ TEST(config_parse_unit_env_file) {
                                        "EnvironmentFile", 0, "",
                                        &files, u);
         ASSERT_EQ(r, 0);
-        assert_se(strv_isempty(files));
+        ASSERT_TRUE(strv_isempty(files));
 
         r = config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
                                        "EnvironmentFile", 0, "/path/%n.conf",
@@ -1072,7 +1072,7 @@ TEST(config_parse_open_file) {
                                    "OpenFile", 0, "/proc/1/ns/mnt:host-mount-namespace:read-only",
                                    &of, u);
         ASSERT_OK(r);
-        assert_se(of);
+        ASSERT_TRUE(of);
         assert_se(streq(of->path, "/proc/1/ns/mnt"));
         assert_se(streq(of->fdname, "host-mount-namespace"));
         assert_se(of->flags == OPENFILE_READ_ONLY);
@@ -1082,7 +1082,7 @@ TEST(config_parse_open_file) {
                                    "OpenFile", 0, "/proc/1/ns/mnt::read-only",
                                    &of, u);
         ASSERT_OK(r);
-        assert_se(of);
+        ASSERT_TRUE(of);
         assert_se(streq(of->path, "/proc/1/ns/mnt"));
         assert_se(streq(of->fdname, "mnt"));
         assert_se(of->flags == OPENFILE_READ_ONLY);
@@ -1091,7 +1091,7 @@ TEST(config_parse_open_file) {
                                    "OpenFile", 0, "",
                                    &of, u);
         ASSERT_OK(r);
-        assert_se(!of);
+        ASSERT_FALSE(of);
 }
 
 static int intro(void) {

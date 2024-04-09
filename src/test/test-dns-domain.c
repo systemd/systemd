@@ -309,20 +309,20 @@ TEST(dns_name_startswith) {
 }
 
 TEST(dns_name_is_root) {
-        assert_se(dns_name_is_root(""));
-        assert_se(dns_name_is_root("."));
-        assert_se(!dns_name_is_root("xxx"));
-        assert_se(!dns_name_is_root("xxx."));
-        assert_se(!dns_name_is_root(".."));
+        ASSERT_TRUE(dns_name_is_root(""));
+        ASSERT_TRUE(dns_name_is_root("."));
+        ASSERT_FALSE(dns_name_is_root("xxx"));
+        ASSERT_FALSE(dns_name_is_root("xxx."));
+        ASSERT_FALSE(dns_name_is_root(".."));
 }
 
 TEST(dns_name_is_single_label) {
-        assert_se(!dns_name_is_single_label(""));
-        assert_se(!dns_name_is_single_label("."));
-        assert_se(!dns_name_is_single_label(".."));
-        assert_se(dns_name_is_single_label("x"));
-        assert_se(dns_name_is_single_label("x."));
-        assert_se(!dns_name_is_single_label("xx.yy"));
+        ASSERT_FALSE(dns_name_is_single_label(""));
+        ASSERT_FALSE(dns_name_is_single_label("."));
+        ASSERT_FALSE(dns_name_is_single_label(".."));
+        ASSERT_TRUE(dns_name_is_single_label("x"));
+        ASSERT_TRUE(dns_name_is_single_label("x."));
+        ASSERT_FALSE(dns_name_is_single_label("xx.yy"));
 }
 
 static void test_dns_name_reverse_one(const char *address, const char *name) {
@@ -426,58 +426,58 @@ TEST(dns_name_is_valid) {
 
 TEST(dns_service_name_is_valid) {
         assert_se(dns_service_name_is_valid("Lennart's Compüter"));
-        assert_se(dns_service_name_is_valid("piff.paff"));
+        ASSERT_TRUE(dns_service_name_is_valid("piff.paff"));
 
-        assert_se(!dns_service_name_is_valid(NULL));
-        assert_se(!dns_service_name_is_valid(""));
+        ASSERT_FALSE(dns_service_name_is_valid(NULL));
+        ASSERT_FALSE(dns_service_name_is_valid(""));
         assert_se(!dns_service_name_is_valid("foo\nbar"));
         assert_se(!dns_service_name_is_valid("foo\201bar"));
         assert_se(!dns_service_name_is_valid("this is an overly long string that is certainly longer than 63 characters"));
 }
 
 TEST(dns_srv_type_is_valid) {
-        assert_se(dns_srv_type_is_valid("_http._tcp"));
+        ASSERT_TRUE(dns_srv_type_is_valid("_http._tcp"));
         assert_se(dns_srv_type_is_valid("_foo-bar._tcp"));
-        assert_se(dns_srv_type_is_valid("_w._udp"));
-        assert_se(dns_srv_type_is_valid("_a800._tcp"));
+        ASSERT_TRUE(dns_srv_type_is_valid("_w._udp"));
+        ASSERT_TRUE(dns_srv_type_is_valid("_a800._tcp"));
         assert_se(dns_srv_type_is_valid("_a-800._tcp"));
 
-        assert_se(!dns_srv_type_is_valid(NULL));
-        assert_se(!dns_srv_type_is_valid(""));
-        assert_se(!dns_srv_type_is_valid("x"));
-        assert_se(!dns_srv_type_is_valid("_foo"));
-        assert_se(!dns_srv_type_is_valid("_tcp"));
-        assert_se(!dns_srv_type_is_valid("_"));
-        assert_se(!dns_srv_type_is_valid("_foo."));
+        ASSERT_FALSE(dns_srv_type_is_valid(NULL));
+        ASSERT_FALSE(dns_srv_type_is_valid(""));
+        ASSERT_FALSE(dns_srv_type_is_valid("x"));
+        ASSERT_FALSE(dns_srv_type_is_valid("_foo"));
+        ASSERT_FALSE(dns_srv_type_is_valid("_tcp"));
+        ASSERT_FALSE(dns_srv_type_is_valid("_"));
+        ASSERT_FALSE(dns_srv_type_is_valid("_foo."));
         assert_se(!dns_srv_type_is_valid("_föo._tcp"));
         assert_se(!dns_srv_type_is_valid("_f\no._tcp"));
-        assert_se(!dns_srv_type_is_valid("_800._tcp"));
+        ASSERT_FALSE(dns_srv_type_is_valid("_800._tcp"));
         assert_se(!dns_srv_type_is_valid("_-800._tcp"));
         assert_se(!dns_srv_type_is_valid("_-foo._tcp"));
-        assert_se(!dns_srv_type_is_valid("_piep._foo._udp"));
+        ASSERT_FALSE(dns_srv_type_is_valid("_piep._foo._udp"));
 }
 
 TEST(dnssd_srv_type_is_valid) {
-        assert_se(dnssd_srv_type_is_valid("_http._tcp"));
+        ASSERT_TRUE(dnssd_srv_type_is_valid("_http._tcp"));
         assert_se(dnssd_srv_type_is_valid("_foo-bar._tcp"));
-        assert_se(dnssd_srv_type_is_valid("_w._udp"));
-        assert_se(dnssd_srv_type_is_valid("_a800._tcp"));
+        ASSERT_TRUE(dnssd_srv_type_is_valid("_w._udp"));
+        ASSERT_TRUE(dnssd_srv_type_is_valid("_a800._tcp"));
         assert_se(dnssd_srv_type_is_valid("_a-800._tcp"));
 
-        assert_se(!dnssd_srv_type_is_valid(NULL));
-        assert_se(!dnssd_srv_type_is_valid(""));
-        assert_se(!dnssd_srv_type_is_valid("x"));
-        assert_se(!dnssd_srv_type_is_valid("_foo"));
-        assert_se(!dnssd_srv_type_is_valid("_tcp"));
-        assert_se(!dnssd_srv_type_is_valid("_"));
-        assert_se(!dnssd_srv_type_is_valid("_foo."));
+        ASSERT_FALSE(dnssd_srv_type_is_valid(NULL));
+        ASSERT_FALSE(dnssd_srv_type_is_valid(""));
+        ASSERT_FALSE(dnssd_srv_type_is_valid("x"));
+        ASSERT_FALSE(dnssd_srv_type_is_valid("_foo"));
+        ASSERT_FALSE(dnssd_srv_type_is_valid("_tcp"));
+        ASSERT_FALSE(dnssd_srv_type_is_valid("_"));
+        ASSERT_FALSE(dnssd_srv_type_is_valid("_foo."));
         assert_se(!dnssd_srv_type_is_valid("_föo._tcp"));
         assert_se(!dnssd_srv_type_is_valid("_f\no._tcp"));
-        assert_se(!dnssd_srv_type_is_valid("_800._tcp"));
+        ASSERT_FALSE(dnssd_srv_type_is_valid("_800._tcp"));
         assert_se(!dnssd_srv_type_is_valid("_-800._tcp"));
         assert_se(!dnssd_srv_type_is_valid("_-foo._tcp"));
-        assert_se(!dnssd_srv_type_is_valid("_piep._foo._udp"));
-        assert_se(!dnssd_srv_type_is_valid("_foo._unknown"));
+        ASSERT_FALSE(dnssd_srv_type_is_valid("_piep._foo._udp"));
+        ASSERT_FALSE(dnssd_srv_type_is_valid("_foo._unknown"));
 }
 
 static void test_dns_service_join_one(const char *a, const char *b, const char *c, int r, const char *d) {

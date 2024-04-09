@@ -41,7 +41,7 @@ TEST(path_pick) {
 
         _cleanup_free_ char *pp = NULL;
         pp = path_join(p, "foo.v");
-        assert_se(pp);
+        ASSERT_TRUE(pp);
 
         _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
 
@@ -52,7 +52,7 @@ TEST(path_pick) {
 
         if (IN_SET(native_architecture(), ARCHITECTURE_X86, ARCHITECTURE_X86_64)) {
                 assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
-                assert_se(S_ISREG(result.st.st_mode));
+                ASSERT_TRUE(S_ISREG(result.st.st_mode));
                 assert_se(streq_ptr(result.version, "99"));
                 assert_se(result.architecture == ARCHITECTURE_X86);
                 assert_se(endswith(result.path, "/foo_99_x86.raw"));
@@ -62,7 +62,7 @@ TEST(path_pick) {
 
         filter.architecture = ARCHITECTURE_X86_64;
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
-        assert_se(S_ISREG(result.st.st_mode));
+        ASSERT_TRUE(S_ISREG(result.st.st_mode));
         assert_se(streq_ptr(result.version, "55"));
         assert_se(result.architecture == ARCHITECTURE_X86_64);
         assert_se(endswith(result.path, "/foo_55_x86-64.raw"));
@@ -70,7 +70,7 @@ TEST(path_pick) {
 
         filter.architecture = ARCHITECTURE_IA64;
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
-        assert_se(S_ISREG(result.st.st_mode));
+        ASSERT_TRUE(S_ISREG(result.st.st_mode));
         assert_se(streq_ptr(result.version, "5"));
         assert_se(result.architecture == ARCHITECTURE_IA64);
         assert_se(endswith(result.path, "/foo_5_ia64.raw"));
@@ -79,7 +79,7 @@ TEST(path_pick) {
         filter.architecture = _ARCHITECTURE_INVALID;
         filter.version = "5";
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
-        assert_se(S_ISREG(result.st.st_mode));
+        ASSERT_TRUE(S_ISREG(result.st.st_mode));
         assert_se(streq_ptr(result.version, "5"));
         if (native_architecture() != ARCHITECTURE_IA64) {
                 assert_se(result.architecture == _ARCHITECTURE_INVALID);
@@ -89,7 +89,7 @@ TEST(path_pick) {
 
         filter.architecture = ARCHITECTURE_IA64;
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
-        assert_se(S_ISREG(result.st.st_mode));
+        ASSERT_TRUE(S_ISREG(result.st.st_mode));
         assert_se(streq_ptr(result.version, "5"));
         assert_se(result.architecture == ARCHITECTURE_IA64);
         assert_se(endswith(result.path, "/foo_5_ia64.raw"));
@@ -98,9 +98,9 @@ TEST(path_pick) {
         filter.architecture = ARCHITECTURE_CRIS;
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) == 0);
         assert_se(result.st.st_mode == MODE_INVALID);
-        assert_se(!result.version);
+        ASSERT_FALSE(result.version);
         ASSERT_LT(result.architecture, 0);
-        assert_se(!result.path);
+        ASSERT_FALSE(result.path);
 
         assert_se(unlinkat(sub_dfd, "foo_99_x86.raw", 0) >= 0);
 
@@ -108,7 +108,7 @@ TEST(path_pick) {
         filter.version = NULL;
         if (IN_SET(native_architecture(), ARCHITECTURE_X86_64, ARCHITECTURE_X86)) {
                 assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
-                assert_se(S_ISREG(result.st.st_mode));
+                ASSERT_TRUE(S_ISREG(result.st.st_mode));
                 assert_se(streq_ptr(result.version, "55"));
 
                 if (native_architecture() == ARCHITECTURE_X86_64) {
@@ -124,11 +124,11 @@ TEST(path_pick) {
         /* Test explicit patterns in last component of path not being .v */
         free(pp);
         pp = path_join(p, "foo.v/foo___.raw");
-        assert_se(pp);
+        ASSERT_TRUE(pp);
 
         if (IN_SET(native_architecture(), ARCHITECTURE_X86, ARCHITECTURE_X86_64)) {
                 assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
-                assert_se(S_ISREG(result.st.st_mode));
+                ASSERT_TRUE(S_ISREG(result.st.st_mode));
                 assert_se(streq_ptr(result.version, "55"));
                 assert_se(result.architecture == native_architecture());
                 assert_se(endswith(result.path, ".raw"));
@@ -139,28 +139,28 @@ TEST(path_pick) {
         /* Specify an explicit path */
         free(pp);
         pp = path_join(p, "foo.v/foo_5.raw");
-        assert_se(pp);
+        ASSERT_TRUE(pp);
 
         filter.type_mask = UINT32_C(1) << DT_DIR;
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) == -ENOTDIR);
 
         filter.type_mask = UINT32_C(1) << DT_REG;
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
-        assert_se(S_ISREG(result.st.st_mode));
-        assert_se(!result.version);
+        ASSERT_TRUE(S_ISREG(result.st.st_mode));
+        ASSERT_FALSE(result.version);
         assert_se(result.architecture == _ARCHITECTURE_INVALID);
         assert_se(path_equal(result.path, pp));
         pick_result_done(&result);
 
         free(pp);
         pp = path_join(p, "foo.v");
-        assert_se(pp);
+        ASSERT_TRUE(pp);
 
         filter.architecture = ARCHITECTURE_S390;
         filter.basename = "quux";
 
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
-        assert_se(S_ISREG(result.st.st_mode));
+        ASSERT_TRUE(S_ISREG(result.st.st_mode));
         assert_se(streq_ptr(result.version, "2"));
         ASSERT_EQ(result.tries_left, 4u);
         ASSERT_EQ(result.tries_done, 6u);

@@ -37,7 +37,7 @@ TEST(id128) {
         assert_se(sd_id128_in_set(id, id2));
         assert_se(sd_id128_in_set(id, id2, id));
         assert_se(sd_id128_in_set(id, ID128_WALDI, id));
-        assert_se(!sd_id128_in_set(id));
+        ASSERT_FALSE(sd_id128_in_set(id));
         assert_se(!sd_id128_in_set(id, ID128_WALDI));
         assert_se(!sd_id128_in_set(id, ID128_WALDI, ID128_WALDI));
 
@@ -83,9 +83,9 @@ TEST(id128) {
         assert_se(id128_from_string_nonzero("01020304-0506-0708-090a0b0c0d0e0f10", &id) < 0);
         assert_se(id128_from_string_nonzero("010203040506-0708-090a-0b0c0d0e0f10", &id) < 0);
 
-        assert_se(id128_is_valid(STR_WALDI));
-        assert_se(id128_is_valid(UUID_WALDI));
-        assert_se(!id128_is_valid(""));
+        ASSERT_TRUE(id128_is_valid(STR_WALDI));
+        ASSERT_TRUE(id128_is_valid(UUID_WALDI));
+        ASSERT_FALSE(id128_is_valid(""));
         assert_se(!id128_is_valid("01020304-0506-0708-090a-0b0c0d0e0f101"));
         assert_se(!id128_is_valid("01020304-0506-0708-090a-0b0c0d0e0f10-"));
         assert_se(!id128_is_valid("01020304-0506-0708-090a0b0c0d0e0f10"));

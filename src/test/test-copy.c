@@ -241,7 +241,7 @@ TEST(copy_tree) {
 
         unixsockp = strjoina(copy_dir, "unixsock");
         assert_se(stat(unixsockp, &st) >= 0);
-        assert_se(S_ISSOCK(st.st_mode));
+        ASSERT_TRUE(S_ISSOCK(st.st_mode));
 
         assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK, denylist, NULL) < 0);
         assert_se(copy_tree("/tmp/inexistent/foo/bar/fsdoi", copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK, denylist, NULL) < 0);
@@ -419,7 +419,7 @@ TEST(copy_proc) {
         assert_se(read_one_line_file("/proc/version", &a) >= 0);
         assert_se(read_one_line_file(f, &b) >= 0);
         assert_se(streq(a, b));
-        assert_se(!isempty(a));
+        ASSERT_FALSE(isempty(a));
 }
 
 TEST_RET(copy_holes) {

@@ -44,7 +44,7 @@ TEST(rsa_pkey_n_e) {
         assert_se(rsa_pkey_from_n_e(n, n_len, &e, sizeof(e), &pkey) >= 0);
 
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new((EVP_PKEY*) pkey, NULL);
-        assert_se(ctx);
+        ASSERT_TRUE(ctx);
         ASSERT_EQ(EVP_PKEY_verify_init(ctx), 1);
 
         const char *msg = "this is a secret";
@@ -71,7 +71,7 @@ TEST(ecc_pkey_curve_x_y) {
         assert_se(ecc_pkey_from_curve_x_y(curveid, x, x_len, y, y_len, &pkey) >= 0);
 
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new((EVP_PKEY*) pkey, NULL);
-        assert_se(ctx);
+        ASSERT_TRUE(ctx);
         ASSERT_EQ(EVP_PKEY_verify_init(ctx), 1);
 
         const char *msg = "this is a secret";
@@ -141,7 +141,7 @@ TEST(digest_size) {
                 assert_se(size == t->size);
 
                 _cleanup_free_ char *uppercase_alg = strdup(t->alg);
-                assert_se(uppercase_alg);
+                ASSERT_TRUE(uppercase_alg);
                 assert_se(openssl_digest_size(ascii_strupper(uppercase_alg), &size) >= 0);
                 assert_se(size == t->size);
         }

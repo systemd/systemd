@@ -167,7 +167,7 @@ static void test_log_context(void) {
                         IOVEC_MAKE_STRING("GHI=jkl"),
                 };
                 _cleanup_free_ struct iovec_wrapper *iovw = iovw_new();
-                assert_se(iovw);
+                ASSERT_TRUE(iovw);
                 assert_se(iovw_consume(iovw, strdup("MNO=pqr"), STRLEN("MNO=pqr") + 1) == 0);
 
                 LOG_CONTEXT_PUSH_IOV(iov, ELEMENTSOF(iov));

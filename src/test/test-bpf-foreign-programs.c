@@ -123,8 +123,8 @@ static const Test same_prog_multi_option_1[] = {
 static int bpf_foreign_test_to_string(enum bpf_attach_type attach_type, const char *bpffs_path, char **ret_str) {
         const char *s = NULL;
 
-        assert_se(bpffs_path);
-        assert_se(ret_str);
+        ASSERT_TRUE(bpffs_path);
+        ASSERT_TRUE(ret_str);
 
         assert_se(s = bpf_cgroup_attach_type_to_string(attach_type));
         assert_se(*ret_str = strjoin(s, ":", bpffs_path));
@@ -150,7 +150,7 @@ static int pin_programs(Unit *u, CGroupContext *cc, const Test *test_suite, size
         char log_buf[0xffff];
         int r;
 
-        assert_se(paths_ret);
+        ASSERT_TRUE(paths_ret);
 
         for (size_t i = 0; i < test_suite_size; i++) {
                 _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;

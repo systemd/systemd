@@ -36,7 +36,7 @@ static int parse_argv(int argc, char *argv[]) {
         int c;
 
         ASSERT_OK(argc);
-        assert_se(argv);
+        ASSERT_TRUE(argv);
 
         while ((c = getopt_long(argc, argv, "", options, NULL)) >= 0)
                 switch (c) {

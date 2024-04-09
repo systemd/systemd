@@ -59,8 +59,8 @@ static void wait_for_service_finish(Manager *m, Unit *unit) {
         usec_t ts;
         usec_t timeout = 2 * USEC_PER_MINUTE;
 
-        assert_se(m);
-        assert_se(unit);
+        ASSERT_TRUE(m);
+        ASSERT_TRUE(unit);
 
         /* Bump the timeout when running in plain QEMU, as some more involved tests might start hitting the
          * default 2m timeout (like exec-dynamicuser-statedir.service) */
@@ -93,8 +93,8 @@ static void check_main_result(const char *file, unsigned line, const char *func,
                               Manager *m, Unit *unit, int status_expected, int code_expected) {
         Service *service = NULL;
 
-        assert_se(m);
-        assert_se(unit);
+        ASSERT_TRUE(m);
+        ASSERT_TRUE(unit);
 
         wait_for_service_finish(m, unit);
 
@@ -120,8 +120,8 @@ static void check_service_result(const char *file, unsigned line, const char *fu
                                  Manager *m, Unit *unit, ServiceResult result_expected) {
         Service *service = NULL;
 
-        assert_se(m);
-        assert_se(unit);
+        ASSERT_TRUE(m);
+        ASSERT_TRUE(unit);
 
         wait_for_service_finish(m, unit);
 
@@ -185,7 +185,7 @@ static bool check_user_has_group_with_same_name(const char *name) {
         struct passwd *p;
         struct group *g;
 
-        assert_se(name);
+        ASSERT_TRUE(name);
 
         p = getpwnam(name);
         if (!p ||
@@ -290,7 +290,7 @@ static void _test(const char *file, unsigned line, const char *func,
                   Manager *m, const char *unit_name, int status_expected, int code_expected) {
         Unit *unit;
 
-        assert_se(unit_name);
+        ASSERT_TRUE(unit_name);
 
         assert_se(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit) >= 0);
         /* We need to start the slices as well otherwise the slice cgroups might be pruned
@@ -308,7 +308,7 @@ static void _test_service(const char *file, unsigned line, const char *func,
                           Manager *m, const char *unit_name, ServiceResult result_expected) {
         Unit *unit;
 
-        assert_se(unit_name);
+        ASSERT_TRUE(unit_name);
 
         assert_se(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit) >= 0);
         assert_se(unit_start(unit, NULL) >= 0);
@@ -621,7 +621,7 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
         char buf[4096];
         ssize_t l;
 
-        assert_se(s);
+        ASSERT_TRUE(s);
         ASSERT_OK(fd);
 
         l = read(fd, buf, sizeof(buf) - 1);
@@ -649,7 +649,7 @@ reenable:
 static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         pid_t *pid = userdata;
 
-        assert_se(pid);
+        ASSERT_TRUE(pid);
 
         (void) kill(*pid, SIGKILL);
 
@@ -659,7 +659,7 @@ static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
         int ret = -EIO;
 
-        assert_se(si);
+        ASSERT_TRUE(si);
 
         if (si->si_code == CLD_EXITED)
                 ret = si->si_status;
@@ -679,8 +679,8 @@ static int find_libraries(const char *exec, char ***ret) {
         pid_t pid;
         int r;
 
-        assert_se(exec);
-        assert_se(ret);
+        ASSERT_TRUE(exec);
+        ASSERT_TRUE(ret);
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
@@ -761,7 +761,7 @@ static void test_exec_mount_apivfs(Manager *m) {
         _cleanup_strv_free_ char **libraries = NULL, **libraries_test = NULL;
         int r;
 
-        assert_se(user_runtime_unit_dir);
+        ASSERT_TRUE(user_runtime_unit_dir);
 
         r = find_executable("ldd", NULL);
         if (r < 0) {

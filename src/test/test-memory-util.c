@@ -9,10 +9,10 @@ TEST(eqzero) {
         const uint32_t mixed[] = {0, 1, 0, 0, 0};
         const uint8_t longer[] = {[55] = 255};
 
-        assert_se(eqzero(zeros));
-        assert_se(!eqzero(ones));
-        assert_se(!eqzero(mixed));
-        assert_se(!eqzero(longer));
+        ASSERT_TRUE(eqzero(zeros));
+        ASSERT_FALSE(eqzero(ones));
+        ASSERT_FALSE(eqzero(mixed));
+        ASSERT_FALSE(eqzero(longer));
 }
 
 static void my_destructor(struct iovec *iov, size_t n) {
@@ -26,7 +26,7 @@ TEST(cleanup_array) {
 
         n = 7;
         iov = new(struct iovec, n);
-        assert_se(iov);
+        ASSERT_TRUE(iov);
 
         memset(iov, 'x', sizeof(struct iovec) * n);
 
@@ -35,18 +35,18 @@ TEST(cleanup_array) {
 
         {
                 assert_se(memeqbyte('x', saved_iov, sizeof(struct iovec) * saved_n));
-                assert_se(iov);
+                ASSERT_TRUE(iov);
                 ASSERT_GT(n, 0u);
 
                 CLEANUP_ARRAY(iov, n, my_destructor);
 
                 assert_se(memeqbyte('x', saved_iov, sizeof(struct iovec) * saved_n));
-                assert_se(iov);
+                ASSERT_TRUE(iov);
                 ASSERT_GT(n, 0u);
         }
 
         assert_se(memeqbyte('y', saved_iov, sizeof(struct iovec) * saved_n));
-        assert_se(!iov);
+        ASSERT_FALSE(iov);
         ASSERT_EQ(n, 0u);
 
         free(saved_iov);

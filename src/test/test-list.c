@@ -242,7 +242,7 @@ int main(int argc, const char *argv[]) {
 
         assert_se(LIST_JOIN(item_list, head, head2) == head);
         ASSERT_NULL(head2);
-        assert_se(head);
+        ASSERT_TRUE(head);
 
         for (i = 0; i < ELEMENTSOF(items); i++)
                 assert_se(LIST_REMOVE(item_list, head, &items[i]) == &items[i]);

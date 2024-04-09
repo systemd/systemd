@@ -396,10 +396,10 @@ static void test_format_timestamp_impl(usec_t x) {
         usec_t y;
 
         xx = FORMAT_TIMESTAMP(x);
-        assert_se(xx);
+        ASSERT_TRUE(xx);
         assert_se(parse_timestamp(xx, &y) >= 0);
         yy = FORMAT_TIMESTAMP(y);
-        assert_se(yy);
+        ASSERT_TRUE(yy);
 
         success = (x / USEC_PER_SEC == y / USEC_PER_SEC) && streq(xx, yy);
         /* Workaround for https://github.com/systemd/systemd/issues/28472 */
@@ -1061,14 +1061,14 @@ TEST(in_utc_timezone) {
         const char *tz = getenv("TZ");
 
         assert_se(setenv("TZ", ":UTC", 1) >= 0);
-        assert_se(in_utc_timezone());
+        ASSERT_TRUE(in_utc_timezone());
         assert_se(streq(tzname[0], "UTC"));
         assert_se(streq(tzname[1], "UTC"));
         ASSERT_EQ(timezone, 0);
         ASSERT_EQ(daylight, 0);
 
         assert_se(setenv("TZ", ":Europe/Berlin", 1) >= 0);
-        assert_se(!in_utc_timezone());
+        ASSERT_FALSE(in_utc_timezone());
         assert_se(streq(tzname[0], "CET"));
         assert_se(streq(tzname[1], "CEST"));
 
@@ -1089,9 +1089,9 @@ TEST(map_clock_usec) {
         assert_se(nowr < USEC_INFINITY - USEC_PER_DAY*7); /* overflow check */
         x = nowr + USEC_PER_DAY*7; /* 1 week from now */
         y = map_clock_usec(x, CLOCK_REALTIME, CLOCK_MONOTONIC);
-        assert_se(timestamp_is_set(y));
+        ASSERT_TRUE(timestamp_is_set(y));
         z = map_clock_usec(y, CLOCK_MONOTONIC, CLOCK_REALTIME);
-        assert_se(timestamp_is_set(z));
+        ASSERT_TRUE(timestamp_is_set(z));
         assert_se((z > x ? z - x : x - z) < USEC_PER_HOUR);
 
         assert_se(nowr > USEC_PER_DAY * 7); /* underflow check */
@@ -1100,7 +1100,7 @@ TEST(map_clock_usec) {
         if (y != 0) { /* might underflow if machine is not up long enough for the monotonic clock to be beyond 1w */
                 assert_se(y < USEC_INFINITY);
                 z = map_clock_usec(y, CLOCK_MONOTONIC, CLOCK_REALTIME);
-                assert_se(timestamp_is_set(z));
+                ASSERT_TRUE(timestamp_is_set(z));
                 assert_se((z > x ? z - x : x - z) < USEC_PER_HOUR);
         }
 }

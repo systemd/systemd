@@ -11,7 +11,7 @@ TEST(path_hash_set) {
         /* No freeing of keys, we operate on static strings here… */
         _cleanup_set_free_ Set *set = NULL;
 
-        assert_se(set_isempty(set));
+        ASSERT_TRUE(set_isempty(set));
         assert_se(set_ensure_put(&set, &path_hash_ops, "foo") == 1);
         assert_se(set_ensure_put(&set, &path_hash_ops, "foo") == 0);
         assert_se(set_ensure_put(&set, &path_hash_ops, "bar") == 1);

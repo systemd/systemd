@@ -428,7 +428,7 @@ static int parse_argv(int argc, char **argv,
                                 "mymachines",
 #endif
                                 NULL);
-        assert_se(modules);
+        ASSERT_TRUE(modules);
 
         if (argc > 2) {
                 int family;

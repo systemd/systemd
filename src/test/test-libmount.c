@@ -22,7 +22,7 @@ static void test_libmount_unescaping_one(
         _cleanup_fclose_ FILE *f = NULL;
 
         f = fmemopen((char*) string, strlen(string), "r");
-        assert_se(f);
+        ASSERT_TRUE(f);
 
         assert_se(libmount_parse(title, f, &table, &iter) >= 0);
 

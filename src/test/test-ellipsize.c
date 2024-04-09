@@ -127,7 +127,7 @@ TEST(ellipsize_ansi) {
                 for (ssize_t x = 21; x >= 0; x--) {
                         _cleanup_free_ char *t = ellipsize_mem(s, len, x, percent);
                         printf("%02zd: \"%s\"\n", x, t);
-                        assert_se(utf8_is_valid(t));
+                        ASSERT_TRUE(utf8_is_valid(t));
 
                         if (DEBUG_LOGGING) {
                                 _cleanup_free_ char *e = cescape(t);

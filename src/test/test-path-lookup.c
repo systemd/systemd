@@ -21,7 +21,7 @@ static void test_paths_one(RuntimeScope scope) {
 
         ASSERT_EQ(unsetenv("SYSTEMD_UNIT_PATH"), 0);
         assert_se(lookup_paths_init(&lp_without_env, scope, 0, NULL) >= 0);
-        assert_se(!strv_isempty(lp_without_env.search_path));
+        ASSERT_FALSE(strv_isempty(lp_without_env.search_path));
         lookup_paths_log(&lp_without_env);
 
         systemd_unit_path = strjoina(tmp, "/systemd-unit-path");
@@ -95,8 +95,8 @@ static void test_generator_binary_paths_one(RuntimeScope scope) {
         STRV_FOREACH(dir, env_gp_without_env)
                 log_info("        %s", *dir);
 
-        assert_se(!strv_isempty(gp_without_env));
-        assert_se(!strv_isempty(env_gp_without_env));
+        ASSERT_FALSE(strv_isempty(gp_without_env));
+        ASSERT_FALSE(strv_isempty(env_gp_without_env));
 
         systemd_generator_path = strjoina(tmp, "/systemd-generator-path");
         systemd_env_generator_path = strjoina(tmp, "/systemd-environment-generator-path");
