@@ -75,12 +75,12 @@ static int acquire_first_emergency_log_message(char **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add boot ID filter: %m");
 
-        r = sd_journal_add_match(j, "_UID=0", 0);
+        r = sd_journal_add_match(j, "_UID=0", SIZE_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to add User ID filter: %m");
 
         assert_cc(0 == LOG_EMERG);
-        r = sd_journal_add_match(j, "PRIORITY=0", 0);
+        r = sd_journal_add_match(j, "PRIORITY=0", SIZE_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Emergency filter: %m");
 

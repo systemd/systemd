@@ -18,38 +18,38 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_journal_open(&j, SD_JOURNAL_ASSUME_IMMUTABLE) >= 0);
 
-        assert_se(sd_journal_add_match(j, "foobar", 0) < 0);
-        assert_se(sd_journal_add_match(j, "foobar=waldo", 0) < 0);
-        assert_se(sd_journal_add_match(j, "", 0) < 0);
-        assert_se(sd_journal_add_match(j, "=", 0) < 0);
-        assert_se(sd_journal_add_match(j, "=xxxxx", 0) < 0);
+        assert_se(sd_journal_add_match(j, "foobar", SIZE_MAX) < 0);
+        assert_se(sd_journal_add_match(j, "foobar=waldo", SIZE_MAX) < 0);
+        assert_se(sd_journal_add_match(j, "", SIZE_MAX) < 0);
+        assert_se(sd_journal_add_match(j, "=", SIZE_MAX) < 0);
+        assert_se(sd_journal_add_match(j, "=xxxxx", SIZE_MAX) < 0);
         assert_se(sd_journal_add_match(j, (uint8_t[4]){'A', '=', '\1', '\2'}, 4) >= 0);
         assert_se(sd_journal_add_match(j, (uint8_t[5]){'B', '=', 'C', '\0', 'D'}, 5) >= 0);
-        assert_se(sd_journal_add_match(j, "HALLO=WALDO", 0) >= 0);
-        assert_se(sd_journal_add_match(j, "QUUX=mmmm", 0) >= 0);
-        assert_se(sd_journal_add_match(j, "QUUX=xxxxx", 0) >= 0);
-        assert_se(sd_journal_add_match(j, "HALLO=", 0) >= 0);
-        assert_se(sd_journal_add_match(j, "QUUX=xxxxx", 0) >= 0);
-        assert_se(sd_journal_add_match(j, "QUUX=yyyyy", 0) >= 0);
-        assert_se(sd_journal_add_match(j, "PIFF=paff", 0) >= 0);
+        assert_se(sd_journal_add_match(j, "HALLO=WALDO", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "QUUX=mmmm", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "QUUX=xxxxx", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "HALLO=", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "QUUX=xxxxx", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "QUUX=yyyyy", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "PIFF=paff", SIZE_MAX) >= 0);
 
         assert_se(sd_journal_add_disjunction(j) >= 0);
 
-        assert_se(sd_journal_add_match(j, "ONE=one", 0) >= 0);
-        assert_se(sd_journal_add_match(j, "ONE=two", 0) >= 0);
-        assert_se(sd_journal_add_match(j, "TWO=two", 0) >= 0);
+        assert_se(sd_journal_add_match(j, "ONE=one", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "ONE=two", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "TWO=two", SIZE_MAX) >= 0);
 
         assert_se(sd_journal_add_conjunction(j) >= 0);
 
-        assert_se(sd_journal_add_match(j, "L4_1=yes", 0) >= 0);
-        assert_se(sd_journal_add_match(j, "L4_1=ok", 0) >= 0);
-        assert_se(sd_journal_add_match(j, "L4_2=yes", 0) >= 0);
-        assert_se(sd_journal_add_match(j, "L4_2=ok", 0) >= 0);
+        assert_se(sd_journal_add_match(j, "L4_1=yes", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "L4_1=ok", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "L4_2=yes", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "L4_2=ok", SIZE_MAX) >= 0);
 
         assert_se(sd_journal_add_disjunction(j) >= 0);
 
-        assert_se(sd_journal_add_match(j, "L3=yes", 0) >= 0);
-        assert_se(sd_journal_add_match(j, "L3=ok", 0) >= 0);
+        assert_se(sd_journal_add_match(j, "L3=yes", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "L3=ok", SIZE_MAX) >= 0);
 
         assert_se(t = journal_make_match_string(j));
 
