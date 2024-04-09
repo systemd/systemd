@@ -27,8 +27,8 @@ static void test_int_fail(int i, int error) {
 }
 
 static void test_str(const char *s) {
-        assert_se(streq(ip_protocol_to_name(ip_protocol_from_name(s)), s));
-        assert_se(streq(ip_protocol_to_name(parse_ip_protocol(s)), s));
+        ASSERT_TRUE(streq(ip_protocol_to_name(ip_protocol_from_name(s)), s));
+        ASSERT_TRUE(streq(ip_protocol_to_name(parse_ip_protocol(s)), s));
 }
 
 static void test_str_fail(const char *s, int error) {
@@ -64,8 +64,8 @@ TEST(parse_ip_protocol) {
 
 TEST(parse_ip_protocol_full) {
         assert_se(parse_ip_protocol_full("-1", true) == -ERANGE);
-        assert_se(parse_ip_protocol_full("0", true) == 0);
-        assert_se(parse_ip_protocol_full("11", true) == 11);
+        ASSERT_EQ(parse_ip_protocol_full("0", true), 0);
+        ASSERT_EQ(parse_ip_protocol_full("11", true), 11);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

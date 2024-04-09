@@ -83,7 +83,7 @@ static void test_hash_password_full(void) {
                         log_info("crypt_r[a] buffer size: %i bytes", cd_size);
 
                         assert_se(test_password_one(hashed, i) == true);
-                        assert_se(test_password_one(i, hashed) <= 0); /* We get an error for non-utf8 */
+                        ASSERT_LE(test_password_one(i, hashed), 0); /* We get an error for non-utf8 */
                         assert_se(test_password_one(hashed, "foobar") == false);
                         assert_se(test_password_many(STRV_MAKE(hashed), i) == true);
                         assert_se(test_password_many(STRV_MAKE(hashed), "foobar") == false);

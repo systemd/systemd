@@ -195,7 +195,7 @@ static int test_bpf_cgroup_programs(Manager *m, const char *unit_name, const Tes
         int cld_code, r;
 
         assert_se(u = unit_new(m, sizeof(Service)));
-        assert_se(unit_add_name(u, unit_name) == 0);
+        ASSERT_EQ(unit_add_name(u, unit_name), 0);
         assert_se(cc = unit_get_cgroup_context(u));
 
         r = pin_programs(u, cc, test_suite, test_suite_size, &bpffs_paths);

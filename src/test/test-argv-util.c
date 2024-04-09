@@ -116,13 +116,13 @@ TEST(rename_process) {
 }
 
 TEST(argv_help) {
-        assert_se(argv_looks_like_help(1, STRV_MAKE("program")));
-        assert_se(argv_looks_like_help(2, STRV_MAKE("program", "help")));
+        ASSERT_TRUE(argv_looks_like_help(1, STRV_MAKE("program")));
+        ASSERT_TRUE(argv_looks_like_help(2, STRV_MAKE("program", "help")));
         assert_se(argv_looks_like_help(3, STRV_MAKE("program", "arg1", "--help")));
         assert_se(argv_looks_like_help(4, STRV_MAKE("program", "arg1", "arg2", "-h")));
-        assert_se(!argv_looks_like_help(2, STRV_MAKE("program", "arg1")));
+        ASSERT_FALSE(argv_looks_like_help(2, STRV_MAKE("program", "arg1")));
         assert_se(!argv_looks_like_help(4, STRV_MAKE("program", "arg1", "arg2", "--h")));
-        assert_se(!argv_looks_like_help(3, STRV_MAKE("program", "Help", "arg2")));
+        ASSERT_FALSE(argv_looks_like_help(3, STRV_MAKE("program", "Help", "arg2")));
         assert_se(argv_looks_like_help(5, STRV_MAKE("program", "--help", "arg1", "-h", "--help")));
         assert_se(!argv_looks_like_help(4, STRV_MAKE("program","arg1", "arg2", "-H")));
         assert_se(!argv_looks_like_help(3, STRV_MAKE("program", "--Help", "arg2")));

@@ -20,7 +20,7 @@ TEST(physical_memory_scale) {
 
         p = physical_memory();
 
-        assert_se(physical_memory_scale(0, 100) == 0);
+        ASSERT_EQ(physical_memory_scale(0, 100), 0u);
         assert_se(physical_memory_scale(100, 100) == p);
 
         log_info("Memory original: %" PRIu64, physical_memory());
@@ -32,17 +32,17 @@ TEST(physical_memory_scale) {
         assert_se(page_size()/2 + physical_memory_scale(50, 100) - p/2 <= page_size());
         assert_se(physical_memory_scale(200, 100) == p*2);
 
-        assert_se(physical_memory_scale(0, 1) == 0);
+        ASSERT_EQ(physical_memory_scale(0, 1), 0u);
         assert_se(physical_memory_scale(1, 1) == p);
         assert_se(physical_memory_scale(2, 1) == p*2);
 
-        assert_se(physical_memory_scale(0, 2) == 0);
+        ASSERT_EQ(physical_memory_scale(0, 2), 0u);
 
         assert_se(page_size()/2 + physical_memory_scale(1, 2) - p/2 <= page_size());
         assert_se(physical_memory_scale(2, 2) == p);
         assert_se(physical_memory_scale(4, 2) == p*2);
 
-        assert_se(physical_memory_scale(0, UINT32_MAX) == 0);
+        ASSERT_EQ(physical_memory_scale(0, UINT32_MAX), 0u);
         assert_se(physical_memory_scale(UINT32_MAX, UINT32_MAX) == p);
 
         /* overflow */
@@ -64,20 +64,20 @@ TEST(system_tasks_max_scale) {
 
         t = system_tasks_max();
 
-        assert_se(system_tasks_max_scale(0, 100) == 0);
+        ASSERT_EQ(system_tasks_max_scale(0, 100), 0u);
         assert_se(system_tasks_max_scale(100, 100) == t);
 
-        assert_se(system_tasks_max_scale(0, 1) == 0);
+        ASSERT_EQ(system_tasks_max_scale(0, 1), 0u);
         assert_se(system_tasks_max_scale(1, 1) == t);
         assert_se(system_tasks_max_scale(2, 1) == 2*t);
 
-        assert_se(system_tasks_max_scale(0, 2) == 0);
+        ASSERT_EQ(system_tasks_max_scale(0, 2), 0u);
         assert_se(system_tasks_max_scale(1, 2) == t/2);
         assert_se(system_tasks_max_scale(2, 2) == t);
         assert_se(system_tasks_max_scale(3, 2) == (3*t)/2);
         assert_se(system_tasks_max_scale(4, 2) == t*2);
 
-        assert_se(system_tasks_max_scale(0, UINT32_MAX) == 0);
+        ASSERT_EQ(system_tasks_max_scale(0, UINT32_MAX), 0u);
         assert_se(system_tasks_max_scale((UINT32_MAX-1)/2, UINT32_MAX-1) == t/2);
         assert_se(system_tasks_max_scale(UINT32_MAX, UINT32_MAX) == t);
 

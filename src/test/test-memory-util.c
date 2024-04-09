@@ -77,7 +77,7 @@ TEST(page_align) {
         assert_se(PAGE_ALIGN_U64(UINT64_MAX - page_size() + 2) == UINT64_MAX); /* overflow */
         assert_se(PAGE_ALIGN_U64(UINT64_MAX) == UINT64_MAX); /* overflow */
 
-        assert_se(PAGE_ALIGN_DOWN(page_size() - 1) == 0);
+        ASSERT_EQ(PAGE_ALIGN_DOWN(page_size() - 1), 0u);
         assert_se(PAGE_ALIGN_DOWN(page_size()    ) == page_size());
         assert_se(PAGE_ALIGN_DOWN(page_size() + 1) == page_size());
         assert_se(PAGE_ALIGN_DOWN(page_size() * 123 - 1) == page_size() * 122);
@@ -88,7 +88,7 @@ TEST(page_align) {
         assert_se(PAGE_ALIGN_DOWN(SIZE_MAX - page_size() + 1) == SIZE_MAX - page_size() + 1);
         assert_se(PAGE_ALIGN_DOWN(SIZE_MAX - page_size() + 2) == SIZE_MAX - page_size() + 1);
 
-        assert_se(PAGE_ALIGN_DOWN_U64(page_size() - 1) == 0);
+        ASSERT_EQ(PAGE_ALIGN_DOWN_U64(page_size() - 1), 0u);
         assert_se(PAGE_ALIGN_DOWN_U64(page_size()    ) == page_size());
         assert_se(PAGE_ALIGN_DOWN_U64(page_size() + 1) == page_size());
         assert_se(PAGE_ALIGN_DOWN_U64(page_size() * 123 - 1) == page_size() * 122);
@@ -100,25 +100,25 @@ TEST(page_align) {
         assert_se(PAGE_ALIGN_DOWN_U64(SIZE_MAX - page_size() + 2) == SIZE_MAX - page_size() + 1);
 
         assert_se(PAGE_OFFSET(page_size() - 1) == page_size() - 1);
-        assert_se(PAGE_OFFSET(page_size()    ) == 0);
+        ASSERT_EQ(PAGE_OFFSET(page_size()    ), 0u);
         assert_se(PAGE_OFFSET(page_size() + 1) == 1);
         assert_se(PAGE_OFFSET(page_size() * 123 - 1) == page_size() - 1);
         assert_se(PAGE_OFFSET(page_size() * 123    ) == 0);
         assert_se(PAGE_OFFSET(page_size() * 123 + 1) == 1);
         assert_se(PAGE_OFFSET(SIZE_MAX - page_size() - 1) == page_size() - 2);
         assert_se(PAGE_OFFSET(SIZE_MAX - page_size()    ) == page_size() - 1);
-        assert_se(PAGE_OFFSET(SIZE_MAX - page_size() + 1) == 0);
+        ASSERT_EQ(PAGE_OFFSET(SIZE_MAX - page_size() + 1), 0u);
         assert_se(PAGE_OFFSET(SIZE_MAX - page_size() + 2) == 1);
 
         assert_se(PAGE_OFFSET_U64(page_size() - 1) == page_size() - 1);
-        assert_se(PAGE_OFFSET_U64(page_size()    ) == 0);
+        ASSERT_EQ(PAGE_OFFSET_U64(page_size()    ), 0u);
         assert_se(PAGE_OFFSET_U64(page_size() + 1) == 1);
         assert_se(PAGE_OFFSET_U64(page_size() * 123 - 1) == page_size() - 1);
         assert_se(PAGE_OFFSET_U64(page_size() * 123    ) == 0);
         assert_se(PAGE_OFFSET_U64(page_size() * 123 + 1) == 1);
         assert_se(PAGE_OFFSET_U64(UINT64_MAX - page_size() - 1) == page_size() - 2);
         assert_se(PAGE_OFFSET_U64(UINT64_MAX - page_size()    ) == page_size() - 1);
-        assert_se(PAGE_OFFSET_U64(UINT64_MAX - page_size() + 1) == 0);
+        ASSERT_EQ(PAGE_OFFSET_U64(UINT64_MAX - page_size() + 1), 0u);
         assert_se(PAGE_OFFSET_U64(UINT64_MAX - page_size() + 2) == 1);
 }
 

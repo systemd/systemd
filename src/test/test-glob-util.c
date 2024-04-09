@@ -24,7 +24,7 @@ TEST(glob_first) {
 
         r = glob_first("/tmp/test-glob_first*", &first);
         ASSERT_EQ(r, 1);
-        assert_se(streq(name, first));
+        ASSERT_TRUE(streq(name, first));
         first = mfree(first);
 
         r = unlink(name);
@@ -119,7 +119,7 @@ static void test_glob_non_glob_prefix_one(const char *path, const char *expected
         _cleanup_free_ char *t;
 
         assert_se(glob_non_glob_prefix(path, &t) == 0);
-        assert_se(streq(t, expected));
+        ASSERT_TRUE(streq(t, expected));
 }
 
 TEST(glob_non_glob) {

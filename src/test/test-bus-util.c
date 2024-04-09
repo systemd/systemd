@@ -30,11 +30,11 @@ TEST(destroy_callback) {
         r = sd_bus_request_name_async(bus, &slot, "org.freedesktop.systemd.test-bus-util", 0, callback, &n_called);
         ASSERT_EQ(r, 1);
 
-        assert_se(sd_bus_slot_get_destroy_callback(slot, NULL) == 0);
+        ASSERT_EQ(sd_bus_slot_get_destroy_callback(slot, NULL), 0);
         assert_se(sd_bus_slot_get_destroy_callback(slot, &t) == 0);
 
-        assert_se(sd_bus_slot_set_destroy_callback(slot, destroy_callback) == 0);
-        assert_se(sd_bus_slot_get_destroy_callback(slot, NULL) == 1);
+        ASSERT_EQ(sd_bus_slot_set_destroy_callback(slot, destroy_callback), 0);
+        ASSERT_EQ(sd_bus_slot_get_destroy_callback(slot, NULL), 1);
         assert_se(sd_bus_slot_get_destroy_callback(slot, &t) == 1);
         assert_se(t == destroy_callback);
 

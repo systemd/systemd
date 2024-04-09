@@ -14,7 +14,7 @@ TEST(pidref_is_set) {
 }
 
 TEST(pidref_equal) {
-        assert_se(pidref_equal(NULL, NULL));
+        ASSERT_TRUE(pidref_equal(NULL, NULL));
         assert_se(pidref_equal(NULL, &PIDREF_NULL));
         assert_se(pidref_equal(&PIDREF_NULL, NULL));
         assert_se(pidref_equal(&PIDREF_NULL, &PIDREF_NULL));

@@ -16,20 +16,20 @@ static void test_dns_label_unescape_one(const char *what, const char *expect, si
         r = dns_label_unescape(&w, buffer, buffer_sz, 0);
         assert_se(r == ret);
         if (r >= 0)
-                assert_se(streq(buffer, expect));
+                ASSERT_TRUE(streq(buffer, expect));
 
         w = what;
         r = dns_label_unescape(&w, buffer, buffer_sz, DNS_LABEL_LDH);
         assert_se(r == ret_ldh);
         if (r >= 0)
-                assert_se(streq(buffer, expect));
+                ASSERT_TRUE(streq(buffer, expect));
 
         w = what;
         r = dns_label_unescape(&w, buffer, buffer_sz, DNS_LABEL_NO_ESCAPES);
         const int ret_noe = strchr(what, '\\') ? -EINVAL : ret;
         assert_se(r == ret_noe);
         if (r >= 0)
-                assert_se(streq(buffer, expect));
+                ASSERT_TRUE(streq(buffer, expect));
 }
 
 TEST(dns_label_unescape) {
@@ -68,7 +68,7 @@ static void test_dns_name_to_wire_format_one(const char *what, const char *expec
 
         if (r >= 0) {
                 assert(expect);  /* for gcc */
-                assert_se(memcmp(buffer, expect, r) == 0);
+                ASSERT_EQ(memcmp(buffer, expect, r), 0);
         }
 }
 
@@ -131,12 +131,12 @@ static void test_dns_label_unescape_suffix_one(const char *what, const char *exp
         r = dns_label_unescape_suffix(what, &label, buffer, buffer_sz);
         assert_se(r == ret1);
         if (r >= 0)
-                assert_se(streq(buffer, expect1));
+                ASSERT_TRUE(streq(buffer, expect1));
 
         r = dns_label_unescape_suffix(what, &label, buffer, buffer_sz);
         assert_se(r == ret2);
         if (r >= 0)
-                assert_se(streq(buffer, expect2));
+                ASSERT_TRUE(streq(buffer, expect2));
 }
 
 TEST(dns_label_unescape_suffix) {
@@ -173,7 +173,7 @@ static void test_dns_label_escape_one(const char *what, size_t l, const char *ex
         if (r < 0)
                 return;
 
-        assert_se(streq_ptr(expect, t));
+        ASSERT_TRUE(streq_ptr(expect, t));
 }
 
 TEST(dns_label_escape) {
@@ -193,7 +193,7 @@ static void test_dns_name_normalize_one(const char *what, const char *expect, in
         if (r < 0)
                 return;
 
-        assert_se(streq_ptr(expect, t));
+        ASSERT_TRUE(streq_ptr(expect, t));
 }
 
 TEST(dns_name_normalize) {
@@ -332,7 +332,7 @@ static void test_dns_name_reverse_one(const char *address, const char *name) {
 
         assert_se(in_addr_from_string_auto(address, &familya, &a) >= 0);
         assert_se(dns_name_reverse(familya, &a, &p) >= 0);
-        assert_se(streq(p, name));
+        ASSERT_TRUE(streq(p, name));
         assert_se(dns_name_address(p, &familyb, &b) > 0);
         assert_se(familya == familyb);
         assert_se(in_addr_equal(familya, &a, &b));
@@ -349,7 +349,7 @@ static void test_dns_name_concat_one(const char *a, const char *b, int r, const 
         _cleanup_free_ char *p = NULL;
 
         assert_se(dns_name_concat(a, b, 0, &p) == r);
-        assert_se(streq_ptr(p, result));
+        ASSERT_TRUE(streq_ptr(p, result));
 }
 
 TEST(dns_name_concat) {
@@ -432,7 +432,7 @@ TEST(dns_service_name_is_valid) {
         ASSERT_FALSE(dns_service_name_is_valid(""));
         assert_se(!dns_service_name_is_valid("foo\nbar"));
         assert_se(!dns_service_name_is_valid("foo\201bar"));
-        assert_se(!dns_service_name_is_valid("this is an overly long string that is certainly longer than 63 characters"));
+        ASSERT_FALSE(dns_service_name_is_valid("this is an overly long string that is certainly longer than 63 characters"));
 }
 
 TEST(dns_srv_type_is_valid) {
@@ -486,15 +486,15 @@ static void test_dns_service_join_one(const char *a, const char *b, const char *
         log_info("%s, %s, %s, →%d, %s", strnull(a), strnull(b), strnull(c), r, strnull(d));
 
         assert_se(dns_service_join(a, b, c, &t) == r);
-        assert_se(streq_ptr(t, d));
+        ASSERT_TRUE(streq_ptr(t, d));
 
         if (r < 0)
                 return;
 
         assert_se(dns_service_split(t, &x, &y, &z) >= 0);
-        assert_se(streq_ptr(a, x));
-        assert_se(streq_ptr(b, y));
-        assert_se(dns_name_equal(c, z) > 0);
+        ASSERT_TRUE(streq_ptr(a, x));
+        ASSERT_TRUE(streq_ptr(b, y));
+        ASSERT_GT(dns_name_equal(c, z), 0);
 }
 
 TEST(dns_service_join) {
@@ -518,16 +518,16 @@ static void test_dns_service_split_one(const char *joined, const char *a, const 
         log_info("%s, %s, %s, %s, →%d", joined, strnull(a), strnull(b), strnull(c), r);
 
         assert_se(dns_service_split(joined, &x, &y, &z) == r);
-        assert_se(streq_ptr(x, a));
-        assert_se(streq_ptr(y, b));
-        assert_se(streq_ptr(z, c));
+        ASSERT_TRUE(streq_ptr(x, a));
+        ASSERT_TRUE(streq_ptr(y, b));
+        ASSERT_TRUE(streq_ptr(z, c));
 
         if (r < 0)
                 return;
 
         if (y) {
                 assert_se(dns_service_join(x, y, z, &t) == 0);
-                assert_se(dns_name_equal(joined, t) > 0);
+                ASSERT_GT(dns_name_equal(joined, t), 0);
         } else
                 assert_se(!x && dns_name_equal(z, joined) > 0);
 }
@@ -549,7 +549,7 @@ static void test_dns_name_change_suffix_one(const char *name, const char *old_su
         log_info("%s, %s, %s, →%s", name, old_suffix, new_suffix, strnull(result));
 
         assert_se(dns_name_change_suffix(name, old_suffix, new_suffix, &s) == r);
-        assert_se(streq_ptr(s, result));
+        ASSERT_TRUE(streq_ptr(s, result));
 }
 
 TEST(dns_name_change_suffix) {
@@ -570,7 +570,7 @@ static void test_dns_name_suffix_one(const char *name, unsigned n_labels, const 
         log_info("%s, %u, → %s, %d", name, n_labels, strnull(result), ret);
 
         assert_se(ret == dns_name_suffix(name, n_labels, &p));
-        assert_se(streq_ptr(p, result));
+        ASSERT_TRUE(streq_ptr(p, result));
 }
 
 TEST(dns_name_suffix) {
@@ -642,16 +642,16 @@ TEST(dns_name_equal_skip) {
 }
 
 TEST(dns_name_compare_func) {
-        assert_se(dns_name_compare_func("", "") == 0);
-        assert_se(dns_name_compare_func("", ".") == 0);
-        assert_se(dns_name_compare_func(".", "") == 0);
-        assert_se(dns_name_compare_func("foo", "foo.") == 0);
-        assert_se(dns_name_compare_func("foo.", "foo") == 0);
-        assert_se(dns_name_compare_func("foo", "foo") == 0);
-        assert_se(dns_name_compare_func("foo.", "foo.") == 0);
-        assert_se(dns_name_compare_func("heise.de", "HEISE.DE.") == 0);
+        ASSERT_EQ(dns_name_compare_func("", ""), 0);
+        ASSERT_EQ(dns_name_compare_func("", "."), 0);
+        ASSERT_EQ(dns_name_compare_func(".", ""), 0);
+        ASSERT_EQ(dns_name_compare_func("foo", "foo."), 0);
+        ASSERT_EQ(dns_name_compare_func("foo.", "foo"), 0);
+        ASSERT_EQ(dns_name_compare_func("foo", "foo"), 0);
+        ASSERT_EQ(dns_name_compare_func("foo.", "foo."), 0);
+        ASSERT_EQ(dns_name_compare_func("heise.de", "HEISE.DE."), 0);
 
-        assert_se(dns_name_compare_func("de.", "heise.de") != 0);
+        ASSERT_NE(dns_name_compare_func("de.", "heise.de"), 0);
 }
 
 static void test_dns_name_common_suffix_one(const char *a, const char *b, const char *result) {
@@ -660,7 +660,7 @@ static void test_dns_name_common_suffix_one(const char *a, const char *b, const 
         log_info("%s, %s, →%s", a, b, result);
 
         assert_se(dns_name_common_suffix(a, b, &c) >= 0);
-        assert_se(streq(c, result));
+        ASSERT_TRUE(streq(c, result));
 }
 
 TEST(dns_name_common_suffix) {
@@ -689,7 +689,7 @@ static void test_dns_name_apply_idna_one(const char *s, int expected, const char
          * expected return value. */
         assert_se(r >= expected);
         if (expected == 1)
-                assert_se(dns_name_equal(buf, result) == 1);
+                ASSERT_EQ(dns_name_equal(buf, result), 1);
 }
 
 TEST(dns_name_apply_idna) {

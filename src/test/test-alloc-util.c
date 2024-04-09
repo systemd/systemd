@@ -19,7 +19,7 @@ TEST(alloca) {
 
         t = alloca0_align(997, 1024);
         assert_se(!((uintptr_t)t & 0x1ff));
-        assert_se(!memcmp(t, zero, 997));
+        ASSERT_FALSE(memcmp(t, zero, 997));
 }
 
 TEST(GREEDY_REALLOC) {
@@ -62,32 +62,32 @@ TEST(GREEDY_REALLOC) {
 
                 _cleanup_free_ int *before = NULL;
                 size_t n_before = 0;
-                assert_se(GREEDY_REALLOC_APPEND(before, n_before, c, n_c));
+                ASSERT_TRUE(GREEDY_REALLOC_APPEND(before, n_before, c, n_c));
                 ASSERT_TRUE(before);
                 assert_se(n_before == n_c);
-                assert_se(memcmp_safe(c, before, n_c) == 0);
+                ASSERT_EQ(memcmp_safe(c, before, n_c), 0);
 
-                assert_se(GREEDY_REALLOC_APPEND(c, n_c, from, n_from));
+                ASSERT_TRUE(GREEDY_REALLOC_APPEND(c, n_c, from, n_from));
                 assert_se(n_c == n_before + n_from);
                 assert_se(MALLOC_ELEMENTSOF(c) >= n_c);
                 assert_se(MALLOC_SIZEOF_SAFE(c) >= n_c * sizeof(int));
-                assert_se(memcmp_safe(c, before, n_before) == 0);
+                ASSERT_EQ(memcmp_safe(c, before, n_before), 0);
                 assert_se(memcmp_safe(&c[n_before], from, n_from) == 0);
 
                 before = mfree(before);
                 ASSERT_FALSE(before);
                 n_before = 0;
-                assert_se(GREEDY_REALLOC_APPEND(before, n_before, c, n_c));
+                ASSERT_TRUE(GREEDY_REALLOC_APPEND(before, n_before, c, n_c));
                 ASSERT_TRUE(before);
                 assert_se(n_before == n_c);
-                assert_se(memcmp_safe(c, before, n_c) == 0);
+                ASSERT_EQ(memcmp_safe(c, before, n_c), 0);
 
-                assert_se(GREEDY_REALLOC_APPEND(c, n_c, NULL, 0));
+                ASSERT_TRUE(GREEDY_REALLOC_APPEND(c, n_c, NULL, 0));
                 ASSERT_TRUE(c);
                 assert_se(n_c == n_before);
                 assert_se(MALLOC_ELEMENTSOF(c) >= n_c);
                 assert_se(MALLOC_SIZEOF_SAFE(c) >= n_c * sizeof(int));
-                assert_se(memcmp_safe(c, before, n_c) == 0);
+                ASSERT_EQ(memcmp_safe(c, before, n_c), 0);
         }
 
         for (j = 0; j < i * n_from; j++)
@@ -184,7 +184,7 @@ TEST(auto_erase_memory) {
                                              * end of the allocation, since malloc() enforces alignment */
         assert_se(p2 = new(uint8_t, 4703));
 
-        assert_se(crypto_random_bytes(p1, 4703) == 0);
+        ASSERT_EQ(crypto_random_bytes(p1, 4703), 0);
 
         /* before we exit the scope, do something with this data, so that the compiler won't optimize this away */
         memcpy(p2, p1, 4703);
