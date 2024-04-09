@@ -482,7 +482,7 @@ TEST(config_parse_log_extra_fields) {
                                           "LValue", 0, "FOO=BAR \"QOOF=quux '  ' \"",
                                           &c, u);
         ASSERT_OK(r);
-        assert_se(c.n_log_extra_fields == 2);
+        ASSERT_EQ(c.n_log_extra_fields, 2u);
         assert_se(strneq(c.log_extra_fields[0].iov_base, "FOO=BAR", c.log_extra_fields[0].iov_len));
         assert_se(strneq(c.log_extra_fields[1].iov_base, "QOOF=quux '  ' ", c.log_extra_fields[1].iov_len));
 
@@ -491,7 +491,7 @@ TEST(config_parse_log_extra_fields) {
                                           "LValue", 0, "FOO2=BAR2 QOOF2=quux '  '",
                                           &c, u);
         ASSERT_OK(r);
-        assert_se(c.n_log_extra_fields == 4);
+        ASSERT_EQ(c.n_log_extra_fields, 4u);
         assert_se(strneq(c.log_extra_fields[0].iov_base, "FOO=BAR", c.log_extra_fields[0].iov_len));
         assert_se(strneq(c.log_extra_fields[1].iov_base, "QOOF=quux '  ' ", c.log_extra_fields[1].iov_len));
         assert_se(strneq(c.log_extra_fields[2].iov_base, "FOO2=BAR2", c.log_extra_fields[2].iov_len));
@@ -793,7 +793,7 @@ TEST(config_parse_pass_environ) {
                                       "PassEnvironment", 0, "A B",
                                       &passenv, NULL);
         ASSERT_OK(r);
-        assert_se(strv_length(passenv) == 2);
+        ASSERT_EQ(strv_length(passenv), 2u);
         assert_se(streq(passenv[0], "A"));
         assert_se(streq(passenv[1], "B"));
 
@@ -807,7 +807,7 @@ TEST(config_parse_pass_environ) {
                                       "PassEnvironment", 0, "'invalid name' 'normal_name' A=1 'special_name$$' \\",
                                       &passenv, NULL);
         ASSERT_OK(r);
-        assert_se(strv_length(passenv) == 1);
+        ASSERT_EQ(strv_length(passenv), 1u);
         assert_se(streq(passenv[0], "normal_name"));
 }
 
@@ -851,13 +851,13 @@ TEST(config_parse_unit_env_file) {
                                       "EnvironmentFile", 0, "/absolute1",
                                        &files, u);
         ASSERT_EQ(r, 0);
-        assert_se(strv_length(files) == 1);
+        ASSERT_EQ(strv_length(files), 1u);
 
         r = config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
                                       "EnvironmentFile", 0, "/absolute2",
                                        &files, u);
         ASSERT_EQ(r, 0);
-        assert_se(strv_length(files) == 2);
+        ASSERT_EQ(strv_length(files), 2u);
         assert_se(streq(files[0], "/absolute1"));
         assert_se(streq(files[1], "/absolute2"));
 
@@ -871,7 +871,7 @@ TEST(config_parse_unit_env_file) {
                                        "EnvironmentFile", 0, "/path/%n.conf",
                                        &files, u);
         ASSERT_EQ(r, 0);
-        assert_se(strv_length(files) == 1);
+        ASSERT_EQ(strv_length(files), 1u);
         assert_se(streq(files[0], "/path/foobar.service.conf"));
 }
 

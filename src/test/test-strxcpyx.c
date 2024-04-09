@@ -23,12 +23,12 @@ TEST(strpcpy) {
         assert_se(!truncated);
         space_left = strpcpy_full(&s, space_left, "r", &truncated);
         assert_se(!truncated);
-        assert_se(space_left == 1);
+        ASSERT_EQ(space_left, 1u);
         assert_se(streq(target, "12345hey hey heywaldobar"));
 
         space_left = strpcpy_full(&s, space_left, "", &truncated);
         assert_se(!truncated);
-        assert_se(space_left == 1);
+        ASSERT_EQ(space_left, 1u);
         assert_se(streq(target, "12345hey hey heywaldobar"));
 
         space_left = strpcpy_full(&s, space_left, "f", &truncated);
@@ -58,17 +58,17 @@ TEST(strpcpyf) {
         assert_se(!truncated);
         space_left = strpcpyf_full(&s, space_left, &truncated, "foo%s", "bar");
         assert_se(!truncated);
-        assert_se(space_left == 3);
+        ASSERT_EQ(space_left, 3u);
         assert_se(streq(target, "space left: 25. foobar"));
 
         space_left = strpcpyf_full(&s, space_left, &truncated, "%i", 42);
         assert_se(!truncated);
-        assert_se(space_left == 1);
+        ASSERT_EQ(space_left, 1u);
         assert_se(streq(target, "space left: 25. foobar42"));
 
         space_left = strpcpyf_full(&s, space_left, &truncated, "%s", "");
         assert_se(!truncated);
-        assert_se(space_left == 1);
+        ASSERT_EQ(space_left, 1u);
         assert_se(streq(target, "space left: 25. foobar42"));
 
         space_left = strpcpyf_full(&s, space_left, &truncated, "%c", 'x');
@@ -106,12 +106,12 @@ TEST(strpcpyl) {
         assert_se(!truncated);
         space_left = strpcpyl_full(&s, space_left, &truncated, "Banana", NULL);
         assert_se(!truncated);
-        assert_se(space_left == 1);
+        ASSERT_EQ(space_left, 1u);
         assert_se(streq(target, "waldo test waldo. Banana"));
 
         space_left = strpcpyl_full(&s, space_left, &truncated, "", "", "", NULL);
         assert_se(!truncated);
-        assert_se(space_left == 1);
+        ASSERT_EQ(space_left, 1u);
         assert_se(streq(target, "waldo test waldo. Banana"));
 
         space_left = strpcpyl_full(&s, space_left, &truncated, "", "x", "", NULL);
@@ -135,7 +135,7 @@ TEST(strscpy) {
         assert_se(!truncated);
 
         assert_se(streq(target, "12345"));
-        assert_se(space_left == 20);
+        ASSERT_EQ(space_left, 20u);
 }
 
 TEST(strscpyl) {
@@ -148,7 +148,7 @@ TEST(strscpyl) {
         assert_se(!truncated);
 
         assert_se(streq(target, "12345waldowaldo"));
-        assert_se(space_left == 10);
+        ASSERT_EQ(space_left, 10u);
 }
 
 TEST(sd_event_code_migration) {

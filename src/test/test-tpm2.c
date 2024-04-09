@@ -10,37 +10,37 @@ TEST(tpm2_pcr_index_from_string) {
         assert_se(tpm2_pcr_index_from_string("platform-code") == 0);
         ASSERT_EQ(tpm2_pcr_index_from_string("0"), 0);
         assert_se(tpm2_pcr_index_from_string("platform-config") == 1);
-        assert_se(tpm2_pcr_index_from_string("1") == 1);
+        ASSERT_EQ(tpm2_pcr_index_from_string("1"), 1);
         assert_se(tpm2_pcr_index_from_string("external-code") == 2);
-        assert_se(tpm2_pcr_index_from_string("2") == 2);
+        ASSERT_EQ(tpm2_pcr_index_from_string("2"), 2);
         assert_se(tpm2_pcr_index_from_string("external-config") == 3);
-        assert_se(tpm2_pcr_index_from_string("3") == 3);
+        ASSERT_EQ(tpm2_pcr_index_from_string("3"), 3);
         assert_se(tpm2_pcr_index_from_string("boot-loader-code") == 4);
-        assert_se(tpm2_pcr_index_from_string("4") == 4);
+        ASSERT_EQ(tpm2_pcr_index_from_string("4"), 4);
         assert_se(tpm2_pcr_index_from_string("boot-loader-config") == 5);
-        assert_se(tpm2_pcr_index_from_string("5") == 5);
+        ASSERT_EQ(tpm2_pcr_index_from_string("5"), 5);
         assert_se(tpm2_pcr_index_from_string("secure-boot-policy") == 7);
-        assert_se(tpm2_pcr_index_from_string("7") == 7);
+        ASSERT_EQ(tpm2_pcr_index_from_string("7"), 7);
         assert_se(tpm2_pcr_index_from_string("kernel-initrd") == 9);
-        assert_se(tpm2_pcr_index_from_string("9") == 9);
-        assert_se(tpm2_pcr_index_from_string("ima") == 10);
-        assert_se(tpm2_pcr_index_from_string("10") == 10);
+        ASSERT_EQ(tpm2_pcr_index_from_string("9"), 9);
+        ASSERT_EQ(tpm2_pcr_index_from_string("ima"), 10);
+        ASSERT_EQ(tpm2_pcr_index_from_string("10"), 10);
         assert_se(tpm2_pcr_index_from_string("kernel-boot") == 11);
-        assert_se(tpm2_pcr_index_from_string("11") == 11);
+        ASSERT_EQ(tpm2_pcr_index_from_string("11"), 11);
         assert_se(tpm2_pcr_index_from_string("kernel-config") == 12);
-        assert_se(tpm2_pcr_index_from_string("12") == 12);
-        assert_se(tpm2_pcr_index_from_string("sysexts") == 13);
-        assert_se(tpm2_pcr_index_from_string("13") == 13);
+        ASSERT_EQ(tpm2_pcr_index_from_string("12"), 12);
+        ASSERT_EQ(tpm2_pcr_index_from_string("sysexts"), 13);
+        ASSERT_EQ(tpm2_pcr_index_from_string("13"), 13);
         assert_se(tpm2_pcr_index_from_string("shim-policy") == 14);
-        assert_se(tpm2_pcr_index_from_string("14") == 14);
+        ASSERT_EQ(tpm2_pcr_index_from_string("14"), 14);
         assert_se(tpm2_pcr_index_from_string("system-identity") == 15);
-        assert_se(tpm2_pcr_index_from_string("15") == 15);
-        assert_se(tpm2_pcr_index_from_string("debug") == 16);
-        assert_se(tpm2_pcr_index_from_string("16") == 16);
+        ASSERT_EQ(tpm2_pcr_index_from_string("15"), 15);
+        ASSERT_EQ(tpm2_pcr_index_from_string("debug"), 16);
+        ASSERT_EQ(tpm2_pcr_index_from_string("16"), 16);
         assert_se(tpm2_pcr_index_from_string("application-support") == 23);
-        assert_se(tpm2_pcr_index_from_string("23") == 23);
+        ASSERT_EQ(tpm2_pcr_index_from_string("23"), 23);
         assert_se(tpm2_pcr_index_from_string("hello") == -EINVAL);
-        assert_se(tpm2_pcr_index_from_string("8") == 8);
+        ASSERT_EQ(tpm2_pcr_index_from_string("8"), 8);
         assert_se(tpm2_pcr_index_from_string("44") == -EINVAL);
         assert_se(tpm2_pcr_index_from_string("-5") == -EINVAL);
         assert_se(tpm2_pcr_index_from_string("24") == -EINVAL);
@@ -776,7 +776,7 @@ TEST(tpm2b_public_to_openssl_pkey) {
 
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx_rsa = EVP_PKEY_CTX_new((EVP_PKEY*) pkey_rsa, NULL);
         assert_se(ctx_rsa);
-        assert_se(EVP_PKEY_verify_init(ctx_rsa) == 1);
+        ASSERT_EQ(EVP_PKEY_verify_init(ctx_rsa), 1);
         assert_se(EVP_PKEY_CTX_set_signature_md(ctx_rsa, EVP_sha256()) > 0);
 
         DEFINE_HEX_PTR(sig_rsa, "9f70a9e68911be3ec464cae91126328307bf355872127e042d6c61e0a80982872c151033bcf727abfae5fc9500c923120011e7ef4aa5fc690a59a034697b6022c141b4b209e2df6f4b282288cd9181073fbe7158ce113c79d87623423c1f3996ff931e59cc91db74f8e8656215b1436fc93ddec0f1f8fa8510826e674b250f047e6cba94c95ff98072a286baca94646b577974a1e00d56c21944e38960d8ee90511a2f938e5cf1ac7b7cc7ff8e3ac001d321254d3e4f988b90e9f6f873c26ecd0a12a626b3474833cdbb9e9f793238f6c97ee5b75a1a89bb7a7858d34ecfa6d34ac58d95085e6c4fbbebd47a4364be2725c2c6b3fa15d916f3c0b62a66fe76ae");
@@ -789,7 +789,7 @@ TEST(tpm2b_public_to_openssl_pkey) {
 
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx_ecc = EVP_PKEY_CTX_new((EVP_PKEY*) pkey_ecc, NULL);
         assert_se(ctx_ecc);
-        assert_se(EVP_PKEY_verify_init(ctx_ecc) == 1);
+        ASSERT_EQ(EVP_PKEY_verify_init(ctx_ecc), 1);
 
         DEFINE_HEX_PTR(sig_ecc, "304602210092447ac0b5b32e90923f79bb4aba864b9c546a9900cf193a83243d35d189a2110221009a8b4df1dfa85e225eff9c606694d4d205a7a3968c9552f50bc2790209a90001");
         assert_se(EVP_PKEY_verify(ctx_ecc, sig_ecc, sig_ecc_len, (unsigned char*) msg, msg_len) == 1);

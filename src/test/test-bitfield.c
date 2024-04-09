@@ -69,7 +69,7 @@ TEST(bits) {
         count = 0;
         BIT_FOREACH(i, u8)
                 count++;
-        assert_se(count == 8);
+        ASSERT_EQ(count, 8);
         uint8_t _u8 = u8;
         SET_BITS(u8);
         assert_se(_u8 == u8);
@@ -109,7 +109,7 @@ TEST(bits) {
         count = 0;
         BIT_FOREACH(i, u16)
                 count++;
-        assert_se(count == 16);
+        ASSERT_EQ(count, 16);
         uint16_t _u16 = u16;
         SET_BITS(u16);
         assert_se(_u16 == u16);
@@ -151,7 +151,7 @@ TEST(bits) {
         count = 0;
         BIT_FOREACH(i, u32)
                 count++;
-        assert_se(count == 32);
+        ASSERT_EQ(count, 32);
         uint32_t _u32 = u32;
         SET_BITS(u32);
         assert_se(_u32 == u32);
@@ -205,7 +205,7 @@ TEST(bits) {
         count = 0;
         BIT_FOREACH(i, u64)
                 count++;
-        assert_se(count == 64);
+        ASSERT_EQ(count, 64);
         uint64_t _u64 = u64;
         SET_BITS(u64);
         assert_se(_u64 == u64);

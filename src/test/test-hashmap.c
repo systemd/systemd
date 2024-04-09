@@ -164,7 +164,7 @@ static int intro(void) {
 
 static int outro(void) {
         /* Ensure hashmap and ordered_hashmap were tested. */
-        assert_se(n_extern_tests_run == 2);
+        ASSERT_EQ(n_extern_tests_run, 2);
         return EXIT_SUCCESS;
 }
 

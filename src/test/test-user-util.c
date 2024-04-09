@@ -61,79 +61,79 @@ TEST(parse_uid) {
 
         r = parse_uid("1", &uid);
         ASSERT_EQ(r, 0);
-        assert_se(uid == 1);
+        ASSERT_EQ(uid, 1u);
 
         r = parse_uid("01", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 1);
+        ASSERT_EQ(uid, 1u);
 
         r = parse_uid("001", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 1);
+        ASSERT_EQ(uid, 1u);
 
         r = parse_uid("100", &uid);
         ASSERT_EQ(r, 0);
-        assert_se(uid == 100);
+        ASSERT_EQ(uid, 100u);
 
         r = parse_uid("65535", &uid);
         assert_se(r == -ENXIO);
-        assert_se(uid == 100);
+        ASSERT_EQ(uid, 100u);
 
         r = parse_uid("0x1234", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 100);
+        ASSERT_EQ(uid, 100u);
 
         r = parse_uid("0o1234", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 100);
+        ASSERT_EQ(uid, 100u);
 
         r = parse_uid("0b1234", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 100);
+        ASSERT_EQ(uid, 100u);
 
         r = parse_uid("+1234", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 100);
+        ASSERT_EQ(uid, 100u);
 
         r = parse_uid("-1234", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 100);
+        ASSERT_EQ(uid, 100u);
 
         r = parse_uid(" 1234", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 100);
+        ASSERT_EQ(uid, 100u);
 
         r = parse_uid("01234", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 100);
+        ASSERT_EQ(uid, 100u);
 
         r = parse_uid("001234", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 100);
+        ASSERT_EQ(uid, 100u);
 
         r = parse_uid("0001234", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 100);
+        ASSERT_EQ(uid, 100u);
 
         r = parse_uid("-0", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 100);
+        ASSERT_EQ(uid, 100u);
 
         r = parse_uid("+0", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 100);
+        ASSERT_EQ(uid, 100u);
 
         r = parse_uid("00", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 100);
+        ASSERT_EQ(uid, 100u);
 
         r = parse_uid("000", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 100);
+        ASSERT_EQ(uid, 100u);
 
         r = parse_uid("asdsdas", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 100);
+        ASSERT_EQ(uid, 100u);
 }
 
 TEST(uid_ptr) {
@@ -141,7 +141,7 @@ TEST(uid_ptr) {
         ASSERT_NOT_NULL(UID_TO_PTR(1000));
 
         ASSERT_EQ(PTR_TO_UID(UID_TO_PTR(0)), 0u);
-        assert_se(PTR_TO_UID(UID_TO_PTR(1000)) == 1000);
+        ASSERT_EQ(PTR_TO_UID(UID_TO_PTR(1000)), 1000u);
 }
 
 TEST(valid_user_group_name_relaxed) {

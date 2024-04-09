@@ -28,7 +28,7 @@ TEST(strv_env_delete) {
 
         assert_se(streq(d[0], "WALDO=WALDO"));
         assert_se(streq(d[1], "WALDO="));
-        assert_se(strv_length(d) == 2);
+        ASSERT_EQ(strv_length(d), 2u);
 }
 
 TEST(strv_env_get) {
@@ -58,7 +58,7 @@ TEST(strv_env_unset) {
 
         assert_se(streq(l[0], "PIEP"));
         assert_se(streq(l[1], "NANANANA=YES"));
-        assert_se(strv_length(l) == 2);
+        ASSERT_EQ(strv_length(l), 2u);
 }
 
 TEST(strv_env_merge) {
@@ -74,7 +74,7 @@ TEST(strv_env_merge) {
         assert_se(streq(r[4], "EQ==="));
         assert_se(streq(r[5], "PIEP="));
         assert_se(streq(r[6], "NANANANA=YES"));
-        assert_se(strv_length(r) == 7);
+        ASSERT_EQ(strv_length(r), 7u);
 
         assert_se(strv_env_clean(r) == r);
         assert_se(streq(r[0], "FOO="));
@@ -83,7 +83,7 @@ TEST(strv_env_merge) {
         assert_se(streq(r[3], "EQ==="));
         assert_se(streq(r[4], "PIEP="));
         assert_se(streq(r[5], "NANANANA=YES"));
-        assert_se(strv_length(r) == 6);
+        ASSERT_EQ(strv_length(r), 6u);
 }
 
 TEST(strv_env_replace_strdup) {
@@ -94,7 +94,7 @@ TEST(strv_env_replace_strdup) {
         assert_se(strv_env_replace_strdup(&a, "a=A") == 0);
         assert_se(strv_env_replace_strdup(&a, "c") == -EINVAL);
 
-        assert_se(strv_length(a) == 2);
+        ASSERT_EQ(strv_length(a), 2u);
         strv_sort(a);
         assert_se(streq(a[0], "a=A"));
         assert_se(streq(a[1], "b=b"));
@@ -113,7 +113,7 @@ TEST(strv_env_replace_strdup_passthrough) {
         assert_se(strv_env_replace_strdup_passthrough(&a, "a") == 0);
         assert_se(strv_env_replace_strdup_passthrough(&a, "$a") == -EINVAL);
 
-        assert_se(strv_length(a) == 3);
+        ASSERT_EQ(strv_length(a), 3u);
         assert_se(streq(a[0], "a=a"));
         assert_se(streq(a[1], "b="));
         assert_se(streq(a[2], "c="));
@@ -129,7 +129,7 @@ TEST(strv_env_assign) {
 
         assert_se(strv_env_assign(&a, "a=", "B") == -EINVAL);
 
-        assert_se(strv_length(a) == 1);
+        ASSERT_EQ(strv_length(a), 1u);
         assert_se(streq(a[0], "a=A"));
 }
 
@@ -140,7 +140,7 @@ TEST(strv_env_assignf) {
         assert_se(strv_env_assignf(&a, "a", "%c", 'a') == 0);
 
         assert_se(strv_env_assignf(&a, "c", "xxx%iyyy", 5) > 0);
-        assert_se(strv_length(a) == 2);
+        ASSERT_EQ(strv_length(a), 2u);
         assert_se(strv_equal(a, STRV_MAKE("a=a", "c=xxx5yyy")));
         assert_se(strv_env_assignf(&a, "c", NULL) == 0);
 
@@ -150,7 +150,7 @@ TEST(strv_env_assignf) {
 
         assert_se(strv_env_assignf(&a, "a=", "B") == -EINVAL);
 
-        assert_se(strv_length(a) == 1);
+        ASSERT_EQ(strv_length(a), 1u);
         assert_se(streq(a[0], "a=A"));
 }
 
@@ -159,23 +159,23 @@ TEST(strv_env_assign_many) {
 
         assert_se(strv_env_assign_many(&a, "a", "a", "b", "b") >= 0);
 
-        assert_se(strv_length(a) == 2);
+        ASSERT_EQ(strv_length(a), 2u);
         assert_se(strv_contains(a, "a=a"));
         assert_se(strv_contains(a, "b=b"));
 
         assert_se(strv_env_assign_many(&a, "a", "A", "b", "b", "c", "c") >= 0);
-        assert_se(strv_length(a) == 3);
+        ASSERT_EQ(strv_length(a), 3u);
         assert_se(strv_contains(a, "a=A"));
         assert_se(strv_contains(a, "b=b"));
         assert_se(strv_contains(a, "c=c"));
 
         assert_se(strv_env_assign_many(&a, "b", NULL, "c", "C") >= 0);
-        assert_se(strv_length(a) == 2);
+        ASSERT_EQ(strv_length(a), 2u);
         assert_se(strv_contains(a, "a=A"));
         assert_se(strv_contains(a, "c=C"));
 
         assert_se(strv_env_assign_many(&a, "a=", "B") == -EINVAL);
-        assert_se(strv_length(a) == 2);
+        ASSERT_EQ(strv_length(a), 2u);
         assert_se(strv_contains(a, "a=A"));
         assert_se(strv_contains(a, "c=C"));
 }
@@ -324,7 +324,7 @@ TEST(replace_env_argv) {
         assert_se(streq(r[14], "${QUUX:+waldo}"));
         assert_se(streq(r[15], "${FOO:+|waldo|}}"));
         assert_se(streq(r[16], "${FOO:+|waldo{|}"));
-        assert_se(strv_length(r) == 17);
+        ASSERT_EQ(strv_length(r), 17u);
 }
 
 TEST(replace_env_argv_bad) {
@@ -479,13 +479,13 @@ TEST(setenv_systemd_exec_pid) {
         assert_se(streq(e, "*"));
 
         assert_se(setenv("SYSTEMD_EXEC_PID", "123abc", 1) >= 0);
-        assert_se(setenv_systemd_exec_pid(true) == 1);
+        ASSERT_EQ(setenv_systemd_exec_pid(true), 1);
         assert_se(e = getenv("SYSTEMD_EXEC_PID"));
         assert_se(parse_pid(e, &p) >= 0);
         assert_se(p == getpid_cached());
 
         ASSERT_OK(unsetenv("SYSTEMD_EXEC_PID"));
-        assert_se(setenv_systemd_exec_pid(false) == 1);
+        ASSERT_EQ(setenv_systemd_exec_pid(false), 1);
         assert_se(e = getenv("SYSTEMD_EXEC_PID"));
         assert_se(parse_pid(e, &p) >= 0);
         assert_se(p == getpid_cached());
@@ -505,7 +505,7 @@ TEST(getenv_steal_erase) {
                 assert_se(getenv_steal_erase("thisenvvardefinitelywontexist", NULL) == 0);
 
                 l = strv_new("FOO=BAR", "QUUX=PIFF", "ONE=TWO", "A=B");
-                assert_se(strv_length(l) == 4);
+                ASSERT_EQ(strv_length(l), 4u);
 
                 environ = l;
 

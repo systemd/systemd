@@ -68,7 +68,7 @@ TEST(is_symlink) {
         assert_se(symlink(name, name_link) >= 0);
 
         ASSERT_EQ(is_symlink(name), 0);
-        assert_se(is_symlink(name_link) == 1);
+        ASSERT_EQ(is_symlink(name_link), 1);
         assert_se(is_symlink("/a/file/which/does/not/exist/i/guess") < 0);
 }
 

@@ -45,7 +45,7 @@ TEST(rsa_pkey_n_e) {
 
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new((EVP_PKEY*) pkey, NULL);
         assert_se(ctx);
-        assert_se(EVP_PKEY_verify_init(ctx) == 1);
+        ASSERT_EQ(EVP_PKEY_verify_init(ctx), 1);
 
         const char *msg = "this is a secret";
         DEFINE_HEX_PTR(sig, "14b53e0c6ad99a350c3d7811e8160f4ae03ad159815bb91bddb9735b833588df2eac221fbd3fc4ece0dd63bfaeddfdaf4ae67021e759f3638bc194836413414f54e8c4d01c9c37fa4488ea2ef772276b8a33822a53c97b1c35acfb4bc621cfb8fad88f0cf7d5491f05236886afbf9ed47f9469536482f50f74a20defa59d99676bed62a17b5eb98641df5a2f8080fa4b24f2749cc152fa65ba34c14022fcb27f1b36f52021950d7b9b6c3042c50b84cfb7d55a5f9235bfd58e1bf1f604eb93416c5fb5fd90cb68f1270dfa9daf67f52c604f62c2f2beee5e7e672b0e6e9833dd43dba99b77668540c850c9a81a5ea7aaf6297383e6135bd64572362333121fc7");
@@ -72,7 +72,7 @@ TEST(ecc_pkey_curve_x_y) {
 
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new((EVP_PKEY*) pkey, NULL);
         assert_se(ctx);
-        assert_se(EVP_PKEY_verify_init(ctx) == 1);
+        ASSERT_EQ(EVP_PKEY_verify_init(ctx), 1);
 
         const char *msg = "this is a secret";
         DEFINE_HEX_PTR(sig, "3045022100f6ca10f7ed57a020679899b26dd5ac5a1079265885e2a6477f527b6a3f02b5ca02207b550eb3e7b69360aff977f7f6afac99c3f28266b6c5338ce373f6b59263000a");

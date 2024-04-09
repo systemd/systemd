@@ -646,15 +646,15 @@ TEST(safe_fork) {
 
         assert_se(wait_for_terminate(pid, &status) >= 0);
         assert_se(status.si_code == CLD_EXITED);
-        assert_se(status.si_status == 88);
+        ASSERT_EQ(status.si_status, 88);
 }
 
 TEST(pid_to_ptr) {
         ASSERT_EQ(PTR_TO_PID(NULL), 0);
         ASSERT_NULL(PID_TO_PTR(0));
 
-        assert_se(PTR_TO_PID(PID_TO_PTR(1)) == 1);
-        assert_se(PTR_TO_PID(PID_TO_PTR(2)) == 2);
+        ASSERT_EQ(PTR_TO_PID(PID_TO_PTR(1)), 1);
+        ASSERT_EQ(PTR_TO_PID(PID_TO_PTR(2)), 2);
         assert_se(PTR_TO_PID(PID_TO_PTR(-1)) == -1);
         assert_se(PTR_TO_PID(PID_TO_PTR(-2)) == -2);
 
@@ -873,13 +873,13 @@ TEST(get_process_threads) {
                 assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, pfd) >= 0);
                 assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, ppfd) >= 0);
 
-                assert_se(get_process_threads(0) == 1);
+                ASSERT_EQ(get_process_threads(0), 1);
                 assert_se(pthread_create(&t, NULL, &dummy_thread, FD_TO_PTR(pfd[0])) == 0);
                 assert_se(read(pfd[1], &x, 1) == 1);
-                assert_se(get_process_threads(0) == 2);
+                ASSERT_EQ(get_process_threads(0), 2);
                 assert_se(pthread_create(&tt, NULL, &dummy_thread, FD_TO_PTR(ppfd[0])) == 0);
                 assert_se(read(ppfd[1], &x, 1) == 1);
-                assert_se(get_process_threads(0) == 3);
+                ASSERT_EQ(get_process_threads(0), 3);
 
                 assert_se(write(pfd[1], &(const char) { 'x' }, 1) == 1);
                 assert_se(pthread_join(t, NULL) == 0);
@@ -887,13 +887,13 @@ TEST(get_process_threads) {
                 /* the value reported via /proc/ is decreased asynchronously, and there appears to be no nice
                  * way to sync on it. Hence we do the weak >= 2 check, even though == 2 is what we'd actually
                  * like to check here */
-                assert_se(get_process_threads(0) >= 2);
+                ASSERT_GE(get_process_threads(0), 2);
 
                 assert_se(write(ppfd[1], &(const char) { 'x' }, 1) == 1);
                 assert_se(pthread_join(tt, NULL) == 0);
 
                 /* similar here */
-                assert_se(get_process_threads(0) >= 1);
+                ASSERT_GE(get_process_threads(0), 1);
 
                 _exit(EXIT_SUCCESS);
         }
@@ -927,7 +927,7 @@ TEST(is_reaper_process) {
                 ASSERT_OK(r);
                 if (r == 0) {
                         /* grandchild, which is PID1 in a pidns */
-                        assert_se(getpid_cached() == 1);
+                        ASSERT_EQ(getpid_cached(), 1);
                         ASSERT_GT(is_reaper_process(), 0);
                         _exit(EXIT_SUCCESS);
                 }

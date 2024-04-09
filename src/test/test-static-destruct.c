@@ -19,14 +19,14 @@ static void test_destroy(int *b) {
 }
 
 static void test_strings_destroy(char **array, size_t n) {
-        assert_se(n == 3);
+        ASSERT_EQ(n, 3u);
         assert_se(strv_equal(array, STRV_MAKE("a", "bbb", "ccc")));
 
         strv_free(array);
 }
 
 static void test_integers_destroy(int *array, size_t n) {
-        assert_se(n == 10);
+        ASSERT_EQ(n, 10u);
 
         for (size_t i = 0; i < n; i++)
                 assert_se(array[i] == (int)(i * i));

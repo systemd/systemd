@@ -115,14 +115,14 @@ TEST(fd_move_above_stdio) {
         int original_stdin, new_fd;
 
         original_stdin = fcntl(0, F_DUPFD, 3);
-        assert_se(original_stdin >= 3);
+        ASSERT_GE(original_stdin, 3);
         assert_se(close_nointr(0) != EBADF);
 
         new_fd = open("/dev/null", O_RDONLY);
         ASSERT_EQ(new_fd, 0);
 
         new_fd = fd_move_above_stdio(new_fd);
-        assert_se(new_fd >= 3);
+        ASSERT_GE(new_fd, 3);
 
         ASSERT_EQ(dup(original_stdin), 0);
         assert_se(close_nointr(original_stdin) != EBADF);
@@ -171,10 +171,10 @@ TEST(rearrange_stdio) {
                 assert_se(pair[0] == 0);
                 assert_se(pair[1] == 1);
                 pipe_read_fd = fd_move_above_stdio(0);
-                assert_se(pipe_read_fd >= 3);
+                ASSERT_GE(pipe_read_fd, 3);
 
                 assert_se(open("/dev/full", O_WRONLY|O_CLOEXEC) == 0);
-                assert_se(acquire_data_fd("foobar") == 2);
+                ASSERT_EQ(acquire_data_fd("foobar"), 2);
 
                 assert_se(rearrange_stdio(2, 0, 1) >= 0);
 
@@ -242,7 +242,7 @@ static void test_close_all_fds_inner(void) {
         rlimit_nofile_bump(-1);
 
         max_fd = get_max_fd();
-        assert_se(max_fd > 10);
+        ASSERT_GT(max_fd, 10);
 
         if (max_fd > 7000) {
                 /* If the worst fallback is activated we need to iterate through all possible fds, hence,

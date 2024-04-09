@@ -83,7 +83,7 @@ TEST(set_put) {
         assert_se(strv_contains(t, "1"));
         assert_se(strv_contains(t, "22"));
         assert_se(strv_contains(t, "333"));
-        assert_se(strv_length(t) == 3);
+        ASSERT_EQ(strv_length(t), 3u);
 }
 
 TEST(set_put_strndup) {
@@ -104,7 +104,7 @@ TEST(set_put_strndup) {
         assert_se(set_contains(m, "1234"));
         assert_se(set_contains(m, "12345"));
 
-        assert_se(set_size(m) == 6);
+        ASSERT_EQ(set_size(m), 6u);
 }
 
 TEST(set_put_strdup) {
@@ -119,7 +119,7 @@ TEST(set_put_strdup) {
         assert_se(set_contains(m, "aaa"));
         assert_se(set_contains(m, "bbb"));
 
-        assert_se(set_size(m) == 2);
+        ASSERT_EQ(set_size(m), 2u);
 }
 
 TEST(set_put_strdupv) {
@@ -132,7 +132,7 @@ TEST(set_put_strdupv) {
         assert_se(set_contains(m, "bbb"));
         assert_se(set_contains(m, "ccc"));
 
-        assert_se(set_size(m) == 3);
+        ASSERT_EQ(set_size(m), 3u);
 }
 
 TEST(set_ensure_allocated) {
@@ -181,7 +181,7 @@ TEST(set_ensure_put) {
         assert_se(set_ensure_put(&m, &string_hash_ops, "b") == 1);
         assert_se(set_ensure_put(&m, &string_hash_ops, "b") == 0);
         assert_se(set_ensure_put(&m, &string_hash_ops, "a") == 0);
-        assert_se(set_size(m) == 2);
+        ASSERT_EQ(set_size(m), 2u);
 }
 
 TEST(set_ensure_consume) {
@@ -203,7 +203,7 @@ TEST(set_ensure_consume) {
         assert_se(t = strdup("b"));
         assert_se(set_ensure_consume(&m, &string_hash_ops_free, t) == 0);
 
-        assert_se(set_size(m) == 2);
+        ASSERT_EQ(set_size(m), 2u);
 }
 
 TEST(set_strjoin) {
@@ -310,8 +310,8 @@ TEST(set_equal) {
 
         assert_se(set_put(a, INT32_TO_PTR(0x1000U)) >= 0);
 
-        assert_se(set_size(a) >= 2);
-        assert_se(set_size(a) <= 334);
+        ASSERT_GE(set_size(a), 2u);
+        ASSERT_LE(set_size(a), 334u);
 
         assert_se(!set_equal(a, b));
         assert_se(!set_equal(b, a));
