@@ -39,7 +39,7 @@ TEST(destroy_callback) {
         assert_se(t == destroy_callback);
 
         /* Force cleanup so we can look at n_called */
-        assert_se(n_called == 0);
+        ASSERT_EQ(n_called, 0);
         sd_bus_slot_unref(slot);
         assert_se(n_called == 1);
 }

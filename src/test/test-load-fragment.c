@@ -113,7 +113,7 @@ TEST(config_parse_exec) {
                 return;
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         assert_se(u = unit_new(m, sizeof(Service)));
@@ -122,7 +122,7 @@ TEST(config_parse_exec) {
         r = config_parse_exec(NULL, "fake", 1, "section", 1,
                               "LValue", 0, "/RValue r1",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         check_execcommand(c, "/RValue", "/RValue", "r1", NULL, false);
 
         r = config_parse_exec(NULL, "fake", 2, "section", 1,
@@ -130,7 +130,7 @@ TEST(config_parse_exec) {
                               &c, u);
 
         log_info("/* test slashes */");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c->command_next;
         check_execcommand(c1, "/RValue/slashes", "/RValue///slashes", "r1///", NULL, false);
 
@@ -145,7 +145,7 @@ TEST(config_parse_exec) {
         r = config_parse_exec(NULL, "fake", 3, "section", 1,
                               "LValue", 0, "@/RValue///slashes2 ///argv0 r1",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue/slashes2", "///argv0", "r1", NULL, false);
 
@@ -160,14 +160,14 @@ TEST(config_parse_exec) {
         r = config_parse_exec(NULL, "fake", 3, "section", 1,
                               "LValue", 0, "",
                               &c, u);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         ASSERT_NULL(c);
 
         log_info("/* ignore && honour_argv0 */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "-@/RValue///slashes3 argv0a r1",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c;
         check_execcommand(c1, "/RValue/slashes3", "argv0a", "r1", NULL, true);
 
@@ -175,7 +175,7 @@ TEST(config_parse_exec) {
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "@-/RValue///slashes4 argv0b r1",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue/slashes4", "argv0b", "r1", NULL, true);
 
@@ -183,14 +183,14 @@ TEST(config_parse_exec) {
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "--/RValue argv0 r1",
                               &c, u);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         ASSERT_NULL(c1->command_next);
 
         log_info("/* ignore && ignore (2) */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "-@-/RValue argv0 r1",
                               &c, u);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         ASSERT_NULL(c1->command_next);
 
         log_info("/* semicolon */");
@@ -199,7 +199,7 @@ TEST(config_parse_exec) {
                               "-@/RValue argv0 r1 ; "
                               "/goo/goo boo",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
 
@@ -212,7 +212,7 @@ TEST(config_parse_exec) {
                               "-@/RValue argv0 r1 ; ; "
                               "/goo/goo boo",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
         c1 = c1->command_next;
@@ -223,7 +223,7 @@ TEST(config_parse_exec) {
                               "LValue", 0,
                               "-@/RValue argv0 r1 ; ",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
 
@@ -234,7 +234,7 @@ TEST(config_parse_exec) {
                               "LValue", 0,
                               "-@/RValue argv0 r1 ;",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
 
@@ -245,7 +245,7 @@ TEST(config_parse_exec) {
                               "LValue", 0,
                               "-@/RValue argv0 r1 ';'",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue", "argv0", "r1", ";", true);
 
@@ -254,7 +254,7 @@ TEST(config_parse_exec) {
                               "LValue", 0,
                               "/bin/find \\;",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1, "/bin/find", NULL, ";", NULL, false);
 
@@ -263,7 +263,7 @@ TEST(config_parse_exec) {
                               "LValue", 0,
                               "/sbin/find \\; /x",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1,
                           "/sbin/find", NULL, ";", "/x", false);
@@ -273,7 +273,7 @@ TEST(config_parse_exec) {
                               "LValue", 0,
                               "/sbin/find \\;x",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1,
                           "/sbin/find", NULL, "\\;x", NULL, false);
@@ -283,7 +283,7 @@ TEST(config_parse_exec) {
                               "LValue", 0,
                               "/bin/find \\073",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1, "/bin/find", NULL, ";", NULL, false);
 
@@ -292,7 +292,7 @@ TEST(config_parse_exec) {
                               "LValue", 0,
                               "/bin/find \";\"",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1, "/bin/find", NULL, ";", NULL, false);
 
@@ -301,7 +301,7 @@ TEST(config_parse_exec) {
                               "LValue", 0,
                               "/sbin/find \";\" /x",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1,
                           "/sbin/find", NULL, ";", "/x", false);
@@ -311,7 +311,7 @@ TEST(config_parse_exec) {
                               "LValue", 0,
                               "\"/PATH WITH SPACES/daemon\" -1 -2",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1,
                           "/PATH WITH SPACES/daemon", NULL, "-1", "-2", false);
@@ -321,7 +321,7 @@ TEST(config_parse_exec) {
                               "LValue", 0,
                               "\"/PATH WITH SPACES/daemon -1 -2\"",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1,
                           "/PATH WITH SPACES/daemon -1 -2", NULL, NULL, NULL, false);
@@ -331,7 +331,7 @@ TEST(config_parse_exec) {
                               "LValue", 0,
                               "\"/PATH WITH SPACES/daemon\" \"-1\" '-2'",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1,
                           "/PATH WITH SPACES/daemon", NULL, "-1", "-2", false);
@@ -341,7 +341,7 @@ TEST(config_parse_exec) {
                               "LValue", 0,
                               "\"/PATH\\sWITH\\sSPACES/daemon\" '-1 -2'",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1,
                           "/PATH WITH SPACES/daemon", NULL, "-1 -2", NULL, false);
@@ -351,7 +351,7 @@ TEST(config_parse_exec) {
                               "LValue", 0,
                               "\"/PATH\\x20WITH\\x20SPACES/daemon\" \"-1 -2\"",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1,
                           "/PATH WITH SPACES/daemon", NULL, "-1 -2", NULL, false);
@@ -373,7 +373,7 @@ TEST(config_parse_exec) {
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "/path\\s",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1, "/path ", NULL, NULL, NULL, false);
 
@@ -382,7 +382,7 @@ TEST(config_parse_exec) {
                               "LValue", 0,
                               "/bin/grep '\\w+\\K'",
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1, "/bin/grep", NULL, "\\w+\\K", NULL, false);
 
@@ -412,14 +412,14 @@ TEST(config_parse_exec) {
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "- /path",
                               &c, u);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         ASSERT_NULL(c1->command_next);
 
         log_info("/* only modifiers, no path */");
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "-",
                               &c, u);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         ASSERT_NULL(c1->command_next);
 
         log_info("/* long arg */"); /* See issue #22957. */
@@ -432,7 +432,7 @@ TEST(config_parse_exec) {
         r = config_parse_exec(NULL, "fake", 5, "section", 1,
                               "LValue", 0, x,
                               &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         c1 = c1->command_next;
         check_execcommand(c1,
                           "/bin/echo", NULL, y, NULL, false);
@@ -441,7 +441,7 @@ TEST(config_parse_exec) {
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
                               "LValue", 0, "",
                               &c, u);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         ASSERT_NULL(c);
 
         exec_command_free_list(c);
@@ -472,7 +472,7 @@ TEST(config_parse_log_extra_fields) {
                 return;
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         assert_se(u = unit_new(m, sizeof(Service)));
@@ -481,7 +481,7 @@ TEST(config_parse_log_extra_fields) {
         r = config_parse_log_extra_fields(NULL, "fake", 1, "section", 1,
                                           "LValue", 0, "FOO=BAR \"QOOF=quux '  ' \"",
                                           &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(c.n_log_extra_fields == 2);
         assert_se(strneq(c.log_extra_fields[0].iov_base, "FOO=BAR", c.log_extra_fields[0].iov_len));
         assert_se(strneq(c.log_extra_fields[1].iov_base, "QOOF=quux '  ' ", c.log_extra_fields[1].iov_len));
@@ -490,7 +490,7 @@ TEST(config_parse_log_extra_fields) {
         r = config_parse_log_extra_fields(NULL, "fake", 1, "section", 1,
                                           "LValue", 0, "FOO2=BAR2 QOOF2=quux '  '",
                                           &c, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(c.n_log_extra_fields == 4);
         assert_se(strneq(c.log_extra_fields[0].iov_base, "FOO=BAR", c.log_extra_fields[0].iov_len));
         assert_se(strneq(c.log_extra_fields[1].iov_base, "QOOF=quux '  ' ", c.log_extra_fields[1].iov_len));
@@ -503,8 +503,8 @@ TEST(config_parse_log_extra_fields) {
         r = config_parse_log_extra_fields(NULL, "fake", 1, "section", 1,
                                           "LValue", 0, "",
                                           &c, u);
-        assert_se(r >= 0);
-        assert_se(c.n_log_extra_fields == 0);
+        ASSERT_OK(r);
+        ASSERT_EQ(c.n_log_extra_fields, 0);
 
         exec_context_free_log_extra_fields(&c);
 
@@ -625,38 +625,38 @@ TEST(config_parse_capability_set) {
         r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "CAP_NET_RAW",
                               &capability_bounding_set, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(capability_bounding_set == make_cap(CAP_NET_RAW));
 
         r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "CAP_NET_ADMIN",
                               &capability_bounding_set, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(capability_bounding_set == (make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN)));
 
         r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "~CAP_NET_ADMIN",
                               &capability_bounding_set, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(capability_bounding_set == make_cap(CAP_NET_RAW));
 
         r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "",
                               &capability_bounding_set, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(capability_bounding_set == UINT64_C(0));
 
         r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "~",
                               &capability_bounding_set, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(cap_test_all(capability_bounding_set));
 
         capability_bounding_set = 0;
         r = config_parse_capability_set(NULL, "fake", 1, "section", 1,
                               "CapabilityBoundingSet", 0, "  'CAP_NET_RAW' WAT_CAP??? CAP_NET_ADMIN CAP'_trailing_garbage",
                               &capability_bounding_set, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(capability_bounding_set == (make_cap(CAP_NET_RAW) | make_cap(CAP_NET_ADMIN)));
 }
 
@@ -792,7 +792,7 @@ TEST(config_parse_pass_environ) {
         r = config_parse_pass_environ(NULL, "fake", 1, "section", 1,
                                       "PassEnvironment", 0, "A B",
                                       &passenv, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(strv_length(passenv) == 2);
         assert_se(streq(passenv[0], "A"));
         assert_se(streq(passenv[1], "B"));
@@ -800,13 +800,13 @@ TEST(config_parse_pass_environ) {
         r = config_parse_pass_environ(NULL, "fake", 1, "section", 1,
                                       "PassEnvironment", 0, "",
                                       &passenv, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(strv_isempty(passenv));
 
         r = config_parse_pass_environ(NULL, "fake", 1, "section", 1,
                                       "PassEnvironment", 0, "'invalid name' 'normal_name' A=1 'special_name$$' \\",
                                       &passenv, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(strv_length(passenv) == 1);
         assert_se(streq(passenv[0], "normal_name"));
 }
@@ -835,7 +835,7 @@ TEST(config_parse_unit_env_file) {
                 return;
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         assert_se(u = unit_new(m, sizeof(Service)));
@@ -844,19 +844,19 @@ TEST(config_parse_unit_env_file) {
         r = config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
                                       "EnvironmentFile", 0, "not-absolute",
                                        &files, u);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(strv_isempty(files));
 
         r = config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
                                       "EnvironmentFile", 0, "/absolute1",
                                        &files, u);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(strv_length(files) == 1);
 
         r = config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
                                       "EnvironmentFile", 0, "/absolute2",
                                        &files, u);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(strv_length(files) == 2);
         assert_se(streq(files[0], "/absolute1"));
         assert_se(streq(files[1], "/absolute2"));
@@ -864,13 +864,13 @@ TEST(config_parse_unit_env_file) {
         r = config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
                                        "EnvironmentFile", 0, "",
                                        &files, u);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(strv_isempty(files));
 
         r = config_parse_unit_env_file(u->id, "fake", 1, "section", 1,
                                        "EnvironmentFile", 0, "/path/%n.conf",
                                        &files, u);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(strv_length(files) == 1);
         assert_se(streq(files[0], "/path/foobar.service.conf"));
 }
@@ -929,7 +929,7 @@ TEST(config_parse_memory_limit) {
                 log_info("%s=%s\t%"PRIu64"==%"PRIu64,
                          limit_tests[i].limit, limit_tests[i].value,
                          *limit_tests[i].result, limit_tests[i].expected);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 assert_se(*limit_tests[i].result == limit_tests[i].expected);
         }
 
@@ -968,7 +968,7 @@ TEST(unit_is_recursive_template_dependency) {
                 return;
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         assert_se(u = unit_new(m, sizeof(Service)));
@@ -1062,7 +1062,7 @@ TEST(config_parse_open_file) {
                 return;
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         assert_se(u = unit_new(m, sizeof(Service)));
@@ -1071,7 +1071,7 @@ TEST(config_parse_open_file) {
         r = config_parse_open_file(NULL, "fake", 1, "section", 1,
                                    "OpenFile", 0, "/proc/1/ns/mnt:host-mount-namespace:read-only",
                                    &of, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(of);
         assert_se(streq(of->path, "/proc/1/ns/mnt"));
         assert_se(streq(of->fdname, "host-mount-namespace"));
@@ -1081,7 +1081,7 @@ TEST(config_parse_open_file) {
         r = config_parse_open_file(NULL, "fake", 1, "section", 1,
                                    "OpenFile", 0, "/proc/1/ns/mnt::read-only",
                                    &of, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(of);
         assert_se(streq(of->path, "/proc/1/ns/mnt"));
         assert_se(streq(of->fdname, "mnt"));
@@ -1090,7 +1090,7 @@ TEST(config_parse_open_file) {
         r = config_parse_open_file(NULL, "fake", 1, "section", 1,
                                    "OpenFile", 0, "",
                                    &of, u);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(!of);
 }
 

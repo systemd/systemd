@@ -89,18 +89,18 @@ static void test_variant_one(const char *data, Test test) {
         log_info("/* %s data=\"%s\" */", __func__, cdata);
 
         r = json_parse(data, 0, &v, NULL, NULL);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(v);
 
         r = json_variant_format(v, 0, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
 
         log_info("formatted normally: %s", s);
 
         r = json_parse(data, JSON_PARSE_SENSITIVE, &w, NULL, NULL);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(w);
         assert_se(json_variant_has_type(v, json_variant_type(w)));
         assert_se(json_variant_has_type(w, json_variant_type(v)));
@@ -113,7 +113,7 @@ static void test_variant_one(const char *data, Test test) {
 
         s = mfree(s);
         r = json_variant_format(w, JSON_FORMAT_PRETTY, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
 
@@ -121,14 +121,14 @@ static void test_variant_one(const char *data, Test test) {
         w = json_variant_unref(w);
 
         r = json_variant_format(v, JSON_FORMAT_PRETTY, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
 
         log_info("formatted prettily:\n%s", s);
 
         r = json_parse(data, 0, &w, NULL, NULL);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(w);
 
         assert_se(json_variant_has_type(v, json_variant_type(w)));
@@ -137,14 +137,14 @@ static void test_variant_one(const char *data, Test test) {
 
         s = mfree(s);
         r = json_variant_format(v, JSON_FORMAT_COLOR, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
         printf("Normal with color: %s\n", s);
 
         s = mfree(s);
         r = json_variant_format(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
         printf("Pretty with color:\n%s\n", s);
@@ -248,7 +248,7 @@ static void test_zeroes(JsonVariant *v) {
 
                 assert_se(w = json_variant_by_index(v, i));
 
-                assert_se(json_variant_integer(w) == 0);
+                ASSERT_EQ(json_variant_integer(w), 0);
                 assert_se(json_variant_unsigned(w) == 0U);
 
                 assert_se(iszero_safe(json_variant_real(w)));
@@ -439,7 +439,7 @@ TEST(depth) {
                 }
 #endif
 
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 json_variant_unref(v);
                 v = TAKE_PTR(w);
@@ -710,7 +710,7 @@ static void json_array_append_with_source_one(bool source) {
         JsonVariant *elem;
         assert_se(elem = json_variant_by_index(b, 0));
         assert_se(json_variant_is_integer(elem));
-        assert_se(json_variant_elements(elem) == 0);
+        ASSERT_EQ(json_variant_elements(elem), 0u);
 
         assert_se(json_variant_append_array(&a, elem) >= 0);
 
@@ -891,7 +891,7 @@ TEST(json_sensitive) {
         s = mfree(s);
 
         r = json_variant_format(b, JSON_FORMAT_CENSOR_SENSITIVE, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
         s = mfree(s);
@@ -903,7 +903,7 @@ TEST(json_sensitive) {
         json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
 
         r = json_variant_format(v, JSON_FORMAT_CENSOR_SENSITIVE, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
         s = mfree(s);
@@ -917,7 +917,7 @@ TEST(json_sensitive) {
         json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
 
         r = json_variant_format(v, JSON_FORMAT_CENSOR_SENSITIVE, &s);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
         s = mfree(s);

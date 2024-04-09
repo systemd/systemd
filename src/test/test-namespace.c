@@ -46,8 +46,8 @@ static void test_tmpdir_one(const char *id, const char *A, const char *B) {
                 assert_se(stat(c, &x) >= 0);
                 assert_se(S_ISDIR(x.st_mode));
                 assert_se(FLAGS_SET(x.st_mode, 01777));
-                assert_se(rmdir(c) >= 0);
-                assert_se(rmdir(a) >= 0);
+                ASSERT_OK(rmdir(c));
+                ASSERT_OK(rmdir(a));
         }
 
         if (!streq(b, RUN_SYSTEMD_EMPTY)) {
@@ -57,8 +57,8 @@ static void test_tmpdir_one(const char *id, const char *A, const char *B) {
                 assert_se(stat(d, &y) >= 0);
                 assert_se(S_ISDIR(y.st_mode));
                 assert_se(FLAGS_SET(y.st_mode, 01777));
-                assert_se(rmdir(d) >= 0);
-                assert_se(rmdir(b) >= 0);
+                ASSERT_OK(rmdir(d));
+                ASSERT_OK(rmdir(b));
         }
 }
 
@@ -96,44 +96,44 @@ static void test_shareable_ns(unsigned long nsflag) {
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, s) >= 0);
 
         pid1 = fork();
-        assert_se(pid1 >= 0);
+        ASSERT_OK(pid1);
 
         if (pid1 == 0) {
                 r = setup_shareable_ns(s, nsflag);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 _exit(r);
         }
 
         pid2 = fork();
-        assert_se(pid2 >= 0);
+        ASSERT_OK(pid2);
 
         if (pid2 == 0) {
                 r = setup_shareable_ns(s, nsflag);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 exit(r);
         }
 
         pid3 = fork();
-        assert_se(pid3 >= 0);
+        ASSERT_OK(pid3);
 
         if (pid3 == 0) {
                 r = setup_shareable_ns(s, nsflag);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 exit(r);
         }
 
         r = wait_for_terminate(pid1, &si);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(si.si_code == CLD_EXITED);
         n += si.si_status;
 
         r = wait_for_terminate(pid2, &si);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(si.si_code == CLD_EXITED);
         n += si.si_status;
 
         r = wait_for_terminate(pid3, &si);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(si.si_code == CLD_EXITED);
         n += si.si_status;
 
@@ -168,16 +168,16 @@ TEST(protect_kernel_logs) {
         }
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
                 _cleanup_close_ int fd = -EBADF;
 
                 fd = open("/dev/kmsg", O_RDONLY | O_CLOEXEC);
-                assert_se(fd > 0);
+                ASSERT_GT(fd, 0);
 
                 r = setup_namespace(&p, NULL);
-                assert_se(r == 0);
+                ASSERT_EQ(r, 0);
 
                 assert_se(setresuid(UID_NOBODY, UID_NOBODY, UID_NOBODY) >= 0);
                 assert_se(open("/dev/kmsg", O_RDONLY | O_CLOEXEC) < 0);

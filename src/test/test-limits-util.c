@@ -8,7 +8,7 @@ TEST(physical_memory) {
         uint64_t p;
 
         p = physical_memory();
-        assert_se(p > 0);
+        ASSERT_GT(p, 0u);
         assert_se(p < UINT64_MAX);
         assert_se(p % page_size() == 0);
 
@@ -53,7 +53,7 @@ TEST(system_tasks_max) {
         uint64_t t;
 
         t = system_tasks_max();
-        assert_se(t > 0);
+        ASSERT_GT(t, 0u);
         assert_se(t < UINT64_MAX);
 
         log_info("Max tasks: %" PRIu64, t);

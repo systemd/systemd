@@ -18,7 +18,7 @@ TEST(fdset_new_fill) {
         log_set_open_when_needed(true);
 
         fd = open("/dev/null", O_CLOEXEC|O_RDONLY);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         assert_se(fdset_new_fill(/* filter_cloexec= */ -1, &fdset) >= 0);
         assert_se(fdset_contains(fdset, fd));
@@ -27,7 +27,7 @@ TEST(fdset_new_fill) {
         assert_se(errno == EBADF);
 
         fd = open("/dev/null", O_CLOEXEC|O_RDONLY);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         assert_se(fdset_new_fill(/* filter_cloexec= */ 0, &fdset) >= 0);
         assert_se(!fdset_contains(fdset, fd));
@@ -41,7 +41,7 @@ TEST(fdset_new_fill) {
         assert_se(errno == EBADF);
 
         fd = open("/dev/null", O_RDONLY);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         assert_se(fdset_new_fill(/* filter_cloexec= */ 1, &fdset) >= 0);
         assert_se(!fdset_contains(fdset, fd));
@@ -51,7 +51,7 @@ TEST(fdset_new_fill) {
         assert_se(fdset_new_fill(/* filter_cloexec= */ 0, &fdset) >= 0);
         assert_se(fdset_contains(fdset, fd));
         flags = fcntl(fd, F_GETFD);
-        assert_se(flags >= 0);
+        ASSERT_OK(flags);
         assert_se(FLAGS_SET(flags, FD_CLOEXEC));
         fdset = fdset_free(fdset);
         assert_se(fcntl(fd, F_GETFD) < 0);
@@ -67,7 +67,7 @@ TEST(fdset_put_dup) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_put_dup.XXXXXX";
 
         fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         fdset = fdset_new();
         assert_se(fdset);
@@ -84,7 +84,7 @@ TEST(fdset_cloexec) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_cloexec.XXXXXX";
 
         fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         fdset = fdset_new();
         assert_se(fdset);
@@ -92,12 +92,12 @@ TEST(fdset_cloexec) {
 
         assert_se(fdset_cloexec(fdset, false) >= 0);
         flags = fcntl(fd, F_GETFD);
-        assert_se(flags >= 0);
+        ASSERT_OK(flags);
         assert_se(!(flags & FD_CLOEXEC));
 
         assert_se(fdset_cloexec(fdset, true) >= 0);
         flags = fcntl(fd, F_GETFD);
-        assert_se(flags >= 0);
+        ASSERT_OK(flags);
         assert_se(flags & FD_CLOEXEC);
 }
 
@@ -109,18 +109,18 @@ TEST(fdset_close_others) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_close_others.XXXXXX";
 
         fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         fdset = fdset_new();
         assert_se(fdset);
         copyfd = fdset_put_dup(fdset, fd);
-        assert_se(copyfd >= 0);
+        ASSERT_OK(copyfd);
 
-        assert_se(fdset_close_others(fdset) >= 0);
+        ASSERT_OK(fdset_close_others(fdset));
         flags = fcntl(fd, F_GETFD);
-        assert_se(flags < 0);
+        ASSERT_LT(flags, 0);
         flags = fcntl(copyfd, F_GETFD);
-        assert_se(flags >= 0);
+        ASSERT_OK(flags);
 }
 
 TEST(fdset_remove) {
@@ -129,7 +129,7 @@ TEST(fdset_remove) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_remove.XXXXXX";
 
         fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         fdset = fdset_new();
         assert_se(fdset);
@@ -148,7 +148,7 @@ TEST(fdset_iterate) {
         int a;
 
         fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         fdset = fdset_new();
         assert_se(fdset);
@@ -169,7 +169,7 @@ TEST(fdset_isempty) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_isempty.XXXXXX";
 
         fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         fdset = fdset_new();
         assert_se(fdset);
@@ -185,15 +185,15 @@ TEST(fdset_steal_first) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_steal_first.XXXXXX";
 
         fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         fdset = fdset_new();
         assert_se(fdset);
 
-        assert_se(fdset_steal_first(fdset) < 0);
+        ASSERT_LT(fdset_steal_first(fdset), 0);
         assert_se(fdset_put(fdset, fd) >= 0);
         assert_se(fdset_steal_first(fdset) == fd);
-        assert_se(fdset_steal_first(fdset) < 0);
+        ASSERT_LT(fdset_steal_first(fdset), 0);
         assert_se(fdset_put(fdset, fd) >= 0);
 }
 

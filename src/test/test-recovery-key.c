@@ -16,7 +16,7 @@ TEST(make_recovery_key) {
 
         /* Check for successful recovery-key creation */
         r = make_recovery_key(&recovery_key);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         ASSERT_NOT_NULL(recovery_key);
 
         /* Check that length of formatted key is 72 with 64 modhex characters */
@@ -32,7 +32,7 @@ TEST(make_recovery_key) {
         /* Repeat tests to determine randomness of generated keys */
         for (size_t test = 0; test < num_test; ++test) {
                 r = make_recovery_key(&generated_keys[test]);
-                assert_se(r == 0);
+                ASSERT_EQ(r, 0);
                 length = strlen(generated_keys[test]);
                 assert_se(length == RECOVERY_KEY_MODHEX_FORMATTED_LENGTH - 1);
                 for (size_t i = 0; i < length; i++) {
@@ -51,8 +51,8 @@ TEST(make_recovery_key) {
 
 TEST(decode_modhex_char) {
 
-        assert_se(decode_modhex_char('c') == 0);
-        assert_se(decode_modhex_char('C') == 0);
+        ASSERT_EQ(decode_modhex_char('c'), 0);
+        ASSERT_EQ(decode_modhex_char('C'), 0);
         assert_se(decode_modhex_char('b') == 1);
         assert_se(decode_modhex_char('B') == 1);
         assert_se(decode_modhex_char('d') == 2);
@@ -106,7 +106,7 @@ TEST(normalize_recovery_key) {
         /* Case 2: Normalization with dashes */
         r = normalize_recovery_key("cdefVhij-cDefghij-cdefkhij-cdufghij-cdefgdij-cidefIhj-cdefNijR-cdVfguij",
                         &normalized_key2);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(streq(normalized_key2, "cdefvhij-cdefghij-cdefkhij-cdufghij-cdefgdij-cidefihj-cdefnijr-cdvfguij"));
 
         /* Case 3: Invalid password length */

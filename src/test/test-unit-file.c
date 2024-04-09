@@ -65,7 +65,7 @@ TEST(unit_file_build_name_map) {
                                              *id,
                                              &fragment,
                                              &names);
-                 assert_se(r == 0);
+                 ASSERT_EQ(r, 0);
                  log_info("fragment: %s", fragment);
                  log_info("names:");
                  SET_FOREACH(name, names)
@@ -81,7 +81,7 @@ TEST(unit_file_build_name_map) {
                                              *id,
                                              &fragment,
                                              NULL);
-                 assert_se(r == 0);
+                 ASSERT_EQ(r, 0);
                  log_info("fragment: %s", fragment);
         }
 }

@@ -99,11 +99,11 @@ TEST(parse_sec_def_infinity) {
         assert_se(parse_sec_def_infinity("     ", &u) >= 0);
         assert_se(u == USEC_INFINITY);
         assert_se(parse_sec_def_infinity("0s", &u) >= 0);
-        assert_se(u == 0);
+        ASSERT_EQ(u, 0u);
         assert_se(parse_sec_def_infinity("0", &u) >= 0);
-        assert_se(u == 0);
+        ASSERT_EQ(u, 0u);
         assert_se(parse_sec_def_infinity(" 0", &u) >= 0);
-        assert_se(u == 0);
+        ASSERT_EQ(u, 0u);
         assert_se(parse_sec_def_infinity("-5s", &u) < 0);
 }
 
@@ -152,7 +152,7 @@ TEST(parse_nsec) {
         assert_se(parse_nsec("2.5", &u) >= 0);
         assert_se(u == 2);
         assert_se(parse_nsec(".7", &u) >= 0);
-        assert_se(u == 0);
+        ASSERT_EQ(u, 0u);
         assert_se(parse_nsec("infinity", &u) >= 0);
         assert_se(u == NSEC_INFINITY);
         assert_se(parse_nsec(" infinity ", &u) >= 0);
@@ -271,7 +271,7 @@ TEST(get_timezones) {
         int r;
 
         r = get_timezones(&zones);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
 
         STRV_FOREACH(zone, zones) {
                 r = verify_timezone(*zone, LOG_ERR);
@@ -663,7 +663,7 @@ static void test_parse_timestamp_one(const char *str, usec_t max_diff, usec_t ex
 
         r = parse_timestamp(str, &usec);
         log_debug("/* %s(%s): max_diff="USEC_FMT", expected="USEC_FMT", result="USEC_FMT" */", __func__, str, max_diff, expected, usec);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(usec >= expected);
         assert_se(usec_sub_unsigned(usec, expected) <= max_diff);
 }
@@ -987,7 +987,7 @@ TEST(deserialize_dual_timestamp) {
         dual_timestamp t;
 
         r = deserialize_dual_timestamp("1234 5678", &t);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(t.realtime == 1234);
         assert_se(t.monotonic == 5678);
 
@@ -1008,15 +1008,15 @@ TEST(deserialize_dual_timestamp) {
         assert_se(t.monotonic == 5678);
 
         r = deserialize_dual_timestamp("+123 567", &t);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(t.realtime == 123);
         assert_se(t.monotonic == 567);
 
         /* Check that we get "infinity" on overflow. */
         r = deserialize_dual_timestamp("18446744073709551617 0", &t);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(t.realtime == USEC_INFINITY);
-        assert_se(t.monotonic == 0);
+        ASSERT_EQ(t.monotonic, 0u);
 }
 
 static void assert_similar(usec_t a, usec_t b) {
@@ -1064,8 +1064,8 @@ TEST(in_utc_timezone) {
         assert_se(in_utc_timezone());
         assert_se(streq(tzname[0], "UTC"));
         assert_se(streq(tzname[1], "UTC"));
-        assert_se(timezone == 0);
-        assert_se(daylight == 0);
+        ASSERT_EQ(timezone, 0);
+        ASSERT_EQ(daylight, 0);
 
         assert_se(setenv("TZ", ":Europe/Berlin", 1) >= 0);
         assert_se(!in_utc_timezone());
@@ -1172,7 +1172,7 @@ TEST(timezone_offset_change) {
 
 static int intro(void) {
         /* Tests have hard-coded results that do not expect a specific timezone to be set by the caller */
-        assert_se(unsetenv("TZ") >= 0);
+        ASSERT_OK(unsetenv("TZ"));
 
         log_info("realtime=" USEC_FMT "\n"
                  "monotonic=" USEC_FMT "\n"

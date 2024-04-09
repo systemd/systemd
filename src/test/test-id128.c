@@ -92,7 +92,7 @@ TEST(id128) {
         assert_se(!id128_is_valid("010203040506-0708-090a-0b0c0d0e0f10"));
 
         fd = open_tmpfile_unlinkable(NULL, O_RDWR|O_CLOEXEC);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         /* First, write as UUID */
         assert_se(sd_id128_randomize(&id) >= 0);
@@ -241,7 +241,7 @@ TEST(id128_at) {
         sd_id128_t id, i;
 
         tfd = mkdtemp_open(NULL, O_PATH, &t);
-        assert_se(tfd >= 0);
+        ASSERT_OK(tfd);
         assert_se(mkdirat(tfd, "etc", 0755) >= 0);
         assert_se(symlinkat("etc", tfd, "etc2") >= 0);
         assert_se(symlinkat("machine-id", tfd, "etc/hoge-id") >= 0);
@@ -322,7 +322,7 @@ TEST(ID128_REFUSE_NULL) {
         sd_id128_t id;
 
         tfd = mkdtemp_open(NULL, O_PATH, &t);
-        assert_se(tfd >= 0);
+        ASSERT_OK(tfd);
 
         assert_se(id128_write_at(tfd, "zero-id", ID128_FORMAT_PLAIN | ID128_REFUSE_NULL, (sd_id128_t) {}) == -ENOMEDIUM);
         assert_se(unlinkat(tfd, "zero-id", 0) >= 0);

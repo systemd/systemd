@@ -56,7 +56,7 @@ TEST(parse_os_release) {
         log_info("FOOBAR: %s", strnull(foobar));
         ASSERT_NULL(foobar);
 
-        assert_se(unsetenv("SYSTEMD_OS_RELEASE") == 0);
+        ASSERT_EQ(unsetenv("SYSTEMD_OS_RELEASE"), 0);
 }
 
 TEST(parse_extension_release) {

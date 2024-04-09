@@ -16,8 +16,8 @@ static void test_socket_address_parse_one(const char *in, int ret, int family, c
                 r = socket_address_print(&a, &out);
                 if (r < 0)
                         log_error_errno(r, "Printing failed for \"%s\": %m", in);
-                assert_se(r >= 0);
-                assert_se(a.type == 0);
+                ASSERT_OK(r);
+                ASSERT_EQ(a.type, 0);
         }
 
         log_info("\"%s\" → %s %d → \"%s\" (expect %d / \"%s\")",
@@ -106,7 +106,7 @@ TEST(socket_address_parse_netlink) {
 
         assert_se(socket_address_parse_netlink(&a, "route") >= 0);
         assert_se(a.sockaddr.nl.nl_family == AF_NETLINK);
-        assert_se(a.sockaddr.nl.nl_groups == 0);
+        ASSERT_EQ(a.sockaddr.nl.nl_groups, 0u);
         assert_se(a.protocol == NETLINK_ROUTE);
         assert_se(socket_address_parse_netlink(&a, "route") >= 0);
         assert_se(socket_address_parse_netlink(&a, "route 10") >= 0);
@@ -117,7 +117,7 @@ TEST(socket_address_parse_netlink) {
         /* With spaces and tabs */
         assert_se(socket_address_parse_netlink(&a, " kobject-uevent ") >= 0);
         assert_se(a.sockaddr.nl.nl_family == AF_NETLINK);
-        assert_se(a.sockaddr.nl.nl_groups == 0);
+        ASSERT_EQ(a.sockaddr.nl.nl_groups, 0u);
         assert_se(a.protocol == NETLINK_KOBJECT_UEVENT);
         assert_se(socket_address_parse_netlink(&a, " \t kobject-uevent \t 10") >= 0);
         assert_se(a.sockaddr.nl.nl_family == AF_NETLINK);
@@ -263,7 +263,7 @@ TEST(in_addr_ifindex_from_string_auto) {
 
         assert_se(in_addr_ifindex_from_string_auto("fe80::17", &family, &ua, &ifindex) >= 0);
         assert_se(family == AF_INET6);
-        assert_se(ifindex == 0);
+        ASSERT_EQ(ifindex, 0);
 
         assert_se(in_addr_ifindex_from_string_auto("fe80::18%1", &family, &ua, &ifindex) >= 0);
         assert_se(family == AF_INET6);

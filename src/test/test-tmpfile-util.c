@@ -251,7 +251,7 @@ TEST(link_tmpfile) {
         pattern = strjoina(p, "/systemd-test-XXXXXX");
 
         fd = open_tmpfile_unlinkable(p, O_RDWR|O_CLOEXEC);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         assert_se(asprintf(&cmd, "ls -l /proc/"PID_FMT"/fd/%d", getpid_cached(), fd) > 0);
         (void) system(cmd);
@@ -260,8 +260,8 @@ TEST(link_tmpfile) {
         assert_se(endswith(ans, " (deleted)"));
 
         fd2 = mkostemp_safe(pattern);
-        assert_se(fd2 >= 0);
-        assert_se(unlink(pattern) == 0);
+        ASSERT_OK(fd2);
+        ASSERT_EQ(unlink(pattern), 0);
 
         assert_se(asprintf(&cmd2, "ls -l /proc/"PID_FMT"/fd/%d", getpid_cached(), fd2) > 0);
         (void) system(cmd2);
@@ -274,12 +274,12 @@ TEST(link_tmpfile) {
 
         fd = safe_close(fd);
         fd = open_tmpfile_linkable(d, O_RDWR|O_CLOEXEC, &tmp);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         assert_se(write(fd, "foobar\n", 7) == 7);
 
-        assert_se(touch(d) >= 0);
+        ASSERT_OK(touch(d));
         assert_se(link_tmpfile(fd, tmp, d, /* flags= */ 0) == -EEXIST);
-        assert_se(unlink(d) >= 0);
+        ASSERT_OK(unlink(d));
         assert_se(link_tmpfile(fd, tmp, d, /* flags= */ 0) >= 0);
 
         assert_se(read_one_line_file(d, &line) >= 0);
@@ -289,7 +289,7 @@ TEST(link_tmpfile) {
         tmp = mfree(tmp);
 
         fd = open_tmpfile_linkable(d, O_RDWR|O_CLOEXEC, &tmp);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         assert_se(write(fd, "waumiau\n", 8) == 8);
 
@@ -300,7 +300,7 @@ TEST(link_tmpfile) {
         assert_se(read_one_line_file(d, &line) >= 0);
         assert_se(streq(line, "waumiau"));
 
-        assert_se(unlink(d) >= 0);
+        ASSERT_OK(unlink(d));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -56,11 +56,11 @@ TEST(parse_uid) {
         uid_t uid;
 
         r = parse_uid("0", &uid);
-        assert_se(r == 0);
-        assert_se(uid == 0);
+        ASSERT_EQ(r, 0);
+        ASSERT_EQ(uid, 0u);
 
         r = parse_uid("1", &uid);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(uid == 1);
 
         r = parse_uid("01", &uid);
@@ -72,7 +72,7 @@ TEST(parse_uid) {
         assert_se(uid == 1);
 
         r = parse_uid("100", &uid);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(uid == 100);
 
         r = parse_uid("65535", &uid);
@@ -140,7 +140,7 @@ TEST(uid_ptr) {
         ASSERT_NOT_NULL(UID_TO_PTR(0));
         ASSERT_NOT_NULL(UID_TO_PTR(1000));
 
-        assert_se(PTR_TO_UID(UID_TO_PTR(0)) == 0);
+        ASSERT_EQ(PTR_TO_UID(UID_TO_PTR(0)), 0u);
         assert_se(PTR_TO_UID(UID_TO_PTR(1000)) == 1000);
 }
 
@@ -337,7 +337,7 @@ static void test_get_user_creds_one(const char *id, const char *name, uid_t uid,
                 log_info("(skipping detailed tests because nobody is not synthesized)");
                 return;
         }
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(streq_ptr(id, name));
         assert_se(ruid == uid);
         assert_se(rgid == gid);
@@ -363,7 +363,7 @@ static void test_get_group_creds_one(const char *id, const char *name, gid_t gid
                 log_info("(skipping detailed tests because nobody is not synthesized)");
                 return;
         }
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(streq_ptr(id, name));
         assert_se(rgid == gid);
 }
@@ -388,10 +388,10 @@ TEST(make_salt) {
 }
 
 TEST(in_gid) {
-        assert_se(in_gid(getgid()) >= 0);
-        assert_se(in_gid(getegid()) >= 0);
-        assert_se(in_gid(GID_INVALID) < 0);
-        assert_se(in_gid(TTY_GID) == 0); /* The TTY gid is for owning ttys, it would be really really weird if we were in it. */
+        ASSERT_OK(in_gid(getgid()));
+        ASSERT_OK(in_gid(getegid()));
+        ASSERT_LT(in_gid(GID_INVALID), 0);
+        ASSERT_EQ(in_gid(TTY_GID), 0); /* The TTY gid is for owning ttys, it would be really really weird if we were in it. */
 }
 
 TEST(gid_lists_ops) {
@@ -411,19 +411,19 @@ TEST(gid_lists_ops) {
         int nresult;
 
         nresult = merge_gid_lists(l2, ELEMENTSOF(l2), l3, ELEMENTSOF(l3), &res1);
-        assert_se(nresult >= 0);
+        ASSERT_OK(nresult);
         assert_se(memcmp_nn(res1, nresult, result1, ELEMENTSOF(result1)) == 0);
 
         nresult = merge_gid_lists(NULL, 0, l2, ELEMENTSOF(l2), &res2);
-        assert_se(nresult >= 0);
+        ASSERT_OK(nresult);
         assert_se(memcmp_nn(res2, nresult, l2, ELEMENTSOF(l2)) == 0);
 
         nresult = merge_gid_lists(l1, ELEMENTSOF(l1), l1, ELEMENTSOF(l1), &res3);
-        assert_se(nresult >= 0);
+        ASSERT_OK(nresult);
         assert_se(memcmp_nn(l1, ELEMENTSOF(l1), res3, nresult) == 0);
 
         nresult = merge_gid_lists(l1, ELEMENTSOF(l1), l4, ELEMENTSOF(l4), &res4);
-        assert_se(nresult >= 0);
+        ASSERT_OK(nresult);
         assert_se(memcmp_nn(result2, ELEMENTSOF(result2), res4, nresult) == 0);
 
         nresult = getgroups_alloc(&gids);

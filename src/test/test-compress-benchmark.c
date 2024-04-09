@@ -111,12 +111,12 @@ static void test_compress_decompress(const char* label, const char* type,
                         continue;
                 }
 
-                assert_se(j > 0);
+                ASSERT_GT(j, 0u);
                 if (j >= size)
                         log_error("%s \"compressed\" %zu -> %zu", label, size, j);
 
                 r = decompress(buf, j, &buf2, &k, 0);
-                assert_se(r == 0);
+                ASSERT_EQ(r, 0);
                 assert_se(k == size);
 
                 assert_se(memcmp(text, buf2, size) == 0);

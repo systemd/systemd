@@ -45,7 +45,7 @@ static void test_last_cap_file(void) {
 
         r = safe_atolu(content, &val);
         ASSERT_OK(r);
-        assert_se(val != 0);
+        ASSERT_NE(val, 0u);
         ASSERT_EQ(val, cap_last_cap());
 }
 
@@ -63,7 +63,7 @@ static void test_last_cap_probe(void) {
                                 break;
         }
 
-        assert_se(p != 0);
+        ASSERT_NE(p, 0u);
         ASSERT_EQ(p, cap_last_cap());
 }
 
@@ -71,7 +71,7 @@ static void fork_test(void (*test_func)(void)) {
         pid_t pid = 0;
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
         if (pid == 0) {
                 test_func();
                 exit(EXIT_SUCCESS);
@@ -121,7 +121,7 @@ static void test_drop_privileges_keep_net_raw(void) {
         int sock;
 
         sock = socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
-        assert_se(sock >= 0);
+        ASSERT_OK(sock);
         safe_close(sock);
 
         assert_se(drop_privileges(test_uid, test_gid, test_flags | (1ULL << CAP_NET_RAW)) >= 0);
@@ -180,7 +180,7 @@ static void test_have_effective_cap(void) {
         assert_se(getgid() == test_gid);
 
         ASSERT_GT(have_effective_cap(CAP_KILL), 0);
-        assert_se(have_effective_cap(CAP_CHOWN) == 0);
+        ASSERT_EQ(have_effective_cap(CAP_CHOWN), 0);
 }
 
 static void test_update_inherited_set(void) {

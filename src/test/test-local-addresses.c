@@ -25,49 +25,49 @@ TEST(local_addresses) {
         int n;
 
         n = local_addresses(NULL, 0, AF_INET, &a);
-        assert_se(n >= 0);
+        ASSERT_OK(n);
         log_debug("/* Local Addresses(ifindex:0, AF_INET) */");
         print_local_addresses(a, n);
         a = mfree(a);
 
         n = local_addresses(NULL, 0, AF_INET6, &a);
-        assert_se(n >= 0);
+        ASSERT_OK(n);
         log_debug("/* Local Addresses(ifindex:0, AF_INET6) */");
         print_local_addresses(a, n);
         a = mfree(a);
 
         n = local_addresses(NULL, 0, AF_UNSPEC, &a);
-        assert_se(n >= 0);
+        ASSERT_OK(n);
         log_debug("/* Local Addresses(ifindex:0, AF_UNSPEC) */");
         print_local_addresses(a, n);
         a = mfree(a);
 
         n = local_addresses(NULL, 1, AF_INET, &a);
-        assert_se(n >= 0);
+        ASSERT_OK(n);
         log_debug("/* Local Addresses(ifindex:1, AF_INET) */");
         print_local_addresses(a, n);
         a = mfree(a);
 
         n = local_addresses(NULL, 1, AF_INET6, &a);
-        assert_se(n >= 0);
+        ASSERT_OK(n);
         log_debug("/* Local Addresses(ifindex:1, AF_INET6) */");
         print_local_addresses(a, n);
         a = mfree(a);
 
         n = local_addresses(NULL, 1, AF_UNSPEC, &a);
-        assert_se(n >= 0);
+        ASSERT_OK(n);
         log_debug("/* Local Addresses(ifindex:1, AF_UNSPEC) */");
         print_local_addresses(a, n);
         a = mfree(a);
 
         n = local_gateways(NULL, 0, AF_UNSPEC, &a);
-        assert_se(n >= 0);
+        ASSERT_OK(n);
         log_debug("/* Local Gateways */");
         print_local_addresses(a, n);
         a = mfree(a);
 
         n = local_outbounds(NULL, 0, AF_UNSPEC, &a);
-        assert_se(n >= 0);
+        ASSERT_OK(n);
         log_debug("/* Local Outbounds */");
         print_local_addresses(a, n);
         free(a);
@@ -81,7 +81,7 @@ static void check_local_addresses(sd_netlink *rtnl, int ifindex, int request_ifi
         log_debug("/* Local Addresses (ifindex:%i, %s) */", request_ifindex, family == AF_UNSPEC ? "AF_UNSPEC" : af_to_name(family));
 
         n = local_addresses(rtnl, request_ifindex, family, &a);
-        assert_se(n >= 0);
+        ASSERT_OK(n);
         print_local_addresses(a, n);
 
         assert_se(in_addr_from_string(AF_INET, "10.123.123.123", &u) >= 0);
@@ -120,7 +120,7 @@ static void check_local_gateways(sd_netlink *rtnl, int ifindex, int request_ifin
         log_debug("/* Local Gateways (ifindex:%i, %s) */", request_ifindex, family == AF_UNSPEC ? "AF_UNSPEC" : af_to_name(family));
 
         n = local_gateways(rtnl, request_ifindex, family, &a);
-        assert_se(n >= 0);
+        ASSERT_OK(n);
         print_local_addresses(a, n);
 
         assert_se(in_addr_from_string(AF_INET, "10.123.0.1", &u) >= 0);
@@ -159,7 +159,7 @@ static void check_local_outbounds(sd_netlink *rtnl, int ifindex, int request_ifi
         log_debug("/* Local Outbounds (ifindex:%i, %s) */", request_ifindex, family == AF_UNSPEC ? "AF_UNSPEC" : af_to_name(family));
 
         n = local_outbounds(rtnl, request_ifindex, family, &a);
-        assert_se(n >= 0);
+        ASSERT_OK(n);
         print_local_addresses(a, n);
 
         assert_se(in_addr_from_string(AF_INET, "10.123.123.123", &u) >= 0);
@@ -205,7 +205,7 @@ TEST(local_addresses_with_dummy) {
                 return (void) log_tests_skipped("missing required capabilities");
         if (r == -EOPNOTSUPP)
                 return (void) log_tests_skipped("dummy network interface is not supported");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         message = sd_netlink_message_unref(message);
 
         /* Get ifindex */
@@ -213,7 +213,7 @@ TEST(local_addresses_with_dummy) {
         assert_se(sd_netlink_message_append_string(message, IFLA_IFNAME, "test-local-addr") >= 0);
         assert_se(sd_netlink_call(rtnl, message, 0, &reply) >= 0);
         assert_se(sd_rtnl_message_link_get_ifindex(reply, &ifindex) >= 0);
-        assert_se(ifindex > 0);
+        ASSERT_GT(ifindex, 0);
         message = sd_netlink_message_unref(message);
         reply = sd_netlink_message_unref(reply);
 
@@ -282,7 +282,7 @@ TEST(local_addresses_with_dummy) {
         if (r == -EINVAL)
                 log_debug_errno(r, "RTA_VIA is not supported, ignoring: %m");
         else
-                assert_se(r >= 0);
+                ASSERT_OK(r);
         support_rta_via = r >= 0;
         message = sd_netlink_message_unref(message);
 

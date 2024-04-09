@@ -28,7 +28,7 @@ TEST(base32hexchar) {
 }
 
 TEST(unbase32hexchar) {
-        assert_se(unbase32hexchar('0') == 0);
+        ASSERT_EQ(unbase32hexchar('0'), 0);
         assert_se(unbase32hexchar('9') == 9);
         assert_se(unbase32hexchar('A') == 10);
         assert_se(unbase32hexchar('V') == 31);
@@ -42,7 +42,7 @@ TEST(base64char) {
 }
 
 TEST(unbase64char) {
-        assert_se(unbase64char('A') == 0);
+        ASSERT_EQ(unbase64char('A'), 0);
         assert_se(unbase64char('Z') == 25);
         assert_se(unbase64char('a') == 26);
         assert_se(unbase64char('z') == 51);
@@ -69,7 +69,7 @@ TEST(decchar) {
 }
 
 TEST(undecchar) {
-        assert_se(undecchar('0') == 0);
+        ASSERT_EQ(undecchar('0'), 0);
         assert_se(undecchar('9') == 9);
 }
 
@@ -314,7 +314,7 @@ TEST(base64mem_linebreak) {
                 m = 1 + random_u64_range(n + 5);
 
                 l = base64mem_full(data, n, m, &encoded);
-                assert_se(l >= 0);
+                ASSERT_OK(l);
                 assert_se(encoded);
                 assert_se((size_t) l == strlen(encoded));
 
@@ -338,7 +338,7 @@ static void test_base64_append_one(char **buf, size_t *len, const char *in, cons
         ssize_t new_len;
 
         new_len = base64_append(buf, *len, in, strlen_ptr(in), 8, 12);
-        assert_se(new_len >= 0);
+        ASSERT_OK(new_len);
         log_debug("base64_append_one(\"%s\")\nresult:\n%s\nexpected:\n%s", in, strnull(*buf), strnull(expected));
         assert_se((size_t) new_len == strlen_ptr(*buf));
         assert_se(streq_ptr(*buf, expected));

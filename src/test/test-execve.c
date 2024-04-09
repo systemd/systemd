@@ -33,7 +33,7 @@ static int run(int argc, char **argv) {
                 return log_error_errno(errno, "open(%s) failed: %m", args[0]);
 
         r = fexecve_or_execve(fd, args[0], args, NULL);
-        assert_se(r < 0);
+        ASSERT_LT(r, 0);
         return log_error_errno(r, "fexecve_or_execve(%s) failed: %m", args[0]);
 }
 

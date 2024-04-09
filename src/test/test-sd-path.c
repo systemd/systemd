@@ -15,7 +15,7 @@ TEST(sd_path_lookup) {
                 r = sd_path_lookup(i, NULL, &t);
                 if (i == SD_PATH_USER_RUNTIME && r == -ENXIO)
                         continue;
-                assert_se(r == 0);
+                ASSERT_EQ(r, 0);
                 assert_se(t);
                 log_info("%02"PRIu64": \"%s\"", i, t);
 
@@ -37,7 +37,7 @@ TEST(sd_path_lookup_strv) {
                 r = sd_path_lookup_strv(i, NULL, &t);
                 if (i == SD_PATH_USER_RUNTIME && r == -ENXIO)
                         continue;
-                assert_se(r == 0);
+                ASSERT_EQ(r, 0);
                 assert_se(t);
                 log_info("%02"PRIu64":", i);
                 STRV_FOREACH(item, t)

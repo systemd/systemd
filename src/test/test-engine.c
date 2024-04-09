@@ -67,7 +67,7 @@ static void verify_dependency_atoms(void) {
 
                 /* If only a single dep type uses specific atom, let's guarantee our mapping table is
                 complete, and thus the atom can be mapped to the single dep type that is used. */
-                assert_se(unit_dependency_from_unique_atom(a) >= 0);
+                ASSERT_OK(unit_dependency_from_unique_atom(a));
         }
 }
 
@@ -90,13 +90,13 @@ int main(int argc, char *argv[]) {
         /* prepare the test */
         _cleanup_free_ char *unit_dir = NULL;
         assert_se(get_testdata_dir("units", &unit_dir) >= 0);
-        assert_se(set_unit_path(unit_dir) >= 0);
+        ASSERT_OK(set_unit_path(unit_dir));
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         printf("Load1:\n");
@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
         r = manager_add_job(m, JOB_START, c, JOB_REPLACE, NULL, &err, &j);
         if (sd_bus_error_is_set(&err))
                 log_error("error: %s: %s", err.name, err.message);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         manager_dump_jobs(m, stdout, /* patterns= */ NULL, "\t");
 
         printf("Load2:\n");

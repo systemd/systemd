@@ -76,7 +76,7 @@ static void wait_for_service_finish(Manager *m, Unit *unit) {
                 usec_t n;
 
                 r = sd_event_run(m->event, 100 * USEC_PER_MSEC);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 n = now(CLOCK_MONOTONIC);
                 if (ts + timeout < n) {
@@ -416,7 +416,7 @@ static void test_exec_execsearchpath_environment_files(Manager *m) {
 
         r = write_string_file("/tmp/test-exec_execsearchpath_environmentfile.conf", path_not_set, WRITE_STRING_FILE_CREATE);
 
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
 
         test(m, "exec-execsearchpath-environmentfile.service", 0, CLD_EXITED);
 
@@ -425,7 +425,7 @@ static void test_exec_execsearchpath_environment_files(Manager *m) {
 
         r = write_string_file("/tmp/test-exec_execsearchpath_environmentfile-set.conf", path_set, WRITE_STRING_FILE_CREATE);
 
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
 
         test(m, "exec-execsearchpath-environmentfile-set.service", 0, CLD_EXITED);
 
@@ -444,12 +444,12 @@ static void test_exec_execsearchpath_passenvironment(Manager *m) {
         assert_se(setenv("PATH", "/usr", 1) == 0);
         test(m, "exec-execsearchpath-passenvironment-set.service", 0, CLD_EXITED);
 
-        assert_se(unsetenv("VAR1") == 0);
-        assert_se(unsetenv("VAR2") == 0);
-        assert_se(unsetenv("VAR3") == 0);
-        assert_se(unsetenv("VAR4") == 0);
-        assert_se(unsetenv("VAR5") == 0);
-        assert_se(unsetenv("PATH") == 0);
+        ASSERT_EQ(unsetenv("VAR1"), 0);
+        ASSERT_EQ(unsetenv("VAR2"), 0);
+        ASSERT_EQ(unsetenv("VAR3"), 0);
+        ASSERT_EQ(unsetenv("VAR4"), 0);
+        ASSERT_EQ(unsetenv("VAR5"), 0);
+        ASSERT_EQ(unsetenv("PATH"), 0);
 }
 
 static void test_exec_personality(Manager *m) {
@@ -622,7 +622,7 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
         ssize_t l;
 
         assert_se(s);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         l = read(fd, buf, sizeof(buf) - 1);
         if (l < 0) {
@@ -691,7 +691,7 @@ static int find_libraries(const char *exec, char ***ret) {
                            (int[]) { -EBADF, outpipe[1], errpipe[1] },
                            NULL, 0,
                            FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG, &pid);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         if (r == 0) {
                 execlp("ldd", "ldd", exec, NULL);
                 _exit(EXIT_FAILURE);
@@ -712,7 +712,7 @@ static int find_libraries(const char *exec, char ***ret) {
         /* SIGCHLD should be processed after IO is complete */
         assert_se(sd_event_source_set_priority(sigchld_source, SD_EVENT_PRIORITY_NORMAL + 1) >= 0);
 
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_loop(e));
 
         _cleanup_strv_free_ char **v = NULL;
         assert_se(strv_split_newlines_full(&v, result, 0) >= 0);
@@ -722,7 +722,7 @@ static int find_libraries(const char *exec, char ***ret) {
                 const char *p = *q;
 
                 r = extract_first_word(&p, &word, NULL, 0);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 if (r == 0)
                         continue;
 
@@ -733,7 +733,7 @@ static int find_libraries(const char *exec, char ***ret) {
 
                 word = mfree(word);
                 r = extract_first_word(&p, &word, NULL, 0);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 if (r == 0)
                         continue;
 
@@ -742,7 +742,7 @@ static int find_libraries(const char *exec, char ***ret) {
 
                 word = mfree(word);
                 r = extract_first_word(&p, &word, NULL, 0);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 if (r == 0)
                         continue;
 
@@ -1055,7 +1055,7 @@ static void test_exec_environmentfile(Manager *m) {
         int r;
 
         r = write_string_file("/tmp/test-exec_environmentfile.conf", e, WRITE_STRING_FILE_CREATE);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
 
         test(m, "exec-environmentfile.service", 0, CLD_EXITED);
 
@@ -1082,11 +1082,11 @@ static void test_exec_passenvironment(Manager *m) {
         test(m, "exec-passenvironment.service", 0, CLD_EXITED);
         test(m, "exec-passenvironment-repeated.service", 0, CLD_EXITED);
         test(m, "exec-passenvironment-empty.service", 0, CLD_EXITED);
-        assert_se(unsetenv("VAR1") == 0);
-        assert_se(unsetenv("VAR2") == 0);
-        assert_se(unsetenv("VAR3") == 0);
-        assert_se(unsetenv("VAR4") == 0);
-        assert_se(unsetenv("VAR5") == 0);
+        ASSERT_EQ(unsetenv("VAR1"), 0);
+        ASSERT_EQ(unsetenv("VAR2"), 0);
+        ASSERT_EQ(unsetenv("VAR3"), 0);
+        ASSERT_EQ(unsetenv("VAR4"), 0);
+        ASSERT_EQ(unsetenv("VAR5"), 0);
         test(m, "exec-passenvironment-absent.service", 0, CLD_EXITED);
 }
 
@@ -1368,31 +1368,31 @@ static void run_tests(RuntimeScope scope, char **patterns) {
                 {},
         };
 
-        assert_se(unsetenv("USER") == 0);
-        assert_se(unsetenv("LOGNAME") == 0);
-        assert_se(unsetenv("SHELL") == 0);
-        assert_se(unsetenv("HOME") == 0);
-        assert_se(unsetenv("TMPDIR") == 0);
+        ASSERT_EQ(unsetenv("USER"), 0);
+        ASSERT_EQ(unsetenv("LOGNAME"), 0);
+        ASSERT_EQ(unsetenv("SHELL"), 0);
+        ASSERT_EQ(unsetenv("HOME"), 0);
+        ASSERT_EQ(unsetenv("TMPDIR"), 0);
 
         /* Unset VARx, especially, VAR1, VAR2 and VAR3, which are used in the PassEnvironment test cases,
          * otherwise (and if they are present in the environment), `manager_default_environment` will copy
          * them into the default environment which is passed to each created job, which will make the tests
          * that expect those not to be present to fail. */
-        assert_se(unsetenv("VAR1") == 0);
-        assert_se(unsetenv("VAR2") == 0);
-        assert_se(unsetenv("VAR3") == 0);
-        assert_se(unsetenv("VAR4") == 0);
-        assert_se(unsetenv("VAR5") == 0);
+        ASSERT_EQ(unsetenv("VAR1"), 0);
+        ASSERT_EQ(unsetenv("VAR2"), 0);
+        ASSERT_EQ(unsetenv("VAR3"), 0);
+        ASSERT_EQ(unsetenv("VAR4"), 0);
+        ASSERT_EQ(unsetenv("VAR5"), 0);
 
         assert_se(runtime_dir = setup_fake_runtime_dir());
         assert_se(user_runtime_unit_dir = path_join(runtime_dir, "systemd/user"));
         assert_se(unit_paths = strjoin(PRIVATE_UNIT_DIR, ":", user_runtime_unit_dir));
-        assert_se(set_unit_path(unit_paths) >= 0);
+        ASSERT_OK(set_unit_path(unit_paths));
 
         r = manager_new(scope, MANAGER_TEST_RUN_BASIC, &m);
         if (manager_errno_skip_test(r))
                 return (void) log_tests_skipped_errno(r, "manager_new");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         m->defaults.std_output = EXEC_OUTPUT_INHERIT; /* don't rely on host journald */
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
@@ -1434,7 +1434,7 @@ static int prepare_ns(const char *process_name) {
                       FORK_NEW_MOUNTNS |
                       FORK_MOUNTNS_SLAVE,
                       NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         if (r == 0) {
                 _cleanup_free_ char *unit_dir = NULL, *build_dir = NULL, *build_dir_mount = NULL;
                 int ret;
@@ -1541,7 +1541,7 @@ TEST(run_tests_without_unshare) {
                 assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EOPNOTSUPP), true) >= 0);
 
                 /* Check unshare() is actually filtered. */
-                assert_se(unshare(CLONE_NEWNS) < 0);
+                ASSERT_LT(unshare(CLONE_NEWNS), 0);
                 assert_se(errno == EOPNOTSUPP);
 
                 can_unshare = false;

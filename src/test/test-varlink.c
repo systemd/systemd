@@ -94,7 +94,7 @@ static void test_fd(int fd, const void *buf, size_t n) {
         ssize_t m;
 
         m = read(fd, rbuf, n + 1);
-        assert_se(m >= 0);
+        ASSERT_OK(m);
         assert_se(memcmp_nn(buf, n, rbuf, m) == 0);
 }
 
@@ -115,9 +115,9 @@ static int method_passfd(Varlink *link, JsonVariant *parameters, VarlinkMethodFl
 
         log_info("%i %i %i", xx, yy, zz);
 
-        assert_se(xx >= 0);
-        assert_se(yy >= 0);
-        assert_se(zz >= 0);
+        ASSERT_OK(xx);
+        ASSERT_OK(yy);
+        ASSERT_OK(zz);
 
         test_fd(xx, "foo", 3);
         test_fd(yy, "bar", 3);
@@ -126,8 +126,8 @@ static int method_passfd(Varlink *link, JsonVariant *parameters, VarlinkMethodFl
         _cleanup_close_ int vv = acquire_data_fd("miau");
         _cleanup_close_ int ww = acquire_data_fd("wuff");
 
-        assert_se(vv >= 0);
-        assert_se(ww >= 0);
+        ASSERT_OK(vv);
+        ASSERT_OK(ww);
 
         r = json_build(&ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("yo", JSON_BUILD_INTEGER(88))));
         if (r < 0)
@@ -229,7 +229,7 @@ static void flood_test(const char *address) {
         block_write_fd = safe_close(block_write_fd);
 
         /* This loop will terminate as soon as the overload reply callback is called */
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_loop(e));
 
         /* And close all connections again */
         for (k = 0; k < OVERLOAD_CONNECTIONS; k++)
@@ -279,9 +279,9 @@ static void *thread(void *arg) {
         int fd2 = acquire_data_fd("bar");
         int fd3 = acquire_data_fd("quux");
 
-        assert_se(fd1 >= 0);
-        assert_se(fd2 >= 0);
-        assert_se(fd3 >= 0);
+        ASSERT_OK(fd1);
+        ASSERT_OK(fd2);
+        ASSERT_OK(fd3);
 
         assert_se(varlink_push_fd(c, fd1) == 0);
         assert_se(varlink_push_fd(c, fd2) == 1);
@@ -292,8 +292,8 @@ static void *thread(void *arg) {
         int fd4 = varlink_peek_fd(c, 0);
         int fd5 = varlink_peek_fd(c, 1);
 
-        assert_se(fd4 >= 0);
-        assert_se(fd5 >= 0);
+        ASSERT_OK(fd4);
+        ASSERT_OK(fd5);
 
         test_fd(fd4, "miau", 4);
         test_fd(fd5, "wuff", 4);
@@ -374,7 +374,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(pthread_create(&t, NULL, thread, (void*) sp) == 0);
 
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_loop(e));
 
         assert_se(pthread_join(t, NULL) == 0);
 

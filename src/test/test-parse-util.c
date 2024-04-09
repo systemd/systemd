@@ -23,19 +23,19 @@ TEST(parse_boolean) {
         assert_se(parse_boolean("on") == 1);
         assert_se(parse_boolean("ON") == 1);
 
-        assert_se(parse_boolean("0") == 0);
-        assert_se(parse_boolean("n") == 0);
-        assert_se(parse_boolean("N") == 0);
-        assert_se(parse_boolean("no") == 0);
-        assert_se(parse_boolean("NO") == 0);
-        assert_se(parse_boolean("false") == 0);
-        assert_se(parse_boolean("FALSE") == 0);
-        assert_se(parse_boolean("off") == 0);
-        assert_se(parse_boolean("OFF") == 0);
+        ASSERT_EQ(parse_boolean("0"), 0);
+        ASSERT_EQ(parse_boolean("n"), 0);
+        ASSERT_EQ(parse_boolean("N"), 0);
+        ASSERT_EQ(parse_boolean("no"), 0);
+        ASSERT_EQ(parse_boolean("NO"), 0);
+        ASSERT_EQ(parse_boolean("false"), 0);
+        ASSERT_EQ(parse_boolean("FALSE"), 0);
+        ASSERT_EQ(parse_boolean("off"), 0);
+        ASSERT_EQ(parse_boolean("OFF"), 0);
 
-        assert_se(parse_boolean("garbage") < 0);
-        assert_se(parse_boolean("") < 0);
-        assert_se(parse_boolean("full") < 0);
+        ASSERT_LT(parse_boolean("garbage"), 0);
+        ASSERT_LT(parse_boolean(""), 0);
+        ASSERT_LT(parse_boolean("full"), 0);
 }
 
 TEST(parse_pid) {
@@ -43,11 +43,11 @@ TEST(parse_pid) {
         pid_t pid;
 
         r = parse_pid("100", &pid);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(pid == 100);
 
         r = parse_pid("0x7FFFFFFF", &pid);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(pid == 2147483647);
 
         pid = 65; /* pid is left unchanged on ERANGE. Set to known arbitrary value. */
@@ -255,16 +255,16 @@ TEST(parse_range) {
         assert_se(upper == 123);
 
         assert_se(parse_range("0", &lower, &upper) == 0);
-        assert_se(lower == 0);
-        assert_se(upper == 0);
+        ASSERT_EQ(lower, 0u);
+        ASSERT_EQ(upper, 0u);
 
         assert_se(parse_range("0-15", &lower, &upper) == 0);
-        assert_se(lower == 0);
+        ASSERT_EQ(lower, 0u);
         assert_se(upper == 15);
 
         assert_se(parse_range("15-0", &lower, &upper) == 0);
         assert_se(lower == 15);
-        assert_se(upper == 0);
+        ASSERT_EQ(upper, 0u);
 
         assert_se(parse_range("128-65535", &lower, &upper) == 0);
         assert_se(lower == 128);
@@ -422,15 +422,15 @@ TEST(safe_atou_bounded) {
         unsigned x;
 
         r = safe_atou_bounded("12345", 12, 20000, &x);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(x == 12345);
 
         r = safe_atou_bounded("12", 12, 20000, &x);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(x == 12);
 
         r = safe_atou_bounded("20000", 12, 20000, &x);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(x == 20000);
 
         r = safe_atou_bounded("-1", 12, 20000, &x);
@@ -448,31 +448,31 @@ TEST(safe_atolli) {
         long long l;
 
         r = safe_atolli("12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 12345);
 
         r = safe_atolli("  12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 12345);
 
         r = safe_atolli("-12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == -12345);
 
         r = safe_atolli("  -12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == -12345);
 
         r = safe_atolli("0x5", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 5);
 
         r = safe_atolli("0o6", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 6);
 
         r = safe_atolli("0B101", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 5);
 
         r = safe_atolli("12345678901234567890", &l);
@@ -499,19 +499,19 @@ TEST(safe_atou16) {
         uint16_t l;
 
         r = safe_atou16("12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 12345);
 
         r = safe_atou16("  12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 12345);
 
         r = safe_atou16("+12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 12345);
 
         r = safe_atou16("  +12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 12345);
 
         r = safe_atou16("123456", &l);
@@ -541,35 +541,35 @@ TEST(safe_atoi16) {
         int16_t l;
 
         r = safe_atoi16("-12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == -12345);
 
         r = safe_atoi16("  -12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == -12345);
 
         r = safe_atoi16("+12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 12345);
 
         r = safe_atoi16("  +12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 12345);
 
         r = safe_atoi16("32767", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 32767);
 
         r = safe_atoi16("  32767", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 32767);
 
         r = safe_atoi16("0o11", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 9);
 
         r = safe_atoi16("0B110", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 6);
 
         r = safe_atoi16("36536", &l);
@@ -596,15 +596,15 @@ TEST(safe_atoux16) {
         uint16_t l;
 
         r = safe_atoux16("1234", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 0x1234);
 
         r = safe_atoux16("abcd", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 0xabcd);
 
         r = safe_atoux16("  1234", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 0x1234);
 
         r = safe_atoux16("12345", &l);
@@ -617,7 +617,7 @@ TEST(safe_atoux16) {
         assert_se(r == -ERANGE);
 
         r = safe_atoux16("0b1", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 177);
 
         r = safe_atoux16("0o70", &l);
@@ -641,19 +641,19 @@ TEST(safe_atou64) {
         uint64_t l;
 
         r = safe_atou64("12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 12345);
 
         r = safe_atou64("  12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 12345);
 
         r = safe_atou64("0o11", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 9);
 
         r = safe_atou64("0b11", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 3);
 
         r = safe_atou64("18446744073709551617", &l);
@@ -683,27 +683,27 @@ TEST(safe_atoi64) {
         int64_t l;
 
         r = safe_atoi64("-12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == -12345);
 
         r = safe_atoi64("  -12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == -12345);
 
         r = safe_atoi64("32767", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 32767);
 
         r = safe_atoi64("  32767", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 32767);
 
         r = safe_atoi64("  0o20", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 16);
 
         r = safe_atoi64("  0b01010", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 10);
 
         r = safe_atoi64("9223372036854775813", &l);
@@ -730,35 +730,35 @@ TEST(safe_atoux64) {
         uint64_t l;
 
         r = safe_atoux64("12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 0x12345);
 
         r = safe_atoux64("  12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 0x12345);
 
         r = safe_atoux64("0x12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 0x12345);
 
         r = safe_atoux64("0b11011", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 11603985);
 
         r = safe_atoux64("+12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 0x12345);
 
         r = safe_atoux64("  +12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 0x12345);
 
         r = safe_atoux64("+0x12345", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 0x12345);
 
         r = safe_atoux64("+0b11011", &l);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(l == 11603985);
 
         r = safe_atoux64("0o11011", &l);
@@ -795,7 +795,7 @@ TEST(safe_atod) {
         assert_se(r == -EINVAL);
 
         r = safe_atod("0.2244", &d);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(fabs(d - 0.2244) < 0.000001);
 
         r = safe_atod("0,5", &d);
@@ -812,7 +812,7 @@ TEST(safe_atod) {
         if (setlocale(LC_NUMERIC, "de_DE.utf8")) {
 
                 r = safe_atod("0.2244", &d);
-                assert_se(r == 0);
+                ASSERT_EQ(r, 0);
                 assert_se(fabs(d - 0.2244) < 0.000001);
 
                 r = safe_atod("0,5", &d);
@@ -829,7 +829,7 @@ TEST(safe_atod) {
         assert_se(setlocale(LC_NUMERIC, "C"));
 
         r = safe_atod("0.2244", &d);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(fabs(d - 0.2244) < 0.000001);
 
         r = safe_atod("0,5", &d);
@@ -873,7 +873,7 @@ TEST(parse_nice) {
 TEST(parse_errno) {
         assert_se(parse_errno("EILSEQ") == EILSEQ);
         assert_se(parse_errno("EINVAL") == EINVAL);
-        assert_se(parse_errno("0") == 0);
+        ASSERT_EQ(parse_errno("0"), 0);
         assert_se(parse_errno("1") == 1);
         assert_se(parse_errno("4095") == 4095);
 
@@ -892,7 +892,7 @@ TEST(parse_errno) {
 }
 
 TEST(parse_fd) {
-        assert_se(parse_fd("0") == 0);
+        ASSERT_EQ(parse_fd("0"), 0);
         assert_se(parse_fd("1") == 1);
 
         assert_se(parse_fd("-1") == -EBADF);
@@ -952,12 +952,12 @@ TEST(parse_loadavg_fixed_point) {
         assert_se(LOADAVG_DECIMAL_SIDE(fp) == 80);
 
         assert_se(parse_loadavg_fixed_point("0.07", &fp) == 0);
-        assert_se(LOADAVG_INT_SIDE(fp) == 0);
+        ASSERT_EQ(LOADAVG_INT_SIDE(fp), 0u);
         assert_se(LOADAVG_DECIMAL_SIDE(fp) == 7);
 
         assert_se(parse_loadavg_fixed_point("0.00", &fp) == 0);
-        assert_se(LOADAVG_INT_SIDE(fp) == 0);
-        assert_se(LOADAVG_DECIMAL_SIDE(fp) == 0);
+        ASSERT_EQ(LOADAVG_INT_SIDE(fp), 0u);
+        ASSERT_EQ(LOADAVG_DECIMAL_SIDE(fp), 0u);
 
         assert_se(parse_loadavg_fixed_point("4096.57", &fp) == 0);
         assert_se(LOADAVG_INT_SIDE(fp) == 4096);

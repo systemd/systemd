@@ -23,8 +23,8 @@ TEST(uid_range) {
         assert_se(!uid_range_covers(p, UINT32_MAX, 1));
         assert_se(!uid_range_covers(p, UINT32_MAX - 10, 11));
 
-        assert_se(uid_range_entries(p) == 0);
-        assert_se(uid_range_size(p) == 0);
+        ASSERT_EQ(uid_range_entries(p), 0u);
+        ASSERT_EQ(uid_range_size(p), 0u);
         assert_se(uid_range_is_empty(p));
 
         assert_se(uid_range_add_str(&p, "500-999") >= 0);
@@ -127,7 +127,7 @@ TEST(load_userns) {
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return;
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(uid_range_contains(p, getuid()));
 
         r = running_in_userns();
@@ -142,7 +142,7 @@ TEST(load_userns) {
         assert_se(fopen_temporary_child(NULL, &f, &fn) >= 0);
         fputs("0 0 20\n"
               "100 0 20\n", f);
-        assert_se(fflush_and_check(f) >= 0);
+        ASSERT_OK(fflush_and_check(f));
 
         p = uid_range_free(p);
 

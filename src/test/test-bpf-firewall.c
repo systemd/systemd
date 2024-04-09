@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
         r = bpf_firewall_compile(u);
         if (IN_SET(r, -ENOTTY, -ENOSYS, -EPERM))
                 return log_tests_skipped("Kernel doesn't support the necessary bpf bits (masked out via seccomp?)");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         CGroupRuntime *crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
         assert_se(crt->ip_bpf_ingress);
