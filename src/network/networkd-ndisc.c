@@ -328,20 +328,19 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 }
 
 static int ndisc_request_address(Address *address, Link *link, sd_ndisc_router *rt) {
-        struct in6_addr router;
         bool is_new;
         int r;
 
         assert(address);
         assert(link);
-        assert(rt);
 
-        r = sd_ndisc_router_get_sender_address(rt, &router);
-        if (r < 0)
-                return r;
+        if (rt) {
+                r = sd_ndisc_router_get_sender_address(rt, &address->provider.in6);
+                if (r < 0)
+                        return r;
 
-        address->source = NETWORK_CONFIG_SOURCE_NDISC;
-        address->provider.in6 = router;
+                address->source = NETWORK_CONFIG_SOURCE_NDISC;
+        }
 
         r = free_and_strdup_warn(&address->netlabel, link->network->ndisc_netlabel);
         if (r < 0)
@@ -375,6 +374,28 @@ static int ndisc_request_address(Address *address, Link *link, sd_ndisc_router *
         if (r > 0 && is_new)
                 link->ndisc_configured = false;
 
+        return 0;
+}
+
+int ndisc_reconfigure_address(Address *address, Link *link) {
+        int r;
+
+        assert(address);
+        assert(address->source == NETWORK_CONFIG_SOURCE_NDISC);
+        assert(link);
+
+        r = regenerate_address(address, link);
+        if (r <= 0)
+                return r;
+
+        r = ndisc_request_address(address, link, NULL);
+        if (r < 0)
+                return r;
+
+        if (!link->ndisc_configured)
+                link_set_state(link, LINK_STATE_CONFIGURING);
+
+        link_check_ready(link);
         return 0;
 }
 
@@ -1029,8 +1050,7 @@ static int ndisc_router_process_hop_limit(Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *rt) {
         usec_t lifetime_valid_usec, lifetime_preferred_usec;
-        _cleanup_set_free_ Set *addresses = NULL;
-        struct in6_addr prefix, *a;
+        struct in6_addr prefix;
         uint8_t prefixlen;
         int r;
 
@@ -1068,11 +1088,14 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         if (lifetime_preferred_usec > lifetime_valid_usec)
                 return 0;
 
-        r = ndisc_generate_addresses(link, &prefix, prefixlen, &addresses);
+        _cleanup_hashmap_free_ Hashmap *tokens_by_address = NULL;
+        r = ndisc_generate_addresses(link, &prefix, prefixlen, &tokens_by_address);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to generate SLAAC addresses: %m");
 
-        SET_FOREACH(a, addresses) {
+        IPv6Token *token;
+        struct in6_addr *a;
+        HASHMAP_FOREACH_KEY(token, a, tokens_by_address) {
                 _cleanup_(address_unrefp) Address *address = NULL;
 
                 r = address_new(&address);
@@ -1085,6 +1108,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
                 address->lifetime_valid_usec = lifetime_valid_usec;
                 address->lifetime_preferred_usec = lifetime_preferred_usec;
+                address->token = ipv6_token_ref(token);
 
                 /* draft-ietf-6man-slaac-renum-07 section 4.2
                  * https://datatracker.ietf.org/doc/html/draft-ietf-6man-slaac-renum-07#section-4.2

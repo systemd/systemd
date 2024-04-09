@@ -243,9 +243,6 @@ int link_request_radv_addresses(Link *link) {
                 return 0;
 
         HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
-                _cleanup_set_free_ Set *addresses = NULL;
-                struct in6_addr *a;
-
                 if (!p->assign)
                         continue;
 
@@ -253,11 +250,14 @@ int link_request_radv_addresses(Link *link) {
                 if (p->prefixlen > 64)
                         continue;
 
-                r = radv_generate_addresses(link, p->tokens, &p->prefix, p->prefixlen, &addresses);
+                _cleanup_hashmap_free_ Hashmap *tokens_by_address = NULL;
+                r = radv_generate_addresses(link, p->tokens, &p->prefix, p->prefixlen, &tokens_by_address);
                 if (r < 0)
                         return r;
 
-                SET_FOREACH(a, addresses) {
+                IPv6Token *token;
+                struct in6_addr *a;
+                HASHMAP_FOREACH_KEY(token, a, tokens_by_address) {
                         _cleanup_(address_unrefp) Address *address = NULL;
 
                         r = address_new(&address);
@@ -269,11 +269,35 @@ int link_request_radv_addresses(Link *link) {
                         address->in_addr.in6 = *a;
                         address->prefixlen = p->prefixlen;
                         address->route_metric = p->route_metric;
+                        address->token = ipv6_token_ref(token);
 
                         r = link_request_static_address(link, address);
                         if (r < 0)
                                 return r;
                 }
+        }
+
+        return 0;
+}
+
+int link_reconfigure_radv_address(Address *address, Link *link) {
+        int r;
+
+        assert(address);
+        assert(address->source == NETWORK_CONFIG_SOURCE_STATIC);
+        assert(link);
+
+        r = regenerate_address(address, link);
+        if (r <= 0)
+                return r;
+
+        r = link_request_static_address(link, address);
+        if (r < 0)
+                return r;
+
+        if (link->static_address_messages != 0) {
+                link->static_addresses_configured = false;
+                link_set_state(link, LINK_STATE_CONFIGURING);
         }
 
         return 0;
