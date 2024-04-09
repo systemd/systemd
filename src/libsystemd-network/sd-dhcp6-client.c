@@ -1417,7 +1417,8 @@ int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
 }
 
 int sd_dhcp6_client_is_running(sd_dhcp6_client *client) {
-        assert_return(client, -EINVAL);
+        if (!client)
+                return false;
 
         return client->state != DHCP6_STATE_STOPPED;
 }
