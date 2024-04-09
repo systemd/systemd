@@ -353,6 +353,9 @@ static int dhcp6_lease_lost(Link *link) {
         assert(link);
         assert(link->manager);
 
+        if (!link->dhcp6_lease)
+                return 0;
+
         log_link_info(link, "DHCPv6 lease lost");
 
         if (sd_dhcp6_lease_has_pd_prefix(link->dhcp6_lease))
