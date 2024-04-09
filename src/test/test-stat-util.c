@@ -50,12 +50,12 @@ TEST(inode_same) {
 
         fd = mkostemp_safe(name);
         ASSERT_OK(fd);
-        assert_se(symlink(name, name_alias) >= 0);
+        ASSERT_OK(symlink(name, name_alias));
 
-        assert_se(inode_same(name, name, 0));
-        assert_se(inode_same(name, name, AT_SYMLINK_NOFOLLOW));
-        assert_se(inode_same(name, name_alias, 0));
-        assert_se(!inode_same(name, name_alias, AT_SYMLINK_NOFOLLOW));
+        ASSERT_TRUE(inode_same(name, name, 0));
+        ASSERT_TRUE(inode_same(name, name, AT_SYMLINK_NOFOLLOW));
+        ASSERT_TRUE(inode_same(name, name_alias, 0));
+        ASSERT_FALSE(inode_same(name, name_alias, AT_SYMLINK_NOFOLLOW));
 }
 
 TEST(is_symlink) {
@@ -65,7 +65,7 @@ TEST(is_symlink) {
 
         fd = mkostemp_safe(name);
         ASSERT_OK(fd);
-        assert_se(symlink(name, name_link) >= 0);
+        ASSERT_OK(symlink(name, name_link));
 
         ASSERT_EQ(is_symlink(name), 0);
         ASSERT_EQ(is_symlink(name_link), 1);
@@ -122,9 +122,9 @@ TEST(path_is_read_only_fs) {
 TEST(fd_is_ns) {
         _cleanup_close_ int fd = -EBADF;
 
-        assert_se(fd_is_ns(STDIN_FILENO, CLONE_NEWNET) == 0);
-        assert_se(fd_is_ns(STDERR_FILENO, CLONE_NEWNET) == 0);
-        assert_se(fd_is_ns(STDOUT_FILENO, CLONE_NEWNET) == 0);
+        ASSERT_EQ(fd_is_ns(STDIN_FILENO, CLONE_NEWNET), 0);
+        ASSERT_EQ(fd_is_ns(STDERR_FILENO, CLONE_NEWNET), 0);
+        ASSERT_EQ(fd_is_ns(STDOUT_FILENO, CLONE_NEWNET), 0);
 
         fd = open("/proc/self/ns/mnt", O_CLOEXEC|O_RDONLY);
         if (fd < 0) {
@@ -226,7 +226,7 @@ TEST(fd_verify_linked) {
         ASSERT_OK(fd);
 
         ASSERT_OK(fd_verify_linked(fd));
-        assert_se(unlinkat(tfd, "hoge", 0) >= 0);
+        ASSERT_OK(unlinkat(tfd, "hoge", 0));
         assert_se(fd_verify_linked(fd) == -EIDRM);
 }
 

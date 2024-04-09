@@ -107,14 +107,14 @@ static void test_execute_directory_one(bool gather_stdout) {
         ASSERT_EQ(touch(mask2e), 0);
         ASSERT_OK(touch(name3));
 
-        assert_se(chmod(name, 0755) == 0);
-        assert_se(chmod(name2, 0755) == 0);
-        assert_se(chmod(overridden, 0755) == 0);
-        assert_se(chmod(override, 0755) == 0);
-        assert_se(chmod(masked, 0755) == 0);
-        assert_se(chmod(masked2, 0755) == 0);
-        assert_se(chmod(masked2e, 0755) == 0);
-        assert_se(chmod(mask2e, 0755) == 0);
+        ASSERT_EQ(chmod(name, 0755), 0);
+        ASSERT_EQ(chmod(name2, 0755), 0);
+        ASSERT_EQ(chmod(overridden, 0755), 0);
+        ASSERT_EQ(chmod(override, 0755), 0);
+        ASSERT_EQ(chmod(masked, 0755), 0);
+        ASSERT_EQ(chmod(masked2, 0755), 0);
+        ASSERT_EQ(chmod(masked2e, 0755), 0);
+        ASSERT_EQ(chmod(mask2e, 0755), 0);
 
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
@@ -125,12 +125,12 @@ static void test_execute_directory_one(bool gather_stdout) {
                 execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         ASSERT_EQ(chdir(tmp_lo), 0);
-        assert_se(access("it_works", F_OK) >= 0);
-        assert_se(access("failed", F_OK) < 0);
+        ASSERT_OK(access("it_works", F_OK));
+        ASSERT_LT(access("failed", F_OK), 0);
 
         ASSERT_EQ(chdir(tmp_hi), 0);
-        assert_se(access("it_works2", F_OK) >= 0);
-        assert_se(access("failed", F_OK) < 0);
+        ASSERT_OK(access("it_works2", F_OK));
+        ASSERT_LT(access("failed", F_OK), 0);
 }
 
 TEST(execute_directory) {
@@ -163,31 +163,31 @@ TEST(execution_order) {
         mask = strjoina(tmp_hi, "/10-masked");
 
         t = strjoina("#!/bin/sh\necho $(basename $0) >>", output);
-        assert_se(write_string_file(name, t, WRITE_STRING_FILE_CREATE) == 0);
+        ASSERT_EQ(write_string_file(name, t, WRITE_STRING_FILE_CREATE), 0);
 
         t = strjoina("#!/bin/sh\necho $(basename $0) >>", output);
-        assert_se(write_string_file(name2, t, WRITE_STRING_FILE_CREATE) == 0);
+        ASSERT_EQ(write_string_file(name2, t, WRITE_STRING_FILE_CREATE), 0);
 
         t = strjoina("#!/bin/sh\necho $(basename $0) >>", output);
-        assert_se(write_string_file(name3, t, WRITE_STRING_FILE_CREATE) == 0);
+        ASSERT_EQ(write_string_file(name3, t, WRITE_STRING_FILE_CREATE), 0);
 
         t = strjoina("#!/bin/sh\necho OVERRIDDEN >>", output);
-        assert_se(write_string_file(overridden, t, WRITE_STRING_FILE_CREATE) == 0);
+        ASSERT_EQ(write_string_file(overridden, t, WRITE_STRING_FILE_CREATE), 0);
 
         t = strjoina("#!/bin/sh\necho $(basename $0) >>", output);
-        assert_se(write_string_file(override, t, WRITE_STRING_FILE_CREATE) == 0);
+        ASSERT_EQ(write_string_file(override, t, WRITE_STRING_FILE_CREATE), 0);
 
         t = strjoina("#!/bin/sh\necho MASKED >>", output);
-        assert_se(write_string_file(masked, t, WRITE_STRING_FILE_CREATE) == 0);
+        ASSERT_EQ(write_string_file(masked, t, WRITE_STRING_FILE_CREATE), 0);
 
         assert_se(symlink("/dev/null", mask) == 0);
 
-        assert_se(chmod(name, 0755) == 0);
-        assert_se(chmod(name2, 0755) == 0);
-        assert_se(chmod(name3, 0755) == 0);
-        assert_se(chmod(overridden, 0755) == 0);
-        assert_se(chmod(override, 0755) == 0);
-        assert_se(chmod(masked, 0755) == 0);
+        ASSERT_EQ(chmod(name, 0755), 0);
+        ASSERT_EQ(chmod(name2, 0755), 0);
+        ASSERT_EQ(chmod(name3, 0755), 0);
+        ASSERT_EQ(chmod(overridden, 0755), 0);
+        ASSERT_EQ(chmod(override, 0755), 0);
+        ASSERT_EQ(chmod(masked, 0755), 0);
 
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
@@ -203,11 +203,11 @@ static int gather_stdout_one(int fd, void *arg) {
         char buf[128] = {};
 
         ASSERT_TRUE(s);
-        assert_se(read(fd, buf, sizeof buf) >= 0);
+        ASSERT_OK(read(fd, buf, sizeof buf));
         safe_close(fd);
 
         assert_se(t = strndup(buf, sizeof buf));
-        assert_se(strv_push(s, t) >= 0);
+        ASSERT_OK(strv_push(s, t));
 
         return 0;
 }
@@ -224,7 +224,7 @@ static int gather_stdout_three(int fd, void *arg) {
         char **s = arg;
         char buf[128] = {};
 
-        assert_se(read(fd, buf, sizeof buf - 1) > 0);
+        ASSERT_GT(read(fd, buf, sizeof buf - 1), 0);
         safe_close(fd);
         assert_se(*s = strndup(buf, sizeof buf));
 
@@ -266,9 +266,9 @@ TEST(stdout_gathering) {
                                     "#!/bin/sh\nsleep 1",
                                     WRITE_STRING_FILE_CREATE) == 0);
 
-        assert_se(chmod(name, 0755) == 0);
-        assert_se(chmod(name2, 0755) == 0);
-        assert_se(chmod(name3, 0755) == 0);
+        ASSERT_EQ(chmod(name, 0755), 0);
+        ASSERT_EQ(chmod(name2, 0755), 0);
+        ASSERT_EQ(chmod(name3, 0755), 0);
 
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
@@ -326,9 +326,9 @@ TEST(environment_gathering) {
                                     "echo PATH=$PATH:/no/such/file",   /* no newline */
                                     WRITE_STRING_FILE_CREATE) == 0);
 
-        assert_se(chmod(name, 0755) == 0);
-        assert_se(chmod(name2, 0755) == 0);
-        assert_se(chmod(name3, 0755) == 0);
+        ASSERT_EQ(chmod(name, 0755), 0);
+        ASSERT_EQ(chmod(name2, 0755), 0);
+        ASSERT_EQ(chmod(name3, 0755), 0);
 
         /* When booting in containers or without initrd there might not be any PATH in the environment and if
          * there is no PATH /bin/sh built-in PATH may leak and override systemd's DEFAULT_PATH which is not
@@ -347,8 +347,8 @@ TEST(environment_gathering) {
                 log_info("got env: \"%s\"", *p);
 
         assert_se(streq(strv_env_get(env, "A"), "22:23:24"));
-        assert_se(streq(strv_env_get(env, "B"), "12"));
-        assert_se(streq(strv_env_get(env, "C"), "001"));
+        ASSERT_TRUE(streq(strv_env_get(env, "B"), "12"));
+        ASSERT_TRUE(streq(strv_env_get(env, "C"), "001"));
         assert_se(streq(strv_env_get(env, "PATH"), "no-sh-built-in-path:/no/such/file"));
 
         /* now retest with "default" path passed in, as created by
@@ -364,12 +364,12 @@ TEST(environment_gathering) {
                 log_info("got env: \"%s\"", *p);
 
         assert_se(streq(strv_env_get(env, "A"), "22:23:24"));
-        assert_se(streq(strv_env_get(env, "B"), "12"));
-        assert_se(streq(strv_env_get(env, "C"), "001"));
+        ASSERT_TRUE(streq(strv_env_get(env, "B"), "12"));
+        ASSERT_TRUE(streq(strv_env_get(env, "C"), "001"));
         assert_se(streq(strv_env_get(env, "PATH"), DEFAULT_PATH ":/no/such/file"));
 
         /* reset environ PATH */
-        assert_se(set_unset_env("PATH", old, true) == 0);
+        ASSERT_EQ(set_unset_env("PATH", old, true), 0);
 }
 
 TEST(error_catching) {
@@ -396,9 +396,9 @@ TEST(error_catching) {
                                     "#!/bin/sh\nexit 12",
                                     WRITE_STRING_FILE_CREATE) == 0);
 
-        assert_se(chmod(name, 0755) == 0);
-        assert_se(chmod(name2, 0755) == 0);
-        assert_se(chmod(name3, 0755) == 0);
+        ASSERT_EQ(chmod(name, 0755), 0);
+        ASSERT_EQ(chmod(name2, 0755), 0);
+        ASSERT_EQ(chmod(name3, 0755), 0);
 
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
@@ -418,11 +418,11 @@ TEST(exec_command_flags_from_strv) {
         r = exec_command_flags_from_strv(valid_strv, &flags);
 
         ASSERT_EQ(r, 0);
-        assert_se(FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND));
-        assert_se(FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID));
-        assert_se(FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE));
-        assert_se(!FLAGS_SET(flags, EXEC_COMMAND_AMBIENT_MAGIC));
-        assert_se(!FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED));
+        ASSERT_TRUE(FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND));
+        ASSERT_TRUE(FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID));
+        ASSERT_TRUE(FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE));
+        ASSERT_FALSE(FLAGS_SET(flags, EXEC_COMMAND_AMBIENT_MAGIC));
+        ASSERT_FALSE(FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED));
 
         r = exec_command_flags_from_strv(invalid_strv, &flags);
 
@@ -444,7 +444,7 @@ TEST(exec_command_flags_to_strv) {
         r = exec_command_flags_to_strv(0, &empty_opts);
 
         ASSERT_EQ(r, 0);
-        assert_se(strv_equal(empty_opts, STRV_MAKE_EMPTY));
+        ASSERT_TRUE(strv_equal(empty_opts, STRV_MAKE_EMPTY));
 
         flags = _EXEC_COMMAND_FLAGS_INVALID;
 

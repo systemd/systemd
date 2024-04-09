@@ -16,7 +16,7 @@ static void test_specifier_escape_one(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL;
 
         x = specifier_escape(a);
-        assert_se(streq_ptr(x, b));
+        ASSERT_TRUE(streq_ptr(x, b));
 }
 
 TEST(specifier_escape) {
@@ -32,7 +32,7 @@ static void test_specifier_escape_strv_one(char **a, char **b) {
         _cleanup_strv_free_ char **x = NULL;
 
         assert_se(specifier_escape_strv(a, &x) >= 0);
-        assert_se(strv_equal(x, b));
+        ASSERT_TRUE(strv_equal(x, b));
 }
 
 TEST(specifier_escape_strv) {

@@ -83,7 +83,7 @@ static void test_device_path_make_canonical_one(const char *path) {
         }
 
         ASSERT_OK(r);
-        assert_se(path_equal(path, resolved));
+        ASSERT_TRUE(path_equal(path, resolved));
 
         assert_se(device_path_make_major_minor(st.st_mode, st.st_rdev, &raw) >= 0);
         assert_se(device_path_parse_major_minor(raw, &mode, &devno) >= 0);
@@ -109,7 +109,7 @@ TEST(device_path_make_canonical) {
 static void test_devnum_format_str_one(dev_t devnum, const char *s) {
         dev_t x;
 
-        assert_se(streq(FORMAT_DEVNUM(devnum), s));
+        ASSERT_TRUE(streq(FORMAT_DEVNUM(devnum), s));
         assert_se(parse_devnum(s, &x) >= 0);
         assert_se(x == devnum);
 }

@@ -21,8 +21,8 @@ TEST(path_hash_set) {
         assert_se(set_ensure_put(&set, &path_hash_ops, "/foo/.") == 0);
         assert_se(set_ensure_put(&set, &path_hash_ops, "/./bar/./.") == 0);
 
-        assert_se(set_contains(set, "foo"));
-        assert_se(set_contains(set, "bar"));
+        ASSERT_TRUE(set_contains(set, "foo"));
+        ASSERT_TRUE(set_contains(set, "bar"));
         assert_se(set_contains(set, "./foo"));
         assert_se(set_contains(set, "./foo/."));
         assert_se(set_contains(set, "./bar"));
@@ -47,8 +47,8 @@ TEST(path_hash_set) {
         assert_se(set_contains(set, "////./bar/"));
         assert_se(set_contains(set, "/////./bar/./"));
 
-        assert_se(!set_contains(set, "foo."));
-        assert_se(!set_contains(set, ".bar"));
+        ASSERT_FALSE(set_contains(set, "foo."));
+        ASSERT_FALSE(set_contains(set, ".bar"));
         assert_se(!set_contains(set, "./foo."));
         assert_se(!set_contains(set, "./.foo/."));
         assert_se(!set_contains(set, "../bar"));

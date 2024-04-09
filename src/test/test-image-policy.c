@@ -25,11 +25,11 @@ static void test_policy(const ImagePolicy *p, const char *name) {
         printf("%s\n", ansi_normal());
 
         assert_se(image_policy_from_string(as_string, &parsed) >= 0);
-        assert_se(image_policy_equal(p, parsed));
+        ASSERT_TRUE(image_policy_equal(p, parsed));
         parsed = image_policy_free(parsed);
 
         assert_se(image_policy_from_string(as_string_simplified, &parsed) >= 0);
-        assert_se(image_policy_equivalent(p, parsed));
+        ASSERT_TRUE(image_policy_equivalent(p, parsed));
         parsed = image_policy_free(parsed);
 
         for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++) {
@@ -147,7 +147,7 @@ static void test_policy_intersect_one(const char *a, const char *b, const char *
 
         log_info("%s ^ %s → %s vs. %s", s1, s2, s3, s4);
 
-        assert_se(image_policy_equivalent(z, t) > 0);
+        ASSERT_GT(image_policy_equivalent(z, t), 0);
 }
 
 TEST(image_policy_intersect) {

@@ -7,7 +7,7 @@
 #include "virt.h"
 
 TEST(tpm2_pcr_index_from_string) {
-        assert_se(tpm2_pcr_index_from_string("platform-code") == 0);
+        ASSERT_EQ(tpm2_pcr_index_from_string("platform-code"), 0);
         ASSERT_EQ(tpm2_pcr_index_from_string("0"), 0);
         assert_se(tpm2_pcr_index_from_string("platform-config") == 1);
         ASSERT_EQ(tpm2_pcr_index_from_string("1"), 1);
@@ -199,7 +199,7 @@ static void _test_tpms_sw(
         tpm2_tpms_pcr_selection_from_mask(mask, hash, &s);
 
         _cleanup_free_ char *tpms_str = tpm2_tpms_pcr_selection_to_string(&s);
-        assert_se(streq(tpms_str, expected_str));
+        ASSERT_TRUE(streq(tpms_str, expected_str));
 
         assert_se(tpm2_tpms_pcr_selection_weight(&s) == expected_weight);
         assert_se(tpm2_tpms_pcr_selection_is_empty(&s) == (expected_weight == 0));
@@ -242,7 +242,7 @@ static void _test_tpml_sw(
         assert_se(l.count == expected_count);
 
         _cleanup_free_ char *tpml_str = tpm2_tpml_pcr_selection_to_string(&l);
-        assert_se(streq(tpml_str, expected_str));
+        ASSERT_TRUE(streq(tpml_str, expected_str));
 
         assert_se(tpm2_tpml_pcr_selection_weight(&l) == expected_weight);
         assert_se(tpm2_tpml_pcr_selection_is_empty(&l) == (expected_weight == 0));
@@ -441,11 +441,11 @@ static void digest_init(TPM2B_DIGEST *digest, const char *hash) {
         DEFINE_HEX_PTR(h, hash);
 
         /* Make sure the length matches a known hash algorithm */
-        assert_se(IN_SET(h_len, TPM2_SHA1_DIGEST_SIZE, TPM2_SHA256_DIGEST_SIZE, TPM2_SHA384_DIGEST_SIZE, TPM2_SHA512_DIGEST_SIZE));
+        ASSERT_TRUE(IN_SET(h_len, TPM2_SHA1_DIGEST_SIZE, TPM2_SHA256_DIGEST_SIZE, TPM2_SHA384_DIGEST_SIZE, TPM2_SHA512_DIGEST_SIZE));
 
         *digest = TPM2B_DIGEST_MAKE(h, h_len);
 
-        assert_se(digest_check(digest, hash));
+        ASSERT_TRUE(digest_check(digest, hash));
 }
 
 TEST(digest_many) {
@@ -530,7 +530,7 @@ static void check_parse_pcr_argument(
         size_t n_values = 0;
 
         if (n_prev_values > 0) {
-                assert_se(GREEDY_REALLOC_APPEND(values, n_values, prev_values, n_prev_values));
+                ASSERT_TRUE(GREEDY_REALLOC_APPEND(values, n_values, prev_values, n_prev_values));
                 assert_se(tpm2_parse_pcr_argument_append(arg, &values, &n_values) == 0);
         } else
                 assert_se(tpm2_parse_pcr_argument(arg, &values, &n_values) == 0);
@@ -777,7 +777,7 @@ TEST(tpm2b_public_to_openssl_pkey) {
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx_rsa = EVP_PKEY_CTX_new((EVP_PKEY*) pkey_rsa, NULL);
         ASSERT_TRUE(ctx_rsa);
         ASSERT_EQ(EVP_PKEY_verify_init(ctx_rsa), 1);
-        assert_se(EVP_PKEY_CTX_set_signature_md(ctx_rsa, EVP_sha256()) > 0);
+        ASSERT_GT(EVP_PKEY_CTX_set_signature_md(ctx_rsa, EVP_sha256()), 0);
 
         DEFINE_HEX_PTR(sig_rsa, "9f70a9e68911be3ec464cae91126328307bf355872127e042d6c61e0a80982872c151033bcf727abfae5fc9500c923120011e7ef4aa5fc690a59a034697b6022c141b4b209e2df6f4b282288cd9181073fbe7158ce113c79d87623423c1f3996ff931e59cc91db74f8e8656215b1436fc93ddec0f1f8fa8510826e674b250f047e6cba94c95ff98072a286baca94646b577974a1e00d56c21944e38960d8ee90511a2f938e5cf1ac7b7cc7ff8e3ac001d321254d3e4f988b90e9f6f873c26ecd0a12a626b3474833cdbb9e9f793238f6c97ee5b75a1a89bb7a7858d34ecfa6d34ac58d95085e6c4fbbebd47a4364be2725c2c6b3fa15d916f3c0b62a66fe76ae");
         assert_se(EVP_PKEY_verify(ctx_rsa, sig_rsa, sig_rsa_len, (unsigned char*) msg, msg_len) == 1);
@@ -816,7 +816,7 @@ static void check_tpm2b_public_fingerprint(const TPM2B_PUBLIC *public, const cha
         size_t fp_size;
 
         assert_se(tpm2_tpm2b_public_to_fingerprint(public, &fp, &fp_size) >= 0);
-        assert_se(memcmp_nn(fp, fp_size, expected, expected_len) == 0);
+        ASSERT_EQ(memcmp_nn(fp, fp_size, expected, expected_len), 0);
 }
 
 static void check_tpm2b_public_name(const TPM2B_PUBLIC *public, const char *hexname) {
@@ -824,7 +824,7 @@ static void check_tpm2b_public_name(const TPM2B_PUBLIC *public, const char *hexn
         TPM2B_NAME name = {};
 
         assert_se(tpm2_calculate_pubkey_name(&public->publicArea, &name) >= 0);
-        assert_se(memcmp_nn(name.name, name.size, expected, expected_len) == 0);
+        ASSERT_EQ(memcmp_nn(name.name, name.size, expected, expected_len), 0);
 }
 
 static void check_tpm2b_public_from_ecc_pem(const char *pem, const char *hexx, const char *hexy, const char *hexfp, const char *hexname) {
@@ -1040,7 +1040,7 @@ static void check_best_srk_template(Tpm2Context *c) {
         TPMT_PUBLIC template;
         assert_se(tpm2_get_best_srk_template(c, &template) >= 0);
 
-        assert_se(IN_SET(template.type, TPM2_ALG_ECC, TPM2_ALG_RSA));
+        ASSERT_TRUE(IN_SET(template.type, TPM2_ALG_ECC, TPM2_ALG_RSA));
 
         if (template.type == TPM2_ALG_RSA)
                 check_srk_rsa_template(&template);
@@ -1078,13 +1078,13 @@ static void check_supports_alg(Tpm2Context *c) {
         TEST_LOG_FUNC();
 
         /* Test invalid algs */
-        assert_se(!tpm2_supports_alg(c, TPM2_ALG_ERROR));
+        ASSERT_FALSE(tpm2_supports_alg(c, TPM2_ALG_ERROR));
         assert_se(!tpm2_supports_alg(c, TPM2_ALG_LAST + 1));
 
         /* Test valid algs */
-        assert_se(tpm2_supports_alg(c, TPM2_ALG_RSA));
-        assert_se(tpm2_supports_alg(c, TPM2_ALG_AES));
-        assert_se(tpm2_supports_alg(c, TPM2_ALG_CFB));
+        ASSERT_TRUE(tpm2_supports_alg(c, TPM2_ALG_RSA));
+        ASSERT_TRUE(tpm2_supports_alg(c, TPM2_ALG_AES));
+        ASSERT_TRUE(tpm2_supports_alg(c, TPM2_ALG_CFB));
 }
 
 static void check_supports_command(Tpm2Context *c) {
@@ -1094,19 +1094,19 @@ static void check_supports_command(Tpm2Context *c) {
 
         /* Test invalid commands. TPM specification Part 2 ("Structures") section "TPM_CC (Command Codes)"
          * states bits 31:30 and 28:16 are reserved and must be 0. */
-        assert_se(!tpm2_supports_command(c, UINT32_C(0x80000000)));
-        assert_se(!tpm2_supports_command(c, UINT32_C(0x40000000)));
-        assert_se(!tpm2_supports_command(c, UINT32_C(0x00100000)));
-        assert_se(!tpm2_supports_command(c, UINT32_C(0x80000144)));
-        assert_se(!tpm2_supports_command(c, UINT32_C(0x40000144)));
-        assert_se(!tpm2_supports_command(c, UINT32_C(0x00100144)));
+        ASSERT_FALSE(tpm2_supports_command(c, UINT32_C(0x80000000)));
+        ASSERT_FALSE(tpm2_supports_command(c, UINT32_C(0x40000000)));
+        ASSERT_FALSE(tpm2_supports_command(c, UINT32_C(0x00100000)));
+        ASSERT_FALSE(tpm2_supports_command(c, UINT32_C(0x80000144)));
+        ASSERT_FALSE(tpm2_supports_command(c, UINT32_C(0x40000144)));
+        ASSERT_FALSE(tpm2_supports_command(c, UINT32_C(0x00100144)));
 
         /* Test valid commands. We should be able to expect all TPMs support these. */
-        assert_se(tpm2_supports_command(c, TPM2_CC_Startup));
-        assert_se(tpm2_supports_command(c, TPM2_CC_StartAuthSession));
-        assert_se(tpm2_supports_command(c, TPM2_CC_Create));
-        assert_se(tpm2_supports_command(c, TPM2_CC_CreatePrimary));
-        assert_se(tpm2_supports_command(c, TPM2_CC_Unseal));
+        ASSERT_TRUE(tpm2_supports_command(c, TPM2_CC_Startup));
+        ASSERT_TRUE(tpm2_supports_command(c, TPM2_CC_StartAuthSession));
+        ASSERT_TRUE(tpm2_supports_command(c, TPM2_CC_Create));
+        ASSERT_TRUE(tpm2_supports_command(c, TPM2_CC_CreatePrimary));
+        ASSERT_TRUE(tpm2_supports_command(c, TPM2_CC_Unseal));
 }
 
 static void check_get_or_create_srk(Tpm2Context *c) {
@@ -1167,7 +1167,7 @@ static void calculate_seal_and_unseal(
                         &serialized_parent,
                         &unsealed_secret) >= 0);
 
-        assert_se(memcmp_nn(secret_string, secret_size, unsealed_secret.iov_base, unsealed_secret.iov_len) == 0);
+        ASSERT_EQ(memcmp_nn(secret_string, secret_size, unsealed_secret.iov_base, unsealed_secret.iov_len), 0);
 
         char unsealed_string[unsealed_secret.iov_len];
         assert_se(snprintf(unsealed_string, unsealed_secret.iov_len, "%s", (char*) unsealed_secret.iov_base) == (int) unsealed_secret.iov_len - 1);

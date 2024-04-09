@@ -235,7 +235,7 @@ static void test_in_addr_ifindex_to_string_one(int f, const char *a, int ifindex
         assert_se(in_addr_from_string(f, a, &ua) >= 0);
         assert_se(in_addr_ifindex_to_string(f, &ua, ifindex, &r) >= 0);
         printf("test_in_addr_ifindex_to_string_one: %s == %s\n", b, r);
-        assert_se(streq(b, r));
+        ASSERT_TRUE(streq(b, r));
 
         assert_se(in_addr_ifindex_from_string_auto(b, &ff, &uuaa, &ifindex2) >= 0);
         assert_se(ff == f);
@@ -282,7 +282,7 @@ static void test_in_addr_ifindex_name_from_string_auto_one(const char *a, const 
         _cleanup_free_ char *server_name = NULL;
 
         assert_se(in_addr_ifindex_name_from_string_auto(a, &family, &ua, &ifindex, &server_name) >= 0);
-        assert_se(streq_ptr(server_name, expected));
+        ASSERT_TRUE(streq_ptr(server_name, expected));
 }
 
 TEST(in_addr_ifindex_name_from_string_auto) {
@@ -307,7 +307,7 @@ static void test_in_addr_port_ifindex_name_from_string_auto_one(const char *str,
                 assert_se(family == f);
                 assert_se(port == p);
                 assert_se(ifindex == i);
-                assert_se(streq_ptr(server_name, name));
+                ASSERT_TRUE(streq_ptr(server_name, name));
                 assert_se(in_addr_port_ifindex_name_to_string(f, &a, p, i, name, &x) >= 0);
                 assert_se(streq(str_repr ?: str, x));
         }
@@ -319,7 +319,7 @@ static void test_in_addr_port_ifindex_name_from_string_auto_one(const char *str,
                 assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, NULL, &i, &name) == 0);
                 assert_se(family == f);
                 assert_se(ifindex == i);
-                assert_se(streq_ptr(server_name, name));
+                ASSERT_TRUE(streq_ptr(server_name, name));
                 assert_se(in_addr_port_ifindex_name_to_string(f, &a, 0, i, name, &x) >= 0);
                 assert_se(streq(str_repr ?: str, x));
         }
@@ -331,7 +331,7 @@ static void test_in_addr_port_ifindex_name_from_string_auto_one(const char *str,
                 assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, NULL, &name) == 0);
                 assert_se(family == f);
                 assert_se(port == p);
-                assert_se(streq_ptr(server_name, name));
+                ASSERT_TRUE(streq_ptr(server_name, name));
                 assert_se(in_addr_port_ifindex_name_to_string(f, &a, p, 0, name, &x) >= 0);
                 assert_se(streq(str_repr ?: str, x));
         }

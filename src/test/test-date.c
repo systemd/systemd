@@ -11,7 +11,7 @@ static void test_should_pass(const char *p) {
 
         log_info("Test: %s", p);
         assert_se(parse_timestamp(p, &t) >= 0);
-        assert_se(format_timestamp_style(buf, sizeof(buf), t, TIMESTAMP_US));
+        ASSERT_TRUE(format_timestamp_style(buf, sizeof(buf), t, TIMESTAMP_US));
         log_info("\"%s\" → \"%s\"", p, buf);
 
         assert_se(parse_timestamp(buf, &q) >= 0);
@@ -20,7 +20,7 @@ static void test_should_pass(const char *p) {
                           buf, FORMAT_TIMESTAMP_STYLE(q, TIMESTAMP_US));
         assert_se(q == t);
 
-        assert_se(format_timestamp_relative(buf_relative, sizeof(buf_relative), t));
+        ASSERT_TRUE(format_timestamp_relative(buf_relative, sizeof(buf_relative), t));
         log_info("%s", strna(buf_relative));
 }
 

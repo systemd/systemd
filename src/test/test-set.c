@@ -80,9 +80,9 @@ TEST(set_put) {
         assert_se(set_put(m, (void*) "22") == 0);
 
         _cleanup_free_ char **t = set_get_strv(m);
-        assert_se(strv_contains(t, "1"));
-        assert_se(strv_contains(t, "22"));
-        assert_se(strv_contains(t, "333"));
+        ASSERT_TRUE(strv_contains(t, "1"));
+        ASSERT_TRUE(strv_contains(t, "22"));
+        ASSERT_TRUE(strv_contains(t, "333"));
         ASSERT_EQ(strv_length(t), 3u);
 }
 
@@ -97,12 +97,12 @@ TEST(set_put_strndup) {
         assert_se(set_put_strndup(&m, "12345", 5) == 1);
         assert_se(set_put_strndup(&m, "12345", 6) == 0);
 
-        assert_se(set_contains(m, ""));
-        assert_se(set_contains(m, "1"));
-        assert_se(set_contains(m, "12"));
-        assert_se(set_contains(m, "123"));
-        assert_se(set_contains(m, "1234"));
-        assert_se(set_contains(m, "12345"));
+        ASSERT_TRUE(set_contains(m, ""));
+        ASSERT_TRUE(set_contains(m, "1"));
+        ASSERT_TRUE(set_contains(m, "12"));
+        ASSERT_TRUE(set_contains(m, "123"));
+        ASSERT_TRUE(set_contains(m, "1234"));
+        ASSERT_TRUE(set_contains(m, "12345"));
 
         ASSERT_EQ(set_size(m), 6u);
 }
@@ -116,8 +116,8 @@ TEST(set_put_strdup) {
         assert_se(set_put_strdup(&m, "bbb") == 0);
         assert_se(set_put_strdup(&m, "aaa") == 0);
 
-        assert_se(set_contains(m, "aaa"));
-        assert_se(set_contains(m, "bbb"));
+        ASSERT_TRUE(set_contains(m, "aaa"));
+        ASSERT_TRUE(set_contains(m, "bbb"));
 
         ASSERT_EQ(set_size(m), 2u);
 }
@@ -128,9 +128,9 @@ TEST(set_put_strdupv) {
         assert_se(set_put_strdupv(&m, STRV_MAKE("aaa", "aaa", "bbb", "bbb", "aaa")) == 2);
         assert_se(set_put_strdupv(&m, STRV_MAKE("aaa", "aaa", "bbb", "bbb", "ccc")) == 1);
 
-        assert_se(set_contains(m, "aaa"));
-        assert_se(set_contains(m, "bbb"));
-        assert_se(set_contains(m, "ccc"));
+        ASSERT_TRUE(set_contains(m, "aaa"));
+        ASSERT_TRUE(set_contains(m, "bbb"));
+        ASSERT_TRUE(set_contains(m, "ccc"));
 
         ASSERT_EQ(set_size(m), 3u);
 }
@@ -161,15 +161,15 @@ TEST(set_copy) {
         s = set_new(&string_hash_ops);
         ASSERT_TRUE(s);
 
-        assert_se(set_put(s, key1) >= 0);
-        assert_se(set_put(s, key2) >= 0);
-        assert_se(set_put(s, key3) >= 0);
-        assert_se(set_put(s, key4) >= 0);
+        ASSERT_OK(set_put(s, key1));
+        ASSERT_OK(set_put(s, key2));
+        ASSERT_OK(set_put(s, key3));
+        ASSERT_OK(set_put(s, key4));
 
         copy = set_copy(s);
         ASSERT_TRUE(copy);
 
-        assert_se(set_equal(s, copy));
+        ASSERT_TRUE(set_equal(s, copy));
 }
 
 TEST(set_ensure_put) {
@@ -231,56 +231,56 @@ TEST(set_strjoin) {
         /* Single entry */
         assert_se(set_put_strdup(&m, "aaa") == 1);
         assert_se(set_strjoin(m, NULL, false, &joined) >= 0);
-        assert_se(streq(joined, "aaa"));
+        ASSERT_TRUE(streq(joined, "aaa"));
         joined = mfree(joined);
         assert_se(set_strjoin(m, "", false, &joined) >= 0);
-        assert_se(streq(joined, "aaa"));
+        ASSERT_TRUE(streq(joined, "aaa"));
         joined = mfree(joined);
         assert_se(set_strjoin(m, " ", false, &joined) >= 0);
-        assert_se(streq(joined, "aaa"));
+        ASSERT_TRUE(streq(joined, "aaa"));
         joined = mfree(joined);
         assert_se(set_strjoin(m, "xxx", false, &joined) >= 0);
-        assert_se(streq(joined, "aaa"));
+        ASSERT_TRUE(streq(joined, "aaa"));
         joined = mfree(joined);
         assert_se(set_strjoin(m, NULL, true, &joined) >= 0);
-        assert_se(streq(joined, "aaa"));
+        ASSERT_TRUE(streq(joined, "aaa"));
         joined = mfree(joined);
         assert_se(set_strjoin(m, "", true, &joined) >= 0);
-        assert_se(streq(joined, "aaa"));
+        ASSERT_TRUE(streq(joined, "aaa"));
         joined = mfree(joined);
         assert_se(set_strjoin(m, " ", true, &joined) >= 0);
-        assert_se(streq(joined, " aaa "));
+        ASSERT_TRUE(streq(joined, " aaa "));
         joined = mfree(joined);
         assert_se(set_strjoin(m, "xxx", true, &joined) >= 0);
-        assert_se(streq(joined, "xxxaaaxxx"));
+        ASSERT_TRUE(streq(joined, "xxxaaaxxx"));
 
         /* Two entries */
         assert_se(set_put_strdup(&m, "bbb") == 1);
         assert_se(set_put_strdup(&m, "aaa") == 0);
         joined = mfree(joined);
         assert_se(set_strjoin(m, NULL, false, &joined) >= 0);
-        assert_se(STR_IN_SET(joined, "aaabbb", "bbbaaa"));
+        ASSERT_TRUE(STR_IN_SET(joined, "aaabbb", "bbbaaa"));
         joined = mfree(joined);
         assert_se(set_strjoin(m, "", false, &joined) >= 0);
-        assert_se(STR_IN_SET(joined, "aaabbb", "bbbaaa"));
+        ASSERT_TRUE(STR_IN_SET(joined, "aaabbb", "bbbaaa"));
         joined = mfree(joined);
         assert_se(set_strjoin(m, " ", false, &joined) >= 0);
-        assert_se(STR_IN_SET(joined, "aaa bbb", "bbb aaa"));
+        ASSERT_TRUE(STR_IN_SET(joined, "aaa bbb", "bbb aaa"));
         joined = mfree(joined);
         assert_se(set_strjoin(m, "xxx", false, &joined) >= 0);
-        assert_se(STR_IN_SET(joined, "aaaxxxbbb", "bbbxxxaaa"));
+        ASSERT_TRUE(STR_IN_SET(joined, "aaaxxxbbb", "bbbxxxaaa"));
         joined = mfree(joined);
         assert_se(set_strjoin(m, NULL, true, &joined) >= 0);
-        assert_se(STR_IN_SET(joined, "aaabbb", "bbbaaa"));
+        ASSERT_TRUE(STR_IN_SET(joined, "aaabbb", "bbbaaa"));
         joined = mfree(joined);
         assert_se(set_strjoin(m, "", true, &joined) >= 0);
-        assert_se(STR_IN_SET(joined, "aaabbb", "bbbaaa"));
+        ASSERT_TRUE(STR_IN_SET(joined, "aaabbb", "bbbaaa"));
         joined = mfree(joined);
         assert_se(set_strjoin(m, " ", true, &joined) >= 0);
-        assert_se(STR_IN_SET(joined, " aaa bbb ", " bbb aaa "));
+        ASSERT_TRUE(STR_IN_SET(joined, " aaa bbb ", " bbb aaa "));
         joined = mfree(joined);
         assert_se(set_strjoin(m, "xxx", true, &joined) >= 0);
-        assert_se(STR_IN_SET(joined, "xxxaaaxxxbbbxxx", "xxxbbbxxxaaaxxx"));
+        ASSERT_TRUE(STR_IN_SET(joined, "xxxaaaxxxbbbxxx", "xxxbbbxxxaaaxxx"));
 }
 
 TEST(set_equal) {
@@ -291,15 +291,15 @@ TEST(set_equal) {
         assert_se(a = set_new(NULL));
         assert_se(b = set_new(NULL));
 
-        assert_se(set_equal(a, a));
-        assert_se(set_equal(b, b));
-        assert_se(set_equal(a, b));
-        assert_se(set_equal(b, a));
-        assert_se(set_equal(NULL, a));
-        assert_se(set_equal(NULL, b));
-        assert_se(set_equal(a, NULL));
-        assert_se(set_equal(b, NULL));
-        assert_se(set_equal(NULL, NULL));
+        ASSERT_TRUE(set_equal(a, a));
+        ASSERT_TRUE(set_equal(b, b));
+        ASSERT_TRUE(set_equal(a, b));
+        ASSERT_TRUE(set_equal(b, a));
+        ASSERT_TRUE(set_equal(NULL, a));
+        ASSERT_TRUE(set_equal(NULL, b));
+        ASSERT_TRUE(set_equal(a, NULL));
+        ASSERT_TRUE(set_equal(b, NULL));
+        ASSERT_TRUE(set_equal(NULL, NULL));
 
         for (unsigned i = 0; i < 333; i++) {
                 p = INT32_TO_PTR(1 + (random_u32() & 0xFFFU));
@@ -308,50 +308,50 @@ TEST(set_equal) {
                 assert_se(r >= 0 || r == -EEXIST);
         }
 
-        assert_se(set_put(a, INT32_TO_PTR(0x1000U)) >= 0);
+        ASSERT_OK(set_put(a, INT32_TO_PTR(0x1000U)));
 
         ASSERT_GE(set_size(a), 2u);
         ASSERT_LE(set_size(a), 334u);
 
-        assert_se(!set_equal(a, b));
-        assert_se(!set_equal(b, a));
-        assert_se(!set_equal(a, NULL));
+        ASSERT_FALSE(set_equal(a, b));
+        ASSERT_FALSE(set_equal(b, a));
+        ASSERT_FALSE(set_equal(a, NULL));
 
         SET_FOREACH(p, a)
-                assert_se(set_put(b, p) >= 0);
+                ASSERT_OK(set_put(b, p));
 
-        assert_se(set_equal(a, b));
-        assert_se(set_equal(b, a));
+        ASSERT_TRUE(set_equal(a, b));
+        ASSERT_TRUE(set_equal(b, a));
 
         assert_se(set_remove(a, INT32_TO_PTR(0x1000U)) == INT32_TO_PTR(0x1000U));
 
-        assert_se(!set_equal(a, b));
-        assert_se(!set_equal(b, a));
+        ASSERT_FALSE(set_equal(a, b));
+        ASSERT_FALSE(set_equal(b, a));
 
         assert_se(set_remove(b, INT32_TO_PTR(0x1000U)) == INT32_TO_PTR(0x1000U));
 
-        assert_se(set_equal(a, b));
-        assert_se(set_equal(b, a));
+        ASSERT_TRUE(set_equal(a, b));
+        ASSERT_TRUE(set_equal(b, a));
 
-        assert_se(set_put(b, INT32_TO_PTR(0x1001U)) >= 0);
+        ASSERT_OK(set_put(b, INT32_TO_PTR(0x1001U)));
 
-        assert_se(!set_equal(a, b));
-        assert_se(!set_equal(b, a));
+        ASSERT_FALSE(set_equal(a, b));
+        ASSERT_FALSE(set_equal(b, a));
 
-        assert_se(set_put(a, INT32_TO_PTR(0x1001U)) >= 0);
+        ASSERT_OK(set_put(a, INT32_TO_PTR(0x1001U)));
 
-        assert_se(set_equal(a, b));
-        assert_se(set_equal(b, a));
+        ASSERT_TRUE(set_equal(a, b));
+        ASSERT_TRUE(set_equal(b, a));
 
         set_clear(a);
 
-        assert_se(!set_equal(a, b));
-        assert_se(!set_equal(b, a));
+        ASSERT_FALSE(set_equal(a, b));
+        ASSERT_FALSE(set_equal(b, a));
 
         set_clear(b);
 
-        assert_se(set_equal(a, b));
-        assert_se(set_equal(b, a));
+        ASSERT_TRUE(set_equal(a, b));
+        ASSERT_TRUE(set_equal(b, a));
 }
 
 TEST(set_fnmatch) {
@@ -365,39 +365,39 @@ TEST(set_fnmatch) {
         assert_se(set_put_strdup(&nomatch, "bbb") >= 0);
         assert_se(set_put_strdup(&nomatch, "ccc*") >= 0);
 
-        assert_se(set_fnmatch(NULL, NULL, ""));
-        assert_se(set_fnmatch(NULL, NULL, "hoge"));
+        ASSERT_TRUE(set_fnmatch(NULL, NULL, ""));
+        ASSERT_TRUE(set_fnmatch(NULL, NULL, "hoge"));
 
-        assert_se(set_fnmatch(match, NULL, "aaa"));
-        assert_se(set_fnmatch(match, NULL, "bbb"));
-        assert_se(set_fnmatch(match, NULL, "bbbXXX"));
-        assert_se(set_fnmatch(match, NULL, "ccc"));
-        assert_se(set_fnmatch(match, NULL, "XXXccc"));
-        assert_se(!set_fnmatch(match, NULL, ""));
-        assert_se(!set_fnmatch(match, NULL, "aaaa"));
-        assert_se(!set_fnmatch(match, NULL, "XXbbb"));
-        assert_se(!set_fnmatch(match, NULL, "cccXX"));
+        ASSERT_TRUE(set_fnmatch(match, NULL, "aaa"));
+        ASSERT_TRUE(set_fnmatch(match, NULL, "bbb"));
+        ASSERT_TRUE(set_fnmatch(match, NULL, "bbbXXX"));
+        ASSERT_TRUE(set_fnmatch(match, NULL, "ccc"));
+        ASSERT_TRUE(set_fnmatch(match, NULL, "XXXccc"));
+        ASSERT_FALSE(set_fnmatch(match, NULL, ""));
+        ASSERT_FALSE(set_fnmatch(match, NULL, "aaaa"));
+        ASSERT_FALSE(set_fnmatch(match, NULL, "XXbbb"));
+        ASSERT_FALSE(set_fnmatch(match, NULL, "cccXX"));
 
-        assert_se(set_fnmatch(NULL, nomatch, ""));
-        assert_se(set_fnmatch(NULL, nomatch, "Xa"));
-        assert_se(set_fnmatch(NULL, nomatch, "bbbb"));
-        assert_se(set_fnmatch(NULL, nomatch, "XXXccc"));
-        assert_se(!set_fnmatch(NULL, nomatch, "a"));
-        assert_se(!set_fnmatch(NULL, nomatch, "aXXXX"));
-        assert_se(!set_fnmatch(NULL, nomatch, "bbb"));
-        assert_se(!set_fnmatch(NULL, nomatch, "ccc"));
-        assert_se(!set_fnmatch(NULL, nomatch, "cccXXX"));
+        ASSERT_TRUE(set_fnmatch(NULL, nomatch, ""));
+        ASSERT_TRUE(set_fnmatch(NULL, nomatch, "Xa"));
+        ASSERT_TRUE(set_fnmatch(NULL, nomatch, "bbbb"));
+        ASSERT_TRUE(set_fnmatch(NULL, nomatch, "XXXccc"));
+        ASSERT_FALSE(set_fnmatch(NULL, nomatch, "a"));
+        ASSERT_FALSE(set_fnmatch(NULL, nomatch, "aXXXX"));
+        ASSERT_FALSE(set_fnmatch(NULL, nomatch, "bbb"));
+        ASSERT_FALSE(set_fnmatch(NULL, nomatch, "ccc"));
+        ASSERT_FALSE(set_fnmatch(NULL, nomatch, "cccXXX"));
 
-        assert_se(set_fnmatch(match, nomatch, "bbbbb"));
-        assert_se(set_fnmatch(match, nomatch, "XXccc"));
-        assert_se(!set_fnmatch(match, nomatch, ""));
-        assert_se(!set_fnmatch(match, nomatch, "a"));
-        assert_se(!set_fnmatch(match, nomatch, "aaa"));
-        assert_se(!set_fnmatch(match, nomatch, "b"));
-        assert_se(!set_fnmatch(match, nomatch, "bbb"));
-        assert_se(!set_fnmatch(match, nomatch, "ccc"));
-        assert_se(!set_fnmatch(match, nomatch, "ccccc"));
-        assert_se(!set_fnmatch(match, nomatch, "cccXX"));
+        ASSERT_TRUE(set_fnmatch(match, nomatch, "bbbbb"));
+        ASSERT_TRUE(set_fnmatch(match, nomatch, "XXccc"));
+        ASSERT_FALSE(set_fnmatch(match, nomatch, ""));
+        ASSERT_FALSE(set_fnmatch(match, nomatch, "a"));
+        ASSERT_FALSE(set_fnmatch(match, nomatch, "aaa"));
+        ASSERT_FALSE(set_fnmatch(match, nomatch, "b"));
+        ASSERT_FALSE(set_fnmatch(match, nomatch, "bbb"));
+        ASSERT_FALSE(set_fnmatch(match, nomatch, "ccc"));
+        ASSERT_FALSE(set_fnmatch(match, nomatch, "ccccc"));
+        ASSERT_FALSE(set_fnmatch(match, nomatch, "cccXX"));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

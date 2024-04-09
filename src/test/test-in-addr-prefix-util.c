@@ -10,7 +10,7 @@ static void test_in_addr_prefix_to_string_one(int f, const char *addr, unsigned 
         const char *r = IN_ADDR_PREFIX_TO_STRING(f, &ua, prefixlen);
         ASSERT_TRUE(r);
         printf("%s: %s/%u == %s\n", __func__, addr, prefixlen, r);
-        assert_se(startswith(r, addr));
+        ASSERT_TRUE(startswith(r, addr));
 
         assert_se(streq(r, IN_ADDR_PREFIX_TO_STRING(f, &ua, prefixlen)));
         assert_se(streq(IN_ADDR_PREFIX_TO_STRING(f, &ua, prefixlen), r));
@@ -33,10 +33,10 @@ static void test_config_parse_in_addr_prefixes_one(int family, const union in_ad
         const char *str = IN_ADDR_PREFIX_TO_STRING(family, addr, prefixlen);
         ASSERT_TRUE(str);
 
-        assert_se(config_parse_in_addr_prefixes("unit", "filename", 1, "Service", 1, "IPAddressAllow", 0, str, prefixes, NULL) >= 0);
+        ASSERT_OK(config_parse_in_addr_prefixes("unit", "filename", 1, "Service", 1, "IPAddressAllow", 0, str, prefixes, NULL));
 
-        assert_se(streq(str, IN_ADDR_PREFIX_TO_STRING(family, addr, prefixlen)));
-        assert_se(streq(IN_ADDR_PREFIX_TO_STRING(family, addr, prefixlen), str));
+        ASSERT_TRUE(streq(str, IN_ADDR_PREFIX_TO_STRING(family, addr, prefixlen)));
+        ASSERT_TRUE(streq(IN_ADDR_PREFIX_TO_STRING(family, addr, prefixlen), str));
 }
 
 static void test_config_parse_in_addr_prefixes(Set **ret) {

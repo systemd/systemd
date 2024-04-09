@@ -26,7 +26,7 @@ TEST(unsigned) {
         for (i = 0; i < ELEMENTSOF(buffer); i++) {
                 u = (unsigned) rand();
                 buffer[i] = u;
-                assert_se(prioq_put(q, UINT_TO_PTR(u), NULL) >= 0);
+                ASSERT_OK(prioq_put(q, UINT_TO_PTR(u), NULL));
 
                 n = prioq_size(q);
                 assert_se(prioq_remove(q, UINT_TO_PTR(u), &n) == 0);
@@ -82,11 +82,11 @@ TEST(struct) {
                 assert_se(prioq_put(q, t, &t->idx) >= 0);
 
                 if (i % 4 == 0)
-                        assert_se(set_consume(s, t) >= 0);
+                        ASSERT_OK(set_consume(s, t));
         }
 
         for (i = 0; i < SET_SIZE; i++)
-                assert_se(prioq_peek_by_index(q, i));
+                ASSERT_TRUE(prioq_peek_by_index(q, i));
         ASSERT_NULL(prioq_peek_by_index(q, SET_SIZE));
 
         unsigned count = 0;
@@ -99,7 +99,7 @@ TEST(struct) {
         while ((t = set_steal_first(s))) {
                 assert_se(prioq_remove(q, t, &t->idx) == 1);
                 assert_se(prioq_remove(q, t, &t->idx) == 0);
-                assert_se(prioq_remove(q, t, NULL) == 0);
+                ASSERT_EQ(prioq_remove(q, t, NULL), 0);
 
                 free(t);
         }
@@ -109,7 +109,7 @@ TEST(struct) {
 
                 assert_se(t = prioq_pop(q));
                 assert_se(prioq_remove(q, t, &t->idx) == 0);
-                assert_se(prioq_remove(q, t, NULL) == 0);
+                ASSERT_EQ(prioq_remove(q, t, NULL), 0);
                 assert_se(previous <= t->value);
 
                 previous = t->value;

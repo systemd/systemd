@@ -27,8 +27,8 @@ TEST(STRERROR) {
         log_info("STRERROR(%d), STRERROR(%d) → %s, %s", 200, 201, STRERROR(200), STRERROR(201));
 
         const char *a = STRERROR(200), *b = STRERROR(201);
-        assert_se(strstr(a, "200"));
-        assert_se(strstr(b, "201"));
+        ASSERT_TRUE(strstr(a, "200"));
+        ASSERT_TRUE(strstr(b, "201"));
 
         /* Check with negative values */
         assert_se(streq(a, STRERROR(-200)));
@@ -38,7 +38,7 @@ TEST(STRERROR) {
         char buf[DECIMAL_STR_MAX(int)];
         xsprintf(buf, "%d", INT_MAX);  /* INT_MAX is hexadecimal, use printf to convert to decimal */
         log_info("STRERROR(%d) → %s", INT_MAX, c);
-        assert_se(strstr(c, buf));
+        ASSERT_TRUE(strstr(c, buf));
 }
 
 TEST(STRERROR_OR_ELSE) {
@@ -81,7 +81,7 @@ TEST(UNPROTECT_ERRNO) {
 TEST(RET_GATHER) {
         int x = 0, y = 2;
 
-        assert_se(RET_GATHER(x, 5) == 0);
+        ASSERT_EQ(RET_GATHER(x, 5), 0);
         assert_se(RET_GATHER(x, -5) == -5);
         assert_se(RET_GATHER(x, -1) == -5);
 
@@ -93,11 +93,11 @@ TEST(ERRNO_IS_TRANSIENT) {
         assert_se( ERRNO_IS_NEG_TRANSIENT(-EINTR));
         ASSERT_FALSE(ERRNO_IS_NEG_TRANSIENT(EINTR));
         assert_se( ERRNO_IS_TRANSIENT(-EINTR));
-        assert_se( ERRNO_IS_TRANSIENT(EINTR));
+        ASSERT_TRUE( ERRNO_IS_TRANSIENT(EINTR));
 
         /* Test with type wider than int */
         ssize_t r = -EAGAIN;
-        assert_se( ERRNO_IS_NEG_TRANSIENT(r));
+        ASSERT_TRUE( ERRNO_IS_NEG_TRANSIENT(r));
 
         /* On 64-bit arches, now (int) r == EAGAIN */
         r = SSIZE_MAX - EAGAIN + 1;

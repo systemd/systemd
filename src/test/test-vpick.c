@@ -20,24 +20,24 @@ TEST(path_pick) {
         sub_dfd = open_mkdir_at(dfd, "foo.v", O_CLOEXEC, 0777);
         assert(sub_dfd >= 0);
 
-        assert_se(write_string_file_at(sub_dfd, "foo_5.5.raw", "5.5", WRITE_STRING_FILE_CREATE) >= 0);
-        assert_se(write_string_file_at(sub_dfd, "foo_55.raw", "55", WRITE_STRING_FILE_CREATE) >= 0);
-        assert_se(write_string_file_at(sub_dfd, "foo_5.raw", "5", WRITE_STRING_FILE_CREATE) >= 0);
-        assert_se(write_string_file_at(sub_dfd, "foo_5_ia64.raw", "5", WRITE_STRING_FILE_CREATE) >= 0);
-        assert_se(write_string_file_at(sub_dfd, "foo_7.raw", "7", WRITE_STRING_FILE_CREATE) >= 0);
-        assert_se(write_string_file_at(sub_dfd, "foo_7_x86-64.raw", "7 64bit", WRITE_STRING_FILE_CREATE) >= 0);
-        assert_se(write_string_file_at(sub_dfd, "foo_55_x86-64.raw", "55 64bit", WRITE_STRING_FILE_CREATE) >= 0);
-        assert_se(write_string_file_at(sub_dfd, "foo_55_x86.raw", "55 32bit", WRITE_STRING_FILE_CREATE) >= 0);
-        assert_se(write_string_file_at(sub_dfd, "foo_99_x86.raw", "99 32bit", WRITE_STRING_FILE_CREATE) >= 0);
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_5.5.raw", "5.5", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_55.raw", "55", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_5.raw", "5", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_5_ia64.raw", "5", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_7.raw", "7", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_7_x86-64.raw", "7 64bit", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_55_x86-64.raw", "55 64bit", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_55_x86.raw", "55 32bit", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "foo_99_x86.raw", "99 32bit", WRITE_STRING_FILE_CREATE));
 
         /* Let's add an entry for sparc (which is a valid arch, but almost certainly not what we test
          * on). This entry should hence always be ignored */
         if (native_architecture() != ARCHITECTURE_SPARC)
-                assert_se(write_string_file_at(sub_dfd, "foo_100_sparc.raw", "100 sparc", WRITE_STRING_FILE_CREATE) >= 0);
+                ASSERT_OK(write_string_file_at(sub_dfd, "foo_100_sparc.raw", "100 sparc", WRITE_STRING_FILE_CREATE));
 
-        assert_se(write_string_file_at(sub_dfd, "quux_1_s390.raw", "waldo1", WRITE_STRING_FILE_CREATE) >= 0);
-        assert_se(write_string_file_at(sub_dfd, "quux_2_s390+4-6.raw", "waldo2", WRITE_STRING_FILE_CREATE) >= 0);
-        assert_se(write_string_file_at(sub_dfd, "quux_3_s390+0-10.raw", "waldo3", WRITE_STRING_FILE_CREATE) >= 0);
+        ASSERT_OK(write_string_file_at(sub_dfd, "quux_1_s390.raw", "waldo1", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "quux_2_s390+4-6.raw", "waldo2", WRITE_STRING_FILE_CREATE));
+        ASSERT_OK(write_string_file_at(sub_dfd, "quux_3_s390+0-10.raw", "waldo3", WRITE_STRING_FILE_CREATE));
 
         _cleanup_free_ char *pp = NULL;
         pp = path_join(p, "foo.v");
@@ -53,7 +53,7 @@ TEST(path_pick) {
         if (IN_SET(native_architecture(), ARCHITECTURE_X86, ARCHITECTURE_X86_64)) {
                 assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
                 ASSERT_TRUE(S_ISREG(result.st.st_mode));
-                assert_se(streq_ptr(result.version, "99"));
+                ASSERT_TRUE(streq_ptr(result.version, "99"));
                 assert_se(result.architecture == ARCHITECTURE_X86);
                 assert_se(endswith(result.path, "/foo_99_x86.raw"));
 
@@ -63,7 +63,7 @@ TEST(path_pick) {
         filter.architecture = ARCHITECTURE_X86_64;
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
         ASSERT_TRUE(S_ISREG(result.st.st_mode));
-        assert_se(streq_ptr(result.version, "55"));
+        ASSERT_TRUE(streq_ptr(result.version, "55"));
         assert_se(result.architecture == ARCHITECTURE_X86_64);
         assert_se(endswith(result.path, "/foo_55_x86-64.raw"));
         pick_result_done(&result);
@@ -71,7 +71,7 @@ TEST(path_pick) {
         filter.architecture = ARCHITECTURE_IA64;
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
         ASSERT_TRUE(S_ISREG(result.st.st_mode));
-        assert_se(streq_ptr(result.version, "5"));
+        ASSERT_TRUE(streq_ptr(result.version, "5"));
         assert_se(result.architecture == ARCHITECTURE_IA64);
         assert_se(endswith(result.path, "/foo_5_ia64.raw"));
         pick_result_done(&result);
@@ -80,7 +80,7 @@ TEST(path_pick) {
         filter.version = "5";
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
         ASSERT_TRUE(S_ISREG(result.st.st_mode));
-        assert_se(streq_ptr(result.version, "5"));
+        ASSERT_TRUE(streq_ptr(result.version, "5"));
         if (native_architecture() != ARCHITECTURE_IA64) {
                 assert_se(result.architecture == _ARCHITECTURE_INVALID);
                 assert_se(endswith(result.path, "/foo_5.raw"));
@@ -90,7 +90,7 @@ TEST(path_pick) {
         filter.architecture = ARCHITECTURE_IA64;
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
         ASSERT_TRUE(S_ISREG(result.st.st_mode));
-        assert_se(streq_ptr(result.version, "5"));
+        ASSERT_TRUE(streq_ptr(result.version, "5"));
         assert_se(result.architecture == ARCHITECTURE_IA64);
         assert_se(endswith(result.path, "/foo_5_ia64.raw"));
         pick_result_done(&result);
@@ -102,14 +102,14 @@ TEST(path_pick) {
         ASSERT_LT(result.architecture, 0);
         ASSERT_FALSE(result.path);
 
-        assert_se(unlinkat(sub_dfd, "foo_99_x86.raw", 0) >= 0);
+        ASSERT_OK(unlinkat(sub_dfd, "foo_99_x86.raw", 0));
 
         filter.architecture = _ARCHITECTURE_INVALID;
         filter.version = NULL;
         if (IN_SET(native_architecture(), ARCHITECTURE_X86_64, ARCHITECTURE_X86)) {
                 assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
                 ASSERT_TRUE(S_ISREG(result.st.st_mode));
-                assert_se(streq_ptr(result.version, "55"));
+                ASSERT_TRUE(streq_ptr(result.version, "55"));
 
                 if (native_architecture() == ARCHITECTURE_X86_64) {
                         assert_se(result.architecture == ARCHITECTURE_X86_64);
@@ -129,9 +129,9 @@ TEST(path_pick) {
         if (IN_SET(native_architecture(), ARCHITECTURE_X86, ARCHITECTURE_X86_64)) {
                 assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
                 ASSERT_TRUE(S_ISREG(result.st.st_mode));
-                assert_se(streq_ptr(result.version, "55"));
+                ASSERT_TRUE(streq_ptr(result.version, "55"));
                 assert_se(result.architecture == native_architecture());
-                assert_se(endswith(result.path, ".raw"));
+                ASSERT_TRUE(endswith(result.path, ".raw"));
                 assert_se(strrstr(result.path, "/foo_55_x86"));
                 pick_result_done(&result);
         }
@@ -149,7 +149,7 @@ TEST(path_pick) {
         ASSERT_TRUE(S_ISREG(result.st.st_mode));
         ASSERT_FALSE(result.version);
         assert_se(result.architecture == _ARCHITECTURE_INVALID);
-        assert_se(path_equal(result.path, pp));
+        ASSERT_TRUE(path_equal(result.path, pp));
         pick_result_done(&result);
 
         free(pp);
@@ -161,7 +161,7 @@ TEST(path_pick) {
 
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
         ASSERT_TRUE(S_ISREG(result.st.st_mode));
-        assert_se(streq_ptr(result.version, "2"));
+        ASSERT_TRUE(streq_ptr(result.version, "2"));
         ASSERT_EQ(result.tries_left, 4u);
         ASSERT_EQ(result.tries_done, 6u);
         assert_se(endswith(result.path, "quux_2_s390+4-6.raw"));

@@ -296,7 +296,7 @@ static void _test(const char *file, unsigned line, const char *func,
         /* We need to start the slices as well otherwise the slice cgroups might be pruned
          * in on_cgroup_empty_event. */
         start_parent_slices(unit);
-        assert_se(unit_start(unit, NULL) >= 0);
+        ASSERT_OK(unit_start(unit, NULL));
         check_main_result(file, line, func, m, unit, status_expected, code_expected);
 
         ++n_ran_tests;
@@ -311,7 +311,7 @@ static void _test_service(const char *file, unsigned line, const char *func,
         ASSERT_TRUE(unit_name);
 
         assert_se(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit) >= 0);
-        assert_se(unit_start(unit, NULL) >= 0);
+        ASSERT_OK(unit_start(unit, NULL));
         check_service_result(file, line, func, m, unit, result_expected);
 }
 #define test_service(m, unit_name, result_expected) \
@@ -331,7 +331,7 @@ static void test_exec_cpuaffinity(Manager *m) {
         _cleanup_(cpu_set_reset) CPUSet c = {};
 
         assert_se(cpu_set_realloc(&c, 8192) >= 0); /* just allocate the maximum possible size */
-        assert_se(sched_getaffinity(0, c.allocated, c.set) >= 0);
+        ASSERT_OK(sched_getaffinity(0, c.allocated, c.set));
 
         if (!CPU_ISSET_S(0, c.allocated, c.set)) {
                 log_notice("Cannot use CPU 0, skipping %s", __func__);
@@ -433,11 +433,11 @@ static void test_exec_execsearchpath_environment_files(Manager *m) {
 }
 
 static void test_exec_execsearchpath_passenvironment(Manager *m) {
-        assert_se(setenv("VAR1", "word1 word2", 1) == 0);
-        assert_se(setenv("VAR2", "word3", 1) == 0);
+        ASSERT_EQ(setenv("VAR1", "word1 word2", 1), 0);
+        ASSERT_EQ(setenv("VAR2", "word3", 1), 0);
         assert_se(setenv("VAR3", "$word 5 6", 1) == 0);
         assert_se(setenv("VAR4", "new\nline", 1) == 0);
-        assert_se(setenv("VAR5", "passwordwithbackslashes", 1) == 0);
+        ASSERT_EQ(setenv("VAR5", "passwordwithbackslashes", 1), 0);
 
         test(m, "exec-execsearchpath-passenvironment.service", 0, CLD_EXITED);
 
@@ -636,13 +636,13 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
 
         buf[l] = '\0';
         if (result)
-                assert_se(strextend(result, buf));
+                ASSERT_TRUE(strextend(result, buf));
         else
                 log_error("ldd: %s", buf);
 
 reenable:
         /* Re-enable the event source if we did not encounter EOF */
-        assert_se(sd_event_source_set_enabled(s, SD_EVENT_ONESHOT) >= 0);
+        ASSERT_OK(sd_event_source_set_enabled(s, SD_EVENT_ONESHOT));
         return 0;
 }
 
@@ -682,7 +682,7 @@ static int find_libraries(const char *exec, char ***ret) {
         ASSERT_TRUE(exec);
         ASSERT_TRUE(ret);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
+        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
 
         assert_se(pipe2(outpipe, O_NONBLOCK|O_CLOEXEC) == 0);
         assert_se(pipe2(errpipe, O_NONBLOCK|O_CLOEXEC) == 0);
@@ -705,12 +705,12 @@ static int find_libraries(const char *exec, char ***ret) {
         assert_se(sd_event_add_time_relative(e, NULL, CLOCK_MONOTONIC,
                                              10 * USEC_PER_SEC, USEC_PER_SEC, on_spawn_timeout, &pid) >= 0);
         assert_se(sd_event_add_io(e, &stdout_source, outpipe[0], EPOLLIN, on_spawn_io, &result) >= 0);
-        assert_se(sd_event_source_set_enabled(stdout_source, SD_EVENT_ONESHOT) >= 0);
+        ASSERT_OK(sd_event_source_set_enabled(stdout_source, SD_EVENT_ONESHOT));
         assert_se(sd_event_add_io(e, &stderr_source, errpipe[0], EPOLLIN, on_spawn_io, NULL) >= 0);
-        assert_se(sd_event_source_set_enabled(stderr_source, SD_EVENT_ONESHOT) >= 0);
+        ASSERT_OK(sd_event_source_set_enabled(stderr_source, SD_EVENT_ONESHOT));
         assert_se(sd_event_add_child(e, &sigchld_source, pid, WEXITED, on_spawn_sigchld, NULL) >= 0);
         /* SIGCHLD should be processed after IO is complete */
-        assert_se(sd_event_source_set_priority(sigchld_source, SD_EVENT_PRIORITY_NORMAL + 1) >= 0);
+        ASSERT_OK(sd_event_source_set_priority(sigchld_source, SD_EVENT_PRIORITY_NORMAL + 1));
 
         ASSERT_OK(sd_event_loop(e));
 
@@ -795,7 +795,7 @@ static void test_exec_mount_apivfs(Manager *m) {
         STRV_FOREACH(p, libraries)
                 assert_se(strextend(&data, "BindReadOnlyPaths=", *p, "\n"));
 
-        assert_se(write_drop_in(user_runtime_unit_dir, "exec-mount-apivfs-no.service", 10, "bind-mount", data) >= 0);
+        ASSERT_OK(write_drop_in(user_runtime_unit_dir, "exec-mount-apivfs-no.service", 10, "bind-mount", data));
 
         assert_se(mkdir_p("/tmp/test-exec-mount-apivfs-no/root", 0755) >= 0);
 
@@ -1074,11 +1074,11 @@ static void test_exec_passenvironment(Manager *m) {
          * This is still a good approximation of how a test for MANAGER_SYSTEM
          * would work.
          */
-        assert_se(setenv("VAR1", "word1 word2", 1) == 0);
-        assert_se(setenv("VAR2", "word3", 1) == 0);
+        ASSERT_EQ(setenv("VAR1", "word1 word2", 1), 0);
+        ASSERT_EQ(setenv("VAR2", "word3", 1), 0);
         assert_se(setenv("VAR3", "$word 5 6", 1) == 0);
         assert_se(setenv("VAR4", "new\nline", 1) == 0);
-        assert_se(setenv("VAR5", "passwordwithbackslashes", 1) == 0);
+        ASSERT_EQ(setenv("VAR5", "passwordwithbackslashes", 1), 0);
         test(m, "exec-passenvironment.service", 0, CLD_EXITED);
         test(m, "exec-passenvironment-repeated.service", 0, CLD_EXITED);
         test(m, "exec-passenvironment-empty.service", 0, CLD_EXITED);
@@ -1395,7 +1395,7 @@ static void run_tests(RuntimeScope scope, char **patterns) {
         ASSERT_OK(r);
 
         m->defaults.std_output = EXEC_OUTPUT_INHERIT; /* don't rely on host journald */
-        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
 
         /* Uncomment below if you want to make debugging logs stored to journal. */
         //manager_override_log_target(m, LOG_TARGET_AUTO);
@@ -1447,14 +1447,14 @@ static int prepare_ns(const char *process_name) {
                  * not reconnect propagation, but simply create new peer groups for all our mounts). */
                 assert_se(mount_follow_verbose(LOG_DEBUG, NULL, "/", NULL, MS_SHARED|MS_REC, NULL) >= 0);
 
-                assert_se(mkdir_p(PRIVATE_UNIT_DIR, 0755) >= 0);
+                ASSERT_OK(mkdir_p(PRIVATE_UNIT_DIR, 0755));
                 assert_se(mount_nofollow_verbose(LOG_DEBUG, "tmpfs", PRIVATE_UNIT_DIR, "tmpfs", MS_NOSUID|MS_NODEV, NULL) >= 0);
                 /* Mark our test "playground" as MS_SLAVE, so we can MS_MOVE mounts underneath it. */
-                assert_se(mount_nofollow_verbose(LOG_DEBUG, NULL, PRIVATE_UNIT_DIR, NULL, MS_SLAVE, NULL) >= 0);
+                ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, NULL, PRIVATE_UNIT_DIR, NULL, MS_SLAVE, NULL));
 
                 /* Copy unit files to make them accessible even when unprivileged. */
                 assert_se(get_testdata_dir("test-execute/", &unit_dir) >= 0);
-                assert_se(copy_directory_at(AT_FDCWD, unit_dir, AT_FDCWD, PRIVATE_UNIT_DIR, COPY_MERGE_EMPTY) >= 0);
+                ASSERT_OK(copy_directory_at(AT_FDCWD, unit_dir, AT_FDCWD, PRIVATE_UNIT_DIR, COPY_MERGE_EMPTY));
 
                 /* Mount tmpfs on the following directories to make not StateDirectory= or friends disturb the host. */
                 ret = get_build_exec_dir(&build_dir);
@@ -1464,10 +1464,10 @@ static int prepare_ns(const char *process_name) {
                         /* Account for a build directory being in one of the soon-to-be-tmpfs directories. If we
                          * overmount it with an empty tmpfs, manager_new() will pin the wrong systemd-executor binary,
                          * which can then lead to unexpected (and painful to debug) test fails. */
-                        assert_se(access(build_dir, F_OK) >= 0);
+                        ASSERT_OK(access(build_dir, F_OK));
                         assert_se(build_dir_mount = path_join(PRIVATE_UNIT_DIR, "build_dir"));
-                        assert_se(mkdir_p(build_dir_mount, 0755) >= 0);
-                        assert_se(mount_nofollow_verbose(LOG_DEBUG, build_dir, build_dir_mount, NULL, MS_BIND, NULL) >= 0);
+                        ASSERT_OK(mkdir_p(build_dir_mount, 0755));
+                        ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, build_dir, build_dir_mount, NULL, MS_BIND, NULL));
                 }
 
                 FOREACH_STRING(p, "/dev/shm", "/root", "/tmp", "/var/tmp", "/var/lib")
@@ -1480,14 +1480,14 @@ static int prepare_ns(const char *process_name) {
                         if (ret == -ENOENT) {
                                 /* The build directory got overmounted by tmpfs, so let's use the "backup" bind mount to
                                  * bring it back. */
-                                assert_se(mkdir_p(build_dir, 0755) >= 0);
-                                assert_se(mount_nofollow_verbose(LOG_DEBUG, build_dir_mount, build_dir, NULL, MS_MOVE, NULL) >= 0);
+                                ASSERT_OK(mkdir_p(build_dir, 0755));
+                                ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, build_dir_mount, build_dir, NULL, MS_MOVE, NULL));
                         }
                 }
 
                 /* Prepare credstore like tmpfiles.d/credstore.conf for LoadCredential= tests. */
                 FOREACH_STRING(p, "/run/credstore", "/run/credstore.encrypted") {
-                        assert_se(mkdir_p(p, 0) >= 0);
+                        ASSERT_OK(mkdir_p(p, 0));
                         assert_se(mount_nofollow_verbose(LOG_DEBUG, "tmpfs", p, "tmpfs", MS_NOSUID|MS_NODEV, "mode=0000") >= 0);
                 }
 
@@ -1538,7 +1538,7 @@ TEST(run_tests_without_unshare) {
                 r = seccomp_syscall_resolve_name("unshare");
                 assert_se(r != __NR_SCMP_ERROR);
                 assert_se(hashmap_ensure_put(&s, NULL, UINT32_TO_PTR(r + 1), INT_TO_PTR(-1)) >= 0);
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EOPNOTSUPP), true) >= 0);
+                ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EOPNOTSUPP), true));
 
                 /* Check unshare() is actually filtered. */
                 ASSERT_LT(unshare(CLONE_NEWNS), 0);

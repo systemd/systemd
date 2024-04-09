@@ -17,9 +17,9 @@ TEST(utf8_is_printable) {
 }
 
 TEST(utf8_n_is_valid) {
-        assert_se( utf8_is_valid_n("ascii is valid unicode", 21));
-        assert_se( utf8_is_valid_n("ascii is valid unicode", 22));
-        assert_se(!utf8_is_valid_n("ascii is valid unicode", 23));
+        ASSERT_TRUE( utf8_is_valid_n("ascii is valid unicode", 21));
+        ASSERT_TRUE( utf8_is_valid_n("ascii is valid unicode", 22));
+        ASSERT_FALSE(utf8_is_valid_n("ascii is valid unicode", 23));
         assert_se( utf8_is_valid_n("\342\204\242", 0));
         assert_se(!utf8_is_valid_n("\342\204\242", 1));
         assert_se(!utf8_is_valid_n("\342\204\242", 2));
@@ -34,7 +34,7 @@ TEST(utf8_n_is_valid) {
 }
 
 TEST(utf8_is_valid) {
-        assert_se(utf8_is_valid("ascii is valid unicode"));
+        ASSERT_TRUE(utf8_is_valid("ascii is valid unicode"));
         assert_se(utf8_is_valid("\342\204\242"));
         assert_se(!utf8_is_valid("\341\204"));
 }
@@ -62,7 +62,7 @@ static void test_utf8_to_ascii_one(const char *s, int r_expected, const char *ex
         r = utf8_to_ascii(s, '*', &ans);
         log_debug("\"%s\" → %d/\"%s\" (expected %d/\"%s\")", s, r, strnull(ans), r_expected, strnull(expected));
         assert_se(r == r_expected);
-        assert_se(streq_ptr(ans, expected));
+        ASSERT_TRUE(streq_ptr(ans, expected));
 }
 
 TEST(utf8_to_ascii) {
@@ -89,8 +89,8 @@ TEST(utf8_encoded_valid_unichar) {
         assert_se(utf8_encoded_valid_unichar("\302\256", 2) == 2);
         assert_se(utf8_encoded_valid_unichar("\302\256", 3) == 2);
         assert_se(utf8_encoded_valid_unichar("\302\256", SIZE_MAX) == 2);
-        assert_se(utf8_encoded_valid_unichar("a", 1) == 1);
-        assert_se(utf8_encoded_valid_unichar("a", 2) == 1);
+        ASSERT_EQ(utf8_encoded_valid_unichar("a", 1), 1);
+        ASSERT_EQ(utf8_encoded_valid_unichar("a", 2), 1);
         assert_se(utf8_encoded_valid_unichar("\341\204", 1) == -EINVAL); /* truncated, potentially valid */
         assert_se(utf8_encoded_valid_unichar("\341\204", 2) == -EINVAL); /* truncated, potentially valid */
         assert_se(utf8_encoded_valid_unichar("\341\204", 3) == -EINVAL);
@@ -176,7 +176,7 @@ TEST(utf16_to_utf8) {
         /* Convert UTF-16 to UTF-8, filtering embedded bad chars */
         a = utf16_to_utf8(utf16, sizeof(utf16));
         ASSERT_TRUE(a);
-        assert_se(memcmp(a, utf8, sizeof(utf8)) == 0);
+        ASSERT_EQ(memcmp(a, utf8, sizeof(utf8)), 0);
 
         /* Convert UTF-8 to UTF-16, and back */
         b = utf8_to_utf16(utf8, sizeof(utf8));
@@ -186,7 +186,7 @@ TEST(utf16_to_utf8) {
         a = utf16_to_utf8(b, SIZE_MAX);
         ASSERT_TRUE(a);
         assert_se(strlen(a) == sizeof(utf8));
-        assert_se(memcmp(a, utf8, sizeof(utf8)) == 0);
+        ASSERT_EQ(memcmp(a, utf8, sizeof(utf8)), 0);
 }
 
 TEST(utf8_n_codepoints) {
@@ -223,7 +223,7 @@ TEST(utf8_to_utf16) {
 
                 b = utf16_to_utf8(a, SIZE_MAX);
                 ASSERT_TRUE(b);
-                assert_se(streq(p, b));
+                ASSERT_TRUE(streq(p, b));
         }
 }
 

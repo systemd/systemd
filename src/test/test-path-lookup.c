@@ -25,12 +25,12 @@ static void test_paths_one(RuntimeScope scope) {
         lookup_paths_log(&lp_without_env);
 
         systemd_unit_path = strjoina(tmp, "/systemd-unit-path");
-        assert_se(setenv("SYSTEMD_UNIT_PATH", systemd_unit_path, 1) == 0);
+        ASSERT_EQ(setenv("SYSTEMD_UNIT_PATH", systemd_unit_path, 1), 0);
         assert_se(lookup_paths_init(&lp_with_env, scope, 0, NULL) == 0);
         ASSERT_EQ(strv_length(lp_with_env.search_path), 1u);
         assert_se(streq(lp_with_env.search_path[0], systemd_unit_path));
         lookup_paths_log(&lp_with_env);
-        assert_se(strv_equal(lp_with_env.search_path, STRV_MAKE(systemd_unit_path)));
+        ASSERT_TRUE(strv_equal(lp_with_env.search_path, STRV_MAKE(systemd_unit_path)));
 }
 
 TEST(paths) {
@@ -100,8 +100,8 @@ static void test_generator_binary_paths_one(RuntimeScope scope) {
 
         systemd_generator_path = strjoina(tmp, "/systemd-generator-path");
         systemd_env_generator_path = strjoina(tmp, "/systemd-environment-generator-path");
-        assert_se(setenv("SYSTEMD_GENERATOR_PATH", systemd_generator_path, 1) == 0);
-        assert_se(setenv("SYSTEMD_ENVIRONMENT_GENERATOR_PATH", systemd_env_generator_path, 1) == 0);
+        ASSERT_EQ(setenv("SYSTEMD_GENERATOR_PATH", systemd_generator_path, 1), 0);
+        ASSERT_EQ(setenv("SYSTEMD_ENVIRONMENT_GENERATOR_PATH", systemd_env_generator_path, 1), 0);
 
         gp_with_env = generator_binary_paths(scope);
         env_gp_with_env = env_generator_binary_paths(scope);
@@ -114,8 +114,8 @@ static void test_generator_binary_paths_one(RuntimeScope scope) {
         STRV_FOREACH(dir, env_gp_with_env)
                 log_info("        %s", *dir);
 
-        assert_se(strv_equal(gp_with_env, STRV_MAKE(systemd_generator_path)));
-        assert_se(strv_equal(env_gp_with_env, STRV_MAKE(systemd_env_generator_path)));
+        ASSERT_TRUE(strv_equal(gp_with_env, STRV_MAKE(systemd_generator_path)));
+        ASSERT_TRUE(strv_equal(env_gp_with_env, STRV_MAKE(systemd_env_generator_path)));
 }
 
 TEST(generator_binary_paths) {

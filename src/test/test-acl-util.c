@@ -26,7 +26,7 @@ TEST_RET(add_acls_for_user) {
         ASSERT_OK(fd);
 
         /* Use the mode that user journal files use */
-        assert_se(fchmod(fd, 0640) == 0);
+        ASSERT_EQ(fchmod(fd, 0640), 0);
 
         cmd = strjoina("ls -l ", fn);
         ASSERT_EQ(system(cmd), 0);
@@ -82,7 +82,7 @@ TEST(fd_acl_make_read_only) {
         (void) fd_add_uid_acl_permission(fd, 1, ACL_READ|ACL_WRITE|ACL_EXECUTE);
 
         assert_se(fstat(fd, &st) >= 0);
-        assert_se(FLAGS_SET(st.st_mode, 0200));
+        ASSERT_TRUE(FLAGS_SET(st.st_mode, 0200));
 
         cmd = strjoina("getfacl -p ", fn);
         ASSERT_EQ(system(cmd), 0);

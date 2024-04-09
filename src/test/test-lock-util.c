@@ -17,17 +17,17 @@ TEST(make_lock_file) {
         assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
 
         assert_se(make_lock_file_at(tfd, "lock", LOCK_EX, &lock1) >= 0);
-        assert_se(faccessat(tfd, "lock", F_OK, 0) >= 0);
+        ASSERT_OK(faccessat(tfd, "lock", F_OK, 0));
         assert_se(make_lock_file_at(tfd, "lock", LOCK_EX|LOCK_NB, &lock2) == -EBUSY);
         release_lock_file(&lock1);
         assert_se(RET_NERRNO(faccessat(tfd, "lock", F_OK, 0)) == -ENOENT);
         assert_se(make_lock_file_at(tfd, "lock", LOCK_EX, &lock2) >= 0);
         release_lock_file(&lock2);
         assert_se(make_lock_file_at(tfd, "lock", LOCK_SH, &lock1) >= 0);
-        assert_se(faccessat(tfd, "lock", F_OK, 0) >= 0);
+        ASSERT_OK(faccessat(tfd, "lock", F_OK, 0));
         assert_se(make_lock_file_at(tfd, "lock", LOCK_SH, &lock2) >= 0);
         release_lock_file(&lock1);
-        assert_se(faccessat(tfd, "lock", F_OK, 0) >= 0);
+        ASSERT_OK(faccessat(tfd, "lock", F_OK, 0));
         release_lock_file(&lock2);
 
         ASSERT_OK(fchdir(tfd));
@@ -45,14 +45,14 @@ static void test_lock_generic_with_timeout_for_type(LockType type) {
         tfd2 = fd_reopen(tfd, O_CLOEXEC|O_DIRECTORY);
         ASSERT_OK(tfd2);
 
-        assert_se(lock_generic(tfd, LOCK_BSD, LOCK_EX) >= 0);
+        ASSERT_OK(lock_generic(tfd, LOCK_BSD, LOCK_EX));
         assert_se(lock_generic(tfd2, LOCK_BSD, LOCK_EX|LOCK_NB) == -EWOULDBLOCK);
 
         usec_t start = now(CLOCK_MONOTONIC);
         assert_se(lock_generic_with_timeout(tfd2, LOCK_BSD, LOCK_EX, 200 * USEC_PER_MSEC) == -ETIMEDOUT);
         assert_se(usec_sub_unsigned(now(CLOCK_MONOTONIC), start) >= 200 * USEC_PER_MSEC);
 
-        assert_se(lock_generic(tfd, LOCK_BSD, LOCK_UN) >= 0);
+        ASSERT_OK(lock_generic(tfd, LOCK_BSD, LOCK_UN));
         assert_se(lock_generic_with_timeout(tfd2, LOCK_BSD, LOCK_EX, 200 * USEC_PER_MSEC) == 0);
         assert_se(lock_generic(tfd, LOCK_BSD, LOCK_EX|LOCK_NB) == -EWOULDBLOCK);
 }
