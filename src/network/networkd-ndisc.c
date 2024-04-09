@@ -328,20 +328,19 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 }
 
 static int ndisc_request_address(Address *address, Link *link, sd_ndisc_router *rt) {
-        struct in6_addr router;
         bool is_new;
         int r;
 
         assert(address);
         assert(link);
-        assert(rt);
 
-        r = sd_ndisc_router_get_sender_address(rt, &router);
-        if (r < 0)
-                return r;
+        if (rt) {
+                r = sd_ndisc_router_get_sender_address(rt, &address->provider.in6);
+                if (r < 0)
+                        return r;
 
-        address->source = NETWORK_CONFIG_SOURCE_NDISC;
-        address->provider.in6 = router;
+                address->source = NETWORK_CONFIG_SOURCE_NDISC;
+        }
 
         r = free_and_strdup_warn(&address->netlabel, link->network->ndisc_netlabel);
         if (r < 0)
