@@ -237,7 +237,7 @@ int pidref_dup(const PidRef *pidref, PidRef **ret) {
 }
 
 int pidref_new_from_pid(pid_t pid, PidRef **ret) {
-        _cleanup_(pidref_freep) PidRef *n = 0;
+        _cleanup_(pidref_freep) PidRef *n = NULL;
         int r;
 
         assert(ret);
