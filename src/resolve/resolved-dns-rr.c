@@ -196,7 +196,7 @@ bool dns_resource_key_is_dnssd_two_label_ptr(const DnsResourceKey *key) {
         if (dns_name_parent(&name) <= 0)
                 return false;
 
-        return dns_name_equal(name, "_tcp.local") || dns_name_equal(name, "_udp.local");
+        return dns_name_equal(name, "_tcp.local") > 0 || dns_name_equal(name, "_udp.local") > 0;
 }
 
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b) {
@@ -679,19 +679,24 @@ int dns_resource_record_payload_equal(const DnsResourceRecord *a, const DnsResou
 
         case DNS_TYPE_RRSIG:
                 /* do the fast comparisons first */
-                return a->rrsig.type_covered == b->rrsig.type_covered &&
-                       a->rrsig.algorithm == b->rrsig.algorithm &&
-                       a->rrsig.labels == b->rrsig.labels &&
-                       a->rrsig.original_ttl == b->rrsig.original_ttl &&
-                       a->rrsig.expiration == b->rrsig.expiration &&
-                       a->rrsig.inception == b->rrsig.inception &&
-                       a->rrsig.key_tag == b->rrsig.key_tag &&
-                       FIELD_EQUAL(a->rrsig, b->rrsig, signature) &&
-                       dns_name_equal(a->rrsig.signer, b->rrsig.signer);
+                if (!(a->rrsig.type_covered == b->rrsig.type_covered &&
+                      a->rrsig.algorithm == b->rrsig.algorithm &&
+                      a->rrsig.labels == b->rrsig.labels &&
+                      a->rrsig.original_ttl == b->rrsig.original_ttl &&
+                      a->rrsig.expiration == b->rrsig.expiration &&
+                      a->rrsig.inception == b->rrsig.inception &&
+                      a->rrsig.key_tag == b->rrsig.key_tag &&
+                      FIELD_EQUAL(a->rrsig, b->rrsig, signature)))
+                        return false;
+
+                return dns_name_equal(a->rrsig.signer, b->rrsig.signer);
 
         case DNS_TYPE_NSEC:
-                return dns_name_equal(a->nsec.next_domain_name, b->nsec.next_domain_name) &&
-                       bitmap_equal(a->nsec.types, b->nsec.types);
+                r = dns_name_equal(a->nsec.next_domain_name, b->nsec.next_domain_name);
+                if (r <= 0)
+                        return r;
+
+                return bitmap_equal(a->nsec.types, b->nsec.types);
 
         case DNS_TYPE_NSEC3:
                 return a->nsec3.algorithm == b->nsec3.algorithm &&
@@ -709,9 +714,12 @@ int dns_resource_record_payload_equal(const DnsResourceRecord *a, const DnsResou
 
         case DNS_TYPE_SVCB:
         case DNS_TYPE_HTTPS:
-                return a->svcb.priority == b->svcb.priority &&
-                       dns_name_equal(a->svcb.target_name, b->svcb.target_name) &&
-                       dns_svc_params_equal(a->svcb.params, b->svcb.params);
+
+                if (!(a->svcb.priority == b->svcb.priority &&
+                      dns_svc_params_equal(a->svcb.params, b->svcb.params)))
+                        return false;
+
+                return dns_name_equal(a->svcb.target_name, b->svcb.target_name);
 
         case DNS_TYPE_CAA:
                 return a->caa.flags == b->caa.flags &&
