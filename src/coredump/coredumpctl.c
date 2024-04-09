@@ -95,7 +95,7 @@ static int add_match(sd_journal *j, const char *match) {
         if (field)
                 r = journal_add_match_pair(j, field, match);
         else
-                r = sd_journal_add_match(j, match, 0);
+                r = sd_journal_add_match(j, match, SIZE_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match \"%s%s%s\": %m",
                                        strempty(field), field ? "=" : "", match);
@@ -106,11 +106,11 @@ static int add_match(sd_journal *j, const char *match) {
 static int add_matches(sd_journal *j, char **matches) {
         int r;
 
-        r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR, 0);
+        r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR, SIZE_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR);
 
-        r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR, 0);
+        r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR, SIZE_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match \"%s\": %m", "MESSAGE_ID=" SD_MESSAGE_BACKTRACE_STR);
 
