@@ -197,9 +197,9 @@ int serialize_pidref(FILE *f, FDSet *fds, const char *key, PidRef *pidref) {
                 if (copy < 0)
                         return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
 
-                r = serialize_item_format(f, key, "@%i", copy);
+                r = serialize_item_format(f, key, "@%i:" PID_FMT, copy, pidref->pid);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to serialize PID file descriptor: %m");
+                        return log_error_errno(r, "Failed to serialize pidref: %m");
         }
 
         return serialize_item_format(f, key, PID_FMT, pidref->pid);
@@ -480,12 +480,31 @@ int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret) {
 
         e = startswith(value, "@");
         if (e) {
-                int fd = deserialize_fd(fds, e);
+                _cleanup_free_ char *fdstr = NULL, *pidstr = NULL;
 
+                r = extract_many_words(&e, ":", EXTRACT_DONT_COALESCE_SEPARATORS, &fdstr, &pidstr);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to deserialize pidref: %s", e);
+                if (r == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot deserialize pidref from empty string");
+
+                int fd = deserialize_fd(fds, fdstr);
                 if (fd < 0)
                         return fd;
 
-                r = pidref_set_pidfd_consume(ret, fd);
+                if (pidstr) {
+                        pid_t pid;
+
+                        r = parse_pid(pidstr, &pid);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to parse PID: %s", pidstr);
+
+                        *ret = (PidRef) {
+                                .pid = pid,
+                                .fd = TAKE_FD(fd),
+                        };
+                } else
+                        r = pidref_set_pidfd_consume(ret, fd);
         } else {
                 pid_t pid;
 
