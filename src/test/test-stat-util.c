@@ -49,13 +49,13 @@ TEST(inode_same) {
         _cleanup_(unlink_tempfilep) char name_alias[] = "/tmp/test-files_same.alias";
 
         fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
-        assert_se(symlink(name, name_alias) >= 0);
+        ASSERT_OK(fd);
+        ASSERT_OK(symlink(name, name_alias));
 
-        assert_se(inode_same(name, name, 0));
-        assert_se(inode_same(name, name, AT_SYMLINK_NOFOLLOW));
-        assert_se(inode_same(name, name_alias, 0));
-        assert_se(!inode_same(name, name_alias, AT_SYMLINK_NOFOLLOW));
+        ASSERT_TRUE(inode_same(name, name, 0));
+        ASSERT_TRUE(inode_same(name, name, AT_SYMLINK_NOFOLLOW));
+        ASSERT_TRUE(inode_same(name, name_alias, 0));
+        ASSERT_FALSE(inode_same(name, name_alias, AT_SYMLINK_NOFOLLOW));
 }
 
 TEST(is_symlink) {
@@ -64,11 +64,11 @@ TEST(is_symlink) {
         _cleanup_close_ int fd = -EBADF;
 
         fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
-        assert_se(symlink(name, name_link) >= 0);
+        ASSERT_OK(fd);
+        ASSERT_OK(symlink(name, name_link));
 
-        assert_se(is_symlink(name) == 0);
-        assert_se(is_symlink(name_link) == 1);
+        ASSERT_EQ(is_symlink(name), 0);
+        ASSERT_EQ(is_symlink(name_link), 1);
         assert_se(is_symlink("/a/file/which/does/not/exist/i/guess") < 0);
 }
 
@@ -122,9 +122,9 @@ TEST(path_is_read_only_fs) {
 TEST(fd_is_ns) {
         _cleanup_close_ int fd = -EBADF;
 
-        assert_se(fd_is_ns(STDIN_FILENO, CLONE_NEWNET) == 0);
-        assert_se(fd_is_ns(STDERR_FILENO, CLONE_NEWNET) == 0);
-        assert_se(fd_is_ns(STDOUT_FILENO, CLONE_NEWNET) == 0);
+        ASSERT_EQ(fd_is_ns(STDIN_FILENO, CLONE_NEWNET), 0);
+        ASSERT_EQ(fd_is_ns(STDERR_FILENO, CLONE_NEWNET), 0);
+        ASSERT_EQ(fd_is_ns(STDOUT_FILENO, CLONE_NEWNET), 0);
 
         fd = open("/proc/self/ns/mnt", O_CLOEXEC|O_RDONLY);
         if (fd < 0) {
@@ -132,7 +132,7 @@ TEST(fd_is_ns) {
                 log_notice("Path %s not found, skipping test", "/proc/self/ns/mnt");
                 return;
         }
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         assert_se(IN_SET(fd_is_ns(fd, CLONE_NEWNET), 0, -EUCLEAN));
         fd = safe_close(fd);
 
@@ -155,28 +155,28 @@ TEST(dir_is_empty) {
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) > 0);
 
         j = path_join(empty_dir, "zzz");
-        assert_se(j);
-        assert_se(touch(j) >= 0);
+        ASSERT_TRUE(j);
+        ASSERT_OK(touch(j));
 
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) == 0);
 
         jj = path_join(empty_dir, "ppp");
-        assert_se(jj);
-        assert_se(touch(jj) >= 0);
+        ASSERT_TRUE(jj);
+        ASSERT_OK(touch(jj));
 
         jjj = path_join(empty_dir, ".qqq");
-        assert_se(jjj);
-        assert_se(touch(jjj) >= 0);
+        ASSERT_TRUE(jjj);
+        ASSERT_OK(touch(jjj));
 
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) == 0);
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ false) == 0);
-        assert_se(unlink(j) >= 0);
+        ASSERT_OK(unlink(j));
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) == 0);
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ false) == 0);
-        assert_se(unlink(jj) >= 0);
+        ASSERT_OK(unlink(jj));
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) > 0);
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ false) == 0);
-        assert_se(unlink(jjj) >= 0);
+        ASSERT_OK(unlink(jjj));
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) > 0);
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ false) > 0);
 }
@@ -200,7 +200,7 @@ TEST(anonymous_inode) {
         _cleanup_close_ int fd = -EBADF;
 
         fd = eventfd(0, EFD_CLOEXEC);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         /* Verify that we handle anonymous inodes correctly, i.e. those which have no file type */
 
@@ -208,7 +208,7 @@ TEST(anonymous_inode) {
         assert_se(fstat(fd, &st) >= 0);
         assert_se((st.st_mode & S_IFMT) == 0);
 
-        assert_se(!inode_type_to_string(st.st_mode));
+        ASSERT_FALSE(inode_type_to_string(st.st_mode));
 }
 
 TEST(fd_verify_linked) {
@@ -217,16 +217,16 @@ TEST(fd_verify_linked) {
         _cleanup_free_ char *p = NULL;
 
         tfd = mkdtemp_open(NULL, O_PATH, &t);
-        assert_se(tfd >= 0);
+        ASSERT_OK(tfd);
 
         assert_se(p = path_join(t, "hoge"));
-        assert_se(touch(p) >= 0);
+        ASSERT_OK(touch(p));
 
         fd = open(p, O_CLOEXEC | O_PATH);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
-        assert_se(fd_verify_linked(fd) >= 0);
-        assert_se(unlinkat(tfd, "hoge", 0) >= 0);
+        ASSERT_OK(fd_verify_linked(fd));
+        ASSERT_OK(unlinkat(tfd, "hoge", 0));
         assert_se(fd_verify_linked(fd) == -EIDRM);
 }
 

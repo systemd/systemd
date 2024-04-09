@@ -15,7 +15,7 @@ TEST(strip_tab_ansi) {
         assert_se(p = strdup("\tFoobar\tbar\twaldo\t"));
         assert_se(strip_tab_ansi(&p, NULL, NULL));
         fprintf(stdout, "<%s>\n", p);
-        assert_se(streq(p, "        Foobar        bar        waldo        "));
+        ASSERT_TRUE(streq(p, "        Foobar        bar        waldo        "));
         free(p);
 
         assert_se(p = strdup(ANSI_HIGHLIGHT "Hello" ANSI_NORMAL ANSI_HIGHLIGHT_RED " world!" ANSI_NORMAL));
@@ -41,7 +41,7 @@ TEST(strip_tab_ansi) {
 
         assert_se(p = strdup("waldo\r\r"));
         assert_se(strip_tab_ansi(&p, NULL, NULL));
-        assert_se(streq(p, "waldo"));
+        ASSERT_TRUE(streq(p, "waldo"));
         free(p);
 
         assert_se(p = strdup("waldo\r\r\n\r\n"));
@@ -65,7 +65,7 @@ TEST(strip_tab_ansi) {
                 *z = 0;
                 assert_se(qq = strdup(q));
                 assert_se(strip_tab_ansi(&q, NULL, NULL));
-                assert_se(streq(q, qq));
+                ASSERT_TRUE(streq(q, qq));
         }
 }
 

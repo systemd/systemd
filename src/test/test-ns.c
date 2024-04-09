@@ -63,8 +63,8 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(mkdtemp(tmp_dir));
-        assert_se(mkdtemp(var_tmp_dir));
+        ASSERT_TRUE(mkdtemp(tmp_dir));
+        ASSERT_TRUE(mkdtemp(var_tmp_dir));
 
         root_directory = getenv("TEST_NS_CHROOT");
         projects_directory = getenv("TEST_NS_PROJECTS");

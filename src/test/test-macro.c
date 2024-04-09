@@ -18,25 +18,25 @@ TEST(saturate_add) {
 TEST(ALIGN_POWER2) {
         unsigned long i, p2;
 
-        assert_se(ALIGN_POWER2(0) == 0);
-        assert_se(ALIGN_POWER2(1) == 1);
-        assert_se(ALIGN_POWER2(2) == 2);
-        assert_se(ALIGN_POWER2(3) == 4);
-        assert_se(ALIGN_POWER2(4) == 4);
-        assert_se(ALIGN_POWER2(5) == 8);
-        assert_se(ALIGN_POWER2(6) == 8);
-        assert_se(ALIGN_POWER2(7) == 8);
-        assert_se(ALIGN_POWER2(9) == 16);
-        assert_se(ALIGN_POWER2(10) == 16);
-        assert_se(ALIGN_POWER2(11) == 16);
-        assert_se(ALIGN_POWER2(12) == 16);
-        assert_se(ALIGN_POWER2(13) == 16);
-        assert_se(ALIGN_POWER2(14) == 16);
-        assert_se(ALIGN_POWER2(15) == 16);
-        assert_se(ALIGN_POWER2(16) == 16);
-        assert_se(ALIGN_POWER2(17) == 32);
+        ASSERT_EQ(ALIGN_POWER2(0), 0u);
+        ASSERT_EQ(ALIGN_POWER2(1), 1u);
+        ASSERT_EQ(ALIGN_POWER2(2), 2u);
+        ASSERT_EQ(ALIGN_POWER2(3), 4u);
+        ASSERT_EQ(ALIGN_POWER2(4), 4u);
+        ASSERT_EQ(ALIGN_POWER2(5), 8u);
+        ASSERT_EQ(ALIGN_POWER2(6), 8u);
+        ASSERT_EQ(ALIGN_POWER2(7), 8u);
+        ASSERT_EQ(ALIGN_POWER2(9), 16u);
+        ASSERT_EQ(ALIGN_POWER2(10), 16u);
+        ASSERT_EQ(ALIGN_POWER2(11), 16u);
+        ASSERT_EQ(ALIGN_POWER2(12), 16u);
+        ASSERT_EQ(ALIGN_POWER2(13), 16u);
+        ASSERT_EQ(ALIGN_POWER2(14), 16u);
+        ASSERT_EQ(ALIGN_POWER2(15), 16u);
+        ASSERT_EQ(ALIGN_POWER2(16), 16u);
+        ASSERT_EQ(ALIGN_POWER2(17), 32u);
 
-        assert_se(ALIGN_POWER2(ULONG_MAX) == 0);
+        ASSERT_EQ(ALIGN_POWER2(ULONG_MAX), 0u);
         assert_se(ALIGN_POWER2(ULONG_MAX - 1) == 0);
         assert_se(ALIGN_POWER2(ULONG_MAX - 1024) == 0);
         assert_se(ALIGN_POWER2(ULONG_MAX / 2) == ULONG_MAX / 2 + 1);
@@ -79,9 +79,9 @@ TEST(MAX) {
         assert_cc(__builtin_types_compatible_p(typeof(CONST_MAX(1, 10)), int));
         assert_cc(__builtin_types_compatible_p(typeof(CONST_MAX(1, 1U)), void));
 
-        assert_se(val1.a == 100);
+        ASSERT_EQ(val1.a, 100);
         assert_se(MAX(++d, 0) == 1);
-        assert_se(d == 1);
+        ASSERT_EQ(d, 1);
 
         assert_cc(MAXSIZE(char[3], uint16_t) == 3);
         assert_cc(MAXSIZE(char[3], uint32_t) == 4);
@@ -324,7 +324,7 @@ TEST(DIV_ROUND_UP) {
         assert_se(DIV_ROUND_UP(8, ++div) == 2 && div == 4);
 
         /* overflow test with exact division */
-        assert_se(sizeof(0U) == 4);
+        ASSERT_EQ(sizeof(0U), 4u);
         assert_se(0xfffffffaU % 10U == 0U);
         assert_se(0xfffffffaU / 10U == 429496729U);
         assert_se(DIV_ROUND_UP(0xfffffffaU, 10U) == 429496729U);
@@ -341,8 +341,8 @@ TEST(DIV_ROUND_UP) {
 
 TEST(PTR_TO_INT) {
         /* Primary reason to have this test is to validate that pointers are large enough to hold entire int range */
-        assert_se(PTR_TO_INT(INT_TO_PTR(0)) == 0);
-        assert_se(PTR_TO_INT(INT_TO_PTR(1)) == 1);
+        ASSERT_EQ(PTR_TO_INT(INT_TO_PTR(0)), 0);
+        ASSERT_EQ(PTR_TO_INT(INT_TO_PTR(1)), 1);
         assert_se(PTR_TO_INT(INT_TO_PTR(-1)) == -1);
         assert_se(PTR_TO_INT(INT_TO_PTR(INT_MAX)) == INT_MAX);
         assert_se(PTR_TO_INT(INT_TO_PTR(INT_MIN)) == INT_MIN);
@@ -376,91 +376,91 @@ TEST(FOREACH_ARGUMENT) {
         FOREACH_ARGUMENT(u8, u8_2, 8, 0xff, u8_1, u8_3, 0, 1) {
                 switch (i++) {
                 case 0: assert_se(u8 == u8_2); break;
-                case 1: assert_se(u8 == 8); break;
+                case 1: ASSERT_EQ(u8, 8); break;
                 case 2: assert_se(u8 == 0xff); break;
                 case 3: assert_se(u8 == u8_1); break;
                 case 4: assert_se(u8 == u8_3); break;
-                case 5: assert_se(u8 == 0); break;
-                case 6: assert_se(u8 == 1); break;
-                default: assert_se(false);
+                case 5: ASSERT_EQ(u8, 0); break;
+                case 6: ASSERT_EQ(u8, 1); break;
+                default: ASSERT_TRUE(false);
                 }
         }
-        assert_se(i == 7);
+        ASSERT_EQ(i, 7u);
         i = 0;
         FOREACH_ARGUMENT(u8, 0) {
-                assert_se(u8 == 0);
+                ASSERT_EQ(u8, 0);
                 assert_se(i++ == 0);
         }
-        assert_se(i == 1);
+        ASSERT_EQ(i, 1u);
         i = 0;
         FOREACH_ARGUMENT(u8, 0xff) {
                 assert_se(u8 == 0xff);
                 assert_se(i++ == 0);
         }
-        assert_se(i == 1);
+        ASSERT_EQ(i, 1u);
         FOREACH_ARGUMENT(u8)
-                assert_se(false);
+                ASSERT_TRUE(false);
 
         i = 0;
         uint32_t u32, u32_1 = 0xffff0000, u32_2 = 10, u32_3 = 0xffff;
         FOREACH_ARGUMENT(u32, 1, 100, u32_2, 1000, u32_3, u32_1, 1, 0) {
                 switch (i++) {
-                case 0: assert_se(u32 == 1); break;
-                case 1: assert_se(u32 == 100); break;
+                case 0: ASSERT_EQ(u32, 1u); break;
+                case 1: ASSERT_EQ(u32, 100u); break;
                 case 2: assert_se(u32 == u32_2); break;
-                case 3: assert_se(u32 == 1000); break;
+                case 3: ASSERT_EQ(u32, 1000u); break;
                 case 4: assert_se(u32 == u32_3); break;
                 case 5: assert_se(u32 == u32_1); break;
-                case 6: assert_se(u32 == 1); break;
-                case 7: assert_se(u32 == 0); break;
-                default: assert_se(false);
+                case 6: ASSERT_EQ(u32, 1u); break;
+                case 7: ASSERT_EQ(u32, 0u); break;
+                default: ASSERT_TRUE(false);
                 }
         }
-        assert_se(i == 8);
+        ASSERT_EQ(i, 8u);
         i = 0;
         FOREACH_ARGUMENT(u32, 0) {
-                assert_se(u32 == 0);
+                ASSERT_EQ(u32, 0u);
                 assert_se(i++ == 0);
         }
-        assert_se(i == 1);
+        ASSERT_EQ(i, 1u);
         i = 0;
         FOREACH_ARGUMENT(u32, 1000) {
-                assert_se(u32 == 1000);
+                ASSERT_EQ(u32, 1000u);
                 assert_se(i++ == 0);
         }
-        assert_se(i == 1);
+        ASSERT_EQ(i, 1u);
         FOREACH_ARGUMENT(u32)
-                assert_se(false);
+                ASSERT_TRUE(false);
 
         i = 0;
         uint64_t u64, u64_1 = 0xffffffffffffffff, u64_2 = 50, u64_3 = 0xffff;
         FOREACH_ARGUMENT(u64, 44, 0, u64_3, 100, u64_2, u64_1, 50000) {
                 switch (i++) {
-                case 0: assert_se(u64 == 44); break;
-                case 1: assert_se(u64 == 0); break;
+                case 0: ASSERT_EQ(u64, 44u); break;
+                case 1: ASSERT_EQ(u64, 0u); break;
                 case 2: assert_se(u64 == u64_3); break;
-                case 3: assert_se(u64 == 100); break;
+                case 3: ASSERT_EQ(u64, 100u); break;
                 case 4: assert_se(u64 == u64_2); break;
                 case 5: assert_se(u64 == u64_1); break;
-                case 6: assert_se(u64 == 50000); break;
-                default: assert_se(false);
+                case 6: ASSERT_EQ(u64, 50000u); break;
+                default: ASSERT_TRUE(false);
                 }
         }
-        assert_se(i == 7);
+        ASSERT_EQ(i, 7u);
         i = 0;
         FOREACH_ARGUMENT(u64, 0) {
-                assert_se(u64 == 0);
+                ASSERT_EQ(u64, 0u);
                 assert_se(i++ == 0);
         }
-        assert_se(i == 1);
+        ASSERT_EQ(i, 1u);
         i = 0;
         FOREACH_ARGUMENT(u64, 0xff00ff00000000) {
                 assert_se(u64 == 0xff00ff00000000);
                 assert_se(i++ == 0);
         }
-        assert_se(i == 1);
+        ASSERT_EQ(i, 1u);
         FOREACH_ARGUMENT(u64)
-                assert_se(false);
+                ASSERT_TRUE(false);
 
         struct test {
                 int a;
@@ -477,47 +477,47 @@ TEST(FOREACH_ARGUMENT) {
                 switch (i++) {
                 case 0: assert_se(s.a == 0     ); assert_se(s.b == 'c'); break;
                 case 1: assert_se(s.a == 10    ); assert_se(s.b == 'd'); break;
-                case 2: assert_se(s.a == 100000); assert_se(s.b == 'z'); break;
+                case 2: ASSERT_EQ(s.a, 100000); assert_se(s.b == 'z'); break;
                 case 3: assert_se(s.a == 0     ); assert_se(s.b == 0  ); break;
                 case 4: assert_se(s.a == 0xff  ); assert_se(s.b == 'q'); break;
                 case 5: assert_se(s.a == 1     ); assert_se(s.b == 'x'); break;
-                default: assert_se(false);
+                default: ASSERT_TRUE(false);
                 }
         }
-        assert_se(i == 6);
+        ASSERT_EQ(i, 6u);
         i = 0;
         FOREACH_ARGUMENT(s, (struct test){ .a = 1, .b = 'A', }) {
-                assert_se(s.a == 1);
+                ASSERT_EQ(s.a, 1);
                 assert_se(s.b == 'A');
                 assert_se(i++ == 0);
         }
-        assert_se(i == 1);
+        ASSERT_EQ(i, 1u);
         FOREACH_ARGUMENT(s)
-                assert_se(false);
+                ASSERT_TRUE(false);
 
         i = 0;
         struct test *p, *p_1 = &s_1, *p_2 = &s_2, *p_3 = &s_3, *p_4 = &s_4;
         FOREACH_ARGUMENT(p, p_1, NULL, p_2, p_3, NULL, p_4, NULL) {
                 switch (i++) {
                 case 0: assert_se(p == p_1); break;
-                case 1: assert_se(p == NULL); break;
+                case 1: ASSERT_NULL(p); break;
                 case 2: assert_se(p == p_2); break;
                 case 3: assert_se(p == p_3); break;
-                case 4: assert_se(p == NULL); break;
+                case 4: ASSERT_NULL(p); break;
                 case 5: assert_se(p == p_4); break;
-                case 6: assert_se(p == NULL); break;
-                default: assert_se(false);
+                case 6: ASSERT_NULL(p); break;
+                default: ASSERT_TRUE(false);
                 }
         }
-        assert_se(i == 7);
+        ASSERT_EQ(i, 7u);
         i = 0;
         FOREACH_ARGUMENT(p, p_3) {
                 assert_se(p == p_3);
                 assert_se(i++ == 0);
         }
-        assert_se(i == 1);
+        ASSERT_EQ(i, 1u);
         FOREACH_ARGUMENT(p)
-                assert_se(false);
+                ASSERT_TRUE(false);
 
         i = 0;
         void *v, *v_1 = p_1, *v_2 = p_2, *v_3 = p_3;
@@ -525,31 +525,31 @@ TEST(FOREACH_ARGUMENT) {
         FOREACH_ARGUMENT(v, v_1, NULL, u32p, v_3, p_2, p_4, v_2, NULL) {
                 switch (i++) {
                 case 0: assert_se(v == v_1); break;
-                case 1: assert_se(v == NULL); break;
+                case 1: ASSERT_NULL(v); break;
                 case 2: assert_se(v == u32p); break;
                 case 3: assert_se(v == v_3); break;
                 case 4: assert_se(v == p_2); break;
                 case 5: assert_se(v == p_4); break;
                 case 6: assert_se(v == v_2); break;
-                case 7: assert_se(v == NULL); break;
-                default: assert_se(false);
+                case 7: ASSERT_NULL(v); break;
+                default: ASSERT_TRUE(false);
                 }
         }
-        assert_se(i == 8);
+        ASSERT_EQ(i, 8u);
         i = 0;
         FOREACH_ARGUMENT(v, NULL) {
-                assert_se(v == NULL);
+                ASSERT_NULL(v);
                 assert_se(i++ == 0);
         }
-        assert_se(i == 1);
+        ASSERT_EQ(i, 1u);
         i = 0;
         FOREACH_ARGUMENT(v, v_1) {
                 assert_se(v == v_1);
                 assert_se(i++ == 0);
         }
-        assert_se(i == 1);
+        ASSERT_EQ(i, 1u);
         FOREACH_ARGUMENT(v)
-                assert_se(false);
+                ASSERT_TRUE(false);
 }
 
 TEST(ALIGN_TO) {
@@ -757,7 +757,7 @@ TEST(flags) {
         SET_FLAG(n, F1 | F3, true);
         assert_se(n == (F1 | F3));
         SET_FLAG(n, F_ALL, false);
-        assert_se(n == 0);
+        ASSERT_EQ(n, 0u);
 
         assert_se(UPDATE_FLAG(0, 0, true) == 0);
         assert_se(UPDATE_FLAG(0, F1, true) == F1);
@@ -787,15 +787,15 @@ TEST(flags) {
 }
 
 TEST(DECIMAL_STR_WIDTH) {
-        assert_se(DECIMAL_STR_WIDTH(0) == 1);
-        assert_se(DECIMAL_STR_WIDTH(1) == 1);
-        assert_se(DECIMAL_STR_WIDTH(2) == 1);
-        assert_se(DECIMAL_STR_WIDTH(9) == 1);
-        assert_se(DECIMAL_STR_WIDTH(10) == 2);
-        assert_se(DECIMAL_STR_WIDTH(11) == 2);
-        assert_se(DECIMAL_STR_WIDTH(99) == 2);
-        assert_se(DECIMAL_STR_WIDTH(100) == 3);
-        assert_se(DECIMAL_STR_WIDTH(101) == 3);
+        ASSERT_EQ(DECIMAL_STR_WIDTH(0), 1u);
+        ASSERT_EQ(DECIMAL_STR_WIDTH(1), 1u);
+        ASSERT_EQ(DECIMAL_STR_WIDTH(2), 1u);
+        ASSERT_EQ(DECIMAL_STR_WIDTH(9), 1u);
+        ASSERT_EQ(DECIMAL_STR_WIDTH(10), 2u);
+        ASSERT_EQ(DECIMAL_STR_WIDTH(11), 2u);
+        ASSERT_EQ(DECIMAL_STR_WIDTH(99), 2u);
+        ASSERT_EQ(DECIMAL_STR_WIDTH(100), 3u);
+        ASSERT_EQ(DECIMAL_STR_WIDTH(101), 3u);
         assert_se(DECIMAL_STR_WIDTH(-1) == 2);
         assert_se(DECIMAL_STR_WIDTH(-2) == 2);
         assert_se(DECIMAL_STR_WIDTH(-9) == 2);
@@ -849,10 +849,10 @@ TEST(PTR_SUB1) {
         assert_se(*p == 2);
 
         p = PTR_SUB1(p, x);
-        assert_se(!p);
+        ASSERT_FALSE(p);
 
         p = PTR_SUB1(p, x);
-        assert_se(!p);
+        ASSERT_FALSE(p);
 }
 
 TEST(ISPOWEROF2) {
@@ -862,59 +862,59 @@ TEST(ISPOWEROF2) {
         /* First, test constant expressions */
         assert_se(!ISPOWEROF2(-2));
         assert_se(!ISPOWEROF2(-1));
-        assert_se(!ISPOWEROF2(0));
-        assert_se(ISPOWEROF2(1));
-        assert_se(ISPOWEROF2(2));
-        assert_se(!ISPOWEROF2(3));
-        assert_se(ISPOWEROF2(4));
-        assert_se(!ISPOWEROF2(5));
-        assert_se(!ISPOWEROF2(6));
-        assert_se(!ISPOWEROF2(7));
-        assert_se(ISPOWEROF2(8));
-        assert_se(!ISPOWEROF2(9));
-        assert_se(!ISPOWEROF2(1022));
-        assert_se(ISPOWEROF2(1024));
-        assert_se(!ISPOWEROF2(1025));
-        assert_se(!ISPOWEROF2(UINT64_C(0xffffffff)));
-        assert_se(ISPOWEROF2(UINT64_C(0x100000000)));
-        assert_se(!ISPOWEROF2(UINT64_C(0x100000001)));
+        ASSERT_FALSE(ISPOWEROF2(0));
+        ASSERT_TRUE(ISPOWEROF2(1));
+        ASSERT_TRUE(ISPOWEROF2(2));
+        ASSERT_FALSE(ISPOWEROF2(3));
+        ASSERT_TRUE(ISPOWEROF2(4));
+        ASSERT_FALSE(ISPOWEROF2(5));
+        ASSERT_FALSE(ISPOWEROF2(6));
+        ASSERT_FALSE(ISPOWEROF2(7));
+        ASSERT_TRUE(ISPOWEROF2(8));
+        ASSERT_FALSE(ISPOWEROF2(9));
+        ASSERT_FALSE(ISPOWEROF2(1022));
+        ASSERT_TRUE(ISPOWEROF2(1024));
+        ASSERT_FALSE(ISPOWEROF2(1025));
+        ASSERT_FALSE(ISPOWEROF2(UINT64_C(0xffffffff)));
+        ASSERT_TRUE(ISPOWEROF2(UINT64_C(0x100000000)));
+        ASSERT_FALSE(ISPOWEROF2(UINT64_C(0x100000001)));
 
         /* Then, test dynamic expressions, and if they are side-effect free */
         i = -2;
         assert_se(!ISPOWEROF2(i++));
         assert_se(i == -1);
         assert_se(!ISPOWEROF2(i++));
-        assert_se(i == 0);
+        ASSERT_EQ(i, 0);
         assert_se(!ISPOWEROF2(i++));
-        assert_se(i == 1);
+        ASSERT_EQ(i, 1);
         assert_se(ISPOWEROF2(i++));
-        assert_se(i == 2);
+        ASSERT_EQ(i, 2);
         assert_se(ISPOWEROF2(i++));
-        assert_se(i == 3);
+        ASSERT_EQ(i, 3);
         assert_se(!ISPOWEROF2(i++));
-        assert_se(i == 4);
+        ASSERT_EQ(i, 4);
         assert_se(ISPOWEROF2(i++));
-        assert_se(i == 5);
-        assert_se(!ISPOWEROF2(i));
+        ASSERT_EQ(i, 5);
+        ASSERT_FALSE(ISPOWEROF2(i));
 
         u = 0;
         assert_se(!ISPOWEROF2(u++));
-        assert_se(u == 1);
+        ASSERT_EQ(u, 1u);
         assert_se(ISPOWEROF2(u++));
-        assert_se(u == 2);
+        ASSERT_EQ(u, 2u);
         assert_se(ISPOWEROF2(u++));
-        assert_se(u == 3);
+        ASSERT_EQ(u, 3u);
         assert_se(!ISPOWEROF2(u++));
-        assert_se(u == 4);
+        ASSERT_EQ(u, 4u);
         assert_se(ISPOWEROF2(u++));
-        assert_se(u == 5);
-        assert_se(!ISPOWEROF2(u));
+        ASSERT_EQ(u, 5u);
+        ASSERT_FALSE(ISPOWEROF2(u));
 }
 
 TEST(ALIGNED) {
-        assert_se(IS_ALIGNED16(NULL));
-        assert_se(IS_ALIGNED32(NULL));
-        assert_se(IS_ALIGNED64(NULL));
+        ASSERT_TRUE(IS_ALIGNED16(NULL));
+        ASSERT_TRUE(IS_ALIGNED32(NULL));
+        ASSERT_TRUE(IS_ALIGNED64(NULL));
 
         uint64_t u64;
         uint32_t u32;
@@ -949,18 +949,18 @@ TEST(ALIGNED) {
         /* Conditionalized on x86-64, since there we know for sure that all three types are aligned to
          * their size. Too lazy to figure it out for other archs */
         void *p = UINT_TO_PTR(1); /* definitely not aligned */
-        assert_se(!IS_ALIGNED16(p));
-        assert_se(!IS_ALIGNED32(p));
-        assert_se(!IS_ALIGNED64(p));
+        ASSERT_FALSE(IS_ALIGNED16(p));
+        ASSERT_FALSE(IS_ALIGNED32(p));
+        ASSERT_FALSE(IS_ALIGNED64(p));
 
-        assert_se(IS_ALIGNED16(ALIGN2_PTR(p)));
-        assert_se(IS_ALIGNED32(ALIGN4_PTR(p)));
-        assert_se(IS_ALIGNED64(ALIGN8_PTR(p)));
+        ASSERT_TRUE(IS_ALIGNED16(ALIGN2_PTR(p)));
+        ASSERT_TRUE(IS_ALIGNED32(ALIGN4_PTR(p)));
+        ASSERT_TRUE(IS_ALIGNED64(ALIGN8_PTR(p)));
 
         p = UINT_TO_PTR(-1); /* also definitely not aligned */
-        assert_se(!IS_ALIGNED16(p));
-        assert_se(!IS_ALIGNED32(p));
-        assert_se(!IS_ALIGNED64(p));
+        ASSERT_FALSE(IS_ALIGNED16(p));
+        ASSERT_FALSE(IS_ALIGNED32(p));
+        ASSERT_FALSE(IS_ALIGNED64(p));
 #endif
 }
 
@@ -974,8 +974,8 @@ TEST(FOREACH_ARRAY) {
                 x += *i;
                 n++;
         }
-        assert_se(x == 45);
-        assert_se(n == 10);
+        ASSERT_EQ(x, 45);
+        ASSERT_EQ(n, 10);
 
         x = n = 0;
         FOREACH_ARRAY(i, a, 10)
@@ -1001,8 +1001,8 @@ TEST(FOREACH_ARRAY) {
                         x += (*i) * (*j);
                         n++;
                 }
-        assert_se(x == 0);
-        assert_se(n == 0);
+        ASSERT_EQ(x, 0);
+        ASSERT_EQ(n, 0);
 
         x = n = 0;
         FOREACH_ARRAY(i, a, -1)
@@ -1010,8 +1010,8 @@ TEST(FOREACH_ARRAY) {
                         x += (*i) * (*j);
                         n++;
                 }
-        assert_se(x == 0);
-        assert_se(n == 0);
+        ASSERT_EQ(x, 0);
+        ASSERT_EQ(n, 0);
 }
 
 #define TEST_ROUND_UP_BY_TYPE(type, max_value)                          \

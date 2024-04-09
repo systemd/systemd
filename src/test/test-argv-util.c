@@ -42,7 +42,7 @@ static void test_rename_process_now(const char *p, int ret) {
          * future. We'd only check the initial part, at least until we recompile, but this will still pass. */
 
         r = pid_get_cmdline(0, SIZE_MAX, 0, &cmdline);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         /* we cannot expect cmdline to be renamed properly without privileges */
         if (geteuid() == 0) {
                 if (r == 0 && detect_container() > 0)
@@ -66,7 +66,7 @@ static void test_rename_process_one(const char *p, int ret) {
         log_info("/* %s(%s) */", __func__, p);
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
                 /* child */
@@ -88,7 +88,7 @@ TEST(rename_process_multi) {
         pid_t pid;
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid > 0) {
                 siginfo_t si;
@@ -116,13 +116,13 @@ TEST(rename_process) {
 }
 
 TEST(argv_help) {
-        assert_se(argv_looks_like_help(1, STRV_MAKE("program")));
-        assert_se(argv_looks_like_help(2, STRV_MAKE("program", "help")));
+        ASSERT_TRUE(argv_looks_like_help(1, STRV_MAKE("program")));
+        ASSERT_TRUE(argv_looks_like_help(2, STRV_MAKE("program", "help")));
         assert_se(argv_looks_like_help(3, STRV_MAKE("program", "arg1", "--help")));
         assert_se(argv_looks_like_help(4, STRV_MAKE("program", "arg1", "arg2", "-h")));
-        assert_se(!argv_looks_like_help(2, STRV_MAKE("program", "arg1")));
+        ASSERT_FALSE(argv_looks_like_help(2, STRV_MAKE("program", "arg1")));
         assert_se(!argv_looks_like_help(4, STRV_MAKE("program", "arg1", "arg2", "--h")));
-        assert_se(!argv_looks_like_help(3, STRV_MAKE("program", "Help", "arg2")));
+        ASSERT_FALSE(argv_looks_like_help(3, STRV_MAKE("program", "Help", "arg2")));
         assert_se(argv_looks_like_help(5, STRV_MAKE("program", "--help", "arg1", "-h", "--help")));
         assert_se(!argv_looks_like_help(4, STRV_MAKE("program","arg1", "arg2", "-H")));
         assert_se(!argv_looks_like_help(3, STRV_MAKE("program", "--Help", "arg2")));

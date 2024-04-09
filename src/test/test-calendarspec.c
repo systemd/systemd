@@ -50,7 +50,7 @@ static void _test_next(int line, const char *input, const char *new_tz, usec_t a
         if (!isempty(new_tz))
                 new_tz = strjoina(":", new_tz);
 
-        assert_se(set_unset_env("TZ", new_tz, true) == 0);
+        ASSERT_EQ(set_unset_env("TZ", new_tz, true), 0);
         tzset();
 
         ASSERT_OK(calendar_spec_from_string(input, &c));
@@ -65,7 +65,7 @@ static void _test_next(int line, const char *input, const char *new_tz, usec_t a
         else
                 assert_se(r == -ENOENT);
 
-        assert_se(set_unset_env("TZ", old_tz, true) == 0);
+        ASSERT_EQ(set_unset_env("TZ", old_tz, true), 0);
         tzset();
 }
 #define test_next(input, new_tz, after, expect) _test_next(__LINE__, input,new_tz,after,expect)
@@ -80,7 +80,7 @@ TEST(timestamp) {
 
         x = now(CLOCK_REALTIME);
 
-        assert_se(format_timestamp_style(buf, sizeof buf, x, TIMESTAMP_US));
+        ASSERT_TRUE(format_timestamp_style(buf, sizeof buf, x, TIMESTAMP_US));
         log_info("%s", buf);
         ASSERT_OK(calendar_spec_from_string(buf, &c));
         ASSERT_OK(calendar_spec_to_string(c, &t));

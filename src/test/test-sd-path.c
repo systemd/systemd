@@ -15,12 +15,12 @@ TEST(sd_path_lookup) {
                 r = sd_path_lookup(i, NULL, &t);
                 if (i == SD_PATH_USER_RUNTIME && r == -ENXIO)
                         continue;
-                assert_se(r == 0);
-                assert_se(t);
+                ASSERT_EQ(r, 0);
+                ASSERT_TRUE(t);
                 log_info("%02"PRIu64": \"%s\"", i, t);
 
                 assert_se(sd_path_lookup(i, "suffix", &s) == 0);
-                assert_se(s);
+                ASSERT_TRUE(s);
                 log_info("%02"PRIu64": \"%s\"", i, s);
                 assert_se(endswith(s, "/suffix"));
         }
@@ -37,14 +37,14 @@ TEST(sd_path_lookup_strv) {
                 r = sd_path_lookup_strv(i, NULL, &t);
                 if (i == SD_PATH_USER_RUNTIME && r == -ENXIO)
                         continue;
-                assert_se(r == 0);
-                assert_se(t);
+                ASSERT_EQ(r, 0);
+                ASSERT_TRUE(t);
                 log_info("%02"PRIu64":", i);
                 STRV_FOREACH(item, t)
                         log_debug("  %s", *item);
 
                 assert_se(sd_path_lookup_strv(i, "suffix", &s) == 0);
-                assert_se(s);
+                ASSERT_TRUE(s);
                 log_info("%02"PRIu64":", i);
                 STRV_FOREACH(item, s) {
                         assert_se(endswith(*item, "/suffix"));

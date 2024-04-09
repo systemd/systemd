@@ -15,7 +15,7 @@ TEST(is_valid_documentation_url) {
 
         assert_se(!documentation_url_is_valid("foo:"));
         assert_se(!documentation_url_is_valid("info:"));
-        assert_se(!documentation_url_is_valid(""));
+        ASSERT_FALSE(documentation_url_is_valid(""));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

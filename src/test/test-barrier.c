@@ -72,7 +72,7 @@ static void set_alarm(usec_t usecs) {
                         int pidr, status;                               \
                         pidr = waitpid(_pid, &status, 0);               \
                         ASSERT_EQ(pidr, _pid);                          \
-                        assert_se(WIFEXITED(status));                   \
+                        ASSERT_TRUE(WIFEXITED(status));                   \
                         ASSERT_EQ(WEXITSTATUS(status), 42);             \
                 })
 
@@ -81,7 +81,7 @@ static void set_alarm(usec_t usecs) {
                         int pidr, status;                               \
                         pidr = waitpid(_pid, &status, 0);               \
                         ASSERT_EQ(pidr, _pid);                          \
-                        assert_se(WIFSIGNALED(status));                 \
+                        ASSERT_TRUE(WIFSIGNALED(status));                 \
                         assert_se(WTERMSIG(status) == SIGALRM);         \
                 })
 
@@ -148,7 +148,7 @@ TEST_BARRIER(barrier_wait_next_twice,
                 set_alarm(BASE_TIME);
                 assert_se(barrier_wait_next(&b));
                 assert_se(barrier_wait_next(&b));
-                assert_se(0);
+                ASSERT_TRUE(0);
         }),
         TEST_BARRIER_WAIT_ALARM(pid1),
         ({
@@ -173,7 +173,7 @@ TEST_BARRIER(barrier_wait_next_twice_local,
                 assert_se(barrier_place(&b));
                 assert_se(barrier_place(&b));
                 assert_se(barrier_wait_next(&b));
-                assert_se(0);
+                ASSERT_TRUE(0);
         }),
         TEST_BARRIER_WAIT_ALARM(pid1),
         ({
@@ -264,7 +264,7 @@ TEST_BARRIER(barrier_sync_next_local,
                 set_alarm(BASE_TIME);
                 assert_se(barrier_place(&b));
                 assert_se(barrier_sync_next(&b));
-                assert_se(0);
+                ASSERT_TRUE(0);
         }),
         TEST_BARRIER_WAIT_ALARM(pid1),
         ({
@@ -313,7 +313,7 @@ TEST_BARRIER(barrier_wait_abortion_unmatched,
         ({
                 set_alarm(BASE_TIME);
                 assert_se(barrier_wait_abortion(&b));
-                assert_se(0);
+                ASSERT_TRUE(0);
         }),
         TEST_BARRIER_WAIT_ALARM(pid1),
         ({
@@ -346,7 +346,7 @@ TEST_BARRIER(barrier_wait_abortion_local_unmatched,
                 set_alarm(BASE_TIME);
                 assert_se(barrier_abort(&b));
                 assert_se(!barrier_wait_abortion(&b));
-                assert_se(0);
+                ASSERT_TRUE(0);
         }),
         TEST_BARRIER_WAIT_ALARM(pid1),
         ({
