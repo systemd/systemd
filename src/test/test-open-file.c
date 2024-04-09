@@ -177,9 +177,8 @@ TEST(open_file_to_string) {
         of->flags = 0;
 
         r = open_file_to_string(of, &s);
-
         assert_se(r >= 0);
-        assert_se(streq(s, "/path\\:with\\:colon"));
+        assert_se(streq(s, "/path\\x3Awith\\x3Acolon"));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
