@@ -375,8 +375,6 @@ static int dhcp_pd_request_address(
                 usec_t lifetime_preferred_usec,
                 usec_t lifetime_valid_usec) {
 
-        _cleanup_set_free_ Set *addresses = NULL;
-        struct in6_addr *a;
         int r;
 
         assert(link);
@@ -386,11 +384,14 @@ static int dhcp_pd_request_address(
         if (!link->network->dhcp_pd_assign)
                 return 0;
 
-        r = dhcp_pd_generate_addresses(link, prefix, &addresses);
+        _cleanup_hashmap_free_ Hashmap *tokens_by_address = NULL;
+        r = dhcp_pd_generate_addresses(link, prefix, &tokens_by_address);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to generate addresses for acquired DHCP delegated prefix: %m");
 
-        SET_FOREACH(a, addresses) {
+        IPv6Token *token;
+        struct in6_addr *a;
+        HASHMAP_FOREACH_KEY(token, a, tokens_by_address) {
                 _cleanup_(address_unrefp) Address *address = NULL;
 
                 r = address_new(&address);
@@ -405,6 +406,7 @@ static int dhcp_pd_request_address(
                 address->lifetime_valid_usec = lifetime_valid_usec;
                 SET_FLAG(address->flags, IFA_F_MANAGETEMPADDR, link->network->dhcp_pd_manage_temporary_address);
                 address->route_metric = link->network->dhcp_pd_route_metric;
+                address->token = ipv6_token_ref(token);
 
                 r = free_and_strdup_warn(&address->netlabel, link->network->dhcp_pd_netlabel);
                 if (r < 0)
