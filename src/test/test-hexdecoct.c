@@ -29,9 +29,9 @@ TEST(base32hexchar) {
 
 TEST(unbase32hexchar) {
         ASSERT_EQ(unbase32hexchar('0'), 0);
-        assert_se(unbase32hexchar('9') == 9);
-        assert_se(unbase32hexchar('A') == 10);
-        assert_se(unbase32hexchar('V') == 31);
+        ASSERT_EQ(unbase32hexchar('9'), 9);
+        ASSERT_EQ(unbase32hexchar('A'), 10);
+        ASSERT_EQ(unbase32hexchar('V'), 31);
         assert_se(unbase32hexchar('=') == -EINVAL);
 }
 
@@ -43,11 +43,11 @@ TEST(base64char) {
 
 TEST(unbase64char) {
         ASSERT_EQ(unbase64char('A'), 0);
-        assert_se(unbase64char('Z') == 25);
-        assert_se(unbase64char('a') == 26);
-        assert_se(unbase64char('z') == 51);
-        assert_se(unbase64char('0') == 52);
-        assert_se(unbase64char('9') == 61);
+        ASSERT_EQ(unbase64char('Z'), 25);
+        ASSERT_EQ(unbase64char('a'), 26);
+        ASSERT_EQ(unbase64char('z'), 51);
+        ASSERT_EQ(unbase64char('0'), 52);
+        ASSERT_EQ(unbase64char('9'), 61);
         assert_se(unbase64char('+') == 62);
         assert_se(unbase64char('/') == 63);
         assert_se(unbase64char('=') == -EINVAL);
@@ -59,8 +59,8 @@ TEST(octchar) {
 }
 
 TEST(unoctchar) {
-        assert_se(unoctchar('0') == 00);
-        assert_se(unoctchar('7') == 07);
+        ASSERT_EQ(unoctchar('0'), 00);
+        ASSERT_EQ(unoctchar('7'), 07);
 }
 
 TEST(decchar) {
@@ -70,7 +70,7 @@ TEST(decchar) {
 
 TEST(undecchar) {
         ASSERT_EQ(undecchar('0'), 0);
-        assert_se(undecchar('9') == 9);
+        ASSERT_EQ(undecchar('9'), 9);
 }
 
 static void test_hexmem_one(const char *in, const char *expected) {

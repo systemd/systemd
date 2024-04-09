@@ -53,7 +53,7 @@ TEST(PROTECT_ERRNO) {
                 PROTECT_ERRNO;
                 errno = 11;
         }
-        assert_se(errno == 12);
+        ASSERT_EQ(errno, 12);
 }
 
 static void test_unprotect_errno_inner_function(void) {
@@ -71,11 +71,11 @@ TEST(UNPROTECT_ERRNO) {
 
         UNPROTECT_ERRNO;
 
-        assert_se(errno == 4711);
+        ASSERT_EQ(errno, 4711);
 
         test_unprotect_errno_inner_function();
 
-        assert_se(errno == 4711);
+        ASSERT_EQ(errno, 4711);
 }
 
 TEST(RET_GATHER) {
@@ -86,7 +86,7 @@ TEST(RET_GATHER) {
         assert_se(RET_GATHER(x, -1) == -5);
 
         assert_se(RET_GATHER(x, y++) == -5);
-        assert_se(y == 3);
+        ASSERT_EQ(y, 3);
 }
 
 TEST(ERRNO_IS_TRANSIENT) {

@@ -56,7 +56,7 @@ TEST(parse_ip_protocol) {
         assert_se(parse_ip_protocol("ScTp") == IPPROTO_SCTP);
         assert_se(parse_ip_protocol("ip") == IPPROTO_IP);
         assert_se(parse_ip_protocol("") == IPPROTO_IP);
-        assert_se(parse_ip_protocol("1") == 1);
+        ASSERT_EQ(parse_ip_protocol("1"), 1);
         ASSERT_EQ(parse_ip_protocol("0"), 0);
         assert_se(parse_ip_protocol("-10") == -ERANGE);
         assert_se(parse_ip_protocol("100000000") == -EPROTONOSUPPORT);

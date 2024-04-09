@@ -148,7 +148,7 @@ TEST(set_make_nulstr) {
 
                 r = set_make_nulstr(set, &nulstr, &len);
                 ASSERT_EQ(r, 0);
-                assert_se(len == 4);
+                ASSERT_EQ(len, 4u);
                 assert_se(memcmp(expect, nulstr, len + 1) == 0);
         }
 }

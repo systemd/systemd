@@ -276,9 +276,9 @@ TEST(unlinkat_deallocate) {
         assert_se(write(fd, "hallo\n", 6) == 6);
 
         assert_se(fstat(fd, &st) >= 0);
-        assert_se(st.st_size == 6);
+        ASSERT_EQ(st.st_size, 6);
         ASSERT_GT(st.st_blocks, 0);
-        assert_se(st.st_nlink == 1);
+        ASSERT_EQ(st.st_nlink, 1u);
 
         assert_se(unlinkat_deallocate(AT_FDCWD, p, UNLINK_ERASE) >= 0);
 

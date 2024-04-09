@@ -121,7 +121,7 @@ TEST(memdup_multiply_and_greedy_realloc) {
 
         p = GREEDY_REALLOC0(dup, 10);
         assert_se(p == dup);
-        assert_se(MALLOC_ELEMENTSOF(p) >= 10);
+        ASSERT_GE(MALLOC_ELEMENTSOF(p), 10u);
         assert_se(p[0] == 1);
         assert_se(p[1] == 2);
         assert_se(p[2] == 3);

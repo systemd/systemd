@@ -351,27 +351,27 @@ static void test_config_parse_one(unsigned i, const char *s) {
 
         switch (i) {
         case 0 ... 4:
-                assert_se(r == 1);
+                ASSERT_EQ(r, 1);
                 assert_se(streq(setting1, "1"));
                 break;
 
         case 5 ... 10:
-                assert_se(r == 1);
+                ASSERT_EQ(r, 1);
                 assert_se(streq(setting1, "1 2 3"));
                 break;
 
         case 11:
-                assert_se(r == 1);
+                ASSERT_EQ(r, 1);
                 assert_se(streq(setting1, "1\\\\ \\\\2"));
                 break;
 
         case 12:
-                assert_se(r == 1);
+                ASSERT_EQ(r, 1);
                 assert_se(streq(setting1, x1000("ABCD")));
                 break;
 
         case 13 ... 14:
-                assert_se(r == 1);
+                ASSERT_EQ(r, 1);
                 assert_se(streq(setting1, x1000("ABCD") " foobar"));
                 break;
 
@@ -381,7 +381,7 @@ static void test_config_parse_one(unsigned i, const char *s) {
                 break;
 
         case 17:
-                assert_se(r == 1);
+                ASSERT_EQ(r, 1);
                 assert_se(streq(setting1, "2"));
                 break;
         }
@@ -456,7 +456,7 @@ TEST(config_parse_standard_file_with_dropins_full) {
         D = mfree(D);
         E = mfree(E);
 
-        assert_se(strv_length(dropins) == 4);
+        ASSERT_EQ(strv_length(dropins), 4u);
 
         /* Make sure that we follow symlinks */
         assert_se(mkdir_p_root(root, "/etc/kernel/install2.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));

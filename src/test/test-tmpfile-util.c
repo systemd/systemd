@@ -28,7 +28,7 @@ static void test_tempfn_random_one(const char *p, const char *extra, const char 
 
                 assert_se(suffix = startswith(s, expect));
                 assert_se(in_charset(suffix, HEXDIGITS));
-                assert_se(strlen(suffix) == 16);
+                ASSERT_EQ(strlen(suffix), 16u);
         }
         assert_se(ret == r);
 }
@@ -183,7 +183,7 @@ static void test_tempfn_random_child_one(const char *p, const char *extra, const
 
                 assert_se(suffix = startswith(s, expect));
                 assert_se(in_charset(suffix, HEXDIGITS));
-                assert_se(strlen(suffix) == 16);
+                ASSERT_EQ(strlen(suffix), 16u);
         }
         assert_se(ret == r);
 }

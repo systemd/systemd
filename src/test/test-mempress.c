@@ -298,7 +298,7 @@ TEST(real_pressure) {
         ASSERT_OK(sd_event_loop(e));
         int ex = 0;
         assert_se(sd_event_get_exit_code(e, &ex) >= 0);
-        assert_se(ex == 31);
+        ASSERT_EQ(ex, 31);
 }
 
 static int outro(void) {

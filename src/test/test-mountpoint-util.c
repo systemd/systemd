@@ -228,12 +228,12 @@ TEST(path_is_mount_point) {
 
                 ASSERT_EQ(umount(file2), 0);
 
-                assert_se(rf == 1);
-                assert_se(rt == 1);
+                ASSERT_EQ(rf, 1);
+                ASSERT_EQ(rt, 1);
                 assert_se(rdf == -ENOTDIR);
                 assert_se(rdt == -ENOTDIR);
                 ASSERT_EQ(rlf, 0);
-                assert_se(rlt == 1);
+                ASSERT_EQ(rlt, 1);
 
                 /* dirs */
                 dir2file = path_join(dir2, "file");
@@ -257,10 +257,10 @@ TEST(path_is_mount_point) {
 
                 ASSERT_EQ(umount(dir1), 0);
 
-                assert_se(rf == 1);
-                assert_se(rt == 1);
+                ASSERT_EQ(rf, 1);
+                ASSERT_EQ(rt, 1);
                 ASSERT_EQ(rlf, 0);
-                assert_se(rlt == 1);
+                ASSERT_EQ(rlt, 1);
                 ASSERT_EQ(rl1f, 0);
                 ASSERT_EQ(rl1t, 0);
 
