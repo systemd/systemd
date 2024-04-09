@@ -11,7 +11,7 @@ static void test_should_pass(const char *p) {
 
         log_info("Test: %s", p);
         assert_se(parse_timestamp(p, &t) >= 0);
-        assert_se(format_timestamp_style(buf, sizeof(buf), t, TIMESTAMP_US));
+        ASSERT_TRUE(format_timestamp_style(buf, sizeof(buf), t, TIMESTAMP_US));
         log_info("\"%s\" → \"%s\"", p, buf);
 
         assert_se(parse_timestamp(buf, &q) >= 0);
@@ -20,7 +20,7 @@ static void test_should_pass(const char *p) {
                           buf, FORMAT_TIMESTAMP_STYLE(q, TIMESTAMP_US));
         assert_se(q == t);
 
-        assert_se(format_timestamp_relative(buf_relative, sizeof(buf_relative), t));
+        ASSERT_TRUE(format_timestamp_relative(buf_relative, sizeof(buf_relative), t));
         log_info("%s", strna(buf_relative));
 }
 
@@ -42,7 +42,7 @@ static void test_should_fail(const char *p) {
                 log_info("\"%s\" → \"@%" PRI_USEC "\" (unexpected)", p, t);
         else
                 log_info("parse_timestamp() returns %d (expected)", r);
-        assert_se(r < 0);
+        ASSERT_LT(r, 0);
 }
 
 static void test_one(const char *p) {
@@ -63,7 +63,7 @@ static void test_one_noutc(const char *p) {
 
 int main(int argc, char *argv[]) {
         /* Tests have hard-coded results that do not expect a specific timezone to be set by the caller */
-        assert_se(unsetenv("TZ") >= 0);
+        ASSERT_OK(unsetenv("TZ"));
 
         test_setup_logging(LOG_DEBUG);
 

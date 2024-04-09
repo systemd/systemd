@@ -10,7 +10,7 @@ TEST(open_file_parse) {
 
         r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace:read-only", &of);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq(of->path, "/proc/1/ns/mnt"));
         assert_se(streq(of->fdname, "host-mount-namespace"));
         assert_se(of->flags == OPENFILE_READ_ONLY);
@@ -18,7 +18,7 @@ TEST(open_file_parse) {
         of = open_file_free(of);
         r = open_file_parse("/proc/1/ns/mnt", &of);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq(of->path, "/proc/1/ns/mnt"));
         assert_se(streq(of->fdname, "mnt"));
         assert_se(of->flags == 0);
@@ -26,7 +26,7 @@ TEST(open_file_parse) {
         of = open_file_free(of);
         r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace", &of);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq(of->path, "/proc/1/ns/mnt"));
         assert_se(streq(of->fdname, "host-mount-namespace"));
         assert_se(of->flags == 0);
@@ -34,7 +34,7 @@ TEST(open_file_parse) {
         of = open_file_free(of);
         r = open_file_parse("/proc/1/ns/mnt::read-only", &of);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq(of->path, "/proc/1/ns/mnt"));
         assert_se(streq(of->fdname, "mnt"));
         assert_se(of->flags == OPENFILE_READ_ONLY);
@@ -52,7 +52,7 @@ TEST(open_file_parse) {
         of = open_file_free(of);
         r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace:append", &of);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq(of->path, "/proc/1/ns/mnt"));
         assert_se(streq(of->fdname, "host-mount-namespace"));
         assert_se(of->flags == OPENFILE_APPEND);
@@ -60,7 +60,7 @@ TEST(open_file_parse) {
         of = open_file_free(of);
         r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace:truncate", &of);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq(of->path, "/proc/1/ns/mnt"));
         assert_se(streq(of->fdname, "host-mount-namespace"));
         assert_se(of->flags == OPENFILE_TRUNCATE);
@@ -88,7 +88,7 @@ TEST(open_file_parse) {
         of = open_file_free(of);
         r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace:graceful", &of);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq(of->path, "/proc/1/ns/mnt"));
         assert_se(streq(of->fdname, "host-mount-namespace"));
         assert_se(of->flags == OPENFILE_GRACEFUL);
@@ -96,7 +96,7 @@ TEST(open_file_parse) {
         of = open_file_free(of);
         r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace:read-only,graceful", &of);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq(of->path, "/proc/1/ns/mnt"));
         assert_se(streq(of->fdname, "host-mount-namespace"));
         assert_se(of->flags == (OPENFILE_READ_ONLY | OPENFILE_GRACEFUL));
@@ -119,7 +119,7 @@ TEST(open_file_to_string) {
 
         r = open_file_to_string(of, &s);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq(s, "/proc/1/ns/mnt:host-mount-namespace:read-only"));
 
         s = mfree(s);
@@ -127,7 +127,7 @@ TEST(open_file_to_string) {
 
         r = open_file_to_string(of, &s);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq(s, "/proc/1/ns/mnt:host-mount-namespace:append"));
 
         s = mfree(s);
@@ -135,7 +135,7 @@ TEST(open_file_to_string) {
 
         r = open_file_to_string(of, &s);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq(s, "/proc/1/ns/mnt:host-mount-namespace:truncate"));
 
         s = mfree(s);
@@ -143,7 +143,7 @@ TEST(open_file_to_string) {
 
         r = open_file_to_string(of, &s);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq(s, "/proc/1/ns/mnt:host-mount-namespace:graceful"));
 
         s = mfree(s);
@@ -151,7 +151,7 @@ TEST(open_file_to_string) {
 
         r = open_file_to_string(of, &s);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq(s, "/proc/1/ns/mnt:host-mount-namespace:read-only,graceful"));
 
         s = mfree(s);
@@ -159,7 +159,7 @@ TEST(open_file_to_string) {
 
         r = open_file_to_string(of, &s);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq(s, "/proc/1/ns/mnt:host-mount-namespace"));
 
         s = mfree(s);
@@ -168,7 +168,7 @@ TEST(open_file_to_string) {
 
         r = open_file_to_string(of, &s);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq(s, "/proc/1/ns/mnt::read-only"));
 
         s = mfree(s);
@@ -178,7 +178,7 @@ TEST(open_file_to_string) {
 
         r = open_file_to_string(of, &s);
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq(s, "/path\\:with\\:colon"));
 }
 

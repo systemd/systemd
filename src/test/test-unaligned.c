@@ -160,9 +160,9 @@ TEST(ne) {
         unaligned_write_ne32(&y, 2);
         unaligned_write_ne64(&z, 3);
 
-        assert_se(x == 1);
-        assert_se(y == 2);
-        assert_se(z == 3);
+        ASSERT_EQ(x, 1);
+        ASSERT_EQ(y, 2u);
+        ASSERT_EQ(z, 3u);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

@@ -8,9 +8,9 @@ static void test_in_addr_prefix_to_string_one(int f, const char *addr, unsigned 
         assert_se(in_addr_from_string(f, addr, &ua) >= 0);
 
         const char *r = IN_ADDR_PREFIX_TO_STRING(f, &ua, prefixlen);
-        assert_se(r);
+        ASSERT_TRUE(r);
         printf("%s: %s/%u == %s\n", __func__, addr, prefixlen, r);
-        assert_se(startswith(r, addr));
+        ASSERT_TRUE(startswith(r, addr));
 
         assert_se(streq(r, IN_ADDR_PREFIX_TO_STRING(f, &ua, prefixlen)));
         assert_se(streq(IN_ADDR_PREFIX_TO_STRING(f, &ua, prefixlen), r));
@@ -31,12 +31,12 @@ TEST(in_addr_to_string_prefix) {
 
 static void test_config_parse_in_addr_prefixes_one(int family, const union in_addr_union *addr, uint8_t prefixlen, Set **prefixes) {
         const char *str = IN_ADDR_PREFIX_TO_STRING(family, addr, prefixlen);
-        assert_se(str);
+        ASSERT_TRUE(str);
 
-        assert_se(config_parse_in_addr_prefixes("unit", "filename", 1, "Service", 1, "IPAddressAllow", 0, str, prefixes, NULL) >= 0);
+        ASSERT_OK(config_parse_in_addr_prefixes("unit", "filename", 1, "Service", 1, "IPAddressAllow", 0, str, prefixes, NULL));
 
-        assert_se(streq(str, IN_ADDR_PREFIX_TO_STRING(family, addr, prefixlen)));
-        assert_se(streq(IN_ADDR_PREFIX_TO_STRING(family, addr, prefixlen), str));
+        ASSERT_TRUE(streq(str, IN_ADDR_PREFIX_TO_STRING(family, addr, prefixlen)));
+        ASSERT_TRUE(streq(IN_ADDR_PREFIX_TO_STRING(family, addr, prefixlen), str));
 }
 
 static void test_config_parse_in_addr_prefixes(Set **ret) {
@@ -80,35 +80,35 @@ static void test_in_addr_prefixes_reduce(Set *prefixes) {
         log_info("/* %s() */", __func__);
 
         assert_se(set_size(prefixes) == 2 * 256 * 257);
-        assert_se(!in_addr_prefixes_is_any(prefixes));
+        ASSERT_FALSE(in_addr_prefixes_is_any(prefixes));
 
-        assert_se(in_addr_prefixes_reduce(prefixes) >= 0);
+        ASSERT_OK(in_addr_prefixes_reduce(prefixes));
         assert_se(set_size(prefixes) == 2 * 256);
-        assert_se(!in_addr_prefixes_is_any(prefixes));
+        ASSERT_FALSE(in_addr_prefixes_is_any(prefixes));
 
         assert_se(config_parse_in_addr_prefixes("unit", "filename", 1, "Service", 1, "IPAddressAllow", 0, "link-local", &prefixes, NULL) == 0);
         assert_se(set_size(prefixes) == 2 * 256 + 2);
-        assert_se(!in_addr_prefixes_is_any(prefixes));
+        ASSERT_FALSE(in_addr_prefixes_is_any(prefixes));
 
-        assert_se(in_addr_prefixes_reduce(prefixes) >= 0);
+        ASSERT_OK(in_addr_prefixes_reduce(prefixes));
         assert_se(set_size(prefixes) == 256 + 2);
-        assert_se(!in_addr_prefixes_is_any(prefixes));
+        ASSERT_FALSE(in_addr_prefixes_is_any(prefixes));
 
         assert_se(config_parse_in_addr_prefixes("unit", "filename", 1, "Service", 1, "IPAddressAllow", 0, "multicast", &prefixes, NULL) == 0);
         assert_se(set_size(prefixes) == 256 + 4);
-        assert_se(!in_addr_prefixes_is_any(prefixes));
+        ASSERT_FALSE(in_addr_prefixes_is_any(prefixes));
 
-        assert_se(in_addr_prefixes_reduce(prefixes) >= 0);
-        assert_se(set_size(prefixes) == 4);
-        assert_se(!in_addr_prefixes_is_any(prefixes));
+        ASSERT_OK(in_addr_prefixes_reduce(prefixes));
+        ASSERT_EQ(set_size(prefixes), 4u);
+        ASSERT_FALSE(in_addr_prefixes_is_any(prefixes));
 
         assert_se(config_parse_in_addr_prefixes("unit", "filename", 1, "Service", 1, "IPAddressAllow", 0, "any", &prefixes, NULL) == 0);
-        assert_se(set_size(prefixes) == 6);
-        assert_se(in_addr_prefixes_is_any(prefixes));
+        ASSERT_EQ(set_size(prefixes), 6u);
+        ASSERT_TRUE(in_addr_prefixes_is_any(prefixes));
 
-        assert_se(in_addr_prefixes_reduce(prefixes) >= 0);
-        assert_se(set_size(prefixes) == 2);
-        assert_se(in_addr_prefixes_is_any(prefixes));
+        ASSERT_OK(in_addr_prefixes_reduce(prefixes));
+        ASSERT_EQ(set_size(prefixes), 2u);
+        ASSERT_TRUE(in_addr_prefixes_is_any(prefixes));
 }
 
 TEST(in_addr_prefixes) {

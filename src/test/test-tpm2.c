@@ -7,40 +7,40 @@
 #include "virt.h"
 
 TEST(tpm2_pcr_index_from_string) {
-        assert_se(tpm2_pcr_index_from_string("platform-code") == 0);
-        assert_se(tpm2_pcr_index_from_string("0") == 0);
+        ASSERT_EQ(tpm2_pcr_index_from_string("platform-code"), 0);
+        ASSERT_EQ(tpm2_pcr_index_from_string("0"), 0);
         assert_se(tpm2_pcr_index_from_string("platform-config") == 1);
-        assert_se(tpm2_pcr_index_from_string("1") == 1);
+        ASSERT_EQ(tpm2_pcr_index_from_string("1"), 1);
         assert_se(tpm2_pcr_index_from_string("external-code") == 2);
-        assert_se(tpm2_pcr_index_from_string("2") == 2);
+        ASSERT_EQ(tpm2_pcr_index_from_string("2"), 2);
         assert_se(tpm2_pcr_index_from_string("external-config") == 3);
-        assert_se(tpm2_pcr_index_from_string("3") == 3);
+        ASSERT_EQ(tpm2_pcr_index_from_string("3"), 3);
         assert_se(tpm2_pcr_index_from_string("boot-loader-code") == 4);
-        assert_se(tpm2_pcr_index_from_string("4") == 4);
+        ASSERT_EQ(tpm2_pcr_index_from_string("4"), 4);
         assert_se(tpm2_pcr_index_from_string("boot-loader-config") == 5);
-        assert_se(tpm2_pcr_index_from_string("5") == 5);
+        ASSERT_EQ(tpm2_pcr_index_from_string("5"), 5);
         assert_se(tpm2_pcr_index_from_string("secure-boot-policy") == 7);
-        assert_se(tpm2_pcr_index_from_string("7") == 7);
+        ASSERT_EQ(tpm2_pcr_index_from_string("7"), 7);
         assert_se(tpm2_pcr_index_from_string("kernel-initrd") == 9);
-        assert_se(tpm2_pcr_index_from_string("9") == 9);
-        assert_se(tpm2_pcr_index_from_string("ima") == 10);
-        assert_se(tpm2_pcr_index_from_string("10") == 10);
+        ASSERT_EQ(tpm2_pcr_index_from_string("9"), 9);
+        ASSERT_EQ(tpm2_pcr_index_from_string("ima"), 10);
+        ASSERT_EQ(tpm2_pcr_index_from_string("10"), 10);
         assert_se(tpm2_pcr_index_from_string("kernel-boot") == 11);
-        assert_se(tpm2_pcr_index_from_string("11") == 11);
+        ASSERT_EQ(tpm2_pcr_index_from_string("11"), 11);
         assert_se(tpm2_pcr_index_from_string("kernel-config") == 12);
-        assert_se(tpm2_pcr_index_from_string("12") == 12);
-        assert_se(tpm2_pcr_index_from_string("sysexts") == 13);
-        assert_se(tpm2_pcr_index_from_string("13") == 13);
+        ASSERT_EQ(tpm2_pcr_index_from_string("12"), 12);
+        ASSERT_EQ(tpm2_pcr_index_from_string("sysexts"), 13);
+        ASSERT_EQ(tpm2_pcr_index_from_string("13"), 13);
         assert_se(tpm2_pcr_index_from_string("shim-policy") == 14);
-        assert_se(tpm2_pcr_index_from_string("14") == 14);
+        ASSERT_EQ(tpm2_pcr_index_from_string("14"), 14);
         assert_se(tpm2_pcr_index_from_string("system-identity") == 15);
-        assert_se(tpm2_pcr_index_from_string("15") == 15);
-        assert_se(tpm2_pcr_index_from_string("debug") == 16);
-        assert_se(tpm2_pcr_index_from_string("16") == 16);
+        ASSERT_EQ(tpm2_pcr_index_from_string("15"), 15);
+        ASSERT_EQ(tpm2_pcr_index_from_string("debug"), 16);
+        ASSERT_EQ(tpm2_pcr_index_from_string("16"), 16);
         assert_se(tpm2_pcr_index_from_string("application-support") == 23);
-        assert_se(tpm2_pcr_index_from_string("23") == 23);
+        ASSERT_EQ(tpm2_pcr_index_from_string("23"), 23);
         assert_se(tpm2_pcr_index_from_string("hello") == -EINVAL);
-        assert_se(tpm2_pcr_index_from_string("8") == 8);
+        ASSERT_EQ(tpm2_pcr_index_from_string("8"), 8);
         assert_se(tpm2_pcr_index_from_string("44") == -EINVAL);
         assert_se(tpm2_pcr_index_from_string("-5") == -EINVAL);
         assert_se(tpm2_pcr_index_from_string("24") == -EINVAL);
@@ -82,7 +82,7 @@ TEST(tpm2_util_pbkdf2_hmac_sha256) {
                                 test_vectors[i].salt,
                                 test_vectors[i].saltlen,
                                 res);
-                assert_se(rc == 0);
+                ASSERT_EQ(rc, 0);
                 assert_se(memcmp(test_vectors[i].expected, res, SHA256_DIGEST_SIZE) == 0);
         }
 }
@@ -100,8 +100,8 @@ TEST(tpm2_util_pbkdf2_hmac_sha256) {
 #define POISON_U32  POISON(uint32_t)
 
 static void assert_tpms_pcr_selection_eq(TPMS_PCR_SELECTION *a, TPMS_PCR_SELECTION *b) {
-        assert_se(a);
-        assert_se(b);
+        ASSERT_TRUE(a);
+        ASSERT_TRUE(b);
 
         assert_se(a->hash == b->hash);
         assert_se(a->sizeofSelect == b->sizeofSelect);
@@ -111,8 +111,8 @@ static void assert_tpms_pcr_selection_eq(TPMS_PCR_SELECTION *a, TPMS_PCR_SELECTI
 }
 
 static void assert_tpml_pcr_selection_eq(TPML_PCR_SELECTION *a, TPML_PCR_SELECTION *b) {
-        assert_se(a);
-        assert_se(b);
+        ASSERT_TRUE(a);
+        ASSERT_TRUE(b);
 
         assert_se(a->count == b->count);
         for (size_t i = 0; i < a->count; i++)
@@ -199,7 +199,7 @@ static void _test_tpms_sw(
         tpm2_tpms_pcr_selection_from_mask(mask, hash, &s);
 
         _cleanup_free_ char *tpms_str = tpm2_tpms_pcr_selection_to_string(&s);
-        assert_se(streq(tpms_str, expected_str));
+        ASSERT_TRUE(streq(tpms_str, expected_str));
 
         assert_se(tpm2_tpms_pcr_selection_weight(&s) == expected_weight);
         assert_se(tpm2_tpms_pcr_selection_is_empty(&s) == (expected_weight == 0));
@@ -242,7 +242,7 @@ static void _test_tpml_sw(
         assert_se(l.count == expected_count);
 
         _cleanup_free_ char *tpml_str = tpm2_tpml_pcr_selection_to_string(&l);
-        assert_se(streq(tpml_str, expected_str));
+        ASSERT_TRUE(streq(tpml_str, expected_str));
 
         assert_se(tpm2_tpml_pcr_selection_weight(&l) == expected_weight);
         assert_se(tpm2_tpml_pcr_selection_is_empty(&l) == (expected_weight == 0));
@@ -426,11 +426,11 @@ TEST(tpml_pcr_selection_add_sub) {
 static bool digest_check(const TPM2B_DIGEST *digest, const char *expect) {
         _cleanup_free_ char *h = NULL;
 
-        assert_se(digest);
-        assert_se(expect);
+        ASSERT_TRUE(digest);
+        ASSERT_TRUE(expect);
 
         h = hexmem(digest->buffer, digest->size);
-        assert_se(h);
+        ASSERT_TRUE(h);
 
         return strcaseeq(expect, h);
 }
@@ -441,11 +441,11 @@ static void digest_init(TPM2B_DIGEST *digest, const char *hash) {
         DEFINE_HEX_PTR(h, hash);
 
         /* Make sure the length matches a known hash algorithm */
-        assert_se(IN_SET(h_len, TPM2_SHA1_DIGEST_SIZE, TPM2_SHA256_DIGEST_SIZE, TPM2_SHA384_DIGEST_SIZE, TPM2_SHA512_DIGEST_SIZE));
+        ASSERT_TRUE(IN_SET(h_len, TPM2_SHA1_DIGEST_SIZE, TPM2_SHA256_DIGEST_SIZE, TPM2_SHA384_DIGEST_SIZE, TPM2_SHA512_DIGEST_SIZE));
 
         *digest = TPM2B_DIGEST_MAKE(h, h_len);
 
-        assert_se(digest_check(digest, hash));
+        ASSERT_TRUE(digest_check(digest, hash));
 }
 
 TEST(digest_many) {
@@ -530,7 +530,7 @@ static void check_parse_pcr_argument(
         size_t n_values = 0;
 
         if (n_prev_values > 0) {
-                assert_se(GREEDY_REALLOC_APPEND(values, n_values, prev_values, n_prev_values));
+                ASSERT_TRUE(GREEDY_REALLOC_APPEND(values, n_values, prev_values, n_prev_values));
                 assert_se(tpm2_parse_pcr_argument_append(arg, &values, &n_values) == 0);
         } else
                 assert_se(tpm2_parse_pcr_argument(arg, &values, &n_values) == 0);
@@ -563,7 +563,7 @@ static void check_parse_pcr_argument(
 
         size_t old_n_values = n_values;
         assert_se(tpm2_parse_pcr_argument_append("", &values, &n_values) == 0);
-        assert_se(values);
+        ASSERT_TRUE(values);
         assert_se(n_values == old_n_values);
 }
 
@@ -581,14 +581,14 @@ TEST(parse_pcr_argument) {
         _cleanup_free_ Tpm2PCRValue *t0p = NULL;
         size_t n_t0p;
         assert_se(tpm2_parse_pcr_argument("", &t0p, &n_t0p) == 0);
-        assert_se(n_t0p == 0);
+        ASSERT_EQ(n_t0p, 0u);
         assert_se(tpm2_parse_pcr_argument_append("", &t0p, &n_t0p) == 0);
-        assert_se(n_t0p == 0);
+        ASSERT_EQ(n_t0p, 0u);
         uint32_t m0 = 0xf;
         assert_se(tpm2_parse_pcr_argument_to_mask("", &m0) == 0);
-        assert_se(m0 == 0);
+        ASSERT_EQ(m0, 0u);
         assert_se(tpm2_parse_pcr_argument_to_mask("", &m0) == 0);
-        assert_se(m0 == 0);
+        ASSERT_EQ(m0, 0u);
 
         Tpm2PCRValue t1[] = {
                 TPM2_PCR_VALUE_MAKE(0, 0, {}),
@@ -678,8 +678,8 @@ TEST(parse_pcr_argument) {
         assert_se(tpm2_parse_pcr_argument("1,2=123456abc", &v, &n_v) < 0);
         assert_se(tpm2_parse_pcr_argument("1,2:invalid", &v, &n_v) < 0);
         assert_se(tpm2_parse_pcr_argument("1:sha1=invalid", &v, &n_v) < 0);
-        assert_se(v == NULL);
-        assert_se(n_v == 0);
+        ASSERT_NULL(v);
+        ASSERT_EQ(n_v, 0u);
 
         check_parse_pcr_argument_to_mask("", 0x0);
         check_parse_pcr_argument_to_mask("0", 0x1);
@@ -775,9 +775,9 @@ TEST(tpm2b_public_to_openssl_pkey) {
         assert_se(tpm2_tpm2b_public_to_openssl_pkey(&public, &pkey_rsa) >= 0);
 
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx_rsa = EVP_PKEY_CTX_new((EVP_PKEY*) pkey_rsa, NULL);
-        assert_se(ctx_rsa);
-        assert_se(EVP_PKEY_verify_init(ctx_rsa) == 1);
-        assert_se(EVP_PKEY_CTX_set_signature_md(ctx_rsa, EVP_sha256()) > 0);
+        ASSERT_TRUE(ctx_rsa);
+        ASSERT_EQ(EVP_PKEY_verify_init(ctx_rsa), 1);
+        ASSERT_GT(EVP_PKEY_CTX_set_signature_md(ctx_rsa, EVP_sha256()), 0);
 
         DEFINE_HEX_PTR(sig_rsa, "9f70a9e68911be3ec464cae91126328307bf355872127e042d6c61e0a80982872c151033bcf727abfae5fc9500c923120011e7ef4aa5fc690a59a034697b6022c141b4b209e2df6f4b282288cd9181073fbe7158ce113c79d87623423c1f3996ff931e59cc91db74f8e8656215b1436fc93ddec0f1f8fa8510826e674b250f047e6cba94c95ff98072a286baca94646b577974a1e00d56c21944e38960d8ee90511a2f938e5cf1ac7b7cc7ff8e3ac001d321254d3e4f988b90e9f6f873c26ecd0a12a626b3474833cdbb9e9f793238f6c97ee5b75a1a89bb7a7858d34ecfa6d34ac58d95085e6c4fbbebd47a4364be2725c2c6b3fa15d916f3c0b62a66fe76ae");
         assert_se(EVP_PKEY_verify(ctx_rsa, sig_rsa, sig_rsa_len, (unsigned char*) msg, msg_len) == 1);
@@ -788,8 +788,8 @@ TEST(tpm2b_public_to_openssl_pkey) {
         assert_se(tpm2_tpm2b_public_to_openssl_pkey(&public, &pkey_ecc) >= 0);
 
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx_ecc = EVP_PKEY_CTX_new((EVP_PKEY*) pkey_ecc, NULL);
-        assert_se(ctx_ecc);
-        assert_se(EVP_PKEY_verify_init(ctx_ecc) == 1);
+        ASSERT_TRUE(ctx_ecc);
+        ASSERT_EQ(EVP_PKEY_verify_init(ctx_ecc), 1);
 
         DEFINE_HEX_PTR(sig_ecc, "304602210092447ac0b5b32e90923f79bb4aba864b9c546a9900cf193a83243d35d189a2110221009a8b4df1dfa85e225eff9c606694d4d205a7a3968c9552f50bc2790209a90001");
         assert_se(EVP_PKEY_verify(ctx_ecc, sig_ecc, sig_ecc_len, (unsigned char*) msg, msg_len) == 1);
@@ -816,7 +816,7 @@ static void check_tpm2b_public_fingerprint(const TPM2B_PUBLIC *public, const cha
         size_t fp_size;
 
         assert_se(tpm2_tpm2b_public_to_fingerprint(public, &fp, &fp_size) >= 0);
-        assert_se(memcmp_nn(fp, fp_size, expected, expected_len) == 0);
+        ASSERT_EQ(memcmp_nn(fp, fp_size, expected, expected_len), 0);
 }
 
 static void check_tpm2b_public_name(const TPM2B_PUBLIC *public, const char *hexname) {
@@ -824,7 +824,7 @@ static void check_tpm2b_public_name(const TPM2B_PUBLIC *public, const char *hexn
         TPM2B_NAME name = {};
 
         assert_se(tpm2_calculate_pubkey_name(&public->publicArea, &name) >= 0);
-        assert_se(memcmp_nn(name.name, name.size, expected, expected_len) == 0);
+        ASSERT_EQ(memcmp_nn(name.name, name.size, expected, expected_len), 0);
 }
 
 static void check_tpm2b_public_from_ecc_pem(const char *pem, const char *hexx, const char *hexy, const char *hexfp, const char *hexname) {
@@ -1040,7 +1040,7 @@ static void check_best_srk_template(Tpm2Context *c) {
         TPMT_PUBLIC template;
         assert_se(tpm2_get_best_srk_template(c, &template) >= 0);
 
-        assert_se(IN_SET(template.type, TPM2_ALG_ECC, TPM2_ALG_RSA));
+        ASSERT_TRUE(IN_SET(template.type, TPM2_ALG_ECC, TPM2_ALG_RSA));
 
         if (template.type == TPM2_ALG_RSA)
                 check_srk_rsa_template(&template);
@@ -1078,13 +1078,13 @@ static void check_supports_alg(Tpm2Context *c) {
         TEST_LOG_FUNC();
 
         /* Test invalid algs */
-        assert_se(!tpm2_supports_alg(c, TPM2_ALG_ERROR));
+        ASSERT_FALSE(tpm2_supports_alg(c, TPM2_ALG_ERROR));
         assert_se(!tpm2_supports_alg(c, TPM2_ALG_LAST + 1));
 
         /* Test valid algs */
-        assert_se(tpm2_supports_alg(c, TPM2_ALG_RSA));
-        assert_se(tpm2_supports_alg(c, TPM2_ALG_AES));
-        assert_se(tpm2_supports_alg(c, TPM2_ALG_CFB));
+        ASSERT_TRUE(tpm2_supports_alg(c, TPM2_ALG_RSA));
+        ASSERT_TRUE(tpm2_supports_alg(c, TPM2_ALG_AES));
+        ASSERT_TRUE(tpm2_supports_alg(c, TPM2_ALG_CFB));
 }
 
 static void check_supports_command(Tpm2Context *c) {
@@ -1094,19 +1094,19 @@ static void check_supports_command(Tpm2Context *c) {
 
         /* Test invalid commands. TPM specification Part 2 ("Structures") section "TPM_CC (Command Codes)"
          * states bits 31:30 and 28:16 are reserved and must be 0. */
-        assert_se(!tpm2_supports_command(c, UINT32_C(0x80000000)));
-        assert_se(!tpm2_supports_command(c, UINT32_C(0x40000000)));
-        assert_se(!tpm2_supports_command(c, UINT32_C(0x00100000)));
-        assert_se(!tpm2_supports_command(c, UINT32_C(0x80000144)));
-        assert_se(!tpm2_supports_command(c, UINT32_C(0x40000144)));
-        assert_se(!tpm2_supports_command(c, UINT32_C(0x00100144)));
+        ASSERT_FALSE(tpm2_supports_command(c, UINT32_C(0x80000000)));
+        ASSERT_FALSE(tpm2_supports_command(c, UINT32_C(0x40000000)));
+        ASSERT_FALSE(tpm2_supports_command(c, UINT32_C(0x00100000)));
+        ASSERT_FALSE(tpm2_supports_command(c, UINT32_C(0x80000144)));
+        ASSERT_FALSE(tpm2_supports_command(c, UINT32_C(0x40000144)));
+        ASSERT_FALSE(tpm2_supports_command(c, UINT32_C(0x00100144)));
 
         /* Test valid commands. We should be able to expect all TPMs support these. */
-        assert_se(tpm2_supports_command(c, TPM2_CC_Startup));
-        assert_se(tpm2_supports_command(c, TPM2_CC_StartAuthSession));
-        assert_se(tpm2_supports_command(c, TPM2_CC_Create));
-        assert_se(tpm2_supports_command(c, TPM2_CC_CreatePrimary));
-        assert_se(tpm2_supports_command(c, TPM2_CC_Unseal));
+        ASSERT_TRUE(tpm2_supports_command(c, TPM2_CC_Startup));
+        ASSERT_TRUE(tpm2_supports_command(c, TPM2_CC_StartAuthSession));
+        ASSERT_TRUE(tpm2_supports_command(c, TPM2_CC_Create));
+        ASSERT_TRUE(tpm2_supports_command(c, TPM2_CC_CreatePrimary));
+        ASSERT_TRUE(tpm2_supports_command(c, TPM2_CC_Unseal));
 }
 
 static void check_get_or_create_srk(Tpm2Context *c) {
@@ -1167,7 +1167,7 @@ static void calculate_seal_and_unseal(
                         &serialized_parent,
                         &unsealed_secret) >= 0);
 
-        assert_se(memcmp_nn(secret_string, secret_size, unsealed_secret.iov_base, unsealed_secret.iov_len) == 0);
+        ASSERT_EQ(memcmp_nn(secret_string, secret_size, unsealed_secret.iov_base, unsealed_secret.iov_len), 0);
 
         char unsealed_string[unsealed_secret.iov_len];
         assert_se(snprintf(unsealed_string, unsealed_secret.iov_len, "%s", (char*) unsealed_secret.iov_base) == (int) unsealed_secret.iov_len - 1);
@@ -1206,7 +1206,7 @@ static int check_calculate_seal(Tpm2Context *c) {
                 r = tpm2_index_from_handle(c, handle, &index);
                 if (r == -EOPNOTSUPP)
                         return log_tests_skipped("libtss2-esys version too old to support tpm2_index_from_handle()");
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 calculate_seal_and_unseal(c, index, public);
         }
@@ -1287,7 +1287,7 @@ static void check_seal_unseal(Tpm2Context *c) {
                         log_tests_skipped("libesys too old for tpm2_index_from_handle");
                         return;
                 }
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 check_seal_unseal_for_handle(c, transient_handle_index);
         }

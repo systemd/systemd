@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
         r = bpf_firewall_compile(u);
         if (IN_SET(r, -ENOTTY, -ENOSYS, -EPERM))
                 return log_tests_skipped("Kernel doesn't support the necessary bpf bits (masked out via seccomp?)");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         CGroupRuntime *crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
         assert_se(crt->ip_bpf_ingress);
@@ -190,7 +190,7 @@ int main(int argc, char *argv[]) {
 
         if (test_custom_filter) {
                 assert_se(u = unit_new(m, sizeof(Service)));
-                assert_se(unit_add_name(u, "custom-filter.service") == 0);
+                ASSERT_EQ(unit_add_name(u, "custom-filter.service"), 0);
                 assert_se(cc = unit_get_cgroup_context(u));
                 u->perpetual = true;
 

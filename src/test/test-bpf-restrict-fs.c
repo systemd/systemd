@@ -19,7 +19,7 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
         int cld_code, r;
 
         assert_se(u = unit_new(m, sizeof(Service)));
-        assert_se(unit_add_name(u, unit_name) == 0);
+        ASSERT_EQ(unit_add_name(u, unit_name), 0);
         assert_se(ec = unit_get_exec_context(u));
 
         STRV_FOREACH(allow_filesystem, allowed_filesystems) {

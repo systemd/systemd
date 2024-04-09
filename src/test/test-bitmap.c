@@ -10,7 +10,7 @@ int main(int argc, const char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         b = bitmap_new();
-        assert_se(b);
+        ASSERT_TRUE(b);
 
         ASSERT_EQ(bitmap_ensure_allocated(&b), 0);
         b = bitmap_free(b);
@@ -81,7 +81,7 @@ int main(int argc, const char *argv[]) {
         ASSERT_EQ(i, UINT_MAX);
 
         b2 = bitmap_copy(b);
-        assert_se(b2);
+        ASSERT_TRUE(b2);
         ASSERT_TRUE(bitmap_equal(b, b2));
         ASSERT_TRUE(bitmap_equal(b, b));
         ASSERT_FALSE(bitmap_equal(b, NULL));
@@ -99,18 +99,18 @@ int main(int argc, const char *argv[]) {
         ASSERT_EQ(bitmap_ensure_allocated(&b), 0);
         ASSERT_EQ(bitmap_ensure_allocated(&b2), 0);
 
-        assert_se(bitmap_equal(b, b2));
+        ASSERT_TRUE(bitmap_equal(b, b2));
         ASSERT_EQ(bitmap_set(b, 0), 0);
         bitmap_unset(b, 0);
-        assert_se(bitmap_equal(b, b2));
+        ASSERT_TRUE(bitmap_equal(b, b2));
 
         ASSERT_EQ(bitmap_set(b, 1), 0);
         bitmap_clear(b);
-        assert_se(bitmap_equal(b, b2));
+        ASSERT_TRUE(bitmap_equal(b, b2));
 
         ASSERT_EQ(bitmap_set(b, 0), 0);
         ASSERT_EQ(bitmap_set(b2, 0), 0);
-        assert_se(bitmap_equal(b, b2));
+        ASSERT_TRUE(bitmap_equal(b, b2));
 
         return 0;
 }

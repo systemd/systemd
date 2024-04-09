@@ -27,8 +27,8 @@ static void test_tempfn_random_one(const char *p, const char *extra, const char 
                 const char *suffix;
 
                 assert_se(suffix = startswith(s, expect));
-                assert_se(in_charset(suffix, HEXDIGITS));
-                assert_se(strlen(suffix) == 16);
+                ASSERT_TRUE(in_charset(suffix, HEXDIGITS));
+                ASSERT_EQ(strlen(suffix), 16u);
         }
         assert_se(ret == r);
 }
@@ -105,7 +105,7 @@ static void test_tempfn_xxxxxx_one(const char *p, const char *extra, const char 
                 const char *suffix;
 
                 assert_se(suffix = startswith(s, expect));
-                assert_se(streq(suffix, "XXXXXX"));
+                ASSERT_TRUE(streq(suffix, "XXXXXX"));
         }
         assert_se(ret == r);
 }
@@ -182,8 +182,8 @@ static void test_tempfn_random_child_one(const char *p, const char *extra, const
                 const char *suffix;
 
                 assert_se(suffix = startswith(s, expect));
-                assert_se(in_charset(suffix, HEXDIGITS));
-                assert_se(strlen(suffix) == 16);
+                ASSERT_TRUE(in_charset(suffix, HEXDIGITS));
+                ASSERT_EQ(strlen(suffix), 16u);
         }
         assert_se(ret == r);
 }
@@ -251,56 +251,56 @@ TEST(link_tmpfile) {
         pattern = strjoina(p, "/systemd-test-XXXXXX");
 
         fd = open_tmpfile_unlinkable(p, O_RDWR|O_CLOEXEC);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         assert_se(asprintf(&cmd, "ls -l /proc/"PID_FMT"/fd/%d", getpid_cached(), fd) > 0);
         (void) system(cmd);
         assert_se(readlink_malloc(cmd + 6, &ans) >= 0);
         log_debug("link1: %s", ans);
-        assert_se(endswith(ans, " (deleted)"));
+        ASSERT_TRUE(endswith(ans, " (deleted)"));
 
         fd2 = mkostemp_safe(pattern);
-        assert_se(fd2 >= 0);
-        assert_se(unlink(pattern) == 0);
+        ASSERT_OK(fd2);
+        ASSERT_EQ(unlink(pattern), 0);
 
         assert_se(asprintf(&cmd2, "ls -l /proc/"PID_FMT"/fd/%d", getpid_cached(), fd2) > 0);
         (void) system(cmd2);
         assert_se(readlink_malloc(cmd2 + 6, &ans2) >= 0);
         log_debug("link2: %s", ans2);
-        assert_se(endswith(ans2, " (deleted)"));
+        ASSERT_TRUE(endswith(ans2, " (deleted)"));
 
         pattern = strjoina(p, "/tmpfiles-test");
         assert_se(tempfn_random(pattern, NULL, &d) >= 0);
 
         fd = safe_close(fd);
         fd = open_tmpfile_linkable(d, O_RDWR|O_CLOEXEC, &tmp);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         assert_se(write(fd, "foobar\n", 7) == 7);
 
-        assert_se(touch(d) >= 0);
+        ASSERT_OK(touch(d));
         assert_se(link_tmpfile(fd, tmp, d, /* flags= */ 0) == -EEXIST);
-        assert_se(unlink(d) >= 0);
+        ASSERT_OK(unlink(d));
         assert_se(link_tmpfile(fd, tmp, d, /* flags= */ 0) >= 0);
 
         assert_se(read_one_line_file(d, &line) >= 0);
-        assert_se(streq(line, "foobar"));
+        ASSERT_TRUE(streq(line, "foobar"));
 
         fd = safe_close(fd);
         tmp = mfree(tmp);
 
         fd = open_tmpfile_linkable(d, O_RDWR|O_CLOEXEC, &tmp);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         assert_se(write(fd, "waumiau\n", 8) == 8);
 
         assert_se(link_tmpfile(fd, tmp, d, /* flags= */ 0) == -EEXIST);
-        assert_se(link_tmpfile(fd, tmp, d, LINK_TMPFILE_REPLACE) >= 0);
+        ASSERT_OK(link_tmpfile(fd, tmp, d, LINK_TMPFILE_REPLACE));
 
         line = mfree(line);
         assert_se(read_one_line_file(d, &line) >= 0);
-        assert_se(streq(line, "waumiau"));
+        ASSERT_TRUE(streq(line, "waumiau"));
 
-        assert_se(unlink(d) >= 0);
+        ASSERT_OK(unlink(d));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

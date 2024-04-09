@@ -17,7 +17,7 @@ static void test_path_is_encrypted_one(const char *p, int expect) {
                  * ELOOP might happen if the mount point is a symlink, as seen with under
                  * some rpm-ostree distros */
                 return;
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         log_info("%s encrypted: %s", p, yes_no(r));
 

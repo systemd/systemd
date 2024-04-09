@@ -57,9 +57,9 @@ static void test_ellipsize_mem_one(const char *s, size_t old_length, size_t new_
                 assert_se(utf8_console_width(t3) <= max_width);
 
         if (new_length >= old_length) {
-                assert_se(streq(t1, n));
-                assert_se(streq(t2, n));
-                assert_se(streq(t3, n));
+                ASSERT_TRUE(streq(t1, n));
+                ASSERT_TRUE(streq(t2, n));
+                ASSERT_TRUE(streq(t3, n));
         }
 }
 
@@ -127,7 +127,7 @@ TEST(ellipsize_ansi) {
                 for (ssize_t x = 21; x >= 0; x--) {
                         _cleanup_free_ char *t = ellipsize_mem(s, len, x, percent);
                         printf("%02zd: \"%s\"\n", x, t);
-                        assert_se(utf8_is_valid(t));
+                        ASSERT_TRUE(utf8_is_valid(t));
 
                         if (DEBUG_LOGGING) {
                                 _cleanup_free_ char *e = cescape(t);
@@ -143,10 +143,10 @@ TEST(ellipsize_ansi_cats) {
 
         e = ellipsize("01" ANSI_NORMAL "23", 4, 0);
         puts(e);
-        assert_se(streq(e, "01" ANSI_NORMAL "23"));
+        ASSERT_TRUE(streq(e, "01" ANSI_NORMAL "23"));
         f = ellipsize("ab" ANSI_NORMAL "cd", 4, 90);
         puts(f);
-        assert_se(streq(f, "ab" ANSI_NORMAL "cd"));
+        ASSERT_TRUE(streq(f, "ab" ANSI_NORMAL "cd"));
 
         g = ellipsize("🐱🐱" ANSI_NORMAL "🐱🐱" ANSI_NORMAL, 5, 0);
         puts(g);
