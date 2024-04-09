@@ -16,7 +16,7 @@ static void test_specifier_escape_one(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL;
 
         x = specifier_escape(a);
-        assert_se(streq_ptr(x, b));
+        ASSERT_TRUE(streq_ptr(x, b));
 }
 
 TEST(specifier_escape) {
@@ -32,7 +32,7 @@ static void test_specifier_escape_strv_one(char **a, char **b) {
         _cleanup_strv_free_ char **x = NULL;
 
         assert_se(specifier_escape_strv(a, &x) >= 0);
-        assert_se(strv_equal(x, b));
+        ASSERT_TRUE(strv_equal(x, b));
 }
 
 TEST(specifier_escape_strv) {
@@ -69,16 +69,16 @@ TEST(specifier_printf) {
         int r;
 
         r = specifier_printf("xxx a=%X b=%Y e=%e yyy", SIZE_MAX, table, NULL, NULL, &w);
-        assert_se(r >= 0);
-        assert_se(w);
+        ASSERT_OK(r);
+        ASSERT_TRUE(w);
 
         puts(w);
         assert_se(streq(w, "xxx a=AAAA b=BBBB e= yyy"));
 
         free(w);
         r = specifier_printf("boot=%b, host=%H, pretty=%q, version=%v, arch=%a, empty=%e", SIZE_MAX, table, NULL, NULL, &w);
-        assert_se(r >= 0);
-        assert_se(w);
+        ASSERT_OK(r);
+        ASSERT_TRUE(w);
         puts(w);
 
         w = mfree(w);
@@ -142,7 +142,7 @@ TEST(specifiers) {
                         continue;
                 if (s->specifier == 'm' && IN_SET(r, -EUNATCH, -ENOMEDIUM, -ENOPKG)) /* machine-id might be missing in build chroots */
                         continue;
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 log_info("%%%c → %s", s->specifier, resolved);
         }
@@ -167,7 +167,7 @@ TEST(specifiers_assorted) {
                 xsprintf(spec, "%%%c", s->specifier);
 
                 r = specifier_printf(spec, SIZE_MAX, table, NULL, NULL, &resolved);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 log_info("%%%c → %s", s->specifier, resolved);
         }
@@ -184,7 +184,7 @@ TEST(specifiers_missing_data_ok) {
         assert_se(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, NULL, NULL, &resolved) == -EUNATCH);
         assert_se(streq(resolved, "-----"));
 
-        assert_se(unsetenv("SYSTEMD_OS_RELEASE") == 0);
+        ASSERT_EQ(unsetenv("SYSTEMD_OS_RELEASE"), 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

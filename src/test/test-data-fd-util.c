@@ -18,31 +18,31 @@ static void test_acquire_data_fd_one(unsigned flags) {
         int fd;
 
         fd = acquire_data_fd_full("foo", 3, flags);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         zero(rbuffer);
-        assert_se(read(fd, rbuffer, sizeof(rbuffer)) == 3);
-        assert_se(streq(rbuffer, "foo"));
+        ASSERT_EQ(read(fd, rbuffer, sizeof(rbuffer)), 3);
+        ASSERT_TRUE(streq(rbuffer, "foo"));
 
         fd = safe_close(fd);
 
         fd = acquire_data_fd_full("", SIZE_MAX, flags);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         zero(rbuffer);
-        assert_se(read(fd, rbuffer, sizeof(rbuffer)) == 0);
-        assert_se(streq(rbuffer, ""));
+        ASSERT_EQ(read(fd, rbuffer, sizeof(rbuffer)), 0);
+        ASSERT_TRUE(streq(rbuffer, ""));
 
         fd = safe_close(fd);
 
         random_bytes(wbuffer, sizeof(wbuffer));
 
         fd = acquire_data_fd_full(wbuffer, sizeof(wbuffer), flags);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         zero(rbuffer);
         assert_se(read(fd, rbuffer, sizeof(rbuffer)) == sizeof(rbuffer));
-        assert_se(memcmp(rbuffer, wbuffer, sizeof(rbuffer)) == 0);
+        ASSERT_EQ(memcmp(rbuffer, wbuffer, sizeof(rbuffer)), 0);
 
         fd = safe_close(fd);
 }
@@ -65,17 +65,17 @@ static void assert_equal_fd(int fd1, int fd2) {
                 ssize_t x, y;
 
                 x = read(fd1, a, sizeof(a));
-                assert_se(x >= 0);
+                ASSERT_OK(x);
 
                 y = read(fd2, b, sizeof(b));
-                assert_se(y >= 0);
+                ASSERT_OK(y);
 
                 assert_se(x == y);
 
                 if (x == 0)
                         break;
 
-                assert_se(memcmp(a, b, x) == 0);
+                ASSERT_EQ(memcmp(a, b, x), 0);
         }
 }
 
@@ -89,9 +89,9 @@ TEST(copy_data_fd) {
         if (fd1 >= 0) {
 
                 fd2 = copy_data_fd(fd1);
-                assert_se(fd2 >= 0);
+                ASSERT_OK(fd2);
 
-                assert_se(lseek(fd1, 0, SEEK_SET) == 0);
+                ASSERT_EQ(lseek(fd1, 0, SEEK_SET), 0);
                 assert_equal_fd(fd1, fd2);
         }
 
@@ -99,14 +99,14 @@ TEST(copy_data_fd) {
         fd2 = safe_close(fd2);
 
         fd1 = acquire_data_fd("hallo");
-        assert_se(fd1 >= 0);
+        ASSERT_OK(fd1);
 
         fd2 = copy_data_fd(fd1);
-        assert_se(fd2 >= 0);
+        ASSERT_OK(fd2);
 
         safe_close(fd1);
         fd1 = acquire_data_fd("hallo");
-        assert_se(fd1 >= 0);
+        ASSERT_OK(fd1);
 
         assert_equal_fd(fd1, fd2);
 
@@ -116,7 +116,7 @@ TEST(copy_data_fd) {
         assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, sfd) >= 0);
 
         r = safe_fork("(sd-pipe)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &pid);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* child */
@@ -134,7 +134,7 @@ TEST(copy_data_fd) {
         sfd[1] = safe_close(sfd[1]);
 
         fd2 = copy_data_fd(sfd[0]);
-        assert_se(fd2 >= 0);
+        ASSERT_OK(fd2);
 
         uint64_t j;
         for (uint64_t i = 0; i < 1536*1024 / sizeof(uint64_t); i++) {

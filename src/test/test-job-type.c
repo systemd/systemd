@@ -29,12 +29,12 @@ int main(int argc, char *argv[]) {
                                 bool merged_ab = job_type_merge_and_collapse(&ab, b, u) >= 0;
 
                                 if (!job_type_is_mergeable(a, b)) {
-                                        assert_se(!merged_ab);
+                                        ASSERT_FALSE(merged_ab);
                                         printf("Not mergeable: %s + %s\n", job_type_to_string(a), job_type_to_string(b));
                                         continue;
                                 }
 
-                                assert_se(merged_ab);
+                                ASSERT_TRUE(merged_ab);
                                 printf("%s + %s = %s\n", job_type_to_string(a), job_type_to_string(b), job_type_to_string(ab));
 
                                 for (JobType c = 0; c < _JOB_TYPE_MAX_MERGING; c++) {

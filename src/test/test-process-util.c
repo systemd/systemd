@@ -73,7 +73,7 @@ static void test_pid_get_comm_one(pid_t pid) {
         assert_se(pid == 1 ? r == -EADDRNOTAVAIL : r >= 0);
         if (r >= 0) {
                 log_info("PID"PID_FMT" PPID: "PID_FMT, pid, e);
-                assert_se(e > 0);
+                ASSERT_GT(e, 0);
         }
 
         assert_se(pid_is_kernel_thread(pid) == 0 || pid != 1);
@@ -157,7 +157,7 @@ TEST(pid_get_cmdline) {
                 pid_t pid;
 
                 r = proc_dir_read(d, &pid);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 if (r == 0) /* EOF */
                         break;
@@ -171,12 +171,12 @@ static void test_pid_get_comm_escape_one(const char *input, const char *output) 
 
         log_debug("input: <%s> — output: <%s>", input, output);
 
-        assert_se(prctl(PR_SET_NAME, input) >= 0);
+        ASSERT_OK(prctl(PR_SET_NAME, input));
         assert_se(pid_get_comm(0, &n) >= 0);
 
         log_debug("got: <%s>", n);
 
-        assert_se(streq_ptr(n, output));
+        ASSERT_TRUE(streq_ptr(n, output));
 }
 
 TEST(pid_get_comm_escape) {
@@ -195,55 +195,55 @@ TEST(pid_get_comm_escape) {
         test_pid_get_comm_escape_one("xxxxäöüß", "xxxx\\303\\244\\303\\266\\303\\274\\303\\237");
         test_pid_get_comm_escape_one("xxxxxäöüß", "xxxxx\\303\\244\\303\\266\\303\\274\\303\\237");
 
-        assert_se(prctl(PR_SET_NAME, saved) >= 0);
+        ASSERT_OK(prctl(PR_SET_NAME, saved));
 }
 
 TEST(pid_is_unwaited) {
         pid_t pid;
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
         if (pid == 0) {
                 _exit(EXIT_SUCCESS);
         } else {
                 int status;
 
                 assert_se(waitpid(pid, &status, 0) == pid);
-                assert_se(pid_is_unwaited(pid) == 0);
+                ASSERT_EQ(pid_is_unwaited(pid), 0);
         }
-        assert_se(pid_is_unwaited(getpid_cached()) > 0);
-        assert_se(pid_is_unwaited(-1) < 0);
+        ASSERT_GT(pid_is_unwaited(getpid_cached()), 0);
+        ASSERT_LT(pid_is_unwaited(-1), 0);
 }
 
 TEST(pid_is_alive) {
         pid_t pid;
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
         if (pid == 0) {
                 _exit(EXIT_SUCCESS);
         } else {
                 int status;
 
                 assert_se(waitpid(pid, &status, 0) == pid);
-                assert_se(pid_is_alive(pid) == 0);
+                ASSERT_EQ(pid_is_alive(pid), 0);
         }
-        assert_se(pid_is_alive(getpid_cached()) > 0);
-        assert_se(pid_is_alive(-1) < 0);
+        ASSERT_GT(pid_is_alive(getpid_cached()), 0);
+        ASSERT_LT(pid_is_alive(-1), 0);
 }
 
 TEST(personality) {
-        assert_se(personality_to_string(PER_LINUX));
-        assert_se(!personality_to_string(PERSONALITY_INVALID));
+        ASSERT_TRUE(personality_to_string(PER_LINUX));
+        ASSERT_FALSE(personality_to_string(PERSONALITY_INVALID));
 
-        assert_se(streq(personality_to_string(PER_LINUX), architecture_to_string(native_architecture())));
+        ASSERT_TRUE(streq(personality_to_string(PER_LINUX), architecture_to_string(native_architecture())));
 
         assert_se(personality_from_string(personality_to_string(PER_LINUX)) == PER_LINUX);
         assert_se(personality_from_string(architecture_to_string(native_architecture())) == PER_LINUX);
 
 #ifdef __x86_64__
         assert_se(streq_ptr(personality_to_string(PER_LINUX), "x86-64"));
-        assert_se(streq_ptr(personality_to_string(PER_LINUX32), "x86"));
+        ASSERT_TRUE(streq_ptr(personality_to_string(PER_LINUX32), "x86"));
 
         assert_se(personality_from_string("x86-64") == PER_LINUX);
         assert_se(personality_from_string("x86") == PER_LINUX32);
@@ -289,29 +289,29 @@ TEST(pid_get_cmdline_harder) {
                 (void) wait_for_terminate(pid, &si);
 
                 assert_se(si.si_code == CLD_EXITED);
-                assert_se(si.si_status == 0);
+                ASSERT_EQ(si.si_status, 0);
 
                 return;
         }
 
-        assert_se(pid == 0);
+        ASSERT_EQ(pid, 0);
 
         r = detach_mount_namespace();
         if (r < 0) {
                 log_warning_errno(r, "detach mount namespace failed: %m");
-                assert_se(ERRNO_IS_PRIVILEGE(r));
+                ASSERT_TRUE(ERRNO_IS_PRIVILEGE(r));
                 return;
         }
 
         fd = mkostemp(path, O_CLOEXEC);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         /* Note that we don't unmount the following bind-mount at the end of the test because the kernel
          * will clear up its /proc/PID/ hierarchy automatically as soon as the test stops. */
         if (mount(path, "/proc/self/cmdline", "bind", MS_BIND, NULL) < 0) {
                 /* This happens under selinux… Abort the test in this case. */
                 log_warning_errno(errno, "mount(..., \"/proc/self/cmdline\", \"bind\", ...) failed: %m");
-                assert_se(IN_SET(errno, EPERM, EACCES));
+                ASSERT_TRUE(IN_SET(errno, EPERM, EACCES));
                 return;
         }
 
@@ -320,9 +320,9 @@ TEST(pid_get_cmdline_harder) {
         if (setrlimit(RLIMIT_STACK, &RLIMIT_MAKE_CONST(RLIM_INFINITY)) < 0)
                 log_warning("Testing without RLIMIT_STACK=infinity");
 
-        assert_se(unlink(path) >= 0);
+        ASSERT_OK(unlink(path));
 
-        assert_se(prctl(PR_SET_NAME, "testa") >= 0);
+        ASSERT_OK(prctl(PR_SET_NAME, "testa"));
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, 0, &line) == -ENOENT);
 
@@ -338,7 +338,7 @@ TEST(pid_get_cmdline_harder) {
 
         assert_se(pid_get_cmdline(0, 0, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, ""));
+        ASSERT_TRUE(streq(line, ""));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 1, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
@@ -383,26 +383,26 @@ TEST(pid_get_cmdline_harder) {
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, 0, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar"));
+        ASSERT_TRUE(streq(line, "foo bar"));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
-        assert_se(streq(line, "foo bar"));
+        ASSERT_TRUE(streq(line, "foo bar"));
         line = mfree(line);
 
         assert_se(pid_get_cmdline_strv(0, PROCESS_CMDLINE_COMM_FALLBACK, &args) >= 0);
-        assert_se(strv_equal(args, STRV_MAKE("foo", "bar")));
+        ASSERT_TRUE(strv_equal(args, STRV_MAKE("foo", "bar")));
         args = strv_free(args);
 
-        assert_se(write(fd, "quux", 4) == 4);
+        ASSERT_EQ(write(fd, "quux", 4), 4);
         assert_se(pid_get_cmdline(0, SIZE_MAX, 0, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_TRUE(streq(line, "foo bar quux"));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_TRUE(streq(line, "foo bar quux"));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 1, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
@@ -462,30 +462,30 @@ TEST(pid_get_cmdline_harder) {
 
         assert_se(pid_get_cmdline(0, 12, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_TRUE(streq(line, "foo bar quux"));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 13, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_TRUE(streq(line, "foo bar quux"));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 14, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_TRUE(streq(line, "foo bar quux"));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 1000, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_TRUE(streq(line, "foo bar quux"));
         line = mfree(line);
 
         assert_se(pid_get_cmdline_strv(0, PROCESS_CMDLINE_COMM_FALLBACK, &args) >= 0);
-        assert_se(strv_equal(args, STRV_MAKE("foo", "bar", "quux")));
+        ASSERT_TRUE(strv_equal(args, STRV_MAKE("foo", "bar", "quux")));
         args = strv_free(args);
 
-        assert_se(ftruncate(fd, 0) >= 0);
-        assert_se(prctl(PR_SET_NAME, "aaaa bbbb cccc") >= 0);
+        ASSERT_OK(ftruncate(fd, 0));
+        ASSERT_OK(prctl(PR_SET_NAME, "aaaa bbbb cccc"));
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, 0, &line) == -ENOENT);
 
@@ -520,24 +520,24 @@ TEST(pid_get_cmdline_harder) {
 #define EXPECT1p "foo $'\\'bar\\'' $'\"bar$\"' $'x y z' $'!``'"
 #define EXPECT1v STRV_MAKE("foo", "'bar'", "\"bar$\"", "x y z", "!``")
 
-        assert_se(lseek(fd, SEEK_SET, 0) == 0);
+        ASSERT_EQ(lseek(fd, SEEK_SET, 0), 0);
         assert_se(write(fd, CMDLINE1, sizeof CMDLINE1) == sizeof CMDLINE1);
-        assert_se(ftruncate(fd, sizeof CMDLINE1) == 0);
+        ASSERT_EQ(ftruncate(fd, sizeof CMDLINE1), 0);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_QUOTE, &line) >= 0);
         log_debug("got: ==%s==", line);
         log_debug("exp: ==%s==", EXPECT1);
-        assert_se(streq(line, EXPECT1));
+        ASSERT_TRUE(streq(line, EXPECT1));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &line) >= 0);
         log_debug("got: ==%s==", line);
         log_debug("exp: ==%s==", EXPECT1p);
-        assert_se(streq(line, EXPECT1p));
+        ASSERT_TRUE(streq(line, EXPECT1p));
         line = mfree(line);
 
         assert_se(pid_get_cmdline_strv(0, 0, &args) >= 0);
-        assert_se(strv_equal(args, EXPECT1v));
+        ASSERT_TRUE(strv_equal(args, EXPECT1v));
         args = strv_free(args);
 
 #define CMDLINE2 "foo\0\1\2\3\0\0"
@@ -545,24 +545,24 @@ TEST(pid_get_cmdline_harder) {
 #define EXPECT2p "foo $'\\001\\002\\003'"
 #define EXPECT2v STRV_MAKE("foo", "\1\2\3")
 
-        assert_se(lseek(fd, SEEK_SET, 0) == 0);
+        ASSERT_EQ(lseek(fd, SEEK_SET, 0), 0);
         assert_se(write(fd, CMDLINE2, sizeof CMDLINE2) == sizeof CMDLINE2);
-        assert_se(ftruncate(fd, sizeof CMDLINE2) == 0);
+        ASSERT_EQ(ftruncate(fd, sizeof CMDLINE2), 0);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_QUOTE, &line) >= 0);
         log_debug("got: ==%s==", line);
         log_debug("exp: ==%s==", EXPECT2);
-        assert_se(streq(line, EXPECT2));
+        ASSERT_TRUE(streq(line, EXPECT2));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &line) >= 0);
         log_debug("got: ==%s==", line);
         log_debug("exp: ==%s==", EXPECT2p);
-        assert_se(streq(line, EXPECT2p));
+        ASSERT_TRUE(streq(line, EXPECT2p));
         line = mfree(line);
 
         assert_se(pid_get_cmdline_strv(0, 0, &args) >= 0);
-        assert_se(strv_equal(args, EXPECT2v));
+        ASSERT_TRUE(strv_equal(args, EXPECT2v));
         args = strv_free(args);
 
         safe_close(fd);
@@ -580,7 +580,7 @@ TEST(getpid_cached) {
         assert_se(a == b && a == c);
 
         child = fork();
-        assert_se(child >= 0);
+        ASSERT_OK(child);
 
         if (child == 0) {
                 /* In child */
@@ -599,7 +599,7 @@ TEST(getpid_cached) {
         assert_se(a == d && a == e && a == f);
 
         assert_se(wait_for_terminate(child, &si) >= 0);
-        assert_se(si.si_status == 0);
+        ASSERT_EQ(si.si_status, 0);
         assert_se(si.si_code == CLD_EXITED);
 }
 
@@ -635,7 +635,7 @@ TEST(safe_fork) {
         BLOCK_SIGNALS(SIGCHLD);
 
         r = safe_fork("(test-child)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_REOPEN_LOG, &pid);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* child */
@@ -646,15 +646,15 @@ TEST(safe_fork) {
 
         assert_se(wait_for_terminate(pid, &status) >= 0);
         assert_se(status.si_code == CLD_EXITED);
-        assert_se(status.si_status == 88);
+        ASSERT_EQ(status.si_status, 88);
 }
 
 TEST(pid_to_ptr) {
-        assert_se(PTR_TO_PID(NULL) == 0);
-        assert_se(PID_TO_PTR(0) == NULL);
+        ASSERT_EQ(PTR_TO_PID(NULL), 0);
+        ASSERT_NULL(PID_TO_PTR(0));
 
-        assert_se(PTR_TO_PID(PID_TO_PTR(1)) == 1);
-        assert_se(PTR_TO_PID(PID_TO_PTR(2)) == 2);
+        ASSERT_EQ(PTR_TO_PID(PID_TO_PTR(1)), 1);
+        ASSERT_EQ(PTR_TO_PID(PID_TO_PTR(2)), 2);
         assert_se(PTR_TO_PID(PID_TO_PTR(-1)) == -1);
         assert_se(PTR_TO_PID(PID_TO_PTR(-2)) == -2);
 
@@ -702,7 +702,7 @@ TEST(setpriority_closest) {
 
         r = safe_fork("(test-setprio)",
                       FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 bool full_test;
@@ -713,16 +713,16 @@ TEST(setpriority_closest) {
                 if (setrlimit(RLIMIT_NICE, &RLIMIT_MAKE_CONST(30)) < 0) {
                         /* If this fails we are probably unprivileged or in a userns of some kind, let's skip
                          * the full test */
-                        assert_se(ERRNO_IS_PRIVILEGE(errno));
+                        ASSERT_TRUE(ERRNO_IS_PRIVILEGE(errno));
                         full_test = false;
                 } else {
                         /* However, if the hard limit was above 30, setrlimit would succeed unprivileged, so
                          * check if the UID/GID can be changed before enabling the full test. */
                         if (setresgid(GID_NOBODY, GID_NOBODY, GID_NOBODY) < 0) {
-                                assert_se(ERRNO_IS_PRIVILEGE(errno));
+                                ASSERT_TRUE(ERRNO_IS_PRIVILEGE(errno));
                                 full_test = false;
                         } else if (setresuid(UID_NOBODY, UID_NOBODY, UID_NOBODY) < 0) {
-                                assert_se(ERRNO_IS_PRIVILEGE(errno));
+                                ASSERT_TRUE(ERRNO_IS_PRIVILEGE(errno));
                                 full_test = false;
                         } else
                                 full_test = true;
@@ -730,10 +730,10 @@ TEST(setpriority_closest) {
 
                 errno = 0;
                 p = getpriority(PRIO_PROCESS, 0);
-                assert_se(errno == 0);
+                ASSERT_EQ(errno, 0);
 
                 /* It should always be possible to set our nice level to the current one */
-                assert_se(setpriority_closest(p) > 0);
+                ASSERT_GT(setpriority_closest(p), 0);
 
                 errno = 0;
                 q = getpriority(PRIO_PROCESS, 0);
@@ -741,7 +741,7 @@ TEST(setpriority_closest) {
 
                 /* It should also be possible to set the nice level to one higher */
                 if (p < PRIO_MAX-1) {
-                        assert_se(setpriority_closest(++p) > 0);
+                        ASSERT_GT(setpriority_closest(++p), 0);
 
                         errno = 0;
                         q = getpriority(PRIO_PROCESS, 0);
@@ -750,7 +750,7 @@ TEST(setpriority_closest) {
 
                 /* It should also be possible to set the nice level to two higher */
                 if (p < PRIO_MAX-1) {
-                        assert_se(setpriority_closest(++p) > 0);
+                        ASSERT_GT(setpriority_closest(++p), 0);
 
                         errno = 0;
                         q = getpriority(PRIO_PROCESS, 0);
@@ -759,29 +759,29 @@ TEST(setpriority_closest) {
 
                 if (full_test) {
                         /* These two should work, given the RLIMIT_NICE we set above */
-                        assert_se(setpriority_closest(-10) > 0);
+                        ASSERT_GT(setpriority_closest(-10), 0);
                         errno = 0;
                         q = getpriority(PRIO_PROCESS, 0);
                         assert_se(errno == 0 && q == -10);
 
-                        assert_se(setpriority_closest(-9) > 0);
+                        ASSERT_GT(setpriority_closest(-9), 0);
                         errno = 0;
                         q = getpriority(PRIO_PROCESS, 0);
                         assert_se(errno == 0 && q == -9);
 
                         /* This should succeed but should be clamped to the limit */
-                        assert_se(setpriority_closest(-11) == 0);
+                        ASSERT_EQ(setpriority_closest(-11), 0);
                         errno = 0;
                         q = getpriority(PRIO_PROCESS, 0);
                         assert_se(errno == 0 && q == -10);
 
-                        assert_se(setpriority_closest(-8) > 0);
+                        ASSERT_GT(setpriority_closest(-8), 0);
                         errno = 0;
                         q = getpriority(PRIO_PROCESS, 0);
                         assert_se(errno == 0 && q == -8);
 
                         /* This should succeed but should be clamped to the limit */
-                        assert_se(setpriority_closest(-12) == 0);
+                        ASSERT_EQ(setpriority_closest(-12), 0);
                         errno = 0;
                         q = getpriority(PRIO_PROCESS, 0);
                         assert_se(errno == 0 && q == -10);
@@ -817,7 +817,7 @@ TEST(get_process_ppid) {
                         break;
                 }
 
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 assert_se(pid_get_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &c1) >= 0);
                 assert_se(pid_get_cmdline(ppid, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &c2) >= 0);
@@ -841,7 +841,7 @@ TEST(set_oom_score_adjust) {
                 assert_se(b == OOM_SCORE_ADJ_MIN);
         }
 
-        assert_se(set_oom_score_adjust(a) >= 0);
+        ASSERT_OK(set_oom_score_adjust(a));
         assert_se(get_oom_score_adjust(&b) >= 0);
         assert_se(b == a);
 }
@@ -863,7 +863,7 @@ TEST(get_process_threads) {
 
         /* Run this test in a child, so that we can guarantee there's exactly one thread around in the child */
         r = safe_fork("(nthreads)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_WAIT|FORK_LOG, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 _cleanup_close_pair_ int pfd[2] = EBADF_PAIR, ppfd[2] = EBADF_PAIR;
@@ -873,27 +873,27 @@ TEST(get_process_threads) {
                 assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, pfd) >= 0);
                 assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, ppfd) >= 0);
 
-                assert_se(get_process_threads(0) == 1);
+                ASSERT_EQ(get_process_threads(0), 1);
                 assert_se(pthread_create(&t, NULL, &dummy_thread, FD_TO_PTR(pfd[0])) == 0);
                 assert_se(read(pfd[1], &x, 1) == 1);
-                assert_se(get_process_threads(0) == 2);
+                ASSERT_EQ(get_process_threads(0), 2);
                 assert_se(pthread_create(&tt, NULL, &dummy_thread, FD_TO_PTR(ppfd[0])) == 0);
                 assert_se(read(ppfd[1], &x, 1) == 1);
-                assert_se(get_process_threads(0) == 3);
+                ASSERT_EQ(get_process_threads(0), 3);
 
                 assert_se(write(pfd[1], &(const char) { 'x' }, 1) == 1);
-                assert_se(pthread_join(t, NULL) == 0);
+                ASSERT_EQ(pthread_join(t, NULL), 0);
 
                 /* the value reported via /proc/ is decreased asynchronously, and there appears to be no nice
                  * way to sync on it. Hence we do the weak >= 2 check, even though == 2 is what we'd actually
                  * like to check here */
-                assert_se(get_process_threads(0) >= 2);
+                ASSERT_GE(get_process_threads(0), 2);
 
                 assert_se(write(ppfd[1], &(const char) { 'x' }, 1) == 1);
-                assert_se(pthread_join(tt, NULL) == 0);
+                ASSERT_EQ(pthread_join(tt, NULL), 0);
 
                 /* similar here */
-                assert_se(get_process_threads(0) >= 1);
+                ASSERT_GE(get_process_threads(0), 1);
 
                 _exit(EXIT_SUCCESS);
         }
@@ -903,16 +903,16 @@ TEST(is_reaper_process) {
         int r;
 
         r = safe_fork("(regular)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         if (r == 0) {
                 /* child */
 
-                assert_se(is_reaper_process() == 0);
+                ASSERT_EQ(is_reaper_process(), 0);
                 _exit(EXIT_SUCCESS);
         }
 
         r = safe_fork("(newpid)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         if (r == 0) {
                 /* child */
 
@@ -924,11 +924,11 @@ TEST(is_reaper_process) {
                 }
 
                 r = safe_fork("(newpid1)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT, NULL);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 if (r == 0) {
                         /* grandchild, which is PID1 in a pidns */
-                        assert_se(getpid_cached() == 1);
-                        assert_se(is_reaper_process() > 0);
+                        ASSERT_EQ(getpid_cached(), 1);
+                        ASSERT_GT(is_reaper_process(), 0);
                         _exit(EXIT_SUCCESS);
                 }
 
@@ -936,12 +936,12 @@ TEST(is_reaper_process) {
         }
 
         r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         if (r == 0) {
                 /* child */
-                assert_se(make_reaper_process(true) >= 0);
+                ASSERT_OK(make_reaper_process(true));
 
-                assert_se(is_reaper_process() > 0);
+                ASSERT_GT(is_reaper_process(), 0);
                 _exit(EXIT_SUCCESS);
         }
 }

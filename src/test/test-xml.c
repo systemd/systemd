@@ -19,17 +19,17 @@ static void test_one(const char *data, ...) {
                 const char *nn;
 
                 t = xml_tokenize(&data, &name, &state, NULL);
-                assert_se(t >= 0);
+                ASSERT_OK(t);
 
                 tt = va_arg(ap, int);
-                assert_se(tt >= 0);
+                ASSERT_OK(tt);
 
                 assert_se(t == tt);
                 if (t == XML_END)
                         break;
 
                 nn = va_arg(ap, const char *);
-                assert_se(streq_ptr(nn, name));
+                ASSERT_TRUE(streq_ptr(nn, name));
         }
 
         va_end(ap);

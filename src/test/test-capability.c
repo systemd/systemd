@@ -45,7 +45,7 @@ static void test_last_cap_file(void) {
 
         r = safe_atolu(content, &val);
         ASSERT_OK(r);
-        assert_se(val != 0);
+        ASSERT_NE(val, 0u);
         ASSERT_EQ(val, cap_last_cap());
 }
 
@@ -63,7 +63,7 @@ static void test_last_cap_probe(void) {
                                 break;
         }
 
-        assert_se(p != 0);
+        ASSERT_NE(p, 0u);
         ASSERT_EQ(p, cap_last_cap());
 }
 
@@ -71,7 +71,7 @@ static void fork_test(void (*test_func)(void)) {
         pid_t pid = 0;
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
         if (pid == 0) {
                 test_func();
                 exit(EXIT_SUCCESS);
@@ -88,10 +88,10 @@ static void show_capabilities(void) {
         char *text;
 
         caps = cap_get_proc();
-        assert_se(caps);
+        ASSERT_TRUE(caps);
 
         text = cap_to_text(caps, NULL);
-        assert_se(text);
+        ASSERT_TRUE(text);
 
         log_info("Capabilities:%s", text);
         cap_free(caps);
@@ -121,7 +121,7 @@ static void test_drop_privileges_keep_net_raw(void) {
         int sock;
 
         sock = socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
-        assert_se(sock >= 0);
+        ASSERT_OK(sock);
         safe_close(sock);
 
         assert_se(drop_privileges(test_uid, test_gid, test_flags | (1ULL << CAP_NET_RAW)) >= 0);
@@ -141,7 +141,7 @@ static void test_drop_privileges_dontkeep_net_raw(void) {
         ASSERT_OK(sock);
         safe_close(sock);
 
-        assert_se(drop_privileges(test_uid, test_gid, test_flags) >= 0);
+        ASSERT_OK(drop_privileges(test_uid, test_gid, test_flags));
         assert_se(getuid() == test_uid);
         assert_se(getgid() == test_gid);
         show_capabilities();
@@ -151,7 +151,7 @@ static void test_drop_privileges_dontkeep_net_raw(void) {
 }
 
 static void test_drop_privileges_fail(void) {
-        assert_se(drop_privileges(test_uid, test_gid, test_flags) >= 0);
+        ASSERT_OK(drop_privileges(test_uid, test_gid, test_flags));
         assert_se(getuid() == test_uid);
         assert_se(getgid() == test_gid);
 
@@ -180,7 +180,7 @@ static void test_have_effective_cap(void) {
         assert_se(getgid() == test_gid);
 
         ASSERT_GT(have_effective_cap(CAP_KILL), 0);
-        assert_se(have_effective_cap(CAP_CHOWN) == 0);
+        ASSERT_EQ(have_effective_cap(CAP_CHOWN), 0);
 }
 
 static void test_update_inherited_set(void) {
@@ -189,11 +189,11 @@ static void test_update_inherited_set(void) {
         cap_flag_value_t fv;
 
         caps = cap_get_proc();
-        assert_se(caps);
+        ASSERT_TRUE(caps);
 
         set = (UINT64_C(1) << CAP_CHOWN);
 
-        assert_se(!capability_update_inherited_set(caps, set));
+        ASSERT_FALSE(capability_update_inherited_set(caps, set));
         assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
         assert_se(fv == CAP_SET);
 
@@ -205,28 +205,28 @@ static void test_apply_ambient_caps(void) {
         uint64_t set = 0;
         cap_flag_value_t fv;
 
-        assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 0);
+        ASSERT_EQ(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0), 0);
 
         set = (UINT64_C(1) << CAP_CHOWN);
 
-        assert_se(!capability_ambient_set_apply(set, true));
+        ASSERT_FALSE(capability_ambient_set_apply(set, true));
 
         caps = cap_get_proc();
-        assert_se(caps);
+        ASSERT_TRUE(caps);
         assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
         assert_se(fv == CAP_SET);
         cap_free(caps);
 
-        assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 1);
+        ASSERT_EQ(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0), 1);
 
-        assert_se(!capability_ambient_set_apply(0, true));
+        ASSERT_FALSE(capability_ambient_set_apply(0, true));
         caps = cap_get_proc();
-        assert_se(caps);
+        ASSERT_TRUE(caps);
         assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
         assert_se(fv == CAP_CLEAR);
         cap_free(caps);
 
-        assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 0);
+        ASSERT_EQ(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0), 0);
 }
 
 static void test_ensure_cap_64_bit(void) {
@@ -242,7 +242,7 @@ static void test_ensure_cap_64_bit(void) {
         ASSERT_OK(safe_atolu(content, &p));
 
         /* If caps don't fit into 64-bit anymore, we have a problem, fail the test. */
-        assert_se(p <= 63);
+        ASSERT_LE(p, 63u);
 
         /* Also check for the header definition */
         assert_cc(CAP_LAST_CAP <= 63);

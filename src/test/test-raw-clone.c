@@ -17,7 +17,7 @@ TEST(raw_clone) {
         assert_se(raw_getpid() == parent);
 
         pid = raw_clone(0);
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         pid2 = raw_getpid();
         log_info("raw_clone: "PID_FMT" getpid()→"PID_FMT" raw_getpid()→"PID_FMT,

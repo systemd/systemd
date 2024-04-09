@@ -23,7 +23,7 @@ static void check_p_d_u(const char *path, int code, const char *result) {
         r = cg_path_decode_unit(path, &unit);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
         assert_se(r == code);
-        assert_se(streq_ptr(unit, result));
+        ASSERT_TRUE(streq_ptr(unit, result));
 }
 
 TEST(path_decode_unit) {
@@ -45,7 +45,7 @@ static void check_p_g_u(const char *path, int code, const char *result) {
         r = cg_path_get_unit(path, &unit);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
         assert_se(r == code);
-        assert_se(streq_ptr(unit, result));
+        ASSERT_TRUE(streq_ptr(unit, result));
 }
 
 TEST(path_get_unit) {
@@ -69,7 +69,7 @@ static void check_p_g_u_p(const char *path, int code, const char *result) {
         r = cg_path_get_unit_path(path, &unit_path);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit_path, r, strnull(result), code);
         assert_se(r == code);
-        assert_se(streq_ptr(unit_path, result));
+        ASSERT_TRUE(streq_ptr(unit_path, result));
 }
 
 TEST(path_get_unit_path) {
@@ -96,7 +96,7 @@ static void check_p_g_u_u(const char *path, int code, const char *result) {
         r = cg_path_get_user_unit(path, &unit);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
         assert_se(r == code);
-        assert_se(streq_ptr(unit, result));
+        ASSERT_TRUE(streq_ptr(unit, result));
 }
 
 TEST(path_get_user_unit) {
@@ -119,7 +119,7 @@ static void check_p_g_s(const char *path, int code, const char *result) {
         _cleanup_free_ char *s = NULL;
 
         assert_se(cg_path_get_session(path, &s) == code);
-        assert_se(streq_ptr(s, result));
+        ASSERT_TRUE(streq_ptr(s, result));
 }
 
 TEST(path_get_session) {
@@ -146,7 +146,7 @@ static void check_p_g_slice(const char *path, int code, const char *result) {
         _cleanup_free_ char *s = NULL;
 
         assert_se(cg_path_get_slice(path, &s) == code);
-        assert_se(streq_ptr(s, result));
+        ASSERT_TRUE(streq_ptr(s, result));
 }
 
 TEST(path_get_slice) {
@@ -163,7 +163,7 @@ static void check_p_g_u_slice(const char *path, int code, const char *result) {
         _cleanup_free_ char *s = NULL;
 
         assert_se(cg_path_get_user_slice(path, &s) == code);
-        assert_se(streq_ptr(s, result));
+        ASSERT_TRUE(streq_ptr(s, result));
 }
 
 TEST(path_get_user_slice) {
@@ -202,7 +202,7 @@ TEST(proc) {
                 uid_t uid = UID_INVALID;
 
                 r = proc_dir_read_pidref(d, &pid);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 if (r == 0)
                         break;
@@ -235,15 +235,15 @@ TEST(proc) {
 static void test_escape_one(const char *s, const char *expected) {
         _cleanup_free_ char *b = NULL;
 
-        assert_se(s);
-        assert_se(expected);
+        ASSERT_TRUE(s);
+        ASSERT_TRUE(expected);
 
         ASSERT_OK(cg_escape(s, &b));
-        assert_se(streq(b, expected));
+        ASSERT_TRUE(streq(b, expected));
 
-        assert_se(streq(cg_unescape(b), s));
+        ASSERT_TRUE(streq(cg_unescape(b), s));
 
-        assert_se(filename_is_valid(b));
+        ASSERT_TRUE(filename_is_valid(b));
         assert_se(!cg_needs_escape(s) || b[0] == '_');
 }
 
@@ -262,15 +262,15 @@ TEST(escape, .sd_booted = true) {
 }
 
 TEST(controller_is_valid) {
-        assert_se(cg_controller_is_valid("foobar"));
-        assert_se(cg_controller_is_valid("foo_bar"));
+        ASSERT_TRUE(cg_controller_is_valid("foobar"));
+        ASSERT_TRUE(cg_controller_is_valid("foo_bar"));
         assert_se(cg_controller_is_valid("name=foo"));
-        assert_se(!cg_controller_is_valid(""));
+        ASSERT_FALSE(cg_controller_is_valid(""));
         assert_se(!cg_controller_is_valid("name="));
         assert_se(!cg_controller_is_valid("="));
-        assert_se(!cg_controller_is_valid("cpu,cpuacct"));
-        assert_se(!cg_controller_is_valid("_"));
-        assert_se(!cg_controller_is_valid("_foobar"));
+        ASSERT_FALSE(cg_controller_is_valid("cpu,cpuacct"));
+        ASSERT_FALSE(cg_controller_is_valid("_"));
+        ASSERT_FALSE(cg_controller_is_valid("_foobar"));
         assert_se(!cg_controller_is_valid("tatü"));
 }
 
@@ -284,7 +284,7 @@ static void test_slice_to_path_one(const char *unit, const char *path, int error
         log_info("actual: %s / %d", strnull(ret), r);
         log_info("expect: %s / %d", strnull(path), error);
         assert_se(r == error);
-        assert_se(streq_ptr(ret, path));
+        ASSERT_TRUE(streq_ptr(ret, path));
 }
 
 TEST(slice_to_path) {
@@ -316,7 +316,7 @@ static void test_shift_path_one(const char *raw, const char *root, const char *s
         const char *s = NULL;
 
         ASSERT_OK(cg_shift_path(raw, root, &s));
-        assert_se(streq(s, shifted));
+        ASSERT_TRUE(streq(s, shifted));
 }
 
 TEST(shift_path) {
@@ -349,13 +349,13 @@ TEST(fd_is_cgroup_fs, .sd_booted = true) {
         int fd;
 
         fd = open("/sys/fs/cgroup", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         if (fd_is_temporary_fs(fd)) {
                 fd = safe_close(fd);
                 fd = open("/sys/fs/cgroup/systemd", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-                assert_se(fd >= 0);
+                ASSERT_OK(fd);
         }
-        assert_se(fd_is_cgroup_fs(fd));
+        ASSERT_TRUE(fd_is_cgroup_fs(fd));
         fd = safe_close(fd);
 }
 
@@ -367,27 +367,27 @@ TEST(cg_tests) {
                 log_tests_skipped("cgroup not mounted");
                 return;
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         all = cg_all_unified();
-        assert_se(IN_SET(all, 0, 1));
+        ASSERT_TRUE(IN_SET(all, 0, 1));
 
         hybrid = cg_hybrid_unified();
-        assert_se(IN_SET(hybrid, 0, 1));
+        ASSERT_TRUE(IN_SET(hybrid, 0, 1));
 
         systemd = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        assert_se(IN_SET(systemd, 0, 1));
+        ASSERT_TRUE(IN_SET(systemd, 0, 1));
 
         if (all) {
-                assert_se(systemd);
-                assert_se(!hybrid);
+                ASSERT_TRUE(systemd);
+                ASSERT_FALSE(hybrid);
 
         } else if (hybrid) {
-                assert_se(systemd);
-                assert_se(!all);
+                ASSERT_TRUE(systemd);
+                ASSERT_FALSE(all);
 
         } else
-                assert_se(!systemd);
+                ASSERT_FALSE(systemd);
 }
 
 TEST(cg_get_keyed_attribute) {
@@ -402,7 +402,7 @@ TEST(cg_get_keyed_attribute) {
         }
 
         assert_se(r == -ENOENT);
-        assert_se(val == NULL);
+        ASSERT_NULL(val);
 
         if (access("/sys/fs/cgroup/init.scope/cpu.stat", R_OK) < 0) {
                 log_info_errno(errno, "Skipping most of %s, /init.scope/cpu.stat not accessible: %m", __func__);
@@ -411,7 +411,7 @@ TEST(cg_get_keyed_attribute) {
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == -ENXIO);
         assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == 0);
-        assert_se(val == NULL);
+        ASSERT_NULL(val);
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 0);
         val = mfree(val);
@@ -456,12 +456,12 @@ TEST(cg_get_keyed_attribute) {
 }
 
 TEST(bfq_weight_conversion) {
-        assert_se(BFQ_WEIGHT(1) == 1);
-        assert_se(BFQ_WEIGHT(50) == 50);
-        assert_se(BFQ_WEIGHT(100) == 100);
-        assert_se(BFQ_WEIGHT(500) == 136);
-        assert_se(BFQ_WEIGHT(5000) == 545);
-        assert_se(BFQ_WEIGHT(10000) == 1000);
+        ASSERT_EQ(BFQ_WEIGHT(1), 1u);
+        ASSERT_EQ(BFQ_WEIGHT(50), 50u);
+        ASSERT_EQ(BFQ_WEIGHT(100), 100u);
+        ASSERT_EQ(BFQ_WEIGHT(500), 136u);
+        ASSERT_EQ(BFQ_WEIGHT(5000), 545u);
+        ASSERT_EQ(BFQ_WEIGHT(10000), 1000u);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

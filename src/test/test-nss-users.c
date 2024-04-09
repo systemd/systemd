@@ -214,7 +214,7 @@ static int parse_argv(int argc, char **argv,
                                 "mymachines",
 #endif
                                 NULL);
-        assert_se(modules);
+        ASSERT_TRUE(modules);
 
         if (argc > 2)
                 names = strv_copy(strv_skip(argv, 2));
@@ -224,7 +224,7 @@ static int parse_argv(int argc, char **argv,
                                  "foo_no_such_user",
                                  "0",
                                  "65534");
-        assert_se(names);
+        ASSERT_TRUE(names);
 
         *the_modules = TAKE_PTR(modules);
         *the_names = TAKE_PTR(names);

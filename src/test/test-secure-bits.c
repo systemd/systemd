@@ -27,8 +27,8 @@ TEST(secure_bits_basic) {
                 _cleanup_free_ char *s = NULL;
 
                 r = secure_bits_from_string(*bit);
-                assert_se(r > 0);
-                assert_se(secure_bits_is_valid(r));
+                ASSERT_GT(r, 0);
+                ASSERT_TRUE(secure_bits_is_valid(r));
                 assert_se(secure_bits_to_string_alloc(r, &s) >= 0);
                 printf("%s = 0x%x = %s\n", *bit, (unsigned)r, s);
                 assert_se(streq(*bit, s));
@@ -36,32 +36,32 @@ TEST(secure_bits_basic) {
 
         /* Ditto, but with all bits at once */
         joined = strv_join((char**)string_bits, " ");
-        assert_se(joined);
+        ASSERT_TRUE(joined);
         r = secure_bits_from_string(joined);
-        assert_se(r > 0);
-        assert_se(secure_bits_is_valid(r));
+        ASSERT_GT(r, 0);
+        ASSERT_TRUE(secure_bits_is_valid(r));
         assert_se(secure_bits_to_string_alloc(r, &str) >= 0);
         printf("%s = 0x%x = %s\n", joined, (unsigned)r, str);
-        assert_se(streq(joined, str));
+        ASSERT_TRUE(streq(joined, str));
 
         str = mfree(str);
 
         /* Empty string */
-        assert_se(secure_bits_from_string("") == 0);
-        assert_se(secure_bits_from_string("     ") == 0);
+        ASSERT_EQ(secure_bits_from_string(""), 0);
+        ASSERT_EQ(secure_bits_from_string("     "), 0);
 
         /* Only invalid entries */
-        assert_se(secure_bits_from_string("foo bar baz") == 0);
+        ASSERT_EQ(secure_bits_from_string("foo bar baz"), 0);
 
         /* Empty secure bits */
         assert_se(secure_bits_to_string_alloc(0, &str) >= 0);
-        assert_se(isempty(str));
+        ASSERT_TRUE(isempty(str));
 
         str = mfree(str);
 
         /* Bits to string with check */
         assert_se(secure_bits_to_string_alloc_with_check(INT_MAX, &str) == -EINVAL);
-        assert_se(str == NULL);
+        ASSERT_NULL(str);
         assert_se(secure_bits_to_string_alloc_with_check(
                                 (1 << SECURE_KEEP_CAPS) | (1 << SECURE_KEEP_CAPS_LOCKED),
                                 &str) >= 0);
@@ -86,8 +86,8 @@ TEST(secure_bits_mix) {
                 int r;
 
                 r = secure_bits_from_string(s->input);
-                assert_se(r > 0);
-                assert_se(secure_bits_is_valid(r));
+                ASSERT_GT(r, 0);
+                ASSERT_TRUE(secure_bits_is_valid(r));
                 assert_se(secure_bits_to_string_alloc(r, &str) >= 0);
                 printf("%s = 0x%x = %s\n", s->input, (unsigned)r, str);
                 assert_se(streq(s->expected, str));
