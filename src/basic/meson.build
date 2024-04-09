@@ -234,8 +234,10 @@ run_target(
 
 ############################################################
 
-filesystem_includes = ['linux/magic.h',
-                       'linux/gfs2_ondisk.h']
+filesystem_includes = files(
+        'linux/magic.h',
+        'missing_magic.h',
+)
 
 check_filesystems = find_program('check-filesystems.sh')
 r = run_command([check_filesystems, cpp, files('filesystems-gperf.gperf')] + filesystem_includes, check: false)

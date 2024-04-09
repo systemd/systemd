@@ -2553,7 +2553,7 @@ static int can_resize_fs(int fd, uint64_t old_size, uint64_t new_size) {
 
                 /* btrfs can grow and shrink online */
 
-        } else if (is_fs_type(&sfs, XFS_SB_MAGIC)) {
+        } else if (is_fs_type(&sfs, XFS_SUPER_MAGIC)) {
 
                 if (new_size < XFS_MINIMAL_SIZE)
                         return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "New file system size too small for xfs (needs to be 14M at least).");
