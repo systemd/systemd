@@ -10,9 +10,11 @@
 #include "netlink-util.h"
 #include "networkd-address-pool.h"
 #include "networkd-address.h"
+#include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-manager.h"
+#include "networkd-ndisc.h"
 #include "networkd-netlabel.h"
 #include "networkd-network.h"
 #include "networkd-queue.h"
@@ -802,8 +804,58 @@ static int address_update(Address *address) {
         return 0;
 }
 
-static int address_drop(Address *address) {
-        Link *link = ASSERT_PTR(ASSERT_PTR(address)->link);
+static int address_conflict(Link *link, Address *address) {
+        int r;
+
+        assert(link);
+        assert(address);
+
+        if (address->family != AF_INET6)
+                return 0;
+
+        if (!FLAGS_SET(address->flags, IFA_F_TENTATIVE))
+                return 0;
+
+        if (address->source == NETWORK_CONFIG_SOURCE_DHCP6 && !sd_dhcp6_client_is_running(link->dhcp6_client))
+                return 0;
+
+        if (address->source == NETWORK_CONFIG_SOURCE_NDISC && !sd_ndisc_is_running(link->ndisc))
+                return 0;
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        if (!link_has_carrier(link))
+                return 0; /* Maybe, the adddress is removed due to the link lost its carrier. */
+
+        log_link_info(link, "Address %s with tentative flag is removed, maybe a duplicated address is assigned on another node or link?",
+                      IN6_ADDR_TO_STRING(&address->in_addr.in6));
+
+        /* Reset address state, as the object may be reused in the below. */
+        address->state = 0;
+
+        switch (address->source) {
+        case NETWORK_CONFIG_SOURCE_STATIC:
+                r = link_reconfigure_radv_address(address, link);
+                break;
+        case NETWORK_CONFIG_SOURCE_DHCP_PD:
+                r = dhcp_pd_reconfigure_address(address, link);
+                break;
+        case NETWORK_CONFIG_SOURCE_NDISC:
+                r = ndisc_reconfigure_address(address, link);
+                break;
+        default:
+                r = 0;
+        }
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure an alternative address: %m");
+
+        return 0;
+}
+
+static int address_drop(Address *in) {
+        _cleanup_(address_unrefp) Address *address = address_ref(ASSERT_PTR(in));
+        Link *link = ASSERT_PTR(address->link);
         int r;
 
         r = address_set_masquerade(address, /* add = */ false);
@@ -822,6 +874,12 @@ static int address_drop(Address *address) {
         ipv4acd_detach(link, address);
 
         address_detach(address);
+
+        r = address_conflict(link, address);
+        if (r < 0) {
+                link_enter_failed(link);
+                return r;
+        }
 
         link_update_operstate(link, /* also_update_master = */ true);
         link_check_ready(link);
