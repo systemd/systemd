@@ -16,8 +16,8 @@ TEST(mempool_trim) {
         struct element *a[NN];
         size_t n_freed = 0;
 
-        assert_se(!test_mempool.first_pool);
-        assert_se(!test_mempool.freelist);
+        ASSERT_FALSE(test_mempool.first_pool);
+        ASSERT_FALSE(test_mempool.freelist);
 
         mempool_trim(&test_mempool);
 
@@ -85,8 +85,8 @@ TEST(mempool_trim) {
 
         mempool_trim(&test_mempool);
 
-        assert_se(!test_mempool.first_pool);
-        assert_se(!test_mempool.freelist);
+        ASSERT_FALSE(test_mempool.first_pool);
+        ASSERT_FALSE(test_mempool.freelist);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

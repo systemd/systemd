@@ -25,7 +25,7 @@ TEST(strreplace) {
 
         assert_se(r = strreplace("XYZFFFFXYZFFFFXYZ", "XYZ", "ABC"));
         puts(r);
-        assert_se(streq(r, "ABCFFFFABCFFFFABC"));
+        ASSERT_TRUE(streq(r, "ABCFFFFABCFFFFABC"));
         free(r);
 }
 

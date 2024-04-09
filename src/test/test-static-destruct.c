@@ -19,14 +19,14 @@ static void test_destroy(int *b) {
 }
 
 static void test_strings_destroy(char **array, size_t n) {
-        assert_se(n == 3);
-        assert_se(strv_equal(array, STRV_MAKE("a", "bbb", "ccc")));
+        ASSERT_EQ(n, 3u);
+        ASSERT_TRUE(strv_equal(array, STRV_MAKE("a", "bbb", "ccc")));
 
         strv_free(array);
 }
 
 static void test_integers_destroy(int *array, size_t n) {
-        assert_se(n == 10);
+        ASSERT_EQ(n, 10u);
 
         for (size_t i = 0; i < n; i++)
                 assert_se(array[i] == (int)(i * i));
@@ -57,11 +57,11 @@ TEST(static_destruct) {
         static_destruct();
 
         assert_se(foo == 1 && bar == 2 && baz == 3);
-        assert_se(!memory);
-        assert_se(!strings);
-        assert_se(n_strings == 0);
-        assert_se(!integers);
-        assert_se(n_integers == 0);
+        ASSERT_FALSE(memory);
+        ASSERT_FALSE(strings);
+        ASSERT_EQ(n_strings, 0u);
+        ASSERT_FALSE(integers);
+        ASSERT_EQ(n_integers, 0u);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

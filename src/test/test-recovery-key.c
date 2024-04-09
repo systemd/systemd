@@ -16,7 +16,7 @@ TEST(make_recovery_key) {
 
         /* Check for successful recovery-key creation */
         r = make_recovery_key(&recovery_key);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         ASSERT_NOT_NULL(recovery_key);
 
         /* Check that length of formatted key is 72 with 64 modhex characters */
@@ -32,7 +32,7 @@ TEST(make_recovery_key) {
         /* Repeat tests to determine randomness of generated keys */
         for (size_t test = 0; test < num_test; ++test) {
                 r = make_recovery_key(&generated_keys[test]);
-                assert_se(r == 0);
+                ASSERT_EQ(r, 0);
                 length = strlen(generated_keys[test]);
                 assert_se(length == RECOVERY_KEY_MODHEX_FORMATTED_LENGTH - 1);
                 for (size_t i = 0; i < length; i++) {
@@ -51,38 +51,38 @@ TEST(make_recovery_key) {
 
 TEST(decode_modhex_char) {
 
-        assert_se(decode_modhex_char('c') == 0);
-        assert_se(decode_modhex_char('C') == 0);
-        assert_se(decode_modhex_char('b') == 1);
-        assert_se(decode_modhex_char('B') == 1);
-        assert_se(decode_modhex_char('d') == 2);
-        assert_se(decode_modhex_char('D') == 2);
-        assert_se(decode_modhex_char('e') == 3);
-        assert_se(decode_modhex_char('E') == 3);
-        assert_se(decode_modhex_char('f') == 4);
-        assert_se(decode_modhex_char('F') == 4);
-        assert_se(decode_modhex_char('g') == 5);
-        assert_se(decode_modhex_char('G') == 5);
-        assert_se(decode_modhex_char('h') == 6);
-        assert_se(decode_modhex_char('H') == 6);
-        assert_se(decode_modhex_char('i') == 7);
-        assert_se(decode_modhex_char('I') == 7);
-        assert_se(decode_modhex_char('j') == 8);
-        assert_se(decode_modhex_char('J') == 8);
-        assert_se(decode_modhex_char('k') == 9);
-        assert_se(decode_modhex_char('K') == 9);
-        assert_se(decode_modhex_char('l') == 10);
-        assert_se(decode_modhex_char('L') == 10);
-        assert_se(decode_modhex_char('n') == 11);
-        assert_se(decode_modhex_char('N') == 11);
-        assert_se(decode_modhex_char('r') == 12);
-        assert_se(decode_modhex_char('R') == 12);
-        assert_se(decode_modhex_char('t') == 13);
-        assert_se(decode_modhex_char('T') == 13);
-        assert_se(decode_modhex_char('u') == 14);
-        assert_se(decode_modhex_char('U') == 14);
-        assert_se(decode_modhex_char('v') == 15);
-        assert_se(decode_modhex_char('V') == 15);
+        ASSERT_EQ(decode_modhex_char('c'), 0);
+        ASSERT_EQ(decode_modhex_char('C'), 0);
+        ASSERT_EQ(decode_modhex_char('b'), 1);
+        ASSERT_EQ(decode_modhex_char('B'), 1);
+        ASSERT_EQ(decode_modhex_char('d'), 2);
+        ASSERT_EQ(decode_modhex_char('D'), 2);
+        ASSERT_EQ(decode_modhex_char('e'), 3);
+        ASSERT_EQ(decode_modhex_char('E'), 3);
+        ASSERT_EQ(decode_modhex_char('f'), 4);
+        ASSERT_EQ(decode_modhex_char('F'), 4);
+        ASSERT_EQ(decode_modhex_char('g'), 5);
+        ASSERT_EQ(decode_modhex_char('G'), 5);
+        ASSERT_EQ(decode_modhex_char('h'), 6);
+        ASSERT_EQ(decode_modhex_char('H'), 6);
+        ASSERT_EQ(decode_modhex_char('i'), 7);
+        ASSERT_EQ(decode_modhex_char('I'), 7);
+        ASSERT_EQ(decode_modhex_char('j'), 8);
+        ASSERT_EQ(decode_modhex_char('J'), 8);
+        ASSERT_EQ(decode_modhex_char('k'), 9);
+        ASSERT_EQ(decode_modhex_char('K'), 9);
+        ASSERT_EQ(decode_modhex_char('l'), 10);
+        ASSERT_EQ(decode_modhex_char('L'), 10);
+        ASSERT_EQ(decode_modhex_char('n'), 11);
+        ASSERT_EQ(decode_modhex_char('N'), 11);
+        ASSERT_EQ(decode_modhex_char('r'), 12);
+        ASSERT_EQ(decode_modhex_char('R'), 12);
+        ASSERT_EQ(decode_modhex_char('t'), 13);
+        ASSERT_EQ(decode_modhex_char('T'), 13);
+        ASSERT_EQ(decode_modhex_char('u'), 14);
+        ASSERT_EQ(decode_modhex_char('U'), 14);
+        ASSERT_EQ(decode_modhex_char('v'), 15);
+        ASSERT_EQ(decode_modhex_char('V'), 15);
         assert_se(decode_modhex_char('a') == -EINVAL);
         assert_se(decode_modhex_char('A') == -EINVAL);
         assert_se(decode_modhex_char('x') == -EINVAL);
@@ -106,7 +106,7 @@ TEST(normalize_recovery_key) {
         /* Case 2: Normalization with dashes */
         r = normalize_recovery_key("cdefVhij-cDefghij-cdefkhij-cdufghij-cdefgdij-cidefIhj-cdefNijR-cdVfguij",
                         &normalized_key2);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(streq(normalized_key2, "cdefvhij-cdefghij-cdefkhij-cdufghij-cdefgdij-cidefihj-cdefnijr-cdvfguij"));
 
         /* Case 3: Invalid password length */

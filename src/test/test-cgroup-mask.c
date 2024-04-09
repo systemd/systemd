@@ -48,7 +48,7 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
                 return log_tests_skipped("cannot create manager");
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         /* Turn off all kinds of default accounting, so that we can
          * verify the masks resulting of our configuration and nothing
@@ -60,7 +60,7 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
                 m->defaults.tasks_accounting = false;
         m->defaults.tasks_max = CGROUP_TASKS_MAX_UNSET;
 
-        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
 
         /* Load units and verify hierarchy. */
         ASSERT_OK(manager_load_startable_unit_or_warn(m, "parent.slice", NULL, &parent));
@@ -135,7 +135,7 @@ static void test_cg_mask_to_string_one(CGroupMask mask, const char *t) {
         _cleanup_free_ char *b = NULL;
 
         assert_se(cg_mask_to_string(mask, &b) >= 0);
-        assert_se(streq_ptr(b, t));
+        ASSERT_TRUE(streq_ptr(b, t));
 }
 
 TEST(cg_mask_to_string) {
@@ -157,7 +157,7 @@ TEST(cg_mask_to_string) {
 }
 
 static void cgroup_device_permissions_test_normalize(const char *a, const char *b) {
-        assert_se(streq_ptr(cgroup_device_permissions_to_string(cgroup_device_permissions_from_string(a)), b));
+        ASSERT_TRUE(streq_ptr(cgroup_device_permissions_to_string(cgroup_device_permissions_from_string(a)), b));
 }
 
 TEST(cgroup_device_permissions) {
@@ -178,7 +178,7 @@ TEST(cgroup_device_permissions) {
         assert_se(cgroup_device_permissions_from_string(NULL) == -EINVAL);
         assert_se(cgroup_device_permissions_from_string("rwq") == -EINVAL);
         assert_se(cgroup_device_permissions_from_string("RW") == -EINVAL);
-        assert_se(cgroup_device_permissions_from_string("") == 0);
+        ASSERT_EQ(cgroup_device_permissions_from_string(""), 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

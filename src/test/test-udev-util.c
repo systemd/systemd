@@ -13,10 +13,10 @@ static void test_udev_replace_whitespace_one_len(const char *str, size_t len, co
         int r;
 
         result = new(char, len + 1);
-        assert_se(result);
+        ASSERT_TRUE(result);
         r = udev_replace_whitespace(str, result, len);
         assert_se((size_t) r == strlen(expected));
-        assert_se(streq(result, expected));
+        ASSERT_TRUE(streq(result, expected));
 }
 
 static void test_udev_replace_whitespace_one(const char *str, const char *expected) {
