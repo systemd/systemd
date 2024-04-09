@@ -96,7 +96,7 @@ int open_file_to_string(const OpenFile *of, char **ret) {
         assert(of);
         assert(ret);
 
-        s = shell_escape(of->path, ":");
+        s = xescape(of->path, ":");
         if (!s)
                 return -ENOMEM;
 
