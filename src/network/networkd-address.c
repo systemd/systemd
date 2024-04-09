@@ -260,6 +260,7 @@ static Address* address_free(Address *address) {
         config_section_free(address->section);
         free(address->label);
         free(address->netlabel);
+        ipv6_token_unref(address->token);
         nft_set_context_clear(&address->nft_set_context);
         return mfree(address);
 }
@@ -608,6 +609,7 @@ int address_dup(const Address *src, Address **ret) {
         dest->section = NULL;
         dest->link = NULL;
         dest->label = NULL;
+        dest->token = ipv6_token_ref(src->token);
         dest->netlabel = NULL;
         dest->nft_set_context.sets = NULL;
         dest->nft_set_context.n_sets = 0;
@@ -1886,6 +1888,10 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 (void) nft_set_context_dup(&a->nft_set_context, &address->nft_set_context);
                 address->requested_as_null = a->requested_as_null;
                 address->callback = a->callback;
+
+                ipv6_token_ref(a->token);
+                ipv6_token_unref(address->token);
+                address->token = a->token;
         }
 
         /* Then, update miscellaneous info. */
