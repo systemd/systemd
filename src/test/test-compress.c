@@ -72,7 +72,7 @@ _unused_ static void test_compress_decompress(
                                (void **) &decompressed, &csize, 0);
                 ASSERT_EQ(r, 0);
                 ASSERT_TRUE(decompressed);
-                assert_se(memcmp(decompressed, data, data_len) == 0);
+                ASSERT_EQ(memcmp(decompressed, data, data_len), 0);
         }
 
         r = decompress("garbage", 7,
@@ -208,7 +208,7 @@ _unused_ static void test_compress_stream(const char *compression,
         assert_se(stat(srcfile, &st) == 0);
         assert_se((uint64_t)st.st_size == uncompressed_size);
 
-        assert_se(lseek(dst, 0, SEEK_SET) == 0);
+        ASSERT_EQ(lseek(dst, 0, SEEK_SET), 0);
         r = decompress(dst, dst2, st.st_size);
         ASSERT_EQ(r, 0);
 
@@ -217,12 +217,12 @@ _unused_ static void test_compress_stream(const char *compression,
 
         log_debug("/* test faulty decompression */");
 
-        assert_se(lseek(dst, 1, SEEK_SET) == 1);
+        ASSERT_EQ(lseek(dst, 1, SEEK_SET), 1);
         r = decompress(dst, dst2, st.st_size);
         assert_se(IN_SET(r, 0, -EBADMSG));
 
-        assert_se(lseek(dst, 0, SEEK_SET) == 0);
-        assert_se(lseek(dst2, 0, SEEK_SET) == 0);
+        ASSERT_EQ(lseek(dst, 0, SEEK_SET), 0);
+        ASSERT_EQ(lseek(dst2, 0, SEEK_SET), 0);
         r = decompress(dst, dst2, st.st_size - 1);
         assert_se(r == -EFBIG);
 }
@@ -264,7 +264,7 @@ static void test_lz4_decompress_partial(void) {
                                                                    r < 0 ? "bad" : "good");
                 if (r >= 0 && sym_LZ4_versionNumber() >= 10803)
                         /* lz4 <= 1.8.2 should fail that test, let's only check for newer ones */
-                        assert_se(memcmp(buf2, huge, r) == 0);
+                        ASSERT_EQ(memcmp(buf2, huge, r), 0);
         }
 }
 #endif

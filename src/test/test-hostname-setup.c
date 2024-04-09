@@ -20,30 +20,30 @@ TEST(read_etc_hostname) {
         close(fd);
 
         /* simple hostname */
-        assert_se(write_string_file(path, "foo", WRITE_STRING_FILE_CREATE) == 0);
+        ASSERT_EQ(write_string_file(path, "foo", WRITE_STRING_FILE_CREATE), 0);
         assert_se(read_etc_hostname(path, &hostname) == 0);
-        assert_se(streq(hostname, "foo"));
+        ASSERT_TRUE(streq(hostname, "foo"));
         hostname = mfree(hostname);
 
         /* with comment */
         assert_se(write_string_file(path, "# comment\nfoo", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(read_etc_hostname(path, &hostname) == 0);
         ASSERT_TRUE(hostname);
-        assert_se(streq(hostname, "foo"));
+        ASSERT_TRUE(streq(hostname, "foo"));
         hostname = mfree(hostname);
 
         /* with comment and extra whitespace */
         assert_se(write_string_file(path, "# comment\n\n foo ", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(read_etc_hostname(path, &hostname) == 0);
         ASSERT_TRUE(hostname);
-        assert_se(streq(hostname, "foo"));
+        ASSERT_TRUE(streq(hostname, "foo"));
         hostname = mfree(hostname);
 
         /* cleans up name */
         assert_se(write_string_file(path, "!foo/bar.com", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(read_etc_hostname(path, &hostname) == 0);
         ASSERT_TRUE(hostname);
-        assert_se(streq(hostname, "foobar.com"));
+        ASSERT_TRUE(streq(hostname, "foobar.com"));
         hostname = mfree(hostname);
 
         /* no value set */

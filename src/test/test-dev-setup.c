@@ -22,10 +22,10 @@ int main(int argc, char *argv[]) {
         assert_se(mkdtemp_malloc("/tmp/test-dev-setupXXXXXX", &p) >= 0);
 
         f = prefix_roota(p, "/run/systemd");
-        assert_se(mkdir_p(f, 0755) >= 0);
+        ASSERT_OK(mkdir_p(f, 0755));
 
-        assert_se(make_inaccessible_nodes(f, 1, 1) >= 0);
-        assert_se(make_inaccessible_nodes(f, 1, 1) >= 0); /* 2nd call should be a clean NOP */
+        ASSERT_OK(make_inaccessible_nodes(f, 1, 1));
+        ASSERT_OK(make_inaccessible_nodes(f, 1, 1)); /* 2nd call should be a clean NOP */
 
         f = prefix_roota(p, "/run/systemd/inaccessible/reg");
         assert_se(stat(f, &st) >= 0);

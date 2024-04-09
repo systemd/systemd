@@ -50,7 +50,7 @@ TEST(chown_recursive) {
         assert_se(mkdtemp_malloc(NULL, &t) >= 0);
 
         p = strjoina(t, "/dir");
-        assert_se(mkdir(p, 0777) >= 0);
+        ASSERT_OK(mkdir(p, 0777));
         assert_se(lstat(p, &st) >= 0);
         ASSERT_TRUE(S_ISDIR(st.st_mode));
         assert_se((st.st_mode & 07777) == 0755);
@@ -101,7 +101,7 @@ TEST(chown_recursive) {
                 return (void) log_tests_skipped_errno(r, "no acl supported on /tmp");
 
         ASSERT_OK(r);
-        assert_se(setxattr(p, "system.posix_acl_default", default_acl, sizeof(default_acl), 0) >= 0);
+        ASSERT_OK(setxattr(p, "system.posix_acl_default", default_acl, sizeof(default_acl), 0));
         assert_se(lstat(p, &st) >= 0);
         ASSERT_TRUE(S_ISDIR(st.st_mode));
         assert_se((st.st_mode & 07777) == 0775); /* acl change changed the mode too */
@@ -109,7 +109,7 @@ TEST(chown_recursive) {
         assert_se(st.st_gid == gid);
         ASSERT_TRUE(has_xattr(p));
 
-        assert_se(path_chown_recursive(t, 1, 2, 07777, 0) >= 0);
+        ASSERT_OK(path_chown_recursive(t, 1, 2, 07777, 0));
 
         p = strjoina(t, "/dir");
         assert_se(lstat(p, &st) >= 0);

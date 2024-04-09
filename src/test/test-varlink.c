@@ -95,7 +95,7 @@ static void test_fd(int fd, const void *buf, size_t n) {
 
         m = read(fd, rbuf, n + 1);
         ASSERT_OK(m);
-        assert_se(memcmp_nn(buf, n, rbuf, m) == 0);
+        ASSERT_EQ(memcmp_nn(buf, n, rbuf, m), 0);
 }
 
 static int method_passfd(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
@@ -107,7 +107,7 @@ static int method_passfd(Varlink *link, JsonVariant *parameters, VarlinkMethodFl
         if (!a)
                 return varlink_error(link, "io.test.BadParameters", NULL);
 
-        assert_se(streq_ptr(json_variant_string(a), "whoop"));
+        ASSERT_TRUE(streq_ptr(json_variant_string(a), "whoop"));
 
         int xx = varlink_peek_fd(link, 0),
                 yy = varlink_peek_fd(link, 1),
@@ -133,8 +133,8 @@ static int method_passfd(Varlink *link, JsonVariant *parameters, VarlinkMethodFl
         if (r < 0)
                 return r;
 
-        assert_se(varlink_push_fd(link, vv) == 0);
-        assert_se(varlink_push_fd(link, ww) == 1);
+        ASSERT_EQ(varlink_push_fd(link, vv), 0);
+        ASSERT_EQ(varlink_push_fd(link, ww), 1);
 
         TAKE_FD(vv);
         TAKE_FD(ww);
@@ -171,8 +171,8 @@ static int on_connect(VarlinkServer *s, Varlink *link, void *userdata) {
 
         assert_se(varlink_get_peer_uid(link, &uid) >= 0);
         assert_se(getuid() == uid);
-        assert_se(varlink_set_allow_fd_passing_input(link, true) >= 0);
-        assert_se(varlink_set_allow_fd_passing_output(link, true) >= 0);
+        ASSERT_OK(varlink_set_allow_fd_passing_input(link, true));
+        ASSERT_OK(varlink_set_allow_fd_passing_output(link, true));
 
         return 0;
 }
@@ -183,7 +183,7 @@ static int overload_reply(Varlink *link, JsonVariant *parameters, const char *er
          * be talking to an overloaded server */
 
         log_debug("Over reply triggered with error: %s", strna(error_id));
-        assert_se(streq(error_id, VARLINK_ERROR_DISCONNECTED));
+        ASSERT_TRUE(streq(error_id, VARLINK_ERROR_DISCONNECTED));
         sd_event_exit(varlink_get_event(link), 0);
 
         return 0;
@@ -208,7 +208,7 @@ static void flood_test(const char *address) {
         for (k = 0; k < OVERLOAD_CONNECTIONS; k++) {
                 _cleanup_free_ char *t = NULL;
                 log_debug("connection %zu", k);
-                assert_se(varlink_connect_address(connections + k, address) >= 0);
+                ASSERT_OK(varlink_connect_address(connections + k, address));
 
                 assert_se(asprintf(&t, "flood-%zu", k) >= 0);
                 assert_se(varlink_set_description(connections[k], t) >= 0);
@@ -219,10 +219,10 @@ static void flood_test(const char *address) {
         /* Then, create one more, which should fail */
         log_debug("Creating overload connection...");
         assert_se(varlink_connect_address(&c, address) >= 0);
-        assert_se(varlink_set_description(c, "overload-client") >= 0);
-        assert_se(varlink_attach_event(c, e, k) >= 0);
-        assert_se(varlink_bind_reply(c, overload_reply) >= 0);
-        assert_se(varlink_invokeb(c, "io.test.Overload", JSON_BUILD_OBJECT(JSON_BUILD_PAIR("foo", JSON_BUILD_CONST_STRING("bar")))) >= 0);
+        ASSERT_OK(varlink_set_description(c, "overload-client"));
+        ASSERT_OK(varlink_attach_event(c, e, k));
+        ASSERT_OK(varlink_bind_reply(c, overload_reply));
+        ASSERT_OK(varlink_invokeb(c, "io.test.Overload", JSON_BUILD_OBJECT(JSON_BUILD_PAIR("foo", JSON_BUILD_CONST_STRING("bar")))));
 
         /* Unblock it */
         log_debug("Unblocking server...");
@@ -249,15 +249,15 @@ static void *thread(void *arg) {
                                                    JSON_BUILD_PAIR("b", JSON_BUILD_INTEGER(99)))) >= 0);
 
         assert_se(varlink_connect_address(&c, arg) >= 0);
-        assert_se(varlink_set_description(c, "thread-client") >= 0);
-        assert_se(varlink_set_allow_fd_passing_input(c, true) >= 0);
-        assert_se(varlink_set_allow_fd_passing_output(c, true) >= 0);
+        ASSERT_OK(varlink_set_description(c, "thread-client"));
+        ASSERT_OK(varlink_set_allow_fd_passing_input(c, true));
+        ASSERT_OK(varlink_set_allow_fd_passing_output(c, true));
 
         /* Test that client is able to perform two sequential varlink_collect calls if first resulted in an error */
         assert_se(json_build(&wrong, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("a", JSON_BUILD_INTEGER(88)),
                                                        JSON_BUILD_PAIR("c", JSON_BUILD_INTEGER(99)))) >= 0);
         assert_se(varlink_collect(c, "io.test.DoSomethingMore", wrong, &j, &error_id) >= 0);
-        assert_se(strcmp_ptr(error_id, "org.varlink.service.InvalidParameter") == 0);
+        ASSERT_EQ(strcmp_ptr(error_id, "org.varlink.service.InvalidParameter"), 0);
 
 
         assert_se(varlink_collect(c, "io.test.DoSomethingMore", i, &j, &error_id) >= 0);
@@ -283,9 +283,9 @@ static void *thread(void *arg) {
         ASSERT_OK(fd2);
         ASSERT_OK(fd3);
 
-        assert_se(varlink_push_fd(c, fd1) == 0);
-        assert_se(varlink_push_fd(c, fd2) == 1);
-        assert_se(varlink_push_fd(c, fd3) == 2);
+        ASSERT_EQ(varlink_push_fd(c, fd1), 0);
+        ASSERT_EQ(varlink_push_fd(c, fd2), 1);
+        ASSERT_EQ(varlink_push_fd(c, fd3), 2);
 
         assert_se(varlink_callb(c, "io.test.PassFD", &o, &e, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("fd", JSON_BUILD_STRING("whoop")))) >= 0);
 
@@ -299,12 +299,12 @@ static void *thread(void *arg) {
         test_fd(fd5, "wuff", 4);
 
         assert_se(varlink_callb(c, "io.test.IDontExist", &o, &e, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("x", JSON_BUILD_REAL(5.5)))) >= 0);
-        assert_se(streq_ptr(json_variant_string(json_variant_by_key(o, "method")), "io.test.IDontExist"));
-        assert_se(streq(e, VARLINK_ERROR_METHOD_NOT_FOUND));
+        ASSERT_TRUE(streq_ptr(json_variant_string(json_variant_by_key(o, "method")), "io.test.IDontExist"));
+        ASSERT_TRUE(streq(e, VARLINK_ERROR_METHOD_NOT_FOUND));
 
         flood_test(arg);
 
-        assert_se(varlink_send(c, "io.test.Done", NULL) >= 0);
+        ASSERT_OK(varlink_send(c, "io.test.Done", NULL));
 
         return NULL;
 }
@@ -312,16 +312,16 @@ static void *thread(void *arg) {
 static int block_fd_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         char c;
 
-        assert_se(fd_nonblock(fd, false) >= 0);
+        ASSERT_OK(fd_nonblock(fd, false));
 
         assert_se(read(fd, &c, sizeof(c)) == sizeof(c));
         /* When a character is written to this pipe we'll block until the pipe is closed. */
 
         assert_se(read(fd, &c, sizeof(c)) == 0);
 
-        assert_se(fd_nonblock(fd, true) >= 0);
+        ASSERT_OK(fd_nonblock(fd, true));
 
-        assert_se(sd_event_source_set_enabled(s, SD_EVENT_OFF) >= 0);
+        ASSERT_OK(sd_event_source_set_enabled(s, SD_EVENT_OFF));
 
         return 0;
 }
@@ -346,37 +346,37 @@ int main(int argc, char *argv[]) {
 
         assert_se(pipe2(block_fds, O_NONBLOCK|O_CLOEXEC) >= 0);
         assert_se(sd_event_add_io(e, &block_event, block_fds[0], EPOLLIN, block_fd_handler, NULL) >= 0);
-        assert_se(sd_event_source_set_priority(block_event, SD_EVENT_PRIORITY_IMPORTANT) >= 0);
+        ASSERT_OK(sd_event_source_set_priority(block_event, SD_EVENT_PRIORITY_IMPORTANT));
         block_write_fd = TAKE_FD(block_fds[1]);
 
         assert_se(varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID) >= 0);
-        assert_se(varlink_server_set_description(s, "our-server") >= 0);
+        ASSERT_OK(varlink_server_set_description(s, "our-server"));
 
-        assert_se(varlink_server_bind_method(s, "io.test.PassFD", method_passfd) >= 0);
-        assert_se(varlink_server_bind_method(s, "io.test.DoSomething", method_something) >= 0);
-        assert_se(varlink_server_bind_method(s, "io.test.DoSomethingMore", method_something_more) >= 0);
-        assert_se(varlink_server_bind_method(s, "io.test.Done", method_done) >= 0);
-        assert_se(varlink_server_bind_connect(s, on_connect) >= 0);
-        assert_se(varlink_server_listen_address(s, sp, 0600) >= 0);
-        assert_se(varlink_server_attach_event(s, e, 0) >= 0);
-        assert_se(varlink_server_set_connections_max(s, OVERLOAD_CONNECTIONS) >= 0);
+        ASSERT_OK(varlink_server_bind_method(s, "io.test.PassFD", method_passfd));
+        ASSERT_OK(varlink_server_bind_method(s, "io.test.DoSomething", method_something));
+        ASSERT_OK(varlink_server_bind_method(s, "io.test.DoSomethingMore", method_something_more));
+        ASSERT_OK(varlink_server_bind_method(s, "io.test.Done", method_done));
+        ASSERT_OK(varlink_server_bind_connect(s, on_connect));
+        ASSERT_OK(varlink_server_listen_address(s, sp, 0600));
+        ASSERT_OK(varlink_server_attach_event(s, e, 0));
+        ASSERT_OK(varlink_server_set_connections_max(s, OVERLOAD_CONNECTIONS));
 
         assert_se(json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("a", JSON_BUILD_INTEGER(7)),
                                                    JSON_BUILD_PAIR("b", JSON_BUILD_INTEGER(22)))) >= 0);
 
         assert_se(varlink_connect_address(&c, sp) >= 0);
-        assert_se(varlink_set_description(c, "main-client") >= 0);
-        assert_se(varlink_bind_reply(c, reply) >= 0);
+        ASSERT_OK(varlink_set_description(c, "main-client"));
+        ASSERT_OK(varlink_bind_reply(c, reply));
 
-        assert_se(varlink_invoke(c, "io.test.DoSomething", v) >= 0);
+        ASSERT_OK(varlink_invoke(c, "io.test.DoSomething", v));
 
-        assert_se(varlink_attach_event(c, e, 0) >= 0);
+        ASSERT_OK(varlink_attach_event(c, e, 0));
 
         assert_se(pthread_create(&t, NULL, thread, (void*) sp) == 0);
 
         ASSERT_OK(sd_event_loop(e));
 
-        assert_se(pthread_join(t, NULL) == 0);
+        ASSERT_EQ(pthread_join(t, NULL), 0);
 
         return 0;
 }

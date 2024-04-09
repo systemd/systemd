@@ -21,22 +21,22 @@ TEST(parse_compare_operator) {
 }
 
 TEST(test_order) {
-        assert_se(!test_order(5, COMPARE_LOWER));
-        assert_se(!test_order(5, COMPARE_LOWER_OR_EQUAL));
-        assert_se(!test_order(5, COMPARE_EQUAL));
-        assert_se(test_order(5, COMPARE_UNEQUAL));
-        assert_se(test_order(5, COMPARE_GREATER_OR_EQUAL));
-        assert_se(test_order(5, COMPARE_GREATER));
+        ASSERT_FALSE(test_order(5, COMPARE_LOWER));
+        ASSERT_FALSE(test_order(5, COMPARE_LOWER_OR_EQUAL));
+        ASSERT_FALSE(test_order(5, COMPARE_EQUAL));
+        ASSERT_TRUE(test_order(5, COMPARE_UNEQUAL));
+        ASSERT_TRUE(test_order(5, COMPARE_GREATER_OR_EQUAL));
+        ASSERT_TRUE(test_order(5, COMPARE_GREATER));
         assert_se(test_order(5, COMPARE_STRING_EQUAL) == -EINVAL);
 }
 
 TEST(version_or_fnmatch_compare) {
-        assert_se(version_or_fnmatch_compare(COMPARE_STRING_EQUAL, "locale", "locale"));
-        assert_se(version_or_fnmatch_compare(COMPARE_STRING_UNEQUAL, "locale", "LOCALE"));
+        ASSERT_TRUE(version_or_fnmatch_compare(COMPARE_STRING_EQUAL, "locale", "locale"));
+        ASSERT_TRUE(version_or_fnmatch_compare(COMPARE_STRING_UNEQUAL, "locale", "LOCALE"));
         assert_se(version_or_fnmatch_compare(COMPARE_FNMATCH_EQUAL, "locaale", "loc*le"));
         assert_se(version_or_fnmatch_compare(COMPARE_FNMATCH_UNEQUAL, "locaale", "loc?le"));
-        assert_se(version_or_fnmatch_compare(COMPARE_GREATER, "local512", "local256"));
-        assert_se(version_or_fnmatch_compare(COMPARE_LOWER, "local52", "local256"));
+        ASSERT_TRUE(version_or_fnmatch_compare(COMPARE_GREATER, "local512", "local256"));
+        ASSERT_TRUE(version_or_fnmatch_compare(COMPARE_LOWER, "local52", "local256"));
         assert_se(version_or_fnmatch_compare(_COMPARE_OPERATOR_MAX, "local512", "local256") == -EINVAL);
 }
 

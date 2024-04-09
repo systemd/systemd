@@ -36,7 +36,7 @@ static int setup_test(Manager **m) {
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
         ASSERT_OK(r);
-        assert_se(manager_startup(tmp, NULL, NULL, NULL) >= 0);
+        ASSERT_OK(manager_startup(tmp, NULL, NULL, NULL));
 
         STRV_FOREACH(test_path, tests_path) {
                 _cleanup_free_ char *p = NULL;
@@ -143,7 +143,7 @@ static void test_path_exists(Manager *m) {
         path = PATH(unit);
         service = service_for_path(m, path, NULL);
 
-        assert_se(unit_start(unit, NULL) >= 0);
+        ASSERT_OK(unit_start(unit, NULL));
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
@@ -177,7 +177,7 @@ static void test_path_existsglob(Manager *m) {
         path = PATH(unit);
         service = service_for_path(m, path, NULL);
 
-        assert_se(unit_start(unit, NULL) >= 0);
+        ASSERT_OK(unit_start(unit, NULL));
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
@@ -212,7 +212,7 @@ static void test_path_changed(Manager *m) {
         path = PATH(unit);
         service = service_for_path(m, path, NULL);
 
-        assert_se(unit_start(unit, NULL) >= 0);
+        ASSERT_OK(unit_start(unit, NULL));
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
@@ -254,7 +254,7 @@ static void test_path_modified(Manager *m) {
         path = PATH(unit);
         service = service_for_path(m, path, NULL);
 
-        assert_se(unit_start(unit, NULL) >= 0);
+        ASSERT_OK(unit_start(unit, NULL));
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
@@ -295,7 +295,7 @@ static void test_path_unit(Manager *m) {
         path = PATH(unit);
         service = service_for_path(m, path, "path-mycustomunit.service");
 
-        assert_se(unit_start(unit, NULL) >= 0);
+        ASSERT_OK(unit_start(unit, NULL));
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
@@ -324,16 +324,16 @@ static void test_path_directorynotempty(Manager *m) {
         path = PATH(unit);
         service = service_for_path(m, path, NULL);
 
-        assert_se(access(test_path, F_OK) < 0);
+        ASSERT_LT(access(test_path, F_OK), 0);
 
-        assert_se(unit_start(unit, NULL) >= 0);
+        ASSERT_OK(unit_start(unit, NULL));
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
         /* MakeDirectory default to no */
-        assert_se(access(test_path, F_OK) < 0);
+        ASSERT_LT(access(test_path, F_OK), 0);
 
-        assert_se(mkdir_p(test_path, 0755) >= 0);
+        ASSERT_OK(mkdir_p(test_path, 0755));
         test_file = strjoina(test_path, "test_file");
         ASSERT_OK(touch(test_file));
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
@@ -361,12 +361,12 @@ static void test_path_makedirectory_directorymode(Manager *m) {
 
         assert_se(manager_load_startable_unit_or_warn(m, "path-makedirectory.path", NULL, &unit) >= 0);
 
-        assert_se(access(test_path, F_OK) < 0);
+        ASSERT_LT(access(test_path, F_OK), 0);
 
-        assert_se(unit_start(unit, NULL) >= 0);
+        ASSERT_OK(unit_start(unit, NULL));
 
         /* Check if the directory has been created */
-        assert_se(access(test_path, F_OK) >= 0);
+        ASSERT_OK(access(test_path, F_OK));
 
         /* Check the mode we specified with DirectoryMode=0744 */
         assert_se(stat(test_path, &s) >= 0);

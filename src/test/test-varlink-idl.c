@@ -118,12 +118,12 @@ static void test_parse_format_one(const VarlinkInterface *iface) {
         ASSERT_TRUE(iface);
 
         assert_se(varlink_idl_dump(stdout, /* use_colors=*/ true, iface) >= 0);
-        assert_se(varlink_idl_consistent(iface, LOG_ERR) >= 0);
+        ASSERT_OK(varlink_idl_consistent(iface, LOG_ERR));
         assert_se(varlink_idl_format(iface, &text) >= 0);
         assert_se(varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
-        assert_se(varlink_idl_consistent(parsed, LOG_ERR) >= 0);
+        ASSERT_OK(varlink_idl_consistent(parsed, LOG_ERR));
         assert_se(varlink_idl_format(parsed, &text2) >= 0);
-        assert_se(streq(text, text2));
+        ASSERT_TRUE(streq(text, text2));
 }
 
 TEST(parse_format) {
@@ -264,7 +264,7 @@ TEST(validate_json) {
 
         const VarlinkSymbol* symbol = ASSERT_PTR(varlink_idl_find_symbol(parsed, VARLINK_METHOD, "Mymethod"));
 
-        assert_se(varlink_idl_validate_method_call(symbol, v, NULL) >= 0);
+        ASSERT_OK(varlink_idl_validate_method_call(symbol, v, NULL));
 }
 
 static int test_recursive_one(unsigned depth) {
@@ -306,7 +306,7 @@ static int test_method(Varlink *link, JsonVariant *parameters, VarlinkMethodFlag
 }
 
 static int done_method(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        assert_se(sd_event_exit(varlink_get_event(link), 0) >= 0);
+        ASSERT_OK(sd_event_exit(varlink_get_event(link), 0));
         return 0;
 }
 
@@ -333,13 +333,13 @@ static void* server_thread(void *userdata) {
 
         assert_se(varlink_server_new(&server, 0) >= 0);
         assert_se(varlink_server_add_interface(server, &vl_interface_xyz) >= 0);
-        assert_se(varlink_server_bind_method(server, "xyz.TestMethod", test_method) >= 0);
-        assert_se(varlink_server_bind_method(server, "xyz.Done", done_method) >= 0);
+        ASSERT_OK(varlink_server_bind_method(server, "xyz.TestMethod", test_method));
+        ASSERT_OK(varlink_server_bind_method(server, "xyz.Done", done_method));
 
         assert_se(sd_event_new(&event) >= 0);
-        assert_se(varlink_server_attach_event(server, event, 0) >= 0);
+        ASSERT_OK(varlink_server_attach_event(server, event, 0));
 
-        assert_se(varlink_server_add_connection(server, PTR_TO_FD(userdata), NULL) >= 0);
+        ASSERT_OK(varlink_server_add_connection(server, PTR_TO_FD(userdata), NULL));
 
         ASSERT_OK(sd_event_loop(event));
         return NULL;
@@ -371,7 +371,7 @@ TEST(validate_method_call) {
 
         json_variant_dump(reply, JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO, NULL, NULL);
         json_variant_dump(expected_reply, JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO, NULL, NULL);
-        assert_se(json_variant_equal(reply, expected_reply));
+        ASSERT_TRUE(json_variant_equal(reply, expected_reply));
 
         assert_se(varlink_callb(v, "xyz.TestMethod", &reply, &error_id,
                                 JSON_BUILD_OBJECT(
@@ -380,24 +380,24 @@ TEST(validate_method_call) {
                                                 JSON_BUILD_PAIR_STRING("optional", "pfft"))) >= 0);
 
         ASSERT_FALSE(error_id);
-        assert_se(json_variant_equal(reply, expected_reply));
+        ASSERT_TRUE(json_variant_equal(reply, expected_reply));
 
         assert_se(varlink_callb(v, "xyz.TestMethod", &reply, &error_id,
                                 JSON_BUILD_OBJECT(
                                                 JSON_BUILD_PAIR_UNSIGNED("foo", 8),
                                                 JSON_BUILD_PAIR_UNSIGNED("bar", 9),
                                                 JSON_BUILD_PAIR_STRING("zzz", "pfft"))) >= 0);
-        assert_se(streq_ptr(error_id, VARLINK_ERROR_INVALID_PARAMETER));
+        ASSERT_TRUE(streq_ptr(error_id, VARLINK_ERROR_INVALID_PARAMETER));
 
         assert_se(varlink_callb(v, "xyz.TestMethod", &reply, &error_id,
                                 JSON_BUILD_OBJECT(
                                                 JSON_BUILD_PAIR_BOOLEAN("foo", true),
                                                 JSON_BUILD_PAIR_UNSIGNED("bar", 9))) >= 0);
-        assert_se(streq_ptr(error_id, VARLINK_ERROR_INVALID_PARAMETER));
+        ASSERT_TRUE(streq_ptr(error_id, VARLINK_ERROR_INVALID_PARAMETER));
 
-        assert_se(varlink_send(v, "xyz.Done", NULL) >= 0);
+        ASSERT_OK(varlink_send(v, "xyz.Done", NULL));
         ASSERT_OK(varlink_flush(v));
-        assert_se(pthread_join(t, NULL) == 0);
+        ASSERT_EQ(pthread_join(t, NULL), 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

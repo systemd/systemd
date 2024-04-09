@@ -36,16 +36,16 @@ static void test_xescape_full_one(bool eight_bits) {
                 log_info("%02u: <%s>", i, t);
 
                 if (i >= full_fit)
-                        assert_se(streq(t, escaped));
+                        ASSERT_TRUE(streq(t, escaped));
                 else if (i >= 3) {
                         /* We need up to four columns, so up to three columns may be wasted */
                         assert_se(strlen(t) == i || strlen(t) == i - 1 || strlen(t) == i - 2 || strlen(t) == i - 3);
                         assert_se(strneq(t, escaped, i - 3) || strneq(t, escaped, i - 4) ||
                                   strneq(t, escaped, i - 5) || strneq(t, escaped, i - 6));
-                        assert_se(endswith(t, "..."));
+                        ASSERT_TRUE(endswith(t, "..."));
                 } else {
                         assert_se(strlen(t) == i);
-                        assert_se(strneq(t, "...", i));
+                        ASSERT_TRUE(strneq(t, "...", i));
                 }
 
                 assert_se(q = xescape_full("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", "b", i,
@@ -53,7 +53,7 @@ static void test_xescape_full_one(bool eight_bits) {
 
                 log_info("%02u: <%s>", i, q);
                 if (i > 0)
-                        assert_se(endswith(q, "."));
+                        ASSERT_TRUE(endswith(q, "."));
                 assert_se(strlen(q) <= i);
                 assert_se(strlen(q) + 3 >= strlen(t));
         }
@@ -136,7 +136,7 @@ static void test_shell_escape_one(const char *s, const char *bad, const char *ex
 
         assert_se(r = shell_escape(s, bad));
         log_debug("%s → %s (expected %s)", s, r, expected);
-        assert_se(streq_ptr(r, expected));
+        ASSERT_TRUE(streq_ptr(r, expected));
 }
 
 TEST(shell_escape) {
@@ -153,7 +153,7 @@ static void test_shell_maybe_quote_one(const char *s, ShellEscapeFlags flags, co
 
         assert_se(ret = shell_maybe_quote(s, flags));
         log_debug("[%s] → [%s] (%s)", s, ret, expected);
-        assert_se(streq(ret, expected));
+        ASSERT_TRUE(streq(ret, expected));
 }
 
 TEST(shell_maybe_quote) {
@@ -207,7 +207,7 @@ static void test_quote_command_line_one(char **argv, const char *expected) {
 
         assert_se(s = quote_command_line(argv, SHELL_ESCAPE_EMPTY));
         log_info("%s", s);
-        assert_se(streq(s, expected));
+        ASSERT_TRUE(streq(s, expected));
 }
 
 TEST(quote_command_line) {
@@ -228,7 +228,7 @@ static void test_octescape_one(const char *s, const char *expected) {
 
         assert_se(ret = octescape(s, strlen_ptr(s)));
         log_debug("octescape(\"%s\") → \"%s\" (expected: \"%s\")", strnull(s), ret, expected);
-        assert_se(streq(ret, expected));
+        ASSERT_TRUE(streq(ret, expected));
 }
 
 TEST(octescape) {
@@ -244,7 +244,7 @@ static void test_decescape_one(const char *s, const char *bad, const char *expec
 
         assert_se(ret = decescape(s, bad, strlen_ptr(s)));
         log_debug("decescape(\"%s\") → \"%s\" (expected: \"%s\")", strnull(s), ret, expected);
-        assert_se(streq(ret, expected));
+        ASSERT_TRUE(streq(ret, expected));
 }
 
 TEST(decescape) {

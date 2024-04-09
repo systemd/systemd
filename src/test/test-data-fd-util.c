@@ -21,8 +21,8 @@ static void test_acquire_data_fd_one(unsigned flags) {
         ASSERT_OK(fd);
 
         zero(rbuffer);
-        assert_se(read(fd, rbuffer, sizeof(rbuffer)) == 3);
-        assert_se(streq(rbuffer, "foo"));
+        ASSERT_EQ(read(fd, rbuffer, sizeof(rbuffer)), 3);
+        ASSERT_TRUE(streq(rbuffer, "foo"));
 
         fd = safe_close(fd);
 
@@ -30,8 +30,8 @@ static void test_acquire_data_fd_one(unsigned flags) {
         ASSERT_OK(fd);
 
         zero(rbuffer);
-        assert_se(read(fd, rbuffer, sizeof(rbuffer)) == 0);
-        assert_se(streq(rbuffer, ""));
+        ASSERT_EQ(read(fd, rbuffer, sizeof(rbuffer)), 0);
+        ASSERT_TRUE(streq(rbuffer, ""));
 
         fd = safe_close(fd);
 
@@ -42,7 +42,7 @@ static void test_acquire_data_fd_one(unsigned flags) {
 
         zero(rbuffer);
         assert_se(read(fd, rbuffer, sizeof(rbuffer)) == sizeof(rbuffer));
-        assert_se(memcmp(rbuffer, wbuffer, sizeof(rbuffer)) == 0);
+        ASSERT_EQ(memcmp(rbuffer, wbuffer, sizeof(rbuffer)), 0);
 
         fd = safe_close(fd);
 }
@@ -75,7 +75,7 @@ static void assert_equal_fd(int fd1, int fd2) {
                 if (x == 0)
                         break;
 
-                assert_se(memcmp(a, b, x) == 0);
+                ASSERT_EQ(memcmp(a, b, x), 0);
         }
 }
 
@@ -91,7 +91,7 @@ TEST(copy_data_fd) {
                 fd2 = copy_data_fd(fd1);
                 ASSERT_OK(fd2);
 
-                assert_se(lseek(fd1, 0, SEEK_SET) == 0);
+                ASSERT_EQ(lseek(fd1, 0, SEEK_SET), 0);
                 assert_equal_fd(fd1, fd2);
         }
 

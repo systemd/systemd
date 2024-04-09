@@ -119,7 +119,7 @@ static void test_compress_decompress(const char* label, const char* type,
                 ASSERT_EQ(r, 0);
                 assert_se(k == size);
 
-                assert_se(memcmp(text, buf2, size) == 0);
+                ASSERT_EQ(memcmp(text, buf2, size), 0);
 
                 total += size;
                 compressed += j;

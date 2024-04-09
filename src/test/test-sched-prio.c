@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
         ASSERT_OK(r);
-        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
 
         /* load idle ok */
         assert_se(manager_load_startable_unit_or_warn(m, "sched_idle_ok.service", NULL, &idle_ok) >= 0);

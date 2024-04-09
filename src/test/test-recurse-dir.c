@@ -76,7 +76,7 @@ static int recurse_dir_callback(
                           de->d_type == DT_LNK ? ", ignoring." : "");
 
                 if (de->d_type != DT_LNK)
-                        assert_se(strv_extend(l, path) >= 0);
+                        ASSERT_OK(strv_extend(l, path));
                 break;
 
         case RECURSE_DIR_ENTER:

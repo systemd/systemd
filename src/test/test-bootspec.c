@@ -101,7 +101,7 @@ static void test_extract_tries_one(const char *fname, int ret, const char *strip
         if (ret < 0)
                 return;
 
-        assert_se(streq_ptr(p, stripped));
+        ASSERT_TRUE(streq_ptr(p, stripped));
         assert_se(l == tries_left);
         assert_se(d == tries_done);
 }
