@@ -43,6 +43,10 @@ def run(args):
         console.send('c')
         console.expect('screen1 ', 10)
 
+        logger.info('wait for the machine to fully boot')
+        console.sendline('systemctl is-system-running --wait')
+        console.expect(r'\b(running|degraded)\b', 60)
+
 #        console.interact()
 
         console.sendline('tty')
