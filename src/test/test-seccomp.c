@@ -110,7 +110,7 @@ TEST(seccomp_arch_to_string) {
         const char *name;
 
         a = seccomp_arch_native();
-        ASSERT_GT(a, 0);
+        ASSERT_GT(a, 0u);
         name = seccomp_arch_to_string(a);
         ASSERT_TRUE(name);
         assert_se(seccomp_arch_from_string(name, &b) >= 0);
