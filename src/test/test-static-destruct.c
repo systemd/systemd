@@ -59,9 +59,9 @@ TEST(static_destruct) {
         assert_se(foo == 1 && bar == 2 && baz == 3);
         assert_se(!memory);
         assert_se(!strings);
-        assert_se(n_strings == 0);
+        ASSERT_EQ(n_strings, 0u);
         assert_se(!integers);
-        assert_se(n_integers == 0);
+        ASSERT_EQ(n_integers, 0u);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

@@ -30,64 +30,64 @@ static int run(int argc, char **argv) {
          * around yet. */
 
 #if HAVE_LIBIDN2 || HAVE_LIBIDN
-        assert_se(dlopen_idn() >= 0);
+        ASSERT_OK(dlopen_idn());
 #endif
 
 #if HAVE_LIBCRYPTSETUP
-        assert_se(dlopen_cryptsetup() >= 0);
+        ASSERT_OK(dlopen_cryptsetup());
 #endif
 
 #if HAVE_PASSWDQC
-        assert_se(dlopen_passwdqc() >= 0);
+        ASSERT_OK(dlopen_passwdqc());
 #endif
 
 #if HAVE_PWQUALITY
-        assert_se(dlopen_pwquality() >= 0);
+        ASSERT_OK(dlopen_pwquality());
 #endif
 
 #if HAVE_QRENCODE
-        assert_se(dlopen_qrencode() >= 0);
+        ASSERT_OK(dlopen_qrencode());
 #endif
 
 #if HAVE_TPM2
-        assert_se(dlopen_tpm2() >= 0);
+        ASSERT_OK(dlopen_tpm2());
 #endif
 
 #if HAVE_LIBFIDO2
-        assert_se(dlopen_libfido2() >= 0);
+        ASSERT_OK(dlopen_libfido2());
 #endif
 
 #if HAVE_LIBBPF
-        assert_se(dlopen_bpf() >= 0);
+        ASSERT_OK(dlopen_bpf());
 #endif
 
 #if HAVE_ELFUTILS
-        assert_se(dlopen_dw() >= 0);
-        assert_se(dlopen_elf() >= 0);
+        ASSERT_OK(dlopen_dw());
+        ASSERT_OK(dlopen_elf());
 #endif
 
 #if HAVE_PCRE2
-        assert_se(dlopen_pcre2() >= 0);
+        ASSERT_OK(dlopen_pcre2());
 #endif
 
 #if HAVE_P11KIT
-        assert_se(dlopen_p11kit() >= 0);
+        ASSERT_OK(dlopen_p11kit());
 #endif
 
 #if HAVE_LIBARCHIVE
-        assert_se(dlopen_libarchive() >= 0);
+        ASSERT_OK(dlopen_libarchive());
 #endif
 
 #if HAVE_LZ4
-        assert_se(dlopen_lz4() >= 0);
+        ASSERT_OK(dlopen_lz4());
 #endif
 
 #if HAVE_ZSTD
-        assert_se(dlopen_zstd() >= 0);
+        ASSERT_OK(dlopen_zstd());
 #endif
 
 #if HAVE_XZ
-        assert_se(dlopen_lzma() >= 0);
+        ASSERT_OK(dlopen_lzma());
 #endif
 
 #if HAVE_GCRYPT
@@ -95,7 +95,7 @@ static int run(int argc, char **argv) {
 #endif
 
 #if HAVE_KMOD
-        assert_se(dlopen_libkmod() >= 0);
+        ASSERT_OK(dlopen_libkmod());
 #endif
 
         return 0;

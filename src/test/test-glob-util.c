@@ -19,7 +19,7 @@ TEST(glob_first) {
         int r;
 
         fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         close(fd);
 
         r = glob_first("/tmp/test-glob_first*", &first);
@@ -28,9 +28,9 @@ TEST(glob_first) {
         first = mfree(first);
 
         r = unlink(name);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         r = glob_first("/tmp/test-glob_first*", &first);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         ASSERT_NULL(first);
 }
 
@@ -40,16 +40,16 @@ TEST(glob_exists) {
         int r;
 
         fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         close(fd);
 
         r = glob_exists("/tmp/test-glob_exists*");
         assert_se(r == 1);
 
         r = unlink(name);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         r = glob_exists("/tmp/test-glob_exists*");
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
 }
 
 static void closedir_wrapper(void* v) {
@@ -101,13 +101,13 @@ TEST(safe_glob) {
         assert_se(r == -ENOENT);
 
         fname = strjoina(template, "/.foobar");
-        assert_se(touch(fname) == 0);
+        ASSERT_EQ(touch(fname), 0);
 
         r = safe_glob(fn, 0, &g);
         assert_se(r == -ENOENT);
 
         r = safe_glob(fn2, GLOB_NOSORT|GLOB_BRACE, &g);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(g.gl_pathc == 1);
         assert_se(streq(g.gl_pathv[0], fname));
         ASSERT_NULL(g.gl_pathv[1]);

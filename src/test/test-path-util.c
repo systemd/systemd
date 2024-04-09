@@ -392,7 +392,7 @@ TEST(find_executable_full) {
         if (p)
                 assert_se(oldpath = strdup(p));
 
-        assert_se(unsetenv("PATH") == 0);
+        ASSERT_EQ(unsetenv("PATH"), 0);
 
         assert_se(find_executable_full("sh", NULL, NULL, true, &p, NULL) == 0);
         puts(p);
@@ -471,7 +471,7 @@ static void test_find_executable_exec_one(const char *path) {
                 assert_se(streq(t, path));
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
         if (pid == 0) {
                 r = fexecve_or_execve(fd, t, STRV_MAKE(t, "--version"), STRV_MAKE(NULL));
                 log_error_errno(r, "[f]execve: %m");
@@ -620,12 +620,12 @@ TEST(path_extend) {
 
 TEST(fsck_exists) {
         /* Ensure we use a sane default for PATH. */
-        assert_se(unsetenv("PATH") == 0);
+        ASSERT_EQ(unsetenv("PATH"), 0);
 
         /* We might or might not find one of these, so keep the test lax. */
-        assert_se(fsck_exists_for_fstype("minix") >= 0);
+        ASSERT_OK(fsck_exists_for_fstype("minix"));
 
-        assert_se(fsck_exists_for_fstype("AbCdE") == 0);
+        ASSERT_EQ(fsck_exists_for_fstype("AbCdE"), 0);
         assert_se(fsck_exists_for_fstype("/../bin/") == 0);
 }
 

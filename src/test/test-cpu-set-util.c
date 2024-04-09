@@ -237,17 +237,17 @@ TEST(parse_cpu_set) {
         /* Garbage */
         assert_se(parse_cpu_set_full("0 1 2 3 garbage", &c, true, NULL, "fake", 1, "CPUAffinity") == -EINVAL);
         assert_se(!c.set);
-        assert_se(c.allocated == 0);
+        ASSERT_EQ(c.allocated, 0u);
 
         /* Range with garbage */
         assert_se(parse_cpu_set_full("0-3 8-garbage", &c, true, NULL, "fake", 1, "CPUAffinity") == -EINVAL);
         assert_se(!c.set);
-        assert_se(c.allocated == 0);
+        ASSERT_EQ(c.allocated, 0u);
 
         /* Empty string */
         assert_se(parse_cpu_set_full("", &c, true, NULL, "fake", 1, "CPUAffinity") == 0);
         assert_se(!c.set);                /* empty string returns NULL */
-        assert_se(c.allocated == 0);
+        ASSERT_EQ(c.allocated, 0u);
         assert_se(str = cpu_set_to_mask_string(&c));
         log_info("cpu_set_to_mask_string: %s", str);
         assert_se(streq(str, "0"));
@@ -256,7 +256,7 @@ TEST(parse_cpu_set) {
         /* Runaway quoted string */
         assert_se(parse_cpu_set_full("0 1 2 3 \"4 5 6 7 ", &c, true, NULL, "fake", 1, "CPUAffinity") == -EINVAL);
         assert_se(!c.set);
-        assert_se(c.allocated == 0);
+        ASSERT_EQ(c.allocated, 0u);
 
         /* Maximum allocation */
         assert_se(parse_cpu_set_full("8000-8191", &c, true, NULL, "fake", 1, "CPUAffinity") == 0);
@@ -304,7 +304,7 @@ TEST(parse_cpu_set_extend) {
 
         assert_se(parse_cpu_set_extend("", &c, true, NULL, "fake", 1, "CPUAffinity") == 0);
         assert_se(!c.set);
-        assert_se(c.allocated == 0);
+        ASSERT_EQ(c.allocated, 0u);
         log_info("cpu_set_to_string: (null)");
 }
 
@@ -342,7 +342,7 @@ TEST(cpus_in_affinity_mask) {
         int r;
 
         r = cpus_in_affinity_mask();
-        assert_se(r > 0);
+        ASSERT_GT(r, 0);
         log_info("cpus_in_affinity_mask: %d", r);
 }
 

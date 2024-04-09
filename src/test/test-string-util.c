@@ -434,7 +434,7 @@ TEST(foreach_word) {
                         assert_se(i == ELEMENTSOF(expected));
                         break;
                 }
-                assert_se(r > 0);
+                ASSERT_GT(r, 0);
 
                 assert_se(streq(expected[i++], word));
         }
@@ -607,8 +607,8 @@ TEST(first_word) {
 
 TEST(strlen_ptr) {
         assert_se(strlen_ptr("foo") == 3);
-        assert_se(strlen_ptr("") == 0);
-        assert_se(strlen_ptr(NULL) == 0);
+        ASSERT_EQ(strlen_ptr(""), 0u);
+        ASSERT_EQ(strlen_ptr(NULL), 0u);
 }
 
 TEST(memory_startswith) {

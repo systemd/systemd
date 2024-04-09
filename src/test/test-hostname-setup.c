@@ -16,7 +16,7 @@ TEST(read_etc_hostname) {
         int fd;
 
         fd = mkostemp_safe(path);
-        assert_se(fd > 0);
+        ASSERT_GT(fd, 0);
         close(fd);
 
         /* simple hostname */

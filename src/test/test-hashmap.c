@@ -158,7 +158,7 @@ TEST(hashmap_put_strdup_null) {
 int n_extern_tests_run = 0;
 
 static int intro(void) {
-        assert_se(n_extern_tests_run == 0);
+        ASSERT_EQ(n_extern_tests_run, 0);
         return EXIT_SUCCESS;
 }
 

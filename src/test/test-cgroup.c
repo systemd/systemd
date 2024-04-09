@@ -49,7 +49,7 @@ TEST(cg_create) {
                 log_tests_skipped("cgroupfs is not mounted");
                 return;
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         _cleanup_free_ char *here = NULL;
         assert_se(cg_pid_get_path_shifted(0, NULL, &here) >= 0);
@@ -145,10 +145,10 @@ TEST(id) {
                 log_tests_skipped("cgroupfs is not mounted");
                 return;
         }
-        assert_se(r > 0);
+        ASSERT_GT(r, 0);
 
         fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         assert_se(fd_get_path(fd, &p) >= 0);
         assert_se(path_equal(p, "/sys/fs/cgroup"));
@@ -160,7 +160,7 @@ TEST(id) {
         if (ERRNO_IS_NEG_PRIVILEGE(fd2))
                 log_notice("Skipping open-by-cgroup-id test because lacking privs.");
         else {
-                assert_se(fd2 >= 0);
+                ASSERT_OK(fd2);
 
                 assert_se(fd_get_path(fd2, &p2) >= 0);
                 assert_se(path_equal(p2, "/sys/fs/cgroup"));

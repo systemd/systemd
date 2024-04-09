@@ -27,21 +27,21 @@ static void *ignore_stdout_args[] = { &here, &here2, &here3 };
 
 /* noop handlers, just check that arguments are passed correctly */
 static int ignore_stdout_func(int fd, void *arg) {
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         assert_se(arg == &here);
         safe_close(fd);
 
         return 0;
 }
 static int ignore_stdout_func2(int fd, void *arg) {
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         assert_se(arg == &here2);
         safe_close(fd);
 
         return 0;
 }
 static int ignore_stdout_func3(int fd, void *arg) {
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         assert_se(arg == &here3);
         safe_close(fd);
 
@@ -103,9 +103,9 @@ static void test_execute_directory_one(bool gather_stdout) {
                                     "#!/bin/sh\necho 'Executing '$0\ntouch $(dirname $0)/failed",
                                     WRITE_STRING_FILE_CREATE) == 0);
         assert_se(symlink("/dev/null", mask) == 0);
-        assert_se(touch(mask2) == 0);
-        assert_se(touch(mask2e) == 0);
-        assert_se(touch(name3) >= 0);
+        ASSERT_EQ(touch(mask2), 0);
+        ASSERT_EQ(touch(mask2e), 0);
+        ASSERT_OK(touch(name3));
 
         assert_se(chmod(name, 0755) == 0);
         assert_se(chmod(name2, 0755) == 0);
@@ -124,11 +124,11 @@ static void test_execute_directory_one(bool gather_stdout) {
         else
                 execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
-        assert_se(chdir(tmp_lo) == 0);
+        ASSERT_EQ(chdir(tmp_lo), 0);
         assert_se(access("it_works", F_OK) >= 0);
         assert_se(access("failed", F_OK) < 0);
 
-        assert_se(chdir(tmp_hi) == 0);
+        ASSERT_EQ(chdir(tmp_hi), 0);
         assert_se(access("it_works2", F_OK) >= 0);
         assert_se(access("failed", F_OK) < 0);
 }
@@ -275,7 +275,7 @@ TEST(stdout_gathering) {
 
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdouts, args, NULL, NULL,
                                 EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         log_info("got: %s", output);
 
@@ -335,13 +335,13 @@ TEST(environment_gathering) {
          * good. Force our own PATH in environment, to prevent expansion of sh built-in $PATH */
         old = getenv("PATH");
         r = setenv("PATH", "no-sh-built-in-path", 1);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
 
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         STRV_FOREACH(p, env)
                 log_info("got env: \"%s\"", *p);
@@ -358,7 +358,7 @@ TEST(environment_gathering) {
         assert_se(env);
 
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, env, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         STRV_FOREACH(p, env)
                 log_info("got env: \"%s\"", *p);
@@ -417,7 +417,7 @@ TEST(exec_command_flags_from_strv) {
 
         r = exec_command_flags_from_strv(valid_strv, &flags);
 
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND));
         assert_se(FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID));
         assert_se(FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE));
@@ -438,12 +438,12 @@ TEST(exec_command_flags_to_strv) {
 
         r = exec_command_flags_to_strv(flags, &opts);
 
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(strv_equal(opts, STRV_MAKE("ignore-failure", "ambient", "no-env-expand")));
 
         r = exec_command_flags_to_strv(0, &empty_opts);
 
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(strv_equal(empty_opts, STRV_MAKE_EMPTY));
 
         flags = _EXEC_COMMAND_FLAGS_INVALID;

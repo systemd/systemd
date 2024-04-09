@@ -82,7 +82,7 @@ static void test_in_addr_prefixes_reduce(Set *prefixes) {
         assert_se(set_size(prefixes) == 2 * 256 * 257);
         assert_se(!in_addr_prefixes_is_any(prefixes));
 
-        assert_se(in_addr_prefixes_reduce(prefixes) >= 0);
+        ASSERT_OK(in_addr_prefixes_reduce(prefixes));
         assert_se(set_size(prefixes) == 2 * 256);
         assert_se(!in_addr_prefixes_is_any(prefixes));
 
@@ -90,7 +90,7 @@ static void test_in_addr_prefixes_reduce(Set *prefixes) {
         assert_se(set_size(prefixes) == 2 * 256 + 2);
         assert_se(!in_addr_prefixes_is_any(prefixes));
 
-        assert_se(in_addr_prefixes_reduce(prefixes) >= 0);
+        ASSERT_OK(in_addr_prefixes_reduce(prefixes));
         assert_se(set_size(prefixes) == 256 + 2);
         assert_se(!in_addr_prefixes_is_any(prefixes));
 
@@ -98,7 +98,7 @@ static void test_in_addr_prefixes_reduce(Set *prefixes) {
         assert_se(set_size(prefixes) == 256 + 4);
         assert_se(!in_addr_prefixes_is_any(prefixes));
 
-        assert_se(in_addr_prefixes_reduce(prefixes) >= 0);
+        ASSERT_OK(in_addr_prefixes_reduce(prefixes));
         assert_se(set_size(prefixes) == 4);
         assert_se(!in_addr_prefixes_is_any(prefixes));
 
@@ -106,7 +106,7 @@ static void test_in_addr_prefixes_reduce(Set *prefixes) {
         assert_se(set_size(prefixes) == 6);
         assert_se(in_addr_prefixes_is_any(prefixes));
 
-        assert_se(in_addr_prefixes_reduce(prefixes) >= 0);
+        ASSERT_OK(in_addr_prefixes_reduce(prefixes));
         assert_se(set_size(prefixes) == 2);
         assert_se(in_addr_prefixes_is_any(prefixes));
 }

@@ -18,7 +18,7 @@ TEST(saturate_add) {
 TEST(ALIGN_POWER2) {
         unsigned long i, p2;
 
-        assert_se(ALIGN_POWER2(0) == 0);
+        ASSERT_EQ(ALIGN_POWER2(0), 0u);
         assert_se(ALIGN_POWER2(1) == 1);
         assert_se(ALIGN_POWER2(2) == 2);
         assert_se(ALIGN_POWER2(3) == 4);
@@ -36,7 +36,7 @@ TEST(ALIGN_POWER2) {
         assert_se(ALIGN_POWER2(16) == 16);
         assert_se(ALIGN_POWER2(17) == 32);
 
-        assert_se(ALIGN_POWER2(ULONG_MAX) == 0);
+        ASSERT_EQ(ALIGN_POWER2(ULONG_MAX), 0u);
         assert_se(ALIGN_POWER2(ULONG_MAX - 1) == 0);
         assert_se(ALIGN_POWER2(ULONG_MAX - 1024) == 0);
         assert_se(ALIGN_POWER2(ULONG_MAX / 2) == ULONG_MAX / 2 + 1);
@@ -341,7 +341,7 @@ TEST(DIV_ROUND_UP) {
 
 TEST(PTR_TO_INT) {
         /* Primary reason to have this test is to validate that pointers are large enough to hold entire int range */
-        assert_se(PTR_TO_INT(INT_TO_PTR(0)) == 0);
+        ASSERT_EQ(PTR_TO_INT(INT_TO_PTR(0)), 0);
         assert_se(PTR_TO_INT(INT_TO_PTR(1)) == 1);
         assert_se(PTR_TO_INT(INT_TO_PTR(-1)) == -1);
         assert_se(PTR_TO_INT(INT_TO_PTR(INT_MAX)) == INT_MAX);
@@ -380,7 +380,7 @@ TEST(FOREACH_ARGUMENT) {
                 case 2: assert_se(u8 == 0xff); break;
                 case 3: assert_se(u8 == u8_1); break;
                 case 4: assert_se(u8 == u8_3); break;
-                case 5: assert_se(u8 == 0); break;
+                case 5: ASSERT_EQ(u8, 0); break;
                 case 6: assert_se(u8 == 1); break;
                 default: assert_se(false);
                 }
@@ -388,7 +388,7 @@ TEST(FOREACH_ARGUMENT) {
         assert_se(i == 7);
         i = 0;
         FOREACH_ARGUMENT(u8, 0) {
-                assert_se(u8 == 0);
+                ASSERT_EQ(u8, 0);
                 assert_se(i++ == 0);
         }
         assert_se(i == 1);
@@ -412,14 +412,14 @@ TEST(FOREACH_ARGUMENT) {
                 case 4: assert_se(u32 == u32_3); break;
                 case 5: assert_se(u32 == u32_1); break;
                 case 6: assert_se(u32 == 1); break;
-                case 7: assert_se(u32 == 0); break;
+                case 7: ASSERT_EQ(u32, 0u); break;
                 default: assert_se(false);
                 }
         }
         assert_se(i == 8);
         i = 0;
         FOREACH_ARGUMENT(u32, 0) {
-                assert_se(u32 == 0);
+                ASSERT_EQ(u32, 0u);
                 assert_se(i++ == 0);
         }
         assert_se(i == 1);
@@ -437,7 +437,7 @@ TEST(FOREACH_ARGUMENT) {
         FOREACH_ARGUMENT(u64, 44, 0, u64_3, 100, u64_2, u64_1, 50000) {
                 switch (i++) {
                 case 0: assert_se(u64 == 44); break;
-                case 1: assert_se(u64 == 0); break;
+                case 1: ASSERT_EQ(u64, 0u); break;
                 case 2: assert_se(u64 == u64_3); break;
                 case 3: assert_se(u64 == 100); break;
                 case 4: assert_se(u64 == u64_2); break;
@@ -449,7 +449,7 @@ TEST(FOREACH_ARGUMENT) {
         assert_se(i == 7);
         i = 0;
         FOREACH_ARGUMENT(u64, 0) {
-                assert_se(u64 == 0);
+                ASSERT_EQ(u64, 0u);
                 assert_se(i++ == 0);
         }
         assert_se(i == 1);
@@ -757,7 +757,7 @@ TEST(flags) {
         SET_FLAG(n, F1 | F3, true);
         assert_se(n == (F1 | F3));
         SET_FLAG(n, F_ALL, false);
-        assert_se(n == 0);
+        ASSERT_EQ(n, 0u);
 
         assert_se(UPDATE_FLAG(0, 0, true) == 0);
         assert_se(UPDATE_FLAG(0, F1, true) == F1);
@@ -884,7 +884,7 @@ TEST(ISPOWEROF2) {
         assert_se(!ISPOWEROF2(i++));
         assert_se(i == -1);
         assert_se(!ISPOWEROF2(i++));
-        assert_se(i == 0);
+        ASSERT_EQ(i, 0);
         assert_se(!ISPOWEROF2(i++));
         assert_se(i == 1);
         assert_se(ISPOWEROF2(i++));
@@ -1001,8 +1001,8 @@ TEST(FOREACH_ARRAY) {
                         x += (*i) * (*j);
                         n++;
                 }
-        assert_se(x == 0);
-        assert_se(n == 0);
+        ASSERT_EQ(x, 0);
+        ASSERT_EQ(n, 0);
 
         x = n = 0;
         FOREACH_ARRAY(i, a, -1)
@@ -1010,8 +1010,8 @@ TEST(FOREACH_ARRAY) {
                         x += (*i) * (*j);
                         n++;
                 }
-        assert_se(x == 0);
-        assert_se(n == 0);
+        ASSERT_EQ(x, 0);
+        ASSERT_EQ(n, 0);
 }
 
 #define TEST_ROUND_UP_BY_TYPE(type, max_value)                          \

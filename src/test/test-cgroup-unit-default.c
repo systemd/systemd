@@ -123,7 +123,7 @@ TEST_RET(default_memory_low, .sd_booted = true) {
         assert_se(unit_get_ancestor_memory_low(dml_passthrough) == 100);
         assert_se(unit_get_ancestor_memory_low(dml_passthrough_empty) == dml_tree_default);
         assert_se(unit_get_ancestor_memory_low(dml_passthrough_set_dml) == 50);
-        assert_se(unit_get_ancestor_memory_low(dml_passthrough_set_ml) == 0);
+        ASSERT_EQ(unit_get_ancestor_memory_low(dml_passthrough_set_ml), 0);
 
         assert_se(unit_get_ancestor_memory_low(dml_override) == dml_tree_default);
         assert_se(unit_get_ancestor_memory_low(dml_override_empty) == 10);

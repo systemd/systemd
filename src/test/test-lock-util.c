@@ -30,7 +30,7 @@ TEST(make_lock_file) {
         assert_se(faccessat(tfd, "lock", F_OK, 0) >= 0);
         release_lock_file(&lock2);
 
-        assert_se(fchdir(tfd) >= 0);
+        ASSERT_OK(fchdir(tfd));
         assert_se(make_lock_file_at(tfd, "lock", LOCK_EX, &lock1) >= 0);
         assert_se(make_lock_file("lock", LOCK_EX|LOCK_NB, &lock2) == -EBUSY);
 }
@@ -40,10 +40,10 @@ static void test_lock_generic_with_timeout_for_type(LockType type) {
         _cleanup_close_ int tfd = -EBADF, tfd2 = -EBADF;
 
         tfd = mkdtemp_open(NULL, 0, &t);
-        assert_se(tfd >= 0);
+        ASSERT_OK(tfd);
 
         tfd2 = fd_reopen(tfd, O_CLOEXEC|O_DIRECTORY);
-        assert_se(tfd2 >= 0);
+        ASSERT_OK(tfd2);
 
         assert_se(lock_generic(tfd, LOCK_BSD, LOCK_EX) >= 0);
         assert_se(lock_generic(tfd2, LOCK_BSD, LOCK_EX|LOCK_NB) == -EWOULDBLOCK);

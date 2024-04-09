@@ -132,8 +132,8 @@ static void test_log_context(void) {
                 assert_se(log_context_num_fields() == 4);
         }
 
-        assert_se(log_context_num_contexts() == 0);
-        assert_se(log_context_num_fields() == 0);
+        ASSERT_EQ(log_context_num_contexts(), 0u);
+        ASSERT_EQ(log_context_num_fields(), 0u);
 
         {
                 _cleanup_(log_context_unrefp) LogContext *ctx = NULL;
@@ -194,8 +194,8 @@ static void test_log_context(void) {
                 test_log_syntax();
         }
 
-        assert_se(log_context_num_contexts() == 0);
-        assert_se(log_context_num_fields() == 0);
+        ASSERT_EQ(log_context_num_contexts(), 0u);
+        ASSERT_EQ(log_context_num_fields(), 0u);
 }
 
 static void test_log_prefix(void) {
