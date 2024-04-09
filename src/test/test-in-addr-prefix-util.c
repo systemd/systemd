@@ -99,15 +99,15 @@ static void test_in_addr_prefixes_reduce(Set *prefixes) {
         assert_se(!in_addr_prefixes_is_any(prefixes));
 
         ASSERT_OK(in_addr_prefixes_reduce(prefixes));
-        assert_se(set_size(prefixes) == 4);
+        ASSERT_EQ(set_size(prefixes), 4u);
         assert_se(!in_addr_prefixes_is_any(prefixes));
 
         assert_se(config_parse_in_addr_prefixes("unit", "filename", 1, "Service", 1, "IPAddressAllow", 0, "any", &prefixes, NULL) == 0);
-        assert_se(set_size(prefixes) == 6);
+        ASSERT_EQ(set_size(prefixes), 6u);
         assert_se(in_addr_prefixes_is_any(prefixes));
 
         ASSERT_OK(in_addr_prefixes_reduce(prefixes));
-        assert_se(set_size(prefixes) == 2);
+        ASSERT_EQ(set_size(prefixes), 2u);
         assert_se(in_addr_prefixes_is_any(prefixes));
 }
 

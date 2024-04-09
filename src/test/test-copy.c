@@ -46,7 +46,7 @@ TEST(copy_file) {
 
         assert_se(read_full_file(fn_copy, &buf, &sz) == 0);
         assert_se(streq(buf, "foo bar bar bar foo\n"));
-        assert_se(sz == 20);
+        ASSERT_EQ(sz, 20u);
 }
 
 static bool read_file_at_and_streq(int dir_fd, const char *path, const char *expected) {
@@ -369,7 +369,7 @@ static void test_copy_bytes_regular_file_one(const char *src, bool try_reflink, 
                  * or calling stat, or FION_READ, etc, and we don't want to do any
                  * of that). So we expect "truncation" since we know that file we
                  * are copying is exactly max_bytes bytes. */
-                assert_se(r == 1);
+                ASSERT_EQ(r, 1);
 
         assert_se(fstat(fd3, &buf3) == 0);
 

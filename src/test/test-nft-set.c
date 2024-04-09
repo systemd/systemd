@@ -14,7 +14,7 @@
 int main(int argc, char **argv) {
         int r;
 
-        assert_se(argc == 7);
+        ASSERT_EQ(argc, 7);
 
         test_setup_logging(LOG_DEBUG);
 

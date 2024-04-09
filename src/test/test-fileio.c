@@ -510,7 +510,7 @@ TEST(write_string_file_verify) {
 
 static void check_file_pairs_one(char **l) {
         assert_se(l);
-        assert_se(strv_length(l) == 14);
+        ASSERT_EQ(strv_length(l), 14u);
 
         STRV_FOREACH_PAIR(k, v, l) {
                 assert_se(STR_IN_SET(*k, "NAME", "ID", "PRETTY_NAME", "ANSI_COLOR", "HOME_URL", "SUPPORT_URL", "BUG_REPORT_URL"));
@@ -709,25 +709,25 @@ TEST(tempfn) {
 
         assert_se(tempfn_random("/foo/bar/waldo", NULL, &ret) >= 0);
         assert_se(p = startswith(ret, "/foo/bar/.#waldo"));
-        assert_se(strlen(p) == 16);
+        ASSERT_EQ(strlen(p), 16u);
         assert_se(in_charset(p, "0123456789abcdef"));
         free(ret);
 
         assert_se(tempfn_random("/foo/bar/waldo", "[wuff]", &ret) >= 0);
         assert_se(p = startswith(ret, "/foo/bar/.#[wuff]waldo"));
-        assert_se(strlen(p) == 16);
+        ASSERT_EQ(strlen(p), 16u);
         assert_se(in_charset(p, "0123456789abcdef"));
         free(ret);
 
         assert_se(tempfn_random_child("/foo/bar/waldo", NULL, &ret) >= 0);
         assert_se(p = startswith(ret, "/foo/bar/waldo/.#"));
-        assert_se(strlen(p) == 16);
+        ASSERT_EQ(strlen(p), 16u);
         assert_se(in_charset(p, "0123456789abcdef"));
         free(ret);
 
         assert_se(tempfn_random_child("/foo/bar/waldo", "[kikiriki]", &ret) >= 0);
         assert_se(p = startswith(ret, "/foo/bar/waldo/.#[kikiriki]"));
-        assert_se(strlen(p) == 16);
+        ASSERT_EQ(strlen(p), 16u);
         assert_se(in_charset(p, "0123456789abcdef"));
         free(ret);
 }
@@ -1022,7 +1022,7 @@ TEST(read_full_file_offset_size) {
         rbuf = mfree(rbuf);
 
         assert_se(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, 128, 0, NULL, &rbuf, &rbuf_size) >= 0);
-        assert_se(rbuf_size == 128);
+        ASSERT_EQ(rbuf_size, 128u);
         assert_se(memcmp(buf, rbuf, rbuf_size) == 0);
         rbuf = mfree(rbuf);
 
@@ -1051,12 +1051,12 @@ TEST(read_full_file_offset_size) {
         rbuf = mfree(rbuf);
 
         assert_se(read_full_file_full(AT_FDCWD, fn, 2345, 777, 0, NULL, &rbuf, &rbuf_size) >= 0);
-        assert_se(rbuf_size == 777);
+        ASSERT_EQ(rbuf_size, 777u);
         assert_se(memcmp(buf + 2345, rbuf, rbuf_size) == 0);
         rbuf = mfree(rbuf);
 
         assert_se(read_full_file_full(AT_FDCWD, fn, 4700, 20, 0, NULL, &rbuf, &rbuf_size) >= 0);
-        assert_se(rbuf_size == 11);
+        ASSERT_EQ(rbuf_size, 11u);
         assert_se(memcmp(buf + 4700, rbuf, rbuf_size) == 0);
         rbuf = mfree(rbuf);
 

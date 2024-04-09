@@ -28,7 +28,7 @@ TEST(destroy_callback) {
         }
 
         r = sd_bus_request_name_async(bus, &slot, "org.freedesktop.systemd.test-bus-util", 0, callback, &n_called);
-        assert_se(r == 1);
+        ASSERT_EQ(r, 1);
 
         assert_se(sd_bus_slot_get_destroy_callback(slot, NULL) == 0);
         assert_se(sd_bus_slot_get_destroy_callback(slot, &t) == 0);
@@ -41,7 +41,7 @@ TEST(destroy_callback) {
         /* Force cleanup so we can look at n_called */
         ASSERT_EQ(n_called, 0);
         sd_bus_slot_unref(slot);
-        assert_se(n_called == 1);
+        ASSERT_EQ(n_called, 1);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

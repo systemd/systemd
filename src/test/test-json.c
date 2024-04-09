@@ -160,7 +160,7 @@ static void test_1(JsonVariant *v) {
         log_info("/* %s */", __func__);
 
         /* 3 keys + 3 values */
-        assert_se(json_variant_elements(v) == 6);
+        ASSERT_EQ(json_variant_elements(v), 6u);
 
         /* has k */
         p = json_variant_by_key(v, "k");
@@ -195,7 +195,7 @@ static void test_2(JsonVariant *v) {
         log_info("/* %s */", __func__);
 
         /* 2 keys + 2 values */
-        assert_se(json_variant_elements(v) == 4);
+        ASSERT_EQ(json_variant_elements(v), 4u);
 
         /* has mutant */
         p = json_variant_by_key(v, "mutant");
@@ -240,7 +240,7 @@ static void test_zeroes(JsonVariant *v) {
         /* Make sure zero is how we expect it. */
         log_info("/* %s */", __func__);
 
-        assert_se(json_variant_elements(v) == 13);
+        ASSERT_EQ(json_variant_elements(v), 13u);
 
         for (size_t i = 0; i < json_variant_elements(v); i++) {
                 JsonVariant *w;
@@ -539,7 +539,7 @@ static void test_float_match(JsonVariant *v) {
         const double delta = 0.0001;
 
         assert_se(json_variant_is_array(v));
-        assert_se(json_variant_elements(v) == 11);
+        ASSERT_EQ(json_variant_elements(v), 11u);
         assert_se(fabs(1.0 - (DBL_MIN / json_variant_real(json_variant_by_index(v, 0)))) <= delta);
         assert_se(fabs(1.0 - (DBL_MAX / json_variant_real(json_variant_by_index(v, 1)))) <= delta);
         assert_se(json_variant_is_null(json_variant_by_index(v, 2))); /* nan is not supported by json → null */
@@ -687,9 +687,9 @@ static void json_array_append_with_source_one(bool source) {
                                          &b, NULL, NULL) >= 0);
 
         assert_se(json_variant_is_array(a));
-        assert_se(json_variant_elements(a) == 1);
+        ASSERT_EQ(json_variant_elements(a), 1u);
         assert_se(json_variant_is_array(b));
-        assert_se(json_variant_elements(b) == 1);
+        ASSERT_EQ(json_variant_elements(b), 1u);
 
         /* Verify source information */
 
@@ -700,10 +700,10 @@ static void json_array_append_with_source_one(bool source) {
 
         assert_se(streq_ptr(s1, source ? "string 1" : NULL));
         assert_se(streq_ptr(s2, source ? "string 2" : NULL));
-        assert_se(line1 == 1);
-        assert_se(col1 == 2);
-        assert_se(line2 == 3);
-        assert_se(col2 == 4);
+        ASSERT_EQ(line1, 1u);
+        ASSERT_EQ(col1, 2u);
+        ASSERT_EQ(line2, 3u);
+        ASSERT_EQ(col2, 4u);
 
         /* Append one elem from the second array (and source) to the first. */
 
@@ -715,7 +715,7 @@ static void json_array_append_with_source_one(bool source) {
         assert_se(json_variant_append_array(&a, elem) >= 0);
 
         assert_se(json_variant_is_array(a));
-        assert_se(json_variant_elements(a) == 2);
+        ASSERT_EQ(json_variant_elements(a), 2u);
 
         /* Verify that source information was propagated correctly */
 
@@ -725,10 +725,10 @@ static void json_array_append_with_source_one(bool source) {
 
         assert_se(streq_ptr(s1, source ? "string 2" : NULL));
         assert_se(streq_ptr(s2, source ? "string 2" : NULL));
-        assert_se(line1 == 3);
-        assert_se(col1 == 5);
-        assert_se(line2 == 3);
-        assert_se(col2 == 5);
+        ASSERT_EQ(line1, 3u);
+        ASSERT_EQ(col1, 5u);
+        ASSERT_EQ(line2, 3u);
+        ASSERT_EQ(col2, 5u);
 }
 
 TEST(json_array_append_with_source) {
@@ -746,8 +746,8 @@ TEST(json_array_append_nodup) {
         assert_se(json_build(&s, JSON_BUILD_STRV(STRV_MAKE("foo", "bar", "baz", "qux"))) >= 0);
 
         assert_se(!json_variant_equal(l, s));
-        assert_se(json_variant_elements(l) == 8);
-        assert_se(json_variant_elements(s) == 4);
+        ASSERT_EQ(json_variant_elements(l), 8u);
+        ASSERT_EQ(json_variant_elements(s), 4u);
 
         JsonVariant *i;
         JSON_VARIANT_ARRAY_FOREACH(i, l) {
@@ -755,11 +755,11 @@ TEST(json_array_append_nodup) {
                 assert_se(json_variant_append_array_nodup(&nd, i) >= 0);
         }
 
-        assert_se(json_variant_elements(wd) == 8);
+        ASSERT_EQ(json_variant_elements(wd), 8u);
         assert_se(json_variant_equal(l, wd));
         assert_se(!json_variant_equal(s, wd));
 
-        assert_se(json_variant_elements(nd) == 4);
+        ASSERT_EQ(json_variant_elements(nd), 4u);
         assert_se(!json_variant_equal(l, nd));
         assert_se(json_variant_equal(s, nd));
 }

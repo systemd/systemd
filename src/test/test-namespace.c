@@ -137,7 +137,7 @@ static void test_shareable_ns(unsigned long nsflag) {
         assert_se(si.si_code == CLD_EXITED);
         n += si.si_status;
 
-        assert_se(n == 1);
+        ASSERT_EQ(n, 1);
 }
 
 TEST(netns) {

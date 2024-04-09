@@ -406,7 +406,7 @@ TEST(error_catching) {
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_NONE);
 
         /* we should exit with the error code of the first script that failed */
-        assert_se(r == 42);
+        ASSERT_EQ(r, 42);
 }
 
 TEST(exec_command_flags_from_strv) {

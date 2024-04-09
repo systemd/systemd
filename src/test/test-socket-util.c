@@ -360,7 +360,7 @@ TEST(pass_many_fds_contents_read) {
         buf[k] = 0;
         assert_se(streq(buf, wire_contents));
 
-        assert_se(n_fds == 3);
+        ASSERT_EQ(n_fds, 3u);
 
         for (size_t i = 0; i < 3; ++i) {
                 assert_se(fds[i] >= 0);

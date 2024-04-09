@@ -111,7 +111,7 @@ TEST(socket_address_parse_netlink) {
         assert_se(socket_address_parse_netlink(&a, "route") >= 0);
         assert_se(socket_address_parse_netlink(&a, "route 10") >= 0);
         assert_se(a.sockaddr.nl.nl_family == AF_NETLINK);
-        assert_se(a.sockaddr.nl.nl_groups == 10);
+        ASSERT_EQ(a.sockaddr.nl.nl_groups, 10u);
         assert_se(a.protocol == NETLINK_ROUTE);
 
         /* With spaces and tabs */
@@ -121,11 +121,11 @@ TEST(socket_address_parse_netlink) {
         assert_se(a.protocol == NETLINK_KOBJECT_UEVENT);
         assert_se(socket_address_parse_netlink(&a, " \t kobject-uevent \t 10") >= 0);
         assert_se(a.sockaddr.nl.nl_family == AF_NETLINK);
-        assert_se(a.sockaddr.nl.nl_groups == 10);
+        ASSERT_EQ(a.sockaddr.nl.nl_groups, 10u);
         assert_se(a.protocol == NETLINK_KOBJECT_UEVENT);
         assert_se(socket_address_parse_netlink(&a, "kobject-uevent\t10") >= 0);
         assert_se(a.sockaddr.nl.nl_family == AF_NETLINK);
-        assert_se(a.sockaddr.nl.nl_groups == 10);
+        ASSERT_EQ(a.sockaddr.nl.nl_groups, 10u);
         assert_se(a.protocol == NETLINK_KOBJECT_UEVENT);
 
         /* trailing space is not supported */
@@ -267,7 +267,7 @@ TEST(in_addr_ifindex_from_string_auto) {
 
         assert_se(in_addr_ifindex_from_string_auto("fe80::18%1", &family, &ua, &ifindex) >= 0);
         assert_se(family == AF_INET6);
-        assert_se(ifindex == 1);
+        ASSERT_EQ(ifindex, 1);
 
         assert_se(in_addr_ifindex_from_string_auto("fe80::18%lo", &family, &ua, &ifindex) >= 0);
         assert_se(family == AF_INET6);

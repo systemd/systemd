@@ -606,7 +606,7 @@ TEST(first_word) {
 }
 
 TEST(strlen_ptr) {
-        assert_se(strlen_ptr("foo") == 3);
+        ASSERT_EQ(strlen_ptr("foo"), 3u);
         ASSERT_EQ(strlen_ptr(""), 0u);
         ASSERT_EQ(strlen_ptr(NULL), 0u);
 }

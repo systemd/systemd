@@ -34,11 +34,11 @@ TEST(parse_sec) {
         assert_se(parse_sec(".7", &u) >= 0);
         assert_se(u == 700 * USEC_PER_MSEC);
         assert_se(parse_sec("23us", &u) >= 0);
-        assert_se(u == 23);
+        ASSERT_EQ(u, 23u);
         assert_se(parse_sec("23μs", &u) >= 0); /* greek small letter mu */
-        assert_se(u == 23);
+        ASSERT_EQ(u, 23u);
         assert_se(parse_sec("23µs", &u) >= 0); /* micro symbol */
-        assert_se(u == 23);
+        ASSERT_EQ(u, 23u);
         assert_se(parse_sec("infinity", &u) >= 0);
         assert_se(u == USEC_INFINITY);
         assert_se(parse_sec(" infinity ", &u) >= 0);
@@ -111,7 +111,7 @@ TEST(parse_time) {
         usec_t u;
 
         assert_se(parse_time("5", &u, 1) >= 0);
-        assert_se(u == 5);
+        ASSERT_EQ(u, 5u);
 
         assert_se(parse_time("5", &u, USEC_PER_MSEC) >= 0);
         assert_se(u == 5 * USEC_PER_MSEC);
@@ -150,7 +150,7 @@ TEST(parse_nsec) {
         assert_se(parse_nsec(" .50y ", &u) >= 0);
         assert_se(u == NSEC_PER_YEAR / 2);
         assert_se(parse_nsec("2.5", &u) >= 0);
-        assert_se(u == 2);
+        ASSERT_EQ(u, 2u);
         assert_se(parse_nsec(".7", &u) >= 0);
         ASSERT_EQ(u, 0u);
         assert_se(parse_nsec("infinity", &u) >= 0);
@@ -988,8 +988,8 @@ TEST(deserialize_dual_timestamp) {
 
         r = deserialize_dual_timestamp("1234 5678", &t);
         ASSERT_EQ(r, 0);
-        assert_se(t.realtime == 1234);
-        assert_se(t.monotonic == 5678);
+        ASSERT_EQ(t.realtime, 1234u);
+        ASSERT_EQ(t.monotonic, 5678u);
 
         r = deserialize_dual_timestamp("1234x 5678", &t);
         assert_se(r == -EINVAL);
@@ -1004,13 +1004,13 @@ TEST(deserialize_dual_timestamp) {
         assert_se(r == -EINVAL);
 
         /* Check that output wasn't modified. */
-        assert_se(t.realtime == 1234);
-        assert_se(t.monotonic == 5678);
+        ASSERT_EQ(t.realtime, 1234u);
+        ASSERT_EQ(t.monotonic, 5678u);
 
         r = deserialize_dual_timestamp("+123 567", &t);
         ASSERT_EQ(r, 0);
-        assert_se(t.realtime == 123);
-        assert_se(t.monotonic == 567);
+        ASSERT_EQ(t.realtime, 123u);
+        ASSERT_EQ(t.monotonic, 567u);
 
         /* Check that we get "infinity" on overflow. */
         r = deserialize_dual_timestamp("18446744073709551617 0", &t);

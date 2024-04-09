@@ -39,8 +39,8 @@ TEST(cap_list) {
         assert_se(capability_from_name("cap_audit_read") == CAP_AUDIT_READ);
         assert_se(capability_from_name("cAp_aUdIt_rEAd") == CAP_AUDIT_READ);
         ASSERT_EQ(capability_from_name("0"), 0);
-        assert_se(capability_from_name("15") == 15);
-        assert_se(capability_from_name("62") == 62);
+        ASSERT_EQ(capability_from_name("15"), 15);
+        ASSERT_EQ(capability_from_name("62"), 62);
         assert_se(capability_from_name("63") == -EINVAL);
         assert_se(capability_from_name("64") == -EINVAL);
         assert_se(capability_from_name("-1") == -EINVAL);

@@ -190,7 +190,7 @@ TEST(utf16_to_utf8) {
 }
 
 TEST(utf8_n_codepoints) {
-        assert_se(utf8_n_codepoints("abc") == 3);
+        ASSERT_EQ(utf8_n_codepoints("abc"), 3u);
         assert_se(utf8_n_codepoints("zażółcić gęślą jaźń") == 19);
         assert_se(utf8_n_codepoints("串") == 1);
         ASSERT_EQ(utf8_n_codepoints(""), 0u);
@@ -199,7 +199,7 @@ TEST(utf8_n_codepoints) {
 }
 
 TEST(utf8_console_width) {
-        assert_se(utf8_console_width("abc") == 3);
+        ASSERT_EQ(utf8_console_width("abc"), 3u);
         assert_se(utf8_console_width("zażółcić gęślą jaźń") == 19);
         assert_se(utf8_console_width("串") == 2);
         ASSERT_EQ(utf8_console_width(""), 0u);
