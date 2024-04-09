@@ -13,7 +13,7 @@ TEST(set_steal_first) {
         char *val;
 
         m = ordered_set_new(&string_hash_ops);
-        assert_se(m);
+        ASSERT_TRUE(m);
 
         assert_se(ordered_set_put(m, (void*) "1") == 1);
         assert_se(ordered_set_put(m, (void*) "22") == 1);
@@ -26,7 +26,7 @@ TEST(set_steal_first) {
 
         assert_se(seen[0] == 1 && seen[1] == 1 && seen[2] == 1);
 
-        assert_se(ordered_set_isempty(m));
+        ASSERT_TRUE(ordered_set_isempty(m));
 
         ordered_set_print(stdout, "SET=", m);
 }
@@ -50,7 +50,7 @@ TEST(set_free_with_hash_ops) {
                 assert_se(ordered_set_put(m, items + i) == 1);
 
         for (size_t i = 0; i < ELEMENTSOF(items) - 1; i++)
-                assert_se(ordered_set_put(m, items + i) == 0);  /* We get 0 here, because we use trivial hash
+                ASSERT_EQ(ordered_set_put(m, items + i), 0);  /* We get 0 here, because we use trivial hash
                                                                  * ops. Also see below... */
 
         m = ordered_set_free(m);
@@ -65,7 +65,7 @@ TEST(set_put) {
         _cleanup_free_ char **t = NULL, *str = NULL;
 
         m = ordered_set_new(&string_hash_ops);
-        assert_se(m);
+        ASSERT_TRUE(m);
 
         assert_se(ordered_set_put(m, (void*) "1") == 1);
         assert_se(ordered_set_put(m, (void*) "22") == 1);
@@ -104,7 +104,7 @@ TEST(set_put_string_set) {
         assert_se(ordered_set_put_string_set(&m, q) == 2);
 
         assert_se(final = ordered_set_get_strv(m));
-        assert_se(strv_equal(final, STRV_MAKE("1", "22", "333", "11", "33")));
+        ASSERT_TRUE(strv_equal(final, STRV_MAKE("1", "22", "333", "11", "33")));
 
         ordered_set_print(stdout, "BAR=", m);
 }

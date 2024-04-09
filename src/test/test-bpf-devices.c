@@ -48,7 +48,7 @@ static void test_policy_closed(const char *cgroup_path, BPFProgram **installed_p
                 log_debug("open(%s, \"w\") = %d/%s", s, fd2, fd2 < 0 ? errno_to_name(errno) : "-");
                 wrong += fd2 < 0 && errno == EPERM;
         }
-        assert_se(wrong == 0);
+        ASSERT_EQ(wrong, 0u);
 }
 
 static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_prog) {
@@ -125,7 +125,7 @@ static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_p
                 wrong += fd2 >= 0;
         }
 
-        assert_se(wrong == 0);
+        ASSERT_EQ(wrong, 0u);
 }
 
 static void test_policy_allow_list_major(const char *pattern, const char *cgroup_path, BPFProgram **installed_prog) {
@@ -184,7 +184,7 @@ static void test_policy_allow_list_major(const char *pattern, const char *cgroup
                 wrong += fd2 >= 0;
         }
 
-        assert_se(wrong == 0);
+        ASSERT_EQ(wrong, 0u);
 }
 
 static void test_policy_allow_list_major_star(char type, const char *cgroup_path, BPFProgram **installed_prog) {
@@ -215,7 +215,7 @@ static void test_policy_allow_list_major_star(char type, const char *cgroup_path
                         wrong += fd >= 0;
         }
 
-        assert_se(wrong == 0);
+        ASSERT_EQ(wrong, 0u);
 }
 
 static void test_policy_empty(bool add_mismatched, const char *cgroup_path, BPFProgram **installed_prog) {
@@ -230,7 +230,7 @@ static void test_policy_empty(bool add_mismatched, const char *cgroup_path, BPFP
 
         if (add_mismatched) {
                 r = bpf_devices_allow_list_major(prog, cgroup_path, "foobarxxx", 'c', CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
-                assert_se(r < 0);
+                ASSERT_LT(r, 0);
         }
 
         r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_STRICT, false, cgroup_path, installed_prog);
@@ -245,7 +245,7 @@ static void test_policy_empty(bool add_mismatched, const char *cgroup_path, BPFP
                 wrong += fd >= 0;
         }
 
-        assert_se(wrong == 0);
+        ASSERT_EQ(wrong, 0u);
 }
 
 

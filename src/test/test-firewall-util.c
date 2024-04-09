@@ -14,7 +14,7 @@ static void test_v6(FirewallContext *ctx) {
         uint8_t prefixlen;
         int r;
 
-        assert_se(ctx);
+        ASSERT_TRUE(ctx);
 
         log_info("/* %s(backend=%s) */", __func__, firewall_backend_to_string(ctx->backend));
 
@@ -39,7 +39,7 @@ static void test_v6(FirewallContext *ctx) {
                 log_info("IPv6 DNAT seems not supported, skipping the following tests.");
                 return;
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         assert_se(fw_add_local_dnat(&ctx, true, AF_INET6, IPPROTO_TCP, 4711, &u2, 815, &u1) >= 0);
         assert_se(fw_add_local_dnat(&ctx, false, AF_INET6, IPPROTO_TCP, 4711, &u2, 815, NULL) >= 0);
@@ -47,9 +47,9 @@ static void test_v6(FirewallContext *ctx) {
 }
 
 static union in_addr_union *parse_addr(const char *str, union in_addr_union *u) {
-        assert_se(str);
-        assert_se(u);
-        assert_se(in_addr_from_string(AF_INET, str, u) >= 0);
+        ASSERT_TRUE(str);
+        ASSERT_TRUE(u);
+        ASSERT_OK(in_addr_from_string(AF_INET, str, u));
         return u;
 }
 
@@ -57,7 +57,7 @@ static bool test_v4(FirewallContext *ctx) {
         union in_addr_union u, v;
         int r;
 
-        assert_se(ctx);
+        ASSERT_TRUE(ctx);
 
         log_info("/* %s(backend=%s) */", __func__, firewall_backend_to_string(ctx->backend));
 
@@ -82,7 +82,7 @@ static bool test_v4(FirewallContext *ctx) {
                 if (ignore)
                         return false;
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         assert_se(fw_add_masquerade(&ctx, true, AF_INET, parse_addr("10.0.2.0", &u), 28) >= 0);
         assert_se(fw_add_masquerade(&ctx, false, AF_INET, parse_addr("10.0.2.0", &u), 28) >= 0);
@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped("not root");
 
         assert_se(fw_ctx_new(&ctx) >= 0);
-        assert_se(ctx);
+        ASSERT_TRUE(ctx);
 
         if (ctx->backend == FW_BACKEND_NONE)
                 return log_tests_skipped("no firewall backend supported");

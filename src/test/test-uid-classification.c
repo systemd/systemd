@@ -27,7 +27,7 @@ static void test_read_login_defs_one(const char *path) {
                         (uid_t) (SYSTEM_UID_MAX + 5),
                         (gid_t) (SYSTEM_ALLOC_GID_MIN + 5),
                         (gid_t) (SYSTEM_GID_MAX + 5));
-                assert_se(fflush_and_check(f) >= 0);
+                ASSERT_OK(fflush_and_check(f));
         }
 
         UGIDAllocationRange defs;

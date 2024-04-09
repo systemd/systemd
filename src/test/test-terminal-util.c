@@ -48,7 +48,7 @@ TEST(read_one_char) {
         assert_se(fputs("c\n", file) >= 0);
         rewind(file);
         assert_se(read_one_char(file, &r, 1000000, &need_nl) >= 0);
-        assert_se(!need_nl);
+        ASSERT_FALSE(need_nl);
         assert_se(r == 'c');
         assert_se(read_one_char(file, &r, 1000000, &need_nl) < 0);
 
@@ -160,7 +160,7 @@ TEST(get_ctty) {
                 _cleanup_free_ char *stdin_name = NULL;
 
                 assert_se(getttyname_malloc(STDIN_FILENO, &stdin_name) >= 0);
-                assert_se(path_equal(stdin_name, ctty));
+                ASSERT_TRUE(path_equal(stdin_name, ctty));
         } else
                 log_notice("Not invoked with stdin == ctty, cutting get_ctty() test short");
 }
