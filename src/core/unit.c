@@ -78,6 +78,8 @@
 #define NOTICEWORTHY_IO_BYTES     (10 * U64_MB)
 #define NOTICEWORTHY_IP_BYTES     (128 * U64_MB)
 
+bool deserialize_got_pidfd = false;
+
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE]   = &service_vtable,
         [UNIT_SOCKET]    = &socket_vtable,

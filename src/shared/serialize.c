@@ -471,7 +471,7 @@ int deserialize_environment(const char *value, char ***list) {
         return 0;
 }
 
-int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret) {
+int deserialize_pidref(FDSet *fds, const char *value, bool allow_pid, PidRef *ret) {
         const char *e;
         int r;
 
@@ -486,7 +486,7 @@ int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret) {
                         return fd;
 
                 r = pidref_set_pidfd_consume(ret, fd);
-        } else {
+        } else if (allow_pid) {
                 pid_t pid;
 
                 r = parse_pid(value, &pid);
@@ -494,7 +494,8 @@ int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret) {
                         return log_debug_errno(r, "Failed to parse PID: %s", value);
 
                 r = pidref_set_pid(ret, pid);
-        }
+        } else
+                return -ESRCH;
         if (r < 0)
                 return log_debug_errno(r, "Failed to initialize pidref: %m");
 
