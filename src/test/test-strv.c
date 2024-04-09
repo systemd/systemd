@@ -124,78 +124,78 @@ TEST(strv_find_startswith) {
 
 TEST(strv_join) {
         _cleanup_free_ char *p = strv_join((char **)input_table_multiple, ", ");
-        assert_se(p);
+        ASSERT_TRUE(p);
         assert_se(streq(p, "one, two, three"));
 
         _cleanup_free_ char *q = strv_join((char **)input_table_multiple, ";");
-        assert_se(q);
+        ASSERT_TRUE(q);
         assert_se(streq(q, "one;two;three"));
 
         _cleanup_free_ char *r = strv_join((char **)input_table_multiple, NULL);
-        assert_se(r);
+        ASSERT_TRUE(r);
         assert_se(streq(r, "one two three"));
 
         _cleanup_free_ char *s = strv_join(STRV_MAKE("1", "2", "3,3"), ",");
-        assert_se(s);
+        ASSERT_TRUE(s);
         assert_se(streq(s, "1,2,3,3"));
 
         _cleanup_free_ char *t = strv_join((char **)input_table_one, ", ");
-        assert_se(t);
+        ASSERT_TRUE(t);
         assert_se(streq(t, "one"));
 
         _cleanup_free_ char *u = strv_join((char **)input_table_none, ", ");
-        assert_se(u);
+        ASSERT_TRUE(u);
         assert_se(streq(u, ""));
 
         _cleanup_free_ char *v = strv_join((char **)input_table_two_empties, ", ");
-        assert_se(v);
+        ASSERT_TRUE(v);
         assert_se(streq(v, ", "));
 
         _cleanup_free_ char *w = strv_join((char **)input_table_one_empty, ", ");
-        assert_se(w);
+        ASSERT_TRUE(w);
         assert_se(streq(w, ""));
 }
 
 TEST(strv_join_full) {
         _cleanup_free_ char *p = strv_join_full((char **)input_table_multiple, ", ", "foo", false);
-        assert_se(p);
+        ASSERT_TRUE(p);
         assert_se(streq(p, "fooone, footwo, foothree"));
 
         _cleanup_free_ char *q = strv_join_full((char **)input_table_multiple, ";", "foo", false);
-        assert_se(q);
+        ASSERT_TRUE(q);
         assert_se(streq(q, "fooone;footwo;foothree"));
 
         _cleanup_free_ char *r = strv_join_full(STRV_MAKE("a", "a;b", "a:c"), ";", NULL, true);
-        assert_se(r);
+        ASSERT_TRUE(r);
         assert_se(streq(r, "a;a\\;b;a:c"));
 
         _cleanup_free_ char *s = strv_join_full(STRV_MAKE("a", "a;b", "a;;c", ";", ";x"), ";", NULL, true);
-        assert_se(s);
+        ASSERT_TRUE(s);
         assert_se(streq(s, "a;a\\;b;a\\;\\;c;\\;;\\;x"));
 
         _cleanup_free_ char *t = strv_join_full(STRV_MAKE("a", "a;b", "a:c", ";"), ";", "=", true);
-        assert_se(t);
+        ASSERT_TRUE(t);
         assert_se(streq(t, "=a;=a\\;b;=a:c;=\\;"));
         t = mfree(t);
 
         _cleanup_free_ char *u = strv_join_full((char **)input_table_multiple, NULL, "foo", false);
-        assert_se(u);
+        ASSERT_TRUE(u);
         assert_se(streq(u, "fooone footwo foothree"));
 
         _cleanup_free_ char *v = strv_join_full((char **)input_table_one, ", ", "foo", false);
-        assert_se(v);
+        ASSERT_TRUE(v);
         assert_se(streq(v, "fooone"));
 
         _cleanup_free_ char *w = strv_join_full((char **)input_table_none, ", ", "foo", false);
-        assert_se(w);
+        ASSERT_TRUE(w);
         assert_se(streq(w, ""));
 
         _cleanup_free_ char *x = strv_join_full((char **)input_table_two_empties, ", ", "foo", false);
-        assert_se(x);
+        ASSERT_TRUE(x);
         assert_se(streq(x, "foo, foo"));
 
         _cleanup_free_ char *y = strv_join_full((char **)input_table_one_empty, ", ", "foo", false);
-        assert_se(y);
+        ASSERT_TRUE(y);
         assert_se(streq(y, "foo"));
 }
 
@@ -209,9 +209,9 @@ static void test_strv_unquote_one(const char *quoted, char **list) {
 
         r = strv_split_full(&s, quoted, WHITESPACE, EXTRACT_UNQUOTE);
         assert_se(r == (int) strv_length(list));
-        assert_se(s);
+        ASSERT_TRUE(s);
         j = strv_join(s, " | ");
-        assert_se(j);
+        ASSERT_TRUE(j);
         puts(j);
 
         STRV_FOREACH(t, s)
@@ -264,20 +264,20 @@ TEST(strv_split) {
         const char str[] = "one,two,three";
 
         l = strv_split(str, ",");
-        assert_se(l);
+        ASSERT_TRUE(l);
         assert_se(strv_equal(l, (char**) input_table_multiple));
 
         strv_free_erase(l);
 
         l = strv_split("    one    two\t three", WHITESPACE);
-        assert_se(l);
+        ASSERT_TRUE(l);
         assert_se(strv_equal(l, (char**) input_table_multiple));
 
         strv_free_erase(l);
 
         /* Setting NULL for separator is equivalent to WHITESPACE */
         l = strv_split("    one    two\t three", NULL);
-        assert_se(l);
+        ASSERT_TRUE(l);
         assert_se(strv_equal(l, (char**) input_table_multiple));
 
         strv_free_erase(l);
@@ -294,7 +294,7 @@ TEST(strv_split) {
 
         /* missing last quote causes extraction to fail. */
         assert_se(strv_split_full(&l, "    'one'  \"  two\t three \" ' four  five", NULL, EXTRACT_UNQUOTE) == -EINVAL);
-        assert_se(!l);
+        ASSERT_FALSE(l);
 
         /* missing last quote, but the last element is _not_ ignored with EXTRACT_RELAX. */
         assert_se(strv_split_full(&l, "    'one'  \"  two\t three \" ' four  five", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 3);
@@ -337,62 +337,62 @@ TEST(strv_split_empty) {
         _cleanup_strv_free_ char **l = NULL;
 
         l = strv_split("", WHITESPACE);
-        assert_se(l);
-        assert_se(strv_isempty(l));
+        ASSERT_TRUE(l);
+        ASSERT_TRUE(strv_isempty(l));
         l = strv_free(l);
 
         assert_se(l = strv_split("", NULL));
-        assert_se(strv_isempty(l));
+        ASSERT_TRUE(strv_isempty(l));
         l = strv_free(l);
 
         assert_se(strv_split_full(&l, "", NULL, 0) == 0);
-        assert_se(l);
-        assert_se(strv_isempty(l));
+        ASSERT_TRUE(l);
+        ASSERT_TRUE(strv_isempty(l));
         l = strv_free(l);
 
         assert_se(strv_split_full(&l, "", NULL, EXTRACT_UNQUOTE) == 0);
-        assert_se(l);
-        assert_se(strv_isempty(l));
+        ASSERT_TRUE(l);
+        ASSERT_TRUE(strv_isempty(l));
         l = strv_free(l);
 
         assert_se(strv_split_full(&l, "", WHITESPACE, EXTRACT_UNQUOTE) == 0);
-        assert_se(l);
-        assert_se(strv_isempty(l));
+        ASSERT_TRUE(l);
+        ASSERT_TRUE(strv_isempty(l));
         l = strv_free(l);
 
         assert_se(strv_split_full(&l, "", WHITESPACE, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 0);
-        assert_se(l);
-        assert_se(strv_isempty(l));
+        ASSERT_TRUE(l);
+        ASSERT_TRUE(strv_isempty(l));
         strv_free(l);
 
         l = strv_split("    ", WHITESPACE);
-        assert_se(l);
-        assert_se(strv_isempty(l));
+        ASSERT_TRUE(l);
+        ASSERT_TRUE(strv_isempty(l));
         strv_free(l);
 
         l = strv_split("    ", NULL);
-        assert_se(l);
-        assert_se(strv_isempty(l));
+        ASSERT_TRUE(l);
+        ASSERT_TRUE(strv_isempty(l));
         l = strv_free(l);
 
         assert_se(strv_split_full(&l, "    ", NULL, 0) == 0);
-        assert_se(l);
-        assert_se(strv_isempty(l));
+        ASSERT_TRUE(l);
+        ASSERT_TRUE(strv_isempty(l));
         l = strv_free(l);
 
         assert_se(strv_split_full(&l, "    ", WHITESPACE, EXTRACT_UNQUOTE) == 0);
-        assert_se(l);
-        assert_se(strv_isempty(l));
+        ASSERT_TRUE(l);
+        ASSERT_TRUE(strv_isempty(l));
         l = strv_free(l);
 
         assert_se(strv_split_full(&l, "    ", NULL, EXTRACT_UNQUOTE) == 0);
-        assert_se(l);
-        assert_se(strv_isempty(l));
+        ASSERT_TRUE(l);
+        ASSERT_TRUE(strv_isempty(l));
         l = strv_free(l);
 
         assert_se(strv_split_full(&l, "    ", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 0);
-        assert_se(l);
-        assert_se(strv_isempty(l));
+        ASSERT_TRUE(l);
+        ASSERT_TRUE(strv_isempty(l));
 }
 
 TEST(strv_split_full) {
@@ -463,7 +463,7 @@ TEST(strv_split_newlines) {
         const char str[] = "one\ntwo\nthree";
 
         l = strv_split_newlines(str);
-        assert_se(l);
+        ASSERT_TRUE(l);
 
         STRV_FOREACH(s, l)
                 assert_se(streq(*s, input_table_multiple[i++]));
@@ -532,8 +532,8 @@ TEST(strv_extend_strv_biconcat) {
 
         a = strv_new("without", "suffix");
         b = strv_new("with", "suffix");
-        assert_se(a);
-        assert_se(b);
+        ASSERT_TRUE(a);
+        ASSERT_TRUE(b);
 
         assert_se(strv_extend_strv_biconcat(&a, "prefix_", (const char* const*) b, "_suffix") >= 0);
 
@@ -548,8 +548,8 @@ TEST(strv_extend_strv_concat) {
 
         a = strv_new("without", "suffix");
         b = strv_new("with", "suffix");
-        assert_se(a);
-        assert_se(b);
+        ASSERT_TRUE(a);
+        ASSERT_TRUE(b);
 
         assert_se(strv_extend_strv_concat(&a, (const char* const*) b, "_suffix") >= 0);
 
@@ -564,8 +564,8 @@ TEST(strv_extend_strv) {
 
         a = strv_new("abc", "def", "ghi");
         b = strv_new("jkl", "mno", "abc", "pqr");
-        assert_se(a);
-        assert_se(b);
+        ASSERT_TRUE(a);
+        ASSERT_TRUE(b);
 
         assert_se(strv_extend_strv(&a, b, true) == 3);
 
@@ -590,7 +590,7 @@ TEST(strv_extend_with_size) {
         size_t n = SIZE_MAX;
 
         a = strv_new("test", "test1");
-        assert_se(a);
+        ASSERT_TRUE(a);
 
         assert_se(strv_extend_with_size(&a, &n, "test2") >= 0);
         ASSERT_EQ(n, 3u);
@@ -608,7 +608,7 @@ TEST(strv_extend) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
         a = strv_new("test", "test1");
-        assert_se(a);
+        ASSERT_TRUE(a);
         assert_se(strv_extend(&a, "test2") >= 0);
         assert_se(strv_extend(&b, "test3") >= 0);
 
@@ -622,7 +622,7 @@ TEST(strv_extendf) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
         a = strv_new("test", "test1");
-        assert_se(a);
+        ASSERT_TRUE(a);
         assert_se(strv_extendf(&a, "test2 %s %d %s", "foo", 128, "bar") >= 0);
         assert_se(strv_extendf(&b, "test3 %s %s %d", "bar", "foo", 128) >= 0);
 
@@ -637,7 +637,7 @@ TEST(strv_foreach) {
         unsigned i = 0;
 
         a = strv_new("one", "two", "three");
-        assert_se(a);
+        ASSERT_TRUE(a);
 
         STRV_FOREACH(check, a)
                 assert_se(streq(*check, input_table_multiple[i++]));
@@ -649,7 +649,7 @@ TEST(strv_foreach_backwards) {
 
         a = strv_new("one", "two", "three");
 
-        assert_se(a);
+        ASSERT_TRUE(a);
 
         STRV_FOREACH_BACKWARDS(check, a)
                 assert_se(streq_ptr(*check, input_table_multiple[i--]));
@@ -797,13 +797,13 @@ TEST(strv_compare) {
         _cleanup_strv_free_ char **d = NULL;
 
         a = strv_new("one", "two", "three");
-        assert_se(a);
+        ASSERT_TRUE(a);
         b = strv_new("one", "two", "three");
-        assert_se(b);
+        ASSERT_TRUE(b);
         c = strv_new("one", "two", "three", "four");
-        assert_se(c);
+        ASSERT_TRUE(c);
         d = strv_new(NULL);
-        assert_se(d);
+        ASSERT_TRUE(d);
 
         assert_se(strv_compare(a, a) == 0);
         assert_se(strv_compare(a, b) == 0);
@@ -821,46 +821,46 @@ TEST(strv_is_uniq) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
 
         a = strv_new(NULL);
-        assert_se(a);
-        assert_se(strv_is_uniq(a));
+        ASSERT_TRUE(a);
+        ASSERT_TRUE(strv_is_uniq(a));
 
         b = strv_new("foo");
-        assert_se(b);
-        assert_se(strv_is_uniq(b));
+        ASSERT_TRUE(b);
+        ASSERT_TRUE(strv_is_uniq(b));
 
         c = strv_new("foo", "bar");
-        assert_se(c);
-        assert_se(strv_is_uniq(c));
+        ASSERT_TRUE(c);
+        ASSERT_TRUE(strv_is_uniq(c));
 
         d = strv_new("foo", "bar", "waldo", "bar", "piep");
-        assert_se(d);
-        assert_se(!strv_is_uniq(d));
+        ASSERT_TRUE(d);
+        ASSERT_FALSE(strv_is_uniq(d));
 }
 
 TEST(strv_reverse) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
 
         a = strv_new(NULL);
-        assert_se(a);
+        ASSERT_TRUE(a);
 
         strv_reverse(a);
-        assert_se(strv_isempty(a));
+        ASSERT_TRUE(strv_isempty(a));
 
         b = strv_new("foo");
-        assert_se(b);
+        ASSERT_TRUE(b);
         strv_reverse(b);
         assert_se(streq_ptr(b[0], "foo"));
         assert_se(streq_ptr(b[1], NULL));
 
         c = strv_new("foo", "bar");
-        assert_se(c);
+        ASSERT_TRUE(c);
         strv_reverse(c);
         assert_se(streq_ptr(c[0], "bar"));
         assert_se(streq_ptr(c[1], "foo"));
         assert_se(streq_ptr(c[2], NULL));
 
         d = strv_new("foo", "bar", "waldo");
-        assert_se(d);
+        ASSERT_TRUE(d);
         strv_reverse(d);
         assert_se(streq_ptr(d[0], "waldo"));
         assert_se(streq_ptr(d[1], "bar"));
@@ -872,7 +872,7 @@ TEST(strv_shell_escape) {
         _cleanup_strv_free_ char **v = NULL;
 
         v = strv_new("foo:bar", "bar,baz", "wal\\do");
-        assert_se(v);
+        ASSERT_TRUE(v);
         assert_se(strv_shell_escape(v, ",:"));
         assert_se(streq_ptr(v[0], "foo\\:bar"));
         assert_se(streq_ptr(v[1], "bar\\,baz"));
@@ -906,7 +906,7 @@ TEST(strv_extend_n) {
         _cleanup_strv_free_ char **v = NULL;
 
         v = strv_new("foo", "bar");
-        assert_se(v);
+        ASSERT_TRUE(v);
 
         assert_se(strv_extend_n(&v, "waldo", 3) >= 0);
         assert_se(strv_extend_n(&v, "piep", 2) >= 0);
@@ -1034,10 +1034,10 @@ TEST(strv_extend_many) {
         _cleanup_strv_free_ char **l = NULL;
 
         assert_se(strv_extend_many(&l, NULL) >= 0);
-        assert_se(strv_isempty(l));
+        ASSERT_TRUE(strv_isempty(l));
 
         assert_se(strv_extend_many(&l, NULL, NULL, NULL) >= 0);
-        assert_se(strv_isempty(l));
+        ASSERT_TRUE(strv_isempty(l));
 
         assert_se(strv_extend_many(&l, "foo") >= 0);
         assert_se(strv_equal(l, STRV_MAKE("foo")));

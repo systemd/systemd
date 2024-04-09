@@ -9,7 +9,7 @@ static void test_normalize_recovery_key(const char *t, const char *expected) {
         _cleanup_free_ char *z = NULL;
         int r;
 
-        assert_se(t);
+        ASSERT_TRUE(t);
 
         r = normalize_recovery_key(t, &z);
         assert_se(expected ?

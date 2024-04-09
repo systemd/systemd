@@ -7,22 +7,22 @@
 
 TEST(iszero_safe) {
         /* zeros */
-        assert_se(iszero_safe(0.0));
+        ASSERT_TRUE(iszero_safe(0.0));
         assert_se(iszero_safe(-0.0));
-        assert_se(iszero_safe(0e0));
+        ASSERT_TRUE(iszero_safe(0e0));
         assert_se(iszero_safe(-0e0));
         assert_se(iszero_safe(0e+0));
         assert_se(iszero_safe(0e-0));
         assert_se(iszero_safe(-0e-0));
         assert_se(iszero_safe(-0e000));
-        assert_se(iszero_safe(0e000));
+        ASSERT_TRUE(iszero_safe(0e000));
 
         /* non-zero normal values */
-        assert_se(!iszero_safe(42.0));
-        assert_se(!iszero_safe(M_PI));
-        assert_se(!iszero_safe(DBL_MAX));
+        ASSERT_FALSE(iszero_safe(42.0));
+        ASSERT_FALSE(iszero_safe(M_PI));
+        ASSERT_FALSE(iszero_safe(DBL_MAX));
         assert_se(!iszero_safe(-DBL_MAX));
-        assert_se(!iszero_safe(DBL_MIN));
+        ASSERT_FALSE(iszero_safe(DBL_MIN));
         assert_se(!iszero_safe(-DBL_MIN));
         assert_se(!iszero_safe(1 / DBL_MAX));
 
@@ -38,8 +38,8 @@ TEST(iszero_safe) {
         assert_se( iszero_safe(-DBL_MIN / -DBL_MAX));
 
         /* NaN or infinity */
-        assert_se(!iszero_safe(NAN));
-        assert_se(!iszero_safe(INFINITY));
+        ASSERT_FALSE(iszero_safe(NAN));
+        ASSERT_FALSE(iszero_safe(INFINITY));
         assert_se(!iszero_safe(-INFINITY));
         assert_se(!iszero_safe(1 / NAN));
 

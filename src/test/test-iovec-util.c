@@ -41,13 +41,13 @@ TEST(iovec_set_and_valid) {
                 half = { .iov_base = (char*) "piff", .iov_len = 0 },
                 invalid = { .iov_base = NULL, .iov_len = 47 };
 
-        assert_se(!iovec_is_set(NULL));
+        ASSERT_FALSE(iovec_is_set(NULL));
         assert_se(!iovec_is_set(&empty));
         assert_se(iovec_is_set(&filled));
         assert_se(!iovec_is_set(&half));
         assert_se(!iovec_is_set(&invalid));
 
-        assert_se(iovec_is_valid(NULL));
+        ASSERT_TRUE(iovec_is_valid(NULL));
         assert_se(iovec_is_valid(&empty));
         assert_se(iovec_is_valid(&filled));
         assert_se(iovec_is_valid(&half));

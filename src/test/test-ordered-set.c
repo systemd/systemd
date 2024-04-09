@@ -13,7 +13,7 @@ TEST(set_steal_first) {
         char *val;
 
         m = ordered_set_new(&string_hash_ops);
-        assert_se(m);
+        ASSERT_TRUE(m);
 
         assert_se(ordered_set_put(m, (void*) "1") == 1);
         assert_se(ordered_set_put(m, (void*) "22") == 1);
@@ -26,7 +26,7 @@ TEST(set_steal_first) {
 
         assert_se(seen[0] == 1 && seen[1] == 1 && seen[2] == 1);
 
-        assert_se(ordered_set_isempty(m));
+        ASSERT_TRUE(ordered_set_isempty(m));
 
         ordered_set_print(stdout, "SET=", m);
 }
@@ -65,7 +65,7 @@ TEST(set_put) {
         _cleanup_free_ char **t = NULL, *str = NULL;
 
         m = ordered_set_new(&string_hash_ops);
-        assert_se(m);
+        ASSERT_TRUE(m);
 
         assert_se(ordered_set_put(m, (void*) "1") == 1);
         assert_se(ordered_set_put(m, (void*) "22") == 1);

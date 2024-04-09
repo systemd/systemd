@@ -129,14 +129,14 @@ static void test_unit_name_from_path_one(const char *path, const char *suffix, c
 }
 
 TEST(unit_name_is_hashed) {
-        assert_se(!unit_name_is_hashed(""));
+        ASSERT_FALSE(unit_name_is_hashed(""));
         assert_se(!unit_name_is_hashed("foo@bar.service"));
         assert_se(!unit_name_is_hashed("foo@.service"));
-        assert_se(unit_name_is_hashed("waldoaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_7736d9ed33c2ec55.mount"));
-        assert_se(!unit_name_is_hashed("waldoaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_7736D9ED33C2EC55.mount"));
+        ASSERT_TRUE(unit_name_is_hashed("waldoaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_7736d9ed33c2ec55.mount"));
+        ASSERT_FALSE(unit_name_is_hashed("waldoaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_7736D9ED33C2EC55.mount"));
         assert_se(!unit_name_is_hashed("waldoaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!7736d9ed33c2ec55.mount"));
-        assert_se(!unit_name_is_hashed("waldoaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_7736d9gd33c2ec55.mount"));
-        assert_se(!unit_name_is_hashed("waldoaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_.mount"));
+        ASSERT_FALSE(unit_name_is_hashed("waldoaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_7736d9gd33c2ec55.mount"));
+        ASSERT_FALSE(unit_name_is_hashed("waldoaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_.mount"));
         assert_se(!unit_name_is_hashed("waldoaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_2103e1466b87f7f7@waldo.mount"));
         assert_se(!unit_name_is_hashed("waldoaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_2103e1466b87f7f7@.mount"));
 }
@@ -299,21 +299,21 @@ TEST_RET(unit_printf, .sd_booted = true) {
         /* Using the specifier functions is admittedly a bit circular, but we don't want to reimplement the
          * logic a second time. We're at least testing that the hookup works. */
         assert_se(specifier_architecture('a', NULL, NULL, NULL, &architecture) >= 0);
-        assert_se(architecture);
+        ASSERT_TRUE(architecture);
         assert_se(specifier_os_image_version('A', NULL, NULL, NULL, &os_image_version) >= 0);
         if (sd_booted() > 0) {
                 assert_se(specifier_boot_id('b', NULL, NULL, NULL, &boot_id) >= 0);
-                assert_se(boot_id);
+                ASSERT_TRUE(boot_id);
         }
         assert_se(specifier_os_build_id('B', NULL, NULL, NULL, &os_build_id) >= 0);
         assert_se(hostname = gethostname_malloc());
         assert_se(specifier_short_hostname('l', NULL, NULL, NULL, &short_hostname) == 0);
-        assert_se(short_hostname);
+        ASSERT_TRUE(short_hostname);
         assert_se(specifier_pretty_hostname('q', NULL, NULL, NULL, &pretty_hostname) == 0);
-        assert_se(pretty_hostname);
+        ASSERT_TRUE(pretty_hostname);
         if (sd_id128_get_machine(NULL) >= 0) {
                 assert_se(specifier_machine_id('m', NULL, NULL, NULL, &machine_id) >= 0);
-                assert_se(machine_id);
+                ASSERT_TRUE(machine_id);
         }
         assert_se(specifier_os_image_id('M', NULL, NULL, NULL, &os_image_id) >= 0);
         assert_se(specifier_os_id('o', NULL, NULL, NULL, &os_id) >= 0);
@@ -326,9 +326,9 @@ TEST_RET(unit_printf, .sd_booted = true) {
         assert_se(get_home_dir(&home) >= 0);
         assert_se(get_shell(&shell) >= 0);
         assert_se(specifier_tmp_dir('T', NULL, NULL, NULL, &tmp_dir) >= 0);
-        assert_se(tmp_dir);
+        ASSERT_TRUE(tmp_dir);
         assert_se(specifier_var_tmp_dir('V', NULL, NULL, NULL, &var_tmp_dir) >= 0);
-        assert_se(var_tmp_dir);
+        ASSERT_TRUE(var_tmp_dir);
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
         if (manager_errno_skip_test(r))
@@ -469,27 +469,27 @@ TEST_RET(unit_printf, .sd_booted = true) {
 }
 
 TEST(unit_instance_is_valid) {
-        assert_se(unit_instance_is_valid("fooBar"));
+        ASSERT_TRUE(unit_instance_is_valid("fooBar"));
         assert_se(unit_instance_is_valid("foo-bar"));
-        assert_se(unit_instance_is_valid("foo.stUff"));
-        assert_se(unit_instance_is_valid("fOo123.stuff"));
+        ASSERT_TRUE(unit_instance_is_valid("foo.stUff"));
+        ASSERT_TRUE(unit_instance_is_valid("fOo123.stuff"));
         assert_se(unit_instance_is_valid("@f_oo123.Stuff"));
 
         assert_se(!unit_instance_is_valid("$¢£"));
-        assert_se(!unit_instance_is_valid(""));
+        ASSERT_FALSE(unit_instance_is_valid(""));
         assert_se(!unit_instance_is_valid("foo bar"));
         assert_se(!unit_instance_is_valid("foo/bar"));
 }
 
 TEST(unit_prefix_is_valid) {
-        assert_se(unit_prefix_is_valid("fooBar"));
+        ASSERT_TRUE(unit_prefix_is_valid("fooBar"));
         assert_se(unit_prefix_is_valid("foo-bar"));
-        assert_se(unit_prefix_is_valid("foo.stUff"));
-        assert_se(unit_prefix_is_valid("fOo123.stuff"));
-        assert_se(unit_prefix_is_valid("foo123.Stuff"));
+        ASSERT_TRUE(unit_prefix_is_valid("foo.stUff"));
+        ASSERT_TRUE(unit_prefix_is_valid("fOo123.stuff"));
+        ASSERT_TRUE(unit_prefix_is_valid("foo123.Stuff"));
 
         assert_se(!unit_prefix_is_valid("$¢£"));
-        assert_se(!unit_prefix_is_valid(""));
+        ASSERT_FALSE(unit_prefix_is_valid(""));
         assert_se(!unit_prefix_is_valid("foo bar"));
         assert_se(!unit_prefix_is_valid("foo/bar"));
         assert_se(!unit_prefix_is_valid("@foo-bar"));
@@ -533,9 +533,9 @@ TEST(slice_name_is_valid) {
         assert_se(!slice_name_is_valid("-foo-bar-baz-.slice"));
         assert_se(!slice_name_is_valid("foo-bar--baz.slice"));
         assert_se(!slice_name_is_valid("foo--bar--baz.slice"));
-        assert_se(!slice_name_is_valid(".slice"));
-        assert_se(!slice_name_is_valid(""));
-        assert_se(!slice_name_is_valid("foo.service"));
+        ASSERT_FALSE(slice_name_is_valid(".slice"));
+        ASSERT_FALSE(slice_name_is_valid(""));
+        ASSERT_FALSE(slice_name_is_valid("foo.service"));
 
         assert_se(!slice_name_is_valid("foo@.slice"));
         assert_se(!slice_name_is_valid("foo@bar.slice"));
@@ -617,22 +617,22 @@ TEST(unit_name_to_instance) {
 
         r = unit_name_to_instance("foo.service", &instance);
         assert_se(r == UNIT_NAME_PLAIN);
-        assert_se(!instance);
+        ASSERT_FALSE(instance);
 
         r = unit_name_to_instance("fooj@unk", &instance);
         ASSERT_LT(r, 0);
-        assert_se(!instance);
+        ASSERT_FALSE(instance);
 
         r = unit_name_to_instance("foo@", &instance);
         ASSERT_LT(r, 0);
-        assert_se(!instance);
+        ASSERT_FALSE(instance);
 }
 
 TEST(unit_name_escape) {
         _cleanup_free_ char *r = NULL;
 
         r = unit_name_escape("ab+-c.a/bc@foo.service");
-        assert_se(r);
+        ASSERT_TRUE(r);
         assert_se(streq(r, "ab\\x2b\\x2dc.a-bc\\x40foo.service"));
 }
 

@@ -29,29 +29,29 @@ int main(int argc, char *argv[]) {
 
         f = prefix_roota(p, "/run/systemd/inaccessible/reg");
         assert_se(stat(f, &st) >= 0);
-        assert_se(S_ISREG(st.st_mode));
+        ASSERT_TRUE(S_ISREG(st.st_mode));
         assert_se((st.st_mode & 07777) == 0000);
 
         f = prefix_roota(p, "/run/systemd/inaccessible/dir");
         assert_se(stat(f, &st) >= 0);
-        assert_se(S_ISDIR(st.st_mode));
+        ASSERT_TRUE(S_ISDIR(st.st_mode));
         assert_se((st.st_mode & 07777) == 0000);
 
         f = prefix_roota(p, "/run/systemd/inaccessible/fifo");
         assert_se(stat(f, &st) >= 0);
-        assert_se(S_ISFIFO(st.st_mode));
+        ASSERT_TRUE(S_ISFIFO(st.st_mode));
         assert_se((st.st_mode & 07777) == 0000);
 
         f = prefix_roota(p, "/run/systemd/inaccessible/sock");
         assert_se(stat(f, &st) >= 0);
-        assert_se(S_ISSOCK(st.st_mode));
+        ASSERT_TRUE(S_ISSOCK(st.st_mode));
         assert_se((st.st_mode & 07777) == 0000);
 
         f = prefix_roota(p, "/run/systemd/inaccessible/chr");
         if (stat(f, &st) < 0)
                 assert_se(errno == ENOENT);
         else {
-                assert_se(S_ISCHR(st.st_mode));
+                ASSERT_TRUE(S_ISCHR(st.st_mode));
                 assert_se((st.st_mode & 07777) == 0000);
         }
 
@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
         if (stat(f, &st) < 0)
                 assert_se(errno == ENOENT);
         else {
-                assert_se(S_ISBLK(st.st_mode));
+                ASSERT_TRUE(S_ISBLK(st.st_mode));
                 assert_se((st.st_mode & 07777) == 0000);
         }
 

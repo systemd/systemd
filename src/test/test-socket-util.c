@@ -32,19 +32,19 @@ TEST(ifname_valid) {
         assert_se( ifname_valid("foo"));
         assert_se( ifname_valid("eth0"));
 
-        assert_se(!ifname_valid("0"));
-        assert_se(!ifname_valid("99"));
+        ASSERT_FALSE(ifname_valid("0"));
+        ASSERT_FALSE(ifname_valid("99"));
         assert_se( ifname_valid("a99"));
         assert_se( ifname_valid("99a"));
 
-        assert_se(!ifname_valid(NULL));
-        assert_se(!ifname_valid(""));
+        ASSERT_FALSE(ifname_valid(NULL));
+        ASSERT_FALSE(ifname_valid(""));
         assert_se(!ifname_valid(" "));
         assert_se(!ifname_valid(" foo"));
         assert_se(!ifname_valid("bar\n"));
-        assert_se(!ifname_valid("."));
-        assert_se(!ifname_valid(".."));
-        assert_se(ifname_valid("foo.bar"));
+        ASSERT_FALSE(ifname_valid("."));
+        ASSERT_FALSE(ifname_valid(".."));
+        ASSERT_TRUE(ifname_valid("foo.bar"));
         assert_se(!ifname_valid("x:y"));
 
         assert_se( ifname_valid_full("xxxxxxxxxxxxxxx", 0));

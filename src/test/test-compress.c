@@ -65,13 +65,13 @@ _unused_ static void test_compress_decompress(
         r = compress(data, data_len, compressed, sizeof(compressed), &csize);
         if (r == -ENOBUFS) {
                 log_info_errno(r, "compression failed: %m");
-                assert_se(may_fail);
+                ASSERT_TRUE(may_fail);
         } else {
                 ASSERT_OK(r);
                 r = decompress(compressed, csize,
                                (void **) &decompressed, &csize, 0);
                 ASSERT_EQ(r, 0);
-                assert_se(decompressed);
+                ASSERT_TRUE(decompressed);
                 assert_se(memcmp(decompressed, data, data_len) == 0);
         }
 
@@ -110,14 +110,14 @@ _unused_ static void test_decompress_startswith(const char *compression,
 #define BUFSIZE_2 20000
 
         compressed = compressed1 = malloc(BUFSIZE_1);
-        assert_se(compressed1);
+        ASSERT_TRUE(compressed1);
         r = compress(data, data_len, compressed, BUFSIZE_1, &csize);
         if (r == -ENOBUFS) {
                 log_info_errno(r, "compression failed: %m");
-                assert_se(may_fail);
+                ASSERT_TRUE(may_fail);
 
                 compressed = compressed2 = malloc(BUFSIZE_2);
-                assert_se(compressed2);
+                ASSERT_TRUE(compressed2);
                 r = compress(data, data_len, compressed, BUFSIZE_2, &csize);
         }
         ASSERT_OK(r);

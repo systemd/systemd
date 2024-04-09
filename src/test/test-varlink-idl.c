@@ -115,7 +115,7 @@ static void test_parse_format_one(const VarlinkInterface *iface) {
         _cleanup_(varlink_interface_freep) VarlinkInterface *parsed = NULL;
         _cleanup_free_ char *text = NULL, *text2 = NULL;
 
-        assert_se(iface);
+        ASSERT_TRUE(iface);
 
         assert_se(varlink_idl_dump(stdout, /* use_colors=*/ true, iface) >= 0);
         assert_se(varlink_idl_consistent(iface, LOG_ERR) >= 0);
@@ -185,13 +185,13 @@ TEST(parse) {
 }
 
 TEST(interface_name_is_valid) {
-        assert_se(!varlink_idl_interface_name_is_valid(NULL));
-        assert_se(!varlink_idl_interface_name_is_valid(""));
-        assert_se(!varlink_idl_interface_name_is_valid(","));
-        assert_se(!varlink_idl_interface_name_is_valid("."));
+        ASSERT_FALSE(varlink_idl_interface_name_is_valid(NULL));
+        ASSERT_FALSE(varlink_idl_interface_name_is_valid(""));
+        ASSERT_FALSE(varlink_idl_interface_name_is_valid(","));
+        ASSERT_FALSE(varlink_idl_interface_name_is_valid("."));
         assert_se(!varlink_idl_interface_name_is_valid("-"));
-        assert_se(varlink_idl_interface_name_is_valid("a"));
-        assert_se(varlink_idl_interface_name_is_valid("a.a"));
+        ASSERT_TRUE(varlink_idl_interface_name_is_valid("a"));
+        ASSERT_TRUE(varlink_idl_interface_name_is_valid("a.a"));
         assert_se(!varlink_idl_interface_name_is_valid("-.a"));
         assert_se(!varlink_idl_interface_name_is_valid("-a.a"));
         assert_se(!varlink_idl_interface_name_is_valid("a-.a"));
@@ -200,44 +200,44 @@ TEST(interface_name_is_valid) {
         assert_se(!varlink_idl_interface_name_is_valid("a-a.-a"));
         assert_se(!varlink_idl_interface_name_is_valid("a-a.-"));
         assert_se(varlink_idl_interface_name_is_valid("a-a.a-a"));
-        assert_se(varlink_idl_interface_name_is_valid("io.systemd.Foobar"));
+        ASSERT_TRUE(varlink_idl_interface_name_is_valid("io.systemd.Foobar"));
 }
 
 TEST(symbol_name_is_valid) {
-        assert_se(!varlink_idl_symbol_name_is_valid(NULL));
-        assert_se(!varlink_idl_symbol_name_is_valid(""));
-        assert_se(!varlink_idl_symbol_name_is_valid("_"));
-        assert_se(!varlink_idl_symbol_name_is_valid("_foo"));
-        assert_se(varlink_idl_symbol_name_is_valid("Foofoo"));
-        assert_se(varlink_idl_symbol_name_is_valid("Foo"));
-        assert_se(varlink_idl_symbol_name_is_valid("Foo0"));
-        assert_se(!varlink_idl_symbol_name_is_valid("0Foo"));
-        assert_se(!varlink_idl_symbol_name_is_valid("foo"));
-        assert_se(varlink_idl_symbol_name_is_valid("Foo0foo"));
-        assert_se(!varlink_idl_symbol_name_is_valid("bool"));
-        assert_se(!varlink_idl_symbol_name_is_valid("int"));
-        assert_se(!varlink_idl_symbol_name_is_valid("float"));
-        assert_se(!varlink_idl_symbol_name_is_valid("string"));
-        assert_se(!varlink_idl_symbol_name_is_valid("object"));
+        ASSERT_FALSE(varlink_idl_symbol_name_is_valid(NULL));
+        ASSERT_FALSE(varlink_idl_symbol_name_is_valid(""));
+        ASSERT_FALSE(varlink_idl_symbol_name_is_valid("_"));
+        ASSERT_FALSE(varlink_idl_symbol_name_is_valid("_foo"));
+        ASSERT_TRUE(varlink_idl_symbol_name_is_valid("Foofoo"));
+        ASSERT_TRUE(varlink_idl_symbol_name_is_valid("Foo"));
+        ASSERT_TRUE(varlink_idl_symbol_name_is_valid("Foo0"));
+        ASSERT_FALSE(varlink_idl_symbol_name_is_valid("0Foo"));
+        ASSERT_FALSE(varlink_idl_symbol_name_is_valid("foo"));
+        ASSERT_TRUE(varlink_idl_symbol_name_is_valid("Foo0foo"));
+        ASSERT_FALSE(varlink_idl_symbol_name_is_valid("bool"));
+        ASSERT_FALSE(varlink_idl_symbol_name_is_valid("int"));
+        ASSERT_FALSE(varlink_idl_symbol_name_is_valid("float"));
+        ASSERT_FALSE(varlink_idl_symbol_name_is_valid("string"));
+        ASSERT_FALSE(varlink_idl_symbol_name_is_valid("object"));
 }
 
 TEST(field_name_is_valid) {
-        assert_se(!varlink_idl_field_name_is_valid(NULL));
-        assert_se(!varlink_idl_field_name_is_valid(""));
-        assert_se(!varlink_idl_field_name_is_valid("_"));
-        assert_se(!varlink_idl_field_name_is_valid("_foo"));
-        assert_se(!varlink_idl_field_name_is_valid("_foo_"));
-        assert_se(!varlink_idl_field_name_is_valid("foo_"));
-        assert_se(varlink_idl_field_name_is_valid("foo_foo"));
-        assert_se(varlink_idl_field_name_is_valid("f_o_o_f_o_o"));
-        assert_se(!varlink_idl_field_name_is_valid("foo__foo"));
-        assert_se(varlink_idl_field_name_is_valid("Foofoo"));
-        assert_se(varlink_idl_field_name_is_valid("Foo"));
-        assert_se(varlink_idl_field_name_is_valid("Foo0"));
-        assert_se(!varlink_idl_field_name_is_valid("0Foo"));
-        assert_se(varlink_idl_field_name_is_valid("foo"));
-        assert_se(varlink_idl_field_name_is_valid("Foo0foo"));
-        assert_se(varlink_idl_field_name_is_valid("foo0foo"));
+        ASSERT_FALSE(varlink_idl_field_name_is_valid(NULL));
+        ASSERT_FALSE(varlink_idl_field_name_is_valid(""));
+        ASSERT_FALSE(varlink_idl_field_name_is_valid("_"));
+        ASSERT_FALSE(varlink_idl_field_name_is_valid("_foo"));
+        ASSERT_FALSE(varlink_idl_field_name_is_valid("_foo_"));
+        ASSERT_FALSE(varlink_idl_field_name_is_valid("foo_"));
+        ASSERT_TRUE(varlink_idl_field_name_is_valid("foo_foo"));
+        ASSERT_TRUE(varlink_idl_field_name_is_valid("f_o_o_f_o_o"));
+        ASSERT_FALSE(varlink_idl_field_name_is_valid("foo__foo"));
+        ASSERT_TRUE(varlink_idl_field_name_is_valid("Foofoo"));
+        ASSERT_TRUE(varlink_idl_field_name_is_valid("Foo"));
+        ASSERT_TRUE(varlink_idl_field_name_is_valid("Foo0"));
+        ASSERT_FALSE(varlink_idl_field_name_is_valid("0Foo"));
+        ASSERT_TRUE(varlink_idl_field_name_is_valid("foo"));
+        ASSERT_TRUE(varlink_idl_field_name_is_valid("Foo0foo"));
+        ASSERT_TRUE(varlink_idl_field_name_is_valid("foo0foo"));
 }
 
 TEST(validate_json) {
@@ -367,7 +367,7 @@ TEST(validate_method_call) {
                                              JSON_BUILD_PAIR_UNSIGNED("waldo", 8*9),
                                              JSON_BUILD_PAIR_UNSIGNED("quux", 8+9))) >= 0);
 
-        assert_se(!error_id);
+        ASSERT_FALSE(error_id);
 
         json_variant_dump(reply, JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO, NULL, NULL);
         json_variant_dump(expected_reply, JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO, NULL, NULL);
@@ -379,7 +379,7 @@ TEST(validate_method_call) {
                                                 JSON_BUILD_PAIR_UNSIGNED("bar", 8),
                                                 JSON_BUILD_PAIR_STRING("optional", "pfft"))) >= 0);
 
-        assert_se(!error_id);
+        ASSERT_FALSE(error_id);
         assert_se(json_variant_equal(reply, expected_reply));
 
         assert_se(varlink_callb(v, "xyz.TestMethod", &reply, &error_id,

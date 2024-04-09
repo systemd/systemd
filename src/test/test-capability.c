@@ -88,10 +88,10 @@ static void show_capabilities(void) {
         char *text;
 
         caps = cap_get_proc();
-        assert_se(caps);
+        ASSERT_TRUE(caps);
 
         text = cap_to_text(caps, NULL);
-        assert_se(text);
+        ASSERT_TRUE(text);
 
         log_info("Capabilities:%s", text);
         cap_free(caps);
@@ -189,7 +189,7 @@ static void test_update_inherited_set(void) {
         cap_flag_value_t fv;
 
         caps = cap_get_proc();
-        assert_se(caps);
+        ASSERT_TRUE(caps);
 
         set = (UINT64_C(1) << CAP_CHOWN);
 
@@ -212,7 +212,7 @@ static void test_apply_ambient_caps(void) {
         assert_se(!capability_ambient_set_apply(set, true));
 
         caps = cap_get_proc();
-        assert_se(caps);
+        ASSERT_TRUE(caps);
         assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
         assert_se(fv == CAP_SET);
         cap_free(caps);
@@ -221,7 +221,7 @@ static void test_apply_ambient_caps(void) {
 
         assert_se(!capability_ambient_set_apply(0, true));
         caps = cap_get_proc();
-        assert_se(caps);
+        ASSERT_TRUE(caps);
         assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
         assert_se(fv == CAP_CLEAR);
         cap_free(caps);

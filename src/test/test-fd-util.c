@@ -106,7 +106,7 @@ TEST(open_serialization_file) {
 
         r = open_serialization_file("test", &f);
         ASSERT_OK(r);
-        assert_se(f);
+        ASSERT_TRUE(f);
 
         assert_se(fwrite("test\n", 1, 5, f) == 5);
 }
@@ -414,7 +414,7 @@ TEST(fd_reopen) {
         ASSERT_OK(fd1);
 
         assert_se(fstat(fd1, &st1) >= 0);
-        assert_se(S_ISDIR(st1.st_mode));
+        ASSERT_TRUE(S_ISDIR(st1.st_mode));
 
         fl = fcntl(fd1, F_GETFL);
         ASSERT_OK(fl);
@@ -429,7 +429,7 @@ TEST(fd_reopen) {
         ASSERT_OK(fd2);
 
         assert_se(fstat(fd2, &st2) >= 0);
-        assert_se(S_ISDIR(st2.st_mode));
+        ASSERT_TRUE(S_ISDIR(st2.st_mode));
         assert_se(stat_inode_same(&st1, &st2));
 
         fl = fcntl(fd2, F_GETFL);
@@ -443,7 +443,7 @@ TEST(fd_reopen) {
         ASSERT_OK(fd1);
 
         assert_se(fstat(fd1, &st1) >= 0);
-        assert_se(S_ISDIR(st1.st_mode));
+        ASSERT_TRUE(S_ISDIR(st1.st_mode));
         assert_se(stat_inode_same(&st1, &st2));
 
         fl = fcntl(fd1, F_GETFL);
@@ -458,7 +458,7 @@ TEST(fd_reopen) {
         ASSERT_OK(fd1);
 
         assert_se(fstat(fd1, &st1) >= 0);
-        assert_se(S_ISREG(st1.st_mode));
+        ASSERT_TRUE(S_ISREG(st1.st_mode));
 
         fl = fcntl(fd1, F_GETFL);
         ASSERT_OK(fl);
@@ -470,7 +470,7 @@ TEST(fd_reopen) {
         ASSERT_OK(fd2);
 
         assert_se(fstat(fd2, &st2) >= 0);
-        assert_se(S_ISREG(st2.st_mode));
+        ASSERT_TRUE(S_ISREG(st2.st_mode));
         assert_se(stat_inode_same(&st1, &st2));
 
         fl = fcntl(fd2, F_GETFL);
@@ -485,7 +485,7 @@ TEST(fd_reopen) {
         ASSERT_OK(fd1);
 
         assert_se(fstat(fd1, &st1) >= 0);
-        assert_se(S_ISREG(st1.st_mode));
+        ASSERT_TRUE(S_ISREG(st1.st_mode));
         assert_se(stat_inode_same(&st1, &st2));
 
         fl = fcntl(fd1, F_GETFL);
@@ -502,12 +502,12 @@ TEST(fd_reopen) {
         fd1 = open("/proc/self", O_PATH|O_CLOEXEC|O_NOFOLLOW);
         ASSERT_OK(fd1);
         assert_se(fstat(fd1, &st1) >= 0);
-        assert_se(S_ISLNK(st1.st_mode));
+        ASSERT_TRUE(S_ISLNK(st1.st_mode));
 
         fd2 = fd_reopen(fd1, O_PATH|O_CLOEXEC);
         ASSERT_OK(fd2);
         assert_se(fstat(fd2, &st2) >= 0);
-        assert_se(S_ISLNK(st2.st_mode));
+        ASSERT_TRUE(S_ISLNK(st2.st_mode));
         assert_se(stat_inode_same(&st1, &st2));
         fd2 = safe_close(fd2);
 

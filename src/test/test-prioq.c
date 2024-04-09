@@ -41,7 +41,7 @@ TEST(unsigned) {
                 assert_se(buffer[i] == u);
         }
 
-        assert_se(prioq_isempty(q));
+        ASSERT_TRUE(prioq_isempty(q));
 }
 
 struct test {
@@ -91,7 +91,7 @@ TEST(struct) {
 
         unsigned count = 0;
         PRIOQ_FOREACH_ITEM(q, t) {
-                assert_se(t);
+                ASSERT_TRUE(t);
                 count++;
         }
         assert_se(count == SET_SIZE);
@@ -116,8 +116,8 @@ TEST(struct) {
                 free(t);
         }
 
-        assert_se(prioq_isempty(q));
-        assert_se(set_isempty(s));
+        ASSERT_TRUE(prioq_isempty(q));
+        ASSERT_TRUE(set_isempty(s));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
