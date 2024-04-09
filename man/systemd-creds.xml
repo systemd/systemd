@@ -434,6 +434,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--allow-null</option></term>
+
+        <listitem><para>Allow decrypting credentials that use an empty key.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--quiet</option></term>
         <term><option>-q</option></term>
 
