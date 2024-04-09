@@ -103,15 +103,15 @@ TEST(utf8_escape_invalid) {
 
         p1 = utf8_escape_invalid("goo goo goo");
         log_debug("\"%s\"", p1);
-        assert_se(utf8_is_valid(p1));
+        ASSERT_TRUE(utf8_is_valid(p1));
 
         p2 = utf8_escape_invalid("\341\204\341\204");
         log_debug("\"%s\"", p2);
-        assert_se(utf8_is_valid(p2));
+        ASSERT_TRUE(utf8_is_valid(p2));
 
         p3 = utf8_escape_invalid("\341\204");
         log_debug("\"%s\"", p3);
-        assert_se(utf8_is_valid(p3));
+        ASSERT_TRUE(utf8_is_valid(p3));
 }
 
 TEST(utf8_escape_non_printable) {
@@ -119,27 +119,27 @@ TEST(utf8_escape_non_printable) {
 
         p1 = utf8_escape_non_printable("goo goo goo");
         log_debug("\"%s\"", p1);
-        assert_se(utf8_is_valid(p1));
+        ASSERT_TRUE(utf8_is_valid(p1));
 
         p2 = utf8_escape_non_printable("\341\204\341\204");
         log_debug("\"%s\"", p2);
-        assert_se(utf8_is_valid(p2));
+        ASSERT_TRUE(utf8_is_valid(p2));
 
         p3 = utf8_escape_non_printable("\341\204");
         log_debug("\"%s\"", p3);
-        assert_se(utf8_is_valid(p3));
+        ASSERT_TRUE(utf8_is_valid(p3));
 
         p4 = utf8_escape_non_printable("ąę\n가너도루\n1234\n\341\204\341\204\n\001 \019\20\a");
         log_debug("\"%s\"", p4);
-        assert_se(utf8_is_valid(p4));
+        ASSERT_TRUE(utf8_is_valid(p4));
 
         p5 = utf8_escape_non_printable("\001 \019\20\a");
         log_debug("\"%s\"", p5);
-        assert_se(utf8_is_valid(p5));
+        ASSERT_TRUE(utf8_is_valid(p5));
 
         p6 = utf8_escape_non_printable("\xef\xbf\x30\x13");
         log_debug("\"%s\"", p6);
-        assert_se(utf8_is_valid(p6));
+        ASSERT_TRUE(utf8_is_valid(p6));
 }
 
 TEST(utf8_escape_non_printable_full) {
@@ -154,13 +154,13 @@ TEST(utf8_escape_non_printable_full) {
                         p = utf8_escape_non_printable_full(s, cw, false);
                         ew = utf8_console_width(p);
                         log_debug("%02zu \"%s\" (%zu wasted)", cw, p, cw - ew);
-                        assert_se(utf8_is_valid(p));
+                        ASSERT_TRUE(utf8_is_valid(p));
                         assert_se(ew <= cw);
 
                         q = utf8_escape_non_printable_full(s, cw, true);
                         ew = utf8_console_width(q);
                         log_debug("   \"%s\" (%zu wasted)", q, cw - ew);
-                        assert_se(utf8_is_valid(q));
+                        ASSERT_TRUE(utf8_is_valid(q));
                         assert_se(ew <= cw);
                         if (cw > 0)
                                 assert_se(endswith(q, "…"));
@@ -175,16 +175,16 @@ TEST(utf16_to_utf8) {
 
         /* Convert UTF-16 to UTF-8, filtering embedded bad chars */
         a = utf16_to_utf8(utf16, sizeof(utf16));
-        assert_se(a);
+        ASSERT_TRUE(a);
         assert_se(memcmp(a, utf8, sizeof(utf8)) == 0);
 
         /* Convert UTF-8 to UTF-16, and back */
         b = utf8_to_utf16(utf8, sizeof(utf8));
-        assert_se(b);
+        ASSERT_TRUE(b);
 
         free(a);
         a = utf16_to_utf8(b, SIZE_MAX);
-        assert_se(a);
+        ASSERT_TRUE(a);
         assert_se(strlen(a) == sizeof(utf8));
         assert_se(memcmp(a, utf8, sizeof(utf8)) == 0);
 }
@@ -219,10 +219,10 @@ TEST(utf8_to_utf16) {
                 _cleanup_free_ char *b = NULL;
 
                 a = utf8_to_utf16(p, SIZE_MAX);
-                assert_se(a);
+                ASSERT_TRUE(a);
 
                 b = utf16_to_utf8(a, SIZE_MAX);
-                assert_se(b);
+                ASSERT_TRUE(b);
                 assert_se(streq(p, b));
         }
 }

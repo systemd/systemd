@@ -47,7 +47,7 @@ static char* make_buf(size_t count, const char *type) {
         size_t i;
 
         buf = malloc(count);
-        assert_se(buf);
+        ASSERT_TRUE(buf);
 
         if (streq(type, "zeros"))
                 memzero(buf, count);

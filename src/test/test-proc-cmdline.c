@@ -17,7 +17,7 @@
 static int obj;
 
 static int parse_item(const char *key, const char *value, void *data) {
-        assert_se(key);
+        ASSERT_TRUE(key);
         assert_se(data == &obj);
 
         log_info("kernel cmdline option <%s> = <%s>", key, strna(value));
@@ -76,8 +76,8 @@ TEST(proc_cmdline_override) {
 }
 
 static int parse_item_given(const char *key, const char *value, void *data) {
-        assert_se(key);
-        assert_se(data);
+        ASSERT_TRUE(key);
+        ASSERT_TRUE(data);
 
         bool *strip = data;
 
@@ -91,9 +91,9 @@ static int parse_item_given(const char *key, const char *value, void *data) {
         else if (proc_cmdline_key_streq(key, "miepf"))
                 assert_se(streq(value, "uuu"));
         else if (in_initrd() && *strip && proc_cmdline_key_streq(key, "zumm"))
-                assert_se(!value);
+                ASSERT_FALSE(value);
         else if (in_initrd() && !*strip && proc_cmdline_key_streq(key, "rd.zumm"))
-                assert_se(!value);
+                ASSERT_FALSE(value);
         else
                 assert_not_reached();
 
@@ -232,9 +232,9 @@ TEST(proc_cmdline_get_key_many) {
                                             "zummm", &value7) == 5);
 
         assert_se(streq_ptr(value1, "quux"));
-        assert_se(!value2);
+        ASSERT_FALSE(value2);
         assert_se(streq_ptr(value3, "tuet"));
-        assert_se(!value4);
+        ASSERT_FALSE(value4);
         assert_se(streq_ptr(value5, "one two"));
         assert_se(streq_ptr(value6, " aaa aaa "));
         assert_se(streq_ptr(value7, "\n"));

@@ -233,8 +233,8 @@ TEST(pid_is_alive) {
 }
 
 TEST(personality) {
-        assert_se(personality_to_string(PER_LINUX));
-        assert_se(!personality_to_string(PERSONALITY_INVALID));
+        ASSERT_TRUE(personality_to_string(PER_LINUX));
+        ASSERT_FALSE(personality_to_string(PERSONALITY_INVALID));
 
         assert_se(streq(personality_to_string(PER_LINUX), architecture_to_string(native_architecture())));
 
@@ -299,7 +299,7 @@ TEST(pid_get_cmdline_harder) {
         r = detach_mount_namespace();
         if (r < 0) {
                 log_warning_errno(r, "detach mount namespace failed: %m");
-                assert_se(ERRNO_IS_PRIVILEGE(r));
+                ASSERT_TRUE(ERRNO_IS_PRIVILEGE(r));
                 return;
         }
 
@@ -713,16 +713,16 @@ TEST(setpriority_closest) {
                 if (setrlimit(RLIMIT_NICE, &RLIMIT_MAKE_CONST(30)) < 0) {
                         /* If this fails we are probably unprivileged or in a userns of some kind, let's skip
                          * the full test */
-                        assert_se(ERRNO_IS_PRIVILEGE(errno));
+                        ASSERT_TRUE(ERRNO_IS_PRIVILEGE(errno));
                         full_test = false;
                 } else {
                         /* However, if the hard limit was above 30, setrlimit would succeed unprivileged, so
                          * check if the UID/GID can be changed before enabling the full test. */
                         if (setresgid(GID_NOBODY, GID_NOBODY, GID_NOBODY) < 0) {
-                                assert_se(ERRNO_IS_PRIVILEGE(errno));
+                                ASSERT_TRUE(ERRNO_IS_PRIVILEGE(errno));
                                 full_test = false;
                         } else if (setresuid(UID_NOBODY, UID_NOBODY, UID_NOBODY) < 0) {
-                                assert_se(ERRNO_IS_PRIVILEGE(errno));
+                                ASSERT_TRUE(ERRNO_IS_PRIVILEGE(errno));
                                 full_test = false;
                         } else
                                 full_test = true;

@@ -70,7 +70,7 @@ TEST(fdset_put_dup) {
         ASSERT_OK(fd);
 
         fdset = fdset_new();
-        assert_se(fdset);
+        ASSERT_TRUE(fdset);
         copyfd = fdset_put_dup(fdset, fd);
         assert_se(copyfd >= 0 && copyfd != fd);
         assert_se(fdset_contains(fdset, copyfd));
@@ -87,7 +87,7 @@ TEST(fdset_cloexec) {
         ASSERT_OK(fd);
 
         fdset = fdset_new();
-        assert_se(fdset);
+        ASSERT_TRUE(fdset);
         assert_se(fdset_put(fdset, fd));
 
         assert_se(fdset_cloexec(fdset, false) >= 0);
@@ -112,7 +112,7 @@ TEST(fdset_close_others) {
         ASSERT_OK(fd);
 
         fdset = fdset_new();
-        assert_se(fdset);
+        ASSERT_TRUE(fdset);
         copyfd = fdset_put_dup(fdset, fd);
         ASSERT_OK(copyfd);
 
@@ -132,7 +132,7 @@ TEST(fdset_remove) {
         ASSERT_OK(fd);
 
         fdset = fdset_new();
-        assert_se(fdset);
+        ASSERT_TRUE(fdset);
         assert_se(fdset_put(fdset, fd) >= 0);
         assert_se(fdset_remove(fdset, fd) >= 0);
         assert_se(!fdset_contains(fdset, fd));
@@ -151,7 +151,7 @@ TEST(fdset_iterate) {
         ASSERT_OK(fd);
 
         fdset = fdset_new();
-        assert_se(fdset);
+        ASSERT_TRUE(fdset);
         assert_se(fdset_put(fdset, fd) >= 0);
         assert_se(fdset_put(fdset, fd) >= 0);
         assert_se(fdset_put(fdset, fd) >= 0);
@@ -172,11 +172,11 @@ TEST(fdset_isempty) {
         ASSERT_OK(fd);
 
         fdset = fdset_new();
-        assert_se(fdset);
+        ASSERT_TRUE(fdset);
 
-        assert_se(fdset_isempty(fdset));
+        ASSERT_TRUE(fdset_isempty(fdset));
         assert_se(fdset_put(fdset, fd) >= 0);
-        assert_se(!fdset_isempty(fdset));
+        ASSERT_FALSE(fdset_isempty(fdset));
 }
 
 TEST(fdset_steal_first) {
@@ -188,7 +188,7 @@ TEST(fdset_steal_first) {
         ASSERT_OK(fd);
 
         fdset = fdset_new();
-        assert_se(fdset);
+        ASSERT_TRUE(fdset);
 
         ASSERT_LT(fdset_steal_first(fdset), 0);
         assert_se(fdset_put(fdset, fd) >= 0);

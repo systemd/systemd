@@ -26,7 +26,7 @@ static int setup_test(Manager **m) {
         Manager *tmp = NULL;
         int r;
 
-        assert_se(m);
+        ASSERT_TRUE(m);
 
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
@@ -42,7 +42,7 @@ static int setup_test(Manager **m) {
                 _cleanup_free_ char *p = NULL;
 
                 p = strjoin("/tmp/test-path_", *test_path);
-                assert_se(p);
+                ASSERT_TRUE(p);
 
                 (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
         }
@@ -53,7 +53,7 @@ static int setup_test(Manager **m) {
 }
 
 static void shutdown_test(Manager *m) {
-        assert_se(m);
+        ASSERT_TRUE(m);
 
         manager_free(m);
 }
@@ -62,23 +62,23 @@ static Service *service_for_path(Manager *m, Path *path, const char *service_nam
         _cleanup_free_ char *tmp = NULL;
         Unit *service_unit = NULL;
 
-        assert_se(m);
-        assert_se(path);
+        ASSERT_TRUE(m);
+        ASSERT_TRUE(path);
 
         if (!service_name) {
                 assert_se(tmp = strreplace(UNIT(path)->id, ".path", ".service"));
                 service_unit = manager_get_unit(m, tmp);
         } else
                 service_unit = manager_get_unit(m, service_name);
-        assert_se(service_unit);
+        ASSERT_TRUE(service_unit);
 
         return SERVICE(service_unit);
 }
 
 static int _check_states(unsigned line,
                          Manager *m, Path *path, Service *service, PathState path_state, ServiceState service_state) {
-        assert_se(m);
-        assert_se(service);
+        ASSERT_TRUE(m);
+        ASSERT_TRUE(service);
 
         usec_t end = now(CLOCK_MONOTONIC) + 30 * USEC_PER_SEC;
 
@@ -136,7 +136,7 @@ static void test_path_exists(Manager *m) {
         Path *path = NULL;
         Service *service = NULL;
 
-        assert_se(m);
+        ASSERT_TRUE(m);
 
         assert_se(manager_load_startable_unit_or_warn(m, "path-exists.path", NULL, &unit) >= 0);
 
@@ -170,7 +170,7 @@ static void test_path_existsglob(Manager *m) {
         Path *path = NULL;
         Service *service = NULL;
 
-        assert_se(m);
+        ASSERT_TRUE(m);
 
         assert_se(manager_load_startable_unit_or_warn(m, "path-existsglob.path", NULL, &unit) >= 0);
 
@@ -205,7 +205,7 @@ static void test_path_changed(Manager *m) {
         Path *path = NULL;
         Service *service = NULL;
 
-        assert_se(m);
+        ASSERT_TRUE(m);
 
         assert_se(manager_load_startable_unit_or_warn(m, "path-changed.path", NULL, &unit) >= 0);
 
@@ -226,7 +226,7 @@ static void test_path_changed(Manager *m) {
                 return;
 
         f = fopen(test_path, "w");
-        assert_se(f);
+        ASSERT_TRUE(f);
         fclose(f);
 
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
@@ -247,7 +247,7 @@ static void test_path_modified(Manager *m) {
         Path *path = NULL;
         Service *service = NULL;
 
-        assert_se(m);
+        ASSERT_TRUE(m);
 
         assert_se(manager_load_startable_unit_or_warn(m, "path-modified.path", NULL, &unit) >= 0);
 
@@ -268,7 +268,7 @@ static void test_path_modified(Manager *m) {
                 return;
 
         f = fopen(test_path, "w");
-        assert_se(f);
+        ASSERT_TRUE(f);
         fputs("test", f);
 
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
@@ -288,7 +288,7 @@ static void test_path_unit(Manager *m) {
         Path *path = NULL;
         Service *service = NULL;
 
-        assert_se(m);
+        ASSERT_TRUE(m);
 
         assert_se(manager_load_startable_unit_or_warn(m, "path-unit.path", NULL, &unit) >= 0);
 
@@ -317,7 +317,7 @@ static void test_path_directorynotempty(Manager *m) {
         Path *path = NULL;
         Service *service = NULL;
 
-        assert_se(m);
+        ASSERT_TRUE(m);
 
         assert_se(manager_load_startable_unit_or_warn(m, "path-directorynotempty.path", NULL, &unit) >= 0);
 
@@ -357,7 +357,7 @@ static void test_path_makedirectory_directorymode(Manager *m) {
         Unit *unit = NULL;
         struct stat s;
 
-        assert_se(m);
+        ASSERT_TRUE(m);
 
         assert_se(manager_load_startable_unit_or_warn(m, "path-makedirectory.path", NULL, &unit) >= 0);
 

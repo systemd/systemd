@@ -72,11 +72,11 @@ TEST(hostname_cleanup) {
         s = strdupa_safe("fööbar");
         assert_se(streq(hostname_cleanup(s), "fbar"));
         s = strdupa_safe("");
-        assert_se(isempty(hostname_cleanup(s)));
+        ASSERT_TRUE(isempty(hostname_cleanup(s)));
         s = strdupa_safe(".");
-        assert_se(isempty(hostname_cleanup(s)));
+        ASSERT_TRUE(isempty(hostname_cleanup(s)));
         s = strdupa_safe("..");
-        assert_se(isempty(hostname_cleanup(s)));
+        ASSERT_TRUE(isempty(hostname_cleanup(s)));
         s = strdupa_safe("foobar.");
         assert_se(streq(hostname_cleanup(s), "foobar"));
         s = strdupa_safe(".foobar");
@@ -108,7 +108,7 @@ TEST(default_hostname) {
         }
 
         _cleanup_free_ char *n = get_default_hostname();
-        assert_se(n);
+        ASSERT_TRUE(n);
         log_info("get_default_hostname: \"%s\"", n);
         assert_se(hostname_is_valid(n, 0));
 }

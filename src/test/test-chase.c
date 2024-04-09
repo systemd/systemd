@@ -39,7 +39,7 @@ TEST(chase) {
         int r;
 
         temp = strjoina(arg_test_dir ?: "/tmp", "/test-chase.XXXXXX");
-        assert_se(mkdtemp(temp));
+        ASSERT_TRUE(mkdtemp(temp));
 
         top = strjoina(temp, "/top");
         ASSERT_OK(mkdir(top, 0700));
@@ -369,7 +369,7 @@ TEST(chase) {
         ASSERT_OK(pfd);
         assert_se(path_equal(result, q));
         ASSERT_OK(fstat(pfd, &st));
-        assert_se(S_ISLNK(st.st_mode));
+        ASSERT_TRUE(S_ISLNK(st.st_mode));
         result = mfree(result);
         pfd = safe_close(pfd);
 
@@ -383,7 +383,7 @@ TEST(chase) {
         ASSERT_OK(pfd);
         assert_se(path_equal(result, q));
         ASSERT_OK(fstat(pfd, &st));
-        assert_se(S_ISLNK(st.st_mode));
+        ASSERT_TRUE(S_ISLNK(st.st_mode));
         result = mfree(result);
         pfd = safe_close(pfd);
 
@@ -648,7 +648,7 @@ TEST(chaseat) {
 
         ASSERT_OK(chase_and_fopenat_unlocked(tfd, "o/p/e/n/f/i/l/e", 0, "re", &result, &f));
         assert_se(fread(&(char[1]) {}, 1, 1, f) == 0);
-        assert_se(feof(f));
+        ASSERT_TRUE(feof(f));
         f = safe_fclose(f);
         ASSERT_STREQ(result, "o/p/e/n/f/i/l/e");
         result = mfree(result);

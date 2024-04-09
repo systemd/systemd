@@ -70,7 +70,7 @@ TEST(glob_no_dot) {
 
         int r;
 
-        assert_se(mkdtemp(template));
+        ASSERT_TRUE(mkdtemp(template));
 
         fn = strjoina(template, "/*");
         r = glob(fn, GLOB_NOSORT|GLOB_BRACE|GLOB_ALTDIRFUNC, NULL, &g);
@@ -90,7 +90,7 @@ TEST(safe_glob) {
         _cleanup_globfree_ glob_t g = {};
         int r;
 
-        assert_se(mkdtemp(template));
+        ASSERT_TRUE(mkdtemp(template));
 
         fn = strjoina(template, "/*");
         r = safe_glob(fn, 0, &g);

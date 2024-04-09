@@ -13,7 +13,7 @@ TEST(parse_cpu_set) {
 
         /* Single value */
         assert_se(parse_cpu_set_full("0", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
-        assert_se(c.set);
+        ASSERT_TRUE(c.set);
         assert_se(c.allocated >= DIV_ROUND_UP(sizeof(__cpu_mask), 8));
         assert_se(CPU_ISSET_S(0, c.allocated, c.set));
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 1);
@@ -33,7 +33,7 @@ TEST(parse_cpu_set) {
 
         /* Simple range (from CPUAffinity example) */
         assert_se(parse_cpu_set_full("1 2 4", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
-        assert_se(c.set);
+        ASSERT_TRUE(c.set);
         assert_se(c.allocated >= DIV_ROUND_UP(sizeof(__cpu_mask), 8));
         assert_se(CPU_ISSET_S(1, c.allocated, c.set));
         assert_se(CPU_ISSET_S(2, c.allocated, c.set));
@@ -236,17 +236,17 @@ TEST(parse_cpu_set) {
 
         /* Garbage */
         assert_se(parse_cpu_set_full("0 1 2 3 garbage", &c, true, NULL, "fake", 1, "CPUAffinity") == -EINVAL);
-        assert_se(!c.set);
+        ASSERT_FALSE(c.set);
         ASSERT_EQ(c.allocated, 0u);
 
         /* Range with garbage */
         assert_se(parse_cpu_set_full("0-3 8-garbage", &c, true, NULL, "fake", 1, "CPUAffinity") == -EINVAL);
-        assert_se(!c.set);
+        ASSERT_FALSE(c.set);
         ASSERT_EQ(c.allocated, 0u);
 
         /* Empty string */
         assert_se(parse_cpu_set_full("", &c, true, NULL, "fake", 1, "CPUAffinity") == 0);
-        assert_se(!c.set);                /* empty string returns NULL */
+        ASSERT_FALSE(c.set);                /* empty string returns NULL */
         ASSERT_EQ(c.allocated, 0u);
         assert_se(str = cpu_set_to_mask_string(&c));
         log_info("cpu_set_to_mask_string: %s", str);
@@ -255,7 +255,7 @@ TEST(parse_cpu_set) {
 
         /* Runaway quoted string */
         assert_se(parse_cpu_set_full("0 1 2 3 \"4 5 6 7 ", &c, true, NULL, "fake", 1, "CPUAffinity") == -EINVAL);
-        assert_se(!c.set);
+        ASSERT_FALSE(c.set);
         ASSERT_EQ(c.allocated, 0u);
 
         /* Maximum allocation */
@@ -303,7 +303,7 @@ TEST(parse_cpu_set_extend) {
         log_info("cpu_set_to_string: %s", s2);
 
         assert_se(parse_cpu_set_extend("", &c, true, NULL, "fake", 1, "CPUAffinity") == 0);
-        assert_se(!c.set);
+        ASSERT_FALSE(c.set);
         ASSERT_EQ(c.allocated, 0u);
         log_info("cpu_set_to_string: (null)");
 }
@@ -325,7 +325,7 @@ TEST(cpu_set_to_from_dbus) {
                 "\xFF\xFF\xFF\xFF\xFF\x01";
 
         assert_se(cpu_set_to_dbus(&c, &array, &allocated) == 0);
-        assert_se(array);
+        ASSERT_TRUE(array);
         assert_se(allocated == c.allocated);
 
         assert_se(allocated <= sizeof expected);
@@ -333,7 +333,7 @@ TEST(cpu_set_to_from_dbus) {
         assert_se(memcmp(array, expected, allocated) == 0);
 
         assert_se(cpu_set_from_dbus(array, allocated, &c2) == 0);
-        assert_se(c2.set);
+        ASSERT_TRUE(c2.set);
         assert_se(c2.allocated == c.allocated);
         assert_se(memcmp(c.set, c2.set, c.allocated) == 0);
 }

@@ -20,7 +20,7 @@ static void test_int(int i) {
 static void test_int_fail(int i, int error) {
         char str[DECIMAL_STR_MAX(int)];
 
-        assert_se(!ip_protocol_to_name(i));
+        ASSERT_FALSE(ip_protocol_to_name(i));
 
         xsprintf(str, "%i", i);
         assert_se(parse_ip_protocol(str) == error);

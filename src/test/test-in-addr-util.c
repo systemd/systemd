@@ -92,10 +92,10 @@ static void test_in_addr_prefix_to_string_unoptimized(int family, const char *p)
 
         assert_se(in_addr_prefix_from_string(p, family, &u1, &len1) >= 0);
         const char *str1 = IN_ADDR_PREFIX_TO_STRING(family, &u1, len1);
-        assert_se(str1);
+        ASSERT_TRUE(str1);
         assert_se(in_addr_prefix_from_string(str1, family, &u2, &len2) >= 0);
         const char *str2 = IN_ADDR_PREFIX_TO_STRING(family, &u2, len2);
-        assert_se(str2);
+        ASSERT_TRUE(str2);
 
         assert_se(streq(str1, str2));
         assert_se(len1 == len2);

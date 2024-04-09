@@ -13,7 +13,7 @@ TEST(get_locales) {
 
         r = get_locales(&locales);
         ASSERT_OK(r);
-        assert_se(locales);
+        ASSERT_TRUE(locales);
 
         STRV_FOREACH(p, locales) {
                 puts(*p);
@@ -22,14 +22,14 @@ TEST(get_locales) {
 }
 
 TEST(locale_is_valid) {
-        assert_se(locale_is_valid("en_EN.utf8"));
-        assert_se(locale_is_valid("fr_FR.utf8"));
+        ASSERT_TRUE(locale_is_valid("en_EN.utf8"));
+        ASSERT_TRUE(locale_is_valid("fr_FR.utf8"));
         assert_se(locale_is_valid("fr_FR@euro"));
-        assert_se(locale_is_valid("fi_FI"));
-        assert_se(locale_is_valid("POSIX"));
-        assert_se(locale_is_valid("C"));
+        ASSERT_TRUE(locale_is_valid("fi_FI"));
+        ASSERT_TRUE(locale_is_valid("POSIX"));
+        ASSERT_TRUE(locale_is_valid("C"));
 
-        assert_se(!locale_is_valid(""));
+        ASSERT_FALSE(locale_is_valid(""));
         assert_se(!locale_is_valid("/usr/bin/foo"));
         assert_se(!locale_is_valid("\x01gar\x02 bage\x03"));
 }
@@ -58,7 +58,7 @@ TEST(keymaps) {
         _cleanup_strv_free_ char **kmaps = NULL;
         int r;
 
-        assert_se(!keymap_is_valid(""));
+        ASSERT_FALSE(keymap_is_valid(""));
         assert_se(!keymap_is_valid("/usr/bin/foo"));
         assert_se(!keymap_is_valid("\x01gar\x02 bage\x03"));
 
@@ -67,17 +67,17 @@ TEST(keymaps) {
                 return; /* skip test if no keymaps are installed */
 
         ASSERT_OK(r);
-        assert_se(kmaps);
+        ASSERT_TRUE(kmaps);
 
         STRV_FOREACH(p, kmaps) {
                 puts(*p);
                 assert_se(keymap_is_valid(*p));
         }
 
-        assert_se(keymap_is_valid("uk"));
+        ASSERT_TRUE(keymap_is_valid("uk"));
         assert_se(keymap_is_valid("de-nodeadkeys"));
         assert_se(keymap_is_valid("ANSI-dvorak"));
-        assert_se(keymap_is_valid("unicode"));
+        ASSERT_TRUE(keymap_is_valid("unicode"));
 }
 
 #define dump_glyph(x) log_info(STRINGIFY(x) ": %s", special_glyph(x))

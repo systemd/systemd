@@ -133,72 +133,72 @@ TEST(base32hexmem) {
         char *b32;
 
         b32 = base32hexmem("", STRLEN(""), true);
-        assert_se(b32);
+        ASSERT_TRUE(b32);
         assert_se(streq(b32, ""));
         free(b32);
 
         b32 = base32hexmem("f", STRLEN("f"), true);
-        assert_se(b32);
+        ASSERT_TRUE(b32);
         assert_se(streq(b32, "CO======"));
         free(b32);
 
         b32 = base32hexmem("fo", STRLEN("fo"), true);
-        assert_se(b32);
+        ASSERT_TRUE(b32);
         assert_se(streq(b32, "CPNG===="));
         free(b32);
 
         b32 = base32hexmem("foo", STRLEN("foo"), true);
-        assert_se(b32);
+        ASSERT_TRUE(b32);
         assert_se(streq(b32, "CPNMU==="));
         free(b32);
 
         b32 = base32hexmem("foob", STRLEN("foob"), true);
-        assert_se(b32);
+        ASSERT_TRUE(b32);
         assert_se(streq(b32, "CPNMUOG="));
         free(b32);
 
         b32 = base32hexmem("fooba", STRLEN("fooba"), true);
-        assert_se(b32);
+        ASSERT_TRUE(b32);
         assert_se(streq(b32, "CPNMUOJ1"));
         free(b32);
 
         b32 = base32hexmem("foobar", STRLEN("foobar"), true);
-        assert_se(b32);
+        ASSERT_TRUE(b32);
         assert_se(streq(b32, "CPNMUOJ1E8======"));
         free(b32);
 
         b32 = base32hexmem("", STRLEN(""), false);
-        assert_se(b32);
+        ASSERT_TRUE(b32);
         assert_se(streq(b32, ""));
         free(b32);
 
         b32 = base32hexmem("f", STRLEN("f"), false);
-        assert_se(b32);
+        ASSERT_TRUE(b32);
         assert_se(streq(b32, "CO"));
         free(b32);
 
         b32 = base32hexmem("fo", STRLEN("fo"), false);
-        assert_se(b32);
+        ASSERT_TRUE(b32);
         assert_se(streq(b32, "CPNG"));
         free(b32);
 
         b32 = base32hexmem("foo", STRLEN("foo"), false);
-        assert_se(b32);
+        ASSERT_TRUE(b32);
         assert_se(streq(b32, "CPNMU"));
         free(b32);
 
         b32 = base32hexmem("foob", STRLEN("foob"), false);
-        assert_se(b32);
+        ASSERT_TRUE(b32);
         assert_se(streq(b32, "CPNMUOG"));
         free(b32);
 
         b32 = base32hexmem("fooba", STRLEN("fooba"), false);
-        assert_se(b32);
+        ASSERT_TRUE(b32);
         assert_se(streq(b32, "CPNMUOJ1"));
         free(b32);
 
         b32 = base32hexmem("foobar", STRLEN("foobar"), false);
-        assert_se(b32);
+        ASSERT_TRUE(b32);
         assert_se(streq(b32, "CPNMUOJ1E8"));
         free(b32);
 }
@@ -315,7 +315,7 @@ TEST(base64mem_linebreak) {
 
                 l = base64mem_full(data, n, m, &encoded);
                 ASSERT_OK(l);
-                assert_se(encoded);
+                ASSERT_TRUE(encoded);
                 assert_se((size_t) l == strlen(encoded));
 
                 assert_se(unbase64mem(encoded, &decoded, &decoded_size) >= 0);

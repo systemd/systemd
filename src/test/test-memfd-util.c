@@ -14,7 +14,7 @@ TEST(memfd_get_sealed) {
 
         fd = memfd_new("test-memfd-get-sealed");
         if (fd < 0) {
-                assert_se(ERRNO_IS_NOT_SUPPORTED(fd));
+                ASSERT_TRUE(ERRNO_IS_NOT_SUPPORTED(fd));
                 return;
         }
 

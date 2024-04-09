@@ -146,7 +146,7 @@ TEST(load_env_file_invalid_utf8) {
 
                 _cleanup_strv_free_ char **data = NULL;
                 assert_se(load_env_file(NULL, name, &data) == -EINVAL);
-                assert_se(!data);
+                ASSERT_FALSE(data);
         }
 }
 

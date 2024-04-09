@@ -69,7 +69,7 @@ TEST_RET(bootspec_sort) {
                 _cleanup_free_ char *j = NULL;
 
                 j = path_join(d, "/loader/entries/", entries[i].fname);
-                assert_se(j);
+                ASSERT_TRUE(j);
 
                 ASSERT_OK(write_string_file(j, entries[i].contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
         }
@@ -180,7 +180,7 @@ TEST_RET(bootspec_boot_config_find_entry) {
                 _cleanup_free_ char *j = NULL;
 
                 j = path_join(d, "/loader/entries/", entries[i].fname);
-                assert_se(j);
+                ASSERT_TRUE(j);
 
                 assert_se(write_string_file(j, entries[i].contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
         }

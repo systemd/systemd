@@ -202,7 +202,7 @@ static int gather_stdout_one(int fd, void *arg) {
         char ***s = arg, *t;
         char buf[128] = {};
 
-        assert_se(s);
+        ASSERT_TRUE(s);
         assert_se(read(fd, buf, sizeof buf) >= 0);
         safe_close(fd);
 
@@ -355,7 +355,7 @@ TEST(environment_gathering) {
          * manager_default_environment */
         env = strv_free(env);
         env = strv_new("PATH=" DEFAULT_PATH);
-        assert_se(env);
+        ASSERT_TRUE(env);
 
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, env, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         ASSERT_OK(r);

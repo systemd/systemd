@@ -13,7 +13,7 @@ static char *do_encode_string(const char *in) {
         size_t out_len = strlen(in) * 4 + 1;
         char *out = malloc(out_len);
 
-        assert_se(out);
+        ASSERT_TRUE(out);
         assert_se(encode_devnode_name(in, out, out_len) >= 0);
         puts(out);
 

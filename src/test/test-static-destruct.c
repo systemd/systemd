@@ -57,10 +57,10 @@ TEST(static_destruct) {
         static_destruct();
 
         assert_se(foo == 1 && bar == 2 && baz == 3);
-        assert_se(!memory);
-        assert_se(!strings);
+        ASSERT_FALSE(memory);
+        ASSERT_FALSE(strings);
         ASSERT_EQ(n_strings, 0u);
-        assert_se(!integers);
+        ASSERT_FALSE(integers);
         ASSERT_EQ(n_integers, 0u);
 }
 

@@ -25,13 +25,13 @@ TEST(uid_range) {
 
         ASSERT_EQ(uid_range_entries(p), 0u);
         ASSERT_EQ(uid_range_size(p), 0u);
-        assert_se(uid_range_is_empty(p));
+        ASSERT_TRUE(uid_range_is_empty(p));
 
         assert_se(uid_range_add_str(&p, "500-999") >= 0);
-        assert_se(p);
+        ASSERT_TRUE(p);
         ASSERT_EQ(uid_range_entries(p), 1u);
         ASSERT_EQ(uid_range_size(p), 500u);
-        assert_se(!uid_range_is_empty(p));
+        ASSERT_FALSE(uid_range_is_empty(p));
         assert_se(p->entries[0].start == 500);
         assert_se(p->entries[0].nr == 500);
 
@@ -69,7 +69,7 @@ TEST(uid_range) {
         assert_se(uid_range_add_str(&p, "30-40") >= 0);
         ASSERT_EQ(uid_range_entries(p), 2u);
         assert_se(uid_range_size(p) == 500 + 1 + 11);
-        assert_se(!uid_range_is_empty(p));
+        ASSERT_FALSE(uid_range_is_empty(p));
         assert_se(p->entries[0].start == 30);
         assert_se(p->entries[0].nr == 11);
         assert_se(p->entries[1].start == 500);
@@ -78,7 +78,7 @@ TEST(uid_range) {
         assert_se(uid_range_add_str(&p, "60-70") >= 0);
         ASSERT_EQ(uid_range_entries(p), 3u);
         assert_se(uid_range_size(p) == 500 + 1 + 11 + 11);
-        assert_se(!uid_range_is_empty(p));
+        ASSERT_FALSE(uid_range_is_empty(p));
         assert_se(p->entries[0].start == 30);
         assert_se(p->entries[0].nr == 11);
         assert_se(p->entries[1].start == 60);

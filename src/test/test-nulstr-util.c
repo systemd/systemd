@@ -11,7 +11,7 @@ TEST(strv_split_nulstr) {
         const char nulstr[] = "str0\0str1\0str2\0str3\0";
 
         l = strv_split_nulstr(nulstr);
-        assert_se(l);
+        ASSERT_TRUE(l);
 
         assert_se(streq(l[0], "str0"));
         assert_se(streq(l[1], "str1"));
@@ -131,7 +131,7 @@ TEST(set_make_nulstr) {
                 _cleanup_free_ char *nulstr = NULL;
 
                 set = set_new(NULL);
-                assert_se(set);
+                ASSERT_TRUE(set);
 
                 r = set_make_nulstr(set, &nulstr, &len);
                 ASSERT_EQ(r, 0);

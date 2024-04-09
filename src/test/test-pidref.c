@@ -8,7 +8,7 @@
 #include "tests.h"
 
 TEST(pidref_is_set) {
-        assert_se(!pidref_is_set(NULL));
+        ASSERT_FALSE(pidref_is_set(NULL));
         assert_se(!pidref_is_set(&PIDREF_NULL));
         assert_se(pidref_is_set(&PIDREF_MAKE_FROM_PID(1)));
 }
@@ -80,7 +80,7 @@ TEST(pidref_is_self) {
         assert_se(pidref_set_self(&pidref) >= 0);
         assert_se(pidref_is_self(&pidref));
 
-        assert_se(!pidref_is_self(NULL));
+        ASSERT_FALSE(pidref_is_self(NULL));
         assert_se(!pidref_is_self(&PIDREF_NULL));
         assert_se(pidref_is_self(&PIDREF_MAKE_FROM_PID(getpid_cached())));
         assert_se(!pidref_is_self(&PIDREF_MAKE_FROM_PID(getpid_cached()+1)));
@@ -112,17 +112,17 @@ TEST(pidref_dup) {
         int r;
 
         assert_se(pidref_dup(NULL, &pidref) >= 0);
-        assert_se(pidref);
-        assert_se(!pidref_is_set(pidref));
+        ASSERT_TRUE(pidref);
+        ASSERT_FALSE(pidref_is_set(pidref));
         pidref = pidref_free(pidref);
 
         assert_se(pidref_dup(&PIDREF_NULL, &pidref) >= 0);
-        assert_se(pidref);
-        assert_se(!pidref_is_set(pidref));
+        ASSERT_TRUE(pidref);
+        ASSERT_FALSE(pidref_is_set(pidref));
         pidref = pidref_free(pidref);
 
         assert_se(pidref_dup(&PIDREF_MAKE_FROM_PID(getpid_cached()), &pidref) >= 0);
-        assert_se(pidref_is_self(pidref));
+        ASSERT_TRUE(pidref_is_self(pidref));
         pidref = pidref_free(pidref);
 
         r = pidref_dup(&PIDREF_MAKE_FROM_PID(1), &pidref);
@@ -137,14 +137,14 @@ TEST(pidref_new_from_pid) {
         int r;
 
         assert_se(pidref_new_from_pid(-1, &pidref) == -ESRCH);
-        assert_se(!pidref);
+        ASSERT_FALSE(pidref);
 
         assert_se(pidref_new_from_pid(0, &pidref) >= 0);
-        assert_se(pidref_is_self(pidref));
+        ASSERT_TRUE(pidref_is_self(pidref));
         pidref = pidref_free(pidref);
 
         assert_se(pidref_new_from_pid(getpid_cached(), &pidref) >= 0);
-        assert_se(pidref_is_self(pidref));
+        ASSERT_TRUE(pidref_is_self(pidref));
         pidref = pidref_free(pidref);
 
         r = pidref_new_from_pid(1, &pidref);

@@ -450,10 +450,10 @@ static void check(const char *test, char** expected, bool trailing) {
 
                 r = extract_first_word(&test, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0) {
-                        assert_se(!trailing);
+                        ASSERT_FALSE(trailing);
                         break;
                 } else if (r < 0) {
-                        assert_se(trailing);
+                        ASSERT_TRUE(trailing);
                         break;
                 }
 
@@ -1307,12 +1307,12 @@ TEST(strstrafter) {
 }
 
 TEST(version_is_valid) {
-        assert_se(!version_is_valid(NULL));
-        assert_se(!version_is_valid(""));
-        assert_se(version_is_valid("0"));
-        assert_se(version_is_valid("5"));
-        assert_se(version_is_valid("999999"));
-        assert_se(version_is_valid("999999.5"));
+        ASSERT_FALSE(version_is_valid(NULL));
+        ASSERT_FALSE(version_is_valid(""));
+        ASSERT_TRUE(version_is_valid("0"));
+        ASSERT_TRUE(version_is_valid("5"));
+        ASSERT_TRUE(version_is_valid("999999"));
+        ASSERT_TRUE(version_is_valid("999999.5"));
         assert_se(version_is_valid("6.2.12-300.fc38.x86_64"));
 }
 

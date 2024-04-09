@@ -308,7 +308,7 @@ TEST(merge_env_file_invalid) {
         STRV_FOREACH(i, a)
                 log_info("Got: <%s>", *i);
 
-        assert_se(strv_isempty(a));
+        ASSERT_TRUE(strv_isempty(a));
 }
 
 TEST(executable_is_script) {
@@ -395,7 +395,7 @@ TEST(read_one_line_file) {
         ASSERT_OK(fd);
 
         f = fdopen(fd, "we");
-        assert_se(f);
+        ASSERT_TRUE(f);
 
         assert_se(read_one_line_file(fn, &buf) == 0);
         assert_se(streq_ptr(buf, ""));
@@ -431,12 +431,12 @@ TEST(write_string_stream) {
         ASSERT_OK(fd);
 
         f = fdopen(fd, "r");
-        assert_se(f);
+        ASSERT_TRUE(f);
         assert_se(write_string_stream(f, "boohoo", 0) < 0);
         f = safe_fclose(f);
 
         f = fopen(fn, "r+");
-        assert_se(f);
+        ASSERT_TRUE(f);
 
         assert_se(write_string_stream(f, "boohoo", 0) == 0);
         rewind(f);
@@ -446,7 +446,7 @@ TEST(write_string_stream) {
         f = safe_fclose(f);
 
         f = fopen(fn, "w+");
-        assert_se(f);
+        ASSERT_TRUE(f);
 
         assert_se(write_string_stream(f, "boohoo", WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
         rewind(f);
@@ -509,7 +509,7 @@ TEST(write_string_file_verify) {
 }
 
 static void check_file_pairs_one(char **l) {
-        assert_se(l);
+        ASSERT_TRUE(l);
         ASSERT_EQ(strv_length(l), 14u);
 
         STRV_FOREACH_PAIR(k, v, l) {
@@ -551,7 +551,7 @@ TEST(load_env_file_pairs) {
         l = strv_free(l);
 
         f = fdopen(fd, "r");
-        assert_se(f);
+        ASSERT_TRUE(f);
 
         r = load_env_file_pairs(f, fn, &l);
         ASSERT_OK(r);
@@ -861,7 +861,7 @@ TEST(read_line3) {
         f = fopen("/proc/uptime", "re");
         if (!f && IN_SET(errno, ENOENT, EPERM))
                 return;
-        assert_se(f);
+        ASSERT_TRUE(f);
 
         r = read_line(f, LINE_MAX, &line);
         ASSERT_OK(r);
@@ -1114,7 +1114,7 @@ TEST(fdopen_independent) {
 
         fd = memfd_new("fdopen_independent");
         if (fd < 0) {
-                assert_se(ERRNO_IS_NOT_SUPPORTED(fd));
+                ASSERT_TRUE(ERRNO_IS_NOT_SUPPORTED(fd));
                 return;
         }
 

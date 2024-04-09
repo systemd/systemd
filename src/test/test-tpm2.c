@@ -100,8 +100,8 @@ TEST(tpm2_util_pbkdf2_hmac_sha256) {
 #define POISON_U32  POISON(uint32_t)
 
 static void assert_tpms_pcr_selection_eq(TPMS_PCR_SELECTION *a, TPMS_PCR_SELECTION *b) {
-        assert_se(a);
-        assert_se(b);
+        ASSERT_TRUE(a);
+        ASSERT_TRUE(b);
 
         assert_se(a->hash == b->hash);
         assert_se(a->sizeofSelect == b->sizeofSelect);
@@ -111,8 +111,8 @@ static void assert_tpms_pcr_selection_eq(TPMS_PCR_SELECTION *a, TPMS_PCR_SELECTI
 }
 
 static void assert_tpml_pcr_selection_eq(TPML_PCR_SELECTION *a, TPML_PCR_SELECTION *b) {
-        assert_se(a);
-        assert_se(b);
+        ASSERT_TRUE(a);
+        ASSERT_TRUE(b);
 
         assert_se(a->count == b->count);
         for (size_t i = 0; i < a->count; i++)
@@ -426,11 +426,11 @@ TEST(tpml_pcr_selection_add_sub) {
 static bool digest_check(const TPM2B_DIGEST *digest, const char *expect) {
         _cleanup_free_ char *h = NULL;
 
-        assert_se(digest);
-        assert_se(expect);
+        ASSERT_TRUE(digest);
+        ASSERT_TRUE(expect);
 
         h = hexmem(digest->buffer, digest->size);
-        assert_se(h);
+        ASSERT_TRUE(h);
 
         return strcaseeq(expect, h);
 }
@@ -563,7 +563,7 @@ static void check_parse_pcr_argument(
 
         size_t old_n_values = n_values;
         assert_se(tpm2_parse_pcr_argument_append("", &values, &n_values) == 0);
-        assert_se(values);
+        ASSERT_TRUE(values);
         assert_se(n_values == old_n_values);
 }
 
@@ -775,7 +775,7 @@ TEST(tpm2b_public_to_openssl_pkey) {
         assert_se(tpm2_tpm2b_public_to_openssl_pkey(&public, &pkey_rsa) >= 0);
 
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx_rsa = EVP_PKEY_CTX_new((EVP_PKEY*) pkey_rsa, NULL);
-        assert_se(ctx_rsa);
+        ASSERT_TRUE(ctx_rsa);
         ASSERT_EQ(EVP_PKEY_verify_init(ctx_rsa), 1);
         assert_se(EVP_PKEY_CTX_set_signature_md(ctx_rsa, EVP_sha256()) > 0);
 
@@ -788,7 +788,7 @@ TEST(tpm2b_public_to_openssl_pkey) {
         assert_se(tpm2_tpm2b_public_to_openssl_pkey(&public, &pkey_ecc) >= 0);
 
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx_ecc = EVP_PKEY_CTX_new((EVP_PKEY*) pkey_ecc, NULL);
-        assert_se(ctx_ecc);
+        ASSERT_TRUE(ctx_ecc);
         ASSERT_EQ(EVP_PKEY_verify_init(ctx_ecc), 1);
 
         DEFINE_HEX_PTR(sig_ecc, "304602210092447ac0b5b32e90923f79bb4aba864b9c546a9900cf193a83243d35d189a2110221009a8b4df1dfa85e225eff9c606694d4d205a7a3968c9552f50bc2790209a90001");
