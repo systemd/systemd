@@ -34,7 +34,7 @@ static void test_rlimit_parse_format_one(int resource, const char *string, rlim_
         assert_se(rl.rlim_max == hard);
 
         assert_se(rlimit_format(&rl, &f) >= 0);
-        assert_se(streq(formatted, f));
+        ASSERT_TRUE(streq(formatted, f));
 
         assert_se(rlimit_parse(resource, formatted, &rl2) >= 0);
         assert_se(memcmp(&rl, &rl2, sizeof(struct rlimit)) == 0);
@@ -93,13 +93,13 @@ TEST(rlimit_to_string_all) {
 
                 assert_se(prefixed = strjoin("Limit", p));
 
-                assert_se(rlimit_from_string(prefixed) < 0);
+                ASSERT_LT(rlimit_from_string(prefixed), 0);
                 assert_se(rlimit_from_string_harder(prefixed) == i);
 
                 prefixed = mfree(prefixed);
                 assert_se(prefixed = strjoin("RLIMIT_", p));
 
-                assert_se(rlimit_from_string(prefixed) < 0);
+                ASSERT_LT(rlimit_from_string(prefixed), 0);
                 assert_se(rlimit_from_string_harder(prefixed) == i);
         }
 }
@@ -111,15 +111,15 @@ TEST(setrlimit) {
                 .rlim_max = 5,
         };
 
-        assert_se(drop_capability(CAP_SYS_RESOURCE) == 0);
+        ASSERT_EQ(drop_capability(CAP_SYS_RESOURCE), 0);
 
         assert_se(getrlimit(RLIMIT_NOFILE, &old) == 0);
         new.rlim_cur = MIN(5U, old.rlim_max);
         new.rlim_max = old.rlim_max;
         assert_se(setrlimit(RLIMIT_NOFILE, &new) >= 0);
 
-        assert_se(streq_ptr(rlimit_to_string(RLIMIT_NOFILE), "NOFILE"));
-        assert_se(rlimit_to_string(-1) == NULL);
+        ASSERT_TRUE(streq_ptr(rlimit_to_string(RLIMIT_NOFILE), "NOFILE"));
+        ASSERT_NULL(rlimit_to_string(-1));
 
         assert_se(getrlimit(RLIMIT_NOFILE, &old) == 0);
         assert_se(setrlimit_closest(RLIMIT_NOFILE, &old) == 0);
@@ -154,7 +154,7 @@ TEST(pid_getrlimit) {
 
                 /* We fork off a child so that getrlimit() doesn't work anymore */
                 r = safe_fork("(getrlimit)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT, /* ret_pid= */ NULL);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 if (r == 0) {
                         struct rlimit indirect;

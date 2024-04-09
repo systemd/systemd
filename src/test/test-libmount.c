@@ -22,7 +22,7 @@ static void test_libmount_unescaping_one(
         _cleanup_fclose_ FILE *f = NULL;
 
         f = fmemopen((char*) string, strlen(string), "r");
-        assert_se(f);
+        ASSERT_TRUE(f);
 
         assert_se(libmount_parse(title, f, &table, &iter) >= 0);
 
@@ -37,7 +37,7 @@ static void test_libmount_unescaping_one(
                 log_error_errno(r, "mnt_table_next_fs failed: %m");
                 return;
         }
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
 
         assert_se(x = cescape(string));
 

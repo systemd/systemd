@@ -19,19 +19,19 @@ TEST(glob_first) {
         int r;
 
         fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         close(fd);
 
         r = glob_first("/tmp/test-glob_first*", &first);
-        assert_se(r == 1);
-        assert_se(streq(name, first));
+        ASSERT_EQ(r, 1);
+        ASSERT_TRUE(streq(name, first));
         first = mfree(first);
 
         r = unlink(name);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         r = glob_first("/tmp/test-glob_first*", &first);
-        assert_se(r == 0);
-        assert_se(first == NULL);
+        ASSERT_EQ(r, 0);
+        ASSERT_NULL(first);
 }
 
 TEST(glob_exists) {
@@ -40,16 +40,16 @@ TEST(glob_exists) {
         int r;
 
         fd = mkostemp_safe(name);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         close(fd);
 
         r = glob_exists("/tmp/test-glob_exists*");
-        assert_se(r == 1);
+        ASSERT_EQ(r, 1);
 
         r = unlink(name);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         r = glob_exists("/tmp/test-glob_exists*");
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
 }
 
 static void closedir_wrapper(void* v) {
@@ -70,7 +70,7 @@ TEST(glob_no_dot) {
 
         int r;
 
-        assert_se(mkdtemp(template));
+        ASSERT_TRUE(mkdtemp(template));
 
         fn = strjoina(template, "/*");
         r = glob(fn, GLOB_NOSORT|GLOB_BRACE|GLOB_ALTDIRFUNC, NULL, &g);
@@ -90,7 +90,7 @@ TEST(safe_glob) {
         _cleanup_globfree_ glob_t g = {};
         int r;
 
-        assert_se(mkdtemp(template));
+        ASSERT_TRUE(mkdtemp(template));
 
         fn = strjoina(template, "/*");
         r = safe_glob(fn, 0, &g);
@@ -101,16 +101,16 @@ TEST(safe_glob) {
         assert_se(r == -ENOENT);
 
         fname = strjoina(template, "/.foobar");
-        assert_se(touch(fname) == 0);
+        ASSERT_EQ(touch(fname), 0);
 
         r = safe_glob(fn, 0, &g);
         assert_se(r == -ENOENT);
 
         r = safe_glob(fn2, GLOB_NOSORT|GLOB_BRACE, &g);
-        assert_se(r == 0);
-        assert_se(g.gl_pathc == 1);
+        ASSERT_EQ(r, 0);
+        ASSERT_EQ(g.gl_pathc, 1u);
         assert_se(streq(g.gl_pathv[0], fname));
-        assert_se(g.gl_pathv[1] == NULL);
+        ASSERT_NULL(g.gl_pathv[1]);
 
         (void) rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
@@ -119,7 +119,7 @@ static void test_glob_non_glob_prefix_one(const char *path, const char *expected
         _cleanup_free_ char *t;
 
         assert_se(glob_non_glob_prefix(path, &t) == 0);
-        assert_se(streq(t, expected));
+        ASSERT_TRUE(streq(t, expected));
 }
 
 TEST(glob_non_glob) {

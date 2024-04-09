@@ -17,68 +17,68 @@ TEST(uid_range) {
         _cleanup_(uid_range_freep) UIDRange *p = NULL;
         uid_t search;
 
-        assert_se(uid_range_covers(p, 0, 0));
-        assert_se(!uid_range_covers(p, 0, 1));
-        assert_se(!uid_range_covers(p, 100, UINT32_MAX));
-        assert_se(!uid_range_covers(p, UINT32_MAX, 1));
+        ASSERT_TRUE(uid_range_covers(p, 0, 0));
+        ASSERT_FALSE(uid_range_covers(p, 0, 1));
+        ASSERT_FALSE(uid_range_covers(p, 100, UINT32_MAX));
+        ASSERT_FALSE(uid_range_covers(p, UINT32_MAX, 1));
         assert_se(!uid_range_covers(p, UINT32_MAX - 10, 11));
 
-        assert_se(uid_range_entries(p) == 0);
-        assert_se(uid_range_size(p) == 0);
-        assert_se(uid_range_is_empty(p));
+        ASSERT_EQ(uid_range_entries(p), 0u);
+        ASSERT_EQ(uid_range_size(p), 0u);
+        ASSERT_TRUE(uid_range_is_empty(p));
 
         assert_se(uid_range_add_str(&p, "500-999") >= 0);
-        assert_se(p);
-        assert_se(uid_range_entries(p) == 1);
-        assert_se(uid_range_size(p) == 500);
-        assert_se(!uid_range_is_empty(p));
+        ASSERT_TRUE(p);
+        ASSERT_EQ(uid_range_entries(p), 1u);
+        ASSERT_EQ(uid_range_size(p), 500u);
+        ASSERT_FALSE(uid_range_is_empty(p));
         assert_se(p->entries[0].start == 500);
         assert_se(p->entries[0].nr == 500);
 
-        assert_se(!uid_range_contains(p, 499));
-        assert_se(uid_range_contains(p, 500));
-        assert_se(uid_range_contains(p, 999));
-        assert_se(!uid_range_contains(p, 1000));
+        ASSERT_FALSE(uid_range_contains(p, 499));
+        ASSERT_TRUE(uid_range_contains(p, 500));
+        ASSERT_TRUE(uid_range_contains(p, 999));
+        ASSERT_FALSE(uid_range_contains(p, 1000));
 
-        assert_se(!uid_range_covers(p, 100, 150));
-        assert_se(!uid_range_covers(p, 400, 200));
-        assert_se(!uid_range_covers(p, 499, 1));
-        assert_se(uid_range_covers(p, 500, 1));
-        assert_se(uid_range_covers(p, 501, 10));
-        assert_se(uid_range_covers(p, 999, 1));
-        assert_se(!uid_range_covers(p, 999, 2));
-        assert_se(!uid_range_covers(p, 1000, 1));
-        assert_se(!uid_range_covers(p, 1000, 100));
-        assert_se(!uid_range_covers(p, 1001, 100));
+        ASSERT_FALSE(uid_range_covers(p, 100, 150));
+        ASSERT_FALSE(uid_range_covers(p, 400, 200));
+        ASSERT_FALSE(uid_range_covers(p, 499, 1));
+        ASSERT_TRUE(uid_range_covers(p, 500, 1));
+        ASSERT_TRUE(uid_range_covers(p, 501, 10));
+        ASSERT_TRUE(uid_range_covers(p, 999, 1));
+        ASSERT_FALSE(uid_range_covers(p, 999, 2));
+        ASSERT_FALSE(uid_range_covers(p, 1000, 1));
+        ASSERT_FALSE(uid_range_covers(p, 1000, 100));
+        ASSERT_FALSE(uid_range_covers(p, 1001, 100));
 
         search = UID_INVALID;
         assert_se(uid_range_next_lower(p, &search));
-        assert_se(search == 999);
+        ASSERT_EQ(search, 999u);
         assert_se(uid_range_next_lower(p, &search));
-        assert_se(search == 998);
+        ASSERT_EQ(search, 998u);
         search = 501;
         assert_se(uid_range_next_lower(p, &search));
-        assert_se(search == 500);
+        ASSERT_EQ(search, 500u);
         assert_se(uid_range_next_lower(p, &search) == -EBUSY);
 
         assert_se(uid_range_add_str(&p, "1000") >= 0);
-        assert_se(uid_range_entries(p) == 1);
+        ASSERT_EQ(uid_range_entries(p), 1u);
         assert_se(p->entries[0].start == 500);
         assert_se(p->entries[0].nr == 501);
 
         assert_se(uid_range_add_str(&p, "30-40") >= 0);
-        assert_se(uid_range_entries(p) == 2);
+        ASSERT_EQ(uid_range_entries(p), 2u);
         assert_se(uid_range_size(p) == 500 + 1 + 11);
-        assert_se(!uid_range_is_empty(p));
+        ASSERT_FALSE(uid_range_is_empty(p));
         assert_se(p->entries[0].start == 30);
         assert_se(p->entries[0].nr == 11);
         assert_se(p->entries[1].start == 500);
         assert_se(p->entries[1].nr == 501);
 
         assert_se(uid_range_add_str(&p, "60-70") >= 0);
-        assert_se(uid_range_entries(p) == 3);
+        ASSERT_EQ(uid_range_entries(p), 3u);
         assert_se(uid_range_size(p) == 500 + 1 + 11 + 11);
-        assert_se(!uid_range_is_empty(p));
+        ASSERT_FALSE(uid_range_is_empty(p));
         assert_se(p->entries[0].start == 30);
         assert_se(p->entries[0].nr == 11);
         assert_se(p->entries[1].start == 60);
@@ -87,34 +87,34 @@ TEST(uid_range) {
         assert_se(p->entries[2].nr == 501);
 
         assert_se(uid_range_add_str(&p, "20-2000") >= 0);
-        assert_se(uid_range_entries(p) == 1);
-        assert_se(uid_range_size(p) == 1981);
+        ASSERT_EQ(uid_range_entries(p), 1u);
+        ASSERT_EQ(uid_range_size(p), 1981u);
         assert_se(p->entries[0].start == 20);
         assert_se(p->entries[0].nr == 1981);
 
         assert_se(uid_range_add_str(&p, "2002") >= 0);
-        assert_se(uid_range_entries(p) == 2);
-        assert_se(uid_range_size(p) == 1982);
+        ASSERT_EQ(uid_range_entries(p), 2u);
+        ASSERT_EQ(uid_range_size(p), 1982u);
         assert_se(p->entries[0].start == 20);
         assert_se(p->entries[0].nr == 1981);
         assert_se(p->entries[1].start == 2002);
         assert_se(p->entries[1].nr == 1);
 
         _cleanup_(uid_range_freep) UIDRange *q = NULL;
-        assert_se(!uid_range_equal(p, q));
+        ASSERT_FALSE(uid_range_equal(p, q));
         assert_se(uid_range_add_str(&q, "20-2000") >= 0);
-        assert_se(!uid_range_equal(p, q));
+        ASSERT_FALSE(uid_range_equal(p, q));
         assert_se(uid_range_add_str(&q, "2002") >= 0);
-        assert_se(uid_range_equal(p, q));
+        ASSERT_TRUE(uid_range_equal(p, q));
 
         assert_se(uid_range_add_str(&p, "2001") >= 0);
-        assert_se(uid_range_entries(p) == 1);
-        assert_se(uid_range_size(p) == 1983);
+        ASSERT_EQ(uid_range_entries(p), 1u);
+        ASSERT_EQ(uid_range_size(p), 1983u);
         assert_se(p->entries[0].start == 20);
         assert_se(p->entries[0].nr == 1983);
 
         assert_se(uid_range_add_str(&q, "2001") >= 0);
-        assert_se(uid_range_equal(p, q));
+        ASSERT_TRUE(uid_range_equal(p, q));
 }
 
 TEST(load_userns) {
@@ -127,8 +127,8 @@ TEST(load_userns) {
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return;
 
-        assert_se(r >= 0);
-        assert_se(uid_range_contains(p, getuid()));
+        ASSERT_OK(r);
+        ASSERT_TRUE(uid_range_contains(p, getuid()));
 
         r = running_in_userns();
         if (r == 0) {
@@ -136,26 +136,26 @@ TEST(load_userns) {
                 assert_se(p->entries[0].start == 0);
                 assert_se(p->entries[0].nr == UINT32_MAX);
 
-                assert_se(uid_range_covers(p, 0, UINT32_MAX));
+                ASSERT_TRUE(uid_range_covers(p, 0, UINT32_MAX));
         }
 
         assert_se(fopen_temporary_child(NULL, &f, &fn) >= 0);
         fputs("0 0 20\n"
               "100 0 20\n", f);
-        assert_se(fflush_and_check(f) >= 0);
+        ASSERT_OK(fflush_and_check(f));
 
         p = uid_range_free(p);
 
         assert_se(uid_range_load_userns(fn, UID_RANGE_USERNS_INSIDE, &p) >= 0);
 
-        assert_se(uid_range_contains(p, 0));
-        assert_se(uid_range_contains(p, 19));
-        assert_se(!uid_range_contains(p, 20));
+        ASSERT_TRUE(uid_range_contains(p, 0));
+        ASSERT_TRUE(uid_range_contains(p, 19));
+        ASSERT_FALSE(uid_range_contains(p, 20));
 
-        assert_se(!uid_range_contains(p, 99));
-        assert_se(uid_range_contains(p, 100));
-        assert_se(uid_range_contains(p, 119));
-        assert_se(!uid_range_contains(p, 120));
+        ASSERT_FALSE(uid_range_contains(p, 99));
+        ASSERT_TRUE(uid_range_contains(p, 100));
+        ASSERT_TRUE(uid_range_contains(p, 119));
+        ASSERT_FALSE(uid_range_contains(p, 120));
 }
 
 TEST(uid_range_coalesce) {

@@ -53,7 +53,7 @@ static int test_hash_password(void) {
                 log_info("%s: %s", hash, yes_no(b));
 #if defined(XCRYPT_VERSION_MAJOR)
                 /* xcrypt is supposed to always implement all methods. */
-                assert_se(b);
+                ASSERT_TRUE(b);
 #endif
 
                 if (b && IN_SET(hash[1], '6', 'y'))
@@ -83,7 +83,7 @@ static void test_hash_password_full(void) {
                         log_info("crypt_r[a] buffer size: %i bytes", cd_size);
 
                         assert_se(test_password_one(hashed, i) == true);
-                        assert_se(test_password_one(i, hashed) <= 0); /* We get an error for non-utf8 */
+                        ASSERT_LE(test_password_one(i, hashed), 0); /* We get an error for non-utf8 */
                         assert_se(test_password_one(hashed, "foobar") == false);
                         assert_se(test_password_many(STRV_MAKE(hashed), i) == true);
                         assert_se(test_password_many(STRV_MAKE(hashed), "foobar") == false);

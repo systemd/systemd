@@ -69,7 +69,7 @@ static void test_misc(const char* fname) {
                        r, strnull(label2));
 
         fd = socket(AF_INET, SOCK_DGRAM, 0);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         r = mac_selinux_get_child_mls_label(fd, fname, label2, &label3);
         log_info_errno(r, "mac_selinux_get_child_mls_label → %d, \"%s\" (%m)",

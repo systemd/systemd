@@ -44,7 +44,7 @@ static void test_tokenizer_one(const char *data, ...) {
                         const char *nn;
 
                         nn = va_arg(ap, const char *);
-                        assert_se(streq_ptr(nn, str));
+                        ASSERT_TRUE(streq_ptr(nn, str));
 
                 } else if (t == JSON_TOKEN_REAL) {
                         double d;
@@ -89,63 +89,63 @@ static void test_variant_one(const char *data, Test test) {
         log_info("/* %s data=\"%s\" */", __func__, cdata);
 
         r = json_parse(data, 0, &v, NULL, NULL);
-        assert_se(r == 0);
-        assert_se(v);
+        ASSERT_EQ(r, 0);
+        ASSERT_TRUE(v);
 
         r = json_variant_format(v, 0, &s);
-        assert_se(r >= 0);
-        assert_se(s);
+        ASSERT_OK(r);
+        ASSERT_TRUE(s);
         assert_se((size_t) r == strlen(s));
 
         log_info("formatted normally: %s", s);
 
         r = json_parse(data, JSON_PARSE_SENSITIVE, &w, NULL, NULL);
-        assert_se(r == 0);
-        assert_se(w);
-        assert_se(json_variant_has_type(v, json_variant_type(w)));
-        assert_se(json_variant_has_type(w, json_variant_type(v)));
-        assert_se(json_variant_equal(v, w));
+        ASSERT_EQ(r, 0);
+        ASSERT_TRUE(w);
+        ASSERT_TRUE(json_variant_has_type(v, json_variant_type(w)));
+        ASSERT_TRUE(json_variant_has_type(w, json_variant_type(v)));
+        ASSERT_TRUE(json_variant_equal(v, w));
 
         s = mfree(s);
         r = json_variant_format(w, JSON_FORMAT_CENSOR_SENSITIVE, &s);
-        assert_se(s);
+        ASSERT_TRUE(s);
         assert_se(streq_ptr(s, "\"<sensitive data>\""));
 
         s = mfree(s);
         r = json_variant_format(w, JSON_FORMAT_PRETTY, &s);
-        assert_se(r >= 0);
-        assert_se(s);
+        ASSERT_OK(r);
+        ASSERT_TRUE(s);
         assert_se((size_t) r == strlen(s));
 
         s = mfree(s);
         w = json_variant_unref(w);
 
         r = json_variant_format(v, JSON_FORMAT_PRETTY, &s);
-        assert_se(r >= 0);
-        assert_se(s);
+        ASSERT_OK(r);
+        ASSERT_TRUE(s);
         assert_se((size_t) r == strlen(s));
 
         log_info("formatted prettily:\n%s", s);
 
         r = json_parse(data, 0, &w, NULL, NULL);
-        assert_se(r == 0);
-        assert_se(w);
+        ASSERT_EQ(r, 0);
+        ASSERT_TRUE(w);
 
-        assert_se(json_variant_has_type(v, json_variant_type(w)));
-        assert_se(json_variant_has_type(w, json_variant_type(v)));
-        assert_se(json_variant_equal(v, w));
+        ASSERT_TRUE(json_variant_has_type(v, json_variant_type(w)));
+        ASSERT_TRUE(json_variant_has_type(w, json_variant_type(v)));
+        ASSERT_TRUE(json_variant_equal(v, w));
 
         s = mfree(s);
         r = json_variant_format(v, JSON_FORMAT_COLOR, &s);
-        assert_se(r >= 0);
-        assert_se(s);
+        ASSERT_OK(r);
+        ASSERT_TRUE(s);
         assert_se((size_t) r == strlen(s));
         printf("Normal with color: %s\n", s);
 
         s = mfree(s);
         r = json_variant_format(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, &s);
-        assert_se(r >= 0);
-        assert_se(s);
+        ASSERT_OK(r);
+        ASSERT_TRUE(s);
         assert_se((size_t) r == strlen(s));
         printf("Pretty with color:\n%s\n", s);
 
@@ -160,14 +160,14 @@ static void test_1(JsonVariant *v) {
         log_info("/* %s */", __func__);
 
         /* 3 keys + 3 values */
-        assert_se(json_variant_elements(v) == 6);
+        ASSERT_EQ(json_variant_elements(v), 6u);
 
         /* has k */
         p = json_variant_by_key(v, "k");
         assert_se(p && json_variant_type(p) == JSON_VARIANT_STRING);
 
         /* k equals v */
-        assert_se(streq(json_variant_string(p), "v"));
+        ASSERT_TRUE(streq(json_variant_string(p), "v"));
 
         /* has foo */
         p = json_variant_by_key(v, "foo");
@@ -195,7 +195,7 @@ static void test_2(JsonVariant *v) {
         log_info("/* %s */", __func__);
 
         /* 2 keys + 2 values */
-        assert_se(json_variant_elements(v) == 4);
+        ASSERT_EQ(json_variant_elements(v), 4u);
 
         /* has mutant */
         p = json_variant_by_key(v, "mutant");
@@ -240,7 +240,7 @@ static void test_zeroes(JsonVariant *v) {
         /* Make sure zero is how we expect it. */
         log_info("/* %s */", __func__);
 
-        assert_se(json_variant_elements(v) == 13);
+        ASSERT_EQ(json_variant_elements(v), 13u);
 
         for (size_t i = 0; i < json_variant_elements(v); i++) {
                 JsonVariant *w;
@@ -248,26 +248,26 @@ static void test_zeroes(JsonVariant *v) {
 
                 assert_se(w = json_variant_by_index(v, i));
 
-                assert_se(json_variant_integer(w) == 0);
+                ASSERT_EQ(json_variant_integer(w), 0);
                 assert_se(json_variant_unsigned(w) == 0U);
 
-                assert_se(iszero_safe(json_variant_real(w)));
+                ASSERT_TRUE(iszero_safe(json_variant_real(w)));
 
-                assert_se(json_variant_is_integer(w));
-                assert_se(json_variant_is_unsigned(w));
-                assert_se(json_variant_is_real(w));
-                assert_se(json_variant_is_number(w));
+                ASSERT_TRUE(json_variant_is_integer(w));
+                ASSERT_TRUE(json_variant_is_unsigned(w));
+                ASSERT_TRUE(json_variant_is_real(w));
+                ASSERT_TRUE(json_variant_is_number(w));
 
-                assert_se(!json_variant_is_negative(w));
+                ASSERT_FALSE(json_variant_is_negative(w));
 
-                assert_se(IN_SET(json_variant_type(w), JSON_VARIANT_INTEGER, JSON_VARIANT_UNSIGNED, JSON_VARIANT_REAL));
+                ASSERT_TRUE(IN_SET(json_variant_type(w), JSON_VARIANT_INTEGER, JSON_VARIANT_UNSIGNED, JSON_VARIANT_REAL));
 
                 for (j = 0; j < json_variant_elements(v); j++) {
                         JsonVariant *q;
 
                         assert_se(q = json_variant_by_index(v, j));
 
-                        assert_se(json_variant_equal(w, q));
+                        ASSERT_TRUE(json_variant_equal(w, q));
                 }
         }
 }
@@ -278,16 +278,16 @@ TEST(build) {
 
         assert_se(json_build(&a, JSON_BUILD_STRING("hallo")) >= 0);
         assert_se(json_build(&b, JSON_BUILD_LITERAL(" \"hallo\"   ")) >= 0);
-        assert_se(json_variant_equal(a, b));
+        ASSERT_TRUE(json_variant_equal(a, b));
 
         b = json_variant_unref(b);
 
         assert_se(json_build(&b, JSON_BUILD_VARIANT(a)) >= 0);
-        assert_se(json_variant_equal(a, b));
+        ASSERT_TRUE(json_variant_equal(a, b));
 
         b = json_variant_unref(b);
         assert_se(json_build(&b, JSON_BUILD_STRING("pief")) >= 0);
-        assert_se(!json_variant_equal(a, b));
+        ASSERT_FALSE(json_variant_equal(a, b));
 
         a = json_variant_unref(a);
         b = json_variant_unref(b);
@@ -300,7 +300,7 @@ TEST(build) {
                                                    JSON_BUILD_PAIR("three", JSON_BUILD_REAL(0)),
                                                    JSON_BUILD_PAIR("one", JSON_BUILD_REAL(7)))) >= 0);
 
-        assert_se(json_variant_equal(a, b));
+        ASSERT_TRUE(json_variant_equal(a, b));
 
         a = json_variant_unref(a);
         b = json_variant_unref(b);
@@ -320,7 +320,7 @@ TEST(build) {
         assert_se(json_variant_format(a, 0, &s) >= 0);
         log_info("GOT: %s", s);
         assert_se(json_parse(s, 0, &b, NULL, NULL) >= 0);
-        assert_se(json_variant_equal(a, b));
+        ASSERT_TRUE(json_variant_equal(a, b));
 
         a = json_variant_unref(a);
         b = json_variant_unref(b);
@@ -334,7 +334,7 @@ TEST(build) {
         assert_se(json_variant_format(b, 0, &t) >= 0);
         log_info("GOT: %s", t);
 
-        assert_se(streq(s, t));
+        ASSERT_TRUE(streq(s, t));
 
         a = json_variant_unref(a);
         b = json_variant_unref(b);
@@ -353,7 +353,7 @@ TEST(build) {
                                              JSON_BUILD_PAIR("b", JSON_BUILD_CONST_STRING("c"))
                              )) >= 0);
 
-        assert_se(json_variant_equal(a, b));
+        ASSERT_TRUE(json_variant_equal(a, b));
 }
 
 TEST(json_parse_file_empty) {
@@ -362,7 +362,7 @@ TEST(json_parse_file_empty) {
 
         assert_se(fopen_unlocked("/dev/null", "re", &f) >= 0);
         assert_se(json_parse_file(f, "waldo", 0, &v, NULL, NULL) == -ENODATA);
-        assert_se(v == NULL);
+        ASSERT_NULL(v);
 }
 
 TEST(json_parse_file_invalid) {
@@ -371,7 +371,7 @@ TEST(json_parse_file_invalid) {
 
         assert_se(f = fmemopen_unlocked((void*) "kookoo", 6, "r"));
         assert_se(json_parse_file(f, "waldo", 0, &v, NULL, NULL) == -EINVAL);
-        assert_se(v == NULL);
+        ASSERT_NULL(v);
 }
 
 TEST(source) {
@@ -439,7 +439,7 @@ TEST(depth) {
                 }
 #endif
 
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 json_variant_unref(v);
                 v = TAKE_PTR(w);
@@ -458,8 +458,8 @@ TEST(normalize) {
                                              JSON_BUILD_PAIR("c", JSON_BUILD_CONST_STRING("y")),
                                              JSON_BUILD_PAIR("a", JSON_BUILD_CONST_STRING("z")))) >= 0);
 
-        assert_se(!json_variant_is_sorted(v));
-        assert_se(!json_variant_is_normalized(v));
+        ASSERT_FALSE(json_variant_is_sorted(v));
+        ASSERT_FALSE(json_variant_is_normalized(v));
 
         assert_se(json_variant_format(v, 0, &t) >= 0);
         assert_se(streq(t, "{\"b\":\"x\",\"c\":\"y\",\"a\":\"z\"}"));
@@ -469,24 +469,24 @@ TEST(normalize) {
                                              JSON_BUILD_PAIR("bar", JSON_BUILD_STRING("zzz")),
                                              JSON_BUILD_PAIR("foo", JSON_BUILD_VARIANT(v)))) >= 0);
 
-        assert_se(json_variant_is_sorted(w));
-        assert_se(!json_variant_is_normalized(w));
+        ASSERT_TRUE(json_variant_is_sorted(w));
+        ASSERT_FALSE(json_variant_is_normalized(w));
 
         assert_se(json_variant_format(w, 0, &t) >= 0);
         assert_se(streq(t, "{\"bar\":\"zzz\",\"foo\":{\"b\":\"x\",\"c\":\"y\",\"a\":\"z\"}}"));
         t = mfree(t);
 
         assert_se(json_variant_sort(&v) >= 0);
-        assert_se(json_variant_is_sorted(v));
-        assert_se(json_variant_is_normalized(v));
+        ASSERT_TRUE(json_variant_is_sorted(v));
+        ASSERT_TRUE(json_variant_is_normalized(v));
 
         assert_se(json_variant_format(v, 0, &t) >= 0);
         assert_se(streq(t, "{\"a\":\"z\",\"b\":\"x\",\"c\":\"y\"}"));
         t = mfree(t);
 
         assert_se(json_variant_normalize(&w) >= 0);
-        assert_se(json_variant_is_sorted(w));
-        assert_se(json_variant_is_normalized(w));
+        ASSERT_TRUE(json_variant_is_sorted(w));
+        ASSERT_TRUE(json_variant_is_normalized(w));
 
         assert_se(json_variant_format(w, 0, &t) >= 0);
         assert_se(streq(t, "{\"bar\":\"zzz\",\"foo\":{\"a\":\"z\",\"b\":\"x\",\"c\":\"y\"}}"));
@@ -510,11 +510,11 @@ TEST(bisect) {
 
         json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
 
-        assert_se(!json_variant_is_sorted(v));
-        assert_se(!json_variant_is_normalized(v));
+        ASSERT_FALSE(json_variant_is_sorted(v));
+        ASSERT_FALSE(json_variant_is_normalized(v));
         assert_se(json_variant_normalize(&v) >= 0);
-        assert_se(json_variant_is_sorted(v));
-        assert_se(json_variant_is_normalized(v));
+        ASSERT_TRUE(json_variant_is_sorted(v));
+        ASSERT_TRUE(json_variant_is_normalized(v));
 
         json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
 
@@ -528,23 +528,23 @@ TEST(bisect) {
                 if (!k)
                         continue;
 
-                assert_se(json_variant_is_string(k));
+                ASSERT_TRUE(json_variant_is_string(k));
 
                 z = (char[5]){ '<', c, c, '>', 0};
-                assert_se(streq(json_variant_string(k), z));
+                ASSERT_TRUE(streq(json_variant_string(k), z));
         }
 }
 
 static void test_float_match(JsonVariant *v) {
         const double delta = 0.0001;
 
-        assert_se(json_variant_is_array(v));
-        assert_se(json_variant_elements(v) == 11);
+        ASSERT_TRUE(json_variant_is_array(v));
+        ASSERT_EQ(json_variant_elements(v), 11u);
         assert_se(fabs(1.0 - (DBL_MIN / json_variant_real(json_variant_by_index(v, 0)))) <= delta);
         assert_se(fabs(1.0 - (DBL_MAX / json_variant_real(json_variant_by_index(v, 1)))) <= delta);
-        assert_se(json_variant_is_null(json_variant_by_index(v, 2))); /* nan is not supported by json → null */
-        assert_se(json_variant_is_null(json_variant_by_index(v, 3))); /* +inf is not supported by json → null */
-        assert_se(json_variant_is_null(json_variant_by_index(v, 4))); /* -inf is not supported by json → null */
+        ASSERT_TRUE(json_variant_is_null(json_variant_by_index(v, 2))); /* nan is not supported by json → null */
+        ASSERT_TRUE(json_variant_is_null(json_variant_by_index(v, 3))); /* +inf is not supported by json → null */
+        ASSERT_TRUE(json_variant_is_null(json_variant_by_index(v, 4))); /* -inf is not supported by json → null */
         assert_se(json_variant_is_null(json_variant_by_index(v, 5)) ||
                   fabs(1.0 - (HUGE_VAL / json_variant_real(json_variant_by_index(v, 5)))) <= delta); /* HUGE_VAL might be +inf, but might also be something else */
         assert_se(json_variant_is_real(json_variant_by_index(v, 6)) &&
@@ -673,7 +673,7 @@ TEST(json_variant_merge_objectb) {
         assert_se(json_variant_merge_objectb(&w, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("c", JSON_BUILD_STRING("y")))) >= 0);
         assert_se(json_variant_merge_objectb(&w, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("a", JSON_BUILD_STRING("z")))) >= 0);
 
-        assert_se(json_variant_equal(v, w));
+        ASSERT_TRUE(json_variant_equal(v, w));
 }
 
 static void json_array_append_with_source_one(bool source) {
@@ -686,10 +686,10 @@ static void json_array_append_with_source_one(bool source) {
         assert_se(json_parse_with_source("\n\n   [42]", source ? "string 2" : NULL, 0,
                                          &b, NULL, NULL) >= 0);
 
-        assert_se(json_variant_is_array(a));
-        assert_se(json_variant_elements(a) == 1);
-        assert_se(json_variant_is_array(b));
-        assert_se(json_variant_elements(b) == 1);
+        ASSERT_TRUE(json_variant_is_array(a));
+        ASSERT_EQ(json_variant_elements(a), 1u);
+        ASSERT_TRUE(json_variant_is_array(b));
+        ASSERT_EQ(json_variant_elements(b), 1u);
 
         /* Verify source information */
 
@@ -700,22 +700,22 @@ static void json_array_append_with_source_one(bool source) {
 
         assert_se(streq_ptr(s1, source ? "string 1" : NULL));
         assert_se(streq_ptr(s2, source ? "string 2" : NULL));
-        assert_se(line1 == 1);
-        assert_se(col1 == 2);
-        assert_se(line2 == 3);
-        assert_se(col2 == 4);
+        ASSERT_EQ(line1, 1u);
+        ASSERT_EQ(col1, 2u);
+        ASSERT_EQ(line2, 3u);
+        ASSERT_EQ(col2, 4u);
 
         /* Append one elem from the second array (and source) to the first. */
 
         JsonVariant *elem;
         assert_se(elem = json_variant_by_index(b, 0));
-        assert_se(json_variant_is_integer(elem));
-        assert_se(json_variant_elements(elem) == 0);
+        ASSERT_TRUE(json_variant_is_integer(elem));
+        ASSERT_EQ(json_variant_elements(elem), 0u);
 
         assert_se(json_variant_append_array(&a, elem) >= 0);
 
-        assert_se(json_variant_is_array(a));
-        assert_se(json_variant_elements(a) == 2);
+        ASSERT_TRUE(json_variant_is_array(a));
+        ASSERT_EQ(json_variant_elements(a), 2u);
 
         /* Verify that source information was propagated correctly */
 
@@ -725,10 +725,10 @@ static void json_array_append_with_source_one(bool source) {
 
         assert_se(streq_ptr(s1, source ? "string 2" : NULL));
         assert_se(streq_ptr(s2, source ? "string 2" : NULL));
-        assert_se(line1 == 3);
-        assert_se(col1 == 5);
-        assert_se(line2 == 3);
-        assert_se(col2 == 5);
+        ASSERT_EQ(line1, 3u);
+        ASSERT_EQ(col1, 5u);
+        ASSERT_EQ(line2, 3u);
+        ASSERT_EQ(col2, 5u);
 }
 
 TEST(json_array_append_with_source) {
@@ -745,9 +745,9 @@ TEST(json_array_append_nodup) {
         assert_se(json_build(&l, JSON_BUILD_STRV(STRV_MAKE("foo", "bar", "baz", "bar", "baz", "foo", "qux", "baz"))) >= 0);
         assert_se(json_build(&s, JSON_BUILD_STRV(STRV_MAKE("foo", "bar", "baz", "qux"))) >= 0);
 
-        assert_se(!json_variant_equal(l, s));
-        assert_se(json_variant_elements(l) == 8);
-        assert_se(json_variant_elements(s) == 4);
+        ASSERT_FALSE(json_variant_equal(l, s));
+        ASSERT_EQ(json_variant_elements(l), 8u);
+        ASSERT_EQ(json_variant_elements(s), 4u);
 
         JsonVariant *i;
         JSON_VARIANT_ARRAY_FOREACH(i, l) {
@@ -755,13 +755,13 @@ TEST(json_array_append_nodup) {
                 assert_se(json_variant_append_array_nodup(&nd, i) >= 0);
         }
 
-        assert_se(json_variant_elements(wd) == 8);
-        assert_se(json_variant_equal(l, wd));
-        assert_se(!json_variant_equal(s, wd));
+        ASSERT_EQ(json_variant_elements(wd), 8u);
+        ASSERT_TRUE(json_variant_equal(l, wd));
+        ASSERT_FALSE(json_variant_equal(s, wd));
 
-        assert_se(json_variant_elements(nd) == 4);
-        assert_se(!json_variant_equal(l, nd));
-        assert_se(json_variant_equal(s, nd));
+        ASSERT_EQ(json_variant_elements(nd), 4u);
+        ASSERT_FALSE(json_variant_equal(l, nd));
+        ASSERT_TRUE(json_variant_equal(s, nd));
 }
 
 TEST(json_dispatch) {
@@ -891,8 +891,8 @@ TEST(json_sensitive) {
         s = mfree(s);
 
         r = json_variant_format(b, JSON_FORMAT_CENSOR_SENSITIVE, &s);
-        assert_se(r >= 0);
-        assert_se(s);
+        ASSERT_OK(r);
+        ASSERT_TRUE(s);
         assert_se((size_t) r == strlen(s));
         s = mfree(s);
 
@@ -903,8 +903,8 @@ TEST(json_sensitive) {
         json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
 
         r = json_variant_format(v, JSON_FORMAT_CENSOR_SENSITIVE, &s);
-        assert_se(r >= 0);
-        assert_se(s);
+        ASSERT_OK(r);
+        ASSERT_TRUE(s);
         assert_se((size_t) r == strlen(s));
         s = mfree(s);
         v = json_variant_unref(v);
@@ -917,8 +917,8 @@ TEST(json_sensitive) {
         json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
 
         r = json_variant_format(v, JSON_FORMAT_CENSOR_SENSITIVE, &s);
-        assert_se(r >= 0);
-        assert_se(s);
+        ASSERT_OK(r);
+        ASSERT_TRUE(s);
         assert_se((size_t) r == strlen(s));
         s = mfree(s);
         v = json_variant_unref(v);
