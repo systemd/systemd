@@ -17,8 +17,8 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_ASSUME_IMMUTABLE) >= 0);
 
-        assert_se(sd_journal_add_match(j, "_TRANSPORT=syslog", 0) >= 0);
-        assert_se(sd_journal_add_match(j, "_UID=0", 0) >= 0);
+        assert_se(sd_journal_add_match(j, "_TRANSPORT=syslog", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "_UID=0", SIZE_MAX) >= 0);
 
         SD_JOURNAL_FOREACH_BACKWARDS(j) {
                 const void *d;
