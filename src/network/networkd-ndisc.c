@@ -377,6 +377,28 @@ static int ndisc_request_address(Address *address, Link *link, sd_ndisc_router *
         return 0;
 }
 
+int ndisc_reconfigure_address(Address *address, Link *link) {
+        int r;
+
+        assert(address);
+        assert(address->source == NETWORK_CONFIG_SOURCE_NDISC);
+        assert(link);
+
+        r = regenerate_address(address, link);
+        if (r <= 0)
+                return r;
+
+        r = ndisc_request_address(address, link, NULL);
+        if (r < 0)
+                return r;
+
+        if (!link->ndisc_configured)
+                link_set_state(link, LINK_STATE_CONFIGURING);
+
+        link_check_ready(link);
+        return 0;
+}
+
 static int ndisc_redirect_route_new(sd_ndisc_redirect *rd, Route **ret) {
         _cleanup_(route_unrefp) Route *route = NULL;
         struct in6_addr gateway, destination;

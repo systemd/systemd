@@ -390,6 +390,39 @@ int radv_generate_addresses(Link *link, Set *tokens, const struct in6_addr *pref
         return generate_addresses(link, tokens, &RADV_APP_ID, prefix, prefixlen, ret);
 }
 
+int regenerate_address(Address *address, Link *link) {
+        struct in6_addr masked;
+        sd_id128_t app_id;
+
+        assert(link);
+        assert(address);
+        assert(address->family == AF_INET6);
+        assert(!address->link && !address->network);
+
+        if (!address->token ||
+            address->token->type != ADDRESS_GENERATION_PREFIXSTABLE)
+                return 0;
+
+        switch (address->source) {
+        case NETWORK_CONFIG_SOURCE_STATIC:
+                app_id = RADV_APP_ID;
+                break;
+        case NETWORK_CONFIG_SOURCE_DHCP_PD:
+                app_id = DHCP_PD_APP_ID;
+                break;
+        case NETWORK_CONFIG_SOURCE_NDISC:
+                app_id = NDISC_APP_ID;
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        masked = address->in_addr.in6;
+        in6_addr_mask(&masked, address->prefixlen);
+
+        return generate_stable_private_address(link, &app_id, &address->token->secret_key, &masked, &address->in_addr.in6, &address->in_addr.in6);
+}
+
 int config_parse_address_generation_type(
                 const char *unit,
                 const char *filename,

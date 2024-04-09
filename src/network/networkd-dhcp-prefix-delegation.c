@@ -369,6 +369,28 @@ static int dhcp_pd_request_address_one(Address *address, Link *link) {
         return link_request_address(link, address, &link->dhcp_pd_messages, dhcp_pd_address_handler, NULL);
 }
 
+int dhcp_pd_reconfigure_address(Address *address, Link *link) {
+        int r;
+
+        assert(address);
+        assert(address->source == NETWORK_CONFIG_SOURCE_DHCP_PD);
+        assert(link);
+
+        r = regenerate_address(address, link);
+        if (r <= 0)
+                return r;
+
+        r = dhcp_pd_request_address_one(address, link);
+        if (r < 0)
+                return r;
+
+        if (!link->dhcp_pd_configured)
+                link_set_state(link, LINK_STATE_CONFIGURING);
+
+        link_check_ready(link);
+        return 0;
+}
+
 static int dhcp_pd_request_address(
                 Link *link,
                 const struct in6_addr *prefix,

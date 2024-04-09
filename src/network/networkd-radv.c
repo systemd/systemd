@@ -280,6 +280,29 @@ int link_request_radv_addresses(Link *link) {
         return 0;
 }
 
+int link_reconfigure_radv_address(Address *address, Link *link) {
+        int r;
+
+        assert(address);
+        assert(address->source == NETWORK_CONFIG_SOURCE_STATIC);
+        assert(link);
+
+        r = regenerate_address(address, link);
+        if (r <= 0)
+                return r;
+
+        r = link_request_static_address(link, address);
+        if (r < 0)
+                return r;
+
+        if (link->static_address_messages != 0) {
+                link->static_addresses_configured = false;
+                link_set_state(link, LINK_STATE_CONFIGURING);
+        }
+
+        return 0;
+}
+
 static int radv_set_prefix(Link *link, Prefix *prefix) {
         _cleanup_(sd_radv_prefix_unrefp) sd_radv_prefix *p = NULL;
         int r;
