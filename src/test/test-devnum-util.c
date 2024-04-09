@@ -28,11 +28,11 @@ TEST(device_major_minor_valid) {
         /* on glibc dev_t is 64-bit, even though in the kernel it is only 32-bit */
         assert_cc(sizeof(dev_t) == sizeof(uint64_t));
 
-        assert_se(DEVICE_MAJOR_VALID(0U));
-        assert_se(DEVICE_MINOR_VALID(0U));
+        ASSERT_TRUE(DEVICE_MAJOR_VALID(0U));
+        ASSERT_TRUE(DEVICE_MINOR_VALID(0U));
 
-        assert_se(DEVICE_MAJOR_VALID(1U));
-        assert_se(DEVICE_MINOR_VALID(1U));
+        ASSERT_TRUE(DEVICE_MAJOR_VALID(1U));
+        ASSERT_TRUE(DEVICE_MINOR_VALID(1U));
 
         assert_se(!DEVICE_MAJOR_VALID(-1U));
         assert_se(!DEVICE_MINOR_VALID(-1U));
@@ -49,14 +49,14 @@ TEST(device_major_minor_valid) {
         assert_se(!DEVICE_MAJOR_VALID(1U << 25));
         assert_se(!DEVICE_MINOR_VALID(1U << 25));
 
-        assert_se(!DEVICE_MAJOR_VALID(UINT32_MAX));
-        assert_se(!DEVICE_MINOR_VALID(UINT32_MAX));
+        ASSERT_FALSE(DEVICE_MAJOR_VALID(UINT32_MAX));
+        ASSERT_FALSE(DEVICE_MINOR_VALID(UINT32_MAX));
 
-        assert_se(!DEVICE_MAJOR_VALID(UINT64_MAX));
-        assert_se(!DEVICE_MINOR_VALID(UINT64_MAX));
+        ASSERT_FALSE(DEVICE_MAJOR_VALID(UINT64_MAX));
+        ASSERT_FALSE(DEVICE_MINOR_VALID(UINT64_MAX));
 
-        assert_se(DEVICE_MAJOR_VALID(major(0)));
-        assert_se(DEVICE_MINOR_VALID(minor(0)));
+        ASSERT_TRUE(DEVICE_MAJOR_VALID(major(0)));
+        ASSERT_TRUE(DEVICE_MINOR_VALID(minor(0)));
 }
 
 static void test_device_path_make_canonical_one(const char *path) {
@@ -82,8 +82,8 @@ static void test_device_path_make_canonical_one(const char *path) {
                 return;
         }
 
-        assert_se(r >= 0);
-        assert_se(path_equal(path, resolved));
+        ASSERT_OK(r);
+        ASSERT_TRUE(path_equal(path, resolved));
 
         assert_se(device_path_make_major_minor(st.st_mode, st.st_rdev, &raw) >= 0);
         assert_se(device_path_parse_major_minor(raw, &mode, &devno) >= 0);
@@ -109,7 +109,7 @@ TEST(device_path_make_canonical) {
 static void test_devnum_format_str_one(dev_t devnum, const char *s) {
         dev_t x;
 
-        assert_se(streq(FORMAT_DEVNUM(devnum), s));
+        ASSERT_TRUE(streq(FORMAT_DEVNUM(devnum), s));
         assert_se(parse_devnum(s, &x) >= 0);
         assert_se(x == devnum);
 }

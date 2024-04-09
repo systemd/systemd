@@ -13,13 +13,13 @@
 TEST(string_erase) {
         char *x;
         x = strdupa_safe("");
-        assert_se(streq(string_erase(x), ""));
+        ASSERT_TRUE(streq(string_erase(x), ""));
 
         x = strdupa_safe("1");
-        assert_se(streq(string_erase(x), ""));
+        ASSERT_TRUE(streq(string_erase(x), ""));
 
         x = strdupa_safe("123456789");
-        assert_se(streq(string_erase(x), ""));
+        ASSERT_TRUE(streq(string_erase(x), ""));
 
         assert_se(x[1] == '\0');
         assert_se(x[2] == '\0');
@@ -91,17 +91,17 @@ TEST(free_and_strndup) {
 TEST(strdup_to_full) {
         _cleanup_free_ char *dst;
 
-        assert_se(strdup_to_full(NULL, NULL) == 0);
+        ASSERT_EQ(strdup_to_full(NULL, NULL), 0);
         assert_se(strdup_to_full(&dst, NULL) == 0);
 
-        assert_se(strdup_to_full(NULL, "") == 1);
+        ASSERT_EQ(strdup_to_full(NULL, ""), 1);
         assert_se(strdup_to_full(&dst, "") == 1);
-        assert_se(streq_ptr(dst, ""));
+        ASSERT_TRUE(streq_ptr(dst, ""));
         dst = mfree(dst);
 
-        assert_se(strdup_to_full(NULL, "x") == 1);
+        ASSERT_EQ(strdup_to_full(NULL, "x"), 1);
         assert_se(strdup_to_full(&dst, "x") == 1);
-        assert_se(streq_ptr(dst, "x"));
+        ASSERT_TRUE(streq_ptr(dst, "x"));
 }
 
 TEST(strdup_to) {
@@ -110,86 +110,86 @@ TEST(strdup_to) {
         assert_se(strdup_to(&dst, NULL) == 0);
 
         assert_se(strdup_to(&dst, "") == 0);
-        assert_se(streq_ptr(dst, ""));
+        ASSERT_TRUE(streq_ptr(dst, ""));
         dst = mfree(dst);
 
         assert_se(strdup_to(&dst, "x") == 0);
-        assert_se(streq_ptr(dst, "x"));
+        ASSERT_TRUE(streq_ptr(dst, "x"));
 }
 
 TEST(ascii_strcasecmp_n) {
-        assert_se(ascii_strcasecmp_n("", "", 0) == 0);
-        assert_se(ascii_strcasecmp_n("", "", 1) == 0);
-        assert_se(ascii_strcasecmp_n("", "a", 1) < 0);
-        assert_se(ascii_strcasecmp_n("", "a", 2) < 0);
-        assert_se(ascii_strcasecmp_n("a", "", 1) > 0);
-        assert_se(ascii_strcasecmp_n("a", "", 2) > 0);
-        assert_se(ascii_strcasecmp_n("a", "a", 1) == 0);
-        assert_se(ascii_strcasecmp_n("a", "a", 2) == 0);
-        assert_se(ascii_strcasecmp_n("a", "b", 1) < 0);
-        assert_se(ascii_strcasecmp_n("a", "b", 2) < 0);
-        assert_se(ascii_strcasecmp_n("b", "a", 1) > 0);
-        assert_se(ascii_strcasecmp_n("b", "a", 2) > 0);
-        assert_se(ascii_strcasecmp_n("xxxxyxxxx", "xxxxYxxxx", 9) == 0);
-        assert_se(ascii_strcasecmp_n("xxxxxxxxx", "xxxxyxxxx", 9) < 0);
-        assert_se(ascii_strcasecmp_n("xxxxXxxxx", "xxxxyxxxx", 9) < 0);
-        assert_se(ascii_strcasecmp_n("xxxxxxxxx", "xxxxYxxxx", 9) < 0);
-        assert_se(ascii_strcasecmp_n("xxxxXxxxx", "xxxxYxxxx", 9) < 0);
+        ASSERT_EQ(ascii_strcasecmp_n("", "", 0), 0);
+        ASSERT_EQ(ascii_strcasecmp_n("", "", 1), 0);
+        ASSERT_LT(ascii_strcasecmp_n("", "a", 1), 0);
+        ASSERT_LT(ascii_strcasecmp_n("", "a", 2), 0);
+        ASSERT_GT(ascii_strcasecmp_n("a", "", 1), 0);
+        ASSERT_GT(ascii_strcasecmp_n("a", "", 2), 0);
+        ASSERT_EQ(ascii_strcasecmp_n("a", "a", 1), 0);
+        ASSERT_EQ(ascii_strcasecmp_n("a", "a", 2), 0);
+        ASSERT_LT(ascii_strcasecmp_n("a", "b", 1), 0);
+        ASSERT_LT(ascii_strcasecmp_n("a", "b", 2), 0);
+        ASSERT_GT(ascii_strcasecmp_n("b", "a", 1), 0);
+        ASSERT_GT(ascii_strcasecmp_n("b", "a", 2), 0);
+        ASSERT_EQ(ascii_strcasecmp_n("xxxxyxxxx", "xxxxYxxxx", 9), 0);
+        ASSERT_LT(ascii_strcasecmp_n("xxxxxxxxx", "xxxxyxxxx", 9), 0);
+        ASSERT_LT(ascii_strcasecmp_n("xxxxXxxxx", "xxxxyxxxx", 9), 0);
+        ASSERT_LT(ascii_strcasecmp_n("xxxxxxxxx", "xxxxYxxxx", 9), 0);
+        ASSERT_LT(ascii_strcasecmp_n("xxxxXxxxx", "xxxxYxxxx", 9), 0);
 
-        assert_se(ascii_strcasecmp_n("xxxxYxxxx", "xxxxYxxxx", 9) == 0);
-        assert_se(ascii_strcasecmp_n("xxxxyxxxx", "xxxxxxxxx", 9) > 0);
-        assert_se(ascii_strcasecmp_n("xxxxyxxxx", "xxxxXxxxx", 9) > 0);
-        assert_se(ascii_strcasecmp_n("xxxxYxxxx", "xxxxxxxxx", 9) > 0);
-        assert_se(ascii_strcasecmp_n("xxxxYxxxx", "xxxxXxxxx", 9) > 0);
+        ASSERT_EQ(ascii_strcasecmp_n("xxxxYxxxx", "xxxxYxxxx", 9), 0);
+        ASSERT_GT(ascii_strcasecmp_n("xxxxyxxxx", "xxxxxxxxx", 9), 0);
+        ASSERT_GT(ascii_strcasecmp_n("xxxxyxxxx", "xxxxXxxxx", 9), 0);
+        ASSERT_GT(ascii_strcasecmp_n("xxxxYxxxx", "xxxxxxxxx", 9), 0);
+        ASSERT_GT(ascii_strcasecmp_n("xxxxYxxxx", "xxxxXxxxx", 9), 0);
 }
 
 TEST(ascii_strcasecmp_nn) {
-        assert_se(ascii_strcasecmp_nn("", 0, "", 0) == 0);
-        assert_se(ascii_strcasecmp_nn("", 0, "", 1) < 0);
-        assert_se(ascii_strcasecmp_nn("", 1, "", 0) > 0);
-        assert_se(ascii_strcasecmp_nn("", 1, "", 1) == 0);
+        ASSERT_EQ(ascii_strcasecmp_nn("", 0, "", 0), 0);
+        ASSERT_LT(ascii_strcasecmp_nn("", 0, "", 1), 0);
+        ASSERT_GT(ascii_strcasecmp_nn("", 1, "", 0), 0);
+        ASSERT_EQ(ascii_strcasecmp_nn("", 1, "", 1), 0);
 
-        assert_se(ascii_strcasecmp_nn("aaaa", 4, "aaAa", 4) == 0);
-        assert_se(ascii_strcasecmp_nn("aaa", 3, "aaAa", 4) < 0);
-        assert_se(ascii_strcasecmp_nn("aaa", 4, "aaAa", 4) < 0);
-        assert_se(ascii_strcasecmp_nn("aaaa", 4, "aaA", 3) > 0);
-        assert_se(ascii_strcasecmp_nn("aaaa", 4, "AAA", 4) > 0);
+        ASSERT_EQ(ascii_strcasecmp_nn("aaaa", 4, "aaAa", 4), 0);
+        ASSERT_LT(ascii_strcasecmp_nn("aaa", 3, "aaAa", 4), 0);
+        ASSERT_LT(ascii_strcasecmp_nn("aaa", 4, "aaAa", 4), 0);
+        ASSERT_GT(ascii_strcasecmp_nn("aaaa", 4, "aaA", 3), 0);
+        ASSERT_GT(ascii_strcasecmp_nn("aaaa", 4, "AAA", 4), 0);
 
-        assert_se(ascii_strcasecmp_nn("aaaa", 4, "bbbb", 4) < 0);
-        assert_se(ascii_strcasecmp_nn("aaAA", 4, "BBbb", 4) < 0);
-        assert_se(ascii_strcasecmp_nn("BBbb", 4, "aaaa", 4) > 0);
+        ASSERT_LT(ascii_strcasecmp_nn("aaaa", 4, "bbbb", 4), 0);
+        ASSERT_LT(ascii_strcasecmp_nn("aaAA", 4, "BBbb", 4), 0);
+        ASSERT_GT(ascii_strcasecmp_nn("BBbb", 4, "aaaa", 4), 0);
 }
 
 TEST(cellescape) {
         char buf[40];
 
-        assert_se(streq(cellescape(buf, 1, ""), ""));
-        assert_se(streq(cellescape(buf, 1, "1"), ""));
-        assert_se(streq(cellescape(buf, 1, "12"), ""));
+        ASSERT_TRUE(streq(cellescape(buf, 1, ""), ""));
+        ASSERT_TRUE(streq(cellescape(buf, 1, "1"), ""));
+        ASSERT_TRUE(streq(cellescape(buf, 1, "12"), ""));
 
-        assert_se(streq(cellescape(buf, 2, ""), ""));
-        assert_se(streq(cellescape(buf, 2, "1"), "1"));
-        assert_se(streq(cellescape(buf, 2, "12"), "."));
-        assert_se(streq(cellescape(buf, 2, "123"), "."));
+        ASSERT_TRUE(streq(cellescape(buf, 2, ""), ""));
+        ASSERT_TRUE(streq(cellescape(buf, 2, "1"), "1"));
+        ASSERT_TRUE(streq(cellescape(buf, 2, "12"), "."));
+        ASSERT_TRUE(streq(cellescape(buf, 2, "123"), "."));
 
-        assert_se(streq(cellescape(buf, 3, ""), ""));
-        assert_se(streq(cellescape(buf, 3, "1"), "1"));
-        assert_se(streq(cellescape(buf, 3, "12"), "12"));
-        assert_se(streq(cellescape(buf, 3, "123"), ".."));
-        assert_se(streq(cellescape(buf, 3, "1234"), ".."));
+        ASSERT_TRUE(streq(cellescape(buf, 3, ""), ""));
+        ASSERT_TRUE(streq(cellescape(buf, 3, "1"), "1"));
+        ASSERT_TRUE(streq(cellescape(buf, 3, "12"), "12"));
+        ASSERT_TRUE(streq(cellescape(buf, 3, "123"), ".."));
+        ASSERT_TRUE(streq(cellescape(buf, 3, "1234"), ".."));
 
-        assert_se(streq(cellescape(buf, 4, ""), ""));
-        assert_se(streq(cellescape(buf, 4, "1"), "1"));
-        assert_se(streq(cellescape(buf, 4, "12"), "12"));
-        assert_se(streq(cellescape(buf, 4, "123"), "123"));
+        ASSERT_TRUE(streq(cellescape(buf, 4, ""), ""));
+        ASSERT_TRUE(streq(cellescape(buf, 4, "1"), "1"));
+        ASSERT_TRUE(streq(cellescape(buf, 4, "12"), "12"));
+        ASSERT_TRUE(streq(cellescape(buf, 4, "123"), "123"));
         assert_se(streq(cellescape(buf, 4, "1234"), is_locale_utf8() ? "…" : "..."));
         assert_se(streq(cellescape(buf, 4, "12345"), is_locale_utf8() ? "…" : "..."));
 
-        assert_se(streq(cellescape(buf, 5, ""), ""));
-        assert_se(streq(cellescape(buf, 5, "1"), "1"));
-        assert_se(streq(cellescape(buf, 5, "12"), "12"));
-        assert_se(streq(cellescape(buf, 5, "123"), "123"));
-        assert_se(streq(cellescape(buf, 5, "1234"), "1234"));
+        ASSERT_TRUE(streq(cellescape(buf, 5, ""), ""));
+        ASSERT_TRUE(streq(cellescape(buf, 5, "1"), "1"));
+        ASSERT_TRUE(streq(cellescape(buf, 5, "12"), "12"));
+        ASSERT_TRUE(streq(cellescape(buf, 5, "123"), "123"));
+        ASSERT_TRUE(streq(cellescape(buf, 5, "1234"), "1234"));
         assert_se(streq(cellescape(buf, 5, "12345"), is_locale_utf8() ? "1…" : "1..."));
         assert_se(streq(cellescape(buf, 5, "123456"), is_locale_utf8() ? "1…" : "1..."));
 
@@ -242,47 +242,47 @@ TEST(cellescape) {
 }
 
 TEST(streq_ptr) {
-        assert_se(streq_ptr(NULL, NULL));
-        assert_se(!streq_ptr("abc", "cdef"));
+        ASSERT_TRUE(streq_ptr(NULL, NULL));
+        ASSERT_FALSE(streq_ptr("abc", "cdef"));
 }
 
 TEST(strstrip) {
         char *ret, input[] = "   hello, waldo.   ";
 
         ret = strstrip(input);
-        assert_se(streq(ret, "hello, waldo."));
+        ASSERT_TRUE(streq(ret, "hello, waldo."));
 }
 
 TEST(strextend) {
         _cleanup_free_ char *str = NULL;
 
         assert_se(strextend(&str, NULL));
-        assert_se(streq_ptr(str, ""));
+        ASSERT_TRUE(streq_ptr(str, ""));
         assert_se(strextend(&str, "", "0", "", "", "123"));
-        assert_se(streq_ptr(str, "0123"));
+        ASSERT_TRUE(streq_ptr(str, "0123"));
         assert_se(strextend(&str, "456", "78", "9"));
-        assert_se(streq_ptr(str, "0123456789"));
+        ASSERT_TRUE(streq_ptr(str, "0123456789"));
 }
 
 TEST(strextend_with_separator) {
         _cleanup_free_ char *str = NULL;
 
         assert_se(strextend_with_separator(&str, NULL, NULL));
-        assert_se(streq_ptr(str, ""));
+        ASSERT_TRUE(streq_ptr(str, ""));
         str = mfree(str);
 
         assert_se(strextend_with_separator(&str, "...", NULL));
-        assert_se(streq_ptr(str, ""));
+        ASSERT_TRUE(streq_ptr(str, ""));
         assert_se(strextend_with_separator(&str, "...", NULL));
-        assert_se(streq_ptr(str, ""));
+        ASSERT_TRUE(streq_ptr(str, ""));
         str = mfree(str);
 
         assert_se(strextend_with_separator(&str, "xyz", "a", "bb", "ccc"));
-        assert_se(streq_ptr(str, "axyzbbxyzccc"));
+        ASSERT_TRUE(streq_ptr(str, "axyzbbxyzccc"));
         str = mfree(str);
 
         assert_se(strextend_with_separator(&str, ",", "start", "", "1", "234"));
-        assert_se(streq_ptr(str, "start,,1,234"));
+        ASSERT_TRUE(streq_ptr(str, "start,,1,234"));
         assert_se(strextend_with_separator(&str, ";", "more", "5", "678"));
         assert_se(streq_ptr(str, "start,,1,234;more;5;678"));
 }
@@ -295,15 +295,15 @@ TEST(strrep) {
         three = strrep("waldo", 3);
         zero = strrep("waldo", 0);
 
-        assert_se(streq(one, "waldo"));
-        assert_se(streq(three, "waldowaldowaldo"));
-        assert_se(streq(zero, ""));
+        ASSERT_TRUE(streq(one, "waldo"));
+        ASSERT_TRUE(streq(three, "waldowaldowaldo"));
+        ASSERT_TRUE(streq(zero, ""));
 
         onea = strrepa("waldo", 1);
         threea = strrepa("waldo", 3);
 
-        assert_se(streq(onea, "waldo"));
-        assert_se(streq(threea, "waldowaldowaldo"));
+        ASSERT_TRUE(streq(onea, "waldo"));
+        ASSERT_TRUE(streq(threea, "waldowaldowaldo"));
 }
 
 TEST(string_has_cc) {
@@ -322,46 +322,46 @@ TEST(string_has_cc) {
 
 TEST(ascii_strlower) {
         char a[] = "AabBcC Jk Ii Od LKJJJ kkd LK";
-        assert_se(streq(ascii_strlower(a), "aabbcc jk ii od lkjjj kkd lk"));
+        ASSERT_TRUE(streq(ascii_strlower(a), "aabbcc jk ii od lkjjj kkd lk"));
 }
 
 TEST(strshorten) {
         char s[] = "foobar";
 
-        assert_se(strlen(strshorten(s, SIZE_MAX)) == 6);
+        ASSERT_EQ(strlen(strshorten(s, SIZE_MAX)), 6u);
         assert_se(strlen(strshorten(s, SIZE_MAX-1)) == 6);
         assert_se(strlen(strshorten(s, SIZE_MAX-2)) == 6);
-        assert_se(strlen(strshorten(s, 6)) == 6);
-        assert_se(strlen(strshorten(s, 7)) == 6);
-        assert_se(strlen(strshorten(s, 12)) == 6);
-        assert_se(strlen(strshorten(s, 5)) == 5);
-        assert_se(strlen(strshorten(s, 2)) == 2);
-        assert_se(strlen(strshorten(s, 0)) == 0);
+        ASSERT_EQ(strlen(strshorten(s, 6)), 6u);
+        ASSERT_EQ(strlen(strshorten(s, 7)), 6u);
+        ASSERT_EQ(strlen(strshorten(s, 12)), 6u);
+        ASSERT_EQ(strlen(strshorten(s, 5)), 5u);
+        ASSERT_EQ(strlen(strshorten(s, 2)), 2u);
+        ASSERT_EQ(strlen(strshorten(s, 0)), 0u);
 }
 
 TEST(strjoina) {
         char *actual;
 
         actual = strjoina("", "foo", "bar");
-        assert_se(streq(actual, "foobar"));
+        ASSERT_TRUE(streq(actual, "foobar"));
 
         actual = strjoina("foo", "bar", "baz");
-        assert_se(streq(actual, "foobarbaz"));
+        ASSERT_TRUE(streq(actual, "foobarbaz"));
 
         actual = strjoina("foo", "", "bar", "baz");
-        assert_se(streq(actual, "foobarbaz"));
+        ASSERT_TRUE(streq(actual, "foobarbaz"));
 
         actual = strjoina("foo");
-        assert_se(streq(actual, "foo"));
+        ASSERT_TRUE(streq(actual, "foo"));
 
         actual = strjoina(NULL);
-        assert_se(streq(actual, ""));
+        ASSERT_TRUE(streq(actual, ""));
 
         actual = strjoina(NULL, "foo");
-        assert_se(streq(actual, ""));
+        ASSERT_TRUE(streq(actual, ""));
 
         actual = strjoina("foo", NULL, "bar");
-        assert_se(streq(actual, "foo"));
+        ASSERT_TRUE(streq(actual, "foo"));
 
         actual = strjoina("/sys/fs/cgroup/", "dn", "/a/b/c", "/cgroup.procs");
         assert_se(streq(actual, "/sys/fs/cgroup/dn/a/b/c/cgroup.procs"));
@@ -374,44 +374,44 @@ TEST(strjoin) {
         char *actual;
 
         actual = strjoin("", "foo", "bar");
-        assert_se(streq(actual, "foobar"));
+        ASSERT_TRUE(streq(actual, "foobar"));
         free(actual);
 
         actual = strjoin("foo", "bar", "baz");
-        assert_se(streq(actual, "foobarbaz"));
+        ASSERT_TRUE(streq(actual, "foobarbaz"));
         free(actual);
 
         actual = strjoin("foo", "", "bar", "baz");
-        assert_se(streq(actual, "foobarbaz"));
+        ASSERT_TRUE(streq(actual, "foobarbaz"));
         free(actual);
 
         actual = strjoin("foo", NULL);
-        assert_se(streq(actual, "foo"));
+        ASSERT_TRUE(streq(actual, "foo"));
         free(actual);
 
         actual = strjoin(NULL, NULL);
-        assert_se(streq(actual, ""));
+        ASSERT_TRUE(streq(actual, ""));
         free(actual);
 
         actual = strjoin(NULL, "foo");
-        assert_se(streq(actual, ""));
+        ASSERT_TRUE(streq(actual, ""));
         free(actual);
 
         actual = strjoin("foo", NULL, "bar");
-        assert_se(streq(actual, "foo"));
+        ASSERT_TRUE(streq(actual, "foo"));
         free(actual);
 }
 
 TEST(strcmp_ptr) {
-        assert_se(strcmp_ptr(NULL, NULL) == 0);
-        assert_se(strcmp_ptr("", NULL) > 0);
-        assert_se(strcmp_ptr("foo", NULL) > 0);
-        assert_se(strcmp_ptr(NULL, "") < 0);
-        assert_se(strcmp_ptr(NULL, "bar") < 0);
-        assert_se(strcmp_ptr("foo", "bar") > 0);
-        assert_se(strcmp_ptr("bar", "baz") < 0);
-        assert_se(strcmp_ptr("foo", "foo") == 0);
-        assert_se(strcmp_ptr("", "") == 0);
+        ASSERT_EQ(strcmp_ptr(NULL, NULL), 0);
+        ASSERT_GT(strcmp_ptr("", NULL), 0);
+        ASSERT_GT(strcmp_ptr("foo", NULL), 0);
+        ASSERT_LT(strcmp_ptr(NULL, ""), 0);
+        ASSERT_LT(strcmp_ptr(NULL, "bar"), 0);
+        ASSERT_GT(strcmp_ptr("foo", "bar"), 0);
+        ASSERT_LT(strcmp_ptr("bar", "baz"), 0);
+        ASSERT_EQ(strcmp_ptr("foo", "foo"), 0);
+        ASSERT_EQ(strcmp_ptr("", ""), 0);
 }
 
 TEST(foreach_word) {
@@ -434,7 +434,7 @@ TEST(foreach_word) {
                         assert_se(i == ELEMENTSOF(expected));
                         break;
                 }
-                assert_se(r > 0);
+                ASSERT_GT(r, 0);
 
                 assert_se(streq(expected[i++], word));
         }
@@ -450,17 +450,17 @@ static void check(const char *test, char** expected, bool trailing) {
 
                 r = extract_first_word(&test, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0) {
-                        assert_se(!trailing);
+                        ASSERT_FALSE(trailing);
                         break;
                 } else if (r < 0) {
-                        assert_se(trailing);
+                        ASSERT_TRUE(trailing);
                         break;
                 }
 
                 assert_se(streq(word, expected[i++]));
                 printf("<%s>\n", word);
         }
-        assert_se(expected[i] == NULL);
+        ASSERT_NULL(expected[i]);
 }
 
 TEST(foreach_word_quoted) {
@@ -489,30 +489,30 @@ TEST(foreach_word_quoted) {
 }
 
 TEST(endswith) {
-        assert_se(endswith("foobar", "bar"));
-        assert_se(endswith("foobar", ""));
-        assert_se(endswith("foobar", "foobar"));
-        assert_se(endswith("", ""));
+        ASSERT_TRUE(endswith("foobar", "bar"));
+        ASSERT_TRUE(endswith("foobar", ""));
+        ASSERT_TRUE(endswith("foobar", "foobar"));
+        ASSERT_TRUE(endswith("", ""));
 
-        assert_se(!endswith("foobar", "foo"));
-        assert_se(!endswith("foobar", "foobarfoofoo"));
+        ASSERT_FALSE(endswith("foobar", "foo"));
+        ASSERT_FALSE(endswith("foobar", "foobarfoofoo"));
 }
 
 TEST(endswith_no_case) {
-        assert_se(endswith_no_case("fooBAR", "bar"));
-        assert_se(endswith_no_case("foobar", ""));
-        assert_se(endswith_no_case("foobar", "FOOBAR"));
-        assert_se(endswith_no_case("", ""));
+        ASSERT_TRUE(endswith_no_case("fooBAR", "bar"));
+        ASSERT_TRUE(endswith_no_case("foobar", ""));
+        ASSERT_TRUE(endswith_no_case("foobar", "FOOBAR"));
+        ASSERT_TRUE(endswith_no_case("", ""));
 
-        assert_se(!endswith_no_case("foobar", "FOO"));
-        assert_se(!endswith_no_case("foobar", "FOOBARFOOFOO"));
+        ASSERT_FALSE(endswith_no_case("foobar", "FOO"));
+        ASSERT_FALSE(endswith_no_case("foobar", "FOOBARFOOFOO"));
 }
 
 TEST(delete_chars) {
         char *s, input[] = "   hello, waldo.   abc";
 
         s = delete_chars(input, WHITESPACE);
-        assert_se(streq(s, "hello,waldo.abc"));
+        ASSERT_TRUE(streq(s, "hello,waldo.abc"));
         assert_se(s == input);
 }
 
@@ -527,15 +527,15 @@ TEST(delete_trailing_chars) {
         assert_se(s == input1);
 
         s = delete_trailing_chars(input2, "kt");
-        assert_se(streq(s, "kkkkthiskkkiskkkaktes"));
+        ASSERT_TRUE(streq(s, "kkkkthiskkkiskkkaktes"));
         assert_se(s == input2);
 
         s = delete_trailing_chars(input3, WHITESPACE);
-        assert_se(streq(s, "abcdef"));
+        ASSERT_TRUE(streq(s, "abcdef"));
         assert_se(s == input3);
 
         s = delete_trailing_chars(input3, "fe");
-        assert_se(streq(s, "abcd"));
+        ASSERT_TRUE(streq(s, "abcd"));
         assert_se(s == input3);
 }
 
@@ -558,15 +558,15 @@ TEST(skip_leading_chars) {
                 input3[] = "abcdef";
 
         assert_se(streq(skip_leading_chars(input1, WHITESPACE), "k \n \r "));
-        assert_se(streq(skip_leading_chars(input2, "k"), "thiskkkiskkkaktestkkk"));
-        assert_se(streq(skip_leading_chars(input2, "tk"), "hiskkkiskkkaktestkkk"));
-        assert_se(streq(skip_leading_chars(input3, WHITESPACE), "abcdef"));
-        assert_se(streq(skip_leading_chars(input3, "bcaef"), "def"));
+        ASSERT_TRUE(streq(skip_leading_chars(input2, "k"), "thiskkkiskkkaktestkkk"));
+        ASSERT_TRUE(streq(skip_leading_chars(input2, "tk"), "hiskkkiskkkaktestkkk"));
+        ASSERT_TRUE(streq(skip_leading_chars(input3, WHITESPACE), "abcdef"));
+        ASSERT_TRUE(streq(skip_leading_chars(input3, "bcaef"), "def"));
 }
 
 TEST(in_charset) {
-        assert_se(in_charset("dddaaabbbcccc", "abcd"));
-        assert_se(!in_charset("dddaaabbbcccc", "abc f"));
+        ASSERT_TRUE(in_charset("dddaaabbbcccc", "abcd"));
+        ASSERT_FALSE(in_charset("dddaaabbbcccc", "abc f"));
 }
 
 TEST(split_pair) {
@@ -576,69 +576,69 @@ TEST(split_pair) {
         assert_se(split_pair("foo=bar", "", &a, &b) == -EINVAL);
         assert_se(split_pair("", "=", &a, &b) == -EINVAL);
         assert_se(split_pair("foo=bar", "=", &a, &b) >= 0);
-        assert_se(streq(a, "foo"));
-        assert_se(streq(b, "bar"));
+        ASSERT_TRUE(streq(a, "foo"));
+        ASSERT_TRUE(streq(b, "bar"));
         free(a);
         free(b);
         assert_se(split_pair("==", "==", &a, &b) >= 0);
-        assert_se(streq(a, ""));
-        assert_se(streq(b, ""));
+        ASSERT_TRUE(streq(a, ""));
+        ASSERT_TRUE(streq(b, ""));
         free(a);
         free(b);
 
         assert_se(split_pair("===", "==", &a, &b) >= 0);
-        assert_se(streq(a, ""));
+        ASSERT_TRUE(streq(a, ""));
         assert_se(streq(b, "="));
 }
 
 TEST(first_word) {
-        assert_se(first_word("Hello", ""));
-        assert_se(first_word("Hello", "Hello"));
-        assert_se(first_word("Hello world", "Hello"));
+        ASSERT_TRUE(first_word("Hello", ""));
+        ASSERT_TRUE(first_word("Hello", "Hello"));
+        ASSERT_TRUE(first_word("Hello world", "Hello"));
         assert_se(first_word("Hello\tworld", "Hello"));
         assert_se(first_word("Hello\nworld", "Hello"));
         assert_se(first_word("Hello\rworld", "Hello"));
-        assert_se(first_word("Hello ", "Hello"));
+        ASSERT_TRUE(first_word("Hello ", "Hello"));
 
-        assert_se(!first_word("Hello", "Hellooo"));
-        assert_se(!first_word("Hello", "xxxxx"));
-        assert_se(!first_word("Hellooo", "Hello"));
+        ASSERT_FALSE(first_word("Hello", "Hellooo"));
+        ASSERT_FALSE(first_word("Hello", "xxxxx"));
+        ASSERT_FALSE(first_word("Hellooo", "Hello"));
 }
 
 TEST(strlen_ptr) {
-        assert_se(strlen_ptr("foo") == 3);
-        assert_se(strlen_ptr("") == 0);
-        assert_se(strlen_ptr(NULL) == 0);
+        ASSERT_EQ(strlen_ptr("foo"), 3u);
+        ASSERT_EQ(strlen_ptr(""), 0u);
+        ASSERT_EQ(strlen_ptr(NULL), 0u);
 }
 
 TEST(memory_startswith) {
-        assert_se(streq(memory_startswith("", 0, ""), ""));
-        assert_se(streq(memory_startswith("", 1, ""), ""));
-        assert_se(streq(memory_startswith("x", 2, ""), "x"));
-        assert_se(!memory_startswith("", 1, "x"));
-        assert_se(!memory_startswith("", 1, "xxxxxxxx"));
-        assert_se(streq(memory_startswith("xxx", 4, "x"), "xx"));
-        assert_se(streq(memory_startswith("xxx", 4, "xx"), "x"));
-        assert_se(streq(memory_startswith("xxx", 4, "xxx"), ""));
-        assert_se(!memory_startswith("xxx", 4, "xxxx"));
+        ASSERT_TRUE(streq(memory_startswith("", 0, ""), ""));
+        ASSERT_TRUE(streq(memory_startswith("", 1, ""), ""));
+        ASSERT_TRUE(streq(memory_startswith("x", 2, ""), "x"));
+        ASSERT_FALSE(memory_startswith("", 1, "x"));
+        ASSERT_FALSE(memory_startswith("", 1, "xxxxxxxx"));
+        ASSERT_TRUE(streq(memory_startswith("xxx", 4, "x"), "xx"));
+        ASSERT_TRUE(streq(memory_startswith("xxx", 4, "xx"), "x"));
+        ASSERT_TRUE(streq(memory_startswith("xxx", 4, "xxx"), ""));
+        ASSERT_FALSE(memory_startswith("xxx", 4, "xxxx"));
 }
 
 TEST(memory_startswith_no_case) {
-        assert_se(streq(memory_startswith_no_case("", 0, ""), ""));
-        assert_se(streq(memory_startswith_no_case("", 1, ""), ""));
-        assert_se(streq(memory_startswith_no_case("x", 2, ""), "x"));
-        assert_se(streq(memory_startswith_no_case("X", 2, ""), "X"));
-        assert_se(!memory_startswith_no_case("", 1, "X"));
-        assert_se(!memory_startswith_no_case("", 1, "xxxxXXXX"));
-        assert_se(streq(memory_startswith_no_case("xxx", 4, "X"), "xx"));
-        assert_se(streq(memory_startswith_no_case("XXX", 4, "x"), "XX"));
-        assert_se(streq(memory_startswith_no_case("XXX", 4, "X"), "XX"));
-        assert_se(streq(memory_startswith_no_case("xxx", 4, "XX"), "x"));
-        assert_se(streq(memory_startswith_no_case("XXX", 4, "xx"), "X"));
-        assert_se(streq(memory_startswith_no_case("XXX", 4, "XX"), "X"));
-        assert_se(streq(memory_startswith_no_case("xxx", 4, "XXX"), ""));
-        assert_se(streq(memory_startswith_no_case("XXX", 4, "xxx"), ""));
-        assert_se(streq(memory_startswith_no_case("XXX", 4, "XXX"), ""));
+        ASSERT_TRUE(streq(memory_startswith_no_case("", 0, ""), ""));
+        ASSERT_TRUE(streq(memory_startswith_no_case("", 1, ""), ""));
+        ASSERT_TRUE(streq(memory_startswith_no_case("x", 2, ""), "x"));
+        ASSERT_TRUE(streq(memory_startswith_no_case("X", 2, ""), "X"));
+        ASSERT_FALSE(memory_startswith_no_case("", 1, "X"));
+        ASSERT_FALSE(memory_startswith_no_case("", 1, "xxxxXXXX"));
+        ASSERT_TRUE(streq(memory_startswith_no_case("xxx", 4, "X"), "xx"));
+        ASSERT_TRUE(streq(memory_startswith_no_case("XXX", 4, "x"), "XX"));
+        ASSERT_TRUE(streq(memory_startswith_no_case("XXX", 4, "X"), "XX"));
+        ASSERT_TRUE(streq(memory_startswith_no_case("xxx", 4, "XX"), "x"));
+        ASSERT_TRUE(streq(memory_startswith_no_case("XXX", 4, "xx"), "X"));
+        ASSERT_TRUE(streq(memory_startswith_no_case("XXX", 4, "XX"), "X"));
+        ASSERT_TRUE(streq(memory_startswith_no_case("xxx", 4, "XXX"), ""));
+        ASSERT_TRUE(streq(memory_startswith_no_case("XXX", 4, "xxx"), ""));
+        ASSERT_TRUE(streq(memory_startswith_no_case("XXX", 4, "XXX"), ""));
 
         assert_se(memory_startswith_no_case((char[2]){'x', 'x'}, 2, "xx"));
         assert_se(memory_startswith_no_case((char[2]){'x', 'X'}, 2, "xX"));
@@ -651,7 +651,7 @@ static void test_string_truncate_lines_one(const char *input, size_t n_lines, co
         int k;
 
         assert_se((k = string_truncate_lines(input, n_lines, &b)) >= 0);
-        assert_se(streq(b, output));
+        ASSERT_TRUE(streq(b, output));
         assert_se(!!k == truncation);
 }
 
@@ -796,43 +796,43 @@ TEST(string_extract_line) {
 TEST(string_contains_word_strv) {
         const char *w;
 
-        assert_se(string_contains_word_strv("a b cc", NULL, STRV_MAKE("a", "b"), NULL));
+        ASSERT_TRUE(string_contains_word_strv("a b cc", NULL, STRV_MAKE("a", "b"), NULL));
 
         assert_se(string_contains_word_strv("a b cc", NULL, STRV_MAKE("a", "b"), &w));
-        assert_se(streq(w, "a"));
+        ASSERT_TRUE(streq(w, "a"));
 
         assert_se(!string_contains_word_strv("a b cc", NULL, STRV_MAKE("d"), &w));
-        assert_se(w == NULL);
+        ASSERT_NULL(w);
 
         assert_se(string_contains_word_strv("a b cc", NULL, STRV_MAKE("b", "a"), &w));
-        assert_se(streq(w, "a"));
+        ASSERT_TRUE(streq(w, "a"));
 
         assert_se(string_contains_word_strv("b a b cc", NULL, STRV_MAKE("b", "a", "b"), &w));
-        assert_se(streq(w, "b"));
+        ASSERT_TRUE(streq(w, "b"));
 
         assert_se(string_contains_word_strv("a b cc", NULL, STRV_MAKE("b", ""), &w));
-        assert_se(streq(w, "b"));
+        ASSERT_TRUE(streq(w, "b"));
 
         assert_se(!string_contains_word_strv("a b cc", NULL, STRV_MAKE(""), &w));
-        assert_se(w == NULL);
+        ASSERT_NULL(w);
 
         assert_se(string_contains_word_strv("a b  cc", " ", STRV_MAKE(""), &w));
-        assert_se(streq(w, ""));
+        ASSERT_TRUE(streq(w, ""));
 }
 
 TEST(string_contains_word) {
-        assert_se( string_contains_word("a b cc", NULL, "a"));
-        assert_se( string_contains_word("a b cc", NULL, "b"));
-        assert_se(!string_contains_word("a b cc", NULL, "c"));
-        assert_se( string_contains_word("a b cc", NULL, "cc"));
-        assert_se(!string_contains_word("a b cc", NULL, "d"));
-        assert_se(!string_contains_word("a b cc", NULL, "a b"));
-        assert_se(!string_contains_word("a b cc", NULL, "a b c"));
-        assert_se(!string_contains_word("a b cc", NULL, "b c"));
-        assert_se(!string_contains_word("a b cc", NULL, "b cc"));
-        assert_se(!string_contains_word("a b cc", NULL, "a "));
-        assert_se(!string_contains_word("a b cc", NULL, " b "));
-        assert_se(!string_contains_word("a b cc", NULL, " cc"));
+        ASSERT_TRUE( string_contains_word("a b cc", NULL, "a"));
+        ASSERT_TRUE( string_contains_word("a b cc", NULL, "b"));
+        ASSERT_FALSE(string_contains_word("a b cc", NULL, "c"));
+        ASSERT_TRUE( string_contains_word("a b cc", NULL, "cc"));
+        ASSERT_FALSE(string_contains_word("a b cc", NULL, "d"));
+        ASSERT_FALSE(string_contains_word("a b cc", NULL, "a b"));
+        ASSERT_FALSE(string_contains_word("a b cc", NULL, "a b c"));
+        ASSERT_FALSE(string_contains_word("a b cc", NULL, "b c"));
+        ASSERT_FALSE(string_contains_word("a b cc", NULL, "b cc"));
+        ASSERT_FALSE(string_contains_word("a b cc", NULL, "a "));
+        ASSERT_FALSE(string_contains_word("a b cc", NULL, " b "));
+        ASSERT_FALSE(string_contains_word("a b cc", NULL, " cc"));
 
         assert_se( string_contains_word("  a  b\t\tcc", NULL, "a"));
         assert_se( string_contains_word("  a  b\t\tcc", NULL, "b"));
@@ -885,10 +885,10 @@ static void test_strverscmp_improved_one(const char* a, const char *b, int expec
 static void test_strverscmp_improved_newer(const char *older, const char *newer) {
         test_strverscmp_improved_one(older, newer, -1);
 
-        assert_se(strverscmp_improved(older, older) == 0);
-        assert_se(strverscmp_improved(older, newer) < 0);
-        assert_se(strverscmp_improved(newer, older) > 0);
-        assert_se(strverscmp_improved(newer, newer) == 0);
+        ASSERT_EQ(strverscmp_improved(older, older), 0);
+        ASSERT_LT(strverscmp_improved(older, newer), 0);
+        ASSERT_GT(strverscmp_improved(newer, older), 0);
+        ASSERT_EQ(strverscmp_improved(newer, newer), 0);
 }
 
 TEST(strverscmp_improved) {
@@ -956,27 +956,27 @@ TEST(strverscmp_improved) {
         test_strverscmp_improved_newer("123.aa2-67.89", "123.ab2-67.89");
 
         /* invalid characters */
-        assert_se(strverscmp_improved("123_aa2-67.89", "123aa+2-67.89") == 0);
+        ASSERT_EQ(strverscmp_improved("123_aa2-67.89", "123aa+2-67.89"), 0);
 
         /* some corner cases */
-        assert_se(strverscmp_improved("123.", "123") > 0);     /* One more version segment */
-        assert_se(strverscmp_improved("12_3", "123") < 0);     /* 12 < 123 */
-        assert_se(strverscmp_improved("12_3", "12") > 0);      /* 3 > '' */
-        assert_se(strverscmp_improved("12_3", "12.3") > 0);    /* 3 > '' */
-        assert_se(strverscmp_improved("123.0", "123") > 0);    /* 0 > '' */
-        assert_se(strverscmp_improved("123_0", "123") > 0);    /* 0 > '' */
-        assert_se(strverscmp_improved("123..0", "123.0") < 0); /* '' < 0 */
+        ASSERT_GT(strverscmp_improved("123.", "123"), 0);     /* One more version segment */
+        ASSERT_LT(strverscmp_improved("12_3", "123"), 0);     /* 12 < 123 */
+        ASSERT_GT(strverscmp_improved("12_3", "12"), 0);      /* 3 > '' */
+        ASSERT_GT(strverscmp_improved("12_3", "12.3"), 0);    /* 3 > '' */
+        ASSERT_GT(strverscmp_improved("123.0", "123"), 0);    /* 0 > '' */
+        ASSERT_GT(strverscmp_improved("123_0", "123"), 0);    /* 0 > '' */
+        ASSERT_LT(strverscmp_improved("123..0", "123.0"), 0); /* '' < 0 */
 
         /* empty strings or strings with ignored characters only */
-        assert_se(strverscmp_improved("", NULL) == 0);
-        assert_se(strverscmp_improved(NULL, "") == 0);
-        assert_se(strverscmp_improved("0_", "0") == 0);
-        assert_se(strverscmp_improved("_0_", "0") == 0);
-        assert_se(strverscmp_improved("_0", "0") == 0);
-        assert_se(strverscmp_improved("0", "0___") == 0);
-        assert_se(strverscmp_improved("", "_") == 0);
-        assert_se(strverscmp_improved("_", "") == 0);
-        assert_se(strverscmp_improved("_", "_") == 0);
+        ASSERT_EQ(strverscmp_improved("", NULL), 0);
+        ASSERT_EQ(strverscmp_improved(NULL, ""), 0);
+        ASSERT_EQ(strverscmp_improved("0_", "0"), 0);
+        ASSERT_EQ(strverscmp_improved("_0_", "0"), 0);
+        ASSERT_EQ(strverscmp_improved("_0", "0"), 0);
+        ASSERT_EQ(strverscmp_improved("0", "0___"), 0);
+        ASSERT_EQ(strverscmp_improved("", "_"), 0);
+        ASSERT_EQ(strverscmp_improved("_", ""), 0);
+        ASSERT_EQ(strverscmp_improved("_", "_"), 0);
         assert_se(strverscmp_improved("", "~") > 0);
         assert_se(strverscmp_improved("~", "") < 0);
         assert_se(strverscmp_improved("~", "~") == 0);
@@ -1166,55 +1166,55 @@ TEST(strextendf) {
 }
 
 TEST(string_replace_char) {
-        assert_se(streq(string_replace_char(strdupa_safe(""), 'a', 'b'), ""));
-        assert_se(streq(string_replace_char(strdupa_safe("abc"), 'a', 'b'), "bbc"));
-        assert_se(streq(string_replace_char(strdupa_safe("hoge"), 'a', 'b'), "hoge"));
-        assert_se(streq(string_replace_char(strdupa_safe("aaaa"), 'a', 'b'), "bbbb"));
+        ASSERT_TRUE(streq(string_replace_char(strdupa_safe(""), 'a', 'b'), ""));
+        ASSERT_TRUE(streq(string_replace_char(strdupa_safe("abc"), 'a', 'b'), "bbc"));
+        ASSERT_TRUE(streq(string_replace_char(strdupa_safe("hoge"), 'a', 'b'), "hoge"));
+        ASSERT_TRUE(streq(string_replace_char(strdupa_safe("aaaa"), 'a', 'b'), "bbbb"));
         assert_se(streq(string_replace_char(strdupa_safe("aaaa"), 'a', '\t'), "\t\t\t\t"));
 }
 
 TEST(strspn_from_end) {
-        assert_se(strspn_from_end(NULL, NULL) == 0);
-        assert_se(strspn_from_end("hoge", NULL) == 0);
-        assert_se(strspn_from_end(NULL, DIGITS) == 0);
-        assert_se(strspn_from_end("", DIGITS) == 0);
-        assert_se(strspn_from_end("hoge", DIGITS) == 0);
-        assert_se(strspn_from_end("1234", DIGITS) == 4);
-        assert_se(strspn_from_end("aaa1234", DIGITS) == 4);
-        assert_se(strspn_from_end("aaa1234aaa", DIGITS) == 0);
-        assert_se(strspn_from_end("aaa12aa34", DIGITS) == 2);
+        ASSERT_EQ(strspn_from_end(NULL, NULL), 0u);
+        ASSERT_EQ(strspn_from_end("hoge", NULL), 0u);
+        ASSERT_EQ(strspn_from_end(NULL, DIGITS), 0u);
+        ASSERT_EQ(strspn_from_end("", DIGITS), 0u);
+        ASSERT_EQ(strspn_from_end("hoge", DIGITS), 0u);
+        ASSERT_EQ(strspn_from_end("1234", DIGITS), 4u);
+        ASSERT_EQ(strspn_from_end("aaa1234", DIGITS), 4u);
+        ASSERT_EQ(strspn_from_end("aaa1234aaa", DIGITS), 0u);
+        ASSERT_EQ(strspn_from_end("aaa12aa34", DIGITS), 2u);
 }
 
 TEST(streq_skip_trailing_chars) {
         /* NULL is WHITESPACE by default*/
-        assert_se(streq_skip_trailing_chars("foo bar", "foo bar", NULL));
-        assert_se(streq_skip_trailing_chars("foo", "foo", NULL));
-        assert_se(streq_skip_trailing_chars("foo bar      ", "foo bar", NULL));
+        ASSERT_TRUE(streq_skip_trailing_chars("foo bar", "foo bar", NULL));
+        ASSERT_TRUE(streq_skip_trailing_chars("foo", "foo", NULL));
+        ASSERT_TRUE(streq_skip_trailing_chars("foo bar      ", "foo bar", NULL));
         assert_se(streq_skip_trailing_chars("foo bar", "foo bar\t\t", NULL));
         assert_se(streq_skip_trailing_chars("foo bar  ", "foo bar\t\t", NULL));
         assert_se(streq_skip_trailing_chars("foo\nbar", "foo\nbar", NULL));
         assert_se(streq_skip_trailing_chars("\t\tfoo bar", "\t\tfoo bar", NULL));
         assert_se(streq_skip_trailing_chars(" foo bar\t", " foo bar\n", NULL));
 
-        assert_se(!streq_skip_trailing_chars("foobar", "foo bar", NULL));
+        ASSERT_FALSE(streq_skip_trailing_chars("foobar", "foo bar", NULL));
         assert_se(!streq_skip_trailing_chars("foo\nbar", "foo\tbar", NULL));
         assert_se(!streq_skip_trailing_chars("\t\nfoo bar", "\t foo bar", NULL));
 
-        assert_se(streq_skip_trailing_chars("foo bar      ", "foo bar", WHITESPACE));
-        assert_se(!streq_skip_trailing_chars("foo bar      ", "foo bar", NEWLINE));
+        ASSERT_TRUE(streq_skip_trailing_chars("foo bar      ", "foo bar", WHITESPACE));
+        ASSERT_FALSE(streq_skip_trailing_chars("foo bar      ", "foo bar", NEWLINE));
 
-        assert_se(streq_skip_trailing_chars(NULL, NULL, NULL));
-        assert_se(streq_skip_trailing_chars("", "", NULL));
-        assert_se(!streq_skip_trailing_chars(NULL, "foo bar", NULL));
-        assert_se(!streq_skip_trailing_chars("foo", NULL, NULL));
-        assert_se(!streq_skip_trailing_chars("", "f", NULL));
+        ASSERT_TRUE(streq_skip_trailing_chars(NULL, NULL, NULL));
+        ASSERT_TRUE(streq_skip_trailing_chars("", "", NULL));
+        ASSERT_FALSE(streq_skip_trailing_chars(NULL, "foo bar", NULL));
+        ASSERT_FALSE(streq_skip_trailing_chars("foo", NULL, NULL));
+        ASSERT_FALSE(streq_skip_trailing_chars("", "f", NULL));
 }
 
 #define TEST_MAKE_CSTRING_ONE(x, ret, mode, expect)                     \
         do {                                                            \
                 _cleanup_free_ char *b = NULL;                          \
                 assert_se(make_cstring((x), ELEMENTSOF(x), (mode), &b) == (ret)); \
-                assert_se(streq_ptr(b, (expect)));                      \
+                ASSERT_TRUE(streq_ptr(b, (expect)));                      \
         } while(false)
 
 TEST(make_cstring) {
@@ -1275,8 +1275,8 @@ TEST(find_line_startswith) {
         assert_se(find_line_startswith(text, "") == text);
         assert_se(find_line_startswith(text, "f") == text+1);
         assert_se(find_line_startswith(text, "foobar") == text+6);
-        assert_se(!find_line_startswith(text, "foobarx"));
-        assert_se(!find_line_startswith(text, "oobar"));
+        ASSERT_FALSE(find_line_startswith(text, "foobarx"));
+        ASSERT_FALSE(find_line_startswith(text, "oobar"));
         assert_se(find_line_startswith(text, "t") == text + 8);
         assert_se(find_line_startswith(text, "th") == text + 9);
         assert_se(find_line_startswith(text, "this") == text + 11);
@@ -1286,16 +1286,16 @@ TEST(find_line_startswith) {
         assert_se(find_line_startswith(text, "iff") == text + 63);
 
         assert_se(find_line_startswith(emptystring, "") == emptystring);
-        assert_se(!find_line_startswith(emptystring, "x"));
+        ASSERT_FALSE(find_line_startswith(emptystring, "x"));
 }
 
 TEST(strstrafter) {
         static const char buffer[] = "abcdefghijklmnopqrstuvwxyz";
 
-        assert_se(!strstrafter(NULL, NULL));
-        assert_se(!strstrafter("", NULL));
-        assert_se(!strstrafter(NULL, ""));
-        assert_se(streq_ptr(strstrafter("", ""), ""));
+        ASSERT_FALSE(strstrafter(NULL, NULL));
+        ASSERT_FALSE(strstrafter("", NULL));
+        ASSERT_FALSE(strstrafter(NULL, ""));
+        ASSERT_TRUE(streq_ptr(strstrafter("", ""), ""));
 
         assert_se(strstrafter(buffer, "a") == buffer + 1);
         assert_se(strstrafter(buffer, "") == buffer);
@@ -1307,12 +1307,12 @@ TEST(strstrafter) {
 }
 
 TEST(version_is_valid) {
-        assert_se(!version_is_valid(NULL));
-        assert_se(!version_is_valid(""));
-        assert_se(version_is_valid("0"));
-        assert_se(version_is_valid("5"));
-        assert_se(version_is_valid("999999"));
-        assert_se(version_is_valid("999999.5"));
+        ASSERT_FALSE(version_is_valid(NULL));
+        ASSERT_FALSE(version_is_valid(""));
+        ASSERT_TRUE(version_is_valid("0"));
+        ASSERT_TRUE(version_is_valid("5"));
+        ASSERT_TRUE(version_is_valid("999999"));
+        ASSERT_TRUE(version_is_valid("999999.5"));
         assert_se(version_is_valid("6.2.12-300.fc38.x86_64"));
 }
 
@@ -1335,33 +1335,33 @@ TEST(strextendn) {
 }
 
 TEST(strlevenshtein) {
-        assert_se(strlevenshtein(NULL, NULL) == 0);
-        assert_se(strlevenshtein("", "") == 0);
-        assert_se(strlevenshtein("", NULL) == 0);
-        assert_se(strlevenshtein(NULL, "") == 0);
+        ASSERT_EQ(strlevenshtein(NULL, NULL), 0);
+        ASSERT_EQ(strlevenshtein("", ""), 0);
+        ASSERT_EQ(strlevenshtein("", NULL), 0);
+        ASSERT_EQ(strlevenshtein(NULL, ""), 0);
 
-        assert_se(strlevenshtein("a", "a") == 0);
-        assert_se(strlevenshtein("a", "b") == 1);
-        assert_se(strlevenshtein("b", "a") == 1);
-        assert_se(strlevenshtein("a", "") == 1);
-        assert_se(strlevenshtein("", "a") == 1);
+        ASSERT_EQ(strlevenshtein("a", "a"), 0);
+        ASSERT_EQ(strlevenshtein("a", "b"), 1);
+        ASSERT_EQ(strlevenshtein("b", "a"), 1);
+        ASSERT_EQ(strlevenshtein("a", ""), 1);
+        ASSERT_EQ(strlevenshtein("", "a"), 1);
 
-        assert_se(strlevenshtein("xxx", "xxx") == 0);
-        assert_se(strlevenshtein("xxx", "yyy") == 3);
-        assert_se(strlevenshtein("yyy", "xxx") == 3);
-        assert_se(strlevenshtein("xx", "xxx") == 1);
-        assert_se(strlevenshtein("xxx", "xx") == 1);
-        assert_se(strlevenshtein("x", "xxx") == 2);
-        assert_se(strlevenshtein("xxx", "x") == 2);
+        ASSERT_EQ(strlevenshtein("xxx", "xxx"), 0);
+        ASSERT_EQ(strlevenshtein("xxx", "yyy"), 3);
+        ASSERT_EQ(strlevenshtein("yyy", "xxx"), 3);
+        ASSERT_EQ(strlevenshtein("xx", "xxx"), 1);
+        ASSERT_EQ(strlevenshtein("xxx", "xx"), 1);
+        ASSERT_EQ(strlevenshtein("x", "xxx"), 2);
+        ASSERT_EQ(strlevenshtein("xxx", "x"), 2);
 
-        assert_se(strlevenshtein("sitting", "kitten") == 3);
-        assert_se(strlevenshtein("sunday", "saturday") == 3);
+        ASSERT_EQ(strlevenshtein("sitting", "kitten"), 3);
+        ASSERT_EQ(strlevenshtein("sunday", "saturday"), 3);
 }
 
 TEST(strrstr) {
-        assert_se(!strrstr(NULL, NULL));
-        assert_se(!strrstr("foo", NULL));
-        assert_se(!strrstr(NULL, "foo"));
+        ASSERT_FALSE(strrstr(NULL, NULL));
+        ASSERT_FALSE(strrstr("foo", NULL));
+        ASSERT_FALSE(strrstr(NULL, "foo"));
 
         const char *p = "foo";
         assert_se(strrstr(p, "foo") == p);
@@ -1370,7 +1370,7 @@ TEST(strrstr) {
         assert_se(strrstr(p, "oo") == p + 1);
         assert_se(strrstr(p, "o") == p + 2);
         assert_se(strrstr(p, "") == p + strlen(p));
-        assert_se(!strrstr(p, "bar"));
+        ASSERT_FALSE(strrstr(p, "bar"));
 
         p = "xoxoxox";
         assert_se(strrstr(p, "") == p + strlen(p));
@@ -1378,7 +1378,7 @@ TEST(strrstr) {
         assert_se(strrstr(p, "ox") == p + 5);
         assert_se(strrstr(p, "xo") == p + 4);
         assert_se(strrstr(p, "xox") == p + 4);
-        assert_se(!strrstr(p, "xx"));
+        ASSERT_FALSE(strrstr(p, "xx"));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
