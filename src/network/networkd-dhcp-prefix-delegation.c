@@ -353,6 +353,22 @@ static void log_dhcp_pd_address(Link *link, const Address *address) {
                       FORMAT_LIFETIME(address->lifetime_preferred_usec));
 }
 
+static int dhcp_pd_request_address_one(Address *address, Link *link) {
+        Address *existing;
+
+        assert(address);
+        assert(link);
+
+        log_dhcp_pd_address(link, address);
+
+        if (address_get(link, address, &existing) < 0)
+                link->dhcp_pd_configured = false;
+        else
+                address_unmark(existing);
+
+        return link_request_address(link, address, &link->dhcp_pd_messages, dhcp_pd_address_handler, NULL);
+}
+
 static int dhcp_pd_request_address(
                 Link *link,
                 const struct in6_addr *prefix,
@@ -376,7 +392,6 @@ static int dhcp_pd_request_address(
 
         SET_FOREACH(a, addresses) {
                 _cleanup_(address_unrefp) Address *address = NULL;
-                Address *existing;
 
                 r = address_new(&address);
                 if (r < 0)
@@ -391,19 +406,11 @@ static int dhcp_pd_request_address(
                 SET_FLAG(address->flags, IFA_F_MANAGETEMPADDR, link->network->dhcp_pd_manage_temporary_address);
                 address->route_metric = link->network->dhcp_pd_route_metric;
 
-                log_dhcp_pd_address(link, address);
-
                 r = free_and_strdup_warn(&address->netlabel, link->network->dhcp_pd_netlabel);
                 if (r < 0)
                         return r;
 
-                if (address_get(link, address, &existing) < 0)
-                        link->dhcp_pd_configured = false;
-                else
-                        address_unmark(existing);
-
-                r = link_request_address(link, address, &link->dhcp_pd_messages,
-                                         dhcp_pd_address_handler, NULL);
+                r = dhcp_pd_request_address_one(address, link);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to request DHCP delegated prefix address: %m");
         }
