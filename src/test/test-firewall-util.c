@@ -49,7 +49,7 @@ static void test_v6(FirewallContext *ctx) {
 static union in_addr_union *parse_addr(const char *str, union in_addr_union *u) {
         ASSERT_TRUE(str);
         ASSERT_TRUE(u);
-        assert_se(in_addr_from_string(AF_INET, str, u) >= 0);
+        ASSERT_OK(in_addr_from_string(AF_INET, str, u));
         return u;
 }
 

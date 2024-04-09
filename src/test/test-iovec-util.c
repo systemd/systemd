@@ -9,7 +9,7 @@ TEST(iovec_memcmp) {
         struct iovec iov1_truncated = iov1;
         iov1_truncated.iov_len /= 2;
 
-        assert_se(iovec_memcmp(NULL, NULL) == 0);
+        ASSERT_EQ(iovec_memcmp(NULL, NULL), 0);
         assert_se(iovec_memcmp(&iov1, &iov1) == 0);
         assert_se(iovec_memcmp(&iov2, &iov2) == 0);
         assert_se(iovec_memcmp(&empty, &empty) == 0);

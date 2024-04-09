@@ -50,7 +50,7 @@ TEST(clock_is_localtime) {
                 log_info("scenario #%zu:, expected result %i", i, scenarios[i].expected_result);
                 log_info("%s", scenarios[i].contents);
                 rewind(f);
-                assert_se(ftruncate(fileno(f), 0) == 0);
+                ASSERT_EQ(ftruncate(fileno(f), 0), 0);
                 assert_se(write_string_stream(f, scenarios[i].contents, WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
                 assert_se(clock_is_localtime(adjtime) == scenarios[i].expected_result);
         }
@@ -65,7 +65,7 @@ TEST(clock_is_localtime_system) {
                 log_info("/etc/adjtime is readable, clock_is_localtime() == %i", r);
                 /* if /etc/adjtime exists we expect some answer, no error or
                  * crash */
-                assert_se(IN_SET(r, 0, 1));
+                ASSERT_TRUE(IN_SET(r, 0, 1));
         } else
                 /* default is UTC if there is no /etc/adjtime */
                 assert_se(r == 0 || ERRNO_IS_PRIVILEGE(r));

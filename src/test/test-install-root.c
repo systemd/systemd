@@ -35,26 +35,26 @@ TEST(basic_mask_and_enable) {
                                     "[Install]\n"
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", NULL) >= 0);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", NULL));
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "a.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         p = strjoina(root, "/usr/lib/systemd/system/b.service");
-        assert_se(symlink("a.service", p) >= 0);
+        ASSERT_OK(symlink("a.service", p));
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", NULL) >= 0);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", NULL));
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "b.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
 
         p = strjoina(root, "/usr/lib/systemd/system/c.service");
         assert_se(symlink("/usr/lib/systemd/system/a.service", p) >= 0);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", NULL) >= 0);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", NULL));
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "c.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
 
         p = strjoina(root, "/usr/lib/systemd/system/d.service");
-        assert_se(symlink("c.service", p) >= 0);
+        ASSERT_OK(symlink("c.service", p));
 
         /* This one is interesting, as d follows a relative, then an absolute symlink */
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", NULL) >= 0);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", NULL));
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
 
         assert_se(unit_file_mask(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
@@ -162,13 +162,13 @@ TEST(basic_mask_and_enable) {
         p = strjoina(root, "/usr/lib/systemd/system/e.service");
         assert_se(symlink("../../../../../../dev/null", p) >= 0);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", NULL) >= 0);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", NULL));
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", &state) >= 0 && state == UNIT_FILE_MASKED);
 
         ASSERT_EQ(unlink(p), 0);
         assert_se(symlink("/usr/../dev/null", p) >= 0);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", NULL) >= 0);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", NULL));
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", &state) >= 0 && state == UNIT_FILE_MASKED);
 
         ASSERT_EQ(unlink(p), 0);
@@ -180,7 +180,7 @@ TEST(basic_mask_and_enable) {
                                     "[Install]\n"
                                     "WantedBy=x.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", NULL) >= 0);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", NULL));
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "f.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("f.service"), &changes, &n_changes) == 1);
@@ -368,7 +368,7 @@ TEST(default) {
         assert_se(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/test-default.target");
-        assert_se(symlink("test-default-real.target", p) >= 0);
+        ASSERT_OK(symlink("test-default-real.target", p));
 
         assert_se(unit_file_get_default(RUNTIME_SCOPE_SYSTEM, root, &def) == -ENOENT);
 
@@ -403,13 +403,13 @@ TEST(add_dependency) {
         assert_se(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/add-dependency-test-target.target");
-        assert_se(symlink("real-add-dependency-test-target.target", p) >= 0);
+        ASSERT_OK(symlink("real-add-dependency-test-target.target", p));
 
         p = strjoina(root, "/usr/lib/systemd/system/real-add-dependency-test-service.service");
         assert_se(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/add-dependency-test-service.service");
-        assert_se(symlink("real-add-dependency-test-service.service", p) >= 0);
+        ASSERT_OK(symlink("real-add-dependency-test-service.service", p));
 
         assert_se(unit_file_add_dependency(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("add-dependency-test-service.service"), "add-dependency-test-target.target", UNIT_WANTS, &changes, &n_changes) >= 0);
         ASSERT_EQ(n_changes, 1u);
@@ -556,7 +556,7 @@ TEST(indirect) {
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/indirectc.service");
-        assert_se(symlink("indirecta.service", p) >= 0);
+        ASSERT_OK(symlink("indirecta.service", p));
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirecta.service", &state) >= 0 && state == UNIT_FILE_INDIRECT);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "indirectb.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
@@ -681,7 +681,7 @@ TEST(preset_and_list) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         assert_se(h = hashmap_new(&unit_file_list_hash_ops_free));
-        assert_se(unit_file_get_list(RUNTIME_SCOPE_SYSTEM, root, h, NULL, NULL) >= 0);
+        ASSERT_OK(unit_file_get_list(RUNTIME_SCOPE_SYSTEM, root, h, NULL, NULL));
 
         p = strjoina(root, "/usr/lib/systemd/system/preset-yes.service");
         q = strjoina(root, "/usr/lib/systemd/system/preset-no.service");
@@ -719,7 +719,7 @@ TEST(revert) {
         p = strjoina(root, "/usr/lib/systemd/system/xx.service");
         assert_se(write_string_file(p, "# Empty\n", WRITE_STRING_FILE_CREATE) >= 0);
 
-        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "xx.service", NULL) >= 0);
+        ASSERT_OK(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "xx.service", NULL));
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "xx.service", &state) >= 0 && state == UNIT_FILE_STATIC);
 
         /* Initially there's nothing to revert */
@@ -1131,7 +1131,7 @@ static void verify_one(
          * RequiredBy= settings, and less so for Alias=. The only case where it should happen is when we have
          * an Alias=alias@.service an instantiated template template@instance. In that case the instance name
          * should be propagated into the alias as alias@instance. */
-        assert_se(streq_ptr(alias2, updated_name));
+        ASSERT_TRUE(streq_ptr(alias2, updated_name));
 }
 
 TEST(verify_alias) {
@@ -1285,19 +1285,19 @@ static int intro(void) {
         assert_se(mkdtemp_malloc("/tmp/rootXXXXXX", &root) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/");
-        assert_se(mkdir_p(p, 0755) >= 0);
+        ASSERT_OK(mkdir_p(p, 0755));
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/");
-        assert_se(mkdir_p(p, 0755) >= 0);
+        ASSERT_OK(mkdir_p(p, 0755));
 
         p = strjoina(root, "/run/systemd/system/");
-        assert_se(mkdir_p(p, 0755) >= 0);
+        ASSERT_OK(mkdir_p(p, 0755));
 
         p = strjoina(root, "/opt/");
-        assert_se(mkdir_p(p, 0755) >= 0);
+        ASSERT_OK(mkdir_p(p, 0755));
 
         p = strjoina(root, "/usr/lib/systemd/system-preset/");
-        assert_se(mkdir_p(p, 0755) >= 0);
+        ASSERT_OK(mkdir_p(p, 0755));
 
         p = strjoina(root, "/usr/lib/systemd/system/multi-user.target");
         assert_se(write_string_file(p, "# pretty much empty", WRITE_STRING_FILE_CREATE) >= 0);

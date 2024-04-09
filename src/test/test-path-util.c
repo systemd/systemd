@@ -37,13 +37,13 @@ TEST(path) {
         assert_se( PATH_IN_SET("/", "/", "/", "/foo/bar"));
         assert_se(!PATH_IN_SET("/", "/abc", "/def"));
 
-        assert_se( path_equal(NULL, NULL));
+        ASSERT_TRUE( path_equal(NULL, NULL));
         assert_se( path_equal("/a", "/a"));
         assert_se(!path_equal("/a", "/b"));
         assert_se(!path_equal("/a", NULL));
         assert_se(!path_equal(NULL, "/a"));
-        assert_se(!path_equal("a", NULL));
-        assert_se(!path_equal(NULL, "a"));
+        ASSERT_FALSE(path_equal("a", NULL));
+        ASSERT_FALSE(path_equal(NULL, "a"));
 }
 
 TEST(is_path) {
@@ -146,7 +146,7 @@ static void test_path_simplify_one(const char *in, const char *out, PathSimplify
         p = strdupa_safe(in);
         path_simplify_full(p, flags);
         log_debug("/* test_path_simplify(%s) → %s (expected: %s) */", in, p, out);
-        assert_se(streq(p, out));
+        ASSERT_TRUE(streq(p, out));
 }
 
 TEST(path_simplify) {
@@ -238,16 +238,16 @@ TEST(path_simplify) {
 static void test_path_compare_one(const char *a, const char *b, int expected) {
         int r;
 
-        assert_se(path_compare(a, a) == 0);
-        assert_se(path_compare(b, b) == 0);
+        ASSERT_EQ(path_compare(a, a), 0);
+        ASSERT_EQ(path_compare(b, b), 0);
 
         r = path_compare(a, b);
         assert_se((r > 0) == (expected > 0) && (r < 0) == (expected < 0));
         r = path_compare(b, a);
         assert_se((r < 0) == (expected > 0) && (r > 0) == (expected < 0));
 
-        assert_se(path_equal(a, a) == 1);
-        assert_se(path_equal(b, b) == 1);
+        ASSERT_EQ(path_equal(a, a), 1);
+        ASSERT_EQ(path_equal(b, b), 1);
         assert_se(path_equal(a, b) == (expected == 0));
         assert_se(path_equal(b, a) == (expected == 0));
 }
@@ -283,16 +283,16 @@ TEST(path_compare) {
 static void test_path_compare_filename_one(const char *a, const char *b, int expected) {
         int r;
 
-        assert_se(path_compare_filename(a, a) == 0);
-        assert_se(path_compare_filename(b, b) == 0);
+        ASSERT_EQ(path_compare_filename(a, a), 0);
+        ASSERT_EQ(path_compare_filename(b, b), 0);
 
         r = path_compare_filename(a, b);
         assert_se((r > 0) == (expected > 0) && (r < 0) == (expected < 0));
         r = path_compare_filename(b, a);
         assert_se((r < 0) == (expected > 0) && (r > 0) == (expected < 0));
 
-        assert_se(path_equal_filename(a, a) == 1);
-        assert_se(path_equal_filename(b, b) == 1);
+        ASSERT_EQ(path_equal_filename(a, a), 1);
+        ASSERT_EQ(path_equal_filename(b, b), 1);
         assert_se(path_equal_filename(a, b) == (expected == 0));
         assert_se(path_equal_filename(b, a) == (expected == 0));
 }
@@ -379,12 +379,12 @@ TEST(find_executable_full) {
 
         assert_se(find_executable_full("sh", NULL, NULL, true, &p, NULL) == 0);
         puts(p);
-        assert_se(streq(basename(p), "sh"));
+        ASSERT_TRUE(streq(basename(p), "sh"));
         free(p);
 
         assert_se(find_executable_full("sh", NULL, NULL, false, &p, NULL) == 0);
         puts(p);
-        assert_se(streq(basename(p), "sh"));
+        ASSERT_TRUE(streq(basename(p), "sh"));
         free(p);
 
         _cleanup_free_ char *oldpath = NULL;
@@ -396,25 +396,25 @@ TEST(find_executable_full) {
 
         assert_se(find_executable_full("sh", NULL, NULL, true, &p, NULL) == 0);
         puts(p);
-        assert_se(streq(basename(p), "sh"));
+        ASSERT_TRUE(streq(basename(p), "sh"));
         free(p);
 
         assert_se(find_executable_full("sh", NULL, NULL, false, &p, NULL) == 0);
         puts(p);
-        assert_se(streq(basename(p), "sh"));
+        ASSERT_TRUE(streq(basename(p), "sh"));
         free(p);
 
         if (oldpath)
-                assert_se(setenv("PATH", oldpath, true) >= 0);
+                ASSERT_OK(setenv("PATH", oldpath, true));
 
         assert_se((fd = mkostemp_safe(fn)) >= 0);
-        assert_se(fchmod(fd, 0755) >= 0);
+        ASSERT_OK(fchmod(fd, 0755));
 
         test_file_name = basename(fn);
 
         assert_se(find_executable_full(test_file_name, NULL, STRV_MAKE("/doesnotexist", "/tmp", "/bin"), false, &p, NULL) == 0);
         puts(p);
-        assert_se(streq(p, fn));
+        ASSERT_TRUE(streq(p, fn));
         free(p);
 
         (void) unlink(fn);
@@ -447,7 +447,7 @@ TEST(find_executable) {
 
         assert_se(find_executable("touch", &p) == 0);
         ASSERT_TRUE(path_is_absolute(p));
-        assert_se(streq(basename(p), "touch"));
+        ASSERT_TRUE(streq(basename(p), "touch"));
         free(p);
 
         assert_se(find_executable("xxxx-xxxx", &p) == -ENOENT);
@@ -468,7 +468,7 @@ static void test_find_executable_exec_one(const char *path) {
         assert_se(fd > STDERR_FILENO);
         ASSERT_TRUE(path_is_absolute(t));
         if (path_is_absolute(path))
-                assert_se(streq(t, path));
+                ASSERT_TRUE(streq(t, path));
 
         pid = fork();
         ASSERT_OK(pid);
@@ -478,7 +478,7 @@ static void test_find_executable_exec_one(const char *path) {
                 _exit(EXIT_FAILURE);
         }
 
-        assert_se(wait_for_terminate_and_check(t, pid, WAIT_LOG) == 0);
+        ASSERT_EQ(wait_for_terminate_and_check(t, pid, WAIT_LOG), 0);
 }
 
 TEST(find_executable_exec) {
@@ -533,7 +533,7 @@ TEST(prefixes) {
         b = false;
         PATH_FOREACH_PREFIX_MORE(s, "////") {
                 ASSERT_FALSE(b);
-                assert_se(streq(s, ""));
+                ASSERT_TRUE(streq(s, ""));
                 b = true;
         }
         ASSERT_TRUE(b);
@@ -544,7 +544,7 @@ TEST(prefixes) {
         b = false;
         PATH_FOREACH_PREFIX_MORE(s, "") {
                 ASSERT_FALSE(b);
-                assert_se(streq(s, ""));
+                ASSERT_TRUE(streq(s, ""));
                 b = true;
         }
 }
@@ -554,7 +554,7 @@ TEST(path_join) {
                 _cleanup_free_ char *z = NULL;   \
                 z = path_join(__VA_ARGS__); \
                 log_debug("got \"%s\", expected \"%s\"", z, expected); \
-                assert_se(streq(z, expected));   \
+                ASSERT_TRUE(streq(z, expected));   \
         }
 
         test_join("/root/a/b/c", "/root", "/a/b", "/c");
@@ -604,7 +604,7 @@ TEST(path_extend) {
 
         p = mfree(p);
         assert_se(path_extend(&p, "foo") == p);
-        assert_se(streq(p, "foo"));
+        ASSERT_TRUE(streq(p, "foo"));
 
         assert_se(path_extend(&p, "/foo") == p);
         assert_se(streq(p, "foo/foo"));
@@ -637,7 +637,7 @@ static void test_path_make_relative_one(const char *from, const char *to, const 
 
         r = path_make_relative(from, to, &z);
         assert_se((r >= 0) == !!expected);
-        assert_se(streq_ptr(z, expected));
+        ASSERT_TRUE(streq_ptr(z, expected));
 }
 
 TEST(path_make_relative) {
@@ -663,7 +663,7 @@ static void test_path_make_relative_parent_one(const char *from, const char *to,
 
         r = path_make_relative_parent(from, to, &z);
         assert_se((r >= 0) == !!expected);
-        assert_se(streq_ptr(z, expected));
+        ASSERT_TRUE(streq_ptr(z, expected));
 }
 
 TEST(path_make_relative_parent) {
@@ -715,10 +715,10 @@ static void test_path_startswith_one(const char *path, const char *prefix, const
         log_debug("/* %s(%s, %s) */", __func__, path, prefix);
 
         p = path_startswith(path, prefix);
-        assert_se(streq_ptr(p, expected));
+        ASSERT_TRUE(streq_ptr(p, expected));
         if (p) {
                 q = strjoina(skipped, p);
-                assert_se(streq(q, path));
+                ASSERT_TRUE(streq(q, path));
                 assert_se(p == path + strlen(skipped));
         }
 }
@@ -761,11 +761,11 @@ static void test_prefix_root_one(const char *r, const char *p, const char *expec
         const char *t;
 
         assert_se(s = path_join(r, p));
-        assert_se(path_equal(s, expected));
+        ASSERT_TRUE(path_equal(s, expected));
 
         t = prefix_roota(r, p);
         ASSERT_TRUE(t);
-        assert_se(path_equal(t, expected));
+        ASSERT_TRUE(path_equal(t, expected));
 }
 
 TEST(prefix_root) {
@@ -799,7 +799,7 @@ TEST(file_in_same_dir) {
         assert_se(file_in_same_dir("", "a", &t) == -EINVAL);
 
         assert_se(file_in_same_dir("a/", "x", &t) >= 0);
-        assert_se(streq(t, "x"));
+        ASSERT_TRUE(streq(t, "x"));
         free(t);
 
         assert_se(file_in_same_dir("bar/foo", "bar", &t) >= 0);
@@ -992,14 +992,14 @@ TEST(last_path_component) {
         assert_se(streq(last_path_component("/"), "/"));
         assert_se(streq(last_path_component("//"), "/"));
         assert_se(streq(last_path_component("///"), "/"));
-        assert_se(streq(last_path_component("."), "."));
+        ASSERT_TRUE(streq(last_path_component("."), "."));
         assert_se(streq(last_path_component("./."), "."));
         assert_se(streq(last_path_component("././"), "./"));
         assert_se(streq(last_path_component("././/"), ".//"));
         assert_se(streq(last_path_component("/foo/a"), "a"));
         assert_se(streq(last_path_component("/foo/a/"), "a/"));
-        assert_se(streq(last_path_component(""), ""));
-        assert_se(streq(last_path_component("a"), "a"));
+        ASSERT_TRUE(streq(last_path_component(""), ""));
+        ASSERT_TRUE(streq(last_path_component("a"), "a"));
         assert_se(streq(last_path_component("a/"), "a/"));
         assert_se(streq(last_path_component("/a"), "a"));
         assert_se(streq(last_path_component("/a/"), "a/"));
@@ -1014,7 +1014,7 @@ static void test_path_extract_filename_one(const char *input, const char *output
                  strnull(input),
                  strnull(k), r < 0 ? STRERROR(r) : "-",
                  strnull(output), ret < 0 ? STRERROR(ret) : "-");
-        assert_se(streq_ptr(k, output));
+        ASSERT_TRUE(streq_ptr(k, output));
         assert_se(r == ret);
 }
 
@@ -1058,7 +1058,7 @@ static void test_path_extract_directory_one(const char *input, const char *outpu
                  strnull(input),
                  strnull(k), r < 0 ? STRERROR(r) : "-",
                  strnull(output), STRERROR(ret));
-        assert_se(streq_ptr(k, output));
+        ASSERT_TRUE(streq_ptr(k, output));
         assert_se(r == ret);
 
         /* Extra safety check: let's make sure that if we split out the filename too (and it works) the
@@ -1071,7 +1071,7 @@ static void test_path_extract_directory_one(const char *input, const char *outpu
                         _cleanup_free_ char *j = NULL;
 
                         assert_se(j = path_join(k, f));
-                        assert_se(path_equal(input, j));
+                        ASSERT_TRUE(path_equal(input, j));
                 }
         }
 }
@@ -1202,7 +1202,7 @@ TEST(skip_dev_prefix) {
         assert_se(streq(skip_dev_prefix("/dev///foo"), "foo"));
         assert_se(streq(skip_dev_prefix("///dev///foo///bar"), "foo///bar"));
         assert_se(streq(skip_dev_prefix("//foo"), "//foo"));
-        assert_se(streq(skip_dev_prefix("foo"), "foo"));
+        ASSERT_TRUE(streq(skip_dev_prefix("foo"), "foo"));
 }
 
 TEST(empty_or_root) {
@@ -1264,7 +1264,7 @@ static void test_path_glob_can_match_one(const char *pattern, const char *prefix
         log_debug("%s(%s, %s, %s)", __func__, pattern, prefix, strnull(expected));
 
         assert_se(path_glob_can_match(pattern, prefix, &result) == !!expected);
-        assert_se(streq_ptr(result, expected));
+        ASSERT_TRUE(streq_ptr(result, expected));
 }
 
 TEST(path_glob_can_match) {

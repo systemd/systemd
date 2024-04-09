@@ -21,40 +21,40 @@ TEST(fdset_new_fill) {
         ASSERT_OK(fd);
 
         assert_se(fdset_new_fill(/* filter_cloexec= */ -1, &fdset) >= 0);
-        assert_se(fdset_contains(fdset, fd));
+        ASSERT_TRUE(fdset_contains(fdset, fd));
         fdset = fdset_free(fdset);
-        assert_se(fcntl(fd, F_GETFD) < 0);
+        ASSERT_LT(fcntl(fd, F_GETFD), 0);
         assert_se(errno == EBADF);
 
         fd = open("/dev/null", O_CLOEXEC|O_RDONLY);
         ASSERT_OK(fd);
 
         assert_se(fdset_new_fill(/* filter_cloexec= */ 0, &fdset) >= 0);
-        assert_se(!fdset_contains(fdset, fd));
+        ASSERT_FALSE(fdset_contains(fdset, fd));
         fdset = fdset_free(fdset);
-        assert_se(fcntl(fd, F_GETFD) >= 0);
+        ASSERT_OK(fcntl(fd, F_GETFD));
 
         assert_se(fdset_new_fill(/* filter_cloexec= */ 1, &fdset) >= 0);
-        assert_se(fdset_contains(fdset, fd));
+        ASSERT_TRUE(fdset_contains(fdset, fd));
         fdset = fdset_free(fdset);
-        assert_se(fcntl(fd, F_GETFD) < 0);
+        ASSERT_LT(fcntl(fd, F_GETFD), 0);
         assert_se(errno == EBADF);
 
         fd = open("/dev/null", O_RDONLY);
         ASSERT_OK(fd);
 
         assert_se(fdset_new_fill(/* filter_cloexec= */ 1, &fdset) >= 0);
-        assert_se(!fdset_contains(fdset, fd));
+        ASSERT_FALSE(fdset_contains(fdset, fd));
         fdset = fdset_free(fdset);
-        assert_se(fcntl(fd, F_GETFD) >= 0);
+        ASSERT_OK(fcntl(fd, F_GETFD));
 
         assert_se(fdset_new_fill(/* filter_cloexec= */ 0, &fdset) >= 0);
-        assert_se(fdset_contains(fdset, fd));
+        ASSERT_TRUE(fdset_contains(fdset, fd));
         flags = fcntl(fd, F_GETFD);
         ASSERT_OK(flags);
-        assert_se(FLAGS_SET(flags, FD_CLOEXEC));
+        ASSERT_TRUE(FLAGS_SET(flags, FD_CLOEXEC));
         fdset = fdset_free(fdset);
-        assert_se(fcntl(fd, F_GETFD) < 0);
+        ASSERT_LT(fcntl(fd, F_GETFD), 0);
         assert_se(errno == EBADF);
 
         log_open();
@@ -73,8 +73,8 @@ TEST(fdset_put_dup) {
         ASSERT_TRUE(fdset);
         copyfd = fdset_put_dup(fdset, fd);
         assert_se(copyfd >= 0 && copyfd != fd);
-        assert_se(fdset_contains(fdset, copyfd));
-        assert_se(!fdset_contains(fdset, fd));
+        ASSERT_TRUE(fdset_contains(fdset, copyfd));
+        ASSERT_FALSE(fdset_contains(fdset, fd));
 }
 
 TEST(fdset_cloexec) {
@@ -88,14 +88,14 @@ TEST(fdset_cloexec) {
 
         fdset = fdset_new();
         ASSERT_TRUE(fdset);
-        assert_se(fdset_put(fdset, fd));
+        ASSERT_TRUE(fdset_put(fdset, fd));
 
-        assert_se(fdset_cloexec(fdset, false) >= 0);
+        ASSERT_OK(fdset_cloexec(fdset, false));
         flags = fcntl(fd, F_GETFD);
         ASSERT_OK(flags);
         assert_se(!(flags & FD_CLOEXEC));
 
-        assert_se(fdset_cloexec(fdset, true) >= 0);
+        ASSERT_OK(fdset_cloexec(fdset, true));
         flags = fcntl(fd, F_GETFD);
         ASSERT_OK(flags);
         assert_se(flags & FD_CLOEXEC);
@@ -133,11 +133,11 @@ TEST(fdset_remove) {
 
         fdset = fdset_new();
         ASSERT_TRUE(fdset);
-        assert_se(fdset_put(fdset, fd) >= 0);
-        assert_se(fdset_remove(fdset, fd) >= 0);
-        assert_se(!fdset_contains(fdset, fd));
+        ASSERT_OK(fdset_put(fdset, fd));
+        ASSERT_OK(fdset_remove(fdset, fd));
+        ASSERT_FALSE(fdset_contains(fdset, fd));
 
-        assert_se(fcntl(fd, F_GETFD) >= 0);
+        ASSERT_OK(fcntl(fd, F_GETFD));
 }
 
 TEST(fdset_iterate) {
@@ -152,9 +152,9 @@ TEST(fdset_iterate) {
 
         fdset = fdset_new();
         ASSERT_TRUE(fdset);
-        assert_se(fdset_put(fdset, fd) >= 0);
-        assert_se(fdset_put(fdset, fd) >= 0);
-        assert_se(fdset_put(fdset, fd) >= 0);
+        ASSERT_OK(fdset_put(fdset, fd));
+        ASSERT_OK(fdset_put(fdset, fd));
+        ASSERT_OK(fdset_put(fdset, fd));
 
         FDSET_FOREACH(a, fdset) {
                 c++;
@@ -175,7 +175,7 @@ TEST(fdset_isempty) {
         ASSERT_TRUE(fdset);
 
         ASSERT_TRUE(fdset_isempty(fdset));
-        assert_se(fdset_put(fdset, fd) >= 0);
+        ASSERT_OK(fdset_put(fdset, fd));
         ASSERT_FALSE(fdset_isempty(fdset));
 }
 
@@ -191,10 +191,10 @@ TEST(fdset_steal_first) {
         ASSERT_TRUE(fdset);
 
         ASSERT_LT(fdset_steal_first(fdset), 0);
-        assert_se(fdset_put(fdset, fd) >= 0);
+        ASSERT_OK(fdset_put(fdset, fd));
         assert_se(fdset_steal_first(fdset) == fd);
         ASSERT_LT(fdset_steal_first(fdset), 0);
-        assert_se(fdset_put(fdset, fd) >= 0);
+        ASSERT_OK(fdset_put(fdset, fd));
 }
 
 TEST(fdset_new_array) {
@@ -203,10 +203,10 @@ TEST(fdset_new_array) {
 
         assert_se(fdset_new_array(&fdset, fds, 4) >= 0);
         ASSERT_EQ(fdset_size(fdset), 4u);
-        assert_se(fdset_contains(fdset, 10));
-        assert_se(fdset_contains(fdset, 11));
-        assert_se(fdset_contains(fdset, 12));
-        assert_se(fdset_contains(fdset, 13));
+        ASSERT_TRUE(fdset_contains(fdset, 10));
+        ASSERT_TRUE(fdset_contains(fdset, 11));
+        ASSERT_TRUE(fdset_contains(fdset, 12));
+        ASSERT_TRUE(fdset_contains(fdset, 13));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

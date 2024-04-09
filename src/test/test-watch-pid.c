@@ -28,18 +28,18 @@ int main(int argc, char *argv[]) {
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         assert_se(manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m) >= 0);
-        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
 
         assert_se(a = unit_new(m, sizeof(Service)));
-        assert_se(unit_add_name(a, "a.service") >= 0);
+        ASSERT_OK(unit_add_name(a, "a.service"));
         assert_se(set_isempty(a->pids));
 
         assert_se(b = unit_new(m, sizeof(Service)));
-        assert_se(unit_add_name(b, "b.service") >= 0);
+        ASSERT_OK(unit_add_name(b, "b.service"));
         assert_se(set_isempty(b->pids));
 
         assert_se(c = unit_new(m, sizeof(Service)));
-        assert_se(unit_add_name(c, "c.service") >= 0);
+        ASSERT_OK(unit_add_name(c, "c.service"));
         assert_se(set_isempty(c->pids));
 
         /* Fork off a child so that we have a PID to watch */
@@ -56,25 +56,25 @@ int main(int argc, char *argv[]) {
         assert_se(hashmap_isempty(m->watch_pids));
         ASSERT_NULL(manager_get_unit_by_pid(m, pid));
 
-        assert_se(unit_watch_pid(a, pid, false) >= 0);
+        ASSERT_OK(unit_watch_pid(a, pid, false));
         assert_se(manager_get_unit_by_pid(m, pid) == a);
 
-        assert_se(unit_watch_pid(a, pid, false) >= 0);
+        ASSERT_OK(unit_watch_pid(a, pid, false));
         assert_se(manager_get_unit_by_pid(m, pid) == a);
 
-        assert_se(unit_watch_pid(b, pid, false) >= 0);
+        ASSERT_OK(unit_watch_pid(b, pid, false));
         u = manager_get_unit_by_pid(m, pid);
         assert_se(u == a || u == b);
 
-        assert_se(unit_watch_pid(b, pid, false) >= 0);
+        ASSERT_OK(unit_watch_pid(b, pid, false));
         u = manager_get_unit_by_pid(m, pid);
         assert_se(u == a || u == b);
 
-        assert_se(unit_watch_pid(c, pid, false) >= 0);
+        ASSERT_OK(unit_watch_pid(c, pid, false));
         u = manager_get_unit_by_pid(m, pid);
         assert_se(u == a || u == b || u == c);
 
-        assert_se(unit_watch_pid(c, pid, false) >= 0);
+        ASSERT_OK(unit_watch_pid(c, pid, false));
         u = manager_get_unit_by_pid(m, pid);
         assert_se(u == a || u == b || u == c);
 

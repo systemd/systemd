@@ -125,13 +125,13 @@ TEST(block_signals) {
 
 TEST(ignore_signals) {
         ASSERT_OK(ignore_signals(SIGINT));
-        assert_se(kill(getpid_cached(), SIGINT) >= 0);
-        assert_se(ignore_signals(SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE) >= 0);
-        assert_se(kill(getpid_cached(), SIGUSR1) >= 0);
-        assert_se(kill(getpid_cached(), SIGUSR2) >= 0);
-        assert_se(kill(getpid_cached(), SIGTERM) >= 0);
-        assert_se(kill(getpid_cached(), SIGPIPE) >= 0);
-        assert_se(default_signals(SIGINT, SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE) >= 0);
+        ASSERT_OK(kill(getpid_cached(), SIGINT));
+        ASSERT_OK(ignore_signals(SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE));
+        ASSERT_OK(kill(getpid_cached(), SIGUSR1));
+        ASSERT_OK(kill(getpid_cached(), SIGUSR2));
+        ASSERT_OK(kill(getpid_cached(), SIGTERM));
+        ASSERT_OK(kill(getpid_cached(), SIGPIPE));
+        ASSERT_OK(default_signals(SIGINT, SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE));
 }
 
 TEST(pop_pending_signal) {
@@ -163,7 +163,7 @@ TEST(pop_pending_signal) {
 
                 assert_se(pop_pending_signal(SIGUSR1, SIGUSR2) == SIGUSR1);
                 assert_se(pop_pending_signal(SIGUSR1, SIGUSR2) == SIGUSR2);
-                assert_se(pop_pending_signal(SIGUSR1, SIGUSR2) == 0);
+                ASSERT_EQ(pop_pending_signal(SIGUSR1, SIGUSR2), 0);
         }
 
         ASSERT_EQ(signal_is_blocked(SIGUSR1), 0);

@@ -171,12 +171,12 @@ static void test_pid_get_comm_escape_one(const char *input, const char *output) 
 
         log_debug("input: <%s> — output: <%s>", input, output);
 
-        assert_se(prctl(PR_SET_NAME, input) >= 0);
+        ASSERT_OK(prctl(PR_SET_NAME, input));
         assert_se(pid_get_comm(0, &n) >= 0);
 
         log_debug("got: <%s>", n);
 
-        assert_se(streq_ptr(n, output));
+        ASSERT_TRUE(streq_ptr(n, output));
 }
 
 TEST(pid_get_comm_escape) {
@@ -195,7 +195,7 @@ TEST(pid_get_comm_escape) {
         test_pid_get_comm_escape_one("xxxxäöüß", "xxxx\\303\\244\\303\\266\\303\\274\\303\\237");
         test_pid_get_comm_escape_one("xxxxxäöüß", "xxxxx\\303\\244\\303\\266\\303\\274\\303\\237");
 
-        assert_se(prctl(PR_SET_NAME, saved) >= 0);
+        ASSERT_OK(prctl(PR_SET_NAME, saved));
 }
 
 TEST(pid_is_unwaited) {
@@ -212,7 +212,7 @@ TEST(pid_is_unwaited) {
                 ASSERT_EQ(pid_is_unwaited(pid), 0);
         }
         ASSERT_GT(pid_is_unwaited(getpid_cached()), 0);
-        assert_se(pid_is_unwaited(-1) < 0);
+        ASSERT_LT(pid_is_unwaited(-1), 0);
 }
 
 TEST(pid_is_alive) {
@@ -229,21 +229,21 @@ TEST(pid_is_alive) {
                 ASSERT_EQ(pid_is_alive(pid), 0);
         }
         ASSERT_GT(pid_is_alive(getpid_cached()), 0);
-        assert_se(pid_is_alive(-1) < 0);
+        ASSERT_LT(pid_is_alive(-1), 0);
 }
 
 TEST(personality) {
         ASSERT_TRUE(personality_to_string(PER_LINUX));
         ASSERT_FALSE(personality_to_string(PERSONALITY_INVALID));
 
-        assert_se(streq(personality_to_string(PER_LINUX), architecture_to_string(native_architecture())));
+        ASSERT_TRUE(streq(personality_to_string(PER_LINUX), architecture_to_string(native_architecture())));
 
         assert_se(personality_from_string(personality_to_string(PER_LINUX)) == PER_LINUX);
         assert_se(personality_from_string(architecture_to_string(native_architecture())) == PER_LINUX);
 
 #ifdef __x86_64__
         assert_se(streq_ptr(personality_to_string(PER_LINUX), "x86-64"));
-        assert_se(streq_ptr(personality_to_string(PER_LINUX32), "x86"));
+        ASSERT_TRUE(streq_ptr(personality_to_string(PER_LINUX32), "x86"));
 
         assert_se(personality_from_string("x86-64") == PER_LINUX);
         assert_se(personality_from_string("x86") == PER_LINUX32);
@@ -311,7 +311,7 @@ TEST(pid_get_cmdline_harder) {
         if (mount(path, "/proc/self/cmdline", "bind", MS_BIND, NULL) < 0) {
                 /* This happens under selinux… Abort the test in this case. */
                 log_warning_errno(errno, "mount(..., \"/proc/self/cmdline\", \"bind\", ...) failed: %m");
-                assert_se(IN_SET(errno, EPERM, EACCES));
+                ASSERT_TRUE(IN_SET(errno, EPERM, EACCES));
                 return;
         }
 
@@ -322,7 +322,7 @@ TEST(pid_get_cmdline_harder) {
 
         ASSERT_OK(unlink(path));
 
-        assert_se(prctl(PR_SET_NAME, "testa") >= 0);
+        ASSERT_OK(prctl(PR_SET_NAME, "testa"));
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, 0, &line) == -ENOENT);
 
@@ -338,7 +338,7 @@ TEST(pid_get_cmdline_harder) {
 
         assert_se(pid_get_cmdline(0, 0, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, ""));
+        ASSERT_TRUE(streq(line, ""));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 1, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
@@ -383,26 +383,26 @@ TEST(pid_get_cmdline_harder) {
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, 0, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar"));
+        ASSERT_TRUE(streq(line, "foo bar"));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
-        assert_se(streq(line, "foo bar"));
+        ASSERT_TRUE(streq(line, "foo bar"));
         line = mfree(line);
 
         assert_se(pid_get_cmdline_strv(0, PROCESS_CMDLINE_COMM_FALLBACK, &args) >= 0);
-        assert_se(strv_equal(args, STRV_MAKE("foo", "bar")));
+        ASSERT_TRUE(strv_equal(args, STRV_MAKE("foo", "bar")));
         args = strv_free(args);
 
-        assert_se(write(fd, "quux", 4) == 4);
+        ASSERT_EQ(write(fd, "quux", 4), 4);
         assert_se(pid_get_cmdline(0, SIZE_MAX, 0, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_TRUE(streq(line, "foo bar quux"));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_TRUE(streq(line, "foo bar quux"));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 1, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
@@ -462,30 +462,30 @@ TEST(pid_get_cmdline_harder) {
 
         assert_se(pid_get_cmdline(0, 12, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_TRUE(streq(line, "foo bar quux"));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 13, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_TRUE(streq(line, "foo bar quux"));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 14, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_TRUE(streq(line, "foo bar quux"));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 1000, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_TRUE(streq(line, "foo bar quux"));
         line = mfree(line);
 
         assert_se(pid_get_cmdline_strv(0, PROCESS_CMDLINE_COMM_FALLBACK, &args) >= 0);
-        assert_se(strv_equal(args, STRV_MAKE("foo", "bar", "quux")));
+        ASSERT_TRUE(strv_equal(args, STRV_MAKE("foo", "bar", "quux")));
         args = strv_free(args);
 
-        assert_se(ftruncate(fd, 0) >= 0);
-        assert_se(prctl(PR_SET_NAME, "aaaa bbbb cccc") >= 0);
+        ASSERT_OK(ftruncate(fd, 0));
+        ASSERT_OK(prctl(PR_SET_NAME, "aaaa bbbb cccc"));
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, 0, &line) == -ENOENT);
 
@@ -520,24 +520,24 @@ TEST(pid_get_cmdline_harder) {
 #define EXPECT1p "foo $'\\'bar\\'' $'\"bar$\"' $'x y z' $'!``'"
 #define EXPECT1v STRV_MAKE("foo", "'bar'", "\"bar$\"", "x y z", "!``")
 
-        assert_se(lseek(fd, SEEK_SET, 0) == 0);
+        ASSERT_EQ(lseek(fd, SEEK_SET, 0), 0);
         assert_se(write(fd, CMDLINE1, sizeof CMDLINE1) == sizeof CMDLINE1);
-        assert_se(ftruncate(fd, sizeof CMDLINE1) == 0);
+        ASSERT_EQ(ftruncate(fd, sizeof CMDLINE1), 0);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_QUOTE, &line) >= 0);
         log_debug("got: ==%s==", line);
         log_debug("exp: ==%s==", EXPECT1);
-        assert_se(streq(line, EXPECT1));
+        ASSERT_TRUE(streq(line, EXPECT1));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &line) >= 0);
         log_debug("got: ==%s==", line);
         log_debug("exp: ==%s==", EXPECT1p);
-        assert_se(streq(line, EXPECT1p));
+        ASSERT_TRUE(streq(line, EXPECT1p));
         line = mfree(line);
 
         assert_se(pid_get_cmdline_strv(0, 0, &args) >= 0);
-        assert_se(strv_equal(args, EXPECT1v));
+        ASSERT_TRUE(strv_equal(args, EXPECT1v));
         args = strv_free(args);
 
 #define CMDLINE2 "foo\0\1\2\3\0\0"
@@ -545,24 +545,24 @@ TEST(pid_get_cmdline_harder) {
 #define EXPECT2p "foo $'\\001\\002\\003'"
 #define EXPECT2v STRV_MAKE("foo", "\1\2\3")
 
-        assert_se(lseek(fd, SEEK_SET, 0) == 0);
+        ASSERT_EQ(lseek(fd, SEEK_SET, 0), 0);
         assert_se(write(fd, CMDLINE2, sizeof CMDLINE2) == sizeof CMDLINE2);
-        assert_se(ftruncate(fd, sizeof CMDLINE2) == 0);
+        ASSERT_EQ(ftruncate(fd, sizeof CMDLINE2), 0);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_QUOTE, &line) >= 0);
         log_debug("got: ==%s==", line);
         log_debug("exp: ==%s==", EXPECT2);
-        assert_se(streq(line, EXPECT2));
+        ASSERT_TRUE(streq(line, EXPECT2));
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &line) >= 0);
         log_debug("got: ==%s==", line);
         log_debug("exp: ==%s==", EXPECT2p);
-        assert_se(streq(line, EXPECT2p));
+        ASSERT_TRUE(streq(line, EXPECT2p));
         line = mfree(line);
 
         assert_se(pid_get_cmdline_strv(0, 0, &args) >= 0);
-        assert_se(strv_equal(args, EXPECT2v));
+        ASSERT_TRUE(strv_equal(args, EXPECT2v));
         args = strv_free(args);
 
         safe_close(fd);
@@ -741,7 +741,7 @@ TEST(setpriority_closest) {
 
                 /* It should also be possible to set the nice level to one higher */
                 if (p < PRIO_MAX-1) {
-                        assert_se(setpriority_closest(++p) > 0);
+                        ASSERT_GT(setpriority_closest(++p), 0);
 
                         errno = 0;
                         q = getpriority(PRIO_PROCESS, 0);
@@ -750,7 +750,7 @@ TEST(setpriority_closest) {
 
                 /* It should also be possible to set the nice level to two higher */
                 if (p < PRIO_MAX-1) {
-                        assert_se(setpriority_closest(++p) > 0);
+                        ASSERT_GT(setpriority_closest(++p), 0);
 
                         errno = 0;
                         q = getpriority(PRIO_PROCESS, 0);
@@ -759,29 +759,29 @@ TEST(setpriority_closest) {
 
                 if (full_test) {
                         /* These two should work, given the RLIMIT_NICE we set above */
-                        assert_se(setpriority_closest(-10) > 0);
+                        ASSERT_GT(setpriority_closest(-10), 0);
                         errno = 0;
                         q = getpriority(PRIO_PROCESS, 0);
                         assert_se(errno == 0 && q == -10);
 
-                        assert_se(setpriority_closest(-9) > 0);
+                        ASSERT_GT(setpriority_closest(-9), 0);
                         errno = 0;
                         q = getpriority(PRIO_PROCESS, 0);
                         assert_se(errno == 0 && q == -9);
 
                         /* This should succeed but should be clamped to the limit */
-                        assert_se(setpriority_closest(-11) == 0);
+                        ASSERT_EQ(setpriority_closest(-11), 0);
                         errno = 0;
                         q = getpriority(PRIO_PROCESS, 0);
                         assert_se(errno == 0 && q == -10);
 
-                        assert_se(setpriority_closest(-8) > 0);
+                        ASSERT_GT(setpriority_closest(-8), 0);
                         errno = 0;
                         q = getpriority(PRIO_PROCESS, 0);
                         assert_se(errno == 0 && q == -8);
 
                         /* This should succeed but should be clamped to the limit */
-                        assert_se(setpriority_closest(-12) == 0);
+                        ASSERT_EQ(setpriority_closest(-12), 0);
                         errno = 0;
                         q = getpriority(PRIO_PROCESS, 0);
                         assert_se(errno == 0 && q == -10);
@@ -882,7 +882,7 @@ TEST(get_process_threads) {
                 ASSERT_EQ(get_process_threads(0), 3);
 
                 assert_se(write(pfd[1], &(const char) { 'x' }, 1) == 1);
-                assert_se(pthread_join(t, NULL) == 0);
+                ASSERT_EQ(pthread_join(t, NULL), 0);
 
                 /* the value reported via /proc/ is decreased asynchronously, and there appears to be no nice
                  * way to sync on it. Hence we do the weak >= 2 check, even though == 2 is what we'd actually
@@ -890,7 +890,7 @@ TEST(get_process_threads) {
                 ASSERT_GE(get_process_threads(0), 2);
 
                 assert_se(write(ppfd[1], &(const char) { 'x' }, 1) == 1);
-                assert_se(pthread_join(tt, NULL) == 0);
+                ASSERT_EQ(pthread_join(tt, NULL), 0);
 
                 /* similar here */
                 ASSERT_GE(get_process_threads(0), 1);

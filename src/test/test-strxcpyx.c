@@ -24,27 +24,27 @@ TEST(strpcpy) {
         space_left = strpcpy_full(&s, space_left, "r", &truncated);
         ASSERT_FALSE(truncated);
         ASSERT_EQ(space_left, 1u);
-        assert_se(streq(target, "12345hey hey heywaldobar"));
+        ASSERT_TRUE(streq(target, "12345hey hey heywaldobar"));
 
         space_left = strpcpy_full(&s, space_left, "", &truncated);
         ASSERT_FALSE(truncated);
         ASSERT_EQ(space_left, 1u);
-        assert_se(streq(target, "12345hey hey heywaldobar"));
+        ASSERT_TRUE(streq(target, "12345hey hey heywaldobar"));
 
         space_left = strpcpy_full(&s, space_left, "f", &truncated);
         ASSERT_TRUE(truncated);
         ASSERT_EQ(space_left, 0u);
-        assert_se(streq(target, "12345hey hey heywaldobar"));
+        ASSERT_TRUE(streq(target, "12345hey hey heywaldobar"));
 
         space_left = strpcpy_full(&s, space_left, "", &truncated);
         ASSERT_FALSE(truncated);
         ASSERT_EQ(space_left, 0u);
-        assert_se(streq(target, "12345hey hey heywaldobar"));
+        ASSERT_TRUE(streq(target, "12345hey hey heywaldobar"));
 
         space_left = strpcpy_full(&s, space_left, "foo", &truncated);
         ASSERT_TRUE(truncated);
         ASSERT_EQ(space_left, 0u);
-        assert_se(streq(target, "12345hey hey heywaldobar"));
+        ASSERT_TRUE(streq(target, "12345hey hey heywaldobar"));
 }
 
 TEST(strpcpyf) {
@@ -107,22 +107,22 @@ TEST(strpcpyl) {
         space_left = strpcpyl_full(&s, space_left, &truncated, "Banana", NULL);
         ASSERT_FALSE(truncated);
         ASSERT_EQ(space_left, 1u);
-        assert_se(streq(target, "waldo test waldo. Banana"));
+        ASSERT_TRUE(streq(target, "waldo test waldo. Banana"));
 
         space_left = strpcpyl_full(&s, space_left, &truncated, "", "", "", NULL);
         ASSERT_FALSE(truncated);
         ASSERT_EQ(space_left, 1u);
-        assert_se(streq(target, "waldo test waldo. Banana"));
+        ASSERT_TRUE(streq(target, "waldo test waldo. Banana"));
 
         space_left = strpcpyl_full(&s, space_left, &truncated, "", "x", "", NULL);
         ASSERT_TRUE(truncated);
         ASSERT_EQ(space_left, 0u);
-        assert_se(streq(target, "waldo test waldo. Banana"));
+        ASSERT_TRUE(streq(target, "waldo test waldo. Banana"));
 
         space_left = strpcpyl_full(&s, space_left, &truncated, "hoge", NULL);
         ASSERT_TRUE(truncated);
         ASSERT_EQ(space_left, 0u);
-        assert_se(streq(target, "waldo test waldo. Banana"));
+        ASSERT_TRUE(streq(target, "waldo test waldo. Banana"));
 }
 
 TEST(strscpy) {
@@ -134,7 +134,7 @@ TEST(strscpy) {
         space_left = strscpy_full(target, space_left, "12345", &truncated);
         ASSERT_FALSE(truncated);
 
-        assert_se(streq(target, "12345"));
+        ASSERT_TRUE(streq(target, "12345"));
         ASSERT_EQ(space_left, 20u);
 }
 
@@ -147,7 +147,7 @@ TEST(strscpyl) {
         space_left = strscpyl_full(target, space_left, &truncated, "12345", "waldo", "waldo", NULL);
         ASSERT_FALSE(truncated);
 
-        assert_se(streq(target, "12345waldowaldo"));
+        ASSERT_TRUE(streq(target, "12345waldowaldo"));
         ASSERT_EQ(space_left, 10u);
 }
 
@@ -169,7 +169,7 @@ TEST(sd_event_code_migration) {
         for (i = 0; i < 100; i++)
                 l = strpcpyf(&p, l, "%u ", i);
 
-        assert_se(streq(b, c));
+        ASSERT_TRUE(streq(b, c));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

@@ -32,7 +32,7 @@ static void test_one(const char *val) {
         Set *s;
 
         log_info("Testing with SYSTEMD_MEMPOOL=%s", val);
-        assert_se(setenv("SYSTEMD_MEMPOOL", val, true) == 0);
+        ASSERT_EQ(setenv("SYSTEMD_MEMPOOL", val, true), 0);
 
         ASSERT_TRUE(is_main_thread());
         ASSERT_TRUE(mempool_enabled);    /* It is a weak symbol, but we expect it to be available */
@@ -43,7 +43,7 @@ static void test_one(const char *val) {
                 assert_se(set_put(s, &x[i]));
 
         assert_se(pthread_create(&t, NULL, thread, &s) == 0);
-        assert_se(pthread_join(t, NULL) == 0);
+        ASSERT_EQ(pthread_join(t, NULL), 0);
 
         ASSERT_FALSE(s);
 }

@@ -42,16 +42,16 @@ TEST(secure_bits_basic) {
         ASSERT_TRUE(secure_bits_is_valid(r));
         assert_se(secure_bits_to_string_alloc(r, &str) >= 0);
         printf("%s = 0x%x = %s\n", joined, (unsigned)r, str);
-        assert_se(streq(joined, str));
+        ASSERT_TRUE(streq(joined, str));
 
         str = mfree(str);
 
         /* Empty string */
         ASSERT_EQ(secure_bits_from_string(""), 0);
-        assert_se(secure_bits_from_string("     ") == 0);
+        ASSERT_EQ(secure_bits_from_string("     "), 0);
 
         /* Only invalid entries */
-        assert_se(secure_bits_from_string("foo bar baz") == 0);
+        ASSERT_EQ(secure_bits_from_string("foo bar baz"), 0);
 
         /* Empty secure bits */
         assert_se(secure_bits_to_string_alloc(0, &str) >= 0);

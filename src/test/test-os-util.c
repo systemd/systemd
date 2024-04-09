@@ -71,7 +71,7 @@ TEST(parse_extension_release) {
                 log_error_errno(r, "Failed to setup working directory: %m");
 
         assert_se(a = path_join(tempdir, "/usr/lib/extension-release.d/extension-release.test"));
-        assert_se(mkdir_parents(a, 0777) >= 0);
+        ASSERT_OK(mkdir_parents(a, 0777));
         ASSERT_GE(mkdir_parents(a, 0777), 0);
 
         r = write_string_file(a, "ID=the-id  \n VERSION_ID=the-version-id", WRITE_STRING_FILE_CREATE);
@@ -84,7 +84,7 @@ TEST(parse_extension_release) {
         assert_se(streq(version_id, "the-version-id"));
 
         assert_se(b = path_join(tempdir, "/etc/extension-release.d/extension-release.tester"));
-        assert_se(mkdir_parents(b, 0777) >= 0);
+        ASSERT_OK(mkdir_parents(b, 0777));
 
         r = write_string_file(b, "ID=\"ignored\" \n ID=\"the-id\" \n VERSION_ID='the-version-id'", WRITE_STRING_FILE_CREATE);
         if (r < 0)

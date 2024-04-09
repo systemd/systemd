@@ -21,7 +21,7 @@ TEST(cap_list) {
 
         assert_se(!CAPABILITY_TO_STRING(-1));
         if (capability_list_length() <= 62)
-                assert_se(streq(CAPABILITY_TO_STRING(62), "0x3e"));
+                ASSERT_TRUE(streq(CAPABILITY_TO_STRING(62), "0x3e"));
         ASSERT_FALSE(CAPABILITY_TO_STRING(64));
 
         for (int i = 0; i < capability_list_length(); i++) {
@@ -31,7 +31,7 @@ TEST(cap_list) {
                 assert_se(capability_from_name(n) == i);
                 printf("%s = %i\n", n, i);
 
-                assert_se(streq(CAPABILITY_TO_STRING(i), n));
+                ASSERT_TRUE(streq(CAPABILITY_TO_STRING(i), n));
         }
 
         assert_se(capability_from_name("asdfbsd") == -EINVAL);
@@ -61,7 +61,7 @@ TEST(cap_list) {
 
                 printf("%s vs. %s\n", a, b);
 
-                assert_se(strcasecmp(a, b) == 0);
+                ASSERT_EQ(strcasecmp(a, b), 0);
         }
 }
 
@@ -70,7 +70,7 @@ static void test_capability_set_one(uint64_t c, const char *t) {
         uint64_t c1, c_masked = c & all_capabilities();
 
         assert_se(capability_set_to_string(c, &t1) == 0);
-        assert_se(streq(t1, t));
+        ASSERT_TRUE(streq(t1, t));
 
         assert_se(capability_set_from_string(t1, &c1) > 0);
         assert_se(c1 == c_masked);
@@ -105,7 +105,7 @@ static void test_capability_set_to_strv_one(uint64_t m, char **l) {
         _cleanup_strv_free_ char **b = NULL;
 
         assert_se(capability_set_to_strv(m, &b) >= 0);
-        assert_se(strv_equal(l, b));
+        ASSERT_TRUE(strv_equal(l, b));
 }
 
 TEST(capability_set_to_strv) {

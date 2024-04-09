@@ -92,7 +92,7 @@ static void test_unit_name_replace_instance_one(const char *pattern, const char 
         _cleanup_free_ char *t = NULL;
         assert_se(unit_name_replace_instance(pattern, repl, &t) == ret);
         puts(strna(t));
-        assert_se(streq_ptr(t, expected));
+        ASSERT_TRUE(streq_ptr(t, expected));
 }
 
 TEST(unit_name_replace_instance) {
@@ -112,7 +112,7 @@ static void test_unit_name_from_path_one(const char *path, const char *suffix, c
 
         assert_se(unit_name_from_path(path, suffix, &t) == ret);
         puts(strna(t));
-        assert_se(streq_ptr(t, expected));
+        ASSERT_TRUE(streq_ptr(t, expected));
 
         if (t) {
                 _cleanup_free_ char *k = NULL;
@@ -124,7 +124,7 @@ static void test_unit_name_from_path_one(const char *path, const char *suffix, c
                 assert(r == 0);
 
                 puts(strna(k));
-                assert_se(path_equal(k, empty_to_root(path)));
+                ASSERT_TRUE(path_equal(k, empty_to_root(path)));
         }
 }
 
@@ -159,14 +159,14 @@ static void test_unit_name_from_path_instance_one(const char *pattern, const cha
 
         assert_se(unit_name_from_path_instance(pattern, path, suffix, &t) == ret);
         puts(strna(t));
-        assert_se(streq_ptr(t, expected));
+        ASSERT_TRUE(streq_ptr(t, expected));
 
         if (t) {
                 _cleanup_free_ char *k = NULL, *v = NULL;
 
                 assert_se(unit_name_to_instance(t, &k) > 0);
                 assert_se(unit_name_path_unescape(k, &v) == 0);
-                assert_se(path_equal(v, empty_to_root(path)));
+                ASSERT_TRUE(path_equal(v, empty_to_root(path)));
         }
 }
 
@@ -185,7 +185,7 @@ static void test_unit_name_to_path_one(const char *unit, const char *path, int r
         _cleanup_free_ char *p = NULL;
 
         assert_se(unit_name_to_path(unit, &p) == ret);
-        assert_se(streq_ptr(path, p));
+        ASSERT_TRUE(streq_ptr(path, p));
 }
 
 TEST(unit_name_to_path) {
@@ -208,7 +208,7 @@ static void test_unit_name_mangle_one(bool allow_globs, const char *pattern, con
 
         assert_se(r == ret);
         puts(strna(t));
-        assert_se(streq_ptr(t, expect));
+        ASSERT_TRUE(streq_ptr(t, expect));
 
         if (t) {
                 _cleanup_free_ char *k = NULL;
@@ -217,7 +217,7 @@ static void test_unit_name_mangle_one(bool allow_globs, const char *pattern, con
                           (allow_globs && string_is_glob(t)));
 
                 assert_se(unit_name_mangle(t, (allow_globs * UNIT_NAME_MANGLE_GLOB) | UNIT_NAME_MANGLE_WARN, &k) == 0);
-                assert_se(streq_ptr(t, k));
+                ASSERT_TRUE(streq_ptr(t, k));
         }
 }
 
@@ -246,7 +246,7 @@ static void test_unit_name_mangle_with_suffix_one(const char *arg, int expected,
         log_debug("%s: %s -> %d, %s", __func__, arg, r, strnull(s));
 
         assert_se(r == expected);
-        assert_se(streq_ptr(s, expected_name));
+        ASSERT_TRUE(streq_ptr(s, expected_name));
 }
 
 TEST(unit_name_mangle_with_suffix) {
@@ -343,12 +343,12 @@ TEST_RET(unit_printf, .sd_booted = true) {
                 assert_se(unit_full_printf(unit, pattern, &t) >= 0);    \
                 const char *expected = strempty(_expected);             \
                 printf("%s: result: %s\n    expect: %s\n", pattern, t, expected); \
-                assert_se(fnmatch(expected, t, FNM_NOESCAPE) == 0);     \
+                ASSERT_EQ(fnmatch(expected, t, FNM_NOESCAPE), 0);     \
         }
 
         assert_se(u = unit_new(m, sizeof(Service)));
-        assert_se(unit_add_name(u, "blah.service") == 0);
-        assert_se(unit_add_name(u, "blah.service") == 0);
+        ASSERT_EQ(unit_add_name(u, "blah.service"), 0);
+        ASSERT_EQ(unit_add_name(u, "blah.service"), 0);
 
         /* We need *a* file that exists, but it doesn't even need to have the right suffix. */
         assert_se(free_and_strdup(&u->fragment_path, filename) == 1);
@@ -477,7 +477,7 @@ TEST(unit_instance_is_valid) {
 
         assert_se(!unit_instance_is_valid("$¢£"));
         ASSERT_FALSE(unit_instance_is_valid(""));
-        assert_se(!unit_instance_is_valid("foo bar"));
+        ASSERT_FALSE(unit_instance_is_valid("foo bar"));
         assert_se(!unit_instance_is_valid("foo/bar"));
 }
 
@@ -490,7 +490,7 @@ TEST(unit_prefix_is_valid) {
 
         assert_se(!unit_prefix_is_valid("$¢£"));
         ASSERT_FALSE(unit_prefix_is_valid(""));
-        assert_se(!unit_prefix_is_valid("foo bar"));
+        ASSERT_FALSE(unit_prefix_is_valid("foo bar"));
         assert_se(!unit_prefix_is_valid("foo/bar"));
         assert_se(!unit_prefix_is_valid("@foo-bar"));
 }
@@ -499,7 +499,7 @@ TEST(unit_name_change_suffix) {
         char *t;
 
         assert_se(unit_name_change_suffix("foo.mount", ".service", &t) == 0);
-        assert_se(streq(t, "foo.service"));
+        ASSERT_TRUE(streq(t, "foo.service"));
         free(t);
 
         assert_se(unit_name_change_suffix("foo@stuff.service", ".socket", &t) == 0);
@@ -519,13 +519,13 @@ TEST(unit_name_build) {
         free(t);
 
         assert_se(unit_name_build("foo", NULL, ".service", &t) == 0);
-        assert_se(streq(t, "foo.service"));
+        ASSERT_TRUE(streq(t, "foo.service"));
         free(t);
 }
 
 TEST(slice_name_is_valid) {
-        assert_se( slice_name_is_valid(SPECIAL_ROOT_SLICE));
-        assert_se( slice_name_is_valid("foo.slice"));
+        ASSERT_TRUE( slice_name_is_valid(SPECIAL_ROOT_SLICE));
+        ASSERT_TRUE( slice_name_is_valid("foo.slice"));
         assert_se( slice_name_is_valid("foo-bar.slice"));
         assert_se( slice_name_is_valid("foo-bar-baz.slice"));
         assert_se(!slice_name_is_valid("-foo-bar-baz.slice"));
@@ -574,7 +574,7 @@ static void test_build_parent_slice_one(const char *name, const char *expect, in
         _cleanup_free_ char *s = NULL;
 
         assert_se(slice_build_parent_slice(name, &s) == ret);
-        assert_se(streq_ptr(s, expect));
+        ASSERT_TRUE(streq_ptr(s, expect));
 }
 
 TEST(build_parent_slice) {
@@ -602,17 +602,17 @@ TEST(unit_name_to_instance) {
 
         r = unit_name_to_instance("foo@bar.service", &instance);
         assert_se(r == UNIT_NAME_INSTANCE);
-        assert_se(streq(instance, "bar"));
+        ASSERT_TRUE(streq(instance, "bar"));
         free(instance);
 
         r = unit_name_to_instance("foo@.service", &instance);
         assert_se(r == UNIT_NAME_TEMPLATE);
-        assert_se(streq(instance, ""));
+        ASSERT_TRUE(streq(instance, ""));
         free(instance);
 
         r = unit_name_to_instance("fo0-stUff_b@b.service", &instance);
         assert_se(r == UNIT_NAME_INSTANCE);
-        assert_se(streq(instance, "b"));
+        ASSERT_TRUE(streq(instance, "b"));
         free(instance);
 
         r = unit_name_to_instance("foo.service", &instance);
@@ -641,7 +641,7 @@ static void test_u_n_t_one(const char *name, const char *expected, int ret) {
 
         assert_se(unit_name_template(name, &f) == ret);
         printf("got: %s, expected: %s\n", strna(f), strna(expected));
-        assert_se(streq_ptr(f, expected));
+        ASSERT_TRUE(streq_ptr(f, expected));
 }
 
 TEST(unit_name_template) {
@@ -653,7 +653,7 @@ static void test_unit_name_path_unescape_one(const char *name, const char *path,
         _cleanup_free_ char *p = NULL;
 
         assert_se(unit_name_path_unescape(name, &p) == ret);
-        assert_se(streq_ptr(path, p));
+        ASSERT_TRUE(streq_ptr(path, p));
 }
 
 TEST(unit_name_path_unescape) {
@@ -675,7 +675,7 @@ static void test_unit_name_to_prefix_one(const char *input, int ret, const char 
         _cleanup_free_ char *k = NULL;
 
         assert_se(unit_name_to_prefix(input, &k) == ret);
-        assert_se(streq_ptr(k, output));
+        ASSERT_TRUE(streq_ptr(k, output));
 }
 
 TEST(unit_name_to_prefix) {
@@ -695,7 +695,7 @@ static void test_unit_name_from_dbus_path_one(const char *input, int ret, const 
         _cleanup_free_ char *k = NULL;
 
         assert_se(unit_name_from_dbus_path(input, &k) == ret);
-        assert_se(streq_ptr(k, output));
+        ASSERT_TRUE(streq_ptr(k, output));
 }
 
 TEST(unit_name_from_dbus_path) {
@@ -985,17 +985,17 @@ TEST(unit_name_from_dbus_path) {
 }
 
 TEST(unit_name_prefix_equal) {
-        assert_se(unit_name_prefix_equal("a.service", "a.service"));
-        assert_se(unit_name_prefix_equal("a.service", "a.mount"));
+        ASSERT_TRUE(unit_name_prefix_equal("a.service", "a.service"));
+        ASSERT_TRUE(unit_name_prefix_equal("a.service", "a.mount"));
         assert_se(unit_name_prefix_equal("a@b.service", "a.service"));
         assert_se(unit_name_prefix_equal("a@b.service", "a@c.service"));
 
-        assert_se(!unit_name_prefix_equal("a.service", "b.service"));
-        assert_se(!unit_name_prefix_equal("a.service", "b.mount"));
+        ASSERT_FALSE(unit_name_prefix_equal("a.service", "b.service"));
+        ASSERT_FALSE(unit_name_prefix_equal("a.service", "b.mount"));
         assert_se(!unit_name_prefix_equal("a@a.service", "b.service"));
         assert_se(!unit_name_prefix_equal("a@a.service", "b@a.service"));
-        assert_se(!unit_name_prefix_equal("a", "b"));
-        assert_se(!unit_name_prefix_equal("a", "a"));
+        ASSERT_FALSE(unit_name_prefix_equal("a", "b"));
+        ASSERT_FALSE(unit_name_prefix_equal("a", "a"));
 }
 
 static int intro(void) {

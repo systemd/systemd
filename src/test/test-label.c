@@ -117,7 +117,7 @@ TEST(label_ops_pre) {
         label_ops_reset();
         label_ops_set(&test_label_ops);
         fd = get_dir_fd("file1.txt", 0755);
-        assert_se(label_ops_pre(fd, "file1.txt", 0644) == 0);
+        ASSERT_EQ(label_ops_pre(fd, "file1.txt", 0644), 0);
         assert_se(label_ops_pre(fd, "/restricted_directory", 0644) == -EACCES);
         assert_se(label_ops_pre(fd, "", 0700) == -EINVAL);
         assert_se(label_ops_pre(fd, "/tmp", 0700) == 0);
@@ -140,12 +140,12 @@ TEST(label_ops_post) {
         text1 = "Add initial texts to file for testing label operations to file1\n";
 
         assert(labelling_op(fd, text1, "file1.txt", 0644) == 0);
-        assert_se(label_ops_post(fd, "file1.txt") == 0);
+        ASSERT_EQ(label_ops_post(fd, "file1.txt"), 0);
         assert_se(strlen(text1) == (size_t)buf.st_size);
         text2 = "Add text2 data to file2\n";
 
         assert(labelling_op(fd, text2, "file2.txt", 0644) == 0);
-        assert_se(label_ops_post(fd, "file2.txt") == 0);
+        ASSERT_EQ(label_ops_post(fd, "file2.txt"), 0);
         assert_se(strlen(text2) == (size_t)buf.st_size);
         assert_se(label_ops_post(fd, "file3.txt") == -ENOENT);
         assert_se(label_ops_post(fd, "/abcd") == -ENOENT);

@@ -119,9 +119,9 @@ TEST(path_simplify_and_warn) {
         assert_se(test_path_simplify_and_warn_one("/foo/./bar", "/foo/bar", 0) == 0);
         assert_se(test_path_simplify_and_warn_one("/proc/self///fd", "/proc/self/fd", 0) == 0);
         assert_se(test_path_simplify_and_warn_one("/proc/self///fd", "/proc/self/fd", PATH_CHECK_NON_API_VFS) == -EINVAL);
-        assert_se(test_path_simplify_and_warn_one("aaaa", "aaaa", 0) == 0);
+        ASSERT_EQ(test_path_simplify_and_warn_one("aaaa", "aaaa", 0), 0);
         assert_se(test_path_simplify_and_warn_one("aaaa", "aaaa", PATH_CHECK_ABSOLUTE) == -EINVAL);
-        assert_se(test_path_simplify_and_warn_one("aaaa", "aaaa", PATH_CHECK_RELATIVE) == 0);
+        ASSERT_EQ(test_path_simplify_and_warn_one("aaaa", "aaaa", PATH_CHECK_RELATIVE), 0);
         assert_se(test_path_simplify_and_warn_one("/aaaa", "/aaaa", 0) == 0);
         assert_se(test_path_simplify_and_warn_one("/aaaa", "/aaaa", PATH_CHECK_ABSOLUTE) == 0);
         assert_se(test_path_simplify_and_warn_one("/aaaa", "/aaaa", PATH_CHECK_RELATIVE) == -EINVAL);
