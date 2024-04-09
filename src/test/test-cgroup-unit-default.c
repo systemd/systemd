@@ -118,7 +118,7 @@ TEST_RET(default_memory_low, .sd_booted = true) {
 
         assert_se(unit_get_ancestor_memory_low(dml) == CGROUP_LIMIT_MIN);
         dml_tree_default = unit_get_cgroup_context(dml)->default_memory_low;
-        ASSERT_EQ(dml_tree_default, 50);
+        ASSERT_EQ(dml_tree_default, 50u);
 
         ASSERT_EQ(unit_get_ancestor_memory_low(dml_passthrough), 100u);
         assert_se(unit_get_ancestor_memory_low(dml_passthrough_empty) == dml_tree_default);
