@@ -21,7 +21,7 @@ static void test_uid_to_name_one(uid_t uid, const char *name) {
                 log_info("(skipping detailed tests because nobody is not synthesized)");
                 return;
         }
-        assert_se(streq_ptr(t, name));
+        ASSERT_TRUE(streq_ptr(t, name));
 }
 
 TEST(uid_to_name) {
@@ -41,7 +41,7 @@ static void test_gid_to_name_one(gid_t gid, const char *name) {
                 log_info("(skipping detailed tests because nobody is not synthesized)");
                 return;
         }
-        assert_se(streq_ptr(t, name));
+        ASSERT_TRUE(streq_ptr(t, name));
 }
 
 TEST(gid_to_name) {
@@ -145,79 +145,79 @@ TEST(uid_ptr) {
 }
 
 TEST(valid_user_group_name_relaxed) {
-        assert_se(!valid_user_group_name(NULL, VALID_USER_RELAX));
-        assert_se(!valid_user_group_name("", VALID_USER_RELAX));
-        assert_se(!valid_user_group_name("1", VALID_USER_RELAX));
-        assert_se(!valid_user_group_name("65535", VALID_USER_RELAX));
+        ASSERT_FALSE(valid_user_group_name(NULL, VALID_USER_RELAX));
+        ASSERT_FALSE(valid_user_group_name("", VALID_USER_RELAX));
+        ASSERT_FALSE(valid_user_group_name("1", VALID_USER_RELAX));
+        ASSERT_FALSE(valid_user_group_name("65535", VALID_USER_RELAX));
         assert_se(!valid_user_group_name("-1", VALID_USER_RELAX));
         assert_se(!valid_user_group_name("foo\nbar", VALID_USER_RELAX));
-        assert_se(!valid_user_group_name("0123456789012345678901234567890123456789", VALID_USER_RELAX));
+        ASSERT_FALSE(valid_user_group_name("0123456789012345678901234567890123456789", VALID_USER_RELAX));
         assert_se(!valid_user_group_name("aaa:bbb", VALID_USER_RELAX|VALID_USER_ALLOW_NUMERIC));
         assert_se(!valid_user_group_name(".aaa:bbb", VALID_USER_RELAX|VALID_USER_ALLOW_NUMERIC));
-        assert_se(!valid_user_group_name(".", VALID_USER_RELAX));
-        assert_se(!valid_user_group_name("..", VALID_USER_RELAX));
+        ASSERT_FALSE(valid_user_group_name(".", VALID_USER_RELAX));
+        ASSERT_FALSE(valid_user_group_name("..", VALID_USER_RELAX));
 
-        assert_se(valid_user_group_name("root", VALID_USER_RELAX));
-        assert_se(valid_user_group_name("lennart", VALID_USER_RELAX));
-        assert_se(valid_user_group_name("LENNART", VALID_USER_RELAX));
-        assert_se(valid_user_group_name("_kkk", VALID_USER_RELAX));
+        ASSERT_TRUE(valid_user_group_name("root", VALID_USER_RELAX));
+        ASSERT_TRUE(valid_user_group_name("lennart", VALID_USER_RELAX));
+        ASSERT_TRUE(valid_user_group_name("LENNART", VALID_USER_RELAX));
+        ASSERT_TRUE(valid_user_group_name("_kkk", VALID_USER_RELAX));
         assert_se(valid_user_group_name("kkk-", VALID_USER_RELAX));
         assert_se(valid_user_group_name("kk-k", VALID_USER_RELAX));
-        assert_se(valid_user_group_name("eff.eff", VALID_USER_RELAX));
-        assert_se(valid_user_group_name("eff.", VALID_USER_RELAX));
+        ASSERT_TRUE(valid_user_group_name("eff.eff", VALID_USER_RELAX));
+        ASSERT_TRUE(valid_user_group_name("eff.", VALID_USER_RELAX));
         assert_se(valid_user_group_name("-kkk", VALID_USER_RELAX));
         assert_se(valid_user_group_name("rööt", VALID_USER_RELAX));
-        assert_se(valid_user_group_name(".eff", VALID_USER_RELAX));
-        assert_se(valid_user_group_name(".1", VALID_USER_RELAX));
-        assert_se(valid_user_group_name(".65535", VALID_USER_RELAX));
+        ASSERT_TRUE(valid_user_group_name(".eff", VALID_USER_RELAX));
+        ASSERT_TRUE(valid_user_group_name(".1", VALID_USER_RELAX));
+        ASSERT_TRUE(valid_user_group_name(".65535", VALID_USER_RELAX));
         assert_se(valid_user_group_name(".-1", VALID_USER_RELAX));
         assert_se(valid_user_group_name(".-kkk", VALID_USER_RELAX));
         assert_se(valid_user_group_name(".rööt", VALID_USER_RELAX));
-        assert_se(valid_user_group_name("...", VALID_USER_RELAX));
+        ASSERT_TRUE(valid_user_group_name("...", VALID_USER_RELAX));
 
-        assert_se(valid_user_group_name("some5", VALID_USER_RELAX));
-        assert_se(valid_user_group_name("5some", VALID_USER_RELAX));
-        assert_se(valid_user_group_name("INNER5NUMBER", VALID_USER_RELAX));
+        ASSERT_TRUE(valid_user_group_name("some5", VALID_USER_RELAX));
+        ASSERT_TRUE(valid_user_group_name("5some", VALID_USER_RELAX));
+        ASSERT_TRUE(valid_user_group_name("INNER5NUMBER", VALID_USER_RELAX));
 
         assert_se(valid_user_group_name("piff.paff@ad.domain.example", VALID_USER_RELAX));
         assert_se(valid_user_group_name("Dāvis", VALID_USER_RELAX));
 }
 
 TEST(valid_user_group_name) {
-        assert_se(!valid_user_group_name(NULL, 0));
-        assert_se(!valid_user_group_name("", 0));
-        assert_se(!valid_user_group_name("1", 0));
-        assert_se(!valid_user_group_name("65535", 0));
+        ASSERT_FALSE(valid_user_group_name(NULL, 0));
+        ASSERT_FALSE(valid_user_group_name("", 0));
+        ASSERT_FALSE(valid_user_group_name("1", 0));
+        ASSERT_FALSE(valid_user_group_name("65535", 0));
         assert_se(!valid_user_group_name("-1", 0));
         assert_se(!valid_user_group_name("-kkk", 0));
         assert_se(!valid_user_group_name("rööt", 0));
-        assert_se(!valid_user_group_name(".", 0));
-        assert_se(!valid_user_group_name(".eff", 0));
+        ASSERT_FALSE(valid_user_group_name(".", 0));
+        ASSERT_FALSE(valid_user_group_name(".eff", 0));
         assert_se(!valid_user_group_name("foo\nbar", 0));
-        assert_se(!valid_user_group_name("0123456789012345678901234567890123456789", 0));
+        ASSERT_FALSE(valid_user_group_name("0123456789012345678901234567890123456789", 0));
         assert_se(!valid_user_group_name("aaa:bbb", VALID_USER_ALLOW_NUMERIC));
-        assert_se(!valid_user_group_name(".", 0));
-        assert_se(!valid_user_group_name("..", 0));
-        assert_se(!valid_user_group_name("...", 0));
-        assert_se(!valid_user_group_name(".1", 0));
-        assert_se(!valid_user_group_name(".65535", 0));
+        ASSERT_FALSE(valid_user_group_name(".", 0));
+        ASSERT_FALSE(valid_user_group_name("..", 0));
+        ASSERT_FALSE(valid_user_group_name("...", 0));
+        ASSERT_FALSE(valid_user_group_name(".1", 0));
+        ASSERT_FALSE(valid_user_group_name(".65535", 0));
         assert_se(!valid_user_group_name(".-1", 0));
         assert_se(!valid_user_group_name(".-kkk", 0));
         assert_se(!valid_user_group_name(".rööt", 0));
         assert_se(!valid_user_group_name(".aaa:bbb", VALID_USER_ALLOW_NUMERIC));
 
-        assert_se(valid_user_group_name("root", 0));
-        assert_se(valid_user_group_name("lennart", 0));
-        assert_se(valid_user_group_name("LENNART", 0));
-        assert_se(valid_user_group_name("_kkk", 0));
+        ASSERT_TRUE(valid_user_group_name("root", 0));
+        ASSERT_TRUE(valid_user_group_name("lennart", 0));
+        ASSERT_TRUE(valid_user_group_name("LENNART", 0));
+        ASSERT_TRUE(valid_user_group_name("_kkk", 0));
         assert_se(valid_user_group_name("kkk-", 0));
         assert_se(valid_user_group_name("kk-k", 0));
-        assert_se(!valid_user_group_name("eff.eff", 0));
-        assert_se(!valid_user_group_name("eff.", 0));
+        ASSERT_FALSE(valid_user_group_name("eff.eff", 0));
+        ASSERT_FALSE(valid_user_group_name("eff.", 0));
 
-        assert_se(valid_user_group_name("some5", 0));
-        assert_se(!valid_user_group_name("5some", 0));
-        assert_se(valid_user_group_name("INNER5NUMBER", 0));
+        ASSERT_TRUE(valid_user_group_name("some5", 0));
+        ASSERT_FALSE(valid_user_group_name("5some", 0));
+        ASSERT_TRUE(valid_user_group_name("INNER5NUMBER", 0));
 
         assert_se(!valid_user_group_name("piff.paff@ad.domain.example", 0));
         assert_se(!valid_user_group_name("Dāvis", 0));
@@ -260,36 +260,36 @@ TEST(valid_user_group_name_or_numeric_relaxed) {
 }
 
 TEST(valid_user_group_name_or_numeric) {
-        assert_se(!valid_user_group_name(NULL, VALID_USER_ALLOW_NUMERIC));
-        assert_se(!valid_user_group_name("", VALID_USER_ALLOW_NUMERIC));
-        assert_se(valid_user_group_name("0", VALID_USER_ALLOW_NUMERIC));
-        assert_se(valid_user_group_name("1", VALID_USER_ALLOW_NUMERIC));
-        assert_se(valid_user_group_name("65534", VALID_USER_ALLOW_NUMERIC));
-        assert_se(!valid_user_group_name("65535", VALID_USER_ALLOW_NUMERIC));
-        assert_se(valid_user_group_name("65536", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_FALSE(valid_user_group_name(NULL, VALID_USER_ALLOW_NUMERIC));
+        ASSERT_FALSE(valid_user_group_name("", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_TRUE(valid_user_group_name("0", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_TRUE(valid_user_group_name("1", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_TRUE(valid_user_group_name("65534", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_FALSE(valid_user_group_name("65535", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_TRUE(valid_user_group_name("65536", VALID_USER_ALLOW_NUMERIC));
         assert_se(!valid_user_group_name("-1", VALID_USER_ALLOW_NUMERIC));
         assert_se(!valid_user_group_name("-kkk", VALID_USER_ALLOW_NUMERIC));
         assert_se(!valid_user_group_name("rööt", VALID_USER_ALLOW_NUMERIC));
-        assert_se(!valid_user_group_name(".", VALID_USER_ALLOW_NUMERIC));
-        assert_se(!valid_user_group_name("..", VALID_USER_ALLOW_NUMERIC));
-        assert_se(!valid_user_group_name("...", VALID_USER_ALLOW_NUMERIC));
-        assert_se(!valid_user_group_name(".eff", VALID_USER_ALLOW_NUMERIC));
-        assert_se(!valid_user_group_name("eff.eff", VALID_USER_ALLOW_NUMERIC));
-        assert_se(!valid_user_group_name("eff.", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_FALSE(valid_user_group_name(".", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_FALSE(valid_user_group_name("..", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_FALSE(valid_user_group_name("...", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_FALSE(valid_user_group_name(".eff", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_FALSE(valid_user_group_name("eff.eff", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_FALSE(valid_user_group_name("eff.", VALID_USER_ALLOW_NUMERIC));
         assert_se(!valid_user_group_name("foo\nbar", VALID_USER_ALLOW_NUMERIC));
-        assert_se(!valid_user_group_name("0123456789012345678901234567890123456789", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_FALSE(valid_user_group_name("0123456789012345678901234567890123456789", VALID_USER_ALLOW_NUMERIC));
         assert_se(!valid_user_group_name("aaa:bbb", VALID_USER_ALLOW_NUMERIC));
 
-        assert_se(valid_user_group_name("root", VALID_USER_ALLOW_NUMERIC));
-        assert_se(valid_user_group_name("lennart", VALID_USER_ALLOW_NUMERIC));
-        assert_se(valid_user_group_name("LENNART", VALID_USER_ALLOW_NUMERIC));
-        assert_se(valid_user_group_name("_kkk", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_TRUE(valid_user_group_name("root", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_TRUE(valid_user_group_name("lennart", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_TRUE(valid_user_group_name("LENNART", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_TRUE(valid_user_group_name("_kkk", VALID_USER_ALLOW_NUMERIC));
         assert_se(valid_user_group_name("kkk-", VALID_USER_ALLOW_NUMERIC));
         assert_se(valid_user_group_name("kk-k", VALID_USER_ALLOW_NUMERIC));
 
-        assert_se(valid_user_group_name("some5", VALID_USER_ALLOW_NUMERIC));
-        assert_se(!valid_user_group_name("5some", VALID_USER_ALLOW_NUMERIC));
-        assert_se(valid_user_group_name("INNER5NUMBER", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_TRUE(valid_user_group_name("some5", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_FALSE(valid_user_group_name("5some", VALID_USER_ALLOW_NUMERIC));
+        ASSERT_TRUE(valid_user_group_name("INNER5NUMBER", VALID_USER_ALLOW_NUMERIC));
 
         assert_se(!valid_user_group_name("piff.paff@ad.domain.example", VALID_USER_ALLOW_NUMERIC));
         assert_se(!valid_user_group_name("Dāvis", VALID_USER_ALLOW_NUMERIC));
@@ -338,10 +338,10 @@ static void test_get_user_creds_one(const char *id, const char *name, uid_t uid,
                 return;
         }
         ASSERT_EQ(r, 0);
-        assert_se(streq_ptr(id, name));
+        ASSERT_TRUE(streq_ptr(id, name));
         assert_se(ruid == uid);
         assert_se(rgid == gid);
-        assert_se(path_equal(rhome, home));
+        ASSERT_TRUE(path_equal(rhome, home));
 }
 
 TEST(get_user_creds) {
@@ -364,7 +364,7 @@ static void test_get_group_creds_one(const char *id, const char *name, gid_t gid
                 return;
         }
         ASSERT_EQ(r, 0);
-        assert_se(streq_ptr(id, name));
+        ASSERT_TRUE(streq_ptr(id, name));
         assert_se(rgid == gid);
 }
 
@@ -384,7 +384,7 @@ TEST(make_salt) {
         assert_se(make_salt(&t) == 0);
         log_info("got %s", t);
 
-        assert_se(!streq(s, t));
+        ASSERT_FALSE(streq(s, t));
 }
 
 TEST(in_gid) {
@@ -412,19 +412,19 @@ TEST(gid_lists_ops) {
 
         nresult = merge_gid_lists(l2, ELEMENTSOF(l2), l3, ELEMENTSOF(l3), &res1);
         ASSERT_OK(nresult);
-        assert_se(memcmp_nn(res1, nresult, result1, ELEMENTSOF(result1)) == 0);
+        ASSERT_EQ(memcmp_nn(res1, nresult, result1, ELEMENTSOF(result1)), 0);
 
         nresult = merge_gid_lists(NULL, 0, l2, ELEMENTSOF(l2), &res2);
         ASSERT_OK(nresult);
-        assert_se(memcmp_nn(res2, nresult, l2, ELEMENTSOF(l2)) == 0);
+        ASSERT_EQ(memcmp_nn(res2, nresult, l2, ELEMENTSOF(l2)), 0);
 
         nresult = merge_gid_lists(l1, ELEMENTSOF(l1), l1, ELEMENTSOF(l1), &res3);
         ASSERT_OK(nresult);
-        assert_se(memcmp_nn(l1, ELEMENTSOF(l1), res3, nresult) == 0);
+        ASSERT_EQ(memcmp_nn(l1, ELEMENTSOF(l1), res3, nresult), 0);
 
         nresult = merge_gid_lists(l1, ELEMENTSOF(l1), l4, ELEMENTSOF(l4), &res4);
         ASSERT_OK(nresult);
-        assert_se(memcmp_nn(result2, ELEMENTSOF(result2), res4, nresult) == 0);
+        ASSERT_EQ(memcmp_nn(result2, ELEMENTSOF(result2), res4, nresult), 0);
 
         nresult = getgroups_alloc(&gids);
         assert_se(nresult >= 0 || nresult == -EINVAL || nresult == -ENOMEM);
@@ -466,7 +466,7 @@ static void test_mangle_gecos_one(const char *input, const char *expected) {
         _cleanup_free_ char *p = NULL;
 
         assert_se(p = mangle_gecos(input));
-        assert_se(streq(p, expected));
+        ASSERT_TRUE(streq(p, expected));
         ASSERT_TRUE(valid_gecos(p));
 }
 

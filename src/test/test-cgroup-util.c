@@ -23,7 +23,7 @@ static void check_p_d_u(const char *path, int code, const char *result) {
         r = cg_path_decode_unit(path, &unit);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
         assert_se(r == code);
-        assert_se(streq_ptr(unit, result));
+        ASSERT_TRUE(streq_ptr(unit, result));
 }
 
 TEST(path_decode_unit) {
@@ -45,7 +45,7 @@ static void check_p_g_u(const char *path, int code, const char *result) {
         r = cg_path_get_unit(path, &unit);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
         assert_se(r == code);
-        assert_se(streq_ptr(unit, result));
+        ASSERT_TRUE(streq_ptr(unit, result));
 }
 
 TEST(path_get_unit) {
@@ -69,7 +69,7 @@ static void check_p_g_u_p(const char *path, int code, const char *result) {
         r = cg_path_get_unit_path(path, &unit_path);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit_path, r, strnull(result), code);
         assert_se(r == code);
-        assert_se(streq_ptr(unit_path, result));
+        ASSERT_TRUE(streq_ptr(unit_path, result));
 }
 
 TEST(path_get_unit_path) {
@@ -96,7 +96,7 @@ static void check_p_g_u_u(const char *path, int code, const char *result) {
         r = cg_path_get_user_unit(path, &unit);
         printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
         assert_se(r == code);
-        assert_se(streq_ptr(unit, result));
+        ASSERT_TRUE(streq_ptr(unit, result));
 }
 
 TEST(path_get_user_unit) {
@@ -119,7 +119,7 @@ static void check_p_g_s(const char *path, int code, const char *result) {
         _cleanup_free_ char *s = NULL;
 
         assert_se(cg_path_get_session(path, &s) == code);
-        assert_se(streq_ptr(s, result));
+        ASSERT_TRUE(streq_ptr(s, result));
 }
 
 TEST(path_get_session) {
@@ -146,7 +146,7 @@ static void check_p_g_slice(const char *path, int code, const char *result) {
         _cleanup_free_ char *s = NULL;
 
         assert_se(cg_path_get_slice(path, &s) == code);
-        assert_se(streq_ptr(s, result));
+        ASSERT_TRUE(streq_ptr(s, result));
 }
 
 TEST(path_get_slice) {
@@ -163,7 +163,7 @@ static void check_p_g_u_slice(const char *path, int code, const char *result) {
         _cleanup_free_ char *s = NULL;
 
         assert_se(cg_path_get_user_slice(path, &s) == code);
-        assert_se(streq_ptr(s, result));
+        ASSERT_TRUE(streq_ptr(s, result));
 }
 
 TEST(path_get_user_slice) {
@@ -239,9 +239,9 @@ static void test_escape_one(const char *s, const char *expected) {
         ASSERT_TRUE(expected);
 
         ASSERT_OK(cg_escape(s, &b));
-        assert_se(streq(b, expected));
+        ASSERT_TRUE(streq(b, expected));
 
-        assert_se(streq(cg_unescape(b), s));
+        ASSERT_TRUE(streq(cg_unescape(b), s));
 
         ASSERT_TRUE(filename_is_valid(b));
         assert_se(!cg_needs_escape(s) || b[0] == '_');
@@ -284,7 +284,7 @@ static void test_slice_to_path_one(const char *unit, const char *path, int error
         log_info("actual: %s / %d", strnull(ret), r);
         log_info("expect: %s / %d", strnull(path), error);
         assert_se(r == error);
-        assert_se(streq_ptr(ret, path));
+        ASSERT_TRUE(streq_ptr(ret, path));
 }
 
 TEST(slice_to_path) {
@@ -316,7 +316,7 @@ static void test_shift_path_one(const char *raw, const char *root, const char *s
         const char *s = NULL;
 
         ASSERT_OK(cg_shift_path(raw, root, &s));
-        assert_se(streq(s, shifted));
+        ASSERT_TRUE(streq(s, shifted));
 }
 
 TEST(shift_path) {
@@ -370,13 +370,13 @@ TEST(cg_tests) {
         ASSERT_OK(r);
 
         all = cg_all_unified();
-        assert_se(IN_SET(all, 0, 1));
+        ASSERT_TRUE(IN_SET(all, 0, 1));
 
         hybrid = cg_hybrid_unified();
-        assert_se(IN_SET(hybrid, 0, 1));
+        ASSERT_TRUE(IN_SET(hybrid, 0, 1));
 
         systemd = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        assert_se(IN_SET(systemd, 0, 1));
+        ASSERT_TRUE(IN_SET(systemd, 0, 1));
 
         if (all) {
                 ASSERT_TRUE(systemd);

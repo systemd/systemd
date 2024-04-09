@@ -17,7 +17,7 @@ TEST(memstream_empty) {
 
         assert_se(memstream_init(&m));
         assert_se(memstream_finalize(&m, &buf, &sz) >= 0);
-        assert_se(streq(buf, ""));
+        ASSERT_TRUE(streq(buf, ""));
         ASSERT_EQ(sz, 0u);
 }
 
@@ -40,7 +40,7 @@ TEST(memstream) {
         assert_se(f = memstream_init(&m));
         fputs("second", f);
         assert_se(memstream_finalize(&m, &buf, &sz) >= 0);
-        assert_se(streq(buf, "second"));
+        ASSERT_TRUE(streq(buf, "second"));
         assert_se(sz == strlen("second"));
 }
 

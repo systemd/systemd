@@ -11,9 +11,9 @@ TEST(manager_taint_string) {
         log_debug("taint string: '%s'", a);
 
         if (cg_all_unified() == 0)
-                assert_se(strstr(a, "cgroupsv1"));
+                ASSERT_TRUE(strstr(a, "cgroupsv1"));
         else
-                assert_se(!strstr(a, "cgroupsv1"));
+                ASSERT_FALSE(strstr(a, "cgroupsv1"));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -64,18 +64,18 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
         assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0) >= 0);
         ASSERT_TRUE(m);
 
-        assert_se(sd_netlink_message_append_string(m, IFLA_IFNAME, "ipip-tunnel") >= 0);
+        ASSERT_OK(sd_netlink_message_append_string(m, IFLA_IFNAME, "ipip-tunnel"));
         assert_se(sd_netlink_message_append_u32(m, IFLA_MTU, 1234)>= 0);
 
-        assert_se(sd_netlink_message_open_container(m, IFLA_LINKINFO) >= 0);
+        ASSERT_OK(sd_netlink_message_open_container(m, IFLA_LINKINFO));
 
-        assert_se(sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "ipip") >= 0);
+        ASSERT_OK(sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "ipip"));
 
         inet_pton(AF_INET, "192.168.21.1", &local.s_addr);
-        assert_se(sd_netlink_message_append_u32(m, IFLA_IPTUN_LOCAL, local.s_addr) >= 0);
+        ASSERT_OK(sd_netlink_message_append_u32(m, IFLA_IPTUN_LOCAL, local.s_addr));
 
         inet_pton(AF_INET, "192.168.21.2", &remote.s_addr);
-        assert_se(sd_netlink_message_append_u32(m, IFLA_IPTUN_REMOTE, remote.s_addr) >= 0);
+        ASSERT_OK(sd_netlink_message_append_u32(m, IFLA_IPTUN_REMOTE, remote.s_addr));
 
         ASSERT_OK(sd_netlink_message_close_container(m));
         ASSERT_OK(sd_netlink_message_close_container(m));
@@ -88,20 +88,20 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
         assert_se(sd_rtnl_message_new_link(rtnl, &n, RTM_NEWLINK, 0) >= 0);
         ASSERT_TRUE(n);
 
-        assert_se(sd_netlink_message_append_string(n, IFLA_IFNAME, "sit-tunnel") >= 0);
+        ASSERT_OK(sd_netlink_message_append_string(n, IFLA_IFNAME, "sit-tunnel"));
         assert_se(sd_netlink_message_append_u32(n, IFLA_MTU, 1234)>= 0);
 
-        assert_se(sd_netlink_message_open_container(n, IFLA_LINKINFO) >= 0);
+        ASSERT_OK(sd_netlink_message_open_container(n, IFLA_LINKINFO));
 
-        assert_se(sd_netlink_message_open_container_union(n, IFLA_INFO_DATA, "sit") >= 0);
+        ASSERT_OK(sd_netlink_message_open_container_union(n, IFLA_INFO_DATA, "sit"));
 
-        assert_se(sd_netlink_message_append_u8(n, IFLA_IPTUN_PROTO, IPPROTO_IPIP) >= 0);
+        ASSERT_OK(sd_netlink_message_append_u8(n, IFLA_IPTUN_PROTO, IPPROTO_IPIP));
 
         inet_pton(AF_INET, "192.168.21.3", &local.s_addr);
-        assert_se(sd_netlink_message_append_u32(n, IFLA_IPTUN_LOCAL, local.s_addr) >= 0);
+        ASSERT_OK(sd_netlink_message_append_u32(n, IFLA_IPTUN_LOCAL, local.s_addr));
 
         inet_pton(AF_INET, "192.168.21.4", &remote.s_addr);
-        assert_se(sd_netlink_message_append_u32(n, IFLA_IPTUN_REMOTE, remote.s_addr) >= 0);
+        ASSERT_OK(sd_netlink_message_append_u32(n, IFLA_IPTUN_REMOTE, remote.s_addr));
 
         ASSERT_OK(sd_netlink_message_close_container(n));
         ASSERT_OK(sd_netlink_message_close_container(n));

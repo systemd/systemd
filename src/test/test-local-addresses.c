@@ -197,9 +197,9 @@ TEST(local_addresses_with_dummy) {
 
         /* Create a dummy interface */
         assert_se(sd_rtnl_message_new_link(rtnl, &message, RTM_NEWLINK, 0) >= 0);
-        assert_se(sd_netlink_message_append_string(message, IFLA_IFNAME, "test-local-addr") >= 0);
-        assert_se(sd_netlink_message_open_container(message, IFLA_LINKINFO) >= 0);
-        assert_se(sd_netlink_message_append_string(message, IFLA_INFO_KIND, "dummy") >= 0);
+        ASSERT_OK(sd_netlink_message_append_string(message, IFLA_IFNAME, "test-local-addr"));
+        ASSERT_OK(sd_netlink_message_open_container(message, IFLA_LINKINFO));
+        ASSERT_OK(sd_netlink_message_append_string(message, IFLA_INFO_KIND, "dummy"));
         r = sd_netlink_call(rtnl, message, 0, NULL);
         if (r == -EPERM)
                 return (void) log_tests_skipped("missing required capabilities");
@@ -210,7 +210,7 @@ TEST(local_addresses_with_dummy) {
 
         /* Get ifindex */
         assert_se(sd_rtnl_message_new_link(rtnl, &message, RTM_GETLINK, 0) >= 0);
-        assert_se(sd_netlink_message_append_string(message, IFLA_IFNAME, "test-local-addr") >= 0);
+        ASSERT_OK(sd_netlink_message_append_string(message, IFLA_IFNAME, "test-local-addr"));
         assert_se(sd_netlink_call(rtnl, message, 0, &reply) >= 0);
         assert_se(sd_rtnl_message_link_get_ifindex(reply, &ifindex) >= 0);
         ASSERT_GT(ifindex, 0);
@@ -219,65 +219,65 @@ TEST(local_addresses_with_dummy) {
 
         /* Bring the interface up */
         assert_se(sd_rtnl_message_new_link(rtnl, &message, RTM_SETLINK, ifindex) >= 0);
-        assert_se(sd_rtnl_message_link_set_flags(message, IFF_UP, IFF_UP) >= 0);
-        assert_se(sd_netlink_call(rtnl, message, 0, NULL) >= 0);
+        ASSERT_OK(sd_rtnl_message_link_set_flags(message, IFF_UP, IFF_UP));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
         message = sd_netlink_message_unref(message);
 
         /* Add an IPv4 address */
         assert_se(sd_rtnl_message_new_addr_update(rtnl, &message, ifindex, AF_INET) >= 0);
-        assert_se(sd_rtnl_message_addr_set_scope(message, RT_SCOPE_UNIVERSE) >= 0);
-        assert_se(sd_rtnl_message_addr_set_prefixlen(message, 16) >= 0);
+        ASSERT_OK(sd_rtnl_message_addr_set_scope(message, RT_SCOPE_UNIVERSE));
+        ASSERT_OK(sd_rtnl_message_addr_set_prefixlen(message, 16));
         assert_se(in_addr_from_string(AF_INET, "10.123.123.123", &u) >= 0);
         assert_se(sd_netlink_message_append_in_addr(message, IFA_LOCAL, &u.in) >= 0);
         assert_se(in_addr_from_string(AF_INET, "10.123.255.255", &u) >= 0);
         assert_se(sd_netlink_message_append_in_addr(message, IFA_BROADCAST, &u.in) >= 0);
-        assert_se(sd_netlink_call(rtnl, message, 0, NULL) >= 0);
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
         message = sd_netlink_message_unref(message);
 
         /* Add IPv6 addresses */
         assert_se(sd_rtnl_message_new_addr_update(rtnl, &message, ifindex, AF_INET6) >= 0);
-        assert_se(sd_rtnl_message_addr_set_scope(message, RT_SCOPE_UNIVERSE) >= 0);
-        assert_se(sd_rtnl_message_addr_set_prefixlen(message, 64) >= 0);
+        ASSERT_OK(sd_rtnl_message_addr_set_scope(message, RT_SCOPE_UNIVERSE));
+        ASSERT_OK(sd_rtnl_message_addr_set_prefixlen(message, 64));
         assert_se(in_addr_from_string(AF_INET6, "2001:db8:0:123::123", &u) >= 0);
         assert_se(sd_netlink_message_append_in6_addr(message, IFA_LOCAL, &u.in6) >= 0);
-        assert_se(sd_netlink_message_append_u32(message, IFA_FLAGS, IFA_F_NODAD) >= 0);
-        assert_se(sd_netlink_call(rtnl, message, 0, NULL) >= 0);
+        ASSERT_OK(sd_netlink_message_append_u32(message, IFA_FLAGS, IFA_F_NODAD));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
         message = sd_netlink_message_unref(message);
 
         assert_se(sd_rtnl_message_new_addr_update(rtnl, &message, ifindex, AF_INET6) >= 0);
-        assert_se(sd_rtnl_message_addr_set_scope(message, RT_SCOPE_UNIVERSE) >= 0);
-        assert_se(sd_rtnl_message_addr_set_prefixlen(message, 64) >= 0);
+        ASSERT_OK(sd_rtnl_message_addr_set_scope(message, RT_SCOPE_UNIVERSE));
+        ASSERT_OK(sd_rtnl_message_addr_set_prefixlen(message, 64));
         assert_se(in_addr_from_string(AF_INET6, "2001:db8:1:123::123", &u) >= 0);
         assert_se(sd_netlink_message_append_in6_addr(message, IFA_LOCAL, &u.in6) >= 0);
-        assert_se(sd_netlink_message_append_u32(message, IFA_FLAGS, IFA_F_NODAD) >= 0);
-        assert_se(sd_netlink_call(rtnl, message, 0, NULL) >= 0);
+        ASSERT_OK(sd_netlink_message_append_u32(message, IFA_FLAGS, IFA_F_NODAD));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
         message = sd_netlink_message_unref(message);
 
         /* Add an IPv4 default gateway (RTA_GATEWAY) */
         assert_se(sd_rtnl_message_new_route(rtnl, &message, RTM_NEWROUTE, AF_INET, RTPROT_STATIC) >= 0);
-        assert_se(sd_rtnl_message_route_set_scope(message, RT_SCOPE_UNIVERSE) >= 0);
-        assert_se(sd_rtnl_message_route_set_type(message, RTN_UNICAST) >= 0);
-        assert_se(sd_netlink_message_append_u32(message, RTA_PRIORITY, 1234) >= 0);
-        assert_se(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN) >= 0);
+        ASSERT_OK(sd_rtnl_message_route_set_scope(message, RT_SCOPE_UNIVERSE));
+        ASSERT_OK(sd_rtnl_message_route_set_type(message, RTN_UNICAST));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_PRIORITY, 1234));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN));
         assert_se(in_addr_from_string(AF_INET, "10.123.0.1", &u) >= 0);
         assert_se(sd_netlink_message_append_in_addr(message, RTA_GATEWAY, &u.in) >= 0);
-        assert_se(sd_netlink_message_append_u32(message, RTA_OIF, ifindex) >= 0);
-        assert_se(sd_netlink_call(rtnl, message, 0, NULL) >= 0);
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_OIF, ifindex));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
         message = sd_netlink_message_unref(message);
 
         /* Add an IPv4 default gateway (RTA_VIA) */
         assert_se(sd_rtnl_message_new_route(rtnl, &message, RTM_NEWROUTE, AF_INET, RTPROT_STATIC) >= 0);
-        assert_se(sd_rtnl_message_route_set_scope(message, RT_SCOPE_UNIVERSE) >= 0);
-        assert_se(sd_rtnl_message_route_set_type(message, RTN_UNICAST) >= 0);
-        assert_se(sd_netlink_message_append_u32(message, RTA_PRIORITY, 1234) >= 0);
-        assert_se(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN) >= 0);
+        ASSERT_OK(sd_rtnl_message_route_set_scope(message, RT_SCOPE_UNIVERSE));
+        ASSERT_OK(sd_rtnl_message_route_set_type(message, RTN_UNICAST));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_PRIORITY, 1234));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN));
         assert_se(in_addr_from_string(AF_INET6, "2001:db8:0:123::1", &u) >= 0);
         assert_se(sd_netlink_message_append_data(message, RTA_VIA,
                                                  &(RouteVia) {
                                                          .family = AF_INET6,
                                                          .address = u,
                                                  }, sizeof(RouteVia)) >= 0);
-        assert_se(sd_netlink_message_append_u32(message, RTA_OIF, ifindex) >= 0);
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_OIF, ifindex));
         r = sd_netlink_call(rtnl, message, 0, NULL);
         if (r == -EINVAL)
                 log_debug_errno(r, "RTA_VIA is not supported, ignoring: %m");
@@ -288,13 +288,13 @@ TEST(local_addresses_with_dummy) {
 
         /* Add an IPv6 default gateway */
         assert_se(sd_rtnl_message_new_route(rtnl, &message, RTM_NEWROUTE, AF_INET6, RTPROT_STATIC) >= 0);
-        assert_se(sd_rtnl_message_route_set_type(message, RTN_UNICAST) >= 0);
-        assert_se(sd_netlink_message_append_u32(message, RTA_PRIORITY, 1234) >= 0);
-        assert_se(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN) >= 0);
+        ASSERT_OK(sd_rtnl_message_route_set_type(message, RTN_UNICAST));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_PRIORITY, 1234));
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_TABLE, RT_TABLE_MAIN));
         assert_se(in_addr_from_string(AF_INET6, "2001:db8:1:123::1", &u) >= 0);
         assert_se(sd_netlink_message_append_in6_addr(message, RTA_GATEWAY, &u.in6) >= 0);
-        assert_se(sd_netlink_message_append_u32(message, RTA_OIF, ifindex) >= 0);
-        assert_se(sd_netlink_call(rtnl, message, 0, NULL) >= 0);
+        ASSERT_OK(sd_netlink_message_append_u32(message, RTA_OIF, ifindex));
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
         message = sd_netlink_message_unref(message);
 
         /* Check */
@@ -319,7 +319,7 @@ TEST(local_addresses_with_dummy) {
 
         /* Cleanup */
         assert_se(sd_rtnl_message_new_link(rtnl, &message, RTM_DELLINK, ifindex) >= 0);
-        assert_se(sd_netlink_call(rtnl, message, 0, NULL) >= 0);
+        ASSERT_OK(sd_netlink_call(rtnl, message, 0, NULL));
         message = sd_netlink_message_unref(message);
 }
 

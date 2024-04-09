@@ -29,10 +29,10 @@ TEST(exit_status_from_string) {
 }
 
 TEST(exit_status_NUMA_POLICY) {
-        assert_se(streq(exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_FULL), "NUMA_POLICY"));
-        assert_se(streq(exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_SYSTEMD), "NUMA_POLICY"));
-        assert_se(!exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_BSD));
-        assert_se(!exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_LSB));
+        ASSERT_TRUE(streq(exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_FULL), "NUMA_POLICY"));
+        ASSERT_TRUE(streq(exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_SYSTEMD), "NUMA_POLICY"));
+        ASSERT_FALSE(exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_BSD));
+        ASSERT_FALSE(exit_status_to_string(EXIT_NUMA_POLICY, EXIT_STATUS_LSB));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

@@ -24,9 +24,9 @@ TEST(strv_split_nulstr) {
                 _cleanup_strv_free_ char **v0 = NULL, **v1 = NULL;      \
                                                                         \
                 assert_se(v0 = strv_parse_nulstr_full(s, n, false));    \
-                assert_se(strv_equal(v0, e0));                          \
+                ASSERT_TRUE(strv_equal(v0, e0));                          \
                 assert_se(v1 = strv_parse_nulstr_full(s, n, true));     \
-                assert_se(strv_equal(v1, e1));                          \
+                ASSERT_TRUE(strv_equal(v1, e1));                          \
         })
 
 TEST(strv_parse_nulstr_full) {
@@ -91,10 +91,10 @@ static void test_strv_make_nulstr_one(char **l) {
 
         assert_se(strv_make_nulstr(l, &b, &n) >= 0);
         assert_se(q = strv_parse_nulstr(b, n));
-        assert_se(strv_equal(l, q));
+        ASSERT_TRUE(strv_equal(l, q));
 
         assert_se(strv_make_nulstr(q, &c, &m) >= 0);
-        assert_se(memcmp_nn(b, n, c, m) == 0);
+        ASSERT_EQ(memcmp_nn(b, n, c, m), 0);
 
         NULSTR_FOREACH(s, b)
                 assert_se(streq(s, l[i++]));
@@ -122,7 +122,7 @@ TEST(set_make_nulstr) {
                 r = set_make_nulstr(set, &nulstr, &len);
                 ASSERT_EQ(r, 0);
                 ASSERT_EQ(len, 0u);
-                assert_se(memcmp(expect, nulstr, len + 2) == 0);
+                ASSERT_EQ(memcmp(expect, nulstr, len + 2), 0);
         }
 
         {
@@ -136,7 +136,7 @@ TEST(set_make_nulstr) {
                 r = set_make_nulstr(set, &nulstr, &len);
                 ASSERT_EQ(r, 0);
                 ASSERT_EQ(len, 0u);
-                assert_se(memcmp(expect, nulstr, len + 2) == 0);
+                ASSERT_EQ(memcmp(expect, nulstr, len + 2), 0);
         }
 
         {
@@ -149,7 +149,7 @@ TEST(set_make_nulstr) {
                 r = set_make_nulstr(set, &nulstr, &len);
                 ASSERT_EQ(r, 0);
                 ASSERT_EQ(len, 4u);
-                assert_se(memcmp(expect, nulstr, len + 1) == 0);
+                ASSERT_EQ(memcmp(expect, nulstr, len + 1), 0);
         }
 }
 
@@ -159,9 +159,9 @@ static void test_strv_make_nulstr_binary_one(char **l, const char *b, size_t n) 
         size_t m;
 
         assert_se(strv_make_nulstr(l, &a, &m) >= 0);
-        assert_se(memcmp_nn(a, m, b, n) == 0);
+        ASSERT_EQ(memcmp_nn(a, m, b, n), 0);
         assert_se(z = strv_parse_nulstr(a, m));
-        assert_se(strv_equal(l, z));
+        ASSERT_TRUE(strv_equal(l, z));
 }
 
 TEST(strv_make_nulstr_binary) {

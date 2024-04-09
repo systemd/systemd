@@ -19,11 +19,11 @@ TEST(serialize_item) {
         assert_se(fmkostemp_safe(fn, "r+", &f) == 0);
         log_info("/* %s (%s) */", __func__, fn);
 
-        assert_se(serialize_item(f, "a", NULL) == 0);
-        assert_se(serialize_item(f, "a", "bbb") == 1);
-        assert_se(serialize_item(f, "a", "bbb") == 1);
-        assert_se(serialize_bool_elide(f, "c", true) == 1);
-        assert_se(serialize_bool_elide(f, "d", false) == 0);
+        ASSERT_EQ(serialize_item(f, "a", NULL), 0);
+        ASSERT_EQ(serialize_item(f, "a", "bbb"), 1);
+        ASSERT_EQ(serialize_item(f, "a", "bbb"), 1);
+        ASSERT_EQ(serialize_bool_elide(f, "c", true), 1);
+        ASSERT_EQ(serialize_bool_elide(f, "d", false), 0);
         assert_se(serialize_item(f, "a", long_string) == -EINVAL);
         assert_se(serialize_item(f, long_string, "a") == -EINVAL);
         assert_se(serialize_item(f, long_string, long_string) == -EINVAL);
@@ -38,7 +38,7 @@ TEST(serialize_item) {
         assert_se(read_line(f, LONG_LINE_MAX, &line3) > 0);
         assert_se(streq(line3, "c=yes"));
         assert_se(read_line(f, LONG_LINE_MAX, &line4) == 0);
-        assert_se(streq(line4, ""));
+        ASSERT_TRUE(streq(line4, ""));
 }
 
 TEST(serialize_item_escaped) {
@@ -48,9 +48,9 @@ TEST(serialize_item_escaped) {
         assert_se(fmkostemp_safe(fn, "r+", &f) == 0);
         log_info("/* %s (%s) */", __func__, fn);
 
-        assert_se(serialize_item_escaped(f, "a", NULL) == 0);
-        assert_se(serialize_item_escaped(f, "a", "bbb") == 1);
-        assert_se(serialize_item_escaped(f, "a", "bbb") == 1);
+        ASSERT_EQ(serialize_item_escaped(f, "a", NULL), 0);
+        ASSERT_EQ(serialize_item_escaped(f, "a", "bbb"), 1);
+        ASSERT_EQ(serialize_item_escaped(f, "a", "bbb"), 1);
         assert_se(serialize_item_escaped(f, "a", long_string) == -EINVAL);
         assert_se(serialize_item_escaped(f, long_string, "a") == -EINVAL);
         assert_se(serialize_item_escaped(f, long_string, long_string) == -EINVAL);
@@ -63,7 +63,7 @@ TEST(serialize_item_escaped) {
         assert_se(read_line(f, LONG_LINE_MAX, &line2) > 0);
         assert_se(streq(line2, "a=bbb"));
         assert_se(read_line(f, LONG_LINE_MAX, &line3) == 0);
-        assert_se(streq(line3, ""));
+        ASSERT_TRUE(streq(line3, ""));
 }
 
 TEST(serialize_usec) {
@@ -73,8 +73,8 @@ TEST(serialize_usec) {
         assert_se(fmkostemp_safe(fn, "r+", &f) == 0);
         log_info("/* %s (%s) */", __func__, fn);
 
-        assert_se(serialize_usec(f, "usec1", USEC_INFINITY) == 0);
-        assert_se(serialize_usec(f, "usec2", 0) == 1);
+        ASSERT_EQ(serialize_usec(f, "usec1", USEC_INFINITY), 0);
+        ASSERT_EQ(serialize_usec(f, "usec2", 0), 1);
         assert_se(serialize_usec(f, "usec3", USEC_INFINITY-1) == 1);
 
         rewind(f);
@@ -109,9 +109,9 @@ TEST(serialize_strv) {
         assert_se(fmkostemp_safe(fn, "r+", &f) == 0);
         log_info("/* %s (%s) */", __func__, fn);
 
-        assert_se(serialize_strv(f, "strv1", NULL) == 0);
-        assert_se(serialize_strv(f, "strv2", STRV_MAKE_EMPTY) == 0);
-        assert_se(serialize_strv(f, "strv3", strv) == 1);
+        ASSERT_EQ(serialize_strv(f, "strv1", NULL), 0);
+        ASSERT_EQ(serialize_strv(f, "strv2", STRV_MAKE_EMPTY), 0);
+        ASSERT_EQ(serialize_strv(f, "strv3", strv), 1);
         assert_se(serialize_strv(f, "strv4", STRV_MAKE(long_string)) == -EINVAL);
 
         rewind(f);
@@ -131,7 +131,7 @@ TEST(serialize_strv) {
                 assert_se(deserialize_strv(t, &strv2) >= 0);
         }
 
-        assert_se(strv_equal(strv, strv2));
+        ASSERT_TRUE(strv_equal(strv, strv2));
 }
 
 TEST(deserialize_environment) {
@@ -163,7 +163,7 @@ TEST(serialize_environment) {
                                  "D=D=a\\x0Ab",
                                  "FOO%%=a\177b\nc\td e"));
 
-        assert_se(serialize_strv(f, "env", env) == 1);
+        ASSERT_EQ(serialize_strv(f, "env", env), 1);
         ASSERT_EQ(fflush_and_check(f), 0);
 
         rewind(f);
@@ -187,7 +187,7 @@ TEST(serialize_environment) {
         }
         ASSERT_TRUE(feof(f));
 
-        assert_se(strv_equal(env, env2));
+        ASSERT_TRUE(strv_equal(env, env2));
 }
 
 TEST(serialize_item_hexmem) {
@@ -197,7 +197,7 @@ TEST(serialize_item_hexmem) {
         assert_se(fmkostemp_safe(fn, "r+", &f) == 0);
         log_info("/* %s (%s) */", __func__, fn);
 
-        assert_se(serialize_item_hexmem(f, "a", NULL, 0) == 0);
+        ASSERT_EQ(serialize_item_hexmem(f, "a", NULL, 0), 0);
         assert_se(serialize_item_hexmem(f, "a", (uint8_t []){0xff, 0xff, 0xff}, sizeof(uint8_t) * 3) == 1);
 
         rewind(f);
@@ -215,7 +215,7 @@ TEST(serialize_item_base64mem) {
         assert_se(fmkostemp_safe(fn, "r+", &f) == 0);
         log_info("/* %s (%s) */", __func__, fn);
 
-        assert_se(serialize_item_base64mem(f, "a", NULL, 0) == 0);
+        ASSERT_EQ(serialize_item_base64mem(f, "a", NULL, 0), 0);
         assert_se(serialize_item_base64mem(f, "a", (uint8_t []){0xff, 0xff, 0xff}, sizeof(uint8_t) * 3) == 1);
 
         rewind(f);
@@ -237,11 +237,11 @@ TEST(serialize_string_set) {
 
         assert_se(set_ensure_allocated(&s, &string_hash_ops) >= 0);
 
-        assert_se(serialize_string_set(f, "a", s) == 0);
+        ASSERT_EQ(serialize_string_set(f, "a", s), 0);
 
-        assert_se(set_put_strsplit(s, "abc def,ghi jkl", ",", 0) >= 0);
+        ASSERT_OK(set_put_strsplit(s, "abc def,ghi jkl", ",", 0));
 
-        assert_se(serialize_string_set(f, "a", s) == 1);
+        ASSERT_EQ(serialize_string_set(f, "a", s), 1);
 
         rewind(f);
 
@@ -251,9 +251,9 @@ TEST(serialize_string_set) {
         assert_se(read_line(f, LONG_LINE_MAX, &line2) > 0);
         assert_se((q = startswith(line2, "a=")));
 
-        assert_se(!streq(p, q));
-        assert_se(STR_IN_SET(p, "abc def", "ghi jkl"));
-        assert_se(STR_IN_SET(q, "abc def", "ghi jkl"));
+        ASSERT_FALSE(streq(p, q));
+        ASSERT_TRUE(STR_IN_SET(p, "abc def", "ghi jkl"));
+        ASSERT_TRUE(STR_IN_SET(q, "abc def", "ghi jkl"));
 }
 
 static int intro(void) {

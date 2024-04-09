@@ -826,7 +826,7 @@ TEST(safe_atod) {
         }
 
         /* And check again, reset */
-        assert_se(setlocale(LC_NUMERIC, "C"));
+        ASSERT_TRUE(setlocale(LC_NUMERIC, "C"));
 
         r = safe_atod("0.2244", &d);
         ASSERT_EQ(r, 0);

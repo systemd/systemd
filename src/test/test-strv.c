@@ -7,36 +7,36 @@
 #include "tests.h"
 
 TEST(str_in_set) {
-        assert_se(STR_IN_SET("x", "x", "y", "z"));
-        assert_se(!STR_IN_SET("X", "x", "y", "z"));
-        assert_se(!STR_IN_SET("", "x", "y", "z"));
-        assert_se(STR_IN_SET("x", "w", "x"));
+        ASSERT_TRUE(STR_IN_SET("x", "x", "y", "z"));
+        ASSERT_FALSE(STR_IN_SET("X", "x", "y", "z"));
+        ASSERT_FALSE(STR_IN_SET("", "x", "y", "z"));
+        ASSERT_TRUE(STR_IN_SET("x", "w", "x"));
 }
 
 TEST(strptr_in_set) {
-        assert_se(STRPTR_IN_SET("x", "x", "y", "z"));
-        assert_se(!STRPTR_IN_SET("X", "x", "y", "z"));
-        assert_se(!STRPTR_IN_SET("", "x", "y", "z"));
-        assert_se(STRPTR_IN_SET("x", "w", "x"));
+        ASSERT_TRUE(STRPTR_IN_SET("x", "x", "y", "z"));
+        ASSERT_FALSE(STRPTR_IN_SET("X", "x", "y", "z"));
+        ASSERT_FALSE(STRPTR_IN_SET("", "x", "y", "z"));
+        ASSERT_TRUE(STRPTR_IN_SET("x", "w", "x"));
 
-        assert_se(!STRPTR_IN_SET(NULL, "x", "y", "z"));
-        assert_se(!STRPTR_IN_SET(NULL, ""));
+        ASSERT_FALSE(STRPTR_IN_SET(NULL, "x", "y", "z"));
+        ASSERT_FALSE(STRPTR_IN_SET(NULL, ""));
         /* strv cannot contain a null, hence the result below */
-        assert_se(!STRPTR_IN_SET(NULL, NULL));
+        ASSERT_FALSE(STRPTR_IN_SET(NULL, NULL));
 }
 
 TEST(startswith_set) {
-        assert_se(!STARTSWITH_SET("foo", "bar", "baz", "waldo"));
-        assert_se(!STARTSWITH_SET("foo", "bar"));
+        ASSERT_FALSE(STARTSWITH_SET("foo", "bar", "baz", "waldo"));
+        ASSERT_FALSE(STARTSWITH_SET("foo", "bar"));
 
-        assert_se(STARTSWITH_SET("abc", "a", "ab", "abc"));
-        assert_se(STARTSWITH_SET("abc", "ax", "ab", "abc"));
-        assert_se(STARTSWITH_SET("abc", "ax", "abx", "abc"));
-        assert_se(!STARTSWITH_SET("abc", "ax", "abx", "abcx"));
+        ASSERT_TRUE(STARTSWITH_SET("abc", "a", "ab", "abc"));
+        ASSERT_TRUE(STARTSWITH_SET("abc", "ax", "ab", "abc"));
+        ASSERT_TRUE(STARTSWITH_SET("abc", "ax", "abx", "abc"));
+        ASSERT_FALSE(STARTSWITH_SET("abc", "ax", "abx", "abcx"));
 
-        assert_se(streq_ptr(STARTSWITH_SET("foobar", "hhh", "kkk", "foo", "zzz"), "bar"));
-        assert_se(streq_ptr(STARTSWITH_SET("foobar", "hhh", "kkk", "", "zzz"), "foobar"));
-        assert_se(streq_ptr(STARTSWITH_SET("", "hhh", "kkk", "zzz", ""), ""));
+        ASSERT_TRUE(streq_ptr(STARTSWITH_SET("foobar", "hhh", "kkk", "foo", "zzz"), "bar"));
+        ASSERT_TRUE(streq_ptr(STARTSWITH_SET("foobar", "hhh", "kkk", "", "zzz"), "foobar"));
+        ASSERT_TRUE(streq_ptr(STARTSWITH_SET("", "hhh", "kkk", "zzz", ""), ""));
 }
 
 static const char* const input_table_multiple[] = {
@@ -125,7 +125,7 @@ TEST(strv_find_startswith) {
 TEST(strv_join) {
         _cleanup_free_ char *p = strv_join((char **)input_table_multiple, ", ");
         ASSERT_TRUE(p);
-        assert_se(streq(p, "one, two, three"));
+        ASSERT_TRUE(streq(p, "one, two, three"));
 
         _cleanup_free_ char *q = strv_join((char **)input_table_multiple, ";");
         ASSERT_TRUE(q);
@@ -133,33 +133,33 @@ TEST(strv_join) {
 
         _cleanup_free_ char *r = strv_join((char **)input_table_multiple, NULL);
         ASSERT_TRUE(r);
-        assert_se(streq(r, "one two three"));
+        ASSERT_TRUE(streq(r, "one two three"));
 
         _cleanup_free_ char *s = strv_join(STRV_MAKE("1", "2", "3,3"), ",");
         ASSERT_TRUE(s);
-        assert_se(streq(s, "1,2,3,3"));
+        ASSERT_TRUE(streq(s, "1,2,3,3"));
 
         _cleanup_free_ char *t = strv_join((char **)input_table_one, ", ");
         ASSERT_TRUE(t);
-        assert_se(streq(t, "one"));
+        ASSERT_TRUE(streq(t, "one"));
 
         _cleanup_free_ char *u = strv_join((char **)input_table_none, ", ");
         ASSERT_TRUE(u);
-        assert_se(streq(u, ""));
+        ASSERT_TRUE(streq(u, ""));
 
         _cleanup_free_ char *v = strv_join((char **)input_table_two_empties, ", ");
         ASSERT_TRUE(v);
-        assert_se(streq(v, ", "));
+        ASSERT_TRUE(streq(v, ", "));
 
         _cleanup_free_ char *w = strv_join((char **)input_table_one_empty, ", ");
         ASSERT_TRUE(w);
-        assert_se(streq(w, ""));
+        ASSERT_TRUE(streq(w, ""));
 }
 
 TEST(strv_join_full) {
         _cleanup_free_ char *p = strv_join_full((char **)input_table_multiple, ", ", "foo", false);
         ASSERT_TRUE(p);
-        assert_se(streq(p, "fooone, footwo, foothree"));
+        ASSERT_TRUE(streq(p, "fooone, footwo, foothree"));
 
         _cleanup_free_ char *q = strv_join_full((char **)input_table_multiple, ";", "foo", false);
         ASSERT_TRUE(q);
@@ -180,23 +180,23 @@ TEST(strv_join_full) {
 
         _cleanup_free_ char *u = strv_join_full((char **)input_table_multiple, NULL, "foo", false);
         ASSERT_TRUE(u);
-        assert_se(streq(u, "fooone footwo foothree"));
+        ASSERT_TRUE(streq(u, "fooone footwo foothree"));
 
         _cleanup_free_ char *v = strv_join_full((char **)input_table_one, ", ", "foo", false);
         ASSERT_TRUE(v);
-        assert_se(streq(v, "fooone"));
+        ASSERT_TRUE(streq(v, "fooone"));
 
         _cleanup_free_ char *w = strv_join_full((char **)input_table_none, ", ", "foo", false);
         ASSERT_TRUE(w);
-        assert_se(streq(w, ""));
+        ASSERT_TRUE(streq(w, ""));
 
         _cleanup_free_ char *x = strv_join_full((char **)input_table_two_empties, ", ", "foo", false);
         ASSERT_TRUE(x);
-        assert_se(streq(x, "foo, foo"));
+        ASSERT_TRUE(streq(x, "foo, foo"));
 
         _cleanup_free_ char *y = strv_join_full((char **)input_table_one_empty, ", ", "foo", false);
         ASSERT_TRUE(y);
-        assert_se(streq(y, "foo"));
+        ASSERT_TRUE(streq(y, "foo"));
 }
 
 static void test_strv_unquote_one(const char *quoted, char **list) {
@@ -805,16 +805,16 @@ TEST(strv_compare) {
         d = strv_new(NULL);
         ASSERT_TRUE(d);
 
-        assert_se(strv_compare(a, a) == 0);
-        assert_se(strv_compare(a, b) == 0);
-        assert_se(strv_compare(d, d) == 0);
-        assert_se(strv_compare(d, NULL) == 0);
-        assert_se(strv_compare(NULL, NULL) == 0);
+        ASSERT_EQ(strv_compare(a, a), 0);
+        ASSERT_EQ(strv_compare(a, b), 0);
+        ASSERT_EQ(strv_compare(d, d), 0);
+        ASSERT_EQ(strv_compare(d, NULL), 0);
+        ASSERT_EQ(strv_compare(NULL, NULL), 0);
 
-        assert_se(strv_compare(a, c) < 0);
-        assert_se(strv_compare(b, c) < 0);
-        assert_se(strv_compare(b, d) == 1);
-        assert_se(strv_compare(b, NULL) == 1);
+        ASSERT_LT(strv_compare(a, c), 0);
+        ASSERT_LT(strv_compare(b, c), 0);
+        ASSERT_EQ(strv_compare(b, d), 1);
+        ASSERT_EQ(strv_compare(b, NULL), 1);
 }
 
 TEST(strv_is_uniq) {
@@ -882,7 +882,7 @@ TEST(strv_shell_escape) {
 
 static void test_strv_skip_one(char **a, size_t n, char **b) {
         a = strv_skip(a, n);
-        assert_se(strv_equal(a, b));
+        ASSERT_TRUE(strv_equal(a, b));
 }
 
 TEST(strv_skip) {
@@ -943,14 +943,14 @@ TEST(foreach_string) {
         ASSERT_EQ(i, 3u);
 
         FOREACH_STRING(x, "zzz")
-                assert_se(streq(x, "zzz"));
+                ASSERT_TRUE(streq(x, "zzz"));
 }
 
 TEST(strv_fnmatch) {
         _cleanup_strv_free_ char **v = NULL;
         size_t pos;
 
-        assert_se(!strv_fnmatch(STRV_MAKE_EMPTY, "a"));
+        ASSERT_FALSE(strv_fnmatch(STRV_MAKE_EMPTY, "a"));
 
         v = strv_new("xxx", "*\\*", "yyy");
         assert_se(!strv_fnmatch_full(v, "\\", 0, NULL));
@@ -975,7 +975,7 @@ TEST(strv_copy_n) {
         _cleanup_strv_free_ char **l = NULL;
 
         l = strv_copy_n(x, 0);
-        assert_se(strv_equal(l, NULL));
+        ASSERT_TRUE(strv_equal(l, NULL));
         strv_free(l);
 
         l = strv_copy_n(x, 0);
@@ -983,31 +983,31 @@ TEST(strv_copy_n) {
         strv_free(l);
 
         l = strv_copy_n(x, 1);
-        assert_se(strv_equal(l, STRV_MAKE("a")));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("a")));
         strv_free(l);
 
         l = strv_copy_n(x, 2);
-        assert_se(strv_equal(l, STRV_MAKE("a", "b")));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("a", "b")));
         strv_free(l);
 
         l = strv_copy_n(x, 3);
-        assert_se(strv_equal(l, STRV_MAKE("a", "b", "c")));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("a", "b", "c")));
         strv_free(l);
 
         l = strv_copy_n(x, 4);
-        assert_se(strv_equal(l, STRV_MAKE("a", "b", "c", "d")));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("a", "b", "c", "d")));
         strv_free(l);
 
         l = strv_copy_n(x, 5);
-        assert_se(strv_equal(l, STRV_MAKE("a", "b", "c", "d", "e")));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("a", "b", "c", "d", "e")));
         strv_free(l);
 
         l = strv_copy_n(x, 6);
-        assert_se(strv_equal(l, STRV_MAKE("a", "b", "c", "d", "e")));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("a", "b", "c", "d", "e")));
         strv_free(l);
 
         l = strv_copy_n(x, SIZE_MAX);
-        assert_se(strv_equal(l, STRV_MAKE("a", "b", "c", "d", "e")));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("a", "b", "c", "d", "e")));
 }
 
 TEST(strv_find_first_field) {
@@ -1017,17 +1017,17 @@ TEST(strv_find_first_field) {
         ASSERT_NULL(strv_find_first_field(NULL, haystack));
         ASSERT_NULL(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "b"), NULL));
         ASSERT_NULL(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "b"), haystack));
-        assert_se(streq_ptr(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "a", "c"), haystack), "b"));
-        assert_se(streq_ptr(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "c", "a"), haystack), "d"));
-        assert_se(streq_ptr(strv_find_first_field(STRV_MAKE("i", "k", "l", "m", "d", "c", "a", "b"), haystack), "j"));
+        ASSERT_TRUE(streq_ptr(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "a", "c"), haystack), "b"));
+        ASSERT_TRUE(streq_ptr(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "c", "a"), haystack), "d"));
+        ASSERT_TRUE(streq_ptr(strv_find_first_field(STRV_MAKE("i", "k", "l", "m", "d", "c", "a", "b"), haystack), "j"));
 }
 
 TEST(endswith_strv) {
-        assert_se(streq_ptr(endswith_strv("waldo", STRV_MAKE("xxx", "yyy", "ldo", "zzz")), "ldo"));
-        assert_se(streq_ptr(endswith_strv("waldo", STRV_MAKE("xxx", "yyy", "zzz")), NULL));
-        assert_se(streq_ptr(endswith_strv("waldo", STRV_MAKE("waldo")), "waldo"));
-        assert_se(streq_ptr(endswith_strv("waldo", STRV_MAKE("w", "o", "ldo")), "o"));
-        assert_se(streq_ptr(endswith_strv("waldo", STRV_MAKE("knurz", "", "waldo")), ""));
+        ASSERT_TRUE(streq_ptr(endswith_strv("waldo", STRV_MAKE("xxx", "yyy", "ldo", "zzz")), "ldo"));
+        ASSERT_TRUE(streq_ptr(endswith_strv("waldo", STRV_MAKE("xxx", "yyy", "zzz")), NULL));
+        ASSERT_TRUE(streq_ptr(endswith_strv("waldo", STRV_MAKE("waldo")), "waldo"));
+        ASSERT_TRUE(streq_ptr(endswith_strv("waldo", STRV_MAKE("w", "o", "ldo")), "o"));
+        ASSERT_TRUE(streq_ptr(endswith_strv("waldo", STRV_MAKE("knurz", "", "waldo")), ""));
 }
 
 TEST(strv_extend_many) {
@@ -1040,19 +1040,19 @@ TEST(strv_extend_many) {
         ASSERT_TRUE(strv_isempty(l));
 
         assert_se(strv_extend_many(&l, "foo") >= 0);
-        assert_se(strv_equal(l, STRV_MAKE("foo")));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo")));
 
         assert_se(strv_extend_many(&l, NULL, "bar", NULL) >= 0);
-        assert_se(strv_equal(l, STRV_MAKE("foo", "bar")));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo", "bar")));
 
         assert_se(strv_extend_many(&l, "waldo", "quux") >= 0);
-        assert_se(strv_equal(l, STRV_MAKE("foo", "bar", "waldo", "quux")));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo", "bar", "waldo", "quux")));
 
         assert_se(strv_extend_many(&l, "1", "2", "3", "4") >= 0);
-        assert_se(strv_equal(l, STRV_MAKE("foo", "bar", "waldo", "quux", "1", "2", "3", "4")));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo", "bar", "waldo", "quux", "1", "2", "3", "4")));
 
         assert_se(strv_extend_many(&l, "yes", NULL, "no") >= 0);
-        assert_se(strv_equal(l, STRV_MAKE("foo", "bar", "waldo", "quux", "1", "2", "3", "4", "yes", "no")));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("foo", "bar", "waldo", "quux", "1", "2", "3", "4", "yes", "no")));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

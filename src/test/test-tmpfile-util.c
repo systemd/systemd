@@ -27,7 +27,7 @@ static void test_tempfn_random_one(const char *p, const char *extra, const char 
                 const char *suffix;
 
                 assert_se(suffix = startswith(s, expect));
-                assert_se(in_charset(suffix, HEXDIGITS));
+                ASSERT_TRUE(in_charset(suffix, HEXDIGITS));
                 ASSERT_EQ(strlen(suffix), 16u);
         }
         assert_se(ret == r);
@@ -105,7 +105,7 @@ static void test_tempfn_xxxxxx_one(const char *p, const char *extra, const char 
                 const char *suffix;
 
                 assert_se(suffix = startswith(s, expect));
-                assert_se(streq(suffix, "XXXXXX"));
+                ASSERT_TRUE(streq(suffix, "XXXXXX"));
         }
         assert_se(ret == r);
 }
@@ -182,7 +182,7 @@ static void test_tempfn_random_child_one(const char *p, const char *extra, const
                 const char *suffix;
 
                 assert_se(suffix = startswith(s, expect));
-                assert_se(in_charset(suffix, HEXDIGITS));
+                ASSERT_TRUE(in_charset(suffix, HEXDIGITS));
                 ASSERT_EQ(strlen(suffix), 16u);
         }
         assert_se(ret == r);
@@ -257,7 +257,7 @@ TEST(link_tmpfile) {
         (void) system(cmd);
         assert_se(readlink_malloc(cmd + 6, &ans) >= 0);
         log_debug("link1: %s", ans);
-        assert_se(endswith(ans, " (deleted)"));
+        ASSERT_TRUE(endswith(ans, " (deleted)"));
 
         fd2 = mkostemp_safe(pattern);
         ASSERT_OK(fd2);
@@ -267,7 +267,7 @@ TEST(link_tmpfile) {
         (void) system(cmd2);
         assert_se(readlink_malloc(cmd2 + 6, &ans2) >= 0);
         log_debug("link2: %s", ans2);
-        assert_se(endswith(ans2, " (deleted)"));
+        ASSERT_TRUE(endswith(ans2, " (deleted)"));
 
         pattern = strjoina(p, "/tmpfiles-test");
         assert_se(tempfn_random(pattern, NULL, &d) >= 0);
@@ -283,7 +283,7 @@ TEST(link_tmpfile) {
         assert_se(link_tmpfile(fd, tmp, d, /* flags= */ 0) >= 0);
 
         assert_se(read_one_line_file(d, &line) >= 0);
-        assert_se(streq(line, "foobar"));
+        ASSERT_TRUE(streq(line, "foobar"));
 
         fd = safe_close(fd);
         tmp = mfree(tmp);
@@ -294,11 +294,11 @@ TEST(link_tmpfile) {
         assert_se(write(fd, "waumiau\n", 8) == 8);
 
         assert_se(link_tmpfile(fd, tmp, d, /* flags= */ 0) == -EEXIST);
-        assert_se(link_tmpfile(fd, tmp, d, LINK_TMPFILE_REPLACE) >= 0);
+        ASSERT_OK(link_tmpfile(fd, tmp, d, LINK_TMPFILE_REPLACE));
 
         line = mfree(line);
         assert_se(read_one_line_file(d, &line) >= 0);
-        assert_se(streq(line, "waumiau"));
+        ASSERT_TRUE(streq(line, "waumiau"));
 
         ASSERT_OK(unlink(d));
 }

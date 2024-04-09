@@ -14,7 +14,7 @@ TEST(issue_9549) {
         _cleanup_free_ char *formatted = NULL;
 
         assert_se(table = table_new("name", "type", "ro", "usage", "created", "modified"));
-        assert_se(table_set_align_percent(table, TABLE_HEADER_CELL(3), 100) >= 0);
+        ASSERT_OK(table_set_align_percent(table, TABLE_HEADER_CELL(3), 100));
         assert_se(table_add_many(table,
                                  TABLE_STRING, "foooo",
                                  TABLE_STRING, "raw",
@@ -39,7 +39,7 @@ TEST(multiline) {
 
         assert_se(table = table_new("foo", "bar"));
 
-        assert_se(table_set_align_percent(table, TABLE_HEADER_CELL(1), 100) >= 0);
+        ASSERT_OK(table_set_align_percent(table, TABLE_HEADER_CELL(1), 100));
 
         assert_se(table_add_many(table,
                                  TABLE_STRING, "three\ndifferent\nlines",
@@ -151,7 +151,7 @@ TEST(strv) {
 
         assert_se(table = table_new("foo", "bar"));
 
-        assert_se(table_set_align_percent(table, TABLE_HEADER_CELL(1), 100) >= 0);
+        ASSERT_OK(table_set_align_percent(table, TABLE_HEADER_CELL(1), 100));
 
         assert_se(table_add_many(table,
                                  TABLE_STRV, STRV_MAKE("three", "different", "lines"),
@@ -263,7 +263,7 @@ TEST(strv_wrapped) {
 
         assert_se(table = table_new("foo", "bar"));
 
-        assert_se(table_set_align_percent(table, TABLE_HEADER_CELL(1), 100) >= 0);
+        ASSERT_OK(table_set_align_percent(table, TABLE_HEADER_CELL(1), 100));
 
         assert_se(table_add_many(table,
                                  TABLE_STRV_WRAPPED, STRV_MAKE("three", "different", "lines"),
@@ -364,7 +364,7 @@ TEST(json) {
         _cleanup_(table_unrefp) Table *t = NULL;
 
         assert_se(t = table_new("foo bar", "quux", "piep miau"));
-        assert_se(table_set_json_field_name(t, 2, "zzz") >= 0);
+        ASSERT_OK(table_set_json_field_name(t, 2, "zzz"));
 
         assert_se(table_add_many(t,
                                  TABLE_STRING, "v1",
@@ -389,7 +389,7 @@ TEST(json) {
                                                              JSON_BUILD_PAIR("quux", JSON_BUILD_NULL),
                                                              JSON_BUILD_PAIR("zzz", JSON_BUILD_UNSIGNED(0755))))) >= 0);
 
-        assert_se(json_variant_equal(v, w));
+        ASSERT_TRUE(json_variant_equal(v, w));
 }
 
 TEST(table) {
@@ -398,7 +398,7 @@ TEST(table) {
 
         assert_se(t = table_new("one", "two", "three", "four"));
 
-        assert_se(table_set_align_percent(t, TABLE_HEADER_CELL(3), 100) >= 0);
+        ASSERT_OK(table_set_align_percent(t, TABLE_HEADER_CELL(3), 100));
 
         assert_se(table_add_many(t,
                                  TABLE_STRING, "xxx",
@@ -469,7 +469,7 @@ TEST(table) {
         formatted = mfree(formatted);
 
         table_set_width(t, SIZE_MAX);
-        assert_se(table_set_sort(t, (size_t) 0, (size_t) 2, SIZE_MAX) >= 0);
+        ASSERT_OK(table_set_sort(t, (size_t) 0, (size_t) 2, SIZE_MAX));
 
         assert_se(table_format(t, &formatted) >= 0);
         printf("%s\n", formatted);
@@ -513,7 +513,7 @@ TEST(table) {
 
         formatted = mfree(formatted);
 
-        assert_se(table_set_display(t, (size_t) 2, (size_t) 0, (size_t) 2, (size_t) 0, (size_t) 0, SIZE_MAX) >= 0);
+        ASSERT_OK(table_set_display(t, (size_t) 2, (size_t) 0, (size_t) 2, (size_t) 0, (size_t) 0, SIZE_MAX));
 
         assert_se(table_format(t, &formatted) >= 0);
         printf("%s\n", formatted);
@@ -545,7 +545,7 @@ TEST(vertical) {
                                  TABLE_FIELD, "uuu o", TABLE_SIZE, UINT64_C(1024),
                                  TABLE_FIELD, "lllllllllllo", TABLE_STRING, "jjjjjjjjjjjjjjjjj") >= 0);
 
-        assert_se(table_set_json_field_name(t, 1, "dimpfelmoser") >= 0);
+        ASSERT_OK(table_set_json_field_name(t, 1, "dimpfelmoser"));
 
         assert_se(table_format(t, &formatted) >= 0);
 
@@ -562,7 +562,7 @@ TEST(vertical) {
                                              JSON_BUILD_PAIR("dimpfelmoser", JSON_BUILD_UNSIGNED(1024)),
                                              JSON_BUILD_PAIR("lllllllllllo", JSON_BUILD_STRING("jjjjjjjjjjjjjjjjj")))) >= 0);
 
-        assert_se(json_variant_equal(a, b));
+        ASSERT_TRUE(json_variant_equal(a, b));
 }
 
 TEST(path_basename) {
@@ -603,7 +603,7 @@ TEST(dup_cell) {
 
         /* Add the second row by duping cells */
         for (size_t i = 0; i < table_get_columns(t); i++)
-                assert_se(table_dup_cell(t, table_get_cell(t, 1, i)) >= 0);
+                ASSERT_OK(table_dup_cell(t, table_get_cell(t, 1, i)));
 
         /* Another row, but dupe the last three strings from the same cell */
         assert_se(table_add_many(t,
@@ -615,7 +615,7 @@ TEST(dup_cell) {
                                  TABLE_PATH_BASENAME, "../") >= 0);
 
         for (size_t i = 6; i < table_get_columns(t); i++)
-                assert_se(table_dup_cell(t, table_get_cell(t, 2, 0)) >= 0);
+                ASSERT_OK(table_dup_cell(t, table_get_cell(t, 2, 0)));
 
         assert_se(table_format(t, &formatted) >= 0);
         printf("%s\n", formatted);
@@ -627,8 +627,8 @@ TEST(dup_cell) {
 }
 
 static int intro(void) {
-        assert_se(setenv("SYSTEMD_COLORS", "0", 1) >= 0);
-        assert_se(setenv("COLUMNS", "40", 1) >= 0);
+        ASSERT_OK(setenv("SYSTEMD_COLORS", "0", 1));
+        ASSERT_OK(setenv("COLUMNS", "40", 1));
         return EXIT_SUCCESS;
 }
 

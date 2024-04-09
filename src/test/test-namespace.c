@@ -40,23 +40,23 @@ static void test_tmpdir_one(const char *id, const char *A, const char *B) {
         ASSERT_TRUE(S_ISDIR(y.st_mode));
 
         if (!streq(a, RUN_SYSTEMD_EMPTY)) {
-                assert_se(startswith(a, A));
+                ASSERT_TRUE(startswith(a, A));
                 assert_se((x.st_mode & 01777) == 0700);
                 c = strjoina(a, "/tmp");
                 assert_se(stat(c, &x) >= 0);
                 ASSERT_TRUE(S_ISDIR(x.st_mode));
-                assert_se(FLAGS_SET(x.st_mode, 01777));
+                ASSERT_TRUE(FLAGS_SET(x.st_mode, 01777));
                 ASSERT_OK(rmdir(c));
                 ASSERT_OK(rmdir(a));
         }
 
         if (!streq(b, RUN_SYSTEMD_EMPTY)) {
-                assert_se(startswith(b, B));
+                ASSERT_TRUE(startswith(b, B));
                 assert_se((y.st_mode & 01777) == 0700);
                 d = strjoina(b, "/tmp");
                 assert_se(stat(d, &y) >= 0);
                 ASSERT_TRUE(S_ISDIR(y.st_mode));
-                assert_se(FLAGS_SET(y.st_mode, 01777));
+                ASSERT_TRUE(FLAGS_SET(y.st_mode, 01777));
                 ASSERT_OK(rmdir(d));
                 ASSERT_OK(rmdir(b));
         }
@@ -179,7 +179,7 @@ TEST(protect_kernel_logs) {
                 r = setup_namespace(&p, NULL);
                 ASSERT_EQ(r, 0);
 
-                assert_se(setresuid(UID_NOBODY, UID_NOBODY, UID_NOBODY) >= 0);
+                ASSERT_OK(setresuid(UID_NOBODY, UID_NOBODY, UID_NOBODY));
                 assert_se(open("/dev/kmsg", O_RDONLY | O_CLOEXEC) < 0);
                 assert_se(errno == EACCES);
 

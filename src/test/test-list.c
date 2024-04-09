@@ -47,7 +47,7 @@ int main(int argc, const char *argv[]) {
         }
         assert_se(i == ELEMENTSOF(items)-1);
 
-        assert_se(!LIST_JUST_US(item_list, head));
+        ASSERT_FALSE(LIST_JUST_US(item_list, head));
 
         ASSERT_NULL(items[0].item_list_next);
         assert_se(items[1].item_list_next == &items[0]);
@@ -176,7 +176,7 @@ int main(int argc, const char *argv[]) {
 
         assert_se(LIST_REMOVE(item_list, head, &items[2]) == &items[2]);
         assert_se(LIST_JUST_US(item_list, &items[2]));
-        assert_se(LIST_JUST_US(item_list, head));
+        ASSERT_TRUE(LIST_JUST_US(item_list, head));
 
         assert_se(LIST_REMOVE(item_list, head, &items[3]) == &items[3]);
         assert_se(LIST_JUST_US(item_list, &items[3]));
@@ -188,7 +188,7 @@ int main(int argc, const char *argv[]) {
                 assert_se(LIST_APPEND(item_list, head, &items[i]) == &items[i]);
         }
 
-        assert_se(!LIST_JUST_US(item_list, head));
+        ASSERT_FALSE(LIST_JUST_US(item_list, head));
 
         assert_se(items[0].item_list_next == &items[1]);
         assert_se(items[1].item_list_next == &items[2]);
@@ -264,8 +264,8 @@ int main(int argc, const char *argv[]) {
 
         /* A non-empty list is cleared */
 
-        assert_se(LIST_PREPEND(item_list, head, new0(list_item, 1)));
-        assert_se(LIST_PREPEND(item_list, head, new0(list_item, 1)));
+        ASSERT_TRUE(LIST_PREPEND(item_list, head, new0(list_item, 1)));
+        ASSERT_TRUE(LIST_PREPEND(item_list, head, new0(list_item, 1)));
 
         LIST_CLEAR(item_list, head, free);
 
@@ -273,8 +273,8 @@ int main(int argc, const char *argv[]) {
 
         /* A list can be cleared partially */
 
-        assert_se(LIST_PREPEND(item_list, head, new0(list_item, 1)));
-        assert_se(LIST_PREPEND(item_list, head, new0(list_item, 1)));
+        ASSERT_TRUE(LIST_PREPEND(item_list, head, new0(list_item, 1)));
+        ASSERT_TRUE(LIST_PREPEND(item_list, head, new0(list_item, 1)));
         assert_se(LIST_PREPEND(item_list, head, items + 0) == items + 0);
 
         LIST_CLEAR(item_list, head->item_list_next, free);

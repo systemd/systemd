@@ -113,7 +113,7 @@ static void* thread_func(void *ptr) {
 
                 /* Now the block device is mounted, we don't need no manual lock anymore, the devices are now
                  * pinned by the mounts. */
-                assert_se(loop_device_flock(loop, LOCK_UN) >= 0);
+                ASSERT_OK(loop_device_flock(loop, LOCK_UN));
 
                 log_notice("Unmounting %s", mounted);
                 mounted = umount_and_rmdir_and_free(mounted);
@@ -288,7 +288,7 @@ static int run(int argc, char *argv[]) {
          * shared one is fine. This way udev can now probe the device if it wants, but still won't call
          * BLKRRPART on it, and that's good, because that would destroy our partition table while we are at
          * it. */
-        assert_se(loop_device_flock(loop, LOCK_SH) >= 0);
+        ASSERT_OK(loop_device_flock(loop, LOCK_SH));
 
         /* This is a test for the loopback block device setup code and it's use by the image dissection
          * logic: since the kernel APIs are hard use and prone to races, let's test this in a heavy duty
@@ -308,9 +308,9 @@ static int run(int argc, char *argv[]) {
         /* Now we mounted everything, the partitions are pinned. Now it's fine to release the lock
          * fully. This means udev could now issue BLKRRPART again, but that's OK given this will fail because
          * we now mounted the device. */
-        assert_se(loop_device_flock(loop, LOCK_UN) >= 0);
+        ASSERT_OK(loop_device_flock(loop, LOCK_UN));
 
-        assert_se(umount_recursive(mounted, 0) >= 0);
+        ASSERT_OK(umount_recursive(mounted, 0));
         loop = loop_device_unref(loop);
 
         log_notice("Threads are being started now");
@@ -323,7 +323,7 @@ static int run(int argc, char *argv[]) {
 
         if (arg_n_threads > 1)
                 for (unsigned i = 0; i < arg_n_threads; i++)
-                        assert_se(pthread_create(threads + i, NULL, thread_func, FD_TO_PTR(fd)) == 0);
+                        ASSERT_EQ(pthread_create(threads + i, NULL, thread_func, FD_TO_PTR(fd)), 0);
 
         log_notice("All threads started now.");
 

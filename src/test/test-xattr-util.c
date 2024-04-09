@@ -34,11 +34,11 @@ TEST(getxattr_at_malloc) {
         ASSERT_OK(r);
 
         assert_se(getxattr_at_malloc(fd, "test", "user.foo", 0, &value) == 3);
-        assert_se(memcmp(value, "bar", 3) == 0);
+        ASSERT_EQ(memcmp(value, "bar", 3), 0);
         value = mfree(value);
 
         assert_se(getxattr_at_malloc(AT_FDCWD, x, "user.foo", 0, &value) == 3);
-        assert_se(memcmp(value, "bar", 3) == 0);
+        ASSERT_EQ(memcmp(value, "bar", 3), 0);
         value = mfree(value);
 
         safe_close(fd);
@@ -51,7 +51,7 @@ TEST(getxattr_at_malloc) {
         fd = open(x, O_PATH|O_CLOEXEC);
         ASSERT_OK(fd);
         assert_se(getxattr_at_malloc(fd, NULL, "user.foo", 0, &value) == 3);
-        assert_se(streq(value, "bar"));
+        ASSERT_TRUE(streq(value, "bar"));
 }
 
 TEST(getcrtime) {
@@ -83,7 +83,7 @@ static void verify_xattr(int dfd, const char *expected) {
         _cleanup_free_ char *value = NULL;
 
         assert_se(getxattr_at_malloc(dfd, "test", "user.foo", 0, &value) == (int) strlen(expected));
-        assert_se(streq(value, expected));
+        ASSERT_TRUE(streq(value, expected));
 }
 
 TEST(xsetxattr) {
@@ -105,24 +105,24 @@ TEST(xsetxattr) {
         verify_xattr(dfd, "fullpath");
 
         /* by dirfd */
-        assert_se(xsetxattr(dfd, "test", "user.foo", "dirfd", SIZE_MAX, 0) >= 0);
+        ASSERT_OK(xsetxattr(dfd, "test", "user.foo", "dirfd", SIZE_MAX, 0));
         verify_xattr(dfd, "dirfd");
 
         /* by fd (O_PATH) */
         fd = openat(dfd, "test", O_PATH|O_CLOEXEC);
         ASSERT_OK(fd);
-        assert_se(xsetxattr(fd, NULL, "user.foo", "fd_opath", SIZE_MAX, 0) >= 0);
+        ASSERT_OK(xsetxattr(fd, NULL, "user.foo", "fd_opath", SIZE_MAX, 0));
         verify_xattr(dfd, "fd_opath");
         assert_se(xsetxattr(fd, "", "user.foo", "fd_opath", SIZE_MAX, 0) == -EINVAL);
-        assert_se(xsetxattr(fd, "", "user.foo", "fd_opath_empty", SIZE_MAX, AT_EMPTY_PATH) >= 0);
+        ASSERT_OK(xsetxattr(fd, "", "user.foo", "fd_opath_empty", SIZE_MAX, AT_EMPTY_PATH));
         verify_xattr(dfd, "fd_opath_empty");
         fd = safe_close(fd);
 
         fd = openat(dfd, "test", O_RDONLY|O_CLOEXEC);
-        assert_se(xsetxattr(fd, NULL, "user.foo", "fd_regular", SIZE_MAX, 0) >= 0);
+        ASSERT_OK(xsetxattr(fd, NULL, "user.foo", "fd_regular", SIZE_MAX, 0));
         verify_xattr(dfd, "fd_regular");
         assert_se(xsetxattr(fd, "", "user.foo", "fd_regular_empty", SIZE_MAX, 0) == -EINVAL);
-        assert_se(xsetxattr(fd, "", "user.foo", "fd_regular_empty", SIZE_MAX, AT_EMPTY_PATH) >= 0);
+        ASSERT_OK(xsetxattr(fd, "", "user.foo", "fd_regular_empty", SIZE_MAX, AT_EMPTY_PATH));
         verify_xattr(dfd, "fd_regular_empty");
 }
 

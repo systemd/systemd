@@ -61,7 +61,7 @@
 
 TEST(load_env_file_1) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        assert_se(write_tmpfile(name, env_file_1) == 0);
+        ASSERT_EQ(write_tmpfile(name, env_file_1), 0);
 
         _cleanup_strv_free_ char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
@@ -76,7 +76,7 @@ TEST(load_env_file_1) {
 
 TEST(load_env_file_2) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        assert_se(write_tmpfile(name, env_file_2) == 0);
+        ASSERT_EQ(write_tmpfile(name, env_file_2), 0);
 
         _cleanup_strv_free_ char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
@@ -86,7 +86,7 @@ TEST(load_env_file_2) {
 
 TEST(load_env_file_3) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        assert_se(write_tmpfile(name, env_file_3) == 0);
+        ASSERT_EQ(write_tmpfile(name, env_file_3), 0);
 
         _cleanup_strv_free_ char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
@@ -97,7 +97,7 @@ TEST(load_env_file_3) {
 
 TEST(load_env_file_4) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        assert_se(write_tmpfile(name, env_file_4) == 0);
+        ASSERT_EQ(write_tmpfile(name, env_file_4), 0);
 
         _cleanup_strv_free_ char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
@@ -109,7 +109,7 @@ TEST(load_env_file_4) {
 
 TEST(load_env_file_5) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        assert_se(write_tmpfile(name, env_file_5) == 0);
+        ASSERT_EQ(write_tmpfile(name, env_file_5), 0);
 
         _cleanup_strv_free_ char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
@@ -120,7 +120,7 @@ TEST(load_env_file_5) {
 
 TEST(load_env_file_6) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        assert_se(write_tmpfile(name, env_file_6) == 0);
+        ASSERT_EQ(write_tmpfile(name, env_file_6), 0);
 
         _cleanup_strv_free_ char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
@@ -142,7 +142,7 @@ TEST(load_env_file_invalid_utf8) {
                        "foo=b\uffffar",
                        "baz=hello world\ufffe") {
                 _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-                assert_se(write_tmpfile(name, s) == 0);
+                ASSERT_EQ(write_tmpfile(name, s), 0);
 
                 _cleanup_strv_free_ char **data = NULL;
                 assert_se(load_env_file(NULL, name, &data) == -EINVAL);
@@ -178,13 +178,13 @@ TEST(write_and_load_env_file) {
                 assert_se(f = popen(cmd, "re"));
                 assert_se(read_full_stream(f, &from_shell, &sz) >= 0);
                 assert_se(sz == strlen(v));
-                assert_se(streq(from_shell, v));
+                ASSERT_TRUE(streq(from_shell, v));
 
                 assert_se(load_env_file(NULL, p, &l) >= 0);
-                assert_se(strv_equal(l, STRV_MAKE(j)));
+                ASSERT_TRUE(strv_equal(l, STRV_MAKE(j)));
 
                 assert_se(parse_env_file(NULL, p, "TEST", &w) >= 0);
-                assert_se(streq_ptr(w, v));
+                ASSERT_TRUE(streq_ptr(w, v));
         }
 }
 

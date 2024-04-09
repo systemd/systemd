@@ -39,8 +39,8 @@ static void do_fstab_filter_options(const char *opts,
                  opts, r, strnull(name), value, filtered,
                  r_expected, strnull(name_expected), strnull(value_expected), filtered_expected ?: opts);
         assert_se(r == r_expected);
-        assert_se(streq_ptr(name, name_expected));
-        assert_se(streq_ptr(value, value_expected));
+        ASSERT_TRUE(streq_ptr(name, name_expected));
+        ASSERT_TRUE(streq_ptr(value, value_expected));
         assert_se(streq_ptr(filtered, filtered_expected ?: opts));
 
         /* test mode which returns all the values */
@@ -52,7 +52,7 @@ static void do_fstab_filter_options(const char *opts,
                  r_values_expected, strnull(name_expected), strnull(values_expected));
         assert_se(r == r_values_expected);
         assert_se(streq_ptr(name, r_values_expected > 0 ? name_expected : NULL));
-        assert_se(streq_ptr(joined, values_expected));
+        ASSERT_TRUE(streq_ptr(joined, values_expected));
 
         /* also test the malloc-less mode */
         r = fstab_filter_options(opts, remove, &name, NULL, NULL, NULL);
@@ -60,7 +60,7 @@ static void do_fstab_filter_options(const char *opts,
                  opts, r, strnull(name),
                  r_expected, strnull(name_expected));
         assert_se(r == r_expected);
-        assert_se(streq_ptr(name, name_expected));
+        ASSERT_TRUE(streq_ptr(name, name_expected));
 }
 
 TEST(fstab_filter_options) {
