@@ -4705,7 +4705,7 @@ int service_set_socket_fd(
                 Service *s,
                 int fd,
                 Socket *sock,
-                SocketPeer *peer,
+                SocketPeer *peer, /* reference to object is donated to us on success */
                 bool selinux_context_net) {
 
         _cleanup_free_ char *peer_text = NULL;
