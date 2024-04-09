@@ -33,11 +33,11 @@ TEST(copy_file) {
         int fd;
 
         fd = mkostemp_safe(fn);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         close(fd);
 
         fd = mkostemp_safe(fn_copy);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         close(fd);
 
         assert_se(write_string_file(fn, "foo bar bar bar foo", WRITE_STRING_FILE_CREATE) == 0);
@@ -115,9 +115,9 @@ TEST(copy_file_fd) {
         char buf[64] = {};
 
         in_fd = mkostemp_safe(in_fn);
-        assert_se(in_fd >= 0);
+        ASSERT_OK(in_fd);
         out_fd = mkostemp_safe(out_fn);
-        assert_se(out_fd >= 0);
+        ASSERT_OK(out_fd);
 
         assert_se(write_string_file(in_fn, text, WRITE_STRING_FILE_CREATE) == 0);
         assert_se(copy_file_fd("/a/file/which/does/not/exist/i/guess", out_fd, COPY_REFLINK) < 0);
@@ -260,7 +260,7 @@ TEST(copy_tree_at_symlink) {
         const char *expect = "hgoehogefoobar";
 
         tfd = mkdtemp_open(NULL, O_PATH, &t);
-        assert_se(tfd >= 0);
+        ASSERT_OK(tfd);
 
         assert_se(symlinkat(expect, tfd, "from") >= 0);
 
@@ -277,7 +277,7 @@ TEST(copy_tree_at_symlink) {
         q = mfree(q);
 
         fd = openat(tfd, "from", O_CLOEXEC | O_PATH | O_NOFOLLOW);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         assert_se(copy_tree_at(fd, NULL, tfd, "to_3", UID_INVALID, GID_INVALID, 0, NULL, NULL) >= 0);
         assert_se(readlinkat_malloc(tfd, "to_3", &p) >= 0);
         assert_se(streq(p, expect));
@@ -305,10 +305,10 @@ TEST_RET(copy_bytes) {
         assert_se(pipe2(pipefd, O_CLOEXEC) == 0);
 
         r = copy_bytes(infd, pipefd[1], UINT64_MAX, 0);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
 
         r = read(pipefd[0], buf, sizeof(buf));
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         assert_se(lseek(infd, 0, SEEK_SET) == 0);
         r2 = read(infd, buf2, sizeof(buf2));
@@ -339,17 +339,17 @@ static void test_copy_bytes_regular_file_one(const char *src, bool try_reflink, 
         log_info("%s try_reflink=%s max_bytes=%" PRIu64, __func__, yes_no(try_reflink), max_bytes);
 
         fd = open(src, O_CLOEXEC | O_PATH);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         fd2 = mkostemp_safe(fn2);
-        assert_se(fd2 >= 0);
+        ASSERT_OK(fd2);
 
         fd3 = mkostemp_safe(fn3);
-        assert_se(fd3 >= 0);
+        ASSERT_OK(fd3);
 
         r = copy_bytes(fd, fd2, max_bytes, try_reflink ? COPY_REFLINK : 0);
         if (max_bytes == UINT64_MAX)
-                assert_se(r == 0);
+                ASSERT_EQ(r, 0);
         else
                 assert_se(IN_SET(r, 0, 1));
 
@@ -365,7 +365,7 @@ static void test_copy_bytes_regular_file_one(const char *src, bool try_reflink, 
 
         r = copy_bytes(fd2, fd3, max_bytes, try_reflink ? COPY_REFLINK : 0);
         if (max_bytes == UINT64_MAX)
-                assert_se(r == 0);
+                ASSERT_EQ(r, 0);
         else
                 /* We cannot distinguish between the input being exactly max_bytes
                  * or longer than max_bytes (without trying to read one more byte,
@@ -434,15 +434,15 @@ TEST_RET(copy_holes) {
         char *buf;
 
         fd = mkostemp_safe(fn);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         fd_copy = mkostemp_safe(fn_copy);
-        assert_se(fd_copy >= 0);
+        ASSERT_OK(fd_copy);
 
         r = RET_NERRNO(fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, 1));
         if (ERRNO_IS_NOT_SUPPORTED(r))
                 return log_tests_skipped("Filesystem doesn't support hole punching");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         assert_se(fstat(fd, &stat) >= 0);
         blksz = stat.st_blksize;
@@ -515,7 +515,7 @@ TEST_RET(copy_holes_with_gaps) {
         assert_se(lseek(fd, 2 * blksz, SEEK_CUR) >= 0);
         assert_se(loop_write(fd, buf, blksz) >= 0);
         assert_se(lseek(fd, 0, SEEK_SET) >= 0);
-        assert_se(fsync(fd) >= 0);
+        ASSERT_OK(fsync(fd));
 
         /* Copy to the start of the second hole */
         assert_se(copy_bytes(fd, fd_copy, 3 * blksz, COPY_HOLES) >= 0);
@@ -574,14 +574,14 @@ TEST(copy_verify_linked) {
         _cleanup_close_ int tfd = -EBADF, fd_1 = -EBADF, fd_2 = -EBADF;
 
         tfd = mkdtemp_open(NULL, O_PATH, &t);
-        assert_se(tfd >= 0);
+        ASSERT_OK(tfd);
 
         assert_se(write_string_file_at(tfd, "hoge", "bar bar", WRITE_STRING_FILE_CREATE) >= 0);
 
         fd_1 = openat(tfd, "hoge", O_CLOEXEC | O_NOCTTY | O_RDONLY);
-        assert_se(fd_1 >= 0);
+        ASSERT_OK(fd_1);
         fd_2 = openat(tfd, "hoge", O_CLOEXEC | O_NOCTTY | O_RDONLY);
-        assert_se(fd_2 >= 0);
+        ASSERT_OK(fd_2);
         assert_se(unlinkat(tfd, "hoge", 0) >= 0);
 
         assert_se(copy_file_at(fd_1, NULL, tfd, "to_1", 0, 0644, 0) >= 0);

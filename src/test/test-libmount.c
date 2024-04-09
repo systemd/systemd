@@ -37,7 +37,7 @@ static void test_libmount_unescaping_one(
                 log_error_errno(r, "mnt_table_next_fs failed: %m");
                 return;
         }
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
 
         assert_se(x = cescape(string));
 

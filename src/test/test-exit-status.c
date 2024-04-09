@@ -24,7 +24,7 @@ TEST(exit_status_from_string) {
         assert_se(exit_status_from_string("-1") == -ERANGE);
         assert_se(exit_status_from_string("256") == -ERANGE);
         assert_se(exit_status_from_string("foo") == -EINVAL);
-        assert_se(exit_status_from_string("SUCCESS") == 0);
+        ASSERT_EQ(exit_status_from_string("SUCCESS"), 0);
         assert_se(exit_status_from_string("FAILURE") == 1);
 }
 

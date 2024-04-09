@@ -404,7 +404,7 @@ TEST(config_parse_standard_file_with_dropins_full) {
         assert_se(mkdir_p_root(root, "/usr/local/lib/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
 
         rfd = open(root, O_CLOEXEC|O_DIRECTORY);
-        assert_se(rfd >= 0);
+        ASSERT_OK(rfd);
 
         assert_se(write_string_file_at(rfd, "usr/lib/kernel/install.conf",         /* this one is ignored */
                                        "A=!!!", WRITE_STRING_FILE_CREATE) == 0);
@@ -442,7 +442,7 @@ TEST(config_parse_standard_file_with_dropins_full) {
                         /* userdata= */ NULL,
                         /* ret_stats_by_path= */ NULL,
                         /* ret_dropin_files= */ &dropins);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq_ptr(A, "aaa"));
         assert_se(streq_ptr(B, "bbb"));
         assert_se(streq_ptr(C, "c1"));
@@ -481,7 +481,7 @@ TEST(config_parse_standard_file_with_dropins_full) {
                         /* userdata= */ NULL,
                         /* ret_stats_by_path= */ NULL,
                         /* ret_dropin_files= */ NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(streq_ptr(A, "aaa"));
         assert_se(streq_ptr(B, "bbb"));
         assert_se(streq_ptr(C, "c1"));

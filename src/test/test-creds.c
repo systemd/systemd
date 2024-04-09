@@ -70,7 +70,7 @@ TEST(read_credential_strings) {
         if (saved)
                 assert_se(setenv("CREDENTIALS_DIRECTORY", saved, /* override= */ 1) >= 0);
         else
-                assert_se(unsetenv("CREDENTIALS_DIRECTORY") >= 0);
+                ASSERT_OK(unsetenv("CREDENTIALS_DIRECTORY"));
 }
 
 TEST(credential_name_valid) {
@@ -152,7 +152,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
                 return;
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         _cleanup_(iovec_done) struct iovec decrypted = {};
         r = decrypt_credential_and_warn(
@@ -175,7 +175,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
                         &encrypted,
                         CREDENTIAL_ALLOW_NULL,
                         &decrypted);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         assert_se(iovec_memcmp(&plaintext, &decrypted) == 0);
 }

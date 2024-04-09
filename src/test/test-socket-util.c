@@ -159,7 +159,7 @@ TEST(getpeercred_getpeergroups) {
         int r;
 
         r = safe_fork("(getpeercred)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 static const gid_t gids[] = { 3, 4, 5, 6, 7 };
@@ -184,12 +184,12 @@ TEST(getpeercred_getpeergroups) {
                         test_gid = getgid();
 
                         ngroups_max = sysconf(_SC_NGROUPS_MAX);
-                        assert_se(ngroups_max > 0);
+                        ASSERT_GT(ngroups_max, 0);
 
                         test_gids = newa(gid_t, ngroups_max);
 
                         r = getgroups(ngroups_max, test_gids);
-                        assert_se(r >= 0);
+                        ASSERT_OK(r);
                         n_test_gids = (size_t) r;
                 }
 
@@ -226,7 +226,7 @@ TEST(passfd_read) {
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
         r = safe_fork("(passfd_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* Child */
@@ -236,8 +236,8 @@ TEST(passfd_read) {
                 assert_se(write_tmpfile(tmpfile, file_contents) == 0);
 
                 _cleanup_close_ int tmpfd = open(tmpfile, O_RDONLY);
-                assert_se(tmpfd >= 0);
-                assert_se(unlink(tmpfile) == 0);
+                ASSERT_OK(tmpfd);
+                ASSERT_EQ(unlink(tmpfile), 0);
 
                 assert_se(send_one_fd(pair[1], tmpfd, MSG_DONTWAIT) == 0);
                 _exit(EXIT_SUCCESS);
@@ -252,9 +252,9 @@ TEST(passfd_read) {
 
         assert_se(receive_one_fd_iov(pair[0], &iov, 1, MSG_DONTWAIT, &fd) == 0);
 
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         r = read(fd, buf, sizeof(buf)-1);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         buf[r] = 0;
         assert_se(streq(buf, file_contents));
 }
@@ -268,7 +268,7 @@ TEST(passfd_contents_read) {
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
         r = safe_fork("(passfd_contents_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* Child */
@@ -280,8 +280,8 @@ TEST(passfd_contents_read) {
                 assert_se(write_tmpfile(tmpfile, file_contents) == 0);
 
                 _cleanup_close_ int tmpfd = open(tmpfile, O_RDONLY);
-                assert_se(tmpfd >= 0);
-                assert_se(unlink(tmpfile) == 0);
+                ASSERT_OK(tmpfd);
+                ASSERT_EQ(unlink(tmpfile), 0);
 
                 assert_se(send_one_fd_iov(pair[1], tmpfd, &iov, 1, MSG_DONTWAIT) > 0);
                 _exit(EXIT_SUCCESS);
@@ -296,13 +296,13 @@ TEST(passfd_contents_read) {
         pair[1] = safe_close(pair[1]);
 
         k = receive_one_fd_iov(pair[0], &iov, 1, MSG_DONTWAIT, &fd);
-        assert_se(k > 0);
+        ASSERT_GT(k, 0);
         buf[k] = 0;
         assert_se(streq(buf, wire_contents));
 
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         r = read(fd, buf, sizeof(buf)-1);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         buf[r] = 0;
         assert_se(streq(buf, file_contents));
 }
@@ -320,7 +320,7 @@ TEST(pass_many_fds_contents_read) {
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
         r = safe_fork("(passfd_contents_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* Child */
@@ -356,7 +356,7 @@ TEST(pass_many_fds_contents_read) {
         pair[1] = safe_close(pair[1]);
 
         k = receive_many_fds_iov(pair[0], &iov, 1, &fds, &n_fds, MSG_DONTWAIT);
-        assert_se(k > 0);
+        ASSERT_GT(k, 0);
         buf[k] = 0;
         assert_se(streq(buf, wire_contents));
 
@@ -365,7 +365,7 @@ TEST(pass_many_fds_contents_read) {
         for (size_t i = 0; i < 3; ++i) {
                 assert_se(fds[i] >= 0);
                 r = read(fds[i], buf, sizeof(buf)-1);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 buf[r] = 0;
                 assert_se(streq(buf, file_contents[i]));
                 safe_close(fds[i]);
@@ -380,7 +380,7 @@ TEST(receive_nopassfd) {
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
         r = safe_fork("(receive_nopassfd)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* Child */
@@ -401,7 +401,7 @@ TEST(receive_nopassfd) {
         pair[1] = safe_close(pair[1]);
 
         k = receive_one_fd_iov(pair[0], &iov, 1, MSG_DONTWAIT, &fd);
-        assert_se(k > 0);
+        ASSERT_GT(k, 0);
         buf[k] = 0;
         assert_se(streq(buf, wire_contents));
 
@@ -416,7 +416,7 @@ TEST(send_nodata_nofd) {
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
         r = safe_fork("(send_nodata_nofd)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* Child */
@@ -449,12 +449,12 @@ TEST(send_emptydata) {
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
         r = safe_fork("(send_emptydata)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* Child */
                 struct iovec iov = IOVEC_MAKE_STRING("");  /* zero-length iov */
-                assert_se(iov.iov_len == 0);
+                ASSERT_EQ(iov.iov_len, 0u);
 
                 pair[0] = safe_close(pair[0]);
 
@@ -486,42 +486,42 @@ TEST(flush_accept) {
         socklen_t l;
 
         listen_stream = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        assert_se(listen_stream >= 0);
+        ASSERT_OK(listen_stream);
 
         listen_dgram = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        assert_se(listen_dgram >= 0);
+        ASSERT_OK(listen_dgram);
 
         listen_seqpacket = socket(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        assert_se(listen_seqpacket >= 0);
+        ASSERT_OK(listen_seqpacket);
 
-        assert_se(flush_accept(listen_stream) < 0);
-        assert_se(flush_accept(listen_dgram) < 0);
-        assert_se(flush_accept(listen_seqpacket) < 0);
+        ASSERT_LT(flush_accept(listen_stream), 0);
+        ASSERT_LT(flush_accept(listen_dgram), 0);
+        ASSERT_LT(flush_accept(listen_seqpacket), 0);
 
         assert_se(bind(listen_stream, &sa.sa, sizeof(sa_family_t)) >= 0);
         assert_se(bind(listen_dgram, &sa.sa, sizeof(sa_family_t)) >= 0);
         assert_se(bind(listen_seqpacket, &sa.sa, sizeof(sa_family_t)) >= 0);
 
-        assert_se(flush_accept(listen_stream) < 0);
-        assert_se(flush_accept(listen_dgram) < 0);
-        assert_se(flush_accept(listen_seqpacket) < 0);
+        ASSERT_LT(flush_accept(listen_stream), 0);
+        ASSERT_LT(flush_accept(listen_dgram), 0);
+        ASSERT_LT(flush_accept(listen_seqpacket), 0);
 
         assert_se(listen(listen_stream, SOMAXCONN_DELUXE) >= 0);
         assert_se(listen(listen_dgram, SOMAXCONN_DELUXE) < 0);
         assert_se(listen(listen_seqpacket, SOMAXCONN_DELUXE) >= 0);
 
-        assert_se(flush_accept(listen_stream) >= 0);
-        assert_se(flush_accept(listen_dgram) < 0);
-        assert_se(flush_accept(listen_seqpacket) >= 0);
+        ASSERT_OK(flush_accept(listen_stream));
+        ASSERT_LT(flush_accept(listen_dgram), 0);
+        ASSERT_OK(flush_accept(listen_seqpacket));
 
         connect_stream = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        assert_se(connect_stream >= 0);
+        ASSERT_OK(connect_stream);
 
         connect_dgram = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        assert_se(connect_dgram >= 0);
+        ASSERT_OK(connect_dgram);
 
         connect_seqpacket = socket(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        assert_se(connect_seqpacket >= 0);
+        ASSERT_OK(connect_seqpacket);
 
         l = sizeof(lsa);
         assert_se(getsockname(listen_stream, &lsa.sa, &l) >= 0);
@@ -535,9 +535,9 @@ TEST(flush_accept) {
         assert_se(getsockname(listen_seqpacket, &lsa.sa, &l) >= 0);
         assert_se(connect(connect_seqpacket, &lsa.sa, l) >= 0);
 
-        assert_se(flush_accept(listen_stream) >= 0);
-        assert_se(flush_accept(listen_dgram) < 0);
-        assert_se(flush_accept(listen_seqpacket) >= 0);
+        ASSERT_OK(flush_accept(listen_stream));
+        ASSERT_LT(flush_accept(listen_dgram), 0);
+        ASSERT_OK(flush_accept(listen_seqpacket));
 }
 
 TEST(ipv6_enabled) {
@@ -566,14 +566,14 @@ TEST(sockaddr_un_set_path) {
         assert_se(sockaddr_un_set_path(&sa.un, j) >= 0);
 
         fd1 = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
-        assert_se(fd1 >= 0);
+        ASSERT_OK(fd1);
         assert_se(bind(fd1, &sa.sa, SOCKADDR_LEN(sa)) >= 0);
         assert_se(listen(fd1, 1) >= 0);
 
         sh = unlink_and_free(sh); /* remove temporary symlink */
 
         fd2 = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
-        assert_se(fd2 >= 0);
+        ASSERT_OK(fd2);
         assert_se(connect(fd2, &sa.sa, SOCKADDR_LEN(sa)) < 0);
         assert_se(errno == ENOENT); /* we removed the symlink, must fail */
 
@@ -581,7 +581,7 @@ TEST(sockaddr_un_set_path) {
         assert_se(j = path_join(t, "sock"));
 
         fd3 = open(j, O_CLOEXEC|O_PATH|O_NOFOLLOW);
-        assert_se(fd3 > 0);
+        ASSERT_GT(fd3, 0);
         assert_se(sockaddr_un_set_path(&sa.un, FORMAT_PROC_FD_PATH(fd3)) >= 0); /* connect via O_PATH instead, circumventing 108ch limit */
 
         assert_se(connect(fd2, &sa.sa, SOCKADDR_LEN(sa)) >= 0);

@@ -120,8 +120,8 @@ TEST(set_make_nulstr) {
                 _cleanup_free_ char *nulstr = NULL;
 
                 r = set_make_nulstr(set, &nulstr, &len);
-                assert_se(r == 0);
-                assert_se(len == 0);
+                ASSERT_EQ(r, 0);
+                ASSERT_EQ(len, 0u);
                 assert_se(memcmp(expect, nulstr, len + 2) == 0);
         }
 
@@ -134,8 +134,8 @@ TEST(set_make_nulstr) {
                 assert_se(set);
 
                 r = set_make_nulstr(set, &nulstr, &len);
-                assert_se(r == 0);
-                assert_se(len == 0);
+                ASSERT_EQ(r, 0);
+                ASSERT_EQ(len, 0u);
                 assert_se(memcmp(expect, nulstr, len + 2) == 0);
         }
 
@@ -147,7 +147,7 @@ TEST(set_make_nulstr) {
                 assert_se(set_put_strdup(&set, "aaa") >= 0);
 
                 r = set_make_nulstr(set, &nulstr, &len);
-                assert_se(r == 0);
+                ASSERT_EQ(r, 0);
                 assert_se(len == 4);
                 assert_se(memcmp(expect, nulstr, len + 1) == 0);
         }

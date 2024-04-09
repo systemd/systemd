@@ -105,7 +105,7 @@ TEST(strv_env_replace_strdup_passthrough) {
 
         assert_se(putenv((char*) "a=a") == 0);
         assert_se(putenv((char*) "b=") == 0);
-        assert_se(unsetenv("c") == 0);
+        ASSERT_EQ(unsetenv("c"), 0);
 
         assert_se(strv_env_replace_strdup_passthrough(&a, "a") == 1);
         assert_se(strv_env_replace_strdup_passthrough(&a, "b") == 1);
@@ -469,12 +469,12 @@ TEST(setenv_systemd_exec_pid) {
         if (e)
                 assert_se(saved = strdup(e));
 
-        assert_se(unsetenv("SYSTEMD_EXEC_PID") >= 0);
-        assert_se(setenv_systemd_exec_pid(true) == 0);
+        ASSERT_OK(unsetenv("SYSTEMD_EXEC_PID"));
+        ASSERT_EQ(setenv_systemd_exec_pid(true), 0);
         assert_se(!getenv("SYSTEMD_EXEC_PID"));
 
         assert_se(setenv("SYSTEMD_EXEC_PID", "*", 1) >= 0);
-        assert_se(setenv_systemd_exec_pid(true) == 0);
+        ASSERT_EQ(setenv_systemd_exec_pid(true), 0);
         assert_se(e = getenv("SYSTEMD_EXEC_PID"));
         assert_se(streq(e, "*"));
 
@@ -484,7 +484,7 @@ TEST(setenv_systemd_exec_pid) {
         assert_se(parse_pid(e, &p) >= 0);
         assert_se(p == getpid_cached());
 
-        assert_se(unsetenv("SYSTEMD_EXEC_PID") >= 0);
+        ASSERT_OK(unsetenv("SYSTEMD_EXEC_PID"));
         assert_se(setenv_systemd_exec_pid(false) == 1);
         assert_se(e = getenv("SYSTEMD_EXEC_PID"));
         assert_se(parse_pid(e, &p) >= 0);
@@ -537,7 +537,7 @@ TEST(getenv_steal_erase) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(r > 0);
+        ASSERT_GT(r, 0);
 }
 
 TEST(strv_env_name_is_valid) {
@@ -578,7 +578,7 @@ TEST(getenv_path_list) {
         assert_se(streq(path_list[4], "/final"));
         ASSERT_NULL(path_list[5]);
 
-        assert_se(unsetenv("TEST_GETENV_PATH_LIST") >= 0);
+        ASSERT_OK(unsetenv("TEST_GETENV_PATH_LIST"));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

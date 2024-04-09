@@ -99,7 +99,7 @@ TEST(path_pick) {
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) == 0);
         assert_se(result.st.st_mode == MODE_INVALID);
         assert_se(!result.version);
-        assert_se(result.architecture < 0);
+        ASSERT_LT(result.architecture, 0);
         assert_se(!result.path);
 
         assert_se(unlinkat(sub_dfd, "foo_99_x86.raw", 0) >= 0);

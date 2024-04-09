@@ -288,11 +288,11 @@ static int test_recursive_one(unsigned depth) {
 }
 
 TEST(recursive) {
-        assert_se(test_recursive_one(32) >= 0);
-        assert_se(test_recursive_one(64) >= 0);
+        ASSERT_OK(test_recursive_one(32));
+        ASSERT_OK(test_recursive_one(64));
 
         /* We should handle this gracefully without a stack overflow */
-        assert_se(test_recursive_one(65) < 0);
+        ASSERT_LT(test_recursive_one(65), 0);
         assert_se(test_recursive_one(20000) < 0 );
 }
 
@@ -341,7 +341,7 @@ static void* server_thread(void *userdata) {
 
         assert_se(varlink_server_add_connection(server, PTR_TO_FD(userdata), NULL) >= 0);
 
-        assert_se(sd_event_loop(event) >= 0);
+        ASSERT_OK(sd_event_loop(event));
         return NULL;
 }
 
@@ -396,7 +396,7 @@ TEST(validate_method_call) {
         assert_se(streq_ptr(error_id, VARLINK_ERROR_INVALID_PARAMETER));
 
         assert_se(varlink_send(v, "xyz.Done", NULL) >= 0);
-        assert_se(varlink_flush(v) >= 0);
+        ASSERT_OK(varlink_flush(v));
         assert_se(pthread_join(t, NULL) == 0);
 }
 

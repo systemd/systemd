@@ -48,7 +48,7 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
                 return log_tests_skipped("cannot create manager");
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         /* Turn off all kinds of default accounting, so that we can
          * verify the masks resulting of our configuration and nothing
@@ -178,7 +178,7 @@ TEST(cgroup_device_permissions) {
         assert_se(cgroup_device_permissions_from_string(NULL) == -EINVAL);
         assert_se(cgroup_device_permissions_from_string("rwq") == -EINVAL);
         assert_se(cgroup_device_permissions_from_string("RW") == -EINVAL);
-        assert_se(cgroup_device_permissions_from_string("") == 0);
+        ASSERT_EQ(cgroup_device_permissions_from_string(""), 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

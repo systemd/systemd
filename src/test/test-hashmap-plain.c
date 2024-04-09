@@ -333,7 +333,7 @@ TEST(hashmap_remove_and_put) {
         assert_se(valid == -ENOENT);
 
         valid = hashmap_remove_and_put(m, "key 1", "key 2", (void*) (const char *) "val 2");
-        assert_se(valid == 0);
+        ASSERT_EQ(valid, 0);
 
         r = hashmap_get(m, "key 2");
         assert_se(streq(r, "val 2"));
@@ -367,7 +367,7 @@ TEST(hashmap_remove_and_replace) {
         assert_se(valid == -ENOENT);
 
         valid = hashmap_remove_and_replace(m, key1, key2, key2);
-        assert_se(valid == 0);
+        ASSERT_EQ(valid, 0);
 
         r = hashmap_get(m, key2);
         assert_se(r == key2);
@@ -376,7 +376,7 @@ TEST(hashmap_remove_and_replace) {
         valid = hashmap_put(m, key3, key3);
         assert_se(valid == 1);
         valid = hashmap_remove_and_replace(m, key3, key2, key2);
-        assert_se(valid == 0);
+        ASSERT_EQ(valid, 0);
         r = hashmap_get(m, key2);
         assert_se(r == key2);
         assert_se(!hashmap_get(m, key3));
@@ -392,7 +392,7 @@ TEST(hashmap_remove_and_replace) {
                 valid = hashmap_remove_and_replace(m, UINT_TO_PTR(10*i + 1),
                                                    UINT_TO_PTR(10*i + 2),
                                                    UINT_TO_PTR(10*i + 2));
-                assert_se(valid == 0);
+                ASSERT_EQ(valid, 0);
                 assert_se(!hashmap_get(m, UINT_TO_PTR(10*i + 1)));
                 for (j = 2; j < 7; j++) {
                         r = hashmap_get(m, UINT_TO_PTR(10*i + j));
@@ -409,11 +409,11 @@ TEST(hashmap_ensure_allocated) {
         assert_se(r == 1);
 
         r = hashmap_ensure_allocated(&m, &string_hash_ops);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
 
         /* different hash ops shouldn't matter at this point */
         r = hashmap_ensure_allocated(&m, &trivial_hash_ops);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
 }
 
 TEST(hashmap_foreach_key) {
@@ -466,14 +466,14 @@ TEST(hashmap_foreach) {
         count = 0;
         HASHMAP_FOREACH(s, m)
                 count++;
-        assert_se(count == 0);
+        ASSERT_EQ(count, 0u);
 
         m = hashmap_new(&string_hash_ops);
 
         count = 0;
         HASHMAP_FOREACH(s, m)
                 count++;
-        assert_se(count == 0);
+        ASSERT_EQ(count, 0u);
 
         hashmap_put(m, "Key 1", val1);
         hashmap_put(m, "Key 2", val2);
@@ -575,8 +575,8 @@ TEST(hashmap_size) {
         val4 = strdup("my val");
         assert_se(val4);
 
-        assert_se(hashmap_size(NULL) == 0);
-        assert_se(hashmap_buckets(NULL) == 0);
+        ASSERT_EQ(hashmap_size(NULL), 0u);
+        ASSERT_EQ(hashmap_buckets(NULL), 0u);
 
         m = hashmap_new(&string_hash_ops);
 
@@ -974,7 +974,7 @@ TEST(hashmap_dump_sorted) {
         assert_se(m = hashmap_new(&string_hash_ops));
 
         assert_se(hashmap_dump_sorted(m, &vals, &n) >= 0);
-        assert_se(n == 0);
+        ASSERT_EQ(n, 0u);
         assert_se(!vals);
 
         assert_se(hashmap_put(m, "key 0", expected[0]) == 1);
@@ -998,7 +998,7 @@ TEST(hashmap_dump_sorted) {
         assert_se(m = hashmap_new(NULL));
 
         assert_se(hashmap_dump_sorted(m, &vals, &n) >= 0);
-        assert_se(n == 0);
+        ASSERT_EQ(n, 0u);
         assert_se(!vals);
 
         assert_se(hashmap_put(m, UINT_TO_PTR(333U), expected[2]) == 1);

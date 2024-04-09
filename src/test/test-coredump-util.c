@@ -57,7 +57,7 @@ TEST(coredump_filter_mask_from_string) {
         assert_se(f == 0x1101);
 
         assert_se(coredump_filter_mask_from_string("0", &f) == 0);
-        assert_se(f == 0);
+        ASSERT_EQ(f, 0u);
 
         assert_se(coredump_filter_mask_from_string("all", &f) == 0);
         assert_se(FLAGS_SET(f, (1 << COREDUMP_FILTER_PRIVATE_ANONYMOUS |
@@ -136,7 +136,7 @@ TEST(parse_auxv) {
 
         assert_se(get_testdata_dir("auxv", &dir) >= 0);
         dir_fd = open(dir, O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_PATH);
-        assert_se(dir_fd >= 0);
+        ASSERT_OK(dir_fd);
 
         if (__BYTE_ORDER == __LITTLE_ENDIAN) {
                 test_parse_auxv_one(ELFCLASS32, dir_fd, "resolved.arm32", 0, 193, 193, 193, 193);

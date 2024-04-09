@@ -18,7 +18,7 @@ TEST(memstream_empty) {
         assert_se(memstream_init(&m));
         assert_se(memstream_finalize(&m, &buf, &sz) >= 0);
         assert_se(streq(buf, ""));
-        assert_se(sz == 0);
+        ASSERT_EQ(sz, 0u);
 }
 
 TEST(memstream) {

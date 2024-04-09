@@ -29,12 +29,12 @@ TEST (test_dirent_ensure_type) {
         /* Test when d_name is "." or ".." */
         strcpy(de.d_name, ".");
         r = dirent_ensure_type(dir_fd, &de);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(de.d_type == DT_DIR);
 
         strcpy(de.d_name, "..");
         r = dirent_ensure_type(dir_fd, &de);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(de.d_type == DT_DIR);
 }
 
@@ -57,10 +57,10 @@ TEST (test_dirent_is_file) {
         tilda = strjoina(t, "/test~");
         name_alias = strjoina(t, "/test_link");
 
-        assert_se(touch(name) >= 0);
-        assert_se(touch(dotfile) >= 0);
-        assert_se(touch(bakfile) >= 0);
-        assert_se(touch(tilda) >= 0);
+        ASSERT_OK(touch(name));
+        ASSERT_OK(touch(dotfile));
+        ASSERT_OK(touch(bakfile));
+        ASSERT_OK(touch(tilda));
 
         if (symlink(name, name_alias) < 0) {
                 assert_se(IN_SET(errno, EINVAL, ENOSYS, ENOTTY, EPERM));
@@ -133,9 +133,9 @@ TEST (test_dirent_is_file_with_suffix) {
         chr = strjoina(t, "/test_chr");
         name_alias = strjoina(t, "/test_link");
 
-        assert_se(touch(name) >= 0);
-        assert_se(touch(dotfile) >= 0);
-        assert_se(touch(dotdot) >= 0);
+        ASSERT_OK(touch(name));
+        ASSERT_OK(touch(dotfile));
+        ASSERT_OK(touch(dotdot));
         assert_se(mknod(chr, 0775 | S_IFCHR, makedev(0, 0)) >= 0);
 
         if (symlink(name, name_alias) < 0) {

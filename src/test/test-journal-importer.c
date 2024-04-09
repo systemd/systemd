@@ -27,7 +27,7 @@ TEST(basic_parsing) {
 
         assert_se(get_testdata_dir("journal-data/journal-1.txt", &journal_data_path) >= 0);
         imp.fd = open(journal_data_path, O_RDONLY|O_CLOEXEC);
-        assert_se(imp.fd >= 0);
+        ASSERT_OK(imp.fd);
 
         do
                 r = journal_importer_process_data(&imp);
@@ -47,7 +47,7 @@ TEST(basic_parsing) {
 
         /* Let's check if we get EOF now */
         r = journal_importer_process_data(&imp);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         assert_se(journal_importer_eof(&imp));
 }
 
@@ -58,12 +58,12 @@ TEST(bad_input) {
 
         assert_se(get_testdata_dir("journal-data/journal-1.txt", &journal_data_path) >= 0);
         imp.fd = open(journal_data_path, O_RDONLY|O_CLOEXEC);
-        assert_se(imp.fd >= 0);
+        ASSERT_OK(imp.fd);
 
         do
                 r = journal_importer_process_data(&imp);
         while (!journal_importer_eof(&imp));
-        assert_se(r == 0); /* If we don't have enough input, 0 is returned */
+        ASSERT_EQ(r, 0); /* If we don't have enough input, 0 is returned */
 
         assert_se(journal_importer_eof(&imp));
 }

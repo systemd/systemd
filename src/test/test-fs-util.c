@@ -38,7 +38,7 @@ TEST(readlink_and_make_absolute) {
         name_alias = strjoina(arg_test_dir ?: "/tmp", "/test-readlink_and_make_absolute-alias");
 
         assert_se(mkdir_safe(tempdir, 0755, getuid(), getgid(), MKDIR_WARN_MODE) >= 0);
-        assert_se(touch(name) >= 0);
+        ASSERT_OK(touch(name));
 
         if (symlink(name, name_alias) < 0) {
                 assert_se(IN_SET(errno, EINVAL, ENOSYS, ENOTTY, EPERM));
@@ -46,17 +46,17 @@ TEST(readlink_and_make_absolute) {
         } else {
                 assert_se(readlink_and_make_absolute(name_alias, &r1) >= 0);
                 assert_se(streq(r1, name));
-                assert_se(unlink(name_alias) >= 0);
+                ASSERT_OK(unlink(name_alias));
 
                 assert_se(safe_getcwd(&pwd) >= 0);
 
-                assert_se(chdir(tempdir) >= 0);
+                ASSERT_OK(chdir(tempdir));
                 assert_se(symlink(name2, name_alias) >= 0);
                 assert_se(readlink_and_make_absolute(name_alias, &r2) >= 0);
                 assert_se(streq(r2, name));
-                assert_se(unlink(name_alias) >= 0);
+                ASSERT_OK(unlink(name_alias));
 
-                assert_se(chdir(pwd) >= 0);
+                ASSERT_OK(chdir(pwd));
         }
 
         assert_se(rm_rf(tempdir, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
@@ -92,9 +92,9 @@ TEST(var_tmp) {
                 assert_se(tmp_backup);
         }
 
-        assert_se(unsetenv("TMPDIR") >= 0);
-        assert_se(unsetenv("TEMP") >= 0);
-        assert_se(unsetenv("TMP") >= 0);
+        ASSERT_OK(unsetenv("TMPDIR"));
+        ASSERT_OK(unsetenv("TEMP"));
+        ASSERT_OK(unsetenv("TMP"));
 
         assert_se(var_tmp_dir(&tmp_dir) >= 0);
         assert_se(streq(tmp_dir, "/var/tmp"));
@@ -146,7 +146,7 @@ TEST(access_fd) {
         assert_se(mkdtemp_malloc(a, &p) >= 0);
 
         fd = open(p, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         assert_se(access_fd(fd, R_OK) >= 0);
         assert_se(access_fd(fd, F_OK) >= 0);
@@ -233,7 +233,7 @@ TEST(touch_file) {
                         log_notice("Running in unprivileged container? Skipping remaining tests in %s", __func__);
                         return;
                 }
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 assert_se(touch_file(a, false, test_mtime, test_uid, test_gid, 0640) >= 0);
                 assert_se(lstat(a, &st) >= 0);
                 assert_se(st.st_uid == test_uid);
@@ -271,13 +271,13 @@ TEST(unlinkat_deallocate) {
         assert_se(tempfn_random_child(arg_test_dir, "unlink-deallocation", &p) >= 0);
 
         fd = open(p, O_WRONLY|O_CLOEXEC|O_CREAT|O_EXCL, 0600);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         assert_se(write(fd, "hallo\n", 6) == 6);
 
         assert_se(fstat(fd, &st) >= 0);
         assert_se(st.st_size == 6);
-        assert_se(st.st_blocks > 0);
+        ASSERT_GT(st.st_blocks, 0);
         assert_se(st.st_nlink == 1);
 
         assert_se(unlinkat_deallocate(AT_FDCWD, p, UNLINK_ERASE) >= 0);
@@ -285,17 +285,17 @@ TEST(unlinkat_deallocate) {
         assert_se(fstat(fd, &st) >= 0);
         assert_se(IN_SET(st.st_size, 0, 6)); /* depending on whether hole punching worked the size will be 6
                                                 (it worked) or 0 (we had to resort to truncation) */
-        assert_se(st.st_blocks == 0);
-        assert_se(st.st_nlink == 0);
+        ASSERT_EQ(st.st_blocks, 0u);
+        ASSERT_EQ(st.st_nlink, 0u);
 }
 
 TEST(fsync_directory_of_file) {
         _cleanup_close_ int fd = -EBADF;
 
         fd = open_tmpfile_unlinkable(arg_test_dir, O_RDWR);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
-        assert_se(fsync_directory_of_file(fd) >= 0);
+        ASSERT_OK(fsync_directory_of_file(fd));
 }
 
 TEST(rename_noreplace) {
@@ -316,7 +316,7 @@ TEST(rename_noreplace) {
         assert_se(mkdtemp_malloc(j, &z) >= 0);
 
         j = strjoina(z, table[0]);
-        assert_se(touch(j) >= 0);
+        ASSERT_OK(touch(j));
 
         j = strjoina(z, table[1]);
         assert_se(mkdir(j, 0777) >= 0);
@@ -410,7 +410,7 @@ static void create_binary_file(const char *p, const void *data, size_t l) {
         _cleanup_close_ int fd = -EBADF;
 
         fd = open(p, O_CREAT|O_WRONLY|O_EXCL|O_CLOEXEC, 0600);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         assert_se(write(fd, data, l) == (ssize_t) l);
 }
 
@@ -555,7 +555,7 @@ TEST(open_mkdir_at) {
         assert_se(open_mkdir_at(AT_FDCWD, ".", O_EXCL|O_CLOEXEC, 0) == -EEXIST);
 
         fd = open_mkdir_at(AT_FDCWD, "/", O_CLOEXEC, 0);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         assert_se(stat("/", &sta) >= 0);
         assert_se(fstat(fd, &stb) >= 0);
         assert_se(stat_inode_same(&sta, &stb));
@@ -570,7 +570,7 @@ TEST(open_mkdir_at) {
         assert_se(open_mkdir_at(AT_FDCWD, "/proc", O_EXCL|O_CLOEXEC, 0) == -EEXIST);
 
         fd = open_mkdir_at(AT_FDCWD, "/proc", O_CLOEXEC, 0);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
 
         assert_se(open_mkdir_at(AT_FDCWD, "/bin/sh", O_EXCL|O_CLOEXEC, 0) == -EEXIST);
@@ -582,19 +582,19 @@ TEST(open_mkdir_at) {
         assert_se(open_mkdir_at(AT_FDCWD, t, O_PATH|O_EXCL|O_CLOEXEC, 0) == -EEXIST);
 
         fd = open_mkdir_at(AT_FDCWD, t, O_CLOEXEC, 0000);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
 
         fd = open_mkdir_at(AT_FDCWD, t, O_PATH|O_CLOEXEC, 0000);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         subdir_fd = open_mkdir_at(fd, "xxx", O_PATH|O_EXCL|O_CLOEXEC, 0700);
-        assert_se(subdir_fd >= 0);
+        ASSERT_OK(subdir_fd);
 
         assert_se(open_mkdir_at(fd, "xxx", O_PATH|O_EXCL|O_CLOEXEC, 0) == -EEXIST);
 
         subsubdir_fd = open_mkdir_at(subdir_fd, "yyy", O_EXCL|O_CLOEXEC, 0700);
-        assert_se(subsubdir_fd >= 0);
+        ASSERT_OK(subsubdir_fd);
         subsubdir_fd = safe_close(subsubdir_fd);
 
         assert_se(open_mkdir_at(subdir_fd, "yyy", O_EXCL|O_CLOEXEC, 0) == -EEXIST);
@@ -602,7 +602,7 @@ TEST(open_mkdir_at) {
         assert_se(open_mkdir_at(fd, "xxx/yyy", O_EXCL|O_CLOEXEC, 0) == -EEXIST);
 
         subsubdir_fd = open_mkdir_at(fd, "xxx/yyy", O_CLOEXEC, 0700);
-        assert_se(subsubdir_fd >= 0);
+        ASSERT_OK(subsubdir_fd);
 }
 
 TEST(openat_report_new) {
@@ -617,58 +617,58 @@ TEST(openat_report_new) {
         assert_se(j);
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
         assert_se(b);
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
         assert_se(!b);
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
         assert_se(!b);
 
-        assert_se(unlink(j) >= 0);
+        ASSERT_OK(unlink(j));
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
         assert_se(b);
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
         assert_se(!b);
 
-        assert_se(unlink(j) >= 0);
+        ASSERT_OK(unlink(j));
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, NULL);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
         assert_se(!b);
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR, 0666, &b);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
         assert_se(!b);
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT|O_EXCL, 0666, &b);
         assert_se(fd == -EEXIST);
 
-        assert_se(unlink(j) >= 0);
+        ASSERT_OK(unlink(j));
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR, 0666, &b);
         assert_se(fd == -ENOENT);
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT|O_EXCL, 0666, &b);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         fd = safe_close(fd);
         assert_se(b);
 }
@@ -694,7 +694,7 @@ TEST(xopenat_full) {
         /* Test that xopenat_full() creates regular files if O_DIRECTORY is not specified. */
 
         assert_se((fd = xopenat_full(tfd, "def", O_CREAT|O_EXCL|O_CLOEXEC, 0, 0644)) >= 0);
-        assert_se(fd_verify_regular(fd) >= 0);
+        ASSERT_OK(fd_verify_regular(fd));
         fd = safe_close(fd);
 
         /* Test that we can reopen an existing fd with xopenat_full() by specifying an empty path. */
@@ -715,21 +715,21 @@ TEST(xopenat_lock_full) {
          * another process.  */
 
         fd = xopenat_lock_full(tfd, "abc", O_CREAT|O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         assert_se(faccessat(tfd, "abc", F_OK, 0) >= 0);
-        assert_se(fd_verify_directory(fd) >= 0);
+        ASSERT_OK(fd_verify_directory(fd));
         assert_se(xopenat_lock_full(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
 
         pid_t pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
                 safe_close(fd);
 
                 fd = xopenat_lock_full(tfd, "abc", O_CREAT|O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX);
-                assert_se(fd >= 0);
+                ASSERT_OK(fd);
                 assert_se(faccessat(tfd, "abc", F_OK, 0) >= 0);
-                assert_se(fd_verify_directory(fd) >= 0);
+                ASSERT_OK(fd_verify_directory(fd));
                 assert_se(xopenat_lock_full(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
 
                 _exit(EXIT_SUCCESS);
@@ -760,18 +760,18 @@ TEST(linkat_replace) {
         assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
 
         _cleanup_close_ int fd1 = openat(tfd, "foo", O_CREAT|O_RDWR|O_CLOEXEC, 0600);
-        assert_se(fd1 >= 0);
+        ASSERT_OK(fd1);
 
         assert_se(linkat_replace(tfd, "foo", tfd, "bar") >= 0);
         assert_se(linkat_replace(tfd, "foo", tfd, "bar") >= 0);
 
         _cleanup_close_ int fd1_check = openat(tfd, "bar", O_RDWR|O_CLOEXEC);
-        assert_se(fd1_check >= 0);
+        ASSERT_OK(fd1_check);
 
         assert_se(inode_same_at(fd1, NULL, fd1_check, NULL, AT_EMPTY_PATH) > 0);
 
         _cleanup_close_ int fd2 = openat(tfd, "baz", O_CREAT|O_RDWR|O_CLOEXEC, 0600);
-        assert_se(fd2 >= 0);
+        ASSERT_OK(fd2);
 
         assert_se(inode_same_at(fd1, NULL, fd2, NULL, AT_EMPTY_PATH) == 0);
 
@@ -795,7 +795,7 @@ TEST(readlinkat_malloc) {
         const char *expect = "hgoehogefoobar";
 
         tfd = mkdtemp_open(NULL, O_PATH, &t);
-        assert_se(tfd >= 0);
+        ASSERT_OK(tfd);
 
         assert_se(symlinkat(expect, tfd, "linkname") >= 0);
 
@@ -804,7 +804,7 @@ TEST(readlinkat_malloc) {
         p = mfree(p);
 
         fd = openat(tfd, "linkname", O_PATH | O_NOFOLLOW | O_CLOEXEC);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         assert_se(readlinkat_malloc(fd, NULL, &p) >= 0);
         assert_se(streq(p, expect));
         p = mfree(p);

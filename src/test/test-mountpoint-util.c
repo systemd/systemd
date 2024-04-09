@@ -64,7 +64,7 @@ TEST(mnt_id) {
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r == 0)
                         break;
-                assert_se(r > 0);
+                ASSERT_GT(r, 0);
 
                 assert_se(sscanf(line, "%i %*s %*s %*s %ms", &mnt_id, &path) == 2);
 #if HAS_FEATURE_MEMORY_SANITIZER
@@ -158,10 +158,10 @@ TEST(path_is_mount_point) {
         file2 = path_join(tmp_dir, "file2");
         assert_se(file2);
         fd = open(file1, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
-        assert_se(fd > 0);
+        ASSERT_GT(fd, 0);
         close(fd);
         fd = open(file2, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
-        assert_se(fd > 0);
+        ASSERT_GT(fd, 0);
         close(fd);
         link1 = path_join(tmp_dir, "link1");
         assert_se(link1);
@@ -198,7 +198,7 @@ TEST(path_is_mount_point) {
         dir1file = path_join(dir1, "file");
         assert_se(dir1file);
         fd = open(dir1file, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
-        assert_se(fd > 0);
+        ASSERT_GT(fd, 0);
         close(fd);
 
         assert_se(path_is_mount_point_full(dir1file, NULL, AT_SYMLINK_FOLLOW) == 0);
@@ -226,20 +226,20 @@ TEST(path_is_mount_point) {
                 rlf = path_is_mount_point_full(link2, NULL, 0);
                 rlt = path_is_mount_point_full(link2, NULL, AT_SYMLINK_FOLLOW);
 
-                assert_se(umount(file2) == 0);
+                ASSERT_EQ(umount(file2), 0);
 
                 assert_se(rf == 1);
                 assert_se(rt == 1);
                 assert_se(rdf == -ENOTDIR);
                 assert_se(rdt == -ENOTDIR);
-                assert_se(rlf == 0);
+                ASSERT_EQ(rlf, 0);
                 assert_se(rlt == 1);
 
                 /* dirs */
                 dir2file = path_join(dir2, "file");
                 assert_se(dir2file);
                 fd = open(dir2file, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
-                assert_se(fd > 0);
+                ASSERT_GT(fd, 0);
                 close(fd);
 
                 assert_se(mount(dir2, dir1, NULL, MS_BIND, NULL) >= 0);
@@ -255,14 +255,14 @@ TEST(path_is_mount_point) {
                 rl1f = path_is_mount_point_full(dirlink1file, NULL, 0);
                 rl1t = path_is_mount_point_full(dirlink1file, NULL, AT_SYMLINK_FOLLOW);
 
-                assert_se(umount(dir1) == 0);
+                ASSERT_EQ(umount(dir1), 0);
 
                 assert_se(rf == 1);
                 assert_se(rt == 1);
-                assert_se(rlf == 0);
+                ASSERT_EQ(rlf, 0);
                 assert_se(rlt == 1);
-                assert_se(rl1f == 0);
-                assert_se(rl1t == 0);
+                ASSERT_EQ(rl1f, 0);
+                ASSERT_EQ(rl1t, 0);
 
         } else
                 log_info("Skipping bind mount file test");
@@ -276,7 +276,7 @@ TEST(fd_is_mount_point) {
         int r;
 
         fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         /* Not allowed, since "/" is a path, not a plain filename */
         assert_se(fd_is_mount_point(fd, "/", 0) == -EINVAL);
@@ -296,7 +296,7 @@ TEST(fd_is_mount_point) {
 
         safe_close(fd);
         fd = open("/tmp", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         assert_se(mkdtemp_malloc("/tmp/not-mounted-XXXXXX", &tmpdir) >= 0);
         assert_se(fd_is_mount_point(fd, basename(tmpdir), 0) == 0);
@@ -304,7 +304,7 @@ TEST(fd_is_mount_point) {
 
         safe_close(fd);
         fd = open("/proc", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         assert_se(fd_is_mount_point(fd, NULL, 0) > 0);
         assert_se(fd_is_mount_point(fd, "", 0) == -EINVAL);
@@ -312,7 +312,7 @@ TEST(fd_is_mount_point) {
 
         safe_close(fd);
         fd = open("/proc/version", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         r = fd_is_mount_point(fd, NULL, 0);
         assert_se(IN_SET(r, 0, -ENOTDIR)); /* on old kernels we can't determine if regular files are mount points if we have no directory fd */
@@ -369,14 +369,14 @@ TEST(path_get_mnt_id_at_null) {
         int id1, id2;
 
         assert_se(path_get_mnt_id_at(AT_FDCWD, "/run/", &id1) >= 0);
-        assert_se(id1 > 0);
+        ASSERT_GT(id1, 0);
 
         assert_se(path_get_mnt_id_at(AT_FDCWD, "/run", &id2) >= 0);
         assert_se(id1 == id2);
         id2 = -1;
 
         root_fd = open("/", O_DIRECTORY|O_CLOEXEC);
-        assert_se(root_fd >= 0);
+        ASSERT_OK(root_fd);
 
         assert_se(path_get_mnt_id_at(root_fd, "/run/", &id2) >= 0);
         assert_se(id1 = id2);
@@ -395,7 +395,7 @@ TEST(path_get_mnt_id_at_null) {
         id2 = -1;
 
         run_fd = openat(root_fd, "run", O_DIRECTORY|O_CLOEXEC);
-        assert_se(run_fd >= 0);
+        ASSERT_OK(run_fd);
 
         id2 = -1;
         assert_se(path_get_mnt_id_at(run_fd, "", &id2) >= 0);

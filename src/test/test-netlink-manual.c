@@ -77,8 +77,8 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
         inet_pton(AF_INET, "192.168.21.2", &remote.s_addr);
         assert_se(sd_netlink_message_append_u32(m, IFLA_IPTUN_REMOTE, remote.s_addr) >= 0);
 
-        assert_se(sd_netlink_message_close_container(m) >= 0);
-        assert_se(sd_netlink_message_close_container(m) >= 0);
+        ASSERT_OK(sd_netlink_message_close_container(m));
+        ASSERT_OK(sd_netlink_message_close_container(m));
 
         assert_se(sd_netlink_call(rtnl, m, -1, 0) == 1);
 
@@ -103,8 +103,8 @@ static int test_tunnel_configure(sd_netlink *rtnl) {
         inet_pton(AF_INET, "192.168.21.4", &remote.s_addr);
         assert_se(sd_netlink_message_append_u32(n, IFLA_IPTUN_REMOTE, remote.s_addr) >= 0);
 
-        assert_se(sd_netlink_message_close_container(n) >= 0);
-        assert_se(sd_netlink_message_close_container(n) >= 0);
+        ASSERT_OK(sd_netlink_message_close_container(n));
+        ASSERT_OK(sd_netlink_message_close_container(n));
 
         assert_se(sd_netlink_call(rtnl, n, -1, 0) == 1);
 

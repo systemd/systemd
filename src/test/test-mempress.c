@@ -37,7 +37,7 @@ static void *fake_pressure_thread(void *p) {
         usleep_safe(150);
 
         cfd = accept4(c->socket_fd, NULL, NULL, SOCK_CLOEXEC);
-        assert_se(cfd >= 0);
+        ASSERT_OK(cfd);
         char buf[STRLEN("hello")+1] = {};
         assert_se(read(cfd, buf, sizeof(buf)-1) == sizeof(buf)-1);
         assert_se(streq(buf, "hello"));
@@ -80,11 +80,11 @@ TEST(fake_pressure) {
         assert_se(j = path_join(tmp, "fifo"));
         assert_se(mkfifo(j, 0600) >= 0);
         fifo_fd = open(j, O_CLOEXEC|O_RDWR|O_NONBLOCK);
-        assert_se(fifo_fd >= 0);
+        ASSERT_OK(fifo_fd);
 
         assert_se(k = path_join(tmp, "sock"));
         socket_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
-        assert_se(socket_fd >= 0);
+        ASSERT_OK(socket_fd);
         assert_se(sockaddr_un_set_path(&sa.un, k) >= 0);
         assert_se(bind(socket_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) >= 0);
         assert_se(listen(socket_fd, 1) >= 0);
@@ -101,7 +101,7 @@ TEST(fake_pressure) {
         assert_se(pthread_create(&th, NULL, fake_pressure_thread, TAKE_PTR(fp)) == 0);
 
         assert_se(setenv("MEMORY_PRESSURE_WATCH", j, /* override= */ true) >= 0);
-        assert_se(unsetenv("MEMORY_PRESSURE_WRITE") >= 0);
+        ASSERT_OK(unsetenv("MEMORY_PRESSURE_WRITE"));
 
         assert_se(sd_event_add_memory_pressure(e, &es, fake_pressure_callback, &value) >= 0);
         assert_se(sd_event_source_set_description(es, "fifo event source") >= 0);
@@ -112,7 +112,7 @@ TEST(fake_pressure) {
         assert_se(sd_event_add_memory_pressure(e, &ef, fake_pressure_callback, &value) >= 0);
         assert_se(sd_event_source_set_description(ef, "socket event source") >= 0);
 
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_loop(e));
 
         assert_se(value == 7 * 'f' * 's');
 
@@ -209,7 +209,7 @@ TEST(real_pressure) {
         assert_se(sd_bus_message_open_container(m, 'a', "(sv)") >= 0);
         assert_se(sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, 0) >= 0);
         assert_se(sd_bus_message_append(m, "(sv)", "MemoryAccounting", "b", true) >= 0);
-        assert_se(sd_bus_message_close_container(m) >= 0);
+        ASSERT_OK(sd_bus_message_close_container(m));
         assert_se(sd_bus_message_append(m, "a(sa(sv))", 0) >= 0);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
@@ -227,7 +227,7 @@ TEST(real_pressure) {
         assert_se(pipe2(pipe_fd, O_CLOEXEC) >= 0);
 
         r = safe_fork("(eat-memory)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM, &pid);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         if (r == 0) {
                 real_pressure_eat_memory(pipe_fd[0]);
                 _exit(EXIT_SUCCESS);
@@ -237,8 +237,8 @@ TEST(real_pressure) {
         assert_se(sd_event_add_child(e, &cs, pid, WEXITED, real_pressure_child_callback, NULL) >= 0);
         assert_se(sd_event_source_set_child_process_own(cs, true) >= 0);
 
-        assert_se(unsetenv("MEMORY_PRESSURE_WATCH") >= 0);
-        assert_se(unsetenv("MEMORY_PRESSURE_WRITE") >= 0);
+        ASSERT_OK(unsetenv("MEMORY_PRESSURE_WATCH"));
+        ASSERT_OK(unsetenv("MEMORY_PRESSURE_WRITE"));
 
         struct real_pressure_context context = {
                 .pid = cs,
@@ -279,7 +279,7 @@ TEST(real_pressure) {
         assert_se(sd_bus_message_open_container(m, 'a', "(sv)") >= 0);
         assert_se(sd_bus_message_append(m, "(sv)", "MemoryHigh", "t", mcurrent + (15 * 1024 * 1024)) >= 0);
         assert_se(sd_bus_message_append(m, "(sv)", "MemoryMax", "t", mcurrent + (50 * 1024 * 1024)) >= 0);
-        assert_se(sd_bus_message_close_container(m) >= 0);
+        ASSERT_OK(sd_bus_message_close_container(m));
 
         assert_se(sd_bus_call(bus, m, 0, NULL, NULL) >= 0);
 
@@ -295,7 +295,7 @@ TEST(real_pressure) {
         /* Now start eating memory */
         assert_se(write(pipe_fd[1], &(const char) { 'x' }, 1) == 1);
 
-        assert_se(sd_event_loop(e) >= 0);
+        ASSERT_OK(sd_event_loop(e));
         int ex = 0;
         assert_se(sd_event_get_exit_code(e, &ex) >= 0);
         assert_se(ex == 31);

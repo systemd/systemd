@@ -14,7 +14,7 @@ static void test_rm_rf_chmod_inner(void) {
         const char *a, *b, *x, *y;
         struct stat st;
 
-        assert_se(getuid() != 0);
+        ASSERT_NE(getuid(), 0u);
 
         assert_se(mkdtemp_malloc("/tmp/test-rm-rf.XXXXXXX", &d) >= 0);
         a = strjoina(d, "/a");
@@ -94,7 +94,7 @@ TEST(rm_rf_chmod) {
                  * hence drop privs here */
 
                 r = safe_fork("(setresuid)", FORK_DEATHSIG_SIGTERM|FORK_WAIT, NULL);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 if (r == 0) {
                         /* child */

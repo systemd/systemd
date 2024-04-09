@@ -101,7 +101,7 @@ TEST(basic_mask_and_enable) {
 
         /* Enabling it again should succeed but be a NOP */
         assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 0);
+        ASSERT_EQ(n_changes, 0u);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
@@ -120,7 +120,7 @@ TEST(basic_mask_and_enable) {
 
         /* Disabling a disabled unit must succeed but be a NOP */
         assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 0);
+        ASSERT_EQ(n_changes, 0u);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
@@ -165,13 +165,13 @@ TEST(basic_mask_and_enable) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", NULL) >= 0);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", &state) >= 0 && state == UNIT_FILE_MASKED);
 
-        assert_se(unlink(p) == 0);
+        ASSERT_EQ(unlink(p), 0);
         assert_se(symlink("/usr/../dev/null", p) >= 0);
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", NULL) >= 0);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "e.service", &state) >= 0 && state == UNIT_FILE_MASKED);
 
-        assert_se(unlink(p) == 0);
+        ASSERT_EQ(unlink(p), 0);
 
         /* Test enabling with unknown dependency target */
 
@@ -650,7 +650,7 @@ TEST(preset_and_list) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-no.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
-        assert_se(n_changes == 0);
+        ASSERT_EQ(n_changes, 0u);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
@@ -660,7 +660,7 @@ TEST(preset_and_list) {
 
         assert_se(unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, 0, root, UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
 
-        assert_se(n_changes > 0);
+        ASSERT_GT(n_changes, 0u);
 
         p = strjoina(root, SYSTEM_CONFIG_UNIT_DIR"/multi-user.target.wants/preset-yes.service");
 
@@ -724,7 +724,7 @@ TEST(revert) {
 
         /* Initially there's nothing to revert */
         assert_se(unit_file_revert(RUNTIME_SCOPE_SYSTEM, root, STRV_MAKE("xx.service"), &changes, &n_changes) >= 0);
-        assert_se(n_changes == 0);
+        ASSERT_EQ(n_changes, 0u);
         install_changes_free(changes, n_changes);
         changes = NULL; n_changes = 0;
 
@@ -796,7 +796,7 @@ TEST(preset_order) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-2.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("prefix-2.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
-        assert_se(n_changes == 0);
+        ASSERT_EQ(n_changes, 0u);
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-1.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "prefix-2.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
@@ -1098,7 +1098,7 @@ TEST(preset_multiple_instances) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bartest.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         assert_se(unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, 0, root, UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
-        assert_se(n_changes > 0);
+        ASSERT_GT(n_changes, 0u);
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@def.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "foo@bar0.service", &state) >= 0 && state == UNIT_FILE_ENABLED);

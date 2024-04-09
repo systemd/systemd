@@ -8,7 +8,7 @@
 
 TEST(tpm2_pcr_index_from_string) {
         assert_se(tpm2_pcr_index_from_string("platform-code") == 0);
-        assert_se(tpm2_pcr_index_from_string("0") == 0);
+        ASSERT_EQ(tpm2_pcr_index_from_string("0"), 0);
         assert_se(tpm2_pcr_index_from_string("platform-config") == 1);
         assert_se(tpm2_pcr_index_from_string("1") == 1);
         assert_se(tpm2_pcr_index_from_string("external-code") == 2);
@@ -82,7 +82,7 @@ TEST(tpm2_util_pbkdf2_hmac_sha256) {
                                 test_vectors[i].salt,
                                 test_vectors[i].saltlen,
                                 res);
-                assert_se(rc == 0);
+                ASSERT_EQ(rc, 0);
                 assert_se(memcmp(test_vectors[i].expected, res, SHA256_DIGEST_SIZE) == 0);
         }
 }
@@ -581,14 +581,14 @@ TEST(parse_pcr_argument) {
         _cleanup_free_ Tpm2PCRValue *t0p = NULL;
         size_t n_t0p;
         assert_se(tpm2_parse_pcr_argument("", &t0p, &n_t0p) == 0);
-        assert_se(n_t0p == 0);
+        ASSERT_EQ(n_t0p, 0u);
         assert_se(tpm2_parse_pcr_argument_append("", &t0p, &n_t0p) == 0);
-        assert_se(n_t0p == 0);
+        ASSERT_EQ(n_t0p, 0u);
         uint32_t m0 = 0xf;
         assert_se(tpm2_parse_pcr_argument_to_mask("", &m0) == 0);
-        assert_se(m0 == 0);
+        ASSERT_EQ(m0, 0u);
         assert_se(tpm2_parse_pcr_argument_to_mask("", &m0) == 0);
-        assert_se(m0 == 0);
+        ASSERT_EQ(m0, 0u);
 
         Tpm2PCRValue t1[] = {
                 TPM2_PCR_VALUE_MAKE(0, 0, {}),
@@ -679,7 +679,7 @@ TEST(parse_pcr_argument) {
         assert_se(tpm2_parse_pcr_argument("1,2:invalid", &v, &n_v) < 0);
         assert_se(tpm2_parse_pcr_argument("1:sha1=invalid", &v, &n_v) < 0);
         ASSERT_NULL(v);
-        assert_se(n_v == 0);
+        ASSERT_EQ(n_v, 0u);
 
         check_parse_pcr_argument_to_mask("", 0x0);
         check_parse_pcr_argument_to_mask("0", 0x1);
@@ -1206,7 +1206,7 @@ static int check_calculate_seal(Tpm2Context *c) {
                 r = tpm2_index_from_handle(c, handle, &index);
                 if (r == -EOPNOTSUPP)
                         return log_tests_skipped("libtss2-esys version too old to support tpm2_index_from_handle()");
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 calculate_seal_and_unseal(c, index, public);
         }
@@ -1287,7 +1287,7 @@ static void check_seal_unseal(Tpm2Context *c) {
                         log_tests_skipped("libesys too old for tpm2_index_from_handle");
                         return;
                 }
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 check_seal_unseal_for_handle(c, transient_handle_index);
         }

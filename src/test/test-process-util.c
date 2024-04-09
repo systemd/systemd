@@ -73,7 +73,7 @@ static void test_pid_get_comm_one(pid_t pid) {
         assert_se(pid == 1 ? r == -EADDRNOTAVAIL : r >= 0);
         if (r >= 0) {
                 log_info("PID"PID_FMT" PPID: "PID_FMT, pid, e);
-                assert_se(e > 0);
+                ASSERT_GT(e, 0);
         }
 
         assert_se(pid_is_kernel_thread(pid) == 0 || pid != 1);
@@ -157,7 +157,7 @@ TEST(pid_get_cmdline) {
                 pid_t pid;
 
                 r = proc_dir_read(d, &pid);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 if (r == 0) /* EOF */
                         break;
@@ -202,16 +202,16 @@ TEST(pid_is_unwaited) {
         pid_t pid;
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
         if (pid == 0) {
                 _exit(EXIT_SUCCESS);
         } else {
                 int status;
 
                 assert_se(waitpid(pid, &status, 0) == pid);
-                assert_se(pid_is_unwaited(pid) == 0);
+                ASSERT_EQ(pid_is_unwaited(pid), 0);
         }
-        assert_se(pid_is_unwaited(getpid_cached()) > 0);
+        ASSERT_GT(pid_is_unwaited(getpid_cached()), 0);
         assert_se(pid_is_unwaited(-1) < 0);
 }
 
@@ -219,16 +219,16 @@ TEST(pid_is_alive) {
         pid_t pid;
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
         if (pid == 0) {
                 _exit(EXIT_SUCCESS);
         } else {
                 int status;
 
                 assert_se(waitpid(pid, &status, 0) == pid);
-                assert_se(pid_is_alive(pid) == 0);
+                ASSERT_EQ(pid_is_alive(pid), 0);
         }
-        assert_se(pid_is_alive(getpid_cached()) > 0);
+        ASSERT_GT(pid_is_alive(getpid_cached()), 0);
         assert_se(pid_is_alive(-1) < 0);
 }
 
@@ -289,12 +289,12 @@ TEST(pid_get_cmdline_harder) {
                 (void) wait_for_terminate(pid, &si);
 
                 assert_se(si.si_code == CLD_EXITED);
-                assert_se(si.si_status == 0);
+                ASSERT_EQ(si.si_status, 0);
 
                 return;
         }
 
-        assert_se(pid == 0);
+        ASSERT_EQ(pid, 0);
 
         r = detach_mount_namespace();
         if (r < 0) {
@@ -304,7 +304,7 @@ TEST(pid_get_cmdline_harder) {
         }
 
         fd = mkostemp(path, O_CLOEXEC);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         /* Note that we don't unmount the following bind-mount at the end of the test because the kernel
          * will clear up its /proc/PID/ hierarchy automatically as soon as the test stops. */
@@ -320,7 +320,7 @@ TEST(pid_get_cmdline_harder) {
         if (setrlimit(RLIMIT_STACK, &RLIMIT_MAKE_CONST(RLIM_INFINITY)) < 0)
                 log_warning("Testing without RLIMIT_STACK=infinity");
 
-        assert_se(unlink(path) >= 0);
+        ASSERT_OK(unlink(path));
 
         assert_se(prctl(PR_SET_NAME, "testa") >= 0);
 
@@ -580,7 +580,7 @@ TEST(getpid_cached) {
         assert_se(a == b && a == c);
 
         child = fork();
-        assert_se(child >= 0);
+        ASSERT_OK(child);
 
         if (child == 0) {
                 /* In child */
@@ -599,7 +599,7 @@ TEST(getpid_cached) {
         assert_se(a == d && a == e && a == f);
 
         assert_se(wait_for_terminate(child, &si) >= 0);
-        assert_se(si.si_status == 0);
+        ASSERT_EQ(si.si_status, 0);
         assert_se(si.si_code == CLD_EXITED);
 }
 
@@ -635,7 +635,7 @@ TEST(safe_fork) {
         BLOCK_SIGNALS(SIGCHLD);
 
         r = safe_fork("(test-child)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_REOPEN_LOG, &pid);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 /* child */
@@ -650,7 +650,7 @@ TEST(safe_fork) {
 }
 
 TEST(pid_to_ptr) {
-        assert_se(PTR_TO_PID(NULL) == 0);
+        ASSERT_EQ(PTR_TO_PID(NULL), 0);
         ASSERT_NULL(PID_TO_PTR(0));
 
         assert_se(PTR_TO_PID(PID_TO_PTR(1)) == 1);
@@ -702,7 +702,7 @@ TEST(setpriority_closest) {
 
         r = safe_fork("(test-setprio)",
                       FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 bool full_test;
@@ -730,10 +730,10 @@ TEST(setpriority_closest) {
 
                 errno = 0;
                 p = getpriority(PRIO_PROCESS, 0);
-                assert_se(errno == 0);
+                ASSERT_EQ(errno, 0);
 
                 /* It should always be possible to set our nice level to the current one */
-                assert_se(setpriority_closest(p) > 0);
+                ASSERT_GT(setpriority_closest(p), 0);
 
                 errno = 0;
                 q = getpriority(PRIO_PROCESS, 0);
@@ -817,7 +817,7 @@ TEST(get_process_ppid) {
                         break;
                 }
 
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 assert_se(pid_get_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &c1) >= 0);
                 assert_se(pid_get_cmdline(ppid, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &c2) >= 0);
@@ -841,7 +841,7 @@ TEST(set_oom_score_adjust) {
                 assert_se(b == OOM_SCORE_ADJ_MIN);
         }
 
-        assert_se(set_oom_score_adjust(a) >= 0);
+        ASSERT_OK(set_oom_score_adjust(a));
         assert_se(get_oom_score_adjust(&b) >= 0);
         assert_se(b == a);
 }
@@ -863,7 +863,7 @@ TEST(get_process_threads) {
 
         /* Run this test in a child, so that we can guarantee there's exactly one thread around in the child */
         r = safe_fork("(nthreads)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_WAIT|FORK_LOG, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 _cleanup_close_pair_ int pfd[2] = EBADF_PAIR, ppfd[2] = EBADF_PAIR;
@@ -903,16 +903,16 @@ TEST(is_reaper_process) {
         int r;
 
         r = safe_fork("(regular)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         if (r == 0) {
                 /* child */
 
-                assert_se(is_reaper_process() == 0);
+                ASSERT_EQ(is_reaper_process(), 0);
                 _exit(EXIT_SUCCESS);
         }
 
         r = safe_fork("(newpid)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         if (r == 0) {
                 /* child */
 
@@ -924,11 +924,11 @@ TEST(is_reaper_process) {
                 }
 
                 r = safe_fork("(newpid1)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT, NULL);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 if (r == 0) {
                         /* grandchild, which is PID1 in a pidns */
                         assert_se(getpid_cached() == 1);
-                        assert_se(is_reaper_process() > 0);
+                        ASSERT_GT(is_reaper_process(), 0);
                         _exit(EXIT_SUCCESS);
                 }
 
@@ -936,12 +936,12 @@ TEST(is_reaper_process) {
         }
 
         r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         if (r == 0) {
                 /* child */
-                assert_se(make_reaper_process(true) >= 0);
+                ASSERT_OK(make_reaper_process(true));
 
-                assert_se(is_reaper_process() > 0);
+                ASSERT_GT(is_reaper_process(), 0);
                 _exit(EXIT_SUCCESS);
         }
 }

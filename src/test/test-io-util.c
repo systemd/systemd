@@ -36,7 +36,7 @@ TEST(sparse_write) {
         char fn[] = "/tmp/sparseXXXXXX";
 
         fd = mkostemp(fn, O_CLOEXEC);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         (void) unlink(fn);
 
         test_sparse_write_one(fd, test_a, sizeof(test_a));

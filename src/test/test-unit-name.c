@@ -294,7 +294,7 @@ TEST_RET(unit_printf, .sd_booted = true) {
 
         _cleanup_(unlink_tempfilep) char filename[] = "/tmp/test-unit_printf.XXXXXX";
         fd = mkostemp_safe(filename);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         /* Using the specifier functions is admittedly a bit circular, but we don't want to reimplement the
          * logic a second time. We're at least testing that the hookup works. */
@@ -333,7 +333,7 @@ TEST_RET(unit_printf, .sd_booted = true) {
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
 
         assert_se(free_and_strdup(&m->cgroup_root, "/cgroup-root") == 1);
 
@@ -620,11 +620,11 @@ TEST(unit_name_to_instance) {
         assert_se(!instance);
 
         r = unit_name_to_instance("fooj@unk", &instance);
-        assert_se(r < 0);
+        ASSERT_LT(r, 0);
         assert_se(!instance);
 
         r = unit_name_to_instance("foo@", &instance);
-        assert_se(r < 0);
+        ASSERT_LT(r, 0);
         assert_se(!instance);
 }
 
