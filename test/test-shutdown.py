@@ -15,9 +15,16 @@ def run(args):
 
     ret = 1
     logger = logging.getLogger("test-shutdown")
+    logfile = None
+
+    if args.logfile:
+        logger.debug("Logging pexpect IOs to %s", args.logfile)
+        logfile = open(args.logfile, 'w')
+    elif args.verbose:
+        logfile = sys.stdout
 
     logger.info("spawning test")
-    console = pexpect.spawn(args.command, args.arg, env={
+    console = pexpect.spawn(args.command, args.arg, logfile=logfile, env={
             "TERM": "linux",
         }, encoding='utf-8', timeout=60)
 
@@ -26,12 +33,6 @@ def run(args):
     try:
         logger.info("waiting for login prompt")
         console.expect('H login: ', 10)
-
-        if args.logfile:
-            logger.debug("Logging pexpect IOs to %s", args.logfile)
-            console.logfile = open(args.logfile, 'w')
-        elif args.verbose:
-            console.logfile = sys.stdout
 
         logger.info("log in and start screen")
         console.sendline('root')
