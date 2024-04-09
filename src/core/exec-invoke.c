@@ -3741,8 +3741,8 @@ static int connect_unix_harder(const ExecContext *c, const ExecParameters *p, co
 }
 
 static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const OpenFile *of) {
-        struct stat st;
         _cleanup_close_ int fd = -EBADF, ofd = -EBADF;
+        struct stat st;
 
         assert(c);
         assert(p);
@@ -3750,10 +3750,10 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
 
         ofd = open(of->path, O_PATH | O_CLOEXEC);
         if (ofd < 0)
-                return log_exec_error_errno(c, p, errno, "Could not open \"%s\": %m", of->path);
+                return log_exec_error_errno(c, p, errno, "Failed to open '%s' as O_PATH: %m", of->path);
 
         if (fstat(ofd, &st) < 0)
-                return log_exec_error_errno(c, p, errno, "Failed to stat %s: %m", of->path);
+                return log_exec_error_errno(c, p, errno, "Failed to stat '%s': %m", of->path);
 
         if (S_ISSOCK(st.st_mode)) {
                 fd = connect_unix_harder(c, p, of, ofd);
@@ -3761,10 +3761,11 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
                         return fd;
 
                 if (FLAGS_SET(of->flags, OPENFILE_READ_ONLY) && shutdown(fd, SHUT_WR) < 0)
-                        return log_exec_error_errno(c, p, errno, "Failed to shutdown send for socket %s: %m",
+                        return log_exec_error_errno(c, p,
+                                                    errno, "Failed to shutdown send for socket '%s': %m",
                                                     of->path);
 
-                log_exec_debug(c, p, "socket %s opened (fd=%d)", of->path, fd);
+                log_exec_debug(c, p, "Opened socket '%s' as fd %d.", of->path, fd);
         } else {
                 int flags = FLAGS_SET(of->flags, OPENFILE_READ_ONLY) ? O_RDONLY : O_RDWR;
                 if (FLAGS_SET(of->flags, OPENFILE_APPEND))
@@ -3774,9 +3775,9 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
 
                 fd = fd_reopen(ofd, flags | O_CLOEXEC);
                 if (fd < 0)
-                        return log_exec_error_errno(c, p, fd, "Failed to open file %s: %m", of->path);
+                        return log_exec_error_errno(c, p, fd, "Failed to reopen file '%s': %m", of->path);
 
-                log_exec_debug(c, p, "file %s opened (fd=%d)", of->path, fd);
+                log_exec_debug(c, p, "Opened file '%s' as fd %d.", of->path, fd);
         }
 
         return TAKE_FD(fd);
@@ -3795,7 +3796,9 @@ static int collect_open_file_fds(const ExecContext *c, ExecParameters *p, size_t
                 fd = get_open_file_fd(c, p, of);
                 if (fd < 0) {
                         if (FLAGS_SET(of->flags, OPENFILE_GRACEFUL)) {
-                                log_exec_debug_errno(c, p, fd, "Failed to get OpenFile= file descriptor for %s, ignoring: %m", of->path);
+                                log_exec_warning_errno(c, p, fd,
+                                                       "Failed to get OpenFile= file descriptor for '%s', ignoring: %m",
+                                                       of->path);
                                 continue;
                         }
 
@@ -3809,9 +3812,7 @@ static int collect_open_file_fds(const ExecContext *c, ExecParameters *p, size_t
                 if (r < 0)
                         return r;
 
-                p->fds[*n_fds] = TAKE_FD(fd);
-
-                (*n_fds)++;
+                p->fds[(*n_fds)++] = TAKE_FD(fd);
         }
 
         return 0;
