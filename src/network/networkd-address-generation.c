@@ -248,10 +248,12 @@ static int generate_stable_private_address(
                 const sd_id128_t *app_id,
                 const sd_id128_t *secret_key,
                 const struct in6_addr *prefix,
+                const struct in6_addr *previous,
                 struct in6_addr *ret) {
 
         sd_id128_t secret_machine_key;
         struct in6_addr addr;
+        bool found = false;
         uint8_t i;
         int r;
 
@@ -276,16 +278,29 @@ static int generate_stable_private_address(
         for (i = 0; i < DAD_CONFLICTS_IDGEN_RETRIES_RFC7217; i++) {
                 generate_stable_private_address_one(link, secret_key, prefix, i, &addr);
 
-                if (stable_private_address_is_valid(&addr))
-                        break;
+                if (!stable_private_address_is_valid(&addr))
+                        continue;
+
+                /* When 'previous' is non-NULL, then this is called after DAD in the kernel triggered.
+                 * Let's increment the counter and provide the next address. */
+                if (previous && !found) {
+                        found = in6_addr_equal(previous, &addr);
+                        continue;
+                }
+
+                break;
         }
-        if (i >= DAD_CONFLICTS_IDGEN_RETRIES_RFC7217)
+        if (i >= DAD_CONFLICTS_IDGEN_RETRIES_RFC7217) {
                 /* propagate recognizable errors. */
-                return log_link_debug_errno(link, SYNTHETIC_ERRNO(ENOANO),
+                if (previous && !found)
+                        return -EADDRNOTAVAIL;
+
+                return log_link_debug_errno(link, SYNTHETIC_ERRNO(EADDRINUSE),
                                             "Failed to generate stable private address.");
+        }
 
         *ret = addr;
-        return 0;
+        return 1;
 }
 
 static int generate_addresses(
@@ -326,7 +341,7 @@ static int generate_addresses(
                         if (in6_addr_is_set(&j->address) && !in6_addr_equal(&j->address, &masked))
                                 continue;
 
-                        if (generate_stable_private_address(link, app_id, &j->secret_key, &masked, &addr) < 0)
+                        if (generate_stable_private_address(link, app_id, &j->secret_key, &masked, /* previous = */ NULL, &addr) < 0)
                                 continue;
 
                         break;
@@ -349,7 +364,7 @@ static int generate_addresses(
                         r = generate_eui64_address(link, &masked, &addr);
                 } else {
                         type = ADDRESS_GENERATION_PREFIXSTABLE;
-                        r = generate_stable_private_address(link, app_id, &SD_ID128_NULL, &masked, &addr);
+                        r = generate_stable_private_address(link, app_id, &SD_ID128_NULL, &masked, /* previous = */ NULL, &addr);
                 }
                 if (r < 0)
                         return r;
