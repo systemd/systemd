@@ -662,6 +662,7 @@ run_nspawn() {
         "--directory=${1:?}"
         "--setenv=SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$2.units:/usr/lib/systemd/tests/testdata/units:"
         "--machine=TEST-$TESTID"
+        "--background=''"
     )
     local kernel_params=(
         "$PATH_TO_INIT"
