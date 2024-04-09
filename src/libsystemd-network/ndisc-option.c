@@ -1041,8 +1041,7 @@ static int ndisc_option_parse_dnssl(Set **options, size_t offset, size_t len, co
                 remaining -= r;
         }
 
-        if (remaining > 0)
-                memset(p, 0, remaining);
+        memzero(p, remaining);
 
         *ret = TAKE_PTR(buf);
         return 0;
@@ -1121,8 +1120,8 @@ static int ndisc_option_build_captive_portal(const sd_ndisc_option *option, uint
 
         uint8_t *p = mempcpy(buf + 2, option->captive_portal, len_portal);
         size_t remaining = len * 8 - 2 - len_portal;
-        if (remaining > 0)
-                memset(p, 0, remaining);
+
+        memzero(p, remaining);
 
         *ret = TAKE_PTR(buf);
         return 0;
