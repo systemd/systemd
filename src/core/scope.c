@@ -571,6 +571,8 @@ static int scope_deserialize_item(Unit *u, const char *key, const char *value, F
         } else if (streq(key, "pids")) {
                 _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
+                /* We don't check if we already received the pid before here because unit_watch_pidref()
+                 * does this check internally and discard the new pidref if we already received it before. */
                 if (deserialize_pidref(fds, value, &pidref) >= 0) {
                         r = unit_watch_pidref(u, &pidref, /* exclusive= */ false);
                         if (r < 0)
