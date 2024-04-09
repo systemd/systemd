@@ -19,18 +19,18 @@ static void test_paths_one(RuntimeScope scope) {
 
         assert_se(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp) >= 0);
 
-        assert_se(unsetenv("SYSTEMD_UNIT_PATH") == 0);
+        ASSERT_EQ(unsetenv("SYSTEMD_UNIT_PATH"), 0);
         assert_se(lookup_paths_init(&lp_without_env, scope, 0, NULL) >= 0);
-        assert_se(!strv_isempty(lp_without_env.search_path));
+        ASSERT_FALSE(strv_isempty(lp_without_env.search_path));
         lookup_paths_log(&lp_without_env);
 
         systemd_unit_path = strjoina(tmp, "/systemd-unit-path");
-        assert_se(setenv("SYSTEMD_UNIT_PATH", systemd_unit_path, 1) == 0);
+        ASSERT_EQ(setenv("SYSTEMD_UNIT_PATH", systemd_unit_path, 1), 0);
         assert_se(lookup_paths_init(&lp_with_env, scope, 0, NULL) == 0);
-        assert_se(strv_length(lp_with_env.search_path) == 1);
+        ASSERT_EQ(strv_length(lp_with_env.search_path), 1u);
         assert_se(streq(lp_with_env.search_path[0], systemd_unit_path));
         lookup_paths_log(&lp_with_env);
-        assert_se(strv_equal(lp_with_env.search_path, STRV_MAKE(systemd_unit_path)));
+        ASSERT_TRUE(strv_equal(lp_with_env.search_path, STRV_MAKE(systemd_unit_path)));
 }
 
 TEST(paths) {
@@ -44,9 +44,9 @@ TEST(user_and_global_paths) {
         char **u, **g;
         unsigned k = 0;
 
-        assert_se(unsetenv("SYSTEMD_UNIT_PATH") == 0);
-        assert_se(unsetenv("XDG_DATA_DIRS") == 0);
-        assert_se(unsetenv("XDG_CONFIG_DIRS") == 0);
+        ASSERT_EQ(unsetenv("SYSTEMD_UNIT_PATH"), 0);
+        ASSERT_EQ(unsetenv("XDG_DATA_DIRS"), 0);
+        ASSERT_EQ(unsetenv("XDG_CONFIG_DIRS"), 0);
 
         assert_se(lookup_paths_init(&lp_global, RUNTIME_SCOPE_GLOBAL, 0, NULL) == 0);
         assert_se(lookup_paths_init(&lp_user, RUNTIME_SCOPE_USER, 0, NULL) == 0);
@@ -81,8 +81,8 @@ static void test_generator_binary_paths_one(RuntimeScope scope) {
 
         assert_se(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp) >= 0);
 
-        assert_se(unsetenv("SYSTEMD_GENERATOR_PATH") == 0);
-        assert_se(unsetenv("SYSTEMD_ENVIRONMENT_GENERATOR_PATH") == 0);
+        ASSERT_EQ(unsetenv("SYSTEMD_GENERATOR_PATH"), 0);
+        ASSERT_EQ(unsetenv("SYSTEMD_ENVIRONMENT_GENERATOR_PATH"), 0);
 
         gp_without_env = generator_binary_paths(scope);
         env_gp_without_env = env_generator_binary_paths(scope);
@@ -95,13 +95,13 @@ static void test_generator_binary_paths_one(RuntimeScope scope) {
         STRV_FOREACH(dir, env_gp_without_env)
                 log_info("        %s", *dir);
 
-        assert_se(!strv_isempty(gp_without_env));
-        assert_se(!strv_isempty(env_gp_without_env));
+        ASSERT_FALSE(strv_isempty(gp_without_env));
+        ASSERT_FALSE(strv_isempty(env_gp_without_env));
 
         systemd_generator_path = strjoina(tmp, "/systemd-generator-path");
         systemd_env_generator_path = strjoina(tmp, "/systemd-environment-generator-path");
-        assert_se(setenv("SYSTEMD_GENERATOR_PATH", systemd_generator_path, 1) == 0);
-        assert_se(setenv("SYSTEMD_ENVIRONMENT_GENERATOR_PATH", systemd_env_generator_path, 1) == 0);
+        ASSERT_EQ(setenv("SYSTEMD_GENERATOR_PATH", systemd_generator_path, 1), 0);
+        ASSERT_EQ(setenv("SYSTEMD_ENVIRONMENT_GENERATOR_PATH", systemd_env_generator_path, 1), 0);
 
         gp_with_env = generator_binary_paths(scope);
         env_gp_with_env = env_generator_binary_paths(scope);
@@ -114,8 +114,8 @@ static void test_generator_binary_paths_one(RuntimeScope scope) {
         STRV_FOREACH(dir, env_gp_with_env)
                 log_info("        %s", *dir);
 
-        assert_se(strv_equal(gp_with_env, STRV_MAKE(systemd_generator_path)));
-        assert_se(strv_equal(env_gp_with_env, STRV_MAKE(systemd_env_generator_path)));
+        ASSERT_TRUE(strv_equal(gp_with_env, STRV_MAKE(systemd_generator_path)));
+        ASSERT_TRUE(strv_equal(env_gp_with_env, STRV_MAKE(systemd_env_generator_path)));
 }
 
 TEST(generator_binary_paths) {

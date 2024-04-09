@@ -31,9 +31,9 @@ static void test_mount_propagation_flag_one(const char *name, int ret, unsigned 
 
                 c = mount_propagation_flag_to_string(flags);
                 if (isempty(name))
-                        assert_se(isempty(c));
+                        ASSERT_TRUE(isempty(c));
                 else
-                        assert_se(streq(c, name));
+                        ASSERT_TRUE(streq(c, name));
         }
 }
 
@@ -64,7 +64,7 @@ TEST(mnt_id) {
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r == 0)
                         break;
-                assert_se(r > 0);
+                ASSERT_GT(r, 0);
 
                 assert_se(sscanf(line, "%i %*s %*s %*s %ms", &mnt_id, &path) == 2);
 #if HAS_FEATURE_MEMORY_SANITIZER
@@ -77,7 +77,7 @@ TEST(mnt_id) {
 #endif
                 log_debug("mountinfo: %s → %i", path, mnt_id);
 
-                assert_se(hashmap_put(h, INT_TO_PTR(mnt_id), path) >= 0);
+                ASSERT_OK(hashmap_put(h, INT_TO_PTR(mnt_id), path));
                 path = NULL;
         }
 
@@ -106,12 +106,12 @@ TEST(mnt_id) {
                         /* If the path is not a mount point anymore, then it must be a sub directory of
                          * the path corresponds to mnt_id2. */
                         log_debug("The path %s for mnt id %i is not a mount point.", p, mnt_id2);
-                        assert_se(!isempty(path_startswith(p, q)));
+                        ASSERT_FALSE(isempty(path_startswith(p, q)));
                 } else {
                         /* If the path is still a mount point, then it must be equivalent to the path
                          * corresponds to mnt_id2 */
                         log_debug("There are multiple mounts on the same path %s.", p);
-                        assert_se(path_equal(p, q));
+                        ASSERT_TRUE(path_equal(p, q));
                 }
         }
 }
@@ -154,57 +154,57 @@ TEST(path_is_mount_point) {
         /* file mountpoints */
         ASSERT_NOT_NULL(mkdtemp(tmp_dir));
         file1 = path_join(tmp_dir, "file1");
-        assert_se(file1);
+        ASSERT_TRUE(file1);
         file2 = path_join(tmp_dir, "file2");
-        assert_se(file2);
+        ASSERT_TRUE(file2);
         fd = open(file1, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
-        assert_se(fd > 0);
+        ASSERT_GT(fd, 0);
         close(fd);
         fd = open(file2, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
-        assert_se(fd > 0);
+        ASSERT_GT(fd, 0);
         close(fd);
         link1 = path_join(tmp_dir, "link1");
-        assert_se(link1);
-        assert_se(symlink("file1", link1) == 0);
+        ASSERT_TRUE(link1);
+        ASSERT_EQ(symlink("file1", link1), 0);
         link2 = path_join(tmp_dir, "link2");
-        assert_se(link1);
-        assert_se(symlink("file2", link2) == 0);
+        ASSERT_TRUE(link1);
+        ASSERT_EQ(symlink("file2", link2), 0);
 
-        assert_se(path_is_mount_point_full(file1, NULL, AT_SYMLINK_FOLLOW) == 0);
-        assert_se(path_is_mount_point_full(file1, NULL, 0) == 0);
-        assert_se(path_is_mount_point_full(link1, NULL, AT_SYMLINK_FOLLOW) == 0);
-        assert_se(path_is_mount_point_full(link1, NULL, 0) == 0);
+        ASSERT_EQ(path_is_mount_point_full(file1, NULL, AT_SYMLINK_FOLLOW), 0);
+        ASSERT_EQ(path_is_mount_point_full(file1, NULL, 0), 0);
+        ASSERT_EQ(path_is_mount_point_full(link1, NULL, AT_SYMLINK_FOLLOW), 0);
+        ASSERT_EQ(path_is_mount_point_full(link1, NULL, 0), 0);
 
         /* directory mountpoints */
         dir1 = path_join(tmp_dir, "dir1");
-        assert_se(dir1);
-        assert_se(mkdir(dir1, 0755) == 0);
+        ASSERT_TRUE(dir1);
+        ASSERT_EQ(mkdir(dir1, 0755), 0);
         dirlink1 = path_join(tmp_dir, "dirlink1");
-        assert_se(dirlink1);
-        assert_se(symlink("dir1", dirlink1) == 0);
+        ASSERT_TRUE(dirlink1);
+        ASSERT_EQ(symlink("dir1", dirlink1), 0);
         dirlink1file = path_join(tmp_dir, "dirlink1file");
-        assert_se(dirlink1file);
+        ASSERT_TRUE(dirlink1file);
         assert_se(symlink("dirlink1/file", dirlink1file) == 0);
         dir2 = path_join(tmp_dir, "dir2");
-        assert_se(dir2);
-        assert_se(mkdir(dir2, 0755) == 0);
+        ASSERT_TRUE(dir2);
+        ASSERT_EQ(mkdir(dir2, 0755), 0);
 
-        assert_se(path_is_mount_point_full(dir1, NULL, AT_SYMLINK_FOLLOW) == 0);
-        assert_se(path_is_mount_point_full(dir1, NULL, 0) == 0);
-        assert_se(path_is_mount_point_full(dirlink1, NULL, AT_SYMLINK_FOLLOW) == 0);
-        assert_se(path_is_mount_point_full(dirlink1, NULL, 0) == 0);
+        ASSERT_EQ(path_is_mount_point_full(dir1, NULL, AT_SYMLINK_FOLLOW), 0);
+        ASSERT_EQ(path_is_mount_point_full(dir1, NULL, 0), 0);
+        ASSERT_EQ(path_is_mount_point_full(dirlink1, NULL, AT_SYMLINK_FOLLOW), 0);
+        ASSERT_EQ(path_is_mount_point_full(dirlink1, NULL, 0), 0);
 
         /* file in subdirectory mountpoints */
         dir1file = path_join(dir1, "file");
-        assert_se(dir1file);
+        ASSERT_TRUE(dir1file);
         fd = open(dir1file, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
-        assert_se(fd > 0);
+        ASSERT_GT(fd, 0);
         close(fd);
 
-        assert_se(path_is_mount_point_full(dir1file, NULL, AT_SYMLINK_FOLLOW) == 0);
-        assert_se(path_is_mount_point_full(dir1file, NULL, 0) == 0);
-        assert_se(path_is_mount_point_full(dirlink1file, NULL, AT_SYMLINK_FOLLOW) == 0);
-        assert_se(path_is_mount_point_full(dirlink1file, NULL, 0) == 0);
+        ASSERT_EQ(path_is_mount_point_full(dir1file, NULL, AT_SYMLINK_FOLLOW), 0);
+        ASSERT_EQ(path_is_mount_point_full(dir1file, NULL, 0), 0);
+        ASSERT_EQ(path_is_mount_point_full(dirlink1file, NULL, AT_SYMLINK_FOLLOW), 0);
+        ASSERT_EQ(path_is_mount_point_full(dirlink1file, NULL, 0), 0);
 
         /* these tests will only work as root */
         if (mount(file1, file2, NULL, MS_BIND, NULL) >= 0) {
@@ -226,23 +226,23 @@ TEST(path_is_mount_point) {
                 rlf = path_is_mount_point_full(link2, NULL, 0);
                 rlt = path_is_mount_point_full(link2, NULL, AT_SYMLINK_FOLLOW);
 
-                assert_se(umount(file2) == 0);
+                ASSERT_EQ(umount(file2), 0);
 
-                assert_se(rf == 1);
-                assert_se(rt == 1);
+                ASSERT_EQ(rf, 1);
+                ASSERT_EQ(rt, 1);
                 assert_se(rdf == -ENOTDIR);
                 assert_se(rdt == -ENOTDIR);
-                assert_se(rlf == 0);
-                assert_se(rlt == 1);
+                ASSERT_EQ(rlf, 0);
+                ASSERT_EQ(rlt, 1);
 
                 /* dirs */
                 dir2file = path_join(dir2, "file");
-                assert_se(dir2file);
+                ASSERT_TRUE(dir2file);
                 fd = open(dir2file, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0664);
-                assert_se(fd > 0);
+                ASSERT_GT(fd, 0);
                 close(fd);
 
-                assert_se(mount(dir2, dir1, NULL, MS_BIND, NULL) >= 0);
+                ASSERT_OK(mount(dir2, dir1, NULL, MS_BIND, NULL));
 
                 log_info("%s: %s", __func__, dir1);
                 rf = path_is_mount_point_full(dir1, NULL, 0);
@@ -255,14 +255,14 @@ TEST(path_is_mount_point) {
                 rl1f = path_is_mount_point_full(dirlink1file, NULL, 0);
                 rl1t = path_is_mount_point_full(dirlink1file, NULL, AT_SYMLINK_FOLLOW);
 
-                assert_se(umount(dir1) == 0);
+                ASSERT_EQ(umount(dir1), 0);
 
-                assert_se(rf == 1);
-                assert_se(rt == 1);
-                assert_se(rlf == 0);
-                assert_se(rlt == 1);
-                assert_se(rl1f == 0);
-                assert_se(rl1t == 0);
+                ASSERT_EQ(rf, 1);
+                ASSERT_EQ(rt, 1);
+                ASSERT_EQ(rlf, 0);
+                ASSERT_EQ(rlt, 1);
+                ASSERT_EQ(rl1f, 0);
+                ASSERT_EQ(rl1t, 0);
 
         } else
                 log_info("Skipping bind mount file test");
@@ -276,7 +276,7 @@ TEST(fd_is_mount_point) {
         int r;
 
         fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         /* Not allowed, since "/" is a path, not a plain filename */
         assert_se(fd_is_mount_point(fd, "/", 0) == -EINVAL);
@@ -291,28 +291,28 @@ TEST(fd_is_mount_point) {
         assert_se(fd_is_mount_point(fd, "proc/sys/", 0) == -EINVAL);
 
         /* This one definitely is a mount point */
-        assert_se(fd_is_mount_point(fd, "proc", 0) > 0);
+        ASSERT_GT(fd_is_mount_point(fd, "proc", 0), 0);
         assert_se(fd_is_mount_point(fd, "proc/", 0) > 0);
 
         safe_close(fd);
         fd = open("/tmp", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         assert_se(mkdtemp_malloc("/tmp/not-mounted-XXXXXX", &tmpdir) >= 0);
-        assert_se(fd_is_mount_point(fd, basename(tmpdir), 0) == 0);
+        ASSERT_EQ(fd_is_mount_point(fd, basename(tmpdir), 0), 0);
         assert_se(fd_is_mount_point(fd, strjoina(basename(tmpdir), "/"), 0) == 0);
 
         safe_close(fd);
         fd = open("/proc", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
-        assert_se(fd_is_mount_point(fd, NULL, 0) > 0);
+        ASSERT_GT(fd_is_mount_point(fd, NULL, 0), 0);
         assert_se(fd_is_mount_point(fd, "", 0) == -EINVAL);
-        assert_se(fd_is_mount_point(fd, "version", 0) == 0);
+        ASSERT_EQ(fd_is_mount_point(fd, "version", 0), 0);
 
         safe_close(fd);
         fd = open("/proc/version", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
 
         r = fd_is_mount_point(fd, NULL, 0);
         assert_se(IN_SET(r, 0, -ENOTDIR)); /* on old kernels we can't determine if regular files are mount points if we have no directory fd */
@@ -348,20 +348,20 @@ TEST(mount_option_supported) {
 }
 
 TEST(fstype_can_discard) {
-        assert_se(fstype_can_discard("ext4"));
-        assert_se(!fstype_can_discard("squashfs"));
-        assert_se(!fstype_can_discard("iso9660"));
+        ASSERT_TRUE(fstype_can_discard("ext4"));
+        ASSERT_FALSE(fstype_can_discard("squashfs"));
+        ASSERT_FALSE(fstype_can_discard("iso9660"));
 }
 
 TEST(fstype_can_norecovery) {
-        assert_se(fstype_can_norecovery("ext4"));
-        assert_se(!fstype_can_norecovery("vfat"));
-        assert_se(!fstype_can_norecovery("tmpfs"));
+        ASSERT_TRUE(fstype_can_norecovery("ext4"));
+        ASSERT_FALSE(fstype_can_norecovery("vfat"));
+        ASSERT_FALSE(fstype_can_norecovery("tmpfs"));
 }
 
 TEST(fstype_can_umask) {
-        assert_se(fstype_can_umask("vfat"));
-        assert_se(!fstype_can_umask("tmpfs"));
+        ASSERT_TRUE(fstype_can_umask("vfat"));
+        ASSERT_FALSE(fstype_can_umask("tmpfs"));
 }
 
 TEST(path_get_mnt_id_at_null) {
@@ -369,14 +369,14 @@ TEST(path_get_mnt_id_at_null) {
         int id1, id2;
 
         assert_se(path_get_mnt_id_at(AT_FDCWD, "/run/", &id1) >= 0);
-        assert_se(id1 > 0);
+        ASSERT_GT(id1, 0);
 
         assert_se(path_get_mnt_id_at(AT_FDCWD, "/run", &id2) >= 0);
         assert_se(id1 == id2);
         id2 = -1;
 
         root_fd = open("/", O_DIRECTORY|O_CLOEXEC);
-        assert_se(root_fd >= 0);
+        ASSERT_OK(root_fd);
 
         assert_se(path_get_mnt_id_at(root_fd, "/run/", &id2) >= 0);
         assert_se(id1 = id2);
@@ -395,7 +395,7 @@ TEST(path_get_mnt_id_at_null) {
         id2 = -1;
 
         run_fd = openat(root_fd, "run", O_DIRECTORY|O_CLOEXEC);
-        assert_se(run_fd >= 0);
+        ASSERT_OK(run_fd);
 
         id2 = -1;
         assert_se(path_get_mnt_id_at(run_fd, "", &id2) >= 0);

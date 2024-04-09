@@ -61,7 +61,7 @@
 
 TEST(load_env_file_1) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        assert_se(write_tmpfile(name, env_file_1) == 0);
+        ASSERT_EQ(write_tmpfile(name, env_file_1), 0);
 
         _cleanup_strv_free_ char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
@@ -71,56 +71,56 @@ TEST(load_env_file_1) {
         assert_se(streq(data[3], "g=g "));
         assert_se(streq(data[4], "h=ąęół śćńźżμ"));
         assert_se(streq(data[5], "i=i"));
-        assert_se(data[6] == NULL);
+        ASSERT_NULL(data[6]);
 }
 
 TEST(load_env_file_2) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        assert_se(write_tmpfile(name, env_file_2) == 0);
+        ASSERT_EQ(write_tmpfile(name, env_file_2), 0);
 
         _cleanup_strv_free_ char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
         assert_se(streq(data[0], "a=a"));
-        assert_se(data[1] == NULL);
+        ASSERT_NULL(data[1]);
 }
 
 TEST(load_env_file_3) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        assert_se(write_tmpfile(name, env_file_3) == 0);
+        ASSERT_EQ(write_tmpfile(name, env_file_3), 0);
 
         _cleanup_strv_free_ char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
         assert_se(streq(data[0], "normal1=line111"));
         assert_se(streq(data[1], "normal2=line222"));
-        assert_se(data[2] == NULL);
+        ASSERT_NULL(data[2]);
 }
 
 TEST(load_env_file_4) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        assert_se(write_tmpfile(name, env_file_4) == 0);
+        ASSERT_EQ(write_tmpfile(name, env_file_4), 0);
 
         _cleanup_strv_free_ char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
         assert_se(streq(data[0], "HWMON_MODULES=coretemp f71882fg"));
         assert_se(streq(data[1], "MODULE_0=coretemp"));
         assert_se(streq(data[2], "MODULE_1=f71882fg"));
-        assert_se(data[3] == NULL);
+        ASSERT_NULL(data[3]);
 }
 
 TEST(load_env_file_5) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        assert_se(write_tmpfile(name, env_file_5) == 0);
+        ASSERT_EQ(write_tmpfile(name, env_file_5), 0);
 
         _cleanup_strv_free_ char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
         assert_se(streq(data[0], "a="));
         assert_se(streq(data[1], "b="));
-        assert_se(data[2] == NULL);
+        ASSERT_NULL(data[2]);
 }
 
 TEST(load_env_file_6) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-        assert_se(write_tmpfile(name, env_file_6) == 0);
+        ASSERT_EQ(write_tmpfile(name, env_file_6), 0);
 
         _cleanup_strv_free_ char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
@@ -128,7 +128,7 @@ TEST(load_env_file_6) {
         assert_se(streq(data[1], "b=$'"));
         assert_se(streq(data[2], "c= \\n\\t\\$\\`\\\\\n"));
         assert_se(streq(data[3], "d= \\n\\t$`\\\n"));
-        assert_se(data[4] == NULL);
+        ASSERT_NULL(data[4]);
 }
 
 TEST(load_env_file_invalid_utf8) {
@@ -142,11 +142,11 @@ TEST(load_env_file_invalid_utf8) {
                        "foo=b\uffffar",
                        "baz=hello world\ufffe") {
                 _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
-                assert_se(write_tmpfile(name, s) == 0);
+                ASSERT_EQ(write_tmpfile(name, s), 0);
 
                 _cleanup_strv_free_ char **data = NULL;
                 assert_se(load_env_file(NULL, name, &data) == -EINVAL);
-                assert_se(!data);
+                ASSERT_FALSE(data);
         }
 }
 
@@ -178,13 +178,13 @@ TEST(write_and_load_env_file) {
                 assert_se(f = popen(cmd, "re"));
                 assert_se(read_full_stream(f, &from_shell, &sz) >= 0);
                 assert_se(sz == strlen(v));
-                assert_se(streq(from_shell, v));
+                ASSERT_TRUE(streq(from_shell, v));
 
                 assert_se(load_env_file(NULL, p, &l) >= 0);
-                assert_se(strv_equal(l, STRV_MAKE(j)));
+                ASSERT_TRUE(strv_equal(l, STRV_MAKE(j)));
 
                 assert_se(parse_env_file(NULL, p, "TEST", &w) >= 0);
-                assert_se(streq_ptr(w, v));
+                ASSERT_TRUE(streq_ptr(w, v));
         }
 }
 

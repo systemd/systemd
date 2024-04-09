@@ -19,7 +19,7 @@ TEST(alloca) {
 
         t = alloca0_align(997, 1024);
         assert_se(!((uintptr_t)t & 0x1ff));
-        assert_se(!memcmp(t, zero, 997));
+        ASSERT_FALSE(memcmp(t, zero, 997));
 }
 
 TEST(GREEDY_REALLOC) {
@@ -62,32 +62,32 @@ TEST(GREEDY_REALLOC) {
 
                 _cleanup_free_ int *before = NULL;
                 size_t n_before = 0;
-                assert_se(GREEDY_REALLOC_APPEND(before, n_before, c, n_c));
-                assert_se(before);
+                ASSERT_TRUE(GREEDY_REALLOC_APPEND(before, n_before, c, n_c));
+                ASSERT_TRUE(before);
                 assert_se(n_before == n_c);
-                assert_se(memcmp_safe(c, before, n_c) == 0);
+                ASSERT_EQ(memcmp_safe(c, before, n_c), 0);
 
-                assert_se(GREEDY_REALLOC_APPEND(c, n_c, from, n_from));
+                ASSERT_TRUE(GREEDY_REALLOC_APPEND(c, n_c, from, n_from));
                 assert_se(n_c == n_before + n_from);
                 assert_se(MALLOC_ELEMENTSOF(c) >= n_c);
                 assert_se(MALLOC_SIZEOF_SAFE(c) >= n_c * sizeof(int));
-                assert_se(memcmp_safe(c, before, n_before) == 0);
+                ASSERT_EQ(memcmp_safe(c, before, n_before), 0);
                 assert_se(memcmp_safe(&c[n_before], from, n_from) == 0);
 
                 before = mfree(before);
-                assert_se(!before);
+                ASSERT_FALSE(before);
                 n_before = 0;
-                assert_se(GREEDY_REALLOC_APPEND(before, n_before, c, n_c));
-                assert_se(before);
+                ASSERT_TRUE(GREEDY_REALLOC_APPEND(before, n_before, c, n_c));
+                ASSERT_TRUE(before);
                 assert_se(n_before == n_c);
-                assert_se(memcmp_safe(c, before, n_c) == 0);
+                ASSERT_EQ(memcmp_safe(c, before, n_c), 0);
 
-                assert_se(GREEDY_REALLOC_APPEND(c, n_c, NULL, 0));
-                assert_se(c);
+                ASSERT_TRUE(GREEDY_REALLOC_APPEND(c, n_c, NULL, 0));
+                ASSERT_TRUE(c);
                 assert_se(n_c == n_before);
                 assert_se(MALLOC_ELEMENTSOF(c) >= n_c);
                 assert_se(MALLOC_SIZEOF_SAFE(c) >= n_c * sizeof(int));
-                assert_se(memcmp_safe(c, before, n_c) == 0);
+                ASSERT_EQ(memcmp_safe(c, before, n_c), 0);
         }
 
         for (j = 0; j < i * n_from; j++)
@@ -101,7 +101,7 @@ TEST(memdup_multiply_and_greedy_realloc) {
         int *p;
 
         dup = memdup_suffix0_multiply(org, 3, sizeof(int));
-        assert_se(dup);
+        ASSERT_TRUE(dup);
         assert_se(dup[0] == 1);
         assert_se(dup[1] == 2);
         assert_se(dup[2] == 3);
@@ -109,7 +109,7 @@ TEST(memdup_multiply_and_greedy_realloc) {
         free(dup);
 
         dup = memdup_multiply(org, 3, sizeof(int));
-        assert_se(dup);
+        ASSERT_TRUE(dup);
         assert_se(dup[0] == 1);
         assert_se(dup[1] == 2);
         assert_se(dup[2] == 3);
@@ -121,7 +121,7 @@ TEST(memdup_multiply_and_greedy_realloc) {
 
         p = GREEDY_REALLOC0(dup, 10);
         assert_se(p == dup);
-        assert_se(MALLOC_ELEMENTSOF(p) >= 10);
+        ASSERT_GE(MALLOC_ELEMENTSOF(p), 10u);
         assert_se(p[0] == 1);
         assert_se(p[1] == 2);
         assert_se(p[2] == 3);
@@ -140,13 +140,13 @@ TEST(bool_assign) {
         g = cp;    /* cast from pointer */
         h = NULL;  /* cast from pointer */
 
-        assert_se(b);
-        assert_se(c);
-        assert_se(d);
-        assert_se(e);
-        assert_se(!f);
-        assert_se(g);
-        assert_se(!h);
+        ASSERT_TRUE(b);
+        ASSERT_TRUE(c);
+        ASSERT_TRUE(d);
+        ASSERT_TRUE(e);
+        ASSERT_FALSE(f);
+        ASSERT_TRUE(g);
+        ASSERT_FALSE(h);
 }
 
 static int cleanup_counter = 0;
@@ -184,7 +184,7 @@ TEST(auto_erase_memory) {
                                              * end of the allocation, since malloc() enforces alignment */
         assert_se(p2 = new(uint8_t, 4703));
 
-        assert_se(crypto_random_bytes(p1, 4703) == 0);
+        ASSERT_EQ(crypto_random_bytes(p1, 4703), 0);
 
         /* before we exit the scope, do something with this data, so that the compiler won't optimize this away */
         memcpy(p2, p1, 4703);
@@ -211,7 +211,7 @@ TEST(malloc_size_safe) {
         /* Let's check the macros and built-ins work on NULL and return the expected values */
         assert_se(MALLOC_ELEMENTSOF((float*) NULL) == 0);
         assert_se(MALLOC_SIZEOF_SAFE((float*) NULL) == 0);
-        assert_se(malloc_usable_size(NULL) == 0); /* as per man page, this is safe and defined */
+        ASSERT_EQ(malloc_usable_size(NULL), 0u); /* as per man page, this is safe and defined */
         assert_se(__builtin_object_size(NULL, 0) == SIZE_MAX); /* as per docs SIZE_MAX is returned for pointers where the size isn't known */
 
         /* Then, let's try these macros once with constant size values, so that __builtin_object_size()

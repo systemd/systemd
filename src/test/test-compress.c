@@ -65,28 +65,28 @@ _unused_ static void test_compress_decompress(
         r = compress(data, data_len, compressed, sizeof(compressed), &csize);
         if (r == -ENOBUFS) {
                 log_info_errno(r, "compression failed: %m");
-                assert_se(may_fail);
+                ASSERT_TRUE(may_fail);
         } else {
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 r = decompress(compressed, csize,
                                (void **) &decompressed, &csize, 0);
-                assert_se(r == 0);
-                assert_se(decompressed);
-                assert_se(memcmp(decompressed, data, data_len) == 0);
+                ASSERT_EQ(r, 0);
+                ASSERT_TRUE(decompressed);
+                ASSERT_EQ(memcmp(decompressed, data, data_len), 0);
         }
 
         r = decompress("garbage", 7,
                        (void **) &decompressed, &csize, 0);
-        assert_se(r < 0);
+        ASSERT_LT(r, 0);
 
         /* make sure to have the minimal lz4 compressed size */
         r = decompress("00000000\1g", 9,
                        (void **) &decompressed, &csize, 0);
-        assert_se(r < 0);
+        ASSERT_LT(r, 0);
 
         r = decompress("\100000000g", 9,
                        (void **) &decompressed, &csize, 0);
-        assert_se(r < 0);
+        ASSERT_LT(r, 0);
 
         explicit_bzero_safe(decompressed, MALLOC_SIZEOF_SAFE(decompressed));
 }
@@ -110,32 +110,32 @@ _unused_ static void test_decompress_startswith(const char *compression,
 #define BUFSIZE_2 20000
 
         compressed = compressed1 = malloc(BUFSIZE_1);
-        assert_se(compressed1);
+        ASSERT_TRUE(compressed1);
         r = compress(data, data_len, compressed, BUFSIZE_1, &csize);
         if (r == -ENOBUFS) {
                 log_info_errno(r, "compression failed: %m");
-                assert_se(may_fail);
+                ASSERT_TRUE(may_fail);
 
                 compressed = compressed2 = malloc(BUFSIZE_2);
-                assert_se(compressed2);
+                ASSERT_TRUE(compressed2);
                 r = compress(data, data_len, compressed, BUFSIZE_2, &csize);
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         len = strlen(data);
 
         r = decompress_sw(compressed, csize, (void **) &decompressed, data, len, '\0');
-        assert_se(r > 0);
+        ASSERT_GT(r, 0);
         r = decompress_sw(compressed, csize, (void **) &decompressed, data, len, 'w');
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         r = decompress_sw(compressed, csize, (void **) &decompressed, "barbarbar", 9, ' ');
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         r = decompress_sw(compressed, csize, (void **) &decompressed, data, len - 1, data[len-1]);
-        assert_se(r > 0);
+        ASSERT_GT(r, 0);
         r = decompress_sw(compressed, csize, (void **) &decompressed, data, len - 1, 'w');
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         r = decompress_sw(compressed, csize, (void **) &decompressed, data, len, '\0');
-        assert_se(r > 0);
+        ASSERT_GT(r, 0);
 }
 
 _unused_ static void test_decompress_startswith_short(const char *compression,
@@ -151,7 +151,7 @@ _unused_ static void test_decompress_startswith_short(const char *compression,
         log_info("/* %s with %s */", __func__, compression);
 
         r = compress(TEXT, sizeof TEXT, buf, sizeof buf, &csize);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         for (size_t i = 1; i < strlen(TEXT); i++) {
                 _cleanup_free_ void *buf2 = NULL;
@@ -198,7 +198,7 @@ _unused_ static void test_compress_stream(const char *compression,
 
         if (cat) {
                 assert_se(asprintf(&cmd, "%s %s | diff %s -", cat, pattern, srcfile) > 0);
-                assert_se(system(cmd) == 0);
+                ASSERT_EQ(system(cmd), 0);
         }
 
         log_debug("/* test decompression */");
@@ -208,21 +208,21 @@ _unused_ static void test_compress_stream(const char *compression,
         assert_se(stat(srcfile, &st) == 0);
         assert_se((uint64_t)st.st_size == uncompressed_size);
 
-        assert_se(lseek(dst, 0, SEEK_SET) == 0);
+        ASSERT_EQ(lseek(dst, 0, SEEK_SET), 0);
         r = decompress(dst, dst2, st.st_size);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
 
         assert_se(asprintf(&cmd2, "diff %s %s", srcfile, pattern2) > 0);
-        assert_se(system(cmd2) == 0);
+        ASSERT_EQ(system(cmd2), 0);
 
         log_debug("/* test faulty decompression */");
 
-        assert_se(lseek(dst, 1, SEEK_SET) == 1);
+        ASSERT_EQ(lseek(dst, 1, SEEK_SET), 1);
         r = decompress(dst, dst2, st.st_size);
         assert_se(IN_SET(r, 0, -EBADMSG));
 
-        assert_se(lseek(dst, 0, SEEK_SET) == 0);
-        assert_se(lseek(dst2, 0, SEEK_SET) == 0);
+        ASSERT_EQ(lseek(dst, 0, SEEK_SET), 0);
+        ASSERT_EQ(lseek(dst2, 0, SEEK_SET), 0);
         r = decompress(dst, dst2, st.st_size - 1);
         assert_se(r == -EFBIG);
 }
@@ -243,18 +243,18 @@ static void test_lz4_decompress_partial(void) {
         huge[HUGE_SIZE - 1] = '\0';
 
         r = sym_LZ4_compress_default(huge, buf, HUGE_SIZE, buf_size);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         compressed = r;
         log_info("Compressed %i → %zu", HUGE_SIZE, compressed);
 
         r = sym_LZ4_decompress_safe(buf, huge, r, HUGE_SIZE);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         log_info("Decompressed → %i", r);
 
         r = sym_LZ4_decompress_safe_partial(buf, huge,
                                         compressed,
                                         12, HUGE_SIZE);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         log_info("Decompressed partial %i/%i → %i", 12, HUGE_SIZE, r);
 
         for (size_t size = 1; size < sizeof(buf2); size++) {
@@ -264,7 +264,7 @@ static void test_lz4_decompress_partial(void) {
                                                                    r < 0 ? "bad" : "good");
                 if (r >= 0 && sym_LZ4_versionNumber() >= 10803)
                         /* lz4 <= 1.8.2 should fail that test, let's only check for newer ones */
-                        assert_se(memcmp(buf2, huge, r) == 0);
+                        ASSERT_EQ(memcmp(buf2, huge, r), 0);
         }
 }
 #endif

@@ -76,7 +76,7 @@ static void* thread_func(void *ptr) {
                 r = loop_device_make(fd, O_RDONLY, 0, UINT64_MAX, 0, LO_FLAGS_PARTSCAN, LOCK_SH, &loop);
                 if (r < 0)
                         log_error_errno(r, "Failed to allocate loopback device: %m");
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 assert_se(loop->dev);
                 assert_se(loop->backing_file);
 
@@ -85,7 +85,7 @@ static void* thread_func(void *ptr) {
                 r = dissect_loop_device(loop, NULL, NULL, NULL, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_ADD_PARTITION_DEVICES|DISSECT_IMAGE_PIN_PARTITION_DEVICES, &dissected);
                 if (r < 0)
                         log_error_errno(r, "Failed dissect loopback device %s: %m", loop->node);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 log_info("Dissected loop device %s", loop->node);
 
@@ -109,11 +109,11 @@ static void* thread_func(void *ptr) {
                                 /* userns_fd= */ -EBADF,
                                 DISSECT_IMAGE_READ_ONLY);
                 log_notice_errno(r, "Mounted %s → %s: %m", loop->node, mounted);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 /* Now the block device is mounted, we don't need no manual lock anymore, the devices are now
                  * pinned by the mounts. */
-                assert_se(loop_device_flock(loop, LOCK_UN) >= 0);
+                ASSERT_OK(loop_device_flock(loop, LOCK_UN));
 
                 log_notice("Unmounting %s", mounted);
                 mounted = umount_and_rmdir_and_free(mounted);
@@ -193,7 +193,7 @@ static int run(int argc, char *argv[]) {
 
         assert_se(tempfn_random_child("/var/tmp", "sfdisk", &p) >= 0);
         fd = open(p, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOFOLLOW, 0666);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         assert_se(ftruncate(fd, 256*1024*1024) >= 0);
 
         assert_se(cmd = strjoin("sfdisk ", p));
@@ -215,7 +215,7 @@ static int run(int argc, char *argv[]) {
         fputs("\n"
               "size=32M, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915\n", sfdisk);
 
-        assert_se(pclose(sfdisk) == 0);
+        ASSERT_EQ(pclose(sfdisk), 0);
         sfdisk = NULL;
 
 #if HAVE_BLKID
@@ -242,13 +242,13 @@ static int run(int argc, char *argv[]) {
 
         FOREACH_STRING(fs, "vfat", "ext4") {
                 r = mkfs_exists(fs);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 if (!r) {
                         log_tests_skipped("mkfs.{vfat|ext4} not installed");
                         return 0;
                 }
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         assert_se(sd_id128_randomize(&id) >= 0);
         assert_se(make_filesystem(dissected->partitions[PARTITION_ESP].node, "vfat", "EFI", NULL, id, true, false, 0, NULL) >= 0);
@@ -288,13 +288,13 @@ static int run(int argc, char *argv[]) {
          * shared one is fine. This way udev can now probe the device if it wants, but still won't call
          * BLKRRPART on it, and that's good, because that would destroy our partition table while we are at
          * it. */
-        assert_se(loop_device_flock(loop, LOCK_SH) >= 0);
+        ASSERT_OK(loop_device_flock(loop, LOCK_SH));
 
         /* This is a test for the loopback block device setup code and it's use by the image dissection
          * logic: since the kernel APIs are hard use and prone to races, let's test this in a heavy duty
          * test: we open a bunch of threads and repeatedly allocate and deallocate loopback block devices in
          * them in parallel, with an image file with a number of partitions. */
-        assert_se(detach_mount_namespace() >= 0);
+        ASSERT_OK(detach_mount_namespace());
 
         /* This first (writable) mount will initialize the mount point dirs, so that the subsequent read-only ones can work */
         assert_se(dissected_image_mount(
@@ -308,9 +308,9 @@ static int run(int argc, char *argv[]) {
         /* Now we mounted everything, the partitions are pinned. Now it's fine to release the lock
          * fully. This means udev could now issue BLKRRPART again, but that's OK given this will fail because
          * we now mounted the device. */
-        assert_se(loop_device_flock(loop, LOCK_UN) >= 0);
+        ASSERT_OK(loop_device_flock(loop, LOCK_UN));
 
-        assert_se(umount_recursive(mounted, 0) >= 0);
+        ASSERT_OK(umount_recursive(mounted, 0));
         loop = loop_device_unref(loop);
 
         log_notice("Threads are being started now");
@@ -323,19 +323,19 @@ static int run(int argc, char *argv[]) {
 
         if (arg_n_threads > 1)
                 for (unsigned i = 0; i < arg_n_threads; i++)
-                        assert_se(pthread_create(threads + i, NULL, thread_func, FD_TO_PTR(fd)) == 0);
+                        ASSERT_EQ(pthread_create(threads + i, NULL, thread_func, FD_TO_PTR(fd)), 0);
 
         log_notice("All threads started now.");
 
         if (arg_n_threads == 1)
-                assert_se(thread_func(FD_TO_PTR(fd)) == NULL);
+                ASSERT_NULL(thread_func(FD_TO_PTR(fd)));
         else
                 for (unsigned i = 0; i < arg_n_threads; i++) {
                         log_notice("Joining thread #%u.", i);
 
                         void *k;
                         assert_se(pthread_join(threads[i], &k) == 0);
-                        assert_se(!k);
+                        ASSERT_FALSE(k);
 
                         log_notice("Joined thread #%u.", i);
                 }

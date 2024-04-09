@@ -15,7 +15,7 @@ TEST(failed_enumerate) {
 
         assert_se(sd_hwdb_new(&hwdb) == 0);
 
-        assert_se(sd_hwdb_seek(hwdb, "no-such-modalias-should-exist") == 0);
+        ASSERT_EQ(sd_hwdb_seek(hwdb, "no-such-modalias-should-exist"), 0);
 
         assert_se(sd_hwdb_enumerate(hwdb, &key, &value) == 0);
         ASSERT_RETURN_EXPECTED_SE(sd_hwdb_enumerate(hwdb, &key, NULL) == -EINVAL);
@@ -33,15 +33,15 @@ TEST(basic_enumerate) {
 
         assert_se(sd_hwdb_new(&hwdb) == 0);
 
-        assert_se(sd_hwdb_seek(hwdb, DELL_MODALIAS) == 0);
+        ASSERT_EQ(sd_hwdb_seek(hwdb, DELL_MODALIAS), 0);
 
         for (;;) {
                 r = sd_hwdb_enumerate(hwdb, &key, &value);
-                assert_se(IN_SET(r, 0, 1));
+                ASSERT_TRUE(IN_SET(r, 0, 1));
                 if (r == 0)
                         break;
-                assert_se(key);
-                assert_se(value);
+                ASSERT_TRUE(key);
+                ASSERT_TRUE(value);
                 log_debug("A: \"%s\" → \"%s\"", key, value);
                 len1 += strlen(key) + strlen(value);
         }
@@ -68,7 +68,7 @@ TEST(sd_hwdb_new_from_path) {
                         break;
         }
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 }
 
 static int intro(void) {
