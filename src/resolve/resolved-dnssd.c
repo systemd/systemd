@@ -364,7 +364,7 @@ int dnssd_signal_conflict(Manager *manager, const char *name) {
                 if (s->withdrawn)
                         continue;
 
-                if (dns_name_equal(dns_resource_key_name(s->srv_rr->key), name)) {
+                if (dns_name_equal(dns_resource_key_name(s->srv_rr->key), name) > 0) {
                         _cleanup_free_ char *path = NULL;
 
                         s->withdrawn = true;
