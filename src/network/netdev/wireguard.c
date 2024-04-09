@@ -3,11 +3,12 @@
   Copyright © 2015-2017 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
 ***/
 
-#include <sys/ioctl.h>
+/* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
-#include <netinet/in.h>
 #include <linux/if_arp.h>
 #include <linux/ipv6_route.h>
+#include <netinet/in.h>
+#include <sys/ioctl.h>
 
 #include "sd-resolve.h"
 

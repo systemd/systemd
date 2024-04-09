@@ -12,9 +12,10 @@
  * When the code here is changed, man/systemd.net-naming-scheme.xml must be updated too.
  */
 
+/* Make sure the net/if.h header is included before any linux/ one */
+#include <net/if.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <net/if.h>
 #include <stdarg.h>
 #include <unistd.h>
 #include <linux/if.h>
