@@ -235,15 +235,15 @@ TEST(proc) {
 static void test_escape_one(const char *s, const char *expected) {
         _cleanup_free_ char *b = NULL;
 
-        assert_se(s);
-        assert_se(expected);
+        ASSERT_TRUE(s);
+        ASSERT_TRUE(expected);
 
         ASSERT_OK(cg_escape(s, &b));
         assert_se(streq(b, expected));
 
         assert_se(streq(cg_unescape(b), s));
 
-        assert_se(filename_is_valid(b));
+        ASSERT_TRUE(filename_is_valid(b));
         assert_se(!cg_needs_escape(s) || b[0] == '_');
 }
 
@@ -262,15 +262,15 @@ TEST(escape, .sd_booted = true) {
 }
 
 TEST(controller_is_valid) {
-        assert_se(cg_controller_is_valid("foobar"));
-        assert_se(cg_controller_is_valid("foo_bar"));
+        ASSERT_TRUE(cg_controller_is_valid("foobar"));
+        ASSERT_TRUE(cg_controller_is_valid("foo_bar"));
         assert_se(cg_controller_is_valid("name=foo"));
-        assert_se(!cg_controller_is_valid(""));
+        ASSERT_FALSE(cg_controller_is_valid(""));
         assert_se(!cg_controller_is_valid("name="));
         assert_se(!cg_controller_is_valid("="));
-        assert_se(!cg_controller_is_valid("cpu,cpuacct"));
-        assert_se(!cg_controller_is_valid("_"));
-        assert_se(!cg_controller_is_valid("_foobar"));
+        ASSERT_FALSE(cg_controller_is_valid("cpu,cpuacct"));
+        ASSERT_FALSE(cg_controller_is_valid("_"));
+        ASSERT_FALSE(cg_controller_is_valid("_foobar"));
         assert_se(!cg_controller_is_valid("tatü"));
 }
 
@@ -355,7 +355,7 @@ TEST(fd_is_cgroup_fs, .sd_booted = true) {
                 fd = open("/sys/fs/cgroup/systemd", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
                 ASSERT_OK(fd);
         }
-        assert_se(fd_is_cgroup_fs(fd));
+        ASSERT_TRUE(fd_is_cgroup_fs(fd));
         fd = safe_close(fd);
 }
 
@@ -379,15 +379,15 @@ TEST(cg_tests) {
         assert_se(IN_SET(systemd, 0, 1));
 
         if (all) {
-                assert_se(systemd);
-                assert_se(!hybrid);
+                ASSERT_TRUE(systemd);
+                ASSERT_FALSE(hybrid);
 
         } else if (hybrid) {
-                assert_se(systemd);
-                assert_se(!all);
+                ASSERT_TRUE(systemd);
+                ASSERT_FALSE(all);
 
         } else
-                assert_se(!systemd);
+                ASSERT_FALSE(systemd);
 }
 
 TEST(cg_get_keyed_attribute) {

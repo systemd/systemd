@@ -77,19 +77,19 @@ TEST(var_tmp) {
         t = getenv("TMPDIR");
         if (t) {
                 tmpdir_backup = strdup(t);
-                assert_se(tmpdir_backup);
+                ASSERT_TRUE(tmpdir_backup);
         }
 
         t = getenv("TEMP");
         if (t) {
                 temp_backup = strdup(t);
-                assert_se(temp_backup);
+                ASSERT_TRUE(temp_backup);
         }
 
         t = getenv("TMP");
         if (t) {
                 tmp_backup = strdup(t);
-                assert_se(tmp_backup);
+                ASSERT_TRUE(tmp_backup);
         }
 
         ASSERT_OK(unsetenv("TMPDIR"));
@@ -128,13 +128,13 @@ TEST(var_tmp) {
 }
 
 TEST(dot_or_dot_dot) {
-        assert_se(!dot_or_dot_dot(NULL));
-        assert_se(!dot_or_dot_dot(""));
-        assert_se(!dot_or_dot_dot("xxx"));
-        assert_se(dot_or_dot_dot("."));
-        assert_se(dot_or_dot_dot(".."));
-        assert_se(!dot_or_dot_dot(".foo"));
-        assert_se(!dot_or_dot_dot("..foo"));
+        ASSERT_FALSE(dot_or_dot_dot(NULL));
+        ASSERT_FALSE(dot_or_dot_dot(""));
+        ASSERT_FALSE(dot_or_dot_dot("xxx"));
+        ASSERT_TRUE(dot_or_dot_dot("."));
+        ASSERT_TRUE(dot_or_dot_dot(".."));
+        ASSERT_FALSE(dot_or_dot_dot(".foo"));
+        ASSERT_FALSE(dot_or_dot_dot("..foo"));
 }
 
 TEST(access_fd) {
@@ -192,7 +192,7 @@ TEST(touch_file) {
         assert_se(lstat(a, &st) >= 0);
         assert_se(st.st_uid == test_uid);
         assert_se(st.st_gid == test_gid);
-        assert_se(S_ISREG(st.st_mode));
+        ASSERT_TRUE(S_ISREG(st.st_mode));
         assert_se((st.st_mode & 0777) == 0640);
         assert_se(timespec_load(&st.st_mtim) == test_mtime);
 
@@ -202,7 +202,7 @@ TEST(touch_file) {
         assert_se(lstat(a, &st) >= 0);
         assert_se(st.st_uid == test_uid);
         assert_se(st.st_gid == test_gid);
-        assert_se(S_ISDIR(st.st_mode));
+        ASSERT_TRUE(S_ISDIR(st.st_mode));
         assert_se((st.st_mode & 0777) == 0640);
         assert_se(timespec_load(&st.st_mtim) == test_mtime);
 
@@ -212,7 +212,7 @@ TEST(touch_file) {
         assert_se(lstat(a, &st) >= 0);
         assert_se(st.st_uid == test_uid);
         assert_se(st.st_gid == test_gid);
-        assert_se(S_ISFIFO(st.st_mode));
+        ASSERT_TRUE(S_ISFIFO(st.st_mode));
         assert_se((st.st_mode & 0777) == 0640);
         assert_se(timespec_load(&st.st_mtim) == test_mtime);
 
@@ -222,7 +222,7 @@ TEST(touch_file) {
         assert_se(lstat(a, &st) >= 0);
         assert_se(st.st_uid == test_uid);
         assert_se(st.st_gid == test_gid);
-        assert_se(S_ISSOCK(st.st_mode));
+        ASSERT_TRUE(S_ISSOCK(st.st_mode));
         assert_se((st.st_mode & 0777) == 0640);
         assert_se(timespec_load(&st.st_mtim) == test_mtime);
 
@@ -238,7 +238,7 @@ TEST(touch_file) {
                 assert_se(lstat(a, &st) >= 0);
                 assert_se(st.st_uid == test_uid);
                 assert_se(st.st_gid == test_gid);
-                assert_se(S_ISBLK(st.st_mode));
+                ASSERT_TRUE(S_ISBLK(st.st_mode));
                 assert_se((st.st_mode & 0777) == 0640);
                 assert_se(timespec_load(&st.st_mtim) == test_mtime);
 
@@ -248,7 +248,7 @@ TEST(touch_file) {
                 assert_se(lstat(a, &st) >= 0);
                 assert_se(st.st_uid == test_uid);
                 assert_se(st.st_gid == test_gid);
-                assert_se(S_ISCHR(st.st_mode));
+                ASSERT_TRUE(S_ISCHR(st.st_mode));
                 assert_se((st.st_mode & 0777) == 0640);
                 assert_se(timespec_load(&st.st_mtim) == test_mtime);
         }
@@ -259,7 +259,7 @@ TEST(touch_file) {
         assert_se(lstat(a, &st) >= 0);
         assert_se(st.st_uid == test_uid);
         assert_se(st.st_gid == test_gid);
-        assert_se(S_ISLNK(st.st_mode));
+        ASSERT_TRUE(S_ISLNK(st.st_mode));
         assert_se(timespec_load(&st.st_mtim) == test_mtime);
 }
 
@@ -334,7 +334,7 @@ TEST(rename_noreplace) {
                 _cleanup_free_ char *x = NULL, *y = NULL;
 
                 x = strjoin(z, *a);
-                assert_se(x);
+                ASSERT_TRUE(x);
 
                 if (access(x, F_OK) < 0) {
                         assert_se(errno == ENOENT);
@@ -345,7 +345,7 @@ TEST(rename_noreplace) {
                         _cleanup_free_ char *w = NULL;
 
                         w = strjoin(z, *b);
-                        assert_se(w);
+                        ASSERT_TRUE(w);
 
                         if (access(w, F_OK) < 0) {
                                 assert_se(errno == ENOENT);
@@ -356,7 +356,7 @@ TEST(rename_noreplace) {
                 }
 
                 y = strjoin(z, "/somethingelse");
-                assert_se(y);
+                ASSERT_TRUE(y);
 
                 assert_se(rename_noreplace(AT_FDCWD, x, AT_FDCWD, y) >= 0);
                 assert_se(rename_noreplace(AT_FDCWD, y, AT_FDCWD, x) >= 0);
@@ -382,7 +382,7 @@ TEST(chmod_and_chown) {
         assert_se(chmod_and_chown(p, S_IFDIR | 0555, 3, 4) == -EINVAL);
 
         assert_se(lstat(p, &st) >= 0);
-        assert_se(S_ISREG(st.st_mode));
+        ASSERT_TRUE(S_ISREG(st.st_mode));
         assert_se((st.st_mode & 07777) == 0321);
 
         p = strjoina(d, "/dir");
@@ -392,7 +392,7 @@ TEST(chmod_and_chown) {
         assert_se(chmod_and_chown(p, S_IFREG | 0555, 3, 4) == -EINVAL);
 
         assert_se(lstat(p, &st) >= 0);
-        assert_se(S_ISDIR(st.st_mode));
+        ASSERT_TRUE(S_ISDIR(st.st_mode));
         assert_se((st.st_mode & 07777) == 0321);
 
         p = strjoina(d, "/lnk");
@@ -403,7 +403,7 @@ TEST(chmod_and_chown) {
         assert_se(chmod_and_chown(p, S_IFDIR | 0555, 3, 4) == -EINVAL);
 
         assert_se(lstat(p, &st) >= 0);
-        assert_se(S_ISLNK(st.st_mode));
+        ASSERT_TRUE(S_ISLNK(st.st_mode));
 }
 
 static void create_binary_file(const char *p, const void *data, size_t l) {
@@ -501,7 +501,7 @@ TEST(rmdir_parents) {
         char *temp;
 
         temp = strjoina(arg_test_dir ?: "/tmp", "/test-rmdir.XXXXXX");
-        assert_se(mkdtemp(temp));
+        ASSERT_TRUE(mkdtemp(temp));
 
         test_rmdir_parents_one(temp, "/aaa/../hoge/foo", "/hoge/foo", -EINVAL, NULL, NULL);
         test_rmdir_parents_one(temp, "/aaa/bbb/ccc", "/hoge/../aaa", -EINVAL, NULL, NULL);
@@ -614,34 +614,34 @@ TEST(openat_report_new) {
         assert_se(mkdtemp_malloc(NULL, &d) >= 0);
 
         j = path_join(d, "test");
-        assert_se(j);
+        ASSERT_TRUE(j);
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
         ASSERT_OK(fd);
         fd = safe_close(fd);
-        assert_se(b);
+        ASSERT_TRUE(b);
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
         ASSERT_OK(fd);
         fd = safe_close(fd);
-        assert_se(!b);
+        ASSERT_FALSE(b);
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
         ASSERT_OK(fd);
         fd = safe_close(fd);
-        assert_se(!b);
+        ASSERT_FALSE(b);
 
         ASSERT_OK(unlink(j));
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
         ASSERT_OK(fd);
         fd = safe_close(fd);
-        assert_se(b);
+        ASSERT_TRUE(b);
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
         ASSERT_OK(fd);
         fd = safe_close(fd);
-        assert_se(!b);
+        ASSERT_FALSE(b);
 
         ASSERT_OK(unlink(j));
 
@@ -652,12 +652,12 @@ TEST(openat_report_new) {
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT, 0666, &b);
         ASSERT_OK(fd);
         fd = safe_close(fd);
-        assert_se(!b);
+        ASSERT_FALSE(b);
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR, 0666, &b);
         ASSERT_OK(fd);
         fd = safe_close(fd);
-        assert_se(!b);
+        ASSERT_FALSE(b);
 
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT|O_EXCL, 0666, &b);
         assert_se(fd == -EEXIST);
@@ -670,7 +670,7 @@ TEST(openat_report_new) {
         fd = openat_report_new(AT_FDCWD, j, O_RDWR|O_CREAT|O_EXCL, 0666, &b);
         ASSERT_OK(fd);
         fd = safe_close(fd);
-        assert_se(b);
+        ASSERT_TRUE(b);
 }
 
 TEST(xopenat_full) {

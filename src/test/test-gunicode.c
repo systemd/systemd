@@ -13,14 +13,14 @@ TEST(unichar_iswide) {
                 r = utf8_encoded_to_unichar(narrow, &c);
                 bool w = unichar_iswide(c);
                 ASSERT_GT(r, 0);
-                assert_se(!w);
+                ASSERT_FALSE(w);
         }
 
         for (const char *wide = "🐱／￥"; *wide; wide += r) {
                 r = utf8_encoded_to_unichar(wide, &c);
                 bool w = unichar_iswide(c);
                 ASSERT_GT(r, 0);
-                assert_se(w);
+                ASSERT_TRUE(w);
         }
 }
 

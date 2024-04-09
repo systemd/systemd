@@ -50,7 +50,7 @@ static int fake_pressure_callback(sd_event_source *s, void *userdata) {
         int *value = userdata;
         const char *d;
 
-        assert_se(s);
+        ASSERT_TRUE(s);
         assert_se(sd_event_source_get_description(s, &d) >= 0);
 
         *value *= d[0];
@@ -92,7 +92,7 @@ TEST(fake_pressure) {
         /* Ideally we'd just allocate this on the stack, but AddressSanitizer doesn't like it if threads
          * access each other's stack */
         struct fake_pressure_context *fp = new(struct fake_pressure_context, 1);
-        assert_se(fp);
+        ASSERT_TRUE(fp);
         *fp = (struct fake_pressure_context) {
                 .fifo_fd = fifo_fd,
                 .socket_fd = socket_fd,
@@ -127,7 +127,7 @@ static int real_pressure_callback(sd_event_source *s, void *userdata) {
         struct real_pressure_context *c = ASSERT_PTR(userdata);
         const char *d;
 
-        assert_se(s);
+        ASSERT_TRUE(s);
         assert_se(sd_event_source_get_description(s, &d) >= 0);
 
         log_notice("real_memory pressure event: %s", d);
@@ -169,8 +169,8 @@ _noreturn_ static void real_pressure_eat_memory(int pipe_fd) {
 }
 
 static int real_pressure_child_callback(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        assert_se(s);
-        assert_se(si);
+        ASSERT_TRUE(s);
+        ASSERT_TRUE(si);
 
         log_notice("child dead");
 

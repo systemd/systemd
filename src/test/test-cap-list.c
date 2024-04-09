@@ -15,14 +15,14 @@
 /* verify the capability parser */
 TEST(cap_list) {
         assert_se(!capability_to_name(-1));
-        assert_se(!capability_to_name(capability_list_length()));
-        assert_se(!capability_to_name(63));
-        assert_se(!capability_to_name(64));
+        ASSERT_FALSE(capability_to_name(capability_list_length()));
+        ASSERT_FALSE(capability_to_name(63));
+        ASSERT_FALSE(capability_to_name(64));
 
         assert_se(!CAPABILITY_TO_STRING(-1));
         if (capability_list_length() <= 62)
                 assert_se(streq(CAPABILITY_TO_STRING(62), "0x3e"));
-        assert_se(!CAPABILITY_TO_STRING(64));
+        ASSERT_FALSE(CAPABILITY_TO_STRING(64));
 
         for (int i = 0; i < capability_list_length(); i++) {
                 const char *n;

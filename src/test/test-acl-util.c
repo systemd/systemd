@@ -105,7 +105,7 @@ TEST_RET(fd_acl_make_read_only) {
         ASSERT_EQ(system(cmd), 0);
 
         log_info("read-only");
-        assert_se(fd_acl_make_read_only(fd));
+        ASSERT_TRUE(fd_acl_make_read_only(fd));
 
         assert_se(fstat(fd, &st) >= 0);
         assert_se((st.st_mode & 0222) == 0000);
@@ -117,7 +117,7 @@ TEST_RET(fd_acl_make_read_only) {
         ASSERT_EQ(system(cmd), 0);
 
         log_info("writable");
-        assert_se(fd_acl_make_writable(fd));
+        ASSERT_TRUE(fd_acl_make_writable(fd));
 
         assert_se(fstat(fd, &st) >= 0);
         assert_se((st.st_mode & 0222) == 0200);
@@ -129,7 +129,7 @@ TEST_RET(fd_acl_make_read_only) {
         ASSERT_EQ(system(cmd), 0);
 
         log_info("read-only");
-        assert_se(fd_acl_make_read_only(fd));
+        ASSERT_TRUE(fd_acl_make_read_only(fd));
 
         assert_se(fstat(fd, &st) >= 0);
         assert_se((st.st_mode & 0222) == 0000);

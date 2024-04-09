@@ -127,7 +127,7 @@ TEST(serialize_strv) {
                 ASSERT_GT(r, 0);
 
                 const char *t = startswith(line, "strv3=");
-                assert_se(t);
+                ASSERT_TRUE(t);
                 assert_se(deserialize_strv(t, &strv2) >= 0);
         }
 
@@ -185,7 +185,7 @@ TEST(serialize_environment) {
                 r = deserialize_environment(l+4, &env2);
                 ASSERT_OK(r);
         }
-        assert_se(feof(f));
+        ASSERT_TRUE(feof(f));
 
         assert_se(strv_equal(env, env2));
 }

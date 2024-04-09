@@ -28,21 +28,21 @@ TEST(read_etc_hostname) {
         /* with comment */
         assert_se(write_string_file(path, "# comment\nfoo", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(read_etc_hostname(path, &hostname) == 0);
-        assert_se(hostname);
+        ASSERT_TRUE(hostname);
         assert_se(streq(hostname, "foo"));
         hostname = mfree(hostname);
 
         /* with comment and extra whitespace */
         assert_se(write_string_file(path, "# comment\n\n foo ", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(read_etc_hostname(path, &hostname) == 0);
-        assert_se(hostname);
+        ASSERT_TRUE(hostname);
         assert_se(streq(hostname, "foo"));
         hostname = mfree(hostname);
 
         /* cleans up name */
         assert_se(write_string_file(path, "!foo/bar.com", WRITE_STRING_FILE_CREATE) == 0);
         assert_se(read_etc_hostname(path, &hostname) == 0);
-        assert_se(hostname);
+        ASSERT_TRUE(hostname);
         assert_se(streq(hostname, "foobar.com"));
         hostname = mfree(hostname);
 

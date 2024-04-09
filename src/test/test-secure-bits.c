@@ -28,7 +28,7 @@ TEST(secure_bits_basic) {
 
                 r = secure_bits_from_string(*bit);
                 ASSERT_GT(r, 0);
-                assert_se(secure_bits_is_valid(r));
+                ASSERT_TRUE(secure_bits_is_valid(r));
                 assert_se(secure_bits_to_string_alloc(r, &s) >= 0);
                 printf("%s = 0x%x = %s\n", *bit, (unsigned)r, s);
                 assert_se(streq(*bit, s));
@@ -36,10 +36,10 @@ TEST(secure_bits_basic) {
 
         /* Ditto, but with all bits at once */
         joined = strv_join((char**)string_bits, " ");
-        assert_se(joined);
+        ASSERT_TRUE(joined);
         r = secure_bits_from_string(joined);
         ASSERT_GT(r, 0);
-        assert_se(secure_bits_is_valid(r));
+        ASSERT_TRUE(secure_bits_is_valid(r));
         assert_se(secure_bits_to_string_alloc(r, &str) >= 0);
         printf("%s = 0x%x = %s\n", joined, (unsigned)r, str);
         assert_se(streq(joined, str));
@@ -55,7 +55,7 @@ TEST(secure_bits_basic) {
 
         /* Empty secure bits */
         assert_se(secure_bits_to_string_alloc(0, &str) >= 0);
-        assert_se(isempty(str));
+        ASSERT_TRUE(isempty(str));
 
         str = mfree(str);
 
@@ -87,7 +87,7 @@ TEST(secure_bits_mix) {
 
                 r = secure_bits_from_string(s->input);
                 ASSERT_GT(r, 0);
-                assert_se(secure_bits_is_valid(r));
+                ASSERT_TRUE(secure_bits_is_valid(r));
                 assert_se(secure_bits_to_string_alloc(r, &str) >= 0);
                 printf("%s = 0x%x = %s\n", s->input, (unsigned)r, str);
                 assert_se(streq(s->expected, str));

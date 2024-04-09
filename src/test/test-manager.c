@@ -7,7 +7,7 @@ TEST(manager_taint_string) {
         Manager m = {};
 
         _cleanup_free_ char *a = manager_taint_string(&m);
-        assert_se(a);
+        ASSERT_TRUE(a);
         log_debug("taint string: '%s'", a);
 
         if (cg_all_unified() == 0)

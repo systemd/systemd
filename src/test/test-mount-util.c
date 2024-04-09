@@ -141,7 +141,7 @@ TEST(bind_remount_recursive) {
 
         assert_se(mkdtemp_malloc("/tmp/XXXXXX", &tmp) >= 0);
         subdir = path_join(tmp, "subdir");
-        assert_se(subdir);
+        ASSERT_TRUE(subdir);
         assert_se(mkdir(subdir, 0755) >= 0);
 
         FOREACH_STRING(p, "/usr", "/sys", "/", tmp) {
@@ -255,9 +255,9 @@ TEST(make_mount_point_inode) {
         assert_se(make_mount_point_inode_from_path(src_dir, dst_dir, 0755) >= 0);
 
         assert_se(stat(dst_dir, &st) == 0);
-        assert_se(S_ISDIR(st.st_mode));
+        ASSERT_TRUE(S_ISDIR(st.st_mode));
         assert_se(stat(dst_file, &st) == 0);
-        assert_se(S_ISREG(st.st_mode));
+        ASSERT_TRUE(S_ISREG(st.st_mode));
         assert_se(!(S_IXUSR & st.st_mode));
         assert_se(!(S_IXGRP & st.st_mode));
         assert_se(!(S_IXOTH & st.st_mode));
@@ -271,9 +271,9 @@ TEST(make_mount_point_inode) {
         assert_se(make_mount_point_inode_from_stat(&st, dst_dir, 0755) >= 0);
 
         assert_se(stat(dst_dir, &st) == 0);
-        assert_se(S_ISDIR(st.st_mode));
+        ASSERT_TRUE(S_ISDIR(st.st_mode));
         assert_se(stat(dst_file, &st) == 0);
-        assert_se(S_ISREG(st.st_mode));
+        ASSERT_TRUE(S_ISREG(st.st_mode));
         assert_se(!(S_IXUSR & st.st_mode));
         assert_se(!(S_IXGRP & st.st_mode));
         assert_se(!(S_IXOTH & st.st_mode));
@@ -292,7 +292,7 @@ TEST(make_mount_switch_root) {
         assert_se(mkdtemp_malloc(NULL, &t) >= 0);
 
         assert_se(asprintf(&s, "%s/somerandomname%" PRIu64, t, random_u64()) >= 0);
-        assert_se(s);
+        ASSERT_TRUE(s);
         ASSERT_OK(touch(s));
 
         struct {
@@ -431,7 +431,7 @@ TEST(fd_make_mount_point) {
         assert_se(mkdtemp_malloc(NULL, &t) >= 0);
 
         assert_se(asprintf(&s, "%s/somerandomname%" PRIu64, t, random_u64()) >= 0);
-        assert_se(s);
+        ASSERT_TRUE(s);
         assert_se(mkdir(s, 0700) >= 0);
 
         r = safe_fork("(make_mount-point)",

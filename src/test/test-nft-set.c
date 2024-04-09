@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
 
         int nfproto;
         nfproto = nfproto_from_string(argv[2]);
-        assert_se(nfproto_is_valid(nfproto));
+        ASSERT_TRUE(nfproto_is_valid(nfproto));
 
         const char *table = argv[3], *set = argv[4];
 

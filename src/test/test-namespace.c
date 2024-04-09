@@ -22,7 +22,7 @@ TEST(namespace_cleanup_tmpdir) {
         {
                 _cleanup_(namespace_cleanup_tmpdirp) char *dir;
                 assert_se(dir = strdup("/tmp/systemd-test-namespace.XXXXXX"));
-                assert_se(mkdtemp(dir));
+                ASSERT_TRUE(mkdtemp(dir));
         }
 }
 
@@ -36,15 +36,15 @@ static void test_tmpdir_one(const char *id, const char *A, const char *B) {
         assert_se(stat(a, &x) >= 0);
         assert_se(stat(b, &y) >= 0);
 
-        assert_se(S_ISDIR(x.st_mode));
-        assert_se(S_ISDIR(y.st_mode));
+        ASSERT_TRUE(S_ISDIR(x.st_mode));
+        ASSERT_TRUE(S_ISDIR(y.st_mode));
 
         if (!streq(a, RUN_SYSTEMD_EMPTY)) {
                 assert_se(startswith(a, A));
                 assert_se((x.st_mode & 01777) == 0700);
                 c = strjoina(a, "/tmp");
                 assert_se(stat(c, &x) >= 0);
-                assert_se(S_ISDIR(x.st_mode));
+                ASSERT_TRUE(S_ISDIR(x.st_mode));
                 assert_se(FLAGS_SET(x.st_mode, 01777));
                 ASSERT_OK(rmdir(c));
                 ASSERT_OK(rmdir(a));
@@ -55,7 +55,7 @@ static void test_tmpdir_one(const char *id, const char *A, const char *B) {
                 assert_se((y.st_mode & 01777) == 0700);
                 d = strjoina(b, "/tmp");
                 assert_se(stat(d, &y) >= 0);
-                assert_se(S_ISDIR(y.st_mode));
+                ASSERT_TRUE(S_ISDIR(y.st_mode));
                 assert_se(FLAGS_SET(y.st_mode, 01777));
                 ASSERT_OK(rmdir(d));
                 ASSERT_OK(rmdir(b));

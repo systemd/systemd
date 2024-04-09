@@ -166,8 +166,8 @@ static int reply(Varlink *link, JsonVariant *parameters, const char *error_id, V
 static int on_connect(VarlinkServer *s, Varlink *link, void *userdata) {
         uid_t uid = UID_INVALID;
 
-        assert_se(s);
-        assert_se(link);
+        ASSERT_TRUE(s);
+        ASSERT_TRUE(link);
 
         assert_se(varlink_get_peer_uid(link, &uid) >= 0);
         assert_se(getuid() == uid);
@@ -262,7 +262,7 @@ static void *thread(void *arg) {
 
         assert_se(varlink_collect(c, "io.test.DoSomethingMore", i, &j, &error_id) >= 0);
 
-        assert_se(!error_id);
+        ASSERT_FALSE(error_id);
         assert_se(json_variant_is_array(j) && !json_variant_is_blank_array(j));
 
         JSON_VARIANT_ARRAY_FOREACH(k, j) {
@@ -273,7 +273,7 @@ static void *thread(void *arg) {
 
         assert_se(varlink_call(c, "io.test.DoSomething", i, &o, &e) >= 0);
         assert_se(json_variant_integer(json_variant_by_key(o, "sum")) == 88 + 99);
-        assert_se(!e);
+        ASSERT_FALSE(e);
 
         int fd1 = acquire_data_fd("foo");
         int fd2 = acquire_data_fd("bar");

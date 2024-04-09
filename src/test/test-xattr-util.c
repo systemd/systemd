@@ -45,7 +45,7 @@ TEST(getxattr_at_malloc) {
         fd = open("/", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY);
         ASSERT_OK(fd);
         r = getxattr_at_malloc(fd, "usr", "user.idontexist", 0, &value);
-        assert_se(ERRNO_IS_NEG_XATTR_ABSENT(r));
+        ASSERT_TRUE(ERRNO_IS_NEG_XATTR_ABSENT(r));
 
         safe_close(fd);
         fd = open(x, O_PATH|O_CLOEXEC);

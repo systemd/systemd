@@ -155,17 +155,17 @@ TEST(dir_is_empty) {
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) > 0);
 
         j = path_join(empty_dir, "zzz");
-        assert_se(j);
+        ASSERT_TRUE(j);
         ASSERT_OK(touch(j));
 
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) == 0);
 
         jj = path_join(empty_dir, "ppp");
-        assert_se(jj);
+        ASSERT_TRUE(jj);
         ASSERT_OK(touch(jj));
 
         jjj = path_join(empty_dir, ".qqq");
-        assert_se(jjj);
+        ASSERT_TRUE(jjj);
         ASSERT_OK(touch(jjj));
 
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) == 0);
@@ -208,7 +208,7 @@ TEST(anonymous_inode) {
         assert_se(fstat(fd, &st) >= 0);
         assert_se((st.st_mode & S_IFMT) == 0);
 
-        assert_se(!inode_type_to_string(st.st_mode));
+        ASSERT_FALSE(inode_type_to_string(st.st_mode));
 }
 
 TEST(fd_verify_linked) {

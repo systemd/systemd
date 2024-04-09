@@ -40,8 +40,8 @@ TEST(basic_enumerate) {
                 assert_se(IN_SET(r, 0, 1));
                 if (r == 0)
                         break;
-                assert_se(key);
-                assert_se(value);
+                ASSERT_TRUE(key);
+                ASSERT_TRUE(value);
                 log_debug("A: \"%s\" → \"%s\"", key, value);
                 len1 += strlen(key) + strlen(value);
         }

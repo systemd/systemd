@@ -53,7 +53,7 @@ static int test_hash_password(void) {
                 log_info("%s: %s", hash, yes_no(b));
 #if defined(XCRYPT_VERSION_MAJOR)
                 /* xcrypt is supposed to always implement all methods. */
-                assert_se(b);
+                ASSERT_TRUE(b);
 #endif
 
                 if (b && IN_SET(hash[1], '6', 'y'))

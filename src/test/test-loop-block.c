@@ -335,7 +335,7 @@ static int run(int argc, char *argv[]) {
 
                         void *k;
                         assert_se(pthread_join(threads[i], &k) == 0);
-                        assert_se(!k);
+                        ASSERT_FALSE(k);
 
                         log_notice("Joined thread #%u.", i);
                 }
