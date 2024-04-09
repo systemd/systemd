@@ -105,8 +105,8 @@ static void test_log_context(void) {
 
                 /* Test that the log context was set up correctly. The strv we pushed twice should only
                  * result in one log context which is reused. */
-                assert_se(log_context_num_contexts() == 3);
-                assert_se(log_context_num_fields() == 4);
+                ASSERT_EQ(log_context_num_contexts(), 3u);
+                ASSERT_EQ(log_context_num_fields(), 4u);
 
                 /* Test that everything still works with modifications to the log context. */
                 test_log_struct();
@@ -118,8 +118,8 @@ static void test_log_context(void) {
                         LOG_CONTEXT_PUSH_STRV(strv);
 
                         /* Check that our nested fields got added correctly. */
-                        assert_se(log_context_num_contexts() == 4);
-                        assert_se(log_context_num_fields() == 5);
+                        ASSERT_EQ(log_context_num_contexts(), 4u);
+                        ASSERT_EQ(log_context_num_fields(), 5u);
 
                         /* Test that everything still works in a nested block. */
                         test_log_struct();
@@ -128,12 +128,12 @@ static void test_log_context(void) {
                 }
 
                 /* Check that only the fields from the nested block got removed. */
-                assert_se(log_context_num_contexts() == 3);
-                assert_se(log_context_num_fields() == 4);
+                ASSERT_EQ(log_context_num_contexts(), 3u);
+                ASSERT_EQ(log_context_num_fields(), 4u);
         }
 
-        assert_se(log_context_num_contexts() == 0);
-        assert_se(log_context_num_fields() == 0);
+        ASSERT_EQ(log_context_num_contexts(), 0u);
+        ASSERT_EQ(log_context_num_fields(), 0u);
 
         {
                 _cleanup_(log_context_unrefp) LogContext *ctx = NULL;
@@ -141,8 +141,8 @@ static void test_log_context(void) {
                 char **strv = STRV_MAKE("SIXTH=ijn", "SEVENTH=PRP");
                 assert_se(ctx = log_context_new_strv(strv, /*owned=*/ false));
 
-                assert_se(log_context_num_contexts() == 1);
-                assert_se(log_context_num_fields() == 2);
+                ASSERT_EQ(log_context_num_contexts(), 1u);
+                ASSERT_EQ(log_context_num_fields(), 2u);
 
                 /* Test that everything still works with a manually configured log context. */
                 test_log_struct();
@@ -156,8 +156,8 @@ static void test_log_context(void) {
                 assert_se(strv = strv_new("ABC", "DEF"));
                 LOG_CONTEXT_CONSUME_STRV(strv);
 
-                assert_se(log_context_num_contexts() == 1);
-                assert_se(log_context_num_fields() == 2);
+                ASSERT_EQ(log_context_num_contexts(), 1u);
+                ASSERT_EQ(log_context_num_fields(), 2u);
         }
 
         {
@@ -167,7 +167,7 @@ static void test_log_context(void) {
                         IOVEC_MAKE_STRING("GHI=jkl"),
                 };
                 _cleanup_free_ struct iovec_wrapper *iovw = iovw_new();
-                assert_se(iovw);
+                ASSERT_TRUE(iovw);
                 assert_se(iovw_consume(iovw, strdup("MNO=pqr"), STRLEN("MNO=pqr") + 1) == 0);
 
                 LOG_CONTEXT_PUSH_IOV(iov, ELEMENTSOF(iov));
@@ -175,8 +175,8 @@ static void test_log_context(void) {
                 LOG_CONTEXT_CONSUME_IOV(iovw->iovec, iovw->count);
                 LOG_CONTEXT_PUSH("STU=vwx");
 
-                assert_se(log_context_num_contexts() == 3);
-                assert_se(log_context_num_fields() == 4);
+                ASSERT_EQ(log_context_num_contexts(), 3u);
+                ASSERT_EQ(log_context_num_fields(), 4u);
 
                 test_log_struct();
                 test_long_lines();
@@ -186,16 +186,16 @@ static void test_log_context(void) {
         {
                 LOG_CONTEXT_PUSH_KEY_VALUE("ABC=", "QED");
                 LOG_CONTEXT_PUSH_KEY_VALUE("ABC=", "QED");
-                assert_se(log_context_num_contexts() == 1);
-                assert_se(log_context_num_fields() == 1);
+                ASSERT_EQ(log_context_num_contexts(), 1u);
+                ASSERT_EQ(log_context_num_fields(), 1u);
 
                 test_log_struct();
                 test_long_lines();
                 test_log_syntax();
         }
 
-        assert_se(log_context_num_contexts() == 0);
-        assert_se(log_context_num_fields() == 0);
+        ASSERT_EQ(log_context_num_contexts(), 0u);
+        ASSERT_EQ(log_context_num_fields(), 0u);
 }
 
 static void test_log_prefix(void) {

@@ -69,14 +69,14 @@ TEST_RET(bootspec_sort) {
                 _cleanup_free_ char *j = NULL;
 
                 j = path_join(d, "/loader/entries/", entries[i].fname);
-                assert_se(j);
+                ASSERT_TRUE(j);
 
                 ASSERT_OK(write_string_file(j, entries[i].contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
         }
 
         ASSERT_OK(boot_config_load(&config, d, NULL));
 
-        assert_se(config.n_entries == 6);
+        ASSERT_EQ(config.n_entries, 6u);
 
         /* First, because has sort key, and its the lowest one */
         assert_se(streq(config.entries[0].id, "d.conf"));
@@ -101,7 +101,7 @@ static void test_extract_tries_one(const char *fname, int ret, const char *strip
         if (ret < 0)
                 return;
 
-        assert_se(streq_ptr(p, stripped));
+        ASSERT_TRUE(streq_ptr(p, stripped));
         assert_se(l == tries_left);
         assert_se(d == tries_done);
 }
@@ -180,13 +180,13 @@ TEST_RET(bootspec_boot_config_find_entry) {
                 _cleanup_free_ char *j = NULL;
 
                 j = path_join(d, "/loader/entries/", entries[i].fname);
-                assert_se(j);
+                ASSERT_TRUE(j);
 
                 assert_se(write_string_file(j, entries[i].contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
         }
 
         assert_se(boot_config_load(&config, d, NULL) >= 0);
-        assert_se(config.n_entries == 2);
+        ASSERT_EQ(config.n_entries, 2u);
 
         /* Test finding the first entry */
         BootEntry *entry = boot_config_find_entry(&config, "a-10.conf");

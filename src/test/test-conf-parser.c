@@ -16,7 +16,7 @@ static void test_config_parse_path_one(const char *rvalue, const char *expected)
         _cleanup_free_ char *path = NULL;
 
         assert_se(config_parse_path("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &path, NULL) >= 0);
-        assert_se(streq_ptr(expected, path));
+        ASSERT_TRUE(streq_ptr(expected, path));
 }
 
 static void test_config_parse_log_level_one(const char *rvalue, int expected) {
@@ -65,7 +65,7 @@ static void test_config_parse_strv_one(const char *rvalue, char **expected) {
         _cleanup_strv_free_ char **strv = NULL;
 
         assert_se(config_parse_strv("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &strv, NULL) >= 0);
-        assert_se(strv_equal(expected, strv));
+        ASSERT_TRUE(strv_equal(expected, strv));
 }
 
 static void test_config_parse_mode_one(const char *rvalue, mode_t expected) {
@@ -326,7 +326,7 @@ static void test_config_parse_one(unsigned i, const char *s) {
         log_info("== %s[%u] ==", __func__, i);
 
         assert_se(fmkostemp_safe(name, "r+", &f) == 0);
-        assert_se(fwrite(s, strlen(s), 1, f) == 1);
+        ASSERT_EQ(fwrite(s, strlen(s), 1, f), 1u);
         rewind(f);
 
         /*
@@ -351,38 +351,38 @@ static void test_config_parse_one(unsigned i, const char *s) {
 
         switch (i) {
         case 0 ... 4:
-                assert_se(r == 1);
-                assert_se(streq(setting1, "1"));
+                ASSERT_EQ(r, 1);
+                ASSERT_TRUE(streq(setting1, "1"));
                 break;
 
         case 5 ... 10:
-                assert_se(r == 1);
-                assert_se(streq(setting1, "1 2 3"));
+                ASSERT_EQ(r, 1);
+                ASSERT_TRUE(streq(setting1, "1 2 3"));
                 break;
 
         case 11:
-                assert_se(r == 1);
+                ASSERT_EQ(r, 1);
                 assert_se(streq(setting1, "1\\\\ \\\\2"));
                 break;
 
         case 12:
-                assert_se(r == 1);
-                assert_se(streq(setting1, x1000("ABCD")));
+                ASSERT_EQ(r, 1);
+                ASSERT_TRUE(streq(setting1, x1000("ABCD")));
                 break;
 
         case 13 ... 14:
-                assert_se(r == 1);
-                assert_se(streq(setting1, x1000("ABCD") " foobar"));
+                ASSERT_EQ(r, 1);
+                ASSERT_TRUE(streq(setting1, x1000("ABCD") " foobar"));
                 break;
 
         case 15 ... 16:
                 assert_se(r == -ENOBUFS);
-                assert_se(setting1 == NULL);
+                ASSERT_NULL(setting1);
                 break;
 
         case 17:
-                assert_se(r == 1);
-                assert_se(streq(setting1, "2"));
+                ASSERT_EQ(r, 1);
+                ASSERT_TRUE(streq(setting1, "2"));
                 break;
         }
 }
@@ -404,7 +404,7 @@ TEST(config_parse_standard_file_with_dropins_full) {
         assert_se(mkdir_p_root(root, "/usr/local/lib/kernel/install.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
 
         rfd = open(root, O_CLOEXEC|O_DIRECTORY);
-        assert_se(rfd >= 0);
+        ASSERT_OK(rfd);
 
         assert_se(write_string_file_at(rfd, "usr/lib/kernel/install.conf",         /* this one is ignored */
                                        "A=!!!", WRITE_STRING_FILE_CREATE) == 0);
@@ -442,13 +442,13 @@ TEST(config_parse_standard_file_with_dropins_full) {
                         /* userdata= */ NULL,
                         /* ret_stats_by_path= */ NULL,
                         /* ret_dropin_files= */ &dropins);
-        assert_se(r >= 0);
-        assert_se(streq_ptr(A, "aaa"));
-        assert_se(streq_ptr(B, "bbb"));
-        assert_se(streq_ptr(C, "c1"));
-        assert_se(streq_ptr(D, "ddd"));
-        assert_se(streq_ptr(E, "eee"));
-        assert_se(streq_ptr(F, NULL));
+        ASSERT_OK(r);
+        ASSERT_TRUE(streq_ptr(A, "aaa"));
+        ASSERT_TRUE(streq_ptr(B, "bbb"));
+        ASSERT_TRUE(streq_ptr(C, "c1"));
+        ASSERT_TRUE(streq_ptr(D, "ddd"));
+        ASSERT_TRUE(streq_ptr(E, "eee"));
+        ASSERT_TRUE(streq_ptr(F, NULL));
 
         A = mfree(A);
         B = mfree(B);
@@ -456,7 +456,7 @@ TEST(config_parse_standard_file_with_dropins_full) {
         D = mfree(D);
         E = mfree(E);
 
-        assert_se(strv_length(dropins) == 4);
+        ASSERT_EQ(strv_length(dropins), 4u);
 
         /* Make sure that we follow symlinks */
         assert_se(mkdir_p_root(root, "/etc/kernel/install2.conf.d", UID_INVALID, GID_INVALID, 0755, NULL));
@@ -481,13 +481,13 @@ TEST(config_parse_standard_file_with_dropins_full) {
                         /* userdata= */ NULL,
                         /* ret_stats_by_path= */ NULL,
                         /* ret_dropin_files= */ NULL);
-        assert_se(r >= 0);
-        assert_se(streq_ptr(A, "aaa"));
-        assert_se(streq_ptr(B, "bbb"));
-        assert_se(streq_ptr(C, "c1"));
-        assert_se(streq_ptr(D, "ddd"));
-        assert_se(streq_ptr(E, "eee"));
-        assert_se(streq_ptr(F, NULL));
+        ASSERT_OK(r);
+        ASSERT_TRUE(streq_ptr(A, "aaa"));
+        ASSERT_TRUE(streq_ptr(B, "bbb"));
+        ASSERT_TRUE(streq_ptr(C, "c1"));
+        ASSERT_TRUE(streq_ptr(D, "ddd"));
+        ASSERT_TRUE(streq_ptr(E, "eee"));
+        ASSERT_TRUE(streq_ptr(F, NULL));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

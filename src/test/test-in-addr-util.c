@@ -30,7 +30,7 @@ static void test_in_addr_prefix_from_string_one(
         assert_se(l == prefixlen);
 
         r = in_addr_prefix_from_string_auto(p, &f, &q, &l);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         assert_se(f == family);
         assert_se(in_addr_equal(family, &q, u));
@@ -92,12 +92,12 @@ static void test_in_addr_prefix_to_string_unoptimized(int family, const char *p)
 
         assert_se(in_addr_prefix_from_string(p, family, &u1, &len1) >= 0);
         const char *str1 = IN_ADDR_PREFIX_TO_STRING(family, &u1, len1);
-        assert_se(str1);
+        ASSERT_TRUE(str1);
         assert_se(in_addr_prefix_from_string(str1, family, &u2, &len2) >= 0);
         const char *str2 = IN_ADDR_PREFIX_TO_STRING(family, &u2, len2);
-        assert_se(str2);
+        ASSERT_TRUE(str2);
 
-        assert_se(streq(str1, str2));
+        ASSERT_TRUE(streq(str1, str2));
         assert_se(len1 == len2);
         assert_se(in_addr_equal(family, &u1, &u2) > 0);
 }
@@ -129,12 +129,12 @@ TEST(in_addr_random_prefix) {
 
         assert_se(in_addr_random_prefix(AF_INET, &a, 31, 32) >= 0);
         assert_se(in_addr_to_string(AF_INET, &a, &str) >= 0);
-        assert_se(STR_IN_SET(str, "192.168.10.0", "192.168.10.1"));
+        ASSERT_TRUE(STR_IN_SET(str, "192.168.10.0", "192.168.10.1"));
         str = mfree(str);
 
         assert_se(in_addr_random_prefix(AF_INET, &a, 24, 26) >= 0);
         assert_se(in_addr_to_string(AF_INET, &a, &str) >= 0);
-        assert_se(startswith(str, "192.168.10."));
+        ASSERT_TRUE(startswith(str, "192.168.10."));
         str = mfree(str);
 
         assert_se(in_addr_random_prefix(AF_INET, &a, 16, 24) >= 0);
@@ -340,7 +340,7 @@ static void test_in_addr_to_string_one(int f, const char *addr) {
         assert_se(in_addr_from_string(f, addr, &ua) >= 0);
         assert_se(in_addr_to_string(f, &ua, &r) >= 0);
         printf("%s: %s == %s\n", __func__, addr, r);
-        assert_se(streq(addr, r));
+        ASSERT_TRUE(streq(addr, r));
 
         assert_se(streq(r, IN_ADDR_TO_STRING(f, &ua)));
 }

@@ -35,8 +35,8 @@ static int parse_argv(int argc, char *argv[]) {
 
         int c;
 
-        assert_se(argc >= 0);
-        assert_se(argv);
+        ASSERT_OK(argc);
+        ASSERT_TRUE(argv);
 
         while ((c = getopt_long(argc, argv, "", options, NULL)) >= 0)
                 switch (c) {
@@ -104,7 +104,7 @@ static int run(int argc, char **argv) {
                 else {
                         log_info("→ %s", p);
                         if (arg_open)
-                                assert_se(fd >= 0);
+                                ASSERT_OK(fd);
                         else
                                 assert_se(fd == -EBADF);
                 }
