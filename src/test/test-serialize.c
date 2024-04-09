@@ -85,7 +85,7 @@ TEST(serialize_usec) {
         assert_se(read_line(f, LONG_LINE_MAX, &line1) > 0);
         assert_se(streq(line1, "usec2=0"));
         assert_se(deserialize_usec(line1 + 6, &x) == 0);
-        assert_se(x == 0);
+        ASSERT_EQ(x, 0u);
 
         assert_se(read_line(f, LONG_LINE_MAX, &line2) > 0);
         assert_se(startswith(line2, "usec3="));
@@ -124,7 +124,7 @@ TEST(serialize_strv) {
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r == 0)
                         break;
-                assert_se(r > 0);
+                ASSERT_GT(r, 0);
 
                 const char *t = startswith(line, "strv3=");
                 assert_se(t);
@@ -164,7 +164,7 @@ TEST(serialize_environment) {
                                  "FOO%%=a\177b\nc\td e"));
 
         assert_se(serialize_strv(f, "env", env) == 1);
-        assert_se(fflush_and_check(f) == 0);
+        ASSERT_EQ(fflush_and_check(f), 0);
 
         rewind(f);
 
@@ -173,7 +173,7 @@ TEST(serialize_environment) {
                 const char *l;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 if (r == 0)
                         break;
@@ -183,7 +183,7 @@ TEST(serialize_environment) {
                 assert_se(startswith(l, "env="));
 
                 r = deserialize_environment(l+4, &env2);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
         }
         assert_se(feof(f));
 

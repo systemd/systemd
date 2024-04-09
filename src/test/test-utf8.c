@@ -193,7 +193,7 @@ TEST(utf8_n_codepoints) {
         assert_se(utf8_n_codepoints("abc") == 3);
         assert_se(utf8_n_codepoints("zażółcić gęślą jaźń") == 19);
         assert_se(utf8_n_codepoints("串") == 1);
-        assert_se(utf8_n_codepoints("") == 0);
+        ASSERT_EQ(utf8_n_codepoints(""), 0u);
         assert_se(utf8_n_codepoints("…👊🔪💐…") == 5);
         assert_se(utf8_n_codepoints("\xF1") == SIZE_MAX);
 }
@@ -202,7 +202,7 @@ TEST(utf8_console_width) {
         assert_se(utf8_console_width("abc") == 3);
         assert_se(utf8_console_width("zażółcić gęślą jaźń") == 19);
         assert_se(utf8_console_width("串") == 2);
-        assert_se(utf8_console_width("") == 0);
+        ASSERT_EQ(utf8_console_width(""), 0u);
         assert_se(utf8_console_width("…👊🔪💐…") == 8);
         assert_se(utf8_console_width("\xF1") == SIZE_MAX);
 }

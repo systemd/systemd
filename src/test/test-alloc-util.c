@@ -211,7 +211,7 @@ TEST(malloc_size_safe) {
         /* Let's check the macros and built-ins work on NULL and return the expected values */
         assert_se(MALLOC_ELEMENTSOF((float*) NULL) == 0);
         assert_se(MALLOC_SIZEOF_SAFE((float*) NULL) == 0);
-        assert_se(malloc_usable_size(NULL) == 0); /* as per man page, this is safe and defined */
+        ASSERT_EQ(malloc_usable_size(NULL), 0u); /* as per man page, this is safe and defined */
         assert_se(__builtin_object_size(NULL, 0) == SIZE_MAX); /* as per docs SIZE_MAX is returned for pointers where the size isn't known */
 
         /* Then, let's try these macros once with constant size values, so that __builtin_object_size()

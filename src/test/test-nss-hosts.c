@@ -80,7 +80,7 @@ static void print_struct_hostent(struct hostent *host, const char *canon) {
                 assert_se((unsigned) host->h_length == FAMILY_ADDRESS_SIZE(host->h_addrtype));
                 memcpy(&u, *s, host->h_length);
                 r = in_addr_to_string(host->h_addrtype, &u, &a);
-                assert_se(r == 0);
+                ASSERT_EQ(r, 0);
                 log_info("        %s %s",
                          af_to_string(host->h_addrtype, family_name, sizeof family_name),
                          a);
@@ -458,7 +458,7 @@ static int parse_argv(int argc, char **argv,
                                            slow_tests_enabled() ? "foo_no_such_host" : NULL));
 
                 n = make_addresses(&addrs);
-                assert_se(n >= 0);
+                ASSERT_OK(n);
         }
 
         *the_modules = TAKE_PTR(modules);

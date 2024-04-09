@@ -19,7 +19,7 @@ static void test_paths_one(RuntimeScope scope) {
 
         assert_se(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp) >= 0);
 
-        assert_se(unsetenv("SYSTEMD_UNIT_PATH") == 0);
+        ASSERT_EQ(unsetenv("SYSTEMD_UNIT_PATH"), 0);
         assert_se(lookup_paths_init(&lp_without_env, scope, 0, NULL) >= 0);
         assert_se(!strv_isempty(lp_without_env.search_path));
         lookup_paths_log(&lp_without_env);
@@ -44,9 +44,9 @@ TEST(user_and_global_paths) {
         char **u, **g;
         unsigned k = 0;
 
-        assert_se(unsetenv("SYSTEMD_UNIT_PATH") == 0);
-        assert_se(unsetenv("XDG_DATA_DIRS") == 0);
-        assert_se(unsetenv("XDG_CONFIG_DIRS") == 0);
+        ASSERT_EQ(unsetenv("SYSTEMD_UNIT_PATH"), 0);
+        ASSERT_EQ(unsetenv("XDG_DATA_DIRS"), 0);
+        ASSERT_EQ(unsetenv("XDG_CONFIG_DIRS"), 0);
 
         assert_se(lookup_paths_init(&lp_global, RUNTIME_SCOPE_GLOBAL, 0, NULL) == 0);
         assert_se(lookup_paths_init(&lp_user, RUNTIME_SCOPE_USER, 0, NULL) == 0);
@@ -81,8 +81,8 @@ static void test_generator_binary_paths_one(RuntimeScope scope) {
 
         assert_se(mkdtemp_malloc("/tmp/test-path-lookup.XXXXXXX", &tmp) >= 0);
 
-        assert_se(unsetenv("SYSTEMD_GENERATOR_PATH") == 0);
-        assert_se(unsetenv("SYSTEMD_ENVIRONMENT_GENERATOR_PATH") == 0);
+        ASSERT_EQ(unsetenv("SYSTEMD_GENERATOR_PATH"), 0);
+        ASSERT_EQ(unsetenv("SYSTEMD_ENVIRONMENT_GENERATOR_PATH"), 0);
 
         gp_without_env = generator_binary_paths(scope);
         env_gp_without_env = env_generator_binary_paths(scope);

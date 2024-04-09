@@ -34,7 +34,7 @@ TEST(pidref_set_pid) {
         r = pidref_set_pid(&pidref, 1);
         if (r == -ESRCH)
                 return (void) log_tests_skipped_errno(r, "PID1 does not exist");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         assert_se(pidref_equal(&pidref, &PIDREF_MAKE_FROM_PID(1)));
         assert_se(!pidref_equal(&pidref, &PIDREF_MAKE_FROM_PID(2)));
@@ -103,7 +103,7 @@ TEST(pidref_copy) {
         r = pidref_copy(&PIDREF_MAKE_FROM_PID(1), &pidref);
         if (r == -ESRCH)
                 return (void) log_tests_skipped_errno(r, "PID1 does not exist");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(pidref_equal(&pidref, &PIDREF_MAKE_FROM_PID(1)));
 }
 
@@ -128,7 +128,7 @@ TEST(pidref_dup) {
         r = pidref_dup(&PIDREF_MAKE_FROM_PID(1), &pidref);
         if (r == -ESRCH)
                 return (void) log_tests_skipped_errno(r, "PID1 does not exist");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(pidref_equal(pidref, &PIDREF_MAKE_FROM_PID(1)));
 }
 
@@ -150,7 +150,7 @@ TEST(pidref_new_from_pid) {
         r = pidref_new_from_pid(1, &pidref);
         if (r == -ESRCH)
                 return (void) log_tests_skipped_errno(r, "PID1 does not exist");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(pidref_equal(pidref, &PIDREF_MAKE_FROM_PID(1)));
 }
 
@@ -160,7 +160,7 @@ TEST(pidref_kill) {
         int r;
 
         r = pidref_safe_fork("(test-pidref-kill)", FORK_DEATHSIG_SIGKILL, &pidref);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         if (r == 0)
                 freeze();
 
@@ -175,7 +175,7 @@ TEST(pidref_kill_and_sigcont) {
         int r;
 
         r = pidref_safe_fork("(test-pidref-kill-and-sigcont)", FORK_DEATHSIG_SIGTERM, &pidref);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         if (r == 0)
                 freeze();
 
@@ -190,7 +190,7 @@ TEST(pidref_sigqueue) {
         int r;
 
         r = pidref_safe_fork("(test-pidref-sigqueue)", FORK_DEATHSIG_SIGTERM, &pidref);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         if (r == 0)
                 freeze();
 
@@ -204,7 +204,7 @@ TEST(pidref_done_sigkill_wait) {
         int r;
 
         r = pidref_safe_fork("(test-pidref-done-sigkill-wait)", FORK_DEATHSIG_SIGKILL, &pidref);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         if (r == 0)
                 freeze();
 }

@@ -93,13 +93,13 @@ TEST(rlimit_to_string_all) {
 
                 assert_se(prefixed = strjoin("Limit", p));
 
-                assert_se(rlimit_from_string(prefixed) < 0);
+                ASSERT_LT(rlimit_from_string(prefixed), 0);
                 assert_se(rlimit_from_string_harder(prefixed) == i);
 
                 prefixed = mfree(prefixed);
                 assert_se(prefixed = strjoin("RLIMIT_", p));
 
-                assert_se(rlimit_from_string(prefixed) < 0);
+                ASSERT_LT(rlimit_from_string(prefixed), 0);
                 assert_se(rlimit_from_string_harder(prefixed) == i);
         }
 }
@@ -111,7 +111,7 @@ TEST(setrlimit) {
                 .rlim_max = 5,
         };
 
-        assert_se(drop_capability(CAP_SYS_RESOURCE) == 0);
+        ASSERT_EQ(drop_capability(CAP_SYS_RESOURCE), 0);
 
         assert_se(getrlimit(RLIMIT_NOFILE, &old) == 0);
         new.rlim_cur = MIN(5U, old.rlim_max);
@@ -154,7 +154,7 @@ TEST(pid_getrlimit) {
 
                 /* We fork off a child so that getrlimit() doesn't work anymore */
                 r = safe_fork("(getrlimit)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT, /* ret_pid= */ NULL);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 if (r == 0) {
                         struct rlimit indirect;

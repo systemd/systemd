@@ -12,7 +12,7 @@ TEST(get_locales) {
         int r;
 
         r = get_locales(&locales);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(locales);
 
         STRV_FOREACH(p, locales) {
@@ -36,22 +36,22 @@ TEST(locale_is_valid) {
 
 TEST(locale_is_installed) {
         /* Always available */
-        assert_se(locale_is_installed("POSIX") > 0);
-        assert_se(locale_is_installed("C") > 0);
+        ASSERT_GT(locale_is_installed("POSIX"), 0);
+        ASSERT_GT(locale_is_installed("C"), 0);
 
         /* Might, or might not be installed. */
-        assert_se(locale_is_installed("en_EN.utf8") >= 0);
-        assert_se(locale_is_installed("fr_FR.utf8") >= 0);
+        ASSERT_OK(locale_is_installed("en_EN.utf8"));
+        ASSERT_OK(locale_is_installed("fr_FR.utf8"));
         assert_se(locale_is_installed("fr_FR@euro") >= 0);
-        assert_se(locale_is_installed("fi_FI") >= 0);
+        ASSERT_OK(locale_is_installed("fi_FI"));
 
         /* Definitely not valid */
-        assert_se(locale_is_installed("") == 0);
+        ASSERT_EQ(locale_is_installed(""), 0);
         assert_se(locale_is_installed("/usr/bin/foo") == 0);
         assert_se(locale_is_installed("\x01gar\x02 bage\x03") == 0);
 
         /* Definitely not installed */
-        assert_se(locale_is_installed("zz_ZZ") == 0);
+        ASSERT_EQ(locale_is_installed("zz_ZZ"), 0);
 }
 
 TEST(keymaps) {
@@ -66,7 +66,7 @@ TEST(keymaps) {
         if (r == -ENOENT)
                 return; /* skip test if no keymaps are installed */
 
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(kmaps);
 
         STRV_FOREACH(p, kmaps) {

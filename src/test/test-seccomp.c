@@ -81,7 +81,7 @@ TEST(parse_syscall_and_errno) {
         /* 0 is also a valid errno. */
         assert_se(parse_syscall_and_errno("hoge:0", &n, &e) >= 0);
         assert_se(streq(n, "hoge"));
-        assert_se(e == 0);
+        ASSERT_EQ(e, 0);
         n = mfree(n);
 
         assert_se(parse_syscall_and_errno("hoge:kill", &n, &e) >= 0);
@@ -110,7 +110,7 @@ TEST(seccomp_arch_to_string) {
         const char *name;
 
         a = seccomp_arch_native();
-        assert_se(a > 0);
+        ASSERT_GT(a, 0u);
         name = seccomp_arch_to_string(a);
         assert_se(name);
         assert_se(seccomp_arch_from_string(name, &b) >= 0);
@@ -197,7 +197,7 @@ TEST(filter_sets) {
                 log_info("Testing %s", syscall_filter_sets[i].name);
 
                 pid = fork();
-                assert_se(pid >= 0);
+                ASSERT_OK(pid);
 
                 if (pid == 0) { /* Child? */
                         int fd, r;
@@ -217,7 +217,7 @@ TEST(filter_sets) {
                         if (IN_SET(i, SYSCALL_FILTER_SET_IO_EVENT, SYSCALL_FILTER_SET_DEFAULT))
                                 assert_se(fd < 0 && errno == EUCLEAN);
                         else {
-                                assert_se(fd >= 0);
+                                ASSERT_OK(fd);
                                 safe_close(fd);
                         }
 
@@ -230,7 +230,7 @@ TEST(filter_sets) {
 
 TEST(filter_sets_ordered) {
         /* Ensure "@default" always remains at the beginning of the list */
-        assert_se(SYSCALL_FILTER_SET_DEFAULT == 0);
+        ASSERT_EQ(SYSCALL_FILTER_SET_DEFAULT, 0);
         assert_se(streq(syscall_filter_sets[0].name, "@default"));
 
         /* Ensure "@known" always remains at the end of the list */
@@ -308,14 +308,14 @@ TEST(restrict_namespace) {
         }
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
 
                 assert_se(seccomp_restrict_namespaces(CLONE_NEWNS|CLONE_NEWNET) >= 0);
 
-                assert_se(unshare(CLONE_NEWNS) == 0);
-                assert_se(unshare(CLONE_NEWNET) == 0);
+                ASSERT_EQ(unshare(CLONE_NEWNS), 0);
+                ASSERT_EQ(unshare(CLONE_NEWNET), 0);
                 assert_se(unshare(CLONE_NEWUTS) == -1);
                 assert_se(errno == EPERM);
                 assert_se(unshare(CLONE_NEWIPC) == -1);
@@ -339,21 +339,21 @@ TEST(restrict_namespace) {
                 assert_se(errno == EPERM);
 
                 pid = raw_clone(CLONE_NEWNS);
-                assert_se(pid >= 0);
+                ASSERT_OK(pid);
                 if (pid == 0)
                         _exit(EXIT_SUCCESS);
                 pid = raw_clone(CLONE_NEWNET);
-                assert_se(pid >= 0);
+                ASSERT_OK(pid);
                 if (pid == 0)
                         _exit(EXIT_SUCCESS);
                 pid = raw_clone(CLONE_NEWUTS);
-                assert_se(pid < 0);
+                ASSERT_LT(pid, 0);
                 assert_se(errno == EPERM);
                 pid = raw_clone(CLONE_NEWIPC);
-                assert_se(pid < 0);
+                ASSERT_LT(pid, 0);
                 assert_se(errno == EPERM);
                 pid = raw_clone(CLONE_NEWNET|CLONE_NEWUTS);
-                assert_se(pid < 0);
+                ASSERT_LT(pid, 0);
                 assert_se(errno == EPERM);
 
                 _exit(EXIT_SUCCESS);
@@ -386,7 +386,7 @@ TEST(protect_sysctl) {
                 log_warning("Warning: seccomp filter detected, results may be unreliable for %s", __func__);
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
 #if defined __NR__sysctl && __NR__sysctl >= 0
@@ -394,7 +394,7 @@ TEST(protect_sysctl) {
                 assert_se(IN_SET(errno, EFAULT, ENOSYS));
 #endif
 
-                assert_se(seccomp_protect_sysctl() >= 0);
+                ASSERT_OK(seccomp_protect_sysctl());
 
 #if HAVE_VALGRIND_VALGRIND_H
                 if (RUNNING_ON_VALGRIND) {
@@ -433,7 +433,7 @@ TEST(protect_syslog) {
         }
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
 #if defined __NR_syslog && __NR_syslog >= 0
@@ -441,7 +441,7 @@ TEST(protect_syslog) {
                 assert_se(errno == EINVAL);
 #endif
 
-                assert_se(seccomp_protect_syslog() >= 0);
+                ASSERT_OK(seccomp_protect_syslog());
 
 #if defined __NR_syslog && __NR_syslog >= 0
                 assert_se(syscall(__NR_syslog, 0, 0, 0) < 0);
@@ -467,22 +467,22 @@ TEST(restrict_address_families) {
         }
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
                 int fd;
                 Set *s;
 
                 fd = socket(AF_INET, SOCK_DGRAM, 0);
-                assert_se(fd >= 0);
+                ASSERT_OK(fd);
                 safe_close(fd);
 
                 fd = socket(AF_UNIX, SOCK_DGRAM, 0);
-                assert_se(fd >= 0);
+                ASSERT_OK(fd);
                 safe_close(fd);
 
                 fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
-                assert_se(fd >= 0);
+                ASSERT_OK(fd);
                 safe_close(fd);
 
                 assert_se(s = set_new(NULL));
@@ -491,20 +491,20 @@ TEST(restrict_address_families) {
                 assert_se(seccomp_restrict_address_families(s, false) >= 0);
 
                 fd = socket(AF_INET, SOCK_DGRAM, 0);
-                assert_se(fd >= 0);
+                ASSERT_OK(fd);
                 safe_close(fd);
 
                 fd = socket(AF_UNIX, SOCK_DGRAM, 0);
 #if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
-                assert_se(fd >= 0);
+                ASSERT_OK(fd);
                 safe_close(fd);
 #else
-                assert_se(fd < 0);
+                ASSERT_LT(fd, 0);
                 assert_se(errno == EAFNOSUPPORT);
 #endif
 
                 fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
-                assert_se(fd >= 0);
+                ASSERT_OK(fd);
                 safe_close(fd);
 
                 set_clear(s);
@@ -514,24 +514,24 @@ TEST(restrict_address_families) {
                 assert_se(seccomp_restrict_address_families(s, true) >= 0);
 
                 fd = socket(AF_INET, SOCK_DGRAM, 0);
-                assert_se(fd >= 0);
+                ASSERT_OK(fd);
                 safe_close(fd);
 
                 fd = socket(AF_UNIX, SOCK_DGRAM, 0);
 #if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
-                assert_se(fd >= 0);
+                ASSERT_OK(fd);
                 safe_close(fd);
 #else
-                assert_se(fd < 0);
+                ASSERT_LT(fd, 0);
                 assert_se(errno == EAFNOSUPPORT);
 #endif
 
                 fd = socket(AF_NETLINK, SOCK_DGRAM, 0);
 #if SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN
-                assert_se(fd >= 0);
+                ASSERT_OK(fd);
                 safe_close(fd);
 #else
-                assert_se(fd < 0);
+                ASSERT_LT(fd, 0);
                 assert_se(errno == EAFNOSUPPORT);
 #endif
 
@@ -560,7 +560,7 @@ TEST(restrict_realtime) {
         }
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
                 /* On some CI environments, the restriction may be already enabled. */
@@ -579,7 +579,7 @@ TEST(restrict_realtime) {
                 assert_se(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param) { .sched_priority = 0 }) >= 0);
                 assert_se(sched_setscheduler(0, SCHED_OTHER, &(struct sched_param) {}) >= 0);
 
-                assert_se(seccomp_restrict_realtime_full(ENOANO) >= 0);
+                ASSERT_OK(seccomp_restrict_realtime_full(ENOANO));
 
                 assert_se(sched_setscheduler(0, SCHED_IDLE, &(struct sched_param) { .sched_priority = 0 }) >= 0);
                 assert_se(sched_setscheduler(0, SCHED_BATCH, &(struct sched_param) { .sched_priority = 0 }) >= 0);
@@ -619,7 +619,7 @@ TEST(memory_deny_write_execute_mmap) {
 #endif
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
                 void *p;
@@ -632,7 +632,7 @@ TEST(memory_deny_write_execute_mmap) {
                 assert_se(p != MAP_FAILED);
                 assert_se(munmap(p, page_size()) >= 0);
 
-                assert_se(seccomp_memory_deny_write_execute() >= 0);
+                ASSERT_OK(seccomp_memory_deny_write_execute());
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
 #if defined(__x86_64__) || defined(__i386__) || defined(__powerpc64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch_lp64)
@@ -687,23 +687,23 @@ TEST(memory_deny_write_execute_shmat) {
 #endif
 
         shmid = shmget(IPC_PRIVATE, page_size(), 0);
-        assert_se(shmid >= 0);
+        ASSERT_OK(shmid);
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
                 void *p;
 
                 p = shmat(shmid, NULL, 0);
                 assert_se(p != MAP_FAILED);
-                assert_se(shmdt(p) == 0);
+                ASSERT_EQ(shmdt(p), 0);
 
                 p = shmat(shmid, NULL, SHM_EXEC);
                 assert_se(p != MAP_FAILED);
-                assert_se(shmdt(p) == 0);
+                ASSERT_EQ(shmdt(p), 0);
 
-                assert_se(seccomp_memory_deny_write_execute() >= 0);
+                ASSERT_OK(seccomp_memory_deny_write_execute());
 
                 p = shmat(shmid, NULL, SHM_EXEC);
                 log_debug_errno(p == MAP_FAILED ? errno : 0, "shmat(SHM_EXEC): %m");
@@ -714,12 +714,12 @@ TEST(memory_deny_write_execute_shmat) {
                 /* Depending on kernel, libseccomp, and glibc versions, other architectures
                  * might fail or not. Let's not assert success. */
                 if (p != MAP_FAILED)
-                        assert_se(shmdt(p) == 0);
+                        ASSERT_EQ(shmdt(p), 0);
 
                 p = shmat(shmid, NULL, 0);
                 log_debug_errno(p == MAP_FAILED ? errno : 0, "shmat(0): %m");
                 assert_se(p != MAP_FAILED);
-                assert_se(shmdt(p) == 0);
+                ASSERT_EQ(shmdt(p), 0);
 
                 _exit(EXIT_SUCCESS);
         }
@@ -740,7 +740,7 @@ TEST(restrict_archs) {
         }
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
                 _cleanup_set_free_ Set *s = NULL;
@@ -752,10 +752,10 @@ TEST(restrict_archs) {
 #ifdef __x86_64__
                 assert_se(set_put(s, UINT32_TO_PTR(SCMP_ARCH_X86+1)) >= 0);
 #endif
-                assert_se(seccomp_restrict_archs(s) >= 0);
+                ASSERT_OK(seccomp_restrict_archs(s));
 
                 assert_se(access("/", F_OK) >= 0);
-                assert_se(seccomp_restrict_archs(NULL) >= 0);
+                ASSERT_OK(seccomp_restrict_archs(NULL));
 
                 assert_se(access("/", F_OK) >= 0);
 
@@ -778,7 +778,7 @@ TEST(load_syscall_filter_set_raw) {
         }
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
                 _cleanup_hashmap_free_ Hashmap *s = NULL;
@@ -891,7 +891,7 @@ TEST(native_syscalls_filtered) {
         }
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
                 _cleanup_set_free_ Set *arch_s = NULL;
@@ -899,9 +899,9 @@ TEST(native_syscalls_filtered) {
 
                 /* Passing "native" or an empty set is equivalent, just do both here. */
                 assert_se(arch_s = set_new(NULL));
-                assert_se(seccomp_restrict_archs(arch_s) >= 0);
+                ASSERT_OK(seccomp_restrict_archs(arch_s));
                 assert_se(set_put(arch_s, SCMP_ARCH_NATIVE) >= 0);
-                assert_se(seccomp_restrict_archs(arch_s) >= 0);
+                ASSERT_OK(seccomp_restrict_archs(arch_s));
 
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
@@ -955,12 +955,12 @@ TEST(lock_personality) {
         log_info("current opinionated personality=0x%lX", current_opinionated);
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
                 unsigned long current;
 
-                assert_se(seccomp_lock_personality(current_opinionated) >= 0);
+                ASSERT_OK(seccomp_lock_personality(current_opinionated));
 
                 current = safe_personality(current_opinionated);
                 assert_se((current & OPINIONATED_PERSONALITY_MASK) == current_opinionated);
@@ -1036,7 +1036,7 @@ TEST(restrict_suid_sgid) {
         }
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
                 char path[] = "/tmp/suidsgidXXXXXX", dir[] = "/tmp/suidsgiddirXXXXXX";
@@ -1044,7 +1044,7 @@ TEST(restrict_suid_sgid) {
                 const char *z;
 
                 fd = mkostemp_safe(path);
-                assert_se(fd >= 0);
+                ASSERT_OK(fd);
 
                 assert_se(mkdtemp(dir));
                 z = strjoina(dir, "/test");
@@ -1071,89 +1071,89 @@ TEST(restrict_suid_sgid) {
 
                 k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISGID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID | S_ISGID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 k = creat(z, 0644 | S_ISUID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 k = creat(z, 0644 | S_ISGID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 k = creat(z, 0644 | S_ISUID | S_ISGID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 k = creat(z, 0644);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 k = openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 k = openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISGID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 k = openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID | S_ISGID);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 k = openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 assert_se(mkdir(z, 0755 | S_ISUID) >= 0);
-                assert_se(rmdir(z) >= 0);
+                ASSERT_OK(rmdir(z));
                 assert_se(mkdir(z, 0755 | S_ISGID) >= 0);
-                assert_se(rmdir(z) >= 0);
+                ASSERT_OK(rmdir(z));
                 assert_se(mkdir(z, 0755 | S_ISUID | S_ISGID) >= 0);
-                assert_se(rmdir(z) >= 0);
+                ASSERT_OK(rmdir(z));
                 assert_se(mkdir(z, 0755) >= 0);
-                assert_se(rmdir(z) >= 0);
+                ASSERT_OK(rmdir(z));
 
                 assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISUID) >= 0);
-                assert_se(rmdir(z) >= 0);
+                ASSERT_OK(rmdir(z));
                 assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISGID) >= 0);
-                assert_se(rmdir(z) >= 0);
+                ASSERT_OK(rmdir(z));
                 assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISUID | S_ISGID) >= 0);
-                assert_se(rmdir(z) >= 0);
+                ASSERT_OK(rmdir(z));
                 assert_se(mkdirat(AT_FDCWD, z, 0755) >= 0);
-                assert_se(rmdir(z) >= 0);
+                ASSERT_OK(rmdir(z));
 
                 assert_se(mknod(z, S_IFREG | 0755 | S_ISUID, 0) >= 0);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
                 assert_se(mknod(z, S_IFREG | 0755 | S_ISGID, 0) >= 0);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
                 assert_se(mknod(z, S_IFREG | 0755 | S_ISUID | S_ISGID, 0) >= 0);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
                 assert_se(mknod(z, S_IFREG | 0755, 0) >= 0);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISUID, 0) >= 0);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
                 assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISGID, 0) >= 0);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
                 assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISUID | S_ISGID, 0) >= 0);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
                 assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755, 0) >= 0);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
-                assert_se(seccomp_restrict_suid_sgid() >= 0);
+                ASSERT_OK(seccomp_restrict_suid_sgid());
 
                 assert_se(chmod(path, 0775 | S_ISUID) < 0 && errno == EPERM);
                 assert_se(chmod(path, 0775 | S_ISGID) < 0  && errno == EPERM);
@@ -1180,47 +1180,47 @@ TEST(restrict_suid_sgid) {
                 assert_se(real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID | S_ISGID) < 0 && errno == EPERM);
                 k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 assert_se(creat(z, 0644 | S_ISUID) < 0 && errno == EPERM);
                 assert_se(creat(z, 0644 | S_ISGID) < 0 && errno == EPERM);
                 assert_se(creat(z, 0644 | S_ISUID | S_ISGID) < 0 && errno == EPERM);
                 k = creat(z, 0644);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 assert_se(openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID) < 0 && errno == EPERM);
                 assert_se(openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISGID) < 0 && errno == EPERM);
                 assert_se(openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID | S_ISGID) < 0 && errno == EPERM);
                 k = openat(AT_FDCWD, z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644);
                 k = safe_close(k);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 assert_se(mkdir(z, 0755 | S_ISUID) < 0 && errno == EPERM);
                 assert_se(mkdir(z, 0755 | S_ISGID) < 0 && errno == EPERM);
                 assert_se(mkdir(z, 0755 | S_ISUID | S_ISGID) < 0 && errno == EPERM);
                 assert_se(mkdir(z, 0755) >= 0);
-                assert_se(rmdir(z) >= 0);
+                ASSERT_OK(rmdir(z));
 
                 assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISUID) < 0 && errno == EPERM);
                 assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISGID) < 0 && errno == EPERM);
                 assert_se(mkdirat(AT_FDCWD, z, 0755 | S_ISUID | S_ISGID) < 0 && errno == EPERM);
                 assert_se(mkdirat(AT_FDCWD, z, 0755) >= 0);
-                assert_se(rmdir(z) >= 0);
+                ASSERT_OK(rmdir(z));
 
                 assert_se(mknod(z, S_IFREG | 0755 | S_ISUID, 0) < 0 && errno == EPERM);
                 assert_se(mknod(z, S_IFREG | 0755 | S_ISGID, 0) < 0 && errno == EPERM);
                 assert_se(mknod(z, S_IFREG | 0755 | S_ISUID | S_ISGID, 0) < 0 && errno == EPERM);
                 assert_se(mknod(z, S_IFREG | 0755, 0) >= 0);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
                 assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISUID, 0) < 0 && errno == EPERM);
                 assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISGID, 0) < 0 && errno == EPERM);
                 assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755 | S_ISUID | S_ISGID, 0) < 0 && errno == EPERM);
                 assert_se(mknodat(AT_FDCWD, z, S_IFREG | 0755, 0) >= 0);
-                assert_se(unlink(z) >= 0);
+                ASSERT_OK(unlink(z));
 
-                assert_se(unlink(path) >= 0);
+                ASSERT_OK(unlink(path));
                 assert_se(rm_rf(dir, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 
                 _exit(EXIT_SUCCESS);

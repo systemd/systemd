@@ -727,25 +727,25 @@ TEST(dns_name_apply_idna) {
 }
 
 TEST(dns_name_is_valid_or_address) {
-        assert_se(dns_name_is_valid_or_address(NULL) == 0);
-        assert_se(dns_name_is_valid_or_address("") == 0);
-        assert_se(dns_name_is_valid_or_address("foobar") > 0);
-        assert_se(dns_name_is_valid_or_address("foobar.com") > 0);
-        assert_se(dns_name_is_valid_or_address("foobar..com") == 0);
-        assert_se(dns_name_is_valid_or_address("foobar.com.") > 0);
-        assert_se(dns_name_is_valid_or_address("127.0.0.1") > 0);
+        ASSERT_EQ(dns_name_is_valid_or_address(NULL), 0);
+        ASSERT_EQ(dns_name_is_valid_or_address(""), 0);
+        ASSERT_GT(dns_name_is_valid_or_address("foobar"), 0);
+        ASSERT_GT(dns_name_is_valid_or_address("foobar.com"), 0);
+        ASSERT_EQ(dns_name_is_valid_or_address("foobar..com"), 0);
+        ASSERT_GT(dns_name_is_valid_or_address("foobar.com."), 0);
+        ASSERT_GT(dns_name_is_valid_or_address("127.0.0.1"), 0);
         assert_se(dns_name_is_valid_or_address("::") > 0);
         assert_se(dns_name_is_valid_or_address("::1") > 0);
 }
 
 TEST(dns_name_dot_suffixed) {
-        assert_se(dns_name_dot_suffixed("") == 0);
-        assert_se(dns_name_dot_suffixed(".") > 0);
-        assert_se(dns_name_dot_suffixed("foo") == 0);
-        assert_se(dns_name_dot_suffixed("foo.") > 0);
+        ASSERT_EQ(dns_name_dot_suffixed(""), 0);
+        ASSERT_GT(dns_name_dot_suffixed("."), 0);
+        ASSERT_EQ(dns_name_dot_suffixed("foo"), 0);
+        ASSERT_GT(dns_name_dot_suffixed("foo."), 0);
         assert_se(dns_name_dot_suffixed("foo\\..") > 0);
         assert_se(dns_name_dot_suffixed("foo\\.") == 0);
-        assert_se(dns_name_dot_suffixed("foo.bar.") > 0);
+        ASSERT_GT(dns_name_dot_suffixed("foo.bar."), 0);
         assert_se(dns_name_dot_suffixed("foo.bar\\.\\.\\..") > 0);
         assert_se(dns_name_dot_suffixed("foo.bar\\.\\.\\.\\.") == 0);
 }

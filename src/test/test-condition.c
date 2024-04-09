@@ -143,7 +143,7 @@ TEST(condition_test_control_group_hierarchy) {
                 log_tests_skipped("cgroupfs is not mounted");
                 return;
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "v1", false, false);
         assert_se(condition);
@@ -167,7 +167,7 @@ TEST(condition_test_control_group_controller) {
                 log_tests_skipped("cgroupfs is not mounted");
                 return;
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         /* Invalid controllers are ignored */
         condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "thisisnotarealcontroller", false, false);
@@ -253,7 +253,7 @@ TEST(condition_test_host) {
         r = sd_id128_get_machine(&id);
         if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
                 return (void) log_tests_skipped("/etc/machine-id missing");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         condition = condition_new(CONDITION_HOST, SD_ID128_TO_STRING(id), false, false);
         assert_se(condition);
@@ -290,7 +290,7 @@ TEST(condition_test_architecture) {
         Architecture a;
 
         a = uname_architecture();
-        assert_se(a >= 0);
+        ASSERT_OK(a);
 
         sa = architecture_to_string(a);
         assert_se(sa);
@@ -517,7 +517,7 @@ TEST(condition_test_kernel_command_line) {
         r = condition_test(condition, environ);
         if (ERRNO_IS_PRIVILEGE(r))
                 return;
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_COMMAND_LINE, "andthis=neither", false, false);
@@ -676,8 +676,8 @@ TEST(condition_test_credential) {
         assert_se(free_and_strdup(&d1, getenv("CREDENTIALS_DIRECTORY")) >= 0);
         assert_se(free_and_strdup(&d2, getenv("ENCRYPTED_CREDENTIALS_DIRECTORY")) >= 0);
 
-        assert_se(unsetenv("CREDENTIALS_DIRECTORY") >= 0);
-        assert_se(unsetenv("ENCRYPTED_CREDENTIALS_DIRECTORY") >= 0);
+        ASSERT_OK(unsetenv("CREDENTIALS_DIRECTORY"));
+        ASSERT_OK(unsetenv("ENCRYPTED_CREDENTIALS_DIRECTORY"));
 
         condition = condition_new(CONDITION_CREDENTIAL, "definitelymissing", /* trigger= */ false, /* negate= */ false);
         assert_se(condition);
@@ -702,7 +702,7 @@ TEST(condition_test_credential) {
         condition_free(condition);
 
         assert_se(j = path_join(n1, "existing"));
-        assert_se(touch(j) >= 0);
+        ASSERT_OK(touch(j));
         assert_se(j);
         condition = condition_new(CONDITION_CREDENTIAL, "existing", /* trigger= */ false, /* negate= */ false);
         assert_se(condition);
@@ -711,7 +711,7 @@ TEST(condition_test_credential) {
         free(j);
 
         assert_se(j = path_join(n2, "existing-encrypted"));
-        assert_se(touch(j) >= 0);
+        ASSERT_OK(touch(j));
         assert_se(j);
         condition = condition_new(CONDITION_CREDENTIAL, "existing-encrypted", /* trigger= */ false, /* negate= */ false);
         assert_se(condition);
@@ -817,7 +817,7 @@ TEST(condition_test_virtualization) {
         if (ERRNO_IS_PRIVILEGE(r))
                 return;
         log_info("ConditionVirtualization=garbage → %i", r);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_VIRTUALIZATION, "container", false, false);
@@ -860,7 +860,7 @@ TEST(condition_test_virtualization) {
                 assert_se(condition);
                 r = condition_test(condition, environ);
                 log_info("ConditionVirtualization=%s → %i", virt, r);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
                 condition_free(condition);
         }
 }
@@ -875,7 +875,7 @@ TEST(condition_test_user) {
         assert_se(condition);
         r = condition_test(condition, environ);
         log_info("ConditionUser=garbage → %i", r);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         condition_free(condition);
 
         assert_se(asprintf(&uid, "%"PRIu32, UINT32_C(0xFFFF)) > 0);
@@ -883,7 +883,7 @@ TEST(condition_test_user) {
         assert_se(condition);
         r = condition_test(condition, environ);
         log_info("ConditionUser=%s → %i", uid, r);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         condition_free(condition);
         free(uid);
 
@@ -892,7 +892,7 @@ TEST(condition_test_user) {
         assert_se(condition);
         r = condition_test(condition, environ);
         log_info("ConditionUser=%s → %i", uid, r);
-        assert_se(r > 0);
+        ASSERT_GT(r, 0);
         condition_free(condition);
         free(uid);
 
@@ -901,7 +901,7 @@ TEST(condition_test_user) {
         assert_se(condition);
         r = condition_test(condition, environ);
         log_info("ConditionUser=%s → %i", uid, r);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         condition_free(condition);
         free(uid);
 
@@ -911,7 +911,7 @@ TEST(condition_test_user) {
         assert_se(condition);
         r = condition_test(condition, environ);
         log_info("ConditionUser=%s → %i", username, r);
-        assert_se(r > 0);
+        ASSERT_GT(r, 0);
         condition_free(condition);
         free(username);
 
@@ -920,7 +920,7 @@ TEST(condition_test_user) {
         assert_se(condition);
         r = condition_test(condition, environ);
         log_info("ConditionUser=%s → %i", username, r);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_USER, "@system", false, false);
@@ -928,9 +928,9 @@ TEST(condition_test_user) {
         r = condition_test(condition, environ);
         log_info("ConditionUser=@system → %i", r);
         if (uid_is_system(getuid()) || uid_is_system(geteuid()))
-                assert_se(r > 0);
+                ASSERT_GT(r, 0);
         else
-                assert_se(r == 0);
+                ASSERT_EQ(r, 0);
         condition_free(condition);
 }
 
@@ -946,7 +946,7 @@ TEST(condition_test_group) {
         assert_se(condition);
         r = condition_test(condition, environ);
         log_info("ConditionGroup=%s → %i", gid, r);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         condition_free(condition);
         free(gid);
 
@@ -955,17 +955,17 @@ TEST(condition_test_group) {
         assert_se(condition);
         r = condition_test(condition, environ);
         log_info("ConditionGroup=%s → %i", gid, r);
-        assert_se(r > 0);
+        ASSERT_GT(r, 0);
         condition_free(condition);
         free(gid);
 
         ngroups_max = sysconf(_SC_NGROUPS_MAX);
-        assert_se(ngroups_max > 0);
+        ASSERT_GT(ngroups_max, 0);
 
         gids = newa(gid_t, ngroups_max);
 
         ngroups = getgroups(ngroups_max, gids);
-        assert_se(ngroups >= 0);
+        ASSERT_OK(ngroups);
 
         max_gid = getgid();
         for (i = 0; i < ngroups; i++) {
@@ -976,7 +976,7 @@ TEST(condition_test_group) {
                 assert_se(condition);
                 r = condition_test(condition, environ);
                 log_info("ConditionGroup=%s → %i", gid, r);
-                assert_se(r > 0);
+                ASSERT_GT(r, 0);
                 condition_free(condition);
                 free(gid);
                 max_gid = gids[i] > max_gid ? gids[i] : max_gid;
@@ -989,7 +989,7 @@ TEST(condition_test_group) {
                 assert_se(condition);
                 r = condition_test(condition, environ);
                 log_info("ConditionGroup=%s → %i", name, r);
-                assert_se(r > 0);
+                ASSERT_GT(r, 0);
                 condition_free(condition);
                 max_gid = gids[i] > max_gid ? gids[i] : max_gid;
         }
@@ -999,7 +999,7 @@ TEST(condition_test_group) {
         assert_se(condition);
         r = condition_test(condition, environ);
         log_info("ConditionGroup=%s → %i", gid, r);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         condition_free(condition);
         free(gid);
 
@@ -1008,7 +1008,7 @@ TEST(condition_test_group) {
         assert_se(condition);
         r = condition_test(condition, environ);
         log_info("ConditionGroup=%s → %i", groupname, r);
-        assert_se(r == 0);
+        ASSERT_EQ(r, 0);
         condition_free(condition);
 }
 
@@ -1022,7 +1022,7 @@ static void test_condition_test_cpus_one(const char *s, bool result) {
         assert_se(condition);
 
         r = condition_test(condition, environ);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(r == result);
         condition_free(condition);
 }
@@ -1032,7 +1032,7 @@ TEST(condition_test_cpus) {
         int cpus;
 
         cpus = cpus_in_affinity_mask();
-        assert_se(cpus >= 0);
+        ASSERT_OK(cpus);
 
         test_condition_test_cpus_one("> 0", true);
         test_condition_test_cpus_one(">= 0", true);
@@ -1083,7 +1083,7 @@ static void test_condition_test_memory_one(const char *s, bool result) {
         assert_se(condition);
 
         r = condition_test(condition, environ);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(r == result);
         condition_free(condition);
 }
@@ -1164,7 +1164,7 @@ static void test_condition_test_environment_one(const char *s, bool result) {
         assert_se(condition);
 
         r = condition_test(condition, environ);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(r == result);
         condition_free(condition);
 }

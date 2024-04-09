@@ -4,8 +4,8 @@
 #include "tests.h"
 
 TEST(LOG2ULL) {
-        assert_se(LOG2ULL(0) == 0);
-        assert_se(LOG2ULL(1) == 0);
+        ASSERT_EQ(LOG2ULL(0), 0u);
+        ASSERT_EQ(LOG2ULL(1), 0u);
         assert_se(LOG2ULL(8) == 3);
         assert_se(LOG2ULL(9) == 3);
         assert_se(LOG2ULL(15) == 3);
@@ -15,8 +15,8 @@ TEST(LOG2ULL) {
 }
 
 TEST(CONST_LOG2ULL) {
-        assert_se(CONST_LOG2ULL(0) == 0);
-        assert_se(CONST_LOG2ULL(1) == 0);
+        ASSERT_EQ(CONST_LOG2ULL(0), 0u);
+        ASSERT_EQ(CONST_LOG2ULL(1), 0u);
         assert_se(CONST_LOG2ULL(8) == 3);
         assert_se(CONST_LOG2ULL(9) == 3);
         assert_se(CONST_LOG2ULL(15) == 3);
@@ -26,8 +26,8 @@ TEST(CONST_LOG2ULL) {
 }
 
 TEST(NONCONST_LOG2ULL) {
-        assert_se(NONCONST_LOG2ULL(0) == 0);
-        assert_se(NONCONST_LOG2ULL(1) == 0);
+        ASSERT_EQ(NONCONST_LOG2ULL(0), 0u);
+        ASSERT_EQ(NONCONST_LOG2ULL(1), 0u);
         assert_se(NONCONST_LOG2ULL(8) == 3);
         assert_se(NONCONST_LOG2ULL(9) == 3);
         assert_se(NONCONST_LOG2ULL(15) == 3);
@@ -37,8 +37,8 @@ TEST(NONCONST_LOG2ULL) {
 }
 
 TEST(log2u64) {
-        assert_se(log2u64(0) == 0);
-        assert_se(log2u64(1) == 0);
+        ASSERT_EQ(log2u64(0), 0u);
+        ASSERT_EQ(log2u64(1), 0u);
         assert_se(log2u64(8) == 3);
         assert_se(log2u64(9) == 3);
         assert_se(log2u64(15) == 3);
@@ -48,8 +48,8 @@ TEST(log2u64) {
 }
 
 TEST(log2u) {
-        assert_se(log2u(0) == 0);
-        assert_se(log2u(1) == 0);
+        ASSERT_EQ(log2u(0), 0u);
+        ASSERT_EQ(log2u(1), 0u);
         assert_se(log2u(2) == 1);
         assert_se(log2u(3) == 1);
         assert_se(log2u(4) == 2);
@@ -60,8 +60,8 @@ TEST(log2u) {
 }
 
 TEST(log2i) {
-        assert_se(log2i(0) == 0);
-        assert_se(log2i(1) == 0);
+        ASSERT_EQ(log2i(0), 0u);
+        ASSERT_EQ(log2i(1), 0u);
         assert_se(log2i(2) == 1);
         assert_se(log2i(3) == 1);
         assert_se(log2i(4) == 2);
@@ -79,7 +79,7 @@ TEST(popcount) {
         uint64_t u64a = 0x0000000000000010;
         uint64_t u64b = 0x0100000000100010;
 
-        assert_se(popcount(u16a) == 0);
+        ASSERT_EQ(popcount(u16a), 0);
         assert_se(popcount(u16b) == 16);
         assert_se(popcount(u32a) == 1);
         assert_se(popcount(u32b) == 32);

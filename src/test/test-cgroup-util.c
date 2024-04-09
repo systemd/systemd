@@ -202,7 +202,7 @@ TEST(proc) {
                 uid_t uid = UID_INVALID;
 
                 r = proc_dir_read_pidref(d, &pid);
-                assert_se(r >= 0);
+                ASSERT_OK(r);
 
                 if (r == 0)
                         break;
@@ -349,11 +349,11 @@ TEST(fd_is_cgroup_fs, .sd_booted = true) {
         int fd;
 
         fd = open("/sys/fs/cgroup", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-        assert_se(fd >= 0);
+        ASSERT_OK(fd);
         if (fd_is_temporary_fs(fd)) {
                 fd = safe_close(fd);
                 fd = open("/sys/fs/cgroup/systemd", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-                assert_se(fd >= 0);
+                ASSERT_OK(fd);
         }
         assert_se(fd_is_cgroup_fs(fd));
         fd = safe_close(fd);
@@ -367,7 +367,7 @@ TEST(cg_tests) {
                 log_tests_skipped("cgroup not mounted");
                 return;
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         all = cg_all_unified();
         assert_se(IN_SET(all, 0, 1));

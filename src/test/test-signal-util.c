@@ -106,25 +106,25 @@ TEST(signal_from_string) {
 }
 
 TEST(block_signals) {
-        assert_se(signal_is_blocked(SIGUSR1) == 0);
-        assert_se(signal_is_blocked(SIGALRM) == 0);
-        assert_se(signal_is_blocked(SIGVTALRM) == 0);
+        ASSERT_EQ(signal_is_blocked(SIGUSR1), 0);
+        ASSERT_EQ(signal_is_blocked(SIGALRM), 0);
+        ASSERT_EQ(signal_is_blocked(SIGVTALRM), 0);
 
         {
                 BLOCK_SIGNALS(SIGUSR1, SIGVTALRM);
 
-                assert_se(signal_is_blocked(SIGUSR1) > 0);
-                assert_se(signal_is_blocked(SIGALRM) == 0);
-                assert_se(signal_is_blocked(SIGVTALRM) > 0);
+                ASSERT_GT(signal_is_blocked(SIGUSR1), 0);
+                ASSERT_EQ(signal_is_blocked(SIGALRM), 0);
+                ASSERT_GT(signal_is_blocked(SIGVTALRM), 0);
         }
 
-        assert_se(signal_is_blocked(SIGUSR1) == 0);
-        assert_se(signal_is_blocked(SIGALRM) == 0);
-        assert_se(signal_is_blocked(SIGVTALRM) == 0);
+        ASSERT_EQ(signal_is_blocked(SIGUSR1), 0);
+        ASSERT_EQ(signal_is_blocked(SIGALRM), 0);
+        ASSERT_EQ(signal_is_blocked(SIGVTALRM), 0);
 }
 
 TEST(ignore_signals) {
-        assert_se(ignore_signals(SIGINT) >= 0);
+        ASSERT_OK(ignore_signals(SIGINT));
         assert_se(kill(getpid_cached(), SIGINT) >= 0);
         assert_se(ignore_signals(SIGUSR1, SIGUSR2, SIGTERM, SIGPIPE) >= 0);
         assert_se(kill(getpid_cached(), SIGUSR1) >= 0);
@@ -136,28 +136,28 @@ TEST(ignore_signals) {
 
 TEST(pop_pending_signal) {
 
-        assert_se(signal_is_blocked(SIGUSR1) == 0);
-        assert_se(signal_is_blocked(SIGUSR2) == 0);
-        assert_se(pop_pending_signal(SIGUSR1) == 0);
-        assert_se(pop_pending_signal(SIGUSR2) == 0);
+        ASSERT_EQ(signal_is_blocked(SIGUSR1), 0);
+        ASSERT_EQ(signal_is_blocked(SIGUSR2), 0);
+        ASSERT_EQ(pop_pending_signal(SIGUSR1), 0);
+        ASSERT_EQ(pop_pending_signal(SIGUSR2), 0);
 
         {
                 BLOCK_SIGNALS(SIGUSR1, SIGUSR2);
 
-                assert_se(signal_is_blocked(SIGUSR1) > 0);
-                assert_se(signal_is_blocked(SIGUSR2) > 0);
+                ASSERT_GT(signal_is_blocked(SIGUSR1), 0);
+                ASSERT_GT(signal_is_blocked(SIGUSR2), 0);
 
-                assert_se(pop_pending_signal(SIGUSR1) == 0);
-                assert_se(pop_pending_signal(SIGUSR2) == 0);
+                ASSERT_EQ(pop_pending_signal(SIGUSR1), 0);
+                ASSERT_EQ(pop_pending_signal(SIGUSR2), 0);
 
-                assert_se(raise(SIGUSR1) >= 0);
+                ASSERT_OK(raise(SIGUSR1));
 
-                assert_se(pop_pending_signal(SIGUSR2) == 0);
+                ASSERT_EQ(pop_pending_signal(SIGUSR2), 0);
                 assert_se(pop_pending_signal(SIGUSR1) == SIGUSR1);
-                assert_se(pop_pending_signal(SIGUSR1) == 0);
+                ASSERT_EQ(pop_pending_signal(SIGUSR1), 0);
 
-                assert_se(raise(SIGUSR1) >= 0);
-                assert_se(raise(SIGUSR2) >= 0);
+                ASSERT_OK(raise(SIGUSR1));
+                ASSERT_OK(raise(SIGUSR2));
 
                 assert_cc(SIGUSR1 < SIGUSR2);
 
@@ -166,10 +166,10 @@ TEST(pop_pending_signal) {
                 assert_se(pop_pending_signal(SIGUSR1, SIGUSR2) == 0);
         }
 
-        assert_se(signal_is_blocked(SIGUSR1) == 0);
-        assert_se(signal_is_blocked(SIGUSR2) == 0);
-        assert_se(pop_pending_signal(SIGUSR1) == 0);
-        assert_se(pop_pending_signal(SIGUSR2) == 0);
+        ASSERT_EQ(signal_is_blocked(SIGUSR1), 0);
+        ASSERT_EQ(signal_is_blocked(SIGUSR2), 0);
+        ASSERT_EQ(pop_pending_signal(SIGUSR1), 0);
+        ASSERT_EQ(pop_pending_signal(SIGUSR2), 0);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

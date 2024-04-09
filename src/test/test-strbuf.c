@@ -55,7 +55,7 @@ TEST(strbuf) {
         assert_se(e == 2);
         assert_se(f == 4);
         assert_se(g == 15);
-        assert_se(h == 0);
+        ASSERT_EQ(h, 0);
 
         assert_se(streq(sb->buf + a, "waldo"));
         assert_se(streq(sb->buf + b, "foo"));

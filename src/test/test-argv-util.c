@@ -42,7 +42,7 @@ static void test_rename_process_now(const char *p, int ret) {
          * future. We'd only check the initial part, at least until we recompile, but this will still pass. */
 
         r = pid_get_cmdline(0, SIZE_MAX, 0, &cmdline);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         /* we cannot expect cmdline to be renamed properly without privileges */
         if (geteuid() == 0) {
                 if (r == 0 && detect_container() > 0)
@@ -66,7 +66,7 @@ static void test_rename_process_one(const char *p, int ret) {
         log_info("/* %s(%s) */", __func__, p);
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid == 0) {
                 /* child */
@@ -88,7 +88,7 @@ TEST(rename_process_multi) {
         pid_t pid;
 
         pid = fork();
-        assert_se(pid >= 0);
+        ASSERT_OK(pid);
 
         if (pid > 0) {
                 siginfo_t si;

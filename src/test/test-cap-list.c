@@ -38,7 +38,7 @@ TEST(cap_list) {
         assert_se(capability_from_name("CAP_AUDIT_READ") == CAP_AUDIT_READ);
         assert_se(capability_from_name("cap_audit_read") == CAP_AUDIT_READ);
         assert_se(capability_from_name("cAp_aUdIt_rEAd") == CAP_AUDIT_READ);
-        assert_se(capability_from_name("0") == 0);
+        ASSERT_EQ(capability_from_name("0"), 0);
         assert_se(capability_from_name("15") == 15);
         assert_se(capability_from_name("62") == 62);
         assert_se(capability_from_name("63") == -EINVAL);
@@ -86,10 +86,10 @@ TEST(capability_set_from_string) {
         uint64_t c;
 
         assert_se(capability_set_from_string(NULL, &c) > 0);
-        assert_se(c == 0);
+        ASSERT_EQ(c, UINT64_C(0));
 
         assert_se(capability_set_from_string("", &c) > 0);
-        assert_se(c == 0);
+        ASSERT_EQ(c, UINT64_C(0));
 
         assert_se(capability_set_from_string("0", &c) > 0);
         assert_se(c == UINT64_C(1));

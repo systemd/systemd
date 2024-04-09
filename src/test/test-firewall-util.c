@@ -39,7 +39,7 @@ static void test_v6(FirewallContext *ctx) {
                 log_info("IPv6 DNAT seems not supported, skipping the following tests.");
                 return;
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         assert_se(fw_add_local_dnat(&ctx, true, AF_INET6, IPPROTO_TCP, 4711, &u2, 815, &u1) >= 0);
         assert_se(fw_add_local_dnat(&ctx, false, AF_INET6, IPPROTO_TCP, 4711, &u2, 815, NULL) >= 0);
@@ -82,7 +82,7 @@ static bool test_v4(FirewallContext *ctx) {
                 if (ignore)
                         return false;
         }
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         assert_se(fw_add_masquerade(&ctx, true, AF_INET, parse_addr("10.0.2.0", &u), 28) >= 0);
         assert_se(fw_add_masquerade(&ctx, false, AF_INET, parse_addr("10.0.2.0", &u), 28) >= 0);

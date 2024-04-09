@@ -35,7 +35,7 @@ static int setup_test(Manager **m) {
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &tmp);
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(manager_startup(tmp, NULL, NULL, NULL) >= 0);
 
         STRV_FOREACH(test_path, tests_path) {
@@ -147,21 +147,21 @@ static void test_path_exists(Manager *m) {
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
-        assert_se(touch(test_path) >= 0);
+        ASSERT_OK(touch(test_path));
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
         /* Service restarts if file still exists */
-        assert_se(unit_stop(UNIT(service)) >= 0);
+        ASSERT_OK(unit_stop(UNIT(service)));
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
         assert_se(rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
-        assert_se(unit_stop(UNIT(service)) >= 0);
+        ASSERT_OK(unit_stop(UNIT(service)));
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
-        assert_se(unit_stop(unit) >= 0);
+        ASSERT_OK(unit_stop(unit));
 }
 
 static void test_path_existsglob(Manager *m) {
@@ -181,21 +181,21 @@ static void test_path_existsglob(Manager *m) {
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
-        assert_se(touch(test_path) >= 0);
+        ASSERT_OK(touch(test_path));
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
         /* Service restarts if file still exists */
-        assert_se(unit_stop(UNIT(service)) >= 0);
+        ASSERT_OK(unit_stop(UNIT(service)));
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
         assert_se(rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
-        assert_se(unit_stop(UNIT(service)) >= 0);
+        ASSERT_OK(unit_stop(UNIT(service)));
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
-        assert_se(unit_stop(unit) >= 0);
+        ASSERT_OK(unit_stop(unit));
 }
 
 static void test_path_changed(Manager *m) {
@@ -216,12 +216,12 @@ static void test_path_changed(Manager *m) {
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
-        assert_se(touch(test_path) >= 0);
+        ASSERT_OK(touch(test_path));
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
         /* Service does not restart if file still exists */
-        assert_se(unit_stop(UNIT(service)) >= 0);
+        ASSERT_OK(unit_stop(UNIT(service)));
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
@@ -232,12 +232,12 @@ static void test_path_changed(Manager *m) {
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
-        assert_se(unit_stop(UNIT(service)) >= 0);
+        ASSERT_OK(unit_stop(UNIT(service)));
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
         (void) rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL);
-        assert_se(unit_stop(unit) >= 0);
+        ASSERT_OK(unit_stop(unit));
 }
 
 static void test_path_modified(Manager *m) {
@@ -258,12 +258,12 @@ static void test_path_modified(Manager *m) {
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
-        assert_se(touch(test_path) >= 0);
+        ASSERT_OK(touch(test_path));
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
         /* Service does not restart if file still exists */
-        assert_se(unit_stop(UNIT(service)) >= 0);
+        ASSERT_OK(unit_stop(UNIT(service)));
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
@@ -274,12 +274,12 @@ static void test_path_modified(Manager *m) {
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
-        assert_se(unit_stop(UNIT(service)) >= 0);
+        ASSERT_OK(unit_stop(UNIT(service)));
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
         (void) rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL);
-        assert_se(unit_stop(unit) >= 0);
+        ASSERT_OK(unit_stop(unit));
 }
 
 static void test_path_unit(Manager *m) {
@@ -299,16 +299,16 @@ static void test_path_unit(Manager *m) {
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
-        assert_se(touch(test_path) >= 0);
+        ASSERT_OK(touch(test_path));
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
         assert_se(rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
-        assert_se(unit_stop(UNIT(service)) >= 0);
+        ASSERT_OK(unit_stop(UNIT(service)));
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
-        assert_se(unit_stop(unit) >= 0);
+        ASSERT_OK(unit_stop(unit));
 }
 
 static void test_path_directorynotempty(Manager *m) {
@@ -335,21 +335,21 @@ static void test_path_directorynotempty(Manager *m) {
 
         assert_se(mkdir_p(test_path, 0755) >= 0);
         test_file = strjoina(test_path, "test_file");
-        assert_se(touch(test_file) >= 0);
+        ASSERT_OK(touch(test_file));
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
         /* Service restarts if directory is still not empty */
-        assert_se(unit_stop(UNIT(service)) >= 0);
+        ASSERT_OK(unit_stop(UNIT(service)));
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
         assert_se(rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
-        assert_se(unit_stop(UNIT(service)) >= 0);
+        ASSERT_OK(unit_stop(UNIT(service)));
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
-        assert_se(unit_stop(unit) >= 0);
+        ASSERT_OK(unit_stop(unit));
 }
 
 static void test_path_makedirectory_directorymode(Manager *m) {
@@ -374,7 +374,7 @@ static void test_path_makedirectory_directorymode(Manager *m) {
         assert_se((s.st_mode & S_IRWXG) == 0040);
         assert_se((s.st_mode & S_IRWXO) == 0004);
 
-        assert_se(unit_stop(unit) >= 0);
+        ASSERT_OK(unit_stop(unit));
         (void) rm_rf(test_path, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
@@ -398,7 +398,7 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
         assert_se(get_testdata_dir("test-path", &test_path) >= 0);
-        assert_se(set_unit_path(test_path) >= 0);
+        ASSERT_OK(set_unit_path(test_path));
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
         for (const test_function_t *test = tests; *test; test++) {

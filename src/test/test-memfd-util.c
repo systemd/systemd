@@ -22,9 +22,9 @@ TEST(memfd_get_sealed) {
         /* we'll leave the read offset at the end of the memfd, the fdopen_independent() descriptors should
          * start at the beginning anyway */
 
-        assert_se(memfd_get_sealed(fd) == 0);
-        assert_se(memfd_set_sealed(fd) >= 0);
-        assert_se(memfd_get_sealed(fd) > 0);
+        ASSERT_EQ(memfd_get_sealed(fd), 0);
+        ASSERT_OK(memfd_set_sealed(fd));
+        ASSERT_GT(memfd_get_sealed(fd), 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
