@@ -174,8 +174,9 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                         EFI_VARIABLE_RUNTIME_ACCESS |
                         EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
 
-                if (sb_vars[i].size == 0)
+                if (!sb_vars[i].buffer)
                         continue;
+
                 err = efivar_set_raw(&sb_vars[i].vendor, sb_vars[i].name, sb_vars[i].buffer, sb_vars[i].size, sb_vars_opts);
                 if (err != EFI_SUCCESS) {
                         log_error_status(err, "Failed to write %ls secure boot variable: %m", sb_vars[i].name);
