@@ -13,15 +13,15 @@
 #include "tests.h"
 
 TEST(parse_boolean) {
-        assert_se(parse_boolean("1") == 1);
-        assert_se(parse_boolean("y") == 1);
-        assert_se(parse_boolean("Y") == 1);
-        assert_se(parse_boolean("yes") == 1);
-        assert_se(parse_boolean("YES") == 1);
-        assert_se(parse_boolean("true") == 1);
-        assert_se(parse_boolean("TRUE") == 1);
-        assert_se(parse_boolean("on") == 1);
-        assert_se(parse_boolean("ON") == 1);
+        ASSERT_EQ(parse_boolean("1"), 1);
+        ASSERT_EQ(parse_boolean("y"), 1);
+        ASSERT_EQ(parse_boolean("Y"), 1);
+        ASSERT_EQ(parse_boolean("yes"), 1);
+        ASSERT_EQ(parse_boolean("YES"), 1);
+        ASSERT_EQ(parse_boolean("true"), 1);
+        ASSERT_EQ(parse_boolean("TRUE"), 1);
+        ASSERT_EQ(parse_boolean("on"), 1);
+        ASSERT_EQ(parse_boolean("ON"), 1);
 
         ASSERT_EQ(parse_boolean("0"), 0);
         ASSERT_EQ(parse_boolean("n"), 0);
@@ -44,26 +44,26 @@ TEST(parse_pid) {
 
         r = parse_pid("100", &pid);
         ASSERT_EQ(r, 0);
-        assert_se(pid == 100);
+        ASSERT_EQ(pid, 100);
 
         r = parse_pid("0x7FFFFFFF", &pid);
         ASSERT_EQ(r, 0);
-        assert_se(pid == 2147483647);
+        ASSERT_EQ(pid, 2147483647);
 
         pid = 65; /* pid is left unchanged on ERANGE. Set to known arbitrary value. */
         r = parse_pid("0", &pid);
         assert_se(r == -ERANGE);
-        assert_se(pid == 65);
+        ASSERT_EQ(pid, 65);
 
         pid = 65; /* pid is left unchanged on ERANGE. Set to known arbitrary value. */
         r = parse_pid("-100", &pid);
         assert_se(r == -ERANGE);
-        assert_se(pid == 65);
+        ASSERT_EQ(pid, 65);
 
         pid = 65; /* pid is left unchanged on ERANGE. Set to known arbitrary value. */
         r = parse_pid("0xFFFFFFFFFFFFFFFFF", &pid);
         assert_se(r == -ERANGE);
-        assert_se(pid == 65);
+        ASSERT_EQ(pid, 65);
 
         r = parse_pid("junk", &pid);
         assert_se(r == -EINVAL);
@@ -100,16 +100,16 @@ TEST(parse_size_iec) {
         assert_se(parse_size("", 1024, &bytes) == -EINVAL);
 
         assert_se(parse_size("111", 1024, &bytes) == 0);
-        assert_se(bytes == 111);
+        ASSERT_EQ(bytes, 111u);
 
         assert_se(parse_size("111.4", 1024, &bytes) == 0);
-        assert_se(bytes == 111);
+        ASSERT_EQ(bytes, 111u);
 
         assert_se(parse_size(" 112 B", 1024, &bytes) == 0);
-        assert_se(bytes == 112);
+        ASSERT_EQ(bytes, 112u);
 
         assert_se(parse_size(" 112.6 B", 1024, &bytes) == 0);
-        assert_se(bytes == 112);
+        ASSERT_EQ(bytes, 112u);
 
         assert_se(parse_size("3.5 K", 1024, &bytes) == 0);
         assert_se(bytes == 3*1024 + 512);
@@ -170,16 +170,16 @@ TEST(parse_size_si) {
         assert_se(parse_size("", 1000, &bytes) == -EINVAL);
 
         assert_se(parse_size("111", 1000, &bytes) == 0);
-        assert_se(bytes == 111);
+        ASSERT_EQ(bytes, 111u);
 
         assert_se(parse_size("111.4", 1000, &bytes) == 0);
-        assert_se(bytes == 111);
+        ASSERT_EQ(bytes, 111u);
 
         assert_se(parse_size(" 112 B", 1000, &bytes) == 0);
-        assert_se(bytes == 112);
+        ASSERT_EQ(bytes, 112u);
 
         assert_se(parse_size(" 112.6 B", 1000, &bytes) == 0);
-        assert_se(bytes == 112);
+        ASSERT_EQ(bytes, 112u);
 
         assert_se(parse_size("3.5 K", 1000, &bytes) == 0);
         assert_se(bytes == 3*1000 + 500);
@@ -239,20 +239,20 @@ TEST(parse_range) {
 
         /* Successful cases */
         assert_se(parse_range("111", &lower, &upper) == 0);
-        assert_se(lower == 111);
-        assert_se(upper == 111);
+        ASSERT_EQ(lower, 111u);
+        ASSERT_EQ(upper, 111u);
 
         assert_se(parse_range("111-123", &lower, &upper) == 0);
-        assert_se(lower == 111);
-        assert_se(upper == 123);
+        ASSERT_EQ(lower, 111u);
+        ASSERT_EQ(upper, 123u);
 
         assert_se(parse_range("123-111", &lower, &upper) == 0);
-        assert_se(lower == 123);
-        assert_se(upper == 111);
+        ASSERT_EQ(lower, 123u);
+        ASSERT_EQ(upper, 111u);
 
         assert_se(parse_range("123-123", &lower, &upper) == 0);
-        assert_se(lower == 123);
-        assert_se(upper == 123);
+        ASSERT_EQ(lower, 123u);
+        ASSERT_EQ(upper, 123u);
 
         assert_se(parse_range("0", &lower, &upper) == 0);
         ASSERT_EQ(lower, 0u);
@@ -260,161 +260,161 @@ TEST(parse_range) {
 
         assert_se(parse_range("0-15", &lower, &upper) == 0);
         ASSERT_EQ(lower, 0u);
-        assert_se(upper == 15);
+        ASSERT_EQ(upper, 15u);
 
         assert_se(parse_range("15-0", &lower, &upper) == 0);
-        assert_se(lower == 15);
+        ASSERT_EQ(lower, 15u);
         ASSERT_EQ(upper, 0u);
 
         assert_se(parse_range("128-65535", &lower, &upper) == 0);
-        assert_se(lower == 128);
-        assert_se(upper == 65535);
+        ASSERT_EQ(lower, 128u);
+        ASSERT_EQ(upper, 65535u);
 
         assert_se(parse_range("1024-4294967295", &lower, &upper) == 0);
-        assert_se(lower == 1024);
-        assert_se(upper == 4294967295);
+        ASSERT_EQ(lower, 1024u);
+        ASSERT_EQ(upper, 4294967295);
 
         /* Leading whitespace is acceptable */
         assert_se(parse_range(" 111", &lower, &upper) == 0);
-        assert_se(lower == 111);
-        assert_se(upper == 111);
+        ASSERT_EQ(lower, 111u);
+        ASSERT_EQ(upper, 111u);
 
         assert_se(parse_range(" 111-123", &lower, &upper) == 0);
-        assert_se(lower == 111);
-        assert_se(upper == 123);
+        ASSERT_EQ(lower, 111u);
+        ASSERT_EQ(upper, 123u);
 
         assert_se(parse_range("111- 123", &lower, &upper) == 0);
-        assert_se(lower == 111);
-        assert_se(upper == 123);
+        ASSERT_EQ(lower, 111u);
+        ASSERT_EQ(upper, 123u);
 
         assert_se(parse_range("\t111-\t123", &lower, &upper) == 0);
-        assert_se(lower == 111);
-        assert_se(upper == 123);
+        ASSERT_EQ(lower, 111u);
+        ASSERT_EQ(upper, 123u);
 
         assert_se(parse_range(" \t 111- \t 123", &lower, &upper) == 0);
-        assert_se(lower == 111);
-        assert_se(upper == 123);
+        ASSERT_EQ(lower, 111u);
+        ASSERT_EQ(upper, 123u);
 
         /* Error cases, make sure they fail as expected */
         lower = upper = 9999;
         assert_se(parse_range("111garbage", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("garbage111", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("garbage", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111-123garbage", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111garbage-123", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         /* Empty string */
         lower = upper = 9999;
         assert_se(parse_range("", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         /* 111--123 will pass -123 to safe_atou which returns -ERANGE for negative */
         assert_se(parse_range("111--123", &lower, &upper) == -ERANGE);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("-123", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("-111-123", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111-123-", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111.4-123", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111-123.4", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111,4-123", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111-123,4", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         /* Error on trailing dash */
         assert_se(parse_range("111-", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111-123-", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111--", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111- ", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         /* Whitespace is not a separator */
         assert_se(parse_range("111 123", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111\t123", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111 \t 123", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         /* Trailing whitespace is invalid (from safe_atou) */
         assert_se(parse_range("111 ", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111-123 ", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111 -123", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111 -123 ", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111\t-123\t", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         assert_se(parse_range("111 \t -123 \t ", &lower, &upper) == -EINVAL);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 
         /* Out of the "unsigned" range, this is 1<<64 */
         assert_se(parse_range("0-18446744073709551616", &lower, &upper) == -ERANGE);
-        assert_se(lower == 9999);
-        assert_se(upper == 9999);
+        ASSERT_EQ(lower, 9999u);
+        ASSERT_EQ(upper, 9999u);
 }
 
 TEST(safe_atou_bounded) {
@@ -423,15 +423,15 @@ TEST(safe_atou_bounded) {
 
         r = safe_atou_bounded("12345", 12, 20000, &x);
         ASSERT_EQ(r, 0);
-        assert_se(x == 12345);
+        ASSERT_EQ(x, 12345u);
 
         r = safe_atou_bounded("12", 12, 20000, &x);
         ASSERT_EQ(r, 0);
-        assert_se(x == 12);
+        ASSERT_EQ(x, 12u);
 
         r = safe_atou_bounded("20000", 12, 20000, &x);
         ASSERT_EQ(r, 0);
-        assert_se(x == 20000);
+        ASSERT_EQ(x, 20000u);
 
         r = safe_atou_bounded("-1", 12, 20000, &x);
         assert_se(r == -ERANGE);
@@ -449,11 +449,11 @@ TEST(safe_atolli) {
 
         r = safe_atolli("12345", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 12345);
+        ASSERT_EQ(l, 12345);
 
         r = safe_atolli("  12345", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 12345);
+        ASSERT_EQ(l, 12345);
 
         r = safe_atolli("-12345", &l);
         ASSERT_EQ(r, 0);
@@ -465,15 +465,15 @@ TEST(safe_atolli) {
 
         r = safe_atolli("0x5", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 5);
+        ASSERT_EQ(l, 5);
 
         r = safe_atolli("0o6", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 6);
+        ASSERT_EQ(l, 6);
 
         r = safe_atolli("0B101", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 5);
+        ASSERT_EQ(l, 5);
 
         r = safe_atolli("12345678901234567890", &l);
         assert_se(r == -ERANGE);
@@ -500,19 +500,19 @@ TEST(safe_atou16) {
 
         r = safe_atou16("12345", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 12345);
+        ASSERT_EQ(l, 12345);
 
         r = safe_atou16("  12345", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 12345);
+        ASSERT_EQ(l, 12345);
 
         r = safe_atou16("+12345", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 12345);
+        ASSERT_EQ(l, 12345);
 
         r = safe_atou16("  +12345", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 12345);
+        ASSERT_EQ(l, 12345);
 
         r = safe_atou16("123456", &l);
         assert_se(r == -ERANGE);
@@ -550,27 +550,27 @@ TEST(safe_atoi16) {
 
         r = safe_atoi16("+12345", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 12345);
+        ASSERT_EQ(l, 12345);
 
         r = safe_atoi16("  +12345", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 12345);
+        ASSERT_EQ(l, 12345);
 
         r = safe_atoi16("32767", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 32767);
+        ASSERT_EQ(l, 32767);
 
         r = safe_atoi16("  32767", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 32767);
+        ASSERT_EQ(l, 32767);
 
         r = safe_atoi16("0o11", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 9);
+        ASSERT_EQ(l, 9);
 
         r = safe_atoi16("0B110", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 6);
+        ASSERT_EQ(l, 6);
 
         r = safe_atoi16("36536", &l);
         assert_se(r == -ERANGE);
@@ -618,7 +618,7 @@ TEST(safe_atoux16) {
 
         r = safe_atoux16("0b1", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 177);
+        ASSERT_EQ(l, 177);
 
         r = safe_atoux16("0o70", &l);
         assert_se(r == -EINVAL);
@@ -642,19 +642,19 @@ TEST(safe_atou64) {
 
         r = safe_atou64("12345", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 12345);
+        ASSERT_EQ(l, 12345u);
 
         r = safe_atou64("  12345", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 12345);
+        ASSERT_EQ(l, 12345u);
 
         r = safe_atou64("0o11", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 9);
+        ASSERT_EQ(l, 9u);
 
         r = safe_atou64("0b11", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 3);
+        ASSERT_EQ(l, 3u);
 
         r = safe_atou64("18446744073709551617", &l);
         assert_se(r == -ERANGE);
@@ -692,19 +692,19 @@ TEST(safe_atoi64) {
 
         r = safe_atoi64("32767", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 32767);
+        ASSERT_EQ(l, 32767);
 
         r = safe_atoi64("  32767", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 32767);
+        ASSERT_EQ(l, 32767);
 
         r = safe_atoi64("  0o20", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 16);
+        ASSERT_EQ(l, 16);
 
         r = safe_atoi64("  0b01010", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 10);
+        ASSERT_EQ(l, 10);
 
         r = safe_atoi64("9223372036854775813", &l);
         assert_se(r == -ERANGE);
@@ -743,7 +743,7 @@ TEST(safe_atoux64) {
 
         r = safe_atoux64("0b11011", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 11603985);
+        ASSERT_EQ(l, 11603985u);
 
         r = safe_atoux64("+12345", &l);
         ASSERT_EQ(r, 0);
@@ -759,7 +759,7 @@ TEST(safe_atoux64) {
 
         r = safe_atoux64("+0b11011", &l);
         ASSERT_EQ(r, 0);
-        assert_se(l == 11603985);
+        ASSERT_EQ(l, 11603985u);
 
         r = safe_atoux64("0o11011", &l);
         assert_se(r == -EINVAL);
@@ -874,8 +874,8 @@ TEST(parse_errno) {
         assert_se(parse_errno("EILSEQ") == EILSEQ);
         assert_se(parse_errno("EINVAL") == EINVAL);
         ASSERT_EQ(parse_errno("0"), 0);
-        assert_se(parse_errno("1") == 1);
-        assert_se(parse_errno("4095") == 4095);
+        ASSERT_EQ(parse_errno("1"), 1);
+        ASSERT_EQ(parse_errno("4095"), 4095);
 
         assert_se(parse_errno("-1") == -ERANGE);
         assert_se(parse_errno("-3") == -ERANGE);
@@ -893,7 +893,7 @@ TEST(parse_errno) {
 
 TEST(parse_fd) {
         ASSERT_EQ(parse_fd("0"), 0);
-        assert_se(parse_fd("1") == 1);
+        ASSERT_EQ(parse_fd("1"), 1);
 
         assert_se(parse_fd("-1") == -EBADF);
         assert_se(parse_fd("-3") == -EBADF);
@@ -944,24 +944,24 @@ TEST(parse_loadavg_fixed_point) {
         loadavg_t fp;
 
         assert_se(parse_loadavg_fixed_point("1.23", &fp) == 0);
-        assert_se(LOADAVG_INT_SIDE(fp) == 1);
-        assert_se(LOADAVG_DECIMAL_SIDE(fp) == 23);
+        ASSERT_EQ(LOADAVG_INT_SIDE(fp), 1u);
+        ASSERT_EQ(LOADAVG_DECIMAL_SIDE(fp), 23u);
 
         assert_se(parse_loadavg_fixed_point("1.80", &fp) == 0);
-        assert_se(LOADAVG_INT_SIDE(fp) == 1);
-        assert_se(LOADAVG_DECIMAL_SIDE(fp) == 80);
+        ASSERT_EQ(LOADAVG_INT_SIDE(fp), 1u);
+        ASSERT_EQ(LOADAVG_DECIMAL_SIDE(fp), 80u);
 
         assert_se(parse_loadavg_fixed_point("0.07", &fp) == 0);
         ASSERT_EQ(LOADAVG_INT_SIDE(fp), 0u);
-        assert_se(LOADAVG_DECIMAL_SIDE(fp) == 7);
+        ASSERT_EQ(LOADAVG_DECIMAL_SIDE(fp), 7u);
 
         assert_se(parse_loadavg_fixed_point("0.00", &fp) == 0);
         ASSERT_EQ(LOADAVG_INT_SIDE(fp), 0u);
         ASSERT_EQ(LOADAVG_DECIMAL_SIDE(fp), 0u);
 
         assert_se(parse_loadavg_fixed_point("4096.57", &fp) == 0);
-        assert_se(LOADAVG_INT_SIDE(fp) == 4096);
-        assert_se(LOADAVG_DECIMAL_SIDE(fp) == 57);
+        ASSERT_EQ(LOADAVG_INT_SIDE(fp), 4096u);
+        ASSERT_EQ(LOADAVG_DECIMAL_SIDE(fp), 57u);
 
         /* Caps out at 2 digit fracs */
         assert_se(parse_loadavg_fixed_point("1.100", &fp) == -ERANGE);

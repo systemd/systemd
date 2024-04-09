@@ -438,7 +438,7 @@ TEST(strv_split_colon_pairs) {
 
         r = strv_split_colon_pairs(&l, str);
         assert_se(r == (int) strv_length(l));
-        assert_se(r == 12);
+        ASSERT_EQ(r, 12);
         assert_se(streq_ptr(l[0], "one"));
         assert_se(streq_ptr(l[1], "two"));
         assert_se(streq_ptr(l[2], "three"));
@@ -575,14 +575,14 @@ TEST(strv_extend_strv) {
         assert_se(streq(a[3], "jkl"));
         assert_se(streq(a[4], "mno"));
         assert_se(streq(a[5], "pqr"));
-        assert_se(strv_length(a) == 6);
+        ASSERT_EQ(strv_length(a), 6u);
 
         assert_se(strv_extend_strv(&n, b, false) >= 0);
         assert_se(streq(n[0], "jkl"));
         assert_se(streq(n[1], "mno"));
         assert_se(streq(n[2], "abc"));
         assert_se(streq(n[3], "pqr"));
-        assert_se(strv_length(n) == 4);
+        ASSERT_EQ(strv_length(n), 4u);
 }
 
 TEST(strv_extend_with_size) {
@@ -593,9 +593,9 @@ TEST(strv_extend_with_size) {
         assert_se(a);
 
         assert_se(strv_extend_with_size(&a, &n, "test2") >= 0);
-        assert_se(n == 3);
+        ASSERT_EQ(n, 3u);
         assert_se(strv_extend_with_size(&a, &n, "test3") >= 0);
-        assert_se(n == 4);
+        ASSERT_EQ(n, 4u);
 
         assert_se(streq(a[0], "test"));
         assert_se(streq(a[1], "test1"));
@@ -663,7 +663,7 @@ TEST(strv_foreach_backwards) {
         unsigned count = 0;
         STRV_FOREACH_BACKWARDS(check, STRV_MAKE("ONE"))
                 count++;
-        assert_se(count == 1);
+        ASSERT_EQ(count, 1u);
 }
 
 TEST(strv_foreach_pair) {
@@ -756,14 +756,14 @@ TEST(strv_push_with_size) {
 
         assert_se(i = strdup("foo"));
         assert_se(strv_push_with_size(&a, &n, i) >= 0);
-        assert_se(n == 1);
+        ASSERT_EQ(n, 1u);
 
         assert_se(i = strdup("a"));
         assert_se(j = strdup("b"));
         assert_se(strv_push_with_size(&a, &n, i) >= 0);
-        assert_se(n == 2);
+        ASSERT_EQ(n, 2u);
         assert_se(strv_push_with_size(&a, &n, j) >= 0);
-        assert_se(n == 3);
+        ASSERT_EQ(n, 3u);
 
         assert_se(streq_ptr(a[0], "foo"));
         assert_se(streq_ptr(a[1], "a"));
@@ -940,7 +940,7 @@ TEST(foreach_string) {
         unsigned i = 0;
         FOREACH_STRING(x, "foo", "bar", "waldo")
                 assert_se(streq_ptr(t[i++], x));
-        assert_se(i == 3);
+        ASSERT_EQ(i, 3u);
 
         FOREACH_STRING(x, "zzz")
                 assert_se(streq(x, "zzz"));
@@ -955,7 +955,7 @@ TEST(strv_fnmatch) {
         v = strv_new("xxx", "*\\*", "yyy");
         assert_se(!strv_fnmatch_full(v, "\\", 0, NULL));
         assert_se(strv_fnmatch_full(v, "\\", FNM_NOESCAPE, &pos));
-        assert_se(pos == 1);
+        ASSERT_EQ(pos, 1u);
 }
 
 TEST(strv_extend_join) {
@@ -965,7 +965,7 @@ TEST(strv_extend_join) {
         assert_se(strv_extend_assignment(&v, "ABC", "QER") >= 0);
         assert_se(strv_extend_assignment(&v, "MISSING", NULL) >= 0);
 
-        assert_se(strv_length(v) == 2);
+        ASSERT_EQ(strv_length(v), 2u);
         assert_se(streq(v[0], "MESSAGE=ABC"));
         assert_se(streq(v[1], "ABC=QER"));
 }

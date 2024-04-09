@@ -160,7 +160,7 @@ TEST(fdset_iterate) {
                 c++;
                 assert_se(a == fd);
         }
-        assert_se(c == 1);
+        ASSERT_EQ(c, 1);
 }
 
 TEST(fdset_isempty) {
@@ -202,7 +202,7 @@ TEST(fdset_new_array) {
         _cleanup_fdset_free_ FDSet *fdset = NULL;
 
         assert_se(fdset_new_array(&fdset, fds, 4) >= 0);
-        assert_se(fdset_size(fdset) == 4);
+        ASSERT_EQ(fdset_size(fdset), 4u);
         assert_se(fdset_contains(fdset, 10));
         assert_se(fdset_contains(fdset, 11));
         assert_se(fdset_contains(fdset, 12));

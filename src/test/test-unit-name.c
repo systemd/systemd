@@ -354,7 +354,7 @@ TEST_RET(unit_printf, .sd_booted = true) {
         assert_se(free_and_strdup(&u->fragment_path, filename) == 1);
 
         /* This sets the slice to /app.slice. */
-        assert_se(unit_set_default_slice(u) == 1);
+        ASSERT_EQ(unit_set_default_slice(u), 1);
 
         /* general tests */
         expect(u, "%%", "%");
@@ -417,7 +417,7 @@ TEST_RET(unit_printf, .sd_booted = true) {
         assert_se(free_and_strdup(&u->fragment_path, filename) == 1);
 
         /* This sets the slice to /app.slice/app-blah.slice. */
-        assert_se(unit_set_default_slice(u) == 1);
+        ASSERT_EQ(unit_set_default_slice(u), 1);
 
         expect(u, "%i", "foo-foo");
         expect(u, "%I", "foo/foo");

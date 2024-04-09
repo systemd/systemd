@@ -20,12 +20,12 @@ TEST(exit_status_to_string) {
 }
 
 TEST(exit_status_from_string) {
-        assert_se(exit_status_from_string("11") == 11);
+        ASSERT_EQ(exit_status_from_string("11"), 11);
         assert_se(exit_status_from_string("-1") == -ERANGE);
         assert_se(exit_status_from_string("256") == -ERANGE);
         assert_se(exit_status_from_string("foo") == -EINVAL);
         ASSERT_EQ(exit_status_from_string("SUCCESS"), 0);
-        assert_se(exit_status_from_string("FAILURE") == 1);
+        ASSERT_EQ(exit_status_from_string("FAILURE"), 1);
 }
 
 TEST(exit_status_NUMA_POLICY) {

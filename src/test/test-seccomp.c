@@ -63,7 +63,7 @@ TEST(parse_syscall_and_errno) {
 
         assert_se(parse_syscall_and_errno("@sync:4095", &n, &e) >= 0);
         assert_se(streq(n, "@sync"));
-        assert_se(e == 4095);
+        ASSERT_EQ(e, 4095);
         n = mfree(n);
 
         /* If errno is omitted, then e is set to -1 */
@@ -75,7 +75,7 @@ TEST(parse_syscall_and_errno) {
         /* parse_syscall_and_errno() does not check the syscall name is valid or not. */
         assert_se(parse_syscall_and_errno("hoge:255", &n, &e) >= 0);
         assert_se(streq(n, "hoge"));
-        assert_se(e == 255);
+        ASSERT_EQ(e, 255);
         n = mfree(n);
 
         /* 0 is also a valid errno. */

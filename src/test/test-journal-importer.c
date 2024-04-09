@@ -32,12 +32,12 @@ TEST(basic_parsing) {
         do
                 r = journal_importer_process_data(&imp);
         while (r == 0 && !journal_importer_eof(&imp));
-        assert_se(r == 1);
+        ASSERT_EQ(r, 1);
 
         /* We read one entry, so we should get EOF on next read, but not yet */
         assert_se(!journal_importer_eof(&imp));
 
-        assert_se(imp.iovw.count == 6);
+        ASSERT_EQ(imp.iovw.count, 6u);
         assert_iovec_entry(&imp.iovw.iovec[0], "_BOOT_ID=1531fd22ec84429e85ae888b12fadb91");
         assert_iovec_entry(&imp.iovw.iovec[1], "_TRANSPORT=journal");
         assert_iovec_entry(&imp.iovw.iovec[2], COREDUMP_PROC_GROUP);

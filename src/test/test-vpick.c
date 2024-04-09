@@ -162,8 +162,8 @@ TEST(path_pick) {
         assert_se(path_pick(NULL, AT_FDCWD, pp, &filter, PICK_ARCHITECTURE|PICK_TRIES, &result) > 0);
         assert_se(S_ISREG(result.st.st_mode));
         assert_se(streq_ptr(result.version, "2"));
-        assert_se(result.tries_left == 4);
-        assert_se(result.tries_done == 6);
+        ASSERT_EQ(result.tries_left, 4u);
+        ASSERT_EQ(result.tries_done, 6u);
         assert_se(endswith(result.path, "quux_2_s390+4-6.raw"));
         assert_se(result.architecture == ARCHITECTURE_S390);
 }

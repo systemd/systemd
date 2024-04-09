@@ -72,7 +72,7 @@ TEST(cg_create) {
                 return;
         }
 
-        assert_se(r == 1);
+        ASSERT_EQ(r, 1);
         assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, test_a) == 0);
         assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, test_b) == 1);
         assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, test_c) == 1);

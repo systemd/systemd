@@ -48,13 +48,13 @@ TEST(strbuf) {
         assert_se(sb->len == 23);       /* buffer length: in - dedup + \0 for each node */
 
         /* check the returned offsets and the respective content in the buffer */
-        assert_se(a == 1);
-        assert_se(b == 7);
-        assert_se(c == 11);
-        assert_se(d == 1);
-        assert_se(e == 2);
-        assert_se(f == 4);
-        assert_se(g == 15);
+        ASSERT_EQ(a, 1);
+        ASSERT_EQ(b, 7);
+        ASSERT_EQ(c, 11);
+        ASSERT_EQ(d, 1);
+        ASSERT_EQ(e, 2);
+        ASSERT_EQ(f, 4);
+        ASSERT_EQ(g, 15);
         ASSERT_EQ(h, 0);
 
         assert_se(streq(sb->buf + a, "waldo"));

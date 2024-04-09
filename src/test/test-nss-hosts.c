@@ -143,9 +143,9 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
                 } else if (streq(module, "resolve") && secure_getenv_bool("SYSTEMD_NSS_RESOLVE_SYNTHESIZE") != 0) {
                         assert_se(status == NSS_STATUS_SUCCESS);
                         if (socket_ipv6_is_enabled())
-                                assert_se(n == 2);
+                                ASSERT_EQ(n, 2);
                         else
-                                assert_se(n <= 2); /* Even if IPv6 is disabled, /etc/hosts may contain ::1. */
+                                ASSERT_LE(n, 2); /* Even if IPv6 is disabled, /etc/hosts may contain ::1. */
                 }
         }
 }

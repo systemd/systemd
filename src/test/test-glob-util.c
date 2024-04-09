@@ -23,7 +23,7 @@ TEST(glob_first) {
         close(fd);
 
         r = glob_first("/tmp/test-glob_first*", &first);
-        assert_se(r == 1);
+        ASSERT_EQ(r, 1);
         assert_se(streq(name, first));
         first = mfree(first);
 
@@ -44,7 +44,7 @@ TEST(glob_exists) {
         close(fd);
 
         r = glob_exists("/tmp/test-glob_exists*");
-        assert_se(r == 1);
+        ASSERT_EQ(r, 1);
 
         r = unlink(name);
         ASSERT_EQ(r, 0);
@@ -108,7 +108,7 @@ TEST(safe_glob) {
 
         r = safe_glob(fn2, GLOB_NOSORT|GLOB_BRACE, &g);
         ASSERT_EQ(r, 0);
-        assert_se(g.gl_pathc == 1);
+        ASSERT_EQ(g.gl_pathc, 1u);
         assert_se(streq(g.gl_pathv[0], fname));
         ASSERT_NULL(g.gl_pathv[1]);
 
