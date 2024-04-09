@@ -115,40 +115,40 @@ TEST(chown_recursive) {
         assert_se(lstat(p, &st) >= 0);
         ASSERT_TRUE(S_ISDIR(st.st_mode));
         assert_se((st.st_mode & 07777) == 0775);
-        ASSERT_EQ(st.st_uid, 1);
-        ASSERT_EQ(st.st_gid, 2);
+        ASSERT_EQ(st.st_uid, 1u);
+        ASSERT_EQ(st.st_gid, 2u);
         ASSERT_FALSE(has_xattr(p));
 
         p = strjoina(t, "/dir/symlink");
         assert_se(lstat(p, &st) >= 0);
         ASSERT_TRUE(S_ISLNK(st.st_mode));
         assert_se((st.st_mode & 07777) == 0777);
-        ASSERT_EQ(st.st_uid, 1);
-        ASSERT_EQ(st.st_gid, 2);
+        ASSERT_EQ(st.st_uid, 1u);
+        ASSERT_EQ(st.st_gid, 2u);
         ASSERT_FALSE(has_xattr(p));
 
         p = strjoina(t, "/dir/reg");
         assert_se(lstat(p, &st) >= 0);
         ASSERT_TRUE(S_ISREG(st.st_mode));
         assert_se((st.st_mode & 07777) == 0755);
-        ASSERT_EQ(st.st_uid, 1);
-        ASSERT_EQ(st.st_gid, 2);
+        ASSERT_EQ(st.st_uid, 1u);
+        ASSERT_EQ(st.st_gid, 2u);
         ASSERT_FALSE(has_xattr(p));
 
         p = strjoina(t, "/dir/sock");
         assert_se(lstat(p, &st) >= 0);
         ASSERT_TRUE(S_ISSOCK(st.st_mode));
         assert_se((st.st_mode & 07777) == 0755);
-        ASSERT_EQ(st.st_uid, 1);
-        ASSERT_EQ(st.st_gid, 2);
+        ASSERT_EQ(st.st_uid, 1u);
+        ASSERT_EQ(st.st_gid, 2u);
         ASSERT_FALSE(has_xattr(p));
 
         p = strjoina(t, "/dir/fifo");
         assert_se(lstat(p, &st) >= 0);
         ASSERT_TRUE(S_ISFIFO(st.st_mode));
         assert_se((st.st_mode & 07777) == 0755);
-        ASSERT_EQ(st.st_uid, 1);
-        ASSERT_EQ(st.st_gid, 2);
+        ASSERT_EQ(st.st_uid, 1u);
+        ASSERT_EQ(st.st_gid, 2u);
         ASSERT_FALSE(has_xattr(p));
 }
 

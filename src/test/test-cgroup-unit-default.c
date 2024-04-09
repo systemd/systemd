@@ -120,17 +120,17 @@ TEST_RET(default_memory_low, .sd_booted = true) {
         dml_tree_default = unit_get_cgroup_context(dml)->default_memory_low;
         ASSERT_EQ(dml_tree_default, 50);
 
-        ASSERT_EQ(unit_get_ancestor_memory_low(dml_passthrough), 100);
+        ASSERT_EQ(unit_get_ancestor_memory_low(dml_passthrough), 100u);
         assert_se(unit_get_ancestor_memory_low(dml_passthrough_empty) == dml_tree_default);
-        ASSERT_EQ(unit_get_ancestor_memory_low(dml_passthrough_set_dml), 50);
-        ASSERT_EQ(unit_get_ancestor_memory_low(dml_passthrough_set_ml), 0);
+        ASSERT_EQ(unit_get_ancestor_memory_low(dml_passthrough_set_dml), 50u);
+        ASSERT_EQ(unit_get_ancestor_memory_low(dml_passthrough_set_ml), 0u);
 
         assert_se(unit_get_ancestor_memory_low(dml_override) == dml_tree_default);
-        ASSERT_EQ(unit_get_ancestor_memory_low(dml_override_empty), 10);
+        ASSERT_EQ(unit_get_ancestor_memory_low(dml_override_empty), 10u);
 
         assert_se(unit_get_ancestor_memory_low(dml_discard) == dml_tree_default);
         assert_se(unit_get_ancestor_memory_low(dml_discard_empty) == CGROUP_LIMIT_MIN);
-        ASSERT_EQ(unit_get_ancestor_memory_low(dml_discard_set_ml), 15);
+        ASSERT_EQ(unit_get_ancestor_memory_low(dml_discard_set_ml), 15u);
 
         return 0;
 }
