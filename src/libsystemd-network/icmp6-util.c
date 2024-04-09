@@ -3,7 +3,10 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
+/* Make sure the net/if.h header is included before any linux/ one */
+#include <net/if.h>
 #include <errno.h>
+#include <linux/if_packet.h>
 #include <netinet/icmp6.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
@@ -11,8 +14,6 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <net/if.h>
-#include <linux/if_packet.h>
 
 #include "fd-util.h"
 #include "icmp6-util.h"

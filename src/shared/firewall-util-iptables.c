@@ -1,19 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Temporary work-around for broken glibc vs. linux kernel header definitions
- * This is already fixed upstream, remove this when distributions have updated.
- */
-#define _NET_IF_H 1
-
+/* Make sure the net/if.h header is included before any linux/ one */
+#include <net/if.h>
 #include <arpa/inet.h>
 #include <endian.h>
 #include <errno.h>
 #include <stddef.h>
 #include <string.h>
-#include <net/if.h>
-#ifndef IFNAMSIZ
-#define IFNAMSIZ 16
-#endif
 #include <linux/if.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
 #include <linux/netfilter/nf_nat.h>

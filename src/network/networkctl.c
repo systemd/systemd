@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Make sure the net/if.h header is included before any linux/ one */
+#include <net/if.h>
 #include <arpa/inet.h>
 #include <getopt.h>
 #include <linux/if_addrlabel.h>
-#include <net/if.h>
 #include <stdbool.h>
 #include <sys/stat.h>
 #include <sys/types.h>
