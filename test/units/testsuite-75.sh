@@ -719,7 +719,9 @@ if command -v nft >/dev/null; then
     sleep 2
     drop_dns_outbound_traffic
     set +e
-    run dig stale1.unsigned.test -t A
+    # Make sure we give sd-resolved enough time to timeout (5-10s) before giving up
+    # See: https://github.com/systemd/systemd/issues/31639#issuecomment-2009152617
+    run dig +tries=1 +timeout=15 stale1.unsigned.test -t A
     set -eux
     grep -qE "no servers could be reached" "$RUN_OUT"
     nft flush ruleset
@@ -738,7 +740,8 @@ if command -v nft >/dev/null; then
     grep -qE "NOERROR" "$RUN_OUT"
     sleep 2
     drop_dns_outbound_traffic
-    run dig stale1.unsigned.test -t A
+    # Make sure we give sd-resolved enough time to timeout (5-10s) and serve the stale data (see above)
+    run dig +tries=1 +timeout=15 stale1.unsigned.test -t A
     grep -qE "NOERROR" "$RUN_OUT"
     grep -qE "10.0.0.112" "$RUN_OUT"
 
