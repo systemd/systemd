@@ -95,7 +95,8 @@ After enabling this setting, the source and build directories will be mounted to
 or virtual machine. To build the latest changes and re-install, run
 `meson install -C /work/build --only-changed` in the container or virtual machine
 and optionally restart the daemon(s) you're working on using
-`systemctl restart <units>` or `systemctl daemon-reexec` if you're working on pid1.
+`systemctl restart <units>` or `systemctl daemon-reexec` if you're working on pid1
+or `systemctl soft-reboot` to restart everything.
 
 Putting this all together, here's a series of commands for preparing a patch
 for systemd:

@@ -72,7 +72,7 @@ typedef enum UIDRangeUsernsMode {
         _UID_RANGE_USERNS_MODE_INVALID = -EINVAL,
 } UIDRangeUsernsMode;
 
-int uid_range_load_userns(UIDRange **ret, const char *path, UIDRangeUsernsMode mode);
+int uid_range_load_userns(const char *path, UIDRangeUsernsMode mode, UIDRange **ret);
 int uid_range_load_userns_by_fd(int userns_fd, UIDRangeUsernsMode mode, UIDRange **ret);
 
 bool uid_range_overlaps(const UIDRange *range, uid_t start, uid_t nr);

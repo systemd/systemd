@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
@@ -21,6 +22,12 @@ TEST_RET(add_acls_for_user) {
         char *cmd;
         uid_t uid;
         int r;
+
+        FOREACH_STRING(s, "capsh", "getfacl", "ls") {
+                r = find_executable(s, NULL);
+                if (r < 0)
+                        return log_tests_skipped_errno(r, "Could not find %s binary: %m", s);
+        }
 
         fd = mkostemp_safe(fn);
         ASSERT_OK(fd);
@@ -69,11 +76,18 @@ TEST_RET(add_acls_for_user) {
         return 0;
 }
 
-TEST(fd_acl_make_read_only) {
+TEST_RET(fd_acl_make_read_only) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-empty.XXXXXX";
         _cleanup_close_ int fd = -EBADF;
         const char *cmd;
         struct stat st;
+        int r;
+
+        FOREACH_STRING(s, "capsh", "getfacl", "ls", "stat") {
+                r = find_executable(s, NULL);
+                if (r < 0)
+                        return log_tests_skipped_errno(r, "Could not find %s binary: %m", s);
+        }
 
         fd = mkostemp_safe(fn);
         ASSERT_OK(fd);
@@ -124,7 +138,9 @@ TEST(fd_acl_make_read_only) {
         ASSERT_EQ(system(cmd), 0);
 
         cmd = strjoina("stat ", fn);
-        ASSERT_EQ(system(cmd), 0);
+        assert_se(system(cmd) == 0);
+
+        return 0;
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
