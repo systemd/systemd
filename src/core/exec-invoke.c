@@ -3699,11 +3699,12 @@ static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int *fd) {
 }
 
 static int connect_unix_harder(const ExecContext *c, const ExecParameters *p, const OpenFile *of, int ofd) {
+        static const int socket_types[] = { SOCK_DGRAM, SOCK_STREAM, SOCK_SEQPACKET };
+
         union sockaddr_union addr = {
                 .un.sun_family = AF_UNIX,
         };
         socklen_t sa_len;
-        static const int socket_types[] = { SOCK_DGRAM, SOCK_STREAM, SOCK_SEQPACKET };
         int r;
 
         assert(c);
@@ -3713,37 +3714,29 @@ static int connect_unix_harder(const ExecContext *c, const ExecParameters *p, co
 
         r = sockaddr_un_set_path(&addr.un, FORMAT_PROC_FD_PATH(ofd));
         if (r < 0)
-                return log_exec_error_errno(c, p, r, "Failed to set sockaddr for %s: %m", of->path);
-
+                return log_exec_error_errno(c, p, r, "Failed to set sockaddr for '%s': %m", of->path);
         sa_len = r;
 
-        for (size_t i = 0; i < ELEMENTSOF(socket_types); i++) {
+        FOREACH_ARRAY(i, socket_types, ELEMENTSOF(socket_types)) {
                 _cleanup_close_ int fd = -EBADF;
 
-                fd = socket(AF_UNIX, socket_types[i] | SOCK_CLOEXEC, 0);
+                fd = socket(AF_UNIX, *i|SOCK_CLOEXEC, 0);
                 if (fd < 0)
-                        return log_exec_error_errno(c,
-                                                    p,
-                                                    errno,
-                                                    "Failed to create socket for %s: %m",
+                        return log_exec_error_errno(c, p,
+                                                    errno, "Failed to create socket for '%s': %m",
                                                     of->path);
 
                 r = RET_NERRNO(connect(fd, &addr.sa, sa_len));
-                if (r == -EPROTOTYPE)
-                        continue;
-                if (r < 0)
-                        return log_exec_error_errno(c,
-                                                    p,
-                                                    r,
-                                                    "Failed to connect socket for %s: %m",
+                if (r >= 0)
+                        return TAKE_FD(fd);
+                if (r != -EPROTOTYPE)
+                        return log_exec_error_errno(c, p,
+                                                    r, "Failed to connect to socket for '%s': %m",
                                                     of->path);
-
-                return TAKE_FD(fd);
         }
 
-        return log_exec_error_errno(c,
-                                    p,
-                                    SYNTHETIC_ERRNO(EPROTOTYPE), "Failed to connect socket for \"%s\".",
+        return log_exec_error_errno(c, p,
+                                    SYNTHETIC_ERRNO(EPROTOTYPE), "No suitable socket type to connect to socket '%s'.",
                                     of->path);
 }
 
