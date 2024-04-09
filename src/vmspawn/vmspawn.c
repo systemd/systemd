@@ -1222,12 +1222,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
-        if (arg_register) {
-                r = register_machine(bus, arg_machine, arg_uuid, trans_scope, arg_directory);
-                if (r < 0)
-                        return r;
-        }
-
         bool use_kvm = arg_kvm > 0;
         if (arg_kvm < 0) {
                 r = qemu_check_kvm_support();
@@ -1929,6 +1923,23 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 log_debug("Executing: %s", joined);
+        }
+
+        if (arg_register) {
+                char vm_address[STRLEN("vsock/") + DECIMAL_STR_MAX(unsigned)];
+
+                xsprintf(vm_address, "vsock/%u", child_cid);
+                r = register_machine(
+                                bus,
+                                arg_machine,
+                                arg_uuid,
+                                trans_scope,
+                                arg_directory,
+                                child_cid,
+                                child_cid != VMADDR_CID_ANY ? vm_address : NULL,
+                                ssh_private_key_path);
+                if (r < 0)
+                        return r;
         }
 
         assert_se(sigprocmask_many(SIG_BLOCK, /* old_sigset=*/ NULL, SIGCHLD, SIGWINCH) >= 0);
