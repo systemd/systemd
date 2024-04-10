@@ -2203,8 +2203,8 @@ static int manager_dispatch_target_deps_queue(Manager *m) {
                 if (n_targets < 0)
                         return n_targets;
 
-                for (int i = 0; i < n_targets; i++) {
-                        r = unit_add_default_target_dependency(u, targets[i]);
+                FOREACH_ARRAY(i, targets, n_targets) {
+                        r = unit_add_default_target_dependency(u, *i);
                         if (r < 0)
                                 return r;
                 }

@@ -55,8 +55,8 @@ static int target_add_default_dependencies(Target *t) {
         if (n_others < 0)
                 return n_others;
 
-        for (int i = 0; i < n_others; i++) {
-                r = unit_add_default_target_dependency(others[i], UNIT(t));
+        FOREACH_ARRAY(i, others, n_others) {
+                r = unit_add_default_target_dependency(*i, UNIT(t));
                 if (r < 0)
                         return r;
         }
