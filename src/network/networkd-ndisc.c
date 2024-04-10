@@ -460,9 +460,7 @@ static int ndisc_request_redirect_route(Link *link, sd_ndisc_redirect *rd) {
         if (r < 0)
                 return r;
 
-        /* Redirect message does not have the lifetime, let's use the lifetime of the default router, and
-         * update the lifetime of the redirect route every time when we receive RA. */
-        return ndisc_request_route(route, link, link->ndisc_default_router);
+        return ndisc_request_route(route, link, NULL);
 }
 
 static int ndisc_remove_redirect_route(Link *link, sd_ndisc_redirect *rd) {
@@ -617,23 +615,6 @@ static int ndisc_redirect_handler(Link *link, sd_ndisc_redirect *rd) {
         sd_ndisc_redirect_ref(rd);
 
         return ndisc_request_redirect_route(link, rd);
-}
-
-static int ndisc_router_update_redirect(Link *link) {
-        int r, ret = 0;
-
-        assert(link);
-
-        /* Reconfigure redirect routes to update their lifetime. */
-
-        sd_ndisc_redirect *rd;
-        SET_FOREACH(rd, link->ndisc_redirects) {
-                r = ndisc_request_redirect_route(link, rd);
-                if (r < 0)
-                        RET_GATHER(ret, log_link_warning_errno(link, r, "Failed to update lifetime of the Redirect route: %m"));
-        }
-
-        return ret;
 }
 
 static int ndisc_drop_redirect(Link *link, const struct in6_addr *router, bool remove) {
@@ -2101,7 +2082,6 @@ static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
 static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         struct in6_addr router;
         usec_t timestamp_usec;
-        bool is_default;
         int r;
 
         assert(link);
@@ -2142,7 +2122,6 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         r = ndisc_remember_default_router(link, rt);
         if (r < 0)
                 return r;
-        is_default = r;
 
         r = ndisc_start_dhcp6_client(link, rt);
         if (r < 0)
@@ -2176,12 +2155,7 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        if (is_default) {
-                r = ndisc_router_update_redirect(link);
-                if (r < 0)
-                        return r;
-
-        } else if (sd_ndisc_router_get_lifetime(rt, NULL) <= 0) {
+        if (sd_ndisc_router_get_lifetime(rt, NULL) <= 0) {
                 r = ndisc_drop_redirect(link, &router, /* remove = */ true);
                 if (r < 0)
                         return r;
