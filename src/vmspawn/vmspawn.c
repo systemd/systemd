@@ -1867,6 +1867,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = unit_name_to_prefix(trans_scope, &scope_prefix);
                 if (r < 0)
                         return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
+
+                /* on distros that provide their own sshd@.service file we need to provide a dropin which
+                 * picks up our public key credential */
+                r = machine_credential_set(
+                                &arg_credentials,
+                                "systemd.unit-dropin.sshd-vsock@.service:"
+                                "[Service]\n"
+                                "ExecStart=\n"
+                                "ExecStart=sshd -i -o 'AuthorizedKeysFile=%d/ssh.ephemeral-authorized_keys-all .ssh/authorized_keys'\n"
+                                "ImportCredential=ssh.ephemeral-authorized_keys-all\n");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set credential systemd.unit-dropin.sshd-vsock@.service: %m");
         }
 
         if (ARCHITECTURE_SUPPORTS_SMBIOS)
