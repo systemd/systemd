@@ -444,7 +444,7 @@ TEST_RET(copy_holes) {
                 return log_tests_skipped("Filesystem doesn't support hole punching");
         assert_se(r >= 0);
 
-        assert_se(fstat(fd, &stat) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &stat));
         blksz = stat.st_blksize;
         buf = alloca_safe(blksz);
         memset(buf, 1, blksz);
@@ -469,7 +469,7 @@ TEST_RET(copy_holes) {
         assert_se(lseek(fd_copy, 2 * blksz, SEEK_DATA) < 0 && errno == ENXIO);
 
         /* Test that the copied file has the correct size. */
-        assert_se(fstat(fd_copy, &stat) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd_copy, &stat));
         assert_se(stat.st_size == 3 * blksz);
 
         close(fd);
@@ -490,7 +490,7 @@ TEST_RET(copy_holes_with_gaps) {
         assert_se((fd = openat(tfd, "src", O_CREAT | O_RDWR, 0600)) >= 0);
         assert_se((fd_copy = openat(tfd, "dst", O_CREAT | O_WRONLY, 0600)) >= 0);
 
-        assert_se(fstat(fd, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
         blksz = st.st_blksize;
         buf = alloca_safe(blksz);
         memset(buf, 1, blksz);
@@ -519,7 +519,7 @@ TEST_RET(copy_holes_with_gaps) {
 
         /* Copy to the start of the second hole */
         assert_se(copy_bytes(fd, fd_copy, 3 * blksz, COPY_HOLES) >= 0);
-        assert_se(fstat(fd_copy, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd_copy, &st));
         assert_se(st.st_size == 3 * blksz);
 
         /* Copy to the middle of the second hole */
@@ -527,7 +527,7 @@ TEST_RET(copy_holes_with_gaps) {
         assert_se(lseek(fd_copy, 0, SEEK_SET) >= 0);
         assert_se(ftruncate(fd_copy, 0) >= 0);
         assert_se(copy_bytes(fd, fd_copy, 4 * blksz, COPY_HOLES) >= 0);
-        assert_se(fstat(fd_copy, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd_copy, &st));
         assert_se(st.st_size == 4 * blksz);
 
         /* Copy to the end of the second hole */
@@ -535,7 +535,7 @@ TEST_RET(copy_holes_with_gaps) {
         assert_se(lseek(fd_copy, 0, SEEK_SET) >= 0);
         assert_se(ftruncate(fd_copy, 0) >= 0);
         assert_se(copy_bytes(fd, fd_copy, 5 * blksz, COPY_HOLES) >= 0);
-        assert_se(fstat(fd_copy, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd_copy, &st));
         assert_se(st.st_size == 5 * blksz);
 
         /* Copy everything */
@@ -543,7 +543,7 @@ TEST_RET(copy_holes_with_gaps) {
         assert_se(lseek(fd_copy, 0, SEEK_SET) >= 0);
         assert_se(ftruncate(fd_copy, 0) >= 0);
         assert_se(copy_bytes(fd, fd_copy, UINT64_MAX, COPY_HOLES) >= 0);
-        assert_se(fstat(fd_copy, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd_copy, &st));
         assert_se(st.st_size == 6 * blksz);
 
         return 0;

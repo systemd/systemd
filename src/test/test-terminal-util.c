@@ -155,7 +155,7 @@ TEST(get_ctty) {
         }
 
         /* In almost all cases STDIN will match our controlling TTY. Let's verify that and then compare paths */
-        assert_se(fstat(STDIN_FILENO, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(STDIN_FILENO, &st));
         if (S_ISCHR(st.st_mode) && st.st_rdev == devnr) {
                 _cleanup_free_ char *stdin_name = NULL;
 

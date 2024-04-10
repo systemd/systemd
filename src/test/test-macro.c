@@ -1114,6 +1114,12 @@ TEST(ASSERT) {
         ASSERT_SIGNAL(ASSERT_OK(-1), SIGABRT);
         ASSERT_SIGNAL(ASSERT_OK(-ENOANO), SIGABRT);
 
+        ASSERT_OK_ERRNO(0 >= 0);
+        ASSERT_OK_ERRNO(255 >= 0);
+        ASSERT_OK_ERRNO(printf("Hello world\n"));
+        ASSERT_SIGNAL(ASSERT_OK_ERRNO(-1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_ERRNO(-ENOANO), SIGABRT);
+
         ASSERT_TRUE(true);
         ASSERT_TRUE(255);
         ASSERT_TRUE(getpid());
