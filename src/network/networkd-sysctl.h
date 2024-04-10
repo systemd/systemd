@@ -27,7 +27,7 @@ typedef enum IPReversePathFilter {
 } IPReversePathFilter;
 
 int link_set_sysctl(Link *link);
-int link_set_ipv6_mtu(Link *link);
+int link_set_ipv6_mtu(Link *link, int log_level);
 
 const char* ipv6_privacy_extensions_to_string(IPv6PrivacyExtensions i) _const_;
 IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;
