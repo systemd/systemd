@@ -10,7 +10,15 @@
 #include "string-util.h"
 #include "vmspawn-register.h"
 
-int register_machine(sd_bus *bus, const char *machine_name, sd_id128_t uuid, const char *service, const char *directory) {
+int register_machine(
+                sd_bus *bus,
+                const char *machine_name,
+                sd_id128_t uuid,
+                const char *service,
+                const char *directory,
+                const char *address,
+                const char *key_path) {
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
@@ -21,16 +29,18 @@ int register_machine(sd_bus *bus, const char *machine_name, sd_id128_t uuid, con
         r = bus_call_method(
                         bus,
                         bus_machine_mgr,
-                        "RegisterMachine",
+                        "RegisterMachineWithSSH",
                         &error,
                         NULL,
-                        "sayssus",
+                        "sayssusss",
                         machine_name,
                         SD_BUS_MESSAGE_APPEND_ID128(uuid),
                         service,
                         "vm",
                         (uint32_t) getpid_cached(),
-                        strempty(directory));
+                        strempty(directory),
+                        strempty(address),
+                        strempty(key_path));
         if (r < 0)
                 return log_error_errno(r, "Failed to register machine: %s", bus_error_message(&error, r));
 
