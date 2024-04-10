@@ -260,7 +260,10 @@ int link_set_ipv6_mtu(Link *link, int log_level) {
 
         assert(link->network);
 
-        mtu = link->network->ipv6_mtu;
+        if (link->network->ndisc_use_mtu)
+                mtu = link->ndisc_mtu;
+        if (mtu == 0)
+                mtu = link->network->ipv6_mtu;
         if (mtu == 0)
                 return 0;
 
