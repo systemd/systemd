@@ -1,5 +1,5 @@
 [Unit]
-Description=TEST-77-OPENFILE server
+Description=OpenFile= test server service
 
 [Service]
 ExecStart=echo "Socket"
