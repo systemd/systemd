@@ -6,8 +6,6 @@ Name=veth99
 IPv6AcceptRA=true
 
 [IPv6AcceptRA]
-Token=prefixstable:2002:da8:1::
-Token=prefixstable:2002:da8:1::,86b123b969ba4b7eb8b3d8605123525a
 # invalid tokens
 Token=prefixstable:2002:da8:1::,00000000000000000000000000000000
 Token=prefixstable:2002:da8:1::,
@@ -17,3 +15,10 @@ Token=prefixstable@
 Token=static
 Token=static:
 Token=static:::
+# valid token
+Token=prefixstable:2002:da8:1::
+Token=prefixstable:2002:da8:1::,86b123b969ba4b7eb8b3d8605123525a
+# reset token
+Token=
+# set token again
+Token=prefixstable:2002:da8:1::,86b123b969ba4b7eb8b3d8605123525a
