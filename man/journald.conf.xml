@@ -25,6 +25,8 @@
   <refsynopsisdiv>
     <para><simplelist>
       <member><filename>/etc/systemd/journald.conf</filename></member>
+      <member><filename>/run/systemd/journald.conf</filename></member>
+      <member><filename>/usr/lib/systemd/journald.conf</filename></member>
       <member><filename>/etc/systemd/journald.conf.d/*.conf</filename></member>
       <member><filename>/run/systemd/journald.conf.d/*.conf</filename></member>
       <member><filename>/usr/lib/systemd/journald.conf.d/*.conf</filename></member>
