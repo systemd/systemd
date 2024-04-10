@@ -95,7 +95,7 @@ TEST_RET(fd_acl_make_read_only) {
         /* make it more exciting */
         (void) fd_add_uid_acl_permission(fd, 1, ACL_READ|ACL_WRITE|ACL_EXECUTE);
 
-        assert_se(fstat(fd, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
         assert_se(FLAGS_SET(st.st_mode, 0200));
 
         cmd = strjoina("getfacl -p ", fn);
@@ -107,7 +107,7 @@ TEST_RET(fd_acl_make_read_only) {
         log_info("read-only");
         assert_se(fd_acl_make_read_only(fd));
 
-        assert_se(fstat(fd, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
         assert_se((st.st_mode & 0222) == 0000);
 
         cmd = strjoina("getfacl -p ", fn);
@@ -119,7 +119,7 @@ TEST_RET(fd_acl_make_read_only) {
         log_info("writable");
         assert_se(fd_acl_make_writable(fd));
 
-        assert_se(fstat(fd, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
         assert_se((st.st_mode & 0222) == 0200);
 
         cmd = strjoina("getfacl -p ", fn);
@@ -131,7 +131,7 @@ TEST_RET(fd_acl_make_read_only) {
         log_info("read-only");
         assert_se(fd_acl_make_read_only(fd));
 
-        assert_se(fstat(fd, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
         assert_se((st.st_mode & 0222) == 0000);
 
         cmd = strjoina("getfacl -p ", fn);
