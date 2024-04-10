@@ -262,7 +262,7 @@ static bool stderr_is_journal(void) {
         uint64_t dev, ino;
         struct stat st;
 
-        e = getenv("JOURNAL_STREAM");
+        e = secure_getenv("JOURNAL_STREAM");
         if (!e)
                 return false;
 
@@ -1397,31 +1397,31 @@ static bool should_parse_proc_cmdline(void) {
 void log_parse_environment_variables(void) {
         const char *e;
 
-        e = getenv("SYSTEMD_LOG_TARGET");
+        e = secure_getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
                 log_warning("Failed to parse log target '%s', ignoring.", e);
 
-        e = getenv("SYSTEMD_LOG_LEVEL");
+        e = secure_getenv("SYSTEMD_LOG_LEVEL");
         if (e && log_set_max_level_from_string(e) < 0)
                 log_warning("Failed to parse log level '%s', ignoring.", e);
 
-        e = getenv("SYSTEMD_LOG_COLOR");
+        e = secure_getenv("SYSTEMD_LOG_COLOR");
         if (e && log_show_color_from_string(e) < 0)
                 log_warning("Failed to parse log color '%s', ignoring.", e);
 
-        e = getenv("SYSTEMD_LOG_LOCATION");
+        e = secure_getenv("SYSTEMD_LOG_LOCATION");
         if (e && log_show_location_from_string(e) < 0)
                 log_warning("Failed to parse log location '%s', ignoring.", e);
 
-        e = getenv("SYSTEMD_LOG_TIME");
+        e = secure_getenv("SYSTEMD_LOG_TIME");
         if (e && log_show_time_from_string(e) < 0)
                 log_warning("Failed to parse log time '%s', ignoring.", e);
 
-        e = getenv("SYSTEMD_LOG_TID");
+        e = secure_getenv("SYSTEMD_LOG_TID");
         if (e && log_show_tid_from_string(e) < 0)
                 log_warning("Failed to parse log tid '%s', ignoring.", e);
 
-        e = getenv("SYSTEMD_LOG_RATELIMIT_KMSG");
+        e = secure_getenv("SYSTEMD_LOG_RATELIMIT_KMSG");
         if (e && log_set_ratelimit_kmsg_from_string(e) < 0)
                 log_warning("Failed to parse log ratelimit kmsg boolean '%s', ignoring.", e);
 }
