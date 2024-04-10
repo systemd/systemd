@@ -689,7 +689,7 @@ TEST(fd_get_path) {
         p = mfree(p);
 
         assert_se(q = path_join(t, "regular"));
-        assert_se(touch(q) >= 0);
+        ASSERT_OK_ERRNO(touch(q));
         assert_se(mkdirat_parents(tfd, "subdir/symlink", 0755) >= 0);
         assert_se(symlinkat("../regular", tfd, "subdir/symlink") >= 0);
         assert_se(symlinkat("subdir", tfd, "symdir") >= 0);

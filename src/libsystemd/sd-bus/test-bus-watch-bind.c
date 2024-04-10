@@ -83,7 +83,7 @@ static void* thread_server(void *p) {
         assert_se(listen(fd, SOMAXCONN_DELUXE) >= 0);
         usleep_safe(100 * USEC_PER_MSEC);
 
-        assert_se(touch(path) >= 0);
+        ASSERT_OK_ERRNO(touch(path));
         usleep_safe(100 * USEC_PER_MSEC);
 
         log_debug("Initialized server");

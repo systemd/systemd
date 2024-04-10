@@ -487,7 +487,7 @@ static void test_exec_ignoresigpipe(Manager *m) {
 }
 
 static void test_exec_privatetmp(Manager *m) {
-        assert_se(touch("/tmp/test-exec_privatetmp") >= 0);
+        ASSERT_OK_ERRNO(touch("/tmp/test-exec_privatetmp"));
 
         if (MANAGER_IS_SYSTEM(m) || have_userns_privileges()) {
                 test(m, "exec-privatetmp-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);

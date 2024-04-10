@@ -501,7 +501,7 @@ static void test_inotify_one(unsigned n_create_events) {
         assert_se(sd_event_source_set_description(c, "2") >= 0);
 
         q = strjoina(p, "/sub");
-        assert_se(touch(q) >= 0);
+        ASSERT_OK_ERRNO(touch(q));
         assert_se(sd_event_add_inotify(e, &d, q, IN_DELETE_SELF, delete_self_handler, &context) >= 0);
 
         for (i = 0; i < n_create_events; i++) {
@@ -511,7 +511,7 @@ static void test_inotify_one(unsigned n_create_events) {
                 xsprintf(buf, "%u", i);
                 assert_se(z = path_join(p, buf));
 
-                assert_se(touch(z) >= 0);
+                ASSERT_OK_ERRNO(touch(z));
         }
 
         assert_se(unlink(q) >= 0);
@@ -796,10 +796,10 @@ TEST(inotify_process_buffered_data) {
         assert_se(sd_event_add_inotify(e, &b, q, IN_CREATE, inotify_process_buffered_data_handler, &context) >= 0);
 
         assert_se(z = path_join(p, "aaa"));
-        assert_se(touch(z) >= 0);
+        ASSERT_OK_ERRNO(touch(z));
         z = mfree(z);
         assert_se(z = path_join(q, "bbb"));
-        assert_se(touch(z) >= 0);
+        ASSERT_OK_ERRNO(touch(z));
         z = mfree(z);
 
         assert_se(sd_event_run(e, 10 * USEC_PER_SEC) > 0);
