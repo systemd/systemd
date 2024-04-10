@@ -418,6 +418,10 @@ static int ndisc_redirect_route_new(sd_ndisc_redirect *rd, Route **ret) {
         if (r < 0)
                 return r;
 
+        r = sd_ndisc_redirect_get_sender_address(rd, &route->provider.in6);
+        if (r < 0)
+                return r;
+
         route->family = AF_INET6;
         if (!in6_addr_equal(&gateway, &destination)) {
                 route->nexthop.gw.in6 = gateway;
@@ -425,6 +429,8 @@ static int ndisc_redirect_route_new(sd_ndisc_redirect *rd, Route **ret) {
         }
         route->dst.in6 = destination;
         route->dst_prefixlen = 128;
+        route->protocol = RTPROT_REDIRECT;
+        route->protocol_set = true; /* To make ndisc_request_route() not override the protocol. */
 
         *ret = TAKE_PTR(route);
         return 0;
@@ -453,9 +459,6 @@ static int ndisc_request_redirect_route(Link *link, sd_ndisc_redirect *rd) {
         r = ndisc_redirect_route_new(rd, &route);
         if (r < 0)
                 return r;
-
-        route->protocol = RTPROT_REDIRECT;
-        route->protocol_set = true; /* To make ndisc_request_route() not override the protocol. */
 
         /* Redirect message does not have the lifetime, let's use the lifetime of the default router, and
          * update the lifetime of the redirect route every time when we receive RA. */
