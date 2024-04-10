@@ -702,7 +702,7 @@ TEST(condition_test_credential) {
         condition_free(condition);
 
         assert_se(j = path_join(n1, "existing"));
-        assert_se(touch(j) >= 0);
+        ASSERT_OK_ERRNO(touch(j));
         assert_se(j);
         condition = condition_new(CONDITION_CREDENTIAL, "existing", /* trigger= */ false, /* negate= */ false);
         assert_se(condition);
@@ -711,7 +711,7 @@ TEST(condition_test_credential) {
         free(j);
 
         assert_se(j = path_join(n2, "existing-encrypted"));
-        assert_se(touch(j) >= 0);
+        ASSERT_OK_ERRNO(touch(j));
         assert_se(j);
         condition = condition_new(CONDITION_CREDENTIAL, "existing-encrypted", /* trigger= */ false, /* negate= */ false);
         assert_se(condition);

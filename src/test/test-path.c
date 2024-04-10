@@ -147,7 +147,7 @@ static void test_path_exists(Manager *m) {
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
-        assert_se(touch(test_path) >= 0);
+        ASSERT_OK_ERRNO(touch(test_path));
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
@@ -181,7 +181,7 @@ static void test_path_existsglob(Manager *m) {
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
-        assert_se(touch(test_path) >= 0);
+        ASSERT_OK_ERRNO(touch(test_path));
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
@@ -216,7 +216,7 @@ static void test_path_changed(Manager *m) {
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
-        assert_se(touch(test_path) >= 0);
+        ASSERT_OK_ERRNO(touch(test_path));
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
@@ -258,7 +258,7 @@ static void test_path_modified(Manager *m) {
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
-        assert_se(touch(test_path) >= 0);
+        ASSERT_OK_ERRNO(touch(test_path));
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
@@ -299,7 +299,7 @@ static void test_path_unit(Manager *m) {
         if (check_states(m, path, service, PATH_WAITING, SERVICE_DEAD) < 0)
                 return;
 
-        assert_se(touch(test_path) >= 0);
+        ASSERT_OK_ERRNO(touch(test_path));
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 
@@ -335,7 +335,7 @@ static void test_path_directorynotempty(Manager *m) {
 
         assert_se(mkdir_p(test_path, 0755) >= 0);
         test_file = strjoina(test_path, "test_file");
-        assert_se(touch(test_file) >= 0);
+        ASSERT_OK_ERRNO(touch(test_file));
         if (check_states(m, path, service, PATH_RUNNING, SERVICE_RUNNING) < 0)
                 return;
 

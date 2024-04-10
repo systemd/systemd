@@ -156,17 +156,17 @@ TEST(dir_is_empty) {
 
         j = path_join(empty_dir, "zzz");
         assert_se(j);
-        assert_se(touch(j) >= 0);
+        ASSERT_OK_ERRNO(touch(j));
 
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) == 0);
 
         jj = path_join(empty_dir, "ppp");
         assert_se(jj);
-        assert_se(touch(jj) >= 0);
+        ASSERT_OK_ERRNO(touch(jj));
 
         jjj = path_join(empty_dir, ".qqq");
         assert_se(jjj);
-        assert_se(touch(jjj) >= 0);
+        ASSERT_OK_ERRNO(touch(jjj));
 
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ true) == 0);
         assert_se(dir_is_empty_at(AT_FDCWD, empty_dir, /* ignore_hidden_or_backup= */ false) == 0);
@@ -220,7 +220,7 @@ TEST(fd_verify_linked) {
         assert_se(tfd >= 0);
 
         assert_se(p = path_join(t, "hoge"));
-        assert_se(touch(p) >= 0);
+        ASSERT_OK_ERRNO(touch(p));
 
         fd = open(p, O_CLOEXEC | O_PATH);
         assert_se(fd >= 0);

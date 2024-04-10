@@ -215,6 +215,16 @@ static inline int run_test_table(void) {
                 }                                                                                               \
          })
 
+#define ASSERT_OK_ERRNO(expr)                                                                                   \
+        ({                                                                                                      \
+                typeof(expr) _result = (expr);                                                                  \
+                if (_result < 0) {                                                                              \
+                        log_error_errno(errno, "%s:%i: Assertion failed: expected \"%s\" to succeed but got the following error: %m", \
+                                        PROJECT_FILE, __LINE__, #expr);                                         \
+                        abort();                                                                                \
+                }                                                                                               \
+        })
+
 #define ASSERT_TRUE(expr)                                                                                       \
         ({                                                                                                      \
                 if (!(expr)) {                                                                                  \
