@@ -1181,7 +1181,7 @@ static void bump_file_max_and_nr_open(void) {
 #if BUMP_PROC_SYS_FS_FILE_MAX
         /* The maximum the kernel allows for this since 5.2 is LONG_MAX, use that. (Previously things were
          * different, but the operation would fail silently.) */
-        r = sysctl_write("fs/file-max", LONG_MAX_STR);
+        r = sysctl_write("fs/file-max", LONG_MAX_STR, false);
         if (r < 0)
                 log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING,
                                r, "Failed to bump fs.file-max, ignoring: %m");
@@ -1216,7 +1216,7 @@ static void bump_file_max_and_nr_open(void) {
                         break;
                 }
 
-                r = sysctl_writef("fs/nr_open", "%i", v);
+                r = sysctl_writef("fs/nr_open", false, "%i", v);
                 if (r == -EINVAL) {
                         log_debug("Couldn't write fs.nr_open as %i, halving it.", v);
                         v /= 2;
@@ -1434,7 +1434,7 @@ static int bump_unix_max_dgram_qlen(void) {
         if (v >= DEFAULT_UNIX_MAX_DGRAM_QLEN)
                 return 0;
 
-        r = sysctl_write("net/unix/max_dgram_qlen", STRINGIFY(DEFAULT_UNIX_MAX_DGRAM_QLEN));
+        r = sysctl_write("net/unix/max_dgram_qlen", STRINGIFY(DEFAULT_UNIX_MAX_DGRAM_QLEN), false);
         if (r < 0)
                 return log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                       "Failed to bump AF_UNIX datagram queue length, ignoring: %m");

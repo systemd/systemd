@@ -4307,7 +4307,7 @@ void disable_printk_ratelimit(void) {
          * setting takes precedence. */
         int r;
 
-        r = sysctl_write("kernel/printk_devkmsg", "on");
+        r = sysctl_write("kernel/printk_devkmsg", "on", false);
         if (r < 0)
                 log_debug_errno(r, "Failed to set sysctl kernel.printk_devkmsg=on: %m");
 }
