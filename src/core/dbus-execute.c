@@ -1354,29 +1354,28 @@ int bus_set_transient_exec_command(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        ExecCommand *c;
+                        _cleanup_(exec_command_done) ExecCommand *c = NULL;
 
-                        c = new0(ExecCommand, 1);
+                        c = new(ExecCommand, 1);
                         if (!c)
                                 return -ENOMEM;
 
-                        c->path = strdup(path);
-                        if (!c->path) {
-                                free(c);
-                                return -ENOMEM;
-                        }
+                        *c = (ExecCommand) {
+                                .argv = TAKE_PTR(argv),
+                        };
 
-                        c->argv = TAKE_PTR(argv);
+                        r = path_simplify_alloc(path, &c->path);
+                        if (r < 0)
+                                return r;
 
                         if (ex_prop) {
                                 r = exec_command_flags_from_strv(ex_opts, &c->flags);
                                 if (r < 0)
                                         return r;
-                        } else
-                                c->flags = b ? EXEC_COMMAND_IGNORE_FAILURE : 0;
+                        } else if (b)
+                                c->flags |= EXEC_COMMAND_IGNORE_FAILURE;
 
-                        path_simplify(c->path);
-                        exec_command_append_list(exec_command, c);
+                        exec_command_append_list(exec_command, TAKE_PTR(c));
                 }
 
                 n++;
