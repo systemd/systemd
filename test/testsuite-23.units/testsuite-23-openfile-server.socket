@@ -1,5 +1,5 @@
 [Unit]
-Description=TEST-77-OPENFILE server socket
+Description=OpenFile= test server socket
 
 [Socket]
 ListenStream=/tmp/test.sock
