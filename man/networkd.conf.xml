@@ -262,7 +262,7 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
           <listitem><para>Global parameter that overwrites the setting of <varname>UseDomains=</varname>.
           The usage of this paramter is the same as <varname>UseDomains=</varname>. 
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-          Defaults to <literal>yes</literal>.</para>
+          Defaults to <literal>no</literal>.</para>
           
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
