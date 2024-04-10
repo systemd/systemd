@@ -5572,6 +5572,48 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.wait_route_dropped('veth99', 'proto redirect', ipv='-6', timeout_sec=10)
         self.wait_route_dropped('veth99', 'proto ra', ipv='-6', timeout_sec=10)
 
+    def check_ndisc_mtu(self, mtu):
+        for _ in range(20):
+            output = read_ipv6_sysctl_attr('veth99', 'mtu')
+            if output == f'{mtu}':
+                return
+            time.sleep(0.5)
+        else:
+            self.fail(f'IPv6 MTU does not matches: value={output}, expected={mtu}')
+
+    def test_ndisc_mtu(self):
+        if not os.path.exists(test_ndisc_send):
+            self.skipTest(f"{test_ndisc_send} does not exist.")
+
+        copy_network_unit('25-veth.netdev',
+                          '25-veth-peer-no-address.network',
+                          '25-ipv6-prefix-veth-token-static.network')
+        start_networkd()
+        self.wait_online('veth-peer:degraded')
+
+        for _ in range(20):
+            output = read_networkd_log()
+            if 'veth99: NDISC: Started IPv6 Router Solicitation client' in output:
+                break
+            time.sleep(0.5)
+        else:
+            self.fail('sd-ndisc does not started on veth99.')
+
+        check_output(f'{test_ndisc_send} --interface veth-peer --type ra --lifetime 1hour --mtu 1400')
+        self.check_ndisc_mtu(1400)
+
+        check_output(f'{test_ndisc_send} --interface veth-peer --type ra --lifetime 1hour --mtu 1410')
+        self.check_ndisc_mtu(1410)
+
+        check_output('ip link set dev veth99 mtu 1600')
+        self.check_ndisc_mtu(1410)
+
+        check_output(f'{test_ndisc_send} --interface veth-peer --type ra --lifetime 1hour --mtu 1700')
+        self.check_ndisc_mtu(1600)
+
+        check_output('ip link set dev veth99 mtu 1800')
+        self.check_ndisc_mtu(1700)
+
     def test_ipv6_token_prefixstable(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-prefixstable.network')
         start_networkd()
