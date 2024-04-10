@@ -45,7 +45,7 @@ TEST(readlink_and_make_absolute) {
                 log_tests_skipped_errno(errno, "symlink() not possible");
         } else {
                 assert_se(readlink_and_make_absolute(name_alias, &r1) >= 0);
-                assert_se(streq(r1, name));
+                ASSERT_STREQ(r1, name);
                 assert_se(unlink(name_alias) >= 0);
 
                 assert_se(safe_getcwd(&pwd) >= 0);
@@ -53,7 +53,7 @@ TEST(readlink_and_make_absolute) {
                 assert_se(chdir(tempdir) >= 0);
                 assert_se(symlink(name2, name_alias) >= 0);
                 assert_se(readlink_and_make_absolute(name_alias, &r2) >= 0);
-                assert_se(streq(r2, name));
+                ASSERT_STREQ(r2, name);
                 assert_se(unlink(name_alias) >= 0);
 
                 assert_se(chdir(pwd) >= 0);
@@ -97,33 +97,33 @@ TEST(var_tmp) {
         assert_se(unsetenv("TMP") >= 0);
 
         assert_se(var_tmp_dir(&tmp_dir) >= 0);
-        assert_se(streq(tmp_dir, "/var/tmp"));
+        ASSERT_STREQ(tmp_dir, "/var/tmp");
 
         assert_se(setenv("TMPDIR", "/tmp", true) >= 0);
-        assert_se(streq(getenv("TMPDIR"), "/tmp"));
+        ASSERT_STREQ(getenv("TMPDIR"), "/tmp");
 
         assert_se(var_tmp_dir(&tmp_dir) >= 0);
-        assert_se(streq(tmp_dir, "/tmp"));
+        ASSERT_STREQ(tmp_dir, "/tmp");
 
         assert_se(setenv("TMPDIR", "/88_does_not_exist_88", true) >= 0);
-        assert_se(streq(getenv("TMPDIR"), "/88_does_not_exist_88"));
+        ASSERT_STREQ(getenv("TMPDIR"), "/88_does_not_exist_88");
 
         assert_se(var_tmp_dir(&tmp_dir) >= 0);
-        assert_se(streq(tmp_dir, "/var/tmp"));
+        ASSERT_STREQ(tmp_dir, "/var/tmp");
 
         if (tmpdir_backup)  {
                 assert_se(setenv("TMPDIR", tmpdir_backup, true) >= 0);
-                assert_se(streq(getenv("TMPDIR"), tmpdir_backup));
+                ASSERT_STREQ(getenv("TMPDIR"), tmpdir_backup);
         }
 
         if (temp_backup)  {
                 assert_se(setenv("TEMP", temp_backup, true) >= 0);
-                assert_se(streq(getenv("TEMP"), temp_backup));
+                ASSERT_STREQ(getenv("TEMP"), temp_backup);
         }
 
         if (tmp_backup)  {
                 assert_se(setenv("TMP", tmp_backup, true) >= 0);
-                assert_se(streq(getenv("TMP"), tmp_backup));
+                ASSERT_STREQ(getenv("TMP"), tmp_backup);
         }
 }
 
@@ -522,9 +522,9 @@ static void test_parse_cifs_service_one(const char *f, const char *h, const char
         _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL;
 
         assert_se(parse_cifs_service(f, &a, &b, &c) == ret);
-        assert_se(streq_ptr(a, h));
-        assert_se(streq_ptr(b, s));
-        assert_se(streq_ptr(c, d));
+        ASSERT_STREQ(a, h);
+        ASSERT_STREQ(b, s);
+        ASSERT_STREQ(c, d);
 }
 
 TEST(parse_cifs_service) {
@@ -800,25 +800,25 @@ TEST(readlinkat_malloc) {
         assert_se(symlinkat(expect, tfd, "linkname") >= 0);
 
         assert_se(readlinkat_malloc(tfd, "linkname", &p) >= 0);
-        assert_se(streq(p, expect));
+        ASSERT_STREQ(p, expect);
         p = mfree(p);
 
         fd = openat(tfd, "linkname", O_PATH | O_NOFOLLOW | O_CLOEXEC);
         assert_se(fd >= 0);
         assert_se(readlinkat_malloc(fd, NULL, &p) >= 0);
-        assert_se(streq(p, expect));
+        ASSERT_STREQ(p, expect);
         p = mfree(p);
         assert_se(readlinkat_malloc(fd, "", &p) >= 0);
-        assert_se(streq(p, expect));
+        ASSERT_STREQ(p, expect);
         p = mfree(p);
         fd = safe_close(fd);
 
         assert_se(q = path_join(t, "linkname"));
         assert_se(readlinkat_malloc(AT_FDCWD, q, &p) >= 0);
-        assert_se(streq(p, expect));
+        ASSERT_STREQ(p, expect);
         p = mfree(p);
         assert_se(readlinkat_malloc(INT_MAX, q, &p) >= 0);
-        assert_se(streq(p, expect));
+        ASSERT_STREQ(p, expect);
         p = mfree(p);
         q = mfree(q);
 }

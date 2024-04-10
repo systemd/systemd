@@ -176,7 +176,7 @@ static void test_pid_get_comm_escape_one(const char *input, const char *output) 
 
         log_debug("got: <%s>", n);
 
-        assert_se(streq_ptr(n, output));
+        ASSERT_STREQ(n, output);
 }
 
 TEST(pid_get_comm_escape) {
@@ -236,14 +236,14 @@ TEST(personality) {
         assert_se(personality_to_string(PER_LINUX));
         assert_se(!personality_to_string(PERSONALITY_INVALID));
 
-        assert_se(streq(personality_to_string(PER_LINUX), architecture_to_string(native_architecture())));
+        ASSERT_STREQ(personality_to_string(PER_LINUX), architecture_to_string(native_architecture()));
 
         assert_se(personality_from_string(personality_to_string(PER_LINUX)) == PER_LINUX);
         assert_se(personality_from_string(architecture_to_string(native_architecture())) == PER_LINUX);
 
 #ifdef __x86_64__
-        assert_se(streq_ptr(personality_to_string(PER_LINUX), "x86-64"));
-        assert_se(streq_ptr(personality_to_string(PER_LINUX32), "x86"));
+        ASSERT_STREQ(personality_to_string(PER_LINUX), "x86-64");
+        ASSERT_STREQ(personality_to_string(PER_LINUX32), "x86");
 
         assert_se(personality_from_string("x86-64") == PER_LINUX);
         assert_se(personality_from_string("x86") == PER_LINUX32);
@@ -328,49 +328,49 @@ TEST(pid_get_cmdline_harder) {
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "[testa]"));
+        ASSERT_STREQ(line, "[testa]");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK | PROCESS_CMDLINE_QUOTE, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "\"[testa]\"")); /* quoting is enabled here */
+        ASSERT_STREQ(line, "\"[testa]\""); /* quoting is enabled here */
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 0, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, ""));
+        ASSERT_STREQ(line, "");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 1, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
-        assert_se(streq(line, "…"));
+        ASSERT_STREQ(line, "…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 2, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
-        assert_se(streq(line, "[…"));
+        ASSERT_STREQ(line, "[…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 3, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
-        assert_se(streq(line, "[t…"));
+        ASSERT_STREQ(line, "[t…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 4, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
-        assert_se(streq(line, "[te…"));
+        ASSERT_STREQ(line, "[te…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 5, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
-        assert_se(streq(line, "[tes…"));
+        ASSERT_STREQ(line, "[tes…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 6, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
-        assert_se(streq(line, "[test…"));
+        ASSERT_STREQ(line, "[test…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 7, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
-        assert_se(streq(line, "[testa]"));
+        ASSERT_STREQ(line, "[testa]");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 8, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
-        assert_se(streq(line, "[testa]"));
+        ASSERT_STREQ(line, "[testa]");
         line = mfree(line);
 
         assert_se(pid_get_cmdline_strv(0, PROCESS_CMDLINE_COMM_FALLBACK, &args) >= 0);
@@ -383,11 +383,11 @@ TEST(pid_get_cmdline_harder) {
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, 0, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar"));
+        ASSERT_STREQ(line, "foo bar");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
-        assert_se(streq(line, "foo bar"));
+        ASSERT_STREQ(line, "foo bar");
         line = mfree(line);
 
         assert_se(pid_get_cmdline_strv(0, PROCESS_CMDLINE_COMM_FALLBACK, &args) >= 0);
@@ -397,87 +397,87 @@ TEST(pid_get_cmdline_harder) {
         assert_se(write(fd, "quux", 4) == 4);
         assert_se(pid_get_cmdline(0, SIZE_MAX, 0, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_STREQ(line, "foo bar quux");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_STREQ(line, "foo bar quux");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 1, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "…"));
+        ASSERT_STREQ(line, "…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 2, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "f…"));
+        ASSERT_STREQ(line, "f…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 3, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "fo…"));
+        ASSERT_STREQ(line, "fo…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 4, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo…"));
+        ASSERT_STREQ(line, "foo…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 5, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo …"));
+        ASSERT_STREQ(line, "foo …");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 6, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo b…"));
+        ASSERT_STREQ(line, "foo b…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 7, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo ba…"));
+        ASSERT_STREQ(line, "foo ba…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 8, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar…"));
+        ASSERT_STREQ(line, "foo bar…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 9, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar …"));
+        ASSERT_STREQ(line, "foo bar …");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 10, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar q…"));
+        ASSERT_STREQ(line, "foo bar q…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 11, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar qu…"));
+        ASSERT_STREQ(line, "foo bar qu…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 12, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_STREQ(line, "foo bar quux");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 13, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_STREQ(line, "foo bar quux");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 14, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_STREQ(line, "foo bar quux");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 1000, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "foo bar quux"));
+        ASSERT_STREQ(line, "foo bar quux");
         line = mfree(line);
 
         assert_se(pid_get_cmdline_strv(0, PROCESS_CMDLINE_COMM_FALLBACK, &args) >= 0);
@@ -491,22 +491,22 @@ TEST(pid_get_cmdline_harder) {
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "[aaaa bbbb cccc]"));
+        ASSERT_STREQ(line, "[aaaa bbbb cccc]");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 10, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "[aaaa bbb…"));
+        ASSERT_STREQ(line, "[aaaa bbb…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 11, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "[aaaa bbbb…"));
+        ASSERT_STREQ(line, "[aaaa bbbb…");
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, 12, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         log_debug("'%s'", line);
-        assert_se(streq(line, "[aaaa bbbb …"));
+        ASSERT_STREQ(line, "[aaaa bbbb …");
         line = mfree(line);
 
         assert_se(pid_get_cmdline_strv(0, PROCESS_CMDLINE_COMM_FALLBACK, &args) >= 0);
@@ -527,13 +527,13 @@ TEST(pid_get_cmdline_harder) {
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_QUOTE, &line) >= 0);
         log_debug("got: ==%s==", line);
         log_debug("exp: ==%s==", EXPECT1);
-        assert_se(streq(line, EXPECT1));
+        ASSERT_STREQ(line, EXPECT1);
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &line) >= 0);
         log_debug("got: ==%s==", line);
         log_debug("exp: ==%s==", EXPECT1p);
-        assert_se(streq(line, EXPECT1p));
+        ASSERT_STREQ(line, EXPECT1p);
         line = mfree(line);
 
         assert_se(pid_get_cmdline_strv(0, 0, &args) >= 0);
@@ -552,13 +552,13 @@ TEST(pid_get_cmdline_harder) {
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_QUOTE, &line) >= 0);
         log_debug("got: ==%s==", line);
         log_debug("exp: ==%s==", EXPECT2);
-        assert_se(streq(line, EXPECT2));
+        ASSERT_STREQ(line, EXPECT2);
         line = mfree(line);
 
         assert_se(pid_get_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &line) >= 0);
         log_debug("got: ==%s==", line);
         log_debug("exp: ==%s==", EXPECT2p);
-        assert_se(streq(line, EXPECT2p));
+        ASSERT_STREQ(line, EXPECT2p);
         line = mfree(line);
 
         assert_se(pid_get_cmdline_strv(0, 0, &args) >= 0);

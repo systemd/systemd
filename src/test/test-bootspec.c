@@ -79,16 +79,16 @@ TEST_RET(bootspec_sort) {
         assert_se(config.n_entries == 6);
 
         /* First, because has sort key, and its the lowest one */
-        assert_se(streq(config.entries[0].id, "d.conf"));
+        ASSERT_STREQ(config.entries[0].id, "d.conf");
 
         /* These two have a sort key, and newest must be first */
-        assert_se(streq(config.entries[1].id, "cx.conf"));
-        assert_se(streq(config.entries[2].id, "c.conf"));
+        ASSERT_STREQ(config.entries[1].id, "cx.conf");
+        ASSERT_STREQ(config.entries[2].id, "c.conf");
 
         /* The following ones have no sort key, hence order by version compared ids, lowest first */
-        assert_se(streq(config.entries[3].id, "b.conf"));
-        assert_se(streq(config.entries[4].id, "a-10.conf"));
-        assert_se(streq(config.entries[5].id, "a-5.conf"));
+        ASSERT_STREQ(config.entries[3].id, "b.conf");
+        ASSERT_STREQ(config.entries[4].id, "a-10.conf");
+        ASSERT_STREQ(config.entries[5].id, "a-5.conf");
 
         return 0;
 }
@@ -101,7 +101,7 @@ static void test_extract_tries_one(const char *fname, int ret, const char *strip
         if (ret < 0)
                 return;
 
-        assert_se(streq_ptr(p, stripped));
+        ASSERT_STREQ(p, stripped);
         assert_se(l == tries_left);
         assert_se(d == tries_done);
 }

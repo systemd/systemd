@@ -62,7 +62,7 @@ static void test_utf8_to_ascii_one(const char *s, int r_expected, const char *ex
         r = utf8_to_ascii(s, '*', &ans);
         log_debug("\"%s\" → %d/\"%s\" (expected %d/\"%s\")", s, r, strnull(ans), r_expected, strnull(expected));
         assert_se(r == r_expected);
-        assert_se(streq_ptr(ans, expected));
+        ASSERT_STREQ(ans, expected);
 }
 
 TEST(utf8_to_ascii) {
@@ -223,7 +223,7 @@ TEST(utf8_to_utf16) {
 
                 b = utf16_to_utf8(a, SIZE_MAX);
                 assert_se(b);
-                assert_se(streq(p, b));
+                ASSERT_STREQ(p, b);
         }
 }
 

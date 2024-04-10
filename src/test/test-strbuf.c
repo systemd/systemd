@@ -32,11 +32,11 @@ TEST(strbuf) {
         l = strv_parse_nulstr(sb->buf, sb->len);
         assert_se(l);
 
-        assert_se(streq(l[0], "")); /* root */
-        assert_se(streq(l[1], "waldo"));
-        assert_se(streq(l[2], "foo"));
-        assert_se(streq(l[3], "bar"));
-        assert_se(streq(l[4], "waldorf"));
+        ASSERT_STREQ(l[0], ""); /* root */
+        ASSERT_STREQ(l[1], "waldo");
+        ASSERT_STREQ(l[2], "foo");
+        ASSERT_STREQ(l[3], "bar");
+        ASSERT_STREQ(l[4], "waldorf");
         ASSERT_NULL(l[5]);
 
         assert_se(sb->nodes_count == 5); /* root + 4 non-duplicates */
@@ -57,14 +57,14 @@ TEST(strbuf) {
         assert_se(g == 15);
         assert_se(h == 0);
 
-        assert_se(streq(sb->buf + a, "waldo"));
-        assert_se(streq(sb->buf + b, "foo"));
-        assert_se(streq(sb->buf + c, "bar"));
-        assert_se(streq(sb->buf + d, "waldo"));
-        assert_se(streq(sb->buf + e, "aldo"));
-        assert_se(streq(sb->buf + f, "do"));
-        assert_se(streq(sb->buf + g, "waldorf"));
-        assert_se(streq(sb->buf + h, ""));
+        ASSERT_STREQ(sb->buf + a, "waldo");
+        ASSERT_STREQ(sb->buf + b, "foo");
+        ASSERT_STREQ(sb->buf + c, "bar");
+        ASSERT_STREQ(sb->buf + d, "waldo");
+        ASSERT_STREQ(sb->buf + e, "aldo");
+        ASSERT_STREQ(sb->buf + f, "do");
+        ASSERT_STREQ(sb->buf + g, "waldorf");
+        ASSERT_STREQ(sb->buf + h, "");
 
         strbuf_complete(sb);
         ASSERT_NULL(sb->root);
