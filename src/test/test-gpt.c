@@ -94,7 +94,7 @@ TEST(override_architecture) {
         ASSERT_EQ(x.arch, y.arch);
         ASSERT_EQ(x.designator, y.designator);
         assert_se(sd_id128_equal(x.uuid, y.uuid));
-        assert_se(streq(x.name, y.name));
+        ASSERT_STREQ(x.name, y.name);
 
         /* If the partition type does not have an architecture, nothing should change. */
 
@@ -105,7 +105,7 @@ TEST(override_architecture) {
         ASSERT_EQ(x.arch, y.arch);
         ASSERT_EQ(x.designator, y.designator);
         assert_se(sd_id128_equal(x.uuid, y.uuid));
-        assert_se(streq(x.name, y.name));
+        ASSERT_STREQ(x.name, y.name);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

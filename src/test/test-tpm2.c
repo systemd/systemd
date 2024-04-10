@@ -199,7 +199,7 @@ static void _test_tpms_sw(
         tpm2_tpms_pcr_selection_from_mask(mask, hash, &s);
 
         _cleanup_free_ char *tpms_str = tpm2_tpms_pcr_selection_to_string(&s);
-        assert_se(streq(tpms_str, expected_str));
+        ASSERT_STREQ(tpms_str, expected_str);
 
         assert_se(tpm2_tpms_pcr_selection_weight(&s) == expected_weight);
         assert_se(tpm2_tpms_pcr_selection_is_empty(&s) == (expected_weight == 0));
@@ -242,7 +242,7 @@ static void _test_tpml_sw(
         assert_se(l.count == expected_count);
 
         _cleanup_free_ char *tpml_str = tpm2_tpml_pcr_selection_to_string(&l);
-        assert_se(streq(tpml_str, expected_str));
+        ASSERT_STREQ(tpml_str, expected_str);
 
         assert_se(tpm2_tpml_pcr_selection_weight(&l) == expected_weight);
         assert_se(tpm2_tpml_pcr_selection_is_empty(&l) == (expected_weight == 0));

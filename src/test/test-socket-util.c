@@ -69,7 +69,7 @@ static void test_socket_print_unix_one(const char *in, size_t len_in, const char
         assert_se(socket_address_print(&a, &out) >= 0);
         assert_se(c = cescape(in));
         log_info("\"%s\" → \"%s\" (expect \"%s\")", in, out, expected);
-        assert_se(streq(out, expected));
+        ASSERT_STREQ(out, expected);
 }
 
 TEST(socket_print_unix) {
@@ -256,7 +256,7 @@ TEST(passfd_read) {
         r = read(fd, buf, sizeof(buf)-1);
         assert_se(r >= 0);
         buf[r] = 0;
-        assert_se(streq(buf, file_contents));
+        ASSERT_STREQ(buf, file_contents);
 }
 
 TEST(passfd_contents_read) {
@@ -298,13 +298,13 @@ TEST(passfd_contents_read) {
         k = receive_one_fd_iov(pair[0], &iov, 1, MSG_DONTWAIT, &fd);
         assert_se(k > 0);
         buf[k] = 0;
-        assert_se(streq(buf, wire_contents));
+        ASSERT_STREQ(buf, wire_contents);
 
         assert_se(fd >= 0);
         r = read(fd, buf, sizeof(buf)-1);
         assert_se(r >= 0);
         buf[r] = 0;
-        assert_se(streq(buf, file_contents));
+        ASSERT_STREQ(buf, file_contents);
 }
 
 TEST(pass_many_fds_contents_read) {
@@ -358,7 +358,7 @@ TEST(pass_many_fds_contents_read) {
         k = receive_many_fds_iov(pair[0], &iov, 1, &fds, &n_fds, MSG_DONTWAIT);
         assert_se(k > 0);
         buf[k] = 0;
-        assert_se(streq(buf, wire_contents));
+        ASSERT_STREQ(buf, wire_contents);
 
         assert_se(n_fds == 3);
 
@@ -367,7 +367,7 @@ TEST(pass_many_fds_contents_read) {
                 r = read(fds[i], buf, sizeof(buf)-1);
                 assert_se(r >= 0);
                 buf[r] = 0;
-                assert_se(streq(buf, file_contents[i]));
+                ASSERT_STREQ(buf, file_contents[i]);
                 safe_close(fds[i]);
         }
 }
@@ -403,7 +403,7 @@ TEST(receive_nopassfd) {
         k = receive_one_fd_iov(pair[0], &iov, 1, MSG_DONTWAIT, &fd);
         assert_se(k > 0);
         buf[k] = 0;
-        assert_se(streq(buf, wire_contents));
+        ASSERT_STREQ(buf, wire_contents);
 
         /* no fd passed here, confirm it was reset */
         assert_se(fd == -EBADF);

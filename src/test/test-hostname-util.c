@@ -50,27 +50,27 @@ TEST(hostname_cleanup) {
         char *s;
 
         s = strdupa_safe("foobar");
-        assert_se(streq(hostname_cleanup(s), "foobar"));
+        ASSERT_STREQ(hostname_cleanup(s), "foobar");
         s = strdupa_safe("foobar.com");
-        assert_se(streq(hostname_cleanup(s), "foobar.com"));
+        ASSERT_STREQ(hostname_cleanup(s), "foobar.com");
         s = strdupa_safe("foobar.com.");
-        assert_se(streq(hostname_cleanup(s), "foobar.com"));
+        ASSERT_STREQ(hostname_cleanup(s), "foobar.com");
         s = strdupa_safe("foo-bar.-com-.");
-        assert_se(streq(hostname_cleanup(s), "foo-bar.com"));
+        ASSERT_STREQ(hostname_cleanup(s), "foo-bar.com");
         s = strdupa_safe("foo-bar-.-com-.");
-        assert_se(streq(hostname_cleanup(s), "foo-bar--com"));
+        ASSERT_STREQ(hostname_cleanup(s), "foo-bar--com");
         s = strdupa_safe("--foo-bar.-com");
-        assert_se(streq(hostname_cleanup(s), "foo-bar.com"));
+        ASSERT_STREQ(hostname_cleanup(s), "foo-bar.com");
         s = strdupa_safe("fooBAR");
-        assert_se(streq(hostname_cleanup(s), "fooBAR"));
+        ASSERT_STREQ(hostname_cleanup(s), "fooBAR");
         s = strdupa_safe("fooBAR.com");
-        assert_se(streq(hostname_cleanup(s), "fooBAR.com"));
+        ASSERT_STREQ(hostname_cleanup(s), "fooBAR.com");
         s = strdupa_safe("fooBAR.");
-        assert_se(streq(hostname_cleanup(s), "fooBAR"));
+        ASSERT_STREQ(hostname_cleanup(s), "fooBAR");
         s = strdupa_safe("fooBAR.com.");
-        assert_se(streq(hostname_cleanup(s), "fooBAR.com"));
+        ASSERT_STREQ(hostname_cleanup(s), "fooBAR.com");
         s = strdupa_safe("fööbar");
-        assert_se(streq(hostname_cleanup(s), "fbar"));
+        ASSERT_STREQ(hostname_cleanup(s), "fbar");
         s = strdupa_safe("");
         assert_se(isempty(hostname_cleanup(s)));
         s = strdupa_safe(".");
@@ -78,17 +78,17 @@ TEST(hostname_cleanup) {
         s = strdupa_safe("..");
         assert_se(isempty(hostname_cleanup(s)));
         s = strdupa_safe("foobar.");
-        assert_se(streq(hostname_cleanup(s), "foobar"));
+        ASSERT_STREQ(hostname_cleanup(s), "foobar");
         s = strdupa_safe(".foobar");
-        assert_se(streq(hostname_cleanup(s), "foobar"));
+        ASSERT_STREQ(hostname_cleanup(s), "foobar");
         s = strdupa_safe("foo..bar");
-        assert_se(streq(hostname_cleanup(s), "foo.bar"));
+        ASSERT_STREQ(hostname_cleanup(s), "foo.bar");
         s = strdupa_safe("foo.bar..");
-        assert_se(streq(hostname_cleanup(s), "foo.bar"));
+        ASSERT_STREQ(hostname_cleanup(s), "foo.bar");
         s = strdupa_safe("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-        assert_se(streq(hostname_cleanup(s), "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
+        ASSERT_STREQ(hostname_cleanup(s), "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
         s = strdupa_safe("xxxx........xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-        assert_se(streq(hostname_cleanup(s), "xxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
+        ASSERT_STREQ(hostname_cleanup(s), "xxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
 }
 
 TEST(hostname_malloc) {

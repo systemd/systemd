@@ -49,10 +49,10 @@ static void verify_dissected_image(DissectedImage *dissected) {
 static void verify_dissected_image_harder(DissectedImage *dissected) {
         verify_dissected_image(dissected);
 
-        assert_se(streq(dissected->partitions[PARTITION_ESP].fstype, "vfat"));
-        assert_se(streq(dissected->partitions[PARTITION_XBOOTLDR].fstype, "vfat"));
-        assert_se(streq(dissected->partitions[PARTITION_ROOT].fstype, "ext4"));
-        assert_se(streq(dissected->partitions[PARTITION_HOME].fstype, "ext4"));
+        ASSERT_STREQ(dissected->partitions[PARTITION_ESP].fstype, "vfat");
+        ASSERT_STREQ(dissected->partitions[PARTITION_XBOOTLDR].fstype, "vfat");
+        ASSERT_STREQ(dissected->partitions[PARTITION_ROOT].fstype, "ext4");
+        ASSERT_STREQ(dissected->partitions[PARTITION_HOME].fstype, "ext4");
 }
 
 static void* thread_func(void *ptr) {
