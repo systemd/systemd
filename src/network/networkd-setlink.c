@@ -173,19 +173,7 @@ static int link_unset_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Re
 }
 
 static int link_set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        int r;
-
-        r = set_link_handler_internal(rtnl, m, req, link, /* ignore = */ true, get_link_default_handler);
-        if (r <= 0)
-                return r;
-
-        /* The kernel resets ipv6 mtu after changing device mtu;
-         * we must set this here, after we've set device mtu */
-        r = link_set_ipv6_mtu(link);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Failed to set IPv6 MTU, ignoring: %m");
-
-        return 0;
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ true, get_link_default_handler);
 }
 
 static int link_configure_fill_message(

@@ -2434,6 +2434,13 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
 
         link->mtu = mtu;
 
+        if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
+                /* The kernel resets IPv6 MTU after changing device MTU. So, we need to re-set IPv6 MTU again. */
+                r = link_set_ipv6_mtu(link);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to set IPv6 MTU, ignoring: %m");
+        }
+
         if (link->dhcp_client) {
                 r = sd_dhcp_client_set_mtu(link->dhcp_client, link->mtu);
                 if (r < 0)
