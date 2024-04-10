@@ -5577,10 +5577,44 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online('veth99:routable', 'veth-peer:degraded')
 
-        output = networkctl_status('veth99')
+        output = check_output('ip -6 address show dev veth99')
         print(output)
-        self.assertIn('2002:da8:1:0:b47e:7975:fc7a:7d6e', output)
-        self.assertIn('2002:da8:2:0:1034:56ff:fe78:9abc', output) # EUI64
+        self.assertIn('2002:da8:1:0:b47e:7975:fc7a:7d6e/64', output) # the 1st prefixstable
+        self.assertIn('2002:da8:2:0:1034:56ff:fe78:9abc/64', output) # EUI64
+
+        with open(os.path.join(network_unit_dir, '25-ipv6-prefix-veth-token-prefixstable.network'), mode='a', encoding='utf-8') as f:
+            f.write('\n[IPv6AcceptRA]\nPrefixAllowList=2002:da8:1:0::/64\n')
+
+        networkctl_reload()
+        self.wait_online('veth99:routable')
+
+        output = check_output('ip -6 address show dev veth99')
+        print(output)
+        self.assertIn('2002:da8:1:0:b47e:7975:fc7a:7d6e/64', output) # the 1st prefixstable
+        self.assertNotIn('2002:da8:2:0:1034:56ff:fe78:9abc/64', output) # EUI64
+
+        check_output('ip address del 2002:da8:1:0:b47e:7975:fc7a:7d6e/64 dev veth99')
+        check_output('ip address add 2002:da8:1:0:b47e:7975:fc7a:7d6e/64 dev veth-peer nodad')
+
+        networkctl_reconfigure('veth99')
+        self.wait_online('veth99:routable')
+
+        output = check_output('ip -6 address show dev veth99')
+        print(output)
+        self.assertNotIn('2002:da8:1:0:b47e:7975:fc7a:7d6e/64', output) # the 1st prefixstable
+        self.assertIn('2002:da8:1:0:da5d:e50a:43fd:5d0f/64', output) # the 2nd prefixstable
+
+        check_output('ip address del 2002:da8:1:0:da5d:e50a:43fd:5d0f/64 dev veth99')
+        check_output('ip address add 2002:da8:1:0:da5d:e50a:43fd:5d0f/64 dev veth-peer nodad')
+
+        networkctl_reconfigure('veth99')
+        self.wait_online('veth99:routable')
+
+        output = check_output('ip -6 address show dev veth99')
+        print(output)
+        self.assertNotIn('2002:da8:1:0:b47e:7975:fc7a:7d6e/64', output) # the 1st prefixstable
+        self.assertNotIn('2002:da8:1:0:da5d:e50a:43fd:5d0f/64', output) # the 2nd prefixstable
+        self.assertIn('2002:da8:1:0:c7e4:77ec:eb31:1b0d/64', output) # the 3rd prefixstable
 
     def test_ipv6_token_prefixstable_without_address(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-prefixstable-without-address.network')
