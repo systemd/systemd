@@ -26,7 +26,7 @@ static void test_unit_escape_setting_one(
         assert_se(t = unit_escape_setting(s, 0, &a));
         assert_se(a_esc = cescape(t));
         log_debug("%s: [%s] → [%s]", __func__, s_esc, a_esc);
-        assert_se(a == NULL);
+        ASSERT_NULL(a);
         assert_se(t == s);
 
         assert_se(t = unit_escape_setting(s, UNIT_ESCAPE_EXEC_SYNTAX_ENV, &b));

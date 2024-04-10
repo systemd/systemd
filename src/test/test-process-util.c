@@ -651,7 +651,7 @@ TEST(safe_fork) {
 
 TEST(pid_to_ptr) {
         assert_se(PTR_TO_PID(NULL) == 0);
-        assert_se(PID_TO_PTR(0) == NULL);
+        ASSERT_NULL(PID_TO_PTR(0));
 
         assert_se(PTR_TO_PID(PID_TO_PTR(1)) == 1);
         assert_se(PTR_TO_PID(PID_TO_PTR(2)) == 2);

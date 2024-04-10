@@ -401,7 +401,7 @@ TEST(env_clean) {
         assert_se(streq(e[5], "another=final one"));
         assert_se(streq(e[6], "CRLF=\r\n"));
         assert_se(streq(e[7], "LESS_TERMCAP_mb=\x1b[01;31m"));
-        assert_se(e[8] == NULL);
+        ASSERT_NULL(e[8]);
 }
 
 TEST(env_name_is_valid) {
@@ -576,7 +576,7 @@ TEST(getenv_path_list) {
         assert_se(streq(path_list[2], "/hello/world"));
         assert_se(streq(path_list[3], "/path with spaces"));
         assert_se(streq(path_list[4], "/final"));
-        assert_se(path_list[5] == NULL);
+        ASSERT_NULL(path_list[5]);
 
         assert_se(unsetenv("TEST_GETENV_PATH_LIST") >= 0);
 }

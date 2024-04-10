@@ -217,7 +217,7 @@ static void test_strv_unquote_one(const char *quoted, char **list) {
         STRV_FOREACH(t, s)
                 assert_se(streq(list[i++], *t));
 
-        assert_se(list[i] == NULL);
+        ASSERT_NULL(list[i]);
 }
 
 TEST(strv_unquote) {
@@ -245,7 +245,7 @@ static void test_invalid_unquote_one(const char *quoted) {
         log_info("/* %s */", __func__);
 
         r = strv_split_full(&s, quoted, WHITESPACE, EXTRACT_UNQUOTE);
-        assert_se(s == NULL);
+        ASSERT_NULL(s);
         assert_se(r == -EINVAL);
 }
 
@@ -601,7 +601,7 @@ TEST(strv_extend_with_size) {
         assert_se(streq(a[1], "test1"));
         assert_se(streq(a[2], "test2"));
         assert_se(streq(a[3], "test3"));
-        assert_se(a[4] == NULL);
+        ASSERT_NULL(a[4]);
 }
 
 TEST(strv_extend) {
@@ -918,7 +918,7 @@ TEST(strv_extend_n) {
         assert_se(streq(v[4], "waldo"));
         assert_se(streq(v[5], "piep"));
         assert_se(streq(v[6], "piep"));
-        assert_se(v[7] == NULL);
+        ASSERT_NULL(v[7]);
 
         v = strv_free(v);
 
@@ -926,7 +926,7 @@ TEST(strv_extend_n) {
         assert_se(strv_extend_n(&v, "bar", 0) >= 0);
 
         assert_se(streq(v[0], "foo"));
-        assert_se(v[1] == NULL);
+        ASSERT_NULL(v[1]);
 }
 
 TEST(foreach_string) {
@@ -1013,10 +1013,10 @@ TEST(strv_copy_n) {
 TEST(strv_find_first_field) {
         char **haystack = STRV_MAKE("a", "b", "c", "d", "e", "f", "g", "h", "i", "j");
 
-        assert_se(strv_find_first_field(NULL, NULL) == NULL);
-        assert_se(strv_find_first_field(NULL, haystack) == NULL);
-        assert_se(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "b"), NULL) == NULL);
-        assert_se(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "b"), haystack) == NULL);
+        ASSERT_NULL(strv_find_first_field(NULL, NULL));
+        ASSERT_NULL(strv_find_first_field(NULL, haystack));
+        ASSERT_NULL(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "b"), NULL));
+        ASSERT_NULL(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "b"), haystack));
         assert_se(streq_ptr(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "a", "c"), haystack), "b"));
         assert_se(streq_ptr(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "c", "a"), haystack), "d"));
         assert_se(streq_ptr(strv_find_first_field(STRV_MAKE("i", "k", "l", "m", "d", "c", "a", "b"), haystack), "j"));
