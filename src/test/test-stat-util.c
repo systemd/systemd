@@ -205,7 +205,7 @@ TEST(anonymous_inode) {
         /* Verify that we handle anonymous inodes correctly, i.e. those which have no file type */
 
         struct stat st;
-        assert_se(fstat(fd, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
         assert_se((st.st_mode & S_IFMT) == 0);
 
         assert_se(!inode_type_to_string(st.st_mode));
