@@ -516,17 +516,13 @@ static int ndisc_redirect_drop_conflict(Link *link, sd_ndisc_redirect *rd) {
         return ndisc_remove_redirect_route(link, existing);
 }
 
-static int ndisc_redirect_handler(Link *link, sd_ndisc_redirect *rd) {
+static int ndisc_redirect_verify_sender(Link *link, sd_ndisc_redirect *rd) {
         struct in6_addr router, sender;
         usec_t lifetime_usec, now_usec;
         int r;
 
         assert(link);
-        assert(link->network);
         assert(rd);
-
-        if (!link->network->ndisc_use_redirect)
-                return 0;
 
         /* Ignore all Redirect messages from non-default router. */
 
@@ -552,10 +548,23 @@ static int ndisc_redirect_handler(Link *link, sd_ndisc_redirect *rd) {
         if (r < 0)
                 return r;
 
-        if (!in6_addr_equal(&sender, &router))
-                return 0; /* The redirect message is sent from a non-default router. */
+        /* The sender must be the default router. */
+        return in6_addr_equal(&sender, &router);
+}
 
-        /* OK, the Redirect message is sent from the current default router. */
+static int ndisc_redirect_handler(Link *link, sd_ndisc_redirect *rd) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rd);
+
+        if (!link->network->ndisc_use_redirect)
+                return 0;
+
+        r = ndisc_redirect_verify_sender(link, rd);
+        if (r <= 0)
+                return r;
 
         /* First, drop conflicting redirect route, if exists. */
         r = ndisc_redirect_drop_conflict(link, rd);
