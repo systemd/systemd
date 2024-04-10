@@ -209,7 +209,7 @@ static inline int run_test_table(void) {
         ({                                                                                                      \
                 typeof(expr) _result = (expr);                                                                  \
                 if (_result < 0) {                                                                              \
-                        log_error_errno(_result, "%s:%i: Assertion failed: %s: %m",                             \
+                        log_error_errno(_result, "%s:%i: Assertion failed: expected \"%s\" to succeed but got the following error: %m", \
                                         PROJECT_FILE, __LINE__, #expr);                                         \
                         abort();                                                                                \
                 }                                                                                               \
@@ -235,9 +235,10 @@ static inline int run_test_table(void) {
 
 #define ASSERT_NULL(expr)                                                                                       \
         ({                                                                                                      \
-                if ((expr) != NULL) {                                                                           \
-                        log_error("%s:%i: Assertion failed: expected \"%s\" to be NULL",                        \
-                                  PROJECT_FILE, __LINE__, #expr);                                               \
+                typeof(expr) _result = (expr);                                                                  \
+                if (_result != NULL) {                                                                          \
+                        log_error("%s:%i: Assertion failed: expected \"%s\" to be NULL, but \"%p\" != NULL",    \
+                                  PROJECT_FILE, __LINE__, #expr, _result);                                      \
                         abort();                                                                                \
                 }                                                                                               \
         })
