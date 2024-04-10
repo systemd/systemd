@@ -249,7 +249,7 @@ TEST(make_mount_point_inode) {
 
         assert_se(mkdir_p(src_dir, 0755) >= 0);
         assert_se(mkdir_parents(dst_file, 0755) >= 0);
-        assert_se(touch(src_file) >= 0);
+        ASSERT_OK_ERRNO(touch(src_file));
 
         assert_se(make_mount_point_inode_from_path(src_file, dst_file, 0755) >= 0);
         assert_se(make_mount_point_inode_from_path(src_dir, dst_dir, 0755) >= 0);
@@ -293,7 +293,7 @@ TEST(make_mount_switch_root) {
 
         assert_se(asprintf(&s, "%s/somerandomname%" PRIu64, t, random_u64()) >= 0);
         assert_se(s);
-        assert_se(touch(s) >= 0);
+        ASSERT_OK_ERRNO(touch(s));
 
         struct {
                 const char *path;
@@ -480,7 +480,7 @@ TEST(bind_mount_submounts) {
         assert_se(r >= 0);
 
         assert_se(x = path_join(a, "foo"));
-        assert_se(touch(x) >= 0);
+        ASSERT_OK_ERRNO(touch(x));
         free(x);
 
         assert_se(x = path_join(a, "x"));
@@ -489,7 +489,7 @@ TEST(bind_mount_submounts) {
         free(x);
 
         assert_se(x = path_join(a, "x/xx"));
-        assert_se(touch(x) >= 0);
+        ASSERT_OK_ERRNO(touch(x));
         free(x);
 
         assert_se(x = path_join(a, "y"));
@@ -498,7 +498,7 @@ TEST(bind_mount_submounts) {
         free(x);
 
         assert_se(x = path_join(a, "y/yy"));
-        assert_se(touch(x) >= 0);
+        ASSERT_OK_ERRNO(touch(x));
         free(x);
 
         assert_se(mkdtemp_malloc(NULL, &b) >= 0);

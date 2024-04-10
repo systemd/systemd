@@ -105,7 +105,7 @@ static void test_execute_directory_one(bool gather_stdout) {
         assert_se(symlink("/dev/null", mask) == 0);
         assert_se(touch(mask2) == 0);
         assert_se(touch(mask2e) == 0);
-        assert_se(touch(name3) >= 0);
+        ASSERT_OK_ERRNO(touch(name3));
 
         assert_se(chmod(name, 0755) == 0);
         assert_se(chmod(name2, 0755) == 0);
