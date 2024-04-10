@@ -517,34 +517,49 @@ static int ndisc_redirect_drop_conflict(Link *link, sd_ndisc_redirect *rd) {
 }
 
 static int ndisc_redirect_verify_sender(Link *link, sd_ndisc_redirect *rd) {
+        sd_ndisc_redirect *existing;
         struct in6_addr router, sender;
-        usec_t lifetime_usec, now_usec;
         int r;
 
         assert(link);
         assert(rd);
 
-        /* Ignore all Redirect messages from non-default router. */
-
-        if (!link->ndisc_default_router)
-                return 0;
-
-        r = sd_ndisc_router_get_lifetime_timestamp(link->ndisc_default_router, CLOCK_BOOTTIME, &lifetime_usec);
-        if (r < 0)
-                return r;
-
-        r = sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec);
-        if (r < 0)
-                return r;
-
-        if (lifetime_usec <= now_usec)
-                return 0; /* The default router is outdated. Ignore the redirect message. */
-
-        r = sd_ndisc_router_get_sender_address(link->ndisc_default_router, &router);
-        if (r < 0)
-                return r;
+        /* RFC 4861 section 8.1
+        * The IP source address of the Redirect is the same as the current first-hop router for the specified
+        * ICMP Destination Address. */
 
         r = sd_ndisc_redirect_get_sender_address(rd, &sender);
+        if (r < 0)
+                return r;
+
+        existing = set_get(link->ndisc_redirects, rd);
+        if (existing) {
+                struct in6_addr target, dest;
+
+                /* If we have received Redirect message for the host, the sender must be the previous target. */
+
+                r = sd_ndisc_redirect_get_target_address(existing, &target);
+                if (r < 0)
+                        return r;
+
+                if (in6_addr_equal(&sender, &target))
+                        return true;
+
+                /* If the existing redirect route is on-link, that is, the destination and target address are
+                 * equivalent, then also accept Redirect message from the current default router. This is not
+                 * mentioned by the RFC, but without this, we cannot update on-link redirect route. */
+                r = sd_ndisc_redirect_get_destination_address(existing, &dest);
+                if (r < 0)
+                        return r;
+
+                if (!in6_addr_equal(&dest, &target))
+                        return false;
+        }
+
+        if (!link->ndisc_default_router)
+                return false;
+
+        r = sd_ndisc_router_get_sender_address(link->ndisc_default_router, &router);
         if (r < 0)
                 return r;
 
@@ -587,38 +602,32 @@ static int ndisc_redirect_handler(Link *link, sd_ndisc_redirect *rd) {
         return ndisc_request_route(route, link);
 }
 
-static int ndisc_drop_redirect(Link *link, const struct in6_addr *router, bool remove) {
-        int r;
+static int ndisc_drop_redirect(Link *link, const struct in6_addr *router) {
+        int r, ret = 0;
 
         assert(link);
 
-        /* If the router is purged, then drop the redirect routes configured with the Redirect message sent
-         * by the router. */
-
-        if (!router)
-                return 0;
-
         sd_ndisc_redirect *rd;
         SET_FOREACH(rd, link->ndisc_redirects) {
-                struct in6_addr sender;
+                if (router) {
+                        struct in6_addr target;
 
-                r = sd_ndisc_redirect_get_sender_address(rd, &sender);
-                if (r < 0)
-                        return r;
-
-                if (!in6_addr_equal(&sender, router))
-                        continue;
-
-                if (remove) {
-                        r = ndisc_remove_redirect_route(link, rd);
+                        r = sd_ndisc_redirect_get_target_address(rd, &target);
                         if (r < 0)
                                 return r;
+
+                        if (!in6_addr_equal(&target, router))
+                                continue;
                 }
+
+                r = ndisc_remove_redirect_route(link, rd);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Failed to remove redirect route, ignoring: %m"));
 
                 sd_ndisc_redirect_unref(set_remove(link->ndisc_redirects, rd));
         }
 
-        return 0;
+        return ret;
 }
 
 static int ndisc_update_redirect_sender(Link *link, const struct in6_addr *original_address, const struct in6_addr *current_address) {
@@ -1838,16 +1847,15 @@ static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t
         if (r < 0)
                 RET_GATHER(ret, log_link_warning_errno(link, r, "Failed to drop outdated default router, ignoring: %m"));
 
-        r = ndisc_drop_redirect(link, router, /* remove = */ false);
-        if (r < 0)
-                RET_GATHER(ret, log_link_warning_errno(link, r, "Failed to drop outdated Redirect messages, ignoring: %m"));
-
         SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
                         continue;
 
                 if (route->nexthop.ifindex != link->ifindex)
                         continue;
+
+                if (route->protocol == RTPROT_REDIRECT)
+                        continue; /* redirect route will be dropped by ndisc_drop_redirect(). */
 
                 if (route->lifetime_usec > timestamp_usec)
                         continue; /* the route is still valid */
@@ -2125,11 +2133,8 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        if (sd_ndisc_router_get_lifetime(rt, NULL) <= 0) {
-                r = ndisc_drop_redirect(link, &router, /* remove = */ true);
-                if (r < 0)
-                        return r;
-        }
+        if (sd_ndisc_router_get_lifetime(rt, NULL) <= 0)
+                (void) ndisc_drop_redirect(link, &router);
 
         if (link->ndisc_messages == 0)
                 link->ndisc_configured = true;
@@ -2160,6 +2165,8 @@ static int ndisc_neighbor_handle_non_router_message(Link *link, sd_ndisc_neighbo
                 return r;
 
         (void) ndisc_drop_outdated(link, /* router = */ &address, /* timestamp_usec = */ USEC_INFINITY);
+        (void) ndisc_drop_redirect(link, &address);
+
         return 0;
 }
 
@@ -2440,6 +2447,7 @@ void ndisc_flush(Link *link) {
 
         /* Remove all addresses, routes, RDNSS, DNSSL, and Captive Portal entries, without exception. */
         (void) ndisc_drop_outdated(link, /* router = */ NULL, /* timestamp_usec = */ USEC_INFINITY);
+        (void) ndisc_drop_redirect(link, /* router = */ NULL);
 
         link->ndisc_rdnss = set_free(link->ndisc_rdnss);
         link->ndisc_dnssl = set_free(link->ndisc_dnssl);
