@@ -48,6 +48,24 @@ basic_tests() {
     bootctl "$@"
     bootctl "$@" status
     bootctl "$@" status --quiet
+    bootctl "$@" status --json=short
+    bootctl "$@" status --json=pretty
+    bootctl "$@" status --json=short | jq
+    bootctl "$@" status --json=pretty | jq
+
+    bootctl "$@" status --json=short | jq '.' | grep -q 'System'
+    bootctl "$@" status --json=short | jq '.' | grep -q 'CurrentBootLoader'
+
+    [[ "$(bootctl "$@" status --json=short | jq -r '.System.SecureBoot')" =~ (enabled|disabled) ]]
+    [[ "$(bootctl "$@" status --json=short | jq -r '.CurrentBootLoader.Features | length')" -gt 0 ]]
+    [[ "$(bootctl "$@" status --json=short | jq -r '.RandomSeed.SystemToken')" =~ (set|not set) ]]
+    [[ "$(bootctl "$@" status --json=short | jq -r '.RandomSeed.Exists')" =~ (yes|no) ]]
+
+    [[ "$(bootctl "$@" status --json=pretty | jq -r '.System.SecureBoot')" =~ (enabled|disabled) ]]
+    [[ "$(bootctl "$@" status --json=pretty | jq -r '.CurrentBootLoader.Features | length')" -gt 0 ]]
+    [[ "$(bootctl "$@" status --json=pretty | jq -r '.RandomSeed.SystemToken')" =~ (set|not set) ]]
+    [[ "$(bootctl "$@" status --json=pretty | jq -r '.RandomSeed.Exists')" =~ (yes|no) ]]
+
     bootctl "$@" list
     bootctl "$@" list --quiet
     bootctl "$@" list --json=short
