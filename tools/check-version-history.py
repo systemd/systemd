@@ -3,7 +3,12 @@
 
 import os
 import sys
-import lxml.etree as tree
+
+try:
+    import lxml.etree as tree
+except ImportError as e:
+    print(str(e), file=sys.stderr)
+    sys.exit(77)
 
 _parser = tree.XMLParser(resolve_entities=False)
 tree.set_default_parser(_parser)
