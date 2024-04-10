@@ -580,7 +580,7 @@ TEST(path_basename) {
 
         assert_se(table_format(t, &formatted) >= 0);
 
-        assert_se(streq(formatted, "bar\nbar\nbaz\n"));
+        ASSERT_STREQ(formatted, "bar\nbar\nbaz\n");
 }
 
 TEST(dup_cell) {

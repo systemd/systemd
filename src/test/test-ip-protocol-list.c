@@ -27,8 +27,8 @@ static void test_int_fail(int i, int error) {
 }
 
 static void test_str(const char *s) {
-        assert_se(streq(ip_protocol_to_name(ip_protocol_from_name(s)), s));
-        assert_se(streq(ip_protocol_to_name(parse_ip_protocol(s)), s));
+        ASSERT_STREQ(ip_protocol_to_name(ip_protocol_from_name(s)), s);
+        ASSERT_STREQ(ip_protocol_to_name(parse_ip_protocol(s)), s);
 }
 
 static void test_str_fail(const char *s, int error) {

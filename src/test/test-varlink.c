@@ -107,7 +107,7 @@ static int method_passfd(Varlink *link, JsonVariant *parameters, VarlinkMethodFl
         if (!a)
                 return varlink_error(link, "io.test.BadParameters", NULL);
 
-        assert_se(streq_ptr(json_variant_string(a), "whoop"));
+        ASSERT_STREQ(json_variant_string(a), "whoop");
 
         int xx = varlink_peek_fd(link, 0),
                 yy = varlink_peek_fd(link, 1),
@@ -183,7 +183,7 @@ static int overload_reply(Varlink *link, JsonVariant *parameters, const char *er
          * be talking to an overloaded server */
 
         log_debug("Over reply triggered with error: %s", strna(error_id));
-        assert_se(streq(error_id, VARLINK_ERROR_DISCONNECTED));
+        ASSERT_STREQ(error_id, VARLINK_ERROR_DISCONNECTED);
         sd_event_exit(varlink_get_event(link), 0);
 
         return 0;
@@ -299,8 +299,8 @@ static void *thread(void *arg) {
         test_fd(fd5, "wuff", 4);
 
         assert_se(varlink_callb(c, "io.test.IDontExist", &o, &e, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("x", JSON_BUILD_REAL(5.5)))) >= 0);
-        assert_se(streq_ptr(json_variant_string(json_variant_by_key(o, "method")), "io.test.IDontExist"));
-        assert_se(streq(e, VARLINK_ERROR_METHOD_NOT_FOUND));
+        ASSERT_STREQ(json_variant_string(json_variant_by_key(o, "method")), "io.test.IDontExist");
+        ASSERT_STREQ(e, VARLINK_ERROR_METHOD_NOT_FOUND);
 
         flood_test(arg);
 

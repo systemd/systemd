@@ -33,7 +33,7 @@ static void test_mount_propagation_flag_one(const char *name, int ret, unsigned 
                 if (isempty(name))
                         assert_se(isempty(c));
                 else
-                        assert_se(streq(c, name));
+                        ASSERT_STREQ(c, name);
         }
 }
 

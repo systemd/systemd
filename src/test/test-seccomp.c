@@ -52,40 +52,40 @@ TEST(parse_syscall_and_errno) {
         int e;
 
         assert_se(parse_syscall_and_errno("uname:EILSEQ", &n, &e) >= 0);
-        assert_se(streq(n, "uname"));
+        ASSERT_STREQ(n, "uname");
         assert_se(e == errno_from_name("EILSEQ") && e >= 0);
         n = mfree(n);
 
         assert_se(parse_syscall_and_errno("uname:EINVAL", &n, &e) >= 0);
-        assert_se(streq(n, "uname"));
+        ASSERT_STREQ(n, "uname");
         assert_se(e == errno_from_name("EINVAL") && e >= 0);
         n = mfree(n);
 
         assert_se(parse_syscall_and_errno("@sync:4095", &n, &e) >= 0);
-        assert_se(streq(n, "@sync"));
+        ASSERT_STREQ(n, "@sync");
         assert_se(e == 4095);
         n = mfree(n);
 
         /* If errno is omitted, then e is set to -1 */
         assert_se(parse_syscall_and_errno("mount", &n, &e) >= 0);
-        assert_se(streq(n, "mount"));
+        ASSERT_STREQ(n, "mount");
         assert_se(e == -1);
         n = mfree(n);
 
         /* parse_syscall_and_errno() does not check the syscall name is valid or not. */
         assert_se(parse_syscall_and_errno("hoge:255", &n, &e) >= 0);
-        assert_se(streq(n, "hoge"));
+        ASSERT_STREQ(n, "hoge");
         assert_se(e == 255);
         n = mfree(n);
 
         /* 0 is also a valid errno. */
         assert_se(parse_syscall_and_errno("hoge:0", &n, &e) >= 0);
-        assert_se(streq(n, "hoge"));
+        ASSERT_STREQ(n, "hoge");
         assert_se(e == 0);
         n = mfree(n);
 
         assert_se(parse_syscall_and_errno("hoge:kill", &n, &e) >= 0);
-        assert_se(streq(n, "hoge"));
+        ASSERT_STREQ(n, "hoge");
         assert_se(e == SECCOMP_ERROR_NUMBER_KILL);
         n = mfree(n);
 
@@ -151,7 +151,7 @@ TEST(architecture_table) {
                 assert_se(seccomp_arch_from_string(n, &c) >= 0);
                 n2 = seccomp_arch_to_string(c);
                 log_info("seccomp-arch: %s → 0x%"PRIx32" → %s", n, c, n2);
-                assert_se(streq_ptr(n, n2));
+                ASSERT_STREQ(n, n2);
         }
 }
 
@@ -231,11 +231,11 @@ TEST(filter_sets) {
 TEST(filter_sets_ordered) {
         /* Ensure "@default" always remains at the beginning of the list */
         assert_se(SYSCALL_FILTER_SET_DEFAULT == 0);
-        assert_se(streq(syscall_filter_sets[0].name, "@default"));
+        ASSERT_STREQ(syscall_filter_sets[0].name, "@default");
 
         /* Ensure "@known" always remains at the end of the list */
         assert_se(SYSCALL_FILTER_SET_KNOWN == _SYSCALL_FILTER_SET_MAX - 1);
-        assert_se(streq(syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].name, "@known"));
+        ASSERT_STREQ(syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].name, "@known");
 
         for (size_t i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
                 const char *p = NULL;
@@ -294,7 +294,7 @@ TEST(restrict_namespace) {
         s = mfree(s);
 
         assert_se(namespace_flags_to_string(NAMESPACE_FLAGS_ALL, &s) == 0);
-        assert_se(streq(s, "cgroup ipc net mnt pid user uts"));
+        ASSERT_STREQ(s, "cgroup ipc net mnt pid user uts");
         assert_se(namespace_flags_from_string(s, &ul) == 0 && ul == NAMESPACE_FLAGS_ALL);
         s = mfree(s);
 
