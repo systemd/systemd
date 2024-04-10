@@ -16,7 +16,7 @@ static void test_config_parse_path_one(const char *rvalue, const char *expected)
         _cleanup_free_ char *path = NULL;
 
         assert_se(config_parse_path("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &path, NULL) >= 0);
-        assert_se(streq_ptr(expected, path));
+        ASSERT_STREQ(expected, path);
 }
 
 static void test_config_parse_log_level_one(const char *rvalue, int expected) {
@@ -352,27 +352,27 @@ static void test_config_parse_one(unsigned i, const char *s) {
         switch (i) {
         case 0 ... 4:
                 assert_se(r == 1);
-                assert_se(streq(setting1, "1"));
+                ASSERT_STREQ(setting1, "1");
                 break;
 
         case 5 ... 10:
                 assert_se(r == 1);
-                assert_se(streq(setting1, "1 2 3"));
+                ASSERT_STREQ(setting1, "1 2 3");
                 break;
 
         case 11:
                 assert_se(r == 1);
-                assert_se(streq(setting1, "1\\\\ \\\\2"));
+                ASSERT_STREQ(setting1, "1\\\\ \\\\2");
                 break;
 
         case 12:
                 assert_se(r == 1);
-                assert_se(streq(setting1, x1000("ABCD")));
+                ASSERT_STREQ(setting1, x1000("ABCD"));
                 break;
 
         case 13 ... 14:
                 assert_se(r == 1);
-                assert_se(streq(setting1, x1000("ABCD") " foobar"));
+                ASSERT_STREQ(setting1, x1000("ABCD") " foobar");
                 break;
 
         case 15 ... 16:
@@ -382,7 +382,7 @@ static void test_config_parse_one(unsigned i, const char *s) {
 
         case 17:
                 assert_se(r == 1);
-                assert_se(streq(setting1, "2"));
+                ASSERT_STREQ(setting1, "2");
                 break;
         }
 }
@@ -443,12 +443,12 @@ TEST(config_parse_standard_file_with_dropins_full) {
                         /* ret_stats_by_path= */ NULL,
                         /* ret_dropin_files= */ &dropins);
         assert_se(r >= 0);
-        assert_se(streq_ptr(A, "aaa"));
-        assert_se(streq_ptr(B, "bbb"));
-        assert_se(streq_ptr(C, "c1"));
-        assert_se(streq_ptr(D, "ddd"));
-        assert_se(streq_ptr(E, "eee"));
-        assert_se(streq_ptr(F, NULL));
+        ASSERT_STREQ(A, "aaa");
+        ASSERT_STREQ(B, "bbb");
+        ASSERT_STREQ(C, "c1");
+        ASSERT_STREQ(D, "ddd");
+        ASSERT_STREQ(E, "eee");
+        ASSERT_STREQ(F, NULL);
 
         A = mfree(A);
         B = mfree(B);
@@ -482,12 +482,12 @@ TEST(config_parse_standard_file_with_dropins_full) {
                         /* ret_stats_by_path= */ NULL,
                         /* ret_dropin_files= */ NULL);
         assert_se(r >= 0);
-        assert_se(streq_ptr(A, "aaa"));
-        assert_se(streq_ptr(B, "bbb"));
-        assert_se(streq_ptr(C, "c1"));
-        assert_se(streq_ptr(D, "ddd"));
-        assert_se(streq_ptr(E, "eee"));
-        assert_se(streq_ptr(F, NULL));
+        ASSERT_STREQ(A, "aaa");
+        ASSERT_STREQ(B, "bbb");
+        ASSERT_STREQ(C, "c1");
+        ASSERT_STREQ(D, "ddd");
+        ASSERT_STREQ(E, "eee");
+        ASSERT_STREQ(F, NULL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

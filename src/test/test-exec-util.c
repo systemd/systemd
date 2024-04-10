@@ -195,7 +195,7 @@ TEST(execution_order) {
         execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         assert_se(read_full_file(output, &contents, NULL) >= 0);
-        assert_se(streq(contents, "30-override\n80-foo\n90-bar\nlast\n"));
+        ASSERT_STREQ(contents, "30-override\n80-foo\n90-bar\nlast\n");
 }
 
 static int gather_stdout_one(int fd, void *arg) {
@@ -279,7 +279,7 @@ TEST(stdout_gathering) {
 
         log_info("got: %s", output);
 
-        assert_se(streq(output, "a\nb\nc\nd\n"));
+        ASSERT_STREQ(output, "a\nb\nc\nd\n");
 }
 
 TEST(environment_gathering) {
@@ -346,10 +346,10 @@ TEST(environment_gathering) {
         STRV_FOREACH(p, env)
                 log_info("got env: \"%s\"", *p);
 
-        assert_se(streq(strv_env_get(env, "A"), "22:23:24"));
-        assert_se(streq(strv_env_get(env, "B"), "12"));
-        assert_se(streq(strv_env_get(env, "C"), "001"));
-        assert_se(streq(strv_env_get(env, "PATH"), "no-sh-built-in-path:/no/such/file"));
+        ASSERT_STREQ(strv_env_get(env, "A"), "22:23:24");
+        ASSERT_STREQ(strv_env_get(env, "B"), "12");
+        ASSERT_STREQ(strv_env_get(env, "C"), "001");
+        ASSERT_STREQ(strv_env_get(env, "PATH"), "no-sh-built-in-path:/no/such/file");
 
         /* now retest with "default" path passed in, as created by
          * manager_default_environment */
@@ -363,10 +363,10 @@ TEST(environment_gathering) {
         STRV_FOREACH(p, env)
                 log_info("got env: \"%s\"", *p);
 
-        assert_se(streq(strv_env_get(env, "A"), "22:23:24"));
-        assert_se(streq(strv_env_get(env, "B"), "12"));
-        assert_se(streq(strv_env_get(env, "C"), "001"));
-        assert_se(streq(strv_env_get(env, "PATH"), DEFAULT_PATH ":/no/such/file"));
+        ASSERT_STREQ(strv_env_get(env, "A"), "22:23:24");
+        ASSERT_STREQ(strv_env_get(env, "B"), "12");
+        ASSERT_STREQ(strv_env_get(env, "C"), "001");
+        ASSERT_STREQ(strv_env_get(env, "PATH"), DEFAULT_PATH ":/no/such/file");
 
         /* reset environ PATH */
         assert_se(set_unset_env("PATH", old, true) == 0);

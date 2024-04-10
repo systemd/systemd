@@ -81,7 +81,7 @@ static void test_in_addr_prefix_to_string_valid(int family, const char *p) {
         log_info("%s: %s", __func__, p);
 
         assert_se(in_addr_prefix_from_string(p, family, &u, &l) >= 0);
-        assert_se(streq(p, IN_ADDR_PREFIX_TO_STRING(family, &u, l)));
+        ASSERT_STREQ(p, IN_ADDR_PREFIX_TO_STRING(family, &u, l));
 }
 
 static void test_in_addr_prefix_to_string_unoptimized(int family, const char *p) {
@@ -97,7 +97,7 @@ static void test_in_addr_prefix_to_string_unoptimized(int family, const char *p)
         const char *str2 = IN_ADDR_PREFIX_TO_STRING(family, &u2, len2);
         assert_se(str2);
 
-        assert_se(streq(str1, str2));
+        ASSERT_STREQ(str1, str2);
         assert_se(len1 == len2);
         assert_se(in_addr_equal(family, &u1, &u2) > 0);
 }
@@ -340,9 +340,9 @@ static void test_in_addr_to_string_one(int f, const char *addr) {
         assert_se(in_addr_from_string(f, addr, &ua) >= 0);
         assert_se(in_addr_to_string(f, &ua, &r) >= 0);
         printf("%s: %s == %s\n", __func__, addr, r);
-        assert_se(streq(addr, r));
+        ASSERT_STREQ(addr, r);
 
-        assert_se(streq(r, IN_ADDR_TO_STRING(f, &ua)));
+        ASSERT_STREQ(r, IN_ADDR_TO_STRING(f, &ua));
 }
 
 TEST(in_addr_to_string) {
@@ -391,7 +391,7 @@ TEST(in_addr_prefixlen_to_netmask) {
                 assert_se(in_addr_prefixlen_to_netmask(AF_INET, &addr, prefixlen) >= 0);
                 assert_se(in_addr_to_string(AF_INET, &addr, &result) >= 0);
                 printf("test_in_addr_prefixlen_to_netmask: %s == %s\n", ipv4_netmasks[prefixlen], result);
-                assert_se(streq(ipv4_netmasks[prefixlen], result));
+                ASSERT_STREQ(ipv4_netmasks[prefixlen], result);
         }
 
         for (unsigned char prefixlen = 0; prefixlen <= 128; prefixlen++) {
@@ -401,7 +401,7 @@ TEST(in_addr_prefixlen_to_netmask) {
                 assert_se(in_addr_to_string(AF_INET6, &addr, &result) >= 0);
                 printf("test_in_addr_prefixlen_to_netmask: %s\n", result);
                 if (ipv6_netmasks[prefixlen])
-                        assert_se(streq(ipv6_netmasks[prefixlen], result));
+                        ASSERT_STREQ(ipv6_netmasks[prefixlen], result);
         }
 }
 
