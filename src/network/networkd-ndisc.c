@@ -436,33 +436,6 @@ static int ndisc_redirect_route_new(sd_ndisc_redirect *rd, Route **ret) {
         return 0;
 }
 
-static int ndisc_request_redirect_route(Link *link, sd_ndisc_redirect *rd) {
-        struct in6_addr router, sender;
-        int r;
-
-        assert(link);
-        assert(link->ndisc_default_router);
-        assert(rd);
-
-        r = sd_ndisc_router_get_sender_address(link->ndisc_default_router, &router);
-        if (r < 0)
-                return r;
-
-        r = sd_ndisc_redirect_get_sender_address(rd, &sender);
-        if (r < 0)
-                return r;
-
-        if (!in6_addr_equal(&sender, &router))
-                return 0;
-
-        _cleanup_(route_unrefp) Route *route = NULL;
-        r = ndisc_redirect_route_new(rd, &route);
-        if (r < 0)
-                return r;
-
-        return ndisc_request_route(route, link, NULL);
-}
-
 static int ndisc_remove_redirect_route(Link *link, sd_ndisc_redirect *rd) {
         _cleanup_(route_unrefp) Route *route = NULL;
         int r;
@@ -604,17 +577,25 @@ static int ndisc_redirect_handler(Link *link, sd_ndisc_redirect *rd) {
         if (r <= 0)
                 return r;
 
+        /* First, drop conflicting redirect route, if exists. */
         r = ndisc_redirect_drop_conflict(link, rd);
         if (r < 0)
                 return r;
 
+        /* Then, remember the received message. */
         r = set_ensure_put(&link->ndisc_redirects, &ndisc_redirect_hash_ops, rd);
         if (r < 0)
                 return r;
 
         sd_ndisc_redirect_ref(rd);
 
-        return ndisc_request_redirect_route(link, rd);
+        /* Finally, request the corresponding route. */
+        _cleanup_(route_unrefp) Route *route = NULL;
+        r = ndisc_redirect_route_new(rd, &route);
+        if (r < 0)
+                return r;
+
+        return ndisc_request_route(route, link, NULL);
 }
 
 static int ndisc_drop_redirect(Link *link, const struct in6_addr *router, bool remove) {
