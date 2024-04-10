@@ -6842,13 +6842,11 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     
     def test_dhcp_client_default_use_domains(self):
         def check(self, ipv4, ipv6):
-            os.makedirs(os.path.join(network_unit_dir, '25-dhcp-client.network.d'), exist_ok=True)
-            with open(os.path.join(network_unit_dir, '25-dhcp-client.network.d/override.conf'), mode='w', encoding='utf-8') as f:
-                f.write('[DHCPv4]\nDefaultUseDomains=')
+            with open(os.path.join(networkd_conf_dropin_dir, 'use_domains.conf'), mode='w', encoding='utf-8') as f:
+                f.write('[DHCPv4]\nUseDomains=')
                 f.write('yes' if ipv4 else 'no')
-                f.write('\n[DHCPv6]\nDefaultUseDomains=')
+                f.write('\n[DHCPv6]\nUseDomains=')
                 f.write('yes' if ipv6 else 'no')
-                f.write('\n[IPv6AcceptRA]\nDefaultUseDomains=no')
             
             networkctl_reload()
             self.wait_online('veth99:routable')
@@ -6872,7 +6870,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
             check_json(networkctl_json())
 
-        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network', copy_dropins=False)
+        mkdir_p(networkd_conf_dropin_dir)
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network')
 
         start_networkd()
         self.wait_online('veth-peer:carrier')
