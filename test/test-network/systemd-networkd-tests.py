@@ -6849,6 +6849,13 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                 f.write('\n[DHCPv6]\nDefaultUseDomains=')
                 f.write('yes' if ipv6 else 'no')
                 f.write('\n[IPv6AcceptRA]\nDefaultUseDomains=no')
+            
+            networkctl_reload()
+            self.wait_online('veth99:routable')
+
+            # link becomes 'routable' when at least one protocol provide an valid address. Hence, we need to explicitly wait for both addresses.
+            self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic', ipv='-4')
+            self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
 
             networkctl_reload()
 
