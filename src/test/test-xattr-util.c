@@ -26,7 +26,7 @@ TEST(getxattr_at_malloc) {
         fd = mkdtemp_open("/var/tmp/test-xattrtestXXXXXX", O_RDONLY|O_NOCTTY, &t);
         assert_se(fd >= 0);
         x = strjoina(t, "/test");
-        assert_se(touch(x) >= 0);
+        ASSERT_OK_ERRNO(touch(x));
 
         r = setxattr(x, "user.foo", "bar", 3, 0);
         if (r < 0 && ERRNO_IS_NOT_SUPPORTED(errno))
@@ -95,7 +95,7 @@ TEST(xsetxattr) {
         dfd = mkdtemp_open("/var/tmp/test-xattrtestXXXXXX", O_PATH, &t);
         assert_se(dfd >= 0);
         x = strjoina(t, "/test");
-        assert_se(touch(x) >= 0);
+        ASSERT_OK_ERRNO(touch(x));
 
         /* by full path */
         r = xsetxattr(AT_FDCWD, x, "user.foo", "fullpath", SIZE_MAX, 0);

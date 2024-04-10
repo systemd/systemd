@@ -38,7 +38,7 @@ TEST(readlink_and_make_absolute) {
         name_alias = strjoina(arg_test_dir ?: "/tmp", "/test-readlink_and_make_absolute-alias");
 
         assert_se(mkdir_safe(tempdir, 0755, getuid(), getgid(), MKDIR_WARN_MODE) >= 0);
-        assert_se(touch(name) >= 0);
+        ASSERT_OK_ERRNO(touch(name));
 
         if (symlink(name, name_alias) < 0) {
                 assert_se(IN_SET(errno, EINVAL, ENOSYS, ENOTTY, EPERM));
@@ -316,7 +316,7 @@ TEST(rename_noreplace) {
         assert_se(mkdtemp_malloc(j, &z) >= 0);
 
         j = strjoina(z, table[0]);
-        assert_se(touch(j) >= 0);
+        ASSERT_OK_ERRNO(touch(j));
 
         j = strjoina(z, table[1]);
         assert_se(mkdir(j, 0777) >= 0);

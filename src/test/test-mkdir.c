@@ -59,7 +59,7 @@ TEST(mkdir_p_safe) {
         q = mfree(q);
         assert_se(p = path_join(tmp, "regular-file"));
         assert_se(q = path_join(p, "aaa"));
-        assert_se(touch(p) >= 0);
+        ASSERT_OK_ERRNO(touch(p));
         assert_se(mkdir_p_safe(p, q, 0755, UID_INVALID, GID_INVALID, 0) == -ENOTDIR);
 
         p = mfree(p);
@@ -119,7 +119,7 @@ TEST(mkdir_p_root) {
 
         p = mfree(p);
         assert_se(p = path_join(tmp, "regular-file"));
-        assert_se(touch(p) >= 0);
+        ASSERT_OK_ERRNO(touch(p));
         assert_se(mkdir_p_root(p, "/aaa", UID_INVALID, GID_INVALID, 0755, NULL) == -ENOTDIR);
 
         /* FIXME: The tests below do not work.
