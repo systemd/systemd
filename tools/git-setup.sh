@@ -10,10 +10,19 @@ if [ -e .git ]; then
     git config push.recurseSubmodules no
 fi
 
-if [ ! -f .git/hooks/pre-commit.sample ] || [ -f .git/hooks/pre-commit ]; then
-    exit 2 # not needed
+ret=2
+
+if [ -f .git/hooks/pre-commit.sample ] && [ ! -f .git/hooks/pre-commit ]; then
+    cp -p .git/hooks/pre-commit.sample .git/hooks/pre-commit
+    chmod +x .git/hooks/pre-commit
+    echo 'Activated pre-commit hook'
+    ret=0
 fi
 
-cp -p .git/hooks/pre-commit.sample .git/hooks/pre-commit
-chmod +x .git/hooks/pre-commit
-echo 'Activated pre-commit hook'
+if [ ! -f .git/hooks/post-rewrite ]; then
+    cp -p tools/git-post-rewrite-hook.sh .git/hooks/post-rewrite
+    echo 'Activated post-rewrite hook'
+    ret=0
+fi
+
+exit $ret
