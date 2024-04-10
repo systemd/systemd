@@ -55,13 +55,18 @@ int ndisc_redirect_parse(sd_ndisc *nd, sd_ndisc_redirect *rd) {
         rd->target_address = a->nd_rd_target;
         rd->destination_address = a->nd_rd_dst;
 
-        if (in6_addr_is_null(&rd->target_address) || in6_addr_is_multicast(&rd->target_address))
-                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
-                                       "Received Redirect message with an invalid target address, ignoring datagram: %m");
-
+        /* RFC 4861 section 8.1
+         * The ICMP Destination Address field in the redirect message does not contain a multicast address. */
         if (in6_addr_is_null(&rd->destination_address) || in6_addr_is_multicast(&rd->destination_address))
                 return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
                                        "Received Redirect message with an invalid destination address, ignoring datagram: %m");
+
+        /* RFC 4861 section 8.1
+         * The ICMP Target Address is either a link-local address (when redirected to a router) or the same
+         * as the ICMP Destination Address (when redirected to the on-link destination). */
+        if (!in6_addr_is_link_local(&rd->target_address) && !in6_addr_equal(&rd->target_address, &rd->destination_address))
+                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                       "Received Redirect message with an invalid target address, ignoring datagram: %m");
 
         r = ndisc_parse_options(rd->packet, &rd->options);
         if (r < 0)
