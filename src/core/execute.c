@@ -672,13 +672,19 @@ void exec_command_done_array(ExecCommand *c, size_t n) {
                 exec_command_done(i);
 }
 
+ExecCommand* exec_command_free(ExecCommand *c) {
+        if (!c)
+                return NULL;
+
+        exec_command_done(c);
+        return mfree(c);
+}
+
 ExecCommand* exec_command_free_list(ExecCommand *c) {
         ExecCommand *i;
 
-        while ((i = LIST_POP(command, c))) {
-                exec_command_done(i);
-                free(i);
-        }
+        while ((i = LIST_POP(command, c)))
+                exec_command_free(c);
 
         return NULL;
 }
