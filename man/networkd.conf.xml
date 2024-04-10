@@ -256,6 +256,17 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
           <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultUseDomains=</varname></term>
+          <listitem><para>Global parameter that overwrites the setting of <varname>UseDomains=</varname>.
+          The usage of this paramter is the same as <varname>UseDomains=</varname>. 
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          Defaults to <literal>no</literal>.</para>
+          
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -276,9 +287,10 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
       <varlistentry>
         <term><varname>DUIDType=</varname></term>
         <term><varname>DUIDRawData=</varname></term>
+        <term><varname>DefaultUseDomains=</varname></term>
         <listitem><para>As in the [DHCPv4] section.</para>
 
-        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

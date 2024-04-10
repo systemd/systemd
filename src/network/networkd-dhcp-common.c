@@ -632,6 +632,36 @@ int config_parse_dhcp_use_domains(
         return 0;
 }
 
+int config_parse_default_dhcp_use_domains(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        DHCPUseDomains *use_domains = ASSERT_PTR(data);
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        DHCPUseDomains d = dhcp_use_domains_from_string(rvalue);
+        if (d < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, d,
+                           "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+
+        *use_domains = d;
+
+        return 0;
+}
+
 int config_parse_dhcp_use_ntp(
                 const char* unit,
                 const char *filename,
