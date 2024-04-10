@@ -325,7 +325,7 @@ TEST(extract_first_word) {
         assert_se(extract_first_word(&p, &t, ":", EXTRACT_DONT_COALESCE_SEPARATORS) == 1);
         assert_se(streq(t, ""));
         free(t);
-        assert_se(p == NULL);
+        ASSERT_NULL(p);
 
         assert_se(extract_first_word(&p, &t, ":", EXTRACT_DONT_COALESCE_SEPARATORS) == 0);
         assert_se(!t);
@@ -335,25 +335,25 @@ TEST(extract_first_word) {
         assert_se(extract_first_word(&p, &t, NULL, 0) > 0);
         assert_se(streq(t, "fooxbar"));
         free(t);
-        assert_se(p == NULL);
+        ASSERT_NULL(p);
 
         p = "foo\\xbar";
         assert_se(extract_first_word(&p, &t, NULL, EXTRACT_RETAIN_ESCAPE) > 0);
         assert_se(streq(t, "foo\\xbar"));
         free(t);
-        assert_se(p == NULL);
+        ASSERT_NULL(p);
 
         p = "\\:";
         assert_se(extract_first_word(&p, &t, ":", EXTRACT_UNESCAPE_SEPARATORS) == 1);
         assert_se(streq(t, ":"));
         free(t);
-        assert_se(p == NULL);
+        ASSERT_NULL(p);
 
         p = "a\\:b";
         assert_se(extract_first_word(&p, &t, ":", EXTRACT_UNESCAPE_SEPARATORS) == 1);
         assert_se(streq(t, "a:b"));
         free(t);
-        assert_se(p == NULL);
+        ASSERT_NULL(p);
 
         p = "a\\ b:c";
         assert_se(extract_first_word(&p, &t, WHITESPACE ":", EXTRACT_UNESCAPE_SEPARATORS) == 1);
@@ -362,7 +362,7 @@ TEST(extract_first_word) {
         assert_se(extract_first_word(&p, &t, WHITESPACE ":", EXTRACT_UNESCAPE_SEPARATORS) == 1);
         assert_se(streq(t, "c"));
         free(t);
-        assert_se(p == NULL);
+        ASSERT_NULL(p);
 
         p = "a\\ b:c\\x";
         assert_se(extract_first_word(&p, &t, ":", EXTRACT_UNESCAPE_SEPARATORS) == -EINVAL);
@@ -374,19 +374,19 @@ TEST(extract_first_word) {
         assert_se(extract_first_word(&p, &t, ":", EXTRACT_UNESCAPE_SEPARATORS) == 1);
         assert_se(streq(t, "c\\x"));
         free(t);
-        assert_se(p == NULL);
+        ASSERT_NULL(p);
 
         p = "\\:";
         assert_se(extract_first_word(&p, &t, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS) == 1);
         assert_se(streq(t, ":"));
         free(t);
-        assert_se(p == NULL);
+        ASSERT_NULL(p);
 
         p = "a\\:b";
         assert_se(extract_first_word(&p, &t, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS) == 1);
         assert_se(streq(t, "a:b"));
         free(t);
-        assert_se(p == NULL);
+        ASSERT_NULL(p);
 
         p = "a\\ b:c";
         assert_se(extract_first_word(&p, &t, WHITESPACE ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS) == 1);
@@ -395,7 +395,7 @@ TEST(extract_first_word) {
         assert_se(extract_first_word(&p, &t, WHITESPACE ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS) == 1);
         assert_se(streq(t, "c"));
         free(t);
-        assert_se(p == NULL);
+        ASSERT_NULL(p);
 
         p = "a\\ b:c\\x";
         assert_se(extract_first_word(&p, &t, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS) == -EINVAL);
@@ -407,7 +407,7 @@ TEST(extract_first_word) {
         assert_se(extract_first_word(&p, &t, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS) == 1);
         assert_se(streq(t, "c\\x"));
         free(t);
-        assert_se(p == NULL);
+        ASSERT_NULL(p);
 
         p = "\\:";
         assert_se(extract_first_word(&p, &t, ":", EXTRACT_CUNESCAPE) == -EINVAL);
@@ -426,7 +426,7 @@ TEST(extract_first_word) {
         assert_se(extract_first_word(&p, &t, WHITESPACE ":", EXTRACT_CUNESCAPE) == 1);
         assert_se(streq(t, "c"));
         free(t);
-        assert_se(p == NULL);
+        ASSERT_NULL(p);
 
         p = original = "foobar=\"waldo\"maldo, baldo";
         assert_se(extract_first_word(&p, &t, "=\", ", 0) > 0);

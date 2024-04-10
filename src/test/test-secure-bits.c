@@ -61,7 +61,7 @@ TEST(secure_bits_basic) {
 
         /* Bits to string with check */
         assert_se(secure_bits_to_string_alloc_with_check(INT_MAX, &str) == -EINVAL);
-        assert_se(str == NULL);
+        ASSERT_NULL(str);
         assert_se(secure_bits_to_string_alloc_with_check(
                                 (1 << SECURE_KEEP_CAPS) | (1 << SECURE_KEEP_CAPS_LOCKED),
                                 &str) >= 0);

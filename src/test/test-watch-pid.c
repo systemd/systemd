@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
         assert_se(pid >= 0);
 
         assert_se(hashmap_isempty(m->watch_pids));
-        assert_se(manager_get_unit_by_pid(m, pid) == NULL);
+        ASSERT_NULL(manager_get_unit_by_pid(m, pid));
 
         assert_se(unit_watch_pid(a, pid, false) >= 0);
         assert_se(manager_get_unit_by_pid(m, pid) == a);
@@ -93,10 +93,10 @@ int main(int argc, char *argv[]) {
         assert_se(manager_get_unit_by_pid(m, pid) == c);
 
         unit_unwatch_pid(c, pid);
-        assert_se(manager_get_unit_by_pid(m, pid) == NULL);
+        ASSERT_NULL(manager_get_unit_by_pid(m, pid));
 
         unit_unwatch_pid(c, pid);
-        assert_se(manager_get_unit_by_pid(m, pid) == NULL);
+        ASSERT_NULL(manager_get_unit_by_pid(m, pid));
 
         return 0;
 }

@@ -119,7 +119,7 @@ TEST(setrlimit) {
         assert_se(setrlimit(RLIMIT_NOFILE, &new) >= 0);
 
         assert_se(streq_ptr(rlimit_to_string(RLIMIT_NOFILE), "NOFILE"));
-        assert_se(rlimit_to_string(-1) == NULL);
+        ASSERT_NULL(rlimit_to_string(-1));
 
         assert_se(getrlimit(RLIMIT_NOFILE, &old) == 0);
         assert_se(setrlimit_closest(RLIMIT_NOFILE, &old) == 0);
