@@ -1027,6 +1027,37 @@ static int ndisc_router_process_hop_limit(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
+static int ndisc_router_process_mtu(Link *link, sd_ndisc_router *rt) {
+        uint32_t mtu;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ndisc_use_mtu)
+                return 0;
+
+        /* Ignore the MTU option if the lifetime is zero. */
+        r = sd_ndisc_router_get_lifetime(rt, NULL);
+        if (r <= 0)
+                return r;
+
+        r = sd_ndisc_router_get_mtu(rt, &mtu);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get MTU from RA: %m");
+
+        link->ndisc_mtu = mtu;
+
+        r = link_set_ipv6_mtu(link, LOG_DEBUG);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to apply IPv6 MTU (%"PRIu32"), ignoring: %m", mtu);
+
+        return 0;
+}
+
 static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *rt) {
         usec_t lifetime_valid_usec, lifetime_preferred_usec;
         _cleanup_set_free_ Set *addresses = NULL;
@@ -2098,6 +2129,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
+        r = ndisc_router_process_mtu(link, rt);
+        if (r < 0)
+                return r;
+
         r = ndisc_router_process_options(link, rt);
         if (r < 0)
                 return r;
@@ -2432,6 +2467,7 @@ void ndisc_flush(Link *link) {
         link->ndisc_captive_portals = set_free(link->ndisc_captive_portals);
         link->ndisc_pref64 = set_free(link->ndisc_pref64);
         link->ndisc_redirects = set_free(link->ndisc_redirects);
+        link->ndisc_mtu = 0;
 }
 
 static const char* const ndisc_start_dhcp6_client_table[_IPV6_ACCEPT_RA_START_DHCP6_CLIENT_MAX] = {
