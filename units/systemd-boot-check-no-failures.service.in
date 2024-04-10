@@ -12,8 +12,6 @@ Description=Check if Any System Units Failed
 Documentation=man:systemd-boot-check-no-failures.service(8)
 After=default.target graphical.target multi-user.target
 Before=boot-complete.target
-Conflicts=shutdown.target
-Before=shutdown.target
 
 [Service]
 Type=oneshot
