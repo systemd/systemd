@@ -10,6 +10,7 @@
 #include "hash-funcs.h"
 #include "in-addr-util.h"
 #include "network-util.h"
+#include "networkd-address-generation.h"
 #include "networkd-link.h"
 #include "networkd-util.h"
 #include "time-util.h"
@@ -62,6 +63,9 @@ struct Address {
         /* duplicate_address_detection is only used by static or IPv4 dynamic addresses.
          * To control DAD for IPv6 dynamic addresses, set IFA_F_NODAD to flags. */
         AddressFamily duplicate_address_detection;
+
+        /* Used by address generator. */
+        IPv6Token *token;
 
         /* Called when address become ready */
         address_ready_callback_t callback;
