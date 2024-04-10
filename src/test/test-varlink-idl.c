@@ -123,7 +123,7 @@ static void test_parse_format_one(const VarlinkInterface *iface) {
         assert_se(varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
         assert_se(varlink_idl_consistent(parsed, LOG_ERR) >= 0);
         assert_se(varlink_idl_format(parsed, &text2) >= 0);
-        assert_se(streq(text, text2));
+        ASSERT_STREQ(text, text2);
 }
 
 TEST(parse_format) {
@@ -387,13 +387,13 @@ TEST(validate_method_call) {
                                                 JSON_BUILD_PAIR_UNSIGNED("foo", 8),
                                                 JSON_BUILD_PAIR_UNSIGNED("bar", 9),
                                                 JSON_BUILD_PAIR_STRING("zzz", "pfft"))) >= 0);
-        assert_se(streq_ptr(error_id, VARLINK_ERROR_INVALID_PARAMETER));
+        ASSERT_STREQ(error_id, VARLINK_ERROR_INVALID_PARAMETER);
 
         assert_se(varlink_callb(v, "xyz.TestMethod", &reply, &error_id,
                                 JSON_BUILD_OBJECT(
                                                 JSON_BUILD_PAIR_BOOLEAN("foo", true),
                                                 JSON_BUILD_PAIR_UNSIGNED("bar", 9))) >= 0);
-        assert_se(streq_ptr(error_id, VARLINK_ERROR_INVALID_PARAMETER));
+        ASSERT_STREQ(error_id, VARLINK_ERROR_INVALID_PARAMETER);
 
         assert_se(varlink_send(v, "xyz.Done", NULL) >= 0);
         assert_se(varlink_flush(v) >= 0);

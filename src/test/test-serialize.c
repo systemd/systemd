@@ -32,13 +32,13 @@ TEST(serialize_item) {
 
         _cleanup_free_ char *line1 = NULL, *line2 = NULL, *line3 = NULL, *line4 = NULL;
         assert_se(read_line(f, LONG_LINE_MAX, &line1) > 0);
-        assert_se(streq(line1, "a=bbb"));
+        ASSERT_STREQ(line1, "a=bbb");
         assert_se(read_line(f, LONG_LINE_MAX, &line2) > 0);
-        assert_se(streq(line2, "a=bbb"));
+        ASSERT_STREQ(line2, "a=bbb");
         assert_se(read_line(f, LONG_LINE_MAX, &line3) > 0);
-        assert_se(streq(line3, "c=yes"));
+        ASSERT_STREQ(line3, "c=yes");
         assert_se(read_line(f, LONG_LINE_MAX, &line4) == 0);
-        assert_se(streq(line4, ""));
+        ASSERT_STREQ(line4, "");
 }
 
 TEST(serialize_item_escaped) {
@@ -59,11 +59,11 @@ TEST(serialize_item_escaped) {
 
         _cleanup_free_ char *line1 = NULL, *line2 = NULL, *line3 = NULL;
         assert_se(read_line(f, LONG_LINE_MAX, &line1) > 0);
-        assert_se(streq(line1, "a=bbb"));
+        ASSERT_STREQ(line1, "a=bbb");
         assert_se(read_line(f, LONG_LINE_MAX, &line2) > 0);
-        assert_se(streq(line2, "a=bbb"));
+        ASSERT_STREQ(line2, "a=bbb");
         assert_se(read_line(f, LONG_LINE_MAX, &line3) == 0);
-        assert_se(streq(line3, ""));
+        ASSERT_STREQ(line3, "");
 }
 
 TEST(serialize_usec) {
@@ -83,7 +83,7 @@ TEST(serialize_usec) {
         usec_t x;
 
         assert_se(read_line(f, LONG_LINE_MAX, &line1) > 0);
-        assert_se(streq(line1, "usec2=0"));
+        ASSERT_STREQ(line1, "usec2=0");
         assert_se(deserialize_usec(line1 + 6, &x) == 0);
         assert_se(x == 0);
 
@@ -204,7 +204,7 @@ TEST(serialize_item_hexmem) {
 
         _cleanup_free_ char *line = NULL;
         assert_se(read_line(f, LONG_LINE_MAX, &line) > 0);
-        assert_se(streq(line, "a=ffffff"));
+        ASSERT_STREQ(line, "a=ffffff");
 
 }
 
@@ -222,7 +222,7 @@ TEST(serialize_item_base64mem) {
 
         _cleanup_free_ char *line = NULL;
         assert_se(read_line(f, LONG_LINE_MAX, &line) > 0);
-        assert_se(streq(line, "a=////"));
+        ASSERT_STREQ(line, "a=////");
 }
 
 TEST(serialize_string_set) {

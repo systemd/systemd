@@ -88,18 +88,18 @@ TEST(unit_file_build_name_map) {
 
 TEST(runlevel_to_target) {
         in_initrd_force(false);
-        assert_se(streq_ptr(runlevel_to_target(NULL), NULL));
-        assert_se(streq_ptr(runlevel_to_target("unknown-runlevel"), NULL));
-        assert_se(streq_ptr(runlevel_to_target("rd.unknown-runlevel"), NULL));
-        assert_se(streq_ptr(runlevel_to_target("3"), SPECIAL_MULTI_USER_TARGET));
-        assert_se(streq_ptr(runlevel_to_target("rd.rescue"), NULL));
+        ASSERT_STREQ(runlevel_to_target(NULL), NULL);
+        ASSERT_STREQ(runlevel_to_target("unknown-runlevel"), NULL);
+        ASSERT_STREQ(runlevel_to_target("rd.unknown-runlevel"), NULL);
+        ASSERT_STREQ(runlevel_to_target("3"), SPECIAL_MULTI_USER_TARGET);
+        ASSERT_STREQ(runlevel_to_target("rd.rescue"), NULL);
 
         in_initrd_force(true);
-        assert_se(streq_ptr(runlevel_to_target(NULL), NULL));
-        assert_se(streq_ptr(runlevel_to_target("unknown-runlevel"), NULL));
-        assert_se(streq_ptr(runlevel_to_target("rd.unknown-runlevel"), NULL));
-        assert_se(streq_ptr(runlevel_to_target("3"), NULL));
-        assert_se(streq_ptr(runlevel_to_target("rd.rescue"), SPECIAL_RESCUE_TARGET));
+        ASSERT_STREQ(runlevel_to_target(NULL), NULL);
+        ASSERT_STREQ(runlevel_to_target("unknown-runlevel"), NULL);
+        ASSERT_STREQ(runlevel_to_target("rd.unknown-runlevel"), NULL);
+        ASSERT_STREQ(runlevel_to_target("3"), NULL);
+        ASSERT_STREQ(runlevel_to_target("rd.rescue"), SPECIAL_RESCUE_TARGET);
 }
 
 static int intro(void) {

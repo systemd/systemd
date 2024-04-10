@@ -51,7 +51,7 @@ TEST(getxattr_at_malloc) {
         fd = open(x, O_PATH|O_CLOEXEC);
         assert_se(fd >= 0);
         assert_se(getxattr_at_malloc(fd, NULL, "user.foo", 0, &value) == 3);
-        assert_se(streq(value, "bar"));
+        ASSERT_STREQ(value, "bar");
 }
 
 TEST(getcrtime) {
@@ -83,7 +83,7 @@ static void verify_xattr(int dfd, const char *expected) {
         _cleanup_free_ char *value = NULL;
 
         assert_se(getxattr_at_malloc(dfd, "test", "user.foo", 0, &value) == (int) strlen(expected));
-        assert_se(streq(value, expected));
+        ASSERT_STREQ(value, expected);
 }
 
 TEST(xsetxattr) {

@@ -71,19 +71,19 @@ TEST(parse_env_file) {
         STRV_FOREACH(i, a)
                 log_info("Got: <%s>", *i);
 
-        assert_se(streq_ptr(a[0], "one=BAR"));
-        assert_se(streq_ptr(a[1], "two=bar"));
-        assert_se(streq_ptr(a[2], "three=333\nxxxx"));
-        assert_se(streq_ptr(a[3], "four=44\\\"44"));
-        assert_se(streq_ptr(a[4], "five=55\"55FIVEcinco"));
-        assert_se(streq_ptr(a[5], "six=seis sechs sis"));
-        assert_se(streq_ptr(a[6], "seven=sevenval#nocomment"));
-        assert_se(streq_ptr(a[7], "eight=eightval #nocomment"));
-        assert_se(streq_ptr(a[8], "export nine=nineval"));
-        assert_se(streq_ptr(a[9], "ten="));
-        assert_se(streq_ptr(a[10], "eleven=value"));
-        assert_se(streq_ptr(a[11], "twelve=\\value"));
-        assert_se(streq_ptr(a[12], "thirteen=\\value"));
+        ASSERT_STREQ(a[0], "one=BAR");
+        ASSERT_STREQ(a[1], "two=bar");
+        ASSERT_STREQ(a[2], "three=333\nxxxx");
+        ASSERT_STREQ(a[3], "four=44\\\"44");
+        ASSERT_STREQ(a[4], "five=55\"55FIVEcinco");
+        ASSERT_STREQ(a[5], "six=seis sechs sis");
+        ASSERT_STREQ(a[6], "seven=sevenval#nocomment");
+        ASSERT_STREQ(a[7], "eight=eightval #nocomment");
+        ASSERT_STREQ(a[8], "export nine=nineval");
+        ASSERT_STREQ(a[9], "ten=");
+        ASSERT_STREQ(a[10], "eleven=value");
+        ASSERT_STREQ(a[11], "twelve=\\value");
+        ASSERT_STREQ(a[12], "thirteen=\\value");
         ASSERT_NULL(a[13]);
 
         strv_env_clean(a);
@@ -91,7 +91,7 @@ TEST(parse_env_file) {
         k = 0;
         STRV_FOREACH(i, b) {
                 log_info("Got2: <%s>", *i);
-                assert_se(streq(*i, a[k++]));
+                ASSERT_STREQ(*i, a[k++]);
         }
 
         r = parse_env_file(
@@ -125,19 +125,19 @@ TEST(parse_env_file) {
         log_info("twelve=[%s]", strna(twelve));
         log_info("thirteen=[%s]", strna(thirteen));
 
-        assert_se(streq(one, "BAR"));
-        assert_se(streq(two, "bar"));
-        assert_se(streq(three, "333\nxxxx"));
-        assert_se(streq(four, "44\\\"44"));
-        assert_se(streq(five, "55\"55FIVEcinco"));
-        assert_se(streq(six, "seis sechs sis"));
-        assert_se(streq(seven, "sevenval#nocomment"));
-        assert_se(streq(eight, "eightval #nocomment"));
-        assert_se(streq(nine, "nineval"));
+        ASSERT_STREQ(one, "BAR");
+        ASSERT_STREQ(two, "bar");
+        ASSERT_STREQ(three, "333\nxxxx");
+        ASSERT_STREQ(four, "44\\\"44");
+        ASSERT_STREQ(five, "55\"55FIVEcinco");
+        ASSERT_STREQ(six, "seis sechs sis");
+        ASSERT_STREQ(seven, "sevenval#nocomment");
+        ASSERT_STREQ(eight, "eightval #nocomment");
+        ASSERT_STREQ(nine, "nineval");
         ASSERT_NULL(ten);
-        assert_se(streq(eleven, "value"));
-        assert_se(streq(twelve, "\\value"));
-        assert_se(streq(thirteen, "\\value"));
+        ASSERT_STREQ(eleven, "value");
+        ASSERT_STREQ(twelve, "\\value");
+        ASSERT_STREQ(thirteen, "\\value");
 
         {
                 /* prepare a temporary file to write the environment to */
@@ -161,7 +161,7 @@ static void test_one_shell_var(const char *file, const char *variable, const cha
         assert_se(f = popen(cmd, "re"));
         assert_se(read_full_stream(f, &from_shell, &sz) >= 0);
         assert_se(sz == strlen(value));
-        assert_se(streq(from_shell, value));
+        ASSERT_STREQ(from_shell, value);
 }
 
 TEST(parse_multiline_env_file) {
@@ -198,9 +198,9 @@ TEST(parse_multiline_env_file) {
         STRV_FOREACH(i, a)
                 log_info("Got: <%s>", *i);
 
-        assert_se(streq_ptr(a[0], "one=BAR    VAR\tGAR"));
-        assert_se(streq_ptr(a[1], "two=bar    var\tgar"));
-        assert_se(streq_ptr(a[2], "tri=bar     var \tgar "));
+        ASSERT_STREQ(a[0], "one=BAR    VAR\tGAR");
+        ASSERT_STREQ(a[1], "two=bar    var\tgar");
+        ASSERT_STREQ(a[2], "tri=bar     var \tgar ");
         ASSERT_NULL(a[3]);
 
         {
@@ -246,16 +246,16 @@ TEST(merge_env_file) {
         STRV_FOREACH(i, a)
                 log_info("Got: <%s>", *i);
 
-        assert_se(streq(a[0], "one=2"));
-        assert_se(streq(a[1], "twelve=12"));
-        assert_se(streq(a[2], "twentyone=21"));
-        assert_se(streq(a[3], "twentytwo=22"));
-        assert_se(streq(a[4], "xxx=0x222"));
-        assert_se(streq(a[5], "xxx_minus_three= - 3"));
-        assert_se(streq(a[6], "yyy=2"));
-        assert_se(streq(a[7], "zzz=replacement"));
-        assert_se(streq(a[8], "zzzz="));
-        assert_se(streq(a[9], "zzzzz="));
+        ASSERT_STREQ(a[0], "one=2");
+        ASSERT_STREQ(a[1], "twelve=12");
+        ASSERT_STREQ(a[2], "twentyone=21");
+        ASSERT_STREQ(a[3], "twentytwo=22");
+        ASSERT_STREQ(a[4], "xxx=0x222");
+        ASSERT_STREQ(a[5], "xxx_minus_three= - 3");
+        ASSERT_STREQ(a[6], "yyy=2");
+        ASSERT_STREQ(a[7], "zzz=replacement");
+        ASSERT_STREQ(a[8], "zzzz=");
+        ASSERT_STREQ(a[9], "zzzzz=");
         ASSERT_NULL(a[10]);
 
         r = merge_env_file(&a, NULL, t);
@@ -265,16 +265,16 @@ TEST(merge_env_file) {
         STRV_FOREACH(i, a)
                 log_info("Got2: <%s>", *i);
 
-        assert_se(streq(a[0], "one=2"));
-        assert_se(streq(a[1], "twelve=12"));
-        assert_se(streq(a[2], "twentyone=21"));
-        assert_se(streq(a[3], "twentytwo=22"));
-        assert_se(streq(a[4], "xxx=0x222"));
-        assert_se(streq(a[5], "xxx_minus_three=0x222 - 3"));
-        assert_se(streq(a[6], "yyy=2"));
-        assert_se(streq(a[7], "zzz=replacement"));
-        assert_se(streq(a[8], "zzzz="));
-        assert_se(streq(a[9], "zzzzz="));
+        ASSERT_STREQ(a[0], "one=2");
+        ASSERT_STREQ(a[1], "twelve=12");
+        ASSERT_STREQ(a[2], "twentyone=21");
+        ASSERT_STREQ(a[3], "twentytwo=22");
+        ASSERT_STREQ(a[4], "xxx=0x222");
+        ASSERT_STREQ(a[5], "xxx_minus_three=0x222 - 3");
+        ASSERT_STREQ(a[6], "yyy=2");
+        ASSERT_STREQ(a[7], "zzz=replacement");
+        ASSERT_STREQ(a[8], "zzzz=");
+        ASSERT_STREQ(a[9], "zzzzz=");
         ASSERT_NULL(a[10]);
 }
 
@@ -323,7 +323,7 @@ TEST(executable_is_script) {
 
         r = executable_is_script(t, &command);
         assert_se(r > 0);
-        assert_se(streq(command, "/bin/script"));
+        ASSERT_STREQ(command, "/bin/script");
         free(command);
 
         r = executable_is_script("/bin/sh", &command);
@@ -398,27 +398,27 @@ TEST(read_one_line_file) {
         assert_se(f);
 
         assert_se(read_one_line_file(fn, &buf) == 0);
-        assert_se(streq_ptr(buf, ""));
+        ASSERT_STREQ(buf, "");
         assert_se(read_one_line_file(fn, &buf2) == 0);
-        assert_se(streq_ptr(buf2, ""));
+        ASSERT_STREQ(buf2, "");
 
         assert_se(write_string_stream(f, "x", WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
         fflush(f);
 
         assert_se(read_one_line_file(fn, &buf3) == 1);
-        assert_se(streq_ptr(buf3, "x"));
+        ASSERT_STREQ(buf3, "x");
 
         assert_se(write_string_stream(f, "\n", WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
         fflush(f);
 
         assert_se(read_one_line_file(fn, &buf4) == 2);
-        assert_se(streq_ptr(buf4, "x"));
+        ASSERT_STREQ(buf4, "x");
 
         assert_se(write_string_stream(f, "\n", WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
         fflush(f);
 
         assert_se(read_one_line_file(fn, &buf5) == 2);
-        assert_se(streq_ptr(buf5, "x"));
+        ASSERT_STREQ(buf5, "x");
 }
 
 TEST(write_string_stream) {
@@ -442,7 +442,7 @@ TEST(write_string_stream) {
         rewind(f);
 
         assert_se(fgets(buf, sizeof(buf), f));
-        assert_se(streq(buf, "boohoo\n"));
+        ASSERT_STREQ(buf, "boohoo\n");
         f = safe_fclose(f);
 
         f = fopen(fn, "w+");
@@ -453,7 +453,7 @@ TEST(write_string_stream) {
 
         assert_se(fgets(buf, sizeof(buf), f));
         printf(">%s<", buf);
-        assert_se(streq(buf, "boohoo"));
+        ASSERT_STREQ(buf, "boohoo");
 }
 
 TEST(write_string_file) {
@@ -467,7 +467,7 @@ TEST(write_string_file) {
         assert_se(write_string_file(fn, "boohoo", WRITE_STRING_FILE_CREATE) == 0);
 
         assert_se(read(fd, buf, sizeof(buf)) == 7);
-        assert_se(streq(buf, "boohoo\n"));
+        ASSERT_STREQ(buf, "boohoo\n");
 }
 
 TEST(write_string_file_no_create) {
@@ -482,7 +482,7 @@ TEST(write_string_file_no_create) {
         assert_se(write_string_file(fn, "boohoo", 0) == 0);
 
         assert_se(read(fd, buf, sizeof buf) == (ssize_t) strlen("boohoo\n"));
-        assert_se(streq(buf, "boohoo\n"));
+        ASSERT_STREQ(buf, "boohoo\n");
 }
 
 TEST(write_string_file_verify) {
@@ -578,14 +578,14 @@ TEST(search_and_fopen) {
         r = search_and_fopen(basename(name), "re", NULL, (const char**) dirs, &f, &p);
         assert_se(r >= 0);
         assert_se(e = path_startswith(p, "/tmp/"));
-        assert_se(streq(basename(name), e));
+        ASSERT_STREQ(basename(name), e);
         f = safe_fclose(f);
         p = mfree(p);
 
         r = search_and_fopen(basename(name), NULL, NULL, (const char**) dirs, NULL, &p);
         assert_se(r >= 0);
         assert_se(e = path_startswith(p, "/tmp/"));
-        assert_se(streq(basename(name), e));
+        ASSERT_STREQ(basename(name), e);
         p = mfree(p);
 
         r = search_and_fopen(name, "re", NULL, (const char**) dirs, &f, &p);
@@ -602,14 +602,14 @@ TEST(search_and_fopen) {
         r = search_and_fopen(basename(name), "re", "/", (const char**) dirs, &f, &p);
         assert_se(r >= 0);
         assert_se(e = path_startswith(p, "/tmp/"));
-        assert_se(streq(basename(name), e));
+        ASSERT_STREQ(basename(name), e);
         f = safe_fclose(f);
         p = mfree(p);
 
         r = search_and_fopen(basename(name), NULL, "/", (const char**) dirs, NULL, &p);
         assert_se(r >= 0);
         assert_se(e = path_startswith(p, "/tmp/"));
-        assert_se(streq(basename(name), e));
+        ASSERT_STREQ(basename(name), e);
         p = mfree(p);
 
         r = search_and_fopen("/a/file/which/does/not/exist/i/guess", "re", NULL, (const char**) dirs, &f, &p);
@@ -649,7 +649,7 @@ TEST(search_and_fopen_nulstr) {
         r = search_and_fopen_nulstr(basename(name), "re", NULL, dirs, &f, &p);
         assert_se(r >= 0);
         assert_se(e = path_startswith(p, "/tmp/"));
-        assert_se(streq(basename(name), e));
+        ASSERT_STREQ(basename(name), e);
         f = safe_fclose(f);
         p = mfree(p);
 
@@ -693,18 +693,18 @@ TEST(writing_tmpfile) {
         r = read_full_file(name, &contents, &size);
         assert_se(r == 0);
         printf("contents: %s", contents);
-        assert_se(streq(contents, "abc\n" ALPHANUMERICAL "\n"));
+        ASSERT_STREQ(contents, "abc\n" ALPHANUMERICAL "\n");
 }
 
 TEST(tempfn) {
         char *ret = NULL, *p;
 
         assert_se(tempfn_xxxxxx("/foo/bar/waldo", NULL, &ret) >= 0);
-        assert_se(streq_ptr(ret, "/foo/bar/.#waldoXXXXXX"));
+        ASSERT_STREQ(ret, "/foo/bar/.#waldoXXXXXX");
         free(ret);
 
         assert_se(tempfn_xxxxxx("/foo/bar/waldo", "[miau]", &ret) >= 0);
-        assert_se(streq_ptr(ret, "/foo/bar/.#[miau]waldoXXXXXX"));
+        ASSERT_STREQ(ret, "/foo/bar/.#[miau]waldoXXXXXX");
         free(ret);
 
         assert_se(tempfn_random("/foo/bar/waldo", NULL, &ret) >= 0);
@@ -900,7 +900,7 @@ TEST(read_line4) {
 
                 r = read_line(f, SIZE_MAX, &s);
                 assert_se((size_t) r == eof_endings[i].length);
-                assert_se(streq_ptr(s, "foo"));
+                ASSERT_STREQ(s, "foo");
 
                 assert_se(read_line(f, SIZE_MAX, NULL) == 0); /* Ensure we hit EOF */
         }
@@ -985,7 +985,7 @@ TEST(read_full_file_socket) {
                 assert_se(peer.un.sun_family == AF_UNIX);
                 assert_se(peerlen > offsetof(struct sockaddr_un, sun_path));
                 assert_se(peer.un.sun_path[0] == 0);
-                assert_se(streq(peer.un.sun_path + 1, clientname + 1));
+                ASSERT_STREQ(peer.un.sun_path + 1, clientname + 1);
 
 #define TEST_STR "This is a test\nreally."
 
@@ -996,7 +996,7 @@ TEST(read_full_file_socket) {
         assert_se(read_full_file_full(AT_FDCWD, jj, UINT64_MAX, SIZE_MAX, 0, NULL, &data, &size) == -ENXIO);
         assert_se(read_full_file_full(AT_FDCWD, jj, UINT64_MAX, SIZE_MAX, READ_FULL_FILE_CONNECT_SOCKET, clientname, &data, &size) >= 0);
         assert_se(size == strlen(TEST_STR));
-        assert_se(streq(data, TEST_STR));
+        ASSERT_STREQ(data, TEST_STR);
 
         assert_se(wait_for_terminate_and_check("(server)", pid, WAIT_LOG) >= 0);
 #undef TEST_STR
@@ -1125,7 +1125,7 @@ TEST(fdopen_independent) {
         assert_se(fdopen_independent(fd, "re", &f) >= 0);
         zero(buf);
         assert_se(fread(buf, 1, sizeof(buf), f) == strlen(TEST_TEXT));
-        assert_se(streq(buf, TEST_TEXT));
+        ASSERT_STREQ(buf, TEST_TEXT);
         assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE) == O_RDONLY);
         assert_se(FLAGS_SET(fcntl(fileno(f), F_GETFD), FD_CLOEXEC));
         f = safe_fclose(f);
@@ -1133,7 +1133,7 @@ TEST(fdopen_independent) {
         assert_se(fdopen_independent(fd, "r", &f) >= 0);
         zero(buf);
         assert_se(fread(buf, 1, sizeof(buf), f) == strlen(TEST_TEXT));
-        assert_se(streq(buf, TEST_TEXT));
+        ASSERT_STREQ(buf, TEST_TEXT);
         assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE) == O_RDONLY);
         assert_se(!FLAGS_SET(fcntl(fileno(f), F_GETFD), FD_CLOEXEC));
         f = safe_fclose(f);
@@ -1141,7 +1141,7 @@ TEST(fdopen_independent) {
         assert_se(fdopen_independent(fd, "r+e", &f) >= 0);
         zero(buf);
         assert_se(fread(buf, 1, sizeof(buf), f) == strlen(TEST_TEXT));
-        assert_se(streq(buf, TEST_TEXT));
+        ASSERT_STREQ(buf, TEST_TEXT);
         assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE) == O_RDWR);
         assert_se(FLAGS_SET(fcntl(fileno(f), F_GETFD), FD_CLOEXEC));
         f = safe_fclose(f);

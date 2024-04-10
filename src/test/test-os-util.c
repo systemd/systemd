@@ -39,8 +39,8 @@ TEST(parse_os_release) {
         ASSERT_EQ(setenv("SYSTEMD_OS_RELEASE", tmpfile, 1), 0);
         ASSERT_EQ(parse_os_release(NULL, "ID", &id, "NAME", &name), 0);
         log_info("ID: %s NAME: %s", id, name);
-        assert_se(streq(id, "the-id"));
-        assert_se(streq(name, "the-name"));
+        ASSERT_STREQ(id, "the-id");
+        ASSERT_STREQ(name, "the-name");
 
         _cleanup_(unlink_tempfilep) char tmpfile2[] = "/tmp/test-os-util.XXXXXX";
         ASSERT_EQ(write_tmpfile(tmpfile2,
@@ -51,8 +51,8 @@ TEST(parse_os_release) {
         ASSERT_EQ(setenv("SYSTEMD_OS_RELEASE", tmpfile2, 1), 0);
         ASSERT_EQ(parse_os_release(NULL, "ID", &id, "NAME", &name), 0);
         log_info("ID: %s NAME: %s", id, name);
-        assert_se(streq(id, "the-id"));
-        assert_se(streq(name, "the-name"));
+        ASSERT_STREQ(id, "the-id");
+        ASSERT_STREQ(name, "the-name");
 
         ASSERT_EQ(parse_os_release(NULL, "FOOBAR", &foobar), 0);
         log_info("FOOBAR: %s", strnull(foobar));
@@ -80,8 +80,8 @@ TEST(parse_extension_release) {
 
         assert_se(parse_extension_release(tempdir, IMAGE_SYSEXT, "test", false, "ID", &id, "VERSION_ID", &version_id) == 0);
         log_info("ID: %s VERSION_ID: %s", id, version_id);
-        assert_se(streq(id, "the-id"));
-        assert_se(streq(version_id, "the-version-id"));
+        ASSERT_STREQ(id, "the-id");
+        ASSERT_STREQ(version_id, "the-version-id");
 
         assert_se(b = path_join(tempdir, "/etc/extension-release.d/extension-release.tester"));
         assert_se(mkdir_parents(b, 0777) >= 0);
@@ -92,8 +92,8 @@ TEST(parse_extension_release) {
 
         ASSERT_EQ(parse_extension_release(tempdir, IMAGE_CONFEXT, "tester", false, "ID", &id, "VERSION_ID", &version_id), 0);
         log_info("ID: %s VERSION_ID: %s", id, version_id);
-        assert_se(streq(id, "the-id"));
-        assert_se(streq(version_id, "the-version-id"));
+        ASSERT_STREQ(id, "the-id");
+        ASSERT_STREQ(version_id, "the-version-id");
 
         assert_se(parse_extension_release(tempdir, IMAGE_CONFEXT, "tester", false, "FOOBAR", &foobar) == 0);
         log_info("FOOBAR: %s", strnull(foobar));

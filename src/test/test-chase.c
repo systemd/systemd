@@ -23,7 +23,7 @@ static void test_chase_extract_filename_one(const char *path, const char *root, 
         log_debug("/* %s(path=%s, root=%s) */", __func__, path, strnull(root));
 
         assert_se(chase(path, root, CHASE_EXTRACT_FILENAME, &ret1, NULL) > 0);
-        assert_se(streq(ret1, expected));
+        ASSERT_STREQ(ret1, expected);
 
         assert_se(chase(path, root, 0, &ret2, NULL) > 0);
         ASSERT_OK(chase_extract_filename(ret2, root, &fname));
@@ -173,7 +173,7 @@ TEST(chase) {
         r = chase(p, NULL, 0, &result, NULL);
         assert_se(r > 0);
         assert_se(path_equal(result, "/usr"));
-        assert_se(streq(result, "/usr")); /* we guarantee that we drop redundant slashes */
+        ASSERT_STREQ(result, "/usr"); /* we guarantee that we drop redundant slashes */
         result = mfree(result);
 
         r = chase(p, temp, 0, &result, NULL);
@@ -718,7 +718,7 @@ TEST(chaseat_prefix_root) {
 
         assert_se(chaseat_prefix_root("./hoge/aaa/../././b", "a/b//./c///", &ret) >= 0);
         assert_se(expected = path_join(cwd, "a/b/c/hoge/aaa/../././b"));
-        assert_se(streq(ret, expected));
+        ASSERT_STREQ(ret, expected);
 }
 
 TEST(trailing_dot_dot) {

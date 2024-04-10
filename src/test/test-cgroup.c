@@ -15,8 +15,8 @@ TEST(cg_split_spec) {
         char *c, *p;
 
         assert_se(cg_split_spec("foobar:/", &c, &p) == 0);
-        assert_se(streq(c, "foobar"));
-        assert_se(streq(p, "/"));
+        ASSERT_STREQ(c, "foobar");
+        ASSERT_STREQ(p, "/");
         c = mfree(c);
         p = mfree(p);
 
@@ -32,11 +32,11 @@ TEST(cg_split_spec) {
 
         assert_se(cg_split_spec("/", &c, &p) >= 0);
         ASSERT_NULL(c);
-        assert_se(streq(p, "/"));
+        ASSERT_STREQ(p, "/");
         p = mfree(p);
 
         assert_se(cg_split_spec("foo", &c, &p) >= 0);
-        assert_se(streq(c, "foo"));
+        ASSERT_STREQ(c, "foo");
         ASSERT_NULL(p);
         c = mfree(c);
 }
@@ -79,7 +79,7 @@ TEST(cg_create) {
         assert_se(cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, test_b, 0) == 0);
 
         assert_se(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path) == 0);
-        assert_se(streq(path, test_b));
+        ASSERT_STREQ(path, test_b);
         free(path);
 
         assert_se(cg_attach(SYSTEMD_CGROUP_CONTROLLER, test_a, 0) == 0);

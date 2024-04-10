@@ -21,7 +21,7 @@ TEST(cap_list) {
 
         assert_se(!CAPABILITY_TO_STRING(-1));
         if (capability_list_length() <= 62)
-                assert_se(streq(CAPABILITY_TO_STRING(62), "0x3e"));
+                ASSERT_STREQ(CAPABILITY_TO_STRING(62), "0x3e");
         assert_se(!CAPABILITY_TO_STRING(64));
 
         for (int i = 0; i < capability_list_length(); i++) {
@@ -31,7 +31,7 @@ TEST(cap_list) {
                 assert_se(capability_from_name(n) == i);
                 printf("%s = %i\n", n, i);
 
-                assert_se(streq(CAPABILITY_TO_STRING(i), n));
+                ASSERT_STREQ(CAPABILITY_TO_STRING(i), n);
         }
 
         assert_se(capability_from_name("asdfbsd") == -EINVAL);
@@ -70,7 +70,7 @@ static void test_capability_set_one(uint64_t c, const char *t) {
         uint64_t c1, c_masked = c & all_capabilities();
 
         assert_se(capability_set_to_string(c, &t1) == 0);
-        assert_se(streq(t1, t));
+        ASSERT_STREQ(t1, t);
 
         assert_se(capability_set_from_string(t1, &c1) > 0);
         assert_se(c1 == c_masked);

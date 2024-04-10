@@ -135,7 +135,7 @@ static void test_cg_mask_to_string_one(CGroupMask mask, const char *t) {
         _cleanup_free_ char *b = NULL;
 
         assert_se(cg_mask_to_string(mask, &b) >= 0);
-        assert_se(streq_ptr(b, t));
+        ASSERT_STREQ(b, t);
 }
 
 TEST(cg_mask_to_string) {
@@ -157,7 +157,7 @@ TEST(cg_mask_to_string) {
 }
 
 static void cgroup_device_permissions_test_normalize(const char *a, const char *b) {
-        assert_se(streq_ptr(cgroup_device_permissions_to_string(cgroup_device_permissions_from_string(a)), b));
+        ASSERT_STREQ(cgroup_device_permissions_to_string(cgroup_device_permissions_from_string(a)), b);
 }
 
 TEST(cgroup_device_permissions) {
