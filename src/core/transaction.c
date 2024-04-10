@@ -446,10 +446,10 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
          * the graph over 'before' edges in the actual job execution order. We traverse over both unit
          * ordering dependencies and we test with job_compare() whether it is the 'before' edge in the job
          * execution ordering. */
-        for (size_t d = 0; d < ELEMENTSOF(directions); d++) {
+        FOREACH_ARRAY(d, directions, ELEMENTSOF(directions)) {
                 Unit *u;
 
-                UNIT_FOREACH_DEPENDENCY(u, j->unit, directions[d]) {
+                UNIT_FOREACH_DEPENDENCY(u, j->unit, *d) {
                         Job *o;
 
                         /* Is there a job for this unit? */
@@ -463,7 +463,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                         }
 
                         /* Cut traversing if the job j is not really *before* o. */
-                        if (job_compare(j, o, directions[d]) >= 0)
+                        if (job_compare(j, o, *d) >= 0)
                                 continue;
 
                         r = transaction_verify_order_one(tr, o, j, generation, e);
