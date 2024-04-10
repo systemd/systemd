@@ -5499,6 +5499,9 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2002:da8:1:0')
 
+        self.check_ipv6_neigh_sysctl_attr('veth99', 'base_reachable_time_ms', '42000')
+        self.check_ipv6_neigh_sysctl_attr('veth99', 'retrans_time_ms', '500')
+
         self.check_netlabel('veth99', '2002:da8:1::/64')
         self.check_netlabel('veth99', '2002:da8:2::/64')
 
@@ -5572,15 +5575,91 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.wait_route_dropped('veth99', 'proto redirect', ipv='-6', timeout_sec=10)
         self.wait_route_dropped('veth99', 'proto ra', ipv='-6', timeout_sec=10)
 
+    def check_ndisc_mtu(self, mtu):
+        for _ in range(20):
+            output = read_ipv6_sysctl_attr('veth99', 'mtu')
+            if output == f'{mtu}':
+                return
+            time.sleep(0.5)
+        else:
+            self.fail(f'IPv6 MTU does not matches: value={output}, expected={mtu}')
+
+    def test_ndisc_mtu(self):
+        if not os.path.exists(test_ndisc_send):
+            self.skipTest(f"{test_ndisc_send} does not exist.")
+
+        copy_network_unit('25-veth.netdev',
+                          '25-veth-peer-no-address.network',
+                          '25-ipv6-prefix-veth-token-static.network')
+        start_networkd()
+        self.wait_online('veth-peer:degraded')
+
+        for _ in range(20):
+            output = read_networkd_log()
+            if 'veth99: NDISC: Started IPv6 Router Solicitation client' in output:
+                break
+            time.sleep(0.5)
+        else:
+            self.fail('sd-ndisc does not started on veth99.')
+
+        check_output(f'{test_ndisc_send} --interface veth-peer --type ra --lifetime 1hour --mtu 1400')
+        self.check_ndisc_mtu(1400)
+
+        check_output(f'{test_ndisc_send} --interface veth-peer --type ra --lifetime 1hour --mtu 1410')
+        self.check_ndisc_mtu(1410)
+
+        check_output('ip link set dev veth99 mtu 1600')
+        self.check_ndisc_mtu(1410)
+
+        check_output(f'{test_ndisc_send} --interface veth-peer --type ra --lifetime 1hour --mtu 1700')
+        self.check_ndisc_mtu(1600)
+
+        check_output('ip link set dev veth99 mtu 1800')
+        self.check_ndisc_mtu(1700)
+
     def test_ipv6_token_prefixstable(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-prefixstable.network')
         start_networkd()
         self.wait_online('veth99:routable', 'veth-peer:degraded')
 
-        output = networkctl_status('veth99')
+        output = check_output('ip -6 address show dev veth99')
         print(output)
-        self.assertIn('2002:da8:1:0:b47e:7975:fc7a:7d6e', output)
-        self.assertIn('2002:da8:2:0:1034:56ff:fe78:9abc', output) # EUI64
+        self.assertIn('2002:da8:1:0:b47e:7975:fc7a:7d6e/64', output) # the 1st prefixstable
+        self.assertIn('2002:da8:2:0:1034:56ff:fe78:9abc/64', output) # EUI64
+
+        with open(os.path.join(network_unit_dir, '25-ipv6-prefix-veth-token-prefixstable.network'), mode='a', encoding='utf-8') as f:
+            f.write('\n[IPv6AcceptRA]\nPrefixAllowList=2002:da8:1:0::/64\n')
+
+        networkctl_reload()
+        self.wait_online('veth99:routable')
+
+        output = check_output('ip -6 address show dev veth99')
+        print(output)
+        self.assertIn('2002:da8:1:0:b47e:7975:fc7a:7d6e/64', output) # the 1st prefixstable
+        self.assertNotIn('2002:da8:2:0:1034:56ff:fe78:9abc/64', output) # EUI64
+
+        check_output('ip address del 2002:da8:1:0:b47e:7975:fc7a:7d6e/64 dev veth99')
+        check_output('ip address add 2002:da8:1:0:b47e:7975:fc7a:7d6e/64 dev veth-peer nodad')
+
+        networkctl_reconfigure('veth99')
+        self.wait_online('veth99:routable')
+
+        output = check_output('ip -6 address show dev veth99')
+        print(output)
+        self.assertNotIn('2002:da8:1:0:b47e:7975:fc7a:7d6e/64', output) # the 1st prefixstable
+        self.assertIn('2002:da8:1:0:da5d:e50a:43fd:5d0f/64', output) # the 2nd prefixstable
+
+        check_output('ip address del 2002:da8:1:0:da5d:e50a:43fd:5d0f/64 dev veth99')
+        check_output('ip address add 2002:da8:1:0:da5d:e50a:43fd:5d0f/64 dev veth-peer nodad')
+
+        networkctl_reconfigure('veth99')
+        self.wait_online('veth99:routable')
+
+        output = check_output('ip -6 address show dev veth99')
+        print(output)
+        self.assertNotIn('2002:da8:1:0:b47e:7975:fc7a:7d6e/64', output) # the 1st prefixstable
+        self.assertNotIn('2002:da8:1:0:da5d:e50a:43fd:5d0f/64', output) # the 2nd prefixstable
+        self.assertIn('2002:da8:1:0:c7e4:77ec:eb31:1b0d/64', output) # the 3rd prefixstable
 
     def test_ipv6_token_prefixstable_without_address(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-prefixstable-without-address.network')

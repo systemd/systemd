@@ -206,7 +206,8 @@ int sd_ipv4ll_set_address_seed(sd_ipv4ll *ll, uint64_t seed) {
 }
 
 int sd_ipv4ll_is_running(sd_ipv4ll *ll) {
-        assert_return(ll, false);
+        if (!ll)
+                return false;
 
         return sd_ipv4acd_is_running(ll->acd);
 }

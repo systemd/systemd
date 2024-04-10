@@ -207,7 +207,7 @@ static int vl_method_set_persistent_storage(Varlink *vlink, JsonVariant *paramet
                 }
 
                 if (fstat(fd, &st) < 0)
-                        return log_warning_errno(r, "Failed to stat the passed persistent storage fd: %m");
+                        return log_warning_errno(errno, "Failed to stat the passed persistent storage fd: %m");
 
                 r = stat_verify_directory(&st);
                 if (r < 0)
