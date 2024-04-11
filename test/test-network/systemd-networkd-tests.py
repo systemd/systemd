@@ -5499,6 +5499,9 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2002:da8:1:0')
 
+        self.check_ipv6_neigh_sysctl_attr('veth99', 'base_reachable_time_ms', '42000')
+        self.check_ipv6_neigh_sysctl_attr('veth99', 'retrans_time_ms', '500')
+
         self.check_netlabel('veth99', '2002:da8:1::/64')
         self.check_netlabel('veth99', '2002:da8:2::/64')
 
@@ -5551,17 +5554,17 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         # Introduce two redirect routes.
         check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address 2002:da8:1:1:1a:2b:3c:4d --redirect-destination 2002:da8:1:1:1a:2b:3c:4d')
-        check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address 2002:da8:1::1 --redirect-destination 2002:da8:1:2:1a:2b:3c:4d')
-        self.wait_route('veth99', r'2002:da8:1:1:1a:2b:3c:4d proto redirect', ipv='-6', timeout_sec=10)
-        self.wait_route('veth99', r'2002:da8:1:2:1a:2b:3c:4d via 2002:da8:1::1 proto redirect', ipv='-6', timeout_sec=10)
+        check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address 2002:da8:1:2:1a:2b:3c:4d --redirect-destination 2002:da8:1:2:1a:2b:3c:4d')
+        self.wait_route('veth99', '2002:da8:1:1:1a:2b:3c:4d proto redirect', ipv='-6', timeout_sec=10)
+        self.wait_route('veth99', '2002:da8:1:2:1a:2b:3c:4d proto redirect', ipv='-6', timeout_sec=10)
 
         # Change the target address of the redirects.
-        check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address 2002:da8:1::2 --redirect-destination 2002:da8:1:1:1a:2b:3c:4d')
-        check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address 2002:da8:1::3 --redirect-destination 2002:da8:1:2:1a:2b:3c:4d')
-        self.wait_route_dropped('veth99', r'2002:da8:1:1:1a:2b:3c:4d proto redirect', ipv='-6', timeout_sec=10)
-        self.wait_route_dropped('veth99', r'2002:da8:1:2:1a:2b:3c:4d via 2002:da8:1::1 proto redirect', ipv='-6', timeout_sec=10)
-        self.wait_route('veth99', r'2002:da8:1:1:1a:2b:3c:4d via 2002:da8:1::2 proto redirect', ipv='-6', timeout_sec=10)
-        self.wait_route('veth99', r'2002:da8:1:2:1a:2b:3c:4d via 2002:da8:1::3 proto redirect', ipv='-6', timeout_sec=10)
+        check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address fe80::1 --redirect-destination 2002:da8:1:1:1a:2b:3c:4d')
+        check_output(f'{test_ndisc_send} --interface veth-peer --type redirect --target-address fe80::2 --redirect-destination 2002:da8:1:2:1a:2b:3c:4d')
+        self.wait_route_dropped('veth99', '2002:da8:1:1:1a:2b:3c:4d proto redirect', ipv='-6', timeout_sec=10)
+        self.wait_route_dropped('veth99', '2002:da8:1:2:1a:2b:3c:4d proto redirect', ipv='-6', timeout_sec=10)
+        self.wait_route('veth99', '2002:da8:1:1:1a:2b:3c:4d via fe80::1 proto redirect', ipv='-6', timeout_sec=10)
+        self.wait_route('veth99', '2002:da8:1:2:1a:2b:3c:4d via fe80::2 proto redirect', ipv='-6', timeout_sec=10)
 
         # Send Neighbor Advertisement without the router flag to announce the default router is not available anymore.
         # Then, verify that all redirect routes and the default route are dropped.
@@ -5569,8 +5572,12 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         veth_peer_ipv6ll = re.search('fe80:[:0-9a-f]*', output).group()
         print(f'veth-peer IPv6LL address: {veth_peer_ipv6ll}')
         check_output(f'{test_ndisc_send} --interface veth-peer --type neighbor-advertisement --target-address {veth_peer_ipv6ll} --is-router no')
-        self.wait_route_dropped('veth99', 'proto redirect', ipv='-6', timeout_sec=10)
         self.wait_route_dropped('veth99', 'proto ra', ipv='-6', timeout_sec=10)
+
+        output = check_output('ip -6 route show dev veth99')
+        print(output)
+        self.assertIn('2002:da8:1:1:1a:2b:3c:4d via fe80::1 proto redirect', output)
+        self.assertIn('2002:da8:1:2:1a:2b:3c:4d via fe80::2 proto redirect', output)
 
     def check_ndisc_mtu(self, mtu):
         for _ in range(20):
@@ -5668,15 +5675,6 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.assertIn('2002:da8:1:0:b47e:7975:fc7a:7d6e', output)
         self.assertIn('2002:da8:2:0:f689:561a:8eda:7443', output)
 
-    def check_router_hop_limit(self, hop_limit):
-        self.wait_route('client', rf'default via fe80::1034:56ff:fe78:9a99 proto ra .* hoplimit {hop_limit}', ipv='-6', timeout_sec=10)
-
-        output = check_output('ip -6 route show dev client default via fe80::1034:56ff:fe78:9a99')
-        print(output)
-        self.assertIn(f'hoplimit {hop_limit}', output)
-
-        self.check_ipv6_sysctl_attr('client', 'hop_limit', f'{hop_limit}')
-
     def test_router_hop_limit(self):
         copy_network_unit('25-veth-client.netdev',
                           '25-veth-router.netdev',
@@ -5690,14 +5688,14 @@ class NetworkdRATests(unittest.TestCase, Utilities):
                          'router:degraded', 'router-p:enslaved',
                          'bridge99:routable')
 
-        self.check_router_hop_limit(42)
+        self.check_ipv6_sysctl_attr('client', 'hop_limit', '42')
 
         with open(os.path.join(network_unit_dir, '25-veth-router-hop-limit.network'), mode='a', encoding='utf-8') as f:
             f.write('\n[IPv6SendRA]\nHopLimit=43\n')
 
         networkctl_reload()
 
-        self.check_router_hop_limit(43)
+        self.check_ipv6_sysctl_attr('client', 'hop_limit', '43')
 
     def test_router_preference(self):
         copy_network_unit('25-veth-client.netdev',
