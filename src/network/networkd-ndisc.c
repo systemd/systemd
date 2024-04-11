@@ -1231,56 +1231,6 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
-static int ndisc_router_drop_onlink_prefix(Link *link, sd_ndisc_router *rt) {
-        _cleanup_(route_unrefp) Route *route = NULL;
-        uint8_t prefixlen;
-        struct in6_addr prefix;
-        usec_t lifetime_usec;
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(rt);
-
-        /* RFC 4861 section 6.3.4.
-         * Note, however, that a Prefix Information option with the on-link flag set to zero conveys no
-         * information concerning on-link determination and MUST NOT be interpreted to mean that addresses
-         * covered by the prefix are off-link. The only way to cancel a previous on-link indication is to
-         * advertise that prefix with the L-bit set and the Lifetime set to zero. */
-
-        if (!link->network->ndisc_use_onlink_prefix)
-                return 0;
-
-        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_usec);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get prefix lifetime: %m");
-
-        if (lifetime_usec != 0)
-                return 0;
-
-        r = sd_ndisc_router_prefix_get_address(rt, &prefix);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get prefix address: %m");
-
-        r = sd_ndisc_router_prefix_get_prefixlen(rt, &prefixlen);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get prefix length: %m");
-
-        r = route_new(&route);
-        if (r < 0)
-                return log_oom();
-
-        route->family = AF_INET6;
-        route->dst.in6 = prefix;
-        route->dst_prefixlen = prefixlen;
-
-        r = ndisc_remove_route(route, link);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Could not remove prefix route: %m");
-
-        return 0;
-}
-
 static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
         uint8_t flags, prefixlen;
         struct in6_addr a;
@@ -1319,12 +1269,11 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get RA prefix flags: %m");
 
-        if (FLAGS_SET(flags, ND_OPT_PI_FLAG_ONLINK))
+        if (FLAGS_SET(flags, ND_OPT_PI_FLAG_ONLINK)) {
                 r = ndisc_router_process_onlink_prefix(link, rt);
-        else
-                r = ndisc_router_drop_onlink_prefix(link, rt);
-        if (r < 0)
-                return r;
+                if (r < 0)
+                        return r;
+        }
 
         if (FLAGS_SET(flags, ND_OPT_PI_FLAG_AUTO)) {
                 r = ndisc_router_process_autonomous_prefix(link, rt);
