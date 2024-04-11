@@ -31,6 +31,7 @@ sources = files(
         'sd-ndisc-neighbor.c',
         'sd-ndisc-redirect.c',
         'sd-ndisc-router.c',
+        'sd-ndisc-router-solicit.c',
         'sd-radv.c',
 )
 
