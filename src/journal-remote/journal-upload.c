@@ -59,6 +59,8 @@ static int arg_follow = -1;
 static const char *arg_save_state = NULL;
 static usec_t arg_network_timeout_usec = USEC_INFINITY;
 
+STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
+
 static void close_fd_input(Uploader *u);
 
 #define SERVER_ANSWER_KEEP 2048

@@ -50,6 +50,7 @@ static char **arg_file = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_key_pem, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert_pem, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust_pem, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 
 typedef struct RequestMeta {
         sd_journal *journal;
