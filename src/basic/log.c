@@ -48,12 +48,11 @@ static log_syntax_callback_t log_syntax_callback = NULL;
 static void *log_syntax_callback_userdata = NULL;
 
 static LogTarget log_target = LOG_TARGET_CONSOLE;
-static int log_max_level = LOG_INFO;
 static int log_target_max_level[] = {
-        [LOG_TARGET_CONSOLE] = INT_MAX,
-        [LOG_TARGET_KMSG]    = INT_MAX,
-        [LOG_TARGET_SYSLOG]  = INT_MAX,
-        [LOG_TARGET_JOURNAL] = INT_MAX,
+        [LOG_TARGET_CONSOLE] = LOG_INFO,
+        [LOG_TARGET_KMSG]    = LOG_INFO,
+        [LOG_TARGET_SYSLOG]  = LOG_INFO,
+        [LOG_TARGET_JOURNAL] = LOG_INFO,
 };
 static int log_facility = LOG_DAEMON;
 static bool ratelimit_kmsg = true;
@@ -398,7 +397,8 @@ void log_forget_fds(void) {
 void log_set_max_level(int level) {
         assert(level == LOG_NULL || (level & LOG_PRIMASK) == level);
 
-        log_max_level = level;
+        FOREACH_ARRAY(t, log_target_max_level, _LOG_TARGET_SINGLE_MAX)
+                *t = level;
 
         /* Also propagate max log level to libc's syslog(), just in case some other component loaded into our
          * process logs directly via syslog(). You might wonder why we maintain our own log level variable if
@@ -857,7 +857,7 @@ int log_dump_internal(
 
         /* This modifies the buffer... */
 
-        if (_likely_(LOG_PRI(level) > log_max_level))
+        if (_likely_(LOG_PRI(level) > log_get_max_level()))
                 return -ERRNO_VALUE(error);
 
         return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, buffer);
@@ -872,7 +872,7 @@ int log_internalv(
                 const char *format,
                 va_list ap) {
 
-        if (_likely_(LOG_PRI(level) > log_max_level))
+        if (_likely_(LOG_PRI(level) > log_get_max_level()))
                 return -ERRNO_VALUE(error);
 
         /* Make sure that %m maps to the specified error (or "Success"). */
@@ -917,7 +917,7 @@ int log_object_internalv(
 
         char *buffer, *b;
 
-        if (_likely_(LOG_PRI(level) > log_max_level))
+        if (_likely_(LOG_PRI(level) > log_get_max_level()))
                 return -ERRNO_VALUE(error);
 
         /* Make sure that %m maps to the specified error (or "Success"). */
@@ -964,7 +964,7 @@ static void log_assert(
 
         static char buffer[LINE_MAX];
 
-        if (_likely_(LOG_PRI(level) > log_max_level))
+        if (_likely_(LOG_PRI(level) > log_get_max_level()))
                 return;
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
@@ -1067,7 +1067,7 @@ int log_struct_internal(
         PROTECT_ERRNO;
         va_list ap;
 
-        if (_likely_(LOG_PRI(level) > log_max_level) ||
+        if (_likely_(LOG_PRI(level) > log_get_max_level()) ||
             log_target == LOG_TARGET_NULL)
                 return -ERRNO_VALUE(error);
 
@@ -1170,7 +1170,7 @@ int log_struct_iovec_internal(
 
         PROTECT_ERRNO;
 
-        if (_likely_(LOG_PRI(level) > log_max_level) ||
+        if (_likely_(LOG_PRI(level) > log_get_max_level()) ||
             log_target == LOG_TARGET_NULL)
                 return -ERRNO_VALUE(error);
 
@@ -1278,23 +1278,19 @@ int log_set_max_level_from_string(const char *e) {
         return 0;
 }
 
-int log_max_levels_to_string(int level, char **ret) {
+int log_max_levels_to_string(int clamp_level, char **ret) {
         _cleanup_free_ char *s = NULL;
         int r;
 
         assert(ret);
 
-        r = log_level_to_string_alloc(level, &s);
-        if (r < 0)
-                return r;
+        if (clamp_level < 0)
+                clamp_level = LOG_DEBUG;
 
         for (LogTarget target = 0; target < _LOG_TARGET_SINGLE_MAX; target++) {
                 _cleanup_free_ char *l = NULL;
 
-                if (log_target_max_level[target] == INT_MAX)
-                        continue;
-
-                r = log_level_to_string_alloc(log_target_max_level[target], &l);
+                r = log_level_to_string_alloc(MIN(log_target_max_level[target], clamp_level), &l);
                 if (r < 0)
                         return r;
 
@@ -1458,7 +1454,12 @@ void log_settle_target(void) {
 }
 
 int log_get_max_level(void) {
-        return log_max_level;
+        int max = LOG_NULL;
+
+        FOREACH_ARRAY(t, log_target_max_level, _LOG_TARGET_SINGLE_MAX)
+                max = MAX(max, *t);
+
+        return max;
 }
 
 void log_show_color(bool b) {
@@ -1601,7 +1602,7 @@ int log_syntax_internal(
         if (log_syntax_callback)
                 log_syntax_callback(unit, level, log_syntax_callback_userdata);
 
-        if (_likely_(LOG_PRI(level) > log_max_level) ||
+        if (_likely_(LOG_PRI(level) > log_get_max_level()) ||
             log_target == LOG_TARGET_NULL)
                 return -ERRNO_VALUE(error);
 
