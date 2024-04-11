@@ -244,6 +244,16 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--discard-disk=<replaceable>BOOL</replaceable></option></term>
+
+          <listitem><para>Controls whether qemu processes discard requests from the VM.
+          This prevents long running VMs from using more disk space than required.
+          This is enabled by default.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--secure-boot=</option><replaceable>BOOL</replaceable></term>
 
           <listitem><para>Configure whether to search for firmware which supports Secure Boot.</para>
