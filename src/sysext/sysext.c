@@ -44,6 +44,7 @@
 #include "process-util.h"
 #include "rm-rf.h"
 #include "sort-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "user-util.h"
@@ -52,8 +53,8 @@
 #include "verbs.h"
 
 typedef enum MutableMode {
-        MUTABLE_YES,
         MUTABLE_NO,
+        MUTABLE_YES,
         MUTABLE_AUTO,
         MUTABLE_IMPORT,
         MUTABLE_EPHEMERAL,
@@ -61,6 +62,17 @@ typedef enum MutableMode {
         _MUTABLE_MAX,
         _MUTABLE_INVALID = -EINVAL,
 } MutableMode;
+
+static const char* const mutable_mode_table[_MUTABLE_MAX] = {
+        [MUTABLE_NO]               = "no",
+        [MUTABLE_YES]              = "yes",
+        [MUTABLE_AUTO]             = "auto",
+        [MUTABLE_IMPORT]           = "import",
+        [MUTABLE_EPHEMERAL]        = "ephemeral",
+        [MUTABLE_EPHEMERAL_IMPORT] = "ephemeral-import",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(mutable_mode, MutableMode, MUTABLE_YES);
 
 static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default for sysext and /etc by default for confext */
 static char *arg_root = NULL;
@@ -127,27 +139,7 @@ static const struct {
 };
 
 static int parse_mutable_mode(const char *p) {
-        int r;
-
-        assert(p);
-
-        if (streq(p, "auto"))
-                return MUTABLE_AUTO;
-
-        if (streq(p, "import"))
-                return MUTABLE_IMPORT;
-
-        if (streq(p, "ephemeral"))
-                return MUTABLE_EPHEMERAL;
-
-        if (streq(p, "ephemeral-import"))
-                return MUTABLE_EPHEMERAL_IMPORT;
-
-        r = parse_boolean(p);
-        if (r < 0)
-                return r;
-
-        return r ? MUTABLE_YES : MUTABLE_NO;
+        return mutable_mode_from_string(p);
 }
 
 static int is_our_mount_point(
