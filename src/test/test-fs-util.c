@@ -275,14 +275,14 @@ TEST(unlinkat_deallocate) {
 
         assert_se(write(fd, "hallo\n", 6) == 6);
 
-        assert_se(fstat(fd, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
         assert_se(st.st_size == 6);
         assert_se(st.st_blocks > 0);
         assert_se(st.st_nlink == 1);
 
         assert_se(unlinkat_deallocate(AT_FDCWD, p, UNLINK_ERASE) >= 0);
 
-        assert_se(fstat(fd, &st) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &st));
         assert_se(IN_SET(st.st_size, 0, 6)); /* depending on whether hole punching worked the size will be 6
                                                 (it worked) or 0 (we had to resort to truncation) */
         assert_se(st.st_blocks == 0);
@@ -557,13 +557,13 @@ TEST(open_mkdir_at) {
         fd = open_mkdir_at(AT_FDCWD, "/", O_CLOEXEC, 0);
         assert_se(fd >= 0);
         assert_se(stat("/", &sta) >= 0);
-        assert_se(fstat(fd, &stb) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &stb));
         assert_se(stat_inode_same(&sta, &stb));
         fd = safe_close(fd);
 
         fd = open_mkdir_at(AT_FDCWD, ".", O_CLOEXEC, 0);
         assert_se(stat(".", &sta) >= 0);
-        assert_se(fstat(fd, &stb) >= 0);
+        ASSERT_OK_ERRNO(fstat(fd, &stb));
         assert_se(stat_inode_same(&sta, &stb));
         fd = safe_close(fd);
 
