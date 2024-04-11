@@ -535,24 +535,6 @@ static int dispatch_http_event(sd_event_source *event,
  **********************************************************************
  **********************************************************************/
 
-static int setup_signals(RemoteServer *s) {
-        int r;
-
-        assert(s);
-
-        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM) >= 0);
-
-        r = sd_event_add_signal(s->events, &s->sigterm_event, SIGTERM, NULL, s);
-        if (r < 0)
-                return r;
-
-        r = sd_event_add_signal(s->events, &s->sigint_event, SIGINT, NULL, s);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 static int setup_raw_socket(RemoteServer *s, const char *address) {
         int fd;
 
@@ -580,9 +562,9 @@ static int create_remoteserver(
         if (r < 0)
                 return r;
 
-        r = setup_signals(s);
+        r = sd_event_set_signal_exit(s->events, true);
         if (r < 0)
-                return log_error_errno(r, "Failed to set up signals: %m");
+                return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
 
         n = sd_listen_fds(true);
         if (n < 0)
