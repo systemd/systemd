@@ -897,18 +897,6 @@ static int overlayfs_paths_new(const char *hierarchy, const char *workspace_path
         return 0;
 }
 
-static int resolved_paths_equal(const char *resolved_a, const char *resolved_b) {
-        /* Returns true if paths are of the same entry, false if not, <0 on error. */
-
-        if (path_equal(resolved_a, resolved_b))
-                return 1;
-
-        if (!resolved_a || !resolved_b)
-                return 0;
-
-        return inode_same(resolved_a, resolved_b, 0);
-}
-
 static int maybe_import_mutable_directory(OverlayFSPaths *op) {
         int r;
 
@@ -920,7 +908,7 @@ static int maybe_import_mutable_directory(OverlayFSPaths *op) {
         if (arg_mutable != MUTABLE_IMPORT || !op->resolved_mutable_directory)
                 return 0;
 
-        r = resolved_paths_equal(op->resolved_hierarchy, op->resolved_mutable_directory);
+        r = path_equal_or_inode_same_full(op->resolved_hierarchy, op->resolved_mutable_directory, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
         if (r > 0)
@@ -960,7 +948,7 @@ static int maybe_import_ignored_mutable_directory(OverlayFSPaths *op) {
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve mutable directory '%s': %m", path);
 
-        r = resolved_paths_equal(op->resolved_hierarchy, resolved_path);
+        r = path_equal_or_inode_same_full(op->resolved_hierarchy, resolved_path, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
 
@@ -1069,7 +1057,7 @@ static int hierarchy_as_lower_dir(OverlayFSPaths *op) {
                 return 0;
         }
 
-        r = resolved_paths_equal(op->resolved_hierarchy, op->resolved_mutable_directory);
+        r = path_equal_or_inode_same_full(op->resolved_hierarchy, op->resolved_mutable_directory, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
         if (r > 0) {
