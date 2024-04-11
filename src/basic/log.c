@@ -1278,8 +1278,9 @@ int log_set_max_level_from_string(const char *e) {
         return 0;
 }
 
-int log_max_levels_to_string(int level, char **ret) {
+int log_max_levels_to_string(int clamp_level, char **ret) {
         _cleanup_free_ char *s = NULL;
+        int level = clamp_level >= 0 ? clamp_level : log_get_max_level();
         int r;
 
         assert(ret);
