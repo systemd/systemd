@@ -6,6 +6,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "argv-util.h"
 #include "async.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -22,7 +23,11 @@ int asynchronous_sync(pid_t *ret_pid) {
          * original process ever, and a thread would do that as the process can't exit with threads hanging in blocking
          * syscalls. */
 
-        r = safe_fork("(sd-sync)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|(ret_pid ? 0 : FORK_DETACH), ret_pid);
+        /* Note that we set argv[0][0] = '@' here, which tells the switch-root/soft-reboot/shutdown killing
+         * spree to leave this process around. After all the killing is likely not going to work anyway, and
+         * given the limited scope of the child it's really not worth killing it. */
+
+        r = safe_fork("@(sd-sync)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|(ret_pid ? 0 : FORK_DETACH), ret_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -41,11 +46,17 @@ int asynchronous_sync(pid_t *ret_pid) {
 static int close_func(void *p) {
         unsigned v = PTR_TO_UINT(p);
 
-        (void) prctl(PR_SET_NAME, (unsigned long*) "(sd-close)");
-
         /* Note: 💣 This function is invoked in a child process created via glibc's clone() wrapper. In such
          *       children memory allocation is not allowed, since glibc does not release malloc mutexes in
          *       clone() 💣 */
+
+        /* This is a port man's version of rename_process(). We don't use the real thing to avoid any memory
+         * allocations. We set argv[0][0] to '@' to exclude it from the switch-root/soft-reboot/shutdown
+         * killing spree, since it would likely fail anyway, and with a process of such minimal scope is not
+         * really worh the effort anyway. */
+        (void) prctl(PR_SET_NAME, (unsigned long*) "@(sd-close)");
+        if (saved_argc >= 1 && !isempty(saved_argv[0]))
+                saved_argv[0][0] = '@';
 
         if (v & NEED_DOUBLE_FORK) {
                 pid_t pid;
@@ -117,9 +128,12 @@ int asynchronous_rm_rf(const char *p, RemoveFlags flags) {
         assert(p);
 
         /* Forks off a child that destroys the specified path. This will be best effort only, i.e. the child
-         * will attempt to do its thing, but we won't wait for it or check its success. */
+         * will attempt to do its thing, but we won't wait for it or check its success.
+         *
+         * We do set argv[0][0] = '@' here however, to ensure that the this is excluded from the
+         * switch-root/soft-reboot/poweroff killing spree, and can definitely complete it's job. */
 
-        r = safe_fork("(sd-rmrf)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DETACH, NULL);
+        r = safe_fork("@(sd-rmrf)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DETACH, NULL);
         if (r != 0)
                 return r;
 
