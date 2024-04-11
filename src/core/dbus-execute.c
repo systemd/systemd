@@ -1306,18 +1306,24 @@ int bus_set_transient_exec_command(
                 sd_bus_message *message,
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
-        bool is_ex_prop = endswith(name, "Ex");
-        unsigned n = 0;
+
+        const char *ex_prop = endswith(ASSERT_PTR(name), "Ex");
+        size_t n = 0;
         int r;
 
-        /* Drop Ex from the written setting. E.g. ExecStart=, not ExecStartEx=. */
-        const char *written_name = is_ex_prop ? strndupa_safe(name, strlen(name) - 2) : name;
+        assert(u);
+        assert(exec_command);
+        assert(message);
+        assert(error);
 
-        r = sd_bus_message_enter_container(message, 'a', is_ex_prop ? "(sasas)" : "(sasb)");
+        /* Drop Ex from the written setting. E.g. ExecStart=, not ExecStartEx=. */
+        const char *written_name = ex_prop ? strndupa_safe(name, ex_prop - name) : name;
+
+        r = sd_bus_message_enter_container(message, 'a', ex_prop ? "(sasas)" : "(sasb)");
         if (r < 0)
                 return r;
 
-        while ((r = sd_bus_message_enter_container(message, 'r', is_ex_prop ? "sasas" : "sasb")) > 0) {
+        while ((r = sd_bus_message_enter_container(message, 'r', ex_prop ? "sasas" : "sasb")) > 0) {
                 _cleanup_strv_free_ char **argv = NULL, **ex_opts = NULL;
                 const char *path;
                 int b;
@@ -1339,7 +1345,7 @@ int bus_set_transient_exec_command(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "\"%s\" argv cannot be empty", name);
 
-                r = is_ex_prop ? sd_bus_message_read_strv(message, &ex_opts) : sd_bus_message_read(message, "b", &b);
+                r = ex_prop ? sd_bus_message_read_strv(message, &ex_opts) : sd_bus_message_read(message, "b", &b);
                 if (r < 0)
                         return r;
 
@@ -1348,29 +1354,28 @@ int bus_set_transient_exec_command(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        ExecCommand *c;
+                        _cleanup_(exec_command_freep) ExecCommand *c = NULL;
 
-                        c = new0(ExecCommand, 1);
+                        c = new(ExecCommand, 1);
                         if (!c)
                                 return -ENOMEM;
 
-                        c->path = strdup(path);
-                        if (!c->path) {
-                                free(c);
-                                return -ENOMEM;
-                        }
+                        *c = (ExecCommand) {
+                                .argv = TAKE_PTR(argv),
+                        };
 
-                        c->argv = TAKE_PTR(argv);
+                        r = path_simplify_alloc(path, &c->path);
+                        if (r < 0)
+                                return r;
 
-                        if (is_ex_prop) {
+                        if (ex_prop) {
                                 r = exec_command_flags_from_strv(ex_opts, &c->flags);
                                 if (r < 0)
                                         return r;
-                        } else
-                                c->flags = b ? EXEC_COMMAND_IGNORE_FAILURE : 0;
+                        } else if (b)
+                                c->flags |= EXEC_COMMAND_IGNORE_FAILURE;
 
-                        path_simplify(c->path);
-                        exec_command_append_list(exec_command, c);
+                        exec_command_append_list(exec_command, TAKE_PTR(c));
                 }
 
                 n++;
