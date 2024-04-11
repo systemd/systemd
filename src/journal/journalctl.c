@@ -265,6 +265,7 @@ static int help(void) {
                "  -N --fields                List all field names currently used\n"
                "  -F --field=FIELD           List all values that a specified field takes\n"
                "     --list-boots            Show terse information about recorded boots\n"
+               "     --list-namespaces       Show list of journal namespaces\n"
                "     --disk-usage            Show total disk usage of all journal files\n"
                "     --vacuum-size=BYTES     Reduce disk usage below specified size\n"
                "     --vacuum-files=INT      Leave only the specified number of journal files\n"
