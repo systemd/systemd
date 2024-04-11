@@ -261,9 +261,14 @@ int action_list_namespaces(void) {
                 }
         }
 
-        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, !arg_quiet);
-        if (r < 0)
-                return table_log_print_error(r);
+        if (table_isempty(table) && FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                if (!arg_quiet)
+                        log_notice("No namespaces found.");
+        } else {
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, !arg_quiet);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
