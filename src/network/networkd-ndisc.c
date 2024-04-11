@@ -1044,6 +1044,64 @@ static int ndisc_router_process_mtu(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
+static int ndisc_address_set_lifetime(Address *address, Link *link, sd_ndisc_router *rt) {
+        Address *existing;
+        usec_t t;
+        int r;
+
+        assert(address);
+        assert(link);
+        assert(rt);
+
+        /* This is mostly based on RFC 4862 section 5.5.3 (e). However, the definition of 'RemainingLifetime'
+         * is ambigous, and there is no clear explanation when the address is not assigned yet. If we assume
+         * that 'RemainingLifetime' is zero in that case, then IPv6 Core Conformance test [v6LC.3.2.5 Part C]
+         * fails. So, in such case, we skip the conditions about 'RemainingLifetime'. */
+
+        r = sd_ndisc_router_prefix_get_valid_lifetime_timestamp(rt, CLOCK_BOOTTIME, &address->lifetime_valid_usec);
+        if (r < 0)
+                return r;
+
+        r = sd_ndisc_router_prefix_get_preferred_lifetime_timestamp(rt, CLOCK_BOOTTIME, &address->lifetime_preferred_usec);
+        if (r < 0)
+                return r;
+
+        /* RFC 4862 section 5.5.3 (e)
+         * 1. If the received Valid Lifetime is greater than 2 hours or greater than RemainingLifetime,
+         *    set the valid lifetime of the corresponding address to the advertised Valid Lifetime. */
+        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &t);
+        if (r < 0)
+                return r;
+
+        if (t > 2 * USEC_PER_HOUR)
+                return 0;
+
+        r = sd_ndisc_router_get_timestamp(rt, CLOCK_BOOTTIME, &t);
+        if (r < 0)
+                return r;
+
+        if (address_get(link, address, &existing) >= 0 && existing->source == NETWORK_CONFIG_SOURCE_NDISC) {
+                if (address->lifetime_valid_usec > existing->lifetime_valid_usec)
+                        return 0;
+
+                /* 2. If RemainingLifetime is less than or equal to 2 hours, ignore the Prefix Information
+                 *    option with regards to the valid lifetime, unless the Router Advertisement from which
+                 *    this option was obtained has been authenticated (e.g., via Secure Neighbor Discovery
+                 *    [RFC3971]). If the Router Advertisement was authenticated, the valid lifetime of the
+                 *    corresponding address should be set to the Valid Lifetime in the received option.
+                 *
+                 * Currently, authentication is not supported. So check the lifetime of the existing address. */
+                if (existing->lifetime_valid_usec <= usec_add(t, 2 * USEC_PER_HOUR)) {
+                        address->lifetime_valid_usec = existing->lifetime_valid_usec;
+                        return 0;
+                }
+        }
+
+        /* 3. Otherwise, reset the valid lifetime of the corresponding address to 2 hours. */
+        address->lifetime_valid_usec = usec_add(t, 2 * USEC_PER_HOUR);
+        return 0;
+}
+
 static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *rt) {
         usec_t lifetime_valid_usec, lifetime_preferred_usec;
         struct in6_addr prefix, router;
@@ -1076,15 +1134,17 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 return 0;
         }
 
-        r = sd_ndisc_router_prefix_get_valid_lifetime_timestamp(rt, CLOCK_BOOTTIME, &lifetime_valid_usec);
+        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_valid_usec);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get prefix valid lifetime: %m");
 
-        r = sd_ndisc_router_prefix_get_preferred_lifetime_timestamp(rt, CLOCK_BOOTTIME, &lifetime_preferred_usec);
+        r = sd_ndisc_router_prefix_get_preferred_lifetime(rt, &lifetime_preferred_usec);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get prefix preferred lifetime: %m");
 
-        /* The preferred lifetime is never greater than the valid lifetime */
+        /* RFC 4862 section 5.5.3 (c)
+         * If the preferred lifetime is greater than the valid lifetime, silently ignore the Prefix
+         * Information option. */
         if (lifetime_preferred_usec > lifetime_valid_usec)
                 return 0;
 
@@ -1107,26 +1167,17 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 address->in_addr.in6 = *a;
                 address->prefixlen = prefixlen;
                 address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
-                address->lifetime_valid_usec = lifetime_valid_usec;
-                address->lifetime_preferred_usec = lifetime_preferred_usec;
                 address->token = ipv6_token_ref(token);
 
-                /* draft-ietf-6man-slaac-renum-07 section 4.2
-                 * https://datatracker.ietf.org/doc/html/draft-ietf-6man-slaac-renum-07#section-4.2
-                 *
-                 * If the advertised prefix is equal to the prefix of an address configured by stateless
-                 * autoconfiguration in the list, the valid lifetime and the preferred lifetime of the
-                 * address should be updated by processing the Valid Lifetime and the Preferred Lifetime
-                 * (respectively) in the received advertisement. */
-                if (lifetime_valid_usec == 0) {
-                        r = address_remove_and_cancel(address, link);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not remove SLAAC address: %m");
-                } else {
-                        r = ndisc_request_address(address, link);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not request SLAAC address: %m");
-                }
+                r = ndisc_address_set_lifetime(address, link, rt);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to set lifetime of SLAAC address: %m");
+
+                assert(address->lifetime_preferred_usec <= address->lifetime_valid_usec);
+
+                r = ndisc_request_address(address, link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not request SLAAC address: %m");
         }
 
         return 0;
