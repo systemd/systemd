@@ -100,7 +100,6 @@ jobs:
         ToolsTree=default
         ToolsTreeDistribution=fedora
         QemuVsock=yes
-        # Sometimes we run on a host with /dev/kvm, but it is broken, so explicitly disable it
         QemuKvm=yes
         # TODO: Drop once https://bugs.launchpad.net/ubuntu/+source/linux/+bug/2038777 is fixed in Github Actions
         QemuFirmware=uefi
