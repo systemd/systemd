@@ -177,27 +177,18 @@ static void ndisc_set_route_priority(Link *link, Route *route) {
         }
 }
 
-static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
-        struct in6_addr router;
-        bool is_new;
+static int ndisc_request_route(Route *route, Link *link) {
         int r;
 
         assert(route);
         assert(link);
         assert(link->manager);
         assert(link->network);
-        assert(rt);
-
-        r = sd_ndisc_router_get_sender_address(rt, &router);
-        if (r < 0)
-                return r;
 
         route->source = NETWORK_CONFIG_SOURCE_NDISC;
-        route->provider.in6 = router;
+
         if (!route->table_set)
                 route->table = link_get_ndisc_route_table(link);
-        if (!route->protocol_set)
-                route->protocol = RTPROT_RA;
 
         r = route_metric_set(&route->metric, RTAX_QUICKACK, link->network->ndisc_quickack);
         if (r < 0)
@@ -248,7 +239,7 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         route->pref = pref_original;
         ndisc_set_route_priority(link, route);
 
-        is_new = route_get(link->manager, route, NULL) < 0;
+        bool is_new = route_get(link->manager, route, NULL) < 0;
 
         r = link_request_route(link, route, &link->ndisc_messages, ndisc_route_handler);
         if (r < 0)
@@ -257,6 +248,23 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
                 link->ndisc_configured = false;
 
         return 0;
+}
+
+static int ndisc_request_router_route(Route *route, Link *link, sd_ndisc_router *rt) {
+        int r;
+
+        assert(route);
+        assert(link);
+        assert(rt);
+
+        r = sd_ndisc_router_get_sender_address(rt, &route->provider.in6);
+        if (r < 0)
+                return r;
+
+        if (!route->protocol_set)
+                route->protocol = RTPROT_RA;
+
+        return ndisc_request_route(route, link);
 }
 
 static int ndisc_remove_route(Route *route, Link *link) {
@@ -401,6 +409,11 @@ static int ndisc_redirect_route_new(sd_ndisc_redirect *rd, Route **ret) {
         }
         route->dst.in6 = destination;
         route->dst_prefixlen = 128;
+        route->protocol = RTPROT_REDIRECT;
+
+        r = sd_ndisc_redirect_get_sender_address(rd, &route->provider.in6);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(route);
         return 0;
@@ -430,12 +443,7 @@ static int ndisc_request_redirect_route(Link *link, sd_ndisc_redirect *rd) {
         if (r < 0)
                 return r;
 
-        route->protocol = RTPROT_REDIRECT;
-        route->protocol_set = true; /* To make ndisc_request_route() not override the protocol. */
-
-        /* Redirect message does not have the lifetime, let's use the lifetime of the default router, and
-         * update the lifetime of the redirect route every time when we receive RA. */
-        return ndisc_request_route(route, link, link->ndisc_default_router);
+        return ndisc_request_route(route, link);
 }
 
 static int ndisc_remove_redirect_route(Link *link, sd_ndisc_redirect *rd) {
@@ -755,7 +763,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 route->nexthop.gw.in6 = gateway;
                 route->lifetime_usec = lifetime_usec;
 
-                r = ndisc_request_route(route, link, rt);
+                r = ndisc_request_router_route(route, link, rt);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request default route: %m");
         }
@@ -779,7 +787,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                         route->pref = preference;
                 route->lifetime_usec = lifetime_usec;
 
-                r = ndisc_request_route(route, link, rt);
+                r = ndisc_request_router_route(route, link, rt);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request gateway: %m");
         }
@@ -1234,7 +1242,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         route->pref = preference;
         route->lifetime_usec = lifetime_usec;
 
-        r = ndisc_request_route(route, link, rt);
+        r = ndisc_request_router_route(route, link, rt);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not request prefix route: %m");
 
@@ -1413,7 +1421,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         route->lifetime_usec = lifetime_usec;
 
         if (lifetime_usec != 0) {
-                r = ndisc_request_route(route, link, rt);
+                r = ndisc_request_router_route(route, link, rt);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request additional route: %m");
         } else {
