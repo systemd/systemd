@@ -1224,9 +1224,23 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         route->pref = preference;
         route->lifetime_usec = lifetime_usec;
 
-        r = ndisc_request_router_route(route, link, rt);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Could not request prefix route: %m");
+        /* RFC 4861 section 6.3.4:
+         * - If the prefix is not already present in the Prefix List, and the Prefix Information option's
+         *   Valid Lifetime field is non-zero, create a new entry for the prefix and initialize its
+         *   invalidation timer to the Valid Lifetime value in the Prefix Information option.
+         *
+         * - If the prefix is already present in the host's Prefix List as the result of a previously
+         *   received advertisement, reset its invalidation timer to the Valid Lifetime value in the Prefix
+         *   Information option. If the new Lifetime value is zero, time-out the prefix immediately. */
+        if (lifetime_usec == 0) {
+                r = ndisc_remove_route(route, link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to remove prefix route: %m");
+        } else {
+                r = ndisc_request_router_route(route, link, rt);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to request prefix route: %m");
+        }
 
         return 0;
 }
