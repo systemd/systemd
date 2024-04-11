@@ -2570,7 +2570,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           effect of the <option>Domains=</option> setting. If set to <option>route</option>, the domain name
           received from the DHCP server will be used for routing DNS queries only, but not for searching,
           similarly to the effect of the <option>Domains=</option> setting when the argument is prefixed with
-          <literal>~</literal>. Defaults to false.</para>
+          <literal>~</literal>. The default value is provided by the setting of <varname>UseDomains=</varname> in 
+          networkd.conf. Defaults to false.</para>
 
           <para>It is recommended to enable this option only on trusted networks, as setting this
           affects resolution of all hostnames, in particular of single-label names. It is generally
