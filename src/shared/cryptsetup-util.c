@@ -252,6 +252,11 @@ int dlopen_cryptsetup(void) {
 
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;
 
+        ELF_NOTE_DLOPEN("cryptsetup",
+                        "Support for disk encryption, integrity, and authentication",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libcryptsetup.so.12");
+
         r = dlopen_many_sym_or_warn(
                         &cryptsetup_dl, "libcryptsetup.so.12", LOG_DEBUG,
                         DLSYM_ARG(crypt_activate_by_passphrase),
