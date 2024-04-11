@@ -16,6 +16,8 @@ DLSYM_FUNCTION(xkb_keymap_new_from_names);
 DLSYM_FUNCTION(xkb_keymap_unref);
 
 static int dlopen_xkbcommon(void) {
+        ELF_NOTE_DLOPEN("libxkbcommon.so.0", "xkbcommon", "Support for keyboard locale descriptions.", "suggested");
+
         return dlopen_many_sym_or_warn(
                         &xkbcommon_dl, "libxkbcommon.so.0", LOG_DEBUG,
                         DLSYM_ARG(xkb_context_new),

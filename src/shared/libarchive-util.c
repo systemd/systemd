@@ -30,6 +30,8 @@ DLSYM_FUNCTION(archive_write_set_format_filter_by_ext);
 DLSYM_FUNCTION(archive_write_set_format_gnutar);
 
 int dlopen_libarchive(void) {
+        ELF_NOTE_DLOPEN("libarchive.so.13", "archive", "Support for decompressing archive files.", "suggested");
+
         return dlopen_many_sym_or_warn(
                         &libarchive_dl,
                         "libarchive.so.13",

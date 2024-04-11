@@ -61,6 +61,8 @@ DLSYM_FUNCTION(p11_kit_uri_new);
 DLSYM_FUNCTION(p11_kit_uri_parse);
 
 int dlopen_p11kit(void) {
+        ELF_NOTE_DLOPEN("libp11-kit.so.0", "p11-kit", "Support for PKCS11 hardware tokens.", "suggested");
+
         return dlopen_many_sym_or_warn(
                         &p11kit_dl,
                         "libp11-kit.so.0", LOG_DEBUG,
