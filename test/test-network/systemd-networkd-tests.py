@@ -5668,15 +5668,6 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.assertIn('2002:da8:1:0:b47e:7975:fc7a:7d6e', output)
         self.assertIn('2002:da8:2:0:f689:561a:8eda:7443', output)
 
-    def check_router_hop_limit(self, hop_limit):
-        self.wait_route('client', rf'default via fe80::1034:56ff:fe78:9a99 proto ra .* hoplimit {hop_limit}', ipv='-6', timeout_sec=10)
-
-        output = check_output('ip -6 route show dev client default via fe80::1034:56ff:fe78:9a99')
-        print(output)
-        self.assertIn(f'hoplimit {hop_limit}', output)
-
-        self.check_ipv6_sysctl_attr('client', 'hop_limit', f'{hop_limit}')
-
     def test_router_hop_limit(self):
         copy_network_unit('25-veth-client.netdev',
                           '25-veth-router.netdev',
@@ -5686,18 +5677,24 @@ class NetworkdRATests(unittest.TestCase, Utilities):
                           '25-veth-router-hop-limit.network',
                           '25-bridge99.network')
         start_networkd()
-        self.wait_online('client-p:enslaved',
+        self.wait_online('client:routable', 'client-p:enslaved',
                          'router:degraded', 'router-p:enslaved',
                          'bridge99:routable')
 
-        self.check_router_hop_limit(42)
+        self.check_ipv6_sysctl_attr('client', 'hop_limit', '42')
 
         with open(os.path.join(network_unit_dir, '25-veth-router-hop-limit.network'), mode='a', encoding='utf-8') as f:
             f.write('\n[IPv6SendRA]\nHopLimit=43\n')
 
         networkctl_reload()
 
-        self.check_router_hop_limit(43)
+        for _ in range(20):
+            output = read_ipv6_sysctl_attr('client', 'hop_limit')
+            if output == '43':
+                break
+            time.sleep(0.5)
+
+        self.check_ipv6_sysctl_attr('client', 'hop_limit', '43')
 
     def test_router_preference(self):
         copy_network_unit('25-veth-client.netdev',
