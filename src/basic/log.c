@@ -397,8 +397,8 @@ void log_forget_fds(void) {
 void log_set_max_level(int level) {
         assert(level == LOG_NULL || (level & LOG_PRIMASK) == level);
 
-        for (LogTarget t = 0; t < _LOG_TARGET_SINGLE_MAX; t++)
-                log_target_max_level[t] = level;
+        FOREACH_ARRAY(t, log_target_max_level, _LOG_TARGET_SINGLE_MAX)
+                log_target_max_level[*t] = level;
 
         /* Also propagate max log level to libc's syslog(), just in case some other component loaded into our
          * process logs directly via syslog(). You might wonder why we maintain our own log level variable if
@@ -1288,17 +1288,17 @@ int log_max_levels_to_string(int level, char **ret) {
         if (r < 0)
                 return r;
 
-        for (LogTarget target = 0; target < _LOG_TARGET_SINGLE_MAX; target++) {
+        FOREACH_ARRAY(t, log_target_max_level, _LOG_TARGET_SINGLE_MAX) {
                 _cleanup_free_ char *l = NULL;
 
-                if (log_target_max_level[target] <= level)
+                if (log_target_max_level[*t] <= level)
                         continue;
 
-                r = log_level_to_string_alloc(log_target_max_level[target], &l);
+                r = log_level_to_string_alloc(log_target_max_level[*t], &l);
                 if (r < 0)
                         return r;
 
-                r = strextendf_with_separator(&s, ",", "%s:%s", log_target_to_string(target), l);
+                r = strextendf_with_separator(&s, ",", "%s:%s", log_target_to_string(*t), l);
                 if (r < 0)
                         return r;
         }
@@ -1460,8 +1460,8 @@ void log_settle_target(void) {
 int log_get_max_level(void) {
         int max = 0;
 
-        for (LogTarget t = 0; t < _LOG_TARGET_SINGLE_MAX; t++)
-                max = MAX(max, log_target_max_level[t]);
+        FOREACH_ARRAY(t, log_target_max_level, _LOG_TARGET_SINGLE_MAX)
+                max = MAX(max, log_target_max_level[*t]);
 
         return max;
 }
