@@ -1288,17 +1288,17 @@ int log_max_levels_to_string(int level, char **ret) {
         if (r < 0)
                 return r;
 
-        for (LogTarget target = 0; target < _LOG_TARGET_SINGLE_MAX; target++) {
+        FOREACH_ARRAY(t, log_target_max_level, _LOG_TARGET_SINGLE_MAX) {
                 _cleanup_free_ char *l = NULL;
 
-                if (log_target_max_level[target] == INT_MAX)
+                if (log_target_max_level[t] == INT_MAX)
                         continue;
 
-                r = log_level_to_string_alloc(log_target_max_level[target], &l);
+                r = log_level_to_string_alloc(log_target_max_level[*t], &l);
                 if (r < 0)
                         return r;
 
-                r = strextendf_with_separator(&s, ",", "%s:%s", log_target_to_string(target), l);
+                r = strextendf_with_separator(&s, ",", "%s:%s", log_target_to_string(*t), l);
                 if (r < 0)
                         return r;
         }
