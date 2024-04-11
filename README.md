@@ -37,3 +37,5 @@ When preparing patches for systemd, please follow our [Coding Style Guidelines](
 If you are looking for support, please contact our [mailing list](https://lists.freedesktop.org/mailman/listinfo/systemd-devel), join our [IRC channel #systemd on libera.chat](https://web.libera.chat/#systemd) or [Matrix channel](https://matrix.to/#/#systemd-project:matrix.org)
 
 Stable branches with backported patches are available in the [stable repo](https://github.com/systemd/systemd-stable).
+
+We have a security bug bounty program sponsored by the [Sovereign Tech Fund](https://www.sovereigntechfund.de/) hosted on [YesWeHack](https://yeswehack.com/programs/systemd-bug-bounty-program)
