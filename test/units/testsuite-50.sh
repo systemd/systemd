@@ -1051,12 +1051,12 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+systemd-sysext --root="${fake_root}" merge
 
 touch "${fake_root}${hierarchy}/should-still-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 
@@ -1083,12 +1083,12 @@ prep_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-succeed-on-mutable-fs" || die "${fake_root}${hierarchy} is not mutable"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+systemd-sysext --root="${fake_root}" merge
 
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 
@@ -1112,12 +1112,12 @@ gen_os_release "${fake_root}"
 gen_test_ext_image "${fake_root}" "${hierarchy}"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+systemd-sysext --root="${fake_root}" merge
 
 touch "${fake_root}${hierarchy}/should-still-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}"
 
@@ -1142,12 +1142,12 @@ make_ro "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+systemd-sysext --root="${fake_root}" merge
 
 touch "${fake_root}${hierarchy}/should-still-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}"
 
@@ -1174,12 +1174,12 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+systemd-sysext --root="${fake_root}" merge
 
 touch "${fake_root}${hierarchy}/should-be-read-only" && die "${fake_root}${hierarchy} is not read-only"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 
@@ -1206,13 +1206,13 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=auto merge
+systemd-sysext --root="${fake_root}" --mutable=auto merge
 
 touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h u
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable is not stored in expected location"
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable disappeared from writable storage after unmerge"
@@ -1239,13 +1239,13 @@ ext_data_path=$(hierarchy_ext_mut_path "${fake_root}" "${hierarchy}")
 prep_ext_mut "${ext_data_path}"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=auto merge
+systemd-sysext --root="${fake_root}" --mutable=auto merge
 
 touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e u
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable is not stored in expected location"
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}"
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable disappeared from writable storage after unmerge"
@@ -1274,13 +1274,13 @@ make_ro "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=auto merge
+systemd-sysext --root="${fake_root}" --mutable=auto merge
 
 touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e u
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable is not stored in expected location"
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}"
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable disappeared from writable storage after unmerge"
@@ -1313,14 +1313,14 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=auto merge
+systemd-sysext --root="${fake_root}" --mutable=auto merge
 
 touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h u
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable is not stored in expected location"
 test -f "${real_ext_dir}/now-is-mutable" || die "now-is-mutable is not stored in expected location"
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable disappeared from writable storage after unmerge"
@@ -1354,14 +1354,14 @@ ln -sfTr "${real_ext_dir}" "${ext_data_path}"
 touch "${fake_root}${hierarchy}/preexisting-file-in-hierarchy"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=auto merge
+systemd-sysext --root="${fake_root}" --mutable=auto merge
 
 touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h u
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable is not stored in expected location"
 test -f "${real_ext_dir}/now-is-mutable" || die "now-is-mutable is not stored in expected location"
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h u
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable disappeared from writable storage after unmerge"
@@ -1392,7 +1392,7 @@ ln -sfTr "${real_ext_dir}" "${ext_data_path}"
 prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=auto merge && die "expected merge to fail"
+systemd-sysext --root="${fake_root}" --mutable=auto merge && die "expected merge to fail"
 
 
 #
@@ -1417,13 +1417,13 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=auto merge
+systemd-sysext --root="${fake_root}" --mutable=auto merge
 
 touch "${fake_root}${hierarchy}/should-still-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 
@@ -1450,13 +1450,13 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=no merge
+systemd-sysext --root="${fake_root}" --mutable=no merge
 
 touch "${fake_root}${hierarchy}/should-still-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 
@@ -1483,13 +1483,13 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=import merge
+systemd-sysext --root="${fake_root}" --mutable=import merge
 
 touch "${fake_root}${hierarchy}/should-still-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h u
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 
@@ -1518,14 +1518,14 @@ touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root
 test ! -d "${ext_data_path}" || die "extensions.mutable should not exist"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=yes merge
+systemd-sysext --root="${fake_root}" --mutable=yes merge
 
 test -d "${ext_data_path}" || die "extensions.mutable should exist now"
 touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable is not stored in expected location"
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable disappeared from writable storage after unmerge"
@@ -1551,12 +1551,12 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=auto merge
+systemd-sysext --root="${fake_root}" --mutable=auto merge
 
 touch "${fake_root}${hierarchy}/should-still-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 
@@ -1586,14 +1586,14 @@ touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root
 test ! -d "${ext_data_path}" || die "extensions.mutable should not exist"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+systemd-sysext --root="${fake_root}" merge
 
 test -d "${ext_data_path}" || die "extensions.mutable should exist now"
 touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable is not stored in expected location"
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable disappeared from writable storage after unmerge"
@@ -1622,12 +1622,12 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=auto merge
+systemd-sysext --root="${fake_root}" --mutable=auto merge
 
 touch "${fake_root}${hierarchy}/should-still-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 drop_env
@@ -1657,13 +1657,13 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+systemd-sysext --root="${fake_root}" merge
 
 touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h u
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable is not stored in expected location"
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable disappeared from writable storage after unmerge"
@@ -1695,12 +1695,12 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+systemd-sysext --root="${fake_root}" merge
 
 touch "${fake_root}${hierarchy}/should-be-read-only" && die "${fake_root}${hierarchy} is not read-only"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 drop_env
@@ -1730,13 +1730,13 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+systemd-sysext --root="${fake_root}" merge
 
 touch "${fake_root}${hierarchy}/should-still-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h u
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 drop_env
@@ -1767,12 +1767,12 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=no merge
+systemd-sysext --root="${fake_root}" --mutable=no merge
 
 touch "${fake_root}${hierarchy}/should-be-read-only" && die "${fake_root}${hierarchy} is not read-only"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 drop_env
@@ -1801,13 +1801,13 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=ephemeral merge
+systemd-sysext --root="${fake_root}" --mutable=ephemeral merge
 
 touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
 test ! -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable should not be stored in extension data"
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 test ! -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable should not appear in writable storage after unmerge"
@@ -1839,13 +1839,13 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+systemd-sysext --root="${fake_root}" merge
 
 touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
 test ! -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable should not be stored in extension data"
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 test ! -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable should not appear in writable storage after unmerge"
@@ -1876,13 +1876,13 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=ephemeral-import merge
+systemd-sysext --root="${fake_root}" --mutable=ephemeral-import merge
 
 touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h u
 test ! -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable should not be stored in extension data"
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 test ! -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable should not appear in writable storage after unmerge"
@@ -1914,13 +1914,13 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+systemd-sysext --root="${fake_root}" merge
 
 touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h u
 test ! -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable should not be stored in extension data"
 
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+systemd-sysext --root="${fake_root}" unmerge
 
 check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 test ! -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable should not appear in writable storage after unmerge"
@@ -1952,7 +1952,7 @@ prep_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-succeed-on-read-only-fs" || die "${fake_root}${hierarchy} is not mutable"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=ephemeral-import merge && die 'expected merge to fail'
+systemd-sysext --root="${fake_root}" --mutable=ephemeral-import merge && die 'expected merge to fail'
 
 
 #
@@ -1979,7 +1979,7 @@ prep_hierarchy "${fake_root}" "${hierarchy}"
 touch "${fake_root}${hierarchy}/should-succeed-on-read-only-fs" || die "${fake_root}${hierarchy} is not mutable"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=import merge && die 'expected merge to fail'
+systemd-sysext --root="${fake_root}" --mutable=import merge && die 'expected merge to fail'
 
 
 #
@@ -2003,11 +2003,11 @@ for mutable_mode in no yes ephemeral; do
     perms_before_merge=$(stat --format=%A "${full_path}")
 
     # run systemd-sysext
-    SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=${mutable_mode} merge
+    systemd-sysext --root="${fake_root}" --mutable=${mutable_mode} merge
 
     perms_after_merge=$(stat --format=%A "${full_path}")
 
-    SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+    systemd-sysext --root="${fake_root}" unmerge
 
     perms_after_unmerge=$(stat --format=%A "${full_path}")
 
@@ -2043,7 +2043,7 @@ chmod 0755 "${fake_root}/${hierarchy}"
 chmod 0700 "${ext_data_path}"
 
 # run systemd-sysext
-SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=yes merge && die 'expected merge to fail'
+systemd-sysext --root="${fake_root}" --mutable=yes merge && die 'expected merge to fail'
 
 
 #
