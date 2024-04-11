@@ -4,8 +4,8 @@ CHANGES WITH 256 in spe:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
-        * Support for flushing of the nscd user/group database caches will be
-          dropped in a future release.
+        * Support for automatic flushing of the nscd user/group database caches
+          will be dropped in a future release.
 
         * Support for cgroup v1 ('legacy' and 'hybrid' hierarchies) is now
           considered obsolete and systemd by default will refuse to boot under
@@ -22,11 +22,11 @@ CHANGES WITH 256 in spe:
           that are not configured in the .network file are removed.
 
         * systemd-gpt-auto-generator will stop generating units for ESP or
-          XBOOTLDR partitions if it finds mount entries in the /boot/ or /efi/
-          hierarchies in fstab. This is to prevent the generator from
-          interfering with systems where ESP is explicitly configured to be
-          mounted at some path, for example /boot/efi/ (this type of setup is
-          obsolete but still commonly found).
+          XBOOTLDR partitions if it finds mount entries for or below the /boot/
+          or /efi/ hierarchies in /etc/fstab. This is to prevent the generator
+          from interfering with systems where the ESP is explicitly configured
+          to be mounted at some path, for example /boot/efi/ (this type of
+          setup is obsolete but still commonly found).
 
         * The behavior of systemd-sleep and systemd-homed has been updated to
           freeze user sessions when entering the various sleep modes or when
@@ -37,68 +37,57 @@ CHANGES WITH 256 in spe:
           and related services, and SYSTEMD_HOME_LOCK_FREEZE_SESSION=false for
           systemd-homed.service.
 
-        * systemd-tmpfiles and systemd-sysusers, when given a relative path
-          (with at least one directory separator '/'), will open the file
-          directly, instead of searching for the given partial path in the
-          standard locations. The old mode wasn't useful because tmpfiles.d and
-          sysusers.d configuration has a flat structure with no subdirectories
-          under the standard locations and this change makes it easier to work
-          with local files with those tools.
+        * systemd-tmpfiles and systemd-sysusers, when given a relative
+          configuration file path (with at least one directory separator '/'),
+          will open the file directly, instead of searching for the given
+          partial path in the standard locations. The old mode wasn't useful
+          because tmpfiles.d/ and sysusers.d/ configuration has a flat
+          structure with no subdirectories under the standard locations and
+          this change makes it easier to work with local files with those
+          tools.
 
         * systemd-tmpfiles now properly applies nested configuration to 'R' and
-          'D' stanzas. For example, with 'R /foo; x /foo/bar', /foo/bar will
-          now be excluded from removal.
+          'D' stanzas. For example, with the combination of 'R /foo' and 'x
+          /foo/bar', /foo/bar will now be excluded from removal.
 
         General Changes and New Features:
 
-        * Various programs will load the main configuration from under
-          /usr/lib/, /usr/local/lib/, and /run/, not just from under /etc/. For
-          example, systemd-logind will look for /etc/systemd/logind.conf,
-          /run/systemd/logind.conf, /usr/local/lib/systemd/logind.conf, and
-          /usr/lib/systemd/logind.conf, and use the first file that is found.
-          This means that the location logic for the main config file and for
-          drop-ins is now the same.
+        * Various programs will now attempt to load the main configuration file
+          from locations below /usr/lib/, /usr/local/lib/, and /run/, not just
+          below /etc/. For example, systemd-logind will look for
+          /etc/systemd/logind.conf, /run/systemd/logind.conf,
+          /usr/local/lib/systemd/logind.conf, and /usr/lib/systemd/logind.conf,
+          and use the first file that is found.  This means that the search
+          logic for the main config file and for drop-ins is now the same.
 
-          ukify will look for the config files in /usr/lib/kernel/ and the
-          other locations, and now also supports drop-ins.
+          Similarly, ukify will look for the config files in /usr/lib/kernel/
+          and the other search locations, and now also supports drop-ins.
 
           systemd-udevd now supports drop-ins for udev.conf.
 
         * A new 'systemd-vpick' binary has been added. It implements the new
-          vpick protocol, where a .v directory may contain multiple files with
-          a version, following the UAPI version format specification, embedded
-          in the file name. The files are ordered by version and the newest one
-          is selected.
+          vpick protocol, where a "*.v/" directory may contain multiple files
+          whose names carry a version (following the UAPI version format
+          specification) embedded in the file name. The files are ordered by
+          version and the newest one is selected.
 
-          systemd-nspawn, systemd-dissect, and the RootDirectory=, RootImage=,
-          ExtensionImages=, and ExtensionDirectories= settings for units now
-          support the vpick protocol and allow the latest version to be
-          selected automatically if a "*.v/" directory is specified as the
-          source.
+          systemd-nspawn --image=/--directory=, systemd-dissect, and the
+          RootDirectory=, RootImage=, ExtensionImages=, and
+          ExtensionDirectories= settings for units now support the vpick
+          protocol and allow the latest version to be selected automatically if
+          a "*.v/" directory is specified as the source.
 
-        * Credentials can now be made accessible to and used by unprivileged
-          users. 'systemd-creds --user --uid=<user>' will encrypt or decrypt a
-          credential for a specific user.
+        * Encrypted service credentials may now be made accessible to
+          unprivileged users. 'systemd-creds --user --uid=<user>' will encrypt
+          or decrypt a credential for a specific user.
 
-        * With systemd-homed, it is now possible to log in and activate an
-          encrypted home area over SSH.
+        * systemd-homed now supports unlocking of home directories when logging
+          in via SSH. Previously home directories needed to be unlocked before
+          an SSH login is attempted.
 
-          homectl is now installed as a multi-call binary. When invoked as
-          systemd-home-fallback-shell it can be used as a temporary shell which
-          allows the home area to interactively unlocked. When the home area
-          becomes available, the temporary shell executes the normal one.
-
-          systemd-homed gained new methods
-          org.freedesktop.home1.Manager.RefHomeUnrestricted,
-          org.freedesktop.home1.Home.RefUnrestricted,
-          org.freedesktop.home1.Manager.ActivateHomeIfReferenced, and
-          org.freedesktop.home1.Home.ActivateIfReferenced to allow logging in
-          without activating the home area and then activating the home area
-          later.
-
-        * JSON User Records have been extended with a separate storage area
-          called "User Record Blob Directories". This is intended to store the
-          user's background image, avatar picture, and other similar items
+        * JSON User Records have been extended with a separate public storage
+          area called "User Record Blob Directories". This is intended to store
+          the user's background image, avatar picture, and other similar items
           which are too large to fit into the User Record itself.
 
           systemd-homed, userdbctl, and homectl gained support for blob
@@ -107,13 +96,16 @@ CHANGES WITH 256 in spe:
         * New command-line tool 'importctl' to download, import, and export
           disk images via systemd-importd is added with the following verbs:
           pull-tar, pull-raw, import-tar, import-raw, import-fs, export-tar,
-          export-raw, list-transfers, cancel-transfer.
+          export-raw, list-transfers, cancel-transfer. This functionality was
+          previously available in "machinectl", where it was exclusively for
+          machine image. The new "importctl" generalizes this for sysext,
+          confext, portable service images, too.
 
         Service Manager:
 
-        * New manager setting ProtectSystem= has been added. It is analogous to
-          the unit setting, but applies to the whole system. It is enabled by
-          default in the initrd.
+        * New system manager setting ProtectSystem= has been added. It is
+          analogous to the unit setting, but applies to the whole system. It is
+          enabled by default in the initrd.
 
         * New unit setting WantsMountsFor= has been added. It is analogous to
           RequiresMountsFor=, but with a Wants= dependency instead of
@@ -127,14 +119,14 @@ CHANGES WITH 256 in spe:
         * The manager gained a org.freedesktop.systemd1.StartAuxiliaryScope()
           method to devolve some processes from a service into a new scope.
           This new scope will remain even if the original service unit is
-          restarted. Cgroup properties of the new scope are copied from the
-          service, so various limits are retained.
+          restarted. Control group properties of the new scope are copied from
+          the originating unit, so various limits are retained.
 
         * Units now expose properties EffectiveMemoryMax=,
           EffectiveMemoryHigh=, and EffectiveTasksMax=, which report the
           most stringent limit systemd is aware of for the given unit.
 
-        * A new specifier %D expands to $XDG_DATA_HOME.
+        * A new unit file specifier %D expands to $XDG_DATA_HOME.
 
         * AllowedCPUs= now supports specifier expansion.
 
@@ -159,7 +151,7 @@ CHANGES WITH 256 in spe:
           used to specify the TTY for the debug shell, independently of
           enabling or disabling it.
 
-        * Systemd hostname can be configured via the systemd.hostname
+        * The system's hostname can be configured via the systemd.hostname
           credential.
 
         The Journal:
