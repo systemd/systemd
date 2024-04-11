@@ -89,7 +89,7 @@ static MutableMode arg_mutable = MUTABLE_NO;
 /* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
 static ImageClass arg_image_class = IMAGE_SYSEXT;
 
-static const char *mutable_extensions_base_dir = "/var/lib/extensions.mutable";
+#define MUTABLE_EXTENSIONS_BASE_DIR "/var/lib/extensions.mutable"
 
 STATIC_DESTRUCTOR_REGISTER(arg_hierarchies, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -796,7 +796,7 @@ static int resolve_mutable_directory(
                 char **ret_resolved_mutable_directory) {
 
         _cleanup_free_ char *path = NULL, *resolved_path = NULL, *dir_name = NULL;
-        const char *root = arg_root, *base = mutable_extensions_base_dir;
+        const char *root = arg_root, *base = MUTABLE_EXTENSIONS_BASE_DIR;
         int r;
 
         assert(hierarchy);
@@ -949,7 +949,7 @@ static int maybe_import_ignored_mutable_directory(OverlayFSPaths *op) {
         if (!dir_name)
                 return log_oom();
 
-        path = path_join(mutable_extensions_base_dir, dir_name);
+        path = path_join(MUTABLE_EXTENSIONS_BASE_DIR, dir_name);
         if (!path)
                 return log_oom();
 
