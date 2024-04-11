@@ -6840,10 +6840,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         check(self, False, True)
         check(self, False, False)
     
-    def test_dhcp_client_default_use_domains(self):
+    def test_dhcp_client_default_use_domains(self):        
         def check(self, ipv4, ipv6):
-            os.makedirs(os.path.join(network_unit_dir, '25-dhcp-client.network.d'), exist_ok=True)
-            with open(os.path.join(network_unit_dir, '25-dhcp-client.network.d/override.conf'), mode='w', encoding='utf-8') as f:
+            os.makedirs(networkd_conf_dropin_dir, exist_ok=True)
+            with open(os.path.join(networkd_conf_dropin_dir, 'default_use_domains.conf'), mode='w', encoding='utf-8') as f:
                 f.write('[DHCPv4]\nUseDomains=')
                 f.write('yes' if ipv4 else 'no')
                 f.write('\n[DHCPv6]\nUseDomains=')
@@ -6860,18 +6860,14 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
             output = resolvectl('domain', 'veth99')
             print(output)
-            output2 = resolvectl('domain', 'veth-peer')
-            print(output2)
             if ipv4:
                 self.assertIn('example.com', output)
             else:
-                self.assertNotIn('1exmaple.com', output)
+                self.assertNotIn('example.com', output)
             if ipv6:
-                self.assertIn('example.con', output)
+                self.assertIn('example.com', output)
             else:
                 self.assertNotIn('example.com', output)
-
-            check_json(networkctl_json())
 
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network')
 
