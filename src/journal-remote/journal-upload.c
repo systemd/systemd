@@ -364,7 +364,7 @@ static int open_file_for_upload(Uploader *u, const char *filename) {
         u->input = fd;
 
         if (arg_follow != 0) {
-                r = sd_event_add_io(u->events, &u->input_event,
+                r = sd_event_add_io(u->event, &u->input_event,
                                     fd, EPOLLIN, dispatch_fd_input, u);
                 if (r < 0) {
                         if (r != -EPERM || arg_follow > 0)
@@ -413,11 +413,11 @@ static int setup_uploader(Uploader *u, const char *url, const char *state_file) 
 
         u->state_file = state_file;
 
-        r = sd_event_default(&u->events);
+        r = sd_event_default(&u->event);
         if (r < 0)
                 return log_error_errno(r, "sd_event_default failed: %m");
 
-        r = sd_event_set_signal_exit(u->events, true);
+        r = sd_event_set_signal_exit(u->event, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
 
@@ -443,7 +443,7 @@ static void destroy_uploader(Uploader *u) {
         close_fd_input(u);
         close_journal_input(u);
 
-        sd_event_unref(u->events);
+        sd_event_unref(u->event);
 }
 
 static int perform_upload(Uploader *u) {
@@ -782,7 +782,7 @@ static int run(int argc, char **argv) {
         if (r < 0)
                 return r;
 
-        sd_event_set_watchdog(u.events, true);
+        sd_event_set_watchdog(u.event, true);
 
         r = check_cursor_updating(&u);
         if (r < 0)
@@ -810,7 +810,7 @@ static int run(int argc, char **argv) {
                                       NOTIFY_STOPPING);
 
         for (;;) {
-                r = sd_event_get_state(u.events);
+                r = sd_event_get_state(u.event);
                 if (r < 0)
                         return r;
                 if (r == SD_EVENT_FINISHED)
@@ -837,7 +837,7 @@ static int run(int argc, char **argv) {
                                 return r;
                 }
 
-                r = sd_event_run(u.events, u.timeout);
+                r = sd_event_run(u.event, u.timeout);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
         }

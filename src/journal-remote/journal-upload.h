@@ -24,7 +24,7 @@ typedef enum {
 } entry_state;
 
 typedef struct Uploader {
-        sd_event *events;
+        sd_event *event;
 
         char *url;
         CURL *easy;

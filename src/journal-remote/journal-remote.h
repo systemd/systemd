@@ -29,7 +29,7 @@ struct RemoteServer {
         RemoteSource **sources;
         size_t active;
 
-        sd_event *events;
+        sd_event *event;
         sd_event_source *listen_event;
 
         Hashmap *writers;
