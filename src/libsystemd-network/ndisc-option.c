@@ -350,7 +350,9 @@ int ndisc_option_add_prefix_internal(
         struct in6_addr addr = *address;
         in6_addr_mask(&addr, prefixlen);
 
-        if (in6_addr_is_link_local(&addr) || in6_addr_is_null(&addr))
+        /* RFC 4861 and 4862 only state that link-local prefix should be ignored.
+         * But here we also ignore null and multicast addresses. */
+        if (in6_addr_is_link_local(&addr) || in6_addr_is_null(&addr) || in6_addr_is_multicast(&addr))
                 return -EINVAL;
 
         if (preferred_lifetime > valid_lifetime)
