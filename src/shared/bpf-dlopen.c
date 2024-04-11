@@ -76,6 +76,8 @@ int dlopen_bpf(void) {
         void *dl;
         int r;
 
+        ELF_NOTE_DLOPEN("bpf", "Support bpf for firewall and sandboxing.", ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED, "libbpf.so.1", "libbpf.so.0");
+
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;
 
         dl = dlopen("libbpf.so.1", RTLD_LAZY);

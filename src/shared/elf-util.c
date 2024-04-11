@@ -87,6 +87,8 @@ static DLSYM_FUNCTION(gelf_getnote);
 int dlopen_dw(void) {
         int r;
 
+        ELF_NOTE_DLOPEN("dw", "Support for backtrace and ELF package metadata decoding from core files.", ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED, "libdw.so.1");
+
         r = dlopen_many_sym_or_warn(
                         &dw_dl, "libdw.so.1", LOG_DEBUG,
                         DLSYM_ARG(dwarf_getscopes),
@@ -129,6 +131,8 @@ int dlopen_dw(void) {
 
 int dlopen_elf(void) {
         int r;
+
+        ELF_NOTE_DLOPEN("elf", "Support for backtrace and ELF package metadata decoding from core files.", ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED, "libelf.so.1");
 
         r = dlopen_many_sym_or_warn(
                         &elf_dl, "libelf.so.1", LOG_DEBUG,

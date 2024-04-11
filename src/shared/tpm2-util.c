@@ -113,6 +113,8 @@ static DLSYM_FUNCTION(Tss2_RC_Decode);
 int dlopen_tpm2(void) {
         int r;
 
+        ELF_NOTE_DLOPEN("tss2-esys", "Support for TPM2.", ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED, "libtss2-esys.so.0");
+
         r = dlopen_many_sym_or_warn(
                         &libtss2_esys_dl, "libtss2-esys.so.0", LOG_DEBUG,
                         DLSYM_ARG(Esys_Create),
@@ -164,11 +166,15 @@ int dlopen_tpm2(void) {
         if (r < 0)
                 log_debug("libtss2-esys too old, does not include Esys_TR_GetTpmHandle.");
 
+        ELF_NOTE_DLOPEN("tss2-rc", "Support for TPM2.", ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED, "libtss2-rc.so.0");
+
         r = dlopen_many_sym_or_warn(
                         &libtss2_rc_dl, "libtss2-rc.so.0", LOG_DEBUG,
                         DLSYM_ARG(Tss2_RC_Decode));
         if (r < 0)
                 return r;
+
+        ELF_NOTE_DLOPEN("tss2-mu", "Support for TPM2.", ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED, "libtss2-mu.so.0");
 
         return dlopen_many_sym_or_warn(
                         &libtss2_mu_dl, "libtss2-mu.so.0", LOG_DEBUG,
