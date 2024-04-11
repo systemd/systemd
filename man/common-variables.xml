@@ -20,9 +20,9 @@
       for more information. Each value may optionally be prefixed with one of <constant>console</constant>,
       <constant>syslog</constant>, <constant>kmsg</constant> or <constant>journal</constant> followed by a
       colon to set the maximum log level for that specific log target (e.g.
-      <constant>SYSTEMD_LOG_LEVEL=debug,console:info</constant> specifies to log at debug level except when
-      logging to the console which should be at info level). Note that the global maximum log level takes
-      priority over any per target maximum log levels.</para></listitem>
+      <constant>SYSTEMD_LOG_LEVEL=debug,console:info</constant> specifies to log at debug level for all
+      log targets except the console which should be at info level). Note that configuring the global maximum
+      log level overrides any previously configured per target maximum log levels.</para></listitem>
     </varlistentry>
 
     <varlistentry id='log-color'>
