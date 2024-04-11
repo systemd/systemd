@@ -451,7 +451,7 @@ static int setup_microhttpd_server(RemoteServer *s,
         if (epoll_fd < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "μhttp epoll fd is invalid");
 
-        r = sd_event_add_io(s->events, &d->io_event,
+        r = sd_event_add_io(s->event, &d->io_event,
                             epoll_fd, EPOLLIN,
                             dispatch_http_event, d);
         if (r < 0)
@@ -461,7 +461,7 @@ static int setup_microhttpd_server(RemoteServer *s,
         if (r < 0)
                 return log_error_errno(r, "Failed to set source name: %m");
 
-        r = sd_event_add_time(s->events, &d->timer_event,
+        r = sd_event_add_time(s->event, &d->timer_event,
                               CLOCK_MONOTONIC, UINT64_MAX, 0,
                               null_timer_event_handler, d);
         if (r < 0)
@@ -535,24 +535,6 @@ static int dispatch_http_event(sd_event_source *event,
  **********************************************************************
  **********************************************************************/
 
-static int setup_signals(RemoteServer *s) {
-        int r;
-
-        assert(s);
-
-        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGINT, SIGTERM) >= 0);
-
-        r = sd_event_add_signal(s->events, &s->sigterm_event, SIGTERM, NULL, s);
-        if (r < 0)
-                return r;
-
-        r = sd_event_add_signal(s->events, &s->sigint_event, SIGINT, NULL, s);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 static int setup_raw_socket(RemoteServer *s, const char *address) {
         int fd;
 
@@ -580,9 +562,9 @@ static int create_remoteserver(
         if (r < 0)
                 return r;
 
-        r = setup_signals(s);
+        r = sd_event_set_signal_exit(s->event, true);
         if (r < 0)
-                return log_error_errno(r, "Failed to set up signals: %m");
+                return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
 
         n = sd_listen_fds(true);
         if (n < 0)
@@ -1128,7 +1110,7 @@ static int run(int argc, char **argv) {
         if (r < 0)
                 return r;
 
-        r = sd_event_set_watchdog(s.events, true);
+        r = sd_event_set_watchdog(s.event, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable watchdog: %m");
 
@@ -1140,13 +1122,13 @@ static int run(int argc, char **argv) {
         notify_message = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
 
         while (s.active) {
-                r = sd_event_get_state(s.events);
+                r = sd_event_get_state(s.event);
                 if (r < 0)
                         return r;
                 if (r == SD_EVENT_FINISHED)
                         break;
 
-                r = sd_event_run(s.events, -1);
+                r = sd_event_run(s.event, -1);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
         }
