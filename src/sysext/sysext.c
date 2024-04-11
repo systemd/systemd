@@ -961,7 +961,11 @@ static int maybe_import_ignored_mutable_directory(OverlayFSPaths *op) {
                 return log_oom();
 
         r = chase(path, arg_root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
-        if (r < 0 && r != -ENOENT)
+        if (r == -ENOENT) {
+                log_debug("Mutable directory for %s does not exist, not importing", op->hierarchy);
+                return 0;
+        }
+        if (r < 0)
                 return log_error_errno(r, "Failed to resolve mutable directory '%s': %m", path);
 
         r = resolved_paths_equal(op->resolved_hierarchy, resolved_path);
