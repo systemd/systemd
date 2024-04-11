@@ -12,7 +12,6 @@ import pexpect
 
 
 def run(args):
-
     ret = 1
     logger = logging.getLogger("test-shutdown")
     logfile = None
@@ -25,7 +24,7 @@ def run(args):
 
     logger.info("spawning test")
     console = pexpect.spawn(args.command, args.arg, logfile=logfile, env={
-            "TERM": "linux",
+            "TERM": "dumb",
         }, encoding='utf-8', timeout=60)
 
     logger.debug("child pid %d", console.pid)
