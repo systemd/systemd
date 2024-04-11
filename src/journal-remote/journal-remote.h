@@ -30,7 +30,7 @@ struct RemoteServer {
         size_t active;
 
         sd_event *events;
-        sd_event_source *sigterm_event, *sigint_event, *listen_event;
+        sd_event_source *listen_event;
 
         Hashmap *writers;
         Writer *_single_writer;
