@@ -917,7 +917,7 @@ static int merge(Hashmap *images) {
         if (r == 123) /* exit code 123 means: didn't do anything */
                 return 0;
         if (r > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Failed to merge hierarchies");
+                return log_error_errno(SYNTHETIC_ERRNO(EPROTO), "Failed to merge hierarchies");
 
         r = need_reload();
         if (r < 0)
