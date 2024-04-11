@@ -1258,7 +1258,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 "-smp", arg_cpus ?: "1",
                 "-m", mem,
                 "-object", "rng-random,filename=/dev/urandom,id=rng0",
-                "-device", "virtio-rng-pci,rng=rng0,id=rng-device0"
+                "-device", "virtio-rng-pci,rng=rng0,id=rng-device0",
+                "-device", "virtio-balloon,free-page-reporting=on"
         );
         if (!cmdline)
                 return log_oom();
