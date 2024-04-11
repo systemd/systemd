@@ -316,20 +316,14 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
         return 1;
 }
 
-static int ndisc_request_address(Address *address, Link *link, sd_ndisc_router *rt) {
+static int ndisc_request_address(Address *address, Link *link) {
         bool is_new;
         int r;
 
         assert(address);
         assert(link);
 
-        if (rt) {
-                r = sd_ndisc_router_get_sender_address(rt, &address->provider.in6);
-                if (r < 0)
-                        return r;
-
-                address->source = NETWORK_CONFIG_SOURCE_NDISC;
-        }
+        address->source = NETWORK_CONFIG_SOURCE_NDISC;
 
         r = free_and_strdup_warn(&address->netlabel, link->network->ndisc_netlabel);
         if (r < 0)
@@ -377,7 +371,7 @@ int ndisc_reconfigure_address(Address *address, Link *link) {
         if (r <= 0)
                 return r;
 
-        r = ndisc_request_address(address, link, NULL);
+        r = ndisc_request_address(address, link);
         if (r < 0)
                 return r;
 
@@ -1052,7 +1046,7 @@ static int ndisc_router_process_mtu(Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *rt) {
         usec_t lifetime_valid_usec, lifetime_preferred_usec;
-        struct in6_addr prefix;
+        struct in6_addr prefix, router;
         uint8_t prefixlen;
         int r;
 
@@ -1062,6 +1056,10 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 
         if (!link->network->ndisc_use_autonomous_prefix)
                 return 0;
+
+        r = sd_ndisc_router_get_sender_address(rt, &router);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get router address: %m");
 
         r = sd_ndisc_router_prefix_get_address(rt, &prefix);
         if (r < 0)
@@ -1104,6 +1102,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 if (r < 0)
                         return log_oom();
 
+                address->provider.in6 = router;
                 address->family = AF_INET6;
                 address->in_addr.in6 = *a;
                 address->prefixlen = prefixlen;
@@ -1124,7 +1123,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                         if (r < 0)
                                 return log_link_warning_errno(link, r, "Could not remove SLAAC address: %m");
                 } else {
-                        r = ndisc_request_address(address, link, rt);
+                        r = ndisc_request_address(address, link);
                         if (r < 0)
                                 return log_link_warning_errno(link, r, "Could not request SLAAC address: %m");
                 }
