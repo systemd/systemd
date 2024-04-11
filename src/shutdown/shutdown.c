@@ -305,7 +305,7 @@ static void bump_sysctl_printk_log_level(int min_level) {
         if (current_lvl < 0 || current_lvl >= min_level + 1)
                 return;
 
-        r = sysctl_writef("kernel/printk", "%i", min_level + 1);
+        r = sysctl_writef("kernel/printk", false, "%i", min_level + 1);
         if (r < 0)
                 log_debug_errno(r, "Failed to bump kernel.printk to %i: %m", min_level + 1);
 }

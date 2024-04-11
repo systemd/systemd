@@ -3225,7 +3225,7 @@ static int patch_sysctl(void) {
                 if (!good)
                         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Refusing to write to sysctl '%s', as it is not safe in the selected namespaces.", *k);
 
-                r = sysctl_write(*k, *v);
+                r = sysctl_write(*k, *v, false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write sysctl '%s': %m", *k);
         }
