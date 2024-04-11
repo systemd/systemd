@@ -1532,7 +1532,7 @@ static int become_shutdown(int objective, int retval) {
         assert(command_line[pos-1]);
         assert(!command_line[pos]);
 
-        (void) log_max_levels_to_string(log_get_max_level(), &max_log_levels);
+        (void) log_max_levels_to_string(/* clamp_level = */ -1, &max_log_levels);
 
         if (max_log_levels) {
                 command_line[pos++] = "--log-level";

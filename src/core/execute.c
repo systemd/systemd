@@ -436,7 +436,7 @@ int exec_spawn(Unit *unit,
         /* If LogLevelMax= is specified, then let's use the specified log level at the beginning of the
          * executor process. To achieve that the specified log level is passed as an argument, rather than
          * the one for the manager process. */
-        r = log_max_levels_to_string(context->log_level_max >= 0 ? context->log_level_max : log_get_max_level(), &max_log_levels);
+        r = log_max_levels_to_string(context->log_level_max, &max_log_levels);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to convert max log levels to string: %m");
 

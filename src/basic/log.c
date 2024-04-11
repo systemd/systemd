@@ -1278,23 +1278,19 @@ int log_set_max_level_from_string(const char *e) {
         return 0;
 }
 
-int log_max_levels_to_string(int level, char **ret) {
+int log_max_levels_to_string(int clamp_level, char **ret) {
         _cleanup_free_ char *s = NULL;
         int r;
 
         assert(ret);
 
-        r = log_level_to_string_alloc(level, &s);
-        if (r < 0)
-                return r;
+        if (clamp_level < 0)
+                clamp_level = LOG_DEBUG;
 
         for (LogTarget target = 0; target < _LOG_TARGET_SINGLE_MAX; target++) {
                 _cleanup_free_ char *l = NULL;
 
-                if (log_target_max_level[target] <= level)
-                        continue;
-
-                r = log_level_to_string_alloc(log_target_max_level[target], &l);
+                r = log_level_to_string_alloc(MIN(log_target_max_level[target], clamp_level), &l);
                 if (r < 0)
                         return r;
 
