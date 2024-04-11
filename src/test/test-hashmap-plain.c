@@ -10,6 +10,13 @@
 #include "tests.h"
 #include "time-util.h"
 
+/* PROJECT_FILE, which is used by ASSERT_XYZ(), cannot be used in generated files, as the build directory
+ * may be outside of the source directory. */
+#ifdef ORDERED
+#  undef PROJECT_FILE
+#  define PROJECT_FILE __FILE__
+#endif
+
 TEST(hashmap_replace) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
         _cleanup_free_ char *val1 = NULL, *val2 = NULL, *val3 = NULL, *val4 = NULL, *val5 = NULL;
