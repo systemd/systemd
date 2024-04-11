@@ -178,8 +178,6 @@ static void ndisc_set_route_priority(Link *link, Route *route) {
 }
 
 static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
-        uint8_t hop_limit = 0;
-        uint32_t mtu = 0;
         bool is_new;
         int r;
 
@@ -192,18 +190,6 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
                 r = sd_ndisc_router_get_sender_address(rt, &route->provider.in6);
                 if (r < 0)
                         return r;
-
-                if (link->network->ndisc_use_mtu) {
-                        r = sd_ndisc_router_get_mtu(rt, &mtu);
-                        if (r < 0 && r != -ENODATA)
-                                return log_link_warning_errno(link, r, "Failed to get MTU from RA: %m");
-                }
-
-                if (link->network->ndisc_use_hop_limit) {
-                        r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
-                        if (r < 0 && r != -ENODATA)
-                                return log_link_warning_errno(link, r, "Failed to get hop limit from RA: %m");
-                }
         }
 
         route->source = NETWORK_CONFIG_SOURCE_NDISC;
@@ -211,12 +197,7 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
                 route->table = link_get_ndisc_route_table(link);
         if (!route->protocol_set)
                 route->protocol = RTPROT_RA;
-        r = route_metric_set(&route->metric, RTAX_MTU, mtu);
-        if (r < 0)
-                return r;
-        r = route_metric_set(&route->metric, RTAX_HOPLIMIT, hop_limit);
-        if (r < 0)
-                return r;
+
         r = route_metric_set(&route->metric, RTAX_QUICKACK, link->network->ndisc_quickack);
         if (r < 0)
                 return r;
