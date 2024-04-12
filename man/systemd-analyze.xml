@@ -1056,7 +1056,7 @@ x86-64      native</programlisting>
       </varlistentry>
 
       <varlistentry>
-        <term><option>--fuzz=</option><replaceable>timespan</replaceable></term>
+        <term><option>--fuzz=<replaceable>timespan</replaceable></option></term>
 
         <listitem><para>When used in conjunction with the
         <command>critical-chain</command> command (see above), also

@@ -194,7 +194,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-device=</option><replaceable>PATH</replaceable></term>
+        <term><option>--tpm2-device=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Controls which TPM2 device to use. Expects a device node path referring to the TPM2
         chip (e.g. <filename>/dev/tpmrm0</filename>). Alternatively the special value <literal>auto</literal>
@@ -206,7 +206,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--phase=</option><replaceable>PHASE</replaceable></term>
+        <term><option>--phase=<replaceable>PHASE</replaceable></option></term>
 
         <listitem><para>Controls which boot phases to calculate expected PCR 11 values for. This takes a
         series of colon-separated strings that encode boot "paths" for entering a specific phase of the boot
@@ -232,7 +232,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--append=</option><replaceable>PATH</replaceable></term>
+        <term><option>--append=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>When generating a PCR JSON signature (via the <command>sign</command> command),
         combine it with a previously generated PCR JSON signature, and output it as one. The specified path

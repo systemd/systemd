@@ -204,7 +204,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--json=</option><replaceable>MODE</replaceable></term>
+        <term><option>--json=<replaceable>MODE</replaceable></option></term>
 
         <listitem>
           <para>Selects the JSON output formatting, one of <literal>pretty</literal> (for nicely indented,

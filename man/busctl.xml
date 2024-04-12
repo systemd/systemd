@@ -315,7 +315,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--json=</option><replaceable>MODE</replaceable></term>
+        <term><option>--json=<replaceable>MODE</replaceable></option></term>
 
         <listitem>
           <para>When used with the <command>call</command> or <command>get-property</command> command, shows output
@@ -341,7 +341,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--expect-reply=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--expect-reply=<replaceable>BOOL</replaceable></option></term>
 
         <listitem>
           <para>When used with the <command>call</command> command,
@@ -361,7 +361,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--auto-start=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--auto-start=<replaceable>BOOL</replaceable></option></term>
 
         <listitem>
           <para>When used with the <command>call</command> or <command>emit</command> command, specifies
@@ -375,7 +375,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--allow-interactive-authorization=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--allow-interactive-authorization=<replaceable>BOOL</replaceable></option></term>
 
         <listitem>
           <para>When used with the <command>call</command> command,
@@ -389,7 +389,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--timeout=</option><replaceable>SECS</replaceable></term>
+        <term><option>--timeout=<replaceable>SECS</replaceable></option></term>
 
         <listitem>
           <para>When used with the <command>call</command> command,
@@ -407,7 +407,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--augment-creds=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--augment-creds=<replaceable>BOOL</replaceable></option></term>
 
         <listitem>
           <para>Controls whether credential data reported by
@@ -423,7 +423,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--watch-bind=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--watch-bind=<replaceable>BOOL</replaceable></option></term>
 
         <listitem>
           <para>Controls whether to wait for the specified <constant>AF_UNIX</constant> bus socket to appear in the
@@ -435,7 +435,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--destination=</option><replaceable>SERVICE</replaceable></term>
+        <term><option>--destination=<replaceable>SERVICE</replaceable></option></term>
 
         <listitem>
           <para>Takes a service name. When used with the <command>emit</command> command, a signal is

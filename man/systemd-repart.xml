@@ -390,8 +390,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-device-key=</option><replaceable>PATH</replaceable></term>
-        <term><option>--tpm2-seal-key-handle=</option><replaceable>HANDLE</replaceable></term>
+        <term><option>--tpm2-device-key=<replaceable>PATH</replaceable></option></term>
+        <term><option>--tpm2-seal-key-handle=<replaceable>HANDLE</replaceable></option></term>
 
         <listitem><para>Configures a TPM2 SRK key to bind encryption to. See
         <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -401,8 +401,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-public-key=</option><replaceable>PATH</replaceable></term>
-        <term><option>--tpm2-public-key-pcrs=</option><replaceable>PCR<optional>+PCR...</optional></replaceable></term>
+        <term><option>--tpm2-public-key=<replaceable>PATH</replaceable></option></term>
+        <term><option>--tpm2-public-key-pcrs=<replaceable>PCR<optional>+PCR...</optional></replaceable></option></term>
 
         <listitem><para>Configures a TPM2 signed PCR policy to bind encryption to. See
         <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -412,7 +412,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-pcrlock=</option><replaceable>PATH</replaceable></term>
+        <term><option>--tpm2-pcrlock=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Configures a TPM2 pcrlock policy to bind encryption to. See
         <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -422,7 +422,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--split=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--split=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Enables generation of split artifacts from partitions configured with
         <varname>SplitName=</varname>. If enabled, for each partition with <varname>SplitName=</varname> set,
@@ -439,8 +439,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--include-partitions=</option><replaceable>PARTITIONS</replaceable></term>
-        <term><option>--exclude-partitions=</option><replaceable>PARTITIONS</replaceable></term>
+        <term><option>--include-partitions=<replaceable>PARTITIONS</replaceable></option></term>
+        <term><option>--exclude-partitions=<replaceable>PARTITIONS</replaceable></option></term>
 
         <listitem><para>These options specify which partition types <command>systemd-repart</command> should
         operate on. If <option>--include-partitions=</option> is used, all partitions that aren't specified
@@ -454,7 +454,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--defer-partitions=</option><replaceable>PARTITIONS</replaceable></term>
+        <term><option>--defer-partitions=<replaceable>PARTITIONS</replaceable></option></term>
 
         <listitem><para>This option specifies for which partition types <command>systemd-repart</command>
         should defer. All partitions that are deferred using this option are still taken into account when
@@ -467,7 +467,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--sector-size=</option><replaceable>BYTES</replaceable></term>
+        <term><option>--sector-size=<replaceable>BYTES</replaceable></option></term>
 
         <listitem><para>This option allows configuring the sector size of the image produced by
         <command>systemd-repart</command>. It takes a value that is a power of <literal>2</literal> between
@@ -478,7 +478,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--architecture=</option><replaceable>ARCH</replaceable></term>
+        <term><option>--architecture=<replaceable>ARCH</replaceable></option></term>
 
         <listitem><para>This option allows overriding the architecture used for architecture specific
         partition types. For example, if set to <literal>arm64</literal> a partition type of
@@ -508,7 +508,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--offline=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--offline=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Instructs <command>systemd-repart</command> to build the image offline. Takes a
         boolean or <literal>auto</literal>. Defaults to <literal>auto</literal>. If enabled, the image is
@@ -522,7 +522,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--copy-from=</option><replaceable>IMAGE</replaceable></term>
+        <term><option>--copy-from=<replaceable>IMAGE</replaceable></option></term>
 
         <listitem><para>Instructs <command>systemd-repart</command> to synthesize partition definitions from
         the partition table in the given image. This option can be specified multiple times to synthesize
@@ -537,7 +537,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--copy-source=</option><replaceable>PATH</replaceable></term>
+        <term><option>--copy-source=<replaceable>PATH</replaceable></option></term>
         <term><option>-s</option> <replaceable>PATH</replaceable></term>
 
         <listitem><para>Specifies a source directory all <varname>CopyFiles=</varname> source paths shall be
@@ -550,7 +550,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--make-ddi=</option><replaceable>TYPE</replaceable></term>
+        <term><option>--make-ddi=<replaceable>TYPE</replaceable></option></term>
 
         <listitem><para>Takes one of <literal>sysext</literal>, <literal>confext</literal> or
         <literal>portable</literal>. Generates a Discoverable Disk Image (DDI) for a system extension
@@ -591,7 +591,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--generate-fstab=</option><replaceable>PATH</replaceable></term>
+        <term><option>--generate-fstab=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Specifies a path where to write fstab entries for the mountpoints configured with
         <option>MountPoint=</option> in the root directory specified with <option>--copy-source=</option> or
@@ -602,7 +602,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--generate-crypttab=</option><replaceable>PATH</replaceable></term>
+        <term><option>--generate-crypttab=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Specifies a path where to write crypttab entries for the encrypted volumes configured
         with <option>EncryptedVolume=</option> in the root directory specified with

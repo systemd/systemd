@@ -104,7 +104,7 @@
 
       <variablelist>
         <varlistentry>
-          <term><option>--cpus=</option><replaceable>CPUS</replaceable></term>
+          <term><option>--cpus=<replaceable>CPUS</replaceable></option></term>
 
           <listitem><para>Configures the number of CPUs to start the virtual machine with.
           Defaults to 1.</para>
@@ -114,7 +114,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--ram=</option><replaceable>BYTES</replaceable></term>
+          <term><option>--ram=<replaceable>BYTES</replaceable></option></term>
 
           <listitem><para>Configures the amount of memory to start the virtual machine with.
           Defaults to 2G.</para>
@@ -124,7 +124,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--kvm=</option><replaceable>BOOL</replaceable></term>
+          <term><option>--kvm=<replaceable>BOOL</replaceable></option></term>
 
           <listitem><para>Configures whether to use KVM. If the option is not specified KVM support will be
           detected automatically. If true, KVM is always used, and if false, KVM is never used.</para>
@@ -133,7 +133,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--vsock=</option><replaceable>BOOL</replaceable></term>
+          <term><option>--vsock=<replaceable>BOOL</replaceable></option></term>
 
           <listitem>
             <para>Configure whether to use VSOCK networking.</para>
@@ -145,7 +145,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--vsock-cid=</option><replaceable>CID</replaceable></term>
+          <term><option>--vsock-cid=<replaceable>CID</replaceable></option></term>
 
           <listitem>
             <para>Configure vmspawn to use a specific CID for the guest.</para>
@@ -160,7 +160,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--tpm=</option><replaceable>BOOL</replaceable></term>
+          <term><option>--tpm=<replaceable>BOOL</replaceable></option></term>
 
           <listitem>
             <para>Configure whether to use VM with a virtual TPM or not.</para>
@@ -178,7 +178,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--linux=</option><replaceable>PATH</replaceable></term>
+          <term><option>--linux=<replaceable>PATH</replaceable></option></term>
 
           <listitem>
             <para>Set the linux kernel image to use for direct kernel boot.</para>
@@ -190,7 +190,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--initrd=</option><replaceable>PATH</replaceable></term>
+          <term><option>--initrd=<replaceable>PATH</replaceable></option></term>
 
           <listitem>
             <para>Set the initrd to use for direct kernel boot.</para>
@@ -233,7 +233,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--firmware=</option><replaceable>PATH</replaceable></term>
+          <term><option>--firmware=<replaceable>PATH</replaceable></option></term>
 
           <listitem><para>Takes an absolute path, or a relative path beginning with
           <filename>./</filename>. Specifies a JSON firmware definition file, which allows selecting the
@@ -254,7 +254,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--secure-boot=</option><replaceable>BOOL</replaceable></term>
+          <term><option>--secure-boot=<replaceable>BOOL</replaceable></option></term>
 
           <listitem><para>Configure whether to search for firmware which supports Secure Boot.</para>
 
@@ -327,7 +327,7 @@
 
       <variablelist>
         <varlistentry>
-          <term><option>--private-users=</option><replaceable>UID_SHIFT[:UID_RANGE]</replaceable></term>
+          <term><option>--private-users=<replaceable>UID_SHIFT[:UID_RANGE]</replaceable></option></term>
 
           <listitem><para>Controls user namespacing under <option>--directory=</option>.
           If enabled, <command>virtiofsd</command> is instructed to map user and group ids (UIDs and GIDs).
@@ -353,8 +353,8 @@
       <variablelist>
 
         <varlistentry>
-          <term><option>--bind=</option><replaceable>PATH</replaceable></term>
-          <term><option>--bind-ro=</option><replaceable>PATH</replaceable></term>
+          <term><option>--bind=<replaceable>PATH</replaceable></option></term>
+          <term><option>--bind-ro=<replaceable>PATH</replaceable></option></term>
 
           <listitem><para>Mount a directory from the host into the virtual machine. Takes one of: a path
           argument — in which case the specified path will be mounted from the host to the same path in the virtual machine, or
@@ -368,7 +368,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--extra-drive=</option><replaceable>PATH</replaceable></term>
+          <term><option>--extra-drive=<replaceable>PATH</replaceable></option></term>
 
           <listitem><para>Takes a disk image or block device on the host and supplies it to the virtual machine as another drive.</para>
 
@@ -383,7 +383,7 @@
 
       <variablelist>
         <varlistentry>
-          <term><option>--forward-journal=</option><replaceable>FILE|DIR</replaceable></term>
+          <term><option>--forward-journal=<replaceable>FILE|DIR</replaceable></option></term>
 
           <listitem><para>Forward the virtual machine's journal to the host.
           <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -397,7 +397,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--pass-ssh-key=</option><replaceable>BOOL</replaceable></term>
+          <term><option>--pass-ssh-key=<replaceable>BOOL</replaceable></option></term>
 
           <listitem><para>By default an SSH key is generated to allow <command>systemd-vmspawn</command> to open
           a D-Bus connection to the VM's systemd bus. Setting this to "no" will disable SSH key generation.</para>
@@ -410,7 +410,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--ssh-key-type=</option><replaceable>TYPE</replaceable></term>
+          <term><option>--ssh-key-type=<replaceable>TYPE</replaceable></option></term>
 
           <listitem><para>Configures the type of SSH key to generate, see
           <citerefentry project="man-pages"><refentrytitle>ssh-keygen</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -430,7 +430,7 @@
 
       <variablelist>
         <varlistentry>
-          <term><option>--console=</option><replaceable>MODE</replaceable></term>
+          <term><option>--console=<replaceable>MODE</replaceable></option></term>
 
           <listitem><para>Configures how to set up the console of the VM. Takes one of
           <literal>interactive</literal>, <literal>read-only</literal>, <literal>native</literal>,
@@ -466,8 +466,8 @@
 
       <variablelist>
         <varlistentry>
-          <term><option>--load-credential=</option><replaceable>ID</replaceable>:<replaceable>PATH</replaceable></term>
-          <term><option>--set-credential=</option><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
+          <term><option>--load-credential=<replaceable>ID</replaceable>:<replaceable>PATH</replaceable></option></term>
+          <term><option>--set-credential=<replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></option></term>
 
           <listitem><para>Pass a credential to the virtual machine. These two options correspond to the
           <varname>LoadCredential=</varname> and <varname>SetCredential=</varname> settings in unit files. See
