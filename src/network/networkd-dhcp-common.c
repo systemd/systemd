@@ -632,6 +632,8 @@ int config_parse_dhcp_use_domains(
         return 0;
 }
 
+DEFINE_CONFIG_PARSE_ENUM(config_parse_default_dhcp_use_domains, use_domains, UseDomains, "Failed to parse default UseDomains=")
+
 int config_parse_dhcp_use_ntp(
                 const char* unit,
                 const char *filename,
