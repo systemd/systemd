@@ -407,7 +407,7 @@
           for more information.</para>
 
           <para>By default <literal>ed25519</literal> keys are generated, however <literal>rsa</literal> keys
-          may also be useful if the VM has a particularly old version of <command>sshd</command></para>.
+          may also be useful if the VM has a particularly old version of <command>sshd</command>.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
@@ -495,6 +495,48 @@
       <programlisting>
 $ mkosi -d arch -p systemd -p linux --autologin -o image.raw -f build
 $ systemd-vmspawn --image=image.raw
+      </programlisting>
+    </example>
+
+    <example>
+      <title>Import and run a Fedora 39 Cloud image using machinectl</title>
+
+      <programlisting>
+$ wget https://download.fedoraproject.org/pub/fedora/linux/releases/39/Cloud/x86_64/images/Fedora-Cloud-Base-39-1.5.x86_64.raw.xz \
+       https://download.fedoraproject.org/pub/fedora/linux/releases/39/Cloud/x86_64/images/Fedora-Cloud-39-1.5-x86_64-CHECKSUM
+$ curl -O https://fedoraproject.org/fedora.gpg
+$ gpgv --keyring ./fedora.gpg Fedora-Cloud-39-1.5-x86_64-CHECKSUM
+$ sha256sum -c Fedora-Cloud-39-1.5-x86_64-CHECKSUM
+# machinectl import-raw Fedora-Cloud-Base-39-1.5.x86_64.raw.xz fedora-39-cloud
+# systemd-vmspawn -M fedora-39-cloud
+      </programlisting>
+    </example>
+
+    <example>
+      <title>Build and run systemd's system image and forward the VM's journal to a local file</title>
+
+      <programlisting>
+$ mkosi build
+$ systemd-vmspawn \
+    -D mkosi.output/system \
+    --private-users $(grep $(whoami) /etc/subuid | cut -d: -f2) \
+    --linux mkosi.output/system.efi \
+    --forward-journal=vm.journal \
+    enforcing=0
+      </programlisting>
+    </example>
+
+    <example>
+      <title>SSH into a running VM using the systemd-ssh-proxy</title>
+
+      <programlisting>
+$ mkosi build
+$ systemd-vmspawn \
+    -D mkosi.output/system \
+    --private-users $(grep $(whoami) /etc/subuid | cut -d: -f2)
+    --linux mkosi.output/system.efi \
+    enforcing=0
+$ ssh root@vsock/681331013 -i /run/user/$UID/systemd/vmspawn/machine-*-system-ed2551
       </programlisting>
     </example>
   </refsect1>
