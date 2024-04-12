@@ -297,6 +297,51 @@ The results are then located in the `results.csv` file as a comma separated
 values list (obviously), which is the most human-friendly output format the
 CodeQL utility provides (so far).
 
+Running Coverity locally
+========================
+
+Note: this requires a Coverity license, as the public tool tarball (from [0])
+doesn't contain cov-analyze and friends, so the usefulness of this guide is
+somewhat limited.
+
+Debugging certain pesky Coverity defects can be painful, especially since the
+OSS Coverity instance has a very strict limit on how many builds we can send it
+per day/week, so if you have an access to a non-OSS Coverity license, knowing
+how to debug defects locally might come in handy.
+
+After installing the necessary tooling we need to populate the emit DB first:
+
+$ rm -rf build cov
+$ meson setup build -Dman=false
+$ cov-build --dir=./cov ninja -C build
+
+From there it depends if you're interested in a specific defect or all of them.
+For the latter run:
+
+$ cov-analyze --dir=./cov --wait-for-license
+
+If you want to debug a specific defect, telling that to cov-analyze speeds
+things up a bit:
+
+$ cov-analyze --dir=./cov --wait-for-license --disable-default --enable ASSERT_SIDE_EFFECT
+
+The final step is getting the actual report which can be generated in multiple
+formats, for example:
+
+$ cov-format-errors --dir ./cov --text-output-style multiline
+$ cov-format-errors --dir=./cov --emacs-style
+$ cov-format-errors --dir=./cov --html-output html-out
+
+Which generate a text report, an emacs-compatible text report, and an HTML
+report respectively.
+
+Other useful options for cov-format-error include --file <file> to filter out
+defects for a specific file, --checker-regex DEFECT_TYPE to filter our only a
+specific defect (if this wasn't done already by cov-analyze), and many others,
+see --help for an exhaustive list.
+
+[0] https://scan.coverity.com/download
+
 Code coverage
 =============
 
