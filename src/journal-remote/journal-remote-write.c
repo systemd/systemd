@@ -92,6 +92,12 @@ int writer_write(Writer *w,
         assert(!iovw_isempty(iovw));
 
         if (journal_file_rotate_suggested(w->journal, 0, LOG_DEBUG)) {
+                if (w->server->split_mode == JOURNAL_WRITE_SPLIT_NONE)
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                               "%s: Journal header limits reached or header out-of-date and "
+                                               "--split-mode=none, cannot write any more entries.",
+                                               w->journal->path);
+
                 log_info("%s: Journal header limits reached or header out-of-date, rotating",
                          w->journal->path);
                 r = do_rotate(&w->journal, w->mmap, file_flags);
@@ -116,7 +122,7 @@ int writer_write(Writer *w,
                 if (w->server)
                         w->server->event_count += 1;
                 return 0;
-        } else if (r == -EBADMSG)
+        } else if (r == -EBADMSG || w->server->split_mode == JOURNAL_WRITE_SPLIT_NONE)
                 return r;
 
         log_debug_errno(r, "%s: Write failed, rotating: %m", w->journal->path);
