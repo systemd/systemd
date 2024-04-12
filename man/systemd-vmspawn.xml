@@ -157,6 +157,22 @@
       <programlisting># mkosi -d arch -p systemd -p linux --autologin -o image.raw -f build
       # systemd-vmspawn --image=image.raw</programlisting>
     </example>
+
+    <example>
+      <title>Build and run systemd's system image and forward the VM's journal to a local file</title>
+
+      <programlisting>
+$ mkosi build
+$ systemd-vmspawn \
+    -D mkosi.output/system \
+    --private-users $(grep $(whoami) /etc/subuid | cut -d: -f2) \
+    --linux mkosi.output/system.efi \
+    --forward-journal=vm.journal \
+    enforcing=0
+      </programlisting>
+
+      <para>Note: this example also uses a kernel command line argument to ensure SELinux isn't started in enforcing mode.</para>
+    </example>
   </refsect1>
 
   <refsect1>
