@@ -107,7 +107,7 @@ TEST(normalize_recovery_key) {
         r = normalize_recovery_key("cdefVhij-cDefghij-cdefkhij-cdufghij-cdefgdij-cidefIhj-cdefNijR-cdVfguij",
                         &normalized_key2);
         assert_se(r == 0);
-        assert_se(streq(normalized_key2, "cdefvhij-cdefghij-cdefkhij-cdufghij-cdefgdij-cidefihj-cdefnijr-cdvfguij"));
+        ASSERT_STREQ(normalized_key2, "cdefvhij-cdefghij-cdefkhij-cdufghij-cdefgdij-cidefihj-cdefnijr-cdvfguij");
 
         /* Case 3: Invalid password length */
         r = normalize_recovery_key("1234-5678-90AB-CDEF-1234-5678-90AB-CDEF", &normalized_key1);
@@ -122,7 +122,7 @@ TEST(normalize_recovery_key) {
         r = normalize_recovery_key("BFGHICEHHIUVLKJIHFHEDlntruvcdefjiTUVKLNIJVTUTKJIHDFBCBGHIJHHFDBC",
                         &normalized_key3);
         assert(r == 0);
-        assert_se(streq(normalized_key3, "bfghiceh-hiuvlkji-hfhedlnt-ruvcdefj-ituvklni-jvtutkji-hdfbcbgh-ijhhfdbc"));
+        ASSERT_STREQ(normalized_key3, "bfghiceh-hiuvlkji-hfhedlnt-ruvcdefj-ituvklni-jvtutkji-hdfbcbgh-ijhhfdbc");
 
         /* Case 6: Minimum password length */
         r = normalize_recovery_key("", &normalized_key1);

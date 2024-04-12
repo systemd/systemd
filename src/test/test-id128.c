@@ -50,19 +50,19 @@ TEST(id128) {
         }
 
         printf("waldi: %s\n", sd_id128_to_string(ID128_WALDI, t));
-        assert_se(streq(t, STR_WALDI));
+        ASSERT_STREQ(t, STR_WALDI);
 
         assert_se(asprintf(&b, SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(ID128_WALDI)) == 32);
         printf("waldi2: %s\n", b);
-        assert_se(streq(t, b));
+        ASSERT_STREQ(t, b);
 
         printf("waldi3: %s\n", sd_id128_to_uuid_string(ID128_WALDI, q));
-        assert_se(streq(q, UUID_WALDI));
+        ASSERT_STREQ(q, UUID_WALDI);
 
         b = mfree(b);
         assert_se(asprintf(&b, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(ID128_WALDI)) == 36);
         printf("waldi4: %s\n", b);
-        assert_se(streq(q, b));
+        ASSERT_STREQ(q, b);
 
         assert_se(sd_id128_from_string(STR_WALDI, &id) >= 0);
         assert_se(sd_id128_equal(id, ID128_WALDI));

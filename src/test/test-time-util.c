@@ -413,7 +413,7 @@ static void test_format_timestamp_impl(usec_t x) {
                  override ? ", ignoring." : "");
         if (!override) {
                 assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
-                assert_se(streq(xx, yy));
+                ASSERT_STREQ(xx, yy);
         }
 }
 
@@ -482,69 +482,69 @@ TEST(format_timestamp_relative_full) {
         x = now(CLOCK_REALTIME) - (1*USEC_PER_YEAR + 1*USEC_PER_MONTH);
         assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, true));
         log_debug("%s", buf);
-        assert_se(streq(buf, "1 year 1 month ago"));
+        ASSERT_STREQ(buf, "1 year 1 month ago");
 
         x = now(CLOCK_MONOTONIC) + (1*USEC_PER_YEAR + 1.5*USEC_PER_MONTH);
         assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_MONOTONIC, false));
         log_debug("%s", buf);
-        assert_se(streq(buf, "1 year 1 month left"));
+        ASSERT_STREQ(buf, "1 year 1 month left");
 
         x = now(CLOCK_REALTIME) - (1*USEC_PER_YEAR + 2*USEC_PER_MONTH);
         assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, true));
         log_debug("%s", buf);
-        assert_se(streq(buf, "1 year 2 months ago"));
+        ASSERT_STREQ(buf, "1 year 2 months ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_YEAR + 1*USEC_PER_MONTH);
         assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, true));
         log_debug("%s", buf);
-        assert_se(streq(buf, "2 years 1 month ago"));
+        ASSERT_STREQ(buf, "2 years 1 month ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_YEAR + 2*USEC_PER_MONTH);
         assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, true));
         log_debug("%s", buf);
-        assert_se(streq(buf, "2 years 2 months ago"));
+        ASSERT_STREQ(buf, "2 years 2 months ago");
 
         /* Months and days */
         x = now(CLOCK_REALTIME) - (1*USEC_PER_MONTH + 1*USEC_PER_DAY);
         assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, true));
         log_debug("%s", buf);
-        assert_se(streq(buf, "1 month 1 day ago"));
+        ASSERT_STREQ(buf, "1 month 1 day ago");
 
         x = now(CLOCK_REALTIME) - (1*USEC_PER_MONTH + 2*USEC_PER_DAY);
         assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, true));
         log_debug("%s", buf);
-        assert_se(streq(buf, "1 month 2 days ago"));
+        ASSERT_STREQ(buf, "1 month 2 days ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_MONTH + 1*USEC_PER_DAY);
         assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, true));
         log_debug("%s", buf);
-        assert_se(streq(buf, "2 months 1 day ago"));
+        ASSERT_STREQ(buf, "2 months 1 day ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_MONTH + 2*USEC_PER_DAY);
         assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, true));
         log_debug("%s", buf);
-        assert_se(streq(buf, "2 months 2 days ago"));
+        ASSERT_STREQ(buf, "2 months 2 days ago");
 
         /* Weeks and days */
         x = now(CLOCK_REALTIME) - (1*USEC_PER_WEEK + 1*USEC_PER_DAY);
         assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, true));
         log_debug("%s", buf);
-        assert_se(streq(buf, "1 week 1 day ago"));
+        ASSERT_STREQ(buf, "1 week 1 day ago");
 
         x = now(CLOCK_REALTIME) - (1*USEC_PER_WEEK + 2*USEC_PER_DAY);
         assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, true));
         log_debug("%s", buf);
-        assert_se(streq(buf, "1 week 2 days ago"));
+        ASSERT_STREQ(buf, "1 week 2 days ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_WEEK + 1*USEC_PER_DAY);
         assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, true));
         log_debug("%s", buf);
-        assert_se(streq(buf, "2 weeks 1 day ago"));
+        ASSERT_STREQ(buf, "2 weeks 1 day ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_WEEK + 2*USEC_PER_DAY);
         assert_se(format_timestamp_relative_full(buf, sizeof(buf), x, CLOCK_REALTIME, true));
         log_debug("%s", buf);
-        assert_se(streq(buf, "2 weeks 2 days ago"));
+        ASSERT_STREQ(buf, "2 weeks 2 days ago");
 }
 
 TEST(format_timestamp_relative) {
@@ -559,64 +559,64 @@ TEST(format_timestamp_relative) {
         x = now(CLOCK_REALTIME) - (1*USEC_PER_YEAR + 1*USEC_PER_MONTH);
         assert_se(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
-        assert_se(streq(buf, "1 year 1 month ago"));
+        ASSERT_STREQ(buf, "1 year 1 month ago");
 
         x = now(CLOCK_REALTIME) - (1*USEC_PER_YEAR + 2*USEC_PER_MONTH);
         assert_se(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
-        assert_se(streq(buf, "1 year 2 months ago"));
+        ASSERT_STREQ(buf, "1 year 2 months ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_YEAR + 1*USEC_PER_MONTH);
         assert_se(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
-        assert_se(streq(buf, "2 years 1 month ago"));
+        ASSERT_STREQ(buf, "2 years 1 month ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_YEAR + 2*USEC_PER_MONTH);
         assert_se(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
-        assert_se(streq(buf, "2 years 2 months ago"));
+        ASSERT_STREQ(buf, "2 years 2 months ago");
 
         /* Months and days */
         x = now(CLOCK_REALTIME) - (1*USEC_PER_MONTH + 1*USEC_PER_DAY);
         assert_se(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
-        assert_se(streq(buf, "1 month 1 day ago"));
+        ASSERT_STREQ(buf, "1 month 1 day ago");
 
         x = now(CLOCK_REALTIME) - (1*USEC_PER_MONTH + 2*USEC_PER_DAY);
         assert_se(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
-        assert_se(streq(buf, "1 month 2 days ago"));
+        ASSERT_STREQ(buf, "1 month 2 days ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_MONTH + 1*USEC_PER_DAY);
         assert_se(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
-        assert_se(streq(buf, "2 months 1 day ago"));
+        ASSERT_STREQ(buf, "2 months 1 day ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_MONTH + 2*USEC_PER_DAY);
         assert_se(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
-        assert_se(streq(buf, "2 months 2 days ago"));
+        ASSERT_STREQ(buf, "2 months 2 days ago");
 
         /* Weeks and days */
         x = now(CLOCK_REALTIME) - (1*USEC_PER_WEEK + 1*USEC_PER_DAY);
         assert_se(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
-        assert_se(streq(buf, "1 week 1 day ago"));
+        ASSERT_STREQ(buf, "1 week 1 day ago");
 
         x = now(CLOCK_REALTIME) - (1*USEC_PER_WEEK + 2*USEC_PER_DAY);
         assert_se(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
-        assert_se(streq(buf, "1 week 2 days ago"));
+        ASSERT_STREQ(buf, "1 week 2 days ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_WEEK + 1*USEC_PER_DAY);
         assert_se(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
-        assert_se(streq(buf, "2 weeks 1 day ago"));
+        ASSERT_STREQ(buf, "2 weeks 1 day ago");
 
         x = now(CLOCK_REALTIME) - (2*USEC_PER_WEEK + 2*USEC_PER_DAY);
         assert_se(format_timestamp_relative(buf, sizeof(buf), x));
         log_debug("%s", buf);
-        assert_se(streq(buf, "2 weeks 2 days ago"));
+        ASSERT_STREQ(buf, "2 weeks 2 days ago");
 }
 
 static void test_format_timestamp_one(usec_t val, TimestampStyle style, const char *result) {
@@ -624,7 +624,7 @@ static void test_format_timestamp_one(usec_t val, TimestampStyle style, const ch
         const char *t;
 
         t = format_timestamp_style(buf, sizeof(buf), val, style);
-        assert_se(streq_ptr(t, result));
+        ASSERT_STREQ(t, result);
 }
 
 TEST(format_timestamp_range) {
@@ -1062,15 +1062,15 @@ TEST(in_utc_timezone) {
 
         assert_se(setenv("TZ", ":UTC", 1) >= 0);
         assert_se(in_utc_timezone());
-        assert_se(streq(tzname[0], "UTC"));
-        assert_se(streq(tzname[1], "UTC"));
+        ASSERT_STREQ(tzname[0], "UTC");
+        ASSERT_STREQ(tzname[1], "UTC");
         assert_se(timezone == 0);
         assert_se(daylight == 0);
 
         assert_se(setenv("TZ", ":Europe/Berlin", 1) >= 0);
         assert_se(!in_utc_timezone());
-        assert_se(streq(tzname[0], "CET"));
-        assert_se(streq(tzname[1], "CEST"));
+        ASSERT_STREQ(tzname[0], "CET");
+        ASSERT_STREQ(tzname[1], "CEST");
 
         assert_se(set_unset_env("TZ", tz, true) == 0);
         tzset();
@@ -1114,14 +1114,14 @@ static void test_timezone_offset_change_one(const char *utc, const char *pretty)
         s = FORMAT_TIMESTAMP_STYLE(x, TIMESTAMP_UTC);
         assert_se(parse_timestamp(s, &y) >= 0);
         log_debug("%s -> " USEC_FMT " -> %s -> " USEC_FMT, utc, x, s, y);
-        assert_se(streq(s, utc));
+        ASSERT_STREQ(s, utc);
         assert_se(x == y);
 
         assert_se(parse_timestamp(pretty, &y) >= 0);
         s = FORMAT_TIMESTAMP_STYLE(y, TIMESTAMP_PRETTY);
         assert_se(parse_timestamp(s, &z) >= 0);
         log_debug("%s -> " USEC_FMT " -> %s -> " USEC_FMT, pretty, y, s, z);
-        assert_se(streq(s, pretty));
+        ASSERT_STREQ(s, pretty);
         assert_se(x == y);
         assert_se(x == z);
 }

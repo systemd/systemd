@@ -81,9 +81,9 @@ TEST(set_put) {
                                                         * non-trivial hash ops. */
 
         assert_se(t = ordered_set_get_strv(m));
-        assert_se(streq(t[0], "1"));
-        assert_se(streq(t[1], "22"));
-        assert_se(streq(t[2], "333"));
+        ASSERT_STREQ(t[0], "1");
+        ASSERT_STREQ(t[1], "22");
+        ASSERT_STREQ(t[2], "333");
         assert_se(!t[3]);
 
         ordered_set_print(stdout, "FOO=", m);

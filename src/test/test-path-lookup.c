@@ -28,7 +28,7 @@ static void test_paths_one(RuntimeScope scope) {
         assert_se(setenv("SYSTEMD_UNIT_PATH", systemd_unit_path, 1) == 0);
         assert_se(lookup_paths_init(&lp_with_env, scope, 0, NULL) == 0);
         assert_se(strv_length(lp_with_env.search_path) == 1);
-        assert_se(streq(lp_with_env.search_path[0], systemd_unit_path));
+        ASSERT_STREQ(lp_with_env.search_path[0], systemd_unit_path);
         lookup_paths_log(&lp_with_env);
         assert_se(strv_equal(lp_with_env.search_path, STRV_MAKE(systemd_unit_path)));
 }
