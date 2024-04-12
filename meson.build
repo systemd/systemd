@@ -2573,6 +2573,18 @@ endif
 
 #####################################################################
 
+if get_option('integration-tests') != false
+        system_mkosi = custom_target('system_mkosi',
+                build_always_stale : true,
+                output : 'system',
+                console : true,
+                command : ['mkosi', '-C', meson.project_source_root(), '--image=system', '--format=disk', '--output-dir', meson.current_build_dir() / '@OUTPUT@', '--without-tests', '-fi', 'build'],
+                depends : [executables_by_name['bootctl'], executables_by_name['systemd-measure'], executables_by_name['systemd-repart'], ukify],
+        )
+endif
+
+############################################################
+
 subdir('rules.d')
 subdir('test')
 
