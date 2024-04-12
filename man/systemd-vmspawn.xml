@@ -407,7 +407,7 @@
           for more information.</para>
 
           <para>By default <literal>ed25519</literal> keys are generated, however <literal>rsa</literal> keys
-          may also be useful if the VM has a particularly old version of <command>sshd</command></para>.
+          may also be useful if the VM has a particularly old version of <command>sshd</command>.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
