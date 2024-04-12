@@ -507,6 +507,20 @@ $ mkosi -d arch -p systemd -p linux --autologin -o image.raw -f build
 $ systemd-vmspawn --image=image.raw
       </programlisting>
     </example>
+
+    <example>
+      <title>Import and run a Fedora 39 Cloud image using machinectl</title>
+
+      <programlisting>
+$ wget https://download.fedoraproject.org/pub/fedora/linux/releases/39/Cloud/x86_64/images/Fedora-Cloud-Base-39-1.5.x86_64.raw.xz \
+       https://download.fedoraproject.org/pub/fedora/linux/releases/39/Cloud/x86_64/images/Fedora-Cloud-39-1.5-x86_64-CHECKSUM
+$ curl -O https://fedoraproject.org/fedora.gpg
+$ gpgv --keyring ./fedora.gpg Fedora-Cloud-39-1.5-x86_64-CHECKSUM
+$ sha256sum -c Fedora-Cloud-39-1.5-x86_64-CHECKSUM
+# machinectl import-raw Fedora-Cloud-Base-39-1.5.x86_64.raw.xz fedora-39-cloud
+# systemd-vmspawn -M fedora-39-cloud
+      </programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
