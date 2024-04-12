@@ -1226,7 +1226,7 @@ int config_parse_pref64_prefix(
                 return 0;
        }
 
-        (void) in6_addr_mask(&a.in6,prefixlen);
+        (void) in6_addr_mask(&a.in6, prefixlen);
         p->prefix = a.in6;
         p->prefixlen = prefixlen;
 
