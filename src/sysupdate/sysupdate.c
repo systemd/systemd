@@ -676,7 +676,7 @@ static int context_vacuum(
         if (space == 0)
                 log_info("Making room%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
         else
-                log_info("Making room for %" PRIu64 " updates%s", space,special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_info("Making room for %" PRIu64 " updates%s", space, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
         for (size_t i = 0; i < c->n_transfers; i++) {
                 r = transfer_vacuum(c->transfers[i], space, extra_protected_version);
