@@ -6916,6 +6916,51 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         check(self, True, False)
         check(self, False, True)
         check(self, False, False)
+    
+    def test_dhcp_client_default_use_domains(self):        
+        def check(self, ipv4, ipv6):
+            os.makedirs(networkd_conf_dropin_dir, exist_ok=True)
+            with open(os.path.join(networkd_conf_dropin_dir, 'default_use_domains.conf'), mode='w', encoding='utf-8') as f:
+                f.write('[DHCPv4]\nUseDomains=')
+                f.write('yes' if ipv4 else 'no')
+                f.write('\n[DHCPv6]\nUseDomains=')
+                f.write('yes\n' if ipv6 else 'no\n')
+            
+            restart_networkd()
+            self.wait_online('veth-peer:carrier')
+            start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.1',
+                          '--dhcp-option=option6:dns-server,[2600::1]',
+                          '--dhcp-option=option:domain-search,example.com',
+                          '--dhcp-option=option6:domain-search,example.com')
+
+            self.wait_online('veth99:routable')
+
+            # link becomes 'routable' when at least one protocol provide an valid address. Hence, we need to explicitly wait for both addresses.
+            self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic', ipv='-4')
+            self.wait_address('veth99', r'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)', ipv='-6')
+
+            for _ in range(20):
+                output = resolvectl('domain', 'veth99')
+                print(output)
+                if ipv4 or ipv6:
+                    if 'example.com' in output:
+                        break
+                else:
+                    if 'example.com' not in output:
+                        break
+                time.sleep(0.5)
+            else:
+                print(output)
+                self.fail('unexpected domain setting in resolved...')
+            
+            stop_dnsmasq()
+            remove_networkd_conf_dropin('default_use_domains.conf')
+
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network', copy_dropins=False)
+        self.check(True, True)
+        self.check(True, False)
+        self.check(False, True)
+        self.check(False, False)
 
     def test_dhcp_client_use_captive_portal(self):
         def check(self, ipv4, ipv6):
