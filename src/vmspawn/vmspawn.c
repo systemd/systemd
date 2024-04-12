@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h>
+#include <linux/if.h>
 #include <getopt.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -8,26 +10,24 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "bootspec.h"
-#include "chase.h"
-#include "dirent-util.h"
-#include "fd-util.h"
-#include "discover-image.h"
-#include "pidref.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "bootspec.h"
 #include "build.h"
 #include "common-signal.h"
 #include "copy.h"
 #include "creds-util.h"
+#include "discover-image.h"
 #include "dissect-image.h"
 #include "escape.h"
+#include "ether-addr-util.h"
 #include "event-util.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -41,11 +41,13 @@
 #include "macro.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "netif-naming-scheme.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
@@ -64,6 +66,9 @@
 #include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
+
+#define SHORTEN_IFNAME_HASH_KEY SD_ID128_MAKE(d6,ae,68,a1,40,aa,65,85,fc,41,ae,6f,98,29,a7,68)
+#define VM_HASH_KEY SD_ID128_MAKE(01,d0,c6,4c,2b,df,24,fb,c0,f8,b2,09,7d,59,b2,93)
 
 static bool arg_quiet = false;
 static PagerFlags arg_pager_flags = 0;
@@ -97,6 +102,7 @@ static char **arg_extra_drives = NULL;
 static char *arg_background = NULL;
 static bool arg_pass_ssh_key = true;
 static char *arg_ssh_key_type = NULL;
+struct ether_addr arg_network_provided_mac = {};
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -182,6 +188,20 @@ static int help(void) {
                ansi_normal(),
                ansi_highlight(),
                ansi_normal());
+
+        return 0;
+}
+
+static int parse_environment(void) {
+        const char *e;
+        int r;
+
+        e = getenv("SYSTEMD_VMSPAWN_NETWORK_MAC");
+        if (e) {
+                r = parse_ether_addr(e, &arg_network_provided_mac);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse provided MAC address via environment variable");
+        }
 
         return 0;
 }
@@ -527,6 +547,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 arg_settings_mask |= SETTING_START_MODE;
         }
+
+        r = parse_environment();
+        if (r < 0)
+                return r;
 
         return 1;
 }
@@ -1123,6 +1147,7 @@ static void set_window_title(PTYForward *f) {
         if (dot)
                 (void) pty_forward_set_title_prefix(f, dot);
 }
+
 static int generate_ssh_keypair(const char *key_path, const char *key_type) {
         _cleanup_free_ char *ssh_keygen = NULL;
         _cleanup_strv_free_ char **cmdline = NULL;
@@ -1165,6 +1190,74 @@ static int generate_ssh_keypair(const char *key_path, const char *key_type) {
         }
 
         return 0;
+}
+
+static int generate_mac(const char *machine_name, struct ether_addr *mac, sd_id128_t hash_key, uint64_t idx) {
+        uint64_t result;
+        size_t l, sz;
+        _cleanup_free_ uint8_t *v = NULL;
+        uint8_t *i;
+        int r;
+
+        l = strlen(machine_name);
+        sz = sizeof(sd_id128_t) + l;
+        if (idx > 0)
+                sz += sizeof(idx);
+
+        v = new(uint8_t, sz);
+        if (!v)
+                return -ENOMEM;
+
+        /* fetch some persistent data unique to the host */
+        r = sd_id128_get_machine((sd_id128_t*) v);
+        if (r < 0)
+                return r;
+
+        /* combine with some data unique (on this host) to this
+         * VM instance */
+        i = mempcpy(v + sizeof(sd_id128_t), machine_name, l);
+        if (idx > 0) {
+                idx = htole64(idx);
+                memcpy(i, &idx, sizeof(idx));
+        }
+
+        /* Let's hash the host machine ID plus the VM name. We
+         * use a fixed, but originally randomly created hash key here. */
+        result = htole64(siphash24(v, sz, hash_key.bytes));
+
+        assert_cc(ETH_ALEN <= sizeof(result));
+        memcpy(mac->ether_addr_octet, &result, ETH_ALEN);
+
+        ether_addr_mark_random(mac);
+
+        return 0;
+}
+
+static int shorten_ifname(char *ifname) {
+        char new_ifname[IFNAMSIZ];
+        uint64_t h;
+
+        assert(ifname);
+
+        if (strlen(ifname) < IFNAMSIZ) /* Name is short enough */
+                return 0;
+
+        /* Calculate 64-bit hash value */
+        h = siphash24(ifname, strlen(ifname), SHORTEN_IFNAME_HASH_KEY.bytes);
+
+        /* Set the final four bytes (i.e. 32-bit) to the lower 24bit of the hash, encoded in url-safe base64 */
+        memcpy(new_ifname, ifname, IFNAMSIZ - 5);
+        new_ifname[IFNAMSIZ - 5] = urlsafe_base64char(h >> 18);
+        new_ifname[IFNAMSIZ - 4] = urlsafe_base64char(h >> 12);
+        new_ifname[IFNAMSIZ - 3] = urlsafe_base64char(h >> 6);
+        new_ifname[IFNAMSIZ - 2] = urlsafe_base64char(h);
+        new_ifname[IFNAMSIZ - 1] = 0;
+
+        /* Log the incident to make it more discoverable */
+        log_warning("Network interface name '%s' has been changed to '%s' to fit length constraints.", ifname, new_ifname);
+
+        strcpy(ifname, new_ifname);
+        return 1;
 }
 
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
@@ -1276,14 +1369,32 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        if (arg_network_stack == NETWORK_STACK_TAP)
-                r = strv_extend_many(&cmdline, "-nic", "tap,script=no,model=virtio-net-pci");
-        else if (arg_network_stack == NETWORK_STACK_USER)
-                r = strv_extend_many(&cmdline, "-nic", "user,model=virtio-net-pci");
-        else
-                r = strv_extend_many(&cmdline, "-nic", "none");
-        if (r < 0)
-                return log_oom();
+        if (arg_network_stack == NETWORK_STACK_TAP) {
+                _cleanup_free_ char *tap_name = NULL;
+                struct ether_addr mac_vm = {};
+
+                tap_name = strjoin("tp-", arg_machine);
+                (void) shorten_ifname(tap_name);
+
+                if (ether_addr_is_null(&arg_network_provided_mac)){
+                        r = generate_mac(arg_machine, &arg_network_provided_mac, VM_HASH_KEY, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate predictable MAC address for VM side: %m");
+                } else
+                        mac_vm = arg_network_provided_mac;
+
+                r = strv_extend(&cmdline, "-nic");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "tap,ifname=%s,script=no,model=virtio-net-pci,mac=%s", tap_name, ETHER_ADDR_TO_STR(&mac_vm));
+                if (r < 0)
+                        return log_oom();
+        } else {
+                r = strv_extend_many(&cmdline, "-nic", arg_network_stack == NETWORK_STACK_USER ? "user,model=virtio-net-pci" : "none");
+                if (r < 0)
+                        return log_oom();
+        }
 
         /* A shared memory backend might increase ram usage so only add one if actually necessary for virtiofsd. */
         if (arg_directory || arg_runtime_mounts.n_mounts != 0) {
