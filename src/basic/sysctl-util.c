@@ -44,6 +44,23 @@ char *sysctl_normalize(char *s) {
         return s;
 }
 
+int sysctl_hold_fd(const char *property) {
+        char *p;
+        int fd;
+
+        assert(property);
+
+        p = strjoina("/proc/sys/", property);
+
+        path_simplify(p);
+        if (!path_is_normalized(p))
+                return -EINVAL;
+
+        fd = open(p, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+
+        return fd;
+}
+
 int sysctl_write(const char *property, const char *value) {
         char *p;
 
