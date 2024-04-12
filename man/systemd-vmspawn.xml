@@ -541,6 +541,22 @@ $ systemd-vmspawn \
 
       <para>Note: this example also uses a kernel command line argument to ensure SELinux isn't started in enforcing mode.</para>
     </example>
+
+    <example>
+      <title>SSH into a running VM using <command>systemd-ssh-proxy</command></title>
+
+      <programlisting>
+$ mkosi build
+$ my_vsock_cid=3735928559
+$ systemd-vmspawn \
+    -D mkosi.output/system \
+    --private-users $(grep $(whoami) /etc/subuid | cut -d: -f2) \
+    --linux mkosi.output/system.efi \
+    --vsock-cid $my_vsock_cid \
+    enforcing=0
+$ ssh root@vsock/$my_vsock_cid -i /run/user/$UID/systemd/vmspawn/machine-*-system-ed25519
+      </programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
