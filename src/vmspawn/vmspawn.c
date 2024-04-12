@@ -405,13 +405,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_REGISTER:
-                        r = parse_boolean(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse --register= argument: %s", optarg);
+                        r = parse_boolean_argument("--register=", optarg, &arg_register);
+                        if (r < 0)
                                 return r;
-                        }
-
-                        arg_register = r;
                         break;
 
                 case ARG_BIND:
@@ -455,11 +451,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PASS_SSH_KEY:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--pass-ssh-key=", optarg, &arg_pass_ssh_key);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --pass-ssh-key= argument: %s", optarg);
-
-                        arg_pass_ssh_key = r;
+                                return r;
                         break;
 
                 case ARG_SSH_KEY_TYPE:
