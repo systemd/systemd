@@ -1054,7 +1054,7 @@ static int ndisc_address_set_lifetime(Address *address, Link *link, sd_ndisc_rou
         assert(rt);
 
         /* This is mostly based on RFC 4862 section 5.5.3 (e). However, the definition of 'RemainingLifetime'
-         * is ambigous, and there is no clear explanation when the address is not assigned yet. If we assume
+         * is ambiguous, and there is no clear explanation when the address is not assigned yet. If we assume
          * that 'RemainingLifetime' is zero in that case, then IPv6 Core Conformance test [v6LC.3.2.5 Part C]
          * fails. So, in such case, we skip the conditions about 'RemainingLifetime'. */
 

@@ -897,7 +897,7 @@ int config_parse_exec(
                         /* We accept an absolute path as first argument. Valid prefixes and their effect:
                          *
                          * "-":  Ignore if the path doesn't exist
-                         * "@":  Allow overridding argv[0] (supplied as a separate argument)
+                         * "@":  Allow overriding argv[0] (supplied as a separate argument)
                          * ":":  Disable environment variable substitution
                          * "+":  Run with full privileges and no sandboxing
                          * "!":  Apply sandboxing except for user/group credentials

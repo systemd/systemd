@@ -2616,7 +2616,7 @@ static int ext4_offline_resize_fs(
                 return r;
         if (r == 0) {
                 /* Child */
-                execlp("e2fsck" ,"e2fsck", "-fp", setup->dm_node, NULL);
+                execlp("e2fsck", "e2fsck", "-fp", setup->dm_node, NULL);
                 log_open();
                 log_error_errno(errno, "Failed to execute e2fsck: %m");
                 _exit(EXIT_FAILURE);
@@ -2648,7 +2648,7 @@ static int ext4_offline_resize_fs(
                 return r;
         if (r == 0) {
                 /* Child */
-                execlp("resize2fs" ,"resize2fs", setup->dm_node, size_str, NULL);
+                execlp("resize2fs", "resize2fs", setup->dm_node, size_str, NULL);
                 log_open();
                 log_error_errno(errno, "Failed to execute resize2fs: %m");
                 _exit(EXIT_FAILURE);

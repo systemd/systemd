@@ -617,7 +617,7 @@ static int run(int argc, char *argv[]) {
 
         r = varlink_server_bind_method_many(
                         server,
-                        "io.systemd.MountFileSystem.MountImage",vl_method_mount_image);
+                        "io.systemd.MountFileSystem.MountImage", vl_method_mount_image);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind methods: %m");
 

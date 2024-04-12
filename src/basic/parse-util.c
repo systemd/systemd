@@ -633,7 +633,7 @@ int parse_fractional_part_u(const char **p, size_t digits, unsigned *res) {
         s = *p;
 
         /* accept any number of digits, strtoull is limited to 19 */
-        for (size_t i = 0; i < digits; i++,s++) {
+        for (size_t i = 0; i < digits; i++, s++) {
                 if (!ascii_isdigit(*s)) {
                         if (i == 0)
                                 return -EINVAL;
