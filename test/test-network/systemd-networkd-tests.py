@@ -6877,7 +6877,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_online('veth-peer:carrier')
         start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.1',
                       '--dhcp-option=option6:dns-server,[2600::1]',
-                      '--dhcp-option=option:domain-search,example.com')
+                      '--dhcp-option=option:domain-search,example.com',
+                      '--dhcp-option=option6:domain-search,example.com')
 
         check(self, True, True)
         check(self, True, False)
