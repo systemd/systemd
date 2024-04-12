@@ -397,11 +397,11 @@ TEST(close_all_fds) {
 }
 
 TEST(format_proc_fd_path) {
-        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(0), "/proc/self/fd/0"));
-        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(1), "/proc/self/fd/1"));
-        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(2), "/proc/self/fd/2"));
-        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(3), "/proc/self/fd/3"));
-        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(2147483647), "/proc/self/fd/2147483647"));
+        ASSERT_STREQ(FORMAT_PROC_FD_PATH(0), "/proc/self/fd/0");
+        ASSERT_STREQ(FORMAT_PROC_FD_PATH(1), "/proc/self/fd/1");
+        ASSERT_STREQ(FORMAT_PROC_FD_PATH(2), "/proc/self/fd/2");
+        ASSERT_STREQ(FORMAT_PROC_FD_PATH(3), "/proc/self/fd/3");
+        ASSERT_STREQ(FORMAT_PROC_FD_PATH(2147483647), "/proc/self/fd/2147483647");
 }
 
 TEST(fd_reopen) {
@@ -676,7 +676,7 @@ TEST(fd_get_path) {
         tfd = mkdtemp_open(NULL, O_PATH, &t);
         assert_se(tfd >= 0);
         assert_se(fd_get_path(tfd, &p) >= 0);
-        assert_se(streq(p, t));
+        ASSERT_STREQ(p, t);
 
         p = mfree(p);
 
@@ -684,7 +684,7 @@ TEST(fd_get_path) {
         assert_se(chdir(t) >= 0);
 
         assert_se(fd_get_path(AT_FDCWD, &p) >= 0);
-        assert_se(streq(p, t));
+        ASSERT_STREQ(p, t);
 
         p = mfree(p);
 
@@ -697,7 +697,7 @@ TEST(fd_get_path) {
         fd = openat(tfd, "regular", O_CLOEXEC|O_PATH);
         assert_se(fd >= 0);
         assert_se(fd_get_path(fd, &p) >= 0);
-        assert_se(streq(p, q));
+        ASSERT_STREQ(p, q);
 
         p = mfree(p);
         fd = safe_close(fd);
@@ -705,7 +705,7 @@ TEST(fd_get_path) {
         fd = openat(AT_FDCWD, "regular", O_CLOEXEC|O_PATH);
         assert_se(fd >= 0);
         assert_se(fd_get_path(fd, &p) >= 0);
-        assert_se(streq(p, q));
+        ASSERT_STREQ(p, q);
 
         p = mfree(p);
         fd = safe_close(fd);
@@ -714,7 +714,7 @@ TEST(fd_get_path) {
         assert_se(fd >= 0);
         assert_se(fd_verify_regular(fd) >= 0);
         assert_se(fd_get_path(fd, &p) >= 0);
-        assert_se(streq(p, q));
+        ASSERT_STREQ(p, q);
 
         p = mfree(p);
         fd = safe_close(fd);
@@ -723,7 +723,7 @@ TEST(fd_get_path) {
         assert_se(fd >= 0);
         assert_se(fd_verify_regular(fd) >= 0);
         assert_se(fd_get_path(fd, &p) >= 0);
-        assert_se(streq(p, q));
+        ASSERT_STREQ(p, q);
 
         p = mfree(p);
         fd = safe_close(fd);
@@ -732,7 +732,7 @@ TEST(fd_get_path) {
         assert_se(fd >= 0);
         assert_se(fd_verify_regular(fd) >= 0);
         assert_se(fd_get_path(fd, &p) >= 0);
-        assert_se(streq(p, q));
+        ASSERT_STREQ(p, q);
 
         p = mfree(p);
         fd = safe_close(fd);
@@ -741,7 +741,7 @@ TEST(fd_get_path) {
         assert_se(fd >= 0);
         assert_se(fd_verify_regular(fd) >= 0);
         assert_se(fd_get_path(fd, &p) >= 0);
-        assert_se(streq(p, q));
+        ASSERT_STREQ(p, q);
 
         p = mfree(p);
         q = mfree(q);
@@ -752,7 +752,7 @@ TEST(fd_get_path) {
         assert_se(fd >= 0);
         assert_se(fd_verify_regular(fd) == -ELOOP);
         assert_se(fd_get_path(fd, &p) >= 0);
-        assert_se(streq(p, q));
+        ASSERT_STREQ(p, q);
 
         p = mfree(p);
         fd = safe_close(fd);
@@ -761,7 +761,7 @@ TEST(fd_get_path) {
         assert_se(fd >= 0);
         assert_se(fd_verify_regular(fd) == -ELOOP);
         assert_se(fd_get_path(fd, &p) >= 0);
-        assert_se(streq(p, q));
+        ASSERT_STREQ(p, q);
 
         p = mfree(p);
         fd = safe_close(fd);
@@ -770,7 +770,7 @@ TEST(fd_get_path) {
         assert_se(fd >= 0);
         assert_se(fd_verify_regular(fd) == -ELOOP);
         assert_se(fd_get_path(fd, &p) >= 0);
-        assert_se(streq(p, q));
+        ASSERT_STREQ(p, q);
 
         p = mfree(p);
         fd = safe_close(fd);
@@ -779,7 +779,7 @@ TEST(fd_get_path) {
         assert_se(fd >= 0);
         assert_se(fd_verify_regular(fd) == -ELOOP);
         assert_se(fd_get_path(fd, &p) >= 0);
-        assert_se(streq(p, q));
+        ASSERT_STREQ(p, q);
 
         assert_se(chdir(saved_cwd) >= 0);
 }

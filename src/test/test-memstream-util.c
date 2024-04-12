@@ -17,7 +17,7 @@ TEST(memstream_empty) {
 
         assert_se(memstream_init(&m));
         assert_se(memstream_finalize(&m, &buf, &sz) >= 0);
-        assert_se(streq(buf, ""));
+        ASSERT_STREQ(buf, "");
         assert_se(sz == 0);
 }
 
@@ -32,7 +32,7 @@ TEST(memstream) {
         fputs("おはよう！", f);
         fputs(u8"😀😀😀", f);
         assert_se(memstream_finalize(&m, &buf, &sz) >= 0);
-        assert_se(streq(buf, u8"hogeおはよう！😀😀😀"));
+        ASSERT_STREQ(buf, u8"hogeおはよう！😀😀😀");
         assert_se(sz == strlen(u8"hogeおはよう！😀😀😀"));
 
         buf = mfree(buf);
@@ -40,7 +40,7 @@ TEST(memstream) {
         assert_se(f = memstream_init(&m));
         fputs("second", f);
         assert_se(memstream_finalize(&m, &buf, &sz) >= 0);
-        assert_se(streq(buf, "second"));
+        ASSERT_STREQ(buf, "second");
         assert_se(sz == strlen("second"));
 }
 
