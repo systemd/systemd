@@ -26,6 +26,35 @@
 #include "strv.h"
 #include "vmspawn-util.h"
 
+static const char* const architecture_to_qemu_table[_ARCHITECTURE_MAX] = {
+        [ARCHITECTURE_ARM64]       = "aarch64",     /* differs from our name */
+        [ARCHITECTURE_ARM]         = "arm",
+        [ARCHITECTURE_ALPHA]       = "alpha",
+        [ARCHITECTURE_X86_64]      = "x86_64",      /* differs from our name */
+        [ARCHITECTURE_X86]         = "i386",        /* differs from our name */
+        [ARCHITECTURE_LOONGARCH64] = "loongarch64",
+        [ARCHITECTURE_MIPS64_LE]   = "mips",        /* differs from our name */
+        [ARCHITECTURE_MIPS_LE]     = "mips",        /* differs from our name */
+        [ARCHITECTURE_PARISC]      = "hppa",        /* differs from our name */
+        [ARCHITECTURE_PPC64_LE]    = "ppc",         /* differs from our name */
+        [ARCHITECTURE_PPC64]       = "ppc",         /* differs from our name */
+        [ARCHITECTURE_PPC]         = "ppc",
+        [ARCHITECTURE_RISCV32]     = "riscv32",
+        [ARCHITECTURE_RISCV64]     = "riscv64",
+        [ARCHITECTURE_S390X]       = "s390x",
+};
+
+static int native_arch_as_qemu(const char **ret) {
+        const char *s = architecture_to_qemu_table[native_architecture()];
+        if (!s)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Architecture %s not supported by qemu", architecture_to_string(native_architecture()));
+
+        if (ret)
+                *ret = s;
+
+        return 0;
+}
+
 OvmfConfig* ovmf_config_free(OvmfConfig *config) {
         if (!config)
                 return NULL;
@@ -87,6 +116,7 @@ typedef struct FirmwareData {
         char *firmware_format;
         char *vars;
         char *vars_format;
+        char **architectures;
 } FirmwareData;
 
 static bool firmware_data_supports_sb(const FirmwareData *fwd) {
@@ -104,6 +134,7 @@ static FirmwareData* firmware_data_free(FirmwareData *fwd) {
         free(fwd->firmware_format);
         free(fwd->vars);
         free(fwd->vars_format);
+        strv_free(fwd->architectures);
 
         return mfree(fwd);
 }
@@ -138,6 +169,32 @@ static int firmware_mapping(const char *name, JsonVariant *v, JsonDispatchFlags 
         };
 
         return json_dispatch(v, table, flags, userdata);
+}
+
+static int target_architecture(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
+        int r;
+        JsonVariant *e;
+        char ***supported_architectures = ASSERT_PTR(userdata);
+
+        static const JsonDispatch table[] = {
+                { "architecture", JSON_VARIANT_STRING, json_dispatch_string, 0, JSON_MANDATORY },
+                { "machines",     JSON_VARIANT_ARRAY,  NULL,                 0, JSON_MANDATORY },
+                {}
+        };
+
+        JSON_VARIANT_ARRAY_FOREACH(e, v) {
+                _cleanup_free_ char *arch = NULL;
+
+                r = json_dispatch(e, table, flags, &arch);
+                if (r < 0)
+                        return r;
+
+                r = strv_consume(supported_architectures, TAKE_PTR(arch));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int get_firmware_search_dirs(char ***ret) {
@@ -206,12 +263,12 @@ static int load_firmware_data(const char *path, FirmwareData **ret) {
                 return r;
 
         static const JsonDispatch table[] = {
-                { "description",     JSON_VARIANT_STRING, NULL,               0,                                JSON_MANDATORY },
-                { "interface-types", JSON_VARIANT_ARRAY,  NULL,               0,                                JSON_MANDATORY },
-                { "mapping",         JSON_VARIANT_OBJECT, firmware_mapping,   0,                                JSON_MANDATORY },
-                { "targets",         JSON_VARIANT_ARRAY,  NULL,               0,                                JSON_MANDATORY },
-                { "features",        JSON_VARIANT_ARRAY,  json_dispatch_strv, offsetof(FirmwareData, features), JSON_MANDATORY },
-                { "tags",            JSON_VARIANT_ARRAY,  NULL,               0,                                JSON_MANDATORY },
+                { "description",     JSON_VARIANT_STRING, NULL,                0,                                     JSON_MANDATORY },
+                { "interface-types", JSON_VARIANT_ARRAY,  NULL,                0,                                     JSON_MANDATORY },
+                { "mapping",         JSON_VARIANT_OBJECT, firmware_mapping,    0,                                     JSON_MANDATORY },
+                { "targets",         JSON_VARIANT_ARRAY,  target_architecture, offsetof(FirmwareData, architectures), JSON_MANDATORY },
+                { "features",        JSON_VARIANT_ARRAY,  json_dispatch_strv,  offsetof(FirmwareData, features),      JSON_MANDATORY },
+                { "tags",            JSON_VARIANT_ARRAY,  NULL,                0,                                     JSON_MANDATORY },
                 {}
         };
 
@@ -266,9 +323,14 @@ int load_ovmf_config(const char *path, OvmfConfig **ret) {
 int find_ovmf_config(int search_sb, OvmfConfig **ret) {
         _cleanup_(ovmf_config_freep) OvmfConfig *config = NULL;
         _cleanup_strv_free_ char **conf_files = NULL;
+        const char* native_arch_qemu;
         int r;
 
         assert(ret);
+
+        r = native_arch_as_qemu(&native_arch_qemu);
+        if (r < 0)
+                return r;
 
         /* Search in:
          * - $XDG_CONFIG_HOME/qemu/firmware
@@ -296,6 +358,11 @@ int find_ovmf_config(int search_sb, OvmfConfig **ret) {
                         continue;
                 }
 
+                if (!strv_contains(fwd->architectures, native_arch_qemu)) {
+                        log_debug("Skipping %s, firmware doesn't support the native architecture.", *file);
+                        continue;
+                }
+
                 /* exclude firmware which doesn't match our Secure Boot requirements */
                 if (search_sb >= 0 && !!search_sb != firmware_data_supports_sb(fwd)) {
                         log_debug("Skipping %s, firmware doesn't fit required Secure Boot configuration.", *file);
@@ -320,6 +387,7 @@ int find_ovmf_config(int search_sb, OvmfConfig **ret) {
 }
 
 int find_qemu_binary(char **ret_qemu_binary) {
+        const char *native_arch_qemu;
         int r;
 
         /*
@@ -328,24 +396,6 @@ int find_qemu_binary(char **ret_qemu_binary) {
          * If the qemu binary cannot be found -ENOENT will be returned.
          * If the native architecture is not supported by qemu -EOPNOTSUPP will be returned;
          */
-
-        static const char *architecture_to_qemu_table[_ARCHITECTURE_MAX] = {
-                [ARCHITECTURE_ARM64]       = "aarch64",     /* differs from our name */
-                [ARCHITECTURE_ARM]         = "arm",
-                [ARCHITECTURE_ALPHA]       = "alpha",
-                [ARCHITECTURE_X86_64]      = "x86_64",      /* differs from our name */
-                [ARCHITECTURE_X86]         = "i386",        /* differs from our name */
-                [ARCHITECTURE_LOONGARCH64] = "loongarch64",
-                [ARCHITECTURE_MIPS64_LE]   = "mips",        /* differs from our name */
-                [ARCHITECTURE_MIPS_LE]     = "mips",        /* differs from our name */
-                [ARCHITECTURE_PARISC]      = "hppa",        /* differs from our name */
-                [ARCHITECTURE_PPC64_LE]    = "ppc",         /* differs from our name */
-                [ARCHITECTURE_PPC64]       = "ppc",         /* differs from our name */
-                [ARCHITECTURE_PPC]         = "ppc",
-                [ARCHITECTURE_RISCV32]     = "riscv32",
-                [ARCHITECTURE_RISCV64]     = "riscv64",
-                [ARCHITECTURE_S390X]       = "s390x",
-        };
 
         FOREACH_STRING(s, "qemu", "qemu-kvm") {
                 r = find_executable(s, ret_qemu_binary);
@@ -356,12 +406,12 @@ int find_qemu_binary(char **ret_qemu_binary) {
                         return r;
         }
 
-        const char *arch_qemu = architecture_to_qemu_table[native_architecture()];
-        if (!arch_qemu)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Architecture %s not supported by qemu", architecture_to_string(native_architecture()));
+        r = native_arch_as_qemu(&native_arch_qemu);
+        if (r < 0)
+                return r;
 
         _cleanup_free_ char *qemu_arch_specific = NULL;
-        qemu_arch_specific = strjoin("qemu-system-", arch_qemu);
+        qemu_arch_specific = strjoin("qemu-system-", native_arch_qemu);
         if (!qemu_arch_specific)
                 return -ENOMEM;
 
