@@ -998,7 +998,7 @@ int strextendf_with_separator(char **x, const char *separator, const char *forma
         return 0;
 
 oom:
-        /* truncate the bytes added after the first vsnprintf() attempt again */
+        /* truncate the bytes added after memcpy_safe() again */
         (*x)[m] = 0;
         return -ENOMEM;
 }
