@@ -535,6 +535,21 @@ $ systemd-vmspawn \
     enforcing=0
       </programlisting>
     </example>
+
+    <example>
+      <title>SSH into a running VM using the systemd-ssh-proxy</title>
+
+      <programlisting>
+$ mkosi build
+$ systemd-vmspawn \
+    -D mkosi.output/system \
+    --private-users $(grep $(whoami) /etc/subuid | cut -d: -f2) \
+    --linux mkosi.output/system.efi \
+    --vsock-cid 3735928559 \
+    enforcing=0
+$ ssh root@vsock/3735928559 -i /run/user/$UID/systemd/vmspawn/machine-*-system-ed25519
+      </programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
