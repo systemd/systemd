@@ -498,6 +498,14 @@
     <title>Environment</title>
 
     <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_VMSPAWN_NETWORK_MAC</varname></term>
+
+        <listitem><para>The MAC address to use when creating a <literal>tap</literal> network device for the VM.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
       <xi:include href="common-variables.xml" xpointer="log-level"/>
       <xi:include href="common-variables.xml" xpointer="log-color"/>
       <xi:include href="common-variables.xml" xpointer="log-time"/>

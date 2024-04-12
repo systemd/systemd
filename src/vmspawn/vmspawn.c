@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h>
+#include <linux/if.h>
 #include <getopt.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -8,6 +10,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "netif-util.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-id128.h"
@@ -24,6 +27,7 @@
 #include "discover-image.h"
 #include "dissect-image.h"
 #include "escape.h"
+#include "ether-addr-util.h"
 #include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -65,6 +69,8 @@
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
 
+#define VM_HASH_KEY SD_ID128_MAKE(01,d0,c6,4c,2b,df,24,fb,c0,f8,b2,09,7d,59,b2,93)
+
 static bool arg_quiet = false;
 static PagerFlags arg_pager_flags = 0;
 static char *arg_directory = NULL;
@@ -98,6 +104,7 @@ static char *arg_background = NULL;
 static bool arg_pass_ssh_key = true;
 static char *arg_ssh_key_type = NULL;
 static bool arg_discard_disk = true;
+struct ether_addr arg_network_provided_mac = {};
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -184,6 +191,20 @@ static int help(void) {
                ansi_normal(),
                ansi_highlight(),
                ansi_normal());
+
+        return 0;
+}
+
+static int parse_environment(void) {
+        const char *e;
+        int r;
+
+        e = getenv("SYSTEMD_VMSPAWN_NETWORK_MAC");
+        if (e) {
+                r = parse_ether_addr(e, &arg_network_provided_mac);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse provided MAC address via environment variable");
+        }
 
         return 0;
 }
@@ -1287,14 +1308,32 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        if (arg_network_stack == NETWORK_STACK_TAP)
-                r = strv_extend_many(&cmdline, "-nic", "tap,script=no,model=virtio-net-pci");
-        else if (arg_network_stack == NETWORK_STACK_USER)
-                r = strv_extend_many(&cmdline, "-nic", "user,model=virtio-net-pci");
-        else
-                r = strv_extend_many(&cmdline, "-nic", "none");
-        if (r < 0)
-                return log_oom();
+        if (arg_network_stack == NETWORK_STACK_TAP) {
+                _cleanup_free_ char *tap_name = NULL;
+                struct ether_addr mac_vm = {};
+
+                tap_name = strjoin("tp-", arg_machine);
+                (void) net_shorten_ifname(tap_name);
+
+                if (ether_addr_is_null(&arg_network_provided_mac)){
+                        r = net_generate_mac(arg_machine, &mac_vm, VM_HASH_KEY, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate predictable MAC address for VM side: %m");
+                } else
+                        mac_vm = arg_network_provided_mac;
+
+                r = strv_extend(&cmdline, "-nic");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "tap,ifname=%s,script=no,model=virtio-net-pci,mac=%s", tap_name, ETHER_ADDR_TO_STR(&mac_vm));
+                if (r < 0)
+                        return log_oom();
+        } else {
+                r = strv_extend_many(&cmdline, "-nic", arg_network_stack == NETWORK_STACK_USER ? "user,model=virtio-net-pci" : "none");
+                if (r < 0)
+                        return log_oom();
+        }
 
         /* A shared memory backend might increase ram usage so only add one if actually necessary for virtiofsd. */
         if (arg_directory || arg_runtime_mounts.n_mounts != 0) {
@@ -2013,6 +2052,10 @@ static int run(int argc, char *argv[]) {
 
         /* don't attempt to register as a machine when running as a user */
         arg_register = arg_privileged;
+
+        r = parse_environment();
+        if (r < 0)
+                return r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
