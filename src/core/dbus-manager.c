@@ -947,8 +947,9 @@ static int method_list_units_by_names(sd_bus_message *message, void *userdata, s
 }
 
 static int method_get_unit_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        /* Don't load a unit (since it won't have any processes if it's not loaded), but don't insist on the
-         * unit being loaded (because even improperly loaded units might still have processes around */
+        /* Don't load a unit actively (since it won't have any processes if it's not loaded), but don't
+         * insist on the unit being loaded either (because even improperly loaded units might still have
+         * processes around) */
         return method_generic_unit_operation(message, userdata, error, bus_unit_method_get_processes, 0);
 }
 
