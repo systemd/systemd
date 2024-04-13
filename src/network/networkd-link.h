@@ -210,6 +210,24 @@ typedef struct Link {
 
         /* Similar, but NTP server configuration */
         char **ntp;
+
+        struct {
+                int disable_ipv6;
+                int proxy_arp;
+                int proxy_arp_pvlan;
+                int forwarding[2];
+                int rp_filter;
+                int use_tempaddr;
+                int accept_ra;
+                int dad_transmits;
+                int hop_limit;
+                int retrans_time_ms;
+                int proxy_ndp;
+                int mtu;
+                int accept_local;
+                int route_localnet;
+                int promote_secondaries;
+        } sysctl_fd;
 } Link;
 
 typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, Link*);
