@@ -293,14 +293,20 @@ QDisc* qdisc_drop(QDisc *qdisc) {
 
         link = ASSERT_PTR(qdisc->link);
 
+        qdisc_mark(qdisc); /* To avoid stack overflow. */
+
         /* also drop all child classes assigned to the qdisc. */
         SET_FOREACH(tclass, link->tclasses) {
+                if (tclass_is_marked(tclass))
+                        continue;
+
                 if (TC_H_MAJ(tclass->classid) != qdisc->handle)
                         continue;
 
                 tclass_drop(tclass);
         }
 
+        qdisc_unmark(qdisc);
         qdisc_enter_removed(qdisc);
 
         if (qdisc->state == 0) {
