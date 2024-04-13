@@ -2369,12 +2369,12 @@ RestrictNamespaces=~cgroup net</programlisting>
         units, it only enables sharing of the <filename>/tmp/</filename> and <filename>/var/tmp/</filename>
         directories.</para>
 
-        <para>Other file system namespace unit settings — <varname>PrivateMounts=</varname>,
-        <varname>PrivateTmp=</varname>, <varname>PrivateDevices=</varname>, <varname>ProtectSystem=</varname>,
-        <varname>ProtectHome=</varname>, <varname>ReadOnlyPaths=</varname>, <varname>InaccessiblePaths=</varname>,
-        <varname>ReadWritePaths=</varname>, … — also enable file system namespacing in a fashion equivalent to this
-        option. Hence it is primarily useful to explicitly request this behaviour if none of the other settings are
-        used.</para>
+        <para>Other file system namespace unit settings — <varname>PrivateTmp=</varname>,
+        <varname>PrivateDevices=</varname>, <varname>ProtectSystem=</varname>,
+        <varname>ProtectHome=</varname>, <varname>ReadOnlyPaths=</varname>,
+        <varname>InaccessiblePaths=</varname>, <varname>ReadWritePaths=</varname>, … — also enable file
+        system namespacing in a fashion equivalent to this option. Hence it is primarily useful to explicitly
+        request this behaviour if none of the other settings are used.</para>
 
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
 
