@@ -4264,9 +4264,10 @@ int exec_invoke(
                 r = cg_attach_everywhere(params->cgroup_supported, p, 0, NULL, NULL);
                 if (r == -EUCLEAN) {
                         *exit_status = EXIT_CGROUP;
-                        return log_exec_error_errno(context, params, r, "Failed to attach process to cgroup %s "
+                        return log_exec_error_errno(context, params, r,
+                                                    "Failed to attach process to cgroup '%s', "
                                                     "because the cgroup or one of its parents or "
-                                                    "siblings is in the threaded mode: %m", p);
+                                                    "siblings is in the threaded mode.", p);
                 }
                 if (r < 0) {
                         *exit_status = EXIT_CGROUP;
