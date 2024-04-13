@@ -604,6 +604,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .duid_product_uuid.type = DUID_TYPE_UUID,
                 .dhcp_server_persist_leases = true,
                 .ip_forwarding = { -1, -1, },
+                .sysctl_fd = { { -EBADF, -EBADF }, { -EBADF, -EBADF } },
         };
 
         *ret = TAKE_PTR(m);
@@ -615,6 +616,9 @@ Manager* manager_free(Manager *m) {
 
         if (!m)
                 return NULL;
+
+        safe_close_pair(m->sysctl_fd.ip_default_forwarding);
+        safe_close_pair(m->sysctl_fd.ip_all_forwarding);
 
         free(m->state_file);
 
