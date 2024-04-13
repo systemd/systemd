@@ -25,6 +25,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "argv-util.h"
+#include "cgroup-util.h"
 #include "dirent-util.h"
 #include "env-file.h"
 #include "env-util.h"
@@ -2108,7 +2109,13 @@ int posix_spawn_wrapper(
 
                 return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
         }
-        if (!(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r)))
+        if (ERRNO_IS_NOT_SUPPORTED(r)) {
+                /* clone3() could also return EOPNOTSUPP if the target cgroup is in threaded mode. */
+                if (cgroup && cg_is_threaded(cgroup) > 0)
+                        return -EUCLEAN;
+
+                /* clone3() not available? */
+        } else if (!ERRNO_IS_PRIVILEGE(r))
                 return -r;
 
         /* Compiled on a newer host, or seccomp&friends blocking clone3()? Fallback, but need to change the
