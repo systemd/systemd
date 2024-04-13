@@ -19,6 +19,7 @@
 #include "parse-util.h"
 #include "process-util.h"
 #include "set.h"
+#include "special.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
@@ -46,17 +47,10 @@ static bool argv_has_at(pid_t pid) {
         return c == '@';
 }
 
-static bool is_survivor_cgroup(const PidRef *pid) {
-        _cleanup_free_ char *cgroup_path = NULL;
+static bool is_survivor_cgroup(const char *cgroup_path) {
         int r;
 
-        assert(pidref_is_set(pid));
-
-        r = cg_pidref_get_path(/* root= */ NULL, pid, &cgroup_path);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to get cgroup path of process " PID_FMT ", ignoring: %m", pid->pid);
-                return false;
-        }
+        assert(cgroup_path);
 
         r = cg_get_xattr_bool(cgroup_path, "user.survive_final_kill_signal");
         /* user xattr support was added to kernel v5.7, try with the trusted namespace as a fallback */
@@ -71,7 +65,7 @@ static bool is_survivor_cgroup(const PidRef *pid) {
 }
 
 static bool ignore_proc(const PidRef *pid, bool warn_rootfs) {
-        uid_t uid;
+        _cleanup_free_ char *cgroup_path = NULL, *comm = NULL;
         int r;
 
         assert(pidref_is_set(pid));
@@ -85,9 +79,14 @@ static bool ignore_proc(const PidRef *pid, bool warn_rootfs) {
         if (r != 0)
                 return true; /* also ignore processes where we can't determine this */
 
-        /* Ignore processes that are part of a cgroup marked with the user.survive_final_kill_signal xattr */
-        if (is_survivor_cgroup(pid))
+        r = cg_pidref_get_path(/* root = */ NULL, pid, &cgroup_path);
+        if (r < 0)
+                log_warning_errno(r, "Failed to get cgroup path of process " PID_FMT ", ignoring: %m", pid->pid);
+        else if (is_survivor_cgroup(cgroup_path)) /* Ignore processes that are part of a cgroup marked with
+                                                     the 'user.survive_final_kill_signal' xattr */
                 return true;
+
+        uid_t uid;
 
         r = pidref_get_uid(pid, &uid);
         if (r < 0)
@@ -97,21 +96,21 @@ static bool ignore_proc(const PidRef *pid, bool warn_rootfs) {
         if (uid != 0)
                 return false;
 
+        (void) pidref_get_comm(pid, &comm);
+
+        /* Don't kill auxiliary helper processes forked off by pid1 */
+        if (comm && startswith(comm, "(sd-") && path_equal(cgroup_path, "/" SPECIAL_INIT_SCOPE))
+                return true;
+
         if (!argv_has_at(pid->pid))
                 return false;
 
         if (warn_rootfs &&
-            pid_from_same_root_fs(pid->pid) > 0) {
-
-                _cleanup_free_ char *comm = NULL;
-
-                (void) pidref_get_comm(pid, &comm);
-
+            pid_from_same_root_fs(pid->pid) > 0)
                 log_notice("Process " PID_FMT " (%s) has been marked to be excluded from killing. It is "
                            "running from the root file system, and thus likely to block re-mounting of the "
                            "root file system to read-only. Please consider moving it into an initrd file "
                            "system instead.", pid->pid, strna(comm));
-        }
 
         return true;
 }
