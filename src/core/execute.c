@@ -456,6 +456,11 @@ int exec_spawn(Unit *unit,
                         environ,
                         cg_unified() > 0 ? subcgroup_path : NULL,
                         &pidref);
+        if (r == -EUCLEAN && subcgroup_path)
+                return log_unit_error_errno(r,
+                                            "Failed to spawn process into cgroup '%s', because the cgroup "
+                                            "or one of its parents or siblings is in the threaded mode.",
+                                            subcgroup_path);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to spawn executor: %m");
         /* We add the new process to the cgroup both in the child (so that we can be sure that no user code is ever
