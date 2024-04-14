@@ -772,6 +772,7 @@ static int method_generic_unit_operation(
 
         assert(message);
         assert(m);
+        assert(handler);
 
         /* Read the first argument from the command and pass the operation to the specified per-unit
          * method. */
