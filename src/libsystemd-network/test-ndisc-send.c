@@ -348,12 +348,7 @@ static int send_icmp6(int fd, const struct icmp6_hdr *hdr) {
                         return r;
         }
 
-        struct sockaddr_in6 dst_sockaddr = {
-                .sin6_family = AF_INET6,
-                .sin6_addr = arg_dest.in6,
-        };
-
-        return ndisc_send(fd, &dst_sockaddr, hdr, options, now(CLOCK_BOOTTIME));
+        return ndisc_send(fd, &arg_dest.in6, hdr, options, now(CLOCK_BOOTTIME));
 }
 
 static int send_router_solicit(int fd) {
