@@ -33,13 +33,13 @@ int icmp6_bind(int ifindex, bool is_router) {
         ICMP6_FILTER_SETBLOCKALL(&filter);
         if (is_router) {
                 mreq = (struct ipv6_mreq) {
-                        .ipv6mr_multiaddr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
+                        .ipv6mr_multiaddr = IN6_ADDR_ALL_ROUTERS_MULTICAST,
                         .ipv6mr_interface = ifindex,
                 };
                 ICMP6_FILTER_SETPASS(ND_ROUTER_SOLICIT, &filter);
         } else {
                 mreq = (struct ipv6_mreq) {
-                        .ipv6mr_multiaddr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
+                        .ipv6mr_multiaddr = IN6_ADDR_ALL_NODES_MULTICAST,
                         .ipv6mr_interface = ifindex,
                 };
                 ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
@@ -91,13 +91,19 @@ int icmp6_bind(int ifindex, bool is_router) {
         return TAKE_FD(s);
 }
 
-int icmp6_send(int fd, const struct sockaddr_in6 *dst, const struct iovec *iov, size_t n_iov) {
+int icmp6_send(int fd, const struct in6_addr *dst, const struct iovec *iov, size_t n_iov) {
+        struct sockaddr_in6 sa = {
+                .sin6_family = AF_INET6,
+                .sin6_addr = *ASSERT_PTR(dst),
+        };
         struct msghdr msg = {
-                .msg_name = (struct sockaddr_in6*) dst,
+                .msg_name = &sa,
                 .msg_namelen = sizeof(struct sockaddr_in6),
                 .msg_iov = (struct iovec*) iov,
                 .msg_iovlen = n_iov,
         };
+
+        assert(fd >= 0);
 
         if (sendmsg(fd, &msg, 0) < 0)
                 return -errno;

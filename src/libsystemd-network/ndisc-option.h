@@ -327,4 +327,4 @@ static inline int ndisc_option_set_prefix64(
         return ndisc_option_add_prefix64_internal(options, 0, prefixlen, prefix, lifetime, valid_until);
 }
 
-int ndisc_send(int fd, const struct sockaddr_in6 *dst, const struct icmp6_hdr *hdr, Set *options, usec_t timestamp);
+int ndisc_send(int fd, const struct in6_addr *dst, const struct icmp6_hdr *hdr, Set *options, usec_t timestamp);
