@@ -92,7 +92,7 @@
     <para>Depending on which build-time options are enabled, functions that operate on
     <structname>sd_journal</structname> objects might cause optional shared libraries to be dynamically
     loaded via
-    <citerefentry project='man7'><refentrytitle>dlopen</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry project='man-pages'><refentrytitle>dlopen</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     such as decompression libraries (xz, lz4, zstd) or cryptographic libraries (gcrypt).
     </para>
   </refsect1>
