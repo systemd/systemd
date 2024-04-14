@@ -180,6 +180,7 @@ static void ndisc_option_hash_func(const sd_ndisc_option *option, struct siphash
         case SD_NDISC_OPTION_TARGET_LL_ADDRESS:
         case SD_NDISC_OPTION_REDIRECTED_HEADER:
         case SD_NDISC_OPTION_MTU:
+        case SD_NDISC_OPTION_HOME_AGENT:
         case SD_NDISC_OPTION_FLAGS_EXTENSION:
         case SD_NDISC_OPTION_CAPTIVE_PORTAL:
                 break;
