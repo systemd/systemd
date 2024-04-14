@@ -17,9 +17,10 @@
 #include "fd-util.h"
 #include "socket-util.h"
 
-int dhcp6_network_bind_udp_socket(int ifindex, struct in6_addr *local_address) {
+int dhcp6_network_bind_udp_socket(int ifindex, const struct in6_addr *local_address) {
         union sockaddr_union src = {
                 .in6.sin6_family = AF_INET6,
+                .in6.sin6_addr = *ASSERT_PTR(local_address),
                 .in6.sin6_port = htobe16(DHCP6_PORT_CLIENT),
                 .in6.sin6_scope_id = ifindex,
         };
@@ -27,9 +28,6 @@ int dhcp6_network_bind_udp_socket(int ifindex, struct in6_addr *local_address) {
         int r;
 
         assert(ifindex > 0);
-        assert(local_address);
-
-        src.in6.sin6_addr = *local_address;
 
         s = socket(AF_INET6, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_UDP);
         if (s < 0)
@@ -58,20 +56,14 @@ int dhcp6_network_bind_udp_socket(int ifindex, struct in6_addr *local_address) {
         return TAKE_FD(s);
 }
 
-int dhcp6_network_send_udp_socket(int s, struct in6_addr *server_address,
-                                  const void *packet, size_t len) {
+int dhcp6_network_send_udp_socket(int s, const struct in6_addr *server_address, const void *packet, size_t len) {
         union sockaddr_union dest = {
                 .in6.sin6_family = AF_INET6,
+                .in6.sin6_addr = *ASSERT_PTR(server_address),
                 .in6.sin6_port = htobe16(DHCP6_PORT_SERVER),
         };
-        int r;
 
-        assert(server_address);
-
-        memcpy(&dest.in6.sin6_addr, server_address, sizeof(dest.in6.sin6_addr));
-
-        r = sendto(s, packet, len, 0, &dest.sa, sizeof(dest.in6));
-        if (r < 0)
+        if (sendto(s, packet, len, 0, &dest.sa, sizeof(dest.in6)) < 0)
                 return -errno;
 
         return 0;
