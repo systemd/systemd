@@ -743,8 +743,6 @@ static int client_append_mudurl(sd_dhcp6_client *client, uint8_t **buf, size_t *
 
 int dhcp6_client_send_message(sd_dhcp6_client *client) {
         _cleanup_free_ uint8_t *buf = NULL;
-        struct in6_addr all_servers =
-                IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT;
         struct sd_dhcp6_option *j;
         usec_t elapsed_usec, time_now;
         be16_t elapsed_time;
@@ -839,7 +837,7 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
         if (r < 0)
                 return r;
 
-        r = dhcp6_network_send_udp_socket(client->fd, &all_servers, buf, offset);
+        r = dhcp6_network_send_udp_socket(client->fd, &IN6_ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS, buf, offset);
         if (r < 0)
                 return r;
 

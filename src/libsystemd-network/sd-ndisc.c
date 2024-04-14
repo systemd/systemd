@@ -343,7 +343,7 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
 static int ndisc_send_router_solicitation(sd_ndisc *nd) {
         static const struct sockaddr_in6 dst = {
                 .sin6_family = AF_INET6,
-                .sin6_addr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
+                .sin6_addr = IN6_ADDR_ALL_ROUTERS_MULTICAST,
         };
         static const struct nd_router_solicit header = {
                 .nd_rs_type = ND_ROUTER_SOLICIT,

@@ -37,7 +37,7 @@ static void test_with_sd_ndisc(const uint8_t *data, size_t size) {
 static void test_with_icmp6_packet(const uint8_t *data, size_t size) {
         static const struct sockaddr_in6 dst = {
                 .sin6_family = AF_INET6,
-                .sin6_addr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
+                .sin6_addr = IN6_ADDR_ALL_ROUTERS_MULTICAST,
         };
 
         _cleanup_close_pair_ int fd_pair[2] = EBADF_PAIR;
