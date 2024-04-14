@@ -598,75 +598,52 @@ int cg_migrate(
         bool done = false;
         _cleanup_set_free_ Set *s = NULL;
         int r, ret = 0;
-        pid_t my_pid;
 
         assert(cfrom);
         assert(pfrom);
         assert(cto);
         assert(pto);
 
-        s = set_new(NULL);
-        if (!s)
-                return -ENOMEM;
-
-        my_pid = getpid_cached();
-
         do {
                 _cleanup_fclose_ FILE *f = NULL;
-                pid_t pid = 0;
+                pid_t pid;
+
                 done = true;
 
                 r = cg_enumerate_processes(cfrom, pfrom, &f);
-                if (r < 0) {
-                        if (ret >= 0 && r != -ENOENT)
-                                return r;
-
-                        return ret;
-                }
+                if (r < 0)
+                        return RET_GATHER(ret, r);
 
                 while ((r = cg_read_pid(f, &pid)) > 0) {
-
-                        /* This might do weird stuff if we aren't a
-                         * single-threaded program. However, we
-                         * luckily know we are not */
-                        if ((flags & CGROUP_IGNORE_SELF) && pid == my_pid)
+                        /* This might do weird stuff if we aren't a single-threaded program. However, we
+                         * luckily know we are. */
+                        if (FLAGS_SET(flags, CGROUP_IGNORE_SELF) && pid == getpid_cached())
                                 continue;
 
-                        if (set_get(s, PID_TO_PTR(pid)) == PID_TO_PTR(pid))
+                        if (set_contains(s, PID_TO_PTR(pid)))
                                 continue;
 
-                        /* Ignore kernel threads. Since they can only
-                         * exist in the root cgroup, we only check for
-                         * them there. */
-                        if (cfrom &&
-                            empty_or_root(pfrom) &&
+                        /* Ignore kernel threads. Since they can only exist in the root cgroup, we only
+                         * check for them there. */
+                        if (cfrom && empty_or_root(pfrom) &&
                             pid_is_kernel_thread(pid) > 0)
                                 continue;
 
                         r = cg_attach(cto, pto, pid);
                         if (r < 0) {
-                                if (ret >= 0 && r != -ESRCH)
-                                        ret = r;
+                                if (r != -ESRCH)
+                                        RET_GATHER(ret, r);
                         } else if (ret == 0)
                                 ret = 1;
 
                         done = false;
 
-                        r = set_put(s, PID_TO_PTR(pid));
-                        if (r < 0) {
-                                if (ret >= 0)
-                                        return r;
-
-                                return ret;
-                        }
+                        r = set_ensure_put(&s, /* hash_ops = */ NULL, PID_TO_PTR(pid));
+                        if (r < 0)
+                                return RET_GATHER(ret, r);
                 }
-
-                if (r < 0) {
-                        if (ret >= 0)
-                                return r;
-
-                        return ret;
-                }
+                if (r < 0)
+                        return RET_GATHER(ret, r);
         } while (!done);
 
         return ret;
