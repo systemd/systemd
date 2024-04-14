@@ -35,11 +35,6 @@ static void test_with_sd_ndisc(const uint8_t *data, size_t size) {
 }
 
 static void test_with_icmp6_packet(const uint8_t *data, size_t size) {
-        static const struct sockaddr_in6 dst = {
-                .sin6_family = AF_INET6,
-                .sin6_addr = IN6_ADDR_ALL_ROUTERS_MULTICAST,
-        };
-
         _cleanup_close_pair_ int fd_pair[2] = EBADF_PAIR;
         _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
         _cleanup_set_free_ Set *options = NULL;
@@ -53,7 +48,8 @@ static void test_with_icmp6_packet(const uint8_t *data, size_t size) {
         if (ndisc_parse_options(packet, &options) < 0)
                 return;
 
-        if (ndisc_send(fd_pair[1], &dst, icmp6_packet_get_header(packet), options, /* timestamp = */ 0) < 0)
+        if (ndisc_send(fd_pair[1], &IN6_ADDR_ALL_ROUTERS_MULTICAST,
+                       icmp6_packet_get_header(packet), options, /* timestamp = */ 0) < 0)
                 return;
 
         packet = icmp6_packet_unref(packet);

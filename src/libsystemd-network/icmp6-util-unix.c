@@ -23,7 +23,7 @@ int icmp6_bind(int ifindex, bool is_router) {
         return test_fd[is_router];
 }
 
-int icmp6_send(int fd, const struct sockaddr_in6 *dst, const struct iovec *iov, size_t n_iov) {
+int icmp6_send(int fd, const struct in6_addr *dst, const struct iovec *iov, size_t n_iov) {
         return writev(fd, iov, n_iov);
 }
 
