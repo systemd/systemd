@@ -145,5 +145,8 @@ policy:
           - name: veritysetup
             keys: ['systemd-veritysetup']
 
+          - name: vmspawn
+            keys: ['systemd-vmspawn']
+
           - name: xdg-autostart
             keys: ['systemd-xdg-autostart-generator']
