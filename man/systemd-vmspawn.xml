@@ -31,8 +31,8 @@
 
   <refsect1>
     <title>Description</title>
-    <para><command>systemd-vmspawn</command> may be used to start a virtual machine from an OS image. In many ways it is similar to <citerefentry
-    project='man-pages'><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but
+    <para><command>systemd-vmspawn</command> may be used to start a virtual machine from an OS image. In many ways it is similar to <citerefentry>
+    <refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but
     launches a full virtual machine instead of using namespaces.</para>
 
     <para>File descriptors for <filename>/dev/kvm</filename> and <filename>/dev/vhost-vsock</filename> can be
@@ -165,10 +165,10 @@
           <listitem>
             <para>Configure whether to use VM with a virtual TPM or not.</para>
 
-            <para>If the option is not specified vmspawn will detect the presence of <citerefentry project='man-pages'>
+            <para>If the option is not specified vmspawn will detect the presence of <citerefentry project='debian'>
             <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> and use it if available.
-            If yes is specified <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            is always used, and vice versa if no is set <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle>
+            If yes is specified <citerefentry project='debian'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            is always used, and vice versa if no is set <citerefentry project='debian'><refentrytitle>swtpm</refentrytitle>
             <manvolnum>8</manvolnum></citerefentry> is never used.</para>
 
             <para>Note: the virtual TPM used may change in future.</para>
@@ -330,10 +330,10 @@
           <term><option>--private-users=</option><replaceable>UID_SHIFT[:UID_RANGE]</replaceable></term>
 
           <listitem><para>Controls user namespacing under <option>--directory=</option>.
-          If enabled, <citerefentry project='man-pages'><refentrytitle>virtiofsd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-          is instructed to map user and group ids (UIDs and GIDs). This involves mapping the private UIDs/GIDs used in the virtual machine
-          (starting with the virtual machine's root user 0 and up) to a range of UIDs/GIDs on the host that are not used for other
-          purposes (usually in the range beyond the host's UID/GID 65536).</para>
+          If enabled, <command>virtiofsd</command> is instructed to map user and group ids (UIDs and GIDs).
+          This involves mapping the private UIDs/GIDs used in the virtual machine (starting with the virtual machine's
+          root user 0 and up) to a range of UIDs/GIDs on the host that are not used for other purposes (usually in the
+          range beyond the host's UID/GID 65536).</para>
 
           <para>If one or two colon-separated numbers are specified, user namespacing is turned on. <replaceable>UID_SHIFT</replaceable>
           specifies the first host UID/GID to map, <replaceable>UID_RANGE</replaceable> is optional and specifies number of host
@@ -413,7 +413,7 @@
           <term><option>--ssh-key-type=</option><replaceable>TYPE</replaceable></term>
 
           <listitem><para>Configures the type of SSH key to generate, see
-          <citerefentry><refentrytitle>ssh-keygen</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          <citerefentry project="man-pages"><refentrytitle>ssh-keygen</refentrytitle><manvolnum>1</manvolnum></citerefentry>
           for more information.</para>
 
           <para>By default <literal>ed25519</literal> keys are generated, however <literal>rsa</literal> keys
@@ -521,7 +521,7 @@ $ systemd-vmspawn --image=image.raw
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
-      <member><citerefentry><refentrytitle>mkosi</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='debian'><refentrytitle>mkosi</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
     </simplelist></para>
