@@ -142,6 +142,9 @@ policy:
           - name: userdb
             keys: ['systemd-userdb', 'userdbctl']
 
+          - name: vmspawn
+            keys: ['systemd-vmspawn']
+
           - name: veritysetup
             keys: ['systemd-veritysetup']
 
