@@ -1906,7 +1906,7 @@
         <listitem>
           <para>The Base64 encoded private key for the interface. It can be generated using
           the <command>wg genkey</command> command
-          (see <citerefentry project="wireguard"><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
+          (see <citerefentry project='man-pages'><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
           Specially, if the specified key is prefixed with <literal>@</literal>, it is interpreted as
           the name of the credential from which the actual key shall be read. <command>systemd-networkd.service</command>
           automatically imports credentials matching <literal>network.wireguard.*</literal>. For more details
@@ -1997,7 +1997,7 @@
         <term><varname>PublicKey=</varname></term>
         <listitem>
           <para>Sets a Base64 encoded public key calculated by <command>wg pubkey</command>
-          (see <citerefentry project="wireguard"><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+          (see <citerefentry project='man-pages'><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
           from a private key, and usually transmitted out of band to the author of the configuration file.
           This option honors the <literal>@</literal> prefix in the same way as the <option>PrivateKey=</option>
           setting of the <option>[WireGuard]</option> section. This option is mandatory for this section.</para>

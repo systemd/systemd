@@ -54,18 +54,6 @@
   </a>
 </xsl:template>
 
-<xsl:template match="citerefentry[@project='wireguard']">
-  <a>
-    <xsl:attribute name="href">
-      <xsl:text>https://git.zx2c4.com/WireGuard/about/src/tools/</xsl:text>
-      <xsl:value-of select="refentrytitle"/>
-      <xsl:text>.</xsl:text>
-      <xsl:value-of select="manvolnum"/>
-    </xsl:attribute>
-    <xsl:call-template name="inline.charseq"/>
-  </a>
-</xsl:template>
-
 <xsl:template match="citerefentry[@project='mankier']">
   <a>
     <xsl:attribute name="href">
