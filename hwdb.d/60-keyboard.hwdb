@@ -1,10 +1,11 @@
 # This file is part of systemd.
 #
-# This file contains 3 types of metadata to apply to keyboards and
+# This file contains 4 types of metadata to apply to keyboards and
 # keyboard-like input devices:
 # - Key mapping
 # - Hard-coded layouts
 # - Absence of modifier LEDs
+# - Chassis keys (usually to ignore for unidling the device)
 #
 # The matching process is the same for the different types of metadata.
 #
@@ -1690,6 +1691,10 @@ evdev:input:b0003v047FpC006*
 # # Purism Librem 13 V4
 # evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v4*:*
 #  KEYBOARD_KEY_56=backslash
+
+# Purism Librem 11 tablet. 114,115 are the volume keys
+evdev:atkbd:dmi:bvn*:bvr*:svnPurism:pnLibrem11:*
+ CHASSIS_KEYS=114 115
 
 ###########################################################
 # Quanta
