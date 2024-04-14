@@ -139,6 +139,7 @@ body:
         - 'systemd-tmpfiles'
         - 'systemd-udevd'
         - 'systemd-userdb'
+        - 'systemd-vmspawn'
         - 'systemd-veritysetup'
         - 'systemd-xdg-autostart-generator'
         - 'timedatectl'
