@@ -396,8 +396,12 @@ int logind_show_shutdown(void) {
         if (r < 0)
                 return r;
 
-        if (isempty(action))
-                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "No scheduled shutdown.");
+        if (isempty(action)) {
+                if (!arg_quiet)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "No scheduled shutdown.");
+                else
+                        return 0;
+        }
 
         if (STR_IN_SET(action, "halt", "poweroff", "exit"))
                 pretty_action = "Shutdown";
