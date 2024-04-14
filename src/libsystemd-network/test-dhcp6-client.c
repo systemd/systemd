@@ -59,8 +59,7 @@
 
 static const struct in6_addr local_address =
         { { { 0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, } } };
-static const struct in6_addr mcast_address =
-        IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT;
+static const struct in6_addr mcast_address = IN6_ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS;
 static const struct in6_addr ia_na_address1 = { { { IA_NA_ADDRESS1_BYTES } } };
 static const struct in6_addr ia_na_address2 = { { { IA_NA_ADDRESS2_BYTES } } };
 static const struct in6_addr ia_pd_prefix1 = { { { IA_PD_PREFIX1_BYTES } } };

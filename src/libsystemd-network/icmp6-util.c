@@ -33,13 +33,13 @@ int icmp6_bind(int ifindex, bool is_router) {
         ICMP6_FILTER_SETBLOCKALL(&filter);
         if (is_router) {
                 mreq = (struct ipv6_mreq) {
-                        .ipv6mr_multiaddr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
+                        .ipv6mr_multiaddr = IN6_ADDR_ALL_ROUTERS_MULTICAST,
                         .ipv6mr_interface = ifindex,
                 };
                 ICMP6_FILTER_SETPASS(ND_ROUTER_SOLICIT, &filter);
         } else {
                 mreq = (struct ipv6_mreq) {
-                        .ipv6mr_multiaddr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
+                        .ipv6mr_multiaddr = IN6_ADDR_ALL_NODES_MULTICAST,
                         .ipv6mr_interface = ifindex,
                 };
                 ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);

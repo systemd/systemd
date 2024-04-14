@@ -289,9 +289,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (in6_addr_is_null(&arg_dest.in6)) {
                 if (IN_SET(arg_icmp6_type, ND_ROUTER_ADVERT, ND_NEIGHBOR_ADVERT, ND_REDIRECT))
-                        arg_dest.in6 = (struct in6_addr) IN6ADDR_ALL_NODES_MULTICAST_INIT;
+                        arg_dest.in6 = IN6_ADDR_ALL_NODES_MULTICAST;
                 else
-                        arg_dest.in6 = (struct in6_addr) IN6ADDR_ALL_ROUTERS_MULTICAST_INIT;
+                        arg_dest.in6 = IN6_ADDR_ALL_ROUTERS_MULTICAST;
         }
 
         if (arg_set_source_mac) {
