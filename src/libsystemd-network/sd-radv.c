@@ -134,7 +134,7 @@ static int radv_send_router(sd_radv *ra, const struct in6_addr *dst, usec_t life
 
         struct sockaddr_in6 dst_addr = {
                 .sin6_family = AF_INET6,
-                .sin6_addr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
+                .sin6_addr = IN6_ADDR_ALL_NODES_MULTICAST,
         };
         struct nd_router_advert adv = {
                 .nd_ra_type = ND_ROUTER_ADVERT,

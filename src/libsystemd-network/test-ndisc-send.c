@@ -289,9 +289,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (in6_addr_is_null(&arg_dest.in6)) {
                 if (IN_SET(arg_icmp6_type, ND_ROUTER_ADVERT, ND_NEIGHBOR_ADVERT, ND_REDIRECT))
-                        arg_dest.in6 = (struct in6_addr) IN6ADDR_ALL_NODES_MULTICAST_INIT;
+                        arg_dest.in6 = IN6_ADDR_ALL_NODES_MULTICAST;
                 else
-                        arg_dest.in6 = (struct in6_addr) IN6ADDR_ALL_ROUTERS_MULTICAST_INIT;
+                        arg_dest.in6 = IN6_ADDR_ALL_ROUTERS_MULTICAST;
         }
 
         if (arg_set_source_mac) {
@@ -348,12 +348,7 @@ static int send_icmp6(int fd, const struct icmp6_hdr *hdr) {
                         return r;
         }
 
-        struct sockaddr_in6 dst_sockaddr = {
-                .sin6_family = AF_INET6,
-                .sin6_addr = arg_dest.in6,
-        };
-
-        return ndisc_send(fd, &dst_sockaddr, hdr, options, now(CLOCK_BOOTTIME));
+        return ndisc_send(fd, &arg_dest.in6, hdr, options, now(CLOCK_BOOTTIME));
 }
 
 static int send_router_solicit(int fd) {
