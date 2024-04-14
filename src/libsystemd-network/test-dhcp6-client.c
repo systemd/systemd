@@ -1028,7 +1028,7 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
         }
 }
 
-int dhcp6_network_send_udp_socket(int s, struct in6_addr *a, const void *packet, size_t len) {
+int dhcp6_network_send_udp_socket(int s, const struct in6_addr *a, const void *packet, size_t len) {
         log_debug("/* %s(count=%u) */", __func__, test_client_sent_message_count);
 
         assert_se(a);
@@ -1072,7 +1072,7 @@ int dhcp6_network_send_udp_socket(int s, struct in6_addr *a, const void *packet,
         return len;
 }
 
-int dhcp6_network_bind_udp_socket(int ifindex, struct in6_addr *a) {
+int dhcp6_network_bind_udp_socket(int ifindex, const struct in6_addr *a) {
         assert_se(ifindex == test_ifindex);
         assert_se(a);
         assert_se(in6_addr_equal(a, &local_address));
