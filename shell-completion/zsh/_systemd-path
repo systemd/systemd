@@ -3,7 +3,7 @@
 
 typeset -A sdpath=( ${$(systemd-path)/:/} )
 _arguments -S \
-	'(-h --help)'{-h,--help}'[Print help text and exit]' \
-	'(-v --version)'{-v,--version}'[Print a version string and exit]' \
-	'--suffix=[Append a suffix to the paths]' \
+	'(- *)'{-h,--help}'[Print help text and exit]' \
+	'(- *)'{-v,--version}'[Print a version string and exit]' \
+	'--suffix=[Append a suffix to the paths]:SUFFIX' \
 	'*:pathname:compadd -k sdpath'

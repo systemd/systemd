@@ -9,8 +9,8 @@ _systemd-delta_types() {
 }
 
 _arguments \
-    {-h,--help}'[Show this help]' \
-    '--version[Show package version]' \
+    '(- :)'{-h,--help}'[Show this help]' \
+    '(- :)--version[Show package version]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--diff=[Show a diff when overridden files differ]:boolean:(1 0)' \
     {-t+,--type=}'[Only display a selected set of override types]:types:_systemd-delta_types' \
