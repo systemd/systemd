@@ -201,7 +201,9 @@ static int radv_send_router(sd_radv *ra, const struct in6_addr *dst) {
         /* The nd_ra_curhoplimit and nd_ra_flags_reserved fields cannot specified with nd_ra_router_lifetime
          * simultaneously in the structured initializer in the above. */
         adv.nd_ra_curhoplimit = ra->hop_limit;
-        adv.nd_ra_flags_reserved = ra->flags;
+        /* RFC 4191, Section 2.2,
+         * "...If the Router Lifetime is zero, the preference value MUST be set to (00) by the sender..." */
+        adv.nd_ra_flags_reserved = ra->flags | (ra->lifetime_usec > 0 ? (ra->preference << 3) : 0);
         iov[msg.msg_iovlen++] = IOVEC_MAKE(&adv, sizeof(adv));
 
         /* MAC address is optional, either because the link does not use L2 addresses or load sharing is
@@ -554,12 +556,6 @@ int sd_radv_set_router_lifetime(sd_radv *ra, uint64_t usec) {
         if (!router_lifetime_is_valid(usec))
                 return -EINVAL;
 
-        /* RFC 4191, Section 2.2, "...If the Router Lifetime is zero, the preference value MUST be set
-         * to (00) by the sender..." */
-        if (usec == 0 &&
-            (ra->flags & (0x3 << 3)) != (SD_NDISC_PREFERENCE_MEDIUM << 3))
-                return -EINVAL;
-
         ra->lifetime_usec = usec;
         return 0;
 }
@@ -578,20 +574,14 @@ int sd_radv_set_other_information(sd_radv *ra, int b) {
         return 0;
 }
 
-int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
+int sd_radv_set_preference(sd_radv *ra, uint8_t preference) {
         assert_return(ra, -EINVAL);
         assert_return(IN_SET(preference,
                              SD_NDISC_PREFERENCE_LOW,
                              SD_NDISC_PREFERENCE_MEDIUM,
                              SD_NDISC_PREFERENCE_HIGH), -EINVAL);
 
-        /* RFC 4191, Section 2.2, "...If the Router Lifetime is zero, the preference value MUST be set
-         * to (00) by the sender..." */
-        if (ra->lifetime_usec == 0 && preference != SD_NDISC_PREFERENCE_MEDIUM)
-                return -EINVAL;
-
-        ra->flags = (ra->flags & ~(0x3 << 3)) | (preference << 3);
-
+        ra->preference = preference;
         return 0;
 }
 

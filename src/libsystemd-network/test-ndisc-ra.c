@@ -191,12 +191,6 @@ TEST(radv) {
         assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_HIGH) >= 0);
         ASSERT_RETURN_EXPECTED_SE(sd_radv_set_preference(ra, ~0) < 0);
 
-        assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_HIGH) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, 300 * USEC_PER_SEC) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, 0) < 0);
-        assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_MEDIUM) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, 0) >= 0);
-
         ASSERT_RETURN_EXPECTED_SE(sd_radv_set_managed_information(NULL, true) < 0);
         assert_se(sd_radv_set_managed_information(ra, true) >= 0);
         assert_se(sd_radv_set_managed_information(ra, false) >= 0);
