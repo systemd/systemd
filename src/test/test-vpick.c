@@ -47,7 +47,7 @@ TEST(path_pick) {
 
         PickFilter filter = {
                 .architecture = _ARCHITECTURE_INVALID,
-                .suffix = ".raw",
+                .suffix = STRV_MAKE(".raw"),
         };
 
         if (IN_SET(native_architecture(), ARCHITECTURE_X86, ARCHITECTURE_X86_64)) {
