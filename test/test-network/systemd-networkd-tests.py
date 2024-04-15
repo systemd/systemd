@@ -4623,6 +4623,23 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'qdisc teql1 31: root')
 
+    @expectedFailureIfModuleIsNotAvailable('sch_fq', 'sch_sfq', 'sch_tbf')
+    def test_qdisc_drop(self):
+        copy_network_unit('12-dummy.netdev', '12-dummy.network')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        # Test case for issue #32247 and #32254.
+        for _ in range(20):
+            check_output('tc qdisc replace dev dummy98 root fq')
+            self.assertFalse(networkd_is_failed())
+            check_output('tc qdisc replace dev dummy98 root fq pacing')
+            self.assertFalse(networkd_is_failed())
+            check_output('tc qdisc replace dev dummy98 handle 10: root tbf rate 0.5mbit burst 5kb latency 70ms peakrate 1mbit minburst 1540')
+            self.assertFalse(networkd_is_failed())
+            check_output('tc qdisc add dev dummy98 parent 10:1 handle 100: sfq')
+            self.assertFalse(networkd_is_failed())
+
 class NetworkdStateFileTests(unittest.TestCase, Utilities):
 
     def setUp(self):
