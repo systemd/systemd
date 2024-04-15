@@ -502,20 +502,20 @@ done
 # Use the last mode, or --system (they are exclusive and the last one is used).
 local _sys_service_mgr=${words[(R)(--user|--system)]:---system}
 _arguments -s \
-    {-h,--help}'[Show help]' \
-    '--version[Show package version]' \
-    {-t+,--type=}'[List only units of a particular type]:unit type:_systemctl_unit_types' \
+    '(- *)'{-h,--help}'[Show help]' \
+    '(- *)--version[Show package version]' \
+    '(-t --type)'{-t+,--type=}'[List only units of a particular type]:unit type:_systemctl_unit_types' \
     '--state=[Display units in the specified state]:unit state:_systemctl_unit_states' \
     '--job-mode=[Specify how to deal with other jobs]:mode:_systemctl_job_modes' \
-    {-p+,--property=}'[Show only properties by specific name]:unit property:_systemctl_unit_properties' \
-    {-a,--all}'[Show all units/properties, including dead/empty ones]' \
+    '(-p --property)'{-p+,--property=}'[Show only properties by specific name]:unit property:_systemctl_unit_properties' \
+    '(-a --all)'{-a,--all}'[Show all units/properties, including dead/empty ones]' \
     '--reverse[Show reverse dependencies]' \
     '--after[Show units ordered after]' \
     '--before[Show units ordered before]' \
-    {-l,--full}"[Don't ellipsize unit names on output]" \
+    '(-l --full)'{-l,--full}"[Don't ellipsize unit names on output]" \
     '--show-types[When showing sockets, show socket type]' \
     '--check-inhibitors[Specify if inhibitors should be checked]:mode:_systemctl_check_inhibitors' \
-    {-q,--quiet}'[Suppress output]' \
+    '(-q --quiet)'{-q,--quiet}'[Suppress output]' \
     '--no-warn[Suppress several warnings shown by default]' \
     '--no-block[Do not wait until operation finished]' \
     '--legend=no[Do not print a legend, i.e. the column headers and the footer with hints]' \
@@ -527,14 +527,14 @@ _arguments -s \
     "--no-reload[When enabling/disabling unit files, don't reload daemon configuration]" \
     '--no-ask-password[Do not ask for system passwords]' \
     '--kill-whom=[Whom to send signal to]:killwhom:(main control all)' \
-    {-s+,--signal=}'[Which signal to send]:signal:_signals' \
-    {-f,--force}'[When enabling unit files, override existing symlinks. When shutting down, execute action immediately]' \
+    '(-s --signal)'{-s+,--signal=}'[Which signal to send]:signal:_signals' \
+    '(-f --force)'{-f,--force}'[When enabling unit files, override existing symlinks. When shutting down, execute action immediately]' \
     '--root=[Enable/disable/mask unit files in the specified root directory]:directory:_directories' \
     '--runtime[Enable/disable/mask unit files only temporarily until next reboot]' \
-    {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
-    {-P,--privileged}'[Acquire privileges before execution]' \
-    {-n+,--lines=}'[Journal entries to show]:number of entries' \
-    {-o+,--output=}'[Change journal output mode]:modes:_sd_outputmodes' \
+    '(-H --host)'{-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
+    '(-P --privileged)'{-P,--privileged}'[Acquire privileges before execution]' \
+    '(-n --lines)'{-n+,--lines=}'[Journal entries to show]:number of entries' \
+    '(-o --output)'{-o+,--output=}'[Change journal output mode]:modes:_sd_outputmodes' \
     '--firmware-setup[Tell the firmware to show the setup menu on next boot]' \
     '--plain[When used with list-dependencies, print output as a list]' \
     '--failed[Show failed units]' \

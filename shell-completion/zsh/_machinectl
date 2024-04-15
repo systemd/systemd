@@ -168,23 +168,23 @@
 }
 
 _arguments \
-    {-h,--help}'[Prints a short help text and exits.]' \
-    '--version[Prints a short version string and exits.]' \
+    '(- *)'{-h,--help}'[Prints a short help text and exits.]' \
+    '(- *)--version[Prints a short version string and exits.]' \
     '--no-pager[Do not pipe output into a pager.]' \
     '--no-legend[Do not show the headers and footers.]' \
     '--no-ask-password[Do not ask for system passwords.]' \
-    {-H+,--host=}'[Operate on remote host.]:userathost:_sd_hosts_or_user_at_host' \
-    {-M+,--machine=}'[Operate on local container.]:machine:_sd_machines' \
-    {-p+,--property=}'[Limit output to specified property.]:property:(Name Id Timestamp TimestampMonotonic Service Scope Leader Class State RootDirectory)' \
-    {-a,--all}'[Show all properties.]' \
-    {-q,--quiet}'[Suppress output.]' \
-    {-l,--full}'[Do not ellipsize cgroup members.]' \
+    '(-H --host)'{-H+,--host=}'[Operate on remote host.]:userathost:_sd_hosts_or_user_at_host' \
+    '(-M --machine)'{-M+,--machine=}'[Operate on local container.]:machine:_sd_machines' \
+    '(-p --property)'{-p+,--property=}'[Limit output to specified property.]:property:(Name Id Timestamp TimestampMonotonic Service Scope Leader Class State RootDirectory)' \
+    '(-a --all)'{-a,--all}'[Show all properties.]' \
+    '(-q --quiet)'{-q,--quiet}'[Suppress output.]' \
+    '(-l --full)'{-l,--full}'[Do not ellipsize cgroup members.]' \
     '--kill-whom=[Whom to send signal to.]:killwhom:(leader all)' \
-    {-s+,--signal=}'[Which signal to send.]:signal:_signals' \
+    '(-s --signal)'{-s+,--signal=}'[Which signal to send.]:signal:_signals' \
     '--read-only[Create read-only bind mount.]' \
     '--mkdir[Create directory before bind mounting, if missing.]' \
-    {-n+,--lines=}'[Number of journal entries to show.]:integer' \
-    {-o+,--output=}'[Change journal output mode.]:output modes:_sd_outputmodes' \
+    '(-n --lines)'{-n+,--lines=}'[Number of journal entries to show.]:integer' \
+    '(-o --output)'{-o+,--output=}'[Change journal output mode.]:output modes:_sd_outputmodes' \
     '--verify=[Verification mode for downloaded images.]:verify:(no checksum signature)' \
     '--force[Download image even if already exists.]' \
     '*::machinectl command:_machinectl_commands'
