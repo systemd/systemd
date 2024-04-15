@@ -726,7 +726,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --timestamp=TIME     Include specified timestamp in encrypted credential\n"
                "     --not-after=TIME     Include specified invalidation time in encrypted\n"
                "                          credential\n"
-               "     --with-key=host|tpm2|host+tpm2|tpm2-absent|auto|auto-initrd\n"
+               "     --with-key=host|tpm2|host+tpm2|null|auto|auto-initrd\n"
                "                          Which keys to encrypt with\n"
                "  -H                      Shortcut for --with-key=host\n"
                "  -T                      Shortcut for --with-key=tpm2\n"
