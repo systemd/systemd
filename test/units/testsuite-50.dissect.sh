@@ -9,13 +9,16 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-systemd-dissect --json=short "$MINIMAL_IMAGE.raw" | grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"'
+systemd-dissect --json=short "$MINIMAL_IMAGE.raw" | \
+    grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"'
 systemd-dissect "$MINIMAL_IMAGE.raw" | grep -q -F "MARKER=1"
 systemd-dissect "$MINIMAL_IMAGE.raw" | grep -q -F -f <(sed 's/"//g' "$OS_RELEASE")
 
 systemd-dissect --list "$MINIMAL_IMAGE.raw" | grep -q '^etc/os-release$'
-systemd-dissect --mtree "$MINIMAL_IMAGE.raw" --mtree-hash yes | grep -qe "^./usr/bin/cat type=file mode=0755 uid=0 gid=0 size=[0-9]* sha256sum=[a-z0-9]*$"
-systemd-dissect --mtree "$MINIMAL_IMAGE.raw" --mtree-hash no  | grep -qe "^./usr/bin/cat type=file mode=0755 uid=0 gid=0 size=[0-9]*$"
+systemd-dissect --mtree "$MINIMAL_IMAGE.raw" --mtree-hash yes | \
+    grep -qe "^./usr/bin/cat type=file mode=0755 uid=0 gid=0 size=[0-9]* sha256sum=[a-z0-9]*$"
+systemd-dissect --mtree "$MINIMAL_IMAGE.raw" --mtree-hash no  | \
+    grep -qe "^./usr/bin/cat type=file mode=0755 uid=0 gid=0 size=[0-9]*$"
 
 read -r SHA256SUM1 _ < <(systemd-dissect --copy-from "$MINIMAL_IMAGE.raw" etc/os-release | sha256sum)
 test "$SHA256SUM1" != ""
@@ -36,9 +39,19 @@ fi
 
 mv "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE.fooverity"
 mv "$MINIMAL_IMAGE.roothash" "$MINIMAL_IMAGE.foohash"
-systemd-dissect --json=short "$MINIMAL_IMAGE.raw" --root-hash="$MINIMAL_IMAGE_ROOTHASH" --verity-data="$MINIMAL_IMAGE.fooverity" | grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"'
-systemd-dissect "$MINIMAL_IMAGE.raw" --root-hash="$MINIMAL_IMAGE_ROOTHASH" --verity-data="$MINIMAL_IMAGE.fooverity" | grep -q -F "MARKER=1"
-systemd-dissect "$MINIMAL_IMAGE.raw" --root-hash="$MINIMAL_IMAGE_ROOTHASH" --verity-data="$MINIMAL_IMAGE.fooverity" | grep -q -F -f <(sed 's/"//g' "$OS_RELEASE")
+systemd-dissect "$MINIMAL_IMAGE.raw" \
+                --json=short \
+                --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                --verity-data="$MINIMAL_IMAGE.fooverity" | \
+                grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"'
+systemd-dissect "$MINIMAL_IMAGE.raw" \
+                --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                --verity-data="$MINIMAL_IMAGE.fooverity" | \
+                grep -q -F "MARKER=1"
+systemd-dissect "$MINIMAL_IMAGE.raw" \
+                --root-hash="$MINIMAL_IMAGE_ROOTHASH" \
+                --verity-data="$MINIMAL_IMAGE.fooverity" | \
+                grep -q -F -f <(sed 's/"//g' "$OS_RELEASE")
 mv "$MINIMAL_IMAGE.fooverity" "$MINIMAL_IMAGE.verity"
 mv "$MINIMAL_IMAGE.foohash" "$MINIMAL_IMAGE.roothash"
 
@@ -63,9 +76,17 @@ systemd-dissect --umount "$IMAGE_DIR/mount2"
 systemd-run -P -p RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/os-release | grep -q -F "MARKER=1"
 mv "$MINIMAL_IMAGE.verity" "$MINIMAL_IMAGE.fooverity"
 mv "$MINIMAL_IMAGE.roothash" "$MINIMAL_IMAGE.foohash"
-systemd-run -P -p RootImage="$MINIMAL_IMAGE.raw" -p RootHash="$MINIMAL_IMAGE.foohash" -p RootVerity="$MINIMAL_IMAGE.fooverity" cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -P \
+            -p RootImage="$MINIMAL_IMAGE.raw" \
+            -p RootHash="$MINIMAL_IMAGE.foohash" \
+            -p RootVerity="$MINIMAL_IMAGE.fooverity" \
+            cat /usr/lib/os-release | grep -q -F "MARKER=1"
 # Let's use the long option name just here as a test
-systemd-run -P --property RootImage="$MINIMAL_IMAGE.raw" --property RootHash="$MINIMAL_IMAGE_ROOTHASH" --property RootVerity="$MINIMAL_IMAGE.fooverity" cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -P \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            --property RootHash="$MINIMAL_IMAGE_ROOTHASH" \
+            --property RootVerity="$MINIMAL_IMAGE.fooverity" \
+            cat /usr/lib/os-release | grep -q -F "MARKER=1"
 mv "$MINIMAL_IMAGE.fooverity" "$MINIMAL_IMAGE.verity"
 mv "$MINIMAL_IMAGE.foohash" "$MINIMAL_IMAGE.roothash"
 
@@ -73,10 +94,19 @@ mv "$MINIMAL_IMAGE.foohash" "$MINIMAL_IMAGE.roothash"
 ROOT_UUID="$(systemd-id128 -u show "$(head -c 32 "$MINIMAL_IMAGE.roothash")" -u | tail -n 1 | cut -b 6-)"
 VERITY_UUID="$(systemd-id128 -u show "$(tail -c 32 "$MINIMAL_IMAGE.roothash")" -u | tail -n 1 | cut -b 6-)"
 
-systemd-dissect --json=short --root-hash "$MINIMAL_IMAGE_ROOTHASH" "$MINIMAL_IMAGE.gpt" | grep -q '{"rw":"ro","designator":"root","partition_uuid":"'"$ROOT_UUID"'","partition_label":"Root Partition","fstype":"squashfs","architecture":"'"$ARCHITECTURE"'","verity":"signed",'
-systemd-dissect --json=short --root-hash "$MINIMAL_IMAGE_ROOTHASH" "$MINIMAL_IMAGE.gpt" | grep -q '{"rw":"ro","designator":"root-verity","partition_uuid":"'"$VERITY_UUID"'","partition_label":"Verity Partition","fstype":"DM_verity_hash","architecture":"'"$ARCHITECTURE"'","verity":null,'
+systemd-dissect --json=short \
+                --root-hash "$MINIMAL_IMAGE_ROOTHASH" \
+                "$MINIMAL_IMAGE.gpt" | \
+                grep -q '{"rw":"ro","designator":"root","partition_uuid":"'"$ROOT_UUID"'","partition_label":"Root Partition","fstype":"squashfs","architecture":"'"$ARCHITECTURE"'","verity":"signed",'
+systemd-dissect --json=short \
+                --root-hash "$MINIMAL_IMAGE_ROOTHASH" \
+                "$MINIMAL_IMAGE.gpt" | \
+                grep -q '{"rw":"ro","designator":"root-verity","partition_uuid":"'"$VERITY_UUID"'","partition_label":"Verity Partition","fstype":"DM_verity_hash","architecture":"'"$ARCHITECTURE"'","verity":null,'
 if [[ -n "${OPENSSL_CONFIG:-}" ]]; then
-    systemd-dissect --json=short --root-hash "$MINIMAL_IMAGE_ROOTHASH" "$MINIMAL_IMAGE.gpt" | grep -q -E '{"rw":"ro","designator":"root-verity-sig","partition_uuid":"'".*"'","partition_label":"Signature Partition","fstype":"verity_hash_signature","architecture":"'"$ARCHITECTURE"'","verity":null,'
+    systemd-dissect --json=short \
+                    --root-hash "$MINIMAL_IMAGE_ROOTHASH" \
+                    "$MINIMAL_IMAGE.gpt" | \
+                    grep -qE '{"rw":"ro","designator":"root-verity-sig","partition_uuid":"'".*"'","partition_label":"Signature Partition","fstype":"verity_hash_signature","architecture":"'"$ARCHITECTURE"'","verity":null,'
 fi
 systemd-dissect --root-hash "$MINIMAL_IMAGE_ROOTHASH" "$MINIMAL_IMAGE.gpt" | grep -q -F "MARKER=1"
 systemd-dissect --root-hash "$MINIMAL_IMAGE_ROOTHASH" "$MINIMAL_IMAGE.gpt" | grep -q -F -f <(sed 's/"//g' "$OS_RELEASE")
@@ -99,14 +129,53 @@ systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed
 (! systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed:root-verity=unused+absent)
 
 # Test RootImagePolicy= unit file setting
-systemd-run --wait -P -p RootImage="$MINIMAL_IMAGE.gpt" -p RootHash="$MINIMAL_IMAGE_ROOTHASH" -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1"
-systemd-run --wait -P -p RootImage="$MINIMAL_IMAGE.gpt" -p RootHash="$MINIMAL_IMAGE_ROOTHASH" -p RootImagePolicy='*' -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1"
-(! systemd-run --wait -P -p RootImage="$MINIMAL_IMAGE.gpt" -p RootHash="$MINIMAL_IMAGE_ROOTHASH" -p RootImagePolicy='~' -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1")
-(! systemd-run --wait -P -p RootImage="$MINIMAL_IMAGE.gpt" -p RootHash="$MINIMAL_IMAGE_ROOTHASH" -p RootImagePolicy='-' -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1")
-(! systemd-run --wait -P -p RootImage="$MINIMAL_IMAGE.gpt" -p RootHash="$MINIMAL_IMAGE_ROOTHASH" -p RootImagePolicy='root=absent' -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1")
-systemd-run --wait -P -p RootImage="$MINIMAL_IMAGE.gpt" -p RootHash="$MINIMAL_IMAGE_ROOTHASH" -p RootImagePolicy='root=verity' -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1"
-systemd-run --wait -P -p RootImage="$MINIMAL_IMAGE.gpt" -p RootHash="$MINIMAL_IMAGE_ROOTHASH" -p RootImagePolicy='root=signed' -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1"
-(! systemd-run --wait -P -p RootImage="$MINIMAL_IMAGE.gpt" -p RootHash="$MINIMAL_IMAGE_ROOTHASH" -p RootImagePolicy='root=encrypted' -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1")
+systemd-run --wait -P \
+            -p RootImage="$MINIMAL_IMAGE.gpt" \
+            -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
+            -p MountAPIVFS=yes \
+            cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run --wait -P \
+            -p RootImage="$MINIMAL_IMAGE.gpt" \
+            -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
+            -p RootImagePolicy='*' \
+            -p MountAPIVFS=yes \
+            cat /usr/lib/os-release | grep -q -F "MARKER=1"
+(! systemd-run --wait -P \
+               -p RootImage="$MINIMAL_IMAGE.gpt" \
+               -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
+               -p RootImagePolicy='~' \
+               -p MountAPIVFS=yes \
+               cat /usr/lib/os-release | grep -q -F "MARKER=1")
+(! systemd-run --wait -P \
+               -p RootImage="$MINIMAL_IMAGE.gpt" \
+               -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
+               -p RootImagePolicy='-' \
+               -p MountAPIVFS=yes \
+               cat /usr/lib/os-release | grep -q -F "MARKER=1")
+(! systemd-run --wait -P \
+               -p RootImage="$MINIMAL_IMAGE.gpt" \
+               -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
+               -p RootImagePolicy='root=absent' \
+               -p MountAPIVFS=yes \
+               cat /usr/lib/os-release | grep -q -F "MARKER=1")
+systemd-run --wait -P \
+            -p RootImage="$MINIMAL_IMAGE.gpt" \
+            -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
+            -p RootImagePolicy='root=verity' \
+            -p MountAPIVFS=yes \
+            cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run --wait -P \
+            -p RootImage="$MINIMAL_IMAGE.gpt" \
+            -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
+            -p RootImagePolicy='root=signed' \
+            -p MountAPIVFS=yes \
+            cat /usr/lib/os-release | grep -q -F "MARKER=1"
+(! systemd-run --wait -P \
+               -p RootImage="$MINIMAL_IMAGE.gpt" \
+               -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
+               -p RootImagePolicy='root=encrypted' \
+               -p MountAPIVFS=yes \
+               cat /usr/lib/os-release | grep -q -F "MARKER=1")
 
 systemd-dissect --root-hash "$MINIMAL_IMAGE_ROOTHASH" --mount "$MINIMAL_IMAGE.gpt" "$IMAGE_DIR/mount"
 grep -q -F -f "$OS_RELEASE" "$IMAGE_DIR/mount/usr/lib/os-release"
@@ -121,10 +190,19 @@ grep -q -F "MARKER=1" "$IMAGE_DIR/mount/usr/lib/os-release"
 systemd-dissect --umount "$IMAGE_DIR/mount"
 
 # add explicit -p MountAPIVFS=yes once to test the parser
-systemd-run -P -p RootImage="$MINIMAL_IMAGE.gpt" -p RootHash="$MINIMAL_IMAGE_ROOTHASH" -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1"
-
-systemd-run -P -p RootImage="$MINIMAL_IMAGE.raw" -p RootImageOptions="root:nosuid,dev home:ro,dev ro,noatime" mount | grep -F "squashfs" | grep -q -F "nosuid"
-systemd-run -P -p RootImage="$MINIMAL_IMAGE.gpt" -p RootImageOptions="root:ro,noatime root:ro,dev" mount | grep -F "squashfs" | grep -q -F "noatime"
+systemd-run -P \
+            -p RootImage="$MINIMAL_IMAGE.gpt" \
+            -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
+            -p MountAPIVFS=yes \
+            cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -P \
+            -p RootImage="$MINIMAL_IMAGE.raw" \
+            -p RootImageOptions="root:nosuid,dev home:ro,dev ro,noatime" \
+            mount | grep -F "squashfs" | grep -q -F "nosuid"
+systemd-run -P \
+            -p RootImage="$MINIMAL_IMAGE.gpt" \
+            -p RootImageOptions="root:ro,noatime root:ro,dev" \
+            mount | grep -F "squashfs" | grep -q -F "noatime"
 
 mkdir -p "$IMAGE_DIR/result"
 cat >/run/systemd/system/testservice-50a.service <<EOF
@@ -157,18 +235,45 @@ systemctl start testservice-50b.service
 grep -F "squashfs" "$IMAGE_DIR/result/b" | grep -q -F "noatime"
 
 # Check that specifier escape is applied %%foo → %foo
-busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1/unit/testservice_2d50b_2eservice org.freedesktop.systemd1.Service RootImageOptions | grep -F "nosuid,dev,%foo"
+busctl get-property org.freedesktop.systemd1 \
+                    /org/freedesktop/systemd1/unit/testservice_2d50b_2eservice \
+                    org.freedesktop.systemd1.Service RootImageOptions | grep -F "nosuid,dev,%foo"
 
 # Now do some checks with MountImages, both by itself, with options and in combination with RootImage, and as single FS or GPT image
-systemd-run -P -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2" cat /run/img1/usr/lib/os-release | grep -q -F "MARKER=1"
-systemd-run -P -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2" cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
-systemd-run -P -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2:nosuid,dev" mount | grep -F "squashfs" | grep -q -F "nosuid"
-systemd-run -P -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1:root:nosuid $MINIMAL_IMAGE.raw:/run/img2:home:suid" mount | grep -F "squashfs" | grep -q -F "nosuid"
-systemd-run -P -p MountImages="$MINIMAL_IMAGE.raw:/run/img2\:3" cat /run/img2:3/usr/lib/os-release | grep -q -F "MARKER=1"
-systemd-run -P -p MountImages="$MINIMAL_IMAGE.raw:/run/img2\:3:nosuid" mount | grep -F "squashfs" | grep -q -F "nosuid"
-systemd-run -P -p TemporaryFileSystem=/run -p RootImage="$MINIMAL_IMAGE.raw" -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2" cat /usr/lib/os-release | grep -q -F "MARKER=1"
-systemd-run -P -p TemporaryFileSystem=/run -p RootImage="$MINIMAL_IMAGE.raw" -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2" cat /run/img1/usr/lib/os-release | grep -q -F "MARKER=1"
-systemd-run -P -p TemporaryFileSystem=/run -p RootImage="$MINIMAL_IMAGE.gpt" -p RootHash="$MINIMAL_IMAGE_ROOTHASH" -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2" cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -P \
+            -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2" \
+            cat /run/img1/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -P \
+            -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2" \
+            cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -P \
+            -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2:nosuid,dev" \
+            mount | grep -F "squashfs" | grep -q -F "nosuid"
+systemd-run -P \
+            -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1:root:nosuid $MINIMAL_IMAGE.raw:/run/img2:home:suid" \
+            mount | grep -F "squashfs" | grep -q -F "nosuid"
+systemd-run -P \
+            -p MountImages="$MINIMAL_IMAGE.raw:/run/img2\:3" \
+            cat /run/img2:3/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -P \
+            -p MountImages="$MINIMAL_IMAGE.raw:/run/img2\:3:nosuid" \
+            mount | grep -F "squashfs" | grep -q -F "nosuid"
+systemd-run -P \
+            -p TemporaryFileSystem=/run \
+            -p RootImage="$MINIMAL_IMAGE.raw" \
+            -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2" \
+            cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -P \
+            -p TemporaryFileSystem=/run \
+            -p RootImage="$MINIMAL_IMAGE.raw" \
+            -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2" \
+            cat /run/img1/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -P \
+            -p TemporaryFileSystem=/run \
+            -p RootImage="$MINIMAL_IMAGE.gpt" \
+            -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
+            -p MountImages="$MINIMAL_IMAGE.gpt:/run/img1 $MINIMAL_IMAGE.raw:/run/img2" \
+            cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
 cat >/run/systemd/system/testservice-50c.service <<EOF
 [Service]
 MountAPIVFS=yes
@@ -222,34 +327,66 @@ done
 systemctl is-active testservice-50d.service
 
 # ExtensionImages will set up an overlay
-systemd-run -P --property ExtensionImages=/usr/share/app0.raw --property RootImage="$MINIMAL_IMAGE.raw" cat /opt/script0.sh | grep -q -F "extension-release.app0"
-systemd-run -P --property ExtensionImages=/usr/share/app0.raw --property RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
-systemd-run -P --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage="$MINIMAL_IMAGE.raw" cat /opt/script0.sh | grep -q -F "extension-release.app0"
-systemd-run -P --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
-systemd-run -P --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage="$MINIMAL_IMAGE.raw" cat /opt/script1.sh | grep -q -F "extension-release.app2"
-systemd-run -P --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/systemd/system/other_file | grep -q -F "MARKER=1"
-systemd-run -P --property ExtensionImages=/usr/share/app-nodistro.raw --property RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
-systemd-run -P --property ExtensionImages=/etc/service-scoped-test.raw --property RootImage="$MINIMAL_IMAGE.raw" cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
+systemd-run -P \
+            --property ExtensionImages=/usr/share/app0.raw \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /opt/script0.sh | grep -q -F "extension-release.app0"
+systemd-run -P \
+            --property ExtensionImages=/usr/share/app0.raw \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+systemd-run -P \
+            --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /opt/script0.sh | grep -q -F "extension-release.app0"
+systemd-run -P \
+            --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+systemd-run -P \
+            --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /opt/script1.sh | grep -q -F "extension-release.app2"
+systemd-run -P \
+            --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /usr/lib/systemd/system/other_file | grep -q -F "MARKER=1"
+systemd-run -P \
+            --property ExtensionImages=/usr/share/app-nodistro.raw \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+systemd-run -P \
+            --property ExtensionImages=/etc/service-scoped-test.raw \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
 # Check that using a symlink to NAME-VERSION.raw works as long as the symlink has the correct name NAME.raw
 mkdir -p /usr/share/symlink-test/
 cp /usr/share/app-nodistro.raw /usr/share/symlink-test/app-nodistro-v1.raw
 ln -fs /usr/share/symlink-test/app-nodistro-v1.raw /usr/share/symlink-test/app-nodistro.raw
-systemd-run -P --property ExtensionImages=/usr/share/symlink-test/app-nodistro.raw --property RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+systemd-run -P \
+            --property ExtensionImages=/usr/share/symlink-test/app-nodistro.raw \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
 
 # Symlink check again but for confext
 mkdir -p /etc/symlink-test/
 cp /etc/service-scoped-test.raw /etc/symlink-test/service-scoped-test-v1.raw
 ln -fs /etc/symlink-test/service-scoped-test-v1.raw /etc/symlink-test/service-scoped-test.raw
-systemd-run -P --property ExtensionImages=/etc/symlink-test/service-scoped-test.raw --property RootImage="$MINIMAL_IMAGE.raw" cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
+systemd-run -P \
+            --property ExtensionImages=/etc/symlink-test/service-scoped-test.raw \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
 # And again mixing sysext and confext
 systemd-run -P \
     --property ExtensionImages=/usr/share/symlink-test/app-nodistro.raw \
     --property ExtensionImages=/etc/symlink-test/service-scoped-test.raw \
-    --property RootImage="$MINIMAL_IMAGE.raw" cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
+    --property RootImage="$MINIMAL_IMAGE.raw" \
+    cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
 systemd-run -P \
     --property ExtensionImages=/usr/share/symlink-test/app-nodistro.raw \
     --property ExtensionImages=/etc/symlink-test/service-scoped-test.raw \
-    --property RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+    --property RootImage="$MINIMAL_IMAGE.raw" \
+    cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
 
 cat >/run/systemd/system/testservice-50e.service <<EOF
 [Service]
@@ -282,20 +419,50 @@ rm -rf "$VDIR"
 
 # ExtensionDirectories will set up an overlay
 mkdir -p "$IMAGE_DIR/app0" "$IMAGE_DIR/app1" "$IMAGE_DIR/app-nodistro" "$IMAGE_DIR/service-scoped-test"
-(! systemd-run -P --property ExtensionDirectories="$IMAGE_DIR/nonexistent" --property RootImage="$MINIMAL_IMAGE.raw" cat /opt/script0.sh)
-(! systemd-run -P --property ExtensionDirectories="$IMAGE_DIR/app0" --property RootImage="$MINIMAL_IMAGE.raw" cat /opt/script0.sh)
+(! systemd-run -P \
+               --property ExtensionDirectories="$IMAGE_DIR/nonexistent" \
+               --property RootImage="$MINIMAL_IMAGE.raw" \
+               cat /opt/script0.sh)
+(! systemd-run -P \
+               --property ExtensionDirectories="$IMAGE_DIR/app0" \
+               --property RootImage="$MINIMAL_IMAGE.raw" \
+               cat /opt/script0.sh)
 systemd-dissect --mount /usr/share/app0.raw "$IMAGE_DIR/app0"
 systemd-dissect --mount /usr/share/app1.raw "$IMAGE_DIR/app1"
 systemd-dissect --mount /usr/share/app-nodistro.raw "$IMAGE_DIR/app-nodistro"
 systemd-dissect --mount /etc/service-scoped-test.raw "$IMAGE_DIR/service-scoped-test"
-systemd-run -P --property ExtensionDirectories="$IMAGE_DIR/app0" --property RootImage="$MINIMAL_IMAGE.raw" cat /opt/script0.sh | grep -q -F "extension-release.app0"
-systemd-run -P --property ExtensionDirectories="$IMAGE_DIR/app0" --property RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
-systemd-run -P --property ExtensionDirectories="$IMAGE_DIR/app0 $IMAGE_DIR/app1" --property RootImage="$MINIMAL_IMAGE.raw" cat /opt/script0.sh | grep -q -F "extension-release.app0"
-systemd-run -P --property ExtensionDirectories="$IMAGE_DIR/app0 $IMAGE_DIR/app1" --property RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
-systemd-run -P --property ExtensionDirectories="$IMAGE_DIR/app0 $IMAGE_DIR/app1" --property RootImage="$MINIMAL_IMAGE.raw" cat /opt/script1.sh | grep -q -F "extension-release.app2"
-systemd-run -P --property ExtensionDirectories="$IMAGE_DIR/app0 $IMAGE_DIR/app1" --property RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/systemd/system/other_file | grep -q -F "MARKER=1"
-systemd-run -P --property ExtensionDirectories="$IMAGE_DIR/app-nodistro" --property RootImage="$MINIMAL_IMAGE.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
-systemd-run -P --property ExtensionDirectories="$IMAGE_DIR/service-scoped-test" --property RootImage="$MINIMAL_IMAGE.raw" cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
+systemd-run -P \
+            --property ExtensionDirectories="$IMAGE_DIR/app0" \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /opt/script0.sh | grep -q -F "extension-release.app0"
+systemd-run -P \
+            --property ExtensionDirectories="$IMAGE_DIR/app0" \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+systemd-run -P \
+            --property ExtensionDirectories="$IMAGE_DIR/app0 $IMAGE_DIR/app1" \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /opt/script0.sh | grep -q -F "extension-release.app0"
+systemd-run -P \
+            --property ExtensionDirectories="$IMAGE_DIR/app0 $IMAGE_DIR/app1" \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+systemd-run -P \
+            --property ExtensionDirectories="$IMAGE_DIR/app0 $IMAGE_DIR/app1" \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /opt/script1.sh | grep -q -F "extension-release.app2"
+systemd-run -P \
+            --property ExtensionDirectories="$IMAGE_DIR/app0 $IMAGE_DIR/app1" \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /usr/lib/systemd/system/other_file | grep -q -F "MARKER=1"
+systemd-run -P \
+            --property ExtensionDirectories="$IMAGE_DIR/app-nodistro" \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+systemd-run -P \
+            --property ExtensionDirectories="$IMAGE_DIR/service-scoped-test" \
+            --property RootImage="$MINIMAL_IMAGE.raw" \
+            cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
 cat >/run/systemd/system/testservice-50f.service <<EOF
 [Service]
 MountAPIVFS=yes

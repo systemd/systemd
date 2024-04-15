@@ -29,10 +29,17 @@ trap at_exit EXIT
 
 systemctl start systemd-mountfsd.socket systemd-nsresourced.socket
 
-openssl req -config "$OPENSSL_CONFIG" -subj="/CN=waldo" -x509 -sha256 -nodes -days 365 -newkey rsa:4096 -keyout /tmp/test-50-unpriv-privkey.key -out /tmp/test-50-unpriv-cert.crt
+openssl req -config "$OPENSSL_CONFIG" -subj="/CN=waldo" \
+            -x509 -sha256 -nodes -days 365 -newkey rsa:4096 \
+            -keyout /tmp/test-50-unpriv-privkey.key -out /tmp/test-50-unpriv-cert.crt
 
 systemd-dissect --mkdir --mount "$MINIMAL_IMAGE.raw" /tmp/unpriv/mount
-SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs systemd-repart -P -s /tmp/unpriv/mount --certificate=/tmp/test-50-unpriv-cert.crt --private-key=/tmp/test-50-unpriv-privkey.key /var/tmp/unpriv.raw
+SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs \
+    systemd-repart -P \
+                   -s /tmp/unpriv/mount \
+                   --certificate=/tmp/test-50-unpriv-cert.crt \
+                   --private-key=/tmp/test-50-unpriv-privkey.key \
+                   /var/tmp/unpriv.raw
 systemd-dissect --rmdir --umount /tmp/unpriv/mount
 
 systemd-dissect --image-policy='root=unprotected:=absent+unused' /var/tmp/unpriv.raw
