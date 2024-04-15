@@ -318,12 +318,8 @@ mksquashfs /tmp/wrong/foo /tmp/wrong.raw
 systemctl mount-image --mkdir testservice-50d.service /tmp/wrong.raw /tmp/img
 test "$(systemctl show -P SubState testservice-50d.service)" = "running"
 systemctl mount-image --mkdir testservice-50d.service "$MINIMAL_IMAGE.raw" /tmp/img root:nosuid
-
-while systemctl show -P SubState testservice-50d.service | grep -q running
-do
-    sleep 0.1
-done
-
+# shellcheck disable=SC2016
+timeout 30s bash -xec 'while [[ $(systemctl show -P SubState testservice-50d.service) == running ]]; do sleep .2; done'
 systemctl is-active testservice-50d.service
 
 # ExtensionImages will set up an overlay
