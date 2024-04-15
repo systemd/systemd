@@ -101,7 +101,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
         if (r < 0)
                 return r;
 
-        if (link->dhcp_lease && link->network->dhcp_use_dns) {
+        if (link->dhcp_lease && link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP4)) {
                 const struct in_addr *addresses;
 
                 r = sd_dhcp_lease_get_dns(link->dhcp_lease, &addresses);
@@ -112,7 +112,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 }
         }
 
-        if (link->dhcp6_lease && link->network->dhcp6_use_dns) {
+        if (link->dhcp6_lease && link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
                 const struct in6_addr *addresses;
 
                 r = sd_dhcp6_lease_get_dns(link->dhcp6_lease, &addresses);
@@ -123,7 +123,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 }
         }
 
-        if (link->network->ndisc_use_dns) {
+        if (link_get_use_dns(link, NETWORK_CONFIG_SOURCE_NDISC)) {
                 NDiscRDNSS *a;
 
                 SET_FOREACH(a, link->ndisc_rdnss) {
@@ -666,14 +666,14 @@ static int link_save(Link *link) {
                         serialize_addresses(f, NULL, &space,
                                             NULL,
                                             link->dhcp_lease,
-                                            link->network->dhcp_use_dns,
+                                            link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP4),
                                             SD_DHCP_LEASE_DNS,
                                             link->dhcp6_lease,
-                                            link->network->dhcp6_use_dns,
+                                            link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP6),
                                             sd_dhcp6_lease_get_dns,
                                             NULL);
 
-                        if (link->network->ndisc_use_dns) {
+                        if (link_get_use_dns(link, NETWORK_CONFIG_SOURCE_NDISC)) {
                                 NDiscRDNSS *dd;
 
                                 SET_FOREACH(dd, link->ndisc_rdnss)
