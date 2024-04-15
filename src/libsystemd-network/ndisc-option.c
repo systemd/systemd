@@ -1400,7 +1400,7 @@ int ndisc_option_get_mac(Set *options, uint8_t type, struct ether_addr *ret) {
         return 0;
 }
 
-int ndisc_send(int fd, const struct sockaddr_in6 *dst, const struct icmp6_hdr *hdr, Set *options, usec_t timestamp) {
+int ndisc_send(int fd, const struct in6_addr *dst, const struct icmp6_hdr *hdr, Set *options, usec_t timestamp) {
         int r;
 
         assert(fd >= 0);
