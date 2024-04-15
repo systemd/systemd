@@ -594,7 +594,7 @@ int config_parse_dhcp_use_domains(
                 void *userdata) {
 
         Network *network = userdata;
-        DHCPUseDomains d;
+        UseDomains d;
 
         assert(filename);
         assert(lvalue);
@@ -602,7 +602,7 @@ int config_parse_dhcp_use_domains(
         assert(rvalue);
         assert(data);
 
-        d = dhcp_use_domains_from_string(rvalue);
+        d = use_domains_from_string(rvalue);
         if (d < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, d,
                            "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
@@ -631,8 +631,6 @@ int config_parse_dhcp_use_domains(
 
         return 0;
 }
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_default_dhcp_use_domains, dhcp_use_domains, DHCPUseDomains, "Failed to parse UseDomains=")
 
 int config_parse_dhcp_use_ntp(
                 const char* unit,
@@ -1139,13 +1137,14 @@ int config_parse_dhcp_request_options(
         }
 }
 
-static const char* const dhcp_use_domains_table[_DHCP_USE_DOMAINS_MAX] = {
-        [DHCP_USE_DOMAINS_NO] = "no",
-        [DHCP_USE_DOMAINS_ROUTE] = "route",
-        [DHCP_USE_DOMAINS_YES] = "yes",
+static const char* const use_domains_table[_USE_DOMAINS_MAX] = {
+        [USE_DOMAINS_NO]    = "no",
+        [USE_DOMAINS_ROUTE] = "route",
+        [USE_DOMAINS_YES]   = "yes",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dhcp_use_domains, DHCPUseDomains, DHCP_USE_DOMAINS_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(use_domains, UseDomains, USE_DOMAINS_YES);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_use_domains, use_domains, UseDomains, "Failed to parse UseDomains=")
 
 static const char * const dhcp_option_data_type_table[_DHCP_OPTION_DATA_MAX] = {
         [DHCP_OPTION_DATA_UINT8]       = "uint8",
