@@ -224,7 +224,7 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
         if (r < 0)
                 return r;
 
-        if (link->dhcp_lease && link->network->dhcp_use_domains == use_domains) {
+        if (link->dhcp_lease && link_get_use_domains(link, NETWORK_CONFIG_SOURCE_DHCP4) == use_domains) {
                 const char *domainname;
                 char **domains;
 
@@ -243,7 +243,7 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
                 }
         }
 
-        if (link->dhcp6_lease && link->network->dhcp6_use_domains == use_domains) {
+        if (link->dhcp6_lease && link_get_use_domains(link, NETWORK_CONFIG_SOURCE_DHCP6) == use_domains) {
                 char **domains;
 
                 r = sd_dhcp6_lease_get_domains(link->dhcp6_lease, &domains);
@@ -254,7 +254,7 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
                 }
         }
 
-        if (link->network->ndisc_use_domains == use_domains) {
+        if (link_get_use_domains(link, NETWORK_CONFIG_SOURCE_NDISC) == use_domains) {
                 NDiscDNSSL *a;
 
                 SET_FOREACH(a, link->ndisc_dnssl) {
@@ -542,7 +542,7 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, U
         if (use_domains == USE_DOMAINS_NO)
                 return;
 
-        if (link->dhcp_lease && link->network->dhcp_use_domains == use_domains) {
+        if (link->dhcp_lease && link_get_use_domains(link, NETWORK_CONFIG_SOURCE_DHCP4) == use_domains) {
                 const char *domainname;
                 char **domains;
 
@@ -552,14 +552,14 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, U
                         fputstrv(f, domains, NULL, &space);
         }
 
-        if (link->dhcp6_lease && link->network->dhcp6_use_domains == use_domains) {
+        if (link->dhcp6_lease && link_get_use_domains(link, NETWORK_CONFIG_SOURCE_DHCP6) == use_domains) {
                 char **domains;
 
                 if (sd_dhcp6_lease_get_domains(link->dhcp6_lease, &domains) >= 0)
                         fputstrv(f, domains, NULL, &space);
         }
 
-        if (link->network->ndisc_use_domains == use_domains) {
+        if (link_get_use_domains(link, NETWORK_CONFIG_SOURCE_NDISC) == use_domains) {
                 NDiscDNSSL *dd;
 
                 SET_FOREACH(dd, link->ndisc_dnssl)
