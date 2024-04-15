@@ -72,6 +72,48 @@ bool link_dhcp_enabled(Link *link, int family) {
         return link->network->dhcp & (family == AF_INET ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_IPV6);
 }
 
+UseDomains link_get_use_domains(Link *link, NetworkConfigSource proto) {
+        UseDomains n, m;
+
+        assert(link);
+        assert(link->manager);
+
+        if (!link->network)
+                return USE_DOMAINS_NO;
+
+        switch (proto) {
+        case NETWORK_CONFIG_SOURCE_DHCP4:
+                n = link->network->dhcp_use_domains;
+                m = link->manager->dhcp_use_domains;
+                break;
+        case NETWORK_CONFIG_SOURCE_DHCP6:
+                n = link->network->dhcp6_use_domains;
+                m = link->manager->dhcp6_use_domains;
+                break;
+        case NETWORK_CONFIG_SOURCE_NDISC:
+                n = link->network->ndisc_use_domains;
+                m = link->manager->ndisc_use_domains;
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        /* If per-network and per-protocol setting is specified, use it. */
+        if (n >= 0)
+                return n;
+
+        /* If per-network protocol-independent setting is specified, use it. */
+        if (link->network->use_domains >= 0)
+                return link->network->use_domains;
+
+        /* If global per-protocol setting is specified, use it. */
+        if (m >= 0)
+                return m;
+
+        /* If none of them specified, use the global protocol-independent value. */
+        return link->manager->use_domains;
+}
+
 void network_adjust_dhcp(Network *network) {
         assert(network);
         assert(network->dhcp >= 0);
@@ -581,59 +623,6 @@ int config_parse_dhcp_use_dns(
         return 0;
 }
 
-int config_parse_dhcp_use_domains(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        DHCPUseDomains d;
-
-        assert(filename);
-        assert(lvalue);
-        assert(IN_SET(ltype, AF_UNSPEC, AF_INET, AF_INET6));
-        assert(rvalue);
-        assert(data);
-
-        d = dhcp_use_domains_from_string(rvalue);
-        if (d < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, d,
-                           "Failed to parse %s=%s, ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
-
-        switch (ltype) {
-        case AF_INET:
-                network->dhcp_use_domains = d;
-                network->dhcp_use_domains_set = true;
-                break;
-        case AF_INET6:
-                network->dhcp6_use_domains = d;
-                network->dhcp6_use_domains_set = true;
-                break;
-        case AF_UNSPEC:
-                /* For backward compatibility. */
-                if (!network->dhcp_use_domains_set)
-                        network->dhcp_use_domains = d;
-                if (!network->dhcp6_use_domains_set)
-                        network->dhcp6_use_domains = d;
-                break;
-        default:
-                assert_not_reached();
-        }
-
-        return 0;
-}
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_default_dhcp_use_domains, dhcp_use_domains, DHCPUseDomains, "Failed to parse UseDomains=")
-
 int config_parse_dhcp_use_ntp(
                 const char* unit,
                 const char *filename,
@@ -1139,13 +1128,14 @@ int config_parse_dhcp_request_options(
         }
 }
 
-static const char* const dhcp_use_domains_table[_DHCP_USE_DOMAINS_MAX] = {
-        [DHCP_USE_DOMAINS_NO] = "no",
-        [DHCP_USE_DOMAINS_ROUTE] = "route",
-        [DHCP_USE_DOMAINS_YES] = "yes",
+static const char* const use_domains_table[_USE_DOMAINS_MAX] = {
+        [USE_DOMAINS_NO]    = "no",
+        [USE_DOMAINS_ROUTE] = "route",
+        [USE_DOMAINS_YES]   = "yes",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dhcp_use_domains, DHCPUseDomains, DHCP_USE_DOMAINS_YES);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(use_domains, UseDomains, USE_DOMAINS_YES);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_use_domains, use_domains, UseDomains, "Failed to parse UseDomains=")
 
 static const char * const dhcp_option_data_type_table[_DHCP_OPTION_DATA_MAX] = {
         [DHCP_OPTION_DATA_UINT8]       = "uint8",
