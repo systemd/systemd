@@ -697,7 +697,7 @@ static int domains_append_json(Link *link, bool is_route, JsonVariant **v) {
 
         if (!link_domains) {
                 if (link->dhcp_lease &&
-                    link->network->dhcp_use_domains == use_domains) {
+                    link_get_use_domains(link, NETWORK_CONFIG_SOURCE_DHCP4) == use_domains) {
                         r = sd_dhcp_lease_get_server_identifier(link->dhcp_lease, &s.in);
                         if (r < 0)
                                 return r;
@@ -717,7 +717,7 @@ static int domains_append_json(Link *link, bool is_route, JsonVariant **v) {
                 }
 
                 if (link->dhcp6_lease &&
-                    link->network->dhcp6_use_domains == use_domains) {
+                    link_get_use_domains(link, NETWORK_CONFIG_SOURCE_DHCP6) == use_domains) {
                         r = sd_dhcp6_lease_get_server_address(link->dhcp6_lease, &s.in6);
                         if (r < 0)
                                 return r;
@@ -730,7 +730,7 @@ static int domains_append_json(Link *link, bool is_route, JsonVariant **v) {
                                 }
                 }
 
-                if (link->network->ndisc_use_domains == use_domains) {
+                if (link_get_use_domains(link, NETWORK_CONFIG_SOURCE_NDISC) == use_domains) {
                         NDiscDNSSL *a;
 
                         SET_FOREACH(a, link->ndisc_dnssl) {
