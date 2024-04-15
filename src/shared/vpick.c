@@ -658,7 +658,9 @@ int path_pick_update_warn(
                       &result);
         if (r == -ENOENT) {
                 log_debug("Path '%s' doesn't exist, leaving as is.", *path);
-                *ret_result = PICK_RESULT_NULL;
+
+                if (ret_result)
+                        *ret_result = PICK_RESULT_NULL;
                 return 0;
         }
         if (r < 0)
