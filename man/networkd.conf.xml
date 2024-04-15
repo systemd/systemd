@@ -158,6 +158,43 @@
         <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>UseDomains=</varname></term>
+        <listitem>
+          <para>Specifies the network- and protocol-indepndent default value for the same settins in
+          [IPv6AcceptRA], [DHCPv4], and [DHCPv6] sections below. Takes a boolean, or the special value
+          <option>route</option>. See the same setting in
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          Defaults to <literal>no</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[IPv6AcceptRA] Section Options</title>
+
+    <para>This section configures the default setting of the Neighbor Discovery. The following options are
+    available in the [IPv6AcceptRA] section:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>UseDomains=</varname></term>
+        <listitem>
+          <para>Specifies the network-independent default value for the same setting in the [IPv6AcceptRA]
+          section in
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          Takes a boolean, or the special value <option>route</option>. When unspecified, the value specified
+          in the [Network] section in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          which defaults to <literal>no</literal>, will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -259,11 +296,9 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
 
       <varlistentry>
         <term><varname>UseDomains=</varname></term>
-          <listitem><para>Specifies the default value for per-network <varname>UseDomains=</varname>.
-          Takes a boolean. See for details in
-          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-          Defaults to <literal>no</literal>.</para>
-          
+        <listitem>
+          <para>Same as the one in the [IPv6AcceptRA] section, but applied for DHCPv4 protocol.</para>
+
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
@@ -309,12 +344,9 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
 
     <variablelist class='network-directives'>
       <varlistentry>
-        <term><varname>PersistLeases=</varname></term>
+        <term><varname>UseDomains=</varname></term>
         <listitem>
-          <para>Specifies the default value for per-network <varname>PersistLeases=</varname>.
-          Takes a boolean. See for details in
-          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-          Defaults to <literal>yes</literal>.</para>
+          <para>Same as the one in the [IPv6AcceptRA] section, but applied for DHCPv4 protocol.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>

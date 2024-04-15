@@ -113,6 +113,9 @@ struct Network {
         bool default_route_on_device;
         AddressFamily ip_masquerade;
 
+        /* Protocol independent settings */
+        UseDomains use_domains;
+
         /* For backward compatibility, only applied to DHCPv4 and DHCPv6. */
         UseDomains compat_dhcp_use_domains;
         int compat_dhcp_use_dns;
