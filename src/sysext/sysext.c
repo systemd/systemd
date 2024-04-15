@@ -897,6 +897,45 @@ static int overlayfs_paths_new(const char *hierarchy, const char *workspace_path
         return 0;
 }
 
+static int determine_used_extensions(const char *hierarchy, char **paths, char ***ret_used_paths, size_t *ret_extensions_used) {
+        _cleanup_strv_free_ char **used_paths = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(hierarchy);
+        assert(paths);
+        assert(ret_used_paths);
+        assert(ret_extensions_used);
+
+        STRV_FOREACH(p, paths) {
+                _cleanup_free_ char *resolved = NULL;
+
+                r = chase(hierarchy, *p, CHASE_PREFIX_ROOT, &resolved, NULL);
+                if (r == -ENOENT) {
+                        log_debug_errno(r, "Hierarchy '%s' in extension '%s' doesn't exist, not merging.", hierarchy, *p);
+                        continue;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve hierarchy '%s' in extension '%s': %m", hierarchy, *p);
+
+                r = dir_is_empty(resolved, /* ignore_hidden_or_backup= */ false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if hierarchy '%s' in extension '%s' is empty: %m", resolved, *p);
+                if (r > 0) {
+                        log_debug("Hierarchy '%s' in extension '%s' is empty, not merging.", hierarchy, *p);
+                        continue;
+                }
+
+                r = strv_consume_with_size (&used_paths, &n, TAKE_PTR(resolved));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        *ret_used_paths = TAKE_PTR(used_paths);
+        *ret_extensions_used = n;
+        return 0;
+}
+
 static int maybe_import_mutable_directory(OverlayFSPaths *op) {
         int r;
 
@@ -984,41 +1023,17 @@ static int determine_top_lower_dirs(OverlayFSPaths *op, const char *meta_path) {
         return 0;
 }
 
-static int determine_middle_lower_dirs(OverlayFSPaths *op, char **paths, size_t *ret_extensions_used) {
-        size_t n = 0;
+static int determine_middle_lower_dirs(OverlayFSPaths *op, char **paths) {
         int r;
 
         assert(op);
         assert(paths);
-        assert(ret_extensions_used);
 
-        /* Put the extensions in the middle */
-        STRV_FOREACH(p, paths) {
-                _cleanup_free_ char *resolved = NULL;
+        /* The paths were already determined in determine_used_extensions, so we just take them as is. */
+        r = strv_extend_strv(&op->lower_dirs, paths, false);
+        if (r < 0)
+                return log_oom ();
 
-                r = chase(op->hierarchy, *p, CHASE_PREFIX_ROOT, &resolved, NULL);
-                if (r == -ENOENT) {
-                        log_debug_errno(r, "Hierarchy '%s' in extension '%s' doesn't exist, not merging.", op->hierarchy, *p);
-                        continue;
-                }
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve hierarchy '%s' in extension '%s': %m", op->hierarchy, *p);
-
-                r = dir_is_empty(resolved, /* ignore_hidden_or_backup= */ false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check if hierarchy '%s' in extension '%s' is empty: %m", resolved, *p);
-                if (r > 0) {
-                        log_debug("Hierarchy '%s' in extension '%s' is empty, not merging.", op->hierarchy, *p);
-                        continue;
-                }
-
-                r = strv_consume(&op->lower_dirs, TAKE_PTR(resolved));
-                if (r < 0)
-                        return log_oom();
-                ++n;
-        }
-
-        *ret_extensions_used = n;
         return 0;
 }
 
@@ -1088,21 +1103,19 @@ static int determine_bottom_lower_dirs(OverlayFSPaths *op) {
 static int determine_lower_dirs(
                 OverlayFSPaths *op,
                 char **paths,
-                const char *meta_path,
-                size_t *ret_extensions_used) {
+                const char *meta_path) {
 
         int r;
 
         assert(op);
         assert(paths);
         assert(meta_path);
-        assert(ret_extensions_used);
 
         r = determine_top_lower_dirs(op, meta_path);
         if (r < 0)
                 return r;
 
-        r = determine_middle_lower_dirs(op, paths, ret_extensions_used);
+        r = determine_middle_lower_dirs(op, paths);
         if (r < 0)
                 return r;
 
@@ -1375,6 +1388,7 @@ static int merge_hierarchy(
                 const char *workspace_path) {
 
         _cleanup_(overlayfs_paths_freep) OverlayFSPaths *op = NULL;
+        _cleanup_strv_free_ char **used_paths = NULL;
         size_t extensions_used = 0;
         int r;
 
@@ -1385,16 +1399,20 @@ static int merge_hierarchy(
         assert(overlay_path);
         assert(workspace_path);
 
-        r = overlayfs_paths_new(hierarchy, workspace_path, &op);
-        if (r < 0)
-                return r;
-
-        r = determine_lower_dirs(op, paths, meta_path, &extensions_used);
+        r = determine_used_extensions(hierarchy, paths, &used_paths, &extensions_used);
         if (r < 0)
                 return r;
 
         if (extensions_used == 0) /* No extension with files in this hierarchy? Then don't do anything. */
                 return 0;
+
+        r = overlayfs_paths_new(hierarchy, workspace_path, &op);
+        if (r < 0)
+                return r;
+
+        r = determine_lower_dirs(op, used_paths, meta_path);
+        if (r < 0)
+                return r;
 
         r = determine_upper_dir(op);
         if (r < 0)
