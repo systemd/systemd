@@ -342,7 +342,7 @@ static int link_push_uplink_to_dhcp_server(
                         addresses[n_addresses++] = ia;
                 }
 
-                use_dhcp_lease_data = link->network->dhcp_use_dns;
+                use_dhcp_lease_data = link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP4);
                 break;
 
         case SD_DHCP_LEASE_NTP: {

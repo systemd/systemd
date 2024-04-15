@@ -1409,7 +1409,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         assert(link->network);
         assert(rt);
 
-        if (!link->network->ndisc_use_dns)
+        if (!link_get_use_dns(link, NETWORK_CONFIG_SOURCE_NDISC))
                 return 0;
 
         r = sd_ndisc_router_get_sender_address(rt, &router);
