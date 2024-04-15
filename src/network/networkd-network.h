@@ -162,7 +162,7 @@ struct Network {
         bool dhcp_use_6rd;
         bool dhcp_send_release;
         bool dhcp_send_decline;
-        DHCPUseDomains dhcp_use_domains;
+        UseDomains dhcp_use_domains;
         bool dhcp_use_domains_set;
         Set *dhcp_deny_listed_ip;
         Set *dhcp_allow_listed_ip;
@@ -184,7 +184,7 @@ struct Network {
         bool dhcp6_use_ntp_set;
         bool dhcp6_use_captive_portal;
         bool dhcp6_use_rapid_commit;
-        DHCPUseDomains dhcp6_use_domains;
+        UseDomains dhcp6_use_domains;
         bool dhcp6_use_domains_set;
         uint32_t dhcp6_iaid;
         bool dhcp6_iaid_set;
@@ -352,7 +352,7 @@ struct Network {
         bool ndisc_use_pref64;
         bool active_slave;
         bool primary_slave;
-        DHCPUseDomains ndisc_use_domains;
+        UseDomains ndisc_use_domains;
         IPv6AcceptRAStartDHCP6Client ndisc_start_dhcp6_client;
         uint32_t ndisc_route_table;
         bool ndisc_route_table_set;
