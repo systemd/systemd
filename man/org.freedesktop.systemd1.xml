@@ -1792,7 +1792,7 @@ node /org/freedesktop/systemd1 {
       file system paths encoded as strings.</para>
 
       <para><varname>SoftRebootsCount</varname> encodes how many soft-reboots were successfully completed
-      since the last full boot.</para>
+      since the last full boot. Starts at <literal>0</literal>.</para>
 
       <para><varname>Virtualization</varname> contains a short ID string describing the virtualization
       technology the system runs in. On bare-metal hardware this is the empty string. Otherwise, it contains
