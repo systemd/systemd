@@ -24,13 +24,13 @@ typedef struct Link Link;
 typedef struct Manager Manager;
 typedef struct Network Network;
 
-typedef enum DHCPUseDomains {
-        DHCP_USE_DOMAINS_NO,
-        DHCP_USE_DOMAINS_YES,
-        DHCP_USE_DOMAINS_ROUTE,
-        _DHCP_USE_DOMAINS_MAX,
-        _DHCP_USE_DOMAINS_INVALID = -EINVAL,
-} DHCPUseDomains;
+typedef enum UseDomains {
+        USE_DOMAINS_NO,
+        USE_DOMAINS_YES,
+        USE_DOMAINS_ROUTE,
+        _USE_DOMAINS_MAX,
+        _USE_DOMAINS_INVALID = -EINVAL,
+} UseDomains;
 
 typedef enum DHCPOptionDataType {
         DHCP_OPTION_DATA_UINT8,
@@ -87,8 +87,8 @@ static inline bool in6_prefix_is_filtered(const struct in6_addr *prefix, uint8_t
 
 int link_get_captive_portal(Link *link, const char **ret);
 
-const char* dhcp_use_domains_to_string(DHCPUseDomains p) _const_;
-DHCPUseDomains dhcp_use_domains_from_string(const char *s) _pure_;
+const char* use_domains_to_string(UseDomains p) _const_;
+UseDomains use_domains_from_string(const char *s) _pure_;
 
 const char *dhcp_option_data_type_to_string(DHCPOptionDataType d) _const_;
 DHCPOptionDataType dhcp_option_data_type_from_string(const char *d) _pure_;
@@ -99,7 +99,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ndisc_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_send_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_domains);
-CONFIG_PARSER_PROTOTYPE(config_parse_default_dhcp_use_domains);
+CONFIG_PARSER_PROTOTYPE(config_parse_use_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_iaid);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_or_ra_route_table);

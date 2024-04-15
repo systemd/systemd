@@ -65,4 +65,3 @@ int link_request_ndisc(Link *link);
 int ndisc_reconfigure_address(Address *address, Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ndisc_start_dhcp6_client);
-CONFIG_PARSER_PROTOTYPE(config_parse_ndisc_use_domains);

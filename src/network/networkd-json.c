@@ -671,7 +671,7 @@ static int domain_append_json(int family, const char *domain, NetworkConfigSourc
 static int domains_append_json(Link *link, bool is_route, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
         OrderedSet *link_domains, *network_domains;
-        DHCPUseDomains use_domains;
+        UseDomains use_domains;
         union in_addr_union s;
         char **domains;
         const char *domain;
@@ -685,7 +685,7 @@ static int domains_append_json(Link *link, bool is_route, JsonVariant **v) {
 
         link_domains = is_route ? link->route_domains : link->search_domains;
         network_domains = is_route ? link->network->route_domains : link->network->search_domains;
-        use_domains = is_route ? DHCP_USE_DOMAINS_ROUTE : DHCP_USE_DOMAINS_YES;
+        use_domains = is_route ? USE_DOMAINS_ROUTE : USE_DOMAINS_YES;
 
         ORDERED_SET_FOREACH(domain, link_domains ?: network_domains) {
                 r = domain_append_json(AF_UNSPEC, domain,
