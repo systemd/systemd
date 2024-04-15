@@ -31,7 +31,7 @@ UseDomains link_get_use_domains(Link *link, NetworkConfigSource proto) {
         case NETWORK_CONFIG_SOURCE_NDISC:
                 n = link->network->ndisc_use_domains;
                 c = _USE_DOMAINS_INVALID;
-                m = _USE_DOMAINS_INVALID;
+                m = link->manager->ndisc_use_domains;
                 break;
         default:
                 assert_not_reached();
@@ -45,12 +45,16 @@ UseDomains link_get_use_domains(Link *link, NetworkConfigSource proto) {
         if (c >= 0)
                 return c;
 
+        /* If per-network but protocol-independent setting is specified, use it. */
+        if (link->network->use_domains >= 0)
+                return link->network->use_domains;
+
         /* If global per-protocol setting is specified, use it. */
         if (m >= 0)
                 return m;
 
-        /* Otherwise, defaults to no. */
-        return USE_DOMAINS_NO;
+        /* If none of them are specified, use the global protocol-independent value. */
+        return link->manager->use_domains;
 }
 
 bool link_get_use_dns(Link *link, NetworkConfigSource proto) {
