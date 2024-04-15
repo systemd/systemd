@@ -604,6 +604,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .duid_product_uuid.type = DUID_TYPE_UUID,
                 .dhcp_server_persist_leases = true,
                 .ip_forwarding = { -1, -1, },
+                .sysctl_fds = hashmap_new(&string_hash_ops),
         };
 
         *ret = TAKE_PTR(m);
@@ -612,11 +613,15 @@ int manager_new(Manager **ret, bool test_mode) {
 
 Manager* manager_free(Manager *m) {
         Link *link;
+        int fd;
 
         if (!m)
                 return NULL;
 
         free(m->state_file);
+
+        HASHMAP_FOREACH(fd, m->sysctl_fds)
+                (void) safe_close(fd);
 
         HASHMAP_FOREACH(link, m->links_by_index)
                 (void) link_stop_engines(link, true);
@@ -645,6 +650,7 @@ Manager* manager_free(Manager *m) {
 
         hashmap_free(m->route_table_names_by_number);
         hashmap_free(m->route_table_numbers_by_name);
+        hashmap_free(m->sysctl_fds);
 
         set_free(m->rules);
 

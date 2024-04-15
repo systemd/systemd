@@ -250,7 +250,12 @@ static void link_free_engines(Link *link) {
 }
 
 static Link *link_free(Link *link) {
+        int fd;
+
         assert(link);
+
+        HASHMAP_FOREACH(fd, link->sysctl_fds)
+                (void) safe_close(fd);
 
         link_ntp_settings_clear(link);
         link_dns_settings_clear(link);
@@ -280,6 +285,7 @@ static Link *link_free(Link *link) {
 
         hashmap_free(link->bound_to_links);
         hashmap_free(link->bound_by_links);
+        hashmap_free(link->sysctl_fds);
 
         set_free_with_destructor(link->slaves, link_unref);
 
@@ -2720,6 +2726,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .mdns = _RESOLVE_SUPPORT_INVALID,
                 .dnssec_mode = _DNSSEC_MODE_INVALID,
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
+                .sysctl_fds = hashmap_new(&string_hash_ops),
         };
 
         r = hashmap_ensure_put(&manager->links_by_index, NULL, INT_TO_PTR(link->ifindex), link);
