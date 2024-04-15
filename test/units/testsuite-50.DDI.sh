@@ -14,13 +14,24 @@ if [[ -z "${OPENSSL_CONFIG:?}" ]] || ! command -v mksquashfs &>/dev/null; then
     exit 0
 fi
 
-openssl req -config "$OPENSSL_CONFIG" -subj="/CN=waldo" -x509 -sha256 -nodes -days 365 -newkey rsa:4096 -keyout /tmp/test-50-privkey.key -out /tmp/test-50-cert.crt
+openssl req -config "$OPENSSL_CONFIG" -subj="/CN=waldo" \
+            -x509 -sha256 -nodes -days 365 -newkey rsa:4096 \
+            -keyout /tmp/test-50-privkey.key -out /tmp/test-50-cert.crt
 mkdir -p /tmp/test-50-confext/etc/extension-release.d/
 echo "foobar50" >/tmp/test-50-confext/etc/waldo
-(grep -e '^\(ID\|VERSION_ID\)=' /etc/os-release; echo IMAGE_ID=waldo; echo IMAGE_VERSION=7) >/tmp/test-50-confext/etc/extension-release.d/extension-release.waldo
+{
+    grep -e '^\(ID\|VERSION_ID\)=' /etc/os-release
+    echo IMAGE_ID=waldo
+    echo IMAGE_VERSION=7
+} >/tmp/test-50-confext/etc/extension-release.d/extension-release.waldo
 mkdir -p /run/confexts
 
-SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs systemd-repart -C -s /tmp/test-50-confext --certificate=/tmp/test-50-cert.crt --private-key=/tmp/test-50-privkey.key /run/confexts/waldo.confext.raw
+SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs \
+    systemd-repart -C \
+                   -s /tmp/test-50-confext \
+                   --certificate=/tmp/test-50-cert.crt \
+                   --private-key=/tmp/test-50-privkey.key \
+                   /run/confexts/waldo.confext.raw
 rm -rf /tmp/test-50-confext
 
 mkdir -p /run/verity.d
@@ -37,10 +48,19 @@ mkdir -p /tmp/test-50-sysext/usr/lib/extension-release.d/
 # Make sure the sysext is big enough to not fit in the minimum partition size of repart so we know the
 # Minimize= logic is working.
 truncate --size=50M /tmp/test-50-sysext/usr/waldo
-(grep -e '^\(ID\|VERSION_ID\)=' /etc/os-release; echo IMAGE_ID=waldo; echo IMAGE_VERSION=7) >/tmp/test-50-sysext/usr/lib/extension-release.d/extension-release.waldo
+{
+    grep -e '^\(ID\|VERSION_ID\)=' /etc/os-release
+    echo IMAGE_ID=waldo
+    echo IMAGE_VERSION=7
+} >/tmp/test-50-sysext/usr/lib/extension-release.d/extension-release.waldo
 mkdir -p /run/extensions
 
-SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs systemd-repart -S -s /tmp/test-50-sysext --certificate=/tmp/test-50-cert.crt --private-key=/tmp/test-50-privkey.key /run/extensions/waldo.sysext.raw
+SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs \
+    systemd-repart -S \
+                   -s /tmp/test-50-sysext \
+                   --certificate=/tmp/test-50-cert.crt \
+                   --private-key=/tmp/test-50-privkey.key \
+                   /run/extensions/waldo.sysext.raw
 
 systemd-dissect --mtree /run/extensions/waldo.sysext.raw
 systemd-sysext refresh
