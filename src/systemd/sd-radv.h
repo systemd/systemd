@@ -62,7 +62,7 @@ int sd_radv_set_retransmit(sd_radv *ra, uint64_t usec);
 int sd_radv_set_router_lifetime(sd_radv *ra, uint64_t usec);
 int sd_radv_set_managed_information(sd_radv *ra, int b);
 int sd_radv_set_other_information(sd_radv *ra, int b);
-int sd_radv_set_preference(sd_radv *ra, unsigned preference);
+int sd_radv_set_preference(sd_radv *ra, uint8_t preference);
 int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p);
 int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p);
 int sd_radv_add_pref64_prefix(sd_radv *ra, sd_radv_pref64_prefix *p);
