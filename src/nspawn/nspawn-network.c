@@ -24,6 +24,7 @@
 #include "mount-util.h"
 #include "namespace-util.h"
 #include "netif-naming-scheme.h"
+#include "netif-util.h"
 #include "netlink-util.h"
 #include "nspawn-network.h"
 #include "parse-util.h"
@@ -41,7 +42,6 @@
 #define VETH_EXTRA_HOST_HASH_KEY SD_ID128_MAKE(48,c7,f6,b7,ea,9d,4c,9e,b7,28,d4,de,91,d5,bf,66)
 #define VETH_EXTRA_CONTAINER_HASH_KEY SD_ID128_MAKE(af,50,17,61,ce,f9,4d,35,84,0d,2b,20,54,be,ce,59)
 #define MACVLAN_HASH_KEY SD_ID128_MAKE(00,13,6d,bc,66,83,44,81,bb,0c,f9,51,1f,24,a6,6f)
-#define SHORTEN_IFNAME_HASH_KEY SD_ID128_MAKE(e1,90,a4,04,a8,ef,4b,51,8c,cc,c3,3a,9f,11,fc,a2)
 
 static int remove_one_link(sd_netlink *rtnl, const char *name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
@@ -65,49 +65,6 @@ static int remove_one_link(sd_netlink *rtnl, const char *name) {
                 return log_error_errno(r, "Failed to remove interface %s: %m", name);
 
         return 1;
-}
-
-static int generate_mac(
-                const char *machine_name,
-                struct ether_addr *mac,
-                sd_id128_t hash_key,
-                uint64_t idx) {
-
-        uint64_t result;
-        size_t l, sz;
-        uint8_t *v, *i;
-        int r;
-
-        l = strlen(machine_name);
-        sz = sizeof(sd_id128_t) + l;
-        if (idx > 0)
-                sz += sizeof(idx);
-
-        v = newa(uint8_t, sz);
-
-        /* fetch some persistent data unique to the host */
-        r = sd_id128_get_machine((sd_id128_t*) v);
-        if (r < 0)
-                return r;
-
-        /* combine with some data unique (on this host) to this
-         * container instance */
-        i = mempcpy(v + sizeof(sd_id128_t), machine_name, l);
-        if (idx > 0) {
-                idx = htole64(idx);
-                memcpy(i, &idx, sizeof(idx));
-        }
-
-        /* Let's hash the host machine ID plus the container name. We
-         * use a fixed, but originally randomly created hash key here. */
-        result = htole64(siphash24(v, sz, hash_key.bytes));
-
-        assert_cc(ETH_ALEN <= sizeof(result));
-        memcpy(mac->ether_addr_octet, &result, ETH_ALEN);
-
-        ether_addr_mark_random(mac);
-
-        return 0;
 }
 
 static int set_alternative_ifname(sd_netlink *rtnl, const char *ifname, const char *altifname) {
@@ -208,39 +165,6 @@ static int add_veth(
         return 0;
 }
 
-static int shorten_ifname(char *ifname) {
-        char new_ifname[IFNAMSIZ];
-
-        assert(ifname);
-
-        if (strlen(ifname) < IFNAMSIZ) /* Name is short enough */
-                return 0;
-
-        if (naming_scheme_has(NAMING_NSPAWN_LONG_HASH)) {
-                uint64_t h;
-
-                /* Calculate 64-bit hash value */
-                h = siphash24(ifname, strlen(ifname), SHORTEN_IFNAME_HASH_KEY.bytes);
-
-                /* Set the final four bytes (i.e. 32-bit) to the lower 24bit of the hash, encoded in url-safe base64 */
-                memcpy(new_ifname, ifname, IFNAMSIZ - 5);
-                new_ifname[IFNAMSIZ - 5] = urlsafe_base64char(h >> 18);
-                new_ifname[IFNAMSIZ - 4] = urlsafe_base64char(h >> 12);
-                new_ifname[IFNAMSIZ - 3] = urlsafe_base64char(h >> 6);
-                new_ifname[IFNAMSIZ - 2] = urlsafe_base64char(h);
-        } else
-                /* On old nspawn versions we just truncated the name, provide compatibility */
-                memcpy(new_ifname, ifname, IFNAMSIZ-1);
-
-        new_ifname[IFNAMSIZ - 1] = 0;
-
-        /* Log the incident to make it more discoverable */
-        log_warning("Network interface name '%s' has been changed to '%s' to fit length constraints.", ifname, new_ifname);
-
-        strcpy(ifname, new_ifname);
-        return 1;
-}
-
 int setup_veth(const char *machine_name,
                pid_t pid,
                char iface_name[IFNAMSIZ],
@@ -260,18 +184,18 @@ int setup_veth(const char *machine_name,
         /* Use two different interface name prefixes depending whether
          * we are in bridge mode or not. */
         n = strjoina(bridge ? "vb-" : "ve-", machine_name);
-        r = shorten_ifname(n);
+        r = net_shorten_ifname(n, /* check_naming_scheme= */ true);
         if (r > 0)
                 a = strjoina(bridge ? "vb-" : "ve-", machine_name);
 
         if (ether_addr_is_null(provided_mac)){
-                r = generate_mac(machine_name, &mac_container, CONTAINER_HASH_KEY, 0);
+                r = net_generate_mac(machine_name, &mac_container, CONTAINER_HASH_KEY, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate predictable MAC address for container side: %m");
         } else
                 mac_container = *provided_mac;
 
-        r = generate_mac(machine_name, &mac_host, HOST_HASH_KEY, 0);
+        r = net_generate_mac(machine_name, &mac_host, HOST_HASH_KEY, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate predictable MAC address for host side: %m");
 
@@ -314,11 +238,11 @@ int setup_veth_extra(
         STRV_FOREACH_PAIR(a, b, pairs) {
                 struct ether_addr mac_host, mac_container;
 
-                r = generate_mac(machine_name, &mac_container, VETH_EXTRA_CONTAINER_HASH_KEY, idx);
+                r = net_generate_mac(machine_name, &mac_container, VETH_EXTRA_CONTAINER_HASH_KEY, idx);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate predictable MAC address for container side of extra veth link: %m");
 
-                r = generate_mac(machine_name, &mac_host, VETH_EXTRA_HOST_HASH_KEY, idx);
+                r = net_generate_mac(machine_name, &mac_host, VETH_EXTRA_HOST_HASH_KEY, idx);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate predictable MAC address for host side of extra veth link: %m");
 
@@ -836,7 +760,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **iface_pairs) {
                 if (ifi < 0)
                         return ifi;
 
-                r = generate_mac(machine_name, &mac, MACVLAN_HASH_KEY, idx++);
+                r = net_generate_mac(machine_name, &mac, MACVLAN_HASH_KEY, idx++);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create MACVLAN MAC address: %m");
 
@@ -852,7 +776,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **iface_pairs) {
                 if (!n)
                         return log_oom();
 
-                shortened = shorten_ifname(n);
+                shortened = net_shorten_ifname(n, /* check_naming_scheme= */ true);
 
                 r = sd_netlink_message_append_string(m, IFLA_IFNAME, n);
                 if (r < 0)
@@ -929,7 +853,7 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **iface_pairs) {
                 if (!n)
                         return log_oom();
 
-                shortened = shorten_ifname(n);
+                shortened = net_shorten_ifname(n, /* check_naming_scheme= */ true);
 
                 r = sd_netlink_message_append_string(m, IFLA_IFNAME, n);
                 if (r < 0)
