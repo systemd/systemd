@@ -494,7 +494,23 @@
     </refsect2>
   </refsect1>
 
-  <xi:include href="common-variables.xml" />
+  <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <xi:include href="common-variables.xml" xpointer="log-level"/>
+      <xi:include href="common-variables.xml" xpointer="log-color"/>
+      <xi:include href="common-variables.xml" xpointer="log-time"/>
+      <xi:include href="common-variables.xml" xpointer="log-location"/>
+      <xi:include href="common-variables.xml" xpointer="log-target"/>
+      <xi:include href="common-variables.xml" xpointer="pager"/>
+      <xi:include href="common-variables.xml" xpointer="less"/>
+      <xi:include href="common-variables.xml" xpointer="lesscharset"/>
+      <xi:include href="common-variables.xml" xpointer="lesssecure"/>
+      <xi:include href="common-variables.xml" xpointer="colors"/>
+      <xi:include href="common-variables.xml" xpointer="urlify"/>
+    </variablelist>
+  </refsect1>
 
   <refsect1>
     <title>Examples</title>
