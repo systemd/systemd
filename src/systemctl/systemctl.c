@@ -1016,8 +1016,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_WHEN:
-                        if (streq(optarg, "show")) {
-                                r = logind_show_shutdown();
+                        if (STR_IN_SET(optarg, "show", "show-if-scheduled")) {
+                                r = logind_show_shutdown(streq(optarg, "show-if-scheduled"));
                                 if (r < 0 && r != -ENODATA)
                                         return r;
 
@@ -1333,7 +1333,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ACTION_SHOW_SHUTDOWN:
-                r = logind_show_shutdown();
+                r = logind_show_shutdown(false);
                 break;
 
         case ACTION_RUNLEVEL:

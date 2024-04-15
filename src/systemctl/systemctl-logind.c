@@ -343,7 +343,7 @@ int logind_schedule_shutdown(enum action a) {
                 return log_warning_errno(r, "Failed to schedule shutdown: %s", bus_error_message(&error, r));
 
         if (!arg_quiet)
-                logind_show_shutdown();
+                logind_show_shutdown(false);
 
         return 0;
 #else
@@ -375,7 +375,7 @@ int logind_cancel_shutdown(void) {
 #endif
 }
 
-int logind_show_shutdown(void) {
+int logind_show_shutdown(bool only_scheduled) {
 #if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -396,8 +396,12 @@ int logind_show_shutdown(void) {
         if (r < 0)
                 return r;
 
-        if (isempty(action))
-                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "No scheduled shutdown.");
+        if (isempty(action)) {
+                if (only_scheduled)
+                        return 0;
+                else
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "No scheduled shutdown.");
+        }
 
         if (STR_IN_SET(action, "halt", "poweroff", "exit"))
                 pretty_action = "Shutdown";
