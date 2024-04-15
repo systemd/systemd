@@ -55,5 +55,12 @@ int path_pick_update_warn(
                 PickFlags flags,
                 PickResult *ret);
 
+int path_pick_raw_or_dir(
+                const char *toplevel_path,
+                int toplevel_fd,
+                const char *path,
+                PickFlags flags,
+                PickResult *ret);
+
 extern const PickFilter pick_filter_image_raw;
 extern const PickFilter pick_filter_image_dir;
