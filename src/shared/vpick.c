@@ -141,6 +141,7 @@ static int pin_choice(
         assert(toplevel_fd >= 0 || toplevel_fd == AT_FDCWD);
         assert(inode_path);
         assert(filter);
+        assert(ret);
 
         toplevel_path = strempty(toplevel_path);
 
@@ -271,6 +272,7 @@ static int make_choice(
         assert(toplevel_fd >= 0 || toplevel_fd == AT_FDCWD);
         assert(inode_path);
         assert(filter);
+        assert(ret);
 
         toplevel_path = strempty(toplevel_path);
 
@@ -486,12 +488,13 @@ static int make_choice(
                         ret);
 }
 
-int path_pick(const char *toplevel_path,
-              int toplevel_fd,
-              const char *path,
-              const PickFilter *filter,
-              PickFlags flags,
-              PickResult *ret) {
+int path_pick(
+                const char *toplevel_path,
+                int toplevel_fd,
+                const char *path,
+                const PickFilter *filter,
+                PickFlags flags,
+                PickResult *ret) {
 
         _cleanup_free_ char *filter_bname = NULL, *dir = NULL, *parent = NULL, *fname = NULL;
         const char *filter_suffix, *enumeration_path;
@@ -500,6 +503,8 @@ int path_pick(const char *toplevel_path,
 
         assert(toplevel_fd >= 0 || toplevel_fd == AT_FDCWD);
         assert(path);
+        assert(filter);
+        assert(ret);
 
         toplevel_path = strempty(toplevel_path);
 
@@ -647,6 +652,7 @@ int path_pick_update_warn(
 
         assert(path);
         assert(*path);
+        assert(filter);
 
         /* This updates the first argument if needed! */
 
