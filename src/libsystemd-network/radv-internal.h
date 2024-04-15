@@ -107,6 +107,7 @@ struct sd_radv {
         struct ether_addr mac_addr;
         uint8_t hop_limit;
         uint8_t flags;
+        uint8_t preference;
         uint32_t mtu;
         usec_t reachable_usec;
         usec_t retransmit_usec;
