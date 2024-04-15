@@ -115,6 +115,10 @@ struct Manager {
 
         /* sysctl */
         int ip_forwarding[2];
+        struct {
+                int ip_default_forwarding[2];
+                int ip_all_forwarding[2];
+        } sysctl_fd;
 };
 
 int manager_new(Manager **ret, bool test_mode);
