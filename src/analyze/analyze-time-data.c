@@ -84,7 +84,10 @@ int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret) {
 
         if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM && timestamp_is_set(times.softreboot_start_time)) {
                 /* On soft-reboot ignore kernel/firmware/initrd times as they are from the previous boot */
-                times.firmware_time = times.loader_time = times.kernel_time = times.initrd_time = 0;
+                times.firmware_time = times.loader_time = times.kernel_time = times.initrd_time =
+                                initrd_security_start_time = initrd_security_finish_time =
+                                initrd_generators_start_time = initrd_generators_finish_time =
+                                initrd_unitsload_start_time = initrd_unitsload_finish_time = 0;
                 times.reverse_offset = times.softreboot_start_time;
 
                 /* Clamp all timestamps to avoid showing huge graphs */
