@@ -168,7 +168,7 @@ TEST(getpeercred_getpeergroups) {
                 uid_t test_uid;
                 gid_t test_gid;
                 struct ucred ucred;
-                int pair[2];
+                int pair[2] = EBADF_PAIR;
 
                 if (geteuid() == 0) {
                         test_uid = 1;
@@ -220,7 +220,7 @@ TEST(getpeercred_getpeergroups) {
 
 TEST(passfd_read) {
         static const char file_contents[] = "test contents for passfd";
-        _cleanup_close_pair_ int pair[2];
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int r;
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
@@ -246,7 +246,7 @@ TEST(passfd_read) {
         /* Parent */
         char buf[64];
         struct iovec iov = IOVEC_MAKE(buf, sizeof(buf)-1);
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -EBADF;
 
         pair[1] = safe_close(pair[1]);
 
@@ -260,7 +260,7 @@ TEST(passfd_read) {
 }
 
 TEST(passfd_contents_read) {
-        _cleanup_close_pair_ int pair[2];
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         static const char file_contents[] = "test contents in the file";
         static const char wire_contents[] = "test contents on the wire";
         int r;
@@ -308,7 +308,7 @@ TEST(passfd_contents_read) {
 }
 
 TEST(pass_many_fds_contents_read) {
-        _cleanup_close_pair_ int pair[2];
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         static const char file_contents[][STRLEN("test contents in the fileX") + 1] = {
                 "test contents in the file0",
                 "test contents in the file1",
@@ -373,7 +373,7 @@ TEST(pass_many_fds_contents_read) {
 }
 
 TEST(receive_nopassfd) {
-        _cleanup_close_pair_ int pair[2];
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         static const char wire_contents[] = "no fd passed here";
         int r;
 
@@ -410,7 +410,7 @@ TEST(receive_nopassfd) {
 }
 
 TEST(send_nodata_nofd) {
-        _cleanup_close_pair_ int pair[2];
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int r;
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
@@ -443,7 +443,7 @@ TEST(send_nodata_nofd) {
 }
 
 TEST(send_emptydata) {
-        _cleanup_close_pair_ int pair[2];
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int r;
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
