@@ -682,6 +682,22 @@ int path_pick_update_warn(
         return 1;
 }
 
+int path_pick_raw_or_dir(
+                const char *toplevel_path,
+                int toplevel_fd,
+                const char *path,
+                PickFlags flags,
+                PickResult *ret) {
+
+        int r;
+
+        r = path_pick(toplevel_path, toplevel_fd, path, &pick_filter_image_raw, flags, ret);
+        if (r == -EISDIR)
+                r = path_pick(toplevel_path, toplevel_fd, path, &pick_filter_image_dir, flags, ret);
+
+        return r;
+}
+
 const PickFilter pick_filter_image_raw = {
         .type_mask = (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK),
         .architecture = _ARCHITECTURE_INVALID,
