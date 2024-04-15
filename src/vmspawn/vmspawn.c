@@ -1133,6 +1133,7 @@ static void set_window_title(PTYForward *f) {
         if (dot)
                 (void) pty_forward_set_title_prefix(f, dot);
 }
+
 static int generate_ssh_keypair(const char *key_path, const char *key_type) {
         _cleanup_free_ char *ssh_keygen = NULL;
         _cleanup_strv_free_ char **cmdline = NULL;
