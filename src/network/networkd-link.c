@@ -252,6 +252,22 @@ static void link_free_engines(Link *link) {
 static Link *link_free(Link *link) {
         assert(link);
 
+        link->sysctl_fd.disable_ipv6 = safe_close(link->sysctl_fd.disable_ipv6);
+        link->sysctl_fd.proxy_arp = safe_close(link->sysctl_fd.proxy_arp);
+        link->sysctl_fd.proxy_arp_pvlan = safe_close(link->sysctl_fd.proxy_arp_pvlan);
+        safe_close_pair(link->sysctl_fd.forwarding);
+        link->sysctl_fd.rp_filter = safe_close(link->sysctl_fd.rp_filter);
+        link->sysctl_fd.use_tempaddr = safe_close(link->sysctl_fd.use_tempaddr);
+        link->sysctl_fd.accept_ra = safe_close(link->sysctl_fd.accept_ra);
+        link->sysctl_fd.dad_transmits = safe_close(link->sysctl_fd.dad_transmits);
+        link->sysctl_fd.hop_limit = safe_close(link->sysctl_fd.hop_limit);
+        link->sysctl_fd.retrans_time_ms = safe_close(link->sysctl_fd.retrans_time_ms);
+        link->sysctl_fd.proxy_ndp = safe_close(link->sysctl_fd.proxy_ndp);
+        link->sysctl_fd.mtu = safe_close(link->sysctl_fd.mtu);
+        link->sysctl_fd.accept_local = safe_close(link->sysctl_fd.accept_local);
+        link->sysctl_fd.route_localnet = safe_close(link->sysctl_fd.route_localnet);
+        link->sysctl_fd.promote_secondaries = safe_close(link->sysctl_fd.promote_secondaries);
+
         link_ntp_settings_clear(link);
         link_dns_settings_clear(link);
 
@@ -2720,6 +2736,11 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .mdns = _RESOLVE_SUPPORT_INVALID,
                 .dnssec_mode = _DNSSEC_MODE_INVALID,
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
+                .sysctl_fd = {
+                                -EBADF, -EBADF, -EBADF, { -EBADF, -EBADF }, -EBADF,
+                                -EBADF, -EBADF, -EBADF, -EBADF, -EBADF,
+                                -EBADF, -EBADF, -EBADF, -EBADF, -EBADF,
+                },
         };
 
         r = hashmap_ensure_put(&manager->links_by_index, NULL, INT_TO_PTR(link->ifindex), link);
