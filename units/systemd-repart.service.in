@@ -21,7 +21,7 @@ ConditionDirectoryNotEmpty=|/sysusr/usr/local/lib/repart.d
 
 DefaultDependencies=no
 Wants=modprobe@loop.service modprobe@dm_mod.service
-After=initrd-usr-fs.target modprobe@loop.service modprobe@dm_mod.service
+After=initrd-usr-fs.target modprobe@loop.service modprobe@dm_mod.service systemd-tpm2-setup-early.service
 Before=initrd-root-fs.target
 Conflicts=shutdown.target initrd-switch-root.target
 Before=shutdown.target initrd-switch-root.target
