@@ -16,7 +16,7 @@ typedef struct PickFilter {
         const char *basename;         /* Can be overridden by search pattern */
         const char *version;
         Architecture architecture;
-        const char *suffix;           /* Can be overridden by search pattern */
+        char * const *suffix;         /* Can be overridden by search pattern */
 } PickFilter;
 
 typedef struct PickResult {
@@ -58,3 +58,4 @@ int path_pick_update_warn(
 
 extern const PickFilter pick_filter_image_raw;
 extern const PickFilter pick_filter_image_dir;
+extern const PickFilter pick_filter_image_any;
