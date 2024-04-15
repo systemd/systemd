@@ -153,9 +153,8 @@ static int radv_send_router_on_stop(sd_radv *ra) {
         return ndisc_send(ra->fd, &IN6_ADDR_ALL_NODES_MULTICAST, &adv.nd_ra_hdr, options, time_now);
 }
 
-static int radv_send_router(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_usec) {
+static int radv_send_router(sd_radv *ra, const struct in6_addr *dst) {
         assert(ra);
-        assert(router_lifetime_is_valid(lifetime_usec));
 
         struct sockaddr_in6 dst_addr = {
                 .sin6_family = AF_INET6,
@@ -163,7 +162,7 @@ static int radv_send_router(sd_radv *ra, const struct in6_addr *dst, usec_t life
         };
         struct nd_router_advert adv = {
                 .nd_ra_type = ND_ROUTER_ADVERT,
-                .nd_ra_router_lifetime = usec_to_be16_sec(lifetime_usec),
+                .nd_ra_router_lifetime = usec_to_be16_sec(ra->lifetime_usec),
                 .nd_ra_retransmit = usec_to_be32_msec(ra->retransmit_usec),
         };
         struct {
@@ -285,7 +284,7 @@ static int radv_process_packet(sd_radv *ra, ICMP6Packet *packet) {
         if (r < 0 && r != -ENODATA) /* null address is allowed */
                 return log_radv_errno(ra, r, "Failed to get sender address of RS, ignoring: %m");
 
-        r = radv_send_router(ra, &src, ra->lifetime_usec);
+        r = radv_send_router(ra, &src);
         if (r < 0)
                 return log_radv_errno(ra, r, "Unable to send solicited Router Advertisement to %s, ignoring: %m", IN6_ADDR_TO_STRING(&src));
 
@@ -323,7 +322,7 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         if (r < 0)
                 goto fail;
 
-        r = radv_send_router(ra, NULL, ra->lifetime_usec);
+        r = radv_send_router(ra, NULL);
         if (r < 0)
                 log_radv_errno(ra, r, "Unable to send Router Advertisement, ignoring: %m");
 
@@ -703,7 +702,7 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                 return 0;
 
         /* If RAs have already been sent, send an RA immediately to announce the newly-added prefix */
-        r = radv_send_router(ra, NULL, ra->lifetime_usec);
+        r = radv_send_router(ra, NULL);
         if (r < 0)
                 log_radv_errno(ra, r, "Unable to send Router Advertisement for added prefix %s, ignoring: %m", addr_p);
         else
@@ -799,7 +798,7 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
                 return 0;
 
         /* If RAs have already been sent, send an RA immediately to announce the newly-added route prefix */
-        r = radv_send_router(ra, NULL, ra->lifetime_usec);
+        r = radv_send_router(ra, NULL);
         if (r < 0)
                 log_radv_errno(ra, r, "Unable to send Router Advertisement for added route prefix %s, ignoring: %m",
                                strna(addr_p));
@@ -871,7 +870,7 @@ int sd_radv_add_pref64_prefix(sd_radv *ra, sd_radv_pref64_prefix *p) {
                 return 0;
 
         /* If RAs have already been sent, send an RA immediately to announce the newly-added route prefix */
-        r = radv_send_router(ra, NULL, ra->lifetime_usec);
+        r = radv_send_router(ra, NULL);
         if (r < 0)
                 log_radv_errno(ra, r, "Unable to send Router Advertisement for added PREF64 prefix %s, ignoring: %m",
                                strna(addr_p));
