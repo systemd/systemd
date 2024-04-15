@@ -314,24 +314,35 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
 }
 
 static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
-        usec_t min_timeout, max_timeout, time_now, timeout;
         sd_radv *ra = ASSERT_PTR(userdata);
+
+        if (sd_radv_send(ra) < 0)
+                (void) sd_radv_stop(ra);
+
+        return 0;
+}
+
+int sd_radv_send(sd_radv *ra) {
+        usec_t min_timeout, max_timeout, time_now, timeout;
         int r;
 
-        assert(s);
-        assert(ra->event);
+        assert_return(ra, -EINVAL);
+        assert_return(ra->event, -EINVAL);
+        assert_return(sd_radv_is_running(ra), -EINVAL);
         assert(router_lifetime_is_valid(ra->lifetime_usec));
 
         r = sd_event_now(ra->event, CLOCK_BOOTTIME, &time_now);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = radv_send_router(ra, NULL);
         if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement, ignoring: %m");
+                return log_radv_errno(ra, r, "Unable to send Router Advertisement: %m");
+
+        ra->ra_sent++;
 
         /* RFC 4861, Section 6.2.4, sending initial Router Advertisements */
-        if (ra->ra_sent < RADV_MAX_INITIAL_RTR_ADVERTISEMENTS)
+        if (ra->ra_sent <= RADV_MAX_INITIAL_RTR_ADVERTISEMENTS)
                 max_timeout = RADV_MAX_INITIAL_RTR_ADVERT_INTERVAL_USEC;
         else
                 max_timeout = RADV_DEFAULT_MAX_TIMEOUT_USEC;
@@ -355,24 +366,15 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         assert(min_timeout <= max_timeout * 3 / 4);
 
         timeout = min_timeout + random_u64_range(max_timeout - min_timeout);
-        log_radv(ra, "Next Router Advertisement in %s", FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
+        log_radv(ra, "Sent unsolicited Router Advertisement. Next advertisement will be in %s.",
+                 FORMAT_TIMESPAN(timeout, USEC_PER_SEC));
 
-        r = event_reset_time(ra->event, &ra->timeout_event_source,
-                             CLOCK_BOOTTIME,
-                             usec_add(time_now, timeout), MSEC_PER_SEC,
-                             radv_timeout, ra,
-                             ra->event_priority, "radv-timeout", true);
-        if (r < 0)
-                goto fail;
-
-        ra->ra_sent++;
-
-        return 0;
-
-fail:
-        sd_radv_stop(ra);
-
-        return 0;
+        return event_reset_time(
+                        ra->event, &ra->timeout_event_source,
+                        CLOCK_BOOTTIME,
+                        usec_add(time_now, timeout), MSEC_PER_SEC,
+                        radv_timeout, ra,
+                        ra->event_priority, "radv-timeout", true);
 }
 
 int sd_radv_stop(sd_radv *ra) {
