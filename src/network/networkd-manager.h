@@ -64,8 +64,8 @@ struct Manager {
         OrderedSet *address_pools;
         Set *dhcp_pd_subnet_ids;
 
-        DHCPUseDomains dhcp_use_domains;
-        DHCPUseDomains dhcp6_use_domains;
+        UseDomains dhcp_use_domains;
+        UseDomains dhcp6_use_domains;
 
         DUID dhcp_duid;
         DUID dhcp6_duid;
