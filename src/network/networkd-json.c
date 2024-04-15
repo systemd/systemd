@@ -448,7 +448,7 @@ static int dns_append_json(Link *link, JsonVariant **v) {
                                 return r;
                 }
 
-                if (link->dhcp_lease && link->network->dhcp_use_dns) {
+                if (link->dhcp_lease && link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP4)) {
                         const struct in_addr *dns;
                         union in_addr_union s;
                         int n_dns;
@@ -469,7 +469,7 @@ static int dns_append_json(Link *link, JsonVariant **v) {
                         }
                 }
 
-                if (link->dhcp6_lease && link->network->dhcp6_use_dns) {
+                if (link->dhcp6_lease && link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
                         const struct in6_addr *dns;
                         union in_addr_union s;
                         int n_dns;
@@ -490,7 +490,7 @@ static int dns_append_json(Link *link, JsonVariant **v) {
                         }
                 }
 
-                if (link->network->ndisc_use_dns) {
+                if (link_get_use_dns(link, NETWORK_CONFIG_SOURCE_NDISC)) {
                         NDiscRDNSS *a;
 
                         SET_FOREACH(a, link->ndisc_rdnss) {
