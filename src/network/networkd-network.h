@@ -113,6 +113,8 @@ struct Network {
         bool default_route_on_device;
         AddressFamily ip_masquerade;
 
+        UseDomains compat_dhcp_use_domains; /* For backward compatibility, only applied to DHCPv4 and DHCPv6. */
+
         /* DHCP Client Support */
         AddressFamily dhcp;
         struct in_addr dhcp_request_address;
@@ -164,7 +166,6 @@ struct Network {
         bool dhcp_send_release;
         bool dhcp_send_decline;
         UseDomains dhcp_use_domains;
-        bool dhcp_use_domains_set;
         Set *dhcp_deny_listed_ip;
         Set *dhcp_allow_listed_ip;
         Set *dhcp_request_options;
@@ -186,7 +187,6 @@ struct Network {
         bool dhcp6_use_captive_portal;
         bool dhcp6_use_rapid_commit;
         UseDomains dhcp6_use_domains;
-        bool dhcp6_use_domains_set;
         uint32_t dhcp6_iaid;
         bool dhcp6_iaid_set;
         bool dhcp6_iaid_set_explicitly;
