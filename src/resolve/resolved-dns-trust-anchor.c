@@ -176,7 +176,11 @@ static int dns_trust_anchor_add_builtin_negative(DnsTrustAnchor *d) {
                  * devices on the path */
                 "ipv4only.arpa\0"
                 "170.0.0.192.in-addr.arpa\0"
-                "171.0.0.192.in-addr.arpa\0";
+                "171.0.0.192.in-addr.arpa\0"
+
+                /* Defined by RFC 9476 as as a pseudo-TLD to signify 
+                 * that the name is not rooted in the global DNS */
+                "alt\0";
 
         int r;
 
