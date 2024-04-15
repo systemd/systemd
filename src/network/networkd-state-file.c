@@ -206,7 +206,7 @@ static int link_put_sip(Link *link, OrderedSet **s) {
 
 static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
         OrderedSet *link_domains, *network_domains;
-        DHCPUseDomains use_domains;
+        UseDomains use_domains;
         int r;
 
         assert(link);
@@ -215,7 +215,7 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
 
         link_domains = is_route ? link->route_domains : link->search_domains;
         network_domains = is_route ? link->network->route_domains : link->network->search_domains;
-        use_domains = is_route ? DHCP_USE_DOMAINS_ROUTE : DHCP_USE_DOMAINS_YES;
+        use_domains = is_route ? USE_DOMAINS_ROUTE : USE_DOMAINS_YES;
 
         if (link_domains)
                 return ordered_set_put_string_set(s, link_domains);
@@ -224,7 +224,7 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
         if (r < 0)
                 return r;
 
-        if (link->dhcp_lease && link->network->dhcp_use_domains == use_domains) {
+        if (link->dhcp_lease && link_get_use_domains(link, NETWORK_CONFIG_SOURCE_DHCP4) == use_domains) {
                 const char *domainname;
                 char **domains;
 
@@ -243,7 +243,7 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
                 }
         }
 
-        if (link->dhcp6_lease && link->network->dhcp6_use_domains == use_domains) {
+        if (link->dhcp6_lease && link_get_use_domains(link, NETWORK_CONFIG_SOURCE_DHCP6) == use_domains) {
                 char **domains;
 
                 r = sd_dhcp6_lease_get_domains(link->dhcp6_lease, &domains);
@@ -254,7 +254,7 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
                 }
         }
 
-        if (link->network->ndisc_use_domains == use_domains) {
+        if (link_get_use_domains(link, NETWORK_CONFIG_SOURCE_NDISC) == use_domains) {
                 NDiscDNSSL *a;
 
                 SET_FOREACH(a, link->ndisc_dnssl) {
@@ -528,7 +528,7 @@ static void serialize_addresses(
                 fputc('\n', f);
 }
 
-static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, DHCPUseDomains use_domains) {
+static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, UseDomains use_domains) {
         bool space = false;
         const char *p;
 
@@ -539,10 +539,10 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, D
         ORDERED_SET_FOREACH(p, static_domains)
                 fputs_with_separator(f, p, NULL, &space);
 
-        if (use_domains == DHCP_USE_DOMAINS_NO)
+        if (use_domains == USE_DOMAINS_NO)
                 return;
 
-        if (link->dhcp_lease && link->network->dhcp_use_domains == use_domains) {
+        if (link->dhcp_lease && link_get_use_domains(link, NETWORK_CONFIG_SOURCE_DHCP4) == use_domains) {
                 const char *domainname;
                 char **domains;
 
@@ -552,14 +552,14 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, D
                         fputstrv(f, domains, NULL, &space);
         }
 
-        if (link->dhcp6_lease && link->network->dhcp6_use_domains == use_domains) {
+        if (link->dhcp6_lease && link_get_use_domains(link, NETWORK_CONFIG_SOURCE_DHCP6) == use_domains) {
                 char **domains;
 
                 if (sd_dhcp6_lease_get_domains(link->dhcp6_lease, &domains) >= 0)
                         fputstrv(f, domains, NULL, &space);
         }
 
-        if (link->network->ndisc_use_domains == use_domains) {
+        if (link_get_use_domains(link, NETWORK_CONFIG_SOURCE_NDISC) == use_domains) {
                 NDiscDNSSL *dd;
 
                 SET_FOREACH(dd, link->ndisc_dnssl)
@@ -720,18 +720,18 @@ static int link_save(Link *link) {
 
                 fputs("DOMAINS=", f);
                 if (link->search_domains)
-                        link_save_domains(link, f, link->search_domains, DHCP_USE_DOMAINS_NO);
+                        link_save_domains(link, f, link->search_domains, USE_DOMAINS_NO);
                 else
-                        link_save_domains(link, f, link->network->search_domains, DHCP_USE_DOMAINS_YES);
+                        link_save_domains(link, f, link->network->search_domains, USE_DOMAINS_YES);
                 fputc('\n', f);
 
                 /************************************************************/
 
                 fputs("ROUTE_DOMAINS=", f);
                 if (link->route_domains)
-                        link_save_domains(link, f, link->route_domains, DHCP_USE_DOMAINS_NO);
+                        link_save_domains(link, f, link->route_domains, USE_DOMAINS_NO);
                 else
-                        link_save_domains(link, f, link->network->route_domains, DHCP_USE_DOMAINS_ROUTE);
+                        link_save_domains(link, f, link->network->route_domains, USE_DOMAINS_ROUTE);
                 fputc('\n', f);
 
                 /************************************************************/
