@@ -240,7 +240,7 @@ TEST(radv) {
         assert_se(sd_radv_set_retransmit(NULL, 10 * USEC_PER_MSEC) < 0);
         assert_se(sd_radv_set_retransmit(ra, 10 * USEC_PER_MSEC) >= 0);
         assert_se(sd_radv_set_retransmit(ra, 0) >= 0);
-        assert_se(sd_radv_set_retransmit(ra, usec_add(UINT32_MAX * USEC_PER_MSEC, USEC_PER_MSEC)) < 0);
+        assert_se(sd_radv_set_retransmit(ra, USEC_INFINITY) >= 0);
 
         assert_se(sd_radv_set_rdnss(NULL, 0, NULL, 0) < 0);
         assert_se(sd_radv_set_rdnss(ra, 0, NULL, 0) >= 0);
