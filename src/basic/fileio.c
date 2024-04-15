@@ -268,8 +268,8 @@ int write_string_file_ts_at(
                 WriteStringFileFlags flags,
                 const struct timespec *ts) {
 
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        FILE *f = NULL;
+        int fd = -EBADF;
         int q, r;
 
         assert(fn);
@@ -307,9 +307,12 @@ int write_string_file_ts_at(
                 goto fail;
         }
 
-        r = take_fdopen_unlocked(&fd, "w", &f);
-        if (r < 0)
-                goto fail;
+        /* We can't fdopen() if we return the fd, otherwise we'll either leake a FILE* or close it by mistake with fclose() */
+        if (!(flags & WRITE_STRING_FILE_RETURN_FD)) {
+                r = take_fdopen_unlocked(&fd, "w", &f);
+                if (r < 0)
+                        goto fail;
+        }
 
         if (flags & WRITE_STRING_FILE_DISABLE_BUFFER)
                 setvbuf(f, NULL, _IONBF, 0);
@@ -318,12 +321,19 @@ int write_string_file_ts_at(
         if (r < 0)
                 goto fail;
 
+        if (flags & WRITE_STRING_FILE_RETURN_FD)
+                return fd;
+
+        safe_close(fd);
+        safe_fclose(f);
+
         return 0;
 
 fail:
         if (!(flags & WRITE_STRING_FILE_VERIFY_ON_FAILURE))
                 return r;
 
+        fd = safe_close(fd);
         f = safe_fclose(f);
 
         /* OK, the operation failed, but let's see if the right
@@ -332,6 +342,10 @@ fail:
         q = verify_file(fn, line, !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) || (flags & WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE));
         if (q <= 0)
                 return r;
+
+        /* Return an error because 0 is a valid fd */
+        if (flags & WRITE_STRING_FILE_RETURN_FD)
+                return -EBADF;
 
         return 0;
 }
