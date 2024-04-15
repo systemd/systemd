@@ -20,3 +20,9 @@ int net_verify_hardware_address(
                 uint16_t iftype,
                 const struct hw_addr_data *ib_hw_addr,
                 struct hw_addr_data *new_hw_addr);
+int net_generate_mac(
+                const char *machine_name,
+                struct ether_addr *mac,
+                sd_id128_t hash_key,
+                uint64_t idx);
+int net_shorten_ifname(char *ifname, bool check_naming_scheme);

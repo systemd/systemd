@@ -5,12 +5,16 @@
 
 #include "arphrd-util.h"
 #include "device-util.h"
+#include "hexdecoct.h"
 #include "log-link.h"
 #include "memory-util.h"
+#include "netif-naming-scheme.h"
 #include "netif-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
 #include "strv.h"
+
+#define SHORTEN_IFNAME_HASH_KEY SD_ID128_MAKE(e1,90,a4,04,a8,ef,4b,51,8c,cc,c3,3a,9f,11,fc,a2)
 
 bool netif_has_carrier(uint8_t operstate, unsigned flags) {
         /* see Documentation/networking/operstates.txt in the kernel sources */
@@ -197,4 +201,80 @@ int net_verify_hardware_address(
         }
 
         return 0;
+}
+
+int net_generate_mac(
+                const char *machine_name,
+                struct ether_addr *mac,
+                sd_id128_t hash_key,
+                uint64_t idx) {
+
+        uint64_t result;
+        size_t l, sz;
+        uint8_t *v, *i;
+        int r;
+
+        l = strlen(machine_name);
+        sz = sizeof(sd_id128_t) + l;
+        if (idx > 0)
+                sz += sizeof(idx);
+
+        v = newa(uint8_t, sz);
+
+        /* fetch some persistent data unique to the host */
+        r = sd_id128_get_machine((sd_id128_t*) v);
+        if (r < 0)
+                return r;
+
+        /* combine with some data unique (on this host) to this
+         * container instance */
+        i = mempcpy(v + sizeof(sd_id128_t), machine_name, l);
+        if (idx > 0) {
+                idx = htole64(idx);
+                memcpy(i, &idx, sizeof(idx));
+        }
+
+        /* Let's hash the host machine ID plus the container name. We
+         * use a fixed, but originally randomly created hash key here. */
+        result = htole64(siphash24(v, sz, hash_key.bytes));
+
+        assert_cc(ETH_ALEN <= sizeof(result));
+        memcpy(mac->ether_addr_octet, &result, ETH_ALEN);
+
+        ether_addr_mark_random(mac);
+
+        return 0;
+}
+
+int net_shorten_ifname(char *ifname, bool check_naming_scheme) {
+        char new_ifname[IFNAMSIZ];
+
+        assert(ifname);
+
+        if (strlen(ifname) < IFNAMSIZ) /* Name is short enough */
+                return 0;
+
+        if (!check_naming_scheme || naming_scheme_has(NAMING_NSPAWN_LONG_HASH)) {
+                uint64_t h;
+
+                /* Calculate 64-bit hash value */
+                h = siphash24(ifname, strlen(ifname), SHORTEN_IFNAME_HASH_KEY.bytes);
+
+                /* Set the final four bytes (i.e. 32-bit) to the lower 24bit of the hash, encoded in url-safe base64 */
+                memcpy(new_ifname, ifname, IFNAMSIZ - 5);
+                new_ifname[IFNAMSIZ - 5] = urlsafe_base64char(h >> 18);
+                new_ifname[IFNAMSIZ - 4] = urlsafe_base64char(h >> 12);
+                new_ifname[IFNAMSIZ - 3] = urlsafe_base64char(h >> 6);
+                new_ifname[IFNAMSIZ - 2] = urlsafe_base64char(h);
+        } else
+                /* On old nspawn versions we just truncated the name, provide compatibility */
+                memcpy(new_ifname, ifname, IFNAMSIZ-1);
+
+        new_ifname[IFNAMSIZ - 1] = 0;
+
+        /* Log the incident to make it more discoverable */
+        log_warning("Network interface name '%s' has been changed to '%s' to fit length constraints.", ifname, new_ifname);
+
+        strcpy(ifname, new_ifname);
+        return 1;
 }
