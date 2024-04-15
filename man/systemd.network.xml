@@ -748,6 +748,17 @@ Table=1234</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UseDomains=</varname></term>
+        <listitem>
+          <para>Specifies the protocol-indepndent default value for the same settins in
+          [IPv6AcceptRA], [DHCPv4], and [DHCPv6] sections below. Takes a boolean, or the special value
+          <option>route</option>. See also the same setting in [DHCPv4] below. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Domains=</varname></term>
         <listitem>
           <para>A whitespace-separated list of domains which should be resolved using the DNS servers
@@ -2570,9 +2581,15 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           effect of the <option>Domains=</option> setting. If set to <option>route</option>, the domain name
           received from the DHCP server will be used for routing DNS queries only, but not for searching,
           similarly to the effect of the <option>Domains=</option> setting when the argument is prefixed with
-          <literal>~</literal>. When unspecified, the value specified in the same setting in
-          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-          which defaults to <literal>no</literal>, will be used.</para>
+          <literal>~</literal>.</para>
+
+          <para>When unspecified, the value specified in the same setting in the [Network] section will be
+          used. When it is unspecified, the value specified in the same setting in the [DHCPv4] section in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          will be used. When it is unspecified, the value specified in the same setting in the [Network]
+          section in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          will be used. When none of them are specified, defaults to <literal>no</literal>.</para>
 
           <para>It is recommended to enable this option only on trusted networks, as setting this
           affects resolution of all hostnames, in particular of single-label names. It is generally
