@@ -704,7 +704,7 @@
         </varlistentry>
         <varlistentry>
           <term><option>-m</option></term>
-          <term><option>--children-max=</option><replaceable>value</replaceable></term>
+          <term><option>--children-max=<replaceable>value</replaceable></option></term>
           <listitem>
             <para>Set the maximum number of events, systemd-udevd will handle at the same time. When 0 is
             specified, then the maximum is determined based on the system resources.</para>
@@ -721,7 +721,7 @@
         </varlistentry>
         <varlistentry>
           <term><option>-t</option></term>
-          <term><option>--timeout=</option><replaceable>seconds</replaceable></term>
+          <term><option>--timeout=<replaceable>seconds</replaceable></option></term>
           <listitem>
             <para>The maximum number of seconds to wait for a reply from systemd-udevd.</para>
           </listitem>

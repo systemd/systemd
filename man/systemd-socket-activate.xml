@@ -122,7 +122,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--fdname=</option><replaceable>NAME</replaceable><optional>:<replaceable>NAME</replaceable>…</optional></term>
+        <term><option>--fdname=<replaceable>NAME</replaceable><optional>:<replaceable>NAME</replaceable>…</optional></option></term>
 
         <listitem><para>Specify names for the file descriptors passed. This is equivalent to setting
         <varname>FileDescriptorName=</varname> in socket unit files, and enables use of

@@ -168,7 +168,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--settings=</option><replaceable>MODE</replaceable></term>
+        <term><option>--settings=<replaceable>MODE</replaceable></option></term>
 
         <listitem><para>Controls whether
         <command>systemd-nspawn</command> shall search for and use
@@ -379,7 +379,7 @@
 
       <varlistentry>
         <term><option>--volatile</option></term>
-        <term><option>--volatile=</option><replaceable>MODE</replaceable></term>
+        <term><option>--volatile=<replaceable>MODE</replaceable></option></term>
 
         <listitem><para>Boots the container in volatile mode. When no mode parameter is passed or when mode is
         specified as <option>yes</option>, full volatile mode is enabled. This means the root directory is mounted as a
@@ -1692,7 +1692,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
     <variablelist>
       <varlistentry>
-        <term><option>--console=</option><replaceable>MODE</replaceable></term>
+        <term><option>--console=<replaceable>MODE</replaceable></option></term>
 
         <listitem><para>Configures how to set up standard input, output and error output for the container
         payload, as well as the <filename>/dev/console</filename> device for the container. Takes one of
@@ -1758,8 +1758,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
       <variablelist>
         <varlistentry>
-          <term><option>--load-credential=</option><replaceable>ID</replaceable>:<replaceable>PATH</replaceable></term>
-          <term><option>--set-credential=</option><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
+          <term><option>--load-credential=<replaceable>ID</replaceable>:<replaceable>PATH</replaceable></option></term>
+          <term><option>--set-credential=<replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></option></term>
 
           <listitem><para>Pass a credential to the container. These two options correspond to the
           <varname>LoadCredential=</varname> and <varname>SetCredential=</varname> settings in unit files. See

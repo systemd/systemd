@@ -310,7 +310,7 @@
 
       <varlistentry>
         <term><option>-p</option> <replaceable>PROFILE</replaceable></term>
-        <term><option>--profile=</option><replaceable>PROFILE</replaceable></term>
+        <term><option>--profile=<replaceable>PROFILE</replaceable></option></term>
 
         <listitem><para>When attaching an image, select the profile to use. By default the <literal>default</literal>
         profile is used. For details about profiles, see below.</para>
@@ -392,7 +392,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--extension=</option><replaceable>PATH</replaceable></term>
+        <term><option>--extension=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Add an additional image <replaceable>PATH</replaceable> as an overlay on
         top of <replaceable>IMAGE</replaceable> when attaching/detaching. This argument can be specified

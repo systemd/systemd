@@ -569,7 +569,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
       </varlistentry>
 
       <varlistentry>
-        <term><option>--drop-in=</option><replaceable>NAME</replaceable></term>
+        <term><option>--drop-in=<replaceable>NAME</replaceable></option></term>
 
         <listitem>
           <para>When used with <command>edit</command>, edit the drop-in file <replaceable>NAME</replaceable>
