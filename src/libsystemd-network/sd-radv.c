@@ -541,22 +541,12 @@ int sd_radv_set_mtu(sd_radv *ra, uint32_t mtu) {
 int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
         ra->hop_limit = hop_limit;
-
         return 0;
 }
 
 int sd_radv_set_reachable_time(sd_radv *ra, uint64_t usec) {
         assert_return(ra, -EINVAL);
-
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
-        if (usec > RADV_MAX_REACHABLE_TIME_USEC)
-                return -EINVAL;
 
         ra->reachable_usec = usec;
         return 0;
@@ -565,21 +555,12 @@ int sd_radv_set_reachable_time(sd_radv *ra, uint64_t usec) {
 int sd_radv_set_retransmit(sd_radv *ra, uint64_t usec) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
-        if (usec > RADV_MAX_RETRANSMIT_USEC)
-                return -EINVAL;
-
         ra->retransmit_usec = usec;
         return 0;
 }
 
 int sd_radv_set_router_lifetime(sd_radv *ra, uint64_t usec) {
         assert_return(ra, -EINVAL);
-
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
 
         if (!router_lifetime_is_valid(usec))
                 return -EINVAL;
@@ -594,25 +575,17 @@ int sd_radv_set_router_lifetime(sd_radv *ra, uint64_t usec) {
         return 0;
 }
 
-int sd_radv_set_managed_information(sd_radv *ra, int managed) {
+int sd_radv_set_managed_information(sd_radv *ra, int b) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
-        SET_FLAG(ra->flags, ND_RA_FLAG_MANAGED, managed);
-
+        SET_FLAG(ra->flags, ND_RA_FLAG_MANAGED, b);
         return 0;
 }
 
-int sd_radv_set_other_information(sd_radv *ra, int other) {
+int sd_radv_set_other_information(sd_radv *ra, int b) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
-        SET_FLAG(ra->flags, ND_RA_FLAG_OTHER, other);
-
+        SET_FLAG(ra->flags, ND_RA_FLAG_OTHER, b);
         return 0;
 }
 
