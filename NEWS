@@ -135,7 +135,7 @@ CHANGES WITH 256 in spe:
           system credential.
 
         * The systemd binary will no longer chainload sysvinit's "telinit"
-          binary when called under the init/telinit name on a system that's
+          binary when called under the init/telinit name on a system that
           isn't booted with systemd. This previously has been supported to make
           sure a distribution that has both init systems installed can be
           reasonably switched from one to the other via a simple
@@ -146,8 +146,8 @@ CHANGES WITH 256 in spe:
 
         * A new concept called "capsules" has been introduced. "Capsules"
           encapsulate additional per-user service managers, whose users are
-          transient and only are defined as long as the service manager
-          restarts (implemented via DynamicUser=1). These service managers run
+          transient and are only defined as long as the service manager
+          is running (implemented via DynamicUser=1). These service managers run
           off home directories defined in /var/lib/capsules/<name>, where
           <name> is a the capsule's name. These home directores can contain
           regular per-user services and other units. A capsule is started via a
@@ -158,7 +158,7 @@ CHANGES WITH 256 in spe:
           "--capsule="/"-C" switch.
 
         * .socket units gained a new setting PassFileDescriptorsToExec=, taking
-          a boolean value. If set to true the file desecriptors the socket unit
+          a boolean value. If set to true the file descriptors the socket unit
           encapsulates are passed to the ExecStartPost=, ExecStopPre=,
           ExecStopPost= using the usual $LISTEN_FDS interface. This may be used
           for doing additional initializations on the sockets once they are
@@ -171,8 +171,8 @@ CHANGES WITH 256 in spe:
           determined via SO_PEERCRED). This is useful for implementing IPC
           services in a simple Accept=yes mode.
 
-        * The service manager will not maintain a counter of soft reboot cycles
-          the system went through so far. It may be queired via the D-Bus APIs.
+        * The service manager will now maintain a counter of soft reboot cycles
+          the system went through so far. It may be queried via the D-Bus APIs.
 
         * systemd's execution logic now supports the new pidfd_spawn() API
           introduced by glibc 2.39, which allows us to invoke a subprocess in a
@@ -188,7 +188,7 @@ CHANGES WITH 256 in spe:
           reports "ssh-access.target" being reached a VMM/container manager
           knows it can now connect to the system via SSH. Finally, a new
           sd_notify() message ("X_SYSTEMD_SIGNALS_LEVEL=2") is sent the moment
-          PID 1 successlly completed installation of its various UNIX process
+          PID 1 successfully completed installation of its various UNIX process
           signal handlers (i.e. the moment where SIGRTMIN+4 sent to PID 1 will
           start to have the effect of shutting down the system cleanly).
 
@@ -505,7 +505,7 @@ CHANGES WITH 256 in spe:
 
         * systemd-run/run0 will now tint the terminal background on supported
           terminals: in a reddish tone when invoking a root service, in a
-          yellowish tone otherwise. This may be controlled and truned of via
+          yellowish tone otherwise. This may be controlled and turned off via
           the new --background= switch.
 
         * systemd-run gained a new option '--ignore-failure' to suppress
@@ -759,7 +759,7 @@ CHANGES WITH 256 in spe:
           and network interfaces to user namespaces set up this way.
 
         * A small new service systemd-mountfsd.service has been added. it
-          provides a Varlink IPC API for mount DDI images, and returning a set
+          provides a Varlink IPC API for mounting DDI images, and returning a set
           of mount file descriptors for it. If a user namespace fd is provided
           as input, then the mounts are registered with the user namespace. To
           ensure trust in the image it must provide Verity information (or
