@@ -722,7 +722,7 @@ CHANGES WITH 256 in spe:
           decrypting credentials.
 
         * systemd-creds' "tpm2-absent" key selection has been renamed to
-          "sleep", since that's what it actually does: "encrypt" and "sign"
+          "null", since that's what it actually does: "encrypt" and "sign"
           with a fixed null key. --with-key=null should only be used in very
           specific cases, as it provides zero integrity or confidentiality
           protections. (i.e. it's only safe to use as fallback in environments
@@ -741,11 +741,12 @@ CHANGES WITH 256 in spe:
 
         * A tiny new service systemd-hibernate-clear.service has been added
           which clears hibernation information from the HibernateLocation EFI
-          variable, in case thawing did not work. Normally, this variable is
-          supposed to be cleaned up by the code that thaws the hibernation
-          image, but when this fails for some reason this service will now do
-          the necessary work, ensuring that no outdated hibernation image
-          information remains on subsequent boots.
+          variable, in case the resume device is gone. Normally, this variable
+          is supposed to be cleaned up by the code that initiates the resume
+          from hibernation image. But when the device is missing and that code
+          doesn't run, this service will now do the necessary work, ensuring
+          that no outdated hibernation image information remains on subsequent
+          boots.
 
         Unprivileged User Namespaces & Mounts:
 
@@ -757,7 +758,7 @@ CHANGES WITH 256 in spe:
           interfaces to then delegate mount file descriptors, control groups
           and network interfaces to user namespaces set up this way.
 
-        * A small new service systemd-mntfsd.service has been added. it
+        * A small new service systemd-mountfsd.service has been added. it
           provides a Varlink IPC API for mount DDI images, and returning a set
           of mount file descriptors for it. If a user namespace fd is provided
           as input, then the mounts are registered with the user namespace. To
@@ -765,15 +766,15 @@ CHANGES WITH 256 in spe:
           alternatively interactive polkit authentication is required).
 
         * The systemd-dissect tool now can access DDIs fully unprivileged by
-          using systemd-nsresourced/systemd-mntfsd.
+          using systemd-nsresourced/systemd-mountfsd.
 
         * If the service manager runs unprivileged (i.e. systemd --user) it now
           supports RootImage= for accessing DDI images, also implemented via
-          the systemd-nsresourced/systemd-mntfsd.
+          the systemd-nsresourced/systemd-mountfsd.
 
         * systemd-nspawn may now operate without privileges, if a suitable DDI
           is provided via --image=, again implemented via
-          systemd-nsresourced/systemd-mntfsd.
+          systemd-nsresourced/systemd-mountfsd.
 
         Other:
 
