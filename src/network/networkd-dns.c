@@ -53,6 +53,44 @@ UseDomains link_get_use_domains(Link *link, NetworkConfigSource proto) {
         return USE_DOMAINS_NO;
 }
 
+bool link_get_use_dns(Link *link, NetworkConfigSource proto) {
+        int n, c;
+
+        assert(link);
+        assert(link->manager);
+
+        if (!link->network)
+                return false;
+
+        switch (proto) {
+        case NETWORK_CONFIG_SOURCE_DHCP4:
+                n = link->network->dhcp_use_dns;
+                c = link->network->compat_dhcp_use_dns;
+                break;
+        case NETWORK_CONFIG_SOURCE_DHCP6:
+                n = link->network->dhcp6_use_dns;
+                c = link->network->compat_dhcp_use_dns;
+                break;
+        case NETWORK_CONFIG_SOURCE_NDISC:
+                n = link->network->ndisc_use_dns;
+                c = -1;
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        /* If per-network and per-protocol setting is specified, use it. */
+        if (n >= 0)
+                return n;
+
+        /* If compat setting is specified, use it. */
+        if (c >= 0)
+                return c;
+
+        /* Otherwise, defaults to yes. */
+        return true;
+}
+
 int config_parse_domains(
                 const char *unit,
                 const char *filename,
@@ -241,57 +279,6 @@ int config_parse_dnssec_negative_trust_anchors(
                 if (r < 0)
                         return log_oom();
         }
-}
-
-int config_parse_dhcp_use_dns(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(IN_SET(ltype, AF_UNSPEC, AF_INET, AF_INET6));
-        assert(rvalue);
-        assert(data);
-
-        r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse UseDNS=%s, ignoring assignment: %m", rvalue);
-                return 0;
-        }
-
-        switch (ltype) {
-        case AF_INET:
-                network->dhcp_use_dns = r;
-                network->dhcp_use_dns_set = true;
-                break;
-        case AF_INET6:
-                network->dhcp6_use_dns = r;
-                network->dhcp6_use_dns_set = true;
-                break;
-        case AF_UNSPEC:
-                /* For backward compatibility. */
-                if (!network->dhcp_use_dns_set)
-                        network->dhcp_use_dns = r;
-                if (!network->dhcp6_use_dns_set)
-                        network->dhcp6_use_dns = r;
-                break;
-        default:
-                assert_not_reached();
-        }
-
-        return 0;
 }
 
 static const char* const use_domains_table[_USE_DOMAINS_MAX] = {
