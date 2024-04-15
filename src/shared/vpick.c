@@ -143,8 +143,6 @@ static int pin_choice(
         assert(filter);
         assert(ret);
 
-        toplevel_path = strempty(toplevel_path);
-
         if (inode_fd < 0 || FLAGS_SET(flags, PICK_RESOLVE)) {
                 r = chaseat(toplevel_fd,
                             inode_path,
@@ -273,8 +271,6 @@ static int make_choice(
         assert(inode_path);
         assert(filter);
         assert(ret);
-
-        toplevel_path = strempty(toplevel_path);
 
         if (inode_fd < 0) {
                 r = chaseat(toplevel_fd, inode_path, CHASE_AT_RESOLVE_IN_ROOT, NULL, &inode_fd);
@@ -505,8 +501,6 @@ int path_pick(
         assert(path);
         assert(filter);
         assert(ret);
-
-        toplevel_path = strempty(toplevel_path);
 
         /* Given a path, resolve .v/ subdir logic (if used!), and returns the choice made. This supports
          * three ways to be called:
