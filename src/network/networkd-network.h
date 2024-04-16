@@ -20,6 +20,7 @@
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
+#include "networkd-dns.h"
 #include "networkd-ipv6ll.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-ndisc.h"
@@ -112,6 +113,14 @@ struct Network {
         bool default_route_on_device;
         AddressFamily ip_masquerade;
 
+        /* Protocol independent settings */
+        UseDomains use_domains;
+
+        /* For backward compatibility, only applied to DHCPv4 and DHCPv6. */
+        UseDomains compat_dhcp_use_domains;
+        int compat_dhcp_use_dns;
+        int compat_dhcp_use_ntp;
+
         /* DHCP Client Support */
         AddressFamily dhcp;
         struct in_addr dhcp_request_address;
@@ -143,11 +152,9 @@ struct Network {
         int dhcp_broadcast;
         int dhcp_ipv6_only_mode;
         int dhcp_use_rapid_commit;
-        bool dhcp_use_dns;
-        bool dhcp_use_dns_set;
+        int dhcp_use_dns;
         bool dhcp_routes_to_dns;
-        bool dhcp_use_ntp;
-        bool dhcp_use_ntp_set;
+        int dhcp_use_ntp;
         bool dhcp_routes_to_ntp;
         bool dhcp_use_sip;
         bool dhcp_use_captive_portal;
@@ -162,8 +169,7 @@ struct Network {
         bool dhcp_use_6rd;
         bool dhcp_send_release;
         bool dhcp_send_decline;
-        DHCPUseDomains dhcp_use_domains;
-        bool dhcp_use_domains_set;
+        UseDomains dhcp_use_domains;
         Set *dhcp_deny_listed_ip;
         Set *dhcp_allow_listed_ip;
         Set *dhcp_request_options;
@@ -177,15 +183,12 @@ struct Network {
         bool dhcp6_use_pd_prefix;
         bool dhcp6_send_hostname;
         bool dhcp6_send_hostname_set;
-        bool dhcp6_use_dns;
-        bool dhcp6_use_dns_set;
+        int dhcp6_use_dns;
         bool dhcp6_use_hostname;
-        bool dhcp6_use_ntp;
-        bool dhcp6_use_ntp_set;
+        int dhcp6_use_ntp;
         bool dhcp6_use_captive_portal;
         bool dhcp6_use_rapid_commit;
-        DHCPUseDomains dhcp6_use_domains;
-        bool dhcp6_use_domains_set;
+        UseDomains dhcp6_use_domains;
         uint32_t dhcp6_iaid;
         bool dhcp6_iaid_set;
         bool dhcp6_iaid_set_explicitly;
@@ -243,6 +246,7 @@ struct Network {
         RADVPrefixDelegation router_prefix_delegation;
         usec_t router_lifetime_usec;
         uint8_t router_preference;
+        usec_t router_reachable_usec;
         usec_t router_retransmit_usec;
         uint8_t router_hop_limit;
         bool router_managed;
@@ -338,7 +342,7 @@ struct Network {
         /* NDisc support */
         int ndisc;
         bool ndisc_use_redirect;
-        bool ndisc_use_dns;
+        int ndisc_use_dns;
         bool ndisc_use_gateway;
         bool ndisc_use_route_prefix;
         bool ndisc_use_autonomous_prefix;
@@ -352,7 +356,7 @@ struct Network {
         bool ndisc_use_pref64;
         bool active_slave;
         bool primary_slave;
-        DHCPUseDomains ndisc_use_domains;
+        UseDomains ndisc_use_domains;
         IPv6AcceptRAStartDHCP6Client ndisc_start_dhcp6_client;
         uint32_t ndisc_route_table;
         bool ndisc_route_table_set;
@@ -424,11 +428,6 @@ bool network_has_static_ipv6_configurations(Network *network);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_stacked_netdev);
 CONFIG_PARSER_PROTOTYPE(config_parse_tunnel);
-CONFIG_PARSER_PROTOTYPE(config_parse_domains);
-CONFIG_PARSER_PROTOTYPE(config_parse_dns);
-CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
-CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_negative_trust_anchors);
-CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_required_for_online);
 CONFIG_PARSER_PROTOTYPE(config_parse_required_family_for_online);
 CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);
