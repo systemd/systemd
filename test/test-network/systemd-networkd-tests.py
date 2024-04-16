@@ -1182,6 +1182,14 @@ class Utilities():
             print(output)
             self.assertRegex(output, r'.*elements = { [^}]*' + contents + r'[^}]* }.*')
 
+    def check_networkd_log(self, contents, since=None, trial=20):
+        for _ in range(trial):
+            if contents in read_networkd_log(since=since):
+                break
+            time.sleep(0.5)
+        else:
+            self.fail(f'"{contents}" not found in journal.')
+
 class NetworkctlTests(unittest.TestCase, Utilities):
 
     def setUp(self):
@@ -1373,8 +1381,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         self.assertIn('Network File: /run/systemd/network/11-test-unit-file.network', output)
         self.assertIn('/run/systemd/network/11-test-unit-file.network.d/dropin.conf', output)
 
-        output = read_networkd_log()
-        self.assertIn('test1: Configuring with /run/systemd/network/11-test-unit-file.network (dropins: /run/systemd/network/11-test-unit-file.network.d/dropin.conf).', output)
+        self.check_networkd_log('test1: Configuring with /run/systemd/network/11-test-unit-file.network (dropins: /run/systemd/network/11-test-unit-file.network.d/dropin.conf).')
 
         # This test may be run on the system that has older udevd than 70f32a260b5ebb68c19ecadf5d69b3844896ba55 (v249).
         # In that case, the udev DB for the loopback network interface may already have ID_NET_LINK_FILE property.
@@ -1624,16 +1631,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.wait_online('bond99:off')
         self.wait_operstate('vlan99', operstate='off', setup_state='configuring', setup_timeout=10)
 
-        # The commit b05e52000b4eee764b383cc3031da0a3739e996e adds ", ignoring". To make it easily confirmed
-        # that the issue is fixed by the commit, let's allow to match both string.
-        log_re = re.compile('vlan99: Could not bring up interface(, ignoring|): Network is down$', re.MULTILINE)
-        for i in range(20):
-            if i > 0:
-                time.sleep(0.5)
-            if log_re.search(read_networkd_log()):
-                break
-        else:
-            self.fail()
+        self.check_networkd_log('vlan99: Could not bring up interface, ignoring: Network is down$')
 
         copy_network_unit('11-dummy.netdev', '12-dummy.netdev', '21-dummy-bond-slave.network')
         networkctl_reload()
@@ -5612,13 +5610,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online('veth-peer:degraded')
 
-        for _ in range(20):
-            output = read_networkd_log()
-            if 'veth99: NDISC: Started IPv6 Router Solicitation client' in output:
-                break
-            time.sleep(0.5)
-        else:
-            self.fail('sd-ndisc does not started on veth99.')
+        self.check_networkd_log('veth99: NDISC: Started IPv6 Router Solicitation client')
 
         check_output(f'{test_ndisc_send} --interface veth-peer --type ra --lifetime 1hour --mtu 1400')
         self.check_ndisc_mtu(1400)
@@ -6032,13 +6024,7 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
         self.wait_online('bridge-relay:routable', 'client-peer:enslaved')
 
         # For issue #30763.
-        expect = 'bridge-relay: DHCPv4 server: STARTED'
-        for _ in range(20):
-            if expect in read_networkd_log():
-                break
-            time.sleep(0.5)
-        else:
-            self.fail()
+        self.check_networkd_log('bridge-relay: DHCPv4 server: STARTED')
 
 class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
@@ -6510,37 +6496,19 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         since = datetime.datetime.now()
         start_dnsmasq()
 
-        expect = 'veth99: DHCPv4 server IP address 192.168.5.1 not found in allow-list, ignoring offer.'
-        for _ in range(20):
-            if expect in read_networkd_log(since=since):
-                break
-            time.sleep(0.5)
-        else:
-            self.fail()
+        self.check_networkd_log('veth99: DHCPv4 server IP address 192.168.5.1 not found in allow-list, ignoring offer.', since=since)
 
         copy_network_unit('25-dhcp-client-allow-list.network.d/00-allow-list.conf')
         since = datetime.datetime.now()
         networkctl_reload()
 
-        expect = 'veth99: DHCPv4 server IP address 192.168.5.1 not found in allow-list, ignoring offer.'
-        for _ in range(20):
-            if expect in read_networkd_log(since=since):
-                break
-            time.sleep(0.5)
-        else:
-            self.fail()
+        self.check_networkd_log('veth99: DHCPv4 server IP address 192.168.5.1 not found in allow-list, ignoring offer.', since=since)
 
         copy_network_unit('25-dhcp-client-allow-list.network.d/10-deny-list.conf')
         since = datetime.datetime.now()
         networkctl_reload()
 
-        expect = 'veth99: DHCPv4 server IP address 192.168.5.1 found in deny-list, ignoring offer.'
-        for _ in range(20):
-            if expect in read_networkd_log(since=since):
-                break
-            time.sleep(0.5)
-        else:
-            self.fail()
+        self.check_networkd_log('veth99: DHCPv4 server IP address 192.168.5.1 found in deny-list, ignoring offer.', since=since)
 
     @unittest.skipUnless("--dhcp-rapid-commit" in run("dnsmasq --help").stdout, reason="dnsmasq is missing dhcp-rapid-commit support")
     def test_dhcp_client_rapid_commit(self):
