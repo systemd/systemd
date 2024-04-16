@@ -4567,15 +4567,28 @@ static int make_policy(bool force, bool recovery_pin) {
                 log_info("Retrieved PIN from TPM2 in %s.", FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), pin_start_usec), 1));
         }
 
-        TPM2B_NV_PUBLIC nv_public = {};
+        /* Now convert the PIN into an HMAC-SHA256 key that we can use in PolicySigned to protect access to the nvindex with */
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *pin_handle = NULL;
+        r = tpm2_hmac_key_from_pin(tc, encryption_session, &auth, &pin_handle);
+        if (r < 0)
+                return r;
 
+        TPM2B_NV_PUBLIC nv_public = {};
         usec_t nv_index_start_usec = now(CLOCK_MONOTONIC);
 
         if (!iovec_is_set(&nv_blob)) {
-                TPM2B_DIGEST recovery_policy_digest = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
-                r = tpm2_calculate_policy_auth_value(&recovery_policy_digest);
+                _cleanup_(Esys_Freep) TPM2B_NAME *pin_name = NULL;
+                r = tpm2_get_name(
+                                tc,
+                                pin_handle,
+                                &pin_name);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to calculate authentication value policy: %m");
+                        return log_error_errno(r, "Failed to get name of PIN from TPM2: %m");
+
+                TPM2B_DIGEST recovery_policy_digest = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+                r = tpm2_calculate_policy_signed(&recovery_policy_digest, pin_name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to calculate PolicySigned policy: %m");
 
                 log_debug("Allocating NV index to write PCR policy to...");
                 r = tpm2_define_policy_nv_index(
@@ -4594,10 +4607,6 @@ static int make_policy(bool force, bool recovery_pin) {
                         return log_error_errno(r, "Failed to allocate NV index: %m");
         }
 
-        r = tpm2_set_auth_binary(tc, nv_handle, &auth);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set authentication value on NV index: %m");
-
         _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
         r = tpm2_make_policy_session(
                         tc,
@@ -4607,9 +4616,11 @@ static int make_policy(bool force, bool recovery_pin) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate policy session: %m");
 
-        r = tpm2_policy_auth_value(
+        r = tpm2_policy_signed_hmac_sha256(
                         tc,
                         policy_session,
+                        pin_handle,
+                        &IOVEC_MAKE(auth.buffer, auth.size),
                         /* ret_policy_digest= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to submit authentication value policy: %m");
