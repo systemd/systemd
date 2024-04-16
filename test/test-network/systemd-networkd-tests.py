@@ -5516,6 +5516,9 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2002:da8:1:0')
 
+        self.check_ipv6_neigh_sysctl_attr('veth99', 'base_reachable_time_ms', '42000')
+        self.check_ipv6_neigh_sysctl_attr('veth99', 'retrans_time_ms', '500')
+
         self.check_netlabel('veth99', '2002:da8:1::/64')
         self.check_netlabel('veth99', '2002:da8:2::/64')
 
@@ -6933,16 +6936,18 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         check(self, True, False)
         check(self, False, True)
         check(self, False, False)
-    
-    def test_dhcp_client_default_use_domains(self):        
-        def check(self, ipv4, ipv6):
+
+    def test_dhcp_client_default_use_domains(self):
+        def check(self, common, ipv4, ipv6):
             mkdir_p(networkd_conf_dropin_dir)
             with open(os.path.join(networkd_conf_dropin_dir, 'default_use_domains.conf'), mode='w', encoding='utf-8') as f:
+                f.write('[Network]\nUseDomains=')
+                f.write('yes\n' if common else 'no\n')
                 f.write('[DHCPv4]\nUseDomains=')
                 f.write('yes\n' if ipv4 else 'no\n')
                 f.write('[DHCPv6]\nUseDomains=')
                 f.write('yes\n' if ipv6 else 'no\n')
-            
+
             restart_networkd()
             self.wait_online('veth-peer:carrier')
             start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.1',
@@ -6958,7 +6963,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
             for _ in range(20):
                 output = resolvectl('domain', 'veth99')
-                if ipv4 or ipv6:
+                if common or ipv4 or ipv6:
                     if 'example.com' in output:
                         break
                 else:
@@ -6967,16 +6972,18 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                 time.sleep(0.5)
             else:
                 print(output)
+                print(read_link_state_file('veth99'))
                 self.fail('unexpected domain setting in resolved...')
-            
+
             stop_dnsmasq()
             remove_networkd_conf_dropin('default_use_domains.conf')
 
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network', copy_dropins=False)
-        check(self, True, True)
-        check(self, True, False)
-        check(self, False, True)
-        check(self, False, False)
+        check(self, True, False, False)
+        check(self, False, True, True)
+        check(self, False, True, False)
+        check(self, False, False, True)
+        check(self, False, False, False)
 
     def test_dhcp_client_use_captive_portal(self):
         def check(self, ipv4, ipv6):
