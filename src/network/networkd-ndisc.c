@@ -53,8 +53,13 @@ bool link_ndisc_enabled(Link *link) {
         if (!link_may_have_ipv6ll(link, /* check_multicast = */ true))
                 return false;
 
+        /* Honor explicitly specified value. */
         if (link->network->ndisc >= 0)
                 return link->network->ndisc;
+
+        /* Disable if RADV is enabled. */
+        if (link_radv_enabled(link))
+                return false;
 
         /* Accept RAs if IPv6 forwarding is disabled, and ignore RAs if IPv6 forwarding is enabled. */
         int t = link_get_ip_forwarding(link, AF_INET6);
