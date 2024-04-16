@@ -786,7 +786,7 @@ int fido2_generate_hmac_hash(
 
                 r = sym_fido_cred_set_prot(c, FIDO_CRED_PROT_UV_REQUIRED);
                 if (r != FIDO_OK)
-                        log_notice("Failed to set protection level on FIDO2 credential: %s", sym_fido_strerr(r));
+                        log_notice("Failed to set protection level on FIDO2 credential, ignoring: %s", sym_fido_strerr(r));
         }
 
         r = sym_fido_cred_set_extensions(c, extensions);
