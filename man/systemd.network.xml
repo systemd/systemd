@@ -888,12 +888,13 @@ Table=1234</programlisting></para>
       <varlistentry>
         <term><varname>IPv6AcceptRA=</varname></term>
         <listitem>
-          <para>Takes a boolean. Controls IPv6 Router Advertisement (RA) reception support for the
-          interface. If true, RAs are accepted; if false, RAs are ignored. When RAs are accepted, they
-          may trigger the start of the DHCPv6 client if the relevant flags are set in the RA data, or
-          if no routers are found on the link. The default is to disable RA reception for bridge
-          devices or when IP forwarding is enabled, and to enable it otherwise. Cannot be enabled on
-          devices aggregated in a bond device or when link-local addressing is disabled.</para>
+          <para>Takes a boolean. Controls IPv6 Router Advertisement (RA) reception support for the interface.
+          If true, RAs are accepted; if false, RAs are ignored. When RAs are accepted, they may trigger the
+          start of the DHCPv6 client if the relevant flags are set in the RA data, or if no routers are found
+          on the link. Defaults to false for bridge devices, when IP forwarding is enabled,
+          <varname>IPv6SendRA=</varname> or <varname>KeepMaster=</varname> is enabled. Otherwise, enabled by
+          default. Cannot be enabled on devices aggregated in a bond device or when link-local addressing is
+          disabled.</para>
 
           <para>Further settings for the IPv6 RA support may be configured in the [IPv6AcceptRA]
           section, see below.</para>
