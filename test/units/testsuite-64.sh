@@ -239,16 +239,27 @@ testcase_nvme_subsystem() {
 }
 
 testcase_virtio_scsi_identically_named_partitions() {
-    local num
+    local num_part num_disk i j
+    local alphabet='abcdefghijklmnopqrstuvwxyz'
 
     if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
-        num=$((4 * 4))
+        num_part=4
+        num_disk=4
     else
-        num=$((16 * 8))
+        num_part=8
+        num_disk=16
     fi
 
+    for ((i = 0; i < num_disk; i++)); do
+        sfdisk "/dev/sd${alphabet:$i:1}" <<EOF
+label: gpt
+
+$(for ((j = 1; j <= num_part; j++)); do echo 'name="Hello world", size=2M'; done)
+EOF
+    done
+
     lsblk --noheadings -a -o NAME,PARTLABEL
-    [[ "$(lsblk --noheadings -a -o NAME,PARTLABEL | grep -c "Hello world")" -eq "$num" ]]
+    [[ "$(lsblk --noheadings -a -o NAME,PARTLABEL | grep -c "Hello world")" -eq "$((num_part * num_disk))" ]]
 }
 
 testcase_multipath_basic_failover() {
