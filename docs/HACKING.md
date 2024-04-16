@@ -276,22 +276,9 @@ To simplify debugging systemd when testing changes using mkosi, we're going to s
 QEMU.
 
 To allow VSCode's debugger to attach to systemd running in a mkosi image, we have to make sure it can access
-the virtual machine spawned by mkosi where systemd is running. mkosi makes this possible via a handy SSH
-option that makes the generated image accessible via SSH when booted. Thus you must build the image with
-`mkosi --ssh`. The easiest way to set the option is to create a file `mkosi.local.conf` in the root of the
-repository and add the following contents:
-
-```
-[Host]
-Ssh=yes
-RuntimeTrees=.
-```
-
-Also make sure that the SSH agent is running on your system and that you've added your SSH key to it with
-`ssh-add`. Also make sure that `virtiofsd` is installed.
-
-After rebuilding the image and booting it with `mkosi qemu`, you should now be able to connect to it by
-running `mkosi ssh` from the same directory in another terminal window.
+the virtual machine spawned by mkosi where systemd is running. After booting the image with `mkosi qemu`, you
+should now be able to connect to it by running `mkosi ssh` from the same directory in another terminal
+window.
 
 Now we need to configure VSCode. First, make sure the C/C++ extension is installed. If you're already using
 a different extension for code completion and other IDE features for C in VSCode, make sure to disable the
@@ -320,16 +307,12 @@ the directory, and add the following contents:
             "name": "systemd",
             "pipeTransport": {
                 "pipeProgram": "mkosi",
-                "pipeArgs": [
-                    "-C",
-                    "/path/to/systemd/repo/directory/on/host/system/",
-                    "ssh"
-                ],
+                "pipeArgs": ["-C", "${workspaceFolder}", "ssh"],
                 "debuggerPath": "/usr/bin/gdb"
             },
             "MIMode": "gdb",
             "sourceFileMap": {
-                "/root/src/systemd": {
+                "/work/src": {
                     "editorPath": "${workspaceFolder}",
                     "useForBreakpoints": false
                 },
