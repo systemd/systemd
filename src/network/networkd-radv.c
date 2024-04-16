@@ -769,6 +769,10 @@ int radv_start(Link *link) {
                         return log_link_debug_errno(link, r, "Failed to request DHCP delegated subnet prefix: %m");
         }
 
+        r = sd_radv_set_link_local_address(link->radv, &link->ipv6ll_address);
+        if (r < 0)
+                return r;
+
         log_link_debug(link, "Starting IPv6 Router Advertisements");
         return sd_radv_start(link->radv);
 }
