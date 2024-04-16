@@ -531,57 +531,6 @@ int config_parse_dhcp_send_hostname(
         return 0;
 }
 
-int config_parse_dhcp_use_ntp(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(IN_SET(ltype, AF_UNSPEC, AF_INET, AF_INET6));
-        assert(rvalue);
-        assert(data);
-
-        r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse UseNTP=%s, ignoring assignment: %m", rvalue);
-                return 0;
-        }
-
-        switch (ltype) {
-        case AF_INET:
-                network->dhcp_use_ntp = r;
-                network->dhcp_use_ntp_set = true;
-                break;
-        case AF_INET6:
-                network->dhcp6_use_ntp = r;
-                network->dhcp6_use_ntp_set = true;
-                break;
-        case AF_UNSPEC:
-                /* For backward compatibility. */
-                if (!network->dhcp_use_ntp_set)
-                        network->dhcp_use_ntp = r;
-                if (!network->dhcp6_use_ntp_set)
-                        network->dhcp6_use_ntp = r;
-                break;
-        default:
-                assert_not_reached();
-        }
-
-        return 0;
-}
-
 int config_parse_dhcp_or_ra_route_table(
                 const char *unit,
                 const char *filename,
