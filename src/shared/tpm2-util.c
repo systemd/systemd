@@ -3062,7 +3062,7 @@ static void tpm2_trim_auth_value(TPM2B_AUTH *auth) {
                 log_debug("authValue ends in 0, trimming as required by the TPM2 specification Part 1 section 'HMAC Computation' authValue Note 2.");
 }
 
-int tpm2_get_pin_auth(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth) {
+int tpm2_auth_value_from_pin(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth) {
         TPM2B_AUTH auth = {};
         int r;
 
@@ -3109,7 +3109,7 @@ int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin) {
 
         CLEANUP_ERASE(auth);
 
-        r = tpm2_get_pin_auth(TPM2_ALG_SHA256, pin, &auth);
+        r = tpm2_auth_value_from_pin(TPM2_ALG_SHA256, pin, &auth);
         if (r < 0)
                 return r;
 
@@ -4789,7 +4789,7 @@ static int tpm2_calculate_seal_private(
 
         TPM2B_AUTH auth = {};
         if (pin) {
-                r = tpm2_get_pin_auth(parent->publicArea.nameAlg, pin, &auth);
+                r = tpm2_auth_value_from_pin(parent->publicArea.nameAlg, pin, &auth);
                 if (r < 0)
                         return r;
         }
@@ -5254,7 +5254,7 @@ int tpm2_seal(Tpm2Context *c,
         CLEANUP_ERASE(hmac_sensitive);
 
         if (pin) {
-                r = tpm2_get_pin_auth(TPM2_ALG_SHA256, pin, &hmac_sensitive.userAuth);
+                r = tpm2_auth_value_from_pin(TPM2_ALG_SHA256, pin, &hmac_sensitive.userAuth);
                 if (r < 0)
                         return r;
         }
@@ -5649,7 +5649,7 @@ int tpm2_define_policy_nv_index(
         CLEANUP_ERASE(_auth);
 
         if (!auth) {
-                r = tpm2_get_pin_auth(TPM2_ALG_SHA256, pin, &_auth);
+                r = tpm2_auth_value_from_pin(TPM2_ALG_SHA256, pin, &_auth);
                 if (r < 0)
                         return r;
 
