@@ -20,6 +20,7 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
+#include "networkd-ntp.h"
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-setlink.h"
@@ -749,7 +750,7 @@ static int dhcp4_request_routes_to_ntp(Link *link) {
         assert(link->dhcp_lease);
         assert(link->network);
 
-        if (!link->network->dhcp_use_ntp ||
+        if (!link_get_use_ntp(link, NETWORK_CONFIG_SOURCE_DHCP4) ||
             !link->network->dhcp_routes_to_ntp)
                 return 0;
 
@@ -1546,7 +1547,7 @@ static int dhcp4_configure(Link *link) {
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for domain search list: %m");
                 }
 
-                if (link->network->dhcp_use_ntp) {
+                if (link_get_use_ntp(link, NETWORK_CONFIG_SOURCE_DHCP4)) {
                         r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NTP_SERVER);
                         if (r < 0)
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for NTP server: %m");

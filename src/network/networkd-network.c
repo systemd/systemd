@@ -379,10 +379,11 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .compat_dhcp_use_domains = _USE_DOMAINS_INVALID,
                 .compat_dhcp_use_dns = -1,
+                .compat_dhcp_use_ntp = -1,
 
                 .dhcp_duid.type = _DUID_TYPE_INVALID,
                 .dhcp_critical = -1,
-                .dhcp_use_ntp = true,
+                .dhcp_use_ntp = -1,
                 .dhcp_routes_to_ntp = true,
                 .dhcp_use_sip = true,
                 .dhcp_use_captive_portal = true,
@@ -407,7 +408,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_use_dns = -1,
                 .dhcp6_use_domains = _USE_DOMAINS_INVALID,
                 .dhcp6_use_hostname = true,
-                .dhcp6_use_ntp = true,
+                .dhcp6_use_ntp = -1,
                 .dhcp6_use_captive_portal = true,
                 .dhcp6_use_rapid_commit = true,
                 .dhcp6_send_hostname = true,
