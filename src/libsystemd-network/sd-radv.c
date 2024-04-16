@@ -158,6 +158,7 @@ static int radv_send_router(sd_radv *ra, const struct in6_addr *dst) {
                 .nd_ra_reachable = usec_to_be32_msec(ra->reachable_usec),
                 .nd_ra_retransmit = usec_to_be32_msec(ra->retransmit_usec),
         };
+        bool is_solicited = dst && in6_addr_is_set(dst);
         usec_t time_now;
         int r;
 
@@ -172,9 +173,22 @@ static int radv_send_router(sd_radv *ra, const struct in6_addr *dst) {
          * "...If the Router Lifetime is zero, the preference value MUST be set to (00) by the sender..." */
         adv.nd_ra_flags_reserved = ra->flags | (ra->lifetime_usec > 0 ? (ra->preference << 3) : 0);
 
-        return ndisc_send(ra->fd,
-                          (dst && in6_addr_is_set(dst)) ? dst : &IN6_ADDR_ALL_NODES_MULTICAST,
-                          &adv.nd_ra_hdr, ra->options, time_now);
+        r = ndisc_send(ra->fd,
+                       is_solicited ? dst : &IN6_ADDR_ALL_NODES_MULTICAST,
+                       &adv.nd_ra_hdr, ra->options, time_now);
+        if (r < 0) {
+                if (is_solicited)
+                        return log_radv_errno(ra, r, "Failed to send solicited Router Advertisement to %s, ignoring: %m",
+                                              IN6_ADDR_TO_STRING(dst));
+                else
+                        return log_radv_errno(ra, r, "Failed to send unsolicited Router Advertisement, ignoring: %m");
+        }
+
+        if (is_solicited)
+                log_radv(ra, "Sent solicited Router Advertisement to %s.", IN6_ADDR_TO_STRING(dst));
+        else
+                log_radv(ra, "Sent unsolicited Router Advertisement.");
+        return 0;
 }
 
 static int radv_process_packet(sd_radv *ra, ICMP6Packet *packet) {
@@ -204,12 +218,7 @@ static int radv_process_packet(sd_radv *ra, ICMP6Packet *packet) {
                  * kernel complain about that. Let's ignore the packet. */
                 return log_radv_errno(ra, SYNTHETIC_ERRNO(EADDRINUSE), "Received RS from the same interface, ignoring.");
 
-        r = radv_send_router(ra, &src);
-        if (r < 0)
-                return log_radv_errno(ra, r, "Unable to send solicited Router Advertisement to %s, ignoring: %m", IN6_ADDR_TO_STRING(&src));
-
-        log_radv(ra, "Sent solicited Router Advertisement to %s.", IN6_ADDR_TO_STRING(&src));
-        return 0;
+        return radv_send_router(ra, &src);
 }
 
 static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -253,7 +262,7 @@ int sd_radv_send(sd_radv *ra) {
 
         r = radv_send_router(ra, NULL);
         if (r < 0)
-                return log_radv_errno(ra, r, "Unable to send Router Advertisement: %m");
+                return r;
 
         ra->ra_sent++;
 
