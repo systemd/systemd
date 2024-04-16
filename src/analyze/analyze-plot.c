@@ -316,7 +316,7 @@ static int produce_plot_as_svg(
                     strempty(host->virtualization));
 
         svg("<g transform=\"translate(%.3f,100)\">\n", 20.0 + (SCALE_X * boot->firmware_time));
-        if (timestamp_is_set(boot->softreboot_start_time))
+        if (boot->soft_reboots_count > 0)
                 svg_graph_box(m, 0, boot->finish_time);
         else
                 svg_graph_box(m, -(double) boot->firmware_time, boot->finish_time);
@@ -347,7 +347,7 @@ static int produce_plot_as_svg(
                 svg_text(true, boot->initrd_time, y, "initrd");
                 y++;
         }
-        if (timestamp_is_set(boot->softreboot_start_time)) {
+        if (boot->soft_reboots_count > 0) {
                 svg_bar("soft-reboot", 0, boot->userspace_time, y);
                 svg_text(true, 0, y, "soft-reboot");
                 y++;
