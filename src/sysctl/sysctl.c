@@ -90,7 +90,7 @@ static Option *option_new(
 static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_failure, bool ignore_enoent) {
         int r;
 
-        r = sysctl_write(key, value);
+        r = sysctl_write(key, value, NULL);
         if (r < 0) {
                 /* Proceed without failing if ignore_failure is true.
                  * If the sysctl is not available in the kernel or we are running with reduced privileges and
