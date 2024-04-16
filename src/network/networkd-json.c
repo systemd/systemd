@@ -17,6 +17,7 @@
 #include "networkd-neighbor.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
+#include "networkd-ntp.h"
 #include "networkd-route-util.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
@@ -564,7 +565,7 @@ static int ntp_append_json(Link *link, JsonVariant **v) {
         }
 
         if (!link->ntp) {
-                if (link->dhcp_lease && link->network->dhcp_use_ntp) {
+                if (link->dhcp_lease && link_get_use_ntp(link, NETWORK_CONFIG_SOURCE_DHCP4)) {
                         const struct in_addr *ntp;
                         union in_addr_union s;
                         int n_ntp;
@@ -585,7 +586,7 @@ static int ntp_append_json(Link *link, JsonVariant **v) {
                         }
                 }
 
-                if (link->dhcp6_lease && link->network->dhcp6_use_ntp) {
+                if (link->dhcp6_lease && link_get_use_ntp(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
                         const struct in6_addr *ntp_addr;
                         union in_addr_union s;
                         char **ntp_fqdn;
