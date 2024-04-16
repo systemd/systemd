@@ -13,6 +13,8 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "sysctl-util.h"
+#include "fileio.h"
+#include "path-util.h"
 
 static void manager_set_ip_forwarding(Manager *manager, int family) {
         int r, t;
@@ -40,9 +42,81 @@ static void manager_set_ip_forwarding(Manager *manager, int family) {
                                   enable_disable(t), af_to_ipv4_ipv6(family));
 }
 
+static void sysctl_overwrite_check(sd_event_source *source, const struct inotify_event *event, Hashmap *sysctls) {
+        _cleanup_free_ char *buf = NULL, *path = NULL;
+        const char *dir_path, *value;
+        size_t len;
+        int r;
+
+        assert(event);
+
+        r = sd_event_source_get_inotify_path(source, &dir_path);
+        if (r < 0)
+                return;
+
+        path = path_join(dir_path, event->name);
+        if (!path)
+                return;
+
+        value = hashmap_get(sysctls, path);
+
+        /* We don't handle this sysctl */
+        if (!value)
+                return;
+
+        if (read_full_file(path, &buf, &len) < 0)
+                return;
+
+        delete_trailing_chars(buf, "\n");
+
+        if (!streq(value, buf))
+                log_warning("sysctl %s was changed from '%s' to '%s'", path, value, buf);
+}
+
+static int sysctl_inotify_manager(sd_event_source *source, const struct inotify_event *event, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+
+        sysctl_overwrite_check(source, event, manager->sysctls);
+
+        return 0;
+}
+
+static int sysctl_inotify_link(sd_event_source *source, const struct inotify_event *event, void *userdata) {
+        Link *link = ASSERT_PTR(userdata);
+
+        sysctl_overwrite_check(source, event, link->sysctls);
+
+        return 0;
+}
+
+static int manager_inotify_add(Manager *manager) {
+        sd_event_source **source;
+
+        assert(manager);
+
+        source = manager->sysctl_event_sources;
+
+        FOREACH_STRING(p,
+                "/proc/sys/net/ipv4/conf/all",
+                "/proc/sys/net/ipv4/conf/default",
+                "/proc/sys/net/ipv6/conf/all",
+                "/proc/sys/net/ipv6/conf/default") {
+                int r;
+
+                r = sd_event_add_inotify(manager->event, source, p, IN_CLOSE_WRITE | IN_ONLYDIR, sysctl_inotify_manager, manager);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to watch sysctl %s: %m", p);
+                source++;
+        }
+
+        return 0;
+}
+
 void manager_set_sysctl(Manager *manager) {
         assert(manager);
         assert(!manager->test_mode);
+
+        manager_inotify_add(manager);
 
         manager_set_ip_forwarding(manager, AF_INET);
         manager_set_ip_forwarding(manager, AF_INET6);
@@ -315,10 +389,39 @@ static int link_set_ipv4_promote_secondaries(Link *link) {
         return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "promote_secondaries", true, &link->sysctls);
 }
 
+static void link_watch_sysctl(Link *link) {
+        sd_event_source **source;
+
+        assert(link);
+
+        source = link->sysctl_event_sources;
+
+        FOREACH_STRING(p,
+                "/proc/sys/net/ipv4/conf",
+                "/proc/sys/net/ipv6/conf") {
+                _cleanup_free_ char *path = path_join(p, link->ifname);
+                int r;
+
+                if (!path)
+                        return;
+
+                /* We're reconfiguring the link, an inotify watcher is already present for this path */
+                if (*source)
+                        continue;
+
+                r = sd_event_add_inotify(link->manager->event, source, path, IN_CLOSE_WRITE | IN_ONLYDIR, sysctl_inotify_link, link);
+                if (r < 0)
+                        log_link_warning_errno(link, errno, "Failed to watch sysctl %s: %m", path);
+                source++;
+        }
+}
+
 int link_set_sysctl(Link *link) {
         int r;
 
         assert(link);
+
+        link_watch_sysctl(link);
 
         /* If IPv6 configured that is static IPv6 address and IPv6LL autoconfiguration is enabled
          * for this interface, then enable IPv6 */
