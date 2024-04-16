@@ -15,6 +15,7 @@
 #include "networkd-manager-bus.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-ntp.h"
 #include "networkd-state-file.h"
 #include "ordered-set.h"
 #include "set.h"
@@ -150,7 +151,7 @@ static int link_put_ntp(Link *link, OrderedSet **s) {
         if (r < 0)
                 return r;
 
-        if (link->dhcp_lease && link->network->dhcp_use_ntp) {
+        if (link->dhcp_lease && link_get_use_ntp(link, NETWORK_CONFIG_SOURCE_DHCP4)) {
                 const struct in_addr *addresses;
 
                 r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
@@ -161,7 +162,7 @@ static int link_put_ntp(Link *link, OrderedSet **s) {
                 }
         }
 
-        if (link->dhcp6_lease && link->network->dhcp6_use_ntp) {
+        if (link->dhcp6_lease && link_get_use_ntp(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
                 const struct in6_addr *addresses;
                 char **fqdn;
 
@@ -693,10 +694,10 @@ static int link_save(Link *link) {
                         serialize_addresses(f, "NTP", NULL,
                                             link->network->ntp,
                                             link->dhcp_lease,
-                                            link->network->dhcp_use_ntp,
+                                            link_get_use_ntp(link, NETWORK_CONFIG_SOURCE_DHCP4),
                                             SD_DHCP_LEASE_NTP,
                                             link->dhcp6_lease,
-                                            link->network->dhcp6_use_ntp,
+                                            link_get_use_ntp(link, NETWORK_CONFIG_SOURCE_DHCP6),
                                             sd_dhcp6_lease_get_ntp_addrs,
                                             sd_dhcp6_lease_get_ntp_fqdn);
 

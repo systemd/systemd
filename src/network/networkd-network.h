@@ -116,6 +116,7 @@ struct Network {
         /* For backward compatibility, only applied to DHCPv4 and DHCPv6. */
         UseDomains compat_dhcp_use_domains;
         int compat_dhcp_use_dns;
+        int compat_dhcp_use_ntp;
 
         /* DHCP Client Support */
         AddressFamily dhcp;
@@ -150,8 +151,7 @@ struct Network {
         int dhcp_use_rapid_commit;
         int dhcp_use_dns;
         bool dhcp_routes_to_dns;
-        bool dhcp_use_ntp;
-        bool dhcp_use_ntp_set;
+        int dhcp_use_ntp;
         bool dhcp_routes_to_ntp;
         bool dhcp_use_sip;
         bool dhcp_use_captive_portal;
@@ -182,8 +182,7 @@ struct Network {
         bool dhcp6_send_hostname_set;
         int dhcp6_use_dns;
         bool dhcp6_use_hostname;
-        bool dhcp6_use_ntp;
-        bool dhcp6_use_ntp_set;
+        int dhcp6_use_ntp;
         bool dhcp6_use_captive_portal;
         bool dhcp6_use_rapid_commit;
         UseDomains dhcp6_use_domains;
