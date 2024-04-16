@@ -86,7 +86,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dhcp);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_ndisc_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_send_hostname);
-CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_iaid);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_or_ra_route_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_user_or_vendor_class);
