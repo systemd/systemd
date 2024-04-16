@@ -35,20 +35,24 @@ static const struct {
         { "force-reload",          "ReloadOrTryRestartUnit", "reload-or-try-restart" }, /* legacy alias */
 };
 
-static const char *verb_to_method(const char *verb) {
-       for (size_t i = 0; i < ELEMENTSOF(unit_actions); i++)
-                if (streq_ptr(unit_actions[i].verb, verb))
-                        return unit_actions[i].method;
+static const char* verb_to_method(const char *verb) {
+        assert(verb);
 
-       return "StartUnit";
+        FOREACH_ELEMENT(i, unit_actions)
+                if (streq(i->verb, verb))
+                        return i->method;
+
+        return "StartUnit";
 }
 
-static const char *verb_to_job_type(const char *verb) {
-       for (size_t i = 0; i < ELEMENTSOF(unit_actions); i++)
-                if (streq_ptr(unit_actions[i].verb, verb))
-                        return unit_actions[i].job_type;
+static const char* verb_to_job_type(const char *verb) {
+        assert(verb);
 
-       return "start";
+        FOREACH_ELEMENT(i, unit_actions)
+                if (streq(i->verb, verb))
+                        return i->job_type;
+
+        return "start";
 }
 
 static int start_unit_one(
@@ -240,6 +244,8 @@ const struct action_metadata action_table[_ACTION_MAX] = {
 };
 
 enum action verb_to_action(const char *verb) {
+        assert(verb);
+
         for (enum action i = 0; i < _ACTION_MAX; i++)
                 if (streq_ptr(action_table[i].verb, verb))
                         return i;
