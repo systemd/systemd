@@ -316,19 +316,9 @@ testcase_multipath_basic_failover() {
 
     local qemu_opts=("-device virtio-scsi-pci,id=scsi")
     local partdisk="${TESTDIR:?}/multipathpartitioned.img"
-    local image lodev nback ndisk wwn
+    local image nback ndisk wwn
 
     dd if=/dev/zero of="$partdisk" bs=1M count=16
-    lodev="$(losetup --show -f -P "$partdisk")"
-    sfdisk "${lodev:?}" <<EOF
-label: gpt
-
-name="first_partition", size=5M
-uuid="deadbeef-dead-dead-beef-000000000000", name="failover_part", size=5M
-EOF
-    udevadm settle
-    mkfs.ext4 -U "deadbeef-dead-dead-beef-111111111111" -L "failover_vol" "${lodev}p2"
-    losetup -d "$lodev"
 
     # Add 16 multipath devices, each backed by 4 paths
     for ndisk in {0..15}; do
