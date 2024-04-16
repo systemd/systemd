@@ -476,12 +476,16 @@ int verb_edit(int argc, char *argv[], void *userdata) {
 
 int verb_cat(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        char **args = strv_skip(argv, 1);
         int r, ret = 0;
 
         pager_open(arg_pager_flags);
 
+        if (strv_isempty(args))
+                return conf_files_cat(NULL, "systemd/networkd.conf", CAT_FORMAT_HAS_SECTIONS);
+
         bool first = true;
-        STRV_FOREACH(name, strv_skip(argv, 1)) {
+        STRV_FOREACH(name, args) {
                 _cleanup_strv_free_ char **dropins = NULL;
                 _cleanup_free_ char *path = NULL;
                 const char *link_config;
