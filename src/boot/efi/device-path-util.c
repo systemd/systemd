@@ -33,7 +33,7 @@ EFI_STATUS make_multiple_file_device_path(
         size_t o_dp_size = (uint8_t *) end_node - (uint8_t *) original_device_path;
 
 
-        *ret_dp = xnew(EFI_DEVICE_PATH*, n_files);
+        *ret_dp = xnew(EFI_DEVICE_PATH*, n_files + 1);
 
         iterator_dp = ret_dp[0];
 
@@ -64,6 +64,7 @@ EFI_STATUS make_multiple_file_device_path(
 
                 iterator_dp++;
         }
+        *iterator_dp = NULL;
 
         return EFI_SUCCESS;
 }

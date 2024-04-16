@@ -270,7 +270,7 @@ static EFI_STATUS load_addons_from_dir(
                 }
 
                 addon_spath = xasprintf("%ls\\%ls", prefix, d);
-                err = make_file_device_path(current_image, addon_spath, &addon_path);
+                err = make_file_device_path(current_image->DeviceHandle, addon_spath, &addon_path);
                 if (err != EFI_SUCCESS)
                         return log_error_status(err, "Error making device path for %ls: %m", addon_spath);
 
@@ -295,7 +295,7 @@ static EFI_STATUS load_addons_from_efi(
 
         err = BS->HandleProtocol(image->DeviceHandle, MAKE_GUID_PTR(SYSTEMD_ADDON_MEDIA), (void **) &addon_paths);
 
-        if (err == EFI_NOT_FOUND)
+        if (err == EFI_UNSUPPORTED)
                 /* No addons from EFI, that's OK */
                 return EFI_SUCCESS;
         if (err != EFI_SUCCESS)
