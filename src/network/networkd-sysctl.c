@@ -13,6 +13,20 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "sysctl-util.h"
+#include "fileio.h"
+#include "path-util.h"
+
+static const char *global_sysctls[] = {
+        "/proc/sys/net/ipv4/conf/all",
+        "/proc/sys/net/ipv4/conf/default",
+        "/proc/sys/net/ipv6/conf/all",
+        "/proc/sys/net/ipv6/conf/default",
+};
+
+static const char *link_sysctls[] = {
+        "/proc/sys/net/ipv4/conf",
+        "/proc/sys/net/ipv6/conf",
+};
 
 static void manager_set_ip_forwarding(Manager *manager, int family) {
         int r, t;
@@ -40,9 +54,91 @@ static void manager_set_ip_forwarding(Manager *manager, int family) {
                                   enable_disable(t), af_to_ipv4_ipv6(family));
 }
 
+static void sysctl_overwrite_check(sd_event_source *source, const struct inotify_event *event, Hashmap *sysctls, const char *dir_path) {
+        _cleanup_free_ char *buf = NULL;
+        _cleanup_free_ char *path;
+        const char *value;
+        size_t len;
+
+        assert(event);
+        assert(dir_path);
+
+        path = path_join(dir_path, event->name);
+        if (!path)
+                return;
+
+        value = hashmap_get(sysctls, path);
+
+        /* We don't handle this sysctl */
+        if (!value)
+                return;
+
+        if (read_full_file(path, &buf, &len) < 0)
+                return;
+
+        delete_trailing_chars(buf, "\n");
+
+        if (!streq(value, buf))
+                log_warning("sysctl %s was changed from '%s' to '%s'", path, value, buf);
+}
+
+static int sysctl_inotify_manager(sd_event_source *source, const struct inotify_event *event, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int i = 0;
+
+        FOREACH_ELEMENT(src, manager->sysctl_event_sources) {
+                if (source == *src) {
+                        sysctl_overwrite_check(source, event, manager->sysctls, global_sysctls[i]);
+                        break;
+                }
+                i++;
+        }
+
+        return 0;
+}
+
+static int sysctl_inotify_link(sd_event_source *source, const struct inotify_event *event, void *userdata) {
+        Link *link = ASSERT_PTR(userdata);
+        int i = 0;
+
+        FOREACH_ELEMENT(src, link->sysctl_event_sources) {
+                if (source == *src) {
+                        _cleanup_free_ const char *dir_ifname_path = path_join(link_sysctls[i], link->ifname);
+
+                        if (dir_ifname_path)
+                                sysctl_overwrite_check(source, event, link->sysctls, dir_ifname_path);
+                        break;
+                }
+                i++;
+        }
+
+        return 0;
+}
+
+static int manager_inotify_add(Manager *manager) {
+        sd_event_source **source;
+
+        assert(manager);
+
+        source = manager->sysctl_event_sources;
+
+        FOREACH_ELEMENT(p, global_sysctls) {
+                int r;
+
+                r = sd_event_add_inotify(manager->event, source, *p, IN_CLOSE_WRITE | IN_ONLYDIR, sysctl_inotify_manager, manager);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to watch sysctl %s: %m", *p);
+                source++;
+        }
+
+        return 0;
+}
+
 void manager_set_sysctl(Manager *manager) {
         assert(manager);
         assert(!manager->test_mode);
+
+        manager_inotify_add(manager);
 
         manager_set_ip_forwarding(manager, AF_INET);
         manager_set_ip_forwarding(manager, AF_INET6);
@@ -315,10 +411,33 @@ static int link_set_ipv4_promote_secondaries(Link *link) {
         return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "promote_secondaries", true, &link->sysctls);
 }
 
+static void link_watch_sysctl(Link *link) {
+        sd_event_source **source;
+
+        assert(link);
+
+        source = link->sysctl_event_sources;
+
+        FOREACH_ELEMENT(p, link_sysctls) {
+                _cleanup_free_ char *path = path_join(*p, link->ifname);
+                int r;
+
+                if (!path)
+                        return;
+
+                r = sd_event_add_inotify(link->manager->event, source, path, IN_CLOSE_WRITE | IN_ONLYDIR, sysctl_inotify_link, link);
+                if (r < 0)
+                        log_link_warning_errno(link, errno, "Failed to watch sysctl %s: %m", path);
+                source++;
+        }
+}
+
 int link_set_sysctl(Link *link) {
         int r;
 
         assert(link);
+
+        link_watch_sysctl(link);
 
         /* If IPv6 configured that is static IPv6 address and IPv6LL autoconfiguration is enabled
          * for this interface, then enable IPv6 */
