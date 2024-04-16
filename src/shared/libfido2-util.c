@@ -850,9 +850,9 @@ int fido2_generate_hmac_hash(
          * Rather than potentially trying and failing to create the credential, just collect the PIN first
          * and then pass it to both the make_credential and the get_assertion operations. */
         if (FLAGS_SET(lock_with, FIDO2ENROLL_PIN))
-            r = FIDO_ERR_PIN_REQUIRED;
+                r = FIDO_ERR_PIN_REQUIRED;
         else
-            r = sym_fido_dev_make_cred(d, c, NULL);
+                r = sym_fido_dev_make_cred(d, c, NULL);
 
         if (r == FIDO_ERR_PIN_REQUIRED) {
 
