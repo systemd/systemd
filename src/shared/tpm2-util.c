@@ -5805,7 +5805,8 @@ int tpm2_seal_data(
                 const Tpm2Handle *encryption_session,
                 const TPM2B_DIGEST *policy,
                 struct iovec *ret_public,
-                struct iovec *ret_private) {
+                struct iovec *ret_private,
+                Tpm2Handle **ret_loaded) {
 
         int r;
 
@@ -5815,7 +5816,9 @@ int tpm2_seal_data(
 
         /* This is a generic version of tpm2_seal(), that doesn't imply any policy or any specific
          * combination of the two keypairs in their marshalling. tpm2_seal() is somewhat specific to the FDE
-         * usecase. We probably should migrate tpm2_seal() to use tpm2_seal_data() eventually. */
+         * usecase. We probably should migrate tpm2_seal() to use tpm2_seal_data() eventually.
+         *
+         * If ret_loaded is non-NULL will also load the object into the TPM and return a handle to it. */
 
         if (data->iov_len >= sizeof_field(TPMS_SENSITIVE_CREATE, data.buffer))
                 return -E2BIG;
@@ -5837,9 +5840,13 @@ int tpm2_seal_data(
 
         memcpy_safe(hmac_sensitive.data.buffer, data->iov_base, data->iov_len);
 
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
         _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
         _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
-        r = tpm2_create(c, primary_handle, encryption_session, &hmac_template, &hmac_sensitive, &public, &private);
+        if (ret_loaded)
+                r = tpm2_create_loaded(c, primary_handle, encryption_session, &hmac_template, &hmac_sensitive, &public, &private, &handle);
+        else
+                r = tpm2_create(c, primary_handle, encryption_session, &hmac_template, &hmac_sensitive, &public, &private);
         if (r < 0)
                 return r;
 
@@ -5857,6 +5864,8 @@ int tpm2_seal_data(
                 *ret_public = TAKE_STRUCT(public_blob);
         if (ret_private)
                 *ret_private = TAKE_STRUCT(private_blob);
+        if (ret_loaded)
+                *ret_loaded = TAKE_PTR(handle);
 
         return 0;
 }
