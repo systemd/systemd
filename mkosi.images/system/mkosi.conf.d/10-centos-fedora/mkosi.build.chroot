@@ -16,6 +16,15 @@ else
     TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 fi
 
+# Fix the %install override so debuginfo packages are generated even when --build-in-place is used.
+# See https://github.com/rpm-software-management/rpm/issues/3042.
+tee --append /usr/lib/rpm/redhat/macros <<'EOF'
+%install %{?_enable_debug_packages:%{debug_package}}\
+%%install\
+%{nil}
+EOF
+
+IFS=
 # TODO: Replace meson_build and meson_install overrides with "--undefine __meson_verbose" once
 # https://github.com/mesonbuild/meson/pull/12835 is available.
 # shellcheck disable=SC2046
@@ -32,14 +41,16 @@ rpmbuild \
     ${BUILDDIR:+"_vpath_builddir $BUILDDIR"} \
     --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
     --define "_binary_payload w.ufdio" \
-    --define "debug_package %{nil}" \
+    $( ((WITH_DEBUG)) || echo --define) \
+    $( ((WITH_DEBUG)) || echo "debug_package %{nil}") \
     --define "version_override $(cat meson.version)" \
     --define "release_override $(date "+%Y%m%d%H%M%S" --date "@$TS")" \
     --define "_distro_extra_cflags -Og" \
     --define "meson_build %{shrink:%{__meson} compile -C %{_vpath_builddir} -j %{_smp_build_ncpus} %{nil}}" \
     --define "meson_install %{shrink:DESTDIR=%{buildroot} %{__meson} install -C %{_vpath_builddir} --no-rebuild --quiet %{nil}}" \
     --define "meson_extra_configure_options -D mode=developer -D b_sanitize=${SANITIZERS:-none}" \
-    --define "__brp_strip %{nil}" \
+    $( ((WITH_DEBUG)) || echo --define) \
+    $( ((WITH_DEBUG)) || echo "__brp_strip %{nil}") \
     --define "__brp_compress %{nil}" \
     --define "__brp_mangle_shebangs %{nil}" \
     --define "__brp_strip_comment_note %{nil}" \
