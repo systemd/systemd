@@ -2242,9 +2242,9 @@ static int tpm2_load_external(
 #if HAVE_TSS2_ESYS3
                         /* tpm2-tss >= 3.0.0 requires a ESYS_TR_RH_* constant specifying the requested
                          * hierarchy, older versions need TPM2_RH_* instead. */
-                        ESYS_TR_RH_OWNER,
+                        private ? ESYS_TR_RH_NULL : ESYS_TR_RH_OWNER,
 #else
-                        TPM2_RH_OWNER,
+                        private ? TPM2_RH_NULL : TPM2_RH_OWNER,
 #endif
                         &handle->esys_handle);
         if (rc != TSS2_RC_SUCCESS)
