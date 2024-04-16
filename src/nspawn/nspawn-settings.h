@@ -268,7 +268,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_oom_score_adjust);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_affinity);
 CONFIG_PARSER_PROTOTYPE(config_parse_resolv_conf);
 CONFIG_PARSER_PROTOTYPE(config_parse_link_journal);
-CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
+CONFIG_PARSER_PROTOTYPE(config_parse_timezone_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_userns_chown);
 CONFIG_PARSER_PROTOTYPE(config_parse_userns_ownership);
 CONFIG_PARSER_PROTOTYPE(config_parse_bind_user);
