@@ -475,18 +475,6 @@ testcase_long_sysfs_path() {
     )
 
     dd if=/dev/zero of="$testdisk" bs=1M count=64
-    lodev="$(losetup --show -f -P "$testdisk")"
-    sfdisk "${lodev:?}" <<EOF
-label: gpt
-
-name="test_swap", size=32M
-uuid="deadbeef-dead-dead-beef-000000000000", name="test_part", size=5M
-EOF
-    udevadm settle
-    mkswap -U "deadbeef-dead-dead-beef-111111111111" -L "swap_vol" "${lodev}p1"
-    mkfs.ext4 -U "deadbeef-dead-dead-beef-222222222222" -L "data_vol" "${lodev}p2"
-    losetup -d "$lodev"
-
     # Create 25 additional PCI bridges, each one connected to the previous one
     # (basically a really long extension cable), and attach a virtio drive to
     # the last one. This should force udev into attempting to create a device
