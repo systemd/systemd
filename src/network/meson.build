@@ -66,6 +66,7 @@ sources = files(
         'networkd-network-bus.c',
         'networkd-network.c',
         'networkd-nexthop.c',
+        'networkd-ntp.c',
         'networkd-queue.c',
         'networkd-radv.c',
         'networkd-route.c',
