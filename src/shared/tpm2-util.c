@@ -2212,7 +2212,7 @@ int tpm2_load(
         return 0;
 }
 
-static int tpm2_load_external(
+int tpm2_load_external(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 const TPM2B_PUBLIC *public,

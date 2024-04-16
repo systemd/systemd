@@ -126,6 +126,7 @@ int tpm2_create_primary(Tpm2Context *c, const Tpm2Handle *session, const TPM2B_P
 int tpm2_create(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPMT_PUBLIC *template, const TPMS_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, TPM2B_PRIVATE **ret_private);
 int tpm2_create_loaded(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPMT_PUBLIC *template, const TPMS_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, TPM2B_PRIVATE **ret_private, Tpm2Handle **ret_handle);
 int tpm2_load(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPM2B_PUBLIC *public, const TPM2B_PRIVATE *private, Tpm2Handle **ret_handle);
+int tpm2_load_external(Tpm2Context *c, const Tpm2Handle *session, const TPM2B_PUBLIC *public, const TPM2B_SENSITIVE *private, Tpm2Handle **ret_handle);
 int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size);
 int tpm2_marshal_nv_public(const TPM2B_NV_PUBLIC *nv_public, void **ret, size_t *ret_size);
 int tpm2_unmarshal_nv_public(const void *data, size_t size, TPM2B_NV_PUBLIC *ret_nv_public);
