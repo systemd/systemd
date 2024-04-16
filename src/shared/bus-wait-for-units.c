@@ -18,7 +18,7 @@ typedef struct WaitForItem {
         sd_bus_slot *slot_get_all;
         sd_bus_slot *slot_properties_changed;
 
-        bus_wait_for_units_unit_callback unit_callback;
+        bus_wait_for_units_unit_callback_t unit_callback;
         void *userdata;
 
         char *active_state;
@@ -298,7 +298,7 @@ int bus_wait_for_units_add_unit(
                 BusWaitForUnits *d,
                 const char *unit,
                 BusWaitForUnitsFlags flags,
-                bus_wait_for_units_unit_callback callback,
+                bus_wait_for_units_unit_callback_t callback,
                 void *userdata) {
 
         _cleanup_(wait_for_item_freep) WaitForItem *item = NULL;

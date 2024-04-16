@@ -21,13 +21,19 @@ typedef enum BusWaitForUnitsFlags {
         BUS_WAIT_REFFED              = 1 << 3, /* The unit is already reffed with RefUnit() */
 } BusWaitForUnitsFlags;
 
-typedef void (*bus_wait_for_units_unit_callback)(BusWaitForUnits *d, const char *unit_path, bool good, void *userdata);
+typedef void (*bus_wait_for_units_unit_callback_t)(BusWaitForUnits *d, const char *unit_path, bool good, void *userdata);
 
 int bus_wait_for_units_new(sd_bus *bus, BusWaitForUnits **ret);
 
 BusWaitForUnits* bus_wait_for_units_free(BusWaitForUnits *d);
 DEFINE_TRIVIAL_CLEANUP_FUNC(BusWaitForUnits*, bus_wait_for_units_free);
 
-BusWaitForUnitsState bus_wait_for_units_state(BusWaitForUnits *d);
-int bus_wait_for_units_add_unit(BusWaitForUnits *d, const char *unit, BusWaitForUnitsFlags flags, bus_wait_for_units_unit_callback callback, void *userdata);
+int bus_wait_for_units_add_unit(
+                BusWaitForUnits *d,
+                const char *unit,
+                BusWaitForUnitsFlags flags,
+                bus_wait_for_units_unit_callback_t callback,
+                void *userdata);
+
 int bus_wait_for_units_run(BusWaitForUnits *d);
+BusWaitForUnitsState bus_wait_for_units_state(BusWaitForUnits *d);
