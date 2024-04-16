@@ -340,9 +340,9 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t FinishTimestampMonotonic = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly t SoftRebootStartTimestamp = ...;
+      readonly t ShutdownStartTimestamp = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly t SoftRebootStartTimestampMonotonic = ...;
+      readonly t ShutdownStartTimestampMonotonic = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t SecurityStartTimestamp = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -1039,9 +1039,9 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="FinishTimestampMonotonic"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="SoftRebootStartTimestamp"/>
+    <variablelist class="dbus-property" generated="True" extra-ref="ShutdownStartTimestamp"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="SoftRebootStartTimestampMonotonic"/>
+    <variablelist class="dbus-property" generated="True" extra-ref="ShutdownStartTimestampMonotonic"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SecurityStartTimestamp"/>
 
@@ -1746,12 +1746,11 @@ node /org/freedesktop/systemd1 {
       <varname>InitRDTimestamp</varname>, <varname>InitRDTimestampMonotonic</varname>,
       <varname>UserspaceTimestamp</varname>, <varname>UserspaceTimestampMonotonic</varname>,
       <varname>FinishTimestamp</varname>, <varname>FinishTimestampMonotonic</varname>,
-      <varname>SoftRebootStartTimestamp</varname> and <varname>SoftRebootStartTimestampMonotonic</varname>
+      <varname>ShutdownStartTimestamp</varname> and <varname>ShutdownStartTimestampMonotonic</varname>
       encode <constant>CLOCK_REALTIME</constant> and <constant>CLOCK_MONOTONIC</constant> microsecond
       timestamps taken when the firmware first began execution, when the boot loader first began execution,
       when the kernel first began execution, when the initrd first began execution, when the main systemd
-      instance began execution, when all queued startup jobs finished execution and finally, when a
-      <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      instance began execution, when all queued startup jobs finished execution and finally, when a shutdown
       operation first began execution. These values are useful for determining boot-time performance. Note
       that as monotonic time begins with the kernel startup, the <varname>KernelTimestampMonotonic</varname>
       timestamp will always be 0 and <varname>FirmwareTimestampMonotonic</varname> and
@@ -12000,8 +11999,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <function>SoftReboot()</function>, and
       <function>DumpUnitFileDescriptorStore()</function> were added in version 254.</para>
       <para><function>StartAuxiliaryScope()</function>,
-      <varname>SoftRebootStartTimestamp</varname>,
-      <varname>SoftRebootStartTimestampMonotonic</varname> and
+      <varname>ShutdownStartTimestamp</varname>,
+      <varname>ShutdownStartTimestampMonotonic</varname> and
       <varname>SoftRebootsCount</varname> were added in version 256.</para>
     </refsect2>
     <refsect2>
