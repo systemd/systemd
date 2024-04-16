@@ -32,9 +32,6 @@ typedef struct BusWaitForUnits {
 
         Hashmap *items;
 
-        bus_wait_for_units_ready_callback ready_callback;
-        void *userdata;
-
         WaitForItem *current;
 
         BusWaitForUnitsState state;
@@ -112,11 +109,7 @@ static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *e
         log_warning("D-Bus connection terminated while waiting for unit.");
 
         bus_wait_for_units_clear(d);
-
-        if (d->ready_callback)
-                d->ready_callback(d, BUS_WAIT_FAILURE, d->userdata);
-        else /* If no ready callback is specified close the connection so that the event loop exits */
-                sd_bus_close(sd_bus_message_get_bus(m));
+        sd_bus_close(sd_bus_message_get_bus(m));
 
         return 0;
 }
@@ -172,13 +165,6 @@ static bool bus_wait_for_units_is_ready(BusWaitForUnits *d) {
         return hashmap_isempty(d->items);
 }
 
-void bus_wait_for_units_set_ready_callback(BusWaitForUnits *d, bus_wait_for_units_ready_callback callback, void *userdata) {
-        assert(d);
-
-        d->ready_callback = callback;
-        d->userdata = userdata;
-}
-
 static void bus_wait_for_units_check_ready(BusWaitForUnits *d) {
         assert(d);
 
@@ -186,9 +172,6 @@ static void bus_wait_for_units_check_ready(BusWaitForUnits *d) {
                 return;
 
         d->state = d->has_failed ? BUS_WAIT_FAILURE : BUS_WAIT_SUCCESS;
-
-        if (d->ready_callback)
-                d->ready_callback(d, d->state, d->userdata);
 }
 
 static void wait_for_item_check_ready(WaitForItem *item) {
