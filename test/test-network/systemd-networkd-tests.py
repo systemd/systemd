@@ -5591,6 +5591,12 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.assertIn('2002:da8:1:1:1a:2b:3c:4d via fe80::1 proto redirect', output)
         self.assertIn('2002:da8:1:2:1a:2b:3c:4d via fe80::2 proto redirect', output)
 
+        # Check if sd-radv refuses RS from the same interface.
+        # See https://github.com/systemd/systemd/pull/32267#discussion_r1566721306
+        since = datetime.datetime.now()
+        check_output(f'{test_ndisc_send} --interface veth-peer --type rs --dest {veth_peer_ipv6ll}')
+        self.check_networkd_log('veth-peer: RADV: Received RS from the same interface, ignoring.', since=since)
+
     def check_ndisc_mtu(self, mtu):
         for _ in range(20):
             output = read_ipv6_sysctl_attr('veth99', 'mtu')
