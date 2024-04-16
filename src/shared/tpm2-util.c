@@ -65,6 +65,7 @@ static DLSYM_FUNCTION(Esys_PolicyAuthorizeNV);
 static DLSYM_FUNCTION(Esys_PolicyGetDigest);
 static DLSYM_FUNCTION(Esys_PolicyOR);
 static DLSYM_FUNCTION(Esys_PolicyPCR);
+static DLSYM_FUNCTION(Esys_PolicySigned);
 static DLSYM_FUNCTION(Esys_ReadPublic);
 static DLSYM_FUNCTION(Esys_StartAuthSession);
 static DLSYM_FUNCTION(Esys_Startup);
@@ -77,6 +78,7 @@ static DLSYM_FUNCTION(Esys_TR_GetTpmHandle);
 static DLSYM_FUNCTION(Esys_TR_Serialize);
 static DLSYM_FUNCTION(Esys_TR_SetAuth);
 static DLSYM_FUNCTION(Esys_TRSess_GetAttributes);
+static DLSYM_FUNCTION(Esys_TRSess_GetNonceTPM);
 static DLSYM_FUNCTION(Esys_TRSess_SetAttributes);
 static DLSYM_FUNCTION(Esys_Unseal);
 static DLSYM_FUNCTION(Esys_VerifySignature);
@@ -132,6 +134,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_PolicyGetDigest),
                         DLSYM_ARG(Esys_PolicyOR),
                         DLSYM_ARG(Esys_PolicyPCR),
+                        DLSYM_ARG(Esys_PolicySigned),
                         DLSYM_ARG(Esys_ReadPublic),
                         DLSYM_ARG(Esys_StartAuthSession),
                         DLSYM_ARG(Esys_Startup),
@@ -143,6 +146,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_TR_Serialize),
                         DLSYM_ARG(Esys_TR_SetAuth),
                         DLSYM_ARG(Esys_TRSess_GetAttributes),
+                        DLSYM_ARG(Esys_TRSess_GetNonceTPM),
                         DLSYM_ARG(Esys_TRSess_SetAttributes),
                         DLSYM_ARG(Esys_Unseal),
                         DLSYM_ARG(Esys_VerifySignature));
