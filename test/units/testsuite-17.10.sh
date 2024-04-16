@@ -45,8 +45,8 @@ udevadm control -S
 udevadm control -R
 udevadm control -p HELLO=world
 udevadm control -m 42
-udevadm control --ping
-udevadm control -t 5
+udevadm control --ping -t 5
+udevadm control --load-credentials
 udevadm control -h
 
 udevadm info /dev/null
