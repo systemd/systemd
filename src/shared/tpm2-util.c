@@ -3396,7 +3396,7 @@ int tpm2_calculate_pubkey_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name) 
  *
  * The handle must reference a key already present in the TPM. It may be either a public key only, or a
  * public/private keypair. */
-static int tpm2_get_name(
+int tpm2_get_name(
                 Tpm2Context *c,
                 const Tpm2Handle *handle,
                 TPM2B_NAME **ret_name) {
