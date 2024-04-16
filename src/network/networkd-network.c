@@ -43,9 +43,6 @@
 #include "strv.h"
 #include "tclass.h"
 
-/* Let's assume that anything above this number is a user misconfiguration. */
-#define MAX_NTP_SERVERS 128U
-
 static int network_resolve_netdev_one(Network *network, const char *name, NetDevKind kind, NetDev **ret) {
         const char *kind_string;
         NetDev *netdev;
@@ -380,15 +377,19 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .keep_configuration = manager->keep_configuration,
 
+                .compat_dhcp_use_domains = _USE_DOMAINS_INVALID,
+                .compat_dhcp_use_dns = -1,
+                .compat_dhcp_use_ntp = -1,
+
                 .dhcp_duid.type = _DUID_TYPE_INVALID,
                 .dhcp_critical = -1,
-                .dhcp_use_ntp = true,
+                .dhcp_use_ntp = -1,
                 .dhcp_routes_to_ntp = true,
                 .dhcp_use_sip = true,
                 .dhcp_use_captive_portal = true,
-                .dhcp_use_dns = true,
+                .dhcp_use_dns = -1,
                 .dhcp_routes_to_dns = true,
-                .dhcp_use_domains = manager->dhcp_use_domains,
+                .dhcp_use_domains = _USE_DOMAINS_INVALID,
                 .dhcp_use_hostname = true,
                 .dhcp_use_routes = true,
                 .dhcp_use_gateway = -1,
@@ -404,10 +405,10 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .dhcp6_use_address = true,
                 .dhcp6_use_pd_prefix = true,
-                .dhcp6_use_dns = true,
-                .dhcp6_use_domains = manager->dhcp6_use_domains,
+                .dhcp6_use_dns = -1,
+                .dhcp6_use_domains = _USE_DOMAINS_INVALID,
                 .dhcp6_use_hostname = true,
-                .dhcp6_use_ntp = true,
+                .dhcp6_use_ntp = -1,
                 .dhcp6_use_captive_portal = true,
                 .dhcp6_use_rapid_commit = true,
                 .dhcp6_send_hostname = true,
@@ -478,7 +479,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .ndisc = -1,
                 .ndisc_use_redirect = true,
-                .ndisc_use_dns = true,
+                .ndisc_use_dns = -1,
                 .ndisc_use_gateway = true,
                 .ndisc_use_captive_portal = true,
                 .ndisc_use_route_prefix = true,
@@ -920,288 +921,6 @@ int config_parse_stacked_netdev(
                 TAKE_PTR(name);
 
         return 0;
-}
-
-int config_parse_domains(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *n = ASSERT_PTR(userdata);
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (isempty(rvalue)) {
-                n->search_domains = ordered_set_free(n->search_domains);
-                n->route_domains = ordered_set_free(n->route_domains);
-                return 0;
-        }
-
-        for (const char *p = rvalue;;) {
-                _cleanup_free_ char *w = NULL, *normalized = NULL;
-                const char *domain;
-                bool is_route;
-
-                r = extract_first_word(&p, &w, NULL, 0);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to extract search or route domain, ignoring: %s", rvalue);
-                        return 0;
-                }
-                if (r == 0)
-                        return 0;
-
-                is_route = w[0] == '~';
-                domain = is_route ? w + 1 : w;
-
-                if (dns_name_is_root(domain) || streq(domain, "*")) {
-                        /* If the root domain appears as is, or the special token "*" is found, we'll
-                         * consider this as routing domain, unconditionally. */
-                        is_route = true;
-                        domain = "."; /* make sure we don't allow empty strings, thus write the root
-                                       * domain as "." */
-                } else {
-                        r = dns_name_normalize(domain, 0, &normalized);
-                        if (r < 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, r,
-                                           "'%s' is not a valid domain name, ignoring.", domain);
-                                continue;
-                        }
-
-                        domain = normalized;
-
-                        if (is_localhost(domain)) {
-                                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                           "'localhost' domain may not be configured as search or route domain, ignoring assignment: %s",
-                                           domain);
-                                continue;
-                        }
-                }
-
-                OrderedSet **set = is_route ? &n->route_domains : &n->search_domains;
-                r = ordered_set_put_strdup(set, domain);
-                if (r == -EEXIST)
-                        continue;
-                if (r < 0)
-                        return log_oom();
-        }
-}
-
-int config_parse_timezone(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        char **tz = ASSERT_PTR(data);
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (isempty(rvalue)) {
-                *tz = mfree(*tz);
-                return 0;
-        }
-
-        r = verify_timezone(rvalue, LOG_WARNING);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Timezone is not valid, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        return free_and_strdup_warn(tz, rvalue);
-}
-
-int config_parse_dns(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *n = ASSERT_PTR(userdata);
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (isempty(rvalue)) {
-                for (unsigned i = 0; i < n->n_dns; i++)
-                        in_addr_full_free(n->dns[i]);
-                n->dns = mfree(n->dns);
-                n->n_dns = 0;
-                return 0;
-        }
-
-        for (const char *p = rvalue;;) {
-                _cleanup_(in_addr_full_freep) struct in_addr_full *dns = NULL;
-                _cleanup_free_ char *w = NULL;
-                struct in_addr_full **m;
-
-                r = extract_first_word(&p, &w, NULL, 0);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Invalid syntax, ignoring: %s", rvalue);
-                        return 0;
-                }
-                if (r == 0)
-                        return 0;
-
-                r = in_addr_full_new_from_string(w, &dns);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse dns server address, ignoring: %s", w);
-                        continue;
-                }
-
-                if (IN_SET(dns->port, 53, 853))
-                        dns->port = 0;
-
-                m = reallocarray(n->dns, n->n_dns + 1, sizeof(struct in_addr_full*));
-                if (!m)
-                        return log_oom();
-
-                m[n->n_dns++] = TAKE_PTR(dns);
-                n->dns = m;
-        }
-}
-
-int config_parse_dnssec_negative_trust_anchors(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Set **nta = ASSERT_PTR(data);
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (isempty(rvalue)) {
-                *nta = set_free_free(*nta);
-                return 0;
-        }
-
-        for (const char *p = rvalue;;) {
-                _cleanup_free_ char *w = NULL;
-
-                r = extract_first_word(&p, &w, NULL, 0);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to extract negative trust anchor domain, ignoring: %s", rvalue);
-                        return 0;
-                }
-                if (r == 0)
-                        return 0;
-
-                r = dns_name_is_valid(w);
-                if (r <= 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "%s is not a valid domain name, ignoring.", w);
-                        continue;
-                }
-
-                r = set_ensure_consume(nta, &dns_name_hash_ops, TAKE_PTR(w));
-                if (r < 0)
-                        return log_oom();
-        }
-}
-
-int config_parse_ntp(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        char ***l = ASSERT_PTR(data);
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (isempty(rvalue)) {
-                *l = strv_free(*l);
-                return 0;
-        }
-
-        for (const char *p = rvalue;;) {
-                _cleanup_free_ char *w = NULL;
-
-                r = extract_first_word(&p, &w, NULL, 0);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to extract NTP server name, ignoring: %s", rvalue);
-                        return 0;
-                }
-                if (r == 0)
-                        return 0;
-
-                r = dns_name_is_valid_or_address(w);
-                if (r <= 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "%s is not a valid domain name or IP address, ignoring.", w);
-                        continue;
-                }
-
-                if (strv_length(*l) > MAX_NTP_SERVERS) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "More than %u NTP servers specified, ignoring \"%s\" and any subsequent entries.",
-                                   MAX_NTP_SERVERS, w);
-                        return 0;
-                }
-
-                r = strv_consume(l, TAKE_PTR(w));
-                if (r < 0)
-                        return log_oom();
-        }
 }
 
 int config_parse_required_for_online(
