@@ -53,8 +53,13 @@ bool link_ndisc_enabled(Link *link) {
         if (!link_may_have_ipv6ll(link, /* check_multicast = */ true))
                 return false;
 
+        /* Honor explicitly specified value. */
         if (link->network->ndisc >= 0)
                 return link->network->ndisc;
+
+        /* Disable if RADV is enabled. */
+        if (link_radv_enabled(link))
+                return false;
 
         /* Accept RAs if IPv6 forwarding is disabled, and ignore RAs if IPv6 forwarding is enabled. */
         int t = link_get_ip_forwarding(link, AF_INET6);
@@ -1404,7 +1409,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         assert(link->network);
         assert(rt);
 
-        if (!link->network->ndisc_use_dns)
+        if (!link_get_use_dns(link, NETWORK_CONFIG_SOURCE_NDISC))
                 return 0;
 
         r = sd_ndisc_router_get_sender_address(rt, &router);
@@ -1496,7 +1501,7 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         assert(link->network);
         assert(rt);
 
-        if (link->network->ndisc_use_domains == DHCP_USE_DOMAINS_NO)
+        if (link_get_use_domains(link, NETWORK_CONFIG_SOURCE_NDISC) <= 0)
                 return 0;
 
         r = sd_ndisc_router_get_sender_address(rt, &router);
@@ -2478,7 +2483,5 @@ static const char* const ndisc_start_dhcp6_client_table[_IPV6_ACCEPT_RA_START_DH
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(ndisc_start_dhcp6_client, IPv6AcceptRAStartDHCP6Client, IPV6_ACCEPT_RA_START_DHCP6_CLIENT_YES);
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_ndisc_use_domains, dhcp_use_domains, DHCPUseDomains,
-                         "Failed to parse UseDomains= setting");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ndisc_start_dhcp6_client, ndisc_start_dhcp6_client, IPv6AcceptRAStartDHCP6Client,
                          "Failed to parse DHCPv6Client= setting");
