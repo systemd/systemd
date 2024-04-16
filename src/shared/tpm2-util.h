@@ -131,6 +131,7 @@ int tpm2_marshal_nv_public(const TPM2B_NV_PUBLIC *nv_public, void **ret, size_t 
 int tpm2_unmarshal_nv_public(const void *data, size_t size, TPM2B_NV_PUBLIC *ret_nv_public);
 int tpm2_marshal_blob(const TPM2B_PUBLIC *public, const TPM2B_PRIVATE *private, const TPM2B_ENCRYPTED_SECRET *seed, void **ret_blob, size_t *ret_blob_size);
 int tpm2_unmarshal_blob(const void *blob, size_t blob_size, TPM2B_PUBLIC *ret_public, TPM2B_PRIVATE *ret_private, TPM2B_ENCRYPTED_SECRET *ret_seed);
+int tpm2_get_name(Tpm2Context *c, const Tpm2Handle *handle, TPM2B_NAME **ret_name);
 
 bool tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg);
 bool tpm2_supports_command(Tpm2Context *c, TPM2_CC command);
