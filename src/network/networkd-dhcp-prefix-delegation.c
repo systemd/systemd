@@ -172,7 +172,7 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
                                 continue;
 
                         if (link->radv)
-                                sd_radv_remove_prefix(link->radv, &route->dst.in6, 64);
+                                sd_radv_remove_prefix(link->radv, 64, &route->dst.in6);
 
                         link_remove_dhcp_pd_subnet_prefix(link, &route->dst.in6);
 
@@ -193,7 +193,7 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
                         in6_addr_mask(&prefix, 64);
 
                         if (link->radv)
-                                sd_radv_remove_prefix(link->radv, &prefix, 64);
+                                sd_radv_remove_prefix(link->radv, 64, &prefix);
 
                         link_remove_dhcp_pd_subnet_prefix(link, &prefix);
 
