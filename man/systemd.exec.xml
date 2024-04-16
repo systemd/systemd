@@ -3175,8 +3175,8 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <literal>\x7efoobar</literal> would add a pattern matching <literal>~foobar</literal> to the allow list.</para>
 
         <para>Log messages are tested against denied patterns (if any), then against allowed patterns
-        (if any). If a log message matches any of the denied patterns, it will be discarded, whatever the
-        allowed patterns. Then, remaining log messages are tested against allowed patterns. Messages matching
+        (if any). If a log message matches any of the denied patterns, it is discarded immediately without considering
+        allowed patterns. Remaining log messages are tested against allowed patterns. Messages matching
         against none of the allowed pattern are discarded. If no allowed patterns are defined, then all
         messages are processed directly after going through denied filters.</para>
 
