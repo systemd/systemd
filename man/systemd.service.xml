@@ -1728,7 +1728,7 @@ SystemdService=simple-dbus-service.service</programlisting>
 Description=Simple notifying service
 
 [Service]
-Type=notify
+Type=notify-reload
 ExecStart=/usr/sbin/simple-notifying-service
 
 [Install]
@@ -1746,6 +1746,16 @@ WantedBy=multi-user.target</programlisting>
       <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       for details on how you can influence the way systemd terminates
       the service.</para>
+
+      <para>To avoid code duplication, it is preferable to use
+      <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      when possible, especially when other APIs provided by
+      <citerefentry><refentrytitle>libsystemd</refentrytitle><manvolnum>3</manvolnum></citerefentry> are
+      also used, but note that the notification protocol is very simple and guaranteed to be stable as per
+      the <ulink url="https://systemd.io/PORTABILITY_AND_STABILITY/">Interface Portability and Stability
+      Promise</ulink>, so it can be reimplemented by services with no external dependencies. For a
+      self-contained example, see
+      <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
     </example>
   </refsect1>
 

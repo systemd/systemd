@@ -23,13 +23,13 @@
 #include "user-util.h"
 
 static const UnitActiveState state_translation_table[_SCOPE_STATE_MAX] = {
-        [SCOPE_DEAD] = UNIT_INACTIVE,
-        [SCOPE_START_CHOWN] = UNIT_ACTIVATING,
-        [SCOPE_RUNNING] = UNIT_ACTIVE,
-        [SCOPE_ABANDONED] = UNIT_ACTIVE,
+        [SCOPE_DEAD]         = UNIT_INACTIVE,
+        [SCOPE_START_CHOWN]  = UNIT_ACTIVATING,
+        [SCOPE_RUNNING]      = UNIT_ACTIVE,
+        [SCOPE_ABANDONED]    = UNIT_ACTIVE,
         [SCOPE_STOP_SIGTERM] = UNIT_DEACTIVATING,
         [SCOPE_STOP_SIGKILL] = UNIT_DEACTIVATING,
-        [SCOPE_FAILED] = UNIT_FAILED,
+        [SCOPE_FAILED]       = UNIT_FAILED,
 };
 
 static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
@@ -99,7 +99,8 @@ static void scope_set_state(Scope *s, ScopeState state) {
         }
 
         if (state != old_state)
-                log_debug("%s changed %s -> %s", UNIT(s)->id, scope_state_to_string(old_state), scope_state_to_string(state));
+                log_unit_debug(UNIT(s), "Changed %s -> %s",
+                               scope_state_to_string(old_state), scope_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
 }
@@ -570,6 +571,8 @@ static int scope_deserialize_item(Unit *u, const char *key, const char *value, F
         } else if (streq(key, "pids")) {
                 _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
+                /* We don't check if we already received the pid before here because unit_watch_pidref()
+                 * does this check internally and discards the new pidref if we already received it before. */
                 if (deserialize_pidref(fds, value, &pidref) >= 0) {
                         r = unit_watch_pidref(u, &pidref, /* exclusive= */ false);
                         if (r < 0)

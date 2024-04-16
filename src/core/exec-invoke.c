@@ -1771,10 +1771,10 @@ static const char *exec_directory_env_name_to_string(ExecDirectoryType t);
 /* And this table also maps ExecDirectoryType, to the environment variable we pass the selected directory to
  * the service payload in. */
 static const char* const exec_directory_env_name_table[_EXEC_DIRECTORY_TYPE_MAX] = {
-        [EXEC_DIRECTORY_RUNTIME] = "RUNTIME_DIRECTORY",
-        [EXEC_DIRECTORY_STATE] = "STATE_DIRECTORY",
-        [EXEC_DIRECTORY_CACHE] = "CACHE_DIRECTORY",
-        [EXEC_DIRECTORY_LOGS] = "LOGS_DIRECTORY",
+        [EXEC_DIRECTORY_RUNTIME]       = "RUNTIME_DIRECTORY",
+        [EXEC_DIRECTORY_STATE]         = "STATE_DIRECTORY",
+        [EXEC_DIRECTORY_CACHE]         = "CACHE_DIRECTORY",
+        [EXEC_DIRECTORY_LOGS]          = "LOGS_DIRECTORY",
         [EXEC_DIRECTORY_CONFIGURATION] = "CONFIGURATION_DIRECTORY",
 };
 
@@ -1915,7 +1915,7 @@ static int build_environment(
                  * to inherit the $TERM set for PID 1. This is useful for containers so that the $TERM the
                  * container manager passes to PID 1 ends up all the way in the console login shown. */
 
-                if (path_equal_ptr(tty_path, "/dev/console") && getppid() == 1)
+                if (path_equal(tty_path, "/dev/console") && getppid() == 1)
                         term = getenv("TERM");
                 else if (tty_path && in_charset(skip_dev_prefix(tty_path), ALPHANUMERICAL)) {
                         _cleanup_free_ char *key = NULL;
@@ -2269,10 +2269,10 @@ static int setup_exec_directory(
                 int *exit_status) {
 
         static const int exit_status_table[_EXEC_DIRECTORY_TYPE_MAX] = {
-                [EXEC_DIRECTORY_RUNTIME] = EXIT_RUNTIME_DIRECTORY,
-                [EXEC_DIRECTORY_STATE] = EXIT_STATE_DIRECTORY,
-                [EXEC_DIRECTORY_CACHE] = EXIT_CACHE_DIRECTORY,
-                [EXEC_DIRECTORY_LOGS] = EXIT_LOGS_DIRECTORY,
+                [EXEC_DIRECTORY_RUNTIME]       = EXIT_RUNTIME_DIRECTORY,
+                [EXEC_DIRECTORY_STATE]         = EXIT_STATE_DIRECTORY,
+                [EXEC_DIRECTORY_CACHE]         = EXIT_CACHE_DIRECTORY,
+                [EXEC_DIRECTORY_LOGS]          = EXIT_LOGS_DIRECTORY,
                 [EXEC_DIRECTORY_CONFIGURATION] = EXIT_CONFIGURATION_DIRECTORY,
         };
         int r;
@@ -3699,11 +3699,12 @@ static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int *fd) {
 }
 
 static int connect_unix_harder(const ExecContext *c, const ExecParameters *p, const OpenFile *of, int ofd) {
+        static const int socket_types[] = { SOCK_DGRAM, SOCK_STREAM, SOCK_SEQPACKET };
+
         union sockaddr_union addr = {
                 .un.sun_family = AF_UNIX,
         };
         socklen_t sa_len;
-        static const int socket_types[] = { SOCK_DGRAM, SOCK_STREAM, SOCK_SEQPACKET };
         int r;
 
         assert(c);
@@ -3713,43 +3714,35 @@ static int connect_unix_harder(const ExecContext *c, const ExecParameters *p, co
 
         r = sockaddr_un_set_path(&addr.un, FORMAT_PROC_FD_PATH(ofd));
         if (r < 0)
-                return log_exec_error_errno(c, p, r, "Failed to set sockaddr for %s: %m", of->path);
-
+                return log_exec_error_errno(c, p, r, "Failed to set sockaddr for '%s': %m", of->path);
         sa_len = r;
 
-        for (size_t i = 0; i < ELEMENTSOF(socket_types); i++) {
+        FOREACH_ARRAY(i, socket_types, ELEMENTSOF(socket_types)) {
                 _cleanup_close_ int fd = -EBADF;
 
-                fd = socket(AF_UNIX, socket_types[i] | SOCK_CLOEXEC, 0);
+                fd = socket(AF_UNIX, *i|SOCK_CLOEXEC, 0);
                 if (fd < 0)
-                        return log_exec_error_errno(c,
-                                                    p,
-                                                    errno,
-                                                    "Failed to create socket for %s: %m",
+                        return log_exec_error_errno(c, p,
+                                                    errno, "Failed to create socket for '%s': %m",
                                                     of->path);
 
                 r = RET_NERRNO(connect(fd, &addr.sa, sa_len));
-                if (r == -EPROTOTYPE)
-                        continue;
-                if (r < 0)
-                        return log_exec_error_errno(c,
-                                                    p,
-                                                    r,
-                                                    "Failed to connect socket for %s: %m",
+                if (r >= 0)
+                        return TAKE_FD(fd);
+                if (r != -EPROTOTYPE)
+                        return log_exec_error_errno(c, p,
+                                                    r, "Failed to connect to socket for '%s': %m",
                                                     of->path);
-
-                return TAKE_FD(fd);
         }
 
-        return log_exec_error_errno(c,
-                                    p,
-                                    SYNTHETIC_ERRNO(EPROTOTYPE), "Failed to connect socket for \"%s\".",
+        return log_exec_error_errno(c, p,
+                                    SYNTHETIC_ERRNO(EPROTOTYPE), "No suitable socket type to connect to socket '%s'.",
                                     of->path);
 }
 
 static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const OpenFile *of) {
-        struct stat st;
         _cleanup_close_ int fd = -EBADF, ofd = -EBADF;
+        struct stat st;
 
         assert(c);
         assert(p);
@@ -3757,10 +3750,10 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
 
         ofd = open(of->path, O_PATH | O_CLOEXEC);
         if (ofd < 0)
-                return log_exec_error_errno(c, p, errno, "Could not open \"%s\": %m", of->path);
+                return log_exec_error_errno(c, p, errno, "Failed to open '%s' as O_PATH: %m", of->path);
 
         if (fstat(ofd, &st) < 0)
-                return log_exec_error_errno(c, p, errno, "Failed to stat %s: %m", of->path);
+                return log_exec_error_errno(c, p, errno, "Failed to stat '%s': %m", of->path);
 
         if (S_ISSOCK(st.st_mode)) {
                 fd = connect_unix_harder(c, p, of, ofd);
@@ -3768,10 +3761,11 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
                         return fd;
 
                 if (FLAGS_SET(of->flags, OPENFILE_READ_ONLY) && shutdown(fd, SHUT_WR) < 0)
-                        return log_exec_error_errno(c, p, errno, "Failed to shutdown send for socket %s: %m",
+                        return log_exec_error_errno(c, p,
+                                                    errno, "Failed to shutdown send for socket '%s': %m",
                                                     of->path);
 
-                log_exec_debug(c, p, "socket %s opened (fd=%d)", of->path, fd);
+                log_exec_debug(c, p, "Opened socket '%s' as fd %d.", of->path, fd);
         } else {
                 int flags = FLAGS_SET(of->flags, OPENFILE_READ_ONLY) ? O_RDONLY : O_RDWR;
                 if (FLAGS_SET(of->flags, OPENFILE_APPEND))
@@ -3781,9 +3775,9 @@ static int get_open_file_fd(const ExecContext *c, const ExecParameters *p, const
 
                 fd = fd_reopen(ofd, flags | O_CLOEXEC);
                 if (fd < 0)
-                        return log_exec_error_errno(c, p, fd, "Failed to open file %s: %m", of->path);
+                        return log_exec_error_errno(c, p, fd, "Failed to reopen file '%s': %m", of->path);
 
-                log_exec_debug(c, p, "file %s opened (fd=%d)", of->path, fd);
+                log_exec_debug(c, p, "Opened file '%s' as fd %d.", of->path, fd);
         }
 
         return TAKE_FD(fd);
@@ -3802,7 +3796,9 @@ static int collect_open_file_fds(const ExecContext *c, ExecParameters *p, size_t
                 fd = get_open_file_fd(c, p, of);
                 if (fd < 0) {
                         if (FLAGS_SET(of->flags, OPENFILE_GRACEFUL)) {
-                                log_exec_debug_errno(c, p, fd, "Failed to get OpenFile= file descriptor for %s, ignoring: %m", of->path);
+                                log_exec_warning_errno(c, p, fd,
+                                                       "Failed to get OpenFile= file descriptor for '%s', ignoring: %m",
+                                                       of->path);
                                 continue;
                         }
 
@@ -3816,9 +3812,7 @@ static int collect_open_file_fds(const ExecContext *c, ExecParameters *p, size_t
                 if (r < 0)
                         return r;
 
-                p->fds[*n_fds] = TAKE_FD(fd);
-
-                (*n_fds)++;
+                p->fds[(*n_fds)++] = TAKE_FD(fd);
         }
 
         return 0;
@@ -4270,9 +4264,10 @@ int exec_invoke(
                 r = cg_attach_everywhere(params->cgroup_supported, p, 0, NULL, NULL);
                 if (r == -EUCLEAN) {
                         *exit_status = EXIT_CGROUP;
-                        return log_exec_error_errno(context, params, r, "Failed to attach process to cgroup %s "
+                        return log_exec_error_errno(context, params, r,
+                                                    "Failed to attach process to cgroup '%s', "
                                                     "because the cgroup or one of its parents or "
-                                                    "siblings is in the threaded mode: %m", p);
+                                                    "siblings is in the threaded mode.", p);
                 }
                 if (r < 0) {
                         *exit_status = EXIT_CGROUP;
@@ -4302,13 +4297,20 @@ int exec_invoke(
                 return log_exec_error_errno(context, params, r, "Failed to set up standard input: %m");
         }
 
-        r = setup_output(context, params, STDOUT_FILENO, socket_fd, named_iofds, basename(command->path), uid, gid, &journal_stream_dev, &journal_stream_ino);
+        _cleanup_free_ char *fname = NULL;
+        r = path_extract_filename(command->path, &fname);
+        if (r < 0) {
+                *exit_status = EXIT_STDOUT;
+                return log_exec_error_errno(context, params, r, "Failed to extract filename from path %s: %m", command->path);
+        }
+
+        r = setup_output(context, params, STDOUT_FILENO, socket_fd, named_iofds, fname, uid, gid, &journal_stream_dev, &journal_stream_ino);
         if (r < 0) {
                 *exit_status = EXIT_STDOUT;
                 return log_exec_error_errno(context, params, r, "Failed to set up standard output: %m");
         }
 
-        r = setup_output(context, params, STDERR_FILENO, socket_fd, named_iofds, basename(command->path), uid, gid, &journal_stream_dev, &journal_stream_ino);
+        r = setup_output(context, params, STDERR_FILENO, socket_fd, named_iofds, fname, uid, gid, &journal_stream_dev, &journal_stream_ino);
         if (r < 0) {
                 *exit_status = EXIT_STDERR;
                 return log_exec_error_errno(context, params, r, "Failed to set up standard error output: %m");

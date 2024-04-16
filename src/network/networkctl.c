@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Make sure the net/if.h header is included before any linux/ one */
+#include <net/if.h>
 #include <arpa/inet.h>
 #include <getopt.h>
 #include <linux/if_addrlabel.h>
-#include <net/if.h>
 #include <stdbool.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -37,6 +38,7 @@
 #include "glob-util.h"
 #include "hwdb-util.h"
 #include "ipvlan-util.h"
+#include "journal-internal.h"
 #include "local-addresses.h"
 #include "locale-util.h"
 #include "logs-show.h"
@@ -1613,22 +1615,12 @@ static int show_logs(const LinkInfo *info) {
                 return log_error_errno(r, "Failed to add boot matches: %m");
 
         if (info) {
-                char m1[STRLEN("_KERNEL_DEVICE=n") + DECIMAL_STR_MAX(int)];
-                const char *m2, *m3;
-
-                /* kernel */
-                xsprintf(m1, "_KERNEL_DEVICE=n%i", info->ifindex);
-                /* networkd */
-                m2 = strjoina("INTERFACE=", info->name);
-                /* udevd */
-                m3 = strjoina("DEVICE=", info->name);
-
-                (void)(
-                       (r = sd_journal_add_match(j, m1, 0)) ||
+                (void) (
+                       (r = journal_add_matchf(j, "_KERNEL_DEVICE=n%i", info->ifindex)) || /* kernel */
                        (r = sd_journal_add_disjunction(j)) ||
-                       (r = sd_journal_add_match(j, m2, 0)) ||
+                       (r = journal_add_match_pair(j, "INTERFACE", info->name)) || /* networkd */
                        (r = sd_journal_add_disjunction(j)) ||
-                       (r = sd_journal_add_match(j, m3, 0))
+                       (r = journal_add_match_pair(j, "DEVICE", info->name)) /* udevd */
                 );
                 if (r < 0)
                         return log_error_errno(r, "Failed to add link matches: %m");
@@ -2990,7 +2982,7 @@ static int help(void) {
                "  reconfigure DEVICES... Reconfigure interfaces\n"
                "  reload                 Reload .network and .netdev files\n"
                "  edit FILES|DEVICES...  Edit network configuration files\n"
-               "  cat FILES|DEVICES...   Show network configuration files\n"
+               "  cat [FILES|DEVICES...] Show network configuration files\n"
                "  mask FILES...          Mask network configuration files\n"
                "  unmask FILES...        Unmask network configuration files\n"
                "  persistent-storage BOOL\n"
@@ -3150,7 +3142,7 @@ static int networkctl_main(int argc, char *argv[]) {
                 { "reconfigure",        2,        VERB_ANY, VERB_ONLINE_ONLY,              verb_reconfigure        },
                 { "reload",             1,        1,        VERB_ONLINE_ONLY,              verb_reload             },
                 { "edit",               2,        VERB_ANY, 0,                             verb_edit               },
-                { "cat",                2,        VERB_ANY, 0,                             verb_cat                },
+                { "cat",                1,        VERB_ANY, 0,                             verb_cat                },
                 { "mask",               2,        VERB_ANY, 0,                             verb_mask               },
                 { "unmask",             2,        VERB_ANY, 0,                             verb_unmask             },
                 { "persistent-storage", 2,        2,        0,                             verb_persistent_storage },

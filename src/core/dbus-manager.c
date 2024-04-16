@@ -772,6 +772,7 @@ static int method_generic_unit_operation(
 
         assert(message);
         assert(m);
+        assert(handler);
 
         /* Read the first argument from the command and pass the operation to the specified per-unit
          * method. */
@@ -947,9 +948,10 @@ static int method_list_units_by_names(sd_bus_message *message, void *userdata, s
 }
 
 static int method_get_unit_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        /* Don't load a unit (since it won't have any processes if it's not loaded), but don't insist on the
-         * unit being loaded (because even improperly loaded units might still have processes around */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_get_processes, 0);
+        /* Don't load a unit actively (since it won't have any processes if it's not loaded), but don't
+         * insist on the unit being loaded either (because even improperly loaded units might still have
+         * processes around). */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_get_processes, /* flags = */ 0);
 }
 
 static int method_attach_processes_to_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1599,7 +1601,7 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
         log_caller(message, m, "Reloading");
 
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
-        if (!ratelimit_below(&m->reload_ratelimit)) {
+        if (!ratelimit_below(&m->reload_reexec_ratelimit)) {
                 log_warning("Reloading request rejected due to rate limit.");
                 return sd_bus_error_setf(error,
                                          SD_BUS_ERROR_LIMITS_EXCEEDED,
@@ -1643,6 +1645,14 @@ static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_erro
 
         /* Write a log message noting the unit or process who requested the Reexecute() */
         log_caller(message, m, "Reexecuting");
+
+        /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
+        if (!ratelimit_below(&m->reload_reexec_ratelimit)) {
+                log_warning("Reexecuting request rejected due to rate limit.");
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                         "Reexecute() request rejected due to rate limit.");
+        }
 
         /* We don't send a reply back here, the client should
          * just wait for us disconnecting. */
@@ -3042,6 +3052,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         BUS_PROPERTY_DUAL_TIMESTAMP("InitRDTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_INITRD]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("UserspaceTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_USERSPACE]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("FinishTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_FINISH]), SD_BUS_VTABLE_PROPERTY_CONST),
+        BUS_PROPERTY_DUAL_TIMESTAMP("SoftRebootStartTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_SOFTREBOOT_START]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("SecurityStartTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_SECURITY_START]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("SecurityFinishTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_SECURITY_FINISH]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("GeneratorsStartTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_GENERATORS_START]), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -3139,6 +3150,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultOOMPolicy", "s", bus_property_get_oom_policy, offsetof(Manager, defaults.oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultOOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CtrlAltDelBurstAction", "s", bus_property_get_emergency_action, offsetof(Manager, cad_burst_action), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SoftRebootsCount", "u", bus_property_get_unsigned, offsetof(Manager, soft_reboots_count), SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_ARGS("GetUnit",
                                 SD_BUS_ARGS("s", name),

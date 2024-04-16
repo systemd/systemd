@@ -177,12 +177,13 @@ static int efi_verify_variable(const char *variable, uint32_t attr, const void *
 }
 
 int efi_set_variable(const char *variable, const void *value, size_t size) {
+        static const uint32_t attr = EFI_VARIABLE_NON_VOLATILE|EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
+
         struct var {
                 uint32_t attr;
                 char buf[];
         } _packed_ * _cleanup_free_ buf = NULL;
         _cleanup_close_ int fd = -EBADF;
-        uint32_t attr = EFI_VARIABLE_NON_VOLATILE|EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
         bool saved_flags_valid = false;
         unsigned saved_flags;
         int r;
@@ -190,13 +191,13 @@ int efi_set_variable(const char *variable, const void *value, size_t size) {
         assert(variable);
         assert(value || size == 0);
 
-        const char *p = strjoina("/sys/firmware/efi/efivars/", variable);
-
         /* size 0 means removal, empty variable would not be enough for that */
         if (size > 0 && efi_verify_variable(variable, attr, value, size) > 0) {
                 log_debug("Variable '%s' is already in wanted state, skipping write.", variable);
                 return 0;
         }
+
+        const char *p = strjoina("/sys/firmware/efi/efivars/", variable);
 
         /* Newer efivarfs protects variables that are not in an allow list with FS_IMMUTABLE_FL by default,
          * to protect them for accidental removal and modification. We are not changing these variables
@@ -238,10 +239,10 @@ int efi_set_variable(const char *variable, const void *value, size_t size) {
 
         /* For some reason efivarfs doesn't update mtime automatically. Let's do it manually then. This is
          * useful for processes that cache EFI variables to detect when changes occurred. */
-        if (futimens(fd, (struct timespec[2]) {
+        if (futimens(fd, (const struct timespec[2]) {
                                 { .tv_nsec = UTIME_NOW },
                                 { .tv_nsec = UTIME_NOW }
-                        }) < 0)
+                         }) < 0)
                 log_debug_errno(errno, "Failed to update mtime/atime on %s, ignoring: %m", p);
 
         r = 0;

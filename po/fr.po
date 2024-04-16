@@ -6,21 +6,21 @@
 # Julien Humbert <julroy67@gmail.com>, 2020, 2021.
 # Arnaud T. <listes.00@gmail.com>, 2021.
 # blutch112 <vincent.lefebvre59@gmail.com>, 2022.
-# Pierre GRASSER <pierre.grasser@proton.me>, 2023.
+# Pierre GRASSER <pierre.grasser@proton.me>, 2023, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-03-04 10:09+0100\n"
-"PO-Revision-Date: 2023-10-12 16:36+0000\n"
+"PO-Revision-Date: 2024-03-22 10:36+0000\n"
 "Last-Translator: Pierre GRASSER <pierre.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
-"master/fr/>\n"
+"main/fr/>\n"
 "Language: fr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.0.2\n"
+"X-Generator: Weblate 5.4\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -143,26 +143,23 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Inhibit automatic lock of a home area"
-msgstr ""
+msgstr "Empêcher le verrouillage automatique d'un espace personnel"
 
 #: src/home/org.freedesktop.home1.policy:74
-#, fuzzy
 msgid ""
 "Authentication is required to inhibit automatic lock of a user's home area."
 msgstr ""
-"Authentification requise pour mettre à jour l’espace personnel d’un "
-"utilisateur."
+"Authentification requise pour empêcher le verrouillage automatique de "
+"l'espace personnel d'un utilisateur."
 
 #: src/home/org.freedesktop.home1.policy:83
-#, fuzzy
 msgid "Activate a home area"
-msgstr "Créer un espace personnel"
+msgstr "Activer un espace personnel"
 
 #: src/home/org.freedesktop.home1.policy:84
-#, fuzzy
 msgid "Authentication is required to activate a user's home area."
 msgstr ""
-"Authentification requise pour créer l’espace personnel d’un utilisateur."
+"Authentification requise pour activer l’espace personnel d’un utilisateur."
 
 #: src/home/pam_systemd_home.c:293
 #, c-format
@@ -394,52 +391,39 @@ msgid "Authentication is required to get system description."
 msgstr "Authentification requise pour obtenir la description du système."
 
 #: src/import/org.freedesktop.import1.policy:22
-#, fuzzy
 msgid "Import a disk image"
-msgstr "Importer une image de machine virtuelle ou de conteneur"
+msgstr "Importer une image disque"
 
 #: src/import/org.freedesktop.import1.policy:23
-#, fuzzy
 msgid "Authentication is required to import an image"
-msgstr ""
-"Authentification requise pour importer une image de machine virtuelle ou de "
-"conteneur"
+msgstr "Authentification requise pour importer une image"
 
 #: src/import/org.freedesktop.import1.policy:32
-#, fuzzy
 msgid "Export a disk image"
-msgstr "Exporter une image de machine virtuelle ou de conteneur"
+msgstr "Exporter une image disque"
 
 #: src/import/org.freedesktop.import1.policy:33
-#, fuzzy
 msgid "Authentication is required to export disk image"
-msgstr ""
-"Authentification requise pour exporter une image de machine virtuelle ou de "
-"conteneur"
+msgstr "Authentification requise pour exporter une image disque."
 
 #: src/import/org.freedesktop.import1.policy:42
-#, fuzzy
 msgid "Download a disk image"
-msgstr "Télécharger une image de machine virtuelle (VM) ou de conteneur"
+msgstr "Télécharger une image disque"
 
 #: src/import/org.freedesktop.import1.policy:43
-#, fuzzy
 msgid "Authentication is required to download a disk image"
-msgstr ""
-"Authentification requise pour télécharger une image de machine virtuelle ou "
-"de conteneur"
+msgstr "Authentification requise pour télécharger une image disque."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "Annuler le transfert d'une image disque"
 
 #: src/import/org.freedesktop.import1.policy:53
-#, fuzzy
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image"
 msgstr ""
-"Authentification requise pour changer le mot de passe de l’espace personnel "
-"d’un utilisateur."
+"Authentification requise pour annuler le transfert en cours d'une image "
+"disque."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"

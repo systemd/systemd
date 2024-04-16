@@ -454,12 +454,16 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
       <varlistentry>
         <term>
           <command>cat</command>
-          <replaceable>FILE</replaceable>|<replaceable>@DEVICE</replaceable>…
+          <optional><replaceable>FILE</replaceable>|<replaceable>@DEVICE</replaceable>…</optional>
         </term>
-        <listitem><para>Show network configuration files. This command honors
-        the <literal>@</literal> prefix in the same way as <command>edit</command>.</para>
+        <listitem>
+          <para>Show network configuration files. This command honors the <literal>@</literal> prefix in the
+          same way as <command>edit</command>. When no argument is specified,
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          and its drop-in files will be shown.</para>
 
-        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v254"/>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -569,7 +573,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
       </varlistentry>
 
       <varlistentry>
-        <term><option>--drop-in=</option><replaceable>NAME</replaceable></term>
+        <term><option>--drop-in=<replaceable>NAME</replaceable></option></term>
 
         <listitem>
           <para>When used with <command>edit</command>, edit the drop-in file <replaceable>NAME</replaceable>

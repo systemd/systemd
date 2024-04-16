@@ -1711,7 +1711,7 @@ static int pkcs11_acquire_public_key_callback(
                 switch (attributes[i].type) {
                 case CKA_CLASS: {
                         CK_OBJECT_CLASS requested_class = *((CK_OBJECT_CLASS*) attributes[i].pValue);
-                        if (requested_class != CKO_PUBLIC_KEY && requested_class != CKO_CERTIFICATE)
+                        if (!IN_SET(requested_class, CKO_PUBLIC_KEY, CKO_CERTIFICATE))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Selected PKCS#11 object is not a public key or certificate, refusing.");
                         break;
@@ -1743,7 +1743,7 @@ static int pkcs11_acquire_public_key_callback(
                 candidate_attributes[0].ulValueLen = sizeof(class);
                 candidate_attributes[1].ulValueLen = sizeof(type);
                 rv = m->C_GetAttributeValue(session, candidate, candidate_attributes, ELEMENTSOF(candidate_attributes));
-                if (rv != CKR_OK && rv != CKR_ATTRIBUTE_TYPE_INVALID)
+                if (!IN_SET(rv, CKR_OK, CKR_ATTRIBUTE_TYPE_INVALID))
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                 "Failed to get attributes of a selected candidate: %s", sym_p11_kit_strerror(rv));
 

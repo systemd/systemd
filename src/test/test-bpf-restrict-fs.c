@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(getrlimit(RLIMIT_MEMLOCK, &rl) >= 0);
+        ASSERT_OK(getrlimit(RLIMIT_MEMLOCK, &rl));
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
         (void) setrlimit_closest(RLIMIT_MEMLOCK, &rl);
 
@@ -82,21 +82,21 @@ int main(int argc, char *argv[]) {
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
-        assert_se(get_testdata_dir("units", &unit_dir) >= 0);
-        assert_se(set_unit_path(unit_dir) >= 0);
+        ASSERT_OK(get_testdata_dir("units", &unit_dir));
+        ASSERT_OK(set_unit_path(unit_dir));
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
-        assert_se(manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_BASIC, &m) >= 0);
-        assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
+        ASSERT_OK(manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_BASIC, &m));
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
 
         /* We need to enable access to the filesystem where the binary is so we
          * add @common-block */
-        assert_se(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("@common-block")) < 0);
-        assert_se(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block")) >= 0);
-        assert_se(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block", "~tracefs")) < 0);
-        assert_se(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("@common-block")) < 0);
-        assert_se(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("debugfs", "@common-block")) >= 0);
-        assert_se(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("~debugfs")) < 0);
+        ASSERT_LT(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("@common-block")), 0);
+        ASSERT_OK(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block")));
+        ASSERT_LT(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block", "~tracefs")), 0);
+        ASSERT_LT(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("@common-block")), 0);
+        ASSERT_OK(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("debugfs", "@common-block")));
+        ASSERT_LT(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("~debugfs")), 0);
 
         return 0;
 }

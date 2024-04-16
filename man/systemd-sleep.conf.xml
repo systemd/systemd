@@ -154,6 +154,27 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>SuspendState=</varname></term>
+
+        <listitem><para>The string to be written to <filename>/sys/power/state</filename> by <citerefentry>
+        <refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        More than one value can be specified by separating multiple values with whitespace. They will be
+        tried in turn, until one is written without error. If none of the writes succeed, the operation will
+        be aborted.</para>
+
+        <para>The allowed set of values is determined by the kernel and is shown in the file itself (use
+        <command>cat /sys/power/state</command> to display). See <ulink
+        url="https://docs.kernel.org/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation">
+          Basic sysfs Interfaces for System Suspend and Hibernation</ulink> for more details.</para>
+
+        <para>
+        <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses this value when suspending.</para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>HibernateMode=</varname></term>
 
         <listitem><para>The string to be written to <filename>/sys/power/disk</filename> by <citerefentry>
@@ -175,24 +196,21 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>SuspendState=</varname></term>
+        <term><varname>MemorySleepMode=</varname></term>
 
-        <listitem><para>The string to be written to <filename>/sys/power/state</filename> by <citerefentry>
-        <refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        <listitem><para>The string to be written to <filename>/sys/power/mem_sleep</filename>
+        when <option>SuspendState=mem</option> or <command>hybrid-sleep</command> is used.
         More than one value can be specified by separating multiple values with whitespace. They will be
         tried in turn, until one is written without error. If none of the writes succeed, the operation will
-        be aborted.</para>
+        be aborted. Defaults to empty, i.e. the kernel default or kernel command line option
+        <varname>mem_sleep_default=</varname> is respected.</para>
 
         <para>The allowed set of values is determined by the kernel and is shown in the file itself (use
-        <command>cat /sys/power/state</command> to display). See <ulink
-        url="https://docs.kernel.org/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation">
+        <command>cat /sys/power/mem_sleep</command> to display). See the kernel documentation page
+        <ulink url="https://docs.kernel.org/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation">
           Basic sysfs Interfaces for System Suspend and Hibernation</ulink> for more details.</para>
 
-        <para>
-        <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        uses this value when suspending.</para>
-
-        <xi:include href="version-info.xml" xpointer="v203"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>

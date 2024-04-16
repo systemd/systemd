@@ -33,6 +33,7 @@ sd_ndisc_router *sd_ndisc_router_ref(sd_ndisc_router *rt);
 sd_ndisc_router *sd_ndisc_router_unref(sd_ndisc_router *rt);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc_router, sd_ndisc_router_unref);
 
+int sd_ndisc_router_set_sender_address(sd_ndisc_router *rt, const struct in6_addr *addr);
 int sd_ndisc_router_get_sender_address(sd_ndisc_router *rt, struct in6_addr *ret);
 int sd_ndisc_router_get_timestamp(sd_ndisc_router *rt, clockid_t clock, uint64_t *ret);
 

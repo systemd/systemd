@@ -95,7 +95,7 @@ static int set_pretimeout_governor(const char *governor) {
                               governor,
                               WRITE_STRING_FILE_DISABLE_BUFFER | WRITE_STRING_FILE_VERIFY_ON_FAILURE | WRITE_STRING_FILE_VERIFY_IGNORE_NEWLINE);
         if (r < 0)
-                return log_error_errno(r, "Failed to set pretimeout_governor to '%s': %m", governor);
+                return log_error_errno(r, "Failed to set watchdog pretimeout_governor to '%s': %m", governor);
 
         return r;
 }
@@ -157,7 +157,7 @@ static int watchdog_read_pretimeout(void) {
 
         if (ioctl(watchdog_fd, WDIOC_GETPRETIMEOUT, &sec) < 0) {
                 watchdog_pretimeout = 0;
-                return log_full_errno(ERRNO_IS_NOT_SUPPORTED(errno) ? LOG_DEBUG : LOG_WARNING, errno, "Failed to get pretimeout value, ignoring: %m");
+                return log_full_errno(ERRNO_IS_NOT_SUPPORTED(errno) ? LOG_DEBUG : LOG_WARNING, errno, "Failed to get watchdog pretimeout value, ignoring: %m");
         }
 
         watchdog_pretimeout = sec * USEC_PER_SEC;
@@ -181,7 +181,7 @@ static int watchdog_set_pretimeout(void) {
                         return 0;
                 }
 
-                return log_error_errno(errno, "Failed to set pretimeout to %s: %m", FORMAT_TIMESPAN(sec, USEC_PER_SEC));
+                return log_error_errno(errno, "Failed to set watchdog pretimeout to %s: %m", FORMAT_TIMESPAN(sec, USEC_PER_SEC));
         }
 
         /* The set ioctl does not return the actual value set so get it now. */
@@ -274,10 +274,10 @@ static int update_timeout(void) {
                 r = watchdog_set_timeout();
                 if (r < 0) {
                         if (!ERRNO_IS_NOT_SUPPORTED(r))
-                                return log_error_errno(r, "Failed to set timeout to %s: %m",
+                                return log_error_errno(r, "Failed to set watchdog hardware timeout to %s: %m",
                                                        FORMAT_TIMESPAN(watchdog_timeout, 0));
 
-                        log_info("Modifying watchdog timeout is not supported, reusing the programmed timeout.");
+                        log_info("Modifying watchdog hardware timeout is not supported, reusing the programmed timeout.");
                         watchdog_timeout = USEC_INFINITY;
                 }
         }
@@ -286,8 +286,8 @@ static int update_timeout(void) {
                 r = watchdog_read_timeout();
                 if (r < 0) {
                         if (!ERRNO_IS_NOT_SUPPORTED(r))
-                                return log_error_errno(r, "Failed to query watchdog HW timeout: %m");
-                        log_info("Reading watchdog timeout is not supported, reusing the configured timeout.");
+                                return log_error_errno(r, "Failed to query watchdog hardware timeout: %m");
+                        log_info("Reading watchdog hardware timeout is not supported, reusing the configured timeout.");
                         watchdog_timeout = previous_timeout;
                 }
         }
@@ -302,7 +302,7 @@ static int update_timeout(void) {
         if (r < 0)
                 return r;
 
-        log_info("Watchdog running with a timeout of %s.", FORMAT_TIMESPAN(watchdog_timeout, 0));
+        log_info("Watchdog running with a hardware timeout of %s.", FORMAT_TIMESPAN(watchdog_timeout, 0));
 
         return watchdog_ping_now();
 }

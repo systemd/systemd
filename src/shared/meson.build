@@ -118,6 +118,7 @@ shared_sources = files(
         'macvlan-util.c',
         'mkdir-label.c',
         'mkfs-util.c',
+        'module-util.c',
         'mount-setup.c',
         'mount-util.c',
         'net-condition.c',
@@ -125,6 +126,7 @@ shared_sources = files(
         'netif-sriov.c',
         'netif-util.c',
         'nsflags.c',
+        'nsresource.c',
         'numa-util.c',
         'open-file.c',
         'openssl-util.c',
@@ -140,6 +142,7 @@ shared_sources = files(
         'pkcs11-util.c',
         'plymouth-util.c',
         'pretty-print.c',
+        'capsule-util.c',
         'ptyfwd.c',
         'qrcode-util.c',
         'quota-util.c',
@@ -178,6 +181,8 @@ shared_sources = files(
         'varlink-io.systemd.Hostname.c',
         'varlink-io.systemd.Journal.c',
         'varlink-io.systemd.ManagedOOM.c',
+        'varlink-io.systemd.MountFileSystem.c',
+        'varlink-io.systemd.NamespaceResource.c',
         'varlink-io.systemd.Network.c',
         'varlink-io.systemd.PCRExtend.c',
         'varlink-io.systemd.PCRLock.c',
@@ -233,10 +238,6 @@ endif
 
 if conf.get('HAVE_LIBBPF') == 1
         shared_sources += files('bpf-link.c')
-endif
-
-if conf.get('HAVE_KMOD') == 1
-        shared_sources += files('module-util.c')
 endif
 
 if conf.get('HAVE_PAM') == 1
@@ -323,7 +324,7 @@ libshared_deps = [threads,
                   libdl,
                   libgcrypt,
                   libiptc_cflags,
-                  libkmod,
+                  libkmod_cflags,
                   liblz4_cflags,
                   libmount,
                   libopenssl,
@@ -357,7 +358,6 @@ libshared = shared_library(
         link_depends : libshared_sym_path,
         link_whole : [libshared_static,
                       libbasic,
-                      libbasic_gcrypt,
                       libsystemd_static],
         dependencies : [libshared_deps,
                         userspace],

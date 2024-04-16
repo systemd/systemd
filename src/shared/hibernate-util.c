@@ -23,6 +23,7 @@
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -128,6 +129,13 @@ static int read_resume_config(dev_t *ret_devno, uint64_t *ret_offset) {
 
         assert(ret_devno);
         assert(ret_offset);
+
+        r = proc_cmdline_get_key("noresume", /* flags = */ 0, /* ret_value = */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check if 'noresume' kernel command line option is set: %m");
+        if (r > 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "'noresume' kernel command line option is set, refusing hibernation device lookup.");
 
         r = read_one_line_file("/sys/power/resume", &devno_str);
         if (r < 0)
@@ -513,13 +521,17 @@ int write_resume_config(dev_t devno, uint64_t offset, const char *device) {
         return 0;
 }
 
-void clear_efi_hibernate_location_and_warn(void) {
+int clear_efi_hibernate_location_and_warn(void) {
         int r;
 
         if (!is_efi_boot())
-                return;
+                return 0;
 
         r = efi_set_variable(EFI_SYSTEMD_VARIABLE(HibernateLocation), NULL, 0);
+        if (r == -ENOENT)
+                return 0;
         if (r < 0)
-                log_warning_errno(r, "Failed to clear EFI variable HibernateLocation, ignoring: %m");
+                return log_warning_errno(r, "Failed to clear HibernateLocation EFI variable: %m");
+
+        return 1;
 }

@@ -5128,7 +5128,7 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (!crt || !crt->cgroup_realized)
-                return -EBUSY;
+                return 0; /* No cgroup = nothing running to freeze */
 
         unit_next_freezer_state(u, action, &next, &target);
 

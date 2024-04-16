@@ -33,7 +33,7 @@ static void test_mount_propagation_flag_one(const char *name, int ret, unsigned 
                 if (isempty(name))
                         assert_se(isempty(c));
                 else
-                        assert_se(streq(c, name));
+                        ASSERT_STREQ(c, name);
         }
 }
 
@@ -152,7 +152,7 @@ TEST(path_is_mount_point) {
          */
 
         /* file mountpoints */
-        assert_se(mkdtemp(tmp_dir) != NULL);
+        ASSERT_NOT_NULL(mkdtemp(tmp_dir));
         file1 = path_join(tmp_dir, "file1");
         assert_se(file1);
         file2 = path_join(tmp_dir, "file2");

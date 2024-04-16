@@ -955,9 +955,12 @@ static void home_create_finish(Home *h, int ret, UserRecord *hr) {
 
 static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        uint64_t flags;
         int r;
 
         assert(h);
+
+        flags = h->current_operation ? h->current_operation->call_flags : 0;
 
         if (ret < 0) {
                 (void) home_count_bad_authentication(h, ret, /* save= */ true);
@@ -969,17 +972,22 @@ static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         }
 
         if (hr) {
-                r = home_set_record(h, hr);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to update home record, ignoring: %m");
-                else {
+                if (!FLAGS_SET(flags, SD_HOMED_UPDATE_OFFLINE)) {
                         r = user_record_good_authentication(h->record);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to increase good authentication counter, ignoring: %m");
+                }
 
+                r = home_set_record(h, hr);
+                if (r >= 0)
                         r = home_save_record(h);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to write home record to disk, ignoring: %m");
+                if (r < 0) {
+                        if (FLAGS_SET(flags, SD_HOMED_UPDATE_OFFLINE)) {
+                                log_error_errno(r, "Failed to update home record and write it to disk: %m");
+                                sd_bus_error_set(&error, SD_BUS_ERROR_FAILED, "Failed to cache changes to home record");
+                                goto finish;
+                        } else
+                                log_warning_errno(r, "Failed to update home record, ignoring: %m");
                 }
         }
 
@@ -1311,6 +1319,11 @@ static int home_start_work(
                                 log_error_errno(errno, "Failed to set $SYSTEMD_HOME_DEFAULT_FILE_SYSTEM_TYPE: %m");
                                 _exit(EXIT_FAILURE);
                         }
+
+                if (setenv("SYSTEMD_HOMEWORK_UPDATE_OFFLINE", one_zero(FLAGS_SET(flags, SD_HOMED_UPDATE_OFFLINE)), 1) < 0) {
+                        log_error_errno(errno, "Failed to set $SYSTEMD_HOMEWORK_UPDATE_OFFLINE: %m");
+                        _exit(EXIT_FAILURE);
+                }
 
                 r = setenv_systemd_exec_pid(true);
                 if (r < 0)
@@ -1783,7 +1796,9 @@ int home_update(Home *h, UserRecord *hr, Hashmap *blobs, uint64_t flags, sd_bus_
         case HOME_UNFIXATED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_UNFIXATED, "Home %s has not been fixated yet.", h->user_name);
         case HOME_ABSENT:
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
+                if (!FLAGS_SET(flags, SD_HOMED_UPDATE_OFFLINE))
+                        return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
+                break; /* offline updates are compatible w/ an absent home area */
         case HOME_LOCKED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
         case HOME_INACTIVE:
@@ -1810,7 +1825,6 @@ int home_update(Home *h, UserRecord *hr, Hashmap *blobs, uint64_t flags, sd_bus_
 int home_resize(Home *h,
                 uint64_t disk_size,
                 UserRecord *secret,
-                bool automatic,
                 sd_bus_error *error) {
 
         _cleanup_(user_record_unrefp) UserRecord *c = NULL;
@@ -1886,7 +1900,7 @@ int home_resize(Home *h,
                 c = TAKE_PTR(signed_c);
         }
 
-        r = home_update_internal(h, automatic ? "resize-auto" : "resize", c, secret, NULL, 0, error);
+        r = home_update_internal(h, "resize", c, secret, NULL, 0, error);
         if (r < 0)
                 return r;
 
@@ -2756,7 +2770,9 @@ int home_create_fifo(Home *h, bool please_suspend) {
 
                 (void) sd_event_source_set_description(*ss, "acquire-ref");
 
-                r = sd_event_source_set_priority(*ss, SD_EVENT_PRIORITY_IDLE-1);
+                /* We need to notice dropped refs before we process new bus requests (which
+                 * might try to obtain new refs) */
+                r = sd_event_source_set_priority(*ss, SD_EVENT_PRIORITY_NORMAL-10);
                 if (r < 0)
                         return r;
 
@@ -2794,7 +2810,8 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
         case HOME_ABSENT:
                 r = sd_bus_error_setf(&error, BUS_ERROR_HOME_ABSENT,
                                       "Home %s is currently missing or not plugged in.", h->user_name);
-                goto check;
+                operation_result(o, r, &error);
+                return 1;
 
         case HOME_INACTIVE:
         case HOME_DIRTY:
@@ -2825,7 +2842,6 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
         if (r >= 0)
                 r = call(h, o->secret, for_state, &error);
 
- check:
         if (r != 0) /* failure or completed */
                 operation_result(o, r, &error);
         else /* ongoing */
@@ -2855,33 +2871,35 @@ static int home_dispatch_release(Home *h, Operation *o) {
         assert(o);
         assert(o->type == OPERATION_RELEASE);
 
-        if (home_is_referenced(h))
+        if (home_is_referenced(h)) {
                 /* If there's now a reference again, then let's abort the release attempt */
                 r = sd_bus_error_setf(&error, BUS_ERROR_HOME_BUSY, "Home %s is currently referenced.", h->user_name);
-        else {
-                switch (home_get_state(h)) {
+                operation_result(o, r, &error);
+                return 1;
+        }
 
-                case HOME_UNFIXATED:
-                case HOME_ABSENT:
-                case HOME_INACTIVE:
-                case HOME_DIRTY:
-                        r = 1; /* done */
-                        break;
+        switch (home_get_state(h)) {
 
-                case HOME_LOCKED:
-                        r = sd_bus_error_setf(&error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
-                        break;
+        case HOME_UNFIXATED:
+        case HOME_ABSENT:
+        case HOME_INACTIVE:
+        case HOME_DIRTY:
+                r = 1; /* done */
+                break;
 
-                case HOME_ACTIVE:
-                case HOME_LINGERING:
-                        r = home_deactivate_internal(h, false, &error);
-                        break;
+        case HOME_LOCKED:
+                r = sd_bus_error_setf(&error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
+                break;
 
-                default:
-                        /* All other cases means we are currently executing an operation, which means the job remains
-                         * pending. */
-                        return 0;
-                }
+        case HOME_ACTIVE:
+        case HOME_LINGERING:
+                r = home_deactivate_internal(h, false, &error);
+                break;
+
+        default:
+                /* All other cases means we are currently executing an operation, which means the job remains
+                 * pending. */
+                return 0;
         }
 
         assert(!h->current_operation);

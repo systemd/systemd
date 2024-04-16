@@ -24,6 +24,8 @@ typedef enum DnsServerType {
         _DNS_SERVER_TYPE_INVALID = -EINVAL,
 } DnsServerType;
 
+#include "resolved-conf.h"
+
 const char* dns_server_type_to_string(DnsServerType i) _const_;
 DnsServerType dns_server_type_from_string(const char *s) _pure_;
 
@@ -100,6 +102,9 @@ struct DnsServer {
         /* If linked is set, then this server appears in the servers linked list */
         bool linked:1;
         LIST_FIELDS(DnsServer, servers);
+
+        /* Servers registered via D-Bus are not removed on reload */
+        ResolveConfigSource config_source;
 };
 
 int dns_server_new(
@@ -111,7 +116,8 @@ int dns_server_new(
                 const union in_addr_union *address,
                 uint16_t port,
                 int ifindex,
-                const char *server_string);
+                const char *server_string,
+                ResolveConfigSource config_source);
 
 DnsServer* dns_server_ref(DnsServer *s);
 DnsServer* dns_server_unref(DnsServer *s);
@@ -145,6 +151,7 @@ void dns_server_warn_downgrade(DnsServer *server);
 DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, uint16_t port, int ifindex, const char *name);
 
 void dns_server_unlink_all(DnsServer *first);
+void dns_server_unlink_on_reload(DnsServer *server);
 bool dns_server_unlink_marked(DnsServer *first);
 void dns_server_mark_all(DnsServer *first);
 

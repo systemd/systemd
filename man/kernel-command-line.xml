@@ -590,14 +590,23 @@
         <term><varname>resumeflags=</varname></term>
 
         <listitem>
-          <para>Enables resume from hibernation using the specified
-          device and mount options. All
-          <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-like
-          paths are supported. For details, see
+          <para>Enable resume from hibernation using the specified device and timeout options. All
+          <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-style
+          device identifiers are supported. For details, see
           <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
           <xi:include href="version-info.xml" xpointer="v217"/>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>resume_offset=</varname></term>
+
+        <listitem><para>Configure the page offset of the swap space from the resume device. For details, see
+        <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>

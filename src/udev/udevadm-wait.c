@@ -67,7 +67,7 @@ static int check_device(const char *path) {
                 return r;
 
         if (arg_wait_until == WAIT_UNTIL_INITIALIZED)
-                return sd_device_get_is_initialized(dev);
+                return device_is_processed(dev);
 
         return true;
 }

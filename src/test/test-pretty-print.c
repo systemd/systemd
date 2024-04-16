@@ -22,7 +22,7 @@ static void test_draw_cylon_one(unsigned pos) {
 
         memset(buf, 0xff, sizeof(buf));
         draw_cylon(buf, sizeof(buf), CYLON_WIDTH, pos);
-        assert_se(strlen(buf) < sizeof(buf));
+        ASSERT_LE(strlen(buf), sizeof(buf));
 }
 
 TEST(draw_cylon) {

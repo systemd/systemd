@@ -21,6 +21,8 @@ git correctly (running `meson` will run these commands for you automatically):
 $ git config submodule.recurse true
 $ git config fetch.recurseSubmodules on-demand
 $ git config push.recurseSubmodules no
+$ cp .git/hooks/pre-commit.sample .git/hooks/pre-commit
+$ cp tools/git-post-rewrite-hook.sh .git/hooks/post-rewrite
 ```
 
 When adding new functionality, tests should be added. For shared functionality
@@ -81,6 +83,22 @@ to `mkosi.local.conf`:
 [Host]
 QemuFirmware=uefi
 ```
+
+To avoid having to build a new image all the time when iterating on a patch, add
+the following to `mkosi.local.conf`:
+
+```conf
+[Host]
+RuntimeBuildSources=yes
+```
+
+After enabling this setting, the source and build directories will be mounted to
+`/work/src` and `/work/build` respectively when booting the image as a container
+or virtual machine. To build the latest changes and re-install, run
+`meson install -C /work/build --only-changed` in the container or virtual machine
+and optionally restart the daemon(s) you're working on using
+`systemctl restart <units>` or `systemctl daemon-reexec` if you're working on pid1
+or `systemctl soft-reboot` to restart everything.
 
 Putting this all together, here's a series of commands for preparing a patch
 for systemd:

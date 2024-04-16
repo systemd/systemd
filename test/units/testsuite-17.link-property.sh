@@ -122,12 +122,12 @@ assert_in "ID_NET_LINK_FILE=/run/systemd/network/10-test.link" "$output"
 assert_in "ID_NET_LINK_FILE_DROPINS=/run/systemd/network/10-test.link.d/10-override.conf:/run/systemd/network/10-test.link.d/11-override.conf" "$output"
 assert_in "ID_NET_NAME=test1" "$output"
 
-# check that test command _does_ update udev database.
+# check that test command does not update udev database.
 output=$(udevadm info --query property /sys/class/net/test1)
 assert_not_in "HOGE=" "$output"
-assert_in "HOGE2=foo2" "$output"
+assert_not_in "HOGE2=" "$output"
 assert_not_in "BAR=" "$output"
-assert_in "BAR2=baz2" "$output"
+assert_not_in "BAR2=" "$output"
 assert_not_in "SHOULD_BE_UNSET=" "$output"
 assert_in "ID_NET_LINK_FILE=/run/systemd/network/10-test.link" "$output"
 assert_in "ID_NET_LINK_FILE_DROPINS=/run/systemd/network/10-test.link.d/10-override.conf:/run/systemd/network/10-test.link.d/11-override.conf" "$output"
@@ -165,6 +165,7 @@ udevadm control --reload
 output=$(udevadm test --action add /sys/class/net/test1)
 assert_in "LINK_VERSION=$(uname -r)" "$output"
 
+udevadm trigger --settle --action add /sys/class/net/test1
 output=$(udevadm info --query property /sys/class/net/test1)
 assert_in "LINK_VERSION=$(uname -r)" "$output"
 
@@ -185,6 +186,7 @@ assert_in "IFINDEX=" "$output"
 assert_not_in "IFINDEX=bar" "$output"
 assert_in "DEVPATH=" "$output"
 
+udevadm trigger --settle --action add /sys/class/net/test1
 output=$(udevadm info --query property /sys/class/net/test1)
 assert_not_in "ACTION=foo" "$output"
 assert_in "IFINDEX=" "$output"

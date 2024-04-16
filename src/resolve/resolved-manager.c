@@ -11,6 +11,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bus-polkit.h"
+#include "daemon-util.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
 #include "event-util.h"
@@ -565,6 +566,73 @@ static int manager_memory_pressure_listen(Manager *m) {
         return 0;
 }
 
+static void manager_set_defaults(Manager *m) {
+        assert(m);
+
+        m->llmnr_support = DEFAULT_LLMNR_MODE;
+        m->mdns_support = DEFAULT_MDNS_MODE;
+        m->dnssec_mode = DEFAULT_DNSSEC_MODE;
+        m->dns_over_tls_mode = DEFAULT_DNS_OVER_TLS_MODE;
+        m->enable_cache = DNS_CACHE_MODE_YES;
+        m->dns_stub_listener_mode = DNS_STUB_LISTENER_YES;
+        m->read_etc_hosts = true;
+        m->resolve_unicast_single_label = false;
+        m->cache_from_localhost = false;
+        m->stale_retention_usec = 0;
+}
+
+static int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        (void) notify_reloading();
+
+        manager_set_defaults(m);
+
+        dns_server_unlink_on_reload(m->dns_servers);
+        dns_server_unlink_on_reload(m->fallback_dns_servers);
+        m->dns_extra_stub_listeners = ordered_set_free(m->dns_extra_stub_listeners);
+        dnssd_service_clear_on_reload(m->dnssd_services);
+        m->unicast_scope = dns_scope_free(m->unicast_scope);
+
+        dns_trust_anchor_flush(&m->trust_anchor);
+
+        r = dns_trust_anchor_load(&m->trust_anchor);
+        if (r < 0)
+                return r;
+
+        r = manager_parse_config_file(m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse config file on reload: %m");
+        else
+                log_info("Config file reloaded.");
+
+        r = dnssd_load(m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to load DNS-SD configuration files: %m");
+
+        /* The default scope configuration is influenced by the manager's configuration (modes, etc.), so
+         * recreate it on reload. */
+        r = dns_scope_new(m, &m->unicast_scope, NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
+        if (r < 0)
+                return r;
+
+        /* The configuration has changed, so reload the per-interface configuration too in order to take
+         * into account any changes (e.g.: enable/disable DNSSEC). */
+        r = on_network_event(/* sd_event_source= */ NULL, -EBADF, /* revents= */ 0, m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to update network information: %m");
+
+        /* We have new configuration, which means potentially new servers, so close all connections and drop
+         * all caches, so that we can start fresh. */
+        (void) dns_stream_disconnect_all(m);
+        manager_flush_caches(m, LOG_INFO);
+        manager_verify_all(m);
+
+        (void) sd_notify(/* unset= */ false, NOTIFY_READY);
+        return 0;
+}
+
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -584,20 +652,15 @@ int manager_new(Manager **ret) {
                 .mdns_ipv6_fd = -EBADF,
                 .hostname_fd = -EBADF,
 
-                .llmnr_support = DEFAULT_LLMNR_MODE,
-                .mdns_support = DEFAULT_MDNS_MODE,
-                .dnssec_mode = DEFAULT_DNSSEC_MODE,
-                .dns_over_tls_mode = DEFAULT_DNS_OVER_TLS_MODE,
-                .enable_cache = DNS_CACHE_MODE_YES,
-                .dns_stub_listener_mode = DNS_STUB_LISTENER_YES,
                 .read_resolv_conf = true,
                 .need_builtin_fallbacks = true,
                 .etc_hosts_last = USEC_INFINITY,
-                .read_etc_hosts = true,
 
                 .sigrtmin18_info.memory_pressure_handler = manager_memory_pressure,
                 .sigrtmin18_info.memory_pressure_userdata = m,
         };
+
+        manager_set_defaults(m);
 
         r = dns_trust_anchor_load(&m->trust_anchor);
         if (r < 0)
@@ -619,6 +682,7 @@ int manager_new(Manager **ret) {
 
         (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
         (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, manager_dispatch_reload_signal, m);
 
         (void) sd_event_set_watchdog(m->event, true);
 

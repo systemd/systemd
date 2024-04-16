@@ -532,6 +532,7 @@ int transfer_read_definition(Transfer *t, const char *path) {
                                   "Target path is not a normalized, absolute path: %s", t->target.path);
 
         if (strv_isempty(t->target.patterns)) {
+                log_syntax(NULL, LOG_INFO, path, 1, 0, "Target specification lacks MatchPattern= expression. Assuming same value as in source specification.");
                 strv_free(t->target.patterns);
                 t->target.patterns = strv_copy(t->source.patterns);
                 if (!t->target.patterns)

@@ -243,9 +243,6 @@ int link_request_radv_addresses(Link *link) {
                 return 0;
 
         HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
-                _cleanup_set_free_ Set *addresses = NULL;
-                struct in6_addr *a;
-
                 if (!p->assign)
                         continue;
 
@@ -253,11 +250,14 @@ int link_request_radv_addresses(Link *link) {
                 if (p->prefixlen > 64)
                         continue;
 
-                r = radv_generate_addresses(link, p->tokens, &p->prefix, p->prefixlen, &addresses);
+                _cleanup_hashmap_free_ Hashmap *tokens_by_address = NULL;
+                r = radv_generate_addresses(link, p->tokens, &p->prefix, p->prefixlen, &tokens_by_address);
                 if (r < 0)
                         return r;
 
-                SET_FOREACH(a, addresses) {
+                IPv6Token *token;
+                struct in6_addr *a;
+                HASHMAP_FOREACH_KEY(token, a, tokens_by_address) {
                         _cleanup_(address_unrefp) Address *address = NULL;
 
                         r = address_new(&address);
@@ -269,11 +269,35 @@ int link_request_radv_addresses(Link *link) {
                         address->in_addr.in6 = *a;
                         address->prefixlen = p->prefixlen;
                         address->route_metric = p->route_metric;
+                        address->token = ipv6_token_ref(token);
 
                         r = link_request_static_address(link, address);
                         if (r < 0)
                                 return r;
                 }
+        }
+
+        return 0;
+}
+
+int link_reconfigure_radv_address(Address *address, Link *link) {
+        int r;
+
+        assert(address);
+        assert(address->source == NETWORK_CONFIG_SOURCE_STATIC);
+        assert(link);
+
+        r = regenerate_address(address, link);
+        if (r <= 0)
+                return r;
+
+        r = link_request_static_address(link, address);
+        if (r < 0)
+                return r;
+
+        if (link->static_address_messages != 0) {
+                link->static_addresses_configured = false;
+                link_set_state(link, LINK_STATE_CONFIGURING);
         }
 
         return 0;
@@ -816,12 +840,6 @@ static int prefix_section_verify(Prefix *p) {
                 p->assign = false;
         }
 
-        if (p->valid_lifetime == 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: The valid lifetime of prefix cannot be zero. "
-                                         "Ignoring [IPv6Prefix] section from line %u.",
-                                         p->section->filename, p->section->line);
-
         if (p->preferred_lifetime > p->valid_lifetime)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: The preferred lifetime %s is longer than the valid lifetime %s. "
@@ -853,12 +871,6 @@ static int route_prefix_section_verify(RoutePrefix *p) {
                                          "%s: Invalid prefix length %u is specified in [IPv6RoutePrefix] section. "
                                          "Valid range is 0…128. Ignoring [IPv6RoutePrefix] section from line %u.",
                                          p->section->filename, p->prefixlen, p->section->line);
-
-        if (p->lifetime == 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: The lifetime of route cannot be zero. "
-                                         "Ignoring [IPv6RoutePrefix] section from line %u.",
-                                         p->section->filename, p->section->line);
 
         return 0;
 }
@@ -1214,7 +1226,7 @@ int config_parse_pref64_prefix(
                 return 0;
        }
 
-        (void) in6_addr_mask(&a.in6,prefixlen);
+        (void) in6_addr_mask(&a.in6, prefixlen);
         p->prefix = a.in6;
         p->prefixlen = prefixlen;
 

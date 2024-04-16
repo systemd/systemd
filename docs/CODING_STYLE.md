@@ -780,3 +780,13 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   good idea where it might end up running inside of libsystemd.so or
   similar. Hence, use TLS (i.e. `thread_local`) where appropriate, and maybe
   the occasional `pthread_once()`.
+
+## Tests
+
+- Use the assertion macros from `tests.h` (`ASSERT_GE()`, `ASSERT_OK()`, ...) to
+  make sure a descriptive error is logged when an assertion fails. If no assertion
+  macro exists for your specific use case, please add a new assertion macro in a
+  separate commit.
+
+- When modifying existing tests, please convert the test to use the new assertion
+  macros from `tests.h` if it is not already using those.

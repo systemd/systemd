@@ -172,7 +172,7 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
 
         log_device_uevent(dev, "Processing device");
 
-        udev_event = udev_event_new(dev, worker);
+        udev_event = udev_event_new(dev, worker, EVENT_UDEV_WORKER);
         if (!udev_event)
                 return -ENOMEM;
 

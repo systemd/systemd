@@ -26,7 +26,7 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u);
 int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const char *assignment);
 int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char **l);
 
-int bus_append_scope_pidref(sd_bus_message *m, const PidRef *pidref);
+int bus_append_scope_pidref(sd_bus_message *m, const PidRef *pidref, bool allow_pidfd);
 
 int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet);
 

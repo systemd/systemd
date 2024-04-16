@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
 #include <netinet/in.h>
 #include <linux/if.h>
@@ -1630,9 +1631,9 @@ static int link_check_initialized(Link *link) {
                 return 0;
         }
 
-        r = sd_device_get_is_initialized(device);
+        r = device_is_processed(device);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Could not determine whether the device is initialized: %m");
+                return log_link_warning_errno(link, r, "Could not determine whether the device is processed by udevd: %m");
         if (r == 0) {
                 /* not yet ready */
                 log_link_debug(link, "link pending udev initialization...");
@@ -1644,14 +1645,6 @@ static int link_check_initialized(Link *link) {
                 return log_link_warning_errno(link, r, "Failed to determine the device is being renamed: %m");
         if (r > 0) {
                 log_link_debug(link, "Interface is being renamed, pending initialization.");
-                return 0;
-        }
-
-        r = device_is_processing(device);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to determine whether the device is being processed: %m");
-        if (r > 0) {
-                log_link_debug(link, "Interface is being processed by udevd, pending initialization.");
                 return 0;
         }
 
@@ -1888,7 +1881,7 @@ static int link_admin_state_up(Link *link) {
 
         /* We set the ipv6 mtu after the device mtu, but the kernel resets
          * ipv6 mtu on NETDEV_UP, so we need to reset it. */
-        r = link_set_ipv6_mtu(link);
+        r = link_set_ipv6_mtu(link, LOG_INFO);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 MTU, ignoring: %m");
 
@@ -2440,6 +2433,13 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
                                link->min_mtu, link->max_mtu);
 
         link->mtu = mtu;
+
+        if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
+                /* The kernel resets IPv6 MTU after changing device MTU. So, we need to re-set IPv6 MTU again. */
+                r = link_set_ipv6_mtu(link, LOG_INFO);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to set IPv6 MTU, ignoring: %m");
+        }
 
         if (link->dhcp_client) {
                 r = sd_dhcp_client_set_mtu(link->dhcp_client, link->mtu);

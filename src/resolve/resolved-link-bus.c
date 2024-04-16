@@ -274,7 +274,7 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
                 if (s)
                         dns_server_move_back_and_unmark(s);
                 else {
-                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, dns[i]->family, &dns[i]->address, dns[i]->port, 0, dns[i]->server_name);
+                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, dns[i]->family, &dns[i]->address, dns[i]->port, 0, dns[i]->server_name, RESOLVE_CONFIG_SOURCE_DBUS);
                         if (r < 0) {
                                 dns_server_unlink_all(l->dns_servers);
                                 goto finalize;

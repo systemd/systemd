@@ -33,7 +33,9 @@ DLSYM_FUNCTION(crypt_keyslot_destroy);
 DLSYM_FUNCTION(crypt_keyslot_max);
 DLSYM_FUNCTION(crypt_load);
 DLSYM_FUNCTION(crypt_resize);
-DLSYM_FUNCTION(crypt_resume_by_passphrase);
+#if HAVE_CRYPT_RESUME_BY_VOLUME_KEY
+DLSYM_FUNCTION(crypt_resume_by_volume_key);
+#endif
 DLSYM_FUNCTION(crypt_set_data_device);
 DLSYM_FUNCTION(crypt_set_debug_level);
 DLSYM_FUNCTION(crypt_set_log_callback);
@@ -276,7 +278,9 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_keyslot_max),
                         DLSYM_ARG(crypt_load),
                         DLSYM_ARG(crypt_resize),
-                        DLSYM_ARG(crypt_resume_by_passphrase),
+#if HAVE_CRYPT_RESUME_BY_VOLUME_KEY
+                        DLSYM_ARG(crypt_resume_by_volume_key),
+#endif
                         DLSYM_ARG(crypt_set_data_device),
                         DLSYM_ARG(crypt_set_debug_level),
                         DLSYM_ARG(crypt_set_log_callback),

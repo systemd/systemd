@@ -20,6 +20,7 @@ systemd-analyze critical-chain || :
 # blame
 systemd-analyze blame
 systemd-run --wait --user --pipe -M testuser@.host systemd-analyze blame
+(! systemd-analyze blame --global)
 # plot
 systemd-analyze plot >/dev/null || :
 systemd-analyze plot --json=pretty >/dev/null || :
@@ -30,6 +31,7 @@ systemd-analyze plot --json=short --no-legend >/dev/null || :
 systemd-analyze plot --json=off --no-legend >/dev/null || :
 systemd-analyze plot --table >/dev/null || :
 systemd-analyze plot --table --no-legend >/dev/null || :
+(! systemd-analyze plot --global)
 # legacy/deprecated options (moved to systemctl, but still usable from analyze)
 systemd-analyze log-level
 systemd-analyze log-level "$(systemctl log-level)"
@@ -52,6 +54,7 @@ systemd-analyze dot --order systemd-journald.service systemd-logind.service >/de
 systemd-analyze dot --require systemd-journald.service systemd-logind.service >/dev/null
 systemd-analyze dot "systemd-*.service" >/dev/null
 (! systemd-analyze dot systemd-journald.service systemd-logind.service "*" bbb ccc)
+(! systemd-analyze dot --global systemd-journald.service)
 # dump
 # this should be rate limited to 10 calls in 10 minutes for unprivileged callers
 for _ in {1..10}; do
@@ -73,8 +76,11 @@ systemd-analyze dump "*" >/dev/null
 systemd-analyze dump "*.socket" >/dev/null
 systemd-analyze dump "*.socket" "*.service" aaaaaaa ... >/dev/null
 systemd-analyze dump systemd-journald.service >/dev/null
-systemd-analyze malloc >/dev/null
 (! systemd-analyze dump "")
+(! systemd-analyze dump --global systemd-journald.service)
+# malloc
+systemd-analyze malloc >/dev/null
+(! systemd-analyze malloc --global)
 # unit-files
 systemd-analyze unit-files >/dev/null
 systemd-analyze unit-files systemd-journald.service >/dev/null
@@ -82,6 +88,7 @@ systemd-analyze unit-files "*" >/dev/null
 systemd-analyze unit-files "*" aaaaaa "*.service" "*.target" >/dev/null
 systemd-analyze unit-files --user >/dev/null
 systemd-analyze unit-files --user "*" aaaaaa "*.service" "*.target" >/dev/null
+(! systemd-analyze unit-files --global)
 # unit-paths
 systemd-analyze unit-paths
 systemd-analyze unit-paths --user
@@ -91,11 +98,13 @@ systemd-analyze exit-status
 systemd-analyze exit-status STDOUT BPF
 systemd-analyze exit-status 0 1 {63..65}
 (! systemd-analyze exit-status STDOUT BPF "hello*")
+(! systemd-analyze exit-status --global)
 # capability
 systemd-analyze capability
 systemd-analyze capability cap_chown CAP_KILL
 systemd-analyze capability 0 1 {30..32}
 (! systemd-analyze capability cap_chown CAP_KILL "hello*")
+(! systemd-analyze capability --global)
 # condition
 mkdir -p /run/systemd/system
 UNIT_NAME="analyze-condition-$RANDOM.service"
@@ -119,17 +128,20 @@ systemd-analyze condition 'ConditionKernelVersion = ! <4.0' \
 (! systemd-analyze condition 'ConditionArchitecture=|!arm' 'AssertXYZ=foo')
 (! systemd-analyze condition 'ConditionKernelVersion=<1.0')
 (! systemd-analyze condition 'AssertKernelVersion=<1.0')
+(! systemd-analyze condition --global 'ConditionKernelVersion = ! <4.0')
 # syscall-filter
 systemd-analyze syscall-filter >/dev/null
 systemd-analyze syscall-filter @chown @sync
 systemd-analyze syscall-filter @sync @sync @sync
 (! systemd-analyze syscall-filter @chown @sync @foobar)
+(! systemd-analyze syscall-filter --global)
 # filesystems (requires libbpf support)
 if systemctl --version | grep "+BPF_FRAMEWORK"; then
     systemd-analyze filesystems >/dev/null
     systemd-analyze filesystems @basic-api
     systemd-analyze filesystems @basic-api @basic-api @basic-api
     (! systemd-analyze filesystems @basic-api @basic-api @foobar @basic-api)
+    (! systemd-analyze filesystems --global @basic-api)
 fi
 # calendar
 systemd-analyze calendar '*-2-29 0:0:0'
@@ -144,6 +156,7 @@ systemd-analyze calendar --base-time=yesterday --iterations=5 '*-* *:*:*'
 (! systemd-analyze calendar --base-time=never '*-* *:*:*')
 (! systemd-analyze calendar 1)
 (! systemd-analyze calendar "")
+(! systemd-analyze calendar --global '*-2-29 0:0:0')
 # timestamp
 systemd-analyze timestamp now
 systemd-analyze timestamp -- -1
@@ -152,6 +165,7 @@ systemd-analyze timestamp yesterday now tomorrow
 (! systemd-analyze timestamp 1)
 (! systemd-analyze timestamp '*-2-29 0:0:0')
 (! systemd-analyze timestamp "")
+(! systemd-analyze timestamp --global now)
 # timespan
 systemd-analyze timespan 1
 systemd-analyze timespan 1s 300s '1year 0.000001s'
@@ -159,6 +173,7 @@ systemd-analyze timespan 1s 300s '1year 0.000001s'
 (! systemd-analyze timespan -- -1)
 (! systemd-analyze timespan '*-2-29 0:0:0')
 (! systemd-analyze timespan "")
+(! systemd-analyze timespan --global 1)
 # cat-config
 systemd-analyze cat-config systemd/system.conf >/dev/null
 systemd-analyze cat-config /etc/systemd/system.conf >/dev/null
@@ -170,11 +185,13 @@ systemd-analyze cat-config --tldr /etc/systemd/system.conf >/dev/null
 systemd-analyze cat-config --tldr systemd/system.conf systemd/journald.conf >/dev/null
 systemd-analyze cat-config --tldr systemd/system.conf foo/bar systemd/journald.conf >/dev/null
 systemd-analyze cat-config --tldr foo/bar
+(! systemd-analyze cat-config --global systemd/system.conf)
 # security
 systemd-analyze security
 systemd-analyze security --json=off
 systemd-analyze security --json=pretty | jq
 systemd-analyze security --json=short | jq
+(! systemd-analyze security --global)
 
 if [[ ! -v ASAN_OPTIONS ]]; then
     # check that systemd-analyze cat-config paths work in a chroot

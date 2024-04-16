@@ -2088,10 +2088,10 @@ static int method_do_shutdown_or_sleep(
                                                 "Both reboot via kexec and soft reboot selected, which is not supported");
 
                 if (action != HANDLE_REBOOT) {
-                        if (flags & SD_LOGIND_REBOOT_VIA_KEXEC)
+                        if (FLAGS_SET(flags, SD_LOGIND_REBOOT_VIA_KEXEC))
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
                                                         "Reboot via kexec option is only applicable with reboot operations");
-                        if ((flags & SD_LOGIND_SOFT_REBOOT) || (flags & SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP))
+                        if (flags & (SD_LOGIND_SOFT_REBOOT|SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP))
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
                                                         "Soft reboot option is only applicable with reboot operations");
                 }
@@ -2110,10 +2110,10 @@ static int method_do_shutdown_or_sleep(
 
         const HandleActionData *a = NULL;
 
-        if ((flags & SD_LOGIND_SOFT_REBOOT) ||
-            ((flags & SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP) && path_is_os_tree("/run/nextroot") > 0))
+        if (FLAGS_SET(flags, SD_LOGIND_SOFT_REBOOT) ||
+            (FLAGS_SET(flags, SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP) && path_is_os_tree("/run/nextroot") > 0))
                 a = handle_action_lookup(HANDLE_SOFT_REBOOT);
-        else if ((flags & SD_LOGIND_REBOOT_VIA_KEXEC) && kexec_loaded())
+        else if (FLAGS_SET(flags, SD_LOGIND_REBOOT_VIA_KEXEC) && kexec_loaded())
                 a = handle_action_lookup(HANDLE_KEXEC);
 
         if (action == HANDLE_SLEEP) {
@@ -2154,7 +2154,7 @@ static int method_do_shutdown_or_sleep(
 
                         case SLEEP_RESUME_NOT_SUPPORTED:
                                 return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
-                                                        "Not running on EFI and resume= is not set. No available method to resume from hibernation");
+                                                        "Not running on EFI and resume= is not set, or noresume is set. No available method to resume from hibernation");
 
                         case SLEEP_NOT_ENOUGH_SWAP_SPACE:
                                 return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
@@ -4230,6 +4230,7 @@ int manager_start_scope(
                 Manager *manager,
                 const char *scope,
                 const PidRef *pidref,
+                bool allow_pidfd,
                 const char *slice,
                 const char *description,
                 const char * const *requires,
@@ -4240,6 +4241,7 @@ int manager_start_scope(
                 char **ret_job) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
         int r;
 
         assert(manager);
@@ -4299,7 +4301,7 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
-        r = bus_append_scope_pidref(m, pidref);
+        r = bus_append_scope_pidref(m, pidref, allow_pidfd);
         if (r < 0)
                 return r;
 
@@ -4329,9 +4331,28 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
-        r = sd_bus_call(manager->bus, m, 0, error, &reply);
-        if (r < 0)
-                return r;
+        r = sd_bus_call(manager->bus, m, 0, &e, &reply);
+        if (r < 0) {
+                /* If this failed with a property we couldn't write, this is quite likely because the server
+                 * doesn't support PIDFDs yet, let's try without. */
+                if (allow_pidfd &&
+                    sd_bus_error_has_names(&e, SD_BUS_ERROR_UNKNOWN_PROPERTY, SD_BUS_ERROR_PROPERTY_READ_ONLY))
+                        return manager_start_scope(
+                                        manager,
+                                        scope,
+                                        pidref,
+                                        /* allow_pidfd = */ false,
+                                        slice,
+                                        description,
+                                        requires,
+                                        extra_after,
+                                        requires_mounts_for,
+                                        more_properties,
+                                        error,
+                                        ret_job);
+
+                return sd_bus_error_move(error, &e);
+        }
 
         return strdup_job(reply, ret_job);
 }

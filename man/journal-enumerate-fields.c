@@ -11,8 +11,7 @@ int main(int argc, char *argv[]) {
 
   r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
   if (r < 0) {
-    errno = -r;
-    fprintf(stderr, "Failed to open journal: %m\n");
+    fprintf(stderr, "Failed to open journal: %s\n", strerror(-r));
     return 1;
   }
   SD_JOURNAL_FOREACH_FIELD(j, field)

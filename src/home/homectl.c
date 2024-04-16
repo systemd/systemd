@@ -61,6 +61,7 @@ static bool arg_legend = true;
 static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
+static bool arg_offline = false;
 static const char *arg_identity = NULL;
 static JsonVariant *arg_identity_extra = NULL;
 static JsonVariant *arg_identity_extra_privileged = NULL;
@@ -1712,6 +1713,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *buffer = NULL;
         _cleanup_hashmap_free_ Hashmap *blobs = NULL;
         const char *username;
+        uint64_t flags = 0;
         int r;
 
         if (argc >= 2)
@@ -1754,6 +1756,9 @@ static int update_home(int argc, char *argv[], void *userdata) {
         if (arg_and_resize || arg_and_change_password)
                 log_info("Updating home directory.");
 
+        if (arg_offline)
+                flags |= SD_HOMED_UPDATE_OFFLINE;
+
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -1777,7 +1782,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "t", UINT64_C(0));
+                r = sd_bus_message_append(m, "t", flags);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -2564,6 +2569,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --no-pager                Do not pipe output into a pager\n"
                "     --no-legend               Do not show the headers and footers\n"
                "     --no-ask-password         Do not ask for system passwords\n"
+               "     --offline                 Don't update record embedded in home directory\n"
                "  -H --host=[USER@]HOST        Operate on remote host\n"
                "  -M --machine=CONTAINER       Operate on local container\n"
                "     --identity=PATH           Read JSON identity from file\n"
@@ -2723,6 +2729,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
                 ARG_NO_ASK_PASSWORD,
+                ARG_OFFLINE,
                 ARG_REALM,
                 ARG_EMAIL_ADDRESS,
                 ARG_DISK_SIZE,
@@ -2803,101 +2810,102 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",                        no_argument,       NULL, 'h'                             },
-                { "version",                     no_argument,       NULL, ARG_VERSION                     },
-                { "no-pager",                    no_argument,       NULL, ARG_NO_PAGER                    },
-                { "no-legend",                   no_argument,       NULL, ARG_NO_LEGEND                   },
-                { "no-ask-password",             no_argument,       NULL, ARG_NO_ASK_PASSWORD             },
-                { "host",                        required_argument, NULL, 'H'                             },
-                { "machine",                     required_argument, NULL, 'M'                             },
-                { "identity",                    required_argument, NULL, 'I'                             },
-                { "real-name",                   required_argument, NULL, 'c'                             },
-                { "comment",                     required_argument, NULL, 'c'                             }, /* Compat alias to keep thing in sync with useradd(8) */
-                { "realm",                       required_argument, NULL, ARG_REALM                       },
-                { "email-address",               required_argument, NULL, ARG_EMAIL_ADDRESS               },
-                { "location",                    required_argument, NULL, ARG_LOCATION                    },
-                { "password-hint",               required_argument, NULL, ARG_PASSWORD_HINT               },
-                { "icon-name",                   required_argument, NULL, ARG_ICON_NAME                   },
-                { "home-dir",                    required_argument, NULL, 'd'                             }, /* Compatible with useradd(8) */
-                { "uid",                         required_argument, NULL, 'u'                             }, /* Compatible with useradd(8) */
-                { "member-of",                   required_argument, NULL, 'G'                             },
-                { "groups",                      required_argument, NULL, 'G'                             }, /* Compat alias to keep thing in sync with useradd(8) */
-                { "skel",                        required_argument, NULL, 'k'                             }, /* Compatible with useradd(8) */
-                { "shell",                       required_argument, NULL, 's'                             }, /* Compatible with useradd(8) */
-                { "setenv",                      required_argument, NULL, ARG_SETENV                      },
-                { "timezone",                    required_argument, NULL, ARG_TIMEZONE                    },
-                { "language",                    required_argument, NULL, ARG_LANGUAGE                    },
-                { "locked",                      required_argument, NULL, ARG_LOCKED                      },
-                { "not-before",                  required_argument, NULL, ARG_NOT_BEFORE                  },
-                { "not-after",                   required_argument, NULL, ARG_NOT_AFTER                   },
-                { "expiredate",                  required_argument, NULL, 'e'                             }, /* Compat alias to keep thing in sync with useradd(8) */
-                { "ssh-authorized-keys",         required_argument, NULL, ARG_SSH_AUTHORIZED_KEYS         },
-                { "disk-size",                   required_argument, NULL, ARG_DISK_SIZE                   },
-                { "access-mode",                 required_argument, NULL, ARG_ACCESS_MODE                 },
-                { "umask",                       required_argument, NULL, ARG_UMASK                       },
-                { "nice",                        required_argument, NULL, ARG_NICE                        },
-                { "rlimit",                      required_argument, NULL, ARG_RLIMIT                      },
-                { "tasks-max",                   required_argument, NULL, ARG_TASKS_MAX                   },
-                { "memory-high",                 required_argument, NULL, ARG_MEMORY_HIGH                 },
-                { "memory-max",                  required_argument, NULL, ARG_MEMORY_MAX                  },
-                { "cpu-weight",                  required_argument, NULL, ARG_CPU_WEIGHT                  },
-                { "io-weight",                   required_argument, NULL, ARG_IO_WEIGHT                   },
-                { "storage",                     required_argument, NULL, ARG_STORAGE                     },
-                { "image-path",                  required_argument, NULL, ARG_IMAGE_PATH                  },
-                { "fs-type",                     required_argument, NULL, ARG_FS_TYPE                     },
-                { "luks-discard",                required_argument, NULL, ARG_LUKS_DISCARD                },
-                { "luks-offline-discard",        required_argument, NULL, ARG_LUKS_OFFLINE_DISCARD        },
-                { "luks-cipher",                 required_argument, NULL, ARG_LUKS_CIPHER                 },
-                { "luks-cipher-mode",            required_argument, NULL, ARG_LUKS_CIPHER_MODE            },
-                { "luks-volume-key-size",        required_argument, NULL, ARG_LUKS_VOLUME_KEY_SIZE        },
-                { "luks-pbkdf-type",             required_argument, NULL, ARG_LUKS_PBKDF_TYPE             },
-                { "luks-pbkdf-hash-algorithm",   required_argument, NULL, ARG_LUKS_PBKDF_HASH_ALGORITHM   },
-                { "luks-pbkdf-force-iterations", required_argument, NULL, ARG_LUKS_PBKDF_FORCE_ITERATIONS },
-                { "luks-pbkdf-time-cost",        required_argument, NULL, ARG_LUKS_PBKDF_TIME_COST        },
-                { "luks-pbkdf-memory-cost",      required_argument, NULL, ARG_LUKS_PBKDF_MEMORY_COST      },
-                { "luks-pbkdf-parallel-threads", required_argument, NULL, ARG_LUKS_PBKDF_PARALLEL_THREADS },
-                { "luks-sector-size",            required_argument, NULL, ARG_LUKS_SECTOR_SIZE            },
-                { "nosuid",                      required_argument, NULL, ARG_NOSUID                      },
-                { "nodev",                       required_argument, NULL, ARG_NODEV                       },
-                { "noexec",                      required_argument, NULL, ARG_NOEXEC                      },
-                { "cifs-user-name",              required_argument, NULL, ARG_CIFS_USER_NAME              },
-                { "cifs-domain",                 required_argument, NULL, ARG_CIFS_DOMAIN                 },
-                { "cifs-service",                required_argument, NULL, ARG_CIFS_SERVICE                },
-                { "cifs-extra-mount-options",    required_argument, NULL, ARG_CIFS_EXTRA_MOUNT_OPTIONS    },
-                { "rate-limit-interval",         required_argument, NULL, ARG_RATE_LIMIT_INTERVAL         },
-                { "rate-limit-burst",            required_argument, NULL, ARG_RATE_LIMIT_BURST            },
-                { "stop-delay",                  required_argument, NULL, ARG_STOP_DELAY                  },
-                { "kill-processes",              required_argument, NULL, ARG_KILL_PROCESSES              },
-                { "enforce-password-policy",     required_argument, NULL, ARG_ENFORCE_PASSWORD_POLICY     },
-                { "password-change-now",         required_argument, NULL, ARG_PASSWORD_CHANGE_NOW         },
-                { "password-change-min",         required_argument, NULL, ARG_PASSWORD_CHANGE_MIN         },
-                { "password-change-max",         required_argument, NULL, ARG_PASSWORD_CHANGE_MAX         },
-                { "password-change-warn",        required_argument, NULL, ARG_PASSWORD_CHANGE_WARN        },
-                { "password-change-inactive",    required_argument, NULL, ARG_PASSWORD_CHANGE_INACTIVE    },
-                { "auto-login",                  required_argument, NULL, ARG_AUTO_LOGIN                  },
-                { "session-launcher",            required_argument, NULL, ARG_SESSION_LAUNCHER,           },
-                { "session-type",                required_argument, NULL, ARG_SESSION_TYPE,               },
-                { "json",                        required_argument, NULL, ARG_JSON                        },
-                { "export-format",               required_argument, NULL, ARG_EXPORT_FORMAT               },
-                { "pkcs11-token-uri",            required_argument, NULL, ARG_PKCS11_TOKEN_URI            },
-                { "fido2-credential-algorithm",  required_argument, NULL, ARG_FIDO2_CRED_ALG              },
-                { "fido2-device",                required_argument, NULL, ARG_FIDO2_DEVICE                },
-                { "fido2-with-client-pin",       required_argument, NULL, ARG_FIDO2_WITH_PIN              },
-                { "fido2-with-user-presence",    required_argument, NULL, ARG_FIDO2_WITH_UP               },
-                { "fido2-with-user-verification",required_argument, NULL, ARG_FIDO2_WITH_UV               },
-                { "recovery-key",                required_argument, NULL, ARG_RECOVERY_KEY                },
-                { "and-resize",                  required_argument, NULL, ARG_AND_RESIZE                  },
-                { "and-change-password",         required_argument, NULL, ARG_AND_CHANGE_PASSWORD         },
-                { "drop-caches",                 required_argument, NULL, ARG_DROP_CACHES                 },
-                { "luks-extra-mount-options",    required_argument, NULL, ARG_LUKS_EXTRA_MOUNT_OPTIONS    },
-                { "auto-resize-mode",            required_argument, NULL, ARG_AUTO_RESIZE_MODE            },
-                { "rebalance-weight",            required_argument, NULL, ARG_REBALANCE_WEIGHT            },
-                { "capability-bounding-set",     required_argument, NULL, ARG_CAPABILITY_BOUNDING_SET     },
-                { "capability-ambient-set",      required_argument, NULL, ARG_CAPABILITY_AMBIENT_SET      },
-                { "prompt-new-user",             no_argument,       NULL, ARG_PROMPT_NEW_USER             },
-                { "blob",                        required_argument, NULL, 'b'                             },
-                { "avatar",                      required_argument, NULL, ARG_AVATAR                      },
-                { "login-background",            required_argument, NULL, ARG_LOGIN_BACKGROUND            },
+                { "help",                         no_argument,       NULL, 'h'                             },
+                { "version",                      no_argument,       NULL, ARG_VERSION                     },
+                { "no-pager",                     no_argument,       NULL, ARG_NO_PAGER                    },
+                { "no-legend",                    no_argument,       NULL, ARG_NO_LEGEND                   },
+                { "no-ask-password",              no_argument,       NULL, ARG_NO_ASK_PASSWORD             },
+                { "offline",                      no_argument,       NULL, ARG_OFFLINE                     },
+                { "host",                         required_argument, NULL, 'H'                             },
+                { "machine",                      required_argument, NULL, 'M'                             },
+                { "identity",                     required_argument, NULL, 'I'                             },
+                { "real-name",                    required_argument, NULL, 'c'                             },
+                { "comment",                      required_argument, NULL, 'c'                             }, /* Compat alias to keep thing in sync with useradd(8) */
+                { "realm",                        required_argument, NULL, ARG_REALM                       },
+                { "email-address",                required_argument, NULL, ARG_EMAIL_ADDRESS               },
+                { "location",                     required_argument, NULL, ARG_LOCATION                    },
+                { "password-hint",                required_argument, NULL, ARG_PASSWORD_HINT               },
+                { "icon-name",                    required_argument, NULL, ARG_ICON_NAME                   },
+                { "home-dir",                     required_argument, NULL, 'd'                             }, /* Compatible with useradd(8) */
+                { "uid",                          required_argument, NULL, 'u'                             }, /* Compatible with useradd(8) */
+                { "member-of",                    required_argument, NULL, 'G'                             },
+                { "groups",                       required_argument, NULL, 'G'                             }, /* Compat alias to keep thing in sync with useradd(8) */
+                { "skel",                         required_argument, NULL, 'k'                             }, /* Compatible with useradd(8) */
+                { "shell",                        required_argument, NULL, 's'                             }, /* Compatible with useradd(8) */
+                { "setenv",                       required_argument, NULL, ARG_SETENV                      },
+                { "timezone",                     required_argument, NULL, ARG_TIMEZONE                    },
+                { "language",                     required_argument, NULL, ARG_LANGUAGE                    },
+                { "locked",                       required_argument, NULL, ARG_LOCKED                      },
+                { "not-before",                   required_argument, NULL, ARG_NOT_BEFORE                  },
+                { "not-after",                    required_argument, NULL, ARG_NOT_AFTER                   },
+                { "expiredate",                   required_argument, NULL, 'e'                             }, /* Compat alias to keep thing in sync with useradd(8) */
+                { "ssh-authorized-keys",          required_argument, NULL, ARG_SSH_AUTHORIZED_KEYS         },
+                { "disk-size",                    required_argument, NULL, ARG_DISK_SIZE                   },
+                { "access-mode",                  required_argument, NULL, ARG_ACCESS_MODE                 },
+                { "umask",                        required_argument, NULL, ARG_UMASK                       },
+                { "nice",                         required_argument, NULL, ARG_NICE                        },
+                { "rlimit",                       required_argument, NULL, ARG_RLIMIT                      },
+                { "tasks-max",                    required_argument, NULL, ARG_TASKS_MAX                   },
+                { "memory-high",                  required_argument, NULL, ARG_MEMORY_HIGH                 },
+                { "memory-max",                   required_argument, NULL, ARG_MEMORY_MAX                  },
+                { "cpu-weight",                   required_argument, NULL, ARG_CPU_WEIGHT                  },
+                { "io-weight",                    required_argument, NULL, ARG_IO_WEIGHT                   },
+                { "storage",                      required_argument, NULL, ARG_STORAGE                     },
+                { "image-path",                   required_argument, NULL, ARG_IMAGE_PATH                  },
+                { "fs-type",                      required_argument, NULL, ARG_FS_TYPE                     },
+                { "luks-discard",                 required_argument, NULL, ARG_LUKS_DISCARD                },
+                { "luks-offline-discard",         required_argument, NULL, ARG_LUKS_OFFLINE_DISCARD        },
+                { "luks-cipher",                  required_argument, NULL, ARG_LUKS_CIPHER                 },
+                { "luks-cipher-mode",             required_argument, NULL, ARG_LUKS_CIPHER_MODE            },
+                { "luks-volume-key-size",         required_argument, NULL, ARG_LUKS_VOLUME_KEY_SIZE        },
+                { "luks-pbkdf-type",              required_argument, NULL, ARG_LUKS_PBKDF_TYPE             },
+                { "luks-pbkdf-hash-algorithm",    required_argument, NULL, ARG_LUKS_PBKDF_HASH_ALGORITHM   },
+                { "luks-pbkdf-force-iterations",  required_argument, NULL, ARG_LUKS_PBKDF_FORCE_ITERATIONS },
+                { "luks-pbkdf-time-cost",         required_argument, NULL, ARG_LUKS_PBKDF_TIME_COST        },
+                { "luks-pbkdf-memory-cost",       required_argument, NULL, ARG_LUKS_PBKDF_MEMORY_COST      },
+                { "luks-pbkdf-parallel-threads",  required_argument, NULL, ARG_LUKS_PBKDF_PARALLEL_THREADS },
+                { "luks-sector-size",             required_argument, NULL, ARG_LUKS_SECTOR_SIZE            },
+                { "nosuid",                       required_argument, NULL, ARG_NOSUID                      },
+                { "nodev",                        required_argument, NULL, ARG_NODEV                       },
+                { "noexec",                       required_argument, NULL, ARG_NOEXEC                      },
+                { "cifs-user-name",               required_argument, NULL, ARG_CIFS_USER_NAME              },
+                { "cifs-domain",                  required_argument, NULL, ARG_CIFS_DOMAIN                 },
+                { "cifs-service",                 required_argument, NULL, ARG_CIFS_SERVICE                },
+                { "cifs-extra-mount-options",     required_argument, NULL, ARG_CIFS_EXTRA_MOUNT_OPTIONS    },
+                { "rate-limit-interval",          required_argument, NULL, ARG_RATE_LIMIT_INTERVAL         },
+                { "rate-limit-burst",             required_argument, NULL, ARG_RATE_LIMIT_BURST            },
+                { "stop-delay",                   required_argument, NULL, ARG_STOP_DELAY                  },
+                { "kill-processes",               required_argument, NULL, ARG_KILL_PROCESSES              },
+                { "enforce-password-policy",      required_argument, NULL, ARG_ENFORCE_PASSWORD_POLICY     },
+                { "password-change-now",          required_argument, NULL, ARG_PASSWORD_CHANGE_NOW         },
+                { "password-change-min",          required_argument, NULL, ARG_PASSWORD_CHANGE_MIN         },
+                { "password-change-max",          required_argument, NULL, ARG_PASSWORD_CHANGE_MAX         },
+                { "password-change-warn",         required_argument, NULL, ARG_PASSWORD_CHANGE_WARN        },
+                { "password-change-inactive",     required_argument, NULL, ARG_PASSWORD_CHANGE_INACTIVE    },
+                { "auto-login",                   required_argument, NULL, ARG_AUTO_LOGIN                  },
+                { "session-launcher",             required_argument, NULL, ARG_SESSION_LAUNCHER,           },
+                { "session-type",                 required_argument, NULL, ARG_SESSION_TYPE,               },
+                { "json",                         required_argument, NULL, ARG_JSON                        },
+                { "export-format",                required_argument, NULL, ARG_EXPORT_FORMAT               },
+                { "pkcs11-token-uri",             required_argument, NULL, ARG_PKCS11_TOKEN_URI            },
+                { "fido2-credential-algorithm",   required_argument, NULL, ARG_FIDO2_CRED_ALG              },
+                { "fido2-device",                 required_argument, NULL, ARG_FIDO2_DEVICE                },
+                { "fido2-with-client-pin",        required_argument, NULL, ARG_FIDO2_WITH_PIN              },
+                { "fido2-with-user-presence",     required_argument, NULL, ARG_FIDO2_WITH_UP               },
+                { "fido2-with-user-verification", required_argument, NULL, ARG_FIDO2_WITH_UV               },
+                { "recovery-key",                 required_argument, NULL, ARG_RECOVERY_KEY                },
+                { "and-resize",                   required_argument, NULL, ARG_AND_RESIZE                  },
+                { "and-change-password",          required_argument, NULL, ARG_AND_CHANGE_PASSWORD         },
+                { "drop-caches",                  required_argument, NULL, ARG_DROP_CACHES                 },
+                { "luks-extra-mount-options",     required_argument, NULL, ARG_LUKS_EXTRA_MOUNT_OPTIONS    },
+                { "auto-resize-mode",             required_argument, NULL, ARG_AUTO_RESIZE_MODE            },
+                { "rebalance-weight",             required_argument, NULL, ARG_REBALANCE_WEIGHT            },
+                { "capability-bounding-set",      required_argument, NULL, ARG_CAPABILITY_BOUNDING_SET     },
+                { "capability-ambient-set",       required_argument, NULL, ARG_CAPABILITY_AMBIENT_SET      },
+                { "prompt-new-user",              no_argument,       NULL, ARG_PROMPT_NEW_USER             },
+                { "blob",                         required_argument, NULL, 'b'                             },
+                { "avatar",                       required_argument, NULL, ARG_AVATAR                      },
+                { "login-background",             required_argument, NULL, ARG_LOGIN_BACKGROUND            },
                 {}
         };
 
@@ -2931,6 +2939,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_ASK_PASSWORD:
                         arg_ask_password = false;
+                        break;
+
+                case ARG_OFFLINE:
+                        arg_offline = true;
                         break;
 
                 case 'H':

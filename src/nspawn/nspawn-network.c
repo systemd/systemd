@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
 #include <linux/if.h>
 #include <linux/nl80211.h>
@@ -487,7 +488,7 @@ static int test_network_interface_initialized(const char *name) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get device %s: %m", name);
 
-        r = sd_device_get_is_initialized(d);
+        r = device_is_processed(d);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether interface %s is initialized: %m", name);
         if (r == 0)

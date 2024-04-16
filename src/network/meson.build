@@ -147,8 +147,7 @@ if get_option('link-networkd-shared')
         networkd_link_with = [libshared]
 else
         networkd_link_with = [libsystemd_static,
-                              libshared_static,
-                              libbasic_gcrypt]
+                              libshared_static]
 endif
 
 network_includes = [libsystemd_network_includes, include_directories(['.', 'netdev', 'tc'])]

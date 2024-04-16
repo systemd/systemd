@@ -41,12 +41,12 @@ static void test_last_cap_file(void) {
         r = read_one_line_file("/proc/sys/kernel/cap_last_cap", &content);
         if (r == -ENOENT || ERRNO_IS_NEG_PRIVILEGE(r)) /* kernel pre 3.2 or no access */
                 return;
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = safe_atolu(content, &val);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
         assert_se(val != 0);
-        assert_se(val == cap_last_cap());
+        ASSERT_EQ(val, cap_last_cap());
 }
 
 /* verify cap_last_cap() against syscall probing */
@@ -64,7 +64,7 @@ static void test_last_cap_probe(void) {
         }
 
         assert_se(p != 0);
-        assert_se(p == cap_last_cap());
+        ASSERT_EQ(p, cap_last_cap());
 }
 
 static void fork_test(void (*test_func)(void)) {
@@ -130,7 +130,7 @@ static void test_drop_privileges_keep_net_raw(void) {
         show_capabilities();
 
         sock = socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
-        assert_se(sock >= 0);
+        ASSERT_OK(sock);
         safe_close(sock);
 }
 
@@ -138,7 +138,7 @@ static void test_drop_privileges_dontkeep_net_raw(void) {
         int sock;
 
         sock = socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
-        assert_se(sock >= 0);
+        ASSERT_OK(sock);
         safe_close(sock);
 
         assert_se(drop_privileges(test_uid, test_gid, test_flags) >= 0);
@@ -147,7 +147,7 @@ static void test_drop_privileges_dontkeep_net_raw(void) {
         show_capabilities();
 
         sock = socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
-        assert_se(sock < 0);
+        ASSERT_LT(sock, 0);
 }
 
 static void test_drop_privileges_fail(void) {
@@ -155,8 +155,8 @@ static void test_drop_privileges_fail(void) {
         assert_se(getuid() == test_uid);
         assert_se(getgid() == test_gid);
 
-        assert_se(drop_privileges(test_uid, test_gid, test_flags) < 0);
-        assert_se(drop_privileges(0, 0, test_flags) < 0);
+        ASSERT_LT(drop_privileges(test_uid, test_gid, test_flags), 0);
+        ASSERT_LT(drop_privileges(0, 0, test_flags), 0);
 }
 
 static void test_drop_privileges(void) {
@@ -172,14 +172,14 @@ static void test_drop_privileges(void) {
 }
 
 static void test_have_effective_cap(void) {
-        assert_se(have_effective_cap(CAP_KILL) > 0);
-        assert_se(have_effective_cap(CAP_CHOWN) > 0);
+        ASSERT_GT(have_effective_cap(CAP_KILL), 0);
+        ASSERT_GT(have_effective_cap(CAP_CHOWN), 0);
 
-        assert_se(drop_privileges(test_uid, test_gid, test_flags | (1ULL << CAP_KILL)) >= 0);
+        ASSERT_OK(drop_privileges(test_uid, test_gid, test_flags | (1ULL << CAP_KILL)));
         assert_se(getuid() == test_uid);
         assert_se(getgid() == test_gid);
 
-        assert_se(have_effective_cap(CAP_KILL) > 0);
+        ASSERT_GT(have_effective_cap(CAP_KILL), 0);
         assert_se(have_effective_cap(CAP_CHOWN) == 0);
 }
 
@@ -237,9 +237,9 @@ static void test_ensure_cap_64_bit(void) {
         r = read_one_line_file("/proc/sys/kernel/cap_last_cap", &content);
         if (r == -ENOENT || ERRNO_IS_NEG_PRIVILEGE(r)) /* kernel pre 3.2 or no access */
                 return;
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
-        assert_se(safe_atolu(content, &p) >= 0);
+        ASSERT_OK(safe_atolu(content, &p));
 
         /* If caps don't fit into 64-bit anymore, we have a problem, fail the test. */
         assert_se(p <= 63);
@@ -252,10 +252,10 @@ static void test_capability_get_ambient(void) {
         uint64_t c;
         int r;
 
-        assert_se(capability_get_ambient(&c) >= 0);
+        ASSERT_OK(capability_get_ambient(&c));
 
         r = safe_fork("(getambient)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (r == 0) {
                 int x, y;

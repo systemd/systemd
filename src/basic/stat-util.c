@@ -229,7 +229,7 @@ int null_or_empty_path_with_root(const char *fn, const char *root) {
          * When looking under root_dir, we can't expect /dev/ to be mounted,
          * so let's see if the path is a (possibly dangling) symlink to /dev/null. */
 
-        if (path_equal_ptr(path_startswith(fn, root ?: "/"), "dev/null"))
+        if (path_equal(path_startswith(fn, root ?: "/"), "dev/null"))
                 return true;
 
         r = chase_and_stat(fn, root, CHASE_PREFIX_ROOT, NULL, &st);

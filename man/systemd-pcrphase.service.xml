@@ -158,7 +158,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-device=</option><replaceable>PATH</replaceable></term>
+        <term><option>--tpm2-device=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Controls which TPM2 device to use. Expects a device node path referring to the TPM2
         chip (e.g. <filename>/dev/tpmrm0</filename>). Alternatively the special value <literal>auto</literal>

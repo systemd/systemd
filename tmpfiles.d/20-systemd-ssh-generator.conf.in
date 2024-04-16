@@ -8,3 +8,6 @@
 # See tmpfiles.d(5) for details
 
 L {{SSHCONFDIR}}/20-systemd-ssh-proxy.conf - - - - {{LIBEXECDIR}}/ssh_config.d/20-systemd-ssh-proxy.conf
+{% if CREATE_SSHDPRIVSEPDIR %}
+d {{SSHDPRIVSEPDIR}} 0755
+{% endif %}

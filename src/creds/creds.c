@@ -60,6 +60,7 @@ static bool arg_pretty = false;
 static bool arg_quiet = false;
 static bool arg_varlink = false;
 static uid_t arg_uid = UID_INVALID;
+static bool arg_allow_null = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
@@ -623,7 +624,7 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
                                 arg_tpm2_signature,
                                 arg_uid,
                                 &input,
-                                /* flags= */ 0,
+                                arg_allow_null ? CREDENTIAL_ALLOW_NULL : 0,
                                 &plaintext);
         if (r < 0)
                 return r;
@@ -725,7 +726,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --timestamp=TIME     Include specified timestamp in encrypted credential\n"
                "     --not-after=TIME     Include specified invalidation time in encrypted\n"
                "                          credential\n"
-               "     --with-key=host|tpm2|host+tpm2|tpm2-absent|auto|auto-initrd\n"
+               "     --with-key=host|tpm2|host+tpm2|null|auto|auto-initrd\n"
                "                          Which keys to encrypt with\n"
                "  -H                      Shortcut for --with-key=host\n"
                "  -T                      Shortcut for --with-key=tpm2\n"
@@ -741,6 +742,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "                          Specify signature for public key PCR policy\n"
                "     --user               Select user-scoped credential encryption\n"
                "     --uid=UID            Select user for scoped credentials\n"
+               "     --allow-null         Allow decrypting credentials with empty key\n"
                "  -q --quiet              Suppress output for 'has-tpm2' verb\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
@@ -774,6 +776,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NOT_AFTER,
                 ARG_USER,
                 ARG_UID,
+                ARG_ALLOW_NULL,
         };
 
         static const struct option options[] = {
@@ -798,6 +801,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "quiet",                no_argument,       NULL, 'q'                      },
                 { "user",                 no_argument,       NULL, ARG_USER                 },
                 { "uid",                  required_argument, NULL, ARG_UID                  },
+                { "allow-null",           no_argument,       NULL, ARG_ALLOW_NULL           },
                 {}
         };
 
@@ -983,6 +987,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to resolve user '%s': %m", optarg);
                         }
+                        break;
+
+                case ARG_ALLOW_NULL:
+                        arg_allow_null = true;
                         break;
 
                 case 'q':

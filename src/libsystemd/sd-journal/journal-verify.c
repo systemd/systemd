@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "gcrypt-util.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -1224,7 +1225,7 @@ int journal_file_verify(
                                 if (r < 0)
                                         goto fail;
 
-                                if (memcmp(o->tag.tag, gcry_md_read(f->hmac, 0), TAG_LENGTH) != 0) {
+                                if (memcmp(o->tag.tag, sym_gcry_md_read(f->hmac, 0), TAG_LENGTH) != 0) {
                                         error(p, "Tag failed verification");
                                         r = -EBADMSG;
                                         goto fail;

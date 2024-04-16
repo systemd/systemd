@@ -32,6 +32,15 @@ static int update_rules_map(
 
         assert(map_fd >= 0);
 
+        if (!head) {
+                static const struct socket_bind_rule val = {
+                        .address_family = SOCKET_BIND_RULE_AF_MATCH_NOTHING,
+                };
+
+                if (sym_bpf_map_update_elem(map_fd, &i, &val, BPF_ANY) != 0)
+                        return -errno;
+        }
+
         LIST_FOREACH(socket_bind_items, item, head) {
                 struct socket_bind_rule val = {
                         .address_family = (uint32_t) item->address_family,

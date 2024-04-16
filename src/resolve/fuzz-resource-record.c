@@ -26,12 +26,10 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(f = memstream_init(&m));
         (void) fprintf(f, "%s", strna(dns_resource_record_to_string(rr)));
 
-        if (dns_resource_record_to_json(rr, &v) < 0)
-                return 0;
-
-        (void) json_variant_dump(v, JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR|JSON_FORMAT_SOURCE, f, NULL);
-        (void) dns_resource_record_to_wire_format(rr, false);
-        (void) dns_resource_record_to_wire_format(rr, true);
+        assert_se(dns_resource_record_to_json(rr, &v) >= 0);
+        assert_se(json_variant_dump(v, JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR|JSON_FORMAT_SOURCE, f, NULL) >= 0);
+        assert_se(dns_resource_record_to_wire_format(rr, false) >= 0);
+        assert_se(dns_resource_record_to_wire_format(rr, true) >= 0);
 
         return 0;
 }

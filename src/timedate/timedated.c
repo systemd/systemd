@@ -46,6 +46,7 @@
 #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
 
 #define UNIT_LIST_DIRS (const char* const*) CONF_PATHS_STRV("systemd/ntp-units.d")
+#define SET_NTP_IN_FLIGHT_MAX 16
 
 typedef struct UnitStatusInfo {
         char *name;
@@ -62,6 +63,7 @@ typedef struct Context {
         bool local_rtc;
         Hashmap *polkit_registry;
         sd_bus_message *cache;
+        Set *set_ntp_calls;
 
         sd_bus_slot *slot_job_removed;
 
@@ -122,6 +124,7 @@ static void context_clear(Context *c) {
         free(c->zone);
         hashmap_free(c->polkit_registry);
         sd_bus_message_unref(c->cache);
+        set_free(c->set_ntp_calls);
 
         sd_bus_slot_unref(c->slot_job_removed);
 
@@ -462,11 +465,19 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
                         n += !!u->path;
 
         if (n == 0) {
+                sd_bus_message *cm;
+
                 c->slot_job_removed = sd_bus_slot_unref(c->slot_job_removed);
 
                 (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
                                                       "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP",
                                                       NULL);
+                while ((cm = set_steal_first(c->set_ntp_calls))) {
+                        r = sd_bus_reply_method_return(cm, NULL);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to reply to SetNTP method call, ignoring: %m");
+                        sd_bus_message_unref(cm);
+                }
         }
 
         return 0;
@@ -939,6 +950,9 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
         LIST_FOREACH(units, u, c->units)
                 u->path = mfree(u->path);
 
+        if (set_size(c->set_ntp_calls) >= SET_NTP_IN_FLIGHT_MAX)
+                return sd_bus_error_set_errnof(error, EAGAIN, "Too many calls in flight.");
+
         if (!c->slot_job_removed) {
                 r = bus_match_signal_async(
                                 bus,
@@ -993,11 +1007,12 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                 c->slot_job_removed = TAKE_PTR(slot);
 
         if (selected)
-                log_info("Set NTP to enabled (%s).", selected->name);
+                log_info("Set NTP to be enabled (%s).", selected->name);
         else
-                log_info("Set NTP to disabled.");
+                log_info("Set NTP to be disabled.");
 
-        return sd_bus_reply_method_return(m, NULL);
+        /* Asynchronous reply to m in match_job_removed() */
+        return set_ensure_consume(&c->set_ntp_calls, &bus_message_hash_ops, sd_bus_message_ref(m));
 }
 
 static int method_list_timezones(sd_bus_message *m, void *userdata, sd_bus_error *error) {

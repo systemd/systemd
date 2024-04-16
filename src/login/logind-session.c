@@ -742,6 +742,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                         s->manager,
                         scope,
                         &s->leader,
+                        /* allow_pidfd = */ true,
                         s->user->slice,
                         description,
                         /* These should have been pulled in explicitly in user_start(). Just to be sure. */

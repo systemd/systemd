@@ -58,7 +58,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tty=</option><replaceable></replaceable></term>
+        <term><option>--tty=<replaceable></replaceable></option></term>
 
         <listitem><para>Specify the TTY to output to. By default <command>systemd-bsod</command> will
         automatically find a free VT to display the message on. If this option is specified a TTY may be

@@ -38,6 +38,7 @@ int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret) {
                 { "FinishTimestampMonotonic",                 "t", NULL, offsetof(BootTimes, finish_time)                   },
                 { "SecurityStartTimestampMonotonic",          "t", NULL, offsetof(BootTimes, security_start_time)           },
                 { "SecurityFinishTimestampMonotonic",         "t", NULL, offsetof(BootTimes, security_finish_time)          },
+                { "SoftRebootStartTimestampMonotonic",        "t", NULL, offsetof(BootTimes, softreboot_start_time)         },
                 { "GeneratorsStartTimestampMonotonic",        "t", NULL, offsetof(BootTimes, generators_start_time)         },
                 { "GeneratorsFinishTimestampMonotonic",       "t", NULL, offsetof(BootTimes, generators_finish_time)        },
                 { "UnitsLoadStartTimestampMonotonic",         "t", NULL, offsetof(BootTimes, unitsload_start_time)          },
@@ -81,7 +82,22 @@ int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret) {
         if (require_finished && times.finish_time <= 0)
                 return log_not_finished(times.finish_time);
 
-        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM && times.security_start_time > 0) {
+        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM && timestamp_is_set(times.softreboot_start_time)) {
+                /* On soft-reboot ignore kernel/firmware/initrd times as they are from the previous boot */
+                times.firmware_time = times.loader_time = times.kernel_time = times.initrd_time = 0;
+                times.reverse_offset = times.softreboot_start_time;
+
+                /* Clamp all timestamps to avoid showing huge graphs */
+                if (timestamp_is_set(times.finish_time))
+                        subtract_timestamp(&times.finish_time, times.reverse_offset);
+                subtract_timestamp(&times.userspace_time, times.reverse_offset);
+
+                subtract_timestamp(&times.generators_start_time, times.reverse_offset);
+                subtract_timestamp(&times.generators_finish_time, times.reverse_offset);
+
+                subtract_timestamp(&times.unitsload_start_time, times.reverse_offset);
+                subtract_timestamp(&times.unitsload_finish_time, times.reverse_offset);
+        } else if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM && timestamp_is_set(times.security_start_time)) {
                 /* security_start_time is set when systemd is not running under container environment. */
                 if (times.initrd_time > 0)
                         times.kernel_done_time = times.initrd_time;
@@ -183,6 +199,8 @@ int pretty_boot_time(sd_bus *bus, char **ret) {
                 return log_oom();
         if (timestamp_is_set(t->initrd_time) && !strextend(&text, FORMAT_TIMESPAN(t->userspace_time - t->initrd_time, USEC_PER_MSEC), " (initrd) + "))
                 return log_oom();
+        if (timestamp_is_set(t->softreboot_start_time) && !strextend(&text, FORMAT_TIMESPAN(t->userspace_time, USEC_PER_MSEC), " (soft reboot) + "))
+                return log_oom();
 
         if (!strextend(&text, FORMAT_TIMESPAN(t->finish_time - t->userspace_time, USEC_PER_MSEC), " (userspace) "))
                 return log_oom();
@@ -192,7 +210,13 @@ int pretty_boot_time(sd_bus *bus, char **ret) {
                         return log_oom();
 
         if (unit_id && timestamp_is_set(activated_time)) {
-                usec_t base = timestamp_is_set(t->userspace_time) ? t->userspace_time : t->reverse_offset;
+                usec_t base;
+
+                /* On soft-reboot times are clamped to avoid showing huge graphs */
+                if (timestamp_is_set(t->softreboot_start_time) && timestamp_is_set(t->userspace_time))
+                        base = t->userspace_time + t->reverse_offset;
+                else
+                        base = timestamp_is_set(t->userspace_time) ? t->userspace_time : t->reverse_offset;
 
                 if (!strextend(&text, "\n", unit_id, " reached after ", FORMAT_TIMESPAN(activated_time - base, USEC_PER_MSEC), " in userspace."))
                         return log_oom();
@@ -299,10 +323,28 @@ int acquire_time_data(sd_bus *bus, bool require_finished, UnitTimes **out) {
                         return log_error_errno(r, "Failed to get timestamp properties of unit %s: %s",
                                                u.id, bus_error_message(&error, r));
 
+                /* Activated in the previous soft-reboot iteration? Ignore it, we want new activations */
+                if ((t->activated > 0 && t->activated < boot_times->softreboot_start_time) ||
+                    (t->activating > 0 && t->activating < boot_times->softreboot_start_time))
+                        continue;
+
                 subtract_timestamp(&t->activating, boot_times->reverse_offset);
                 subtract_timestamp(&t->activated, boot_times->reverse_offset);
-                subtract_timestamp(&t->deactivating, boot_times->reverse_offset);
-                subtract_timestamp(&t->deactivated, boot_times->reverse_offset);
+
+                /* If the last deactivation was in the previous soft-reboot, ignore it */
+                if (timestamp_is_set(boot_times->softreboot_start_time)) {
+                        if (t->deactivating < boot_times->reverse_offset)
+                                t->deactivating = 0;
+                        else
+                                subtract_timestamp(&t->deactivating, boot_times->reverse_offset);
+                        if (t->deactivated < boot_times->reverse_offset)
+                                t->deactivated = 0;
+                        else
+                                subtract_timestamp(&t->deactivated, boot_times->reverse_offset);
+                } else {
+                        subtract_timestamp(&t->deactivating, boot_times->reverse_offset);
+                        subtract_timestamp(&t->deactivated, boot_times->reverse_offset);
+                }
 
                 if (t->activated >= t->activating)
                         t->time = t->activated - t->activating;

@@ -2544,14 +2544,14 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                 if (base64mem(sc->data, sc->size, &data) < 0)
                         return log_oom_debug();
 
-                r = serialize_item_format(f, "exec-context-set-credentials", "%s %s %s", sc->id, yes_no(sc->encrypted), data);
+                r = serialize_item_format(f, "exec-context-set-credentials", "%s %s %s", sc->id, data, yes_no(sc->encrypted));
                 if (r < 0)
                         return r;
         }
 
         ExecLoadCredential *lc;
         HASHMAP_FOREACH(lc, c->load_credentials) {
-                r = serialize_item_format(f, "exec-context-load-credentials", "%s %s %s", lc->id, yes_no(lc->encrypted), lc->path);
+                r = serialize_item_format(f, "exec-context-load-credentials", "%s %s %s", lc->id, lc->path, yes_no(lc->encrypted));
                 if (r < 0)
                         return r;
         }
@@ -3668,7 +3668,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         _cleanup_(exec_set_credential_freep) ExecSetCredential *sc = NULL;
                         _cleanup_free_ char *id = NULL, *encrypted = NULL, *data = NULL;
 
-                        r = extract_many_words(&val, " ", 0, &id, &encrypted, &data);
+                        r = extract_many_words(&val, " ", EXTRACT_DONT_COALESCE_SEPARATORS, &id, &data, &encrypted);
                         if (r < 0)
                                 return r;
                         if (r != 3)
@@ -3700,7 +3700,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         _cleanup_(exec_load_credential_freep) ExecLoadCredential *lc = NULL;
                         _cleanup_free_ char *id = NULL, *encrypted = NULL, *path = NULL;
 
-                        r = extract_many_words(&val, " ", 0, &id, &encrypted, &path);
+                        r = extract_many_words(&val, " ", EXTRACT_DONT_COALESCE_SEPARATORS, &id, &path, &encrypted);
                         if (r < 0)
                                 return r;
                         if (r != 3)

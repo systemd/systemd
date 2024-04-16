@@ -13,7 +13,7 @@ fi
 if [[ "$(systemctl show -P InitRDTimestampMonotonic)" -eq 0 ]]; then
     echo "systemd didn't run in the initrd, skipping the test"
     touch /skipped
-    exit 0
+    exit 77
 fi
 
 # We should've created a mount under /run in initrd (see the other half of the test)

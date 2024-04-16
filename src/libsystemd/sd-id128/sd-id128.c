@@ -170,14 +170,24 @@ int id128_get_machine(const char *root, sd_id128_t *ret) {
         return id128_read_fd(fd, ID128_FORMAT_PLAIN | ID128_REFUSE_NULL, ret);
 }
 
+int id128_get_boot(sd_id128_t *ret) {
+        int r;
+
+        assert(ret);
+
+        r = id128_read("/proc/sys/kernel/random/boot_id", ID128_FORMAT_UUID | ID128_REFUSE_NULL, ret);
+        if (r == -ENOENT && proc_mounted() == 0)
+                return -ENOSYS;
+
+        return r;
+}
+
 _public_ int sd_id128_get_boot(sd_id128_t *ret) {
         static thread_local sd_id128_t saved_boot_id = {};
         int r;
 
         if (sd_id128_is_null(saved_boot_id)) {
-                r = id128_read("/proc/sys/kernel/random/boot_id", ID128_FORMAT_UUID | ID128_REFUSE_NULL, &saved_boot_id);
-                if (r == -ENOENT && proc_mounted() == 0)
-                        return -ENOSYS;
+                r = id128_get_boot(&saved_boot_id);
                 if (r < 0)
                         return r;
         }

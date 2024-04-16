@@ -34,7 +34,7 @@ TEST(sysctl_normalize) {
                 assert_se(sysctl_normalize(t) == t);
 
                 log_info("\"%s\" → \"%s\", expected \"%s\"", *s, t, *expected);
-                assert_se(streq(t, *expected));
+                ASSERT_STREQ(t, *expected);
         }
 }
 
@@ -66,7 +66,7 @@ TEST(sysctl_read) {
 
         assert_se(sysctl_read("kernel/hostname", &s) >= 0);
         assert_se(uname(&u) >= 0);
-        assert_se(streq_ptr(s, u.nodename));
+        ASSERT_STREQ(s, u.nodename);
 
         r = sysctl_write("kernel/hostname", s);
         assert_se(r >= 0 || ERRNO_IS_PRIVILEGE(r) || r == -EROFS);

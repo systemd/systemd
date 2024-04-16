@@ -79,17 +79,17 @@
 #define NOTICEWORTHY_IP_BYTES     (128 * U64_MB)
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
-        [UNIT_SERVICE] = &service_vtable,
-        [UNIT_SOCKET] = &socket_vtable,
-        [UNIT_TARGET] = &target_vtable,
-        [UNIT_DEVICE] = &device_vtable,
-        [UNIT_MOUNT] = &mount_vtable,
+        [UNIT_SERVICE]   = &service_vtable,
+        [UNIT_SOCKET]    = &socket_vtable,
+        [UNIT_TARGET]    = &target_vtable,
+        [UNIT_DEVICE]    = &device_vtable,
+        [UNIT_MOUNT]     = &mount_vtable,
         [UNIT_AUTOMOUNT] = &automount_vtable,
-        [UNIT_SWAP] = &swap_vtable,
-        [UNIT_TIMER] = &timer_vtable,
-        [UNIT_PATH] = &path_vtable,
-        [UNIT_SLICE] = &slice_vtable,
-        [UNIT_SCOPE] = &scope_vtable,
+        [UNIT_SWAP]      = &swap_vtable,
+        [UNIT_TIMER]     = &timer_vtable,
+        [UNIT_PATH]      = &path_vtable,
+        [UNIT_SLICE]     = &slice_vtable,
+        [UNIT_SCOPE]     = &scope_vtable,
 };
 
 Unit* unit_new(Manager *m, size_t size) {
@@ -1249,10 +1249,10 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 if (!u->manager->prefix[dt])
                         continue;
 
-                for (size_t i = 0; i < c->directories[dt].n_items; i++) {
+                FOREACH_ARRAY(i, c->directories[dt].items, c->directories[dt].n_items) {
                         _cleanup_free_ char *p = NULL;
 
-                        p = path_join(u->manager->prefix[dt], c->directories[dt].items[i].path);
+                        p = path_join(u->manager->prefix[dt], i->path);
                         if (!p)
                                 return -ENOMEM;
 
@@ -6311,7 +6311,7 @@ Condition *unit_find_failed_condition(Unit *u) {
 }
 
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {
-        [COLLECT_INACTIVE] = "inactive",
+        [COLLECT_INACTIVE]           = "inactive",
         [COLLECT_INACTIVE_OR_FAILED] = "inactive-or-failed",
 };
 
@@ -6461,7 +6461,7 @@ int unit_compare_priority(Unit *a, Unit *b) {
 }
 
 const ActivationDetailsVTable * const activation_details_vtable[_UNIT_TYPE_MAX] = {
-        [UNIT_PATH] = &activation_details_path_vtable,
+        [UNIT_PATH]  = &activation_details_path_vtable,
         [UNIT_TIMER] = &activation_details_timer_vtable,
 };
 

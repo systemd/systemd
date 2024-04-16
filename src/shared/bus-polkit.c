@@ -728,8 +728,10 @@ static bool varlink_allow_interactive_authentication(Varlink *link) {
          * always under the same name. */
 
         r = varlink_get_current_parameters(link, &v);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Unable to query current parameters: %m");
+                return false;
+        }
 
         JsonVariant *b;
         b = json_variant_by_key(v, "allowInteractiveAuthentication");

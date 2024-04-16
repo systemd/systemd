@@ -59,8 +59,7 @@
 
 static const struct in6_addr local_address =
         { { { 0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, } } };
-static const struct in6_addr mcast_address =
-        IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT;
+static const struct in6_addr mcast_address = IN6_ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS;
 static const struct in6_addr ia_na_address1 = { { { IA_NA_ADDRESS1_BYTES } } };
 static const struct in6_addr ia_na_address2 = { { { IA_NA_ADDRESS2_BYTES } } };
 static const struct in6_addr ia_pd_prefix1 = { { { IA_PD_PREFIX1_BYTES } } };
@@ -1028,7 +1027,7 @@ static void test_client_callback(sd_dhcp6_client *client, int event, void *userd
         }
 }
 
-int dhcp6_network_send_udp_socket(int s, struct in6_addr *a, const void *packet, size_t len) {
+int dhcp6_network_send_udp_socket(int s, const struct in6_addr *a, const void *packet, size_t len) {
         log_debug("/* %s(count=%u) */", __func__, test_client_sent_message_count);
 
         assert_se(a);
@@ -1072,7 +1071,7 @@ int dhcp6_network_send_udp_socket(int s, struct in6_addr *a, const void *packet,
         return len;
 }
 
-int dhcp6_network_bind_udp_socket(int ifindex, struct in6_addr *a) {
+int dhcp6_network_bind_udp_socket(int ifindex, const struct in6_addr *a) {
         assert_se(ifindex == test_ifindex);
         assert_se(a);
         assert_se(in6_addr_equal(a, &local_address));

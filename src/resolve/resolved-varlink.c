@@ -1238,7 +1238,7 @@ static int vl_method_subscribe_query_results(Varlink *link, JsonVariant *paramet
 
         /* if the client didn't set the more flag, it is using us incorrectly */
         if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
-                return varlink_error_invalid_parameter(link, NULL);
+                return varlink_error(link, VARLINK_ERROR_EXPECTED_MORE, NULL);
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);

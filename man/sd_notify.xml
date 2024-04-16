@@ -493,6 +493,11 @@
     privileged port (i.e.: lower than 1024), as an attempt to address concerns that unprivileged processes in
     the guest might try to send malicious notifications to the host, driving it to make destructive decisions
     based on them.</para>
+
+    <para>Note that, while using this library should be preferred in order to avoid code duplication, it is
+    also possible to reimplement the simple readiness notification protocol without external dependencies,
+    as demonstrated in the following self-contained example:
+    <programlisting><xi:include href="notify-selfcontained-example.c" parse="text"/></programlisting></para>
   </refsect1>
 
   <refsect1>
@@ -528,8 +533,8 @@
 
       <programlisting>
 sd_notifyf(0, "READY=1\n"
-           "STATUS=Processing requests…\n"
-           "MAINPID=%lu",
+              "STATUS=Processing requests…\n"
+              "MAINPID=%lu",
            (unsigned long) getpid());</programlisting>
     </example>
 
@@ -540,7 +545,7 @@ sd_notifyf(0, "READY=1\n"
 
       <programlisting>
 sd_notifyf(0, "STATUS=Failed to start up: %s\n"
-           "ERRNO=%i",
+              "ERRNO=%i",
            strerror_r(errnum, (char[1024]){}, 1024),
            errnum);</programlisting>
     </example>

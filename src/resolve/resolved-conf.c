@@ -55,7 +55,7 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
                 return 0;
         }
 
-        return dns_server_new(m, NULL, type, NULL, family, &address, port, ifindex, server_name);
+        return dns_server_new(m, NULL, type, NULL, family, &address, port, ifindex, server_name, RESOLVE_CONFIG_SOURCE_FILE);
 }
 
 int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string) {

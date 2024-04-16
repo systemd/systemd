@@ -16,8 +16,8 @@
 #include "unit.h"
 
 static const UnitActiveState state_translation_table[_SLICE_STATE_MAX] = {
-        [SLICE_DEAD] = UNIT_INACTIVE,
-        [SLICE_ACTIVE] = UNIT_ACTIVE
+        [SLICE_DEAD]   = UNIT_INACTIVE,
+        [SLICE_ACTIVE] = UNIT_ACTIVE,
 };
 
 static void slice_init(Unit *u) {
@@ -27,24 +27,22 @@ static void slice_init(Unit *u) {
         u->ignore_on_isolate = true;
 }
 
-static void slice_set_state(Slice *t, SliceState state) {
+static void slice_set_state(Slice *s, SliceState state) {
         SliceState old_state;
 
-        assert(t);
+        assert(s);
 
-        if (t->state != state)
-                bus_unit_send_pending_change_signal(UNIT(t), false);
+        if (s->state != state)
+                bus_unit_send_pending_change_signal(UNIT(s), false);
 
-        old_state = t->state;
-        t->state = state;
+        old_state = s->state;
+        s->state = state;
 
         if (state != old_state)
-                log_debug("%s changed %s -> %s",
-                          UNIT(t)->id,
-                          slice_state_to_string(old_state),
-                          slice_state_to_string(state));
+                log_unit_debug(UNIT(s), "Changed %s -> %s",
+                               slice_state_to_string(old_state), slice_state_to_string(state));
 
-        unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
 }
 
 static int slice_add_parent_slice(Slice *s) {

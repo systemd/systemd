@@ -1,9 +1,0 @@
-#!/bin/sh
-# SPDX-License-Identifier: LGPL-2.1-or-later
-set -e
-
-# OpenSUSE insists on blacklisting erofs by default because its supposedly a legacy filesystem.
-# See https://github.com/openSUSE/suse-module-tools/pull/71
-rm -f "$BUILDROOT/usr/lib/modprobe.d/60-blacklist_fs-erofs.conf"
-
-mkosi-install systemd udev systemd-experimental

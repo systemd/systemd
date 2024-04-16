@@ -195,6 +195,8 @@ if ! systemd-detect-virt -cq; then
             bash -xec 'timeout 1s nc -6 -u -l ::1 9999; exit 42'
         systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
             bash -xec 'timeout 1s nc -4 -l 127.0.0.1 6666; exit 42'
+        systemd-run --wait -p SuccessExitStatus="1 2" --pipe -p SocketBindDeny=any \
+            bash -xec 'timeout 1s nc -l 127.0.0.1 9999; exit 42'
         # Consequently, we should succeed when binding to a socket on the allow list
         # and keep listening on it until we're killed by `timeout` (EC 124)
         systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \

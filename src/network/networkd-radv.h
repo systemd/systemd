@@ -71,6 +71,7 @@ void network_drop_invalid_pref64_prefixes(Network *network);
 void network_adjust_radv(Network *network);
 
 int link_request_radv_addresses(Link *link);
+int link_reconfigure_radv_address(Address *address, Link *link);
 
 bool link_radv_enabled(Link *link);
 int radv_start(Link *link);

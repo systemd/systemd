@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Make sure the net/if.h header is included before any linux/ one */
+#include <net/if.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <limits.h>
-#include <net/if.h>
 #include <netdb.h>
 #include <netinet/ip.h>
 #include <poll.h>
@@ -634,7 +635,7 @@ int socknameinfo_pretty(const struct sockaddr *sa, socklen_t salen, char **ret) 
         int r;
 
         assert(sa);
-        assert(salen > sizeof(sa_family_t));
+        assert(salen >= sizeof(sa_family_t));
         assert(ret);
 
         r = getnameinfo(sa, salen, host, sizeof(host), /* service= */ NULL, /* service_len= */ 0, IDN_FLAGS);

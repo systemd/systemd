@@ -890,8 +890,11 @@ static int dnssec_rrset_verify_sig(
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
         void *hash;
         size_t hash_size;
+        int r;
 
-        initialize_libgcrypt(false);
+        r = initialize_libgcrypt(false);
+        if (r < 0)
+                return r;
 #endif
 
         switch (rrsig->rrsig.algorithm) {
@@ -1334,6 +1337,7 @@ static hash_md_t digest_to_hash_md(uint8_t algorithm) {
 
 int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
         uint8_t wire_format[DNS_WIRE_FORMAT_HOSTNAME_MAX];
+        size_t encoded_length;
         int r;
 
         assert(dnskey);
@@ -1360,6 +1364,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         r = dns_name_to_wire_format(dns_resource_key_name(dnskey->key), wire_format, sizeof wire_format, true);
         if (r < 0)
                 return r;
+        encoded_length = r;
 
         hash_md_t md_algorithm = digest_to_hash_md(ds->ds.digest_type);
 
@@ -1383,7 +1388,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (EVP_DigestInit_ex(ctx, md_algorithm, NULL) <= 0)
                 return -EIO;
 
-        if (EVP_DigestUpdate(ctx, wire_format, r) <= 0)
+        if (EVP_DigestUpdate(ctx, wire_format, encoded_length) <= 0)
                 return -EIO;
 
         if (mask_revoke)
@@ -1407,7 +1412,9 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (md_algorithm < 0)
                 return -EOPNOTSUPP;
 
-        initialize_libgcrypt(false);
+        r = initialize_libgcrypt(false);
+        if (r < 0)
+                return r;
 
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
 
@@ -1421,7 +1428,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (gcry_err_code(err) != GPG_ERR_NO_ERROR || !md)
                 return -EIO;
 
-        gcry_md_write(md, wire_format, r);
+        gcry_md_write(md, wire_format, encoded_length);
         if (mask_revoke)
                 md_add_uint16(md, dnskey->dnskey.flags & ~DNSKEY_FLAG_REVOKE);
         else
@@ -1552,8 +1559,11 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         if (algorithm < 0)
                 return algorithm;
 
-        initialize_libgcrypt(false);
+        r = initialize_libgcrypt(false);
+        if (r < 0)
+                return r;
 
+        size_t encoded_length;
         unsigned hash_size = gcry_md_get_algo_dlen(algorithm);
         assert(hash_size > 0);
 
@@ -1563,13 +1573,14 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         r = dns_name_to_wire_format(name, wire_format, sizeof(wire_format), true);
         if (r < 0)
                 return r;
+        encoded_length = r;
 
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
         gcry_error_t err = gcry_md_open(&md, algorithm, 0);
         if (gcry_err_code(err) != GPG_ERR_NO_ERROR || !md)
                 return -EIO;
 
-        gcry_md_write(md, wire_format, r);
+        gcry_md_write(md, wire_format, encoded_length);
         gcry_md_write(md, nsec3->nsec3.salt, nsec3->nsec3.salt_size);
 
         void *result = gcry_md_read(md, 0);

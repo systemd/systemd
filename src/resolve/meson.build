@@ -118,7 +118,6 @@ if conf.get('ENABLE_DNS_OVER_TLS') == 1
 endif
 
 link_with = [
-        libbasic_gcrypt,
         libshared,
         libsystemd_resolve_core,
 ]

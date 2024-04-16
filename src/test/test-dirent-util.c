@@ -23,10 +23,8 @@ TEST (test_dirent_ensure_type) {
                 .d_name = "test",
         };
 
-        assert_se(de.d_type == DT_UNKNOWN);
-
         dir_fd = 0;
-        dirent_ensure_type(dir_fd, &de);
+        assert_se(dirent_ensure_type(dir_fd, &de) == -ENOTDIR);
 
         /* Test when d_name is "." or ".." */
         strcpy(de.d_name, ".");
@@ -70,7 +68,7 @@ TEST (test_dirent_is_file) {
         }
 
         dir = opendir(t);
-        if (dir == NULL) {
+        if (!dir) {
                 log_error_errno(errno, "Failed to open directory '%s': %m", t);
                 exit(EXIT_FAILURE);
         }
@@ -146,7 +144,7 @@ TEST (test_dirent_is_file_with_suffix) {
         }
 
         dir = opendir(t);
-        if (dir == NULL) {
+        if (!dir) {
                 log_error_errno(errno, "Failed to open directory '%s': %m", t);
                 exit(EXIT_FAILURE);
         }

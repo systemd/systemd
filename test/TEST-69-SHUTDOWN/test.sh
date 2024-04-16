@@ -17,7 +17,7 @@ SYSTEMD_NSPAWN="${STATEDIR:?}/run-nspawn"
 setup_nspawn_root_hook() {
     cat >"${STATEDIR:?}/run-nspawn" <<EOF
 #!/bin/bash
-exec "${TEST_BASE_DIR:?}/test-shutdown.py" -v -- "$_ORIG_NSPAWN" "\$@"
+exec "${TEST_BASE_DIR:?}/test-shutdown.py" -v -- "$_ORIG_NSPAWN" --background= "\$@"
 exit 1
 EOF
     chmod 755 "${STATEDIR:?}"/run-nspawn

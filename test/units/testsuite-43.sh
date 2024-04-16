@@ -8,7 +8,7 @@ set -o pipefail
 
 if [[ "$(sysctl -ne kernel.apparmor_restrict_unprivileged_userns)" -eq 1 ]]; then
     echo "Cannot create unprivileged user namespaces" >/skipped
-    exit 0
+    exit 77
 fi
 
 systemd-analyze log-level debug

@@ -2418,7 +2418,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       </varlistentry>
 
       <varlistentry>
-        <term><option>--kill-value=</option><replaceable>INT</replaceable></term>
+        <term><option>--kill-value=<replaceable>INT</replaceable></option></term>
 
         <listitem><para>If used with the <command>kill</command> command, enqueues a signal along with the
         specified integer value parameter to the specified process(es). This operation is only available for
@@ -2766,7 +2766,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       </varlistentry>
 
       <varlistentry>
-        <term><option>--drop-in=</option><replaceable>NAME</replaceable></term>
+        <term><option>--drop-in=<replaceable>NAME</replaceable></option></term>
 
         <listitem><para>When used with <command>edit</command>, use <replaceable>NAME</replaceable> as the
         drop-in file name instead of <filename>override.conf</filename>.</para>
@@ -2813,6 +2813,7 @@ EOF
 
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
+      <xi:include href="user-system-options.xml" xpointer="capsule" />
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="legend" />

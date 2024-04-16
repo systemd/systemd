@@ -22,7 +22,7 @@
 }
 
 _arguments \
-    {-h,--help}'[Prints a short help text and exits.]' \
-    '--version[Prints a short version string and exits.]' \
+    '(- *)'{-h,--help}'[Prints a short help text and exits.]' \
+    '(- *)--version[Prints a short version string and exits.]' \
     '--no-pager[Do not pipe output into a pager]' \
     '*::oomctl command:_oomctl_commands'

@@ -3,7 +3,10 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
+/* Make sure the net/if.h header is included before any linux/ one */
+#include <net/if.h>
 #include <errno.h>
+#include <linux/if_packet.h>
 #include <netinet/icmp6.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
@@ -11,8 +14,6 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <net/if.h>
-#include <linux/if_packet.h>
 
 #include "fd-util.h"
 #include "icmp6-util.h"
@@ -32,16 +33,18 @@ int icmp6_bind(int ifindex, bool is_router) {
         ICMP6_FILTER_SETBLOCKALL(&filter);
         if (is_router) {
                 mreq = (struct ipv6_mreq) {
-                        .ipv6mr_multiaddr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
+                        .ipv6mr_multiaddr = IN6_ADDR_ALL_ROUTERS_MULTICAST,
                         .ipv6mr_interface = ifindex,
                 };
                 ICMP6_FILTER_SETPASS(ND_ROUTER_SOLICIT, &filter);
         } else {
                 mreq = (struct ipv6_mreq) {
-                        .ipv6mr_multiaddr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
+                        .ipv6mr_multiaddr = IN6_ADDR_ALL_NODES_MULTICAST,
                         .ipv6mr_interface = ifindex,
                 };
                 ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
+                ICMP6_FILTER_SETPASS(ND_NEIGHBOR_ADVERT, &filter);
+                ICMP6_FILTER_SETPASS(ND_REDIRECT, &filter);
         }
 
         s = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_ICMPV6);
@@ -88,37 +91,21 @@ int icmp6_bind(int ifindex, bool is_router) {
         return TAKE_FD(s);
 }
 
-int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
-        struct sockaddr_in6 dst = {
+int icmp6_send(int fd, const struct in6_addr *dst, const struct iovec *iov, size_t n_iov) {
+        struct sockaddr_in6 sa = {
                 .sin6_family = AF_INET6,
-                .sin6_addr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
-        };
-        struct {
-                struct nd_router_solicit rs;
-                struct nd_opt_hdr rs_opt;
-                struct ether_addr rs_opt_mac;
-        } _packed_ rs = {
-                .rs.nd_rs_type = ND_ROUTER_SOLICIT,
-                .rs_opt.nd_opt_type = ND_OPT_SOURCE_LINKADDR,
-                .rs_opt.nd_opt_len = 1,
-        };
-        struct iovec iov = {
-                .iov_base = &rs,
-                .iov_len = sizeof(rs),
+                .sin6_addr = *ASSERT_PTR(dst),
         };
         struct msghdr msg = {
-                .msg_name = &dst,
-                .msg_namelen = sizeof(dst),
-                .msg_iov = &iov,
-                .msg_iovlen = 1,
+                .msg_name = &sa,
+                .msg_namelen = sizeof(struct sockaddr_in6),
+                .msg_iov = (struct iovec*) iov,
+                .msg_iovlen = n_iov,
         };
 
-        assert(s >= 0);
-        assert(ether_addr);
+        assert(fd >= 0);
 
-        rs.rs_opt_mac = *ether_addr;
-
-        if (sendmsg(s, &msg, 0) < 0)
+        if (sendmsg(fd, &msg, 0) < 0)
                 return -errno;
 
         return 0;

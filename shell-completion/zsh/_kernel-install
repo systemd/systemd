@@ -22,6 +22,8 @@ _kernel-install_kernels(){
 }
 
 _arguments \
+    '(- :)'{-h,--help}'[Show help]' \
+    '(- :)--version[Show package version]' \
     '1::add or remove:(add remove)' \
     '2::kernel versions:_kernel-install_kernels' \
     '3::kernel images:_kernel-install_images'

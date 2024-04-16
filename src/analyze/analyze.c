@@ -572,10 +572,9 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --threshold= is only supported for security right now.");
 
-        if (arg_runtime_scope == RUNTIME_SCOPE_GLOBAL &&
-            !STR_IN_SET(argv[optind] ?: "time", "dot", "unit-paths", "verify"))
+        if (arg_runtime_scope == RUNTIME_SCOPE_GLOBAL && !streq_ptr(argv[optind], "unit-paths"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --global only makes sense with verbs dot, unit-paths, verify.");
+                                       "Option --global only makes sense with verb unit-paths.");
 
         if (streq_ptr(argv[optind], "cat-config") && arg_runtime_scope == RUNTIME_SCOPE_USER)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

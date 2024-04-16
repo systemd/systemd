@@ -1360,7 +1360,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--crash-vt=</option><replaceable>VT</replaceable></term>
+          <term><option>--crash-vt=<replaceable>VT</replaceable></option></term>
 
           <listitem><para>Switch to a specific virtual console (VT) on crash. This switch has no effect when
           running as user instance. Same as <varname>systemd.crash_chvt=</varname> above (but not the

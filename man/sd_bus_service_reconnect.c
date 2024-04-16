@@ -42,13 +42,10 @@
 
 #define _cleanup_(f) __attribute__((cleanup(f)))
 
-#define check(x) ({                             \
-  int _r = (x);                                 \
-  errno = _r < 0 ? -_r : 0;                     \
-  printf(#x ": %m\n");                          \
-  if (_r < 0)                                   \
-    return EXIT_FAILURE;                        \
-  })
+static int log_error(int r, const char *str) {
+  fprintf(stderr, "%s failed: %s\n", str, strerror(-r));
+  return r;
+}
 
 typedef struct object {
   const char *example;
@@ -90,13 +87,24 @@ static const sd_bus_vtable vtable[] = {
 static int setup(object *o);
 
 static int on_disconnect(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
-  check(setup((object *)userdata));
-  return 0;
+  int r;
+
+  r = setup((object *)userdata);
+  if (r < 0) {
+    object *o = userdata;
+    r = sd_event_exit(*o->event, r);
+    if (r < 0)
+      return log_error(r, "sd_event_exit()");
+  }
+
+  return 1;
 }
 
 /* Ensure the event loop exits with a clear error if acquiring the well-known
  * service name fails */
 static int request_name_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+  int r;
+
   if (!sd_bus_message_is_method_error(m, NULL))
     return 1;
 
@@ -105,21 +113,27 @@ static int request_name_callback(sd_bus_message *m, void *userdata, sd_bus_error
   if (sd_bus_error_has_names(error, SD_BUS_ERROR_TIMEOUT, SD_BUS_ERROR_NO_REPLY))
     return 1; /* The bus is not available, try again later */
 
-  printf("Failed to request name: %s\n", error->message);
+  fprintf(stderr, "Failed to request name: %s\n", error->message);
   object *o = userdata;
-  check(sd_event_exit(*o->event, -sd_bus_error_get_errno(error)));
+  r = sd_event_exit(*o->event, -sd_bus_error_get_errno(error));
+  if (r < 0)
+    return log_error(r, "sd_event_exit()");
 
   return 1;
 }
 
 static int setup(object *o) {
+  int r;
+
   /* If we are reconnecting, then the bus object needs to be closed, detached
    * from the event loop and recreated.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_detach_event.html
    * https://www.freedesktop.org/software/systemd/man/sd_bus_close_unref.html
    */
   if (*o->bus) {
-    check(sd_bus_detach_event(*o->bus));
+    r = sd_bus_detach_event(*o->bus);
+    if (r < 0)
+      return log_error(r, "sd_bus_detach_event()");
     *o->bus = sd_bus_close_unref(*o->bus);
   }
 
@@ -135,55 +149,75 @@ static int setup(object *o) {
    * https://www.freedesktop.org/software/systemd/man/sd_bus_set_connected_signal.html
    * https://www.freedesktop.org/software/systemd/man/sd_bus_start.html
    */
-  check(sd_bus_new(o->bus));
-  check(sd_bus_set_address(*o->bus, "unix:path=/run/dbus/system_bus_socket"));
-  check(sd_bus_set_bus_client(*o->bus, 1));
-  check(sd_bus_negotiate_creds(*o->bus, 1, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS));
-  check(sd_bus_set_watch_bind(*o->bus, 1));
-  check(sd_bus_start(*o->bus));
+  r = sd_bus_new(o->bus);
+  if (r < 0)
+    return log_error(r, "sd_bus_new()");
+  r = sd_bus_set_address(*o->bus, "unix:path=/run/dbus/system_bus_socket");
+  if (r < 0)
+    return log_error(r, "sd_bus_set_address()");
+  r = sd_bus_set_bus_client(*o->bus, 1);
+  if (r < 0)
+    return log_error(r, "sd_bus_set_bus_client()");
+  r = sd_bus_negotiate_creds(*o->bus, 1, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS);
+  if (r < 0)
+    return log_error(r, "sd_bus_negotiate_creds()");
+  r = sd_bus_set_watch_bind(*o->bus, 1);
+  if (r < 0)
+    return log_error(r, "sd_bus_set_watch_bind()");
+  r = sd_bus_start(*o->bus);
+  if (r < 0)
+    return log_error(r, "sd_bus_start()");
 
   /* Publish an interface on the bus, specifying our well-known object access
    * path and public interface name.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_add_object.html
    * https://dbus.freedesktop.org/doc/dbus-tutorial.html
    */
-  check(sd_bus_add_object_vtable(*o->bus,
-                                 NULL,
-                                 "/org/freedesktop/ReconnectExample",
-                                 "org.freedesktop.ReconnectExample",
-                                 vtable,
-                                 o));
+  r = sd_bus_add_object_vtable(*o->bus,
+                               NULL,
+                               "/org/freedesktop/ReconnectExample",
+                               "org.freedesktop.ReconnectExample",
+                               vtable,
+                               o);
+  if (r < 0)
+    return log_error(r, "sd_bus_add_object_vtable()");
   /* By default the service is only assigned an ephemeral name. Also add a
    * well-known one, so that clients know whom to call. This needs to be
    * asynchronous, as D-Bus might not be yet available. The callback will check
    * whether the error is expected or not, in case it fails.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_request_name.html
    */
-  check(sd_bus_request_name_async(*o->bus,
-                                  NULL,
-                                  "org.freedesktop.ReconnectExample",
-                                  0,
-                                  request_name_callback,
-                                  o));
+  r = sd_bus_request_name_async(*o->bus,
+                                NULL,
+                                "org.freedesktop.ReconnectExample",
+                                0,
+                                request_name_callback,
+                                o);
+  if (r < 0)
+    return log_error(r, "sd_bus_request_name_async()");
   /* When D-Bus is disconnected this callback will be invoked, which will set up
    * the connection again. This needs to be asynchronous, as D-Bus might not yet
    * be available.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_match_signal_async.html
    */
-  check(sd_bus_match_signal_async(*o->bus,
-                                  NULL,
-                                  "org.freedesktop.DBus.Local",
-                                  NULL,
-                                  "org.freedesktop.DBus.Local",
-                                  "Disconnected",
-                                  on_disconnect,
-                                  NULL,
-                                  o));
+  r = sd_bus_match_signal_async(*o->bus,
+                                NULL,
+                                "org.freedesktop.DBus.Local",
+                                NULL,
+                                "org.freedesktop.DBus.Local",
+                                "Disconnected",
+                                on_disconnect,
+                                NULL,
+                                o);
+  if (r < 0)
+    return log_error(r, "sd_bus_match_signal_async()");
   /* Attach the bus object to the event loop so that calls and signals are
    * processed.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_attach_event.html
    */
-  check(sd_bus_attach_event(*o->bus, *o->event, 0));
+  r = sd_bus_attach_event(*o->bus, *o->event, 0);
+  if (r < 0)
+    return log_error(r, "sd_bus_attach_event()");
 
   return 0;
 }
@@ -199,28 +233,42 @@ int main(int argc, char **argv) {
     .bus = &bus,
     .event = &event,
   };
+  int r;
 
   /* Create an event loop data structure, with default parameters.
    * https://www.freedesktop.org/software/systemd/man/sd_event_default.html
    */
-  check(sd_event_default(&event));
+  r = sd_event_default(&event);
+  if (r < 0)
+    return log_error(r, "sd_event_default()");
 
   /* By default the event loop will terminate when all sources have disappeared,
    * so we have to keep it 'occupied'. Register signal handling to do so.
    * https://www.freedesktop.org/software/systemd/man/sd_event_add_signal.html
    */
-  check(sd_event_add_signal(event, NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, NULL, NULL));
-  check(sd_event_add_signal(event, NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, NULL, NULL));
+  r = sd_event_add_signal(event, NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+  if (r < 0)
+    return log_error(r, "sd_event_add_signal(SIGINT)");
 
-  check(setup(&o));
+  r = sd_event_add_signal(event, NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+  if (r < 0)
+    return log_error(r, "sd_event_add_signal(SIGTERM)");
+
+  r = setup(&o);
+  if (r < 0)
+    return EXIT_FAILURE;
 
   /* Enter the main loop, it will exit only on sigint/sigterm.
    * https://www.freedesktop.org/software/systemd/man/sd_event_loop.html
    */
-  check(sd_event_loop(event));
+  r = sd_event_loop(event);
+  if (r < 0)
+    return log_error(r, "sd_event_loop()");
 
   /* https://www.freedesktop.org/software/systemd/man/sd_bus_release_name.html */
-  check(sd_bus_release_name(bus, "org.freedesktop.ReconnectExample"));
+  r = sd_bus_release_name(bus, "org.freedesktop.ReconnectExample");
+  if (r < 0)
+    return log_error(r, "sd_bus_release_name()");
 
   return 0;
 }

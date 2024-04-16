@@ -562,7 +562,9 @@ char *cellescape(char *buf, size_t len, const char *s) {
 
         size_t i = 0, last_char_width[4] = {}, k = 0;
 
+        assert(buf);
         assert(len > 0); /* at least a terminating NUL */
+        assert(s);
 
         for (;;) {
                 char four[4];
@@ -612,7 +614,7 @@ char *cellescape(char *buf, size_t len, const char *s) {
         else
                 assert(i + 1 <= len);
 
- done:
+done:
         buf[i] = '\0';
         return buf;
 }
@@ -996,7 +998,7 @@ int strextendf_with_separator(char **x, const char *separator, const char *forma
         return 0;
 
 oom:
-        /* truncate the bytes added after the first vsnprintf() attempt again */
+        /* truncate the bytes added after memcpy_safe() again */
         (*x)[m] = 0;
         return -ENOMEM;
 }
@@ -1268,18 +1270,16 @@ int string_extract_line(const char *s, size_t i, char **ret) {
         }
 }
 
-int string_contains_word_strv(const char *string, const char *separators, char **words, const char **ret_word) {
-        /* In the default mode with no separators specified, we split on whitespace and
-         * don't coalesce separators. */
+int string_contains_word_strv(const char *string, const char *separators, char * const *words, const char **ret_word) {
+        /* In the default mode with no separators specified, we split on whitespace and coalesce separators. */
         const ExtractFlags flags = separators ? EXTRACT_DONT_COALESCE_SEPARATORS : 0;
-
         const char *found = NULL;
+        int r;
 
-        for (const char *p = string;;) {
+        for (;;) {
                 _cleanup_free_ char *w = NULL;
-                int r;
 
-                r = extract_first_word(&p, &w, separators, flags);
+                r = extract_first_word(&string, &w, separators, flags);
                 if (r < 0)
                         return r;
                 if (r == 0)

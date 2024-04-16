@@ -36,7 +36,7 @@
   </varlistentry>
 
   <varlistentry id='legend'>
-    <term><option>--legend=</option><replaceable>BOOL</replaceable></term>
+    <term><option>--legend=<replaceable>BOOL</replaceable></option></term>
 
     <listitem>
       <para>Enable or disable printing of the legend, i.e. column headers and the footer with hints. The
@@ -73,7 +73,7 @@
   </varlistentry>
 
   <varlistentry id='json'>
-    <term><option>--json=</option><replaceable>MODE</replaceable></term>
+    <term><option>--json=<replaceable>MODE</replaceable></option></term>
 
     <listitem><para>Shows output formatted as JSON. Expects one of <literal>short</literal> (for the
     shortest possible output without any redundant whitespace or line breaks), <literal>pretty</literal>

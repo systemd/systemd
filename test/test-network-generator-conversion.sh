@@ -49,7 +49,7 @@ run_network_generator() {
 
     rm -rf "${WORK_DIR:?}"/*
     stderr="$WORK_DIR/stderr"
-    if ! "$GENERATOR_BIN" --root "$WORK_DIR" 2>"$stderr"; then
+    if ! SYSTEMD_LOG_LEVEL="info" "$GENERATOR_BIN" --root "$WORK_DIR" 2>"$stderr"; then
         echo >&2 "Generator failed when parsing $SYSTEMD_PROC_CMDLINE"
         cat >&2 "$stderr"
         return 1

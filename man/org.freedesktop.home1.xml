@@ -320,10 +320,10 @@ node /org/freedesktop/home1 {
       interface.</para>
 
       <para><function>UpdateHome()</function> updates a locally registered user record. Takes a fully
-      specified JSON user record as argument (including the <literal>secret</literal> section). A user with a
-      matching name and realm must be registered locally already, and the last change timestamp of the newly
-      supplied record must be newer than the previously existing user record. Note this operation updates the
-      user record only, it does not propagate passwords/authentication tokens from the user record to the
+      specified JSON user record as argument (possibly including the <literal>secret</literal> section). A user
+      with a matching name and realm must be registered locally already, and the last change timestamp of the
+      newly supplied record must be newer than the previously existing user record. Note this operation updates
+      the user record only, it does not propagate passwords/authentication tokens from the user record to the
       storage back-end, or resizes the storage back-end. Typically a home directory is first updated, and then
       the password of the underlying storage updated using <function>ChangePasswordHome()</function> as well
       as the storage resized using <function>ResizeHome()</function>. This method is equivalent to
@@ -334,17 +334,24 @@ node /org/freedesktop/home1 {
       Directories</ulink> for more info). The <varname>blobs</varname> argument works in the same way as
       <function>CreateHomeEx()</function>, so check there for details. The new blob directory contents passed into
       this method will completely replace the user's existing blob directory. The <varname>flags</varname> argument
-      may be used for future expansion, but for now pass 0. This method is equivalent to <function>UpdateEx()</function>
-      on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
+      can be used to further customize the behavior of this method via flags defined as follows:</para>
+      <programlisting>
+#define SD_HOMED_UPDATE_OFFLINE (UINT64_C(1) &lt;&lt; 0)
+      </programlisting>
+      <para>When <constant>SD_HOMED_UPDATE_OFFLINE</constant> (0x01) is set, no attempt is made to update the copies
+      of the user record and blob directory that are embedded into the home directory. Changes will be stored, however,
+      and may be propagated into the home directory the next time it is reconciled (most likely when the user next logs in).
+      Note that any changes made with this flag set may be lost if the home area has a newer record, which can happen
+      if the home area is updated on another machine after this method call. This method is equivalent to
+      <function>UpdateEx()</function> on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
 
       <para><function>ResizeHome()</function> resizes the storage associated with a user record. Takes a user
-      name, a disk size in bytes and a user record consisting only of the <literal>secret</literal> section
-      as argument. If the size is specified as <constant>UINT64_MAX</constant> the storage is resized to the
-      size already specified in the user record. Typically, if the user record is updated using
+      name, a disk size in bytes, and optionally a user record consisting only of the <literal>secret</literal>
+      section as arguments. If the size is specified as <constant>UINT64_MAX</constant> the storage is resized to
+      the size already specified in the user record. Typically, if the user record is updated using
       <function>UpdateHome()</function> above this is used to propagate the size configured there-in down to
-      the underlying storage back-end. This method is equivalent to
-      <function>Resize()</function> on the <classname>org.freedesktop.home1.Home</classname>
-      interface.</para>
+      the underlying storage back-end. This method is equivalent to <function>Resize()</function> on the
+      <classname>org.freedesktop.home1.Home</classname> interface.</para>
 
       <para><function>ChangePasswordHome()</function> changes the passwords/authentication tokens of a home
       directory. Takes a user name, and two JSON user record objects, each consisting only of the

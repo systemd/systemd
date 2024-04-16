@@ -160,11 +160,14 @@ typedef struct Link {
         sd_dhcp_server *dhcp_server;
 
         sd_ndisc *ndisc;
+        sd_ndisc_router *ndisc_default_router;
         sd_event_source *ndisc_expire;
         Set *ndisc_rdnss;
         Set *ndisc_dnssl;
         Set *ndisc_captive_portals;
         Set *ndisc_pref64;
+        Set *ndisc_redirects;
+        uint32_t ndisc_mtu;
         unsigned ndisc_messages;
         bool ndisc_configured:1;
 

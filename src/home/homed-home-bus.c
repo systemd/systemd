@@ -6,6 +6,7 @@
 #include "bus-polkit.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "home-util.h"
 #include "homed-bus.h"
 #include "homed-home-bus.h"
 #include "homed-home.h"
@@ -432,8 +433,8 @@ int bus_home_update_record(
         if (r < 0)
                 return r;
 
-        if (flags != 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Provided flags are unsupported.");
+        if ((flags & ~SD_HOMED_UPDATE_FLAGS_ALL) != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags provided.");
 
         r = home_verify_polkit_async(
                         h,
@@ -457,6 +458,8 @@ int bus_home_update_record(
         if (r < 0)
                 return r;
 
+        h->current_operation->call_flags = flags;
+
         return 1;
 }
 
@@ -473,7 +476,7 @@ int bus_home_method_update(
 
         assert(message);
 
-        r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_REQUIRE_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE, &hr, error);
+        r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE, &hr, error);
         if (r < 0)
                 return r;
 
@@ -521,7 +524,7 @@ int bus_home_method_resize(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = home_resize(h, sz, secret, /* automatic= */ false, error);
+        r = home_resize(h, sz, secret, error);
         if (r < 0)
                 return r;
 

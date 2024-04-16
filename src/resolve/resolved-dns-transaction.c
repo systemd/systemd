@@ -917,6 +917,10 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                         if (r < 0)
                                 log_oom_debug();
 
+                        /* The answer would normally be replaced by the validated subset, but at this point
+                         * we aren't going to bother validating the rest, so just drop it. */
+                        t->answer = dns_answer_unref(t->answer);
+
                         dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                         return 0;
 
@@ -2318,13 +2322,18 @@ static int dns_transaction_request_dnssec_rr_full(DnsTransaction *t, DnsResource
                 if (r < 0)
                         return r;
 
+                if (ret)
+                        *ret = NULL;
                 return 0;
         }
 
         /* This didn't work, ask for it via the network/cache then. */
         r = dns_transaction_add_dnssec_transaction(t, key, &aux);
-        if (r == -ELOOP) /* This would result in a cyclic dependency */
+        if (r == -ELOOP) { /* This would result in a cyclic dependency */
+                if (ret)
+                        *ret = NULL;
                 return 0;
+        }
         if (r < 0)
                 return r;
 
@@ -2332,9 +2341,9 @@ static int dns_transaction_request_dnssec_rr_full(DnsTransaction *t, DnsResource
                 r = dns_transaction_go(aux);
                 if (r < 0)
                         return r;
-                if (ret)
-                        *ret = aux;
         }
+        if (ret)
+                *ret = aux;
 
         return 1;
 }
@@ -2490,7 +2499,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 case DNS_TYPE_RRSIG: {
                         /* For each RRSIG we request the matching DNSKEY */
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *dnskey = NULL;
-                        DnsTransaction *aux = NULL;
+                        DnsTransaction *aux;
 
                         /* If this RRSIG is about a DNSKEY RR and the
                          * signer is the same as the owner, then we
@@ -2537,6 +2546,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (aux) {
                                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds =
                                         dns_resource_key_new(rr->key->class, DNS_TYPE_DS, dns_resource_key_name(dnskey));
+                                if (!ds)
+                                        return -ENOMEM;
                                 r = dns_transaction_request_dnssec_rr(t, ds);
                                 if (r < 0)
                                         return r;
@@ -3585,14 +3596,17 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                 bool have_nsec = false;
 
                 r = dnssec_validate_records(t, phase, &have_nsec, &nvalidations, &validated);
-                if (r <= 0)
+                if (r <= 0) {
+                        DNS_ANSWER_REPLACE(t->answer, TAKE_PTR(validated));
                         return r;
+                }
 
                 if (nvalidations > DNSSEC_VALIDATION_MAX) {
                         /* This reply requires an onerous number of signature validations to verify. Let's
                          * not waste our time trying, as this shouldn't happen for well-behaved domains
                          * anyway. */
                         t->answer_dnssec_result = DNSSEC_TOO_MANY_VALIDATIONS;
+                        DNS_ANSWER_REPLACE(t->answer, TAKE_PTR(validated));
                         return 0;
                 }
 

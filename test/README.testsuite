@@ -149,6 +149,19 @@ failed run, can be downloaded from the artifacts.tar.gz archive which will be
 reachable in the same URL parent directory as the logs.gz that gets linked on
 the Github CI status.
 
+The log URL can be derived following a simple algorithm, however the test
+completion timestamp is needed and it's not easy to find without access to the
+log itself. For example, a noble s390x job started on 2024-03-23 at 02:09:11
+will be stored at the following URL:
+
+https://autopkgtest.ubuntu.com/results/autopkgtest-noble-upstream-systemd-ci-systemd-ci/noble/s390x/s/systemd-upstream/20240323_020911_e8e88@/log.gz
+
+The 5 characters at the end of the last directory are not random, but the first
+5 characters of a SHA1 hash generated based on the set of parameters given to
+the build plus the completion timestamp, such as:
+
+$ echo -n 'systemd-upstream {"build-git": "https://salsa.debian.org/systemd-team/systemd.git#debian/master", "env": ["UPSTREAM_REPO=https://github.com/systemd/systemd.git", "CFLAGS=-O0", "DEB_BUILD_PROFILES=pkg.systemd.upstream noudeb", "TEST_UPSTREAM=1", "CONFFLAGS_UPSTREAM=--werror -Dslow-tests=true", "UPSTREAM_PULL_REQUEST=31444", "GITHUB_STATUSES_URL=https://api.github.com/repos/systemd/systemd/statuses/c27f600a1c47f10b22964eaedfb5e9f0d4279cd9"], "ppas": ["upstream-systemd-ci/systemd-ci"], "submit-time": "2024-02-27 17:06:27", "uuid": "02cd262f-af22-4f82-ac91-53fa5a9e7811"}' | sha1sum | cut -c1-5
+
 To add new dependencies or new binaries to the packages used during the tests,
 a merge request can be sent to: https://salsa.debian.org/systemd-team/systemd
 targeting the 'upstream-ci' branch.
@@ -283,6 +296,51 @@ More about query suites here: https://codeql.github.com/docs/codeql-cli/creating
 The results are then located in the `results.csv` file as a comma separated
 values list (obviously), which is the most human-friendly output format the
 CodeQL utility provides (so far).
+
+Running Coverity locally
+========================
+
+Note: this requires a Coverity license, as the public tool tarball (from [0])
+doesn't contain cov-analyze and friends, so the usefulness of this guide is
+somewhat limited.
+
+Debugging certain pesky Coverity defects can be painful, especially since the
+OSS Coverity instance has a very strict limit on how many builds we can send it
+per day/week, so if you have an access to a non-OSS Coverity license, knowing
+how to debug defects locally might come in handy.
+
+After installing the necessary tooling we need to populate the emit DB first:
+
+$ rm -rf build cov
+$ meson setup build -Dman=false
+$ cov-build --dir=./cov ninja -C build
+
+From there it depends if you're interested in a specific defect or all of them.
+For the latter run:
+
+$ cov-analyze --dir=./cov --wait-for-license
+
+If you want to debug a specific defect, telling that to cov-analyze speeds
+things up a bit:
+
+$ cov-analyze --dir=./cov --wait-for-license --disable-default --enable ASSERT_SIDE_EFFECT
+
+The final step is getting the actual report which can be generated in multiple
+formats, for example:
+
+$ cov-format-errors --dir ./cov --text-output-style multiline
+$ cov-format-errors --dir=./cov --emacs-style
+$ cov-format-errors --dir=./cov --html-output html-out
+
+Which generate a text report, an emacs-compatible text report, and an HTML
+report respectively.
+
+Other useful options for cov-format-error include --file <file> to filter out
+defects for a specific file, --checker-regex DEFECT_TYPE to filter our only a
+specific defect (if this wasn't done already by cov-analyze), and many others,
+see --help for an exhaustive list.
+
+[0] https://scan.coverity.com/download
 
 Code coverage
 =============

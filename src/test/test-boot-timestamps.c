@@ -76,11 +76,11 @@ int main(int argc, char* argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         p = test_acpi_fpdt();
-        assert_se(p >= 0);
+        ASSERT_OK(p);
         q = test_efi_loader();
-        assert_se(q >= 0);
+        ASSERT_OK(q);
         r = test_boot_timestamps();
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (p == 0 && q == 0 && r == 0)
                 return log_tests_skipped("access to firmware variables not possible");

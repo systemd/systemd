@@ -34,11 +34,125 @@ typedef enum AddressGenerationType {
         _ADDRESS_GENERATION_TYPE_INVALID = -EINVAL,
 } AddressGenerationType;
 
-typedef struct IPv6Token {
+struct IPv6Token {
+        unsigned n_ref;
         AddressGenerationType type;
         struct in6_addr address;
         sd_id128_t secret_key;
-} IPv6Token;
+};
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(IPv6Token, ipv6_token, mfree);
+DEFINE_TRIVIAL_CLEANUP_FUNC(IPv6Token*, ipv6_token_unref);
+
+static void ipv6_token_hash_func(const IPv6Token *p, struct siphash *state) {
+        siphash24_compress_typesafe(p->type, state);
+        siphash24_compress_typesafe(p->address, state);
+        id128_hash_func(&p->secret_key, state);
+}
+
+static int ipv6_token_compare_func(const IPv6Token *a, const IPv6Token *b) {
+        int r;
+
+        r = CMP(a->type, b->type);
+        if (r != 0)
+                return r;
+
+        r = memcmp(&a->address, &b->address, sizeof(struct in6_addr));
+        if (r != 0)
+                return r;
+
+        return id128_compare_func(&a->secret_key, &b->secret_key);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                ipv6_token_hash_ops,
+                IPv6Token,
+                ipv6_token_hash_func,
+                ipv6_token_compare_func,
+                ipv6_token_unref);
+
+DEFINE_PRIVATE_HASH_OPS_FULL(
+                ipv6_token_by_addr_hash_ops,
+                struct in6_addr,
+                in6_addr_hash_func,
+                in6_addr_compare_func,
+                free,
+                IPv6Token,
+                ipv6_token_unref);
+
+static int ipv6_token_new(AddressGenerationType type, const struct in6_addr *addr, const sd_id128_t *secret_key, IPv6Token **ret) {
+        IPv6Token *p;
+
+        assert(type >= 0 && type < _ADDRESS_GENERATION_TYPE_MAX);
+        assert(addr);
+        assert(secret_key);
+        assert(ret);
+
+        p = new(IPv6Token, 1);
+        if (!p)
+                return -ENOMEM;
+
+        *p = (IPv6Token) {
+                .n_ref = 1,
+                .type = type,
+                .address = *addr,
+                .secret_key = *secret_key,
+        };
+
+        *ret = p;
+        return 0;
+}
+
+static int ipv6_token_add(Set **tokens, AddressGenerationType type, const struct in6_addr *addr, const sd_id128_t *secret_key) {
+        IPv6Token *p;
+        int r;
+
+        assert(tokens);
+
+        r = ipv6_token_new(type, addr, secret_key, &p);
+        if (r < 0)
+                return r;
+
+        return set_ensure_consume(tokens, &ipv6_token_hash_ops, p);
+}
+
+static int ipv6_token_put_by_addr(Hashmap **tokens_by_address, const struct in6_addr *addr, IPv6Token *token) {
+        _cleanup_free_ struct in6_addr *copy = NULL;
+        int r;
+
+        assert(tokens_by_address);
+        assert(addr);
+        assert(token);
+
+        copy = newdup(struct in6_addr, addr, 1);
+        if (!copy)
+                return -ENOMEM;
+
+        r = hashmap_ensure_put(tokens_by_address, &ipv6_token_by_addr_hash_ops, copy, token);
+        if (r == -EEXIST)
+                return 0;
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(copy);
+        ipv6_token_ref(token);
+        return 1;
+}
+
+static int ipv6_token_type_put_by_addr(Hashmap **tokens_by_addr, const struct in6_addr *addr, AddressGenerationType type) {
+        _cleanup_(ipv6_token_unrefp) IPv6Token *token = NULL;
+        int r;
+
+        assert(tokens_by_addr);
+        assert(addr);
+
+        r = ipv6_token_new(type, &(struct in6_addr) {}, &SD_ID128_NULL, &token);
+        if (r < 0)
+                return r;
+
+        return ipv6_token_put_by_addr(tokens_by_addr, addr, token);
+}
+
 
 static int generate_eui64_address(const Link *link, const struct in6_addr *prefix, struct in6_addr *ret) {
         assert(link);
@@ -134,10 +248,12 @@ static int generate_stable_private_address(
                 const sd_id128_t *app_id,
                 const sd_id128_t *secret_key,
                 const struct in6_addr *prefix,
+                const struct in6_addr *previous,
                 struct in6_addr *ret) {
 
         sd_id128_t secret_machine_key;
         struct in6_addr addr;
+        bool found = false;
         uint8_t i;
         int r;
 
@@ -162,16 +278,29 @@ static int generate_stable_private_address(
         for (i = 0; i < DAD_CONFLICTS_IDGEN_RETRIES_RFC7217; i++) {
                 generate_stable_private_address_one(link, secret_key, prefix, i, &addr);
 
-                if (stable_private_address_is_valid(&addr))
-                        break;
+                if (!stable_private_address_is_valid(&addr))
+                        continue;
+
+                /* When 'previous' is non-NULL, then this is called after DAD in the kernel triggered.
+                 * Let's increment the counter and provide the next address. */
+                if (previous && !found) {
+                        found = in6_addr_equal(previous, &addr);
+                        continue;
+                }
+
+                break;
         }
-        if (i >= DAD_CONFLICTS_IDGEN_RETRIES_RFC7217)
+        if (i >= DAD_CONFLICTS_IDGEN_RETRIES_RFC7217) {
                 /* propagate recognizable errors. */
-                return log_link_debug_errno(link, SYNTHETIC_ERRNO(ENOANO),
+                if (previous && !found)
+                        return -EADDRNOTAVAIL;
+
+                return log_link_debug_errno(link, SYNTHETIC_ERRNO(EADDRINUSE),
                                             "Failed to generate stable private address.");
+        }
 
         *ret = addr;
-        return 0;
+        return 1;
 }
 
 static int generate_addresses(
@@ -180,10 +309,10 @@ static int generate_addresses(
                 const sd_id128_t *app_id,
                 const struct in6_addr *prefix,
                 uint8_t prefixlen,
-                Set **ret) {
+                Hashmap **ret) {
 
-        _cleanup_set_free_ Set *addresses = NULL;
-        struct in6_addr masked;
+        _cleanup_hashmap_free_ Hashmap *tokens_by_address = NULL;
+        struct in6_addr masked, addr;
         IPv6Token *j;
         int r;
 
@@ -197,8 +326,6 @@ static int generate_addresses(
         in6_addr_mask(&masked, prefixlen);
 
         SET_FOREACH(j, tokens) {
-                struct in6_addr addr, *copy;
-
                 switch (j->type) {
                 case ADDRESS_GENERATION_EUI64:
                         if (generate_eui64_address(link, &masked, &addr) < 0)
@@ -214,7 +341,7 @@ static int generate_addresses(
                         if (in6_addr_is_set(&j->address) && !in6_addr_equal(&j->address, &masked))
                                 continue;
 
-                        if (generate_stable_private_address(link, app_id, &j->secret_key, &masked, &addr) < 0)
+                        if (generate_stable_private_address(link, app_id, &j->secret_key, &masked, /* previous = */ NULL, &addr) < 0)
                                 continue;
 
                         break;
@@ -223,97 +350,77 @@ static int generate_addresses(
                         assert_not_reached();
                 }
 
-                copy = newdup(struct in6_addr, &addr, 1);
-                if (!copy)
-                        return -ENOMEM;
-
-                r = set_ensure_consume(&addresses, &in6_addr_hash_ops_free, copy);
+                r = ipv6_token_put_by_addr(&tokens_by_address, &addr, j);
                 if (r < 0)
                         return r;
         }
 
         /* fall back to EUI-64 if no token is provided */
-        if (set_isempty(addresses)) {
-                _cleanup_free_ struct in6_addr *addr = NULL;
+        if (hashmap_isempty(tokens_by_address)) {
+                AddressGenerationType type;
 
-                addr = new(struct in6_addr, 1);
-                if (!addr)
-                        return -ENOMEM;
-
-                if (IN_SET(link->iftype, ARPHRD_ETHER, ARPHRD_INFINIBAND))
-                        r = generate_eui64_address(link, &masked, addr);
-                else
-                        r = generate_stable_private_address(link, app_id, &SD_ID128_NULL, &masked, addr);
+                if (IN_SET(link->iftype, ARPHRD_ETHER, ARPHRD_INFINIBAND)) {
+                        type = ADDRESS_GENERATION_EUI64;
+                        r = generate_eui64_address(link, &masked, &addr);
+                } else {
+                        type = ADDRESS_GENERATION_PREFIXSTABLE;
+                        r = generate_stable_private_address(link, app_id, &SD_ID128_NULL, &masked, /* previous = */ NULL, &addr);
+                }
                 if (r < 0)
                         return r;
 
-                r = set_ensure_consume(&addresses, &in6_addr_hash_ops_free, TAKE_PTR(addr));
+                r = ipv6_token_type_put_by_addr(&tokens_by_address, &addr, type);
                 if (r < 0)
                         return r;
         }
 
-        *ret = TAKE_PTR(addresses);
+        *ret = TAKE_PTR(tokens_by_address);
         return 0;
 }
 
-int dhcp_pd_generate_addresses(Link *link, const struct in6_addr *prefix, Set **ret) {
+int dhcp_pd_generate_addresses(Link *link, const struct in6_addr *prefix, Hashmap **ret) {
         return generate_addresses(link, link->network->dhcp_pd_tokens, &DHCP_PD_APP_ID, prefix, 64, ret);
 }
 
-int ndisc_generate_addresses(Link *link, const struct in6_addr *prefix, uint8_t prefixlen, Set **ret) {
+int ndisc_generate_addresses(Link *link, const struct in6_addr *prefix, uint8_t prefixlen, Hashmap **ret) {
         return generate_addresses(link, link->network->ndisc_tokens, &NDISC_APP_ID, prefix, prefixlen, ret);
 }
 
-int radv_generate_addresses(Link *link, Set *tokens, const struct in6_addr *prefix, uint8_t prefixlen, Set **ret) {
+int radv_generate_addresses(Link *link, Set *tokens, const struct in6_addr *prefix, uint8_t prefixlen, Hashmap **ret) {
         return generate_addresses(link, tokens, &RADV_APP_ID, prefix, prefixlen, ret);
 }
 
-static void ipv6_token_hash_func(const IPv6Token *p, struct siphash *state) {
-        siphash24_compress_typesafe(p->type, state);
-        siphash24_compress_typesafe(p->address, state);
-        id128_hash_func(&p->secret_key, state);
-}
+int regenerate_address(Address *address, Link *link) {
+        struct in6_addr masked;
+        sd_id128_t app_id;
 
-static int ipv6_token_compare_func(const IPv6Token *a, const IPv6Token *b) {
-        int r;
+        assert(link);
+        assert(address);
+        assert(address->family == AF_INET6);
+        assert(!address->link && !address->network);
 
-        r = CMP(a->type, b->type);
-        if (r != 0)
-                return r;
+        if (!address->token ||
+            address->token->type != ADDRESS_GENERATION_PREFIXSTABLE)
+                return 0;
 
-        r = memcmp(&a->address, &b->address, sizeof(struct in6_addr));
-        if (r != 0)
-                return r;
+        switch (address->source) {
+        case NETWORK_CONFIG_SOURCE_STATIC:
+                app_id = RADV_APP_ID;
+                break;
+        case NETWORK_CONFIG_SOURCE_DHCP_PD:
+                app_id = DHCP_PD_APP_ID;
+                break;
+        case NETWORK_CONFIG_SOURCE_NDISC:
+                app_id = NDISC_APP_ID;
+                break;
+        default:
+                assert_not_reached();
+        }
 
-        return id128_compare_func(&a->secret_key, &b->secret_key);
-}
+        masked = address->in_addr.in6;
+        in6_addr_mask(&masked, address->prefixlen);
 
-DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
-                ipv6_token_hash_ops,
-                IPv6Token,
-                ipv6_token_hash_func,
-                ipv6_token_compare_func,
-                free);
-
-static int ipv6_token_add(Set **tokens, AddressGenerationType type, const struct in6_addr *addr, const sd_id128_t *secret_key) {
-        IPv6Token *p;
-
-        assert(tokens);
-        assert(type >= 0 && type < _ADDRESS_GENERATION_TYPE_MAX);
-        assert(addr);
-        assert(secret_key);
-
-        p = new(IPv6Token, 1);
-        if (!p)
-                return -ENOMEM;
-
-        *p = (IPv6Token) {
-                 .type = type,
-                 .address = *addr,
-                 .secret_key = *secret_key,
-        };
-
-        return set_ensure_consume(tokens, &ipv6_token_hash_ops, p);
+        return generate_stable_private_address(link, &app_id, &address->token->secret_key, &masked, &address->in_addr.in6, &address->in_addr.in6);
 }
 
 int config_parse_address_generation_type(

@@ -530,7 +530,7 @@ static int parse_one_option(const char *option) {
                  * - text descriptions prefixed with "%:" or "%keyring:".
                  * - text description with no prefix.
                  * - numeric keyring id (ignored in current patch set). */
-                if (*val == '@' || *val == '%')
+                if (IN_SET(*val, '@', '%'))
                         keyring = strndup(val, sep - val);
                 else
                         /* add type prefix if missing (crypt_set_keyring_to_link() expects it) */

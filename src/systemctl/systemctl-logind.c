@@ -7,6 +7,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "login-util.h"
+#include "mountpoint-util.h"
 #include "process-util.h"
 #include "systemctl-logind.h"
 #include "systemctl-start-unit.h"
@@ -84,9 +85,12 @@ int logind_reboot(enum action a) {
         SET_FLAG(flags,
                  SD_LOGIND_REBOOT_VIA_KEXEC,
                  a == ACTION_KEXEC || (a == ACTION_REBOOT && getenv_bool("SYSTEMCTL_SKIP_AUTO_KEXEC") <= 0));
+        /* Try to soft-reboot if /run/nextroot/ is a valid OS tree, but only if it's also a mount point.
+         * Otherwise, if people store new rootfs directly on /run/ tmpfs, 'systemctl reboot' would always
+         * soft-reboot, as /run/nextroot/ can never go away. */
         SET_FLAG(flags,
                  SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP,
-                 a == ACTION_REBOOT && getenv_bool("SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT") <= 0);
+                 a == ACTION_REBOOT && getenv_bool("SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT") <= 0 && path_is_mount_point("/run/nextroot") > 0);
         SET_FLAG(flags, SD_LOGIND_SOFT_REBOOT, a == ACTION_SOFT_REBOOT);
 
         r = bus_call_method(bus, bus_login_mgr, method_with_flags, &error, NULL, "t", flags);

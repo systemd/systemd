@@ -42,6 +42,7 @@ struct Manager {
         bool manage_foreign_routes;
         bool manage_foreign_rules;
         bool manage_foreign_nexthops;
+        bool dhcp_server_persist_leases;
 
         Set *dirty_links;
         Set *new_wlan_ifindices;
@@ -62,6 +63,9 @@ struct Manager {
         OrderedHashmap *networks;
         OrderedSet *address_pools;
         Set *dhcp_pd_subnet_ids;
+
+        DHCPUseDomains dhcp_use_domains;
+        DHCPUseDomains dhcp6_use_domains;
 
         DUID dhcp_duid;
         DUID dhcp6_duid;

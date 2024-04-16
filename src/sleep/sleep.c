@@ -151,22 +151,22 @@ static int write_state(int fd, char * const *states) {
         return r;
 }
 
-static int write_mode(char * const *modes) {
-        int r = 0;
+static int write_mode(const char *path, char * const *modes) {
+        int r, ret = 0;
+
+        assert(path);
 
         STRV_FOREACH(mode, modes) {
-                int k;
-
-                k = write_string_file("/sys/power/disk", *mode, WRITE_STRING_FILE_DISABLE_BUFFER);
-                if (k >= 0) {
-                        log_debug("Using sleep disk mode '%s'.", *mode);
+                r = write_string_file(path, *mode, WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (r >= 0) {
+                        log_debug("Using sleep mode '%s' for %s.", *mode, path);
                         return 0;
                 }
 
-                RET_GATHER(r, log_debug_errno(k, "Failed to write '%s' to /sys/power/disk: %m", *mode));
+                RET_GATHER(ret, log_debug_errno(r, "Failed to write '%s' to %s: %m", *mode, path));
         }
 
-        return r;
+        return ret;
 }
 
 static int lock_all_homes(void) {
@@ -237,8 +237,14 @@ static int execute(
         if (state_fd < 0)
                 return log_error_errno(errno, "Failed to open /sys/power/state: %m");
 
+        if (SLEEP_NEEDS_MEM_SLEEP(sleep_config, operation)) {
+                r = write_mode("/sys/power/mem_sleep", sleep_config->mem_modes);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write mode to /sys/power/mem_sleep: %m");
+        }
+
         /* Configure hibernation settings if we are supposed to hibernate */
-        if (sleep_operation_is_hibernation(operation)) {
+        if (SLEEP_OPERATION_IS_HIBERNATION(operation)) {
                 _cleanup_(hibernation_device_done) HibernationDevice hibernation_device = {};
                 bool resume_set;
 
@@ -259,7 +265,7 @@ static int execute(
                                 goto fail;
                 }
 
-                r = write_mode(sleep_config->modes[operation]);
+                r = write_mode("/sys/power/disk", sleep_config->modes[operation]);
                 if (r < 0) {
                         log_error_errno(r, "Failed to write mode to /sys/power/disk: %m");
                         goto fail;
@@ -301,8 +307,8 @@ static int execute(
                 return 0;
 
 fail:
-        if (sleep_operation_is_hibernation(operation))
-                clear_efi_hibernate_location_and_warn();
+        if (SLEEP_OPERATION_IS_HIBERNATION(operation))
+                (void) clear_efi_hibernate_location_and_warn();
 
         return r;
 }

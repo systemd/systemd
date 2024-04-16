@@ -27,6 +27,17 @@ static ICMP6Packet* icmp6_packet_new(size_t size) {
         return p;
 }
 
+int icmp6_packet_set_sender_address(ICMP6Packet *p, const struct in6_addr *addr) {
+        assert(p);
+
+        if (addr)
+                p->sender_address = *addr;
+        else
+                p->sender_address = (const struct in6_addr) {};
+
+        return 0;
+}
+
 int icmp6_packet_get_sender_address(ICMP6Packet *p, struct in6_addr *ret) {
         assert(p);
 
@@ -52,7 +63,7 @@ int icmp6_packet_get_timestamp(ICMP6Packet *p, clockid_t clock, usec_t *ret) {
         return 0;
 }
 
-static const struct icmp6_hdr* icmp6_packet_get_header(ICMP6Packet *p) {
+const struct icmp6_hdr* icmp6_packet_get_header(ICMP6Packet *p) {
         assert(p);
 
         if (p->raw_size < sizeof(struct icmp6_hdr))

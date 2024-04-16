@@ -1214,8 +1214,11 @@ static int run(int argc, char* argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to exclude loop devices: %m");
 
-                FOREACH_DEVICE(enumerator, device)
+                FOREACH_DEVICE(enumerator, device) {
+                        if (device_is_processed(device) <= 0)
+                                continue;
                         device_added(&context, device);
+                }
         }
 
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;

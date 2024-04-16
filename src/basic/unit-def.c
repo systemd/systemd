@@ -99,7 +99,7 @@ static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_BAD_SETTING] = "bad-setting",
         [UNIT_ERROR]       = "error",
         [UNIT_MERGED]      = "merged",
-        [UNIT_MASKED]      = "masked"
+        [UNIT_MASKED]      = "masked",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);
@@ -155,7 +155,7 @@ static const char* const automount_state_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD]    = "dead",
         [AUTOMOUNT_WAITING] = "waiting",
         [AUTOMOUNT_RUNNING] = "running",
-        [AUTOMOUNT_FAILED]  = "failed"
+        [AUTOMOUNT_FAILED]  = "failed",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(automount_state, AutomountState);
@@ -189,7 +189,7 @@ static const char* const path_state_table[_PATH_STATE_MAX] = {
         [PATH_DEAD]    = "dead",
         [PATH_WAITING] = "waiting",
         [PATH_RUNNING] = "running",
-        [PATH_FAILED]  = "failed"
+        [PATH_FAILED]  = "failed",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_state, PathState);
@@ -238,7 +238,7 @@ DEFINE_STRING_TABLE_LOOKUP(service_state, ServiceState);
 
 static const char* const slice_state_table[_SLICE_STATE_MAX] = {
         [SLICE_DEAD]   = "dead",
-        [SLICE_ACTIVE] = "active"
+        [SLICE_ACTIVE] = "active",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(slice_state, SliceState);
@@ -278,7 +278,7 @@ DEFINE_STRING_TABLE_LOOKUP(swap_state, SwapState);
 
 static const char* const target_state_table[_TARGET_STATE_MAX] = {
         [TARGET_DEAD]   = "dead",
-        [TARGET_ACTIVE] = "active"
+        [TARGET_ACTIVE] = "active",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(target_state, TargetState);
@@ -288,7 +288,7 @@ static const char* const timer_state_table[_TIMER_STATE_MAX] = {
         [TIMER_WAITING] = "waiting",
         [TIMER_RUNNING] = "running",
         [TIMER_ELAPSED] = "elapsed",
-        [TIMER_FAILED]  = "failed"
+        [TIMER_FAILED]  = "failed",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(timer_state, TimerState);
@@ -333,7 +333,7 @@ static const char* const notify_access_table[_NOTIFY_ACCESS_MAX] = {
         [NOTIFY_NONE] = "none",
         [NOTIFY_MAIN] = "main",
         [NOTIFY_EXEC] = "exec",
-        [NOTIFY_ALL]  = "all"
+        [NOTIFY_ALL]  = "all",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);

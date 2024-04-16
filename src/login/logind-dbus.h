@@ -28,6 +28,7 @@ int manager_start_scope(
                 Manager *manager,
                 const char *scope,
                 const PidRef *pidref,
+                bool allow_pidfd,
                 const char *slice,
                 const char *description,
                 const char * const *requires,
