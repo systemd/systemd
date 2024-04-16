@@ -577,9 +577,6 @@ static int radv_configure(Link *link) {
 }
 
 int radv_update_mac(Link *link) {
-        bool restart;
-        int r;
-
         assert(link);
 
         if (!link->radv)
@@ -588,23 +585,7 @@ int radv_update_mac(Link *link) {
         if (link->hw_addr.length != ETH_ALEN)
                 return 0;
 
-        restart = sd_radv_is_running(link->radv);
-
-        r = sd_radv_stop(link->radv);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_set_mac(link->radv, &link->hw_addr.ether);
-        if (r < 0)
-                return r;
-
-        if (restart) {
-                r = sd_radv_start(link->radv);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return sd_radv_set_mac(link->radv, &link->hw_addr.ether);
 }
 
 static int radv_is_ready_to_configure(Link *link) {
