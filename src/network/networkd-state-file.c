@@ -191,7 +191,7 @@ static int link_put_sip(Link *link, OrderedSet **s) {
         assert(link->network);
         assert(s);
 
-        if (link->dhcp_lease && link->network->dhcp_use_ntp) {
+        if (link->dhcp_lease && link->network->dhcp_use_sip) {
                 const struct in_addr *addresses;
 
                 r = sd_dhcp_lease_get_sip(link->dhcp_lease, &addresses);
