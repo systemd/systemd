@@ -9,6 +9,39 @@
 /* Let's assume that anything above this number is a user misconfiguration. */
 #define MAX_NTP_SERVERS 128U
 
+bool link_get_use_ntp(Link *link, NetworkConfigSource proto) {
+        int n, c;
+
+        assert(link);
+
+        if (!link->network)
+                return false;
+
+        switch (proto) {
+        case NETWORK_CONFIG_SOURCE_DHCP4:
+                n = link->network->dhcp_use_ntp;
+                c = link->network->compat_dhcp_use_ntp;
+                break;
+        case NETWORK_CONFIG_SOURCE_DHCP6:
+                n = link->network->dhcp6_use_ntp;
+                c = link->network->compat_dhcp_use_ntp;
+                break;
+        default:
+                assert_not_reached();
+        }
+
+        /* If per-network and per-protocol setting is specified, use it. */
+        if (n >= 0)
+                return n;
+
+        /* If compat setting is specified, use it. */
+        if (c >= 0)
+                return c;
+
+        /* Otherwise, defaults to yes. */
+        return true;
+}
+
 int config_parse_ntp(
                 const char *unit,
                 const char *filename,
@@ -65,55 +98,4 @@ int config_parse_ntp(
                 if (r < 0)
                         return log_oom();
         }
-}
-
-int config_parse_dhcp_use_ntp(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(IN_SET(ltype, AF_UNSPEC, AF_INET, AF_INET6));
-        assert(rvalue);
-        assert(data);
-
-        r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse UseNTP=%s, ignoring assignment: %m", rvalue);
-                return 0;
-        }
-
-        switch (ltype) {
-        case AF_INET:
-                network->dhcp_use_ntp = r;
-                network->dhcp_use_ntp_set = true;
-                break;
-        case AF_INET6:
-                network->dhcp6_use_ntp = r;
-                network->dhcp6_use_ntp_set = true;
-                break;
-        case AF_UNSPEC:
-                /* For backward compatibility. */
-                if (!network->dhcp_use_ntp_set)
-                        network->dhcp_use_ntp = r;
-                if (!network->dhcp6_use_ntp_set)
-                        network->dhcp6_use_ntp = r;
-                break;
-        default:
-                assert_not_reached();
-        }
-
-        return 0;
 }
