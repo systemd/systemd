@@ -49,6 +49,7 @@ int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret) {
                 { "InitRDGeneratorsFinishTimestampMonotonic", "t", NULL, offsetof(BootTimes, initrd_generators_finish_time) },
                 { "InitRDUnitsLoadStartTimestampMonotonic",   "t", NULL, offsetof(BootTimes, initrd_unitsload_start_time)   },
                 { "InitRDUnitsLoadFinishTimestampMonotonic",  "t", NULL, offsetof(BootTimes, initrd_unitsload_finish_time)  },
+                { "SoftRebootsCount",                         "t", NULL, offsetof(BootTimes, soft_reboots_count)            },
                 {},
         };
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -84,7 +85,10 @@ int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret) {
 
         if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM && timestamp_is_set(times.softreboot_start_time)) {
                 /* On soft-reboot ignore kernel/firmware/initrd times as they are from the previous boot */
-                times.firmware_time = times.loader_time = times.kernel_time = times.initrd_time = 0;
+                times.firmware_time = times.loader_time = times.kernel_time = times.initrd_time =
+                                times.initrd_security_start_time = times.initrd_security_finish_time =
+                                times.initrd_generators_start_time = times.initrd_generators_finish_time =
+                                times.initrd_unitsload_start_time = times.initrd_unitsload_finish_time = 0;
                 times.reverse_offset = times.softreboot_start_time;
 
                 /* Clamp all timestamps to avoid showing huge graphs */
@@ -199,7 +203,7 @@ int pretty_boot_time(sd_bus *bus, char **ret) {
                 return log_oom();
         if (timestamp_is_set(t->initrd_time) && !strextend(&text, FORMAT_TIMESPAN(t->userspace_time - t->initrd_time, USEC_PER_MSEC), " (initrd) + "))
                 return log_oom();
-        if (timestamp_is_set(t->softreboot_start_time) && !strextend(&text, FORMAT_TIMESPAN(t->userspace_time, USEC_PER_MSEC), " (soft reboot) + "))
+        if (timestamp_is_set(t->softreboot_start_time) && strextendf(&text, "%s (soft reboot #%" PRIu64 ") + ", FORMAT_TIMESPAN(t->userspace_time, USEC_PER_MSEC), t->soft_reboots_count) < 0)
                 return log_oom();
 
         if (!strextend(&text, FORMAT_TIMESPAN(t->finish_time - t->userspace_time, USEC_PER_MSEC), " (userspace) "))

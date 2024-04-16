@@ -3692,7 +3692,7 @@ static void manager_notify_finished(Manager *m) {
         if (MANAGER_IS_SYSTEM(m) && dual_timestamp_is_set(&m->timestamps[MANAGER_TIMESTAMP_SOFTREBOOT_START])) {
                 /* The soft-reboot case, where we only report data for the last reboot */
                 firmware_usec = loader_usec = initrd_usec = kernel_usec = 0;
-                total_usec = userspace_usec = m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic - m->timestamps[MANAGER_TIMESTAMP_SOFTREBOOT_START].monotonic;
+                total_usec = userspace_usec = usec_sub_unsigned(m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic, m->timestamps[MANAGER_TIMESTAMP_SOFTREBOOT_START].monotonic);
 
                 log_struct(LOG_INFO,
                            "MESSAGE_ID=" SD_MESSAGE_STARTUP_FINISHED_STR,
