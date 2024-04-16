@@ -281,6 +281,16 @@ blacklist_exceptions {
 blacklist {
 }
 EOF
+
+    sfdisk /dev/sda <<EOF
+label: gpt
+
+name="first_partition", size=5M
+uuid="deadbeef-dead-dead-beef-000000000000", name="failover_part", size=5M
+EOF
+    udevadm settle
+    mkfs.ext4 -U "deadbeef-dead-dead-beef-111111111111" -L "failover_vol" "/dev/sda2"
+
     modprobe -v dm_multipath
     systemctl start multipathd.service
     systemctl status multipathd.service
