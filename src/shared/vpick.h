@@ -42,12 +42,13 @@ typedef struct PickResult {
 
 void pick_result_done(PickResult *p);
 
-int path_pick(const char *toplevel_path,
-              int toplevel_fd,
-              const char *path,
-              const PickFilter *filter,
-              PickFlags flags,
-              PickResult *ret);
+int path_pick(
+                const char *toplevel_path,
+                int toplevel_fd,
+                const char *path,
+                const PickFilter *filter,
+                PickFlags flags,
+                PickResult *ret);
 
 int path_pick_update_warn(
                 char **path,
