@@ -2278,19 +2278,19 @@ int dissected_image_mount_and_warn(
 
         r = dissected_image_mount(m, where, uid_shift, uid_range, userns_fd, flags);
         if (r == -ENXIO)
-                return log_error_errno(r, "Not root file system found in image.");
+                return log_error_errno(r, "Failed to mount image: No root file system found in image.");
         if (r == -EMEDIUMTYPE)
-                return log_error_errno(r, "No suitable os-release/extension-release file in image found.");
+                return log_error_errno(r, "Failed to mount image: No suitable os-release/extension-release file in image found.");
         if (r == -EUNATCH)
-                return log_error_errno(r, "Encrypted file system discovered, but decryption not requested.");
+                return log_error_errno(r, "Failed to mount image: Encrypted file system discovered, but decryption not requested.");
         if (r == -EUCLEAN)
-                return log_error_errno(r, "File system check on image failed.");
+                return log_error_errno(r, "Failed to mount image: File system check on image failed.");
         if (r == -EBUSY)
-                return log_error_errno(r, "File system already mounted elsewhere.");
+                return log_error_errno(r, "Failed to mount image: File system already mounted elsewhere.");
         if (r == -EAFNOSUPPORT)
-                return log_error_errno(r, "File system type not supported or not known.");
+                return log_error_errno(r, "Failed to mount image: File system type not supported or not known.");
         if (r == -EIDRM)
-                return log_error_errno(r, "File system is too uncommon, refused.");
+                return log_error_errno(r, "Failed to mount image: File system is too uncommon, refused.");
         if (r < 0)
                 return log_error_errno(r, "Failed to mount image: %m");
 
