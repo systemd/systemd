@@ -43,6 +43,7 @@ DLSYM_PROTOTYPE(fido_cred_id_ptr);
 DLSYM_PROTOTYPE(fido_cred_new);
 DLSYM_PROTOTYPE(fido_cred_set_clientdata_hash);
 DLSYM_PROTOTYPE(fido_cred_set_extensions);
+DLSYM_PROTOTYPE(fido_cred_set_prot);
 DLSYM_PROTOTYPE(fido_cred_set_rk);
 DLSYM_PROTOTYPE(fido_cred_set_rp);
 DLSYM_PROTOTYPE(fido_cred_set_type);
