@@ -281,6 +281,7 @@ static Link *link_free(Link *link) {
         hashmap_free(link->bound_to_links);
         hashmap_free(link->bound_by_links);
         hashmap_free(link->sysctls);
+        sd_event_source_disable_unref(link->sysctl_event_source);
 
         set_free_with_destructor(link->slaves, link_unref);
 

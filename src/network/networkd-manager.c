@@ -623,6 +623,7 @@ Manager* manager_free(Manager *m) {
                 (void) link_stop_engines(link, true);
 
         hashmap_free(m->sysctls);
+        sd_event_source_disable_unref(m->sysctl_event_source);
 
         m->request_queue = ordered_set_free(m->request_queue);
         m->remove_request_queue = ordered_set_free(m->remove_request_queue);
