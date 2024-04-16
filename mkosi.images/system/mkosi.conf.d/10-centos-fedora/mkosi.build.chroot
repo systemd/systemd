@@ -48,6 +48,7 @@ rpmbuild \
     --define "__elf_exclude_path ^/usr/lib/systemd/tests/unit-tests/.*$" \
     --define "__script_requires %{nil}" \
     --undefine _lto_cflags \
+    --noclean \
     "pkg/$ID/systemd.spec"
 
 cp "$OUTPUTDIR"/*.rpm "$PACKAGEDIR"

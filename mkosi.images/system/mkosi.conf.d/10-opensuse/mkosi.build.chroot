@@ -49,6 +49,7 @@ build() {
         --define "__os_install_post /usr/lib/rpm/brp-suse %{nil}" \
         --define "__elf_exclude_path ^/usr/lib/systemd/tests/unit-tests/.*$" \
         --define "__script_requires %{nil}" \
+        --noclean \
         "$@" \
         "pkg/$ID/systemd.spec"
 }
