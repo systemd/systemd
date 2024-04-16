@@ -950,6 +950,16 @@ testcase_long_sysfs_path() {
     stat /sys/block/vda
     readlink -f /sys/block/vda/dev
 
+    dev="/dev/vda"
+    sfdisk "${dev:?}" <<EOF
+label: gpt
+
+name="test_swap", size=32M
+uuid="deadbeef-dead-dead-beef-000000000000", name="test_part", size=5M
+EOF
+    udevadm settle
+    mkswap -U "deadbeef-dead-dead-beef-111111111111" -L "swap_vol" "${dev}1"
+    mkfs.ext4 -U "deadbeef-dead-dead-beef-222222222222" -L "data_vol" "${dev}2"
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
 
     # Try to mount the data partition manually (using its label)

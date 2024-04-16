@@ -1117,6 +1117,9 @@ install_fs_tools() {
     # we use mkfs in system-repart tests
     image_install /sbin/mkfs.ext4
     image_install /sbin/mkfs.vfat
+
+    # we use mkswap in udev-storage tests
+    image_install /sbin/mkswap
 }
 
 install_modules() {
