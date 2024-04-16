@@ -4500,7 +4500,7 @@ static int make_policy(bool force, bool recovery_pin) {
         CLEANUP_ERASE(auth);
 
         if (pin) {
-                r = tpm2_get_pin_auth(TPM2_ALG_SHA256, pin, &auth);
+                r = tpm2_auth_value_from_pin(TPM2_ALG_SHA256, pin, &auth);
                 if (r < 0)
                         return log_error_errno(r, "Failed to hash PIN: %m");
         } else {

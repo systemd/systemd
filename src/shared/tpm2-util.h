@@ -257,7 +257,7 @@ int tpm2_index_from_handle(Tpm2Context *c, const Tpm2Handle *handle, TPM2_HANDLE
 int tpm2_pcr_read(Tpm2Context *c, const TPML_PCR_SELECTION *pcr_selection, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
 int tpm2_pcr_read_missing_values(Tpm2Context *c, Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 
-int tpm2_get_pin_auth(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth);
+int tpm2_auth_value_from_pin(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth);
 int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin);
 int tpm2_set_auth_binary(Tpm2Context *c, const Tpm2Handle *handle, const TPM2B_AUTH *auth);
 
