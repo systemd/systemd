@@ -6933,8 +6933,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         check(self, True, False)
         check(self, False, True)
         check(self, False, False)
-    
-    def test_dhcp_client_default_use_domains(self):        
+
+    def test_dhcp_client_default_use_domains(self):
         def check(self, ipv4, ipv6):
             mkdir_p(networkd_conf_dropin_dir)
             with open(os.path.join(networkd_conf_dropin_dir, 'default_use_domains.conf'), mode='w', encoding='utf-8') as f:
@@ -6942,7 +6942,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                 f.write('yes\n' if ipv4 else 'no\n')
                 f.write('[DHCPv6]\nUseDomains=')
                 f.write('yes\n' if ipv6 else 'no\n')
-            
+
             restart_networkd()
             self.wait_online('veth-peer:carrier')
             start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.1',
@@ -6968,7 +6968,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             else:
                 print(output)
                 self.fail('unexpected domain setting in resolved...')
-            
+
             stop_dnsmasq()
             remove_networkd_conf_dropin('default_use_domains.conf')
 
