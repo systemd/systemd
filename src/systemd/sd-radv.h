@@ -52,6 +52,7 @@ int sd_radv_is_running(sd_radv *ra);
 int sd_radv_set_ifindex(sd_radv *ra, int interface_index);
 int sd_radv_set_ifname(sd_radv *ra, const char *interface_name);
 int sd_radv_get_ifname(sd_radv *ra, const char **ret);
+int sd_radv_set_link_local_address(sd_radv *ra, const struct in6_addr *addr);
 int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr);
 int sd_radv_set_mtu(sd_radv *ra, uint32_t mtu);
 int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit);
