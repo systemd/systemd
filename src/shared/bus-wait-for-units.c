@@ -298,7 +298,7 @@ int bus_wait_for_units_add_unit(
                 BusWaitForUnits *d,
                 const char *unit,
                 BusWaitForUnitsFlags flags,
-                bus_wait_for_units_unit_callback callback,
+                bus_wait_for_units_unit_callback_t callback,
                 void *userdata) {
 
         _cleanup_(wait_for_item_freep) WaitForItem *item = NULL;
