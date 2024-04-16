@@ -269,6 +269,7 @@ int tpm2_policy_authorize_nv(Tpm2Context *c, const Tpm2Handle *session, const Tp
 int tpm2_policy_pcr(Tpm2Context *c, const Tpm2Handle *session, const TPML_PCR_SELECTION *pcr_selection, TPM2B_DIGEST **ret_policy_digest);
 int tpm2_policy_or(Tpm2Context *c, const Tpm2Handle *session, const TPM2B_DIGEST *branches, size_t n_branches, TPM2B_DIGEST **ret_policy_digest);
 int tpm2_policy_super_pcr(Tpm2Context *c, const Tpm2Handle *session, const Tpm2PCRPrediction *prediction, uint16_t algorithm);
+int tpm2_policy_signed_hmac_sha256(Tpm2Context *c, const Tpm2Handle *session, const Tpm2Handle *hmac_key_handle, const struct iovec *hmac_key, TPM2B_DIGEST **ret_policy_digest);
 
 int tpm2_calculate_pubkey_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name);
 int tpm2_calculate_nv_index_name(const TPMS_NV_PUBLIC *nvpublic, TPM2B_NAME *ret_name);
@@ -279,6 +280,7 @@ int tpm2_calculate_policy_authorize_nv(const TPM2B_NV_PUBLIC *public, TPM2B_DIGE
 int tpm2_calculate_policy_pcr(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, TPM2B_DIGEST *digest);
 int tpm2_calculate_policy_or(const TPM2B_DIGEST *branches, size_t n_branches, TPM2B_DIGEST *digest);
 int tpm2_calculate_policy_super_pcr(Tpm2PCRPrediction *prediction, uint16_t algorithm, TPM2B_DIGEST *pcr_policy);
+int tpm2_calculate_policy_signed(TPM2B_DIGEST *digest, const TPM2B_NAME *name);
 int tpm2_calculate_serialize(TPM2_HANDLE handle, const TPM2B_NAME *name, const TPM2B_PUBLIC *public, void **ret_serialized, size_t *ret_serialized_size);
 int tpm2_calculate_sealing_policy(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, const TPM2B_PUBLIC *public, bool use_pin, const Tpm2PCRLockPolicy *policy, TPM2B_DIGEST *digest);
 int tpm2_calculate_seal(TPM2_HANDLE parent_handle, const TPM2B_PUBLIC *parent_public, const TPMA_OBJECT *attributes, const struct iovec *secret, const TPM2B_DIGEST *policy, const char *pin, struct iovec *ret_secret, struct iovec *ret_blob, struct iovec *ret_serialized_parent);
