@@ -260,6 +260,10 @@ static int radv_process_packet(sd_radv *ra, ICMP6Packet *packet) {
         r = sd_ndisc_router_solicit_get_sender_address(rs, &src);
         if (r < 0 && r != -ENODATA) /* null address is allowed */
                 return log_radv_errno(ra, r, "Failed to get sender address of RS, ignoring: %m");
+        if (r >= 0 && in6_addr_equal(&src, &ra->ipv6ll))
+                /* This should be definitely caused by a misconfiguration. If we send RA to ourself, the
+                 * kernel complains about that. Let's ignore the packet. */
+                return log_radv_errno(ra, SYNTHETIC_ERRNO(EADDRINUSE), "Received RS from the same interface, ignoring.");
 
         r = radv_send_router(ra, &src, ra->lifetime_usec);
         if (r < 0)
@@ -468,6 +472,18 @@ int sd_radv_get_ifname(sd_radv *ra, const char **ret) {
 
         if (ret)
                 *ret = ra->ifname;
+
+        return 0;
+}
+
+int sd_radv_set_link_local_address(sd_radv *ra, const struct in6_addr *addr) {
+        assert_return(ra, -EINVAL);
+        assert_return(!addr || in6_addr_is_link_local(addr), -EINVAL);
+
+        if (addr)
+                ra->ipv6ll = *addr;
+        else
+                zero(ra->ipv6ll);
 
         return 0;
 }
