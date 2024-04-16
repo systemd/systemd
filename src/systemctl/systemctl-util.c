@@ -64,8 +64,8 @@ int acquire_bus(BusFocus focus, sd_bus **ret) {
 }
 
 void release_busses(void) {
-        for (BusFocus w = 0; w < _BUS_FOCUS_MAX; w++)
-                buses[w] = sd_bus_flush_close_unref(buses[w]);
+        FOREACH_ARRAY(w, buses, _BUS_FOCUS_MAX)
+                *w = sd_bus_flush_close_unref(*w);
 }
 
 void ask_password_agent_open_maybe(void) {
