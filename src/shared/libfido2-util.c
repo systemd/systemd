@@ -40,6 +40,7 @@ DLSYM_FUNCTION(fido_cred_id_ptr);
 DLSYM_FUNCTION(fido_cred_new);
 DLSYM_FUNCTION(fido_cred_set_clientdata_hash);
 DLSYM_FUNCTION(fido_cred_set_extensions);
+DLSYM_FUNCTION(fido_cred_set_prot);
 DLSYM_FUNCTION(fido_cred_set_rk);
 DLSYM_FUNCTION(fido_cred_set_rp);
 DLSYM_FUNCTION(fido_cred_set_type);
@@ -776,10 +777,19 @@ int fido2_generate_hmac_hash(
         if (!c)
                 return log_oom();
 
-        r = sym_fido_cred_set_extensions(c, FIDO_EXT_HMAC_SECRET);
+        int extensions = FIDO_EXT_HMAC_SECRET;
+        if (FLAGS_SET(lock_with, FIDO2ENROLL_PIN)) {
+                extensions |= FIDO_EXT_CRED_PROTECT;
+
+                r = sym_fido_cred_set_prot(c, FIDO_CRED_PROT_UV_REQUIRED);
+                if (r != FIDO_OK)
+                        log_notice("Failed to set protection level on FIDO2 credential: %s", sym_fido_strerr(r));
+        }
+
+        r = sym_fido_cred_set_extensions(c, extensions);
         if (r != FIDO_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to enable HMAC-SECRET extension on FIDO2 credential: %s", sym_fido_strerr(r));
+                                       "Failed to enable extensions on FIDO2 credential: %s", sym_fido_strerr(r));
 
         r = sym_fido_cred_set_rp(c, rp_id, rp_name);
         if (r != FIDO_OK)
