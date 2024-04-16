@@ -234,9 +234,10 @@ static int run(int argc, char *argv[]) {
         RET_GATHER(ret, context_save(&context));
 
         static const PickUpCredential table[] = {
-                { "network.link.",    NETWORK_UNIT_DIRECTORY, ".link"    },
-                { "network.netdev.",  NETWORK_UNIT_DIRECTORY, ".netdev"  },
-                { "network.network.", NETWORK_UNIT_DIRECTORY, ".network" },
+                { "network.conf.",    "/run/systemd/networkd.conf.d/", ".conf"    },
+                { "network.link.",    NETWORK_UNIT_DIRECTORY,          ".link"    },
+                { "network.netdev.",  NETWORK_UNIT_DIRECTORY,          ".netdev"  },
+                { "network.network.", NETWORK_UNIT_DIRECTORY,          ".network" },
         };
         RET_GATHER(ret, pick_up_credentials(table, ELEMENTSOF(table)));
 
