@@ -923,40 +923,6 @@ int config_parse_stacked_netdev(
         return 0;
 }
 
-int config_parse_timezone(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        char **tz = ASSERT_PTR(data);
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (isempty(rvalue)) {
-                *tz = mfree(*tz);
-                return 0;
-        }
-
-        r = verify_timezone(rvalue, LOG_WARNING);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Timezone is not valid, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        return free_and_strdup_warn(tz, rvalue);
-}
-
 int config_parse_required_for_online(
                 const char *unit,
                 const char *filename,
