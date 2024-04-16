@@ -149,7 +149,7 @@ CHANGES WITH 256 in spe:
           transient and are only defined as long as the service manager
           is running (implemented via DynamicUser=1). These service managers run
           off home directories defined in /var/lib/capsules/<name>, where
-          <name> is a the capsule's name. These home directores can contain
+          <name> is a the capsule's name. These home directories can contain
           regular per-user services and other units. A capsule is started via a
           simple "systemctl start capsule@<name>.service". See the
           capsule@.service(5) man page for further details. Various systemd
