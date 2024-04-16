@@ -381,10 +381,6 @@ int verb_start(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_wait) {
-                r = bus_call_method_async(bus, NULL, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to enable subscription: %m");
-
                 r = bus_wait_for_units_new(bus, &wu);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate unit watch context: %m");
@@ -408,7 +404,7 @@ int verb_start(int argc, char *argv[], void *userdata) {
                 }
 
         if (!arg_no_block) {
-                const char* extra_args[4];
+                const char *extra_args[4];
                 WaitJobsFlags flags = 0;
 
                 SET_FLAG(flags, BUS_WAIT_JOBS_LOG_ERROR, !arg_quiet);
