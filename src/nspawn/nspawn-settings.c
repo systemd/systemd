@@ -914,7 +914,7 @@ int config_parse_link_journal(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_timezone, timezone_mode, TimezoneMode, "Failed to parse timezone mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_timezone_mode, timezone_mode, TimezoneMode, "Failed to parse timezone mode");
 
 static const char *const timezone_mode_table[_TIMEZONE_MODE_MAX] = {
         [TIMEZONE_OFF]     = "off",
