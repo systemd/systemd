@@ -302,16 +302,19 @@ int bus_wait_for_units_add_unit(
                 void *userdata) {
 
         _cleanup_(wait_for_item_freep) WaitForItem *item = NULL;
+        _cleanup_free_ char *bus_path = NULL;
         int r;
 
         assert(d);
         assert(unit);
+        assert((flags & _BUS_WAIT_FOR_TARGET) != 0);
 
-        assert(flags != 0);
+        bus_path = unit_dbus_path_from_name(unit);
+        if (!bus_path)
+                return -ENOMEM;
 
-        r = hashmap_ensure_allocated(&d->items, &string_hash_ops);
-        if (r < 0)
-                return r;
+        if (hashmap_contains(d->items, bus_path))
+                return 0;
 
         item = new(WaitForItem, 1);
         if (!item)
@@ -319,14 +322,11 @@ int bus_wait_for_units_add_unit(
 
         *item = (WaitForItem) {
                 .flags = flags,
-                .bus_path = unit_dbus_path_from_name(unit),
+                .bus_path = TAKE_PTR(bus_path),
                 .unit_callback = callback,
                 .userdata = userdata,
                 .job_id = UINT32_MAX,
         };
-
-        if (!item->bus_path)
-                return -ENOMEM;
 
         if (!FLAGS_SET(item->flags, BUS_WAIT_REFFED)) {
                 r = sd_bus_call_method_async(
@@ -371,14 +371,16 @@ int bus_wait_for_units_add_unit(
         if (r < 0)
                 return log_debug_errno(r, "Failed to request properties of unit %s: %m", unit);
 
-        r = hashmap_put(d->items, item->bus_path, item);
+        r = hashmap_ensure_put(&d->items, &string_hash_ops, item->bus_path, item);
         if (r < 0)
                 return r;
+        assert(r > 0);
 
         d->state = BUS_WAIT_RUNNING;
         item->parent = d;
         TAKE_PTR(item);
-        return 0;
+
+        return 1;
 }
 
 int bus_wait_for_units_run(BusWaitForUnits *d) {
