@@ -2,6 +2,10 @@
 #pragma once
 
 #include "conf-parser.h"
+#include "networkd-util.h"
+
+typedef struct Link Link;
+
+bool link_get_use_ntp(Link *link, NetworkConfigSource proto);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
-CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_ntp);
