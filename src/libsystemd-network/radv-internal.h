@@ -98,6 +98,7 @@ struct sd_radv {
 
         int ifindex;
         char *ifname;
+        struct in6_addr ipv6ll;
 
         sd_event *event;
         int event_priority;
