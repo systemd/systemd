@@ -60,16 +60,17 @@ CHANGES WITH 256 in spe:
           and use the first file that is found.  This means that the search
           logic for the main config file and for drop-ins is now the same.
 
-          Similarly, ukify will look for the config files in /usr/lib/kernel/
-          and the other search locations, and now also supports drop-ins.
+          Similarly, kernel-install will look for the config files in
+          /usr/lib/kernel/ and the other search locations, and now also
+          supports drop-ins.
 
           systemd-udevd now supports drop-ins for udev.conf.
 
         * A new 'systemd-vpick' binary has been added. It implements the new
           vpick protocol, where a "*.v/" directory may contain multiple files
-          whose names carry a version (following the UAPI version format
-          specification) embedded in the file name. The files are ordered by
-          version and the newest one is selected.
+          which have versions (following the UAPI version format specification)
+          embedded in the file name. The files are ordered by version and
+          the newest one is selected.
 
           systemd-nspawn --image=/--directory=, systemd-dissect, and the
           RootDirectory=, RootImage=, ExtensionImages=, and
@@ -78,8 +79,8 @@ CHANGES WITH 256 in spe:
           a "*.v/" directory is specified as the source.
 
         * Encrypted service credentials may now be made accessible to
-          unprivileged users. 'systemd-creds --user --uid=<user>' will encrypt
-          or decrypt a credential for a specific user.
+          unprivileged users. systemd-creds gained new options --user/--uid=
+          for encrypting/decrypting a credential for a specific user.
 
         * New command-line tool 'importctl' to download, import, and export
           disk images via systemd-importd is added with the following verbs:
@@ -192,7 +193,7 @@ CHANGES WITH 256 in spe:
           signal handlers (i.e. the moment where SIGRTMIN+4 sent to PID 1 will
           start to have the effect of shutting down the system cleanly).
 
-        systemd-journald:
+        Journal:
 
         * systemd-journald can now forward journal entries to a socket
           (AF_INET, AF_INET6, AF_UNIX, or AF_VSOCK). The socket can be
@@ -220,11 +221,14 @@ CHANGES WITH 256 in spe:
           retrieved entries with a new "realtime=[<since>]:[<until>]" URL
           parameter.
 
+        * systemd-cat gained a new option --namespace= to specify the target
+          journal namespace to which the output shall be connected.
+
         * systemd-bsod gained a new option --tty= to specify the output TTY
 
         Device Management:
 
-        * /dev/ now creates symlinks that combine by-path and by-{label,uuid}
+        * /dev/ now contains symlinks that combine by-path and by-{label,uuid}
           information:
 
               /dev/disk/by-path/<path>/by-<label|uuid|…>/<label|uuid|…>
@@ -333,8 +337,8 @@ CHANGES WITH 256 in spe:
           mounts to map the target directory owner from inside the container to
           the owner of the directory bound from the host filesystem.
 
-        * systemd-nspawn now supports moving Wifi network devices into a
-          counter, just like other network interfaces.
+        * systemd-nspawn now supports moving Wi-Fi network devices into a
+          container, just like other network interfaces.
 
         systemd-resolved:
 
@@ -513,9 +517,6 @@ CHANGES WITH 256 in spe:
 
         Command-line tools:
 
-        * systemd-creds gained new options --user/--uid= for encrypting
-          user-scoped credentials.
-
         * 'systemctl edit --stdin' allows creation of unit files and drop-ins
           with contents supplied via standard input. This is useful when creating
           configuration programmatically; the tool takes care of figuring out
@@ -620,7 +621,7 @@ CHANGES WITH 256 in spe:
         * The sd-journal API gained a new call
           sd_journal_stream_fd_with_namespace() which is just like
           sd_journal_stream_fd() but creates a log stream targeted at a
-          specific specified log namespace.
+          specific log namespace.
 
         systemd-cryptsetup/systemd-cryptenroll:
 
@@ -758,7 +759,7 @@ CHANGES WITH 256 in spe:
           interfaces to then delegate mount file descriptors, control groups
           and network interfaces to user namespaces set up this way.
 
-        * A small new service systemd-mountfsd.service has been added. it
+        * A small new service systemd-mountfsd.service has been added. It
           provides a Varlink IPC API for mounting DDI images, and returning a set
           of mount file descriptors for it. If a user namespace fd is provided
           as input, then the mounts are registered with the user namespace. To
