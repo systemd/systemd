@@ -5639,6 +5639,10 @@ int tpm2_define_policy_nv_index(
         assert(c);
         assert(pin || auth);
 
+        /* Allocates an nvindex to store a policy for use in PolicyAuthorizeNV in. This is where pcrlock then
+         * stores it's predicted PCR policies in. If 'requested_nv_index' will try to allocate the specified
+         * nvindex, otherwise will find a free one, and use that. */
+
         r = tpm2_handle_new(c, &new_handle);
         if (r < 0)
                 return r;
