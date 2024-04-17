@@ -219,6 +219,7 @@ static int ndisc_handle_router(sd_ndisc *nd, ICMP6Packet *packet) {
                 return r;
 
         (void) event_source_disable(nd->timeout_event_source);
+        (void) event_source_disable(nd->timeout_no_ra);
 
         log_ndisc(nd, "Received Router Advertisement: flags %s preference %s lifetime %s",
                   rt->flags & ND_RA_FLAG_MANAGED ? "MANAGED" : rt->flags & ND_RA_FLAG_OTHER ? "OTHER" : "none",
