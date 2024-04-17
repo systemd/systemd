@@ -31,7 +31,8 @@ DIST="$(rpm --eval %dist)"
 ARCH="$(rpm --eval %_arch)"
 SRCDEST="/usr/src/debug/systemd-$VERSION-${RELEASE}${DIST}.$ARCH"
 
-EXTRA_CFLAGS="-Og"
+# TODO: Drop -D_FORTIFY_SOURCE when we switch to CentOS Stream 10.
+EXTRA_CFLAGS="-O0 -Wp,-D_FORTIFY_SOURCE=0"
 if ((WITH_DEBUG)); then
     EXTRA_CFLAGS="$EXTRA_CFLAGS -ffile-prefix-map=../src=$SRCDEST"
 fi
@@ -71,6 +72,7 @@ rpmbuild \
     --define "__elf_exclude_path ^/usr/lib/systemd/tests/unit-tests/.*$" \
     --define "__script_requires %{nil}" \
     --define "_find_debuginfo_dwz_opts %{nil}" \
+    --define "_fortify_level 0" \
     --undefine _lto_cflags \
     --noclean \
     "pkg/$ID/systemd.spec"
