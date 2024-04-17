@@ -46,15 +46,15 @@ build() {
         $( ((WITH_TESTS)) || echo nocheck) \
         $( ((WITH_DOCS)) || echo nodoc) \
         $( ((WITH_DEBUG)) || echo nostrip) \
-        terse
+        terse \
         optimize=-lto \
+        noopt \
     " \
     DEB_BUILD_PROFILES="\
         $( ((WITH_TESTS)) || echo nocheck) \
         $( ((WITH_DOCS)) || echo nodoc) \
         pkg.systemd.upstream \
     " \
-    DEB_CFLAGS_APPEND="-Og" \
     DPKG_FORCE="unsafe-io" \
     DPKG_DEB_COMPRESSOR_TYPE="none" \
     DH_MISSING="--fail-missing" \

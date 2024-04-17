@@ -24,6 +24,19 @@ tee --append /usr/lib/rpm/redhat/macros <<'EOF'
 %{nil}
 EOF
 
+VERSION="$(cat meson.version)"
+RELEASE="$(date "+%Y%m%d%H%M%S" --date "@$TS")"
+
+DIST="$(rpm --eval %dist)"
+ARCH="$(rpm --eval %_arch)"
+SRCDEST="/usr/src/debug/systemd-$VERSION-${RELEASE}${DIST}.$ARCH"
+
+# TODO: Drop -D_FORTIFY_SOURCE when we switch to CentOS Stream 10.
+EXTRA_CFLAGS="-O0 -Wp,-D_FORTIFY_SOURCE=0"
+if ((WITH_DEBUG)); then
+    EXTRA_CFLAGS="$EXTRA_CFLAGS -ffile-prefix-map=../src=$SRCDEST"
+fi
+
 IFS=
 # TODO: Replace meson_build and meson_install overrides with "--undefine __meson_verbose" once
 # https://github.com/mesonbuild/meson/pull/12835 is available.
@@ -43,9 +56,9 @@ rpmbuild \
     --define "_binary_payload w.ufdio" \
     $( ((WITH_DEBUG)) || echo --define) \
     $( ((WITH_DEBUG)) || echo "debug_package %{nil}") \
-    --define "version_override $(cat meson.version)" \
-    --define "release_override $(date "+%Y%m%d%H%M%S" --date "@$TS")" \
-    --define "_distro_extra_cflags -Og" \
+    --define "version_override $VERSION" \
+    --define "release_override $RELEASE" \
+    --define "build_cflags $(rpm --eval %build_cflags) $EXTRA_CFLAGS" \
     --define "meson_build %{shrink:%{__meson} compile -C %{_vpath_builddir} -j %{_smp_build_ncpus} %{nil}}" \
     --define "meson_install %{shrink:DESTDIR=%{buildroot} %{__meson} install -C %{_vpath_builddir} --no-rebuild --quiet %{nil}}" \
     --define "meson_extra_configure_options -D mode=developer -D b_sanitize=${SANITIZERS:-none}" \
@@ -58,6 +71,8 @@ rpmbuild \
     --define "__brp_check_rpaths %{nil}" \
     --define "__elf_exclude_path ^/usr/lib/systemd/tests/unit-tests/.*$" \
     --define "__script_requires %{nil}" \
+    --define "_find_debuginfo_dwz_opts %{nil}" \
+    --define "_fortify_level 0" \
     --undefine _lto_cflags \
     --noclean \
     "pkg/$ID/systemd.spec"
