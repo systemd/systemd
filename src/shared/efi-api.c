@@ -503,6 +503,12 @@ bool efi_has_tpm2(void) {
         if (errno != ENOENT)
                 log_debug_errno(errno, "Unable to test whether /sys/firmware/acpi/tables/TPM2 exists, assuming it doesn't: %m");
 
+        cache = access("/proc/device-tree/tpm-event-log", F_OK) >= 0;
+        if (cache)
+                return cache;
+
+        if (errno != ENOENT)
+                log_debug_errno(errno, "Unable to test whether /proc/device-tree/tpm-event-log exists, assuming it doesn't: %m");
         /* As the last try, check if the EFI firmware provides the EFI_TCG2_FINAL_EVENTS_TABLE
          * stored in EFI configuration table, see:
          * https://trustedcomputinggroup.org/wp-content/uploads/EFI-Protocol-Specification-rev13-160330final.pdf
