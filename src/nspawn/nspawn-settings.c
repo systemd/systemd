@@ -835,21 +835,21 @@ int config_parse_cpu_affinity(
 DEFINE_CONFIG_PARSE_ENUM(config_parse_resolv_conf, resolv_conf_mode, ResolvConfMode, "Failed to parse resolv.conf mode");
 
 static const char *const resolv_conf_mode_table[_RESOLV_CONF_MODE_MAX] = {
-        [RESOLV_CONF_OFF] = "off",
-        [RESOLV_CONF_COPY_HOST] = "copy-host",
-        [RESOLV_CONF_COPY_STATIC] = "copy-static",
-        [RESOLV_CONF_COPY_UPLINK] = "copy-uplink",
-        [RESOLV_CONF_COPY_STUB] = "copy-stub",
-        [RESOLV_CONF_REPLACE_HOST] = "replace-host",
+        [RESOLV_CONF_OFF]            = "off",
+        [RESOLV_CONF_COPY_HOST]      = "copy-host",
+        [RESOLV_CONF_COPY_STATIC]    = "copy-static",
+        [RESOLV_CONF_COPY_UPLINK]    = "copy-uplink",
+        [RESOLV_CONF_COPY_STUB]      = "copy-stub",
+        [RESOLV_CONF_REPLACE_HOST]   = "replace-host",
         [RESOLV_CONF_REPLACE_STATIC] = "replace-static",
         [RESOLV_CONF_REPLACE_UPLINK] = "replace-uplink",
-        [RESOLV_CONF_REPLACE_STUB] = "replace-stub",
-        [RESOLV_CONF_BIND_HOST] = "bind-host",
-        [RESOLV_CONF_BIND_STATIC] = "bind-static",
-        [RESOLV_CONF_BIND_UPLINK] = "bind-uplink",
-        [RESOLV_CONF_BIND_STUB] = "bind-stub",
-        [RESOLV_CONF_DELETE] = "delete",
-        [RESOLV_CONF_AUTO] = "auto",
+        [RESOLV_CONF_REPLACE_STUB]   = "replace-stub",
+        [RESOLV_CONF_BIND_HOST]      = "bind-host",
+        [RESOLV_CONF_BIND_STATIC]    = "bind-static",
+        [RESOLV_CONF_BIND_UPLINK]    = "bind-uplink",
+        [RESOLV_CONF_BIND_STUB]      = "bind-stub",
+        [RESOLV_CONF_DELETE]         = "delete",
+        [RESOLV_CONF_AUTO]           = "auto",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(resolv_conf_mode, ResolvConfMode, RESOLV_CONF_AUTO);
@@ -914,15 +914,15 @@ int config_parse_link_journal(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_timezone, timezone_mode, TimezoneMode, "Failed to parse timezone mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_timezone_mode, timezone_mode, TimezoneMode, "Failed to parse timezone mode");
 
 static const char *const timezone_mode_table[_TIMEZONE_MODE_MAX] = {
-        [TIMEZONE_OFF] = "off",
-        [TIMEZONE_COPY] = "copy",
-        [TIMEZONE_BIND] = "bind",
+        [TIMEZONE_OFF]     = "off",
+        [TIMEZONE_COPY]    = "copy",
+        [TIMEZONE_BIND]    = "bind",
         [TIMEZONE_SYMLINK] = "symlink",
-        [TIMEZONE_DELETE] = "delete",
-        [TIMEZONE_AUTO] = "auto",
+        [TIMEZONE_DELETE]  = "delete",
+        [TIMEZONE_AUTO]    = "auto",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(timezone_mode, TimezoneMode, TIMEZONE_AUTO);
@@ -930,10 +930,10 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(timezone_mode, TimezoneMode, TIMEZONE_AU
 DEFINE_CONFIG_PARSE_ENUM(config_parse_userns_ownership, user_namespace_ownership, UserNamespaceOwnership, "Failed to parse user namespace ownership mode");
 
 static const char *const user_namespace_ownership_table[_USER_NAMESPACE_OWNERSHIP_MAX] = {
-        [USER_NAMESPACE_OWNERSHIP_OFF] = "off",
+        [USER_NAMESPACE_OWNERSHIP_OFF]   = "off",
         [USER_NAMESPACE_OWNERSHIP_CHOWN] = "chown",
-        [USER_NAMESPACE_OWNERSHIP_MAP] = "map",
-        [USER_NAMESPACE_OWNERSHIP_AUTO] = "auto",
+        [USER_NAMESPACE_OWNERSHIP_MAP]   = "map",
+        [USER_NAMESPACE_OWNERSHIP_AUTO]  = "auto",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(user_namespace_ownership, UserNamespaceOwnership);
