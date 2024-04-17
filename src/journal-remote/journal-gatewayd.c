@@ -447,7 +447,7 @@ static int request_parse_range(
         }
 
         range_after_eq = startswith(range, "realtime=");
-        if (startswith(range, "realtime=")) {
+        if (range_after_eq) {
                 range_after_eq += strspn(range_after_eq, WHITESPACE);
                 return request_parse_range_time(m, range_after_eq);
         }
