@@ -54,7 +54,7 @@ build() {
         $( ((WITH_DOCS)) || echo nodoc) \
         pkg.systemd.upstream \
     " \
-    DEB_CFLAGS_APPEND="-Og" \
+    DEB_CFLAGS_APPEND="-O0 -D_FORTIFY_SOURCE=0" \
     DPKG_FORCE="unsafe-io" \
     DPKG_DEB_COMPRESSOR_TYPE="none" \
     DH_MISSING="--fail-missing" \

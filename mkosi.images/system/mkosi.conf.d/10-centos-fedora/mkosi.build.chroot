@@ -31,7 +31,7 @@ DIST="$(rpm --eval %dist)"
 ARCH="$(rpm --eval %_arch)"
 SRCDEST="/usr/src/debug/systemd-$VERSION-${RELEASE}${DIST}.$ARCH"
 
-EXTRA_CFLAGS="-Og"
+EXTRA_CFLAGS="-O0 -D_FORTIFY_SOURCE=0"
 if ((WITH_DEBUG)); then
     EXTRA_CFLAGS="$EXTRA_CFLAGS -ffile-prefix-map=../src=$SRCDEST"
 fi
