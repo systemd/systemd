@@ -13,7 +13,7 @@ systemd's logind service obsoletes ConsoleKit which was previously widely used o
 For X11 display managers the switch to logind requires a minimal amount of porting, however brings a couple of new features:
 true automatic multi-seat support, proper tracking of session processes, (optional) automatic killing of user processes on logout, a synchronous low-level C API and much simplification.
 
-This document should be read together with [Writing Desktop Environments](WRITING_DESKTOP_ENVIRONMENTS) which focuses on the porting work necessary for desktop environments.
+This document should be read together with [Writing Desktop Environments](/WRITING_DESKTOP_ENVIRONMENTS) which focuses on the porting work necessary for desktop environments.
 
 If required it is possible to implement ConsoleKit and systemd-logind support in the same display manager, detecting at runtime which interface is needed.
 The [sd_booted()](http://www.freedesktop.org/software/systemd/man/sd_booted.html) call may be used to determine at runtime whether systemd is used.

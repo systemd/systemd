@@ -8,7 +8,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 # User Record Blob Directories
 
 The blob directories are for storing binary or unstructured data that would
-otherwise be stored in [JSON User Records](USER_RECORD). For instance,
+otherwise be stored in [JSON User Records](/USER_RECORD). For instance,
 this includes image files such as the user's avatar picture. This data,
 like most of the user record, will be made publicly available to the
 system.

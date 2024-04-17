@@ -32,7 +32,7 @@ For more details on the APIs provided by machine consult [the bus API interface 
 
 ## Guest OS Integration
 
-As container virtualization is much less comprehensive, and the guest is less isolated from the host, there are a number of interfaces defined how the container manager can set up the environment for systemd running inside a container. These Interfaces are documented in [Container Interface of systemd](CONTAINER_INTERFACE).
+As container virtualization is much less comprehensive, and the guest is less isolated from the host, there are a number of interfaces defined how the container manager can set up the environment for systemd running inside a container. These Interfaces are documented in [Container Interface of systemd](/CONTAINER_INTERFACE).
 
 VM virtualization is more comprehensive and fewer integration APIs are available.
 In fact there's only one: a VM manager may initialize the SMBIOS DMI field "Product UUUID" to a UUID uniquely identifying this virtual machine instance.

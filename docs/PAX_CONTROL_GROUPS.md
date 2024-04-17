@@ -16,7 +16,7 @@ The cgroups tree can no longer be considered a shared resource.
 Instead, a management daemon of some kind needs to arbitrate access to it, and it needs to actively propagate changes between the entities it manages.
 More specifically, on systemd systems this management daemon is systemd itself, accessible via a number of bus APIs.
 This means instead of dealing directly with the low-level interfaces of the cgroup file system, please use systemd's high-level APIs as a replacement, see the
-[New Control Group Interfaces](CONTROL_GROUP_INTERFACE)
+[New Control Group Interfaces](/CONTROL_GROUP_INTERFACE)
 for details. They offer similar functionality.**
 
 Are you writing an application interfacing with the cgroups tree?
