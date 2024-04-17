@@ -386,6 +386,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--no-random-seed</option></term>
+        <listitem><para>Do not create a random-seed file in the ESP during install. Useful when creating
+        appliances to avoid having the same seed in all instances</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--graceful</option></term>
         <listitem><para>Ignore failure when the EFI System Partition cannot be found, when EFI variables
         cannot be written, or a different or newer boot loader is already installed. Currently only applies

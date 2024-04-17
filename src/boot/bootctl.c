@@ -39,6 +39,7 @@ bool arg_print_esp_path = false;
 bool arg_print_dollar_boot_path = false;
 unsigned arg_print_root_device = 0;
 bool arg_touch_variables = true;
+bool arg_install_random_seed = true;
 PagerFlags arg_pager_flags = 0;
 bool arg_graceful = false;
 bool arg_quiet = false;
@@ -186,6 +187,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -RR                  Print path to the whole disk block device node\n"
                "                       backing the root FS (returns e.g. /dev/nvme0n1)\n"
                "     --no-variables    Don't touch EFI variables\n"
+               "     --no-random-seed  Don't create random-seed file during install\n"
                "     --no-pager        Do not pipe output into a pager\n"
                "     --graceful        Don't fail when the ESP cannot be found or EFI\n"
                "                       variables cannot be written\n"
@@ -222,6 +224,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_INSTALL_SOURCE,
                 ARG_VERSION,
                 ARG_NO_VARIABLES,
+                ARG_NO_RANDOM_SEED,
                 ARG_NO_PAGER,
                 ARG_GRACEFUL,
                 ARG_MAKE_ENTRY_DIRECTORY,
@@ -247,6 +250,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "print-boot-path",             no_argument,       NULL, 'x'                             },
                 { "print-root-device",           no_argument,       NULL, 'R'                             },
                 { "no-variables",                no_argument,       NULL, ARG_NO_VARIABLES                },
+                { "no-random-seed",              no_argument,       NULL, ARG_NO_RANDOM_SEED              },
                 { "no-pager",                    no_argument,       NULL, ARG_NO_PAGER                    },
                 { "graceful",                    no_argument,       NULL, ARG_GRACEFUL                    },
                 { "quiet",                       no_argument,       NULL, 'q'                             },
@@ -332,6 +336,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_VARIABLES:
                         arg_touch_variables = false;
+                        break;
+
+                case ARG_NO_RANDOM_SEED:
+                        arg_install_random_seed = false;
                         break;
 
                 case ARG_NO_PAGER:
