@@ -115,6 +115,8 @@ struct Manager {
 
         /* sysctl */
         int ip_forwarding[2];
+        Hashmap *sysctls;
+        sd_event_source *sysctl_event_source;
 };
 
 int manager_new(Manager **ret, bool test_mode);

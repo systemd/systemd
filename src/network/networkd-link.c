@@ -280,6 +280,8 @@ static Link *link_free(Link *link) {
 
         hashmap_free(link->bound_to_links);
         hashmap_free(link->bound_by_links);
+        hashmap_free(link->sysctls);
+        sd_event_source_disable_unref(link->sysctl_event_source);
 
         set_free_with_destructor(link->slaves, link_unref);
 
@@ -2720,6 +2722,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .mdns = _RESOLVE_SUPPORT_INVALID,
                 .dnssec_mode = _DNSSEC_MODE_INVALID,
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
+                .sysctls = hashmap_new(&path_hash_ops_free_free),
         };
 
         r = hashmap_ensure_put(&manager->links_by_index, NULL, INT_TO_PTR(link->ifindex), link);
