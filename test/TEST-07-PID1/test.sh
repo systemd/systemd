@@ -21,21 +21,6 @@ test_append_files() {
         printf "[Socket]\nTriggerLimitIntervalSec=10\n" >"$workspace/etc/systemd/system/issue2467.socket.d/TriggerLimitInterval.conf"
     fi
 
-    # Issue: https://github.com/systemd/systemd/issues/2730
-    mkdir -p "$workspace/etc/systemd/system/"
-    cat >"$workspace/etc/systemd/system/issue2730.mount" <<EOF
-[Mount]
-What=tmpfs
-Where=/issue2730
-Type=tmpfs
-
-[Install]
-WantedBy=local-fs.target
-Alias=issue2730-alias.mount
-EOF
-    "${SYSTEMCTL:?}" enable --root="$workspace" issue2730.mount
-    ln -svrf "$workspace/etc/systemd/system/issue2730.mount" "$workspace/etc/systemd/system/issue2730-alias.mount"
-
     image_install logger socat
 }
 
