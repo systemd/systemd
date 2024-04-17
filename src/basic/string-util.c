@@ -392,8 +392,7 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
         x = ((new_length - need_space) * percent + 50) / 100;
         assert(x <= new_length - need_space);
 
-        memcpy(t, s, x);
-        write_ellipsis(t + x, /* unicode = */ false);
+        write_ellipsis(mempcpy(t, s, x), /* unicode = */ false);
         suffix_len = new_length - x - need_space;
         memcpy(t + x + 3, s + old_length - suffix_len, suffix_len);
         *(t + x + 3 + suffix_len) = '\0';
