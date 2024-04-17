@@ -241,7 +241,7 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
         return 0;
 }
 
-static int copy_file_with_version_check(const char *from, const char *to, bool force) {
+static int copy_file_with_version_check(const char *from, const char *to, bool force, bool ignore_no_version) {
         _cleanup_close_ int fd_from = -EBADF, fd_to = -EBADF;
         _cleanup_free_ char *t = NULL;
         int r;
@@ -257,7 +257,7 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
                                 return log_error_errno(errno, "Failed to open \"%s\" for reading: %m", to);
                 } else {
                         r = version_check(fd_from, from, fd_to, to);
-                        if (r < 0)
+                        if (r < 0 && (!ignore_no_version || r != -ESRCH))
                                 return r;
 
                         if (lseek(fd_from, 0, SEEK_SET) < 0)
@@ -379,7 +379,7 @@ static int update_efi_boot_binaries(const char *esp_path, const char *source_pat
                         if (!dest_path)
                                 return log_oom();
 
-                        RET_GATHER(ret, copy_file_with_version_check(source_path, dest_path, /* force = */ false));
+                        RET_GATHER(ret, copy_file_with_version_check(source_path, dest_path, /* force = */ false, /* ignore_no_version */ false));
                 }
         }
 
@@ -423,7 +423,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
 
         /* Note that if this fails we do the second copy anyway, but return this error code,
          * so we stash it away in a separate variable. */
-        ret = copy_file_with_version_check(source_path, dest_path, force);
+        ret = copy_file_with_version_check(source_path, dest_path, force, /* ignore_no_version */ false);
 
         e = startswith(dest_name, "systemd-boot");
         if (e) {
@@ -438,7 +438,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve path %s under directory %s: %m", v, esp_path);
 
-                RET_GATHER(ret, copy_file_with_version_check(source_path, default_dest_path, force));
+                RET_GATHER(ret, copy_file_with_version_check(source_path, default_dest_path, force, /* ignore_no_version */ false));
 
                 /* If we were installed under any other name in /EFI/BOOT, make sure we update those binaries
                  * as well. */
@@ -449,7 +449,84 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
         return ret;
 }
 
-static int install_binaries(const char *esp_path, const char *arch, bool force) {
+static int install_binaries_extra(const char *esp_path, const char *arch, bool force, char** ret_default_loader_path) {
+        char *root = IN_SET(arg_install_source, ARG_INSTALL_SOURCE_AUTO, ARG_INSTALL_SOURCE_IMAGE) ? arg_root : NULL;
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *default_loader_path = NULL;
+        int r;
+
+        r = chase_and_opendir(BOOTLIBDIR "/extra", root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &path, &d);
+        /* If we had a root directory to try, we didn't find it and we are in auto mode, retry on the host */
+        if (r == -ENOENT && root && arg_install_source == ARG_INSTALL_SOURCE_AUTO)
+                r = chase_and_opendir(BOOTLIBDIR "/extra", NULL, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &path, &d);
+        if (r < 0)
+                return r; /* ignore if vendor dir does not exist */
+
+        FOREACH_DIRENT(de, d, continue) {
+                if(!is_dir_at(dirfd(d), de->d_name, true))
+                        continue;
+
+                _cleanup_closedir_ DIR *dd = xopendirat(dirfd(d), de->d_name, 0);
+                if (!dd) {
+                        log_error_errno(errno, "Failed to open %s/%s: %m", path, de->d_name);
+                        continue;
+                }
+
+                FOREACH_DIRENT(dde, dd, continue) {
+                        _cleanup_free_ char *source_path = path_join(path, de->d_name, dde->d_name);
+                        _cleanup_free_ char *dest_path = NULL, *p = NULL;
+                        int k;
+
+                        if (!source_path)
+                                return log_oom();
+
+                        p = path_join("EFI", de->d_name, dde->d_name);
+                        if (!p)
+                                return log_oom();
+
+                        r = chase(p, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_NONEXISTENT, &dest_path, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to resolve path %s under directory %s: %m", p, esp_path);
+
+                        /* Note that if this fails we do the second copy anyway, but return this error code,
+                         * so we stash it away in a separate variable. */
+                        k = copy_file_with_version_check(source_path, dest_path, force, /* ignore_no_version */ true);
+                        if (ret_default_loader_path && !default_loader_path &&
+                                        streq(dde->d_name, "boot.csv") && (k >=0 || IN_SET(k, -ESTALE, -ESRCH))) {
+                                _cleanup_free_ char *csv = NULL;
+                                size_t csv_size = 0;
+                                r = read_full_file_at(dirfd(dd), dde->d_name, &csv, &csv_size);
+                                if (r >= 0) {
+                                        char* sep = strchr(csv, ',');
+                                        if (sep && sep-csv > 4 /* x.efi */) {
+                                                *sep = '\0';
+                                                default_loader_path = path_join("/EFI", de->d_name, csv);
+                                                if (!default_loader_path)
+                                                        return log_oom();
+                                                if (!arg_efi_boot_option_description && strlen(sep+1) > 0)
+                                                        arg_efi_boot_option_description = strdup(sep+1);
+                                                log_debug("Found default loader %s in %s", default_loader_path, source_path);
+                                        }
+                                } else
+                                        log_error_errno(r, "Failed to read %s: %m", dde->d_name);
+                        }
+                        /* Don't propagate an error code if no update necessary, installed version already equal or
+                         * newer version, or other boot loader in place. */
+                        if (arg_graceful && IN_SET(k, -ESTALE, -ESRCH))
+                                continue;
+                        RET_GATHER(r, k);
+                }
+        }
+
+        if (ret_default_loader_path && default_loader_path)
+                *ret_default_loader_path = TAKE_PTR(default_loader_path);
+
+        return 1;
+}
+
+
+static int install_binaries(const char *esp_path, const char *arch, bool force, char** ret_default_loader_path) {
         char *root = IN_SET(arg_install_source, ARG_INSTALL_SOURCE_AUTO, ARG_INSTALL_SOURCE_IMAGE) ? arg_root : NULL;
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_free_ char *path = NULL;
@@ -489,8 +566,12 @@ static int install_binaries(const char *esp_path, const char *arch, bool force) 
                  * newer version, or other boot loader in place. */
                 if (arg_graceful && IN_SET(k, -ESTALE, -ESRCH))
                         continue;
+
                 RET_GATHER(r, k);
         }
+
+        if (r >= 0 && ret_default_loader_path)
+                *ret_default_loader_path = strjoin("/EFI/systemd/systemd-boot", arch, ".efi");
 
         return r;
 }
@@ -809,6 +890,7 @@ int verb_install(int argc, char *argv[], void *userdata) {
         uint32_t part = 0;
         bool install, graceful;
         int r;
+        char *default_loader_path = NULL;
 
         /* Invoked for both "update" and "install" */
 
@@ -856,7 +938,9 @@ int verb_install(int argc, char *argv[], void *userdata) {
                                 return r;
                 }
 
-                r = install_binaries(arg_esp_path, arch, install);
+                r = install_binaries_extra(arg_esp_path, arch, install, &default_loader_path);
+                if (r == 0)
+                        r = install_binaries(arg_esp_path, arch, install, &default_loader_path);
                 if (r < 0)
                         return r;
 
@@ -895,8 +979,12 @@ int verb_install(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        char *path = strjoina("/EFI/systemd/systemd-boot", arch, ".efi");
-        return install_variables(arg_esp_path, part, pstart, psize, uuid, path, install, graceful);
+        if (!default_loader_path) {
+                log_info("Not changing EFI variables with --all-architectures.");
+                return 0;
+        }
+
+        return install_variables(arg_esp_path, part, pstart, psize, uuid, default_loader_path, install, graceful);
 }
 
 static int remove_boot_efi(const char *esp_path) {
