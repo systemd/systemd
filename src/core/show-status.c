@@ -70,7 +70,7 @@ int status_vprintf(const char *status, ShowStatusFlags flags, const char *format
                 if (c <= 0)
                         c = 80;
 
-                sl = status ? sizeof(status_indent)-1 : 0;
+                sl = status ? STRLEN(status_indent) : 0;
 
                 emax = c - sl - 1;
                 if (emax < 3)
