@@ -197,32 +197,26 @@ static void wait_for_item_check_ready(WaitForItem *item) {
         bus_wait_for_units_check_ready(d);
 }
 
-static int property_map_job(
+static int property_map_job_id(
                 sd_bus *bus,
                 const char *member,
                 sd_bus_message *m,
                 sd_bus_error *error,
                 void *userdata) {
 
-        WaitForItem *item = ASSERT_PTR(userdata);
-        const char *path;
-        uint32_t id;
-        int r;
+        uint32_t *job_id = ASSERT_PTR(userdata);
 
-        r = sd_bus_message_read(m, "(uo)", &id, &path);
-        if (r < 0)
-                return r;
+        assert(m);
 
-        item->job_id = id;
-        return 0;
+        return sd_bus_message_read(m, "(uo)", job_id, /* path = */ NULL);
 }
 
 static int wait_for_item_parse_properties(WaitForItem *item, sd_bus_message *m) {
 
         static const struct bus_properties_map map[] = {
-                { "ActiveState", "s",    NULL,             offsetof(WaitForItem, active_state) },
-                { "Job",         "(uo)", property_map_job, 0                                   },
-                { "CleanResult", "s",    NULL,             offsetof(WaitForItem, clean_result) },
+                { "ActiveState", "s",    NULL,                offsetof(WaitForItem, active_state) },
+                { "Job",         "(uo)", property_map_job_id, offsetof(WaitForItem, job_id)       },
+                { "CleanResult", "s",    NULL,                offsetof(WaitForItem, clean_result) },
                 {}
         };
 
