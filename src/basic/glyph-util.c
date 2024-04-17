@@ -3,6 +3,7 @@
 #include "env-util.h"
 #include "glyph-util.h"
 #include "locale-util.h"
+#include "proc-cmdline.h"
 #include "strv.h"
 
 bool special_glyph_enabled(void) {
@@ -10,6 +11,13 @@ bool special_glyph_enabled(void) {
 
         if (cached >= 0)
                 return cached;
+
+        /* If booted with nomodeset, disable it on linux terminal. */
+        if (streq_ptr(getenv("TERM"), "linux")) {
+                bool b = false;
+                (void) proc_cmdline_get_bool("nomodeset", PROC_CMDLINE_IGNORE_EFI_OPTIONS, &b);
+                return (cached = !b);
+        }
 
         return (cached = is_locale_utf8());
 }
