@@ -29,6 +29,7 @@
 #include "recurse-dir.h"
 #include "sha256.h"
 #include "sort-util.h"
+#include "sparse-endian.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "sync-util.h"
@@ -65,6 +66,7 @@ static DLSYM_FUNCTION(Esys_PolicyAuthorizeNV);
 static DLSYM_FUNCTION(Esys_PolicyGetDigest);
 static DLSYM_FUNCTION(Esys_PolicyOR);
 static DLSYM_FUNCTION(Esys_PolicyPCR);
+static DLSYM_FUNCTION(Esys_PolicySigned);
 static DLSYM_FUNCTION(Esys_ReadPublic);
 static DLSYM_FUNCTION(Esys_StartAuthSession);
 static DLSYM_FUNCTION(Esys_Startup);
@@ -77,6 +79,7 @@ static DLSYM_FUNCTION(Esys_TR_GetTpmHandle);
 static DLSYM_FUNCTION(Esys_TR_Serialize);
 static DLSYM_FUNCTION(Esys_TR_SetAuth);
 static DLSYM_FUNCTION(Esys_TRSess_GetAttributes);
+static DLSYM_FUNCTION(Esys_TRSess_GetNonceTPM);
 static DLSYM_FUNCTION(Esys_TRSess_SetAttributes);
 static DLSYM_FUNCTION(Esys_Unseal);
 static DLSYM_FUNCTION(Esys_VerifySignature);
@@ -132,6 +135,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_PolicyGetDigest),
                         DLSYM_ARG(Esys_PolicyOR),
                         DLSYM_ARG(Esys_PolicyPCR),
+                        DLSYM_ARG(Esys_PolicySigned),
                         DLSYM_ARG(Esys_ReadPublic),
                         DLSYM_ARG(Esys_StartAuthSession),
                         DLSYM_ARG(Esys_Startup),
@@ -143,6 +147,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_TR_Serialize),
                         DLSYM_ARG(Esys_TR_SetAuth),
                         DLSYM_ARG(Esys_TRSess_GetAttributes),
+                        DLSYM_ARG(Esys_TRSess_GetNonceTPM),
                         DLSYM_ARG(Esys_TRSess_SetAttributes),
                         DLSYM_ARG(Esys_Unseal),
                         DLSYM_ARG(Esys_VerifySignature));
@@ -2238,9 +2243,9 @@ static int tpm2_load_external(
 #if HAVE_TSS2_ESYS3
                         /* tpm2-tss >= 3.0.0 requires a ESYS_TR_RH_* constant specifying the requested
                          * hierarchy, older versions need TPM2_RH_* instead. */
-                        ESYS_TR_RH_OWNER,
+                        private ? ESYS_TR_RH_NULL : ESYS_TR_RH_OWNER,
 #else
-                        TPM2_RH_OWNER,
+                        private ? TPM2_RH_NULL : TPM2_RH_OWNER,
 #endif
                         &handle->esys_handle);
         if (rc != TSS2_RC_SUCCESS)
@@ -3058,7 +3063,7 @@ static void tpm2_trim_auth_value(TPM2B_AUTH *auth) {
                 log_debug("authValue ends in 0, trimming as required by the TPM2 specification Part 1 section 'HMAC Computation' authValue Note 2.");
 }
 
-int tpm2_get_pin_auth(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth) {
+int tpm2_auth_value_from_pin(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth) {
         TPM2B_AUTH auth = {};
         int r;
 
@@ -3105,7 +3110,7 @@ int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin) {
 
         CLEANUP_ERASE(auth);
 
-        r = tpm2_get_pin_auth(TPM2_ALG_SHA256, pin, &auth);
+        r = tpm2_auth_value_from_pin(TPM2_ALG_SHA256, pin, &auth);
         if (r < 0)
                 return r;
 
@@ -3392,7 +3397,7 @@ int tpm2_calculate_pubkey_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name) 
  *
  * The handle must reference a key already present in the TPM. It may be either a public key only, or a
  * public/private keypair. */
-static int tpm2_get_name(
+int tpm2_get_name(
                 Tpm2Context *c,
                 const Tpm2Handle *handle,
                 TPM2B_NAME **ret_name) {
@@ -3528,6 +3533,150 @@ int tpm2_policy_auth_value(
                                        sym_Tss2_RC_Decode(rc));
 
         return tpm2_get_policy_digest(c, session, ret_policy_digest);
+}
+
+/* Extend 'digest' with the PolicySigned calculated hash. */
+int tpm2_calculate_policy_signed(TPM2B_DIGEST *digest, const TPM2B_NAME *name) {
+        TPM2_CC command = TPM2_CC_PolicySigned;
+        TSS2_RC rc;
+        int r;
+
+        assert(digest);
+        assert(digest->size == SHA256_DIGEST_SIZE);
+        assert(name);
+
+        r = dlopen_tpm2();
+        if (r < 0)
+                return log_debug_errno(r, "TPM2 support not installed: %m");
+
+        uint8_t buf[sizeof(command)];
+        size_t offset = 0;
+
+        rc = sym_Tss2_MU_TPM2_CC_Marshal(command, buf, sizeof(buf), &offset);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal PolicySigned command: %s", sym_Tss2_RC_Decode(rc));
+
+        if (offset != sizeof(command))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Offset 0x%zx wrong after marshalling PolicySigned command", offset);
+
+        struct iovec data[] = {
+                IOVEC_MAKE(buf, offset),
+                IOVEC_MAKE(name->name, name->size),
+        };
+
+        r = tpm2_digest_many(TPM2_ALG_SHA256, digest, data, ELEMENTSOF(data), /* extend= */ true);
+        if (r < 0)
+                return r;
+
+        const TPM2B_NONCE policyRef = {}; /* For now, we do not make use of the policyRef stuff */
+
+        r = tpm2_digest_buffer(TPM2_ALG_SHA256, digest, policyRef.buffer, policyRef.size, /* extend= */ true);
+        if (r < 0)
+                return r;
+
+        tpm2_log_debug_digest(digest, "PolicySigned calculated digest");
+
+        return 0;
+}
+
+int tpm2_policy_signed_hmac_sha256(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const Tpm2Handle *hmac_key_handle,
+                const struct iovec *hmac_key,
+                TPM2B_DIGEST **ret_policy_digest) {
+
+#if HAVE_OPENSSL
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(session);
+        assert(hmac_key_handle);
+        assert(iovec_is_set(hmac_key));
+
+        /* This sends a TPM2_PolicySigned command to the tpm. As signature key we use an HMAC-SHA256 key
+         * specified in the hmac_key parameter. The secret key must be loaded into the TPM already and
+         * referenced in hmac_key_handle. */
+
+        log_debug("Submitting PolicySigned policy for HMAC-SHA256.");
+
+        /* Acquire the nonce from the TPM that we shall sign */
+        _cleanup_(Esys_Freep) TPM2B_NONCE *nonce = NULL;
+        rc = sym_Esys_TRSess_GetNonceTPM(
+                        c->esys_context,
+                        session->esys_handle,
+                        &nonce);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to determine NoneTPM of auth session: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        be32_t expiration = htobe64(0);
+        const TPM2B_DIGEST cpHashA = {};  /* For now, we do not make use of the cpHashA stuff */
+        const TPM2B_NONCE policyRef = {}; /* ditto, we do not bother with policyRef */
+
+        /* Put together the data to sign, as per TPM2 Spec Part 3, 23.3.1 */
+        struct iovec data_to_sign[] = {
+                IOVEC_MAKE(nonce->buffer, nonce->size),
+                IOVEC_MAKE(&expiration, sizeof(expiration)),
+                IOVEC_MAKE(cpHashA.buffer, cpHashA.size),
+                IOVEC_MAKE(policyRef.buffer, policyRef.size),
+        };
+
+        /* Now calculate the digest of the data we put together */
+        TPM2B_DIGEST digest_to_sign;
+        r = tpm2_digest_many(TPM2_ALG_SHA256, &digest_to_sign, data_to_sign, ELEMENTSOF(data_to_sign), /* extend= */ false);
+        if (r < 0)
+                return r;
+
+        unsigned char hmac_signature[SHA256_DIGEST_SIZE];
+        unsigned hmac_signature_size = sizeof(hmac_signature);
+
+        /* And sign this with our key */
+        if (!HMAC(EVP_sha256(),
+                  hmac_key->iov_base,
+                  hmac_key->iov_len,
+                  digest_to_sign.buffer,
+                  digest_to_sign.size,
+                  hmac_signature,
+                  &hmac_signature_size))
+                return -ENOTRECOVERABLE;
+
+        /* Now bring the signature into a format that the TPM understands */
+        TPMT_SIGNATURE sig = {
+                .sigAlg = TPM2_ALG_HMAC,
+                .signature.hmac.hashAlg = TPM2_ALG_SHA256,
+        };
+        assert(hmac_signature_size == sizeof(sig.signature.hmac.digest.sha256));
+        memcpy(sig.signature.hmac.digest.sha256, hmac_signature, hmac_signature_size);
+
+        /* And submit the whole shebang to the TPM */
+        rc = sym_Esys_PolicySigned(
+                        c->esys_context,
+                        hmac_key_handle->esys_handle,
+                        session->esys_handle,
+                        /* shandle1= */ ESYS_TR_NONE,
+                        /* shandle2= */ ESYS_TR_NONE,
+                        /* shandle3= */ ESYS_TR_NONE,
+                        nonce,
+                        &cpHashA,
+                        &policyRef,
+                        expiration,
+                        &sig,
+                        /* timeout= */ NULL,
+                        /* policyTicket= */ NULL);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to add PolicySigned policy to TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        return tpm2_get_policy_digest(c, session, ret_policy_digest);
+#else /* HAVE_OPENSSL */
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
 }
 
 int tpm2_calculate_policy_authorize_nv(
@@ -4785,7 +4934,7 @@ static int tpm2_calculate_seal_private(
 
         TPM2B_AUTH auth = {};
         if (pin) {
-                r = tpm2_get_pin_auth(parent->publicArea.nameAlg, pin, &auth);
+                r = tpm2_auth_value_from_pin(parent->publicArea.nameAlg, pin, &auth);
                 if (r < 0)
                         return r;
         }
@@ -5250,7 +5399,7 @@ int tpm2_seal(Tpm2Context *c,
         CLEANUP_ERASE(hmac_sensitive);
 
         if (pin) {
-                r = tpm2_get_pin_auth(TPM2_ALG_SHA256, pin, &hmac_sensitive.userAuth);
+                r = tpm2_auth_value_from_pin(TPM2_ALG_SHA256, pin, &hmac_sensitive.userAuth);
                 if (r < 0)
                         return r;
         }
@@ -5622,8 +5771,6 @@ int tpm2_define_policy_nv_index(
                 const Tpm2Handle *session,
                 TPM2_HANDLE requested_nv_index,
                 const TPM2B_DIGEST *write_policy,
-                const char *pin,
-                const TPM2B_AUTH *auth,
                 TPM2_HANDLE *ret_nv_index,
                 Tpm2Handle **ret_nv_handle,
                 TPM2B_NV_PUBLIC *ret_nv_public) {
@@ -5633,24 +5780,16 @@ int tpm2_define_policy_nv_index(
         int r;
 
         assert(c);
-        assert(pin || auth);
+
+        /* Allocates an nvindex to store a policy for use in PolicyAuthorizeNV in. This is where pcrlock then
+         * stores it's predicted PCR policies in. If 'requested_nv_index' will try to allocate the specified
+         * nvindex, otherwise will find a free one, and use that. */
 
         r = tpm2_handle_new(c, &new_handle);
         if (r < 0)
                 return r;
 
         new_handle->flush = false; /* This is a persistent NV index, don't flush hence */
-
-        TPM2B_AUTH _auth = {};
-        CLEANUP_ERASE(_auth);
-
-        if (!auth) {
-                r = tpm2_get_pin_auth(TPM2_ALG_SHA256, pin, &_auth);
-                if (r < 0)
-                        return r;
-
-                auth = &_auth;
-        }
 
         for (unsigned try = 0; try < 25U; try++) {
                 TPM2_HANDLE nv_index;
@@ -5679,7 +5818,7 @@ int tpm2_define_policy_nv_index(
                                 /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
                                 /* shandle2= */ ESYS_TR_NONE,
                                 /* shandle3= */ ESYS_TR_NONE,
-                                auth,
+                                /* auth= */ NULL,
                                 &public_info,
                                 &new_handle->esys_handle);
 
@@ -7029,6 +7168,75 @@ int tpm2_load_public_key_file(const char *path, TPM2B_PUBLIC *ret) {
                                        device_key_buffer_size - offset);
 
         *ret = device_key_public;
+        return 0;
+}
+
+int tpm2_hmac_key_from_pin(Tpm2Context *c, const Tpm2Handle *session, const TPM2B_AUTH *pin, Tpm2Handle **ret) {
+        int r;
+
+        assert(c);
+        assert(pin);
+        assert(ret);
+
+        log_debug("Converting PIN into TPM2 HMAC-SHA256 object.");
+
+        /* Load the PIN (which we have stored in the "auth" TPM2B_AUTH) into the TPM as an HMAC key so that
+         * we can use it in a TPM2_PolicySigned() to write to the nvindex. For that we'll prep a pair of
+         * TPM2B_PUBLIC and TPM2B_SENSITIVE that defines an HMAC-SHA256 keyed hash function, and initialize
+         * it based on on the provided PIN data. */
+
+        TPM2B_PUBLIC auth_hmac_public = {
+                .publicArea = {
+                        .type = TPM2_ALG_KEYEDHASH,
+                        .nameAlg = TPM2_ALG_SHA256,
+                        .objectAttributes = TPMA_OBJECT_SIGN_ENCRYPT,
+                        .parameters.keyedHashDetail.scheme = {
+                                .scheme = TPM2_ALG_HMAC,
+                                .details.hmac.hashAlg = TPM2_ALG_SHA256,
+                        },
+                        .unique.keyedHash.size = SHA256_DIGEST_SIZE,
+                },
+        };
+
+        TPM2B_SENSITIVE auth_hmac_private = {
+                .sensitiveArea = {
+                        .sensitiveType = TPM2_ALG_KEYEDHASH,
+                        .sensitive.bits.size = pin->size,
+                        .seedValue.size = SHA256_DIGEST_SIZE,
+                },
+        };
+
+        /* Copy in the key data */
+        memcpy_safe(auth_hmac_private.sensitiveArea.sensitive.bits.buffer, pin->buffer, pin->size);
+
+        /* NB: We initialize the seed of the TPMT_SENSITIVE structure to all zeroes, since we want a stable
+         * "name" of the PIN object */
+
+        /* Now calculate the "unique" field for the public area, based on the sensitive data, according to
+         * the algorithm in the TPM2 spec, part 1, Section 27.5.3.2 */
+        struct iovec sensitive_data[] = {
+                IOVEC_MAKE(auth_hmac_private.sensitiveArea.seedValue.buffer, auth_hmac_private.sensitiveArea.seedValue.size),
+                IOVEC_MAKE(auth_hmac_private.sensitiveArea.sensitive.bits.buffer, auth_hmac_private.sensitiveArea.sensitive.bits.size),
+        };
+        r = tpm2_digest_many(
+                        auth_hmac_public.publicArea.nameAlg,
+                        &auth_hmac_public.publicArea.unique.keyedHash,
+                        sensitive_data,
+                        ELEMENTSOF(sensitive_data),
+                        /* extend= */ false);
+        if (r < 0)
+                return r;
+
+        /* And now load the public/private parts into the TPM and get a handle back */
+        r = tpm2_load_external(
+                        c,
+                        session,
+                        &auth_hmac_public,
+                        &auth_hmac_private,
+                        ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load PIN into TPM2: %m");
+
         return 0;
 }
 #endif
