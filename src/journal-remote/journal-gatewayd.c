@@ -446,17 +446,14 @@ static int request_parse_range(
                 return -EINVAL;
 
         m->n_skip = 0;
+
         range_after_eq = startswith(range, "entries=");
-        if (range_after_eq) {
-                range_after_eq += strspn(range_after_eq, WHITESPACE);
-                return request_parse_range_entries(m, range_after_eq);
-        }
+        if (range_after_eq)
+                return request_parse_range_entries(m, skip_leading_chars(range_after_eq, /* bad = */ NULL));
 
         range_after_eq = startswith(range, "realtime=");
-        if (range_after_eq) {
-                range_after_eq += strspn(range_after_eq, WHITESPACE);
-                return request_parse_range_time(m, range_after_eq);
-        }
+        if (range_after_eq)
+                return request_parse_range_time(m, skip_leading_chars(range_after_eq, /* bad = */ NULL));
 
         return 0;
 }
