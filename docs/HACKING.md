@@ -11,8 +11,8 @@ We welcome all contributions to systemd.
 If you notice a bug or a missing feature, please feel invited to fix it, and submit your work as a
 [GitHub Pull Request (PR)](https://github.com/systemd/systemd/pull/new).
 
-Please make sure to follow our [Coding Style](CODING_STYLE) when submitting patches.
-Also have a look at our [Contribution Guidelines](CONTRIBUTING).
+Please make sure to follow our [Coding Style](/CODING_STYLE) when submitting patches.
+Also have a look at our [Contribution Guidelines](/CONTRIBUTING).
 
 When adding new functionality, tests should be added.
 For shared functionality (in `src/basic/` and `src/shared/`) unit tests should be sufficient.
@@ -155,7 +155,7 @@ Those are not useful when compiling for distribution and can be disabled by sett
 
 ## Sanitizers in mkosi
 
-See [Testing systemd using sanitizers](TESTING_WITH_SANITIZERS) for more information on how to build with sanitizers enabled in mkosi.
+See [Testing systemd using sanitizers](/TESTING_WITH_SANITIZERS) for more information on how to build with sanitizers enabled in mkosi.
 
 ## Fuzzers
 
@@ -211,7 +211,7 @@ done
 ```
 
 If you find a bug that impacts the security of systemd,
-please follow the guidance in [CONTRIBUTING.md](CONTRIBUTING) on how to report a security vulnerability.
+please follow the guidance in [CONTRIBUTING.md](/CONTRIBUTING) on how to report a security vulnerability.
 
 For more details on building fuzzers and integrating with OSS-Fuzz, visit:
 

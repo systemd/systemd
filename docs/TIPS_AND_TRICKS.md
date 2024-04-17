@@ -7,7 +7,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Tips & Tricks
 
-Also check out the [Frequently Asked Questions](FAQ)!
+Also check out the [Frequently Asked Questions](/FAQ)!
 
 ## Listing running services
 
