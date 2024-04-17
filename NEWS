@@ -242,6 +242,9 @@ CHANGES WITH 256 in spe:
           /dev/media0 which will be linked as
           /dev/media/by-path/pci-0000:04:00.3-usb-0:1:1.0-media-controller.
 
+        * A new unit systemd-udev-load-credentials.service has been added
+          to pick up udev.conf drop-ins and udev rules from credentials.
+
         * An allowlist/denylist may be specified to filter which sysfs
           attributes are used when crafting network interface names. Those
           lists are stored as hwdb entries
@@ -302,8 +305,8 @@ CHANGES WITH 256 in spe:
         * The implementation behind TTLPropagate= network setting has been
           removed and the setting is now ignored.
 
-        * systemd-network-generator will now pick up .netdev/.link/.network
-          configuration from system credentials.
+        * systemd-network-generator will now pick up .netdev/.link/.network/
+          networkd.conf configuration from system credentials.
 
         * systemd-networkd will now pick up wireguard secrets from
           credentials.
