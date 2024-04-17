@@ -78,6 +78,7 @@
 
     <programlisting>
 -auth       optional    pam_systemd_loadkey.so
+-auth       optional    pam_gnome_keyring.so
 -session    optional    pam_gnome_keyring.so auto_start
 -session    optional    pam_kwallet5.so auto_start
     </programlisting>
