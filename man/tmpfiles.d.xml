@@ -868,7 +868,7 @@ e! /var/cache/krb5rcache - - - 0
     <example>
       <title>Provision SSH public key access for root user via Credentials in QEMU</title>
 
-      <programlisting>-smbios type=11,value=io.systemd.credential.binary:tmpfiles.extra=$(echo "f~ /root/.ssh/authorized_keys 700 root root - $(ssh-add -L | base64 -w 0)" | base64 -w 0)
+      <programlisting>-smbios type=11,value=io.systemd.credential.binary:tmpfiles.extra=$(echo -e "d /root/.ssh 0750 root root -\nf~ /root/.ssh/authorized_keys 0600 root root - $(ssh-add -L | base64 -w 0)" | base64 -w 0)
 </programlisting>
 
       <para>By passing this line to QEMU, the public key of the current user will be encoded in base64, added
