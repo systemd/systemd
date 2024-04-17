@@ -86,4 +86,4 @@ The new `/usr` could also easily be shared read-only across several systems.
 Such a setup would be more efficient, can provide additional security, is more flexible to use,
 provides saner options for custom setups, and is much simpler to setup and maintain.
 
-For more information on this please continue to [The Case for the /usr Merge](THE_CASE_FOR_THE_USR_MERGE).
+For more information on this please continue to [The Case for the /usr Merge](/THE_CASE_FOR_THE_USR_MERGE).

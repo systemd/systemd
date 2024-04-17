@@ -12,7 +12,7 @@ _Or: how to hook up your favorite desktop environment with logind_
 systemd's logind service obsoletes ConsoleKit which was previously widely used on Linux distributions.
 This provides a number of new features, but also requires updating of the Desktop Environment running on it, in a few ways.
 
-This document should be read together with [Writing Display Managers](WRITING_DISPLAY_MANAGERS) which focuses on the porting work necessary for display managers.
+This document should be read together with [Writing Display Managers](/WRITING_DISPLAY_MANAGERS) which focuses on the porting work necessary for display managers.
 
 If required it is possible to implement ConsoleKit and systemd-logind support in the same desktop environment code, detecting at runtime which interface is needed.
 The [sd_booted()](http://www.freedesktop.org/software/systemd/man/sd_booted.html) call may be used to determine at runtime whether systemd is used.
@@ -37,11 +37,11 @@ Here are the suggested changes:
 - If your session manager handles the special power, suspend, hibernate hardware keys or the laptop lid switch on its own it is welcome to do so,
   but needs to disable logind's built-in handling of these events.
   Take one or more of the _handle-power-key_, _handle-suspend-key_, _handle-hibernate-key_, _handle-lid-switch_ inhibitor locks for that.
-  See [Inhibitor Locks](INHIBITOR_LOCKS) for further details on this.
+  See [Inhibitor Locks](/INHIBITOR_LOCKS) for further details on this.
 - Before rebooting/powering-off/suspending/hibernating and when the operation is triggered by the user by clicking on some UI elements
   (or suchlike) it is recommended to show the list of currently active inhibitors for the operation, and ask the user to acknowledge the operation.
   Note that PK often allows the user to execute the operation ignoring the inhibitors.
-  Use logind's ListInhibitors() call to get a list of these inhibitors. See [Inhibitor Locks](INHIBITOR_LOCKS) for further details on this.
+  Use logind's ListInhibitors() call to get a list of these inhibitors. See [Inhibitor Locks](/INHIBITOR_LOCKS) for further details on this.
 - If your DE contains a process viewer of some kind ("system monitor") it's a good idea to show session, service and seat information for each process.
   Use sd_pid_get_session(), sd_pid_get_unit(), sd_session_get_seat() to determine these.
   For details see [sd-login(7)](http://www.freedesktop.org/software/systemd/man/sd-login.html).
