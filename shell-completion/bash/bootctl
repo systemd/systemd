@@ -33,7 +33,7 @@ _bootctl() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
         [STANDALONE]='-h --help -p --print-esp-path -x --print-boot-path --version --no-variables --no-pager --graceful --dry-run'
-        [ARG]='--esp-path --boot-path --make-machine-id-directory --root --image --install-source'
+        [ARG]='--esp-path --boot-path --make-machine-id-directory --root --image --install-source --random-seed'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
@@ -55,6 +55,9 @@ _bootctl() {
                 ;;
             --install-source)
                 comps="image host auto"
+                ;;
+            --random-seed)
+                comps="yes no"
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

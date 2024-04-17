@@ -20,6 +20,7 @@ extern bool arg_print_esp_path;
 extern bool arg_print_dollar_boot_path;
 extern unsigned arg_print_root_device;
 extern bool arg_touch_variables;
+extern bool arg_install_random_seed;
 extern PagerFlags arg_pager_flags;
 extern bool arg_graceful;
 extern bool arg_quiet;
