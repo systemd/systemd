@@ -2738,7 +2738,7 @@ static int udev_rule_apply_token_to_event(
 
                 if (EVENT_MODE_DESTRUCTIVE(event)) {
                         log_event_debug(dev, token, "Writing SYSCTL{%s}=\"%s\".", buf, value);
-                        r = sysctl_write(buf, value);
+                        r = sysctl_write(buf, value, NULL);
                         if (r < 0)
                                 log_event_error_errno(dev, token, r, "Failed to write SYSCTL{%s}=\"%s\", ignoring: %m", buf, value);
                 } else
