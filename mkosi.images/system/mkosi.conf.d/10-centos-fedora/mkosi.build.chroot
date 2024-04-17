@@ -57,7 +57,7 @@ rpmbuild \
     $( ((WITH_DEBUG)) || echo "debug_package %{nil}") \
     --define "version_override $VERSION" \
     --define "release_override $RELEASE" \
-    --define "_distro_extra_cflags $EXTRA_CFLAGS" \
+    --define "build_cflags $(rpm --eval %build_cflags) $EXTRA_CFLAGS" \
     --define "meson_build %{shrink:%{__meson} compile -C %{_vpath_builddir} -j %{_smp_build_ncpus} %{nil}}" \
     --define "meson_install %{shrink:DESTDIR=%{buildroot} %{__meson} install -C %{_vpath_builddir} --no-rebuild --quiet %{nil}}" \
     --define "meson_extra_configure_options -D mode=developer -D b_sanitize=${SANITIZERS:-none}" \
