@@ -7,6 +7,7 @@ SUBSYSTEM!="media", GOTO="persistent_media_ctl_end"
 ENV{MAJOR}=="", GOTO="persistent_media_ctl_end"
 
 IMPORT{builtin}="path_id"
-ENV{ID_PATH}=="?*", KERNEL=="media*", SYMLINK+="media/by-path/$env{ID_PATH}-media-controller"
+KERNEL=="media*", ENV{ID_PATH_WITH_USB_REVISION}=="?*", SYMLINK+="media/by-path/$env{ID_PATH_WITH_USB_REVISION}-media-controller"
+KERNEL=="media*", ENV{ID_PATH_WITH_USB_REVISION}=="", ENV{ID_PATH}=="?*", SYMLINK+="media/by-path/$env{ID_PATH}-media-controller"
 
 LABEL="persistent_media_ctl_end"
