@@ -13,7 +13,6 @@
 #include "fileio.h"
 #include "glyph-util.h"
 #include "gunicode.h"
-#include "locale-util.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "memstream-util.h"
@@ -363,13 +362,13 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
                 return strdup("");
 
         case 1:
-                if (is_locale_utf8())
+                if (special_glyph_enabled())
                         return strdup("…");
                 else
                         return strdup(".");
 
         case 2:
-                if (!is_locale_utf8())
+                if (!special_glyph_enabled())
                         return strdup("..");
 
                 break;
@@ -381,7 +380,7 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
         /* Calculate how much space the ellipsis will take up. If we are in UTF-8 mode we only need space for one
          * character ("…"), otherwise for three characters ("..."). Note that in both cases we need 3 bytes of storage,
          * either for the UTF-8 encoded character or for three ASCII characters. */
-        need_space = is_locale_utf8() ? 1 : 3;
+        need_space = special_glyph_enabled() ? 1 : 3;
 
         t = new(char, new_length+3);
         if (!t)

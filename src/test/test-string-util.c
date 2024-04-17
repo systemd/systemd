@@ -3,6 +3,7 @@
 #include <ctype.h>
 
 #include "alloc-util.h"
+#include "glyph-util.h"
 #include "locale-util.h"
 #include "macro.h"
 #include "string-util.h"
@@ -182,60 +183,60 @@ TEST(cellescape) {
         ASSERT_STREQ(cellescape(buf, 4, "1"), "1");
         ASSERT_STREQ(cellescape(buf, 4, "12"), "12");
         ASSERT_STREQ(cellescape(buf, 4, "123"), "123");
-        ASSERT_STREQ(cellescape(buf, 4, "1234"), is_locale_utf8() ? "…" : "...");
-        ASSERT_STREQ(cellescape(buf, 4, "12345"), is_locale_utf8() ? "…" : "...");
+        ASSERT_STREQ(cellescape(buf, 4, "1234"), special_glyph_enabled() ? "…" : "...");
+        ASSERT_STREQ(cellescape(buf, 4, "12345"), special_glyph_enabled() ? "…" : "...");
 
         ASSERT_STREQ(cellescape(buf, 5, ""), "");
         ASSERT_STREQ(cellescape(buf, 5, "1"), "1");
         ASSERT_STREQ(cellescape(buf, 5, "12"), "12");
         ASSERT_STREQ(cellescape(buf, 5, "123"), "123");
         ASSERT_STREQ(cellescape(buf, 5, "1234"), "1234");
-        ASSERT_STREQ(cellescape(buf, 5, "12345"), is_locale_utf8() ? "1…" : "1...");
-        ASSERT_STREQ(cellescape(buf, 5, "123456"), is_locale_utf8() ? "1…" : "1...");
+        ASSERT_STREQ(cellescape(buf, 5, "12345"), special_glyph_enabled() ? "1…" : "1...");
+        ASSERT_STREQ(cellescape(buf, 5, "123456"), special_glyph_enabled() ? "1…" : "1...");
 
         ASSERT_STREQ(cellescape(buf, 1, "\020"), "");
         ASSERT_STREQ(cellescape(buf, 2, "\020"), ".");
         ASSERT_STREQ(cellescape(buf, 3, "\020"), "..");
-        ASSERT_STREQ(cellescape(buf, 4, "\020"), is_locale_utf8() ? "…" : "...");
+        ASSERT_STREQ(cellescape(buf, 4, "\020"), special_glyph_enabled() ? "…" : "...");
         ASSERT_STREQ(cellescape(buf, 5, "\020"), "\\020");
 
-        ASSERT_STREQ(cellescape(buf, 5, "1234\020"), is_locale_utf8() ? "1…" : "1...");
-        ASSERT_STREQ(cellescape(buf, 6, "1234\020"), is_locale_utf8() ? "12…" : "12...");
-        ASSERT_STREQ(cellescape(buf, 7, "1234\020"), is_locale_utf8() ? "123…" : "123...");
-        ASSERT_STREQ(cellescape(buf, 8, "1234\020"), is_locale_utf8() ? "1234…" : "1234...");
+        ASSERT_STREQ(cellescape(buf, 5, "1234\020"), special_glyph_enabled() ? "1…" : "1...");
+        ASSERT_STREQ(cellescape(buf, 6, "1234\020"), special_glyph_enabled() ? "12…" : "12...");
+        ASSERT_STREQ(cellescape(buf, 7, "1234\020"), special_glyph_enabled() ? "123…" : "123...");
+        ASSERT_STREQ(cellescape(buf, 8, "1234\020"), special_glyph_enabled() ? "1234…" : "1234...");
         ASSERT_STREQ(cellescape(buf, 9, "1234\020"), "1234\\020");
 
         ASSERT_STREQ(cellescape(buf, 1, "\t\n"), "");
         ASSERT_STREQ(cellescape(buf, 2, "\t\n"), ".");
         ASSERT_STREQ(cellescape(buf, 3, "\t\n"), "..");
-        ASSERT_STREQ(cellescape(buf, 4, "\t\n"), is_locale_utf8() ? "…" : "...");
+        ASSERT_STREQ(cellescape(buf, 4, "\t\n"), special_glyph_enabled() ? "…" : "...");
         ASSERT_STREQ(cellescape(buf, 5, "\t\n"), "\\t\\n");
 
-        ASSERT_STREQ(cellescape(buf, 5, "1234\t\n"), is_locale_utf8() ? "1…" : "1...");
-        ASSERT_STREQ(cellescape(buf, 6, "1234\t\n"), is_locale_utf8() ? "12…" : "12...");
-        ASSERT_STREQ(cellescape(buf, 7, "1234\t\n"), is_locale_utf8() ? "123…" : "123...");
-        ASSERT_STREQ(cellescape(buf, 8, "1234\t\n"), is_locale_utf8() ? "1234…" : "1234...");
+        ASSERT_STREQ(cellescape(buf, 5, "1234\t\n"), special_glyph_enabled() ? "1…" : "1...");
+        ASSERT_STREQ(cellescape(buf, 6, "1234\t\n"), special_glyph_enabled() ? "12…" : "12...");
+        ASSERT_STREQ(cellescape(buf, 7, "1234\t\n"), special_glyph_enabled() ? "123…" : "123...");
+        ASSERT_STREQ(cellescape(buf, 8, "1234\t\n"), special_glyph_enabled() ? "1234…" : "1234...");
         ASSERT_STREQ(cellescape(buf, 9, "1234\t\n"), "1234\\t\\n");
 
-        ASSERT_STREQ(cellescape(buf, 4, "x\t\020\n"), is_locale_utf8() ? "…" : "...");
-        ASSERT_STREQ(cellescape(buf, 5, "x\t\020\n"), is_locale_utf8() ? "x…" : "x...");
-        ASSERT_STREQ(cellescape(buf, 6, "x\t\020\n"), is_locale_utf8() ? "x…" : "x...");
-        ASSERT_STREQ(cellescape(buf, 7, "x\t\020\n"), is_locale_utf8() ? "x\\t…" : "x\\t...");
-        ASSERT_STREQ(cellescape(buf, 8, "x\t\020\n"), is_locale_utf8() ? "x\\t…" : "x\\t...");
-        ASSERT_STREQ(cellescape(buf, 9, "x\t\020\n"), is_locale_utf8() ? "x\\t…" : "x\\t...");
+        ASSERT_STREQ(cellescape(buf, 4, "x\t\020\n"), special_glyph_enabled() ? "…" : "...");
+        ASSERT_STREQ(cellescape(buf, 5, "x\t\020\n"), special_glyph_enabled() ? "x…" : "x...");
+        ASSERT_STREQ(cellescape(buf, 6, "x\t\020\n"), special_glyph_enabled() ? "x…" : "x...");
+        ASSERT_STREQ(cellescape(buf, 7, "x\t\020\n"), special_glyph_enabled() ? "x\\t…" : "x\\t...");
+        ASSERT_STREQ(cellescape(buf, 8, "x\t\020\n"), special_glyph_enabled() ? "x\\t…" : "x\\t...");
+        ASSERT_STREQ(cellescape(buf, 9, "x\t\020\n"), special_glyph_enabled() ? "x\\t…" : "x\\t...");
         ASSERT_STREQ(cellescape(buf, 10, "x\t\020\n"), "x\\t\\020\\n");
 
         ASSERT_STREQ(cellescape(buf, 6, "1\011"), "1\\t");
         ASSERT_STREQ(cellescape(buf, 6, "1\020"), "1\\020");
-        ASSERT_STREQ(cellescape(buf, 6, "1\020x"), is_locale_utf8() ? "1…" : "1...");
+        ASSERT_STREQ(cellescape(buf, 6, "1\020x"), special_glyph_enabled() ? "1…" : "1...");
 
         ASSERT_STREQ(cellescape(buf, 40, "1\020"), "1\\020");
         ASSERT_STREQ(cellescape(buf, 40, "1\020x"), "1\\020x");
 
         ASSERT_STREQ(cellescape(buf, 40, "\a\b\f\n\r\t\v\\\"'"), "\\a\\b\\f\\n\\r\\t\\v\\\\\\\"\\'");
-        ASSERT_STREQ(cellescape(buf, 6, "\a\b\f\n\r\t\v\\\"'"), is_locale_utf8() ? "\\a…" : "\\a...");
-        ASSERT_STREQ(cellescape(buf, 7, "\a\b\f\n\r\t\v\\\"'"), is_locale_utf8() ? "\\a…" : "\\a...");
-        ASSERT_STREQ(cellescape(buf, 8, "\a\b\f\n\r\t\v\\\"'"), is_locale_utf8() ? "\\a\\b…" : "\\a\\b...");
+        ASSERT_STREQ(cellescape(buf, 6, "\a\b\f\n\r\t\v\\\"'"), special_glyph_enabled() ? "\\a…" : "\\a...");
+        ASSERT_STREQ(cellescape(buf, 7, "\a\b\f\n\r\t\v\\\"'"), special_glyph_enabled() ? "\\a…" : "\\a...");
+        ASSERT_STREQ(cellescape(buf, 8, "\a\b\f\n\r\t\v\\\"'"), special_glyph_enabled() ? "\\a\\b…" : "\\a\\b...");
 
         ASSERT_STREQ(cellescape(buf, sizeof buf, "1\020"), "1\\020");
         ASSERT_STREQ(cellescape(buf, sizeof buf, "1\020x"), "1\\020x");

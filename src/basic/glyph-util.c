@@ -5,6 +5,15 @@
 #include "locale-util.h"
 #include "strv.h"
 
+bool special_glyph_enabled(void) {
+        static int cached = -1;
+
+        if (cached >= 0)
+                return cached;
+
+        return (cached = is_locale_utf8());
+}
+
 bool emoji_enabled(void) {
         static int cached_emoji_enabled = -1;
 
@@ -156,5 +165,5 @@ const char *special_glyph_full(SpecialGlyph code, bool force_utf) {
                 return NULL;
 
         assert(code < _SPECIAL_GLYPH_MAX);
-        return draw_table[force_utf || (code >= _SPECIAL_GLYPH_FIRST_EMOJI ? emoji_enabled() : is_locale_utf8())][code];
+        return draw_table[force_utf || (code >= _SPECIAL_GLYPH_FIRST_EMOJI ? emoji_enabled() : special_glyph_enabled())][code];
 }

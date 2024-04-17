@@ -59,6 +59,7 @@ typedef enum SpecialGlyph {
         _SPECIAL_GLYPH_INVALID = -EINVAL,
 } SpecialGlyph;
 
+bool special_glyph_enabled(void);
 bool emoji_enabled(void);
 
 const char *special_glyph_full(SpecialGlyph code, bool force_utf) _const_;
