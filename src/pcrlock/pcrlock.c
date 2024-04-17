@@ -4473,16 +4473,9 @@ static int make_policy(bool force, bool recovery_pin) {
                 }
 
         } else if (!have_old_policy) {
-                char rnd[256];
-
-                r = crypto_random_bytes(rnd, sizeof(rnd));
+                r = make_recovery_key(&pin);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate a randomized recovery PIN: %m");
-
-                (void) base64mem(rnd, sizeof(rnd), &pin);
-                explicit_bzero_safe(rnd, sizeof(rnd));
-                if (!pin)
-                        return log_oom();
         }
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
