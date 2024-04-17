@@ -498,6 +498,13 @@ CHANGES WITH 256 in spe:
           for enrolling "dbx" too (Previously, only db/KEK/PK enrollment was
           supported). It also now supports UEFI "Custom" mode.
 
+        * systemd-pcrlock's TPM nvindex access policy has been modified, this
+          means that previous pcrlock policies stored in nvindexes are
+          invalidated. They must be removed (systemd-pcrlock remove-policy) and
+          recreated (systemd-pcrlock make-policy). For the time being
+          systemd-pcrlock remains an experimental feature, but it is expected
+          to become stable in the next release, i.e. v257.
+
         systemd-run/run0:
 
         * systemd-run is now a multi-call binary. When invoked as 'run0', it
