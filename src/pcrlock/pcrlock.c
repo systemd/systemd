@@ -4596,8 +4596,6 @@ static int make_policy(bool force, bool recovery_pin) {
                                 encryption_session,
                                 arg_nv_index,
                                 &recovery_policy_digest,
-                                pin,
-                                &auth,
                                 &nv_index,
                                 &nv_handle,
                                 &nv_public);
