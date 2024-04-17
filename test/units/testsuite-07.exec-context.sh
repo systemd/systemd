@@ -158,13 +158,13 @@ if ! systemd-detect-virt -cq; then
         -p DevicePolicy=closed
         -p DevicePolicy=strict
         -p DeviceAllow="char-mem rm"  # Allow read & mknod for /dev/{null,zero,...}
-        -p DeviceAllow="/dev/loop0 rw"
-        -p DeviceAllow="/dev/loop0 w" # Allow write for /dev/loop0
+        -p DeviceAllow="$LODEV rw"
+        -p DeviceAllow="$LODEV w" # Allow write for the loop
         # Everything else should be disallowed per the strict policy
     )
 
     systemd-run --wait --pipe --unit "$SERVICE_NAME" "${ARGUMENTS[@]}" \
-        bash -xec 'test -r /dev/null; test ! -w /dev/null; test ! -r /dev/loop0; test -w /dev/loop0; test ! -r /dev/tty; test ! -w /dev/tty'
+        bash -xec "test -r /dev/null; test ! -w /dev/null; test ! -r $LODEV; test -w $LODEV; test ! -r /dev/tty; test ! -w /dev/tty"
 
     if ! systemctl --version | grep -qF -- "-BPF_FRAMEWORK"; then
         # SocketBind*=
