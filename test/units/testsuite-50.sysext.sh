@@ -12,7 +12,7 @@ at_exit() {
     local target
 
     # Note: `cat` here is used intentionally, so we iterate over our own copy of /proc/mounts. Otherwise
-    #       things get very confusing once we start unmounting things, due to chaging file offsets.
+    #       things get very confusing once we start unmounting things, due to changing file offsets.
     # shellcheck disable=SC2002
     cat /proc/mounts | while read -r _ target _ _ _ _; do
         if [[ "$target" =~ ^"$FAKE_ROOTS_DIR" ]]; then
@@ -582,7 +582,7 @@ SYSTEMD_SYSEXT_HIERARCHIES="$hierarchy" SYSTEMD_SYSEXT_MUTABLE_MODE=import syste
 extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
 
 
-: "Extension data in /var/lib/extensions.mutable/…, R/O hierarchy, mutability enabled through env var but overriden via CLI option, read-only merged"
+: "Extension data in /var/lib/extensions.mutable/…, R/O hierarchy, mutability enabled through env var but overridden via CLI option, read-only merged"
 fake_root="$FAKE_ROOTS_DIR/env-var-overridden"
 hierarchy=/usr
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
