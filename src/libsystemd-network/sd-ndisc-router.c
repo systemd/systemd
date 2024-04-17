@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "ndisc-internal.h"
 #include "ndisc-router-internal.h"
+#include "string-table.h"
 
 static sd_ndisc_router* ndisc_router_free(sd_ndisc_router *rt) {
         if (!rt)
@@ -163,6 +164,27 @@ int sd_ndisc_router_get_flags(sd_ndisc_router *rt, uint64_t *ret) {
         return 0;
 }
 
+int ndisc_router_flags_to_string(uint64_t flags, char **ret) {
+        _cleanup_free_ char *s = NULL;
+
+        assert(ret);
+
+        if (FLAGS_SET(flags, ND_RA_FLAG_MANAGED) &&
+            !strextend_with_separator(&s, ", ", "managed"))
+                return -ENOMEM;
+
+        if (FLAGS_SET(flags, ND_RA_FLAG_OTHER) &&
+            !strextend_with_separator(&s, ", ", "other"))
+                return -ENOMEM;
+
+        if (FLAGS_SET(flags, ND_RA_FLAG_HOME_AGENT) &&
+            !strextend_with_separator(&s, ", ", "home-agent"))
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(s);
+        return 0;
+}
+
 int sd_ndisc_router_get_lifetime(sd_ndisc_router *rt, uint64_t *ret) {
         assert_return(rt, -EINVAL);
 
@@ -179,6 +201,14 @@ int sd_ndisc_router_get_preference(sd_ndisc_router *rt, uint8_t *ret) {
         *ret = rt->preference;
         return 0;
 }
+
+static const char* const ndisc_router_preference_table[] = {
+        [SD_NDISC_PREFERENCE_LOW]    = "low",
+        [SD_NDISC_PREFERENCE_MEDIUM] = "medium",
+        [SD_NDISC_PREFERENCE_HIGH]   = "high",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(ndisc_router_preference, int);
 
 int sd_ndisc_router_get_sender_mac(sd_ndisc_router *rt, struct ether_addr *ret) {
         assert_return(rt, -EINVAL);
