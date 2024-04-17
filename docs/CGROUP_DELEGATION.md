@@ -29,8 +29,8 @@ This document then adds in the higher-level view from systemd.
 
 This document augments the existing documentation we already have:
 
-* [The New Control Group Interfaces](CONTROL_GROUP_INTERFACE)
-* [Writing VM and Container Managers](WRITING_VM_AND_CONTAINER_MANAGERS)
+* [The New Control Group Interfaces](/CONTROL_GROUP_INTERFACE)
+* [Writing VM and Container Managers](/WRITING_VM_AND_CONTAINER_MANAGERS)
 
 These wiki documents are not as up to date as they should be, currently, but
 the basic concepts still fully apply. You should read them too, if you do something
