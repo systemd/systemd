@@ -48,7 +48,7 @@ rpmbuild \
     --define "_distro_extra_cflags -Og" \
     --define "meson_build %{shrink:%{__meson} compile -C %{_vpath_builddir} -j %{_smp_build_ncpus} %{nil}}" \
     --define "meson_install %{shrink:DESTDIR=%{buildroot} %{__meson} install -C %{_vpath_builddir} --no-rebuild --quiet %{nil}}" \
-    --define "meson_extra_configure_options -D mode=developer -D b_sanitize=${SANITIZERS:-none}" \
+    --define "meson_extra_configure_options -D mode=developer -D b_sanitize=${SANITIZERS:-none} --reconfigure" \
     $( ((WITH_DEBUG)) || echo --define) \
     $( ((WITH_DEBUG)) || echo "__brp_strip %{nil}") \
     --define "__brp_compress %{nil}" \
