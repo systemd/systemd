@@ -1,0 +1,3 @@
+[Service]
+StandardOutput=journal+console
+StandardError=journal+console
