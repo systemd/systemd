@@ -503,8 +503,19 @@ bool efi_has_tpm2(void) {
         if (errno != ENOENT)
                 log_debug_errno(errno, "Unable to test whether /sys/firmware/acpi/tables/TPM2 exists, assuming it doesn't: %m");
 
-        /* As the last try, check if the EFI firmware provides the EFI_TCG2_FINAL_EVENTS_TABLE
-         * stored in EFI configuration table, see:
+        /* If EFI firmware used TPM to e.g. measure loaded binaries, it can export TPM EventLog to
+         * Linux kernel, which is a strong indication that TPM device is available and used.
+         * Then a patched Linux kernel can expose this information to userspace so that we know
+         * to queue TPM device startup and module loading. */
+        cache = access("/sys/firmware/efi/tpm_log", F_OK) >= 0;
+        if (cache)
+                return cache;
+
+        if (errno != ENOENT)
+                log_debug_errno(errno, "Unable to test whether /sys/firmware/efi/tpm_log exists, assuming it doesn't: %m");
+
+        /* As the last try, check if the TPM driver is already loaded or built into kernel and
+         * firmware provides the EFI_TCG2_FINAL_EVENTS_TABLE stored in EFI configuration table, see:
          * https://trustedcomputinggroup.org/wp-content/uploads/EFI-Protocol-Specification-rev13-160330final.pdf
          */
         cache = access("/sys/kernel/security/tpm0/binary_bios_measurements", F_OK) >= 0;
