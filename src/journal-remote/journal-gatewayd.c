@@ -348,6 +348,9 @@ static int request_parse_range_entries(
         const char *colon;
         int r;
 
+        assert(m);
+        assert(entries_request);
+
         colon = strchr(entries_request, ':');
         if (!colon)
                 m->cursor = strdup(entries_request);
@@ -375,6 +378,9 @@ static int request_parse_range_time(
         _cleanup_free_ char *until = NULL;
         const char *colon;
         int r;
+
+        assert(m);
+        assert(time_request);
 
         colon = strchr(time_request, ':');
         if (!colon)
