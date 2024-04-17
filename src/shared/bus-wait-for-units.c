@@ -32,8 +32,6 @@ typedef struct BusWaitForUnits {
 
         Hashmap *items;
 
-        WaitForItem *current;
-
         BusWaitForUnitsState state;
         bool has_failed:1;
 } BusWaitForUnits;
@@ -61,9 +59,6 @@ static WaitForItem *wait_for_item_free(WaitForItem *item) {
                 }
 
                 assert_se(hashmap_remove_value(item->parent->items, item->bus_path, item));
-
-                if (item->parent->current == item)
-                        item->parent->current = NULL;
         }
 
         sd_bus_slot_unref(item->slot_properties_changed);
@@ -79,8 +74,6 @@ static WaitForItem *wait_for_item_free(WaitForItem *item) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(WaitForItem*, wait_for_item_free);
 
 static void call_unit_callback_and_wait(BusWaitForUnits *d, WaitForItem *item, bool good) {
-        d->current = item;
-
         if (item->unit_callback)
                 item->unit_callback(d, item->bus_path, good, item->userdata);
 
