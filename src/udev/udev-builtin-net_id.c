@@ -768,8 +768,8 @@ static int names_platform(sd_device *dev, const char *prefix, EventMode mode) {
 }
 
 static int names_devicetree(sd_device *dev, const char *prefix, EventMode mode) {
-        _cleanup_(sd_device_unrefp) sd_device *aliases_dev = NULL, *ofnode_dev = NULL, *devicetree_dev = NULL;
-        const char *ofnode_path, *ofnode_syspath, *devicetree_syspath;
+        _cleanup_(sd_device_unrefp) sd_device *aliases_dev = NULL, *ofnode_dev = NULL, *devicetree_dev = NULL, *eth_ports_dev = NULL;
+        const char *ofnode_path, *ofnode_syspath, *devicetree_syspath, *suffix;
         sd_device *parent;
         int r;
 
@@ -821,13 +821,19 @@ static int names_devicetree(sd_device *dev, const char *prefix, EventMode mode) 
         ofnode_path--;
         assert(path_is_absolute(ofnode_path));
 
+        /* Check if there are 'ethernet-ports' child nodes of ethernet */
+        r = sd_device_new_child(&eth_ports_dev, ofnode_dev, "ethernet-ports");
+        if (r < 0)
+                log_device_debug(ofnode_dev, "No 'ethernet-ports' child available for this device");
+
         r = sd_device_new_child(&aliases_dev, devicetree_dev, "aliases");
         if (r < 0)
                 return log_device_debug_errno(devicetree_dev, r,
                                               "Failed to get 'aliases' child device: %m");
 
         FOREACH_DEVICE_SYSATTR(aliases_dev, alias) {
-                const char *alias_path, *alias_index, *conflict;
+                const char *alias_path, *alias_index, *conflict, *eth_ports_child_syspath = NULL, *eth_ports_child_path = NULL;
+                bool eth_ports_alias_found;
                 unsigned i;
 
                 alias_index = startswith(alias, "ethernet");
@@ -837,7 +843,37 @@ static int names_devicetree(sd_device *dev, const char *prefix, EventMode mode) 
                 if (device_get_sysattr_value_filtered(aliases_dev, alias, &alias_path) < 0)
                         continue;
 
-                if (!path_equal(ofnode_path, alias_path))
+                /* if a ethernet-ports device node was found, look for ports inside of it and check if it
+                 * matches the ethernet alias */
+                if (eth_ports_dev) {
+                        eth_ports_alias_found = false;
+
+                        FOREACH_DEVICE_CHILD(eth_ports_dev, child) {
+                                r = sd_device_get_syspath(child, &eth_ports_child_syspath);
+                                if (r < 0)
+                                        return log_device_debug_errno(eth_ports_dev, r,
+                                                                      "Failed to get eth_ports_child_syspath: %m");
+
+                                eth_ports_child_path = path_startswith(eth_ports_child_syspath, devicetree_syspath);
+                                if (!eth_ports_child_path)
+                                        return log_device_debug_errno(eth_ports_dev, SYNTHETIC_ERRNO(EINVAL),
+                                                                      "The device '%s' is not a child device of '%s': %m",
+                                                                      eth_ports_child_syspath, devicetree_syspath);
+
+                                /* Get back our leading / to match the contents of the aliases */
+                                eth_ports_child_path--;
+                                assert(path_is_absolute(eth_ports_child_path));
+
+                                if (path_equal(eth_ports_child_path, alias_path)) {
+                                        eth_ports_alias_found = true;
+                                        break;
+                                }
+                        }
+
+                        if (!eth_ports_alias_found)
+                                continue;
+
+                } else if (!path_equal(ofnode_path, alias_path))
                         continue;
 
                 /* If there's no index, we default to 0... */
