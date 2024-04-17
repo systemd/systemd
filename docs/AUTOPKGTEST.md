@@ -7,9 +7,16 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Test description
 
-Full system integration/acceptance testing is done through [autopkgtests](https://salsa.debian.org/ci-team/autopkgtest/-/blob/master/doc/README.package-tests.rst). These test the actual installed binary distribution packages. They are run in QEMU or containers and thus can do intrusive and destructive things such as installing arbitrary packages, modifying arbitrary files in the system (including grub boot parameters), rebooting, or loading kernel modules.
+Full system integration/acceptance testing is done through [autopkgtests](https://salsa.debian.org/ci-team/autopkgtest/-/blob/master/doc/README.package-tests.rst).
 
-The tests for systemd are defined in the [Debian package's debian/tests](https://salsa.debian.org/systemd-team/systemd/-/tree/debian/master/debian/tests) directory. For validating a pull request, the Debian package is built using the unpatched code from that PR (via the [checkout-upstream](https://salsa.debian.org/systemd-team/systemd/-/blob/debian/master/debian/extra/checkout-upstream) script), and the tests run against these built packages. Note that some tests which check Debian specific behaviour are skipped in "test upstream" mode.
+These test the actual installed binary distribution packages.
+They are run in QEMU or containers and thus can do intrusive and destructive things such as installing arbitrary packages, modifying arbitrary files in the system (including grub boot parameters), rebooting, or loading kernel modules.
+
+The tests for systemd are defined in the [Debian package's debian/tests](https://salsa.debian.org/systemd-team/systemd/-/tree/debian/master/debian/tests) directory.
+
+For validating a pull request, the Debian package is built using the unpatched code from that PR (via the [checkout-upstream](https://salsa.debian.org/systemd-team/systemd/-/blob/debian/master/debian/extra/checkout-upstream) script), and the tests run against these built packages.
+
+Note that some tests which check Debian specific behaviour are skipped in "test upstream" mode.
 
 # Infrastructure
 
@@ -24,11 +31,15 @@ Please see the [Ubuntu CI infrastructure](https://wiki.ubuntu.com/ProposedMigrat
 
 # Manually retrying/triggering tests on the infrastructure
 
-The current tests are fairly solid by now, but rarely they fail on infrastructure/network issues or race conditions. If you encounter these, please notify @iainlane in the GitHub PR for debugging/fixing those -- transient infrastructure issues are supposed to be detected automatically, and tests auto-retry on those; and flaky tests should of course be fixed properly. But sometimes it is useful to trigger tests on a different Ubuntu release too, for example to test a PR on a newer kernel or against current build/binary dependencies (cgroup changes, util-linux, gcc, etc.).
+The current tests are fairly solid by now, but rarely they fail on infrastructure/network issues or race conditions.
+
+If you encounter these, please notify @iainlane in the GitHub PR for debugging/fixing those -- transient infrastructure issues are supposed to be detected automatically, and tests auto-retry on those; and flaky tests should of course be fixed properly.
+But sometimes it is useful to trigger tests on a different Ubuntu release too, for example to test a PR on a newer kernel or against current build/binary dependencies (cgroup changes, util-linux, gcc, etc.).
 
 This can be done using the generic [retry-github-test](https://git.launchpad.net/autopkgtest-cloud/tree/charms/focal/autopkgtest-cloud-worker/autopkgtest-cloud/tools/retry-github-test) script from [Ubuntu's autopkgtest infrastructure](https://git.launchpad.net/autopkgtest-cloud): you need the parameterized URL from the [configured webhooks](https://github.com/systemd/systemd/settings/hooks) and the shared secret (Ubuntu's CI needs to restrict access to avoid DoSing and misuse).
 
-You can use Martin Pitt's [retry-gh-systemd-test](https://piware.de/gitweb/?p=bin.git;a=blob;f=retry-gh-systemd-test) shell wrapper around retry-github-test for that. You need to adjust the path where you put retry-github-test and the file with the shared secret, then you can call it like this:
+You can use Martin Pitt's [retry-gh-systemd-test](https://piware.de/gitweb/?p=bin.git;a=blob;f=retry-gh-systemd-test) shell wrapper around retry-github-test for that.
+You need to adjust the path where you put retry-github-test and the file with the shared secret, then you can call it like this:
 
 ```sh
 $ retry-gh-systemd-test <#PR> <architecture> [release]
@@ -45,7 +56,11 @@ Please make sure to not trigger unknown [releases](https://launchpad.net/ubuntu/
 
 # Test the code from the PR locally
 
-As soon as a test on the infrastructure finishes, the "Details" link in the PR "checks" section will point to the `log.gz` log. You can download the individual test log, built .debs, and other artifacts that tests leave behind (some dump a complete journal or the udev database on failure) by replacing `/log.gz` with `/artifacts.tar.gz` in that URL. You can then unpack the tarball and use `sudo dpkg -iO binaries/*.deb` to install the debs from the PR into an Ubuntu VM of the same release/architecture for manually testing a PR.
+As soon as a test on the infrastructure finishes, the "Details" link in the PR "checks" section will point to the `log.gz` log.
+
+You can download the individual test log, built .debs, and other artifacts that tests leave behind (some dump a complete journal or the udev database on failure) by replacing `/log.gz` with `/artifacts.tar.gz` in that URL.
+
+You can then unpack the tarball and use `sudo dpkg -iO binaries/*.deb` to install the debs from the PR into an Ubuntu VM of the same release/architecture for manually testing a PR.
 
 # Run autopkgtests locally
 
@@ -63,7 +78,9 @@ Preparations:
     autopkgtest/tools/autopkgtest-buildvm-ubuntu-cloud -r bionic -a amd64
   ```
 
-  This will build `autopkgtest-bionic-amd64.img`. This is normally being used through the `autopkgtest` command (see below), but you can boot this normally in QEMU (using `-snapshot` is highly recommended) to interactively poke around; this provides a easy throw-away test environment.
+  This will build `autopkgtest-bionic-amd64.img`.
+
+  This is normally being used through the `autopkgtest` command (see below), but you can boot this normally in QEMU (using `-snapshot` is highly recommended) to interactively poke around; this provides a easy throw-away test environment.
 
 
 The most basic mode of operation is to run the tests for the current distro packages:
