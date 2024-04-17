@@ -2041,6 +2041,16 @@ static int invoke_main_loop(
                                                 "MESSAGE_ID=" SD_MESSAGE_CORE_MAINLOOP_FAILED_STR);
                 }
 
+                /* Ensure shutdown timestamp is taken even when bypassing the job engine */
+                if (IN_SET(objective,
+                           MANAGER_SOFT_REBOOT,
+                           MANAGER_REBOOT,
+                           MANAGER_KEXEC,
+                           MANAGER_HALT,
+                           MANAGER_POWEROFF) &&
+                    !dual_timestamp_is_set(m->timestamps + MANAGER_TIMESTAMP_SHUTDOWN_START))
+                        dual_timestamp_now(m->timestamps + MANAGER_TIMESTAMP_SHUTDOWN_START);
+
                 switch (objective) {
 
                 case MANAGER_RELOAD: {
@@ -2128,8 +2138,6 @@ static int invoke_main_loop(
                 case MANAGER_SOFT_REBOOT:
                         manager_send_reloading(m);
                         manager_set_switching_root(m, true);
-
-                        dual_timestamp_now(m->timestamps + MANAGER_TIMESTAMP_SOFTREBOOT_START);
 
                         r = prepare_reexecute(m, &arg_serialization, ret_fds, /* switching_root= */ true);
                         if (r < 0) {
@@ -3191,11 +3199,6 @@ int main(int argc, char *argv[]) {
                 error_message = "Failed to start up manager";
                 goto finish;
         }
-
-        /* If we got a SoftRebootStart timestamp during deserialization, then we are in a new soft-reboot
-         * iteration, so bump the counter now before starting units, so that they can reliably read it. */
-        if (dual_timestamp_is_set(&m->timestamps[MANAGER_TIMESTAMP_SOFTREBOOT_START]))
-                m->soft_reboots_count++;
 
         /* This will close all file descriptors that were opened, but not claimed by any unit. */
         fds = fdset_free(fds);
