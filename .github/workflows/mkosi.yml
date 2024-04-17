@@ -119,15 +119,6 @@ jobs:
                                systemd.default_device_timeout_sec=180
         EOF
 
-        # For erofs, we have to install linux-modules-extra-azure, but that doesn't match the running kernel
-        # version, so we can't load the erofs module. squashfs is a builtin module so we use that instead.
-
-        mkdir -p mkosi.images/system/mkosi.repart/10-usr.conf.d
-        tee mkosi.images/system/mkosi.repart/10-usr.conf.d/squashfs.conf <<EOF
-        [Partition]
-        Format=squashfs
-        EOF
-
         # The emergency shell is not useful in the CI, as it just blocks for a long time before the job
         # eventually times out. Override it to just shutdown immediately.
         mkdir -p mkosi.images/initrd/mkosi.extra/usr/lib/systemd/system/emergency.service.d/
