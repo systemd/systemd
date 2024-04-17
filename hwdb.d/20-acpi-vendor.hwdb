@@ -255,6 +255,9 @@ acpi:MSHW*:
 acpi:MXIM*:
  ID_VENDOR_FROM_DATABASE=Maxim Integrated
 
+acpi:NAIM*:
+ ID_VENDOR_FROM_DATABASE=Vervent Audio Group
+
 acpi:NOLO*:
  ID_VENDOR_FROM_DATABASE=NOLO Co., Ltd.
 
@@ -347,6 +350,9 @@ acpi:TXNW*:
 
 acpi:UBLX*:
  ID_VENDOR_FROM_DATABASE=u-blox AG
+
+acpi:UBOO*:
+ ID_VENDOR_FROM_DATABASE=Das U-Boot
 
 acpi:VAIO*:
  ID_VENDOR_FROM_DATABASE=VAIO Corporation
@@ -1986,6 +1992,12 @@ acpi:DEI*:
 acpi:DEL*:
  ID_VENDOR_FROM_DATABASE=Dell Inc.
 
+acpi:DEM*:
+ ID_VENDOR_FROM_DATABASE=DemoPad Software Ltd
+
+acpi:DEM*:
+ ID_VENDOR_FROM_DATABASE=DemoPad Software Ltd
+
 acpi:DEN*:
  ID_VENDOR_FROM_DATABASE=Densitron Computers Ltd
 
@@ -2370,6 +2382,9 @@ acpi:EEE*:
 acpi:EEH*:
  ID_VENDOR_FROM_DATABASE=EEH Datalink GmbH
 
+acpi:EEI*:
+ ID_VENDOR_FROM_DATABASE=ELARABY COMPANY FOR ENGINEERING INDUSTRIES
+
 acpi:EEP*:
  ID_VENDOR_FROM_DATABASE=E.E.P.D. GmbH
 
@@ -2743,7 +2758,7 @@ acpi:FIT*:
  ID_VENDOR_FROM_DATABASE=Feature Integration Technology Inc.
 
 acpi:FJC*:
- ID_VENDOR_FROM_DATABASE=Fujitsu Takamisawa Component Limited
+ ID_VENDOR_FROM_DATABASE=FCL COMPONENTS LIMITED
 
 acpi:FJS*:
  ID_VENDOR_FROM_DATABASE=Fujitsu Spain
@@ -4701,6 +4716,9 @@ acpi:MNL*:
 acpi:MNP*:
  ID_VENDOR_FROM_DATABASE=Microcom
 
+acpi:MNS*:
+ ID_VENDOR_FROM_DATABASE=Maxnerva Technology Services Limited
+
 acpi:MOC*:
  ID_VENDOR_FROM_DATABASE=Matrix Orbital Corporation
 
@@ -5832,6 +5850,9 @@ acpi:PXM*:
 acpi:PXN*:
  ID_VENDOR_FROM_DATABASE=PixelNext Inc
 
+acpi:PXO*:
+ ID_VENDOR_FROM_DATABASE=Pixio USA
+
 acpi:QCC*:
  ID_VENDOR_FROM_DATABASE=QuakeCom Company Ltd
 
@@ -6059,6 +6080,9 @@ acpi:RMT*:
 
 acpi:RNB*:
  ID_VENDOR_FROM_DATABASE=Rainbow Technologies
+
+acpi:RNL*:
+ ID_VENDOR_FROM_DATABASE=Reonel Oy
 
 acpi:ROB*:
  ID_VENDOR_FROM_DATABASE=Robust Electronics GmbH
@@ -6512,6 +6536,9 @@ acpi:SML*:
 
 acpi:SMM*:
  ID_VENDOR_FROM_DATABASE=Shark Multimedia Inc
+
+acpi:SMN*:
+ ID_VENDOR_FROM_DATABASE=Somnium Space Ltd.
 
 acpi:SMO*:
  ID_VENDOR_FROM_DATABASE=STMicroelectronics
@@ -7118,6 +7145,9 @@ acpi:TMS*:
 
 acpi:TMT*:
  ID_VENDOR_FROM_DATABASE=T-Metrics Inc.
+
+acpi:TMV*:
+ ID_VENDOR_FROM_DATABASE=TeamViewer Germany GmbH
 
 acpi:TMX*:
  ID_VENDOR_FROM_DATABASE=Thermotrex Corporation
