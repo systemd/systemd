@@ -5771,8 +5771,6 @@ int tpm2_define_policy_nv_index(
                 const Tpm2Handle *session,
                 TPM2_HANDLE requested_nv_index,
                 const TPM2B_DIGEST *write_policy,
-                const char *pin,
-                const TPM2B_AUTH *auth,
                 TPM2_HANDLE *ret_nv_index,
                 Tpm2Handle **ret_nv_handle,
                 TPM2B_NV_PUBLIC *ret_nv_public) {
@@ -5782,7 +5780,6 @@ int tpm2_define_policy_nv_index(
         int r;
 
         assert(c);
-        assert(pin || auth);
 
         /* Allocates an nvindex to store a policy for use in PolicyAuthorizeNV in. This is where pcrlock then
          * stores its predicted PCR policies in. If 'requested_nv_index' will try to allocate the specified
@@ -5793,17 +5790,6 @@ int tpm2_define_policy_nv_index(
                 return r;
 
         new_handle->flush = false; /* This is a persistent NV index, don't flush hence */
-
-        TPM2B_AUTH _auth = {};
-        CLEANUP_ERASE(_auth);
-
-        if (!auth) {
-                r = tpm2_auth_value_from_pin(TPM2_ALG_SHA256, pin, &_auth);
-                if (r < 0)
-                        return r;
-
-                auth = &_auth;
-        }
 
         for (unsigned try = 0; try < 25U; try++) {
                 TPM2_HANDLE nv_index;
@@ -5832,7 +5818,7 @@ int tpm2_define_policy_nv_index(
                                 /* shandle1= */ session ? session->esys_handle : ESYS_TR_PASSWORD,
                                 /* shandle2= */ ESYS_TR_NONE,
                                 /* shandle3= */ ESYS_TR_NONE,
-                                auth,
+                                /* auth= */ NULL,
                                 &public_info,
                                 &new_handle->esys_handle);
 
