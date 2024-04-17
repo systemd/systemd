@@ -158,6 +158,9 @@ int manager_serialize(
         (void) serialize_ratelimit(f, "dump-ratelimit", &m->dump_ratelimit);
         (void) serialize_ratelimit(f, "reload-reexec-ratelimit", &m->reload_reexec_ratelimit);
 
+        if (m->objective >= 0 && m->objective <= _MANAGER_OBJECTIVE_MAX)
+                (void) serialize_item_format(f, "objective", "%u", (unsigned) m->objective);
+
         bus_track_serialize(m->subscribed, f, "subscribed");
 
         r = dynamic_user_serialize(m, f, fds);
@@ -529,6 +532,14 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_notice("Failed to parse soft reboots counter '%s', ignoring.", val);
                         else
                                 m->soft_reboots_count = n;
+                } else if ((val = startswith(l, "objective="))) {
+                        unsigned n;
+
+                        if (safe_atou(val, &n) < 0 || n > _MANAGER_OBJECTIVE_MAX)
+                                log_notice("Failed to parse objective '%s', ignoring.", val);
+                        else
+                                m->objective = n;
+
                 } else {
                         ManagerTimestamp q;
 
