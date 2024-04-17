@@ -425,7 +425,7 @@ static int request_parse_range(
                 RequestMeta *m,
                 struct MHD_Connection *connection) {
 
-        const char *range, *range_after_eq;
+        const char *range;
 
         assert(m);
         assert(connection);
@@ -440,17 +440,10 @@ static int request_parse_range(
                 return -EINVAL;
 
         m->n_skip = 0;
-        range_after_eq = startswith(range, "entries=");
-        if (range_after_eq) {
-                range_after_eq += strspn(range_after_eq, WHITESPACE);
-                return request_parse_range_entries(m, range_after_eq);
-        }
 
-        range_after_eq = startswith(range, "realtime=");
-        if (range_after_eq) {
-                range_after_eq += strspn(range_after_eq, WHITESPACE);
-                return request_parse_range_time(m, range_after_eq);
-        }
+        const char *value = STARTSWITH_SET(range, "entries=", "realtime=");
+        if (value)
+                return request_parse_range_time(m, skip_leading_chars(value, /* bad = */ NULL));
 
         return 0;
 }
