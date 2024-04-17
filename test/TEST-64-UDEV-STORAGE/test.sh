@@ -268,24 +268,15 @@ testcase_virtio_scsi_identically_named_partitions() {
     # and attach them to a virtio-scsi controller
     local qemu_opts=("-device virtio-scsi-pci,id=scsi0,num_queues=4")
     local diskpath="${TESTDIR:?}/namedpart0.img"
-    local i lodev num_disk num_part qemu_timeout
+    local i num_disk qemu_timeout
 
     if get_bool "${IS_BUILT_WITH_ASAN:=}" || ! get_bool "$QEMU_KVM"; then
         num_disk=4
-        num_part=4
     else
         num_disk=16
-        num_part=8
     fi
 
     dd if=/dev/zero of="$diskpath" bs=1M count=18
-    lodev="$(losetup --show -f -P "$diskpath")"
-    sfdisk "${lodev:?}" <<EOF
-label: gpt
-
-$(for ((i = 1; i <= num_part; i++)); do echo 'name="Hello world", size=2M'; done)
-EOF
-    losetup -d "$lodev"
 
     for ((i = 0; i < num_disk; i++)); do
         diskpath="${TESTDIR:?}/namedpart$i.img"
@@ -325,19 +316,9 @@ testcase_multipath_basic_failover() {
 
     local qemu_opts=("-device virtio-scsi-pci,id=scsi")
     local partdisk="${TESTDIR:?}/multipathpartitioned.img"
-    local image lodev nback ndisk wwn
+    local image nback ndisk wwn
 
     dd if=/dev/zero of="$partdisk" bs=1M count=16
-    lodev="$(losetup --show -f -P "$partdisk")"
-    sfdisk "${lodev:?}" <<EOF
-label: gpt
-
-name="first_partition", size=5M
-uuid="deadbeef-dead-dead-beef-000000000000", name="failover_part", size=5M
-EOF
-    udevadm settle
-    mkfs.ext4 -U "deadbeef-dead-dead-beef-111111111111" -L "failover_vol" "${lodev}p2"
-    losetup -d "$lodev"
 
     # Add 16 multipath devices, each backed by 4 paths
     for ndisk in {0..15}; do
@@ -475,18 +456,6 @@ testcase_long_sysfs_path() {
     )
 
     dd if=/dev/zero of="$testdisk" bs=1M count=64
-    lodev="$(losetup --show -f -P "$testdisk")"
-    sfdisk "${lodev:?}" <<EOF
-label: gpt
-
-name="test_swap", size=32M
-uuid="deadbeef-dead-dead-beef-000000000000", name="test_part", size=5M
-EOF
-    udevadm settle
-    mkswap -U "deadbeef-dead-dead-beef-111111111111" -L "swap_vol" "${lodev}p1"
-    mkfs.ext4 -U "deadbeef-dead-dead-beef-222222222222" -L "data_vol" "${lodev}p2"
-    losetup -d "$lodev"
-
     # Create 25 additional PCI bridges, each one connected to the previous one
     # (basically a really long extension cable), and attach a virtio drive to
     # the last one. This should force udev into attempting to create a device

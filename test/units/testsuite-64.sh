@@ -239,16 +239,27 @@ testcase_nvme_subsystem() {
 }
 
 testcase_virtio_scsi_identically_named_partitions() {
-    local num
+    local num_part num_disk i j
+    local alphabet='abcdefghijklmnopqrstuvwxyz'
 
     if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
-        num=$((4 * 4))
+        num_part=4
+        num_disk=4
     else
-        num=$((16 * 8))
+        num_part=8
+        num_disk=16
     fi
 
+    for ((i = 0; i < num_disk; i++)); do
+        sfdisk "/dev/sd${alphabet:$i:1}" <<EOF
+label: gpt
+
+$(for ((j = 1; j <= num_part; j++)); do echo 'name="Hello world", size=2M'; done)
+EOF
+    done
+
     lsblk --noheadings -a -o NAME,PARTLABEL
-    [[ "$(lsblk --noheadings -a -o NAME,PARTLABEL | grep -c "Hello world")" -eq "$num" ]]
+    [[ "$(lsblk --noheadings -a -o NAME,PARTLABEL | grep -c "Hello world")" -eq "$((num_part * num_disk))" ]]
 }
 
 testcase_multipath_basic_failover() {
@@ -270,6 +281,16 @@ blacklist_exceptions {
 blacklist {
 }
 EOF
+
+    sfdisk /dev/sda <<EOF
+label: gpt
+
+name="first_partition", size=5M
+uuid="deadbeef-dead-dead-beef-000000000000", name="failover_part", size=5M
+EOF
+    udevadm settle
+    mkfs.ext4 -U "deadbeef-dead-dead-beef-111111111111" -L "failover_vol" "/dev/sda2"
+
     modprobe -v dm_multipath
     systemctl start multipathd.service
     systemctl status multipathd.service
@@ -950,6 +971,16 @@ testcase_long_sysfs_path() {
     stat /sys/block/vda
     readlink -f /sys/block/vda/dev
 
+    dev="/dev/vda"
+    sfdisk "${dev:?}" <<EOF
+label: gpt
+
+name="test_swap", size=32M
+uuid="deadbeef-dead-dead-beef-000000000000", name="test_part", size=5M
+EOF
+    udevadm settle
+    mkswap -U "deadbeef-dead-dead-beef-111111111111" -L "swap_vol" "${dev}1"
+    mkfs.ext4 -U "deadbeef-dead-dead-beef-222222222222" -L "data_vol" "${dev}2"
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
 
     # Try to mount the data partition manually (using its label)
