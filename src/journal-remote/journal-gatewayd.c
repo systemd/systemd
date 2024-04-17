@@ -348,6 +348,9 @@ static int request_parse_range_entries(
         const char *colon;
         int r;
 
+        assert(m);
+        assert(entries_request);
+
         colon = strchr(entries_request, ':');
         if (!colon)
                 m->cursor = strdup(entries_request);
@@ -375,6 +378,9 @@ static int request_parse_range_time(
         _cleanup_free_ char *until = NULL;
         const char *colon;
         int r;
+
+        assert(m);
+        assert(time_request);
 
         colon = strchr(time_request, ':');
         if (!colon)
@@ -440,17 +446,14 @@ static int request_parse_range(
                 return -EINVAL;
 
         m->n_skip = 0;
+
         range_after_eq = startswith(range, "entries=");
-        if (range_after_eq) {
-                range_after_eq += strspn(range_after_eq, WHITESPACE);
-                return request_parse_range_entries(m, range_after_eq);
-        }
+        if (range_after_eq)
+                return request_parse_range_entries(m, skip_leading_chars(range_after_eq, /* bad = */ NULL));
 
         range_after_eq = startswith(range, "realtime=");
-        if (range_after_eq) {
-                range_after_eq += strspn(range_after_eq, WHITESPACE);
-                return request_parse_range_time(m, range_after_eq);
-        }
+        if (range_after_eq)
+                return request_parse_range_time(m, skip_leading_chars(range_after_eq, /* bad = */ NULL));
 
         return 0;
 }
