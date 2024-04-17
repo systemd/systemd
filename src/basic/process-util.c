@@ -34,8 +34,8 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "hostname-util.h"
-#include "locale-util.h"
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"
@@ -266,7 +266,7 @@ int pid_get_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, ch
 
                 delete_trailing_chars(t, WHITESPACE);
 
-                bool eight_bit = (flags & PROCESS_CMDLINE_USE_LOCALE) && !is_locale_utf8();
+                bool eight_bit = (flags & PROCESS_CMDLINE_USE_LOCALE) && !special_glyph_enabled();
 
                 ans = escape_non_printable_full(t, max_columns,
                                                 eight_bit * XESCAPE_8_BIT | !full * XESCAPE_FORCE_ELLIPSIS);

@@ -22,7 +22,6 @@
 #include "journal-internal.h"
 #include "journal-util.h"
 #include "json.h"
-#include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "macro.h"
@@ -58,10 +57,7 @@ static int print_catalog(FILE *f, sd_journal *j) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find catalog entry: %m");
 
-        if (is_locale_utf8())
-                prefix = strjoina(special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), special_glyph(SPECIAL_GLYPH_LIGHT_SHADE));
-        else
-                prefix = "--";
+        prefix = strjoina(special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), special_glyph(SPECIAL_GLYPH_LIGHT_SHADE));
 
         newline = strjoina(ansi_normal(), "\n", ansi_grey(), prefix, ansi_normal(), " ", ansi_green());
 

@@ -6,7 +6,7 @@
 #include <qrencode.h>
 
 #include "dlfcn-util.h"
-#include "locale-util.h"
+#include "glyph-util.h"
 #include "log.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -173,7 +173,7 @@ int print_qrcode_full(FILE *out, const char *header, const char *string, unsigne
 
         /* If this is not a UTF-8 system or ANSI colors aren't supported/disabled don't print any QR
          * codes */
-        if (!is_locale_utf8() || !colors_enabled())
+        if (!special_glyph_enabled() || !colors_enabled())
                 return -EOPNOTSUPP;
 
         r = dlopen_qrencode();

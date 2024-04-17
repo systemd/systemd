@@ -11,8 +11,8 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "glyph-util.h"
 #include "gunicode.h"
-#include "locale-util.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "memstream-util.h"
@@ -282,16 +282,9 @@ bool string_has_cc(const char *p, const char *ok) {
 }
 
 static int write_ellipsis(char *buf, bool unicode) {
-        if (unicode || is_locale_utf8()) {
-                buf[0] = 0xe2; /* tri-dot ellipsis: … */
-                buf[1] = 0x80;
-                buf[2] = 0xa6;
-        } else {
-                buf[0] = '.';
-                buf[1] = '.';
-                buf[2] = '.';
-        }
-
+        const char *s = special_glyph(SPECIAL_GLYPH_ELLIPSIS);
+        assert(strlen(s) == 3);
+        memcpy(buf, s, 3);
         return 3;
 }
 
@@ -369,13 +362,13 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
                 return strdup("");
 
         case 1:
-                if (is_locale_utf8())
+                if (special_glyph_enabled())
                         return strdup("…");
                 else
                         return strdup(".");
 
         case 2:
-                if (!is_locale_utf8())
+                if (!special_glyph_enabled())
                         return strdup("..");
 
                 break;
@@ -387,7 +380,7 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
         /* Calculate how much space the ellipsis will take up. If we are in UTF-8 mode we only need space for one
          * character ("…"), otherwise for three characters ("..."). Note that in both cases we need 3 bytes of storage,
          * either for the UTF-8 encoded character or for three ASCII characters. */
-        need_space = is_locale_utf8() ? 1 : 3;
+        need_space = special_glyph_enabled() ? 1 : 3;
 
         t = new(char, new_length+3);
         if (!t)

@@ -3,7 +3,24 @@
 #include "env-util.h"
 #include "glyph-util.h"
 #include "locale-util.h"
+#include "proc-cmdline.h"
 #include "strv.h"
+
+bool special_glyph_enabled(void) {
+        static int cached = -1;
+
+        if (cached >= 0)
+                return cached;
+
+        /* If booted with nomodeset, disable it on linux terminal. */
+        if (streq_ptr(getenv("TERM"), "linux")) {
+                bool b = false;
+                (void) proc_cmdline_get_bool("nomodeset", PROC_CMDLINE_IGNORE_EFI_OPTIONS, &b);
+                return (cached = !b);
+        }
+
+        return (cached = is_locale_utf8());
+}
 
 bool emoji_enabled(void) {
         static int cached_emoji_enabled = -1;
@@ -156,5 +173,5 @@ const char *special_glyph_full(SpecialGlyph code, bool force_utf) {
                 return NULL;
 
         assert(code < _SPECIAL_GLYPH_MAX);
-        return draw_table[force_utf || (code >= _SPECIAL_GLYPH_FIRST_EMOJI ? emoji_enabled() : is_locale_utf8())][code];
+        return draw_table[force_utf || (code >= _SPECIAL_GLYPH_FIRST_EMOJI ? emoji_enabled() : special_glyph_enabled())][code];
 }
