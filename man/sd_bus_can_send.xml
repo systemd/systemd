@@ -58,28 +58,21 @@
         <varlistentry>
           <term><constant>-ENOPKG</constant></term>
 
-          <listitem><para>The bus object <parameter>bus</parameter> could not be resolved.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/>
-          </listitem>
+          <listitem><para>The bus object <parameter>bus</parameter> could not be resolved.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOTCONN</constant></term>
 
           <listitem><para>The input parameter <parameter>bus</parameter> is
-          <constant>NULL</constant> or the bus is not connected.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <constant>NULL</constant> or the bus is not connected.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
           <listitem><para>The bus object <parameter>bus</parameter> was created in a different
-          process.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          process.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -89,7 +82,7 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_can_send()</function> was added in version 246.</para>
+    <para><function>sd_bus_can_send()</function> was added in version 221.</para>
   </refsect1>
 
   <refsect1>
