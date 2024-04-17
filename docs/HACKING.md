@@ -88,6 +88,19 @@ and optionally restart the daemon(s) you're working on using
 `systemctl restart <units>` or `systemctl daemon-reexec` if you're working on pid1
 or `systemctl soft-reboot` to restart everything.
 
+Aside from the image, the `mkosi.output` directory will also be populated with a
+set of distribution packages. Assuming you're running the same distribution and
+release as the mkosi image, you can install these rpms on your host or test
+system as well for any testing or debugging that cannot easily be performed in a
+VM or container.
+
+By default, no debuginfo packages are produced. To produce debuginfo packages,
+run mkosi with the `WITH_DEBUG` environment variable set to `1`:
+
+```sh
+$ mkosi -E WITH_DEBUG=1 -f
+```
+
 Putting this all together, here's a series of commands for preparing a patch for systemd:
 
 ```sh
