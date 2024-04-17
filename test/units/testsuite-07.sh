@@ -13,3 +13,6 @@ mountpoint /issue2730
 run_subtests
 
 touch /testok
+
+# Enqueue a shutdown so that ExecStop is run
+systemctl --no-block exit 123
