@@ -355,6 +355,7 @@ if get_option('integration-tests')
                 '31': 'TEST-31-DEVICE-ENUMERATION',
                 '32': 'TEST-32-OOMPOLICY',
                 '34': 'TEST-34-DYNAMICUSERMIGRATE',
+                '36': 'TEST-36-NUMAPOLICY',
         }
         foreach test_number, dirname : integration_tests
                 test_params = {
