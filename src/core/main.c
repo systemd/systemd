@@ -154,6 +154,7 @@ static void *arg_random_seed;
 static size_t arg_random_seed_size;
 static usec_t arg_reload_limit_interval_sec;
 static unsigned arg_reload_limit_burst;
+static bool arg_machine_id_from_firmware = false;
 
 /* A copy of the original environment block */
 static char **saved_env = NULL;
@@ -358,9 +359,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (streq(value, "firmware")) {
-                        arg_machine_id = SD_ID128_FIRMWARE;
-                } else {
+                if (streq(value, "firmware"))
+                        arg_machine_id_from_firmware = true;
+                else {
                         r = id128_from_string_nonzero(value, &arg_machine_id);
                         if (r < 0)
                                 log_warning_errno(r, "MachineID '%s' is not valid, ignoring: %m", value);
@@ -2320,8 +2321,15 @@ static int initialize_runtime(
 
                         (void) os_release_status();
                         (void) hostname_setup(true);
-                        /* Force transient machine-id on first boot. */
-                        machine_id_setup(/* root= */ NULL, /* force_transient= */ first_boot, arg_machine_id, /* ret_machine_id */ NULL);
+
+                        /* Set up the machine ID flags */
+                        MachineIdSetupFlags machine_id_setup_flags = 0;
+                        if (arg_machine_id_from_firmware)
+                                machine_id_setup_flags = MACHINE_ID_SETUP_FORCE_FIRMWARE;
+                        else if (first_boot)
+                                machine_id_setup_flags = MACHINE_ID_SETUP_FORCE_TRANSIENT;
+
+                        machine_id_setup(/* root= */ NULL, arg_machine_id, /* flags= */ machine_id_setup_flags, /* ret_machine_id */ NULL);
                         (void) loopback_setup();
                         bump_unix_max_dgram_qlen();
                         bump_file_max_and_nr_open();

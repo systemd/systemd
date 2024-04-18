@@ -30,6 +30,8 @@
 #include "umask-util.h"
 #include "virt.h"
 
+static bool arg_machine_id_from_firmware = false;
+
 static int acquire_machine_id_from_credential(sd_id128_t *ret) {
         _cleanup_free_ char *buf = NULL;
         int r;
@@ -41,7 +43,7 @@ static int acquire_machine_id_from_credential(sd_id128_t *ret) {
                 return -ENXIO;
 
         if (streq(buf, "firmware")) {
-                *ret = SD_ID128_FIRMWARE;
+                arg_machine_id_from_firmware = true;
                 return 0;
         }
 
@@ -85,7 +87,7 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
                                 return 0;
                         }
 
-                } else if (IN_SET(detect_vm(), VIRTUALIZATION_KVM, VIRTUALIZATION_AMAZON, VIRTUALIZATION_QEMU, VIRTUALIZATION_XEN) || sd_id128_is_firmware(*ret)) {
+                } else if (IN_SET(detect_vm(), VIRTUALIZATION_KVM, VIRTUALIZATION_AMAZON, VIRTUALIZATION_QEMU, VIRTUALIZATION_XEN) || arg_machine_id_from_firmware) {
 
                         /* If we are not running in a container, see if we are running in a VM that provides
                          * a system UUID via the SMBIOS/DMI interfaces.  Such environments include QEMU/KVM
@@ -107,11 +109,14 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
         return 0;
 }
 
-int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_id, sd_id128_t *ret) {
+int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlags flags, sd_id128_t *ret) {
         const char *etc_machine_id, *run_machine_id;
         _cleanup_close_ int fd = -EBADF;
         bool writable;
         int r;
+
+        if (flags & MACHINE_ID_SETUP_FORCE_FIRMWARE)
+                arg_machine_id_from_firmware = true;
 
         etc_machine_id = prefix_roota(root, "/etc/machine-id");
 
@@ -145,7 +150,7 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
         }
 
         /* A we got a valid machine ID argument, that's what counts */
-        if (sd_id128_is_null(machine_id) || sd_id128_is_firmware(machine_id)) {
+        if (sd_id128_is_null(machine_id) || arg_machine_id_from_firmware) {
 
                 /* Try to read any existing machine ID */
                 if (id128_read_fd(fd, ID128_FORMAT_PLAIN, &machine_id) >= 0)
@@ -168,7 +173,7 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
                  * disk and overmount it with a transient file.
                  *
                  * Otherwise write the machine-id directly to disk. */
-                if (force_transient) {
+                if (flags & MACHINE_ID_SETUP_FORCE_TRANSIENT) {
                         r = loop_write(fd, "uninitialized\n", SIZE_MAX);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to write uninitialized %s: %m", etc_machine_id);
@@ -206,7 +211,7 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
                 return r;
         }
 
-        log_full(force_transient ? LOG_DEBUG : LOG_INFO, "Installed transient %s file.", etc_machine_id);
+        log_full(flags & MACHINE_ID_SETUP_FORCE_TRANSIENT ? LOG_DEBUG : LOG_INFO, "Installed transient %s file.", etc_machine_id);
 
         /* Mark the mount read-only */
         r = mount_follow_verbose(LOG_WARNING, NULL, etc_machine_id, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL);
