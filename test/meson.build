@@ -370,6 +370,7 @@ if get_option('integration-tests')
                 '76': 'TEST-76-SYSCTL',
                 '78': 'TEST-78-SIGQUEUE',
                 '79': 'TEST-79-MEMPRESS',
+                '80': 'TEST-80-NOTIFYACCESS',
         }
         foreach test_number, dirname : integration_tests
                 test_params = {
