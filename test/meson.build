@@ -372,6 +372,7 @@ if get_option('integration-tests')
                 '79': 'TEST-79-MEMPRESS',
                 '80': 'TEST-80-NOTIFYACCESS',
                 '81': 'TEST-81-GENERATORS',
+                '84': 'TEST-84-STORAGETM',
         }
         foreach test_number, dirname : integration_tests
                 test_params = {
