@@ -4918,7 +4918,7 @@ void unit_reset_memory_accounting_last(Unit *u) {
         if (!crt || !crt->cgroup_path)
                 return;
 
-        FOREACH_ARRAY(i, crt->memory_accounting_last, ELEMENTSOF(crt->memory_accounting_last))
+        FOREACH_ELEMENT(i, crt->memory_accounting_last)
                 *i = UINT64_MAX;
 }
 
@@ -5226,13 +5226,13 @@ CGroupRuntime *cgroup_runtime_new(void) {
                 .cgroup_invalidated_mask = _CGROUP_MASK_ALL,
         };
 
-        FOREACH_ARRAY(i, crt->memory_accounting_last, ELEMENTSOF(crt->memory_accounting_last))
+        FOREACH_ELEMENT(i, crt->memory_accounting_last)
                 *i = UINT64_MAX;
-        FOREACH_ARRAY(i, crt->io_accounting_base, ELEMENTSOF(crt->io_accounting_base))
+        FOREACH_ELEMENT(i, crt->io_accounting_base)
                 *i = UINT64_MAX;
-        FOREACH_ARRAY(i, crt->io_accounting_last, ELEMENTSOF(crt->io_accounting_last))
+        FOREACH_ELEMENT(i, crt->io_accounting_last)
                 *i = UINT64_MAX;
-        FOREACH_ARRAY(i, crt->ip_accounting_extra, ELEMENTSOF(crt->ip_accounting_extra))
+        FOREACH_ELEMENT(i, crt->ip_accounting_extra)
                 *i = UINT64_MAX;
 
         return TAKE_PTR(crt);

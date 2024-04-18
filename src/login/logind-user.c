@@ -469,7 +469,7 @@ static int user_update_slice(User *u) {
                 { "IOWeight",   u->user_record->io_weight   },
         };
 
-        FOREACH_ARRAY(st, settings, ELEMENTSOF(settings)) {
+        FOREACH_ELEMENT(st, settings) {
                 if (st->value == UINT64_MAX)
                         continue;
 

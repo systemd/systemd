@@ -249,7 +249,7 @@ void unit_times_clear(UnitTimes *t) {
         if (!t)
                 return;
 
-        FOREACH_ARRAY(d, t->deps, ELEMENTSOF(t->deps))
+        FOREACH_ELEMENT(d, t->deps)
                 *d = strv_free(*d);
 
         t->name = mfree(t->name);
