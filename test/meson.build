@@ -353,6 +353,7 @@ integration_tests = {
         '30': 'TEST-30-ONCLOCKCHANGE',
         '32': 'TEST-32-OOMPOLICY',
         '34': 'TEST-34-DYNAMICUSERMIGRATE',
+        '35': 'TEST-35-LOGIN',
         '36': 'TEST-36-NUMAPOLICY',
         '38': 'TEST-38-FREEZER',
         '43': 'TEST-43-PRIVATEUSER-UNPRIV',
