@@ -367,6 +367,7 @@ if get_option('integration-tests')
                 '67': 'TEST-67-INTEGRITY',
                 '68': 'TEST-68-PROPAGATE-EXIT-STATUS',
                 '72': 'TEST-72-SYSUPDATE',
+                '76': 'TEST-76-SYSCTL',
         }
         foreach test_number, dirname : integration_tests
                 test_params = {
