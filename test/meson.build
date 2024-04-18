@@ -339,11 +339,11 @@ integration_tests = {
         '01': 'TEST-01-BASIC',
         '02': 'TEST-02-UNITTESTS',
         '03': 'TEST-03-JOBS',
-        # '04': 'TEST-04-JOURNAL', # Extremely flaky
+        '04': 'TEST-04-JOURNAL', # Extremely flaky
         '05': 'TEST-05-RLIMITS',
         '06': 'TEST-06-SELINUX',
         '07': 'TEST-07-PID1',
-        # '08': 'TEST-08-INITRD',
+        # '08': 'TEST-08-INITRD', needs meson.build tweaks
         '09': 'TEST-09-REBOOT',
         '13': 'TEST-13-NSPAWN',
         '15': 'TEST-15-DROPIN',
@@ -351,10 +351,10 @@ integration_tests = {
         '17': 'TEST-17-UDEV', # Can be flaky when overloaded if timeout abort test is slow
         '18': 'TEST-18-FAILUREACTION',
         '19': 'TEST-19-CGROUP',
-        # '21': 'TEST-21-DFUZZER',
+        '21': 'TEST-21-DFUZZER',
         '22': 'TEST-22-TMPFILES',
         '23': 'TEST-23-UNIT-FILE',
-        # '24': 'TEST-24-CRYPTSETUP',
+        #'24': 'TEST-24-CRYPTSETUP', needs meson.build tweaks
         '25': 'TEST-25-IMPORT',
         '26': 'TEST-26-SYSTEMCTL',
         '29': 'TEST-29-PORTABLE',
@@ -371,32 +371,34 @@ integration_tests = {
         '46': 'TEST-46-HOMED',
         '50': 'TEST-50-DISSECT',
         '52': 'TEST-52-HONORFIRSTSHUTDOWN',
-        # '53': 'TEST-53-ISSUE-16347',
-        # '54': 'TEST-54-CREDS',
-        # '55': 'TEST-55-OOMD',
-        # '58': 'TEST-58-REPART',
+        '53': 'TEST-53-ISSUE-16347',
+        #'54': 'TEST-54-CREDS', needs meson.build tweaks
+        '55': 'TEST-55-OOMD',
+        '58': 'TEST-58-REPART',
         # Can be flaky when overloaded if daemon-reload is too slow to be rate-limited
         '59': 'TEST-59-RELOADING-RESTART',
         '60': 'TEST-60-MOUNT-RATELIMIT',
         '62': 'TEST-62-RESTRICT-IFACES',
         '63': 'TEST-63-PATH',
-        # '64': 'TEST-54-UDEV-STORAGE',
+        #'64': 'TEST-64-UDEV-STORAGE', needs meson.build tweaks
         '65': 'TEST-65-ANALYZE',
         '66': 'TEST-66-DEVICE-ISOLATION',
         '67': 'TEST-67-INTEGRITY',
         '68': 'TEST-68-PROPAGATE-EXIT-STATUS',
-        '70': 'TEST-70-TPM2',
+        '69': 'TEST-69-SHUTDOWN',
+        # Can be flaky when overloaded if daemon-reload is too slow to be rate-limited
+        #'70': 'TEST-70-TPM2', needs meson.build tweaks
         '71': 'TEST-71-HOSTNAME',
         '72': 'TEST-72-SYSUPDATE',
         '73': 'TEST-73-LOCALE',
-        # '74': 'TEST-74-AUX-UTILS',
-        # '75': 'TEST-75-RESOLVED',
+        '74': 'TEST-74-AUX-UTILS',
+        '75': 'TEST-75-RESOLVED',
         '76': 'TEST-76-SYSCTL',
         '78': 'TEST-78-SIGQUEUE',
         '79': 'TEST-79-MEMPRESS',
         '80': 'TEST-80-NOTIFYACCESS',
         '81': 'TEST-81-GENERATORS',
-        # '82': 'TEST-82-SOFTREBOOT',
+        '82': 'TEST-82-SOFTREBOOT',
         '83': 'TEST-83-BTRFS',
         '84': 'TEST-84-STORAGETM',
 }
