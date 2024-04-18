@@ -371,6 +371,7 @@ if get_option('integration-tests')
                 '71': 'TEST-71-HOSTNAME',
                 '72': 'TEST-72-SYSUPDATE',
                 '76': 'TEST-76-SYSCTL',
+                '78': 'TEST-78-SIGQUEUE',
         }
         foreach test_number, dirname : integration_tests
                 test_params = {
