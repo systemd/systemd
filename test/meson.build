@@ -360,6 +360,8 @@ if get_option('integration-tests')
                 '43': 'TEST-43-PRIVATEUSER-UNPRIV',
                 '44': 'TEST-44-LOG-NAMESPACE',
                 '45': 'TEST-45-TIMEDATE',
+                # Can be flaky when overloaded if daemon-reload is too slow to be rate-limited
+                '59': 'TEST-59-RELOADING-RESTART',
         }
         foreach test_number, dirname : integration_tests
                 test_params = {
