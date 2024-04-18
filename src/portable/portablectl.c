@@ -50,6 +50,7 @@ static bool arg_now = false;
 static bool arg_no_block = false;
 static char **arg_extension_images = NULL;
 static bool arg_force = false;
+static bool arg_clean = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_extension_images, strv_freep);
 
@@ -769,13 +770,49 @@ static int maybe_stop_enable_restart(sd_bus *bus, sd_bus_message *reply) {
         return 0;
 }
 
-static int maybe_stop_disable(sd_bus *bus, char *image, char *argv[]) {
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *wait = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **matches = NULL;
+static int maybe_clean_units(sd_bus *bus, char **units) {
         int r;
 
-        if (!arg_enable && !arg_now)
+        assert(bus);
+
+        if (!arg_clean)
+                return 0;
+
+        STRV_FOREACH(name, units) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+
+                r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "CleanUnit");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "s", *name);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_strv(m, STRV_MAKE("all", "fdstore"));
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_call(bus, m, 0, &error, NULL);
+                if (r < 0)
+                        return log_error_errno(
+                                        r,
+                                        "Failed to call CleanUnit on portable service %s: %s",
+                                        *name,
+                                        bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+static int maybe_stop_disable_clean(sd_bus *bus, char *image, char *argv[]) {
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *wait = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_strv_free_ char **matches = NULL, **units = NULL;
+        int r;
+
+        if (!arg_enable && !arg_now && !arg_clean)
                 return 0;
 
         r = determine_matches(argv[1], argv + 2, true, &matches);
@@ -829,6 +866,10 @@ static int maybe_stop_disable(sd_bus *bus, char *image, char *argv[]) {
 
                 (void) maybe_start_stop_restart(bus, name, "StopUnit", wait);
                 (void) maybe_enable_disable(bus, name, false);
+
+                r = strv_extend(&units, name);
+                if (r < 0)
+                        return log_oom();
         }
 
         r = sd_bus_message_exit_container(reply);
@@ -839,6 +880,9 @@ static int maybe_stop_disable(sd_bus *bus, char *image, char *argv[]) {
         r = bus_wait_for_jobs(wait, arg_quiet, NULL);
         if (r < 0)
                 return r;
+
+        /* Need to ensure all units are stopped before calling CleanUnit, as files might be in use. */
+        (void) maybe_clean_units(bus, units);
 
         return 0;
 }
@@ -942,7 +986,7 @@ static int detach_image(int argc, char *argv[], void *userdata) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        (void) maybe_stop_disable(bus, image, argv);
+        (void) maybe_stop_disable_clean(bus, image, argv);
 
         method = strv_isempty(arg_extension_images) && !arg_force ? "DetachImage" : "DetachImageWithExtensions";
 
@@ -1265,6 +1309,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --extension=PATH         Extend the image with an overlay\n"
                "     --force                  Skip 'already active' check when attaching or\n"
                "                              detaching an image (with extensions)\n"
+               "     --clean                  When detaching, also remove configuration, state,\n"
+               "                              cache, logs or runtime data of the portable\n"
+               "                              service(s)\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -1291,6 +1338,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_BLOCK,
                 ARG_EXTENSION,
                 ARG_FORCE,
+                ARG_CLEAN,
         };
 
         static const struct option options[] = {
@@ -1312,6 +1360,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-block",        no_argument,       NULL, ARG_NO_BLOCK        },
                 { "extension",       required_argument, NULL, ARG_EXTENSION       },
                 { "force",           no_argument,       NULL, ARG_FORCE           },
+                { "clean",           no_argument,       NULL, ARG_CLEAN           },
                 {}
         };
 
@@ -1419,6 +1468,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FORCE:
                         arg_force = true;
+                        break;
+
+                case ARG_CLEAN:
+                        arg_clean = true;
                         break;
 
                 case '?':
