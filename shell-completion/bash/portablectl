@@ -36,7 +36,8 @@ _portablectl() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
         [STANDALONE]='-q --quiet --runtime --no-reload --cat --no-pager --no-legend
-                              --no-ask-password --enable --now -h --help --version'
+                              --no-ask-password --enable --now -h --help --version
+                              --clean --no-block --force'
         [ARG]='-p --profile --copy -H --host -M --machine --extension'
     )
 
