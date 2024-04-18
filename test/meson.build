@@ -358,6 +358,7 @@ integration_tests = {
         '43': 'TEST-43-PRIVATEUSER-UNPRIV',
         '44': 'TEST-44-LOG-NAMESPACE',
         '45': 'TEST-45-TIMEDATE',
+        '46': 'TEST-46-HOMED',
         '50': 'TEST-50-DISSECT',
         # Can be flaky when overloaded if daemon-reload is too slow to be rate-limited
         '59': 'TEST-59-RELOADING-RESTART',
