@@ -234,7 +234,8 @@ int udev_event_spawn(
             !STARTSWITH_SET(cmd, "ata_id", "cdrom_id", "dmi_memory_id", "fido_id", "mtd_probe", "scsi_id")) {
                 log_device_debug(event->dev, "Running in test mode, skipping execution of '%s'.", cmd);
                 result[0] = '\0';
-                ret_truncated = false;
+                if (ret_truncated)
+                        *ret_truncated = false;
                 return 0;
         }
 
