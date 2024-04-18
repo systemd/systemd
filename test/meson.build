@@ -352,6 +352,7 @@ if get_option('integration-tests')
                 '26': 'TEST-26-SYSTEMCTL',
                 '30': 'TEST-30-ONCLOCKCHANGE',
                 '31': 'TEST-31-DEVICE-ENUMERATION',
+                '32': 'TEST-32-OOMPOLICY',
         }
         foreach test_number, dirname : integration_tests
                 test_params = {
