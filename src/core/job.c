@@ -133,6 +133,7 @@ Job* job_free(Job *j) {
 
 static void job_set_state(Job *j, JobState state) {
         assert(j);
+        assert(j->manager);
         assert(state >= 0);
         assert(state < _JOB_STATE_MAX);
 
@@ -145,15 +146,15 @@ static void job_set_state(Job *j, JobState state) {
                 return;
 
         if (j->state == JOB_RUNNING)
-                j->unit->manager->n_running_jobs++;
+                j->manager->n_running_jobs++;
         else {
                 assert(j->state == JOB_WAITING);
-                assert(j->unit->manager->n_running_jobs > 0);
+                assert(j->manager->n_running_jobs > 0);
 
-                j->unit->manager->n_running_jobs--;
+                j->manager->n_running_jobs--;
 
-                if (j->unit->manager->n_running_jobs <= 0)
-                        j->unit->manager->jobs_in_progress_event_source = sd_event_source_disable_unref(j->unit->manager->jobs_in_progress_event_source);
+                if (j->manager->n_running_jobs <= 0)
+                        j->manager->jobs_in_progress_event_source = sd_event_source_disable_unref(j->manager->jobs_in_progress_event_source);
         }
 }
 
@@ -281,6 +282,8 @@ int job_install_deserialized(Job *j) {
         Job **pj;
         int r;
 
+        assert(j);
+        assert(j->manager);
         assert(!j->installed);
 
         if (j->type < 0 || j->type >= _JOB_TYPE_MAX_IN_TRANSACTION)
@@ -307,7 +310,7 @@ int job_install_deserialized(Job *j) {
         j->installed = true;
 
         if (j->state == JOB_RUNNING)
-                j->unit->manager->n_running_jobs++;
+                j->manager->n_running_jobs++;
 
         log_unit_debug(j->unit,
                        "Reinstalled deserialized job %s/%s as %u",
@@ -1375,6 +1378,7 @@ int job_coldplug(Job *j) {
 
 void job_shutdown_magic(Job *j) {
         assert(j);
+        assert(j->manager);
 
         /* The shutdown target gets some special treatment here: we
          * tell the kernel to begin with flushing its disk caches, to
@@ -1391,15 +1395,15 @@ void job_shutdown_magic(Job *j) {
                 return;
 
         /* This is the very beginning of the shutdown phase, so take the timestamp here */
-        dual_timestamp_now(ASSERT_PTR(j->manager)->timestamps + MANAGER_TIMESTAMP_SHUTDOWN_START);
+        dual_timestamp_now(j->manager->timestamps + MANAGER_TIMESTAMP_SHUTDOWN_START);
 
         if (!MANAGER_IS_SYSTEM(j->manager))
                 return;
 
         /* In case messages on console has been disabled on boot */
-        j->unit->manager->no_console_output = false;
+        j->manager->no_console_output = false;
 
-        manager_invalidate_startup_units(j->unit->manager);
+        manager_invalidate_startup_units(j->manager);
 
         if (detect_container() > 0)
                 return;
@@ -1439,6 +1443,7 @@ bool job_may_gc(Job *j) {
         Unit *other;
 
         assert(j);
+        assert(j->manager);
 
         /* Checks whether this job should be GC'ed away. We only do this for jobs of units that have no effect on their
          * own and just track external state. For now the only unit type that qualifies for this are .device units.
@@ -1459,7 +1464,7 @@ bool job_may_gc(Job *j) {
          * referenced by one, and reset this whenever we notice that no private bus connections are around. This means
          * the GC is a bit too conservative when it comes to jobs created by private bus connections. */
         if (j->ref_by_private_bus) {
-                if (set_isempty(j->unit->manager->private_buses))
+                if (set_isempty(j->manager->private_buses))
                         j->ref_by_private_bus = false;
                 else
                         return false;
@@ -1482,6 +1487,7 @@ bool job_may_gc(Job *j) {
 
 void job_add_to_gc_queue(Job *j) {
         assert(j);
+        assert(j->manager);
 
         if (j->in_gc_queue)
                 return;
@@ -1489,7 +1495,7 @@ void job_add_to_gc_queue(Job *j) {
         if (!job_may_gc(j))
                 return;
 
-        LIST_PREPEND(gc_queue, j->unit->manager->gc_job_queue, j);
+        LIST_PREPEND(gc_queue, j->manager->gc_job_queue, j);
         j->in_gc_queue = true;
 }
 
