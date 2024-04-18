@@ -185,7 +185,7 @@
       configuration.</para>
 
       <para>In case Secure Boot is enabled, these files will be validated using keys in UEFI DB, Shim's DB or
-      Shim's MOK, and will be rejected otherwise. Additionally, if the both the addon and the UKI contain a a
+      Shim's MOK, and will be rejected otherwise. Additionally, if both the addon and the UKI contain a
       <literal>.uname</literal> section, the addon will be rejected if they do not match exactly. It is
       recommended to always add a <literal>.sbat</literal> section to all signed addons, so that they may be
       revoked with a SBAT policy update, without requiring blocklisting via DBX/MOKX. The
