@@ -372,6 +372,7 @@ integration_tests = {
         '68': 'TEST-68-PROPAGATE-EXIT-STATUS',
         '71': 'TEST-71-HOSTNAME',
         '72': 'TEST-72-SYSUPDATE',
+        '73': 'TEST-73-LOCALE',
         '76': 'TEST-76-SYSCTL',
         '78': 'TEST-78-SIGQUEUE',
         '79': 'TEST-79-MEMPRESS',
