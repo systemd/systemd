@@ -394,7 +394,7 @@ int blockdev_partscan_enabled(int fd) {
         if (r < 0)
                 return r;
 
-        if (ext_range <= 1) /* The valus should be always positive, but the kernel uses '%d' for the
+        if (ext_range <= 1) /* The value should be always positive, but the kernel uses '%d' for the
                              * attribute. Let's gracefully handle zero or negative. */
                 return false;
 
