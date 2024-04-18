@@ -405,6 +405,7 @@ foreach test_number, dirname : integration_tests
                 'mkosi_args' : [],
                 'timeout' : 1800,
                 'mask_supporting_services' : true,
+                'skip_default_test' : false,
                 'skip_shutdown' : false,
                 'storage': 'volatile',
         }
@@ -414,6 +415,10 @@ foreach test_number, dirname : integration_tests
         # you need to touch another build file to get it to reparse.
         if fs.exists(dirname / 'meson.build')
                 subdir(dirname)
+        endif
+
+        if test_params['skip_default_test'] == true
+                continue
         endif
 
         args = [
