@@ -93,8 +93,8 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_is_open()</function> and
-    <function>sd_bus_is_ready()</function> were added in version 237.</para>
+    <para><function>sd_bus_is_open()</function> was added in version 221.</para>
+    <para><function>sd_bus_is_ready()</function> was added in version 237.</para>
   </refsect1>
 
   <refsect1>
