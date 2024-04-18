@@ -74,7 +74,7 @@ if [[ -n "$SD_STUB" ]]; then
     "$SD_PCRLOCK" lock-uki <"$SD_STUB"
 fi
 
-PIN=huhu "$SD_PCRLOCK" make-policy --pcr="$PCRS" --recovery-pin=yes
+PIN=huhu "$SD_PCRLOCK" make-policy --pcr="$PCRS" --recovery-pin=query
 # Repeat immediately (this call will have to reuse the nvindex, rather than create it)
 "$SD_PCRLOCK" make-policy --pcr="$PCRS"
 "$SD_PCRLOCK" make-policy --pcr="$PCRS" --force
@@ -102,7 +102,7 @@ systemd-cryptsetup detach pcrlock
 # work.
 echo -n test70 | "$SD_PCRLOCK" lock-raw --pcrlock=/var/lib/pcrlock.d/910-test70.pcrlock --pcr=16
 (! "$SD_PCRLOCK" make-policy --pcr="$PCRS")
-PIN=huhu "$SD_PCRLOCK" make-policy --pcr="$PCRS" --recovery-pin=yes
+PIN=huhu "$SD_PCRLOCK" make-policy --pcr="$PCRS" --recovery-pin=query
 
 systemd-cryptsetup attach pcrlock "$img" - tpm2-device=auto,tpm2-pcrlock=/var/lib/systemd/pcrlock.json,headless
 systemd-cryptsetup detach pcrlock
@@ -110,6 +110,10 @@ systemd-cryptsetup detach pcrlock
 # And now let's do it the clean way, and generate the right policy ahead of time.
 echo -n test70-take-two | "$SD_PCRLOCK" lock-raw --pcrlock=/var/lib/pcrlock.d/920-test70.pcrlock --pcr=16
 "$SD_PCRLOCK" make-policy --pcr="$PCRS"
+# the next one should be skipped because redundant
+"$SD_PCRLOCK" make-policy --pcr="$PCRS"
+# but this one should not be skipped, even if redundant, because we force it
+"$SD_PCRLOCK" make-policy --pcr="$PCRS" --force --recovery-pin=show
 
 "$SD_PCREXTEND" --pcr=16 test70-take-two
 
