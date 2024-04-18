@@ -68,6 +68,7 @@
 /* Mark a couple of iterator explicitly as iterators, otherwise Coccinelle gets a bit confused. Coccinelle
  * can usually infer this information automagically, but in these specific cases it needs a bit of help. */
 #define FOREACH_ARRAY(i, array, num) YACFE_ITERATOR
+#define FOREACH_ELEMENT(i, array) YACFE_ITERATOR
 #define FOREACH_DIRENT_ALL(de, d, on_error) YACFE_ITERATOR
 #define FOREACH_STRING(x, y, ...) YACFE_ITERATOR
 #define HASHMAP_FOREACH(e, h) YACFE_ITERATOR
