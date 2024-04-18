@@ -353,7 +353,7 @@ integration_tests = {
         '19': 'TEST-19-CGROUP',
         # '21': 'TEST-21-DFUZZER',
         '22': 'TEST-22-TMPFILES',
-        # '23': 'TEST-23-UNIT-FILE',
+        '23': 'TEST-23-UNIT-FILE',
         # '24': 'TEST-24-CRYPTSETUP',
         '25': 'TEST-25-IMPORT',
         '26': 'TEST-26-SYSTEMCTL',
