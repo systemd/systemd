@@ -354,10 +354,13 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = id128_from_string_nonzero(value, &arg_machine_id);
-                if (r < 0)
-                        log_warning_errno(r, "MachineID '%s' is not valid, ignoring: %m", value);
-
+                if (streq(value, "firmware")) {
+                        arg_machine_id = SD_ID128_FIRMWARE;
+                } else {
+                        r = id128_from_string_nonzero(value, &arg_machine_id);
+                        if (r < 0)
+                                log_warning_errno(r, "MachineID '%s' is not valid, ignoring: %m", value);
+                }
         } else if (proc_cmdline_key_streq(key, "systemd.default_timeout_start_sec")) {
 
                 if (proc_cmdline_value_missing(key, value))
