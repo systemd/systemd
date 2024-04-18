@@ -2255,9 +2255,9 @@ static EFI_STATUS initrd_prepare(
         assert(ret_initrd_size);
 
         if (entry->type != LOADER_LINUX || !entry->initrd) {
-                ret_options = NULL;
-                ret_initrd = NULL;
-                ret_initrd_size = 0;
+                *ret_options = NULL;
+                *ret_initrd = NULL;
+                *ret_initrd_size = 0;
                 return EFI_SUCCESS;
         }
 
