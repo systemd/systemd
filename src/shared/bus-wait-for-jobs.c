@@ -187,7 +187,7 @@ static void log_job_error_with_service_result(const char* service, const char *r
         }
 
         if (!isempty(result))
-                FOREACH_ARRAY(i, explanations, ELEMENTSOF(explanations))
+                FOREACH_ELEMENT(i, explanations)
                         if (streq(result, i->result)) {
                                 log_error("Job for %s failed because %s.\n"
                                           "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",

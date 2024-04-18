@@ -150,7 +150,7 @@ static int add_credential_gettys(void) {
         };
         int r;
 
-        FOREACH_ARRAY(t, table, ELEMENTSOF(table)) {
+        FOREACH_ELEMENT(t, table) {
                 _cleanup_free_ char *b = NULL;
                 size_t sz = 0;
 

@@ -157,7 +157,7 @@ int kmod_setup(void) {
                 return 0;
 
         _cleanup_(sym_kmod_unrefp) struct kmod_ctx *ctx = NULL;
-        FOREACH_ARRAY(kmod, kmod_table, ELEMENTSOF(kmod_table)) {
+        FOREACH_ELEMENT(kmod, kmod_table) {
                 if (kmod->path && access(kmod->path, F_OK) >= 0)
                         continue;
 

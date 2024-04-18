@@ -1756,7 +1756,7 @@ static int assess(const SecurityInfo *info,
                         (void) table_set_display(details_table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 7);
         }
 
-        FOREACH_ARRAY(a, security_assessor_table, ELEMENTSOF(security_assessor_table)) {
+        FOREACH_ELEMENT(a, security_assessor_table) {
                 _cleanup_free_ char *d = NULL;
                 uint64_t badness;
                 void *data;
