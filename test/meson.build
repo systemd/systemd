@@ -369,6 +369,7 @@ integration_tests = {
         '66': 'TEST-66-DEVICE-ISOLATION',
         '67': 'TEST-67-INTEGRITY',
         '68': 'TEST-68-PROPAGATE-EXIT-STATUS',
+        '71': 'TEST-71-HOSTNAME',
         '72': 'TEST-72-SYSUPDATE',
         '76': 'TEST-76-SYSCTL',
         '78': 'TEST-78-SIGQUEUE',
