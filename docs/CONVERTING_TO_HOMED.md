@@ -17,10 +17,10 @@ Below is a brief guide how to do that.
 
 Before continuing, please read up on these basic concepts:
 
-* [Home Directories](HOME_DIRECTORY)
-* [JSON User Records](USER_RECORD)
-* [JSON Group Records](GROUP_RECORD)
-* [User/Group Record Lookup API via Varlink](USER_GROUP_API)
+* [Home Directories](/HOME_DIRECTORY)
+* [JSON User Records](/USER_RECORD)
+* [JSON Group Records](/GROUP_RECORD)
+* [User/Group Record Lookup API via Varlink](/USER_GROUP_API)
 
 ## Caveat
 

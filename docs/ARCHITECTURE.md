@@ -112,7 +112,7 @@ Names of meson tests include the input file name and output looks awkward if the
 Fuzzers are invoked primarily in three ways:
 firstly, each fuzzer is compiled as a normal executable and executed for each of the input samples under `test/fuzz/` as part of the test suite.
 Secondly, fuzzers may be instrumented with sanitizers and invoked as part of the test suite (if `-Dfuzz-tests=true` is configured).
-Thirdly, fuzzers are executed through fuzzing engines that tryto find new "interesting" inputs through coverage feedback and massive parallelization; see the links for oss-fuzz in [Code quality](CODE_QUALITY).
+Thirdly, fuzzers are executed through fuzzing engines that tryto find new "interesting" inputs through coverage feedback and massive parallelization; see the links for oss-fuzz in [Code quality](/CODE_QUALITY).
 For testing and debugging, fuzzers can be executed as any other program, including under `valgrind` or `gdb`.
 
 ## Integration Tests
