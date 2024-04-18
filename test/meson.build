@@ -338,9 +338,38 @@ integration_test_wrapper = find_program('integration-test-wrapper.py')
 integration_tests = {
         '01': 'TEST-01-BASIC',
         '02': 'TEST-02-UNITTESTS',
+        '03': 'TEST-03-JOBS',
+        '05': 'TEST-05-RLIMITS',
+        '16': 'TEST-16-EXTEND-TIMEOUT',
+        '17': 'TEST-17-UDEV', # Can be flaky when overloaded if timeout abort test is slow
+        '19': 'TEST-19-CGROUP',
+        '25': 'TEST-25-IMPORT',
+        '26': 'TEST-26-SYSTEMCTL',
         '29': 'TEST-29-PORTABLE',
+        '30': 'TEST-30-ONCLOCKCHANGE',
+        '32': 'TEST-32-OOMPOLICY',
+        '34': 'TEST-34-DYNAMICUSERMIGRATE',
+        '36': 'TEST-36-NUMAPOLICY',
+        '38': 'TEST-38-FREEZER',
         '43': 'TEST-43-PRIVATEUSER-UNPRIV',
+        '44': 'TEST-44-LOG-NAMESPACE',
+        '45': 'TEST-45-TIMEDATE',
         '50': 'TEST-50-DISSECT',
+        # Can be flaky when overloaded if daemon-reload is too slow to be rate-limited
+        '59': 'TEST-59-RELOADING-RESTART',
+        '60': 'TEST-60-MOUNT-RATELIMIT',
+        '62': 'TEST-62-RESTRICT-IFACES',
+        '63': 'TEST-63-PATH',
+        '66': 'TEST-66-DEVICE-ISOLATION',
+        '67': 'TEST-67-INTEGRITY',
+        '68': 'TEST-68-PROPAGATE-EXIT-STATUS',
+        '72': 'TEST-72-SYSUPDATE',
+        '76': 'TEST-76-SYSCTL',
+        '78': 'TEST-78-SIGQUEUE',
+        '79': 'TEST-79-MEMPRESS',
+        '80': 'TEST-80-NOTIFYACCESS',
+        '81': 'TEST-81-GENERATORS',
+        '84': 'TEST-84-STORAGETM',
 }
 foreach test_number, dirname : integration_tests
         test_params = {
