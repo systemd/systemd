@@ -28,6 +28,7 @@ blk="$(mktemp)"
 dd if=/dev/zero of="$blk" bs=1M count=1
 loopdev="$(losetup --show -f "$blk")"
 
+udevadm
 udevadm -h
 
 udevadm control -e
@@ -149,6 +150,7 @@ udevadm test-builtin keyboard /dev/null
 udevadm test-builtin uaccess /dev/null
 # udevadm test-builtin usb_id dev/null
 (! udevadm test-builtin hello /sys/class/net/$netdev)
+systemd-hwdb
 # systemd-hwdb update is extremely slow when combined with sanitizers and run
 # in a VM without acceleration, so let's just skip the one particular test
 # if we detect this combination
