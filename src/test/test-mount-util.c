@@ -305,7 +305,7 @@ TEST(make_mount_switch_root) {
                 { "/", true  },
         };
 
-        FOREACH_ARRAY(i, table, ELEMENTSOF(table)) {
+        FOREACH_ARRAY_ELEMENT(i, table) {
                 r = safe_fork("(switch-root)",
                               FORK_RESET_SIGNALS |
                               FORK_CLOSE_ALL_FDS |
@@ -358,7 +358,7 @@ TEST(umount_recursive) {
 
         int r;
 
-        FOREACH_ARRAY(t, test_table, ELEMENTSOF(test_table)) {
+        FOREACH_ARRAY_ELEMENT(t, test_table) {
 
                 r = safe_fork("(umount-rec)",
                               FORK_RESET_SIGNALS |

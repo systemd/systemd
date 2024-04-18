@@ -4135,7 +4135,7 @@ static const struct {
 static int tpm2_ecc_curve_from_openssl_curve_id(int openssl_ecc_curve_id, TPM2_ECC_CURVE *ret) {
         assert(ret);
 
-        FOREACH_ARRAY(t, tpm2_openssl_ecc_curve_table, ELEMENTSOF(tpm2_openssl_ecc_curve_table))
+        FOREACH_ARRAY_ELEMENT(t, tpm2_openssl_ecc_curve_table)
                 if (t->openssl_ecc_curve_id == openssl_ecc_curve_id) {
                         *ret = t->tpm2_ecc_curve_id;
                         return 0;
@@ -4148,7 +4148,7 @@ static int tpm2_ecc_curve_from_openssl_curve_id(int openssl_ecc_curve_id, TPM2_E
 static int tpm2_ecc_curve_to_openssl_curve_id(TPM2_ECC_CURVE tpm2_ecc_curve_id, int *ret) {
         assert(ret);
 
-        FOREACH_ARRAY(t, tpm2_openssl_ecc_curve_table, ELEMENTSOF(tpm2_openssl_ecc_curve_table))
+        FOREACH_ARRAY_ELEMENT(t, tpm2_openssl_ecc_curve_table)
                 if (t->tpm2_ecc_curve_id == tpm2_ecc_curve_id) {
                         *ret = t->openssl_ecc_curve_id;
                         return 0;

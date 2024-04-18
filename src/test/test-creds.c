@@ -243,7 +243,7 @@ TEST(mime_type_matches) {
         };
 
         /* Generates the right <match/> expressions for these credentials according to the shared mime-info spec */
-        FOREACH_ARRAY(t, tags, ELEMENTSOF(tags)) {
+        FOREACH_ARRAY_ELEMENT(t, tags) {
                 _cleanup_free_ char *encoded = NULL;
 
                 assert_se(base64mem(t, sizeof(sd_id128_t), &encoded) >= 0);

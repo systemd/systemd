@@ -1266,7 +1266,7 @@ static void check_seal_unseal(Tpm2Context *c) {
         check_seal_unseal_for_handle(c, 0);
         check_seal_unseal_for_handle(c, TPM2_SRK_HANDLE);
 
-        FOREACH_ARRAY(template, test_templates, ELEMENTSOF(test_templates)) {
+        FOREACH_ARRAY_ELEMENT(template, test_templates) {
                 TPM2B_PUBLIC public = {
                         .publicArea = **template,
                         .size = sizeof(**template),

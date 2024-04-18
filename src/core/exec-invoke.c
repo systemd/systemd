@@ -3717,7 +3717,7 @@ static int connect_unix_harder(const ExecContext *c, const ExecParameters *p, co
                 return log_exec_error_errno(c, p, r, "Failed to set sockaddr for '%s': %m", of->path);
         sa_len = r;
 
-        FOREACH_ARRAY(i, socket_types, ELEMENTSOF(socket_types)) {
+        FOREACH_ARRAY_ELEMENT(i, socket_types) {
                 _cleanup_close_ int fd = -EBADF;
 
                 fd = socket(AF_UNIX, *i|SOCK_CLOEXEC, 0);
