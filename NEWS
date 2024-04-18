@@ -461,19 +461,7 @@ CHANGES WITH 256-rc1:
 
         * confexts are loaded by systemd-stub from the ESP as well.
 
-        * The pcrlock policy is saved in an unencrypted credential file
-          "pcrlock.<entry-token>.cred" under XBOOTLDR/ESP in the
-          /loader/credentials/ directory. It will be picked up at boot by
-          systemd-stub and passed to the initrd, where it can be used to unlock
-          the root file system.
-
         * kernel-install gained support for --root= for the 'list' verb.
-
-        * systemd-pcrlock gained an --entry-token= option to configure the
-          entry-token.
-
-        * systemd-pcrlock now provides a basic Varlink interface and can be run
-          as a daemon via a template unit.
 
         * bootctl now provides a basic Varlink interface and can be run as a
           daemon via a template unit.
@@ -497,6 +485,30 @@ CHANGES WITH 256-rc1:
         * systemd-boot's automatic SecureBoot enrollment support gained support
           for enrolling "dbx" too (Previously, only db/KEK/PK enrollment was
           supported). It also now supports UEFI "Custom" mode.
+
+        * The pcrlock policy is saved in an unencrypted credential file
+          "pcrlock.<entry-token>.cred" under XBOOTLDR/ESP in the
+          /loader/credentials/ directory. It will be picked up at boot by
+          systemd-stub and passed to the initrd, where it can be used to unlock
+          the root file system.
+
+        * systemd-pcrlock gained an --entry-token= option to configure the
+          entry-token.
+
+        * systemd-pcrlock now provides a basic Varlink interface and can be run
+          as a daemon via a template unit.
+
+        * systemd-pcrlock's TPM nvindex access policy has been modified, this
+          means that previous pcrlock policies stored in nvindexes are
+          invalidated. They must be removed (systemd-pcrlock remove-policy) and
+          recreated (systemd-pcrlock make-policy). For the time being
+          systemd-pcrlock remains an experimental feature, but it is expected
+          to become stable in the next release, i.e. v257.
+
+        * systemd-pcrlock's --recovery-pin= switch now takes three values:
+          "hide", "show", "query". If "show" is selected the automatically
+          generated recovery PIN is shown to the user. If "query" is selected
+          then the PIN is queried from the user.
 
         systemd-run/run0:
 
