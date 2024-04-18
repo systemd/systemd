@@ -604,6 +604,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .duid_product_uuid.type = DUID_TYPE_UUID,
                 .dhcp_server_persist_leases = true,
                 .ip_forwarding = { -1, -1, },
+                .sysctls = hashmap_new(&path_hash_ops_free_free),
         };
 
         *ret = TAKE_PTR(m);
@@ -620,6 +621,10 @@ Manager* manager_free(Manager *m) {
 
         HASHMAP_FOREACH(link, m->links_by_index)
                 (void) link_stop_engines(link, true);
+
+        FOREACH_ARRAY(sysctl_event_source, m->sysctl_event_sources, ELEMENTSOF(m->sysctl_event_sources))
+                sd_event_source_disable_unref(*sysctl_event_source);
+        hashmap_free(m->sysctls);
 
         m->request_queue = ordered_set_free(m->request_queue);
         m->remove_request_queue = ordered_set_free(m->remove_request_queue);
