@@ -3698,13 +3698,15 @@ static void manager_notify_finished(Manager *m) {
         if (MANAGER_IS_SYSTEM(m) && m->soft_reboots_count > 0) {
                 /* The soft-reboot case, where we only report data for the last reboot */
                 firmware_usec = loader_usec = initrd_usec = kernel_usec = 0;
-                total_usec = userspace_usec = usec_sub_unsigned(m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic, m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_START].monotonic);
+                total_usec = userspace_usec = usec_sub_unsigned(m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic,
+                                                                m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_START].monotonic);
 
                 log_struct(LOG_INFO,
                            "MESSAGE_ID=" SD_MESSAGE_STARTUP_FINISHED_STR,
                            "USERSPACE_USEC="USEC_FMT, userspace_usec,
-                           LOG_MESSAGE("Soft-reboot finished in %s.",
-                                       FORMAT_TIMESPAN(total_usec, USEC_PER_MSEC)));
+                           LOG_MESSAGE("Soft-reboot finished in %s, counter is now at %u.",
+                                       FORMAT_TIMESPAN(total_usec, USEC_PER_MSEC),
+                                       m->soft_reboots_count));
         } else if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0) {
                 char buf[FORMAT_TIMESPAN_MAX + STRLEN(" (firmware) + ") + FORMAT_TIMESPAN_MAX + STRLEN(" (loader) + ")]
                         = {};
