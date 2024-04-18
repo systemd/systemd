@@ -25,7 +25,7 @@ mount --mkdir --rbind "$PWD/pkg/$ID" "pkg/$ID/src/"
 # on the makepkg command line so we append to /etc/makepkg.conf instead. The rootfs is overlaid with a
 # writable tmpfs during the build script so these changes don't end up in the image itself.
 tee --append /etc/makepkg.conf >/dev/null <<EOF
-CFLAGS="$CFLAGS -O0 -Wp,-U_FORTIFY_SOURCE,-D_FORTIFY_SOURCE=0"
+CFLAGS="$CFLAGS -O0 -Wp,-U_FORTIFY_SOURCE"
 OPTIONS=(
     docs
     !libtool
