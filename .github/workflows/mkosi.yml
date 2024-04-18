@@ -84,6 +84,7 @@ jobs:
         sudo mv /usr/local /usr/local.trash
         sudo mv /opt/hostedtoolcache /opt/hostedtoolcache.trash
         sudo systemd-run rm -rf /usr/local.trash /opt/hostedtoolcache.trash
+        sudo mkdir -p /usr/local/bin
 
     - name: Configure
       run: |
@@ -101,8 +102,6 @@ jobs:
         ToolsTreeDistribution=fedora
         QemuVsock=yes
         QemuKvm=yes
-        # TODO: Drop once https://bugs.launchpad.net/ubuntu/+source/linux/+bug/2038777 is fixed in Github Actions
-        QemuFirmware=uefi
         Ephemeral=yes
         EOF
 
@@ -141,6 +140,11 @@ jobs:
 
     - name: Build
       run: mkosi --debug
+
+    - name: Setup upterm session
+      uses: lhotari/action-upterm@v1
+      with:
+        limit-access-to-actor: true
 
     - name: Boot systemd-nspawn
       run: test "$(sudo mkosi --debug boot 1>&2; echo $?)" -eq 123
