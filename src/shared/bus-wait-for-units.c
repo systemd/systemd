@@ -18,7 +18,7 @@ typedef struct WaitForItem {
         sd_bus_slot *slot_get_all;
         sd_bus_slot *slot_properties_changed;
 
-        bus_wait_for_units_unit_callback unit_callback;
+        bus_wait_for_units_unit_callback_t unit_callback;
         void *userdata;
 
         char *active_state;
@@ -31,11 +31,6 @@ typedef struct BusWaitForUnits {
         sd_bus_slot *slot_disconnected;
 
         Hashmap *items;
-
-        bus_wait_for_units_ready_callback ready_callback;
-        void *userdata;
-
-        WaitForItem *current;
 
         BusWaitForUnitsState state;
         bool has_failed:1;
@@ -64,9 +59,6 @@ static WaitForItem *wait_for_item_free(WaitForItem *item) {
                 }
 
                 assert_se(hashmap_remove_value(item->parent->items, item->bus_path, item));
-
-                if (item->parent->current == item)
-                        item->parent->current = NULL;
         }
 
         sd_bus_slot_unref(item->slot_properties_changed);
@@ -82,8 +74,6 @@ static WaitForItem *wait_for_item_free(WaitForItem *item) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(WaitForItem*, wait_for_item_free);
 
 static void call_unit_callback_and_wait(BusWaitForUnits *d, WaitForItem *item, bool good) {
-        d->current = item;
-
         if (item->unit_callback)
                 item->unit_callback(d, item->bus_path, good, item->userdata);
 
@@ -112,11 +102,7 @@ static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *e
         log_warning("D-Bus connection terminated while waiting for unit.");
 
         bus_wait_for_units_clear(d);
-
-        if (d->ready_callback)
-                d->ready_callback(d, BUS_WAIT_FAILURE, d->userdata);
-        else /* If no ready callback is specified close the connection so that the event loop exits */
-                sd_bus_close(sd_bus_message_get_bus(m));
+        sd_bus_close(sd_bus_message_get_bus(m));
 
         return 0;
 }
@@ -172,13 +158,6 @@ static bool bus_wait_for_units_is_ready(BusWaitForUnits *d) {
         return hashmap_isempty(d->items);
 }
 
-void bus_wait_for_units_set_ready_callback(BusWaitForUnits *d, bus_wait_for_units_ready_callback callback, void *userdata) {
-        assert(d);
-
-        d->ready_callback = callback;
-        d->userdata = userdata;
-}
-
 static void bus_wait_for_units_check_ready(BusWaitForUnits *d) {
         assert(d);
 
@@ -186,9 +165,6 @@ static void bus_wait_for_units_check_ready(BusWaitForUnits *d) {
                 return;
 
         d->state = d->has_failed ? BUS_WAIT_FAILURE : BUS_WAIT_SUCCESS;
-
-        if (d->ready_callback)
-                d->ready_callback(d, d->state, d->userdata);
 }
 
 static void wait_for_item_check_ready(WaitForItem *item) {
@@ -221,32 +197,26 @@ static void wait_for_item_check_ready(WaitForItem *item) {
         bus_wait_for_units_check_ready(d);
 }
 
-static int property_map_job(
+static int property_map_job_id(
                 sd_bus *bus,
                 const char *member,
                 sd_bus_message *m,
                 sd_bus_error *error,
                 void *userdata) {
 
-        WaitForItem *item = ASSERT_PTR(userdata);
-        const char *path;
-        uint32_t id;
-        int r;
+        uint32_t *job_id = ASSERT_PTR(userdata);
 
-        r = sd_bus_message_read(m, "(uo)", &id, &path);
-        if (r < 0)
-                return r;
+        assert(m);
 
-        item->job_id = id;
-        return 0;
+        return sd_bus_message_read(m, "(uo)", job_id, /* path = */ NULL);
 }
 
 static int wait_for_item_parse_properties(WaitForItem *item, sd_bus_message *m) {
 
         static const struct bus_properties_map map[] = {
-                { "ActiveState", "s",    NULL,             offsetof(WaitForItem, active_state) },
-                { "Job",         "(uo)", property_map_job, 0                                   },
-                { "CleanResult", "s",    NULL,             offsetof(WaitForItem, clean_result) },
+                { "ActiveState", "s",    NULL,                offsetof(WaitForItem, active_state) },
+                { "Job",         "(uo)", property_map_job_id, offsetof(WaitForItem, job_id)       },
+                { "CleanResult", "s",    NULL,                offsetof(WaitForItem, clean_result) },
                 {}
         };
 
@@ -315,20 +285,23 @@ int bus_wait_for_units_add_unit(
                 BusWaitForUnits *d,
                 const char *unit,
                 BusWaitForUnitsFlags flags,
-                bus_wait_for_units_unit_callback callback,
+                bus_wait_for_units_unit_callback_t callback,
                 void *userdata) {
 
         _cleanup_(wait_for_item_freep) WaitForItem *item = NULL;
+        _cleanup_free_ char *bus_path = NULL;
         int r;
 
         assert(d);
         assert(unit);
+        assert((flags & _BUS_WAIT_FOR_TARGET) != 0);
 
-        assert(flags != 0);
+        bus_path = unit_dbus_path_from_name(unit);
+        if (!bus_path)
+                return -ENOMEM;
 
-        r = hashmap_ensure_allocated(&d->items, &string_hash_ops);
-        if (r < 0)
-                return r;
+        if (hashmap_contains(d->items, bus_path))
+                return 0;
 
         item = new(WaitForItem, 1);
         if (!item)
@@ -336,14 +309,11 @@ int bus_wait_for_units_add_unit(
 
         *item = (WaitForItem) {
                 .flags = flags,
-                .bus_path = unit_dbus_path_from_name(unit),
+                .bus_path = TAKE_PTR(bus_path),
                 .unit_callback = callback,
                 .userdata = userdata,
                 .job_id = UINT32_MAX,
         };
-
-        if (!item->bus_path)
-                return -ENOMEM;
 
         if (!FLAGS_SET(item->flags, BUS_WAIT_REFFED)) {
                 r = sd_bus_call_method_async(
@@ -388,14 +358,16 @@ int bus_wait_for_units_add_unit(
         if (r < 0)
                 return log_debug_errno(r, "Failed to request properties of unit %s: %m", unit);
 
-        r = hashmap_put(d->items, item->bus_path, item);
+        r = hashmap_ensure_put(&d->items, &string_hash_ops, item->bus_path, item);
         if (r < 0)
                 return r;
+        assert(r > 0);
 
         d->state = BUS_WAIT_RUNNING;
         item->parent = d;
         TAKE_PTR(item);
-        return 0;
+
+        return 1;
 }
 
 int bus_wait_for_units_run(BusWaitForUnits *d) {
