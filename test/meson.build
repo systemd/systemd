@@ -362,6 +362,7 @@ if get_option('integration-tests')
                 '59': 'TEST-59-RELOADING-RESTART',
                 '60': 'TEST-60-MOUNT-RATELIMIT',
                 '62': 'TEST-62-RESTRICT-IFACES',
+                '63': 'TEST-63-PATH',
         }
         foreach test_number, dirname : integration_tests
                 test_params = {
