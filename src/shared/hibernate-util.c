@@ -23,6 +23,7 @@
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -128,6 +129,13 @@ static int read_resume_config(dev_t *ret_devno, uint64_t *ret_offset) {
 
         assert(ret_devno);
         assert(ret_offset);
+
+        r = proc_cmdline_get_key("noresume", /* flags = */ 0, /* ret_value = */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check if 'noresume' kernel command line option is set: %m");
+        if (r > 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "'noresume' kernel command line option is set, refusing hibernation device lookup.");
 
         r = read_one_line_file("/sys/power/resume", &devno_str);
         if (r < 0)

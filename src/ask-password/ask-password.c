@@ -234,10 +234,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        if (arg_timeout > 0)
-                timeout = usec_add(now(CLOCK_MONOTONIC), arg_timeout);
-        else
-                timeout = 0;
+        timeout = arg_timeout > 0 ? usec_add(now(CLOCK_MONOTONIC), arg_timeout) : 0;
 
         AskPasswordRequest req = {
                 .message = arg_message,

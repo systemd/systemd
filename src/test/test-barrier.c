@@ -30,7 +30,7 @@ static void set_alarm(usec_t usecs) {
         struct itimerval v = { };
 
         timeval_store(&v.it_value, usecs);
-        assert_se(setitimer(ITIMER_REAL, &v, NULL) >= 0);
+        ASSERT_OK(setitimer(ITIMER_REAL, &v, NULL));
 }
 
 #define TEST_BARRIER(_FUNCTION, _CHILD_CODE, _WAIT_CHILD, _PARENT_CODE, _WAIT_PARENT)  \
@@ -38,14 +38,14 @@ static void set_alarm(usec_t usecs) {
                 Barrier b = BARRIER_NULL;                               \
                 pid_t pid1, pid2;                                       \
                                                                         \
-                assert_se(barrier_create(&b) >= 0);                     \
-                assert_se(b.me > 0);                                    \
-                assert_se(b.them > 0);                                  \
-                assert_se(b.pipe[0] > 0);                               \
-                assert_se(b.pipe[1] > 0);                               \
+                ASSERT_OK(barrier_create(&b));                          \
+                ASSERT_GT(b.me, 0);                                     \
+                ASSERT_GT(b.them, 0);                                   \
+                ASSERT_GT(b.pipe[0], 0);                                \
+                ASSERT_GT(b.pipe[1], 0);                                \
                                                                         \
                 pid1 = fork();                                          \
-                assert_se(pid1 >= 0);                                   \
+                ASSERT_OK(pid1);                                        \
                 if (pid1 == 0) {                                        \
                         barrier_set_role(&b, BARRIER_CHILD);            \
                         { _CHILD_CODE; }                                \
@@ -53,7 +53,7 @@ static void set_alarm(usec_t usecs) {
                 }                                                       \
                                                                         \
                 pid2 = fork();                                          \
-                assert_se(pid2 >= 0);                                   \
+                ASSERT_OK(pid2);                                        \
                 if (pid2 == 0) {                                        \
                         barrier_set_role(&b, BARRIER_PARENT);           \
                         { _PARENT_CODE; }                               \
@@ -71,16 +71,16 @@ static void set_alarm(usec_t usecs) {
                 ({                                                      \
                         int pidr, status;                               \
                         pidr = waitpid(_pid, &status, 0);               \
-                        assert_se(pidr == _pid);                        \
+                        ASSERT_EQ(pidr, _pid);                          \
                         assert_se(WIFEXITED(status));                   \
-                        assert_se(WEXITSTATUS(status) == 42);           \
+                        ASSERT_EQ(WEXITSTATUS(status), 42);             \
                 })
 
 #define TEST_BARRIER_WAIT_ALARM(_pid) \
                 ({                                                      \
                         int pidr, status;                               \
                         pidr = waitpid(_pid, &status, 0);               \
-                        assert_se(pidr == _pid);                        \
+                        ASSERT_EQ(pidr, _pid);                          \
                         assert_se(WIFSIGNALED(status));                 \
                         assert_se(WTERMSIG(status) == SIGALRM);         \
                 })

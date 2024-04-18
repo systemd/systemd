@@ -2553,7 +2553,7 @@ static int can_resize_fs(int fd, uint64_t old_size, uint64_t new_size) {
 
                 /* btrfs can grow and shrink online */
 
-        } else if (is_fs_type(&sfs, XFS_SB_MAGIC)) {
+        } else if (is_fs_type(&sfs, XFS_SUPER_MAGIC)) {
 
                 if (new_size < XFS_MINIMAL_SIZE)
                         return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "New file system size too small for xfs (needs to be 14M at least).");
@@ -2616,7 +2616,7 @@ static int ext4_offline_resize_fs(
                 return r;
         if (r == 0) {
                 /* Child */
-                execlp("e2fsck" ,"e2fsck", "-fp", setup->dm_node, NULL);
+                execlp("e2fsck", "e2fsck", "-fp", setup->dm_node, NULL);
                 log_open();
                 log_error_errno(errno, "Failed to execute e2fsck: %m");
                 _exit(EXIT_FAILURE);
@@ -2648,7 +2648,7 @@ static int ext4_offline_resize_fs(
                 return r;
         if (r == 0) {
                 /* Child */
-                execlp("resize2fs" ,"resize2fs", setup->dm_node, size_str, NULL);
+                execlp("resize2fs", "resize2fs", setup->dm_node, size_str, NULL);
                 log_open();
                 log_error_errno(errno, "Failed to execute resize2fs: %m");
                 _exit(EXIT_FAILURE);

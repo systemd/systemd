@@ -772,6 +772,7 @@ static int method_generic_unit_operation(
 
         assert(message);
         assert(m);
+        assert(handler);
 
         /* Read the first argument from the command and pass the operation to the specified per-unit
          * method. */
@@ -947,9 +948,10 @@ static int method_list_units_by_names(sd_bus_message *message, void *userdata, s
 }
 
 static int method_get_unit_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        /* Don't load a unit (since it won't have any processes if it's not loaded), but don't insist on the
-         * unit being loaded (because even improperly loaded units might still have processes around */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_get_processes, 0);
+        /* Don't load a unit actively (since it won't have any processes if it's not loaded), but don't
+         * insist on the unit being loaded either (because even improperly loaded units might still have
+         * processes around). */
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_get_processes, /* flags = */ 0);
 }
 
 static int method_attach_processes_to_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -3050,7 +3052,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         BUS_PROPERTY_DUAL_TIMESTAMP("InitRDTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_INITRD]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("UserspaceTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_USERSPACE]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("FinishTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_FINISH]), SD_BUS_VTABLE_PROPERTY_CONST),
-        BUS_PROPERTY_DUAL_TIMESTAMP("SoftRebootStartTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_SOFTREBOOT_START]), SD_BUS_VTABLE_PROPERTY_CONST),
+        BUS_PROPERTY_DUAL_TIMESTAMP("ShutdownStartTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_SHUTDOWN_START]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("SecurityStartTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_SECURITY_START]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("SecurityFinishTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_SECURITY_FINISH]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("GeneratorsStartTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_GENERATORS_START]), SD_BUS_VTABLE_PROPERTY_CONST),

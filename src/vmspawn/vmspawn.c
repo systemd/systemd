@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h>
+#include <linux/if.h>
 #include <getopt.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -8,26 +10,26 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "bootspec.h"
-#include "chase.h"
-#include "dirent-util.h"
-#include "fd-util.h"
-#include "discover-image.h"
-#include "pidref.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "bootspec.h"
 #include "build.h"
+#include "chase.h"
 #include "common-signal.h"
 #include "copy.h"
 #include "creds-util.h"
+#include "dirent-util.h"
+#include "discover-image.h"
 #include "dissect-image.h"
 #include "escape.h"
+#include "ether-addr-util.h"
 #include "event-util.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -41,11 +43,13 @@
 #include "macro.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "netif-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ptyfwd.h"
@@ -64,6 +68,8 @@
 #include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
+
+#define VM_TAP_HASH_KEY SD_ID128_MAKE(01,d0,c6,4c,2b,df,24,fb,c0,f8,b2,09,7d,59,b2,93)
 
 static bool arg_quiet = false;
 static PagerFlags arg_pager_flags = 0;
@@ -97,6 +103,8 @@ static char **arg_extra_drives = NULL;
 static char *arg_background = NULL;
 static bool arg_pass_ssh_key = true;
 static char *arg_ssh_key_type = NULL;
+static bool arg_discard_disk = true;
+struct ether_addr arg_network_provided_mac = {};
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -146,6 +154,7 @@ static int help(void) {
                "     --network-user-mode   Use user mode networking\n"
                "     --secure-boot=BOOL    Enable searching for firmware supporting SecureBoot\n"
                "     --firmware=PATH|list  Select firmware definition file (or list available)\n"
+               "     --discard-disk=BOOL   Control processing of discard requests\n"
                "\n%3$sSystem Identity:%4$s\n"
                "  -M --machine=NAME        Set the machine name for the VM\n"
                "     --uuid=UUID           Set a specific machine UUID for the VM\n"
@@ -186,6 +195,20 @@ static int help(void) {
         return 0;
 }
 
+static int parse_environment(void) {
+        const char *e;
+        int r;
+
+        e = getenv("SYSTEMD_VMSPAWN_NETWORK_MAC");
+        if (e) {
+                r = parse_ether_addr(e, &arg_network_provided_mac);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse provided MAC address via environment variable");
+        }
+
+        return 0;
+}
+
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
@@ -213,6 +236,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
                 ARG_FIRMWARE,
+                ARG_DISCARD_DISK,
                 ARG_CONSOLE,
                 ARG_BACKGROUND,
         };
@@ -254,6 +278,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "set-credential",    required_argument, NULL, ARG_SET_CREDENTIAL    },
                 { "load-credential",   required_argument, NULL, ARG_LOAD_CREDENTIAL   },
                 { "firmware",          required_argument, NULL, ARG_FIRMWARE          },
+                { "discard-disk",      required_argument, NULL, ARG_DISCARD_DISK      },
                 { "background",        required_argument, NULL, ARG_BACKGROUND        },
                 {}
         };
@@ -405,13 +430,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_REGISTER:
-                        r = parse_boolean(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse --register= argument: %s", optarg);
+                        r = parse_boolean_argument("--register=", optarg, &arg_register);
+                        if (r < 0)
                                 return r;
-                        }
-
-                        arg_register = r;
                         break;
 
                 case ARG_BIND:
@@ -455,11 +476,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PASS_SSH_KEY:
-                        r = parse_boolean(optarg);
+                        r = parse_boolean_argument("--pass-ssh-key=", optarg, &arg_pass_ssh_key);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --pass-ssh-key= argument: %s", optarg);
-
-                        arg_pass_ssh_key = r;
+                                return r;
                         break;
 
                 case ARG_SSH_KEY_TYPE:
@@ -511,6 +530,12 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                case ARG_DISCARD_DISK:
+                        r = parse_boolean_argument("--discard-disk=", optarg, &arg_discard_disk);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_BACKGROUND:
@@ -1129,6 +1154,7 @@ static void set_window_title(PTYForward *f) {
         if (dot)
                 (void) pty_forward_set_title_prefix(f, dot);
 }
+
 static int generate_ssh_keypair(const char *key_path, const char *key_type) {
         _cleanup_free_ char *ssh_keygen = NULL;
         _cleanup_strv_free_ char **cmdline = NULL;
@@ -1258,7 +1284,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 "-smp", arg_cpus ?: "1",
                 "-m", mem,
                 "-object", "rng-random,filename=/dev/urandom,id=rng0",
-                "-device", "virtio-rng-pci,rng=rng0,id=rng-device0"
+                "-device", "virtio-rng-pci,rng=rng0,id=rng-device0",
+                "-device", "virtio-balloon,free-page-reporting=on"
         );
         if (!cmdline)
                 return log_oom();
@@ -1281,9 +1308,31 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        if (arg_network_stack == NETWORK_STACK_TAP)
-                r = strv_extend_many(&cmdline, "-nic", "tap,script=no,model=virtio-net-pci");
-        else if (arg_network_stack == NETWORK_STACK_USER)
+        if (arg_network_stack == NETWORK_STACK_TAP) {
+                _cleanup_free_ char *tap_name = NULL;
+                struct ether_addr mac_vm = {};
+
+                tap_name = strjoin("tp-", arg_machine);
+                if (!tap_name)
+                        return log_oom();
+
+                (void) net_shorten_ifname(tap_name, /* check_naming_scheme= */ false);
+
+                if (ether_addr_is_null(&arg_network_provided_mac)){
+                        r = net_generate_mac(arg_machine, &mac_vm, VM_TAP_HASH_KEY, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate predictable MAC address for VM side: %m");
+                } else
+                        mac_vm = arg_network_provided_mac;
+
+                r = strv_extend(&cmdline, "-nic");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "tap,ifname=%s,script=no,model=virtio-net-pci,mac=%s", tap_name, ETHER_ADDR_TO_STR(&mac_vm));
+                if (r < 0)
+                        return log_oom();
+        } else if (arg_network_stack == NETWORK_STACK_USER)
                 r = strv_extend_many(&cmdline, "-nic", "user,model=virtio-net-pci");
         else
                 r = strv_extend_many(&cmdline, "-nic", "none");
@@ -1538,7 +1587,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!escaped_image)
                         log_oom();
 
-                r = strv_extendf(&cmdline, "if=none,id=mkosi,file=%s,format=raw", escaped_image);
+                r = strv_extendf(&cmdline, "if=none,id=mkosi,file=%s,format=raw,discard=%s", escaped_image, on_off(arg_discard_disk));
                 if (r < 0)
                         return log_oom();
 
@@ -2007,6 +2056,10 @@ static int run(int argc, char *argv[]) {
 
         /* don't attempt to register as a machine when running as a user */
         arg_register = arg_privileged;
+
+        r = parse_environment();
+        if (r < 0)
+                return r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)

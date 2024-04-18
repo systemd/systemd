@@ -456,6 +456,11 @@ int exec_spawn(Unit *unit,
                         environ,
                         cg_unified() > 0 ? subcgroup_path : NULL,
                         &pidref);
+        if (r == -EUCLEAN && subcgroup_path)
+                return log_unit_error_errno(unit, r,
+                                            "Failed to spawn process into cgroup '%s', because the cgroup "
+                                            "or one of its parents or siblings is in the threaded mode.",
+                                            subcgroup_path);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to spawn executor: %m");
         /* We add the new process to the cgroup both in the child (so that we can be sure that no user code is ever
@@ -672,13 +677,19 @@ void exec_command_done_array(ExecCommand *c, size_t n) {
                 exec_command_done(i);
 }
 
+ExecCommand* exec_command_free(ExecCommand *c) {
+        if (!c)
+                return NULL;
+
+        exec_command_done(c);
+        return mfree(c);
+}
+
 ExecCommand* exec_command_free_list(ExecCommand *c) {
         ExecCommand *i;
 
-        while ((i = LIST_POP(command, c))) {
-                exec_command_done(i);
-                free(i);
-        }
+        while ((i = LIST_POP(command, c)))
+                exec_command_free(i);
 
         return NULL;
 }

@@ -197,8 +197,14 @@ int address_acquire_from_dhcp_server_leases_file(Link *link, const Address *addr
                         lease_file,
                         &a,
                         &prefixlen);
-        if (r < 0)
+        if (r == -ENOENT)
                 return r;
+        if (r < 0)
+                return log_warning_errno(r, "Failed to load lease file %s: %s",
+                                         lease_file,
+                                         r == -ENXIO ? "expected JSON content not found" :
+                                         r == -EINVAL ? "invalid JSON" :
+                                         STRERROR(r));
 
         if (prefixlen != address->prefixlen)
                 return -ENOENT;

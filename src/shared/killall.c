@@ -116,18 +116,18 @@ static bool ignore_proc(const PidRef *pid, bool warn_rootfs) {
         return true;
 }
 
-static void log_children_no_yet_killed(Set *pids) {
+static void log_children_not_yet_killed(Set *pids) {
         _cleanup_free_ char *lst_child = NULL;
-        void *p;
         int r;
 
+        void *p;
         SET_FOREACH(p, pids) {
                 _cleanup_free_ char *s = NULL;
 
                 if (pid_get_comm(PTR_TO_PID(p), &s) >= 0)
-                        r = strextendf(&lst_child, ", " PID_FMT " (%s)", PTR_TO_PID(p), s);
+                        r = strextendf_with_separator(&lst_child, ", ", PID_FMT " (%s)", PTR_TO_PID(p), s);
                 else
-                        r = strextendf(&lst_child, ", " PID_FMT, PTR_TO_PID(p));
+                        r = strextendf_with_separator(&lst_child, ", ", PID_FMT, PTR_TO_PID(p));
                 if (r < 0)
                         return (void) log_oom_warning();
         }
@@ -135,7 +135,7 @@ static void log_children_no_yet_killed(Set *pids) {
         if (isempty(lst_child))
                 return;
 
-        log_warning("Waiting for process: %s", lst_child + 2);
+        log_warning("Waiting for process: %s", lst_child);
 }
 
 static int wait_for_children(Set *pids, sigset_t *mask, usec_t timeout) {
@@ -200,7 +200,7 @@ static int wait_for_children(Set *pids, sigset_t *mask, usec_t timeout) {
 
                 n = now(CLOCK_MONOTONIC);
                 if (date_log_child > 0 && n >= date_log_child) {
-                        log_children_no_yet_killed(pids);
+                        log_children_not_yet_killed(pids);
                         /* Log the children not yet killed only once */
                         date_log_child = 0;
                 }
@@ -234,14 +234,14 @@ static int killall(int sig, Set *pids, bool send_sighup) {
 
         r = proc_dir_open(&dir);
         if (r < 0)
-                return log_warning_errno(r, "opendir(/proc) failed: %m");
+                return log_warning_errno(r, "Failed to open /proc/: %m");
 
         for (;;) {
                 _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
                 r = proc_dir_read_pidref(dir, &pidref);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to enumerate /proc: %m");
+                        return log_warning_errno(r, "Failed to enumerate /proc/: %m");
                 if (r == 0)
                         break;
 

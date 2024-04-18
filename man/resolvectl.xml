@@ -278,7 +278,7 @@
 
       <varlistentry>
         <term><option>-i</option> <replaceable>INTERFACE</replaceable></term>
-        <term><option>--interface=</option><replaceable>INTERFACE</replaceable></term>
+        <term><option>--interface=<replaceable>INTERFACE</replaceable></option></term>
 
         <listitem><para>Specifies the network interface to execute the query on. This may either be specified as numeric
         interface index or as network interface string (e.g. <literal>en0</literal>). Note that this option has no
@@ -290,7 +290,7 @@
 
       <varlistentry>
         <term><option>-p</option> <replaceable>PROTOCOL</replaceable></term>
-        <term><option>--protocol=</option><replaceable>PROTOCOL</replaceable></term>
+        <term><option>--protocol=<replaceable>PROTOCOL</replaceable></option></term>
 
         <listitem><para>Specifies the network protocol for the query. May be one of <literal>dns</literal>
         (i.e. classic unicast DNS), <literal>llmnr</literal> (<ulink
@@ -312,9 +312,9 @@
 
       <varlistentry>
         <term><option>-t</option> <replaceable>TYPE</replaceable></term>
-        <term><option>--type=</option><replaceable>TYPE</replaceable></term>
+        <term><option>--type=<replaceable>TYPE</replaceable></option></term>
         <term><option>-c</option> <replaceable>CLASS</replaceable></term>
-        <term><option>--class=</option><replaceable>CLASS</replaceable></term>
+        <term><option>--class=<replaceable>CLASS</replaceable></option></term>
 
         <listitem><para>When used in conjunction with the <command>query</command> command, specifies the DNS
         resource record type (e.g. <constant class='dns'>A</constant>, <constant class='dns'>AAAA</constant>,
@@ -335,7 +335,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--service-address=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--service-address=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Takes a boolean parameter. If true (the default), when doing a service lookup with
         <option>--service</option> the hostnames contained in the <constant class='dns'>SRV</constant>
@@ -345,7 +345,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--service-txt=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--service-txt=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Takes a boolean parameter. If true (the default), when doing a DNS-SD service lookup
         with <option>--service</option> the <constant class='dns'>TXT</constant> service metadata record is
@@ -355,7 +355,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--cname=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--cname=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Takes a boolean parameter. If true (the default), DNS <constant
         class='dns'>CNAME</constant> or <constant class='dns'>DNAME</constant> redirections are
@@ -366,7 +366,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--validate=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--validate=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
         (the default), DNSSEC validation is applied as usual — under the condition that it is enabled for the
@@ -380,7 +380,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--synthesize=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--synthesize=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
         (the default), select domains are resolved on the local system, among them
@@ -395,7 +395,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--cache=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--cache=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
         (the default), lookups use the local DNS resource record cache. If false, lookups are routed to the
@@ -405,7 +405,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--zone=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--zone=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
         (the default), lookups are answered from locally registered LLMNR or mDNS resource records, if
@@ -416,7 +416,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--trust-anchor=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--trust-anchor=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
         (the default), lookups for DS and DNSKEY are answered from the local DNSSEC trust anchors if
@@ -426,7 +426,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--network=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--network=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
         (the default), lookups are answered via DNS, LLMNR or mDNS network requests if they cannot be
@@ -438,7 +438,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--search=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--search=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Takes a boolean parameter. If true (the default), any specified single-label
         hostnames will be searched in the domains configured in the search domain list, if it is
@@ -462,7 +462,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--legend=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--legend=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Takes a boolean parameter. If true (the default), column headers and meta information about the
         query response are shown. Otherwise, this output is suppressed.</para>
@@ -471,7 +471,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--stale-data=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--stale-data=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
         (the default), lookups are answered with stale data (expired resource records) if
@@ -481,7 +481,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--relax-single-label=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--relax-single-label=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If
         true, rules regarding routing of single-label names are relaxed. Defaults to false. By default,

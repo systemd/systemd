@@ -133,7 +133,7 @@ static inline char *truncate_nl(char *s) {
         return truncate_nl_full(s, NULL);
 }
 
-static inline char *skip_leading_chars(const char *s, const char *bad) {
+static inline char* skip_leading_chars(const char *s, const char *bad) {
         if (!s)
                 return NULL;
 

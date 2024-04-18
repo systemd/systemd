@@ -704,7 +704,7 @@
         </varlistentry>
         <varlistentry>
           <term><option>-m</option></term>
-          <term><option>--children-max=</option><replaceable>value</replaceable></term>
+          <term><option>--children-max=<replaceable>value</replaceable></option></term>
           <listitem>
             <para>Set the maximum number of events, systemd-udevd will handle at the same time. When 0 is
             specified, then the maximum is determined based on the system resources.</para>
@@ -721,9 +721,50 @@
         </varlistentry>
         <varlistentry>
           <term><option>-t</option></term>
-          <term><option>--timeout=</option><replaceable>seconds</replaceable></term>
+          <term><option>--timeout=<replaceable>seconds</replaceable></option></term>
           <listitem>
             <para>The maximum number of seconds to wait for a reply from systemd-udevd.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--load-credentials</option></term>
+          <listitem>
+            <para>When specified, the following credentials are used when passed in:</para>
+
+            <variablelist>
+              <varlistentry>
+                <term><varname>udev.conf.*</varname></term>
+                <listitem>
+                  <para>These credentials should contain valid
+                  <citerefentry><refentrytitle>udev.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                  configuration data. From each matching credential a separate file is created. Example: a
+                  passed credential <filename>udev.conf.50-foobar</filename> will be copied into a
+                  configuration file <filename>/run/udev/udev.conf.d/50-foobar.conf</filename>.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v256"/>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><varname>udev.rules.*</varname></term>
+                <listitem>
+                  <para>These credentials should contain valid
+                  <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                  rules. From each matching credential a separate file is created. Example: a passed credential
+                  <filename>udev.rules.50-foobar</filename> will be copied into a configuration file
+                  <filename>/run/udev/rules.d/50-foobar.rules</filename>.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v256"/>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+
+            <para>Note, this <emphasis>does not</emphasis> imply <option>--reload</option> option. So, if
+            <command>systemd-udevd</command> is already running, please consider to also specify
+            <option>-reload</option> to make the copied udev rules files used by
+            <command>systemd-udevd</command>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
         </varlistentry>
 

@@ -140,7 +140,7 @@ static bool validate_efi_hibernate_location(EFIHibernateLocation *e) {
 #endif
 
 int get_efi_hibernate_location(EFIHibernateLocation **ret) {
-
+#if ENABLE_EFI
         static const JsonDispatch dispatch_table[] = {
                 { "uuid",                  JSON_VARIANT_STRING,        json_dispatch_id128,  offsetof(EFIHibernateLocation, uuid),           JSON_MANDATORY             },
                 { "offset",                _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(EFIHibernateLocation, offset),         JSON_MANDATORY             },
@@ -200,6 +200,7 @@ int get_efi_hibernate_location(EFIHibernateLocation **ret) {
         return 1;
 
 skip:
+#endif
         if (ret)
                 *ret = NULL;
         return 0;

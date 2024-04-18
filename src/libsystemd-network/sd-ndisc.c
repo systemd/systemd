@@ -17,6 +17,7 @@
 #include "memory-util.h"
 #include "ndisc-internal.h"
 #include "ndisc-neighbor-internal.h"
+#include "ndisc-redirect-internal.h"
 #include "ndisc-router-internal.h"
 #include "network-common.h"
 #include "random-util.h"
@@ -30,6 +31,7 @@ static const char * const ndisc_event_table[_SD_NDISC_EVENT_MAX] = {
         [SD_NDISC_EVENT_TIMEOUT]  = "timeout",
         [SD_NDISC_EVENT_ROUTER]   = "router",
         [SD_NDISC_EVENT_NEIGHBOR] = "neighbor",
+        [SD_NDISC_EVENT_REDIRECT] = "redirect",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(ndisc_event, sd_ndisc_event_t);
@@ -217,11 +219,42 @@ static int ndisc_handle_router(sd_ndisc *nd, ICMP6Packet *packet) {
                 return r;
 
         (void) event_source_disable(nd->timeout_event_source);
+        (void) event_source_disable(nd->timeout_no_ra);
 
-        log_ndisc(nd, "Received Router Advertisement: flags %s preference %s lifetime %s",
-                  rt->flags & ND_RA_FLAG_MANAGED ? "MANAGED" : rt->flags & ND_RA_FLAG_OTHER ? "OTHER" : "none",
-                  rt->preference == SD_NDISC_PREFERENCE_HIGH ? "high" : rt->preference == SD_NDISC_PREFERENCE_LOW ? "low" : "medium",
-                  FORMAT_TIMESPAN(rt->lifetime_usec, USEC_PER_SEC));
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *s = NULL;
+                struct in6_addr a;
+                uint64_t flags;
+                uint8_t pref;
+                usec_t lifetime;
+
+                r = sd_ndisc_router_get_sender_address(rt, &a);
+                if (r < 0)
+                        return r;
+
+                r = sd_ndisc_router_get_flags(rt, &flags);
+                if (r < 0)
+                        return r;
+
+                r = ndisc_router_flags_to_string(flags, &s);
+                if (r < 0)
+                        return r;
+
+                r = sd_ndisc_router_get_preference(rt, &pref);
+                if (r < 0)
+                        return r;
+
+                r = sd_ndisc_router_get_lifetime(rt, &lifetime);
+                if (r < 0)
+                        return r;
+
+                log_ndisc(nd, "Received Router Advertisement from %s: flags=0x%0*"PRIx64"%s%s%s, preference=%s, lifetime=%s",
+                          IN6_ADDR_TO_STRING(&a),
+                          flags & UINT64_C(0x00ffffffffffff00) ? 14 : 2, flags, /* suppress too many zeros if no extension */
+                          s ? " (" : "", s, s ? ")" : "",
+                          ndisc_router_preference_to_string(pref),
+                          FORMAT_TIMESPAN(lifetime, USEC_PER_SEC));
+        }
 
         ndisc_callback(nd, SD_NDISC_EVENT_ROUTER, rt);
         return 0;
@@ -229,7 +262,6 @@ static int ndisc_handle_router(sd_ndisc *nd, ICMP6Packet *packet) {
 
 static int ndisc_handle_neighbor(sd_ndisc *nd, ICMP6Packet *packet) {
         _cleanup_(sd_ndisc_neighbor_unrefp) sd_ndisc_neighbor *na = NULL;
-        struct in6_addr a;
         int r;
 
         assert(nd);
@@ -243,17 +275,61 @@ static int ndisc_handle_neighbor(sd_ndisc *nd, ICMP6Packet *packet) {
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_neighbor_get_sender_address(na, &a);
+        if (DEBUG_LOGGING) {
+                struct in6_addr a;
+
+                r = sd_ndisc_neighbor_get_sender_address(na, &a);
+                if (r < 0)
+                        return r;
+
+                log_ndisc(nd, "Received Neighbor Advertisement from %s: Router=%s, Solicited=%s, Override=%s",
+                          IN6_ADDR_TO_STRING(&a),
+                          yes_no(sd_ndisc_neighbor_is_router(na) > 0),
+                          yes_no(sd_ndisc_neighbor_is_solicited(na) > 0),
+                          yes_no(sd_ndisc_neighbor_is_override(na) > 0));
+        }
+
+        ndisc_callback(nd, SD_NDISC_EVENT_NEIGHBOR, na);
+        return 0;
+}
+
+static int ndisc_handle_redirect(sd_ndisc *nd, ICMP6Packet *packet) {
+        _cleanup_(sd_ndisc_redirect_unrefp) sd_ndisc_redirect *rd = NULL;
+        int r;
+
+        assert(nd);
+        assert(packet);
+
+        rd = ndisc_redirect_new(packet);
+        if (!rd)
+                return -ENOMEM;
+
+        r = ndisc_redirect_parse(nd, rd);
         if (r < 0)
                 return r;
 
-        log_ndisc(nd, "Received Neighbor Advertisement from %s: Router=%s, Solicited=%s, Override=%s",
-                  IN6_ADDR_TO_STRING(&a),
-                  yes_no(sd_ndisc_neighbor_is_router(na) > 0),
-                  yes_no(sd_ndisc_neighbor_is_solicited(na) > 0),
-                  yes_no(sd_ndisc_neighbor_is_override(na) > 0));
+        if (DEBUG_LOGGING) {
+                struct in6_addr sender, target, dest;
 
-        ndisc_callback(nd, SD_NDISC_EVENT_NEIGHBOR, na);
+                r = sd_ndisc_redirect_get_sender_address(rd, &sender);
+                if (r < 0)
+                        return r;
+
+                r = sd_ndisc_redirect_get_target_address(rd, &target);
+                if (r < 0)
+                        return r;
+
+                r = sd_ndisc_redirect_get_destination_address(rd, &dest);
+                if (r < 0)
+                        return r;
+
+                log_ndisc(nd, "Received Redirect message from %s: Target=%s, Destination=%s",
+                          IN6_ADDR_TO_STRING(&sender),
+                          IN6_ADDR_TO_STRING(&target),
+                          IN6_ADDR_TO_STRING(&dest));
+        }
+
+        ndisc_callback(nd, SD_NDISC_EVENT_REDIRECT, rd);
         return 0;
 }
 
@@ -298,6 +374,10 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
                 (void) ndisc_handle_neighbor(nd, packet);
                 break;
 
+        case ND_REDIRECT:
+                (void) ndisc_handle_redirect(nd, packet);
+                break;
+
         default:
                 log_ndisc(nd, "Received an ICMPv6 packet with unexpected type %i, ignoring.", r);
         }
@@ -306,10 +386,6 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
 }
 
 static int ndisc_send_router_solicitation(sd_ndisc *nd) {
-        static const struct sockaddr_in6 dst = {
-                .sin6_family = AF_INET6,
-                .sin6_addr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
-        };
         static const struct nd_router_solicit header = {
                 .nd_rs_type = ND_ROUTER_SOLICIT,
         };
@@ -325,7 +401,7 @@ static int ndisc_send_router_solicitation(sd_ndisc *nd) {
                         return r;
         }
 
-        return ndisc_send(nd->fd, &dst, &header.nd_rs_hdr, options, USEC_INFINITY);
+        return ndisc_send(nd->fd, &IN6_ADDR_ALL_ROUTERS_MULTICAST, &header.nd_rs_hdr, options, USEC_INFINITY);
 }
 
 static usec_t ndisc_timeout_compute_random(usec_t val) {

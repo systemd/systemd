@@ -59,7 +59,7 @@ purpose. Specifically, the following features are provided:
 8. Credentials are an effective way to pass parameters into services that run
    with `RootImage=` or `RootDirectory=` and thus cannot read these resources
    directly from the host directory tree.
-   Specifically, [Portable Services](PORTABLE_SERVICES) may be
+   Specifically, [Portable Services](/PORTABLE_SERVICES) may be
    parameterized this way securely and robustly.
 
 9. Credentials can be binary and relatively large (though currently an overall
@@ -284,11 +284,11 @@ services where they are ultimately consumed.
 
 1. A container manager may set the `$CREDENTIALS_DIRECTORY` environment
    variable for systemd running as PID 1 in the container, the same way as
-   systemd would set it for a service it
-   invokes. [`systemd-nspawn(1)`](https://www.freedesktop.org/software/systemd/man/systemd-nspawn.html#Credentials)'s
+   systemd would set it for a service it invokes.
+   [`systemd-nspawn(1)`](https://www.freedesktop.org/software/systemd/man/systemd-nspawn.html#Credentials)'s
    `--set-credential=` and `--load-credential=` switches implement this, in
    order to pass arbitrary credentials from host to container payload. Also see
-   the [Container Interface](CONTAINER_INTERFACE) documentation.
+   the [Container Interface](/CONTAINER_INTERFACE) documentation.
 
 2. Quite similar, VMs can be passed credentials via SMBIOS OEM strings (example
    qemu command line switch `-smbios
@@ -300,31 +300,27 @@ services where they are ultimately consumed.
    host through the hypervisor into the VM via qemu's `fw_cfg` mechanism. (All
    three of these specific switches would set credential `foo` to `bar`.)
    Passing credentials via the SMBIOS mechanism is typically preferable over
-   `fw_cfg` since it is faster and less specific to the chosen VMM
-   implementation. Moreover, `fw_cfg` has a 55 character limitation on names
-   passed that way. So some settings may not fit.
+   `fw_cfg` since it is faster and less specific to the chosen VMM implementation.
+   Moreover, `fw_cfg` has a 55 character limitation on names passed that way. So some settings may not fit.
 
-3. Credentials may be passed from the initrd to the host during the initrd →
-   host transition. Provisioning systems that run in the initrd may use this to
-   install credentials on the system. All files placed in
-   `/run/credentials/@initrd/` are imported into the set of file system
-   credentials during the transition. The files (and their directory) are
-   removed once this is completed.
+3. Credentials may be passed from the initrd to the host during the initrd → host transition.
+   Provisioning systems that run in the initrd may use this to install credentials on the system.
+   All files placed in `/run/credentials/@initrd/` are imported into the set of file system credentials during the transition.
+   The files (and their directory) are removed once this is completed.
 
 4. Credentials may also be passed from the UEFI environment to userspace, if
    the
    [`systemd-stub`](https://www.freedesktop.org/software/systemd/man/systemd-stub.html)
-   UEFI kernel stub is used. This allows placing encrypted credentials in the
-   EFI System Partition, which are then picked up by `systemd-stub` and passed
-   to the kernel and ultimately userspace where systemd receives them. This is
-   useful to implement secure parameterization of vendor-built and signed
+   UEFI kernel stub is used.
+   This allows placing encrypted credentials in the EFI System Partition, which are then picked up by `systemd-stub` and passed to the kernel and ultimately userspace where systemd receives them.
+   This is useful to implement secure parameterization of vendor-built and signed
    initrds, as userspace can place credentials next to these EFI kernels, and
    be sure they can be accessed securely from initrd context.
 
 5. Credentials can also be passed into a system via the kernel command line,
    via the `systemd.set_credential=` and `systemd.set_credential_binary=`
-   kernel command line options (the latter takes Base64 encoded binary
-   data). Note though that any data specified here is visible to all userspace
+   kernel command line options (the latter takes Base64 encoded binary data).
+   Note though that any data specified here is visible to all userspace
    applications (even unprivileged ones) via `/proc/cmdline`. Typically, this
    is hence not useful to pass sensitive information, and should be avoided.
 
@@ -376,20 +372,19 @@ Various services shipped with `systemd` consume credentials for tweaking behavio
 * [`systemd(1)`](https://www.freedesktop.org/software/systemd/man/systemd.html)
   (I.E.: PID1, the system manager) will look for the credential `vmm.notify_socket`
   and will use it to send a `READY=1` datagram when the system has finished
-  booting. This is useful for hypervisors/VMMs or other processes on the host
-  to receive a notification via VSOCK when a virtual machine has finished booting.
+  booting.
+  This is useful for hypervisors/VMMs or other processes on the host to receive a notification via VSOCK when a virtual machine has finished booting.
   Note that in case the hypervisor does not support `SOCK_DGRAM` over `AF_VSOCK`,
-  `SOCK_SEQPACKET` will be tried instead. The credential payload should be in the
-  form: `vsock:<CID>:<PORT>`. `vsock` may be replaced with `vsock-stream`, `vsock-dgram` or `vsock-seqpacket`
-  to force usage of the corresponding socket type. Also note that this requires support for VHOST to be
-  built-in both the guest and the host kernels, and the kernel modules to be loaded.
+  `SOCK_SEQPACKET` will be tried instead.
+  The credential payload should be in the form: `vsock:<CID>:<PORT>`.
+  Also note that this requires support for VHOST to be built-in both the guest and the host kernels, and the kernel modules to be loaded.
 
 * [`systemd-sysusers(8)`](https://www.freedesktop.org/software/systemd/man/systemd-sysusers.html)
   will look for the credentials `passwd.hashed-password.<username>`,
   `passwd.plaintext-password.<username>` and `passwd.shell.<username>` to
   configure the password (either in UNIX hashed form, or plaintext) or shell of
-  system users created. Replace `<username>` with the system user of your
-  choice, for example, `root`.
+  system users created.
+  Replace `<username>` with the system user of your choice, for example, `root`.
 
 * [`systemd-firstboot(1)`](https://www.freedesktop.org/software/systemd/man/systemd-firstboot.html)
   will look for the credentials `firstboot.locale`, `firstboot.locale-messages`,
@@ -456,7 +451,7 @@ qemu-system-x86_64 \
         -device scsi-hd,drive=hd,bootindex=1 \
         -device vhost-vsock-pci,id=vhost-vsock-pci0,guest-cid=42 \
         -smbios type=11,value=io.systemd.credential:vmm.notify_socket=vsock:2:1234 \
-        -smbios type=11,value=io.systemd.credential.binary:tmpfiles.extra=$(echo "f~ /root/.ssh/authorized_keys 600 root root - $(ssh-add -L | base64 -w 0)" | base64 -w 0)
+        -smbios type=11,value=io.systemd.credential.binary:tmpfiles.extra=$(echo -e "d /root/.ssh 0750 root root -\nf~ /root/.ssh/authorized_keys 0600 root root - $(ssh-add -L | base64 -w 0)" | base64 -w 0)
 ```
 
 A process on the host can listen for the notification, for example:
@@ -489,17 +484,14 @@ credentials that must be decrypted/validated before use, such as those from
 
 The `ImportCredential=` setting (and the `LoadCredential=` and
 `LoadCredentialEncrypted=` settings when configured with a relative source
-path) will search for the source file to read the credential from
-automatically. Primarily, these credentials are searched among the credentials
-passed into the system. If not found there, they are searched in
-`/etc/credstore/`, `/run/credstore/`,
-`/usr/lib/credstore/`. `LoadCredentialEncrypted=` will also search
-`/etc/credstore.encrypted/` and similar directories. `ImportCredential=` will
-search both the non-encrypted and encrypted directories. These directories are
-hence a great place to store credentials to load on the system.
+path) will search for the source file to read the credential from automatically.
+Primarily, these credentials are searched among the credentials passed into the system. If not found there, they are searched in `/etc/credstore/`, `/run/credstore/`, `/usr/lib/credstore/`. `LoadCredentialEncrypted=` will also search
+`/etc/credstore.encrypted/` and similar directories.
+`ImportCredential=` will search both the non-encrypted and encrypted directories.
+These directories are hence a great place to store credentials to load on the system.
 
 ## Conditionalizing Services
 
 Sometimes it makes sense to conditionalize system services and invoke them only
-if the right system credential is passed to the system. Use the
-`ConditionCredential=` and `AssertCredential=` unit file settings for that.
+if the right system credential is passed to the system.
+Use the `ConditionCredential=` and `AssertCredential=` unit file settings for that.

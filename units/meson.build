@@ -688,6 +688,7 @@ units = [
           'conditions' : ['ENABLE_TMPFILES'],
           'symlinks' : ['sysinit.target.wants/'],
         },
+        { 'file' : 'systemd-udev-load-credentials.service' },
         { 'file' : 'systemd-udev-settle.service' },
         {
           'file' : 'systemd-udev-trigger.service',
@@ -731,6 +732,22 @@ units = [
         {
           'file' : 'systemd-userdbd.socket',
           'conditions' : ['ENABLE_USERDB'],
+        },
+        {
+          'file' : 'systemd-mountfsd.service.in',
+          'conditions' : ['ENABLE_MOUNTFSD'],
+        },
+        {
+          'file' : 'systemd-mountfsd.socket',
+          'conditions' : ['ENABLE_MOUNTFSD'],
+        },
+        {
+          'file' : 'systemd-nsresourced.service.in',
+          'conditions' : ['ENABLE_NSRESOURCED'],
+        },
+        {
+          'file' : 'systemd-nsresourced.socket',
+          'conditions' : ['ENABLE_NSRESOURCED'],
         },
         {
           'file' : 'systemd-vconsole-setup.service.in',

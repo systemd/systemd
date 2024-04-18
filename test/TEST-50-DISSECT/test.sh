@@ -12,6 +12,15 @@ TEST_INSTALL_VERITY_MINIMAL=1
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
+# On Ubuntu the BPF LSM is not enabled by default, so we need to do it via the
+# kernel command line on boot
+if [ "$LOOKS_LIKE_UBUNTU" = "yes" ]; then
+    KERNEL_OPTIONS=(
+        "lsm=lockdown,capability,landlock,yama,apparmor,bpf"
+    )
+    KERNEL_APPEND+=" ${KERNEL_OPTIONS[*]}"
+fi
+
 test_require_bin mksquashfs veritysetup sfdisk
 
 test_append_files() {

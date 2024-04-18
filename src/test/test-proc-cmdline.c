@@ -37,7 +37,7 @@ TEST(proc_cmdline_override) {
 
         /* First test if the overrides for /proc/cmdline still work */
         assert_se(proc_cmdline(&line) >= 0);
-        assert_se(streq(line, "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\""));
+        ASSERT_STREQ(line, "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"");
         line = mfree(line);
         assert_se(proc_cmdline_strv(&args) >= 0);
         assert_se(strv_equal(args, STRV_MAKE("foo_bar=quux", "wuff-piep=tuet", "zumm", "some_arg_with_space=foo bar", "and_one_more=zzz aaa")));
@@ -57,7 +57,7 @@ TEST(proc_cmdline_override) {
         assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
 
         assert_se(proc_cmdline(&line) >= 0);
-        assert_se(streq(line, "hoge"));
+        ASSERT_STREQ(line, "hoge");
         line = mfree(line);
         assert_se(proc_cmdline_strv(&args) >= 0);
         assert_se(strv_equal(args, STRV_MAKE("hoge")));
@@ -83,13 +83,13 @@ static int parse_item_given(const char *key, const char *value, void *data) {
 
         log_info("%s: option <%s> = <%s>", __func__, key, strna(value));
         if (proc_cmdline_key_streq(key, "foo_bar"))
-                assert_se(streq(value, "quux"));
+                ASSERT_STREQ(value, "quux");
         else if (proc_cmdline_key_streq(key, "wuff-piep"))
-                assert_se(streq(value, "tuet "));
+                ASSERT_STREQ(value, "tuet ");
         else if (proc_cmdline_key_streq(key, "space"))
-                assert_se(streq(value, "x y z"));
+                ASSERT_STREQ(value, "x y z");
         else if (proc_cmdline_key_streq(key, "miepf"))
-                assert_se(streq(value, "uuu"));
+                ASSERT_STREQ(value, "uuu");
         else if (in_initrd() && *strip && proc_cmdline_key_streq(key, "zumm"))
                 assert_se(!value);
         else if (in_initrd() && !*strip && proc_cmdline_key_streq(key, "rd.zumm"))
@@ -231,13 +231,13 @@ TEST(proc_cmdline_get_key_many) {
                                             "doubleticks", &value6,
                                             "zummm", &value7) == 5);
 
-        assert_se(streq_ptr(value1, "quux"));
+        ASSERT_STREQ(value1, "quux");
         assert_se(!value2);
-        assert_se(streq_ptr(value3, "tuet"));
+        ASSERT_STREQ(value3, "tuet");
         assert_se(!value4);
-        assert_se(streq_ptr(value5, "one two"));
-        assert_se(streq_ptr(value6, " aaa aaa "));
-        assert_se(streq_ptr(value7, "\n"));
+        ASSERT_STREQ(value5, "one two");
+        ASSERT_STREQ(value6, " aaa aaa ");
+        ASSERT_STREQ(value7, "\n");
 }
 
 TEST(proc_cmdline_key_streq) {

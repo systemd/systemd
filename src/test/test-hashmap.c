@@ -98,8 +98,8 @@ TEST(iterated_cache) {
         hashmap_clear(m);
         compare_cache(m, c);
 
-        assert_se(hashmap_free(m) == NULL);
-        assert_se(iterated_cache_free(c) == NULL);
+        ASSERT_NULL(hashmap_free(m));
+        ASSERT_NULL(iterated_cache_free(c));
 }
 
 TEST(hashmap_put_strdup) {
@@ -116,7 +116,7 @@ TEST(hashmap_put_strdup) {
         assert_se(hashmap_contains(m, "foo"));
 
         s = hashmap_get(m, "foo");
-        assert_se(streq(s, "bar"));
+        ASSERT_STREQ(s, "bar");
 
         assert_se(hashmap_put_strdup(&m, "xxx", "bar") == 1);
         assert_se(hashmap_put_strdup(&m, "xxx", "bar") == 0);
@@ -125,7 +125,7 @@ TEST(hashmap_put_strdup) {
         assert_se(hashmap_contains(m, "xxx"));
 
         s = hashmap_get(m, "xxx");
-        assert_se(streq(s, "bar"));
+        ASSERT_STREQ(s, "bar");
 }
 
 TEST(hashmap_put_strdup_null) {
@@ -139,7 +139,7 @@ TEST(hashmap_put_strdup_null) {
         assert_se(hashmap_contains(m, "foo"));
 
         s = hashmap_get(m, "foo");
-        assert_se(streq(s, "bar"));
+        ASSERT_STREQ(s, "bar");
 
         assert_se(hashmap_put_strdup(&m, "xxx", NULL) == 1);
         assert_se(hashmap_put_strdup(&m, "xxx", "bar") == -EEXIST);
@@ -147,7 +147,7 @@ TEST(hashmap_put_strdup_null) {
         assert_se(hashmap_contains(m, "xxx"));
 
         s = hashmap_get(m, "xxx");
-        assert_se(s == NULL);
+        ASSERT_NULL(s);
 }
 
 /* This file tests in test-hashmap-plain.c, and tests in test-hashmap-ordered.c, which is generated

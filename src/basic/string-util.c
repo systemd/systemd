@@ -11,6 +11,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "glyph-util.h"
 #include "gunicode.h"
 #include "locale-util.h"
 #include "macro.h"
@@ -282,16 +283,9 @@ bool string_has_cc(const char *p, const char *ok) {
 }
 
 static int write_ellipsis(char *buf, bool unicode) {
-        if (unicode || is_locale_utf8()) {
-                buf[0] = 0xe2; /* tri-dot ellipsis: … */
-                buf[1] = 0x80;
-                buf[2] = 0xa6;
-        } else {
-                buf[0] = '.';
-                buf[1] = '.';
-                buf[2] = '.';
-        }
-
+        const char *s = special_glyph_full(SPECIAL_GLYPH_ELLIPSIS, unicode);
+        assert(strlen(s) == 3);
+        memcpy(buf, s, 3);
         return 3;
 }
 
@@ -398,8 +392,7 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
         x = ((new_length - need_space) * percent + 50) / 100;
         assert(x <= new_length - need_space);
 
-        memcpy(t, s, x);
-        write_ellipsis(t + x, false);
+        write_ellipsis(mempcpy(t, s, x), /* unicode = */ false);
         suffix_len = new_length - x - need_space;
         memcpy(t + x + 3, s + old_length - suffix_len, suffix_len);
         *(t + x + 3 + suffix_len) = '\0';
@@ -520,13 +513,8 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         if (!e)
                 return NULL;
 
-        /*
-        printf("old_length=%zu new_length=%zu x=%zu len=%zu len2=%zu k=%zu\n",
-               old_length, new_length, x, len, len2, k);
-        */
-
         memcpy_safe(e, s, len);
-        write_ellipsis(e + len, true);
+        write_ellipsis(e + len, /* unicode = */ true);
 
         char *dst = e + len + 3;
 
@@ -605,7 +593,7 @@ char *cellescape(char *buf, size_t len, const char *s) {
         }
 
         if (i + 4 <= len) /* yay, enough space */
-                i += write_ellipsis(buf + i, false);
+                i += write_ellipsis(buf + i, /* unicode = */ false);
         else if (i + 3 <= len) { /* only space for ".." */
                 buf[i++] = '.';
                 buf[i++] = '.';
@@ -998,7 +986,7 @@ int strextendf_with_separator(char **x, const char *separator, const char *forma
         return 0;
 
 oom:
-        /* truncate the bytes added after the first vsnprintf() attempt again */
+        /* truncate the bytes added after memcpy_safe() again */
         (*x)[m] = 0;
         return -ENOMEM;
 }

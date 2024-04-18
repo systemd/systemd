@@ -196,7 +196,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>SleepMemMode=</varname></term>
+        <term><varname>MemorySleepMode=</varname></term>
 
         <listitem><para>The string to be written to <filename>/sys/power/mem_sleep</filename>
         when <option>SuspendState=mem</option> or <command>hybrid-sleep</command> is used.

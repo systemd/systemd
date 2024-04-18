@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* Make sure the net/if.h header is included before any linux/ one */
 #include <net/if.h>
 #include <netinet/in.h>
 #include <linux/netdevice.h>
@@ -387,6 +388,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_use_captive_portal = true,
                 .dhcp_use_dns = true,
                 .dhcp_routes_to_dns = true,
+                .dhcp_use_domains = manager->dhcp_use_domains,
                 .dhcp_use_hostname = true,
                 .dhcp_use_routes = true,
                 .dhcp_use_gateway = -1,
@@ -403,6 +405,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_use_address = true,
                 .dhcp6_use_pd_prefix = true,
                 .dhcp6_use_dns = true,
+                .dhcp6_use_domains = manager->dhcp6_use_domains,
                 .dhcp6_use_hostname = true,
                 .dhcp6_use_ntp = true,
                 .dhcp6_use_captive_portal = true,
@@ -474,6 +477,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv4_rp_filter = _IP_REVERSE_PATH_FILTER_INVALID,
 
                 .ndisc = -1,
+                .ndisc_use_redirect = true,
                 .ndisc_use_dns = true,
                 .ndisc_use_gateway = true,
                 .ndisc_use_captive_portal = true,

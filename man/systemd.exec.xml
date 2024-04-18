@@ -2369,12 +2369,12 @@ RestrictNamespaces=~cgroup net</programlisting>
         units, it only enables sharing of the <filename>/tmp/</filename> and <filename>/var/tmp/</filename>
         directories.</para>
 
-        <para>Other file system namespace unit settings — <varname>PrivateMounts=</varname>,
-        <varname>PrivateTmp=</varname>, <varname>PrivateDevices=</varname>, <varname>ProtectSystem=</varname>,
-        <varname>ProtectHome=</varname>, <varname>ReadOnlyPaths=</varname>, <varname>InaccessiblePaths=</varname>,
-        <varname>ReadWritePaths=</varname>, … — also enable file system namespacing in a fashion equivalent to this
-        option. Hence it is primarily useful to explicitly request this behaviour if none of the other settings are
-        used.</para>
+        <para>Other file system namespace unit settings — <varname>PrivateTmp=</varname>,
+        <varname>PrivateDevices=</varname>, <varname>ProtectSystem=</varname>,
+        <varname>ProtectHome=</varname>, <varname>ReadOnlyPaths=</varname>,
+        <varname>InaccessiblePaths=</varname>, <varname>ReadWritePaths=</varname>, … — also enable file
+        system namespacing in a fashion equivalent to this option. Hence it is primarily useful to explicitly
+        request this behaviour if none of the other settings are used.</para>
 
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
 
@@ -3175,8 +3175,8 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <literal>\x7efoobar</literal> would add a pattern matching <literal>~foobar</literal> to the allow list.</para>
 
         <para>Log messages are tested against denied patterns (if any), then against allowed patterns
-        (if any). If a log message matches any of the denied patterns, it will be discarded, whatever the
-        allowed patterns. Then, remaining log messages are tested against allowed patterns. Messages matching
+        (if any). If a log message matches any of the denied patterns, it is discarded immediately without considering
+        allowed patterns. Remaining log messages are tested against allowed patterns. Messages matching
         against none of the allowed pattern are discarded. If no allowed patterns are defined, then all
         messages are processed directly after going through denied filters.</para>
 

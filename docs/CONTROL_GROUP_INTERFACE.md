@@ -9,14 +9,24 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 > _aka "I want to make use of kernel cgroups, how do I do this in the new world order?"_
 
-Starting with version 205 systemd provides a number of interfaces that may be used to create and manage labelled groups of processes for the purpose of monitoring and controlling them and their resource usage. This is built on top of the Linux kernel Control Groups ("cgroups") facility. Previously, the kernel's cgroups API was exposed directly as shared application API, following the rules of the [Pax Control Groups](http://www.freedesktop.org/wiki/Software/systemd/PaxControlGroups/) document. However, the kernel cgroup interface has been reworked into an API that requires that each individual cgroup is managed by a single writer only. With this change the main cgroup tree becomes private property of that userspace component and is no longer a shared resource. On systemd systems PID 1 takes this role and hence needs to provide APIs for clients to take benefit of the control groups functionality of the kernel. Note that services running on systemd systems may manage their own subtrees of the cgroups tree, as long as they explicitly turn on delegation mode for them (see below).
+Starting with version 205 systemd provides a number of interfaces that may be used to create and manage labelled groups of processes for the purpose of monitoring and controlling them and their resource usage.
+This is built on top of the Linux kernel Control Groups ("cgroups") facility.
+
+Previously, the kernel's cgroups API was exposed directly as shared application API, following the rules of the [Pax Control Groups](/PAX_CONTROL_GROUPS) document.
+However, the kernel cgroup interface has been reworked into an API that requires that each individual cgroup is managed by a single writer only.
+
+With this change the main cgroup tree becomes private property of that userspace component and is no longer a shared resource.
+
+On systemd systems PID 1 takes this role and hence needs to provide APIs for clients to take benefit of the control groups functionality of the kernel.
+
+Note that services running on systemd systems may manage their own subtrees of the cgroups tree, as long as they explicitly turn on delegation mode for them (see below).
 
 That means explicitly, that:
 
 1. The root control group may only be written to by systemd (PID 1). Services that create and manipulate control groups in the top level cgroup are in direct conflict with the kernel's requirement that each control group should have a single-writer only.
 2. Services must set Delegate=yes for the units they intend to manage subcgroups of. If they create and manipulate cgroups outside of units that have Delegate=yes set, they violate the access contract for control groups.
 
-For a more high-level background story, please have a look at this [Linux Foundation News Story](http://www.linuxfoundation.org/news-media/blogs/browse/2013/08/all-about-linux-kernel-cgroup%E2%80%99s-redesign).
+For a more high-level background story, please have a look at this [Linux Foundation News Story](https://www.linuxfoundation.jp/blog/2013/08/all-about-the-linux-kernel-cgroups-redesign/).
 
 ### Why this all again?
 
@@ -46,7 +56,7 @@ On systemd systems use the systemd APIs as described below. At this time we are 
 
 ### What's the timeframe of this? Do I need to care now?
 
-In the short-term future writing directly to the control group tree from applications should still be OK, as long as the [Pax Control Groups](http://www.freedesktop.org/wiki/Software/systemd/PaxControlGroups/) document is followed. In the medium-term future it will still be supported to alter/read individual attributes of cgroups directly, but no longer to create/delete cgroups without using the systemd API. In the longer-term future altering/reading attributes will also be unavailable to userspace applications, unless done via systemd's APIs (either D-Bus based IPC APIs or shared library APIs for _passive_ operations).
+In the short-term future writing directly to the control group tree from applications should still be OK, as long as the [Pax Control Groups](/PAX_CONTROL_GROUPS) document is followed. In the medium-term future it will still be supported to alter/read individual attributes of cgroups directly, but no longer to create/delete cgroups without using the systemd API. In the longer-term future altering/reading attributes will also be unavailable to userspace applications, unless done via systemd's APIs (either D-Bus based IPC APIs or shared library APIs for _passive_ operations).
 
 It is recommended to use the new systemd APIs described below in any case. Note that the kernel cgroup interface is currently being reworked (available when the "sane_behaviour" kernel option is used). This will change the cgroupfs interface. By using systemd's APIs this change is abstracted away and invisible to applications.
 
@@ -193,7 +203,7 @@ Most relevant APIs are exposed via D-Bus, however some _passive_ interfaces are 
 
 ### Creating and Starting
 
-To create and start a transient (scope, service or slice) unit in the cgroup tree use the `StartTransientUnit()` method on the `Manager` object exposed by systemd's PID 1 on the bus, see the [Bus API Documentation](http://www.freedesktop.org/wiki/Software/systemd/dbus/) for details. This call takes four arguments. The first argument is the full unit name you want this unit to be known under. This unit name is the handle to the unit, and is shown in the "systemctl" output and elsewhere. This name must be unique during runtime of the unit. You should generate a descriptive name for this that is useful for the administrator to make sense of it. The second parameter is the mode, and should usually be `replace` or `fail`. The third parameter contains an array of initial properties to set for the unit. It is an array of pairs of property names as string and values as variant. Note that this is an array and not a dictionary! This is that way in order to match the properties array of the `SetProperties()` call (see below). The fourth parameter is currently not used and should be passed as empty array. This call will first create the transient unit and then immediately queue a start job for it. This call returns an object path to a `Job` object for the start job of this unit.
+To create and start a transient (scope, service or slice) unit in the cgroup tree use the `StartTransientUnit()` method on the `Manager` object exposed by systemd's PID 1 on the bus, see the [Bus API Documentation](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.systemd1.html) for details. This call takes four arguments. The first argument is the full unit name you want this unit to be known under. This unit name is the handle to the unit, and is shown in the "systemctl" output and elsewhere. This name must be unique during runtime of the unit. You should generate a descriptive name for this that is useful for the administrator to make sense of it. The second parameter is the mode, and should usually be `replace` or `fail`. The third parameter contains an array of initial properties to set for the unit. It is an array of pairs of property names as string and values as variant. Note that this is an array and not a dictionary! This is that way in order to match the properties array of the `SetProperties()` call (see below). The fourth parameter is currently not used and should be passed as empty array. This call will first create the transient unit and then immediately queue a start job for it. This call returns an object path to a `Job` object for the start job of this unit.
 
 ### Properties
 
@@ -209,7 +219,7 @@ To acquire a list of currently running units, use the `ListUnits()` call on the 
 
 ### VM and Container Managers
 
-Use these APIs to register any kind of process workload with systemd to be placed in a resource controlled cgroup. Note however that for containers and virtual machines it is better to use the [`machined`](http://www.freedesktop.org/wiki/Software/systemd/machined/) interfaces since they provide integration with "ps" and similar tools beyond what mere cgroup registration provides. Also see [Writing VM and Container Managers](http://www.freedesktop.org/wiki/Software/systemd/writing-vm-managers/) for details.
+Use these APIs to register any kind of process workload with systemd to be placed in a resource controlled cgroup. Note however that for containers and virtual machines it is better to use the [`machined`](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.machine1.html) interfaces since they provide integration with "ps" and similar tools beyond what mere cgroup registration provides. Also see [Writing VM and Container Managers](/WRITING_VM_AND_CONTAINER_MANAGERS) for details.
 
 ### Reading Accounting Information
 

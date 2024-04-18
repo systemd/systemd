@@ -109,7 +109,7 @@ TEST(device_path_make_canonical) {
 static void test_devnum_format_str_one(dev_t devnum, const char *s) {
         dev_t x;
 
-        assert_se(streq(FORMAT_DEVNUM(devnum), s));
+        ASSERT_STREQ(FORMAT_DEVNUM(devnum), s);
         assert_se(parse_devnum(s, &x) >= 0);
         assert_se(x == devnum);
 }

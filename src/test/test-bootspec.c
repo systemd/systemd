@@ -63,7 +63,7 @@ TEST_RET(bootspec_sort) {
         _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
 
-        assert_se(mkdtemp_malloc("/tmp/bootspec-testXXXXXX", &d) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/bootspec-testXXXXXX", &d));
 
         for (size_t i = 0; i < ELEMENTSOF(entries); i++) {
                 _cleanup_free_ char *j = NULL;
@@ -71,24 +71,24 @@ TEST_RET(bootspec_sort) {
                 j = path_join(d, "/loader/entries/", entries[i].fname);
                 assert_se(j);
 
-                assert_se(write_string_file(j, entries[i].contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
+                ASSERT_OK(write_string_file(j, entries[i].contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755));
         }
 
-        assert_se(boot_config_load(&config, d, NULL) >= 0);
+        ASSERT_OK(boot_config_load(&config, d, NULL));
 
         assert_se(config.n_entries == 6);
 
         /* First, because has sort key, and its the lowest one */
-        assert_se(streq(config.entries[0].id, "d.conf"));
+        ASSERT_STREQ(config.entries[0].id, "d.conf");
 
         /* These two have a sort key, and newest must be first */
-        assert_se(streq(config.entries[1].id, "cx.conf"));
-        assert_se(streq(config.entries[2].id, "c.conf"));
+        ASSERT_STREQ(config.entries[1].id, "cx.conf");
+        ASSERT_STREQ(config.entries[2].id, "c.conf");
 
         /* The following ones have no sort key, hence order by version compared ids, lowest first */
-        assert_se(streq(config.entries[3].id, "b.conf"));
-        assert_se(streq(config.entries[4].id, "a-10.conf"));
-        assert_se(streq(config.entries[5].id, "a-5.conf"));
+        ASSERT_STREQ(config.entries[3].id, "b.conf");
+        ASSERT_STREQ(config.entries[4].id, "a-10.conf");
+        ASSERT_STREQ(config.entries[5].id, "a-5.conf");
 
         return 0;
 }
@@ -101,7 +101,7 @@ static void test_extract_tries_one(const char *fname, int ret, const char *strip
         if (ret < 0)
                 return;
 
-        assert_se(streq_ptr(p, stripped));
+        ASSERT_STREQ(p, stripped);
         assert_se(l == tries_left);
         assert_se(d == tries_done);
 }
@@ -198,7 +198,7 @@ TEST_RET(bootspec_boot_config_find_entry) {
 
         /* Test finding a non-existent entry */
         entry = boot_config_find_entry(&config, "nonexistent.conf");
-        assert_se(entry == NULL);
+        ASSERT_NULL(entry);
 
         /* Test case-insensitivity */
         entry = boot_config_find_entry(&config, "A-10.CONF");

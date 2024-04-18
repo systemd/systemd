@@ -23,11 +23,11 @@ TEST(parse_cpu_set) {
         str = mfree(str);
         assert_se(str = cpu_set_to_range_string(&c));
         log_info("cpu_set_to_range_string: %s", str);
-        assert_se(streq(str, "0"));
+        ASSERT_STREQ(str, "0");
         str = mfree(str);
         assert_se(str = cpu_set_to_mask_string(&c));
         log_info("cpu_set_to_mask_string: %s", str);
-        assert_se(streq(str, "1"));
+        ASSERT_STREQ(str, "1");
         str = mfree(str);
         cpu_set_reset(&c);
 
@@ -45,11 +45,11 @@ TEST(parse_cpu_set) {
         str = mfree(str);
         assert_se(str = cpu_set_to_range_string(&c));
         log_info("cpu_set_to_range_string: %s", str);
-        assert_se(streq(str, "1-2 4"));
+        ASSERT_STREQ(str, "1-2 4");
         str = mfree(str);
         assert_se(str = cpu_set_to_mask_string(&c));
         log_info("cpu_set_to_mask_string: %s", str);
-        assert_se(streq(str, "16"));
+        ASSERT_STREQ(str, "16");
         str = mfree(str);
         cpu_set_reset(&c);
 
@@ -67,11 +67,11 @@ TEST(parse_cpu_set) {
         str = mfree(str);
         assert_se(str = cpu_set_to_range_string(&c));
         log_info("cpu_set_to_range_string: %s", str);
-        assert_se(streq(str, "0-3 8-11"));
+        ASSERT_STREQ(str, "0-3 8-11");
         str = mfree(str);
         assert_se(str = cpu_set_to_mask_string(&c));
         log_info("cpu_set_to_mask_string: %s", str);
-        assert_se(streq(str, "f0f"));
+        ASSERT_STREQ(str, "f0f");
         str = mfree(str);
         cpu_set_reset(&c);
 
@@ -86,11 +86,11 @@ TEST(parse_cpu_set) {
         str = mfree(str);
         assert_se(str = cpu_set_to_range_string(&c));
         log_info("cpu_set_to_range_string: %s", str);
-        assert_se(streq(str, "8-11"));
+        ASSERT_STREQ(str, "8-11");
         str = mfree(str);
         assert_se(str = cpu_set_to_mask_string(&c));
         log_info("cpu_set_to_mask_string: %s", str);
-        assert_se(streq(str, "f00"));
+        ASSERT_STREQ(str, "f00");
         str = mfree(str);
         cpu_set_reset(&c);
 
@@ -120,11 +120,11 @@ TEST(parse_cpu_set) {
         str = mfree(str);
         assert_se(str = cpu_set_to_range_string(&c));
         log_info("cpu_set_to_range_string: %s", str);
-        assert_se(streq(str, "0-7 63"));
+        ASSERT_STREQ(str, "0-7 63");
         str = mfree(str);
         assert_se(str = cpu_set_to_mask_string(&c));
         log_info("cpu_set_to_mask_string: %s", str);
-        assert_se(streq(str, "80000000,000000ff"));
+        ASSERT_STREQ(str, "80000000,000000ff");
         str = mfree(str);
         cpu_set_reset(&c);
 
@@ -149,7 +149,7 @@ TEST(parse_cpu_set) {
                 assert_se(CPU_ISSET_S(cpu, c.allocated, c.set));
         assert_se(str = cpu_set_to_mask_string(&c));
         log_info("cpu_set_to_mask_string: %s", str);
-        assert_se(streq(str, "f0f0,00000000"));
+        ASSERT_STREQ(str, "f0f0,00000000");
         str = mfree(str);
         cpu_set_reset(&c);
         assert_se(parse_cpu_set_full("64-71", &c, true, NULL, "fake", 1, "CPUAffinity") >= 0);
@@ -159,7 +159,7 @@ TEST(parse_cpu_set) {
                 assert_se(CPU_ISSET_S(cpu, c.allocated, c.set));
         assert_se(str = cpu_set_to_mask_string(&c));
         log_info("cpu_set_to_mask_string: %s", str);
-        assert_se(streq(str, "ff,00000000,00000000"));
+        ASSERT_STREQ(str, "ff,00000000,00000000");
         str = mfree(str);
         cpu_set_reset(&c);
 
@@ -176,11 +176,11 @@ TEST(parse_cpu_set) {
         str = mfree(str);
         assert_se(str = cpu_set_to_range_string(&c));
         log_info("cpu_set_to_range_string: %s", str);
-        assert_se(streq(str, "0-3 8-11"));
+        ASSERT_STREQ(str, "0-3 8-11");
         str = mfree(str);
         assert_se(str = cpu_set_to_mask_string(&c));
         log_info("cpu_set_to_mask_string: %s", str);
-        assert_se(streq(str, "f0f"));
+        ASSERT_STREQ(str, "f0f");
         str = mfree(str);
         cpu_set_reset(&c);
 
@@ -190,7 +190,7 @@ TEST(parse_cpu_set) {
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 0);
         assert_se(str = cpu_set_to_mask_string(&c));
         log_info("cpu_set_to_mask_string: %s", str);
-        assert_se(streq(str, "0"));
+        ASSERT_STREQ(str, "0");
         str = mfree(str);
         cpu_set_reset(&c);
 
@@ -205,11 +205,11 @@ TEST(parse_cpu_set) {
         str = mfree(str);
         assert_se(str = cpu_set_to_range_string(&c));
         log_info("cpu_set_to_range_string: %s", str);
-        assert_se(streq(str, "0-11"));
+        ASSERT_STREQ(str, "0-11");
         str = mfree(str);
         assert_se(str = cpu_set_to_mask_string(&c));
         log_info("cpu_set_to_mask_string: %s", str);
-        assert_se(streq(str, "fff"));
+        ASSERT_STREQ(str, "fff");
         str = mfree(str);
         cpu_set_reset(&c);
 
@@ -226,11 +226,11 @@ TEST(parse_cpu_set) {
         str = mfree(str);
         assert_se(str = cpu_set_to_range_string(&c));
         log_info("cpu_set_to_range_string: %s", str);
-        assert_se(streq(str, "0 2 4-11"));
+        ASSERT_STREQ(str, "0 2 4-11");
         str = mfree(str);
         assert_se(str = cpu_set_to_mask_string(&c));
         log_info("cpu_set_to_mask_string: %s", str);
-        assert_se(streq(str, "ff5"));
+        ASSERT_STREQ(str, "ff5");
         str = mfree(str);
         cpu_set_reset(&c);
 
@@ -250,7 +250,7 @@ TEST(parse_cpu_set) {
         assert_se(c.allocated == 0);
         assert_se(str = cpu_set_to_mask_string(&c));
         log_info("cpu_set_to_mask_string: %s", str);
-        assert_se(streq(str, "0"));
+        ASSERT_STREQ(str, "0");
         str = mfree(str);
 
         /* Runaway quoted string */
@@ -266,7 +266,7 @@ TEST(parse_cpu_set) {
         str = mfree(str);
         assert_se(str = cpu_set_to_range_string(&c));
         log_info("cpu_set_to_range_string: %s", str);
-        assert_se(streq(str, "8000-8191"));
+        ASSERT_STREQ(str, "8000-8191");
         str = mfree(str);
         assert_se(str = cpu_set_to_mask_string(&c));
         log_info("cpu_set_to_mask_string: %s", str);

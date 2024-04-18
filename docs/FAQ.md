@@ -7,7 +7,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Frequently Asked Questions
 
-Also check out the [Tips & Tricks](../TIPS_AND_TRICKS)!
+Also check out the [Tips & Tricks](/TIPS_AND_TRICKS)!
 
 **Q: How do I change the current runlevel?**
 
@@ -70,7 +70,8 @@ A: Simply instantiate a new getty service for the port of your choice (internall
 # systemctl start serial-getty@ttyS2.service
 ```
 
-Note that gettys on the virtual console are started on demand. You can control how many you get via the NAutoVTs= setting in [logind.conf(7)](http://www.freedesktop.org/software/systemd/man/logind.html). Also see [this blog story](http://0pointer.de/blog/projects/serial-console.html).
+Note that gettys on the virtual console are started on demand. You can control how many you get via the NAutoVTs= setting in [logind.conf(7)](http://www.freedesktop.org/software/systemd/man/systemd-logind.service).
+Also see [this blog story](http://0pointer.de/blog/projects/serial-console.html).
 
 **Q: How to I figure out which service a process belongs to?**
 
@@ -103,12 +104,12 @@ A: Use:
 
 **Q: Whenever my service tries to acquire RT scheduling for one of its threads this is refused with EPERM even though my service is running with full privileges. This works fine on my non-systemd system!**
 
-A: By default, systemd places all systemd daemons in their own cgroup in the "cpu" hierarchy. Unfortunately, due to a kernel limitation, this has the effect of disallowing RT entirely for the service. See [My Service Can't Get Realtime!](../MY_SERVICE_CANT_GET_REATLIME) for a longer discussion and what to do about this.
+A: By default, systemd places all systemd daemons in their own cgroup in the "cpu" hierarchy. Unfortunately, due to a kernel limitation, this has the effect of disallowing RT entirely for the service. See [My Service Can't Get Realtime!](/MY_SERVICE_CANT_GET_REATLIME) for a longer discussion and what to do about this.
 
 **Q: My service is ordered after `network.target` but at boot it is still called before the network is up. What's going on?**
 
-A: That's a long story, and that's why we have a wiki page of its own about this: [Running Services After the Network is up](../NETWORK_ONLINE)
+A: That's a long story, and that's why we have a wiki page of its own about this: [Running Services After the Network is up](/NETWORK_ONLINE)
 
 **Q: My systemd system always comes up with `/tmp` as a tiny `tmpfs`. How do I get rid of this?**
 
-A: That's also a long story, please have a look on [API File Systems](../API_FILE_SYSTEMS)
+A: That's also a long story, please have a look on [API File Systems](/API_FILE_SYSTEMS)

@@ -2,8 +2,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if [ ! -f "pkg/$PKG_SUBDIR/systemd.spec" ]; then
-    echo "spec not found at pkg/$PKG_SUBDIR/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
+# shellcheck source=/dev/null
+. /usr/lib/os-release
+ID="${ID%-*}"
+
+if [ ! -f "pkg/$ID/systemd.spec" ]; then
+    echo "spec not found at pkg/$ID/systemd.spec, run mkosi once with -ff to make sure the spec is cloned" >&2
     exit 1
 fi
 
@@ -16,9 +20,17 @@ fi
 # The openSUSE filelists hardcode the manpage compression extension. This causes rpmbuild errors since we
 # disable manpage compression as the files cannot be found. Fix the issue by removing the compression
 # extension.
-find "pkg/$PKG_SUBDIR" -name "files.*" -exec sed --in-place 's/\.gz$//' {} \;
+find "pkg/$ID" -name "files.*" -exec sed --in-place 's/\.gz$//' {} \;
+
+# Fix the %install override so debuginfo packages are generated.
+tee --append /usr/lib/rpm/suse/macros <<'EOF'
+%install %{debug_package}\
+%%install\
+%{nil}
+EOF
 
 build() {
+    IFS=
     # TODO: Replace meson_build and meson_install overrides with "--undefine __meson_verbose" once
     # https://github.com/mesonbuild/meson/pull/12835 is available.
     # shellcheck disable=SC2046
@@ -28,13 +40,14 @@ build() {
         --with upstream \
         $( ((WITH_TESTS)) || echo --nocheck) \
         --define "_topdir /var/tmp" \
-        --define "_sourcedir pkg/$PKG_SUBDIR" \
+        --define "_sourcedir pkg/$ID" \
         --define "_rpmdir $OUTPUTDIR" \
         ${BUILDDIR:+--define} \
         ${BUILDDIR:+"_vpath_builddir $BUILDDIR"} \
         --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
         --define "_binary_payload w.ufdio" \
-        --define "debug_package %{nil}" \
+        $( ((WITH_DEBUG)) || echo --define) \
+        $( ((WITH_DEBUG)) || echo "debug_package %{nil}") \
         --define "vendor openSUSE" \
         --define "version_override $(cat meson.version)" \
         --define "release_override $(date "+%Y%m%d%H%M%S" --date "@$TS")" \
@@ -45,8 +58,9 @@ build() {
         --define "__os_install_post /usr/lib/rpm/brp-suse %{nil}" \
         --define "__elf_exclude_path ^/usr/lib/systemd/tests/unit-tests/.*$" \
         --define "__script_requires %{nil}" \
+        --noclean \
         "$@" \
-        "pkg/$PKG_SUBDIR/systemd.spec"
+        "pkg/$ID/systemd.spec"
 }
 
 if ! build; then
@@ -58,7 +72,7 @@ if ! build; then
     # warnings.
     rm systemd.lang
 
-    cat /tmp/unpackaged-files >>"pkg/$PKG_SUBDIR/files.systemd"
+    cat /tmp/unpackaged-files >>"pkg/$ID/files.systemd"
     build --noprep --nocheck
 fi
 

@@ -16,7 +16,7 @@ static void test_specifier_escape_one(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL;
 
         x = specifier_escape(a);
-        assert_se(streq_ptr(x, b));
+        ASSERT_STREQ(x, b);
 }
 
 TEST(specifier_escape) {
@@ -73,7 +73,7 @@ TEST(specifier_printf) {
         assert_se(w);
 
         puts(w);
-        assert_se(streq(w, "xxx a=AAAA b=BBBB e= yyy"));
+        ASSERT_STREQ(w, "xxx a=AAAA b=BBBB e= yyy");
 
         free(w);
         r = specifier_printf("boot=%b, host=%H, pretty=%q, version=%v, arch=%a, empty=%e", SIZE_MAX, table, NULL, NULL, &w);
@@ -107,7 +107,7 @@ TEST(specifier_real_path) {
 
         /* /dev/initctl should normally be a symlink to /run/initctl */
         if (inode_same("/dev/initctl", "/run/initctl", 0) > 0)
-                assert_se(streq(w, "p=/dev/initctl y=/run/initctl Y=/run w=/dev/tty W=/dev"));
+                ASSERT_STREQ(w, "p=/dev/initctl y=/run/initctl Y=/run w=/dev/tty W=/dev");
 }
 
 TEST(specifier_real_path_missing_file) {
@@ -138,6 +138,8 @@ TEST(specifiers) {
                 xsprintf(spec, "%%%c", s->specifier);
 
                 r = specifier_printf(spec, SIZE_MAX, specifier_table, NULL, NULL, &resolved);
+                if (s->specifier == 'A' && r == -EUNATCH) /* os-release might be missing in build chroots */
+                        continue;
                 if (s->specifier == 'm' && IN_SET(r, -EUNATCH, -ENOMEDIUM, -ENOPKG)) /* machine-id might be missing in build chroots */
                         continue;
                 assert_se(r >= 0);
@@ -176,11 +178,11 @@ TEST(specifiers_missing_data_ok) {
 
         assert_se(setenv("SYSTEMD_OS_RELEASE", "/dev/null", 1) == 0);
         assert_se(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, NULL, NULL, &resolved) >= 0);
-        assert_se(streq(resolved, "-----"));
+        ASSERT_STREQ(resolved, "-----");
 
         assert_se(setenv("SYSTEMD_OS_RELEASE", "/nosuchfileordirectory", 1) == 0);
         assert_se(specifier_printf("%A-%B-%M-%o-%w-%W", SIZE_MAX, specifier_table, NULL, NULL, &resolved) == -EUNATCH);
-        assert_se(streq(resolved, "-----"));
+        ASSERT_STREQ(resolved, "-----");
 
         assert_se(unsetenv("SYSTEMD_OS_RELEASE") == 0);
 }

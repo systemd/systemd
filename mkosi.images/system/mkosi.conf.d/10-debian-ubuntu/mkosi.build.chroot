@@ -2,13 +2,16 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if [ ! -d "pkg/$PKG_SUBDIR/debian" ]; then
-    echo "deb rules not found at pkg/$PKG_SUBDIR/debian, run mkosi once with -ff to make sure the rules are cloned" >&2
+# shellcheck source=/dev/null
+. /usr/lib/os-release
+
+if [ ! -d "pkg/$ID/debian" ]; then
+    echo "deb rules not found at pkg/$ID/debian, run mkosi once with -ff to make sure the rules are cloned" >&2
     exit 1
 fi
 
 # We transplant the debian/ folder from the deb package sources into the upstream sources.
-mount --mkdir --bind "$SRCDIR/pkg/$PKG_SUBDIR/debian" "$SRCDIR"/debian
+mount --mkdir --bind "$SRCDIR/pkg/$ID/debian" "$SRCDIR"/debian
 
 # We hide the patches/ directory by mounting an empty directory on top so they don't get applied.
 TMP=$(mktemp -d)
@@ -39,9 +42,19 @@ cat debian/changelog >>debian/changelog.new
 mv debian/changelog.new debian/changelog
 
 build() {
-    DEB_BUILD_OPTIONS="$( ((WITH_TESTS)) || echo nocheck) $( ((WITH_DOCS)) || echo nodoc) nostrip terse optimize=-lto" \
-    DEB_BUILD_PROFILES="$( ((WITH_TESTS)) || echo nocheck) $( ((WITH_DOCS)) || echo nodoc) pkg.systemd.upstream" \
-    DEB_CFLAGS_APPEND="-Og" \
+    DEB_BUILD_OPTIONS="\
+        $( ((WITH_TESTS)) || echo nocheck) \
+        $( ((WITH_DOCS)) || echo nodoc) \
+        $( ((WITH_DEBUG)) || echo nostrip) \
+        terse \
+        optimize=-lto \
+        noopt \
+    " \
+    DEB_BUILD_PROFILES="\
+        $( ((WITH_TESTS)) || echo nocheck) \
+        $( ((WITH_DOCS)) || echo nodoc) \
+        pkg.systemd.upstream \
+    " \
     DPKG_FORCE="unsafe-io" \
     DPKG_DEB_COMPRESSOR_TYPE="none" \
     DH_MISSING="--fail-missing" \

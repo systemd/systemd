@@ -17,6 +17,7 @@ static const UnitActiveState state_translation_table[_TARGET_STATE_MAX] = {
 
 static void target_set_state(Target *t, TargetState state) {
         TargetState old_state;
+
         assert(t);
 
         if (t->state != state)
@@ -26,10 +27,8 @@ static void target_set_state(Target *t, TargetState state) {
         t->state = state;
 
         if (state != old_state)
-                log_debug("%s changed %s -> %s",
-                          UNIT(t)->id,
-                          target_state_to_string(old_state),
-                          target_state_to_string(state));
+                log_unit_debug(UNIT(t), "Changed %s -> %s",
+                               target_state_to_string(old_state), target_state_to_string(state));
 
         unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
 }
@@ -56,8 +55,8 @@ static int target_add_default_dependencies(Target *t) {
         if (n_others < 0)
                 return n_others;
 
-        for (int i = 0; i < n_others; i++) {
-                r = unit_add_default_target_dependency(others[i], UNIT(t));
+        FOREACH_ARRAY(i, others, n_others) {
+                r = unit_add_default_target_dependency(*i, UNIT(t));
                 if (r < 0)
                         return r;
         }

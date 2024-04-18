@@ -564,7 +564,8 @@ int sd_ipv4acd_get_address(sd_ipv4acd *acd, struct in_addr *address) {
 }
 
 int sd_ipv4acd_is_running(sd_ipv4acd *acd) {
-        assert_return(acd, false);
+        if (!acd)
+                return false;
 
         return acd->state != IPV4ACD_STATE_INIT;
 }

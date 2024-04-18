@@ -2,14 +2,17 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-if [ "$1" = "final" ]; then
+if [ "$1" = "build" ]; then
     exit 0
 fi
 
-if [ ! -d "pkg/$PKG_SUBDIR/debian" ]; then
-    echo "deb rules not found at pkg/$PKG_SUBDIR/debian, run mkosi once with -ff to make sure the rules are cloned" >&2
+# shellcheck source=/dev/null
+. "$BUILDROOT/usr/lib/os-release"
+
+if [ ! -d "pkg/$ID/debian" ]; then
+    echo "deb rules not found at pkg/$ID/debian, run mkosi once with -ff to make sure the rules are cloned" >&2
     exit 1
 fi
 
-cd "pkg/$PKG_SUBDIR"
+cd "pkg/$ID"
 DEB_BUILD_PROFILES="pkg.systemd.upstream" apt-get build-dep .

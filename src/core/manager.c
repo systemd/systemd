@@ -882,6 +882,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         *m = (Manager) {
                 .runtime_scope = runtime_scope,
                 .objective = _MANAGER_OBJECTIVE_INVALID,
+                .previous_objective = _MANAGER_OBJECTIVE_INVALID,
 
                 .status_unit_format = STATUS_UNIT_FORMAT_DEFAULT,
 
@@ -1973,6 +1974,11 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                                 return log_error_errno(r, "Deserialization failed: %m");
                 }
 
+                /* If we are in a new soft-reboot iteration bump the counter now before starting units, so
+                 * that they can reliably read it. We get the previous objective from serialized state. */
+                if (m->previous_objective == MANAGER_SOFT_REBOOT)
+                        m->soft_reboots_count++;
+
                 /* Any fds left? Find some unit which wants them. This is useful to allow container managers to pass
                  * some file descriptors to us pre-initialized. This enables socket-based activation of entire
                  * containers. */
@@ -2203,8 +2209,8 @@ static int manager_dispatch_target_deps_queue(Manager *m) {
                 if (n_targets < 0)
                         return n_targets;
 
-                for (int i = 0; i < n_targets; i++) {
-                        r = unit_add_default_target_dependency(u, targets[i]);
+                FOREACH_ARRAY(i, targets, n_targets) {
+                        r = unit_add_default_target_dependency(u, *i);
                         if (r < 0)
                                 return r;
                 }
@@ -3689,10 +3695,10 @@ static void manager_notify_finished(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m))
                 return;
 
-        if (MANAGER_IS_SYSTEM(m) && dual_timestamp_is_set(&m->timestamps[MANAGER_TIMESTAMP_SOFTREBOOT_START])) {
+        if (MANAGER_IS_SYSTEM(m) && m->soft_reboots_count > 0) {
                 /* The soft-reboot case, where we only report data for the last reboot */
                 firmware_usec = loader_usec = initrd_usec = kernel_usec = 0;
-                total_usec = userspace_usec = m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic - m->timestamps[MANAGER_TIMESTAMP_SOFTREBOOT_START].monotonic;
+                total_usec = userspace_usec = usec_sub_unsigned(m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic, m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_START].monotonic);
 
                 log_struct(LOG_INFO,
                            "MESSAGE_ID=" SD_MESSAGE_STARTUP_FINISHED_STR,
@@ -4805,7 +4811,7 @@ static int short_uid_range(const char *path) {
         /* Taint systemd if we the UID range assigned to this environment doesn't at least cover 0…65534,
          * i.e. from root to nobody. */
 
-        r = uid_range_load_userns(&p, path);
+        r = uid_range_load_userns(path, UID_RANGE_USERNS_INSIDE, &p);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return false;
         if (r < 0)
@@ -5046,7 +5052,6 @@ static const char *const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
         [MANAGER_TIMESTAMP_INITRD]                   = "initrd",
         [MANAGER_TIMESTAMP_USERSPACE]                = "userspace",
         [MANAGER_TIMESTAMP_FINISH]                   = "finish",
-        [MANAGER_TIMESTAMP_SOFTREBOOT_START]         = "softreboot-start",
         [MANAGER_TIMESTAMP_SECURITY_START]           = "security-start",
         [MANAGER_TIMESTAMP_SECURITY_FINISH]          = "security-finish",
         [MANAGER_TIMESTAMP_GENERATORS_START]         = "generators-start",
@@ -5060,6 +5065,7 @@ static const char *const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
         [MANAGER_TIMESTAMP_INITRD_GENERATORS_FINISH] = "initrd-generators-finish",
         [MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_START]  = "initrd-units-load-start",
         [MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_FINISH] = "initrd-units-load-finish",
+        [MANAGER_TIMESTAMP_SHUTDOWN_START]           = "shutdown-start",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manager_timestamp, ManagerTimestamp);

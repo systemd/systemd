@@ -18,6 +18,9 @@ KERNEL_OPTIONS=(
     "luks.name=$PART_UUID=$DM_NAME"
     "luks.key=$PART_UUID=/keyfile:LABEL=varcrypt_keydev"
     "luks.options=$PART_UUID=x-initrd.attach"
+    # Forward journal to console to make debugging easier (or possible at all) if we fail to bring the
+    # encrypted /var up during boot
+    "systemd.journald.forward_to_console=1"
 )
 KERNEL_APPEND+=" ${KERNEL_OPTIONS[*]}"
 QEMU_OPTIONS+=" -drive format=raw,cache=unsafe,file=${STATEDIR:?}/keydev.img"

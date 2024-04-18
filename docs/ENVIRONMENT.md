@@ -183,6 +183,14 @@ All tools:
   expected format is six groups of two hexadecimal digits separated by colons,
   e.g. `SYSTEMD_NSPAWN_NETWORK_MAC=12:34:56:78:90:AB`
 
+`systemd-vmspawn`:
+
+* `$SYSTEMD_VMSPAWN_NETWORK_MAC=...` — if set, allows users to set a specific MAC
+  address for a VM, ensuring that it uses the provided value instead of
+  generating a random one. It is effective when used with `--network-tap`. The
+  expected format is six groups of two hexadecimal digits separated by colons,
+  e.g. `SYSTEMD_VMSPAWN_NETWORK_MAC=12:34:56:78:90:AB`
+
 `systemd-logind`:
 
 * `$SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK=1` — if set, report that
@@ -676,3 +684,21 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   service. Takes a file system path: if specified the tool will listen on an
   `AF_UNIX` stream socket on the specified path in addition to whatever else it
   would listen on.
+
+`systemd-mountfsd`:
+
+* `$SYSTEMD_MOUNTFSD_TRUSTED_DIRECTORIES` – takes a boolean argument. If true
+  disk images from the usual disk image directories (`/var/lib/machines/`,
+  `/var/lib/confexts/`, …) will be considered "trusted", i.e. are validated
+  with a more relaxed image policy (typically not requiring Verity signature
+  checking) than those from other directories (where Verity signature checks
+  are mandatory). If false all images are treated the same, regardless if
+  placed in the usual disk image directories or elsewhere. If not set defaults
+  to a compile time setting.
+
+* `$SYSTEMD_MOUNTFSD_IMAGE_POLICY_TRUSTED`,
+  `$SYSTEMD_MOUNTFSD_IMAGE_POLICY_UNTRUSTED` – the default image policy to
+  apply to trusted and untrusted disk images. An image is considered trusted if
+  placed in a trusted disk image directory (see above), or if suitable polkit
+  authentication was acquired. See `systemd.image-policy(7)` for the valid
+  syntax for image policy strings.

@@ -1387,10 +1387,13 @@ void job_shutdown_magic(Job *j) {
         if (j->type != JOB_START)
                 return;
 
-        if (!MANAGER_IS_SYSTEM(j->unit->manager))
+        if (!unit_has_name(j->unit, SPECIAL_SHUTDOWN_TARGET))
                 return;
 
-        if (!unit_has_name(j->unit, SPECIAL_SHUTDOWN_TARGET))
+        /* This is the very beginning of the shutdown phase, so take the timestamp here */
+        dual_timestamp_now(ASSERT_PTR(j->manager)->timestamps + MANAGER_TIMESTAMP_SHUTDOWN_START);
+
+        if (!MANAGER_IS_SYSTEM(j->manager))
                 return;
 
         /* In case messages on console has been disabled on boot */

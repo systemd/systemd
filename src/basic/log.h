@@ -32,7 +32,7 @@ typedef enum LogTarget{
 } LogTarget;
 
 /* This log level disables logging completely. It can only be passed to log_set_max_level() and cannot be
- * used a regular log level. */
+ * used as a regular log level. */
 #define LOG_NULL (LOG_EMERG - 1)
 
 /* Note to readers: << and >> have lower precedence (are evaluated earlier) than & and | */

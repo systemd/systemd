@@ -10,9 +10,11 @@
 #include "netlink-util.h"
 #include "networkd-address-pool.h"
 #include "networkd-address.h"
+#include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-manager.h"
+#include "networkd-ndisc.h"
 #include "networkd-netlabel.h"
 #include "networkd-network.h"
 #include "networkd-queue.h"
@@ -260,6 +262,7 @@ static Address* address_free(Address *address) {
         config_section_free(address->section);
         free(address->label);
         free(address->netlabel);
+        ipv6_token_unref(address->token);
         nft_set_context_clear(&address->nft_set_context);
         return mfree(address);
 }
@@ -608,6 +611,7 @@ int address_dup(const Address *src, Address **ret) {
         dest->section = NULL;
         dest->link = NULL;
         dest->label = NULL;
+        dest->token = ipv6_token_ref(src->token);
         dest->netlabel = NULL;
         dest->nft_set_context.sets = NULL;
         dest->nft_set_context.n_sets = 0;
@@ -800,8 +804,49 @@ static int address_update(Address *address) {
         return 0;
 }
 
-static int address_drop(Address *address) {
-        Link *link = ASSERT_PTR(ASSERT_PTR(address)->link);
+static int address_removed_maybe_kernel_dad(Link *link, Address *address) {
+        int r;
+
+        assert(link);
+        assert(address);
+
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                return 0;
+
+        if (address->family != AF_INET6)
+                return 0;
+
+        if (!FLAGS_SET(address->flags, IFA_F_TENTATIVE))
+                return 0;
+
+        log_link_info(link, "Address %s with tentative flag is removed, maybe a duplicated address is assigned on another node or link?",
+                      IN6_ADDR_TO_STRING(&address->in_addr.in6));
+
+        /* Reset the address state, as the object may be reused in the below. */
+        address->state = 0;
+
+        switch (address->source) {
+        case NETWORK_CONFIG_SOURCE_STATIC:
+                r = link_reconfigure_radv_address(address, link);
+                break;
+        case NETWORK_CONFIG_SOURCE_DHCP_PD:
+                r = dhcp_pd_reconfigure_address(address, link);
+                break;
+        case NETWORK_CONFIG_SOURCE_NDISC:
+                r = ndisc_reconfigure_address(address, link);
+                break;
+        default:
+                r = 0;
+        }
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure an alternative address: %m");
+
+        return 0;
+}
+
+static int address_drop(Address *in, bool removed_by_us) {
+        _cleanup_(address_unrefp) Address *address = address_ref(ASSERT_PTR(in));
+        Link *link = ASSERT_PTR(address->link);
         int r;
 
         r = address_set_masquerade(address, /* add = */ false);
@@ -820,6 +865,14 @@ static int address_drop(Address *address) {
         ipv4acd_detach(link, address);
 
         address_detach(address);
+
+        if (!removed_by_us) {
+                r = address_removed_maybe_kernel_dad(link, address);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return r;
+                }
+        }
 
         link_update_operstate(link, /* also_update_master = */ true);
         link_check_ready(link);
@@ -1135,7 +1188,7 @@ static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Remov
                         if (address_get_request(link, address, &req) >= 0)
                                 address_enter_removed(req->userdata);
 
-                        (void) address_drop(address);
+                        (void) address_drop(address, /* removed_by_us = */ true);
                 }
         }
 
@@ -1496,7 +1549,7 @@ static int address_acquire(Link *link, const Address *address, union in_addr_uni
         assert(ret);
 
         r = address_acquire_from_dhcp_server_leases_file(link, address, ret);
-        if (r != -ENOENT)
+        if (!IN_SET(r, -ENOENT, -ENXIO, -EINVAL))
                 return r;
 
         r = address_pool_acquire(link->manager, address->family, address->prefixlen, &a);
@@ -1845,9 +1898,11 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
         if (type == RTM_DELADDR) {
                 if (address) {
+                        bool removed_by_us = FLAGS_SET(address->state, NETWORK_CONFIG_STATE_REMOVING);
+
                         address_enter_removed(address);
                         log_address_debug(address, "Forgetting removed", link);
-                        (void) address_drop(address);
+                        (void) address_drop(address, removed_by_us);
                 } else
                         log_address_debug(tmp, "Kernel removed unknown", link);
 
@@ -1886,6 +1941,10 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 (void) nft_set_context_dup(&a->nft_set_context, &address->nft_set_context);
                 address->requested_as_null = a->requested_as_null;
                 address->callback = a->callback;
+
+                ipv6_token_ref(a->token);
+                ipv6_token_unref(address->token);
+                address->token = a->token;
         }
 
         /* Then, update miscellaneous info. */

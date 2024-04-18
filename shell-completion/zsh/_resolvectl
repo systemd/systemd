@@ -68,18 +68,18 @@
 }
 
 _arguments \
-    {-h,--help}'[Print a short help text and exit]' \
-    '--version[Print a short version string and exit]' \
-    '--legend=no[Do not show headers and footers]' \
+    '(- *)'{-h,--help}'[Print a short help text and exit]' \
+    '(- *)--version[Print a short version string and exit]' \
+    '--legend=[Do not show headers and footers]:BOOL:(yes no)' \
     '-4[Resolve IPv4 addresses]' \
     '-6[Resolve IPv6 addresses]' \
-    {-i+,--interface=}'[Look on interface]:interface:_net_interfaces' \
-    {-p+,--protocol=}'[Look via protocol]:protocol:_resolvectl_protocols' \
-    {-t+,--type=}'[Query RR with DNS type]:type:_resolvectl_types' \
-    {-c+,--class=}'[Query RR with DNS class]:class:_resolvectl_classes' \
+    '(-i --interface)'{-i+,--interface=}'[Look on interface]:interface:_net_interfaces' \
+    '(-p --protocol)'{-p+,--protocol=}'[Look via protocol]:protocol:_resolvectl_protocols' \
+    '(-t --type)'{-t+,--type=}'[Query RR with DNS type]:type:_resolvectl_types' \
+    '(-c --class)'{-c+,--class=}'[Query RR with DNS class]:class:_resolvectl_classes' \
     '--service[Resolve services]' \
-    '--service-address=no[Do not resolve address for services]' \
-    '--service-txt=no[Do not resolve TXT records for services]' \
-    '--cname=no[Do not follow CNAME redirects]' \
-    '--search=no[Do not use search domains]' \
+    '--service-address=[Do not resolve address for services]:BOOL:(yes no)' \
+    '--service-txt=[Do not resolve TXT records for services]:BOOL:(yes no)' \
+    '--cname=[Do not follow CNAME redirects]:BOOL:(yes no)' \
+    '--search=[Do not use search domains]:BOOL:(yes no)' \
     '*::default: _resolvectl_commands'

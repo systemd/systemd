@@ -380,7 +380,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--mutable=</option><replaceable>BOOL</replaceable>|<replaceable>auto</replaceable>|<replaceable>import</replaceable></term>
+        <term><option>--mutable=<replaceable>BOOL</replaceable>|<replaceable>auto</replaceable>|<replaceable>import</replaceable></option></term>
         <listitem><para>Set mutable mode.</para>
 
         <variablelist>
@@ -435,7 +435,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--noexec=</option><replaceable>BOOL</replaceable></term>
+        <term><option>--noexec=<replaceable>BOOL</replaceable></option></term>
 
         <listitem><para>When merging configuration extensions into <filename>/etc/</filename> the
         <literal>MS_NOEXEC</literal> mount flag is used by default. This option can be used to disable

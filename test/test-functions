@@ -39,6 +39,8 @@ os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os
 # shellcheck source=/dev/null
 source "$os_release"
 [[ "$ID" == "debian" || " $ID_LIKE " == *" debian "* ]] && LOOKS_LIKE_DEBIAN=yes || LOOKS_LIKE_DEBIAN=no
+# shellcheck disable=SC2034
+[[ "$ID" == "ubuntu" ]] && LOOKS_LIKE_UBUNTU=yes || LOOKS_LIKE_UBUNTU=no
 [[ "$ID" == "arch" || " $ID_LIKE " == *" arch "* ]] && LOOKS_LIKE_ARCH=yes || LOOKS_LIKE_ARCH=no
 [[ "$ID" == "fedora" ]] && LOOKS_LIKE_FEDORA=yes || LOOKS_LIKE_FEDORA=no
 [[ " $ID_LIKE " == *" suse "* ]] && LOOKS_LIKE_SUSE=yes || LOOKS_LIKE_SUSE=no
@@ -733,6 +735,7 @@ install_verity_minimal() {
         BASICTOOLS=(
             bash
             cat
+            echo
             grep
             mount
             sleep
@@ -1114,6 +1117,9 @@ install_fs_tools() {
     # we use mkfs in system-repart tests
     image_install /sbin/mkfs.ext4
     image_install /sbin/mkfs.vfat
+
+    # we use mkswap in udev-storage tests
+    image_install /sbin/mkswap
 }
 
 install_modules() {
@@ -1555,7 +1561,7 @@ install_missing_libraries() {
     local lib path
     # A number of dependencies is now optional via dlopen, so the install
     # script will not pick them up, since it looks at linkage.
-    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu tss2-tcti-device libfido2 libbpf libelf libdw xkbcommon p11-kit-1 libarchive libgcrypt; do
+    for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu tss2-tcti-device libfido2 libbpf libelf libdw xkbcommon p11-kit-1 libarchive libgcrypt libkmod; do
         ddebug "Searching for $lib via pkg-config"
         if pkg-config --exists "$lib"; then
                 path="$(pkg-config --variable=libdir "$lib")"

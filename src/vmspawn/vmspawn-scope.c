@@ -56,10 +56,12 @@ int start_transient_scope(sd_bus *bus, const char *machine_name, bool allow_pidf
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append(m, "(sa)(sa)(sa)",
+        r = sd_bus_message_append(m, "(sv)(sv)(sv)",
                                   "Description", "s",  description,
                                   "AddRef",      "b",  1,
                                   "CollectMode", "s",  "inactive-or-failed");
+        if (r < 0)
+                return bus_log_create_error(r);
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_set_self(&pidref);

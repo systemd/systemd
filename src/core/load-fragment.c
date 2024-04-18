@@ -856,9 +856,7 @@ int config_parse_exec(
                 void *userdata) {
 
         ExecCommand **e = ASSERT_PTR(data);
-        const Unit *u = userdata;
-        const char *p;
-        bool semicolon;
+        const Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -873,15 +871,11 @@ int config_parse_exec(
                 return 0;
         }
 
-        p = rvalue;
+        const char *p = rvalue;
+        bool semicolon;
+
         do {
                 _cleanup_free_ char *path = NULL, *firstword = NULL;
-                ExecCommandFlags flags = 0;
-                bool ignore = false, separate_argv0 = false;
-                _cleanup_free_ ExecCommand *nce = NULL;
-                _cleanup_strv_free_ char **n = NULL;
-                size_t nlen = 0;
-                const char *f;
 
                 semicolon = false;
 
@@ -895,25 +889,30 @@ int config_parse_exec(
                         continue;
                 }
 
-                f = firstword;
-                for (;;) {
-                        /* We accept an absolute path as first argument.  If it's prefixed with - and the path doesn't
-                         * exist, we ignore it instead of erroring out; if it's prefixed with @, we allow overriding of
-                         * argv[0]; if it's prefixed with :, we will not do environment variable substitution;
-                         * if it's prefixed with +, it will be run with full privileges and no sandboxing; if
-                         * it's prefixed with '!' we apply sandboxing, but do not change user/group credentials; if
-                         * it's prefixed with '!!', then we apply user/group credentials if the kernel supports ambient
-                         * capabilities -- if it doesn't we don't apply the credentials themselves, but do apply most
-                         * other sandboxing, with some special exceptions for changing UID.
-                         *
-                         * The idea is that '!!' may be used to write services that can take benefit of systemd's
-                         * UID/GID dropping if the kernel supports ambient creds, but provide an automatic fallback to
-                         * privilege dropping within the daemon if the kernel does not offer that. */
+                const char *f = firstword;
+                bool ignore, separate_argv0 = false;
+                ExecCommandFlags flags = 0;
 
-                        if (*f == '-' && !(flags & EXEC_COMMAND_IGNORE_FAILURE)) {
+                for (;; f++) {
+                        /* We accept an absolute path as first argument. Valid prefixes and their effect:
+                         *
+                         * "-":  Ignore if the path doesn't exist
+                         * "@":  Allow overriding argv[0] (supplied as a separate argument)
+                         * ":":  Disable environment variable substitution
+                         * "+":  Run with full privileges and no sandboxing
+                         * "!":  Apply sandboxing except for user/group credentials
+                         * "!!": Apply user/group credentials if the kernel supports ambient capabilities -
+                         *       if it doesn't we don't apply the credentials themselves, but do apply
+                         *       most other sandboxing, with some special exceptions for changing UID.
+                         *
+                         * The idea is that '!!' may be used to write services that can take benefit of
+                         * systemd's UID/GID dropping if the kernel supports ambient creds, but provide
+                         * an automatic fallback to privilege dropping within the daemon if the kernel
+                         * does not offer that. */
+
+                        if (*f == '-' && !(flags & EXEC_COMMAND_IGNORE_FAILURE))
                                 flags |= EXEC_COMMAND_IGNORE_FAILURE;
-                                ignore = true;
-                        } else if (*f == '@' && !separate_argv0)
+                        else if (*f == '@' && !separate_argv0)
                                 separate_argv0 = true;
                         else if (*f == ':' && !(flags & EXEC_COMMAND_NO_ENV_EXPAND))
                                 flags |= EXEC_COMMAND_NO_ENV_EXPAND;
@@ -926,8 +925,9 @@ int config_parse_exec(
                                 flags |= EXEC_COMMAND_AMBIENT_MAGIC;
                         } else
                                 break;
-                        f++;
                 }
+
+                ignore = FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE);
 
                 r = unit_path_printf(u, f, &path);
                 if (r < 0) {
@@ -938,19 +938,18 @@ int config_parse_exec(
                 }
 
                 if (isempty(path)) {
-                        /* First word is either "-" or "@" with no command. */
                         log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
-                                   "Empty path in command line%s: '%s'",
+                                   "Empty path in command line%s: %s",
                                    ignore ? ", ignoring" : "", rvalue);
                         return ignore ? 0 : -ENOEXEC;
                 }
                 if (!string_is_safe(path)) {
                         log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
-                                   "Executable name contains special characters%s: %s",
+                                   "Executable path contains special characters%s: %s",
                                    ignore ? ", ignoring" : "", path);
                         return ignore ? 0 : -ENOEXEC;
                 }
-                if (endswith(path, "/")) {
+                if (path_implies_directory(path)) {
                         log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
                                    "Executable path specifies a directory%s: %s",
                                    ignore ? ", ignoring" : "", path);
@@ -964,92 +963,71 @@ int config_parse_exec(
                         return ignore ? 0 : -ENOEXEC;
                 }
 
-                if (!separate_argv0) {
-                        char *w = NULL;
+                _cleanup_strv_free_ char **args = NULL;
 
-                        if (!GREEDY_REALLOC0(n, nlen + 2))
+                if (!separate_argv0)
+                        if (strv_extend(&args, path) < 0)
                                 return log_oom();
-
-                        w = strdup(path);
-                        if (!w)
-                                return log_oom();
-                        n[nlen++] = w;
-                        n[nlen] = NULL;
-                }
-
-                path_simplify(path);
 
                 while (!isempty(p)) {
                         _cleanup_free_ char *word = NULL, *resolved = NULL;
 
-                        /* Check explicitly for an unquoted semicolon as
-                         * command separator token.  */
+                        /* Check explicitly for an unquoted semicolon as command separator token. */
                         if (p[0] == ';' && (!p[1] || strchr(WHITESPACE, p[1]))) {
                                 p++;
-                                p += strspn(p, WHITESPACE);
+                                p = skip_leading_chars(p, /* bad = */ NULL);
                                 semicolon = true;
                                 break;
                         }
 
                         /* Check for \; explicitly, to not confuse it with \\; or "\;" or "\\;" etc.
-                         * extract_first_word() would return the same for all of those.  */
+                         * extract_first_word() would return the same for all of those. */
                         if (p[0] == '\\' && p[1] == ';' && (!p[2] || strchr(WHITESPACE, p[2]))) {
-                                char *w;
-
                                 p += 2;
-                                p += strspn(p, WHITESPACE);
+                                p = skip_leading_chars(p, /* bad = */ NULL);
 
-                                if (!GREEDY_REALLOC0(n, nlen + 2))
+                                if (strv_extend(&args, ";") < 0)
                                         return log_oom();
 
-                                w = strdup(";");
-                                if (!w)
-                                        return log_oom();
-                                n[nlen++] = w;
-                                n[nlen] = NULL;
                                 continue;
                         }
 
                         r = extract_first_word_and_warn(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE, unit, filename, line, rvalue);
-                        if (r == 0)
-                                break;
                         if (r < 0)
                                 return ignore ? 0 : -ENOEXEC;
+                        if (r == 0)
+                                break;
 
                         r = unit_full_printf(u, word, &resolved);
                         if (r < 0) {
                                 log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, r,
-                                           "Failed to resolve unit specifiers in %s%s: %m",
+                                           "Failed to resolve unit specifiers in '%s'%s: %m",
                                            word, ignore ? ", ignoring" : "");
                                 return ignore ? 0 : -ENOEXEC;
                         }
 
-                        if (!GREEDY_REALLOC(n, nlen + 2))
+                        if (strv_consume(&args, TAKE_PTR(resolved)) < 0)
                                 return log_oom();
-
-                        n[nlen++] = TAKE_PTR(resolved);
-                        n[nlen] = NULL;
                 }
 
-                if (!n || !n[0]) {
+                if (strv_isempty(args)) {
                         log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
                                    "Empty executable name or zeroeth argument%s: %s",
                                    ignore ? ", ignoring" : "", rvalue);
                         return ignore ? 0 : -ENOEXEC;
                 }
 
-                nce = new0(ExecCommand, 1);
-                if (!nce)
+                ExecCommand *nec = new(ExecCommand, 1);
+                if (!nec)
                         return log_oom();
 
-                nce->argv = TAKE_PTR(n);
-                nce->path = TAKE_PTR(path);
-                nce->flags = flags;
+                *nec = (ExecCommand) {
+                        .path = path_simplify(TAKE_PTR(path)),
+                        .argv = TAKE_PTR(args),
+                        .flags = flags,
+                };
 
-                exec_command_append_list(e, nce);
-
-                /* Do not _cleanup_free_ these. */
-                nce = NULL;
+                exec_command_append_list(e, nec);
 
                 rvalue = p;
         } while (semicolon);

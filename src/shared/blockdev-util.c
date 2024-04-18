@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
@@ -356,24 +357,36 @@ int lock_whole_block_device(dev_t devt, int operation) {
 }
 
 int blockdev_partscan_enabled(int fd) {
-        _cleanup_free_ char *p = NULL, *buf = NULL;
-        unsigned long long ull;
-        struct stat st;
-        int r;
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        unsigned capability;
+        int r, ext_range;
 
-        /* Checks if partition scanning is correctly enabled on the block device */
+        /* Checks if partition scanning is correctly enabled on the block device.
+         *
+         * The 'GENHD_FL_NO_PART_SCAN' flag was introduced by
+         * https://github.com/torvalds/linux/commit/d27769ec3df1a8de9ca450d2dcd72d1ab259ba32 (v3.2).
+         * But at that time, the flag is also effectively implied when 'minors' element of 'struct gendisk'
+         * is 1, which can be check with 'ext_range' sysfs attribute. Explicit flag ('GENHD_FL_NO_PART_SCAN')
+         * can be obtained from 'capability' sysattr.
+         *
+         * With https://github.com/torvalds/linux/commit/1ebe2e5f9d68e94c524aba876f27b945669a7879 (v5.17), we
+         * can check the flag from 'ext_range' sysfs attribute directly.
+         *
+         * With https://github.com/torvalds/linux/commit/e81cd5a983bb35dabd38ee472cf3fea1c63e0f23 (v6.3),
+         * the 'capability' sysfs attribute is deprecated, hence we cannot check the flag from it.
+         *
+         * To support both old and new kernels, we need to do the following: first check 'ext_range' sysfs
+         * attribute, and if '1' we can conclude partition scanning is disabled, otherwise check 'capability'
+         * sysattr for older version. */
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
+        assert(fd >= 0);
 
-        if (!S_ISBLK(st.st_mode))
-                return -ENOTBLK;
+        r = block_device_new_from_fd(fd, 0, &dev);
+        if (r < 0)
+                return r;
 
-        if (asprintf(&p, "/sys/dev/block/%u:%u/capability", major(st.st_rdev), minor(st.st_rdev)) < 0)
-                return -ENOMEM;
-
-        r = read_one_line_file(p, &buf);
-        if (r == -ENOENT) /* If the capability file doesn't exist then we are most likely looking at a
+        r = device_get_sysattr_int(dev, "ext_range", &ext_range);
+        if (r == -ENOENT) /* If the ext_range file doesn't exist then we are most likely looking at a
                            * partition block device, not the whole block device. And that means we have no
                            * partition scanning on for it (we do for its parent, but not for the partition
                            * itself). */
@@ -381,7 +394,13 @@ int blockdev_partscan_enabled(int fd) {
         if (r < 0)
                 return r;
 
-        r = safe_atollu_full(buf, 16, &ull);
+        if (ext_range <= 1) /* The value should be always positive, but the kernel uses '%d' for the
+                             * attribute. Let's gracefully handle zero or negative. */
+                return false;
+
+        r = device_get_sysattr_unsigned_full(dev, "capability", 16, &capability);
+        if (r == -ENOENT)
+                return false;
         if (r < 0)
                 return r;
 
@@ -389,7 +408,12 @@ int blockdev_partscan_enabled(int fd) {
 #define GENHD_FL_NO_PART_SCAN (0x0200)
 #endif
 
-        return !FLAGS_SET(ull, GENHD_FL_NO_PART_SCAN);
+        /* If 0x200 is set, part scanning is definitely off. */
+        if (FLAGS_SET(capability, GENHD_FL_NO_PART_SCAN))
+                return false;
+
+        /* Otherwise, assume part scanning is on, we have no further checks available. Assume the best. */
+        return true;
 }
 
 static int blockdev_is_encrypted(const char *sysfs_path, unsigned depth_left) {

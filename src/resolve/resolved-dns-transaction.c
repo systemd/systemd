@@ -898,9 +898,7 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                         /* All good. */
                         break;
 
-                case DNS_TRANSACTION_DNSSEC_FAILED: {
-                        DnsAnswer *empty;
-
+                case DNS_TRANSACTION_DNSSEC_FAILED:
                         /* We handle DNSSEC failures different from other errors, as we care about the DNSSEC
                          * validation result */
 
@@ -921,14 +919,10 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
 
                         /* The answer would normally be replaced by the validated subset, but at this point
                          * we aren't going to bother validating the rest, so just drop it. */
-                        empty = dns_answer_new(0);
-                        if (!empty)
-                                return -ENOMEM;
-                        DNS_ANSWER_REPLACE(t->answer, empty);
+                        t->answer = dns_answer_unref(t->answer);
 
                         dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                         return 0;
-                }
 
                 default:
                         log_debug("Auxiliary DNSSEC RR query failed with %s", dns_transaction_state_to_string(dt->state));
@@ -2347,9 +2341,9 @@ static int dns_transaction_request_dnssec_rr_full(DnsTransaction *t, DnsResource
                 r = dns_transaction_go(aux);
                 if (r < 0)
                         return r;
-                if (ret)
-                        *ret = aux;
         }
+        if (ret)
+                *ret = aux;
 
         return 1;
 }

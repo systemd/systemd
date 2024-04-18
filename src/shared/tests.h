@@ -2,11 +2,16 @@
 #pragma once
 
 #include <stdbool.h>
+#include <sys/prctl.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 
 #include "argv-util.h"
 #include "macro.h"
+#include "process-util.h"
+#include "rlimit-util.h"
+#include "signal-util.h"
 #include "static-destruct.h"
 #include "strv.h"
 
@@ -205,11 +210,21 @@ static inline int run_test_table(void) {
         ({                                                                                                      \
                 typeof(expr) _result = (expr);                                                                  \
                 if (_result < 0) {                                                                              \
-                        log_error_errno(_result, "%s:%i: Assertion failed: %s: %m",                             \
+                        log_error_errno(_result, "%s:%i: Assertion failed: expected \"%s\" to succeed but got the following error: %m", \
                                         PROJECT_FILE, __LINE__, #expr);                                         \
                         abort();                                                                                \
                 }                                                                                               \
          })
+
+#define ASSERT_OK_ERRNO(expr)                                                                                   \
+        ({                                                                                                      \
+                typeof(expr) _result = (expr);                                                                  \
+                if (_result < 0) {                                                                              \
+                        log_error_errno(errno, "%s:%i: Assertion failed: expected \"%s\" to succeed but got the following error: %m", \
+                                        PROJECT_FILE, __LINE__, #expr);                                         \
+                        abort();                                                                                \
+                }                                                                                               \
+        })
 
 #define ASSERT_TRUE(expr)                                                                                       \
         ({                                                                                                      \
@@ -231,9 +246,10 @@ static inline int run_test_table(void) {
 
 #define ASSERT_NULL(expr)                                                                                       \
         ({                                                                                                      \
-                if ((expr) != NULL) {                                                                           \
-                        log_error("%s:%i: Assertion failed: expected \"%s\" to be NULL",                        \
-                                  PROJECT_FILE, __LINE__, #expr);                                               \
+                typeof(expr) _result = (expr);                                                                  \
+                if (_result != NULL) {                                                                          \
+                        log_error("%s:%i: Assertion failed: expected \"%s\" to be NULL, but \"%p\" != NULL",    \
+                                  PROJECT_FILE, __LINE__, #expr, _result);                                      \
                         abort();                                                                                \
                 }                                                                                               \
         })
@@ -249,11 +265,10 @@ static inline int run_test_table(void) {
 
 #define ASSERT_STREQ(expr1, expr2)                                                                              \
         ({                                                                                                      \
-                const char* _expr1 = (expr1);                                                                   \
-                const char* _expr2 = (expr2);                                                                   \
-                if (strcmp(_expr1, _expr2) != 0) {                                                              \
+                const char *_expr1 = (expr1), *_expr2 = (expr2);                                                \
+                if (!streq_ptr(_expr1, _expr2)) {                                                               \
                         log_error("%s:%i: Assertion failed: expected \"%s == %s\", but \"%s != %s\"",           \
-                                  PROJECT_FILE, __LINE__, #expr1, #expr2, _expr1, _expr2);                      \
+                                  PROJECT_FILE, __LINE__, #expr1, #expr2, strnull(_expr1), strnull(_expr2));    \
                         abort();                                                                                \
                 }                                                                                               \
         })
@@ -347,6 +362,29 @@ static inline int run_test_table(void) {
                         xsprintf(_sexpr2, DECIMAL_STR_FMT(_expr2), _expr2);                                     \
                         log_error("%s:%i: Assertion failed: expected \"%s < %s\", but \"%s >= %s\"",            \
                                   PROJECT_FILE, __LINE__, #expr1, #expr2, _sexpr1, _sexpr2);                    \
+                        abort();                                                                                \
+                }                                                                                               \
+        })
+
+#define ASSERT_SIGNAL(expr, signal)                                                                             \
+        ({                                                                                                      \
+                ASSERT_TRUE(SIGNAL_VALID(signal));                                                              \
+                siginfo_t _siginfo = {};                                                                        \
+                int _pid = fork();                                                                              \
+                ASSERT_OK(_pid);                                                                                \
+                if (_pid == 0) {                                                                                \
+                        /* Speed things up by never even attempting to generate a coredump */                   \
+                        (void) prctl(PR_SET_DUMPABLE, 0);                                                       \
+                        /* But still set an rlimit just in case */                                              \
+                        (void) setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(0));                                   \
+                        expr;                                                                                   \
+                        _exit(EXIT_SUCCESS);                                                                    \
+                }                                                                                               \
+                (void) wait_for_terminate(_pid, &_siginfo);                                                     \
+                if (_siginfo.si_status != signal) {                                                             \
+                        log_error("%s:%i: Assertion failed: \"%s\" died with signal %s, but %s was expected",   \
+                                  PROJECT_FILE, __LINE__, #expr, signal_to_string(_siginfo.si_status),          \
+                                  signal_to_string(signal));                                                    \
                         abort();                                                                                \
                 }                                                                                               \
         })

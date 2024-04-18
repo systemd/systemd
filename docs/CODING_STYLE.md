@@ -297,7 +297,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   t.bar = "bazz";
   ```
 
-- To implement an endless loop, use `for (;;)` rather than `while (1)`.  The
+- To implement an endless loop, use `for (;;)` rather than `while (1)`. The
   latter is a bit ugly anyway, since you probably really meant `while
   (true)`. To avoid the discussion what the right always-true expression for an
   infinite while loop is, our recommendation is to simply write it without any
@@ -780,3 +780,13 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   good idea where it might end up running inside of libsystemd.so or
   similar. Hence, use TLS (i.e. `thread_local`) where appropriate, and maybe
   the occasional `pthread_once()`.
+
+## Tests
+
+- Use the assertion macros from `tests.h` (`ASSERT_GE()`, `ASSERT_OK()`, ...) to
+  make sure a descriptive error is logged when an assertion fails. If no assertion
+  macro exists for your specific use case, please add a new assertion macro in a
+  separate commit.
+
+- When modifying existing tests, please convert the test to use the new assertion
+  macros from `tests.h` if it is not already using those.

@@ -98,34 +98,25 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>One of the required parameters is <constant>NULL</constant> or
-          <parameter>path</parameter> is not a valid object path.
-          </para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <parameter>path</parameter> is not a valid object path.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOPKG</constant></term>
 
-          <listitem><para>The bus cannot be resolved.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus cannot be resolved.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The bus was created in a different process, library or module instance.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>The bus was created in a different process, library or module instance.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Memory allocation failed.</para>
-
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+          <listitem><para>Memory allocation failed.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -136,7 +127,7 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_bus_node_enumerator_t()</function> and
-    <function>sd_bus_add_node_enumerator()</function> were added in version 246.</para>
+    <function>sd_bus_add_node_enumerator()</function> were added in version 221.</para>
   </refsect1>
 
   <refsect1>

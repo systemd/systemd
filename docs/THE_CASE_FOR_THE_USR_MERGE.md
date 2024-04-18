@@ -104,7 +104,7 @@ _With all vendor-supplied OS resources in a single directory /usr they may be sh
 
 **Myth #10**: The status quo of a split /usr with mounting it without initrd is perfectly well supported right now and works.
 
-**Fact**: A split /usr without involvement of an initrd mounting it before jumping into the root file system [hasn't worked correctly since a long time](http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken).
+**Fact**: A split /usr without involvement of an initrd mounting it before jumping into the root file system [hasn't worked correctly since a long time](/SEPARATE_USR_IS_BROKEN).
 
 **Myth #11**: Instead of merging / into /usr it would make a lot more sense to merge /usr into /.
 

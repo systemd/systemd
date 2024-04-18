@@ -22,13 +22,13 @@ static void test_policy_closed(const char *cgroup_path, BPFProgram **installed_p
         log_info("/* %s */", __func__);
 
         r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_CLOSED, true);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = bpf_devices_allow_list_static(prog, cgroup_path);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_CLOSED, true, cgroup_path, installed_prog);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         FOREACH_STRING(s, "/dev/null",
                           "/dev/zero",
@@ -59,19 +59,19 @@ static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_p
         log_info("/* %s */", __func__);
 
         r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, true);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = bpf_devices_allow_list_device(prog, cgroup_path, "/dev/null", CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = bpf_devices_allow_list_device(prog, cgroup_path, "/dev/random", CGROUP_DEVICE_READ);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = bpf_devices_allow_list_device(prog, cgroup_path, "/dev/zero", CGROUP_DEVICE_WRITE);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_STRICT, true, cgroup_path, installed_prog);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         {
                 _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
@@ -136,13 +136,13 @@ static void test_policy_allow_list_major(const char *pattern, const char *cgroup
         log_info("/* %s(%s) */", __func__, pattern);
 
         r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, true);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = bpf_devices_allow_list_major(prog, cgroup_path, pattern, 'c', CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_STRICT, true, cgroup_path, installed_prog);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         /* /dev/null, /dev/full have major==1, /dev/tty has major==5 */
         {
@@ -195,13 +195,13 @@ static void test_policy_allow_list_major_star(char type, const char *cgroup_path
         log_info("/* %s(type=%c) */", __func__, type);
 
         r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, true);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = bpf_devices_allow_list_major(prog, cgroup_path, "*", type, CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_STRICT, true, cgroup_path, installed_prog);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         {
                 _cleanup_close_ int fd = -EBADF;
@@ -226,7 +226,7 @@ static void test_policy_empty(bool add_mismatched, const char *cgroup_path, BPFP
         log_info("/* %s(add_mismatched=%s) */", __func__, yes_no(add_mismatched));
 
         r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, add_mismatched);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         if (add_mismatched) {
                 r = bpf_devices_allow_list_major(prog, cgroup_path, "foobarxxx", 'c', CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
@@ -234,7 +234,7 @@ static void test_policy_empty(bool add_mismatched, const char *cgroup_path, BPFP
         }
 
         r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_STRICT, false, cgroup_path, installed_prog);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         {
                 _cleanup_close_ int fd = -EBADF;
@@ -258,7 +258,7 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(getrlimit(RLIMIT_MEMLOCK, &rl) >= 0);
+        ASSERT_OK(getrlimit(RLIMIT_MEMLOCK, &rl));
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
         (void) setrlimit(RLIMIT_MEMLOCK, &rl);
 
@@ -278,10 +278,10 @@ int main(int argc, char *argv[]) {
         r = bpf_devices_supported();
         if (r == 0)
                 return log_tests_skipped("BPF device filter not supported");
-        assert_se(r == 1);
+        ASSERT_EQ(r, 1);
 
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, cgroup, NULL, &controller_path);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
 
@@ -297,11 +297,11 @@ int main(int argc, char *argv[]) {
         test_policy_empty(false, cgroup, &prog);
         test_policy_empty(true, cgroup, &prog);
 
-        assert_se(path_extract_directory(cgroup, &parent) >= 0);
+        ASSERT_OK(path_extract_directory(cgroup, &parent));
 
-        assert_se(cg_mask_supported(&supported) >= 0);
+        ASSERT_OK(cg_mask_supported(&supported));
         r = cg_attach_everywhere(supported, parent, 0, NULL, NULL);
-        assert_se(r >= 0);
+        ASSERT_OK(r);
 
         return 0;
 }

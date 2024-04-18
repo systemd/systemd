@@ -23,37 +23,37 @@ TEST(read_credential_strings) {
                 assert_se(saved = strdup(e));
 
         assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
-        assert_se(x == NULL);
-        assert_se(y == NULL);
+        ASSERT_NULL(x);
+        ASSERT_NULL(y);
 
         assert_se(mkdtemp_malloc(NULL, &tmp) >= 0);
 
         assert_se(setenv("CREDENTIALS_DIRECTORY", tmp, /* override= */ true) >= 0);
 
         assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
-        assert_se(x == NULL);
-        assert_se(y == NULL);
+        ASSERT_NULL(x);
+        ASSERT_NULL(y);
 
         assert_se(p = path_join(tmp, "bar"));
         assert_se(write_string_file(p, "piff", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
 
         assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
-        assert_se(x == NULL);
-        assert_se(streq(y, "piff"));
+        ASSERT_NULL(x);
+        ASSERT_STREQ(y, "piff");
 
         assert_se(write_string_file(p, "paff", WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
 
         assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
-        assert_se(x == NULL);
-        assert_se(streq(y, "paff"));
+        ASSERT_NULL(x);
+        ASSERT_STREQ(y, "paff");
 
         p = mfree(p);
         assert_se(p = path_join(tmp, "foo"));
         assert_se(write_string_file(p, "knurz", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
 
         assert_se(read_credential_strings_many("foo", &x, "bar", &y) >= 0);
-        assert_se(streq(x, "knurz"));
-        assert_se(streq(y, "paff"));
+        ASSERT_STREQ(x, "knurz");
+        ASSERT_STREQ(y, "paff");
 
         p = mfree(p);
         assert_se(p = path_join(tmp, "bazz"));
@@ -64,8 +64,8 @@ TEST(read_credential_strings) {
         y = mfree(y);
 
         assert_se(read_credential_strings_many("bazz", &x, "bar", &y) == -EBADMSG);
-        assert_se(streq(x, "knurz"));
-        assert_se(streq(y, "paff"));
+        ASSERT_STREQ(x, "knurz");
+        ASSERT_STREQ(y, "paff");
 
         if (saved)
                 assert_se(setenv("CREDENTIALS_DIRECTORY", saved, /* override= */ 1) >= 0);

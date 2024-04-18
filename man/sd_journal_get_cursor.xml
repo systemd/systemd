@@ -61,12 +61,6 @@
     and should be freed after use with
     <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
-    <para>Note that <function>sd_journal_get_cursor()</function> will
-    not work before
-    <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    (or related call) has been called at least once, in order to
-    position the read pointer at a valid entry.</para>
-
     <para><function>sd_journal_test_cursor()</function>
     may be used to check whether the current position in
     the journal matches the specified cursor. This is
@@ -75,10 +69,17 @@
     multiple different cursor strings, and hence string
     comparing cursors is not possible. Use this call to
     verify after an invocation of
-    <citerefentry><refentrytitle>sd_journal_seek_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>sd_journal_seek_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     whether the entry being sought to was actually found
     in the journal or the next closest entry was used
     instead.</para>
+
+    <para>Note that <function>sd_journal_get_cursor()</function>
+    and <function>sd_journal_test_cursor()</function>
+    will not work before
+    <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    (or one of the other functions which move to an entry)
+    has been called at least once to position the read pointer at a valid entry.</para>
   </refsect1>
 
   <refsect1>

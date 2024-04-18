@@ -15,6 +15,8 @@ at_exit() {
             {/usr/lib,/etc}/systemd/network/"$LINK_NAME" "/etc/systemd/network/${NETWORK_NAME}.d" \
             "new" "+4"
     fi
+
+    rm -f /run/systemd/networkd.conf.d/10-hoge.conf
 }
 
 trap at_exit EXIT
@@ -110,3 +112,12 @@ ip_link="$(ip link show test2)"
 if systemctl --quiet is-active systemd-udevd; then
     assert_in 'alias test_alias' "$ip_link"
 fi
+
+mkdir -p /run/systemd/networkd.conf.d
+cat >/run/systemd/networkd.conf.d/10-hoge.conf <<EOF
+# TEST DROP-IN FILE
+[Network]
+SpeedMeter=yes
+EOF
+
+assert_in '# TEST DROP-IN FILE' "$(networkctl cat)"
