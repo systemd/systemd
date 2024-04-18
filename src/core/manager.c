@@ -1974,6 +1974,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                                 return log_error_errno(r, "Deserialization failed: %m");
                 }
 
+                if (m->previous_objective >= 0)
+                        log_debug("Launching as effect of a '%s' operation.",
+                                  manager_objective_to_string(m->previous_objective));
+
                 /* If we are in a new soft-reboot iteration bump the counter now before starting units, so
                  * that they can reliably read it. We get the previous objective from serialized state. */
                 if (m->previous_objective == MANAGER_SOFT_REBOOT)
