@@ -360,6 +360,7 @@ if get_option('integration-tests')
                 '45': 'TEST-45-TIMEDATE',
                 # Can be flaky when overloaded if daemon-reload is too slow to be rate-limited
                 '59': 'TEST-59-RELOADING-RESTART',
+                '60': 'TEST-60-MOUNT-RATELIMIT',
         }
         foreach test_number, dirname : integration_tests
                 test_params = {
