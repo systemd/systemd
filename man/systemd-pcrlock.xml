@@ -504,13 +504,16 @@
       <varlistentry>
         <term><option>--recovery-pin=</option></term>
 
-        <listitem><para>Takes a boolean. Defaults to false. Honoured by <command>make-policy</command>. If
-        true, will query the user for a PIN to unlock the TPM2 NV index with. If no policy was created before
-        this PIN is used to protect the newly allocated NV index. If a policy has been created before the PIN
-        is used to unlock write access to the NV index. If this option is not used a PIN is automatically
-        generated. Regardless if user supplied or automatically generated, it is stored in encrypted form in
-        the policy metadata file. The recovery PIN may be used to regain write access to an NV index in case
-        the access policy became out of date.</para>
+        <listitem><para>Takes one of <literal>hide</literal>, <literal>show</literal> or
+        <literal>query</literal>. Defaults to <literal>hide</literal>. Honoured by
+        <command>make-policy</command>. If <literal>query</literal>, will query the user for a PIN to unlock
+        the TPM2 NV index with. If no policy was created before, this PIN is used to protect the newly
+        allocated NV index. If a policy has been created before, the PIN is used to unlock write access to
+        the NV index. If either <literal>hide</literal> or <literal>show</literal> is used, a PIN is
+        automatically generated, and — only in case of <literal>show</literal> — displayed on
+        screen. Regardless if user supplied or automatically generated, it is stored in encrypted form in the
+        policy metadata file. The recovery PIN may be used to regain write access to an NV index in case the
+        access policy became out of date.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
