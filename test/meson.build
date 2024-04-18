@@ -357,6 +357,7 @@ if get_option('integration-tests')
                 '34': 'TEST-34-DYNAMICUSERMIGRATE',
                 '36': 'TEST-36-NUMAPOLICY',
                 '38': 'TEST-38-FREEZER',
+                '43': 'TEST-43-PRIVATEUSER-UNPRIV',
         }
         foreach test_number, dirname : integration_tests
                 test_params = {
