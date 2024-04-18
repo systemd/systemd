@@ -356,6 +356,7 @@ if get_option('integration-tests')
                 '34': 'TEST-34-DYNAMICUSERMIGRATE',
                 '36': 'TEST-36-NUMAPOLICY',
                 '38': 'TEST-38-FREEZER',
+                '44': 'TEST-44-LOG-NAMESPACE',
         }
         foreach test_number, dirname : integration_tests
                 test_params = {
