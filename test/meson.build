@@ -368,7 +368,7 @@ integration_tests = {
         '43': 'TEST-43-PRIVATEUSER-UNPRIV',
         '44': 'TEST-44-LOG-NAMESPACE',
         '45': 'TEST-45-TIMEDATE',
-        # '46': 'TEST-46-HOMED',
+        '46': 'TEST-46-HOMED',
         '50': 'TEST-50-DISSECT',
         # '52': 'TEST-52-HONORFIRSTSHUTDOWN',
         # '53': 'TEST-53-ISSUE-16347',
