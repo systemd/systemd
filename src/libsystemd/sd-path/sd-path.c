@@ -591,8 +591,14 @@ static int get_search(uint64_t type, char ***list) {
                                                "/etc",
                                                NULL);
 
-        case SD_PATH_SEARCH_BINARIES_DEFAULT:
-                return strv_from_nulstr(list, DEFAULT_PATH_NULSTR);
+        case SD_PATH_SEARCH_BINARIES_DEFAULT: {
+                char **t = strv_split(default_PATH(), ":");
+                if (!t)
+                        return -ENOMEM;
+
+                *list = t;
+                return 0;
+        }
 
         case SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT:
         case SD_PATH_SYSTEMD_SEARCH_USER_UNIT: {
