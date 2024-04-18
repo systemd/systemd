@@ -388,7 +388,7 @@ integration_tests = {
         '70': 'TEST-70-TPM2',
         '71': 'TEST-71-HOSTNAME',
         '72': 'TEST-72-SYSUPDATE',
-        # '73': 'TEST-73-LOCALE',
+        '73': 'TEST-73-LOCALE',
         # '74': 'TEST-74-AUX-UTILS',
         # '75': 'TEST-75-RESOLVED',
         '76': 'TEST-76-SYSCTL',
