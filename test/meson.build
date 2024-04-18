@@ -378,6 +378,7 @@ integration_tests = {
         '79': 'TEST-79-MEMPRESS',
         '80': 'TEST-80-NOTIFYACCESS',
         '81': 'TEST-81-GENERATORS',
+        '83': 'TEST-83-BTRFS',
         '84': 'TEST-84-STORAGETM',
 }
 foreach test_number, dirname : integration_tests
