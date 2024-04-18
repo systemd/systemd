@@ -335,7 +335,7 @@ int copy_bytes_full(
                 if (try_cfr) {
                         n = try_copy_file_range(fdf, NULL, fdt, NULL, m, 0u);
                         if (n < 0) {
-                                if (!IN_SET(n, -EINVAL, -ENOSYS, -EXDEV, -EBADF))
+                                if (!IN_SET(n, -EINVAL, -ENOSYS, -EXDEV, -EBADF, -EOPNOTSUPP))
                                         return n;
 
                                 try_cfr = false;
