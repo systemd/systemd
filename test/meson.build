@@ -350,6 +350,7 @@ if get_option('integration-tests')
                 '19': 'TEST-19-CGROUP',
                 '25': 'TEST-25-IMPORT',
                 '26': 'TEST-26-SYSTEMCTL',
+                '29': 'TEST-29-PORTABLE',
         }
         foreach test_number, dirname : integration_tests
                 test_params = {
