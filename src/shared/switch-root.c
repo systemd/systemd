@@ -126,7 +126,7 @@ int switch_root(const char *new_root,
          * and switch_root() nevertheless. */
         (void) base_filesystem_create_fd(new_root_fd, new_root, UID_INVALID, GID_INVALID);
 
-        FOREACH_ARRAY(transfer, transfer_table, ELEMENTSOF(transfer_table)) {
+        FOREACH_ELEMENT(transfer, transfer_table) {
                 _cleanup_free_ char *chased = NULL;
                 unsigned long mount_flags;
 

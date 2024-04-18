@@ -136,7 +136,7 @@ static const struct {
 TEST(digest_size) {
         size_t size;
 
-        FOREACH_ARRAY(t, digest_size_table, ELEMENTSOF(digest_size_table)) {
+        FOREACH_ELEMENT(t, digest_size_table) {
                 assert(openssl_digest_size(t->alg, &size) >= 0);
                 assert_se(size == t->size);
 

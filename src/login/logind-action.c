@@ -156,7 +156,7 @@ int handle_action_get_enabled_sleep_actions(HandleActionSleepMask mask, char ***
 
         assert(ret);
 
-        FOREACH_ARRAY(i, sleep_actions, ELEMENTSOF(sleep_actions))
+        FOREACH_ELEMENT(i, sleep_actions)
                 if (FLAGS_SET(mask, 1U << *i)) {
                         r = strv_extend(&actions, handle_action_to_string(*i));
                         if (r < 0)
@@ -170,7 +170,7 @@ int handle_action_get_enabled_sleep_actions(HandleActionSleepMask mask, char ***
 HandleAction handle_action_sleep_select(Manager *m) {
         assert(m);
 
-        FOREACH_ARRAY(i, sleep_actions, ELEMENTSOF(sleep_actions)) {
+        FOREACH_ELEMENT(i, sleep_actions) {
                 HandleActionSleepMask action_mask = 1U << *i;
                 const HandleActionData *a;
                 _cleanup_free_ char *load_state = NULL;

@@ -275,6 +275,9 @@ static inline int __coverity_check_and_return__(int condition) {
 #define FOREACH_ARRAY(i, array, num)                                    \
         _FOREACH_ARRAY(i, array, num, UNIQ_T(m, UNIQ), UNIQ_T(end, UNIQ))
 
+#define FOREACH_ELEMENT(i, array)                                 \
+        FOREACH_ARRAY(i, array, ELEMENTSOF(array))
+
 #define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)             \
         scope type *name##_ref(type *p) {                       \
                 if (!p)                                         \

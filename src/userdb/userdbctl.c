@@ -174,7 +174,7 @@ static int table_add_uid_boundaries(Table *table, const UIDRange *p) {
 
         assert(table);
 
-        FOREACH_ARRAY(i, uid_range_table, ELEMENTSOF(uid_range_table)) {
+        FOREACH_ELEMENT(i, uid_range_table) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
 
                 if (!uid_range_covers(p, i->first, i->last - i->first + 1))
@@ -532,7 +532,7 @@ static int table_add_gid_boundaries(Table *table, const UIDRange *p) {
 
         assert(table);
 
-        FOREACH_ARRAY(i, uid_range_table, ELEMENTSOF(uid_range_table)) {
+        FOREACH_ELEMENT(i, uid_range_table) {
                 _cleanup_free_ char *name = NULL, *comment = NULL;
 
                 if (!uid_range_covers(p, i->first, i->last - i->first + 1))
