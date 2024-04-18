@@ -331,7 +331,7 @@ TEST(environment_gathering) {
         assert_se(chmod(name3, 0755) == 0);
 
         /* When booting in containers or without initrd there might not be any PATH in the environment and if
-         * there is no PATH /bin/sh built-in PATH may leak and override systemd's DEFAULT_PATH which is not
+         * there is no PATH /bin/sh built-in PATH may leak and override systemd's default path which is not
          * good. Force our own PATH in environment, to prevent expansion of sh built-in $PATH */
         old = getenv("PATH");
         r = setenv("PATH", "no-sh-built-in-path", 1);
@@ -351,10 +351,9 @@ TEST(environment_gathering) {
         ASSERT_STREQ(strv_env_get(env, "C"), "001");
         ASSERT_STREQ(strv_env_get(env, "PATH"), "no-sh-built-in-path:/no/such/file");
 
-        /* now retest with "default" path passed in, as created by
-         * manager_default_environment */
+        /* Now retest with some "default" path passed. */
         env = strv_free(env);
-        env = strv_new("PATH=" DEFAULT_PATH);
+        env = strv_new("PATH=" DEFAULT_PATH_WITHOUT_SBIN);
         assert_se(env);
 
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, env, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
@@ -366,7 +365,7 @@ TEST(environment_gathering) {
         ASSERT_STREQ(strv_env_get(env, "A"), "22:23:24");
         ASSERT_STREQ(strv_env_get(env, "B"), "12");
         ASSERT_STREQ(strv_env_get(env, "C"), "001");
-        ASSERT_STREQ(strv_env_get(env, "PATH"), DEFAULT_PATH ":/no/such/file");
+        ASSERT_STREQ(strv_env_get(env, "PATH"), DEFAULT_PATH_WITHOUT_SBIN ":/no/such/file");
 
         /* reset environ PATH */
         assert_se(set_unset_env("PATH", old, true) == 0);
