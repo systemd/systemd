@@ -74,7 +74,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633
-    - uses: systemd/mkosi@a845d4108ac87ca443bd1ad78ab53520bffd2eda
+    - uses: systemd/mkosi@236784dbb597321eedab50cef06cc49f92c57293
 
     # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
     # immediately, we remove the files in the background. However, we first move them to a different location
