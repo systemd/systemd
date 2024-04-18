@@ -348,6 +348,7 @@ if get_option('integration-tests')
                 '16': 'TEST-16-EXTEND-TIMEOUT',
                 '17': 'TEST-17-UDEV', # Can be flaky when overloaded if timeout abort test is slow
                 '19': 'TEST-19-CGROUP',
+                '25': 'TEST-25-IMPORT',
         }
         foreach test_number, dirname : integration_tests
                 test_params = {
