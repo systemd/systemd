@@ -4124,7 +4124,7 @@ int varlink_error_to_errno(const char *error, JsonVariant *parameters) {
         if (!error)
                 return 0;
 
-        FOREACH_ARRAY(t, table, ELEMENTSOF(table))
+        FOREACH_ELEMENT(t, table)
                 if (streq(error, t->error))
                         return t->value;
 

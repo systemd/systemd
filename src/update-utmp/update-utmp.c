@@ -82,7 +82,7 @@ static int get_current_runlevel(Context *c) {
         assert(c);
 
         for (unsigned n_attempts = 0;;) {
-                FOREACH_ARRAY(e, table, ELEMENTSOF(table)) {
+                FOREACH_ELEMENT(e, table) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                         _cleanup_free_ char *state = NULL, *path = NULL;
 

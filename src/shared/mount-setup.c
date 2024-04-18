@@ -125,7 +125,7 @@ bool mount_point_is_api(const char *path) {
         /* Checks if this mount point is considered "API", and hence
          * should be ignored */
 
-        FOREACH_ARRAY(i, mount_table, ELEMENTSOF(mount_table))
+        FOREACH_ELEMENT(i, mount_table)
                 if (path_equal(path, i->where))
                         return true;
 
@@ -521,7 +521,7 @@ int mount_cgroup_legacy_controllers(bool loaded_policy) {
         if (!cg_is_legacy_force_enabled())
                 return -ERFKILL;
 
-        FOREACH_ARRAY(mp, cgroupv1_mount_table, ELEMENTSOF(cgroupv1_mount_table)) {
+        FOREACH_ELEMENT(mp, cgroupv1_mount_table) {
                 r = mount_one(mp, loaded_policy);
                 if (r < 0)
                         return r;

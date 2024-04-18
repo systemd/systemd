@@ -202,12 +202,12 @@ static int verify_executables(Unit *u, const char *root) {
         assert(u);
 
         if (u->type == UNIT_SERVICE)
-                FOREACH_ARRAY(i, SERVICE(u)->exec_command, ELEMENTSOF(SERVICE(u)->exec_command))
+                FOREACH_ELEMENT(i, SERVICE(u)->exec_command)
                         LIST_FOREACH(command, j, *i)
                                 RET_GATHER(r, verify_executable(u, j, root));
 
         if (u->type == UNIT_SOCKET)
-                FOREACH_ARRAY(i, SOCKET(u)->exec_command, ELEMENTSOF(SOCKET(u)->exec_command))
+                FOREACH_ELEMENT(i, SOCKET(u)->exec_command)
                         LIST_FOREACH(command, j, *i)
                                 RET_GATHER(r, verify_executable(u, j, root));
 

@@ -2816,7 +2816,7 @@ static int verb_lock_secureboot_policy(int argc, char *argv[], void *userdata) {
         /* Generates expected records from the current SecureBoot state, as readable in the EFI variables
          * right now. */
 
-        FOREACH_ARRAY(vv, variables, ELEMENTSOF(variables)) {
+        FOREACH_ELEMENT(vv, variables) {
                 _cleanup_(json_variant_unrefp) JsonVariant *record = NULL;
 
                 _cleanup_free_ char *name = NULL;
