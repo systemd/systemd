@@ -366,6 +366,7 @@ if get_option('integration-tests')
                 '62': 'TEST-62-RESTRICT-IFACES',
                 '63': 'TEST-63-PATH',
                 '66': 'TEST-66-DEVICE-ISOLATION',
+                '67': 'TEST-67-INTEGRITY',
         }
         foreach test_number, dirname : integration_tests
                 test_params = {
