@@ -370,7 +370,7 @@ integration_tests = {
         '45': 'TEST-45-TIMEDATE',
         '46': 'TEST-46-HOMED',
         '50': 'TEST-50-DISSECT',
-        # '52': 'TEST-52-HONORFIRSTSHUTDOWN',
+        '52': 'TEST-52-HONORFIRSTSHUTDOWN',
         # '53': 'TEST-53-ISSUE-16347',
         # '54': 'TEST-54-CREDS',
         # '55': 'TEST-55-OOMD',
