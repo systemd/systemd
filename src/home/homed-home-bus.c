@@ -646,8 +646,8 @@ int bus_home_method_acquire(
         _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
         _cleanup_(operation_unrefp) Operation *o = NULL;
         _cleanup_close_ int fd = -EBADF;
-        int r, please_suspend;
         Home *h = ASSERT_PTR(userdata);
+        int r;
 
         assert(message);
 
@@ -655,12 +655,12 @@ int bus_home_method_acquire(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read(message, "b", &please_suspend);
+        r = sd_bus_message_read(message, "b", NULL); /* please_suspend is handled by logind now */
         if (r < 0)
                 return r;
 
         /* This operation might not be something we can executed immediately, hence queue it */
-        fd = home_create_fifo(h, please_suspend);
+        fd = home_create_ref(h);
         if (fd < 0)
                 return sd_bus_reply_method_errnof(message, fd, "Failed to allocate FIFO for %s: %m", h->user_name);
 
@@ -685,15 +685,15 @@ int bus_home_method_ref(
 
         _cleanup_close_ int fd = -EBADF;
         Home *h = ASSERT_PTR(userdata);
-        int please_suspend, r;
         bool unrestricted;
+        int r;
 
         assert(message);
 
         /* In unrestricted mode we'll add a reference to the home even if it's not active */
         unrestricted = strstr(sd_bus_message_get_member(message), "Unrestricted");
 
-        r = sd_bus_message_read(message, "b", &please_suspend);
+        r = sd_bus_message_read(message, "b", NULL); /* please_suspend is handled by logind now */
         if (r < 0)
                 return r;
 
@@ -719,7 +719,7 @@ int bus_home_method_ref(
                 }
         }
 
-        fd = home_create_fifo(h, please_suspend);
+        fd = home_create_ref(h);
         if (fd < 0)
                 return sd_bus_reply_method_errnof(message, fd, "Failed to allocate FIFO for %s: %m", h->user_name);
 
