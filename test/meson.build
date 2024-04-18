@@ -351,6 +351,7 @@ if get_option('integration-tests')
                 '25': 'TEST-25-IMPORT',
                 '26': 'TEST-26-SYSTEMCTL',
                 '30': 'TEST-30-ONCLOCKCHANGE',
+                '31': 'TEST-31-DEVICE-ENUMERATION',
         }
         foreach test_number, dirname : integration_tests
                 test_params = {
