@@ -1974,6 +1974,15 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                                 return log_error_errno(r, "Deserialization failed: %m");
                 }
 
+                if (m->previous_objective >= 0) {
+                        if (IN_SET(m->previous_objective, MANAGER_REEXECUTE, MANAGER_SOFT_REBOOT, MANAGER_SWITCH_ROOT))
+                                log_debug("Launching as effect of a '%s' operation.",
+                                          manager_objective_to_string(m->previous_objective));
+                        else
+                                log_warning("Got unexpected previous objective '%s', ignoring.",
+                                            manager_objective_to_string(m->previous_objective));
+                }
+
                 /* If we are in a new soft-reboot iteration bump the counter now before starting units, so
                  * that they can reliably read it. We get the previous objective from serialized state. */
                 if (m->previous_objective == MANAGER_SOFT_REBOOT)
@@ -3698,13 +3707,15 @@ static void manager_notify_finished(Manager *m) {
         if (MANAGER_IS_SYSTEM(m) && m->soft_reboots_count > 0) {
                 /* The soft-reboot case, where we only report data for the last reboot */
                 firmware_usec = loader_usec = initrd_usec = kernel_usec = 0;
-                total_usec = userspace_usec = usec_sub_unsigned(m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic, m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_START].monotonic);
+                total_usec = userspace_usec = usec_sub_unsigned(m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic,
+                                                                m->timestamps[MANAGER_TIMESTAMP_SHUTDOWN_START].monotonic);
 
                 log_struct(LOG_INFO,
                            "MESSAGE_ID=" SD_MESSAGE_STARTUP_FINISHED_STR,
                            "USERSPACE_USEC="USEC_FMT, userspace_usec,
-                           LOG_MESSAGE("Soft-reboot finished in %s.",
-                                       FORMAT_TIMESPAN(total_usec, USEC_PER_MSEC)));
+                           LOG_MESSAGE("Soft-reboot finished in %s, counter is now at %u.",
+                                       FORMAT_TIMESPAN(total_usec, USEC_PER_MSEC),
+                                       m->soft_reboots_count));
         } else if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0) {
                 char buf[FORMAT_TIMESPAN_MAX + STRLEN(" (firmware) + ") + FORMAT_TIMESPAN_MAX + STRLEN(" (loader) + ")]
                         = {};
@@ -4411,7 +4422,7 @@ void manager_override_show_status(Manager *m, ShowStatus mode, const char *reaso
         set_show_status_marker(show_status_on(mode));
 }
 
-const char *manager_get_confirm_spawn(Manager *m) {
+const char* manager_get_confirm_spawn(Manager *m) {
         static int last_errno = 0;
         struct stat st;
         int r;
@@ -5034,7 +5045,7 @@ LogTarget manager_get_executor_log_target(Manager *m) {
         return LOG_TARGET_KMSG;
 }
 
-static const char *const manager_state_table[_MANAGER_STATE_MAX] = {
+static const char* const manager_state_table[_MANAGER_STATE_MAX] = {
         [MANAGER_INITIALIZING] = "initializing",
         [MANAGER_STARTING]     = "starting",
         [MANAGER_RUNNING]      = "running",
@@ -5045,7 +5056,22 @@ static const char *const manager_state_table[_MANAGER_STATE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(manager_state, ManagerState);
 
-static const char *const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
+static const char* const manager_objective_table[_MANAGER_OBJECTIVE_MAX] = {
+        [MANAGER_OK]          = "ok",
+        [MANAGER_EXIT]        = "exit",
+        [MANAGER_RELOAD]      = "reload",
+        [MANAGER_REEXECUTE]   = "reexecute",
+        [MANAGER_REBOOT]      = "reboot",
+        [MANAGER_SOFT_REBOOT] = "soft-reboot",
+        [MANAGER_POWEROFF]    = "poweroff",
+        [MANAGER_HALT]        = "halt",
+        [MANAGER_KEXEC]       = "kexec",
+        [MANAGER_SWITCH_ROOT] = "switch-root",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(manager_objective, ManagerObjective);
+
+static const char* const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
         [MANAGER_TIMESTAMP_FIRMWARE]                 = "firmware",
         [MANAGER_TIMESTAMP_LOADER]                   = "loader",
         [MANAGER_TIMESTAMP_KERNEL]                   = "kernel",
