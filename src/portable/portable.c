@@ -43,6 +43,7 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
+#include "vpick.h"
 
 /* Markers used in the first line of our 20-portable.conf unit file drop-in to determine, that a) the unit file was
  * dropped there by the portable service logic and b) for which image it was dropped there. */
@@ -564,6 +565,7 @@ static int extract_image_and_extensions(
         _cleanup_free_ char *id = NULL, *version_id = NULL, *sysext_level = NULL, *confext_level = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
+        _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_strv_free_ char **valid_prefixes = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
@@ -572,7 +574,27 @@ static int extract_image_and_extensions(
 
         assert(name_or_path);
 
-        r = image_find_harder(IMAGE_PORTABLE, name_or_path, NULL, &image);
+        /* If we get a path, then check if it can be resolved with vpick. We need this as we might just
+         * get a simple image name, which would make vpick error out. */
+        if (path_is_absolute(name_or_path)) {
+                r = path_pick(/* toplevel_path= */ NULL,
+                              /* toplevel_fd= */ AT_FDCWD,
+                              name_or_path,
+                              &pick_filter_image_any,
+                              PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
+                              &result);
+                if (r < 0)
+                        return r;
+                if (!result.path)
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(ENOENT),
+                                        "No matching entry in .v/ directory %s found.",
+                                        name_or_path);
+
+                name_or_path = result.path;
+        }
+
+        r = image_find_harder(IMAGE_PORTABLE, name_or_path, /* root= */ NULL, &image);
         if (r < 0)
                 return r;
 
@@ -588,9 +610,29 @@ static int extract_image_and_extensions(
                 }
 
                 STRV_FOREACH(p, extension_image_paths) {
+                        _cleanup_(pick_result_done) PickResult ext_result = PICK_RESULT_NULL;
                         _cleanup_(image_unrefp) Image *new = NULL;
+                        const char *path = *p;
 
-                        r = image_find_harder(IMAGE_PORTABLE, *p, NULL, &new);
+                        if (path_is_absolute(*p)) {
+                                r = path_pick(/* toplevel_path= */ NULL,
+                                              /* toplevel_fd= */ AT_FDCWD,
+                                              *p,
+                                              &pick_filter_image_any,
+                                              PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
+                                              &ext_result);
+                                if (r < 0)
+                                        return r;
+                                if (!ext_result.path)
+                                        return log_debug_errno(
+                                                        SYNTHETIC_ERRNO(ENOENT),
+                                                        "No matching entry in .v/ directory %s found.",
+                                                        *p);
+
+                                path = ext_result.path;
+                        }
+
+                        r = image_find_harder(IMAGE_PORTABLE, path, NULL, &new);
                         if (r < 0)
                                 return r;
 
@@ -1691,6 +1733,7 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
         while (!isempty(marker))
                 STRV_FOREACH(image_name_or_path, root_and_extensions) {
                         _cleanup_free_ char *image = NULL, *base_image = NULL, *base_image_name_or_path = NULL;
+                        _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
 
                         r = extract_first_word(&marker, &image, ":", EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                         if (r < 0)
@@ -1702,9 +1745,23 @@ static bool marker_matches_images(const char *marker, const char *name_or_path, 
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", image);
 
-                        r = path_extract_image_name(*image_name_or_path, &base_image_name_or_path);
+                        r = path_pick(/* toplevel_path= */ NULL,
+                                      /* toplevel_fd= */ AT_FDCWD,
+                                      *image_name_or_path,
+                                      &pick_filter_image_any,
+                                      PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
+                                      &result);
                         if (r < 0)
-                                return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", *image_name_or_path);
+                                return r;
+                        if (!result.path)
+                                return log_debug_errno(
+                                                SYNTHETIC_ERRNO(ENOENT),
+                                                "No matching entry in .v/ directory %s found.",
+                                                *image_name_or_path);
+
+                        r = path_extract_image_name(result.path, &base_image_name_or_path);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract image name from %s, ignoring: %m", result.path);
 
                         if (!streq(base_image, base_image_name_or_path)) {
                                 if (match_all)
