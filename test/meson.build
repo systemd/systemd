@@ -340,6 +340,7 @@ integration_tests = {
         '02': 'TEST-02-UNITTESTS',
         '03': 'TEST-03-JOBS',
         '05': 'TEST-05-RLIMITS',
+        '13': 'TEST-13-NSPAWN',
         '16': 'TEST-16-EXTEND-TIMEOUT',
         '17': 'TEST-17-UDEV', # Can be flaky when overloaded if timeout abort test is slow
         '19': 'TEST-19-CGROUP',
