@@ -357,6 +357,7 @@ if get_option('integration-tests')
                 '36': 'TEST-36-NUMAPOLICY',
                 '38': 'TEST-38-FREEZER',
                 '44': 'TEST-44-LOG-NAMESPACE',
+                '45': 'TEST-45-TIMEDATE',
         }
         foreach test_number, dirname : integration_tests
                 test_params = {
