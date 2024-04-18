@@ -32,7 +32,7 @@ ARCH="$(rpm --eval %_arch)"
 SRCDEST="/usr/src/debug/systemd-$VERSION-${RELEASE}${DIST}.$ARCH"
 
 # TODO: Drop -D_FORTIFY_SOURCE when we switch to CentOS Stream 10.
-EXTRA_CFLAGS="-O0 -Wp,-D_FORTIFY_SOURCE=0"
+EXTRA_CFLAGS="-O0 -Wp,-U_FORTIFY_SOURCE,-D_FORTIFY_SOURCE=0"
 if ((WITH_DEBUG)); then
     EXTRA_CFLAGS="$EXTRA_CFLAGS -ffile-prefix-map=../src=$SRCDEST"
 fi
