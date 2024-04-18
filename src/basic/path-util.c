@@ -684,7 +684,7 @@ int find_executable_full(
                  * binary. */
                 p = getenv("PATH");
         if (!p)
-                p = DEFAULT_PATH;
+                p = default_path();
 
         if (exec_search_path) {
                 STRV_FOREACH(element, exec_search_path) {
@@ -1440,4 +1440,36 @@ int path_glob_can_match(const char *pattern, const char *prefix, char **ret) {
         if (ret)
                 *ret = NULL;
         return false;
+}
+
+const char* default_path(void) {
+#if HAVE_SPLIT_BIN
+        bool bad = false;
+        int r;
+
+        /* Check whether /usr/sbin is separate and return the appropriate $PATH.
+         * On error assume we need split bin as configured… */
+
+        FOREACH_STRING(path, "/usr/sbin", "/usr/local/sbin") {
+                _cleanup_free_ char *target = NULL;
+
+                r = readlink_malloc(path, &target);
+                if (r == -ENOENT)
+                        continue;
+                if (r >= 0 &&
+                    /* We assume that /bin is a symlink to /usr/bin, so /usr/sbin may be linked to
+                     * ../bin. The same doesn't hold for /usr/local/bin. */
+                    streq(path, "/usr/sbin") ? PATH_IN_SET(target, "bin", "./bin", "../bin", "/usr/bin")
+                                             : PATH_IN_SET(target, "bin", "./bin", "/usr/local/bin"))
+                        continue;
+                if (r != -EINVAL) /* EINVAL == a directory */
+                        log_debug_errno(r, "Failed to readlink(\"/usr/sbin\"), using compat path: %m");
+                bad = true;
+                break;
+        }
+
+        if (bad)
+                return DEFAULT_PATH_WITH_SBIN;
+#endif
+        return DEFAULT_PATH_WITHOUT_SBIN;
 }
