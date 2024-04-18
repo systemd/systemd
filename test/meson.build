@@ -339,6 +339,7 @@ integration_tests = {
         '01': 'TEST-01-BASIC',
         '02': 'TEST-02-UNITTESTS',
         '03': 'TEST-03-JOBS',
+        '04': 'TEST-04-JOURNAL', # can be flaky on starting the journal-remote
         '05': 'TEST-05-RLIMITS',
         '13': 'TEST-13-NSPAWN',
         '15': 'TEST-15-DROPIN',
