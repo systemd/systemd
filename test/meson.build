@@ -346,6 +346,7 @@ integration_tests = {
         '17': 'TEST-17-UDEV', # Can be flaky when overloaded if timeout abort test is slow
         '18': 'TEST-18-FAILUREACTION',
         '19': 'TEST-19-CGROUP',
+        '22': 'TEST-22-TMPFILES',
         '25': 'TEST-25-IMPORT',
         '26': 'TEST-26-SYSTEMCTL',
         '29': 'TEST-29-PORTABLE',
