@@ -18,8 +18,8 @@
 #include "tmpfile-util.h"
 
 TEST(print_paths) {
-        log_info("DEFAULT_PATH=%s", DEFAULT_PATH);
-        log_info("DEFAULT_USER_PATH=%s", DEFAULT_USER_PATH);
+        log_info("DEFAULT_PATH=%s", default_path());
+        log_info("DEFAULT_USER_PATH=%s", default_user_path());
 }
 
 TEST(path) {
