@@ -5035,7 +5035,7 @@ LogTarget manager_get_executor_log_target(Manager *m) {
         return LOG_TARGET_KMSG;
 }
 
-static const char *const manager_state_table[_MANAGER_STATE_MAX] = {
+static const char* const manager_state_table[_MANAGER_STATE_MAX] = {
         [MANAGER_INITIALIZING] = "initializing",
         [MANAGER_STARTING]     = "starting",
         [MANAGER_RUNNING]      = "running",
@@ -5046,7 +5046,22 @@ static const char *const manager_state_table[_MANAGER_STATE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(manager_state, ManagerState);
 
-static const char *const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
+static const char* const manager_objective_table[_MANAGER_OBJECTIVE_MAX] = {
+        [MANAGER_OK]          = "run",
+        [MANAGER_EXIT]        = "exit",
+        [MANAGER_RELOAD]      = "reload",
+        [MANAGER_REEXECUTE]   = "reexecute",
+        [MANAGER_REBOOT]      = "reboot",
+        [MANAGER_SOFT_REBOOT] = "soft-reboot",
+        [MANAGER_POWEROFF]    = "poweroff",
+        [MANAGER_HALT]        = "halt",
+        [MANAGER_KEXEC]       = "kexec",
+        [MANAGER_SWITCH_ROOT] = "switch-root",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(manager_objective, ManagerObjective);
+
+static const char* const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
         [MANAGER_TIMESTAMP_FIRMWARE]                 = "firmware",
         [MANAGER_TIMESTAMP_LOADER]                   = "loader",
         [MANAGER_TIMESTAMP_KERNEL]                   = "kernel",
