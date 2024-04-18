@@ -119,7 +119,7 @@ int make_inaccessible_nodes(
          * to lock down these nodes as much as we can, but otherwise try to match them as closely as possible with the
          * underlying file, i.e. in the best case we offer the same node type as the underlying node. */
 
-        FOREACH_ARRAY(m, table, ELEMENTSOF(table)) {
+        FOREACH_ELEMENT(m, table) {
                 _cleanup_free_ char *path = NULL;
                 mode_t inode_type = *m;
                 const char *fn;
