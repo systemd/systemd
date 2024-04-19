@@ -163,6 +163,7 @@ static int radv_send_router(sd_radv *ra, const struct in6_addr *dst) {
         struct nd_router_advert adv = {
                 .nd_ra_type = ND_ROUTER_ADVERT,
                 .nd_ra_router_lifetime = usec_to_be16_sec(ra->lifetime_usec),
+                .nd_ra_reachable = usec_to_be32_msec(ra->reachable_usec),
                 .nd_ra_retransmit = usec_to_be32_msec(ra->retransmit_usec),
         };
         struct {
@@ -542,6 +543,13 @@ int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit) {
 
         ra->hop_limit = hop_limit;
 
+        return 0;
+}
+
+int sd_radv_set_reachable_time(sd_radv *ra, uint64_t usec) {
+        assert_return(ra, -EINVAL);
+
+        ra->reachable_usec = usec;
         return 0;
 }
 
