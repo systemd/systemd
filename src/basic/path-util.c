@@ -684,7 +684,7 @@ int find_executable_full(
                  * binary. */
                 p = getenv("PATH");
         if (!p)
-                p = DEFAULT_PATH;
+                p = default_path();
 
         if (exec_search_path) {
                 STRV_FOREACH(element, exec_search_path) {
@@ -1440,4 +1440,37 @@ int path_glob_can_match(const char *pattern, const char *prefix, char **ret) {
         if (ret)
                 *ret = NULL;
         return false;
+}
+
+const char* default_path(void) {
+#if HAVE_SPLIT_BIN
+        static int split = -1;
+        int r;
+
+        /* Check whether /usr/sbin is separate and return the appropriate $PATH.
+         * On error assume we need split bin as configured… */
+
+        if (split < 0)
+                FOREACH_STRING(path, "/usr/sbin", "/usr/local/sbin") {
+                        _cleanup_free_ char *target = NULL;
+
+                        r = chase(path, /* root= */ NULL, /* flags= */ 0, &target, NULL);
+                        if (r == -ENOENT)
+                                continue;
+                        if (r >= 0 &&
+                            path_equal_or_inode_same(target,
+                                                     streq(path, "/usr/sbin") ? "/usr/bin" : "/usr/local/bin",
+                                                     AT_NO_AUTOMOUNT))
+                                continue;
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to readlink(\"/usr/sbin\"), using compat $PATH: %m");
+                        split = true;
+                        break;
+                }
+        if (split < 0)
+                split = false;
+        if (split)
+                return DEFAULT_PATH_WITH_SBIN;
+#endif
+        return DEFAULT_PATH_WITHOUT_SBIN;
 }

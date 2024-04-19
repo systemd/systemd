@@ -658,8 +658,6 @@ static char** sanitize_environment(char **l) {
 }
 
 int manager_default_environment(Manager *m) {
-        int r;
-
         assert(m);
 
         m->transient_environment = strv_free(m->transient_environment);
@@ -670,8 +668,7 @@ int manager_default_environment(Manager *m) {
                  *
                  * The initial passed environment is untouched to keep /proc/self/environ valid; it is used
                  * for tagging the init process inside containers. */
-                m->transient_environment = strv_new("PATH=" DEFAULT_PATH);
-                if (!m->transient_environment)
+                if (strv_extendf(&m->transient_environment, "PATH=%s", default_path()) < 0)
                         return log_oom();
 
                 /* Import locale variables LC_*= from configuration */
@@ -684,8 +681,11 @@ int manager_default_environment(Manager *m) {
                 if (!m->transient_environment)
                         return log_oom();
 
-                r = strv_env_replace_strdup(&m->transient_environment, "PATH=" DEFAULT_USER_PATH);
-                if (r < 0)
+                _cleanup_free_ char *path = NULL;
+                if (asprintf(&path, "PATH=%s", default_user_path()) < 0)
+                        return log_oom();
+
+                if (strv_env_replace_consume(&m->transient_environment, TAKE_PTR(path)) < 0)
                         return log_oom();
 
                 /* Envvars set for our 'manager' class session are private and should not be propagated
