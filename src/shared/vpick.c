@@ -34,6 +34,8 @@ static int format_fname(
 
         if (FLAGS_SET(flags, PICK_TRIES) || !filter->version) /* Underspecified? */
                 return -ENOEXEC;
+        if (strv_length(filter->suffix) > 1) /* suffix is not deterministic? */
+                return -ENOEXEC;
 
         /* The format for names we match goes like this:
          *
@@ -85,13 +87,9 @@ static int format_fname(
                         return -ENOMEM;
         }
 
-        if (!strv_isempty(filter->suffix)) {
-                if (strv_length(filter->suffix) > 1)
-                        return -ENOEXEC;
-
+        if (!strv_isempty(filter->suffix))
                 if (!strextend(&fn, filter->suffix[0]))
                         return -ENOMEM;
-        }
 
         if (!filename_is_valid(fn))
                 return -EINVAL;
