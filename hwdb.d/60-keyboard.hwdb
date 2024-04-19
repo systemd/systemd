@@ -1677,6 +1677,11 @@ evdev:input:b0003v047FpC006*
 # evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v4*:*
 #  KEYBOARD_KEY_56=backslash
 
+# Purism Librem 5
+evdev:name:gpio-keys:dt:purism,librem5*
+ WAKEUP_KEY_114=0
+ WAKEUP_KEY_115=0
+
 ###########################################################
 # Quanta
 ###########################################################
