@@ -48,6 +48,7 @@ sd_event *sd_radv_get_event(sd_radv *ra);
 int sd_radv_start(sd_radv *ra);
 int sd_radv_stop(sd_radv *ra);
 int sd_radv_is_running(sd_radv *ra);
+int sd_radv_send(sd_radv *ra);
 
 int sd_radv_set_ifindex(sd_radv *ra, int interface_index);
 int sd_radv_set_ifname(sd_radv *ra, const char *interface_name);
