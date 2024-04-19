@@ -185,7 +185,6 @@
 
           <listitem><para>The passed file descriptor is not valid.</para>
 
-          <xi:include href="version-info.xml" xpointer="v250"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -194,7 +193,6 @@
           <listitem><para><function>sd_event_add_inotify_fd()</function> was called without
           <filename>/proc/</filename> mounted.</para>
 
-          <xi:include href="version-info.xml" xpointer="v250"/></listitem>
         </varlistentry>
 
       </variablelist>
