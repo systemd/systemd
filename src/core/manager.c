@@ -5037,6 +5037,9 @@ void unit_defaults_done(UnitDefaults *defaults) {
 LogTarget manager_get_executor_log_target(Manager *m) {
         assert(m);
 
+        if (MANAGER_IS_TEST_RUN(m))
+                return log_get_target();
+
         /* If journald is not available tell sd-executor to go to kmsg, as it might be starting journald */
 
         if (manager_journal_is_running(m))
