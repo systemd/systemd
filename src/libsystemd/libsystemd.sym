@@ -840,4 +840,5 @@ global:
         sd_bus_creds_get_pidfd_dup;
         sd_bus_creds_new_from_pidfd;
         sd_journal_stream_fd_with_namespace;
+        sd_event_source_get_inotify_path;
 } LIBSYSTEMD_255;
