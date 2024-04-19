@@ -157,32 +157,37 @@
 
     <table>
       <title>Partition Attribute Flags</title>
-      <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+      <tgroup cols='4' align='left' colsep='1' rowsep='1'>
         <colspec colname="flag" />
+        <colspec colname="value" />
         <colspec colname="where" />
         <colspec colname="explanation" />
         <thead>
           <row>
             <entry>Flag</entry>
+            <entry>Value</entry>
             <entry>Applicable to</entry>
             <entry>Explanation</entry>
           </row>
         </thead>
         <tbody>
           <row>
-            <entry><constant>SD_GPT_FLAG_READ_ONLY</constant> <constant>0x1000000000000000</constant></entry>
+            <entry><constant>SD_GPT_FLAG_READ_ONLY</constant></entry>
+            <entry><constant>0x1000000000000000</constant></entry>
             <entry><filename>/</filename>, <filename>/home/</filename>, <filename>/srv/</filename>, <filename>/var/</filename>, <filename>/var/tmp/</filename>, Extended Boot Loader Partition</entry>
             <entry>Partition is mounted read-only</entry>
           </row>
 
           <row>
-            <entry><constant>SD_GPT_FLAG_NO_AUTO</constant> <constant>0x8000000000000000</constant></entry>
+            <entry><constant>SD_GPT_FLAG_NO_AUTO</constant></entry>
+            <entry><constant>0x8000000000000000</constant></entry>
             <entry><filename>/</filename>, <filename>/home/</filename>, <filename>/srv/</filename>, <filename>/var/</filename>, <filename>/var/tmp/</filename>, Extended Boot Loader Partition</entry>
             <entry>Partition is not mounted automatically</entry>
           </row>
 
           <row>
-            <entry><constant>SD_GPT_FLAG_NO_BLOCK_IO_PROTOCOL</constant> <constant>0x0000000000000002</constant></entry>
+            <entry><constant>SD_GPT_FLAG_NO_BLOCK_IO_PROTOCOL</constant></entry>
+            <entry><constant>0x0000000000000002</constant></entry>
             <entry>EFI System Partition (ESP)</entry>
             <entry>Partition is not mounted automatically</entry>
           </row>
