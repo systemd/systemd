@@ -376,3 +376,47 @@ if get_option('integration-tests')
                      suite : 'integration-tests')
         endforeach
 endif
+
+minimal_0_mkosi = custom_target('minimal_0_mkosi',
+        build_always_stale : true,
+        output : [
+                'minimal_0.raw',
+                'minimal_0.root-x86-64.raw',
+                'minimal_0.root-x86-64-verity.raw',
+                'minimal_0.root-x86-64-verity-sig.raw',
+        ],
+        console : true,
+        install : want_tests != 'false',
+        install_dir : testdata_dir,
+        command : ['mkosi',
+                        '-C', meson.project_source_root() / 'test',
+                        '--image=minimal_0',
+                        '--format=disk',
+                        '--output-dir', meson.project_build_root() / 'test',
+                        '--verity-key', meson.project_source_root() / 'mkosi.key',
+                        '--verity-certificate', meson.project_source_root() / 'mkosi.crt',
+                        '--without-tests', '-fi', 'build'],
+        depends : [executables_by_name['bootctl'], executables_by_name['systemd-measure'], executables_by_name['systemd-repart'], ukify],
+)
+
+minimal_1_mkosi = custom_target('minimal_1_mkosi',
+        build_always_stale : true,
+        output : [
+                'minimal_1.raw',
+                'minimal_1.root-x86-64.raw',
+                'minimal_1.root-x86-64-verity.raw',
+                'minimal_1.root-x86-64-verity-sig.raw',
+        ],
+        console : true,
+        install : want_tests != 'false',
+        install_dir : testdata_dir,
+        command : ['mkosi',
+                        '-C', meson.project_source_root() / 'test',
+                        '--image=minimal_1',
+                        '--format=disk',
+                        '--output-dir', meson.project_build_root() / 'test',
+                        '--verity-key', meson.project_source_root() / 'mkosi.key',
+                        '--verity-certificate', meson.project_source_root() / 'mkosi.crt',
+                        '--without-tests', '-fi', 'build'],
+        depends : [executables_by_name['bootctl'], executables_by_name['systemd-measure'], executables_by_name['systemd-repart'], ukify],
+)

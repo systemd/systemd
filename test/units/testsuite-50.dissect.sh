@@ -189,6 +189,10 @@ grep -q -F -f "$OS_RELEASE" "$IMAGE_DIR/mount/etc/os-release"
 grep -q -F "MARKER=1" "$IMAGE_DIR/mount/usr/lib/os-release"
 systemd-dissect --umount "$IMAGE_DIR/mount"
 
+ls /run/verity.d/
+stat /run/verity.d/ok.crt
+cat /run/verity.d/ok.crt
+
 # add explicit -p MountAPIVFS=yes once to test the parser
 systemd-run -P \
             -p RootImage="$MINIMAL_IMAGE.gpt" \
