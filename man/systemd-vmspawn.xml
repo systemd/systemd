@@ -80,7 +80,8 @@
 
         <listitem><para>Directory to use as file system root for the virtual machine.</para>
 
-        <para>One of either <option>--directory=</option> or <option>--image=</option> must be specified.</para>
+        <para>One of either <option>--directory=</option> or <option>--image=</option> must be specified.
+        If neither are specified <option>--directory=.</option> is assumed</para>
 
         <para>Note: If mounting a non-root owned directory you may require <option>--private-users=</option>
               to map into the user's subuid namespace.</para>
