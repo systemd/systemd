@@ -1973,7 +1973,7 @@ static void directory_watch(sd_journal *j, Directory *m, int fd, uint32_t mask) 
 
         m->wd = inotify_add_watch_fd(j->inotify_fd, fd, mask);
         if (m->wd < 0) {
-                log_debug_errno(errno, "Failed to watch journal directory '%s', ignoring: %m", m->path);
+                log_debug_errno(m->wd, "Failed to watch journal directory '%s', ignoring: %m", m->path);
                 return;
         }
 
