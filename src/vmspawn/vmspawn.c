@@ -1421,7 +1421,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 pass_fds[n_pass_fds++] = device_fd;
         }
 
-        r = strv_extend_many(&cmdline, "-cpu", "max");
+        r = strv_extend_many(&cmdline, "-cpu",
+#ifdef __x86_64__
+                             "max,hv_relaxed,hv-vapic,hv-time"
+#else
+                             "max"
+#endif
+        );
         if (r < 0)
                 return log_oom();
 
