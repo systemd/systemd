@@ -161,6 +161,7 @@ int sd_event_source_send_child_signal(sd_event_source *s, int sig, const siginfo
 int sd_event_source_send_child_signal(sd_event_source *s, int sig, const void *si, unsigned flags);
 #endif
 int sd_event_source_get_inotify_mask(sd_event_source *s, uint32_t *ret);
+int sd_event_source_get_inotify_path(sd_event_source *s, char **ret);
 int sd_event_source_set_memory_pressure_type(sd_event_source *e, const char *ty);
 int sd_event_source_set_memory_pressure_period(sd_event_source *s, uint64_t threshold_usec, uint64_t window_usec);
 int sd_event_source_set_destroy_callback(sd_event_source *s, sd_event_destroy_t callback);
