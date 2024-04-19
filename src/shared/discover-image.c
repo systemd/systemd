@@ -639,7 +639,7 @@ int image_find(ImageClass class,
                                         .type_mask = endswith(suffix, ".raw") ? (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK) : (UINT32_C(1) << DT_DIR),
                                         .basename = name,
                                         .architecture = _ARCHITECTURE_INVALID,
-                                        .suffix = suffix,
+                                        .suffix = STRV_MAKE(suffix),
                                 };
 
                                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
@@ -807,7 +807,7 @@ int image_discover(
                                                 .type_mask = endswith(suffix, ".raw") ? (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK) : (UINT32_C(1) << DT_DIR),
                                                 .basename = pretty,
                                                 .architecture = _ARCHITECTURE_INVALID,
-                                                .suffix = suffix,
+                                                .suffix = STRV_MAKE(suffix),
                                         };
 
                                         _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;

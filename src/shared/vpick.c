@@ -85,8 +85,13 @@ static int format_fname(
                         return -ENOMEM;
         }
 
-        if (filter->suffix && !strextend(&fn, filter->suffix))
-                return -ENOMEM;
+        if (!strv_isempty(filter->suffix)) {
+                if (strv_length(filter->suffix) > 1)
+                        return -ENOEXEC;
+
+                if (!strextend(&fn, filter->suffix[0]))
+                        return -ENOMEM;
+        }
 
         if (!filename_is_valid(fn))
                 return -EINVAL;
@@ -352,8 +357,8 @@ static int make_choice(
                 } else
                         e = dname;
 
-                if (!isempty(filter->suffix)) {
-                        char *sfx = endswith(e, filter->suffix);
+                if (!strv_isempty(filter->suffix)) {
+                        char *sfx = endswith_strv(e, filter->suffix);
                         if (!sfx)
                                 continue;
 
@@ -493,7 +498,8 @@ int path_pick(
                 PickResult *ret) {
 
         _cleanup_free_ char *filter_bname = NULL, *dir = NULL, *parent = NULL, *fname = NULL;
-        const char *filter_suffix, *enumeration_path;
+        char * const *filter_suffix_strv = NULL;
+        const char *filter_suffix = NULL, *enumeration_path;
         uint32_t filter_type_mask;
         int r;
 
@@ -549,14 +555,12 @@ int path_pick(
                 if (!filter_bname)
                         return -ENOMEM;
 
-                if (filter->suffix) {
-                        /* Chop off suffix, if specified */
-                        char *f = endswith(filter_bname, filter->suffix);
-                        if (f)
-                                *f = 0;
-                }
+                /* Chop off suffix, if specified */
+                char *f = endswith_strv(filter_bname, filter->suffix);
+                if (f)
+                        *f = 0;
 
-                filter_suffix = filter->suffix;
+                filter_suffix_strv = filter->suffix;
                 filter_type_mask = filter->type_mask;
 
                 enumeration_path = path;
@@ -616,7 +620,7 @@ int path_pick(
                                 .basename = filter_bname,
                                 .version = filter->version,
                                 .architecture = filter->architecture,
-                                .suffix = filter_suffix,
+                                .suffix = filter_suffix_strv ?: STRV_MAKE(filter_suffix),
                         },
                         flags,
                         ret);
@@ -685,10 +689,16 @@ int path_pick_update_warn(
 const PickFilter pick_filter_image_raw = {
         .type_mask = (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK),
         .architecture = _ARCHITECTURE_INVALID,
-        .suffix = ".raw",
+        .suffix = STRV_MAKE(".raw"),
 };
 
 const PickFilter pick_filter_image_dir = {
         .type_mask = UINT32_C(1) << DT_DIR,
         .architecture = _ARCHITECTURE_INVALID,
+};
+
+const PickFilter pick_filter_image_any = {
+        .type_mask = (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK) | (UINT32_C(1) << DT_DIR),
+        .architecture = _ARCHITECTURE_INVALID,
+        .suffix = STRV_MAKE(".raw", ""),
 };
