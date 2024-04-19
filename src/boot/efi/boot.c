@@ -70,6 +70,8 @@ typedef struct {
         char16_t *path;
         char16_t *current_name;
         char16_t *next_name;
+        char16_t **interactive_creds;
+        size_t n_interactive_creds;
 } BootEntry;
 
 typedef struct {
@@ -603,6 +605,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         printf("    devicetree: %ls\n", entry->devicetree);
                 if (entry->options)
                         printf("       options: %ls\n", entry->options);
+                for (size_t j = 0; j < entry->n_interactive_creds; j += 2)
+                        printf("Credential name: %ls value: %ls\n", entry->interactive_creds[j], entry->interactive_creds[j + 1]);
                 printf(" internal call: %ls\n", yes_no(!!entry->call));
 
                 printf("counting boots: %ls\n", yes_no(entry->tries_left >= 0));
@@ -648,6 +652,36 @@ static EFI_STATUS reboot_into_firmware(void) {
                 return err;
 
         return reboot_system();
+}
+
+static void store_interactive_credentials(BootEntry *entry) {
+        _cleanup_free_ char16_t *interactive_creds = NULL;
+        size_t interactive_creds_size = 0;
+        EFI_STATUS err;
+
+        assert(entry);
+
+        for (size_t i = 0; i < entry->n_interactive_creds; ++i) {
+                size_t cred_size = strlen(entry->interactive_creds[i]) + 1;
+                interactive_creds = xrealloc(
+                                interactive_creds,
+                                interactive_creds_size * sizeof(char16_t),
+                                (interactive_creds_size + cred_size) * sizeof(char16_t));
+                strcpy16(interactive_creds + interactive_creds_size, entry->interactive_creds[i]);
+                interactive_creds_size += cred_size;
+        }
+
+        if (interactive_creds_size == 0)
+                return;
+
+        err = efivar_set_raw(
+                        MAKE_GUID_PTR(LOADER),
+                        u"LoaderInteractiveCredentials",
+                        interactive_creds,
+                        interactive_creds_size * sizeof(char16_t),
+                        EFI_VARIABLE_BOOTSERVICE_ACCESS);
+        if (err != EFI_SUCCESS)
+                log_error_status(err, "Error writing LoaderInteractiveCredentials, ignoring: %m");
 }
 
 static bool menu_run(
@@ -943,6 +977,50 @@ static bool menu_run(
                         action = ACTION_QUIT;
                         break;
 
+                case KEYPRESS(0, 0, 'c'): {
+                        if (!config->editor ||
+                            config->entries[idx_highlight]->type != LOADER_UNIFIED_LINUX) {
+                                status = xstrdup16(u"Entry does not support synthetising credentials.");
+                                break;
+                        }
+
+                        /* In CVMs the serial console is under the control of the cloud provider */
+                        if (is_confidential_vm()) {
+                                status = xstrdup16(u"Synthesising credentials is not allowed in confidential VMs.");
+                                break;
+                        }
+
+                        /* The edit line may end up on the last line of the screen. And even though we're
+                         * not telling the firmware to advance the line, it still does in this one case,
+                         * causing a scroll to happen that screws with our beautiful boot loader output.
+                         * Since we cannot paint the last character of the edit line, we simply start
+                         * at x-offset 1 for symmetry. */
+                        _cleanup_free_ char16_t *cred_key = NULL, *cred_value = NULL;
+
+                        print_at(1, y_status, COLOR_HIGHLIGHT, clearline + 2);
+                        print_at(1, y_status, COLOR_HIGHLIGHT, u"Credential name:");
+                        print_at(1, y_status + 1, COLOR_EDIT, clearline + 2);
+                        if (line_edit(&cred_key, x_max - 2, y_status + 1)) {
+                                print_at(1, y_status, COLOR_HIGHLIGHT, clearline + 2);
+                                print_at(1, y_status, COLOR_HIGHLIGHT, u"Credential value:");
+                                print_at(1, y_status + 1, COLOR_EDIT, clearline + 2);
+                                if (line_edit(&cred_value, x_max - 2, y_status + 1)) {
+                                        status = xasprintf("name: %ls value: %ls", cred_key, cred_value);
+
+                                        config->entries[idx_highlight]->interactive_creds = xrealloc(
+                                                        config->entries[idx_highlight]->interactive_creds,
+                                                        config->entries[idx_highlight]->n_interactive_creds * sizeof(char16_t *),
+                                                        (config->entries[idx_highlight]->n_interactive_creds + 2) * sizeof(char16_t *));
+                                        config->entries[idx_highlight]->interactive_creds[config->entries[idx_highlight]->n_interactive_creds] = TAKE_PTR(cred_key);
+                                        config->entries[idx_highlight]->interactive_creds[config->entries[idx_highlight]->n_interactive_creds + 1] = TAKE_PTR(cred_value);
+                                        config->entries[idx_highlight]->n_interactive_creds += 2;
+                                }
+                        }
+                        print_at(1, y_status, COLOR_NORMAL, clearline + 2);
+                        print_at(1, y_status + 1, COLOR_NORMAL, clearline + 2);
+                        break;
+                }
+
                 case KEYPRESS(0, 0, 'd'):
                 case KEYPRESS(0, 0, 'D'):
                         if (config->idx_default_efivar != idx_highlight) {
@@ -1142,6 +1220,8 @@ static bool menu_run(
         case ACTION_FIRMWARE_SETUP:
                 reboot_system();
         case ACTION_RUN:
+                store_interactive_credentials(config->entries[idx_highlight]);
+                break;
         case ACTION_QUIT:
                 break;
         }
@@ -1184,6 +1264,9 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
         free(entry->path);
         free(entry->current_name);
         free(entry->next_name);
+        for (size_t i = 0; i < entry->n_interactive_creds; ++i)
+                free(entry->interactive_creds[i]);
+        free(entry->interactive_creds);
 
         return mfree(entry);
 }
@@ -2546,6 +2629,7 @@ static void export_variables(
                 EFI_LOADER_FEATURE_SECUREBOOT_ENROLL |
                 EFI_LOADER_FEATURE_RETAIN_SHIM |
                 EFI_LOADER_FEATURE_MENU_DISABLE |
+                EFI_LOADER_FEATURE_INTERACTIVE_CREDENTIALS |
                 0;
 
         _cleanup_free_ char16_t *infostr = NULL, *typestr = NULL;

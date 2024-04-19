@@ -454,11 +454,12 @@ nothing:
         return EFI_SUCCESS;
 }
 
-EFI_STATUS pack_cpio_literal(
-                const void *data,
-                size_t data_size,
+EFI_STATUS pack_cpio_literals(
+                void **items,
+                size_t *item_sizes,
+                char16_t **target_filenames,
+                size_t n_items,
                 const char *target_dir_prefix,
-                const char16_t *target_filename,
                 uint32_t dir_mode,
                 uint32_t access_mode,
                 uint32_t tpm_pcr,
@@ -472,11 +473,19 @@ EFI_STATUS pack_cpio_literal(
         size_t buffer_size = 0;
         EFI_STATUS err;
 
-        assert(data || data_size == 0);
+        assert(items || n_items == 0);
+        assert(item_sizes || n_items == 0);
+        assert(target_filenames || n_items == 0);
         assert(target_dir_prefix);
-        assert(target_filename);
         assert(ret_buffer);
         assert(ret_buffer_size);
+
+        if (n_items == 0) {
+                *ret_buffer = NULL;
+                *ret_buffer_size = 0;
+
+                return EFI_SUCCESS; /* nothing to do */
+        }
 
         /* Generate the leading directory inodes right before adding the first files, to the
          * archive. Otherwise the cpio archive cannot be unpacked, since the leading dirs won't exist. */
@@ -485,15 +494,17 @@ EFI_STATUS pack_cpio_literal(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Failed to pack cpio prefix: %m");
 
-        err = pack_cpio_one(
-                        target_filename,
-                        data, data_size,
-                        target_dir_prefix,
-                        access_mode,
-                        &inode,
-                        &buffer, &buffer_size);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed to pack cpio file %ls: %m", target_filename);
+        for (size_t i = 0; i < n_items; ++i) {
+                err = pack_cpio_one(
+                                target_filenames[i],
+                                items[i], item_sizes[i],
+                                target_dir_prefix,
+                                access_mode,
+                                &inode,
+                                &buffer, &buffer_size);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to pack cpio file %ls: %m", target_filenames[i]);
+        }
 
         err = pack_cpio_trailer(&buffer, &buffer_size);
         if (err != EFI_SUCCESS)
@@ -512,4 +523,32 @@ EFI_STATUS pack_cpio_literal(
         *ret_buffer_size = buffer_size;
 
         return EFI_SUCCESS;
+}
+
+EFI_STATUS pack_cpio_literal(
+                const void *data,
+                size_t data_size,
+                const char *target_dir_prefix,
+                const char16_t *target_filename,
+                uint32_t dir_mode,
+                uint32_t access_mode,
+                uint32_t tpm_pcr,
+                const char16_t *tpm_description,
+                void **ret_buffer,
+                size_t *ret_buffer_size,
+                bool *ret_measured) {
+
+        return pack_cpio_literals(
+                        (void**)&data,
+                        &data_size,
+                        (char16_t **)&target_filename,
+                        1,
+                        target_dir_prefix,
+                        dir_mode,
+                        access_mode,
+                        tpm_pcr,
+                        tpm_description,
+                        ret_buffer,
+                        ret_buffer_size,
+                        ret_measured);
 }
