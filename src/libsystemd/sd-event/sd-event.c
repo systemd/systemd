@@ -3292,6 +3292,18 @@ _public_ int sd_event_source_get_inotify_mask(sd_event_source *s, uint32_t *ret)
         return 0;
 }
 
+_public_ int sd_event_source_get_inotify_path(sd_event_source *s, char **ret) {
+        assert_return(s, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(s->type == SOURCE_INOTIFY, -EDOM);
+        assert_return(!event_origin_changed(s->event), -ECHILD);
+
+        if (!s->inotify.inode_data || s->inotify.inode_data->fd < 0)
+                return -ESTALE;
+
+        return fd_get_path(s->inotify.inode_data->fd, ret);
+}
+
 _public_ int sd_event_source_set_prepare(sd_event_source *s, sd_event_handler_t callback) {
         int r;
 
