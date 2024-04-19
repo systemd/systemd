@@ -185,11 +185,9 @@ static int pin_choice(
         if (!result.path)
                 return log_oom_debug();
 
-        if (filter->version) {
-                result.version = strdup(filter->version);
-                if (!result.version)
-                        return log_oom_debug();
-        }
+        r = strdup_to(&result.version, filter->version);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PICK_RESULT(result);
         return 1;
