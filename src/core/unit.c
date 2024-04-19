@@ -467,7 +467,7 @@ bool unit_may_gc(Unit *u) {
                 break;
 
         case COLLECT_INACTIVE_OR_FAILED:
-                if (!IN_SET(state, UNIT_INACTIVE, UNIT_FAILED))
+                if (!UNIT_IS_INACTIVE_OR_FAILED(state))
                         return false;
 
                 break;
