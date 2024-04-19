@@ -2768,6 +2768,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly t ExecMainStartTimestampMonotonic = ...;
       readonly t ExecMainExitTimestamp = ...;
       readonly t ExecMainExitTimestampMonotonic = ...;
+      readonly t ExecMainHandoverTimestamp = ...;
+      readonly t ExecMainHandoverTimestampMonotonic = ...;
       readonly u ExecMainPID = ...;
       readonly i ExecMainCode = ...;
       readonly i ExecMainStatus = ...;
@@ -4057,6 +4059,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecMainExitTimestampMonotonic"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecMainHandoverTimestamp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecMainHandoverTimestampMonotonic"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ExecMainPID"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecMainCode"/>
@@ -4706,12 +4712,17 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
       <para><varname>ExecMainStartTimestamp</varname>, <varname>ExecMainStartTimestampMonotonic</varname>,
       <varname>ExecMainExitTimestamp</varname>, <varname>ExecMainExitTimestampMonotonic</varname>,
+      <varname>ExecMainHandoverTimestamp</varname>, <varname>ExecMainHandoverTimestampMonotonic</varname>,
       <varname>ExecMainPID</varname>, <varname>ExecMainCode</varname>, <varname>ExecMainStatus</varname>
-      contain information about the main process of the service as far as it is known. This is often the same
-      runtime information that is stored in <varname>ExecStart</varname>. However, it deviates for
-      <varname>Type=forking</varname> services where the main process of the service is not forked off
-      systemd directly. These fields either contain information of the last run of the process or of the
-      current running process.</para>
+      contain information about the main process of the service as far as it is known. The
+      <varname>ExecMainStartTimestamp</varname> timestamps record when the main child process is spawned by
+      the service manager. <varname>ExecMainExitTimestamp</varname> timestamps record when the main child
+      process exit has been detected by the service manager. <varname>ExecMainHandoverTimestamp</varname>
+      timestamps record when the service executable is executed by <literal>systemd-executor</literal>.
+      This is often the same runtime information that is stored in <varname>ExecStart</varname>. However, it
+      deviates for <varname>Type=forking</varname> services where the main process of the service is not
+      forked off systemd directly. These fields either contain information of the last run of the process or
+      of the current running process.</para>
 
       <para><varname>MainPID</varname> and <varname>ControlPID</varname> contain the main and control PID of
       the service. The main PID is the current main PID of the service and is 0 when the service currently
@@ -12055,8 +12066,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>MemoryZSwapCurrent</varname> were added in version 255.</para>
       <para><varname>EffectiveMemoryHigh</varname>,
       <varname>EffectiveMemoryMax</varname>,
-      <varname>EffectiveTasksMax</varname>, and
-      <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
+      <varname>EffectiveTasksMax</varname>,
+      <varname>MemoryZSwapWriteback</varname>,
+      <varname>ExecMainHandoverTimestampMonotonic</varname>, and
+      <varname>ExecMainHandoverTimestamp</varname> were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
