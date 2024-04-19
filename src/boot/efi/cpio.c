@@ -65,7 +65,7 @@ static EFI_STATUS pack_cpio_one(
         char *a;
 
         assert(fname);
-        assert(contents_size || contents_size == 0);
+        assert(contents || contents_size == 0);
         assert(target_dir_prefix);
         assert(inode_counter);
         assert(cpio_buffer);
