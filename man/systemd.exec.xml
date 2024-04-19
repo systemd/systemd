@@ -2983,8 +2983,8 @@ SystemCallErrorNumber=EPERM</programlisting>
         <para>The <option>file:<replaceable>path</replaceable></option> option may be used to connect a specific file
         system object to standard output. The semantics are similar to the same option of
         <varname>StandardInput=</varname>, see above. If <replaceable>path</replaceable> refers to a regular file
-        on the filesystem, it is opened (created if it doesn't exist yet) for writing at the beginning of the file,
-        but without truncating it.
+        on the filesystem, it is opened (created if it doesn't exist yet using privileges of the user executing the
+        systemd process) for writing at the beginning of the file, but without truncating it.
         If standard input and output are directed to the same file path, it is opened only once — for reading as well
         as writing — and duplicated. This is particularly useful when the specified path refers to an
         <constant>AF_UNIX</constant> socket in the file system, as in that case only a
