@@ -596,6 +596,8 @@ static int property_get_rtc_time(
                 log_warning("/dev/rtc is busy. Is somebody keeping it open continuously? That's not a good idea... Returning a bogus RTC timestamp.");
         else if (r == -ENOENT)
                 log_debug("/dev/rtc not found.");
+        else if (r == -ENODATA)
+                log_debug("/dev/rtc has no valid time, power loss probably occurred?");
         else if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to read RTC: %m");
         else
