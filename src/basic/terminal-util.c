@@ -307,6 +307,7 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
 
         r = RET_NERRNO(tcsetattr(fd, TCSANOW, &termios));
 
+        (void) loop_write(fd, "\033[?7h", 5); /* Enable line wrapping */
 finish:
         /* Just in case, flush all crap out */
         (void) tcflush(fd, TCIOFLUSH);
