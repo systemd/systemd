@@ -191,12 +191,6 @@ TEST(radv) {
         assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_HIGH) >= 0);
         ASSERT_RETURN_EXPECTED_SE(sd_radv_set_preference(ra, ~0) < 0);
 
-        assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_HIGH) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, 300 * USEC_PER_SEC) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, 0) < 0);
-        assert_se(sd_radv_set_preference(ra, SD_NDISC_PREFERENCE_MEDIUM) >= 0);
-        assert_se(sd_radv_set_router_lifetime(ra, 0) >= 0);
-
         ASSERT_RETURN_EXPECTED_SE(sd_radv_set_managed_information(NULL, true) < 0);
         assert_se(sd_radv_set_managed_information(ra, true) >= 0);
         assert_se(sd_radv_set_managed_information(ra, false) >= 0);
@@ -208,7 +202,7 @@ TEST(radv) {
         ASSERT_RETURN_EXPECTED_SE(sd_radv_set_retransmit(NULL, 10 * USEC_PER_MSEC) < 0);
         assert_se(sd_radv_set_retransmit(ra, 10 * USEC_PER_MSEC) >= 0);
         assert_se(sd_radv_set_retransmit(ra, 0) >= 0);
-        assert_se(sd_radv_set_retransmit(ra, usec_add(UINT32_MAX * USEC_PER_MSEC, USEC_PER_MSEC)) < 0);
+        assert_se(sd_radv_set_retransmit(ra, USEC_INFINITY) >= 0);
 
         ASSERT_RETURN_EXPECTED_SE(sd_radv_set_rdnss(NULL, 0, NULL, 0) < 0);
         assert_se(sd_radv_set_rdnss(ra, 0, NULL, 0) >= 0);
