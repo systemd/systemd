@@ -1248,7 +1248,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_warning("Couldn't find OVMF firmware blob with Secure Boot support, "
                             "falling back to OVMF firmware blobs without Secure Boot support.");
 
-        shm = arg_directory ? ",memory-backend=mem" : "";
+        shm = arg_directory || arg_runtime_mounts.n_mounts != 0 ? ",memory-backend=mem" : "";
         if (ARCHITECTURE_SUPPORTS_SMM)
                 machine = strjoin("type=" QEMU_MACHINE_TYPE ",smm=", on_off(ovmf_config->supports_sb), shm);
         else
