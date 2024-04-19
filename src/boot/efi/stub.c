@@ -541,6 +541,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
         CLEANUP_ARRAY(dt_filenames_addons_global, n_dts_addons_global, dt_filenames_free);
         CLEANUP_ARRAY(dt_filenames_addons_uki, n_dts_addons_uki, dt_filenames_free);
 
+        if (szs[UNIFIED_SECTION_UNAME] > 0)
+                uname = xstrndup8((char *)loaded_image->ImageBase + addrs[UNIFIED_SECTION_UNAME],
+                                  szs[UNIFIED_SECTION_UNAME]);
+
         /* Now that we have the UKI sections loaded, also load global first and then local (per-UKI)
          * addons. The data is loaded at once, and then used later. */
         err = load_addons(
@@ -614,10 +618,6 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         /* Show splash screen as early as possible */
         graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_SPLASH], szs[UNIFIED_SECTION_SPLASH]);
-
-        if (szs[UNIFIED_SECTION_UNAME] > 0)
-                uname = xstrndup8((char *)loaded_image->ImageBase + addrs[UNIFIED_SECTION_UNAME],
-                                  szs[UNIFIED_SECTION_UNAME]);
 
         if (use_load_options(image, loaded_image, szs[UNIFIED_SECTION_CMDLINE] > 0, &cmdline)) {
                 /* Let's measure the passed kernel command line into the TPM. Note that this possibly
