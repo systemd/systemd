@@ -329,10 +329,7 @@ Features:
     PCRs.
 
 * vmspawn:
-  - enable hyperv extension by default (https://www.qemu.org/docs/master/system/i386/hyperv.html)
-  - register with machined
   - run in scope unit when invoked from command line, and machined registration is off
-  - support --directory= via virtiofs
   - sd_notify support
   - --ephemeral support
   - --read-only support
