@@ -475,6 +475,7 @@ static int delete_self_handler(sd_event_source *s, const struct inotify_event *e
 
 static void test_inotify_one(unsigned n_create_events) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
+        _cleanup_free_ char *pp = NULL;
         sd_event_source *a = NULL, *b = NULL, *c = NULL, *d = NULL;
         struct inotify_context context = {
                 .n_create_events = n_create_events,
@@ -499,6 +500,16 @@ static void test_inotify_one(unsigned n_create_events) {
         assert_se(sd_event_source_set_description(a, "0") >= 0);
         assert_se(sd_event_source_set_description(b, "1") >= 0);
         assert_se(sd_event_source_set_description(c, "2") >= 0);
+
+        assert_se(sd_event_source_get_inotify_path(a, &pp) >= 0);
+        assert_se(path_equal_or_inode_same(pp, p, 0));
+        pp = mfree(pp);
+        assert_se(sd_event_source_get_inotify_path(b, &pp) >= 0);
+        assert_se(path_equal_or_inode_same(pp, p, 0));
+        pp = mfree(pp);
+        assert_se(sd_event_source_get_inotify_path(b, &pp) >= 0);
+        assert_se(path_equal_or_inode_same(pp, p, 0));
+        pp = mfree(pp);
 
         q = strjoina(p, "/sub");
         assert_se(touch(q) >= 0);
