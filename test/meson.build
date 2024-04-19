@@ -335,7 +335,7 @@ endif
 ############################################################
 
 if get_option('integration-tests') != false
-        integration_test_wrapper = find_program('integration_test_wrapper.py')
+        integration_test_wrapper = find_program('integration-test-wrapper.py')
         integration_tests = {
                 '01': 'TEST-01-BASIC',
                 '02': 'TEST-02-UNITTESTS',

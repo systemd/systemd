@@ -9,14 +9,14 @@ with the expectation that as part of formally defining the API it will be tidy.
 '''
 
 import argparse
-import logging
 import os
 from pathlib import Path
 import shlex
 import subprocess
+import sys
 
 
-TEST_EXIT_DROPIN = """\
+TEST_DROPIN = """\
 [Unit]
 SuccessAction=exit
 FailureAction=exit
@@ -43,18 +43,16 @@ ExecStart=false
 """
 
 
-parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--test-name', required=True)
-parser.add_argument('--mkosi-image-name', required=True)
-parser.add_argument('--mkosi-output-path', required=True, type=Path)
-parser.add_argument('--test-number', required=True)
-parser.add_argument('--no-emergency-exit',
-                    dest='emergency_exit', default=True, action='store_false',
-                    help="Disable emergency exit drop-ins for interactive debugging")
-parser.add_argument('mkosi_args', nargs="*")
-
 def main():
-    logging.basicConfig(level=logging.DEBUG)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--test-name', required=True)
+    parser.add_argument('--mkosi-image-name', required=True)
+    parser.add_argument('--mkosi-output-path', required=True, type=Path)
+    parser.add_argument('--test-number', required=True)
+    parser.add_argument('--no-emergency-exit',
+                        dest='emergency_exit', default=True, action='store_false',
+                        help="Disable emergency exit drop-ins for interactive debugging")
+    parser.add_argument('mkosi_args', nargs="*")
     args = parser.parse_args()
 
     test_unit_name = f"testsuite-{args.test_number}.service"
@@ -62,15 +60,8 @@ def main():
     # and it must be a valid hostname so 64 chars max
     machine_name = args.test_name.replace('/', '_')[:64]
 
-    logging.debug(f"test name: {args.test_name}\n"
-                  f"test number: {args.test_number}\n"
-                  f"image: {args.mkosi_image_name}\n"
-                  f"mkosi output path: {args.mkosi_output_path}\n"
-                  f"mkosi args: {args.mkosi_args}\n"
-                  f"emergency exit: {args.emergency_exit}")
-
     journal_file = Path(f"{machine_name}.journal").absolute()
-    logging.info(f"Capturing journal to {journal_file}")
+    journal_file.unlink(missing_ok=True)
 
     mkosi_args = [
         'mkosi',
@@ -78,8 +69,6 @@ def main():
         '--output-dir', args.mkosi_output_path.absolute(),
         '--machine', machine_name,
         '--image', args.mkosi_image_name,
-        '--format=disk',
-        '--runtime-build-sources=no',
         '--ephemeral',
         '--forward-journal', journal_file,
         *(
@@ -91,7 +80,7 @@ def main():
             if args.emergency_exit
             else []
         ),
-        f"--credential=systemd.unit-dropin.{test_unit_name}={shlex.quote(TEST_EXIT_DROPIN)}",
+        f"--credential=systemd.unit-dropin.{test_unit_name}={shlex.quote(TEST_DROPIN)}",
         '--append',
         '--kernel-command-line-extra',
         ' '.join([
@@ -99,13 +88,13 @@ def main():
             f"SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-{args.test_number}.units:/usr/lib/systemd/tests/testdata/units:",
             'systemd.unit=testsuite.target',
             f"systemd.wants={test_unit_name}",
+            # Disable status because it duplicates the same info from log messages forwarded to the console.
+            'systemd.show_status=false',
+            'systemd.journald.max_level_console=info',
         ]),
         *args.mkosi_args,
+        'qemu',
     ]
-
-    mkosi_args += ['qemu']
-
-    logging.debug(f"Running {shlex.join(os.fspath(a) for a in mkosi_args)}")
 
     try:
         subprocess.run(mkosi_args, check=True)
@@ -113,20 +102,14 @@ def main():
         if e.returncode not in (0, 77):
             suggested_command = [
                 'journalctl',
-                '--all',
                 '--no-hostname',
                 '-o', 'short-monotonic',
                 '--file', journal_file,
-                f"_SYSTEMD_UNIT={test_unit_name}",
-                '+', f"SYSLOG_IDENTIFIER=testsuite-{args.test_number}.sh",
-                '+', 'PRIORITY=4',
-                '+', 'PRIORITY=3',
-                '+', 'PRIORITY=2',
-                '+', 'PRIORITY=1',
-                '+', 'PRIORITY=0',
+                '-u', test_unit_name,
+                '-p', 'info',
             ]
-            logging.info("Test failed, relevant logs can be viewed with: "
-                         f"{shlex.join(os.fspath(a) for a in suggested_command)}")
+            print("Test failed, relevant logs can be viewed with: \n\n"
+                  f"{shlex.join(os.fspath(a) for a in suggested_command)}\n", file=sys.stderr)
         exit(e.returncode)
 
 

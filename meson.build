@@ -2578,7 +2578,7 @@ if get_option('integration-tests') != false
                 build_always_stale : true,
                 output : 'system',
                 console : true,
-                command : ['mkosi', '-C', meson.project_source_root(), '--image=system', '--format=disk', '--output-dir', meson.project_build_root() / '@OUTPUT@', '--without-tests', '-fi', 'build'],
+                command : ['mkosi', '-C', meson.project_source_root(), '--image=system', '--output-dir', meson.project_build_root() / '@OUTPUT@', '-f', 'build'],
                 depends : [executables_by_name['bootctl'], executables_by_name['systemd-measure'], executables_by_name['systemd-repart'], ukify],
         )
 endif
