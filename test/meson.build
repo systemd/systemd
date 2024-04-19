@@ -334,21 +334,19 @@ endif
 
 ############################################################
 
-if get_option('integration-tests') != false
-        integration_test_wrapper = find_program('integration_test_wrapper.py')
+if get_option('integration-tests')
+        if not mkosi.found()
+                error('Could not find mkosi which is required to run the integration tests')
+        endif
+
+        integration_test_wrapper = find_program('integration-test-wrapper.py')
         integration_tests = {
                 '01': 'TEST-01-BASIC',
                 '02': 'TEST-02-UNITTESTS',
         }
         foreach test_number, dirname : integration_tests
-                test_unit_name = f'testsuite-@test_number@.service'
                 test_params = {
-                        'test_name' : dirname,
-                        'mkosi_image_name' : 'system',
-                        'mkosi_output_path' : system_mkosi,
-                        'test_number' : test_number,
                         'mkosi_args' : [],
-                        'depends' : [system_mkosi],
                         'timeout' : 600,
                 }
 
@@ -358,16 +356,22 @@ if get_option('integration-tests') != false
                 if fs.exists(dirname / 'meson.build')
                         subdir(dirname)
                 endif
-                args = ['--test-name', test_params['test_name'],
-                        '--mkosi-image-name', test_params['mkosi_image_name'],
-                        '--mkosi-output-path', test_params['mkosi_output_path'],
-                        '--test-number', test_params['test_number']]
-                args += ['--'] + test_params['mkosi_args']
-                test(test_params['test_name'],
+
+                args = [
+                        '--meson-source-dir', meson.project_source_root(),
+                        '--meson-build-dir', meson.project_build_root(),
+                        '--test-name', dirname,
+                        '--test-number', test_number,
+                        '--',
+                ] + test_params['mkosi_args']
+
+                # We don't explicitly depend on the "mkosi" target because that means the image is rebuilt
+                # on every "ninja -C build". Instead, the mkosi target has to be rebuilt manually before
+                # running the integration tests with mkosi.
+                test(dirname,
                      integration_test_wrapper,
                      env: test_env,
                      args : args,
-                     depends : test_params['depends'],
                      timeout : test_params['timeout'],
                      suite : 'integration-tests')
         endforeach
