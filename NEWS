@@ -72,8 +72,8 @@ CHANGES WITH 256-rc1:
           embedded in the file name. The files are ordered by version and
           the newest one is selected.
 
-          systemd-nspawn --image=/--directory=, systemd-dissect, and the
-          RootDirectory=, RootImage=, ExtensionImages=, and
+          systemd-nspawn --image=/--directory=, systemd-dissect, systemd-portabled,
+          and the RootDirectory=, RootImage=, ExtensionImages=, and
           ExtensionDirectories= settings for units now support the vpick
           protocol and allow the latest version to be selected automatically if
           a "*.v/" directory is specified as the source.
