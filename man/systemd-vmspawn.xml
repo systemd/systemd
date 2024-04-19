@@ -111,7 +111,7 @@
         <varlistentry>
           <term><option>--cpus=<replaceable>CPUS</replaceable></option></term>
 
-          <listitem><para>Configures the number of CPUs to start the virtual machine with.
+          <listitem><para>The number of CPUs to start the virtual machine with.
           Defaults to 1.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
@@ -121,7 +121,7 @@
         <varlistentry>
           <term><option>--ram=<replaceable>BYTES</replaceable></option></term>
 
-          <listitem><para>Configures the amount of memory to start the virtual machine with.
+          <listitem><para>The amount of memory to start the virtual machine with.
           Defaults to 2G.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
@@ -131,7 +131,7 @@
         <varlistentry>
           <term><option>--kvm=<replaceable>BOOL</replaceable></option></term>
 
-          <listitem><para>Configures whether to use KVM. If the option is not specified KVM support will be
+          <listitem><para>If <option>--kvm=</option> is not specified KVM support will be
           detected automatically. If true, KVM is always used, and if false, KVM is never used.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
@@ -140,13 +140,10 @@
         <varlistentry>
           <term><option>--vsock=<replaceable>BOOL</replaceable></option></term>
 
-          <listitem>
-            <para>Configure whether to use VSOCK networking.</para>
+          <listitem><para>If <option>--vsock=</option> is not specified VSOCK networking support will be
+          detected automatically. If true, VSOCK networking is always used, and if false, VSOCK networking is never used.</para>
 
-            <para>If the option is not specified VSOCK support will be detected automatically.  If yes is
-            specified VSOCK is always used, and vice versa if no is set VSOCK are never used.</para>
-            <xi:include href="version-info.xml" xpointer="v255"/>
-          </listitem>
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -168,12 +165,10 @@
           <term><option>--tpm=<replaceable>BOOL</replaceable></option></term>
 
           <listitem>
-            <para>Configure whether to use VM with a virtual TPM or not.</para>
-
-            <para>If the option is not specified vmspawn will detect the presence of <citerefentry project='debian'>
+            <para>If <option>--tpm=</option> is not specified vmspawn will detect the presence of <citerefentry project='debian'>
             <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> and use it if available.
             If yes is specified <citerefentry project='debian'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            is always used, and vice versa if no is set <citerefentry project='debian'><refentrytitle>swtpm</refentrytitle>
+            is always used, and if no is set <citerefentry project='debian'><refentrytitle>swtpm</refentrytitle>
             <manvolnum>8</manvolnum></citerefentry> is never used.</para>
 
             <para>Note: the virtual TPM used may change in future.</para>
@@ -335,7 +330,9 @@
           <term><option>--private-users=<replaceable>UID_SHIFT[:UID_RANGE]</replaceable></option></term>
 
           <listitem><para>Controls user namespacing under <option>--directory=</option>.
-          If enabled, <command>virtiofsd</command> is instructed to map user and group ids (UIDs and GIDs).
+          If enabled,
+          <citerefentry><refentrytitle>virtiofsd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          is instructed to map user and group ids (UIDs and GIDs).
           This involves mapping the private UIDs/GIDs used in the virtual machine (starting with the virtual machine's
           root user 0 and up) to a range of UIDs/GIDs on the host that are not used for other purposes (usually in the
           range beyond the host's UID/GID 65536).</para>
