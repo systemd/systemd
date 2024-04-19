@@ -3282,13 +3282,13 @@ _public_ int sd_event_source_set_child_process_own(sd_event_source *s, int own) 
         return 0;
 }
 
-_public_ int sd_event_source_get_inotify_mask(sd_event_source *s, uint32_t *mask) {
+_public_ int sd_event_source_get_inotify_mask(sd_event_source *s, uint32_t *ret) {
         assert_return(s, -EINVAL);
-        assert_return(mask, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(s->type == SOURCE_INOTIFY, -EDOM);
         assert_return(!event_origin_changed(s->event), -ECHILD);
 
-        *mask = s->inotify.mask;
+        *ret = s->inotify.mask;
         return 0;
 }
 
