@@ -1294,6 +1294,24 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (strv_extend_many(&cmdline, "-uuid", SD_ID128_TO_UUID_STRING(arg_uuid)) < 0)
                         return log_oom();
 
+        /* Derive a vmgenid automatically from the invocation ID, in a deterministic way. */
+        sd_id128_t vmgenid;
+        r = sd_id128_get_invocation_app_specific(SD_ID128_MAKE(bd,84,6d,e3,e4,7d,4b,6c,a6,85,4a,87,0f,3c,a3,a0), &vmgenid);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to get invocation ID, making up randomized vmgenid: %m");
+
+                r = sd_id128_randomize(&vmgenid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make up randomized vmgenid: %m");
+        }
+
+        _cleanup_free_ char *vmgenid_device = NULL;
+        if (asprintf(&vmgenid_device, "vmgenid,guid=" SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(vmgenid)) < 0)
+                return log_oom();
+
+        if (strv_extend_many(&cmdline, "-device", vmgenid_device) < 0)
+                return log_oom();
+
         /* if we are going to be starting any units with state then create our runtime dir */
         if (arg_tpm != 0 || arg_directory || arg_runtime_mounts.n_mounts != 0) {
                 r = runtime_directory(&arg_runtime_directory, arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER, "systemd/vmspawn");
