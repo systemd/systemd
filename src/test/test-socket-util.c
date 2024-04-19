@@ -290,7 +290,7 @@ TEST(passfd_contents_read) {
         /* Parent */
         char buf[64];
         struct iovec iov = IOVEC_MAKE(buf, sizeof(buf)-1);
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -EBADF;
         ssize_t k;
 
         pair[1] = safe_close(pair[1]);
