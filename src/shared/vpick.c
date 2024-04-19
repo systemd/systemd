@@ -34,6 +34,8 @@ static int format_fname(
 
         if (FLAGS_SET(flags, PICK_TRIES) || !filter->version) /* Underspecified? */
                 return -ENOEXEC;
+        if (strv_length(filter->suffix) > 1) /* suffix is not deterministic? */
+                return -ENOEXEC;
 
         /* The format for names we match goes like this:
          *
@@ -85,13 +87,9 @@ static int format_fname(
                         return -ENOMEM;
         }
 
-        if (!strv_isempty(filter->suffix)) {
-                if (strv_length(filter->suffix) > 1)
-                        return -ENOEXEC;
-
+        if (!strv_isempty(filter->suffix))
                 if (!strextend(&fn, filter->suffix[0]))
                         return -ENOMEM;
-        }
 
         if (!filename_is_valid(fn))
                 return -EINVAL;
@@ -185,11 +183,9 @@ static int pin_choice(
         if (!result.path)
                 return log_oom_debug();
 
-        if (filter->version) {
-                result.version = strdup(filter->version);
-                if (!result.version)
-                        return log_oom_debug();
-        }
+        r = strdup_to(&result.version, filter->version);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PICK_RESULT(result);
         return 1;
@@ -294,13 +290,12 @@ static int make_choice(
                         return log_oom_debug();
 
                 r = chaseat(toplevel_fd, p, CHASE_AT_RESOLVE_IN_ROOT, &object_path, &object_fd);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                return log_debug_errno(r, "Failed to open '%s': %m", prefix_roota(toplevel_path, p));
-
+                if (r == -ENOENT) {
                         *ret = PICK_RESULT_NULL;
                         return 0;
                 }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to open '%s': %m", prefix_roota(toplevel_path, p));
 
                 return pin_choice(
                                 toplevel_path,
