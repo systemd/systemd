@@ -278,6 +278,8 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
                 goto finish;
         }
 
+        (void) loop_write(fd, "\033[?7h", 5); /* Enable line wrapping */
+
         /* We only reset the stuff that matters to the software. How
          * hardware is set up we don't touch assuming that somebody
          * else will do that for us */
