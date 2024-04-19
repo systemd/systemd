@@ -1881,6 +1881,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to call getsockname on VSOCK: %m");
         }
 
+        const char *e = secure_getenv("SYSTEMD_VMSPAWN_QEMU_EXTRA");
+        if (e) {
+                _cleanup_strv_free_ char **extra = NULL;
+
+                r = strv_split_full(&extra, e, /* separator= */ NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to split $SYSTEMD_VMSPAWN_QEMU_EXTRA environment variable: %m");
+
+                if (strv_extend_strv(&cmdline, extra, /* filter_duplicates= */ false) < 0)
+                        return log_oom();
+        }
+
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *joined = quote_command_line(cmdline, SHELL_ESCAPE_EMPTY);
                 if (!joined)

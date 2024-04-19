@@ -191,6 +191,9 @@ All tools:
   expected format is six groups of two hexadecimal digits separated by colons,
   e.g. `SYSTEMD_VMSPAWN_NETWORK_MAC=12:34:56:78:90:AB`
 
+* `$SYSTEMD_VMSPAWN_QEMU_EXTRA=…` – may contain additional command line
+  arguments to append the qemu command line.
+
 `systemd-logind`:
 
 * `$SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK=1` — if set, report that
