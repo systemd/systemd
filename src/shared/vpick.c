@@ -292,13 +292,12 @@ static int make_choice(
                         return log_oom_debug();
 
                 r = chaseat(toplevel_fd, p, CHASE_AT_RESOLVE_IN_ROOT, &object_path, &object_fd);
-                if (r < 0) {
-                        if (r != -ENOENT)
-                                return log_debug_errno(r, "Failed to open '%s': %m", prefix_roota(toplevel_path, p));
-
+                if (r == -ENOENT) {
                         *ret = PICK_RESULT_NULL;
                         return 0;
                 }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to open '%s': %m", prefix_roota(toplevel_path, p));
 
                 return pin_choice(
                                 toplevel_path,
