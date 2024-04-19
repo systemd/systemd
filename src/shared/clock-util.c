@@ -27,10 +27,11 @@ int clock_get_hwclock(struct tm *tm) {
         if (fd < 0)
                 return -errno;
 
-        /* This leaves the timezone fields of struct tm
-         * uninitialized! */
+        /* This leaves the timezone fields of struct tm uninitialized! */
         if (ioctl(fd, RTC_RD_TIME, tm) < 0)
-                return -errno;
+                /* Some drivers return -EINVAL in case the time could not be kept, i.e. power loss
+                 * happened. Let's turn that into a clearly recognizable error */
+                return errno == EINVAL ? -ENODATA : -errno;
 
         /* We don't know daylight saving, so we reset this in order not
          * to confuse mktime(). */
