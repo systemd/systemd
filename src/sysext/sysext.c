@@ -44,6 +44,7 @@
 #include "process-util.h"
 #include "rm-rf.h"
 #include "sort-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "user-util.h"
@@ -52,8 +53,8 @@
 #include "verbs.h"
 
 typedef enum MutableMode {
-        MUTABLE_YES,
         MUTABLE_NO,
+        MUTABLE_YES,
         MUTABLE_AUTO,
         MUTABLE_IMPORT,
         MUTABLE_EPHEMERAL,
@@ -61,6 +62,17 @@ typedef enum MutableMode {
         _MUTABLE_MAX,
         _MUTABLE_INVALID = -EINVAL,
 } MutableMode;
+
+static const char* const mutable_mode_table[_MUTABLE_MAX] = {
+        [MUTABLE_NO]               = "no",
+        [MUTABLE_YES]              = "yes",
+        [MUTABLE_AUTO]             = "auto",
+        [MUTABLE_IMPORT]           = "import",
+        [MUTABLE_EPHEMERAL]        = "ephemeral",
+        [MUTABLE_EPHEMERAL_IMPORT] = "ephemeral-import",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(mutable_mode, MutableMode, MUTABLE_YES);
 
 static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default for sysext and /etc by default for confext */
 static char *arg_root = NULL;
@@ -77,7 +89,7 @@ static MutableMode arg_mutable = MUTABLE_NO;
 /* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
 static ImageClass arg_image_class = IMAGE_SYSEXT;
 
-static const char *mutable_extensions_base_dir = "/var/lib/extensions.mutable";
+#define MUTABLE_EXTENSIONS_BASE_DIR "/var/lib/extensions.mutable"
 
 STATIC_DESTRUCTOR_REGISTER(arg_hierarchies, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -127,27 +139,7 @@ static const struct {
 };
 
 static int parse_mutable_mode(const char *p) {
-        int r;
-
-        assert(p);
-
-        if (streq(p, "auto"))
-                return MUTABLE_AUTO;
-
-        if (streq(p, "import"))
-                return MUTABLE_IMPORT;
-
-        if (streq(p, "ephemeral"))
-                return MUTABLE_EPHEMERAL;
-
-        if (streq(p, "ephemeral-import"))
-                return MUTABLE_EPHEMERAL_IMPORT;
-
-        r = parse_boolean(p);
-        if (r < 0)
-                return r;
-
-        return r ? MUTABLE_YES : MUTABLE_NO;
+        return mutable_mode_from_string(p);
 }
 
 static int is_our_mount_point(
@@ -198,7 +190,7 @@ static int is_our_mount_point(
                 return log_error_errno(r, "Failed to parse device major/minor stored in '%s/dev' file on '%s': %m", image_class_info[image_class].dot_directory_name, p);
 
         if (lstat(p, &st) < 0)
-                return log_error_errno(r, "Failed to stat %s: %m", p);
+                return log_error_errno(errno, "Failed to stat %s: %m", p);
 
         if (st.st_dev != dev) {
                 log_debug("Hierarchy '%s' reports a different device major/minor than what we are seeing, assuming offline copy.", p);
@@ -538,7 +530,7 @@ static int verb_status(int argc, char **argv, void *userdata) {
                         return log_oom();
 
                 if (stat(*p, &st) < 0)
-                        return log_error_errno(r, "Failed to stat() '%s': %m", *p);
+                        return log_error_errno(errno, "Failed to stat() '%s': %m", *p);
 
                 r = table_add_many(
                                 t,
@@ -673,10 +665,10 @@ static int paths_on_same_fs(const char *path1, const char *path2) {
         assert(path1);
         assert(path2);
 
-        if (stat(path1, &st1))
+        if (stat(path1, &st1) < 0)
                 return log_error_errno(errno, "Failed to stat '%s': %m", path1);
 
-        if (stat(path2, &st2))
+        if (stat(path2, &st2) < 0)
                 return log_error_errno(errno, "Failed to stat '%s': %m", path2);
 
         return st1.st_dev == st2.st_dev;
@@ -725,6 +717,7 @@ static int work_dir_for_hierarchy(
 
 typedef struct OverlayFSPaths {
         char *hierarchy;
+        mode_t hierarchy_mode;
         char *resolved_hierarchy;
         char *resolved_mutable_directory;
 
@@ -767,13 +760,42 @@ static int resolve_hierarchy(const char *hierarchy, char **ret_resolved_hierarch
         return 0;
 }
 
+static int mutable_directory_mode_matches_hierarchy(
+                const char *root_or_null,
+                const char *path,
+                mode_t hierarchy_mode) {
+
+        _cleanup_free_ char *path_in_root = NULL;
+        struct stat st;
+        mode_t actual_mode;
+
+        assert(path);
+
+        path_in_root = path_join(root_or_null, path);
+        if (!path_in_root)
+                return log_oom();
+
+        if (stat(path_in_root, &st) < 0) {
+                if (errno == ENOENT)
+                        return 0;
+                return log_error_errno(errno, "Failed to stat mutable directory '%s': %m", path_in_root);
+        }
+
+        actual_mode = st.st_mode & 0777;
+        if (actual_mode != hierarchy_mode)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Mutable directory '%s' has mode %04o, ought to have mode %04o", path_in_root, actual_mode, hierarchy_mode);
+
+        return 0;
+}
+
 static int resolve_mutable_directory(
                 const char *hierarchy,
+                mode_t hierarchy_mode,
                 const char *workspace,
                 char **ret_resolved_mutable_directory) {
 
         _cleanup_free_ char *path = NULL, *resolved_path = NULL, *dir_name = NULL;
-        const char *root = arg_root, *base = mutable_extensions_base_dir;
+        const char *root = arg_root, *base = MUTABLE_EXTENSIONS_BASE_DIR;
         int r;
 
         assert(hierarchy);
@@ -800,6 +822,15 @@ static int resolve_mutable_directory(
         if (!path)
                 return log_oom();
 
+        if (IN_SET(arg_mutable, MUTABLE_YES, MUTABLE_AUTO)) {
+                /* If there already is a mutable directory, check if its mode matches hierarchy. Merged
+                 * hierarchy will have the same mode as the mutable directory, so we want no surprising mode
+                 * changes here. */
+                r = mutable_directory_mode_matches_hierarchy(root, path, hierarchy_mode);
+                if (r < 0)
+                        return r;
+        }
+
         if (IN_SET(arg_mutable, MUTABLE_YES, MUTABLE_EPHEMERAL, MUTABLE_EPHEMERAL_IMPORT)) {
                 _cleanup_free_ char *path_in_root = NULL;
 
@@ -822,6 +853,8 @@ static int resolve_mutable_directory(
 
 static int overlayfs_paths_new(const char *hierarchy, const char *workspace_path, OverlayFSPaths **ret_op) {
         _cleanup_free_ char *hierarchy_copy = NULL, *resolved_hierarchy = NULL, *resolved_mutable_directory = NULL;
+        mode_t hierarchy_mode;
+
         int r;
 
         assert (hierarchy);
@@ -834,7 +867,17 @@ static int overlayfs_paths_new(const char *hierarchy, const char *workspace_path
         r = resolve_hierarchy(hierarchy, &resolved_hierarchy);
         if (r < 0)
                 return r;
-        r = resolve_mutable_directory(hierarchy, workspace_path, &resolved_mutable_directory);
+
+        if (resolved_hierarchy) {
+                struct stat st;
+
+                if (stat(resolved_hierarchy, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", resolved_hierarchy);
+                hierarchy_mode = st.st_mode & 0777;
+        } else
+                hierarchy_mode = 0755;
+
+        r = resolve_mutable_directory(hierarchy, hierarchy_mode, workspace_path, &resolved_mutable_directory);
         if (r < 0)
                 return r;
 
@@ -845,6 +888,7 @@ static int overlayfs_paths_new(const char *hierarchy, const char *workspace_path
 
         *op = (OverlayFSPaths) {
                 .hierarchy = TAKE_PTR(hierarchy_copy),
+                .hierarchy_mode = hierarchy_mode,
                 .resolved_hierarchy = TAKE_PTR(resolved_hierarchy),
                 .resolved_mutable_directory = TAKE_PTR(resolved_mutable_directory),
         };
@@ -853,16 +897,43 @@ static int overlayfs_paths_new(const char *hierarchy, const char *workspace_path
         return 0;
 }
 
-static int resolved_paths_equal(const char *resolved_a, const char *resolved_b) {
-        /* Returns true if paths are of the same entry, false if not, <0 on error. */
+static int determine_used_extensions(const char *hierarchy, char **paths, char ***ret_used_paths, size_t *ret_extensions_used) {
+        _cleanup_strv_free_ char **used_paths = NULL;
+        size_t n = 0;
+        int r;
 
-        if (path_equal(resolved_a, resolved_b))
-                return 1;
+        assert(hierarchy);
+        assert(paths);
+        assert(ret_used_paths);
+        assert(ret_extensions_used);
 
-        if (!resolved_a || !resolved_b)
-                return 0;
+        STRV_FOREACH(p, paths) {
+                _cleanup_free_ char *resolved = NULL;
 
-        return inode_same(resolved_a, resolved_b, 0);
+                r = chase(hierarchy, *p, CHASE_PREFIX_ROOT, &resolved, NULL);
+                if (r == -ENOENT) {
+                        log_debug_errno(r, "Hierarchy '%s' in extension '%s' doesn't exist, not merging.", hierarchy, *p);
+                        continue;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve hierarchy '%s' in extension '%s': %m", hierarchy, *p);
+
+                r = dir_is_empty(resolved, /* ignore_hidden_or_backup= */ false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if hierarchy '%s' in extension '%s' is empty: %m", resolved, *p);
+                if (r > 0) {
+                        log_debug("Hierarchy '%s' in extension '%s' is empty, not merging.", hierarchy, *p);
+                        continue;
+                }
+
+                r = strv_consume_with_size (&used_paths, &n, TAKE_PTR(resolved));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        *ret_used_paths = TAKE_PTR(used_paths);
+        *ret_extensions_used = n;
+        return 0;
 }
 
 static int maybe_import_mutable_directory(OverlayFSPaths *op) {
@@ -876,7 +947,7 @@ static int maybe_import_mutable_directory(OverlayFSPaths *op) {
         if (arg_mutable != MUTABLE_IMPORT || !op->resolved_mutable_directory)
                 return 0;
 
-        r = resolved_paths_equal(op->resolved_hierarchy, op->resolved_mutable_directory);
+        r = path_equal_or_inode_same_full(op->resolved_hierarchy, op->resolved_mutable_directory, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
         if (r > 0)
@@ -904,15 +975,19 @@ static int maybe_import_ignored_mutable_directory(OverlayFSPaths *op) {
         if (!dir_name)
                 return log_oom();
 
-        path = path_join(mutable_extensions_base_dir, dir_name);
+        path = path_join(MUTABLE_EXTENSIONS_BASE_DIR, dir_name);
         if (!path)
                 return log_oom();
 
         r = chase(path, arg_root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
-        if (r < 0 && r != -ENOENT)
+        if (r == -ENOENT) {
+                log_debug("Mutable directory for %s does not exist, not importing", op->hierarchy);
+                return 0;
+        }
+        if (r < 0)
                 return log_error_errno(r, "Failed to resolve mutable directory '%s': %m", path);
 
-        r = resolved_paths_equal(op->resolved_hierarchy, resolved_path);
+        r = path_equal_or_inode_same_full(op->resolved_hierarchy, resolved_path, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
 
@@ -948,41 +1023,17 @@ static int determine_top_lower_dirs(OverlayFSPaths *op, const char *meta_path) {
         return 0;
 }
 
-static int determine_middle_lower_dirs(OverlayFSPaths *op, char **paths, size_t *ret_extensions_used) {
-        size_t n = 0;
+static int determine_middle_lower_dirs(OverlayFSPaths *op, char **paths) {
         int r;
 
         assert(op);
         assert(paths);
-        assert(ret_extensions_used);
 
-        /* Put the extensions in the middle */
-        STRV_FOREACH(p, paths) {
-                _cleanup_free_ char *resolved = NULL;
+        /* The paths were already determined in determine_used_extensions, so we just take them as is. */
+        r = strv_extend_strv(&op->lower_dirs, paths, false);
+        if (r < 0)
+                return log_oom ();
 
-                r = chase(op->hierarchy, *p, CHASE_PREFIX_ROOT, &resolved, NULL);
-                if (r == -ENOENT) {
-                        log_debug_errno(r, "Hierarchy '%s' in extension '%s' doesn't exist, not merging.", op->hierarchy, *p);
-                        continue;
-                }
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve hierarchy '%s' in extension '%s': %m", op->hierarchy, *p);
-
-                r = dir_is_empty(resolved, /* ignore_hidden_or_backup= */ false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check if hierarchy '%s' in extension '%s' is empty: %m", resolved, *p);
-                if (r > 0) {
-                        log_debug("Hierarchy '%s' in extension '%s' is empty, not merging.", op->hierarchy, *p);
-                        continue;
-                }
-
-                r = strv_consume(&op->lower_dirs, TAKE_PTR(resolved));
-                if (r < 0)
-                        return log_oom();
-                ++n;
-        }
-
-        *ret_extensions_used = n;
         return 0;
 }
 
@@ -1021,7 +1072,7 @@ static int hierarchy_as_lower_dir(OverlayFSPaths *op) {
                 return 0;
         }
 
-        r = resolved_paths_equal(op->resolved_hierarchy, op->resolved_mutable_directory);
+        r = path_equal_or_inode_same_full(op->resolved_hierarchy, op->resolved_mutable_directory, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to check equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
         if (r > 0) {
@@ -1052,21 +1103,19 @@ static int determine_bottom_lower_dirs(OverlayFSPaths *op) {
 static int determine_lower_dirs(
                 OverlayFSPaths *op,
                 char **paths,
-                const char *meta_path,
-                size_t *ret_extensions_used) {
+                const char *meta_path) {
 
         int r;
 
         assert(op);
         assert(paths);
         assert(meta_path);
-        assert(ret_extensions_used);
 
         r = determine_top_lower_dirs(op, meta_path);
         if (r < 0)
                 return r;
 
-        r = determine_middle_lower_dirs(op, paths, ret_extensions_used);
+        r = determine_middle_lower_dirs(op, paths);
         if (r < 0)
                 return r;
 
@@ -1137,6 +1186,7 @@ static int mount_overlayfs_with_op(
                 const char *meta_path) {
 
         int r;
+        const char *top_layer = NULL;
 
         assert(op);
         assert(overlay_path);
@@ -1153,7 +1203,18 @@ static int mount_overlayfs_with_op(
                 r = mkdir_p(op->work_dir, 0700);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make directory '%s': %m", op->work_dir);
+                top_layer = op->upper_dir;
+        } else {
+                assert(!strv_isempty(op->lower_dirs));
+                top_layer = op->lower_dirs[0];
         }
+
+        /* Overlayfs merged directory has the same mode as the top layer (either first lowerdir in options in
+         * read-only case, or upperdir for mutable case. Set up top overlayfs layer to the same mode as the
+         * unmerged hierarchy, otherwise we might end up with merged hierarchy owned by root and with mode
+         * being 0700. */
+        if (chmod(top_layer, op->hierarchy_mode) < 0)
+                return log_error_errno(errno, "Failed to set permissions of '%s' to %04o: %m", top_layer, op->hierarchy_mode);
 
         r = mount_overlayfs(image_class, noexec, overlay_path, op->lower_dirs, op->upper_dir, op->work_dir);
         if (r < 0)
@@ -1327,6 +1388,7 @@ static int merge_hierarchy(
                 const char *workspace_path) {
 
         _cleanup_(overlayfs_paths_freep) OverlayFSPaths *op = NULL;
+        _cleanup_strv_free_ char **used_paths = NULL;
         size_t extensions_used = 0;
         int r;
 
@@ -1337,16 +1399,20 @@ static int merge_hierarchy(
         assert(overlay_path);
         assert(workspace_path);
 
-        r = overlayfs_paths_new(hierarchy, workspace_path, &op);
-        if (r < 0)
-                return r;
-
-        r = determine_lower_dirs(op, paths, meta_path, &extensions_used);
+        r = determine_used_extensions(hierarchy, paths, &used_paths, &extensions_used);
         if (r < 0)
                 return r;
 
         if (extensions_used == 0) /* No extension with files in this hierarchy? Then don't do anything. */
                 return 0;
+
+        r = overlayfs_paths_new(hierarchy, workspace_path, &op);
+        if (r < 0)
+                return r;
+
+        r = determine_lower_dirs(op, used_paths, meta_path);
+        if (r < 0)
+                return r;
 
         r = determine_upper_dir(op);
         if (r < 0)
@@ -1740,7 +1806,7 @@ static int merge(ImageClass image_class,
         if (r == 123) /* exit code 123 means: didn't do anything */
                 return 0;
         if (r > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Failed to merge hierarchies");
+                return log_error_errno(SYNTHETIC_ERRNO(EPROTO), "Failed to merge hierarchies");
 
         r = need_reload(image_class, hierarchies, no_reload);
         if (r < 0)
@@ -2272,7 +2338,7 @@ static int sysext_main(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        const char* env_var;
+        const char *env_var;
         int r;
 
         log_setup();
