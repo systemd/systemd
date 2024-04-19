@@ -130,6 +130,10 @@ Deprecations and removals:
 
 Features:
 
+* systemd-repart should probably enable btrfs' "temp_fsid" feature for all file
+  systems it creates, as we have no interest in RAID for repart, and it should
+  make sure that we can mount them trivially everywhere.
+
 * systemd-nspawn should get the same SSH key support that vmspawn now has.
 
 * insert the new pidfs inode number as a third field into PidRef, so that
