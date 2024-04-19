@@ -64,7 +64,7 @@ policy:
           - name: kernel-install
             keys: ['kernel-install']
 
-          - name: logind
+          - name: login
             keys: ['systemd-logind', 'loginctl', 'pam_systemd']
 
           - name: machined
