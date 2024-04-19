@@ -447,7 +447,7 @@ static Virtualization detect_vm_zvm(void) {
 /* Returns a short identifier for the various VM implementations */
 Virtualization detect_vm(void) {
         static thread_local Virtualization cached_found = _VIRTUALIZATION_INVALID;
-        bool other = false;
+        bool other = false, hyperv = false;
         int xen_dom0 = 0;
         Virtualization v, dmi;
 
@@ -504,7 +504,12 @@ Virtualization detect_vm(void) {
         v = detect_vm_cpuid();
         if (v < 0)
                 return v;
-        if (v == VIRTUALIZATION_VM_OTHER)
+        if (v == VIRTUALIZATION_MICROSOFT)
+                /* QEMU sets the CPUID string to hyperv's, in case it provides hyperv enlightenments. Let's
+                 * hence not return Microsoft here but just use the other mechanisms first to make a better
+                 * decision. */
+                hyperv = true;
+        else if (v == VIRTUALIZATION_VM_OTHER)
                 other = true;
         else if (v != VIRTUALIZATION_NONE)
                 goto finish;
@@ -545,7 +550,12 @@ Virtualization detect_vm(void) {
                 return v;
 
 finish:
-        if (v == VIRTUALIZATION_NONE && other)
+        /* None of the checks above gave us a clear answer, hence let's now use fallback logic: if hyperv
+         * enlightenments are available but the VMM wasn't recognized as anything yet, it's probably
+         * Microsoft. */
+        if (IN_SET(v, VIRTUALIZATION_NONE, VIRTUALIZATION_VM_OTHER) && hyperv)
+                v = VIRTUALIZATION_MICROSOFT;
+        else if (v == VIRTUALIZATION_NONE && other)
                 v = VIRTUALIZATION_VM_OTHER;
 
         cached_found = v;
