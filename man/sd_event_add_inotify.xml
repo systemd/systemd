@@ -183,18 +183,16 @@
         <varlistentry>
           <term><constant>-EBADF</constant></term>
 
-          <listitem><para>The passed file descriptor is not valid.</para>
+          <listitem><para>The passed file descriptor is not valid.</para></listitem>
 
-          <xi:include href="version-info.xml" xpointer="v250"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOSYS</constant></term>
 
           <listitem><para><function>sd_event_add_inotify_fd()</function> was called without
-          <filename>/proc/</filename> mounted.</para>
+          <filename>/proc/</filename> mounted.</para></listitem>
 
-          <xi:include href="version-info.xml" xpointer="v250"/></listitem>
         </varlistentry>
 
       </variablelist>
