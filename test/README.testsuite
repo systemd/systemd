@@ -35,12 +35,12 @@ $ meson configure build -Dintegration-tests=true -Dremote=enabled -Dopenssl=enab
 
 Once enabled the integration tests can be run with:
 
-$ sudo meson test -C build/ --suite integration-tests --num-processes "$((nproc / 2))"
+$ meson test -C build/ --suite integration-tests --num-processes "$((nproc / 2))"
 
 As usual, specific tests can be run in meson by appending the name of the test
 which is usually the name of the directory e.g.
 
-$ sudo meson test -C build/ --suite integration-tests --num-processes "$((nproc / 2))" TEST-01-BASIC
+$ meson test -C build/ -v TEST-01-BASIC
 
 See `meson introspect build --tests` for a list of tests.
 
