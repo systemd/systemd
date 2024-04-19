@@ -1,10 +1,11 @@
 # This file is part of systemd.
 #
-# This file contains 3 types of metadata to apply to keyboards and
+# This file contains 4 types of metadata to apply to keyboards and
 # keyboard-like input devices:
 # - Key mapping
 # - Hard-coded layouts
 # - Absence of modifier LEDs
+# - Wakeup keys used for unidling a device
 #
 # The matching process is the same for the different types of metadata.
 #
@@ -90,6 +91,17 @@
 #   XKB_FIXED_MODEL=xkbmodel
 # Examples of such devices: Chromebooks where the top row is used for both
 # media and F1-F10 keys.
+
+# ######################### WAKEUP KEYS ######################################
+#
+# The wakeup keys specify which keys unblank the screen of an idle device. By
+# default all keys are wakeup keys The default can be changed on a per keyboard
+# level via
+#  WAKEUP_KEY_DEFAULT=0
+# The behaviour of individual keys can be changed by giving their keycodes e.g.
+#  WAKEUP_KEY_114=0
+#  WAKEUP_KEY_115=0
+# would make remove the volume keys from the list of wakeup keys
 
 ##########################################
 # Acer
@@ -1690,6 +1702,11 @@ evdev:input:b0003v047FpC006*
 # # Purism Librem 13 V4
 # evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v4*:*
 #  KEYBOARD_KEY_56=backslash
+
+# Purism Librem 11 tablet. 114,115 are the volume keys
+evdev:atkbd:dmi:bvn*:bvr*:svnPurism:pnLibrem11:*
+ WAKEUP_KEY_114=0
+ WAKEUP_KEY_115=0
 
 ###########################################################
 # Quanta
