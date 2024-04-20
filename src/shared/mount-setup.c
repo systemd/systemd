@@ -69,7 +69,7 @@ static bool check_recursiveprot_supported(void) {
 
         r = mount_option_supported("cgroup2", "memory_recursiveprot", NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed to determiner whether the 'memory_recursiveprot' mount option is supported, assuming not: %m");
+                log_debug_errno(r, "Failed to determine whether the 'memory_recursiveprot' mount option is supported, assuming not: %m");
         else if (r == 0)
                 log_debug("This kernel version does not support 'memory_recursiveprot', not using mount option.");
 
