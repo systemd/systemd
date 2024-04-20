@@ -1861,6 +1861,11 @@ void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix) {
                 "%sPID: "PID_FMT"\n",
                 prefix, s->pid);
 
+        if (dual_timestamp_is_set(&s->handover_timestamp))
+                fprintf(f,
+                        "%sHandover Timestamp: %s\n",
+                        prefix, FORMAT_TIMESTAMP(s->handover_timestamp.realtime));
+
         if (dual_timestamp_is_set(&s->start_timestamp))
                 fprintf(f,
                         "%sStart Timestamp: %s\n",
