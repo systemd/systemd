@@ -859,6 +859,15 @@ void network_adjust_radv(Network *network) {
 
         /* Below, let's verify router settings, if enabled. */
 
+        if (network->router_lifetime_usec == 0 && network->router_preference != SD_NDISC_PREFERENCE_MEDIUM)
+                /* RFC 4191, Section 2.2,
+                 * If the Router Lifetime is zero, the preference value MUST be set to (00) by the sender.
+                 *
+                 * Note, radv_send_router() gracefully handle that. So, it is not necessary to refuse, but
+                 * let's warn about that. */
+                log_notice("%s: RouterPreference=%s specified with RouterLifetimeSec=0, ignoring RouterPreference= setting.",
+                           network->filename, ndisc_router_preference_to_string(network->router_preference));
+
         Prefix *prefix;
         HASHMAP_FOREACH(prefix, network->prefixes_by_section)
                 if (prefix_section_verify(prefix) < 0)
