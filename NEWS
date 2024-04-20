@@ -603,6 +603,12 @@ CHANGES WITH 256-rc1:
           --ssh-key-type= to optionally set up transient SSH keys to pass to the
           invoked VMs in order to be able to SSH into them once booted.
 
+        * systemd-vmspawn will no enable various "HyperV enlightenments" and
+          the "VM Generation ID" on the VMs.
+
+        * A new environment variable $SYSTEMD_VMSPAWN_QEMU_EXTRA may carry
+          additional qemu command line options to pass to qemu.
+
         systemd-repart:
 
         * systemd-repart gained new options --generate-fstab= and
@@ -637,6 +643,10 @@ CHANGES WITH 256-rc1:
           sd_journal_stream_fd_with_namespace() which is just like
           sd_journal_stream_fd() but creates a log stream targeted at a
           specific log namespace.
+
+        * The sd-id128 API gained a new API call
+          sd_id128_get_invocation_app_specific() for acquiring an app-specific
+          ID that is derived from the service invocation ID.
 
         systemd-cryptsetup/systemd-cryptenroll:
 
