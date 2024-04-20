@@ -2272,6 +2272,7 @@ static void event_free_inode_data(
                 assert_se(hashmap_remove(d->inotify_data->inodes, d) == d);
         }
 
+        free(d->path);
         free(d);
 }
 
@@ -2512,6 +2513,15 @@ static int event_add_inotify_fd_internal(
                 }
 
                 LIST_PREPEND(to_close, e->inode_data_to_close_list, inode_data);
+
+                _cleanup_free_ char *path = NULL;
+                r = fd_get_path(inode_data->fd, &path);
+                if (r < 0 && r != -ENOSYS) { /* The path is optional, hence ignore -ENOSYS. */
+                        event_gc_inode_data(e, inode_data);
+                        return r;
+                }
+
+                free_and_replace(inode_data->path, path);
         }
 
         /* Link our event source to the inode data object */
@@ -2798,6 +2808,13 @@ _public_ int sd_event_source_set_priority(sd_event_source *s, int64_t priority) 
                         }
 
                         LIST_PREPEND(to_close, s->event->inode_data_to_close_list, new_inode_data);
+
+                        _cleanup_free_ char *path = NULL;
+                        r = fd_get_path(new_inode_data->fd, &path);
+                        if (r < 0 && r != -ENOSYS)
+                                goto fail;
+
+                        free_and_replace(new_inode_data->path, path);
                 }
 
                 /* Move the event source to the new inode data structure */
@@ -3292,16 +3309,20 @@ _public_ int sd_event_source_get_inotify_mask(sd_event_source *s, uint32_t *ret)
         return 0;
 }
 
-_public_ int sd_event_source_get_inotify_path(sd_event_source *s, char **ret) {
+_public_ int sd_event_source_get_inotify_path(sd_event_source *s, const char **ret) {
         assert_return(s, -EINVAL);
         assert_return(ret, -EINVAL);
         assert_return(s->type == SOURCE_INOTIFY, -EDOM);
         assert_return(!event_origin_changed(s->event), -ECHILD);
 
-        if (!s->inotify.inode_data || s->inotify.inode_data->fd < 0)
-                return -ESTALE;
+        if (!s->inotify.inode_data)
+                return -ESTALE; /* already disconnected. */
 
-        return fd_get_path(s->inotify.inode_data->fd, ret);
+        if (!s->inotify.inode_data->path)
+                return -ENOSYS; /* /proc was not mounted? */
+
+        *ret = s->inotify.inode_data->path;
+        return 0;
 }
 
 _public_ int sd_event_source_set_prepare(sd_event_source *s, sd_event_handler_t callback) {
