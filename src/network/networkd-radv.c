@@ -542,21 +542,17 @@ static int radv_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        if (link->network->router_lifetime_usec > 0) {
-                r = sd_radv_set_preference(link->radv, link->network->router_preference);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_radv_set_preference(link->radv, link->network->router_preference);
+        if (r < 0)
+                return r;
 
         r = sd_radv_set_reachable_time(link->radv, link->network->router_reachable_usec);
         if (r < 0)
                 return r;
 
-        if (link->network->router_retransmit_usec > 0) {
-                r = sd_radv_set_retransmit(link->radv, link->network->router_retransmit_usec);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_radv_set_retransmit(link->radv, link->network->router_retransmit_usec);
+        if (r < 0)
+                return r;
 
         HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
                 r = radv_set_prefix(link, p);
