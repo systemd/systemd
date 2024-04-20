@@ -79,11 +79,10 @@
 /* Pref64 option type (RFC8781, section 4) */
 #define RADV_OPT_PREF64                           38
 
-enum RAdvState {
+typedef enum RAdvState {
         RADV_STATE_IDLE                      = 0,
         RADV_STATE_ADVERTISING               = 1,
-};
-typedef enum RAdvState RAdvState;
+} RAdvState;
 
 struct sd_radv_opt_dns {
         uint8_t type;
