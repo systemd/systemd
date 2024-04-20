@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 
 #include "dns-domain.h"
+#include "ndisc-router-internal.h"
 #include "networkd-address-generation.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-prefix-delegation.h"
@@ -21,36 +22,6 @@
 #include "string-util.h"
 #include "string-table.h"
 #include "strv.h"
-
-void network_adjust_radv(Network *network) {
-        assert(network);
-
-        /* After this function is called, network->router_prefix_delegation can be treated as a boolean. */
-
-        if (network->dhcp_pd < 0)
-                /* For backward compatibility. */
-                network->dhcp_pd = FLAGS_SET(network->router_prefix_delegation, RADV_PREFIX_DELEGATION_DHCP6);
-
-        if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
-                if (network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE)
-                        log_warning("%s: IPv6PrefixDelegation= is enabled but IPv6 link-local addressing is disabled. "
-                                    "Disabling IPv6PrefixDelegation=.", network->filename);
-
-                network->router_prefix_delegation = RADV_PREFIX_DELEGATION_NONE;
-        }
-
-        if (network->router_prefix_delegation == RADV_PREFIX_DELEGATION_NONE) {
-                network->n_router_dns = 0;
-                network->router_dns = mfree(network->router_dns);
-                network->router_search_domains = ordered_set_free(network->router_search_domains);
-        }
-
-        if (!FLAGS_SET(network->router_prefix_delegation, RADV_PREFIX_DELEGATION_STATIC)) {
-                network->prefixes_by_section = hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
-                network->route_prefixes_by_section = hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
-                network->pref64_prefixes_by_section = hashmap_free_with_destructor(network->pref64_prefixes_by_section, pref64_prefix_free);
-        }
-}
 
 bool link_radv_enabled(Link *link) {
         assert(link);
@@ -841,16 +812,6 @@ static int prefix_section_verify(Prefix *p) {
         return 0;
 }
 
-void network_drop_invalid_prefixes(Network *network) {
-        Prefix *p;
-
-        assert(network);
-
-        HASHMAP_FOREACH(p, network->prefixes_by_section)
-                if (prefix_section_verify(p) < 0)
-                        prefix_free(p);
-}
-
 static int route_prefix_section_verify(RoutePrefix *p) {
         if (section_is_invalid(p->section))
                 return -EINVAL;
@@ -864,24 +825,55 @@ static int route_prefix_section_verify(RoutePrefix *p) {
         return 0;
 }
 
-void network_drop_invalid_route_prefixes(Network *network) {
-        RoutePrefix *p;
-
+void network_adjust_radv(Network *network) {
         assert(network);
 
-        HASHMAP_FOREACH(p, network->route_prefixes_by_section)
-                if (route_prefix_section_verify(p) < 0)
-                        route_prefix_free(p);
-}
+        /* After this function is called, network->router_prefix_delegation can be treated as a boolean. */
 
-void network_drop_invalid_pref64_prefixes(Network *network) {
-        pref64Prefix *p;
+        if (network->dhcp_pd < 0)
+                /* For backward compatibility. */
+                network->dhcp_pd = FLAGS_SET(network->router_prefix_delegation, RADV_PREFIX_DELEGATION_DHCP6);
 
-        assert(network);
+        if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
+                if (network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE)
+                        log_warning("%s: IPv6PrefixDelegation= is enabled but IPv6 link-local addressing is disabled. "
+                                    "Disabling IPv6PrefixDelegation=.", network->filename);
 
-        HASHMAP_FOREACH(p, network->pref64_prefixes_by_section)
-                 if (section_is_invalid(p->section))
-                         pref64_prefix_free(p);
+                network->router_prefix_delegation = RADV_PREFIX_DELEGATION_NONE;
+        }
+
+        if (network->router_prefix_delegation == RADV_PREFIX_DELEGATION_NONE) {
+                network->n_router_dns = 0;
+                network->router_dns = mfree(network->router_dns);
+                network->router_search_domains = ordered_set_free(network->router_search_domains);
+        }
+
+        if (!FLAGS_SET(network->router_prefix_delegation, RADV_PREFIX_DELEGATION_STATIC)) {
+                network->prefixes_by_section = hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
+                network->route_prefixes_by_section = hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
+                network->pref64_prefixes_by_section = hashmap_free_with_destructor(network->pref64_prefixes_by_section, pref64_prefix_free);
+        }
+
+        if (!network->router_prefix_delegation)
+                return;
+
+        /* Below, let's verify router settings, if enabled. */
+
+        Prefix *prefix;
+        HASHMAP_FOREACH(prefix, network->prefixes_by_section)
+                if (prefix_section_verify(prefix) < 0)
+                        prefix_free(prefix);
+
+
+        RoutePrefix *route;
+        HASHMAP_FOREACH(route, network->route_prefixes_by_section)
+                if (route_prefix_section_verify(route) < 0)
+                        route_prefix_free(route);
+
+        pref64Prefix *pref64;
+        HASHMAP_FOREACH(pref64, network->pref64_prefixes_by_section)
+                 if (section_is_invalid(pref64->section))
+                         pref64_prefix_free(pref64);
 }
 
 int config_parse_prefix(
