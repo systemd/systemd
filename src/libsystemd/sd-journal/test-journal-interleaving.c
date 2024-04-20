@@ -391,6 +391,28 @@ static void test_skip_one(void (*setup)(void)) {
         test_check_numbers_up(j, 9);
         sd_journal_close(j);
 
+        /* For issue #31516. */
+        _cleanup_strv_free_ char **cursors = NULL;
+        assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+        assert_ret(sd_journal_seek_head(j));
+        for (;;) {
+                r = sd_journal_next(j);
+                assert_se(r >= 0);
+                if (r == 0)
+                        break;
+
+                _cleanup_free_ char *cursor = NULL;
+                assert_se(sd_journal_get_cursor(j, &cursor) >= 0);
+                assert_se(sd_journal_test_cursor(j, cursor) > 0);
+                assert_se(strv_consume(&cursors, TAKE_PTR(cursor)) >= 0);
+        }
+
+        STRV_FOREACH(c, cursors) {
+                assert_se(sd_journal_seek_cursor(j, *c) >= 0);
+                assert_se(sd_journal_next(j) >= 0);
+                assert_se(sd_journal_test_cursor(j, *c) > 0);
+        }
+
         test_done(t);
 }
 
