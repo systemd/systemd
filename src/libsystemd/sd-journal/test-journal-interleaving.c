@@ -74,9 +74,9 @@ static void test_done(const char *t) {
 }
 
 static void append_number(JournalFile *f, int n, const sd_id128_t *boot_id, uint64_t *seqnum, uint64_t *ret_offset) {
-        _cleanup_free_ char *p = NULL, *q = NULL;
+        _cleanup_free_ char *p = NULL, *q = NULL, *s = NULL;
         dual_timestamp ts;
-        struct iovec iovec[2];
+        struct iovec iovec[3];
         size_t n_iov = 0;
 
         dual_timestamp_now(&ts);
@@ -91,6 +91,9 @@ static void append_number(JournalFile *f, int n, const sd_id128_t *boot_id, uint
 
         assert_se(asprintf(&p, "NUMBER=%d", n) >= 0);
         iovec[n_iov++] = IOVEC_MAKE_STRING(p);
+
+        assert_se(s = strjoin("LESS_THAN_FIVE=%d", yes_no(n < 5)));
+        iovec[n_iov++] = IOVEC_MAKE_STRING(s);
 
         if (boot_id) {
                 assert_se(q = strjoin("_BOOT_ID=", SD_ID128_TO_STRING(*boot_id)));
@@ -250,6 +253,37 @@ static void mkdtemp_chdir_chattr(char *path) {
         (void) chattr_path(path, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 }
 
+static void test_cursor(sd_journal *j) {
+        _cleanup_strv_free_ char **cursors = NULL;
+        int r;
+
+        assert_se(sd_journal_seek_head(j) >= 0);
+
+        for (;;) {
+                r = sd_journal_next(j);
+                assert_se(r >= 0);
+                if (r == 0)
+                        break;
+
+                _cleanup_free_ char *cursor = NULL;
+                assert_se(sd_journal_get_cursor(j, &cursor) >= 0);
+                assert_se(sd_journal_test_cursor(j, cursor) > 0);
+                assert_se(strv_consume(&cursors, TAKE_PTR(cursor)) >= 0);
+        }
+
+        STRV_FOREACH(c, cursors) {
+                assert_se(sd_journal_seek_cursor(j, *c) >= 0);
+                assert_se(sd_journal_next(j) >= 0);
+                assert_se(sd_journal_test_cursor(j, *c) > 0);
+        }
+
+        assert_se(sd_journal_seek_head(j) >= 0);
+        STRV_FOREACH(c, cursors) {
+                assert_se(sd_journal_next(j) >= 0);
+                assert_se(sd_journal_test_cursor(j, *c) > 0);
+        }
+}
+
 static void test_skip_one(void (*setup)(void)) {
         char t[] = "/var/tmp/journal-skip-XXXXXX";
         sd_journal *j;
@@ -390,6 +424,30 @@ static void test_skip_one(void (*setup)(void)) {
         assert_se(r = sd_journal_next_skip(j, 5) == 3);
         test_check_numbers_up(j, 9);
         sd_journal_close(j);
+
+        /* For issue #31516. */
+        assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
+        test_cursor(j);
+        sd_journal_flush_matches(j);
+        assert_se(sd_journal_add_match(j, "LESS_THAN_FIVE=yes", SIZE_MAX) >= 0);
+        test_cursor(j);
+        sd_journal_flush_matches(j);
+        assert_se(sd_journal_add_match(j, "LESS_THAN_FIVE=no", SIZE_MAX) >= 0);
+        test_cursor(j);
+        sd_journal_flush_matches(j);
+        assert_se(sd_journal_add_match(j, "LESS_THAN_FIVE=hoge", SIZE_MAX) >= 0);
+        test_cursor(j);
+        sd_journal_flush_matches(j);
+        assert_se(sd_journal_add_match(j, "LESS_THAN_FIVE=yes", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "NUMBER=3", SIZE_MAX) >= 0);
+        test_cursor(j);
+        sd_journal_flush_matches(j);
+        assert_se(sd_journal_add_match(j, "LESS_THAN_FIVE=yes", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "NUMBER=3", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "NUMBER=4", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "NUMBER=5", SIZE_MAX) >= 0);
+        assert_se(sd_journal_add_match(j, "NUMBER=6", SIZE_MAX) >= 0);
+        test_cursor(j);
 
         test_done(t);
 }
