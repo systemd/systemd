@@ -199,7 +199,7 @@ TEST(id128) {
 }
 
 TEST(sd_id128_get_invocation) {
-        sd_id128_t id;
+        sd_id128_t id = SD_ID128_NULL;
         int r;
 
         /* Query the invocation ID */
@@ -208,6 +208,36 @@ TEST(sd_id128_get_invocation) {
                 log_warning_errno(r, "Failed to get invocation ID, ignoring: %m");
         else
                 log_info("Invocation ID: " SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(id));
+
+        sd_id128_t appid = SD_ID128_NULL;
+        r = sd_id128_get_invocation_app_specific(SD_ID128_MAKE(59,36,e9,92,fd,11,42,fe,87,c9,e9,b5,6c,9e,4f,04), &appid);
+        if (r < 0)
+                log_warning_errno(r, "Failed to get invocation ID, ignoring: %m");
+        else {
+                assert(!sd_id128_equal(id, appid));
+                log_info("Per-App Invocation ID: " SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(appid));
+        }
+
+        sd_id128_t appid2 = SD_ID128_NULL;
+        r = sd_id128_get_invocation_app_specific(SD_ID128_MAKE(59,36,e9,92,fd,11,42,fe,87,c9,e9,b5,6c,9e,4f,05), &appid2); /* slightly different appid */
+        if (r < 0)
+                log_warning_errno(r, "Failed to get invocation ID, ignoring: %m");
+        else {
+                assert(!sd_id128_equal(id, appid2));
+                assert(!sd_id128_equal(appid, appid2));
+                log_info("Per-App Invocation ID 2: " SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(appid2));
+        }
+
+        sd_id128_t appid3 = SD_ID128_NULL;
+        r = sd_id128_get_invocation_app_specific(SD_ID128_MAKE(59,36,e9,92,fd,11,42,fe,87,c9,e9,b5,6c,9e,4f,04), &appid3); /* same appid as before */
+        if (r < 0)
+                log_warning_errno(r, "Failed to get invocation ID, ignoring: %m");
+        else {
+                assert(!sd_id128_equal(id, appid3));
+                assert(sd_id128_equal(appid, appid3));
+                assert(!sd_id128_equal(appid2, appid3));
+                log_info("Per-App Invocation ID 3: " SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(appid3));
+        }
 }
 
 TEST(benchmark_sd_id128_get_machine_app_specific) {

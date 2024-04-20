@@ -63,6 +63,12 @@
         <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
+      <funcprototype>
+        <funcdef>int <function>sd_id128_get_invocation_app_specific</function></funcdef>
+        <paramdef>sd_id128_t <parameter>app_id</parameter></paramdef>
+        <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
     </funcsynopsis>
   </refsynopsisdiv>
 
@@ -126,12 +132,16 @@
     for details. The ID is cached internally. In future a different mechanism to determine the invocation ID
     may be added.</para>
 
+    <para><function>sd_id128_get_invocation_app_specific()</function> derives an application-specific ID from
+    the invocation ID.</para>
+
     <para>Note that <function>sd_id128_get_machine_app_specific()</function>,
-    <function>sd_id128_get_boot()</function>, <function>sd_id128_get_boot_app_specific()</function>, and
-    <function>sd_id128_get_invocation()</function> always return UUID Variant 1 Version 4 compatible IDs.
-    <function>sd_id128_get_machine()</function> will also return a UUID Variant 1 Version 4 compatible ID on
-    new installations but might not on older. It is possible to convert the machine ID non-reversibly into a
-    UUID Variant 1 Version 4 compatible one. For more information, see
+    <function>sd_id128_get_boot()</function>, <function>sd_id128_get_boot_app_specific()</function>,
+    <function>sd_id128_get_invocation()</function> and
+    <function>sd_id128_get_invocation_app_specific</function> always return UUID Variant 1 Version 4
+    compatible IDs. <function>sd_id128_get_machine()</function> will also return a UUID Variant 1 Version 4
+    compatible ID on new installations but might not on older. It is possible to convert the machine ID
+    non-reversibly into a UUID Variant 1 Version 4 compatible one. For more information, see
     <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>. It is
     hence guaranteed that these functions will never return the ID consisting of all zero or all one bits
     (<constant>SD_ID128_NULL</constant>, <constant>SD_ID128_ALLF</constant>) — with the possible exception of
@@ -262,6 +272,7 @@ As man:sd-id128(3) macro:
     <para><function>sd_id128_get_machine_app_specific()</function> was added in version 233.</para>
     <para><function>sd_id128_get_boot_app_specific()</function> was added in version 240.</para>
     <para><function>sd_id128_get_app_specific()</function> was added in version 255.</para>
+    <para><function>sd_id128_get_invocation_app_specific()</function> was added in version 256.</para>
   </refsect1>
 
   <refsect1>
