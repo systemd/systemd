@@ -67,8 +67,8 @@ policy:
           - name: login
             keys: ['systemd-logind', 'loginctl', 'pam_systemd']
 
-          - name: machined
-            keys: ['systemd-machined', 'machinectl']
+          - name: machine
+            keys: ['systemd-machine', 'machinectl']
 
           - name: modules-load
             keys: ['systemd-modules-load']
