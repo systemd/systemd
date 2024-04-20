@@ -366,11 +366,8 @@ int sd_radv_send(sd_radv *ra) {
 int sd_radv_stop(sd_radv *ra) {
         int r;
 
-        if (!ra)
-                return 0;
-
-        if (ra->state == RADV_STATE_IDLE)
-                return 0;
+        if (!sd_radv_is_running(ra))
+                return 0; /* Already stopped. */
 
         log_radv(ra, "Stopping IPv6 Router Advertisement daemon");
 
@@ -394,8 +391,8 @@ int sd_radv_start(sd_radv *ra) {
         assert_return(ra->event, -EINVAL);
         assert_return(ra->ifindex > 0, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return 0;
+        if (sd_radv_is_running(ra))
+                return 0; /* Already started. */
 
         r = event_reset_time(ra->event, &ra->timeout_event_source,
                              CLOCK_BOOTTIME,
@@ -435,13 +432,10 @@ int sd_radv_start(sd_radv *ra) {
 
 int sd_radv_set_ifindex(sd_radv *ra, int ifindex) {
         assert_return(ra, -EINVAL);
+        assert_return(!sd_radv_is_running(ra), -EBUSY);
         assert_return(ifindex > 0, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
         ra->ifindex = ifindex;
-
         return 0;
 }
 
@@ -472,9 +466,6 @@ int sd_radv_get_ifname(sd_radv *ra, const char **ret) {
 
 int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr) {
         assert_return(ra, -EINVAL);
-
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
 
         if (mac_addr)
                 ra->mac_addr = *mac_addr;
@@ -557,30 +548,19 @@ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
 int sd_radv_set_home_agent_information(sd_radv *ra, int home_agent) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
         SET_FLAG(ra->flags, ND_RA_FLAG_HOME_AGENT, home_agent);
-
         return 0;
 }
 
 int sd_radv_set_home_agent_preference(sd_radv *ra, uint16_t preference) {
         assert_return(ra, -EINVAL);
 
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
-
         ra->home_agent.nd_opt_home_agent_info_preference = htobe16(preference);
-
         return 0;
 }
 
 int sd_radv_set_home_agent_lifetime(sd_radv *ra, uint64_t lifetime_usec) {
         assert_return(ra, -EINVAL);
-
-        if (ra->state != RADV_STATE_IDLE)
-                return -EBUSY;
 
         if (lifetime_usec > RADV_HOME_AGENT_MAX_LIFETIME_USEC)
                 return -EINVAL;
@@ -649,7 +629,7 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                 log_radv(ra, "Added prefix %s", addr_p);
         }
 
-        if (ra->state == RADV_STATE_IDLE)
+        if (!sd_radv_is_running(ra))
                 return 0;
 
         if (ra->ra_sent == 0)
@@ -745,7 +725,7 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
                 log_radv(ra, "Added route prefix %s", strna(addr_p));
         }
 
-        if (ra->state == RADV_STATE_IDLE)
+        if (!sd_radv_is_running(ra))
                 return 0;
 
         if (ra->ra_sent == 0)
@@ -817,7 +797,7 @@ int sd_radv_add_pref64_prefix(sd_radv *ra, sd_radv_pref64_prefix *p) {
                 log_radv(ra, "Added PREF64 prefix %s", strna(addr_p));
         }
 
-        if (ra->state == RADV_STATE_IDLE)
+        if (!sd_radv_is_running(ra))
                 return 0;
 
         if (ra->ra_sent == 0)
