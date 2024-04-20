@@ -163,7 +163,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 int r;
 
                 if (le64toh(o->data.entry_offset) == 0)
-                        warning(offset, "Unused data (entry_offset==0)");
+                        debug(offset, "Unused data (entry_offset==0)");
 
                 if ((le64toh(o->data.entry_offset) == 0) ^ (le64toh(o->data.n_entries) == 0)) {
                         error(offset, "Bad n_entries: %"PRIu64, le64toh(o->data.n_entries));
