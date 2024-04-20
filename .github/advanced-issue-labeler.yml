@@ -68,7 +68,7 @@ policy:
             keys: ['systemd-logind', 'loginctl', 'pam_systemd']
 
           - name: machine
-            keys: ['systemd-machine', 'machinectl']
+            keys: ['systemd-machined', 'machinectl']
 
           - name: modules-load
             keys: ['systemd-modules-load']
