@@ -601,6 +601,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .persistent_storage_fd = persistent_storage_open(),
                 .dhcp_use_domains = _USE_DOMAINS_INVALID,
                 .dhcp6_use_domains = _USE_DOMAINS_INVALID,
+                .ndisc_use_domains = _USE_DOMAINS_INVALID,
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
                 .duid_product_uuid.type = DUID_TYPE_UUID,
