@@ -1675,7 +1675,8 @@ static int service_spawn_internal(
                 log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds);
         }
 
-        if (!FLAGS_SET(exec_params.flags, EXEC_IS_CONTROL) && s->type == SERVICE_EXEC) {
+        if (!FLAGS_SET(exec_params.flags, EXEC_IS_CONTROL) &&
+            IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD, SERVICE_EXEC, SERVICE_DBUS)) {
                 r = service_allocate_exec_fd(s, &exec_fd_source, &exec_params.exec_fd);
                 if (r < 0)
                         return r;
@@ -3008,6 +3009,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 (void) serialize_item_format(f, "main-exec-status-pid", PID_FMT, s->main_exec_status.pid);
                 (void) serialize_dual_timestamp(f, "main-exec-status-start", &s->main_exec_status.start_timestamp);
                 (void) serialize_dual_timestamp(f, "main-exec-status-exit", &s->main_exec_status.exit_timestamp);
+                (void) serialize_dual_timestamp(f, "main-exec-status-handover", &s->main_exec_status.handover_timestamp);
 
                 if (dual_timestamp_is_set(&s->main_exec_status.exit_timestamp)) {
                         (void) serialize_item_format(f, "main-exec-status-code", "%i", s->main_exec_status.code);
@@ -3292,6 +3294,8 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 deserialize_dual_timestamp(value, &s->main_exec_status.start_timestamp);
         else if (streq(key, "main-exec-status-exit"))
                 deserialize_dual_timestamp(value, &s->main_exec_status.exit_timestamp);
+        else if (streq(key, "main-exec-status-handover"))
+                deserialize_dual_timestamp(value, &s->main_exec_status.handover_timestamp);
         else if (streq(key, "notify-access-override")) {
                 NotifyAccess notify_access;
 
@@ -3520,21 +3524,21 @@ static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t ev
          * the pipe to be closed (for example, a simple exit()). To deal with that we'll ignore EOFs on the pipe unless
          * the child signalled us first that it is about to call the execve(). It does so by sending us a simple
          * non-zero byte via the pipe. We also provide the child with a way to inform us in case execve() failed: if it
-         * sends a zero byte we'll ignore POLLHUP on the fd again. */
+         * sends a zero byte we'll ignore POLLHUP on the fd again.
+         * For exec, dbus, notify and notify-reload types we also get a timestamp from sd-executor, taken immediately
+         * before the target executable is execve'd, so that we can accurately track when control is handed over to the
+         * payload. */
 
         for (;;) {
-                uint8_t x;
+                uint64_t x = 0;
                 ssize_t n;
 
                 n = read(fd, &x, sizeof(x));
-                if (n < 0) {
-                        if (errno == EAGAIN) /* O_NONBLOCK in effect → everything queued has now been processed. */
-                                return 0;
 
-                        return log_unit_error_errno(UNIT(s), errno, "Failed to read from exec_fd: %m");
-                }
-                if (n == 0) { /* EOF → the event we are waiting for */
+                switch (n) {
 
+                case 0:
+                        /* EOF → the event we are waiting for */
                         s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
                         if (s->exec_fd_hot) { /* Did the child tell us to expect EOF now? */
@@ -3549,14 +3553,42 @@ static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t ev
                                 log_unit_debug(UNIT(s), "Got EOF on exec-fd while it was disabled, ignoring.");
 
                         return 0;
+
+                case sizeof(uint8_t):
+                        /* A single byte was read, which means the exec fd logic is now off (unless somehow
+                         * an old executor has written back to a new pid1, so also allow x=1 just in case).
+                         * Also reset the exec timestamp, given the execve actually failed. */
+
+                        s->exec_fd_hot = x;
+                        if (s->state == SERVICE_START)
+                                s->main_exec_status.handover_timestamp = DUAL_TIMESTAMP_NULL;
+
+                        continue;
+
+                case sizeof(uint64_t): {
+                        /* A timestamp was read, which means the exec fd logic is now enabled. Record the
+                         * received timestamp so that users can track when control is handed over to the
+                         * service payload. */
+                        assert_cc(sizeof(uint64_t) == sizeof(usec_t));
+                        usec_t t = x;
+
+                        s->exec_fd_hot = true;
+                        if (s->state == SERVICE_START)
+                                dual_timestamp_from_monotonic(&s->main_exec_status.handover_timestamp, t);
+
+                        continue;
                 }
 
-                /* A byte was read → this turns on/off the exec fd logic */
-                assert(n == sizeof(x));
-                s->exec_fd_hot = x;
+                default:
+                        assert(n < 0);
+                        if (errno == EAGAIN) /* O_NONBLOCK in effect → everything queued has now been processed. */
+                                return 0;
+
+                        return log_unit_error_errno(UNIT(s), errno, "Failed to read from exec_fd: %m");
+                }
         }
 
-        return 0;
+        assert_not_reached();
 }
 
 static void service_notify_cgroup_empty_event(Unit *u) {
