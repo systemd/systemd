@@ -603,7 +603,7 @@ CHANGES WITH 256-rc1:
           --ssh-key-type= to optionally set up transient SSH keys to pass to the
           invoked VMs in order to be able to SSH into them once booted.
 
-        * systemd-vmspawn will no enable various "HyperV enlightenments" and
+        * systemd-vmspawn will now enable various "HyperV enlightenments" and
           the "VM Generation ID" on the VMs.
 
         * A new environment variable $SYSTEMD_VMSPAWN_QEMU_EXTRA may carry
