@@ -50,6 +50,10 @@ int main(int argc, char *argv[]) {
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
+        r = find_executable("ping", NULL);
+        if (r < 0)
+                return log_tests_skipped_errno(r, "Can't find ping binary: %m");
+
         _cleanup_free_ char *unit_dir = NULL;
         ASSERT_OK(get_testdata_dir("units", &unit_dir));
         ASSERT_OK(set_unit_path(unit_dir));
