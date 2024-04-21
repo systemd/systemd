@@ -116,9 +116,18 @@ TEST(fdset_close_others) {
         copyfd = fdset_put_dup(fdset, fd);
         assert_se(copyfd >= 0);
 
+        /* fdset_close_others() will close any logging file descriptors as well, so close them beforehand
+         * and reopen them again afterwards. */
+        log_close();
         assert_se(fdset_close_others(fdset) >= 0);
+
         flags = fcntl(fd, F_GETFD);
         assert_se(flags < 0);
+
+        /* Open log again after checking that fd is invalid, since reopening the log might make fd a valid
+         * file descriptor again. */
+        (void) log_open();
+
         flags = fcntl(copyfd, F_GETFD);
         assert_se(flags >= 0);
 }
