@@ -172,6 +172,7 @@ void columns_lines_cache_reset(int _unused_ signum);
 void reset_terminal_feature_caches(void);
 
 bool on_tty(void);
+bool getenv_terminal_is_dumb(void);
 bool terminal_is_dumb(void);
 ColorMode get_color_mode(void);
 bool underline_enabled(void);
