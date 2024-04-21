@@ -256,7 +256,7 @@ fail:
         return r;
 }
 
-static bool stderr_is_journal(void) {
+bool stderr_is_journal(void) {
         _cleanup_free_ char *w = NULL;
         const char *e;
         uint64_t dev, ino;
