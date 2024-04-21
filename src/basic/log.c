@@ -492,7 +492,7 @@ static int write_to_console(
          * NL. This is a robustness thing in case the TTY is currently in raw mode (specifically: has the
          * ONLCR flag off). We want that subsequent output definitely starts at the beginning of the line
          * again, after all. If the TTY is not in raw mode the extra CR should not hurt. */
-        iovec[n++] = IOVEC_MAKE_STRING(check_console_fd_is_tty() ? "\r\n" : "\n");
+        iovec[n++] = IOVEC_MAKE_STRING(check_console_fd_is_tty() && !getenv_terminal_is_dumb() ? "\r\n" : "\n");
 
         if (writev(console_fd, iovec, n) < 0) {
 
