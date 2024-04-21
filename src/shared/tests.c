@@ -115,8 +115,7 @@ bool slow_tests_enabled(void) {
 
 void test_setup_logging(int level) {
         log_set_max_level(level);
-        log_parse_environment();
-        log_open();
+        log_setup();
 }
 
 int write_tmpfile(char *pattern, const char *contents) {
