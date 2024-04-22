@@ -68,7 +68,7 @@ EFI_ARCHES: list[str] = sum(EFI_ARCH_MAP.values(), [])
 
 # Default configuration directories and file name.
 # When the user does not specify one, the directories are searched in this order and the first file found is used.
-DEFAULT_CONFIG_DIRS = ['/run/systemd', '/etc/systemd', '/usr/local/lib/systemd', '/usr/lib/systemd']
+DEFAULT_CONFIG_DIRS = ['/etc/systemd', '/run/systemd', '/usr/local/lib/systemd', '/usr/lib/systemd']
 DEFAULT_CONFIG_FILE = 'ukify.conf'
 
 class Style:
