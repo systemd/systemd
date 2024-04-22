@@ -42,19 +42,20 @@ cat debian/changelog >>debian/changelog.new
 mv debian/changelog.new debian/changelog
 
 build() {
-    DEB_BUILD_OPTIONS="\
+    DEB_BUILD_OPTIONS=$(awk '$1=$1' <<<"\
         $( ((WITH_TESTS)) || echo nocheck) \
         $( ((WITH_DOCS)) || echo nodoc) \
         $( ((WITH_DEBUG)) || echo nostrip) \
         terse \
         optimize=-lto \
-        noopt \
-    " \
-    DEB_BUILD_PROFILES="\
+        hardening=-fortify \
+    ") \
+    DEB_BUILD_PROFILES=$(awk '$1=$1' <<<"\
         $( ((WITH_TESTS)) || echo nocheck) \
         $( ((WITH_DOCS)) || echo nodoc) \
         pkg.systemd.upstream \
-    " \
+    ") \
+    DEB_CFLAGS_APPEND="-O${OPTIMIZATION:-0}" \
     DPKG_FORCE="unsafe-io" \
     DPKG_DEB_COMPRESSOR_TYPE="none" \
     DH_MISSING="--fail-missing" \
