@@ -351,9 +351,9 @@ int enroll_tpm2(struct crypt_device *cd,
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Must provide all PCR values when using TPM2 device key.");
         } else {
-                r = tpm2_context_new(device, &tpm2_context);
+                r = tpm2_context_new_or_warn(device, &tpm2_context);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to create TPM2 context: %m");
+                        return r;
 
                 if (!tpm2_pcr_values_has_all_values(hash_pcr_values, n_hash_pcr_values)) {
                         r = tpm2_pcr_read_missing_values(tpm2_context, hash_pcr_values, n_hash_pcr_values);

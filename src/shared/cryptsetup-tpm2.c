@@ -143,9 +143,9 @@ int acquire_tpm2_key(
         }
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
-        r = tpm2_context_new(device, &tpm2_context);
+        r = tpm2_context_new_or_warn(device, &tpm2_context);
         if (r < 0)
-                return log_error_errno(r, "Failed to create TPM2 context: %m");
+                return r;
 
         if (!(flags & TPM2_FLAGS_USE_PIN)) {
                 r = tpm2_unseal(tpm2_context,
