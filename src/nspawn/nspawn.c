@@ -2410,7 +2410,7 @@ static int setup_credentials(const char *root) {
         /* If starting a single-process container as a non-root user, the uid will only be resolved after we
          * are inside the inner child, when credential directories and files are already read-only, so they
          * are unusable as the single process won't have access to them. We also don't have access to the
-         * uid that will actually be used from here, as we are setting credentials up from the outher child.
+         * uid that will actually be used from here, as we are setting credentials up from the outer child.
          * In order to make them usable as requested by the configuration, make them world readable in that
          * case, as by definition there are no other processes in that case besides the one being started,
          * which is being configured to be able to access credentials, and any of its children which will
