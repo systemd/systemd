@@ -3,6 +3,8 @@
 
 #include "sd-bus.h"
 
+#define DEFAULT_BUS_SOCKET_BUFFER_SIZE (8*1024*1024)
+
 void bus_socket_setup(sd_bus *b);
 
 int bus_socket_connect(sd_bus *b);

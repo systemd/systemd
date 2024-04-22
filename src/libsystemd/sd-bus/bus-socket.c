@@ -30,8 +30,6 @@
 #include "user-util.h"
 #include "utf8.h"
 
-#define SNDBUF_SIZE (8*1024*1024)
-
 static void iovec_advance(struct iovec iov[], unsigned *idx, size_t size) {
 
         while (size > 0) {
@@ -645,12 +643,44 @@ static int bus_socket_read_auth(sd_bus *b) {
         return 1;
 }
 
+_public_ int sd_bus_increase_receive_buffer(sd_bus *bus, size_t size) {
+        assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
+
+        if (size > INT_MAX)
+                return -ERANGE;
+
+        bus->input_buf_size = size;
+
+        if (bus->input_fd >= 0)
+                (void) fd_increase_rxbuf(bus->input_fd, bus->input_buf_size);
+
+        return 0;
+}
+
+_public_ int sd_bus_increase_send_buffer(sd_bus *bus, size_t size) {
+        assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
+
+        if (size > INT_MAX)
+                return -ERANGE;
+
+        bus->output_buf_size = size;
+
+        if (bus->output_fd >= 0)
+                (void) fd_inc_sndbuf(bus->output_fd, bus->output_buf_size);
+
+        return 0;
+}
+
 void bus_socket_setup(sd_bus *b) {
         assert(b);
 
-        /* Increase the buffers to 8 MB */
-        (void) fd_increase_rxbuf(b->input_fd, SNDBUF_SIZE);
-        (void) fd_inc_sndbuf(b->output_fd, SNDBUF_SIZE);
+        /* Increase the buffers. */
+        (void) fd_increase_rxbuf(b->input_fd, b->input_buf_size);
+        (void) fd_inc_sndbuf(b->output_fd, b->output_buf_size);
 
         b->message_version = 1;
         b->message_endian = 0;
