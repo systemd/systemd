@@ -79,7 +79,9 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                                 continue;
 
                         if (prefix && !path_startswith(path, prefix)) {
-                                log_trace("Not unmounting %s, outside of prefix: %s", path, prefix);
+                                // FIXME: This is extremely noisy, we're probably doing something very wrong
+                                // to trigger this so often, needs more investigation.
+                                // log_trace("Not unmounting %s, outside of prefix: %s", path, prefix);
                                 continue;
                         }
 
