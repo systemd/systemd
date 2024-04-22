@@ -26,7 +26,7 @@ struct DnssdTxtData {
 };
 
 struct DnssdService {
-        char *filename;
+        char *path;
         char *name;
         char *name_template;
         char *type;
