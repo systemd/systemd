@@ -48,6 +48,7 @@ build() {
         $( ((WITH_DEBUG)) || echo nostrip) \
         terse \
         optimize=-lto \
+        hardening=-fortify \
     ") \
     DEB_BUILD_PROFILES=$(awk '$1=$1' <<<"\
         $( ((WITH_TESTS)) || echo nocheck) \
