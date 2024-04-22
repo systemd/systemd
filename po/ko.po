@@ -8,7 +8,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-04 10:09+0100\n"
+"POT-Creation-Date: 2024-04-22 14:11+0100\n"
 "PO-Revision-Date: 2024-03-04 16:32+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
@@ -126,19 +126,10 @@ msgid ""
 msgstr "사용자 홈 영역의 비밀번호를 변경하려면 인증이 필요합니다."
 
 #: src/home/org.freedesktop.home1.policy:73
-msgid "Inhibit automatic lock of a home area"
-msgstr "홈 영역의 자동 잠금을 금지합니다"
-
-#: src/home/org.freedesktop.home1.policy:74
-msgid ""
-"Authentication is required to inhibit automatic lock of a user's home area."
-msgstr "사용자의 홈 영역 자동 잠금을 금지 할 때에 인증이 필요합니다."
-
-#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr "홈 영역 활성화"
 
-#: src/home/org.freedesktop.home1.policy:84
+#: src/home/org.freedesktop.home1.policy:74
 msgid "Authentication is required to activate a user's home area."
 msgstr "사용자의 홈 영역을 활성화에 인증이 필요합니다."
 
@@ -968,6 +959,19 @@ msgstr "네트워크 인터페이스 재설정"
 msgid "Authentication is required to reconfigure network interface."
 msgstr "네트워크 연결 장치를 다시 설정하려면 인증이 필요합니다."
 
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available."
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:188
+#, fuzzy
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
+"시스템 및 서비스 관리자 환경 변수를 설정하거나 설정 또는 해제하려면 인증이 필"
+"요합니다."
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "이동 서비스 이미지 검사"
@@ -1096,3 +1100,11 @@ msgstr "인증은 '$(unit)'과 관련된 파일과 디렉토리를 삭제하는�
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "'$(unit)'단위의 처리를 동결 또는 해제하려면 인증이 필요합니다."
+
+#~ msgid "Inhibit automatic lock of a home area"
+#~ msgstr "홈 영역의 자동 잠금을 금지합니다"
+
+#~ msgid ""
+#~ "Authentication is required to inhibit automatic lock of a user's home "
+#~ "area."
+#~ msgstr "사용자의 홈 영역 자동 잠금을 금지 할 때에 인증이 필요합니다."

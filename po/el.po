@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-04 10:09+0100\n"
+"POT-Creation-Date: 2024-04-22 14:11+0100\n"
 "PO-Revision-Date: 2014-04-29 09:17+0300\n"
 "Last-Translator: Dimitris Spingos (Δημήτρης Σπίγγος) <dmtrs32@gmail.com>\n"
 "Language-Team: team@lists.gnome.gr\n"
@@ -144,21 +144,10 @@ msgstr ""
 "Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
 
 #: src/home/org.freedesktop.home1.policy:73
-msgid "Inhibit automatic lock of a home area"
-msgstr ""
-
-#: src/home/org.freedesktop.home1.policy:74
-#, fuzzy
-msgid ""
-"Authentication is required to inhibit automatic lock of a user's home area."
-msgstr ""
-"Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό εργασίας."
-
-#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr ""
 
-#: src/home/org.freedesktop.home1.policy:84
+#: src/home/org.freedesktop.home1.policy:74
 #, fuzzy
 msgid "Authentication is required to activate a user's home area."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
@@ -1075,6 +1064,19 @@ msgstr ""
 msgid "Authentication is required to reconfigure network interface."
 msgstr "Απαιτείται πιστοποίηση για επανεκκίνηση του συστήματος."
 
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available."
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:188
+#, fuzzy
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
+"Απαιτείται πιστοποίηση για να προσπελάσετε τον διαχειριστή συστήματος και "
+"υπηρεσιών."
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr ""
@@ -1223,6 +1225,14 @@ msgstr "Απαιτείται πιστοποίηση για να ορίσετε �
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
+
+#, fuzzy
+#~ msgid ""
+#~ "Authentication is required to inhibit automatic lock of a user's home "
+#~ "area."
+#~ msgstr ""
+#~ "Απαιτείται πιστοποίηση για προσάρτηση μιας συσκευής σε έναν σταθμό "
+#~ "εργασίας."
 
 #, fuzzy
 #~ msgid "Authentication is required to kill '$(unit)'."

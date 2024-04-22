@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-04 10:09+0100\n"
+"POT-Creation-Date: 2024-04-22 14:11+0100\n"
 "PO-Revision-Date: 2021-06-02 16:03+0000\n"
 "Last-Translator: scootergrisen <scootergrisen@gmail.com>\n"
 "Language-Team: Danish <https://translate.fedoraproject.org/projects/systemd/"
@@ -134,22 +134,11 @@ msgstr ""
 "hjemmeområde."
 
 #: src/home/org.freedesktop.home1.policy:73
-msgid "Inhibit automatic lock of a home area"
-msgstr ""
-
-# https://www.freedesktop.org/software/systemd/man/sd-login.html
-#: src/home/org.freedesktop.home1.policy:74
-#, fuzzy
-msgid ""
-"Authentication is required to inhibit automatic lock of a user's home area."
-msgstr "Der kræves godkendelse for at opdatere en brugers hjemmeområde."
-
-#: src/home/org.freedesktop.home1.policy:83
 #, fuzzy
 msgid "Activate a home area"
 msgstr "Opret et hjemmeområde"
 
-#: src/home/org.freedesktop.home1.policy:84
+#: src/home/org.freedesktop.home1.policy:74
 #, fuzzy
 msgid "Authentication is required to activate a user's home area."
 msgstr "Der kræves godkendelse for at oprette en brugers hjemmeområde."
@@ -1023,6 +1012,19 @@ msgstr "Genkonfigurer netværksgrænseflade"
 msgid "Authentication is required to reconfigure network interface."
 msgstr "Der kræves godkendelse for at genkonfigurere netværksgrænseflade."
 
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available."
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:188
+#, fuzzy
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
+"Der kræves godkendelse for at indstille eller fjerne system- og "
+"tjenesteforvalter miljøvariabler."
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "Undersøg et transportabel tjeneste-aftryk"
@@ -1163,6 +1165,13 @@ msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
 "Der kræves godkendelse for at nulstille \"fejl\"-tilstanden på '$(unit)'."
+
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
+#, fuzzy
+#~ msgid ""
+#~ "Authentication is required to inhibit automatic lock of a user's home "
+#~ "area."
+#~ msgstr "Der kræves godkendelse for at opdatere en brugers hjemmeområde."
 
 #~ msgid "Authentication is required to kill '$(unit)'."
 #~ msgstr "Autentificering er nødvendig for at eliminere '$(unit)'."
