@@ -308,8 +308,6 @@ int network_verify(Network *network) {
         if (r < 0)
                 return r;
         network_drop_invalid_address_labels(network);
-        network_drop_invalid_prefixes(network);
-        network_drop_invalid_route_prefixes(network);
         network_drop_invalid_routing_policy_rules(network);
         network_drop_invalid_qdisc(network);
         network_drop_invalid_tclass(network);
