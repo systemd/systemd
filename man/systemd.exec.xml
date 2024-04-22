@@ -1386,7 +1386,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
     <para>Note that the various options that turn directories read-only (such as
     <varname>ProtectSystem=</varname>, <varname>ReadOnlyPaths=</varname>, …) do not affect the ability for
     programs to connect to and communicate with <constant>AF_UNIX</constant> sockets in these
-    directores. These options cannot be used to lock down access to IPC services hence.</para>
+    directories. These options cannot be used to lock down access to IPC services hence.</para>
 
     <variablelist class='unit-directives'>
 
