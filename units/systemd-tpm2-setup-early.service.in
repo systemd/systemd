@@ -12,10 +12,10 @@ Description=Early TPM SRK Setup
 Documentation=man:systemd-tpm2-setup.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
+After=tpm2.target systemd-pcrphase-initrd.service
 Before=sysinit.target shutdown.target
 ConditionSecurity=measured-uki
 ConditionPathExists=!/run/systemd/tpm2-srk-public-key.pem
-After=tpm2.target
 
 [Service]
 Type=oneshot
