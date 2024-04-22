@@ -34,7 +34,7 @@ SRCDEST="/usr/src/debug/systemd-$VERSION-${RELEASE}${DIST}.$ARCH"
 # TODO: Drop -U_FORTIFY_SOURCE when we switch to CentOS Stream 10.
 CFLAGS="$(rpm --define "_fortify_level 0" --undefine _lto_cflags --eval %build_cflags) -O${OPTIMIZATION:-0} -Wp,-U_FORTIFY_SOURCE"
 if ((WITH_DEBUG)); then
-    CFLAGS="$CFLAGS -ffile-prefix-map=../src=$SRCDEST"
+    CFLAGS="$CFLAGS -fdebug-prefix-map=../src=$SRCDEST"
 fi
 
 IFS=
