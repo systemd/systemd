@@ -55,7 +55,9 @@
         specified target. If a <replaceable>VERSION</replaceable> is specified, this command
         lists all known information about the specific version.</para>
 
-        <para>See the example below for details of the output.</para></listitem>
+        <para>See the example below for details of the output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -64,7 +66,9 @@
         <listitem><para>Check if any updates are available for the specified targets. If no targets
         are specified, all available targets will be checked for updates.</para>
 
-        <para>See the example below for details of the output.</para></listitem>
+        <para>See the example below for details of the output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -72,14 +76,18 @@
 
         <listitem><para>Update the specified targets to the specified versions. If a target
         is specified without a version, then it will be updated to the latest version. If no targets are
-        specified, then all available targets will be updated to the latest version.</para></listitem>
+        specified, then all available targets will be updated to the latest version.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>vacuum</command> [<replaceable>TARGET</replaceable>…]</term>
 
         <listitem><para>Clean up old versions of the specified targets. If no targets are specified,
-        all available targets will be vacuumed.</para></listitem>
+        all available targets will be vacuumed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -97,7 +105,9 @@
         <term><option>--reboot</option></term>
 
         <listitem><para>When used with the <command>update</command> command, reboots the system
-        after updates finish applying. If any update fails, the system will not reboot.</para></listitem>
+        after updates finish applying. If any update fails, the system will not reboot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -106,7 +116,9 @@
         <listitem><para>When used with the <command>list</command> command, disables fetching
         metadata from the network. This makes the <command>list</command> command only return
         information that is available locally (i.e. about versions already installed on the system).
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />
