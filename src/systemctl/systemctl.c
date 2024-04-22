@@ -333,6 +333,8 @@ static int systemctl_help(void) {
                "                         Boot into boot loader menu on next boot\n"
                "     --boot-loader-entry=NAME\n"
                "                         Boot into a specific boot loader entry on next boot\n"
+               "     --reboot-argument=ARG\n"
+               "                         Specify argument string to pass to reboot()\n"
                "     --plain             Print unit dependencies as a list instead of a tree\n"
                "     --timestamp=FORMAT  Change format of printed timestamps (pretty, unix,\n"
                "                             us, utc, us+utc)\n"
