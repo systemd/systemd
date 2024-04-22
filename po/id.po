@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-04 10:09+0100\n"
+"POT-Creation-Date: 2024-04-22 14:31+0100\n"
 "PO-Revision-Date: 2024-04-20 07:36+0000\n"
 "Last-Translator: Andika Triwidada <andika@gmail.com>\n"
 "Language-Team: Indonesian <https://translate.fedoraproject.org/projects/"
@@ -131,21 +131,10 @@ msgstr ""
 "pengguna."
 
 #: src/home/org.freedesktop.home1.policy:73
-msgid "Inhibit automatic lock of a home area"
-msgstr "Cegah penguncian otomatis dari area home"
-
-#: src/home/org.freedesktop.home1.policy:74
-msgid ""
-"Authentication is required to inhibit automatic lock of a user's home area."
-msgstr ""
-"Otentikasi diperlukan untuk mencegah penguncian otomatis dari area home "
-"pengguna."
-
-#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr "Aktifkan suatu area home"
 
-#: src/home/org.freedesktop.home1.policy:84
+#: src/home/org.freedesktop.home1.policy:74
 msgid "Authentication is required to activate a user's home area."
 msgstr "Otentikasi diperlukan untuk mengaktifkan suatu area home pengguna."
 
@@ -1011,6 +1000,16 @@ msgstr "Konfigurasi ulang antar muka jaringan"
 #: src/network/org.freedesktop.network1.policy:177
 msgid "Authentication is required to reconfigure network interface."
 msgstr "Otentikasi diperlukan untuk mengonfigurasi ulang antar muka jaringan."
+
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available."
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"

@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-10 07:06+0900\n"
+"POT-Creation-Date: 2024-04-22 14:31+0100\n"
 "PO-Revision-Date: 2021-09-09 03:04+0000\n"
 "Last-Translator: Takuro Onoue <kusanaginoturugi@gmail.com>\n"
 "Language-Team: Japanese <https://translate.fedoraproject.org/projects/"
