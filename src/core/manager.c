@@ -5038,11 +5038,10 @@ LogTarget manager_get_executor_log_target(Manager *m) {
         assert(m);
 
         /* If journald is not available tell sd-executor to go to kmsg, as it might be starting journald */
+        if (!MANAGER_IS_TEST_RUN(m) && !manager_journal_is_running(m))
+                return LOG_TARGET_KMSG;
 
-        if (manager_journal_is_running(m))
-                return log_get_target();
-
-        return LOG_TARGET_KMSG;
+        return log_get_target();
 }
 
 static const char* const manager_state_table[_MANAGER_STATE_MAX] = {
