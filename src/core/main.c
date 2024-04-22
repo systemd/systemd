@@ -55,6 +55,7 @@
 #include "ima-setup.h"
 #include "import-creds.h"
 #include "initrd-util.h"
+#include "io-util.h"
 #include "killall.h"
 #include "kmod-setup.h"
 #include "limits-util.h"
@@ -208,11 +209,17 @@ static int console_setup(void) {
 
         r = proc_cmdline_tty_size("/dev/console", &rows, &cols);
         if (r < 0)
-                log_warning_errno(r, "Failed to get terminal size, ignoring: %m");
+                log_warning_errno(r, "Failed to get /dev/console size, ignoring: %m");
         else {
                 r = terminal_set_size_fd(tty_fd, NULL, rows, cols);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set terminal size, ignoring: %m");
+                        log_warning_errno(r, "Failed to set /dev/console size, ignoring: %m");
+        }
+
+        if (detect_container() <= 0) {
+                r = terminal_enable_line_wrapping_fd(tty_fd);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to enable line-wrapping on /dev/console, ignoring: %m");
         }
 
         return 0;
