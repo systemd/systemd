@@ -525,6 +525,18 @@ int path_compare_filename(const char *a, const char *b) {
         return strcmp(fa, fb);
 }
 
+int path_equal_or_inode_same_full(const char *a, const char *b, int flags) {
+        /* Returns true if paths are of the same entry, false if not, <0 on error. */
+
+        if (path_equal(a, b))
+                return 1;
+
+        if (!a || !b)
+                return 0;
+
+        return inode_same(a, b, flags);
+}
+
 char* path_extend_internal(char **x, ...) {
         size_t sz, old_sz;
         char *q, *nx;

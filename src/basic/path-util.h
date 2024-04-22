@@ -68,8 +68,9 @@ static inline bool path_equal_filename(const char *a, const char *b) {
         return path_compare_filename(a, b) == 0;
 }
 
+int path_equal_or_inode_same_full(const char *a, const char *b, int flags);
 static inline bool path_equal_or_inode_same(const char *a, const char *b, int flags) {
-        return path_equal(a, b) || inode_same(a, b, flags) > 0;
+        return path_equal_or_inode_same_full(a, b, flags) > 0;
 }
 
 char* path_extend_internal(char **x, ...);
