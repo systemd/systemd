@@ -10,7 +10,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-04 10:09+0100\n"
+"POT-Creation-Date: 2024-04-22 14:11+0100\n"
 "PO-Revision-Date: 2024-03-05 21:36+0000\n"
 "Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
@@ -134,21 +134,10 @@ msgstr ""
 "Autentisering krävs för att ändra lösenordet för en användares hemarea."
 
 #: src/home/org.freedesktop.home1.policy:73
-msgid "Inhibit automatic lock of a home area"
-msgstr "Förhindra automatiskt lås av en hemarea"
-
-#: src/home/org.freedesktop.home1.policy:74
-msgid ""
-"Authentication is required to inhibit automatic lock of a user's home area."
-msgstr ""
-"Autentisering krävs för att förhindra automatiskt lås av en användares "
-"hemarea."
-
-#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr "Aktivera en hemarea"
 
-#: src/home/org.freedesktop.home1.policy:84
+#: src/home/org.freedesktop.home1.policy:74
 msgid "Authentication is required to activate a user's home area."
 msgstr "Autentisering krävs för att aktivera en användares hemarea."
 
@@ -1019,6 +1008,19 @@ msgstr "Konfigurera om nätverksgränssnitt"
 msgid "Authentication is required to reconfigure network interface."
 msgstr "Autentisering krävs för att konfigurera om nätverksgränssnitt."
 
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available."
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:188
+#, fuzzy
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
+"Autentisering krävs för att ställa in eller ta bort miljövariabler för "
+"system- och servicehanterare."
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "Inspektera en portabel tjänsteavbild"
@@ -1161,6 +1163,16 @@ msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
 "Autentisering krävs för att frysa eller töa processerna i enheten ”$(unit)”."
+
+#~ msgid "Inhibit automatic lock of a home area"
+#~ msgstr "Förhindra automatiskt lås av en hemarea"
+
+#~ msgid ""
+#~ "Authentication is required to inhibit automatic lock of a user's home "
+#~ "area."
+#~ msgstr ""
+#~ "Autentisering krävs för att förhindra automatiskt lås av en användares "
+#~ "hemarea."
 
 #~ msgid ""
 #~ "Authentication is required to halt the system while an application asked "

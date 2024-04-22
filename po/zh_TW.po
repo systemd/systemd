@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-04 10:09+0100\n"
+"POT-Creation-Date: 2024-04-22 14:11+0100\n"
 "PO-Revision-Date: 2023-11-10 11:30+0000\n"
 "Last-Translator: Cheng-Chia Tseng <pswo10680@gmail.com>\n"
 "Language-Team: Chinese (Traditional) <https://translate.fedoraproject.org/"
@@ -123,21 +123,11 @@ msgid ""
 msgstr "更改家區域密碼需要認證。"
 
 #: src/home/org.freedesktop.home1.policy:73
-msgid "Inhibit automatic lock of a home area"
-msgstr ""
-
-#: src/home/org.freedesktop.home1.policy:74
-#, fuzzy
-msgid ""
-"Authentication is required to inhibit automatic lock of a user's home area."
-msgstr "更新用戶家區域需要認證。"
-
-#: src/home/org.freedesktop.home1.policy:83
 #, fuzzy
 msgid "Activate a home area"
 msgstr "創建一個家區域"
 
-#: src/home/org.freedesktop.home1.policy:84
+#: src/home/org.freedesktop.home1.policy:74
 #, fuzzy
 msgid "Authentication is required to activate a user's home area."
 msgstr "創建用戶家區域需要身份驗證。"
@@ -943,6 +933,17 @@ msgstr "重新配置網絡接口"
 msgid "Authentication is required to reconfigure network interface."
 msgstr "重新配置網絡接口需要驗證。"
 
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available."
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:188
+#, fuzzy
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr "設定或取消設定系統及服務管理員的環境變數需要身份驗證。"
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "檢查可攜式服務映像"
@@ -1069,6 +1070,12 @@ msgstr "刪除與 '$(unit)' 相關的檔案及目錄需要身份驗證。"
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "凍結或解凍「$(unit)」的程序需要身份驗證。"
+
+#, fuzzy
+#~ msgid ""
+#~ "Authentication is required to inhibit automatic lock of a user's home "
+#~ "area."
+#~ msgstr "更新用戶家區域需要認證。"
 
 #~ msgid ""
 #~ "Authentication is required to halt the system while an application asked "
