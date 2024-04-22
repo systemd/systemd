@@ -55,6 +55,7 @@
 #include "ima-setup.h"
 #include "import-creds.h"
 #include "initrd-util.h"
+#include "io-util.h"
 #include "killall.h"
 #include "kmod-setup.h"
 #include "limits-util.h"
@@ -191,6 +192,30 @@ static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
         return 0;
 }
 
+static int console_enable_line_wrapping(int tty_fd) {
+        int r;
+
+        assert(tty_fd >= 0);
+
+        if (terminal_is_dumb())
+                return 0;
+
+        r = fd_nonblock(tty_fd, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set /dev/console to non-blocking mode: %m");
+
+        /* Enable line wrapping. */
+        (void) loop_write_full(tty_fd, "\033[?7h", SIZE_MAX, 50 * USEC_PER_MSEC);
+
+        if (r > 0) {
+                r = fd_nonblock(tty_fd, false);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to set /dev/console back to blocking mode: %m");
+        }
+
+        return 0;
+}
+
 static int console_setup(void) {
         _cleanup_close_ int tty_fd = -EBADF;
         unsigned rows, cols;
@@ -208,12 +233,14 @@ static int console_setup(void) {
 
         r = proc_cmdline_tty_size("/dev/console", &rows, &cols);
         if (r < 0)
-                log_warning_errno(r, "Failed to get terminal size, ignoring: %m");
+                log_warning_errno(r, "Failed to get /dev/console size, ignoring: %m");
         else {
                 r = terminal_set_size_fd(tty_fd, NULL, rows, cols);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set terminal size, ignoring: %m");
+                        log_warning_errno(r, "Failed to set /dev/console size, ignoring: %m");
         }
+
+        (void) console_enable_line_wrapping(tty_fd);
 
         return 0;
 }
