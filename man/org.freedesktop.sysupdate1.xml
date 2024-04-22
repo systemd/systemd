@@ -401,4 +401,35 @@ node /org/freedesktop/sysupdate1/job/_1 {
   </refsect1>
 
   <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
+  <refsect1>
+    <title>History</title>
+    <refsect2>
+      <title>The Manager Object</title>
+      <para><function>ListTargets()</function>,
+      <function>ListJobs()</function>,
+      <function>ListAppstream()</function>, and
+      <function>JobRemoved()</function> were added in version 256.</para>
+    </refsect2>
+    <refsect2>
+      <title>The Target Object</title>
+      <para><function>List()</function>,
+      <function>Describe()</function>,
+      <function>CheckNew()</function>,
+      <function>Update()</function>,
+      <function>Vacuum()</function>,
+      <varname>Class</varname>,
+      <varname>Name</varname>,
+      <varname>Path</varname>,
+      <varname>Version</varname>, and
+      <varname>Appstream</varname> were added in version 256.</para>
+    </refsect2>
+    <refsect2>
+      <title>The Job Object</title>
+      <para><function>Cancel()</function>,
+      <varname>Id</varname>,
+      <varname>Type</varname>,
+      <varname>Offline</varname>, and
+      <varname>Progress</varname> were added in version 256.</para>
+    </refsect2>
+  </refsect1>
 </refentry>
