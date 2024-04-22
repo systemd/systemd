@@ -91,6 +91,7 @@ typedef enum ExecKeyringMode {
 struct ExecStatus {
         dual_timestamp start_timestamp;
         dual_timestamp exit_timestamp;
+        dual_timestamp handover_timestamp;
         pid_t pid;
         int code;     /* as in siginfo_t::si_code */
         int status;   /* as in siginfo_t::si_status */
@@ -443,7 +444,9 @@ struct ExecParameters {
         int stdout_fd;
         int stderr_fd;
 
-        /* An fd that is closed by the execve(), and thus will result in EOF when the execve() is done */
+        /* An fd that is closed by the execve(), and thus will result in EOF when the execve() is done. It
+         * will also be used to send a timestamp taken as the very last operation before execve, for
+         * tracking purposes. */
         int exec_fd;
 
         char *notify_socket;
