@@ -85,6 +85,7 @@ int log_show_tid_from_string(const char *e);
 assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1);
 #define PROJECT_FILE (&__FILE__[STRLEN(RELATIVE_SOURCE_PATH) + 1])
 
+bool stderr_is_journal(void);
 int log_open(void);
 void log_close(void);
 void log_forget_fds(void);
