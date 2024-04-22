@@ -78,10 +78,8 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                         if (!path)
                                 continue;
 
-                        if (prefix && !path_startswith(path, prefix)) {
-                                log_trace("Not unmounting %s, outside of prefix: %s", path, prefix);
+                        if (prefix && !path_startswith(path, prefix))
                                 continue;
-                        }
 
                         STRV_FOREACH(k, keep)
                                 /* Match against anything in the path to the dirs to keep, or below the dirs to keep */
