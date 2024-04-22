@@ -26,7 +26,7 @@ CHANGES WITH 256-rc1:
           or /efi/ hierarchies in /etc/fstab. This is to prevent the generator
           from interfering with systems where the ESP is explicitly configured
           to be mounted at some path, for example /boot/efi/ (this type of
-          setup is obsolete but still commonly found).
+          setup is obsolete, but still commonly found).
 
         * The behavior of systemd-sleep and systemd-homed has been updated to
           freeze user sessions when entering the various sleep modes or when
@@ -78,17 +78,17 @@ CHANGES WITH 256-rc1:
           protocol and allow the latest version to be selected automatically if
           a "*.v/" directory is specified as the source.
 
-        * Encrypted service credentials may now be made accessible to
+        * Encrypted service credentials can now be made accessible to
           unprivileged users. systemd-creds gained new options --user/--uid=
           for encrypting/decrypting a credential for a specific user.
 
         * New command-line tool 'importctl' to download, import, and export
           disk images via systemd-importd is added with the following verbs:
           pull-tar, pull-raw, import-tar, import-raw, import-fs, export-tar,
-          export-raw, list-transfers, cancel-transfer. This functionality was
-          previously available in "machinectl", where it was exclusively for
-          machine image. The new "importctl" generalizes this for sysext,
-          confext, portable service images, too.
+          export-raw, list-transfers, and cancel-transfer. This functionality
+          was previously available in "machinectl", where it was used
+          exclusively for machine images. The new "importctl" generalizes this
+          for sysext, confext, and portable service images.
 
         Service Management:
 
@@ -97,9 +97,9 @@ CHANGES WITH 256-rc1:
           enabled by default in the initrd.
 
         * New unit setting WantsMountsFor= has been added. It is analogous to
-          RequiresMountsFor=, but with a Wants= dependency instead of
-          Requires=. This new logic is used in various places where mounts were
-          added as dependencies for other settings (WorkingDirectory=-…,
+          RequiresMountsFor=, but creates a Wants= dependency instead of
+          Requires=. This new logic is now used in various places where mounts
+          were added as dependencies for other settings (WorkingDirectory=-…,
           PrivateTmp=yes, cryptsetup lines with 'nofail').
 
         * New unit setting MemoryZSwapWriteback= can be used to control the new
@@ -107,9 +107,11 @@ CHANGES WITH 256-rc1:
 
         * The manager gained a org.freedesktop.systemd1.StartAuxiliaryScope()
           D-Bus method to devolve some processes from a service into a new
-          scope.  This new scope will remain even if the original service unit
-          is restarted. Control group properties of the new scope are copied
-          from the originating unit, so various limits are retained.
+          scope. This new scope will remain running, even when the original
+          service unit is restarted or stopped. This allows a service unit to
+          split out some worker processes which need to continue running.
+          Control group properties of the new scope are copied from the
+          originating unit, so various limits are retained.
 
         * Units now expose properties EffectiveMemoryMax=,
           EffectiveMemoryHigh=, and EffectiveTasksMax=, which report the
@@ -136,26 +138,27 @@ CHANGES WITH 256-rc1:
           system credential.
 
         * The systemd binary will no longer chainload sysvinit's "telinit"
-          binary when called under the init/telinit name on a system that
-          isn't booted with systemd. This previously has been supported to make
-          sure a distribution that has both init systems installed can be
-          reasonably switched from one to the other via a simple
-          reboot. Distributions apparently have lost interest in this, and the
-          functionality has not been supported on the primary distribution this
-          was still intended for for a longer time, and hence has been removed
-          now.
+          binary when called under the init/telinit name on a system that isn't
+          booted with systemd. This previously has been supported to make sure
+          a distribution that has both init systems installed can reasonably
+          switch from one to the other via a simple reboot. Distributions
+          apparently have lost interest in this, and the functionality has not
+          been supported on the primary distribution this was still intended
+          for for a long time, and hence has been removed now.
 
-        * A new concept called "capsules" has been introduced. "Capsules"
-          encapsulate additional per-user service managers, whose users are
-          transient and are only defined as long as the service manager
-          is running (implemented via DynamicUser=1). These service managers run
-          off home directories defined in /var/lib/capsules/<name>, where
-          <name> is a the capsule's name. These home directories can contain
-          regular per-user services and other units. A capsule is started via a
-          simple "systemctl start capsule@<name>.service". See the
-          capsule@.service(5) man page for further details. Various systemd
-          tools (including, and most importantly, systemctl and systemd-run)
-          have been updated to interact with capsules via the new
+        * A new concept called "capsules" has been introduced. "Capsules" wrap
+          additional per-user service managers, whose users are transient and
+          are only defined as long as the service manager is running. (This is
+          implemented via DynamicUser=1), allowing a user manager to be used to
+          manager a group of processes without needing to create an actual user
+          account. These service managers run with home directories of
+          /var/lib/capsules/<capsule-name> and can contain regular services and
+          other units. A capsule is started via a simple "systemctl start
+          capsule@<name>.service". See the capsule@.service(5) man page for
+          further details.
+
+          Various systemd tools (including, and most importantly, systemctl and
+          systemd-run) have been updated to interact with capsules via the new
           "--capsule="/"-C" switch.
 
         * .socket units gained a new setting PassFileDescriptorsToExec=, taking
@@ -163,7 +166,8 @@ CHANGES WITH 256-rc1:
           encapsulates are passed to the ExecStartPost=, ExecStopPre=,
           ExecStopPost= using the usual $LISTEN_FDS interface. This may be used
           for doing additional initializations on the sockets once they are
-          allocated (for example, install an additional eBPF program on them).
+          allocated. (For example, to install an additional eBPF program on
+          them).
 
         * The .socket setting MaxConnectionsPerSource= (which so far put a
           limit on concurrent connections per IP in Accept=yes socket units),
@@ -173,13 +177,13 @@ CHANGES WITH 256-rc1:
           services in a simple Accept=yes mode.
 
         * The service manager will now maintain a counter of soft reboot cycles
-          the system went through so far. It may be queried via the D-Bus APIs.
+          the system went through. It may be queried via the D-Bus APIs.
 
         * systemd's execution logic now supports the new pidfd_spawn() API
           introduced by glibc 2.39, which allows us to invoke a subprocess in a
           target cgroup and get a pidfd back in a single operation.
 
-        * systemd/PID 1 will now send an additional sd_notify() message to its
+        * systemd/PID 1 will now send an additional sd_notify() message to its
           supervising VMM or container manager reporting the selected hostname
           ("X_SYSTEMD_HOSTNAME=") and machine ID ("X_SYSTEMD_MACHINE_ID=") at
           boot. Moreover, the service manager will send additional sd_notify()
@@ -189,9 +193,10 @@ CHANGES WITH 256-rc1:
           reports "ssh-access.target" being reached a VMM/container manager
           knows it can now connect to the system via SSH. Finally, a new
           sd_notify() message ("X_SYSTEMD_SIGNALS_LEVEL=2") is sent the moment
-          PID 1 successfully completed installation of its various UNIX process
-          signal handlers (i.e. the moment where SIGRTMIN+4 sent to PID 1 will
-          start to have the effect of shutting down the system cleanly).
+          PID 1 has successfully completed installation of its various UNIX
+          process signal handlers (i.e. the moment where SIGRTMIN+4 sent to
+          PID 1 will start to have the effect of shutting down the system
+          cleanly).
 
         Journal:
 
