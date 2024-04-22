@@ -36,8 +36,6 @@
 #include "unit-name.h"
 #include "user-util.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Machine*, machine_free);
-
 int machine_new(Manager *manager, MachineClass class, const char *name, Machine **ret) {
         _cleanup_(machine_freep) Machine *m = NULL;
         int r;

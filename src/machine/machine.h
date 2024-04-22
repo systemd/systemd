@@ -78,6 +78,8 @@ int machine_save(Machine *m);
 int machine_load(Machine *m);
 int machine_kill(Machine *m, KillWho who, int signo);
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(Machine*, machine_free);
+
 void machine_release_unit(Machine *m);
 
 MachineState machine_get_state(Machine *u);
