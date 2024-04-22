@@ -80,6 +80,12 @@ const char *special_glyph_full(SpecialGlyph code, bool force_utf) {
                         [SPECIAL_GLYPH_YELLOW_CIRCLE]           = "o",
                         [SPECIAL_GLYPH_BLUE_CIRCLE]             = "o",
                         [SPECIAL_GLYPH_GREEN_CIRCLE]            = "o",
+                        [SPECIAL_GLYPH_PROGRESS_FILL_START]     = "[",
+                        [SPECIAL_GLYPH_PROGRESS_FILL]           = "|",
+                        [SPECIAL_GLYPH_PROGRESS_FILL_END]       = "]",
+                        [SPECIAL_GLYPH_PROGRESS_EMPTY_START]    = "[",
+                        [SPECIAL_GLYPH_PROGRESS_EMPTY]          = "-",
+                        [SPECIAL_GLYPH_PROGRESS_EMPTY_END]      = "]",
                 },
 
                 /* UTF-8 */
@@ -110,6 +116,14 @@ const char *special_glyph_full(SpecialGlyph code, bool force_utf) {
                         [SPECIAL_GLYPH_SIGMA]                   = u8"Σ",
                         [SPECIAL_GLYPH_ARROW_UP]                = u8"↑",       /* actually called: UPWARDS ARROW */
                         [SPECIAL_GLYPH_ARROW_DOWN]              = u8"↓",       /* actually called: DOWNWARDS ARROW */
+
+                        /* Progress bar */
+                        [SPECIAL_GLYPH_PROGRESS_FILL_START]     = u8"╺",       /* actually called: BOX DRAWINGS HEAVY RIGHT*/
+                        [SPECIAL_GLYPH_PROGRESS_FILL]           = u8"━",       /* actually called: BOX DRAWINGS HEAVY HORIZONTAL*/
+                        [SPECIAL_GLYPH_PROGRESS_FILL_END]       = u8"╸",       /* actually called: BOX DRAWINGS HEAVY LEFT*/
+                        [SPECIAL_GLYPH_PROGRESS_EMPTY_START]    = u8"╶",       /* actually called: BOX DRAWINGS LIGHT RIGHT*/
+                        [SPECIAL_GLYPH_PROGRESS_EMPTY]          = u8"─",       /* actually called: BOX DRAWINGS LIGHT HORIZONTAL*/
+                        [SPECIAL_GLYPH_PROGRESS_EMPTY_END]      = u8"╴",       /* actually called: BOX DRAWINGS LIGHT LEFT*/
 
                         /* Single glyph in Unicode, two in ASCII */
                         [SPECIAL_GLYPH_ARROW_LEFT]              = u8"←",       /* actually called: LEFTWARDS ARROW */
