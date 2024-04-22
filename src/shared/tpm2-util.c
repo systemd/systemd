@@ -675,7 +675,7 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
 
                 context->tcti_dl = dlopen(fn, RTLD_NOW);
                 if (!context->tcti_dl)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to load %s: %s", fn, dlerror());
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to load %s: %s", fn, dlerror());
 
                 log_debug("Loaded '%s' via dlopen()", fn);
 
@@ -691,7 +691,7 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
 
                 log_debug("Loaded TCTI module '%s' (%s) [Version %" PRIu32 "]", info->name, info->description, info->version);
 
-                rc = info->init(NULL, &sz, NULL);
+                rc = info->init(/* context= */ NULL, &sz, /* param= */ NULL);
                 if (rc != TPM2_RC_SUCCESS)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to initialize TCTI context: %s", sym_Tss2_RC_Decode(rc));
@@ -726,15 +726,33 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
 
         /* We require AES and CFB support for session encryption. */
         if (!tpm2_supports_alg(context, TPM2_ALG_AES))
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM does not support AES.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM does not support AES.");
 
         if (!tpm2_supports_alg(context, TPM2_ALG_CFB))
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM does not support CFB.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM does not support CFB.");
 
         if (!tpm2_supports_tpmt_sym_def(context, &SESSION_TEMPLATE_SYM_AES_128_CFB))
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM does not support AES-128-CFB.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM does not support AES-128-CFB.");
 
         *ret_context = TAKE_PTR(context);
+
+        return 0;
+}
+
+int tpm2_context_new_or_warn(const char *device, Tpm2Context **ret_context) {
+        int r;
+
+        assert(ret_context);
+
+        r = tpm2_context_new(device, ret_context);
+        if (r == -EOPNOTSUPP)
+                return log_error_errno(r, "TPM device not usable as it does not support the required functionality (AES-128-CFB missing?).");
+        if (r == -ENOPKG)
+                return log_error_errno(r, "TPM TCTI driver not available.");
+        if (r == -ENOENT)
+                return log_error_errno(r, "TPM device not found.");
+        if (r < 0)
+                return log_error_errno(r, "Failed to create TPM2 context: %m");
 
         return 0;
 }

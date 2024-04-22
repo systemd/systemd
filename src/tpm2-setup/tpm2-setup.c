@@ -212,9 +212,9 @@ static int load_public_key_tpm2(struct public_key_data *ret) {
 
         assert(ret);
 
-        r = tpm2_context_new(arg_tpm2_device, &c);
+        r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
         if (r < 0)
-                return log_error_errno(r, "Failed to create TPM2 context: %m");
+                return r;
 
         r = tpm2_get_or_create_srk(
                         c,
