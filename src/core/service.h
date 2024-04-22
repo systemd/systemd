@@ -233,6 +233,9 @@ struct Service {
 
         int reload_signal;
         usec_t reload_begin_usec;
+
+        /* Timestamp taken just before execve() of the main process. */
+        dual_timestamp handover_timestamp;
 };
 
 static inline usec_t service_timeout_abort_usec(Service *s) {
