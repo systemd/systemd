@@ -774,6 +774,9 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <para>The system default for this setting may be controlled with <varname>DefaultIPAccounting=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
+          <para>Note that this functionality is currently only available for system services, not for
+          per-user services.</para>
+
           <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
