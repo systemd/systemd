@@ -8,6 +8,7 @@
 #include "sd-daemon.h"
 
 #include "argv-util.h"
+#include "errno-util.h"
 #include "macro.h"
 #include "process-util.h"
 #include "rlimit-util.h"
@@ -222,6 +223,36 @@ static inline int run_test_table(void) {
                 if (_result < 0) {                                                                              \
                         log_error_errno(errno, "%s:%i: Assertion failed: expected \"%s\" to succeed but got the following error: %m", \
                                         PROJECT_FILE, __LINE__, #expr);                                         \
+                        abort();                                                                                \
+                }                                                                                               \
+        })
+
+#define ASSERT_ERROR(expr1, expr2)                                                                              \
+        ({                                                                                                      \
+                int _expr1 = (expr1);                                                                           \
+                int _expr2 = (expr2);                                                                           \
+                if (_expr1 >= 0) {                                                                              \
+                        log_error("%s:%i: Assertion failed: expected \"%s\" to fail with error \"%s\", but it succeeded", \
+                                  PROJECT_FILE, __LINE__, #expr1, STRERROR(_expr2));                            \
+                        abort();                                                                                \
+                } else if (-_expr1 != _expr2) {                                                                  \
+                        log_error_errno(_expr1, "%s:%i: Assertion failed: expected \"%s\" to fail with error \"%s\", but got the following error: %m", \
+                                        PROJECT_FILE, __LINE__, #expr1, STRERROR(_expr2));                      \
+                        abort();                                                                                \
+                }                                                                                               \
+        })
+
+#define ASSERT_ERROR_ERRNO(expr1, expr2)                                                                        \
+        ({                                                                                                      \
+                int _expr1 = (expr1);                                                                           \
+                int _expr2 = (expr2);                                                                           \
+                if (_expr1 >= 0) {                                                                              \
+                        log_error("%s:%i: Assertion failed: expected \"%s\" to fail with error \"%s\", but it succeeded", \
+                                  PROJECT_FILE, __LINE__, #expr1, STRERROR(_expr2));                            \
+                        abort();                                                                                \
+                } else if (errno != _expr2) {                                                                   \
+                        log_error_errno(errno, "%s:%i: Assertion failed: expected \"%s\" to fail with error \"%s\", but got the following error: %m", \
+                                        PROJECT_FILE, __LINE__, #expr1, STRERROR(errno));                       \
                         abort();                                                                                \
                 }                                                                                               \
         })

@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stddef.h>
+#include <sys/stat.h>
 
+#include "errno-util.h"
 #include "log.h"
 #include "macro.h"
 #include "tests.h"
@@ -1119,6 +1121,19 @@ TEST(ASSERT) {
         ASSERT_OK_ERRNO(printf("Hello world\n"));
         ASSERT_SIGNAL(ASSERT_OK_ERRNO(-1), SIGABRT);
         ASSERT_SIGNAL(ASSERT_OK_ERRNO(-ENOANO), SIGABRT);
+
+        ASSERT_ERROR(-ENOENT, ENOENT);
+        ASSERT_ERROR(RET_NERRNO(mkdir("/i/will/fail/with/enoent", 666)), ENOENT);
+        ASSERT_SIGNAL(ASSERT_ERROR(0, ENOENT), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_ERROR(RET_NERRNO(mkdir("/i/will/fail/with/enoent", 666)), ENOANO), SIGABRT);
+
+        errno = ENOENT;
+        ASSERT_ERROR_ERRNO(-1, ENOENT);
+        errno = 0;
+        ASSERT_ERROR_ERRNO(mkdir("/i/will/fail/with/enoent", 666), ENOENT);
+        ASSERT_SIGNAL(ASSERT_ERROR_ERRNO(0, ENOENT), SIGABRT);
+        errno = 0;
+        ASSERT_SIGNAL(ASSERT_ERROR_ERRNO(mkdir("/i/will/fail/with/enoent", 666), ENOANO), SIGABRT);
 
         ASSERT_TRUE(true);
         ASSERT_TRUE(255);

@@ -90,12 +90,12 @@ int main(int argc, char *argv[]) {
         ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
 
         /* We need to enable access to the filesystem where the binary is so we
-         * add @common-block */
-        ASSERT_LT(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("@common-block")), 0);
-        ASSERT_OK(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block")));
-        ASSERT_LT(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block", "~tracefs")), 0);
-        ASSERT_LT(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("@common-block")), 0);
-        ASSERT_OK(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("debugfs", "@common-block")));
+         * add @common-block and @application */
+        ASSERT_LT(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("@common-block", "@application")), 0);
+        ASSERT_OK(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block", "@application")));
+        ASSERT_LT(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/tracing/printk_formats", STRV_MAKE("tracefs", "@common-block", "@application", "~tracefs")), 0);
+        ASSERT_LT(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("@common-block", "@application")), 0);
+        ASSERT_OK(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("debugfs", "@common-block", "@application")));
         ASSERT_LT(test_restrict_filesystems(m, "restrict_filesystems_test.service", "/sys/kernel/debug/sleep_time", STRV_MAKE("~debugfs")), 0);
 
         return 0;
