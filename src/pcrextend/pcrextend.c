@@ -199,7 +199,7 @@ static int extend_now(unsigned pcr, const void *data, size_t size, Tpm2Userspace
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         int r;
 
-        r = tpm2_context_new(arg_tpm2_device, &c);
+        r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
         if (r < 0)
                 return r;
 
