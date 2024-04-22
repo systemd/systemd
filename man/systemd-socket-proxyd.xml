@@ -53,6 +53,11 @@
     <literal>Accept=no</literal> and an event-driven
     design that scales better with the number of
     connections.</para>
+
+    <para>Note that <command>systemd-socket-proxyd</command> will not forward socket side channel
+    information, i.e. will not forward <constant>SCM_RIGHTS</constant>, <constant>SCM_CREDENTIALS</constant>,
+    <constant>SCM_SECURITY</constant>, <constant>SO_PEERCRED</constant>, <constant>SO_PEERPIDFD</constant>,
+    <constant>SO_PEERSEC</constant>, <constant>SO_PEERGROUPS</constant> and similar.</para>
   </refsect1>
   <refsect1>
     <title>Options</title>

@@ -434,32 +434,19 @@
         <term><varname>MaxLevelWall=</varname></term>
         <term><varname>MaxLevelSocket=</varname></term>
 
-        <listitem><para>Controls the maximum log level of messages
-        that are stored in the journal, forwarded to syslog, kmsg, the
-        console, a socket, or wall (if that is enabled, see above).
-        As argument, takes one of
-        <literal>emerg</literal>,
-        <literal>alert</literal>,
-        <literal>crit</literal>,
-        <literal>err</literal>,
-        <literal>warning</literal>,
-        <literal>notice</literal>,
-        <literal>info</literal>,
-        <literal>debug</literal>,
-        or integer values in the range of 0–7 (corresponding to the
-        same levels). Messages equal or below the log level specified
-        are stored/forwarded, messages above are dropped. Defaults to
-        <literal>debug</literal> for <varname>MaxLevelStore=</varname>,
-        <varname>MaxLevelSyslog=</varname> and
-        <varname>MaxLevelSocket=</varname>, to ensure that the all
-        messages are stored in the journal, forwarded to syslog and
-        the socket if one exists.
-        Defaults to
-        <literal>notice</literal> for <varname>MaxLevelKMsg=</varname>,
-        <literal>info</literal> for <varname>MaxLevelConsole=</varname>,
-        and <literal>emerg</literal> for
-        <varname>MaxLevelWall=</varname>. These settings may be
-        overridden at boot time with the kernel command line options
+        <listitem><para>Controls the maximum log level of messages that are stored in the journal, forwarded
+        to syslog, kmsg, the console, the wall, or a socket (if that is enabled, see above).  As argument,
+        takes one of <literal>emerg</literal>, <literal>alert</literal>, <literal>crit</literal>,
+        <literal>err</literal>, <literal>warning</literal>, <literal>notice</literal>,
+        <literal>info</literal>, <literal>debug</literal>, or integer values in the range of 0–7
+        (corresponding to the same levels). Messages equal or below the log level specified are
+        stored/forwarded, messages above are dropped. Defaults to <literal>debug</literal> for
+        <varname>MaxLevelStore=</varname>, <varname>MaxLevelSyslog=</varname> and
+        <varname>MaxLevelSocket=</varname>, to ensure that the all messages are stored in the journal,
+        forwarded to syslog and the socket if one exists.  Defaults to <literal>notice</literal> for
+        <varname>MaxLevelKMsg=</varname>, <literal>info</literal> for <varname>MaxLevelConsole=</varname>,
+        and <literal>emerg</literal> for <varname>MaxLevelWall=</varname>. These settings may be overridden
+        at boot time with the kernel command line options
         <literal>systemd.journald.max_level_store=</literal>,
         <literal>systemd.journald.max_level_syslog=</literal>,
         <literal>systemd.journald.max_level_kmsg=</literal>,
