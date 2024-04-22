@@ -443,6 +443,9 @@
         that in this case both read-only and regular bind mounts are reset, regardless which of the two settings is
         used.</para>
 
+        <para>Using this option implies that a mount namespace is allocated for the unit, i.e. it implies the
+        effect of <varname>PrivateMounts=</varname> (see below).</para>
+
         <para>This option is particularly useful when <varname>RootDirectory=</varname>/<varname>RootImage=</varname>
         is used. In this case the source path refers to a path on the host file system, while the destination path
         refers to a path below the root directory of the unit.</para>
@@ -2372,8 +2375,9 @@ RestrictNamespaces=~cgroup net</programlisting>
         <para>Other file system namespace unit settings — <varname>PrivateTmp=</varname>,
         <varname>PrivateDevices=</varname>, <varname>ProtectSystem=</varname>,
         <varname>ProtectHome=</varname>, <varname>ReadOnlyPaths=</varname>,
-        <varname>InaccessiblePaths=</varname>, <varname>ReadWritePaths=</varname>, … — also enable file
-        system namespacing in a fashion equivalent to this option. Hence it is primarily useful to explicitly
+        <varname>InaccessiblePaths=</varname>, <varname>ReadWritePaths=</varname>,
+        <varname>BindPaths=</varname>, <varname>BindReadOnlyPaths=</varname>, … — also enable file system
+        namespacing in a fashion equivalent to this option. Hence it is primarily useful to explicitly
         request this behaviour if none of the other settings are used.</para>
 
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
