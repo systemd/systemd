@@ -143,7 +143,18 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown command verb '%s'.", name);
                 }
 
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Command verb required.");
+                _cleanup_free_ char *verb_list = NULL;
+
+                for (size_t i = 0; verbs[i].dispatch; i++)
+                        if (!strextend_with_separator(&verb_list, ", ", verbs[i].verb)) {
+                                log_oom_warning();
+                                verb_list = free(verb_list);
+                                break;
+                        }
+
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Command verb required%s%s%s.",
+                                       verb_list ? " (one of " : "", strempty(verb_list), verb_list ? ")" : "");
         }
 
         if (!name)
