@@ -919,9 +919,9 @@ int encrypt_credential_and_warn(
                         tpm2_pubkey_pcr_mask = 0;
 
                 _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
-                r = tpm2_context_new(tpm2_device, &tpm2_context);
+                r = tpm2_context_new_or_warn(tpm2_device, &tpm2_context);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to create TPM2 context: %m");
+                        return r;
 
                 r = tpm2_get_best_pcr_bank(tpm2_context, tpm2_hash_pcr_mask | tpm2_pubkey_pcr_mask, &tpm2_pcr_bank);
                 if (r < 0)
