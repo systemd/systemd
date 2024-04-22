@@ -163,7 +163,7 @@
       <varlistentry>
         <term><varname>UseDomains=</varname></term>
         <listitem>
-          <para>Specifies the network- and protocol-independent default value for the same settins in
+          <para>Specifies the network- and protocol-independent default value for the same settings in
           [IPv6AcceptRA], [DHCPv4], and [DHCPv6] sections below. Takes a boolean, or the special value
           <option>route</option>. See the same setting in
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.

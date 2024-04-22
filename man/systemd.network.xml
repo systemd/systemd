@@ -750,7 +750,7 @@ Table=1234</programlisting></para>
       <varlistentry>
         <term><varname>UseDomains=</varname></term>
         <listitem>
-          <para>Specifies the protocol-independent default value for the same settins in
+          <para>Specifies the protocol-independent default value for the same settings in
           [IPv6AcceptRA], [DHCPv4], and [DHCPv6] sections below. Takes a boolean, or the special value
           <option>route</option>. See also the same setting in [DHCPv4] below. Defaults to unset.</para>
 
