@@ -145,6 +145,8 @@ int sd_bus_open_system_machine(sd_bus **ret, const char *machine);
 
 int sd_bus_new(sd_bus **ret);
 
+int sd_bus_increase_receive_buffer(sd_bus *buf, size_t size);
+int sd_bus_increase_send_buffer(sd_bus *buf, size_t size);
 int sd_bus_set_address(sd_bus *bus, const char *address);
 int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd);
 int sd_bus_set_exec(sd_bus *bus, const char *path, char *const *argv);

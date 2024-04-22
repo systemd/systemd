@@ -249,6 +249,8 @@ _public_ int sd_bus_new(sd_bus **ret) {
                 .n_ref = 1,
                 .input_fd = -EBADF,
                 .output_fd = -EBADF,
+                .input_buf_size = DEFAULT_BUS_SOCKET_BUFFER_SIZE,
+                .output_buf_size = DEFAULT_BUS_SOCKET_BUFFER_SIZE,
                 .inotify_fd = -EBADF,
                 .message_version = 1,
                 .creds_mask = SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME,

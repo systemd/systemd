@@ -776,6 +776,11 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         assert(m);
         assert(bus);
 
+        if (MANAGER_IS_SYSTEM(m)) {
+                (void) sd_bus_increase_receive_buffer(bus, 128 * 1024 * 1024);
+                (void) sd_bus_increase_send_buffer(bus, 128 * 1024 * 1024);
+        }
+
         /* Let's make sure we have enough credential bits so that we can make security and selinux decisions */
         r = sd_bus_negotiate_creds(bus, 1,
                                    SD_BUS_CREDS_PID|SD_BUS_CREDS_UID|

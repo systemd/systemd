@@ -186,6 +186,7 @@ struct sd_bus {
 
         enum bus_state state;
         int input_fd, output_fd;
+        size_t input_buf_size, output_buf_size;
         int inotify_fd;
         int message_version;
         int message_endian;
