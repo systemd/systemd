@@ -107,7 +107,7 @@ static int dnssd_node_enumerator(sd_bus *bus, const char *path, void *userdata, 
         HASHMAP_FOREACH(service, m->dnssd_services) {
                 char *p;
 
-                r = sd_bus_path_encode("/org/freedesktop/resolve1/dnssd", service->name, &p);
+                r = sd_bus_path_encode("/org/freedesktop/resolve1/dnssd", service->id, &p);
                 if (r < 0)
                         return r;
 

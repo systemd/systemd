@@ -146,6 +146,9 @@
         </varlistentry>
       </variablelist>
 
+      <para>Note that setting the regular <varname>$LESS</varname> environment variable has no effect
+      for <command>less</command> invocations by systemd tools.</para>
+
       <para>See
       <citerefentry project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       for more discussion.</para></listitem>
@@ -155,7 +158,10 @@
       <term><varname>$SYSTEMD_LESSCHARSET</varname></term>
 
       <listitem><para>Override the charset passed to <command>less</command> (by default <literal>utf-8</literal>, if
-      the invoking terminal is determined to be UTF-8 compatible).</para></listitem>
+      the invoking terminal is determined to be UTF-8 compatible).</para>
+
+      <para>Note that setting the regular <varname>$LESSCHARSET</varname> environment variable has no effect
+      for <command>less</command> invocations by systemd tools.</para></listitem>
     </varlistentry>
 
     <varlistentry id='lesssecure'>
