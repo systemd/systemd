@@ -300,7 +300,9 @@
 
         <listitem><para>Prevents fetching metadata from the network (i.e. SHA256SUMS). This is most useful
         when used in combination with the <command>list</command> command, to query locally installed
-        versions.</para></listitem>
+        versions.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
