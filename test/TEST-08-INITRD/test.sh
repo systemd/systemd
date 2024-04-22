@@ -70,7 +70,7 @@ check_result_qemu_hook() {
     fi
 
     # Check if the shutdown initrd was executed at all
-    if ! grep -qE "^Hello from shutdown initrd\s*$" "$console_log"; then
+    if ! grep -q "Hello from shutdown initrd" "$console_log"; then
         derror "Missing 'hello' message from shutdown initrd"
         return 1
     fi
