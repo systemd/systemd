@@ -2,6 +2,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
+# Make sure serial console line wrapping is re-enabled as qemu's seabios firmware disables serial console
+# line-wrapping on boot.
+echo "tput smam || :" >>/etc/profile
+
 if [ -n "$SANITIZERS" ]; then
     LD_PRELOAD=$(ldd /usr/lib/systemd/systemd | grep libasan.so | awk '{print $3}')
 
