@@ -1228,7 +1228,7 @@ static int event_log_read_pcrs(EventLog *el) {
 
         assert(el);
 
-        r = tpm2_context_new(NULL, &tc);
+        r = tpm2_context_new_or_warn(/* device= */ NULL, &tc);
         if (r < 0)
                 return r;
 
@@ -4490,9 +4490,9 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         }
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
-        r = tpm2_context_new(NULL, &tc);
+        r = tpm2_context_new_or_warn(/* device= */ NULL, &tc);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate TPM2 context: %m");
+                return r;
 
         if (!tpm2_supports_command(tc, TPM2_CC_PolicyAuthorizeNV))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 does not support PolicyAuthorizeNV command, refusing.");
@@ -4836,7 +4836,7 @@ static int undefine_policy_nv_index(
         assert(srk_blob);
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
-        r = tpm2_context_new(NULL, &tc);
+        r = tpm2_context_new_or_warn(/* device= */ NULL, &tc);
         if (r < 0)
                 return r;
 

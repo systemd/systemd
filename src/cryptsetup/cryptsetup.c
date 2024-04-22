@@ -919,9 +919,9 @@ static int measure_volume_key(
 
 #if HAVE_TPM2
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-        r = tpm2_context_new(arg_tpm2_device, &c);
+        r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
         if (r < 0)
-                return log_error_errno(r, "Failed to create TPM2 context: %m");
+                return r;
 
         _cleanup_strv_free_ char **l = NULL;
         if (strv_isempty(arg_tpm2_measure_banks)) {
