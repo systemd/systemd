@@ -13,22 +13,21 @@
 #include "verbs.h"
 #include "virt.h"
 
-/* Wraps running_in_chroot() which is used in various places, but also adds an environment variable check so external
- * processes can reliably force this on.
- */
+/* Wraps running_in_chroot() which is used in various places, but also adds an environment variable check
+ * so external processes can reliably force this on. */
 bool running_in_chroot_or_offline(void) {
         int r;
 
-        /* Added to support use cases like rpm-ostree, where from %post scripts we only want to execute "preset", but
-         * not "start"/"restart" for example.
+        /* Added to support use cases like rpm-ostree, where from %post scripts we only want to execute "preset",
+         * but not "start"/"restart" for example.
          *
          * See docs/ENVIRONMENT.md for docs.
          */
         r = getenv_bool("SYSTEMD_OFFLINE");
-        if (r < 0 && r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $SYSTEMD_OFFLINE: %m");
-        else if (r >= 0)
+        if (r >= 0)
                 return r > 0;
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_OFFLINE, ignoring: %m");
 
         /* We've had this condition check for a long time which basically checks for legacy chroot case like Fedora's
          * "mock", which is used for package builds.  We don't want to try to start systemd services there, since
@@ -40,8 +39,7 @@ bool running_in_chroot_or_offline(void) {
          */
         r = running_in_chroot();
         if (r < 0)
-                log_debug_errno(r, "running_in_chroot(): %m");
-
+                log_debug_errno(r, "Failed to check if we're running in chroot, assuming not: %m");
         return r > 0;
 }
 
@@ -145,7 +143,18 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown command verb '%s'.", name);
                 }
 
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Command verb required.");
+                _cleanup_free_ char *verb_list = NULL;
+
+                for (size_t i = 0; verbs[i].dispatch; i++)
+                        if (!strextend_with_separator(&verb_list, ", ", verbs[i].verb)) {
+                                log_oom_warning();
+                                verb_list = free(verb_list);
+                                break;
+                        }
+
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Command verb required%s%s%s.",
+                                       verb_list ? " (one of " : "", strempty(verb_list), verb_list ? ")" : "");
         }
 
         if (!name)
