@@ -4,8 +4,6 @@
 #include <unistd.h>
 
 #include "build.h"
-#include "bus-error.h"
-#include "bus-locator.h"
 #include "chase.h"
 #include "conf-files.h"
 #include "constants.h"
@@ -15,7 +13,6 @@
 #include "format-table.h"
 #include "glyph-util.h"
 #include "hexdecoct.h"
-#include "login-util.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "os-util.h"
@@ -25,12 +22,14 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "set.h"
+#include "signal-util.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sysupdate.h"
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
-#include "sysupdate.h"
+#include "sysupdate-util.h"
 #include "terminal-util.h"
 #include "utf8.h"
 #include "verbs.h"
@@ -47,6 +46,7 @@ static bool arg_reboot = false;
 static char *arg_component = NULL;
 static int arg_verify = -1;
 static ImagePolicy *arg_image_policy = NULL;
+static bool arg_offline = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -62,6 +62,8 @@ typedef struct Context {
         size_t n_update_sets;
 
         UpdateSet *newest_installed, *candidate;
+
+        char *changelog, *appstream;
 
         Hashmap *web_cache; /* Cache for downloaded resources, keyed by URL */
 } Context;
@@ -160,6 +162,15 @@ static int context_read_definitions(
         }
 
         for (size_t i = 0; i < c->n_transfers; i++) {
+                if (c->transfers[i]->changelog && c->changelog)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Only one transfer definition can have Changelog= set.");
+                if (c->transfers[i]->appstream && c->appstream)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Only one transfer definition can have Appstream= set.");
+                c->changelog = c->transfers[i]->changelog;
+                c->appstream = c->transfers[i]->appstream;
+
                 r = transfer_resolve_paths(c->transfers[i], root, node);
                 if (r < 0)
                         return r;
@@ -355,70 +366,17 @@ static int context_discover_update_sets(Context *c) {
         if (r < 0)
                 return r;
 
-        log_info("Determining available update sets%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+        if (!arg_offline) {
+                log_info("Determining available update sets%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
-        r = context_discover_update_sets_by_flag(c, UPDATE_AVAILABLE);
-        if (r < 0)
-                return r;
+                r = context_discover_update_sets_by_flag(c, UPDATE_AVAILABLE);
+                if (r < 0)
+                        return r;
+        }
 
         typesafe_qsort(c->update_sets, c->n_update_sets, update_set_cmp);
         return 0;
 }
-
-static const char *update_set_flags_to_string(UpdateSetFlags flags) {
-
-        switch ((unsigned) flags) {
-
-        case 0:
-                return "n/a";
-
-        case UPDATE_INSTALLED|UPDATE_NEWEST:
-        case UPDATE_INSTALLED|UPDATE_NEWEST|UPDATE_PROTECTED:
-        case UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST:
-        case UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST|UPDATE_PROTECTED:
-                return "current";
-
-        case UPDATE_AVAILABLE|UPDATE_NEWEST:
-        case UPDATE_AVAILABLE|UPDATE_NEWEST|UPDATE_PROTECTED:
-                return "candidate";
-
-        case UPDATE_INSTALLED:
-        case UPDATE_INSTALLED|UPDATE_AVAILABLE:
-                return "installed";
-
-        case UPDATE_INSTALLED|UPDATE_PROTECTED:
-        case UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_PROTECTED:
-                return "protected";
-
-        case UPDATE_AVAILABLE:
-        case UPDATE_AVAILABLE|UPDATE_PROTECTED:
-                return "available";
-
-        case UPDATE_INSTALLED|UPDATE_OBSOLETE|UPDATE_NEWEST:
-        case UPDATE_INSTALLED|UPDATE_OBSOLETE|UPDATE_NEWEST|UPDATE_PROTECTED:
-        case UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_OBSOLETE|UPDATE_NEWEST:
-        case UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_OBSOLETE|UPDATE_NEWEST|UPDATE_PROTECTED:
-                return "current+obsolete";
-
-        case UPDATE_INSTALLED|UPDATE_OBSOLETE:
-        case UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_OBSOLETE:
-                return "installed+obsolete";
-
-        case UPDATE_INSTALLED|UPDATE_OBSOLETE|UPDATE_PROTECTED:
-        case UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_OBSOLETE|UPDATE_PROTECTED:
-                return "protected+obsolete";
-
-        case UPDATE_AVAILABLE|UPDATE_OBSOLETE:
-        case UPDATE_AVAILABLE|UPDATE_OBSOLETE|UPDATE_PROTECTED:
-        case UPDATE_AVAILABLE|UPDATE_OBSOLETE|UPDATE_NEWEST:
-        case UPDATE_AVAILABLE|UPDATE_OBSOLETE|UPDATE_NEWEST|UPDATE_PROTECTED:
-                return "available+obsolete";
-
-        default:
-                assert_not_reached();
-        }
-}
-
 
 static int context_show_table(Context *c) {
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -474,7 +432,9 @@ static int context_show_version(Context *c, const char *version) {
                 have_fs_attributes = false, have_partition_attributes = false,
                 have_size = false, have_tries = false, have_no_auto = false,
                 have_read_only = false, have_growfs = false, have_sha256 = false;
+        _cleanup_(json_variant_unrefp) JsonVariant *json = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *changelog_url = NULL, *changelog_link = NULL;
         UpdateSet *us;
         int r;
 
@@ -487,21 +447,6 @@ static int context_show_version(Context *c, const char *version) {
 
         if (arg_json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
                 (void) pager_open(arg_pager_flags);
-
-        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
-                printf("%s%s%s Version: %s\n"
-                       "    State: %s%s%s\n"
-                       "Installed: %s%s\n"
-                       "Available: %s%s\n"
-                       "Protected: %s%s%s\n"
-                       " Obsolete: %s%s%s\n\n",
-                       strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_glyph(us->flags), ansi_normal(), us->version,
-                       strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_string(us->flags), ansi_normal(),
-                       yes_no(us->flags & UPDATE_INSTALLED), FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_NEWEST) ? " (newest)" : "",
-                       yes_no(us->flags & UPDATE_AVAILABLE), (us->flags & (UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST)) == (UPDATE_AVAILABLE|UPDATE_NEWEST) ? " (newest)" : "",
-                       FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED) ? ansi_highlight() : "", yes_no(FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED)), ansi_normal(),
-                       us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal());
-
 
         t = table_new("type", "path", "ptuuid", "ptflags", "mtime", "mode", "size", "tries-done", "tries-left", "noauto", "ro", "growfs", "sha256");
         if (!t)
@@ -661,7 +606,58 @@ static int context_show_version(Context *c, const char *version) {
         if (!have_sha256)
                 (void) table_hide_column_from_display(t, 12);
 
-        return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+        if (c->changelog) {
+                changelog_url = strreplace(c->changelog, "@v", version);
+                if (!changelog_url)
+                        return log_oom();
+                r = terminal_urlify(changelog_url, NULL, &changelog_link);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                printf("%s%s%s Version: %s\n"
+                       "    State: %s%s%s\n"
+                       "Installed: %s%s\n"
+                       "Available: %s%s\n"
+                       "Protected: %s%s%s\n"
+                       " Obsolete: %s%s%s\n"
+                       "Changelog: %s\n\n",
+                       strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_glyph(us->flags), ansi_normal(), us->version,
+                       strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_string(us->flags), ansi_normal(),
+                       yes_no(us->flags & UPDATE_INSTALLED), FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_NEWEST) ? " (newest)" : "",
+                       yes_no(us->flags & UPDATE_AVAILABLE), (us->flags & (UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST)) == (UPDATE_AVAILABLE|UPDATE_NEWEST) ? " (newest)" : "",
+                       FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED) ? ansi_highlight() : "", yes_no(FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED)), ansi_normal(),
+                       us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal(),
+                       strna(changelog_link));
+
+                return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+        } else {
+                _cleanup_(json_variant_unrefp) JsonVariant *t_json = NULL;
+
+                r = table_to_json(t, &t_json);
+                if (r < 0)
+                        return log_error_errno(r, "failed to convert table to JSON: %m");
+
+                r = json_build(&json, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_STRING("version", us->version),
+                                        JSON_BUILD_PAIR_BOOLEAN("newest", FLAGS_SET(us->flags, UPDATE_NEWEST)),
+                                        JSON_BUILD_PAIR_BOOLEAN("available", FLAGS_SET(us->flags, UPDATE_AVAILABLE)),
+                                        JSON_BUILD_PAIR_BOOLEAN("installed", FLAGS_SET(us->flags, UPDATE_INSTALLED)),
+                                        JSON_BUILD_PAIR_BOOLEAN("obsolete", FLAGS_SET(us->flags, UPDATE_OBSOLETE)),
+                                        JSON_BUILD_PAIR_BOOLEAN("protected", FLAGS_SET(us->flags, UPDATE_PROTECTED)),
+                                        JSON_BUILD_PAIR_STRING("changelog-url", changelog_url),
+                                        JSON_BUILD_PAIR_VARIANT("contents", t_json)));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create JSON: %m");
+
+                r = json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to print JSON: %m");
+
+                return 0;
+
+        }
 }
 
 static int context_vacuum(
@@ -686,10 +682,22 @@ static int context_vacuum(
                 count = MAX(count, r);
         }
 
-        if (count > 0)
-                log_info("Removed %i instances.", count);
-        else
-                log_info("Removed no instances.");
+        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                if (count > 0)
+                        log_info("Removed %i instances.", count);
+                else
+                        log_info("Removed no instances.");
+        } else {
+                _cleanup_(json_variant_unrefp) JsonVariant *json = NULL;
+
+                r = json_variant_new_integer(&json, count);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create JSON: %m");
+
+                r = json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to print JSON: %m");
+        }
 
         return 0;
 }
@@ -726,15 +734,17 @@ static int context_make_online(Context **ret, const char *node) {
         assert(ret);
 
         /* Like context_make_offline(), but also communicates with the update source looking for new
-         * versions. */
+         * versions (as long as --offline is not specified on the command line). */
 
         r = context_make_offline(&context, node);
         if (r < 0)
                 return r;
 
-        r = context_load_available_instances(context);
-        if (r < 0)
-                return r;
+        if (!arg_offline) {
+                r = context_load_available_instances(context);
+                if (r < 0)
+                        return r;
+        }
 
         r = context_discover_update_sets(context);
         if (r < 0)
@@ -742,6 +752,30 @@ static int context_make_online(Context **ret, const char *node) {
 
         *ret = TAKE_PTR(context);
         return 0;
+}
+
+static int context_on_acquire_progress(const Transfer *t, const Instance *inst, unsigned percentage, void *userdata) {
+        const Context *c = ASSERT_PTR(userdata);
+        size_t i, n = c->n_transfers;
+        uint64_t base, scaled;
+        unsigned overall;
+
+        for (i = 0; i < n; i++)
+                if (c->transfers[i] == t)
+                        break;
+        assert(i < n); /* We should have found the index */
+
+        base = (100 * 100 * i) / n;
+        scaled = (100 * percentage) / n;
+        overall = (unsigned) (base + scaled) / 100;
+        assert(overall <= 100);
+
+        log_debug("Transfer %zu/%zu is %u%% complete (%u%% overall).", i+1, n, percentage, overall);
+        return sd_notifyf(false, "X_UPDATE_PROGRESS=%u\n"
+                                 "X_UPDATE_FILES_LEFT=%zu\n"
+                                 "X_UPDATE_FILES_DONE=%zu\n"
+                                 "STATUS=Updating to '%s' (%u%% complete).",
+                                 overall, n - i, i, inst->metadata.version, overall);
 }
 
 static int context_apply(
@@ -794,7 +828,9 @@ static int context_apply(
         log_info("Selected update '%s' for install.", us->version);
 
         (void) sd_notifyf(false,
-                          "STATUS=Making room for '%s'.", us->version);
+                          "READY=1\n" /* Tell sysupdated that we've started working */
+                          "X_UPDATE_VERSION=%s\n"
+                          "STATUS=Making room for '%s'.", us->version, us->version);
 
         /* Let's make some room. We make sure for each transfer we have one free space to fill. While
          * removing stuff we'll protect the version we are trying to acquire. Why that? Maybe an earlier
@@ -816,13 +852,17 @@ static int context_apply(
         assert(us->n_instances == c->n_transfers);
 
         for (size_t i = 0; i < c->n_transfers; i++) {
-                r = transfer_acquire_instance(c->transfers[i], us->instances[i]);
+                r = transfer_acquire_instance(c->transfers[i], us->instances[i],
+                                              context_on_acquire_progress, c);
                 if (r < 0)
                         return r;
         }
 
         if (arg_sync)
                 sync();
+
+        (void) sd_notifyf(false,
+                          "STATUS=Installing '%s'.\n", us->version);
 
         for (size_t i = 0; i < c->n_transfers; i++) {
                 r = transfer_install_instance(c->transfers[i], us->instances[i], arg_root);
@@ -836,23 +876,6 @@ static int context_apply(
                 *ret_applied = us;
 
         return 1;
-}
-
-static int reboot_now(void) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
-        int r;
-
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open bus connection: %m");
-
-        r = bus_call_method(bus, bus_login_mgr, "RebootWithFlags", &error, NULL, "t",
-                            (uint64_t) SD_LOGIND_ROOT_CHECK_INHIBITORS);
-        if (r < 0)
-                return log_error_errno(r, "Failed to issue reboot request: %s", bus_error_message(&error, r));
-
-        return 0;
 }
 
 static int process_image(
@@ -920,8 +943,38 @@ static int verb_list(int argc, char **argv, void *userdata) {
 
         if (version)
                 return context_show_version(context, version);
-        else
+        else if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
                 return context_show_table(context);
+        else {
+                _cleanup_(json_variant_unrefp) JsonVariant *json = NULL;
+                _cleanup_strv_free_ char **versions = NULL;
+                const char *current = NULL;
+
+                for (size_t i = 0; i < context->n_update_sets; i++) {
+                        UpdateSet *us = context->update_sets[i];
+
+                        if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
+                            FLAGS_SET(us->flags, UPDATE_NEWEST))
+                                current = us->version;
+
+                        r = strv_extend(&versions, us->version);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                r = json_build(&json, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_STRING("current", current),
+                                        JSON_BUILD_PAIR_STRV("all", versions),
+                                        JSON_BUILD_PAIR_STRING("appstream-url", context->appstream)));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create JSON: %m");
+
+                r = json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to print JSON: %m");
+
+                return 0;
+        }
 }
 
 static int verb_check_new(int argc, char **argv, void *userdata) {
@@ -940,12 +993,28 @@ static int verb_check_new(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        if (!context->candidate) {
-                log_debug("No candidate found.");
-                return EXIT_FAILURE;
+        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                if (!context->candidate) {
+                        log_debug("No candidate found.");
+                        return EXIT_FAILURE;
+                }
+
+                puts(context->candidate->version);
+        } else {
+                _cleanup_(json_variant_unrefp) JsonVariant *json = NULL;
+
+                if (context->candidate)
+                        r = json_variant_new_string(&json, context->candidate->version);
+                else
+                        r = json_variant_new_null(&json);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create JSON: %m");
+
+                r = json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to print JSON: %m");
         }
 
-        puts(context->candidate->version);
         return EXIT_SUCCESS;
 }
 
@@ -1164,23 +1233,37 @@ static int verb_components(int argc, char **argv, void *userdata) {
                 }
         }
 
-        if (!has_default_component && set_isempty(names)) {
-                log_info("No components defined.");
-                return 0;
-        }
-
         z = set_get_strv(names);
         if (!z)
                 return log_oom();
 
         strv_sort(z);
 
-        if (has_default_component)
-                printf("%s<default>%s\n",
-                       ansi_highlight(), ansi_normal());
+        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                if (!has_default_component && set_isempty(names)) {
+                        log_info("No components defined.");
+                        return 0;
+                }
 
-        STRV_FOREACH(i, z)
-                puts(*i);
+                if (has_default_component)
+                        printf("%s<default>%s\n",
+                               ansi_highlight(), ansi_normal());
+
+                STRV_FOREACH(i, z)
+                        puts(*i);
+        } else {
+                _cleanup_(json_variant_unrefp) JsonVariant *json = NULL;
+
+                r = json_build(&json, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_BOOLEAN("default", has_default_component),
+                                        JSON_BUILD_PAIR_STRV("components", z)));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create JSON: %m");
+
+                r = json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to print JSON: %m");
+        }
 
         return 0;
 }
@@ -1217,6 +1300,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --sync=BOOL          Controls whether to sync data to disk\n"
                "     --verify=BOOL        Force signature verification on or off\n"
                "     --reboot             Reboot after updating to newer version\n"
+               "     --offline            Do not fetch metadata from the network\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
                "     --json=pretty|short|off\n"
@@ -1246,6 +1330,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE_POLICY,
                 ARG_REBOOT,
                 ARG_VERIFY,
+                ARG_OFFLINE,
         };
 
         static const struct option options[] = {
@@ -1263,6 +1348,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "reboot",            no_argument,       NULL, ARG_REBOOT            },
                 { "component",         required_argument, NULL, 'C'                   },
                 { "verify",            required_argument, NULL, ARG_VERIFY            },
+                { "offline",           no_argument,       NULL, ARG_OFFLINE           },
                 {}
         };
 
@@ -1366,6 +1452,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_OFFLINE:
+                        arg_offline = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1411,6 +1501,9 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        /* SIGCHLD signal must be blocked for sd_event_add_child to work */
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
         return sysupdate_main(argc, argv);
 }
