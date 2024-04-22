@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-04-22 14:31+0100\n"
+"POT-Creation-Date: 2024-04-22 14:09+0100\n"
 "PO-Revision-Date: 2024-04-22 07:15+0000\n"
 "Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
 "Language-Team: Slovenian <https://translate.fedoraproject.org/projects/"
@@ -158,13 +158,11 @@ msgstr ""
 "domačega območja."
 
 #: src/home/org.freedesktop.home1.policy:73
-#: src/home/org.freedesktop.home1.policy:83
 #, fuzzy
 msgid "Activate a home area"
 msgstr "Aktiviranje domačega območja"
 
 #: src/home/org.freedesktop.home1.policy:74
-#: src/home/org.freedesktop.home1.policy:84
 #, fuzzy
 msgid "Authentication is required to activate a user's home area."
 msgstr ""
@@ -1412,15 +1410,14 @@ msgstr ""
 "Preverjanje pristnosti je potrebno za zamrznitev ali odmrzovanje postopkov "
 "enote »$(enota)«."
 
-#: src/home/org.freedesktop.home1.policy:73
 #, fuzzy
-msgid "Inhibit automatic lock of a home area"
-msgstr "Zaviranje samodejnega zaklepanja domačega območja"
+#~ msgid "Inhibit automatic lock of a home area"
+#~ msgstr "Zaviranje samodejnega zaklepanja domačega območja"
 
-#: src/home/org.freedesktop.home1.policy:74
 #, fuzzy
-msgid ""
-"Authentication is required to inhibit automatic lock of a user's home area."
-msgstr ""
-"Preverjanje pristnosti je potrebno za preprečevanje samodejnega zaklepanja "
-"uporabnikovega domačega območja."
+#~ msgid ""
+#~ "Authentication is required to inhibit automatic lock of a user's home "
+#~ "area."
+#~ msgstr ""
+#~ "Preverjanje pristnosti je potrebno za preprečevanje samodejnega "
+#~ "zaklepanja uporabnikovega domačega območja."
