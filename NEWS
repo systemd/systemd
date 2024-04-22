@@ -198,6 +198,14 @@ CHANGES WITH 256-rc1:
           PID 1 will start to have the effect of shutting down the system
           cleanly).
 
+        * New D-Bus properties ExecMainHandoverTimestamp and
+          ExecMainHandoverTimestampMonotonic are now published by services of
+          type exec, dbus, notify, and notify-reload.
+          This timestamp is taken as the very last operation before executing
+          a service's binary, which allows users to accurately track when
+          execution control of the process is handed over from systemd to the
+          payload.
+
         Journal:
 
         * systemd-journald can now forward journal entries to a socket
