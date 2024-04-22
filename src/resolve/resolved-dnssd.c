@@ -48,7 +48,7 @@ DnssdService *dnssd_service_free(DnssdService *service) {
 
         dnssd_txtdata_free_all(service->txt_data_items);
 
-        free(service->filename);
+        free(service->path);
         free(service->name);
         free(service->type);
         free(service->subtype);
@@ -67,7 +67,7 @@ void dnssd_service_clear_on_reload(Hashmap *services) {
                 }
 }
 
-static int dnssd_service_load(Manager *manager, const char *filename) {
+static int dnssd_service_load(Manager *manager, const char *path) {
         _cleanup_(dnssd_service_freep) DnssdService *service = NULL;
         _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
         char *d;
@@ -75,17 +75,17 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
         int r;
 
         assert(manager);
-        assert(filename);
+        assert(path);
 
         service = new0(DnssdService, 1);
         if (!service)
                 return log_oom();
 
-        service->filename = strdup(filename);
-        if (!service->filename)
+        service->path = strdup(path);
+        if (!service->path)
                 return log_oom();
 
-        service->name = strdup(basename(filename));
+        service->name = strdup(basename(path));
         if (!service->name)
                 return log_oom();
 
@@ -100,7 +100,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
         dropin_dirname = strjoina(service->name, ".dnssd.d");
 
         r = config_parse_many(
-                        STRV_MAKE_CONST(filename), DNSSD_SERVICE_DIRS, dropin_dirname, /* root = */ NULL,
+                        STRV_MAKE_CONST(path), DNSSD_SERVICE_DIRS, dropin_dirname, /* root = */ NULL,
                         "Service\0",
                         config_item_perf_lookup, resolved_dnssd_gperf_lookup,
                         CONFIG_PARSE_WARN,
