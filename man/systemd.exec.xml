@@ -443,6 +443,9 @@
         that in this case both read-only and regular bind mounts are reset, regardless which of the two settings is
         used.</para>
 
+        <para>Using this option implies that a mount namespace is allocated for the unit, i.e. it implies the
+        effect of <varname>PrivateMounts=</varname> (see below).</para>
+
         <para>This option is particularly useful when <varname>RootDirectory=</varname>/<varname>RootImage=</varname>
         is used. In this case the source path refers to a path on the host file system, while the destination path
         refers to a path below the root directory of the unit.</para>
@@ -1380,6 +1383,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
     accessible to privileged processes. However, most namespacing settings, that will not work on their own in user
     services, will work when used in conjunction with <varname>PrivateUsers=</varname><option>true</option>.</para>
 
+    <para>Note that the various options that turn directories read-only (such as
+    <varname>ProtectSystem=</varname>, <varname>ReadOnlyPaths=</varname>, …) do not affect the ability for
+    programs to connect to and communicate with <constant>AF_UNIX</constant> sockets in these
+    directores. These options cannot be used to lock down access to IPC services hence.</para>
+
     <variablelist class='unit-directives'>
 
       <varlistentry>
@@ -1393,14 +1401,16 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         mounted read-only, except for the API file system subtrees <filename>/dev/</filename>,
         <filename>/proc/</filename> and <filename>/sys/</filename> (protect these directories using
         <varname>PrivateDevices=</varname>, <varname>ProtectKernelTunables=</varname>,
-        <varname>ProtectControlGroups=</varname>). This setting ensures that any modification of the vendor-supplied
-        operating system (and optionally its configuration, and local mounts) is prohibited for the service. It is
-        recommended to enable this setting for all long-running services, unless they are involved with system updates
-        or need to modify the operating system in other ways. If this option is used,
-        <varname>ReadWritePaths=</varname> may be used to exclude specific directories from being made read-only. This
-        setting is implied if <varname>DynamicUser=</varname> is set. This setting cannot ensure protection in all
-        cases. In general it has the same limitations as <varname>ReadOnlyPaths=</varname>, see below. Defaults to
-        off.</para>
+        <varname>ProtectControlGroups=</varname>). This setting ensures that any modification of the
+        vendor-supplied operating system (and optionally its configuration, and local mounts) is prohibited
+        for the service. It is recommended to enable this setting for all long-running services, unless they
+        are involved with system updates or need to modify the operating system in other ways. If this option
+        is used, <varname>ReadWritePaths=</varname> may be used to exclude specific directories from being
+        made read-only. Similar, <varname>StateDirectory=</varname>, <varname>LogsDirectory=</varname>, … and
+        related directory settings (see below) also exclude the specific directories from the effect of
+        <varname>ProtectSystem=</varname>. This setting is implied if <varname>DynamicUser=</varname> is
+        set. This setting cannot ensure protection in all cases. In general it has the same limitations as
+        <varname>ReadOnlyPaths=</varname>, see below. Defaults to off.</para>
 
         <xi:include href="version-info.xml" xpointer="v214"/></listitem>
       </varlistentry>
@@ -2372,8 +2382,9 @@ RestrictNamespaces=~cgroup net</programlisting>
         <para>Other file system namespace unit settings — <varname>PrivateTmp=</varname>,
         <varname>PrivateDevices=</varname>, <varname>ProtectSystem=</varname>,
         <varname>ProtectHome=</varname>, <varname>ReadOnlyPaths=</varname>,
-        <varname>InaccessiblePaths=</varname>, <varname>ReadWritePaths=</varname>, … — also enable file
-        system namespacing in a fashion equivalent to this option. Hence it is primarily useful to explicitly
+        <varname>InaccessiblePaths=</varname>, <varname>ReadWritePaths=</varname>,
+        <varname>BindPaths=</varname>, <varname>BindReadOnlyPaths=</varname>, … — also enable file system
+        namespacing in a fashion equivalent to this option. Hence it is primarily useful to explicitly
         request this behaviour if none of the other settings are used.</para>
 
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
@@ -3132,6 +3143,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         values are indexed may also be used to implement cross-unit log record matching. Assign an empty
         string to reset the list.</para>
 
+        <para>Note that this functionality is currently only available in system services, not in per-user
+        services.</para>
+
         <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
@@ -3186,6 +3200,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         unit are not taken into account. Filtered log messages won't be forwarded to traditional syslog daemons,
         the kernel log buffer (kmsg), the systemd console, or sent as wall messages to all logged-in
         users.</para>
+
+        <para>Note that this functionality is currently only available in system services, not in per-user
+        services.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>

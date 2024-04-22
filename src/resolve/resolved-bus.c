@@ -11,6 +11,7 @@
 #include "format-util.h"
 #include "memory-util.h"
 #include "missing_capability.h"
+#include "path-util.h"
 #include "resolved-bus.h"
 #include "resolved-def.h"
 #include "resolved-dns-stream.h"
@@ -1866,7 +1867,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         _cleanup_(dnssd_service_freep) DnssdService *service = NULL;
         _cleanup_(sd_bus_track_unrefp) sd_bus_track *bus_track = NULL;
-        const char *name, *name_template, *type;
+        const char *id, *name_template, *type;
         _cleanup_free_ char *path = NULL;
         DnssdService *s = NULL;
         Manager *m = ASSERT_PTR(userdata);
@@ -1892,21 +1893,24 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         service->originator = euid;
         service->config_source = RESOLVE_CONFIG_SOURCE_DBUS;
 
-        r = sd_bus_message_read(message, "sssqqq", &name, &name_template, &type,
+        r = sd_bus_message_read(message, "sssqqq", &id, &name_template, &type,
                                 &service->port, &service->priority,
                                 &service->weight);
         if (r < 0)
                 return r;
 
-        s = hashmap_get(m->dnssd_services, name);
-        if (s)
-                return sd_bus_error_setf(error, BUS_ERROR_DNSSD_SERVICE_EXISTS, "DNS-SD service '%s' exists already", name);
+        if (!filename_part_is_valid(id))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DNS-SD service identifier '%s' is invalid", id);
 
         if (!dnssd_srv_type_is_valid(type))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DNS-SD service type '%s' is invalid", type);
 
-        service->name = strdup(name);
-        if (!service->name)
+        s = hashmap_get(m->dnssd_services, id);
+        if (s)
+                return sd_bus_error_setf(error, BUS_ERROR_DNSSD_SERVICE_EXISTS, "DNS-SD service '%s' exists already", id);
+
+        service->id = strdup(id);
+        if (!service->id)
                 return log_oom();
 
         service->name_template = strdup(name_template);
@@ -1999,7 +2003,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                 txt_data = NULL;
         }
 
-        r = sd_bus_path_encode("/org/freedesktop/resolve1/dnssd", service->name, &path);
+        r = sd_bus_path_encode("/org/freedesktop/resolve1/dnssd", service->id, &path);
         if (r < 0)
                 return r;
 
@@ -2014,7 +2018,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        r = hashmap_ensure_put(&m->dnssd_services, &string_hash_ops, service->name, service);
+        r = hashmap_ensure_put(&m->dnssd_services, &string_hash_ops, service->id, service);
         if (r < 0)
                 return r;
 
@@ -2178,7 +2182,7 @@ static const sd_bus_vtable resolve_vtable[] = {
                                 bus_method_revert_link,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("RegisterService",
-                                SD_BUS_ARGS("s", name,
+                                SD_BUS_ARGS("s", id,
                                             "s", name_template,
                                             "s", type,
                                             "q", service_port,

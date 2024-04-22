@@ -1349,7 +1349,7 @@ void manager_refresh_rrs(Manager *m) {
         if (m->mdns_support == RESOLVE_SUPPORT_YES)
                 HASHMAP_FOREACH(s, m->dnssd_services)
                         if (dnssd_update_rrs(s) < 0)
-                                log_warning("Failed to refresh DNS-SD service '%s'", s->name);
+                                log_warning("Failed to refresh DNS-SD service '%s'", s->id);
 
         HASHMAP_FOREACH(l, m->links)
                 link_add_rrs(l, false);
@@ -1778,7 +1778,7 @@ bool manager_next_dnssd_names(Manager *m) {
 
                 r = manager_next_random_name(s->name_template, &new_name);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to get new name for service '%s': %m", s->name);
+                        log_warning_errno(r, "Failed to get new name for service '%s': %m", s->id);
                         continue;
                 }
 
