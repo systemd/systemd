@@ -167,7 +167,10 @@ int fd_nonblock(int fd, bool nonblock) {
         if (nflags == flags)
                 return 0;
 
-        return RET_NERRNO(fcntl(fd, F_SETFL, nflags));
+        if (fcntl(fd, F_SETFL, nflags) < 0)
+                return -errno;
+
+        return 1;
 }
 
 int stdio_disable_nonblock(void) {
