@@ -13,22 +13,21 @@
 #include "verbs.h"
 #include "virt.h"
 
-/* Wraps running_in_chroot() which is used in various places, but also adds an environment variable check so external
- * processes can reliably force this on.
- */
+/* Wraps running_in_chroot() which is used in various places, but also adds an environment variable check
+ * so external processes can reliably force this on. */
 bool running_in_chroot_or_offline(void) {
         int r;
 
-        /* Added to support use cases like rpm-ostree, where from %post scripts we only want to execute "preset", but
-         * not "start"/"restart" for example.
+        /* Added to support use cases like rpm-ostree, where from %post scripts we only want to execute "preset",
+         * but not "start"/"restart" for example.
          *
          * See docs/ENVIRONMENT.md for docs.
          */
         r = getenv_bool("SYSTEMD_OFFLINE");
-        if (r < 0 && r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $SYSTEMD_OFFLINE: %m");
-        else if (r >= 0)
+        if (r >= 0)
                 return r > 0;
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_OFFLINE, ignoring: %m");
 
         /* We've had this condition check for a long time which basically checks for legacy chroot case like Fedora's
          * "mock", which is used for package builds.  We don't want to try to start systemd services there, since
@@ -40,8 +39,7 @@ bool running_in_chroot_or_offline(void) {
          */
         r = running_in_chroot();
         if (r < 0)
-                log_debug_errno(r, "running_in_chroot(): %m");
-
+                log_debug_errno(r, "Failed to check if we're running in chroot, assuming not: %m");
         return r > 0;
 }
 
