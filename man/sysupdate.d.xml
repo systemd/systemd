@@ -499,7 +499,9 @@
 
         <para>This setting supports specifier expansion. See below for details on supported
         specifiers. This setting will also expand the <literal>@v</literal> wildcard pattern. See above
-        for details.</para></listitem>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -516,7 +518,9 @@
         can include this setting.</para>
 
         <para>This setting supports specifier expansion. See below for details on supported
-        specifiers.</para></listitem>
+        specifiers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
