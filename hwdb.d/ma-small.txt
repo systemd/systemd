@@ -7157,6 +7157,18 @@ DC6000-DC6FFF     (base 16)		R&K
 				Cinisello Balsamo    20092
 				IT
 
+8C-1F-64   (hex)		SAKURA SEIKI Co., Ltd.
+580000-580FFF     (base 16)		SAKURA SEIKI Co., Ltd.
+				75-5 Imojiya
+				Chikuma  Nagano  3870015
+				JP
+
+8C-1F-64   (hex)		Aski Industrie Elektronik GmbH
+524000-524FFF     (base 16)		Aski Industrie Elektronik GmbH
+				Irrseeblick 47
+				Zell am Moos    4893
+				AT
+
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
 				7765 Old Telegraph Road
@@ -14312,6 +14324,24 @@ DBF000-DBFFFF     (base 16)		Rugged Controls
 				Seattle  WA  98199
 				US
 
+8C-1F-64   (hex)		Agrology, PBC
+A92000-A92FFF     (base 16)		Agrology, PBC
+				4700 Eisenhower Ave
+				Alexandria  VA  22304
+				US
+
+8C-1F-64   (hex)		SAXOGY POWER ELECTRONICS GmbH
+7EF000-7EFFFF     (base 16)		SAXOGY POWER ELECTRONICS GmbH
+				Dittesstr. 15
+				Chemnitz    09126
+				DE
+
+8C-1F-64   (hex)		secutech Co.,Ltd.
+A06000-A06FFF     (base 16)		secutech Co.,Ltd.
+				2nd Floor, 2013, Jungang-daero, Geumjeong-gu, Busan, Korea
+				Busan City,     46224
+				KR
+
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
 				5 Chemin de Chiradie
@@ -21374,23 +21404,35 @@ AA0000-AA0FFF     (base 16)		Flextronics International Kft
 				Zalaegerszeg  Zala  8900
 				HU
 
-8C-1F-64   (hex)		Exact Sciences
-4A8000-4A8FFF     (base 16)		Exact Sciences
-				5505 Endeavor Lane
-				Madison  WI  53719
-				US
-
 8C-1F-64   (hex)		YUANSIANG OPTOELECTRONICS CO.,LTD.
 221000-221FFF     (base 16)		YUANSIANG OPTOELECTRONICS CO.,LTD.
 				NO. 191, Sec. 3, Jianguo Rd., Fengshan Dist., Kaohsiung City 830, Taiwan
 				Kaohsiung  Taiwan  830
 				TW
 
+8C-1F-64   (hex)		Exact Sciences
+4A8000-4A8FFF     (base 16)		Exact Sciences
+				5505 Endeavor Lane
+				Madison  WI  53719
+				US
+
 8C-1F-64   (hex)		GuangZhou HOKO Electric CO.,LTD
 68C000-68CFFF     (base 16)		GuangZhou HOKO Electric CO.,LTD
 				No.68 building, 1850 ChangYiYuan, FangCun Road, LiWang District
 				GuangZhou  GuangDong  510370
 				CN
+
+8C-1F-64   (hex)		Sicon srl
+116000-116FFF     (base 16)		Sicon srl
+				Via Sila 1/3
+				Isola Vicentina  Vicenza  36033
+				IT
+
+8C-1F-64   (hex)		Potter Electric Signal Co. LLC
+4A7000-4A7FFF     (base 16)		Potter Electric Signal Co. LLC
+				1609 Park 370 Place
+				Hazelwood  MO  63042
+				US
 
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
@@ -28537,6 +28579,18 @@ E8A000-E8AFFF     (base 16)		Changzhou MITO electronics Technology Co;LTD
 				Block12,No.8,LanXiang Road,Wujin Economic District,ChangZhou,JiangSu,PRC
 				Changzhou    213064
 				CN
+
+8C-1F-64   (hex)		Beyond Laser Systems LLC
+D70000-D70FFF     (base 16)		Beyond Laser Systems LLC
+				501 NORTH IH 35
+				Austin  TX  78702
+				US
+
+8C-1F-64   (hex)		Oriux
+3BD000-3BDFFF     (base 16)		Oriux
+				5825 N. Sam Houston Pkwy WSuite 220 Houston TX 77086 United S
+				Houston  TX  77086
+				US
 
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
