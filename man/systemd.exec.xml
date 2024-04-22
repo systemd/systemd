@@ -1383,6 +1383,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
     accessible to privileged processes. However, most namespacing settings, that will not work on their own in user
     services, will work when used in conjunction with <varname>PrivateUsers=</varname><option>true</option>.</para>
 
+    <para>Note that the various options that turn directories read-only (such as
+    <varname>ProtectSystem=</varname>, <varname>ReadOnlyPaths=</varname>, …) do not affect the ability for
+    programs to connect to and communicate with <constant>AF_UNIX</constant> sockets in these
+    directores. These options cannot be used to lock down access to IPC services hence.</para>
+
     <variablelist class='unit-directives'>
 
       <varlistentry>
