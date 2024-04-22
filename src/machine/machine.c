@@ -88,20 +88,25 @@ Machine* machine_free(Machine *m) {
         while (m->operations)
                 operation_free(m->operations);
 
-        if (m->in_gc_queue)
+        if (m->in_gc_queue) {
+                assert(m->manager);
                 LIST_REMOVE(gc_queue, m->manager->machine_gc_queue, m);
+        }
 
         machine_release_unit(m);
 
         free(m->scope_job);
 
-        (void) hashmap_remove(m->manager->machines, m->name);
+        if (m->manager) {
+                (void) hashmap_remove(m->manager->machines, m->name);
 
-        if (m->manager->host_machine == m)
-                m->manager->host_machine = NULL;
+                if (m->manager->host_machine == m)
+                        m->manager->host_machine = NULL;
+        }
 
         if (pidref_is_set(&m->leader)) {
-                (void) hashmap_remove_value(m->manager->machine_leaders, PID_TO_PTR(m->leader.pid), m);
+                if (m->manager)
+                        (void) hashmap_remove_value(m->manager->machine_leaders, PID_TO_PTR(m->leader.pid), m);
                 pidref_done(&m->leader);
         }
 
