@@ -434,7 +434,7 @@ node /org/freedesktop/resolve1 {
       <para>The <function>RegisterService()</function> method may be used to register a DNS-SD service on the
       host. This functionality is closely related to the functionality provided by
       <citerefentry><refentrytitle>systemd.dnssd</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      files. It takes a server identifier string as first parameter (this is jus a local identifier, and
+      files. It takes a server identifier string as first parameter (this is just a local identifier, and
       should be chosen so that it neither collides with the basename of <filename>*.dnssd</filename> files
       nor with names chosen by other IPC clients). It also takes a name template string for the DNS-SD
       service name visible on the network. This string is subject to specifier expansation, as documented for
