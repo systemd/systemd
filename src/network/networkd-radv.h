@@ -65,9 +65,6 @@ Prefix *prefix_free(Prefix *prefix);
 RoutePrefix *route_prefix_free(RoutePrefix *prefix);
 pref64Prefix *pref64_prefix_free(pref64Prefix *prefix);
 
-void network_drop_invalid_prefixes(Network *network);
-void network_drop_invalid_route_prefixes(Network *network);
-void network_drop_invalid_pref64_prefixes(Network *network);
 void network_adjust_radv(Network *network);
 
 int link_request_radv_addresses(Link *link);
