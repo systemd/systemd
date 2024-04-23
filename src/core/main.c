@@ -1699,6 +1699,17 @@ static void cmdline_take_random_seed(void) {
                    "This functionality should not be used outside of testing environments.");
 }
 
+static void set_suid_dumpable(void) {
+        const char *sd_path = "/proc/sys/fs/suid_dumpable";
+        const char *value = "2";
+
+        /* Write suid_dumpable setting: */
+        int r = write_string_file(sd_path, value, 0);
+
+        if (r < 0)
+            log_emergency("Failed to write to /proc/sys/fs/suid_dumpable");
+}
+
 static void initialize_coredump(bool skip_setup) {
         if (getpid_cached() != 1)
                 return;
@@ -3147,6 +3158,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 /* A core pattern might have been specified via the cmdline. */
+                set_suid_dumpable();
                 initialize_core_pattern(skip_setup);
 
                 /* Make /usr/ read-only */
