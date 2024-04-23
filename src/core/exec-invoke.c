@@ -3519,7 +3519,7 @@ static int close_remaining_fds(
                 const int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
-        int dont_close[n_fds + 14];
+        int dont_close[n_fds + 15];
 
         assert(params);
 
@@ -3554,6 +3554,8 @@ static int close_remaining_fds(
 
         if (params->user_lookup_fd >= 0)
                 dont_close[n_dont_close++] = params->user_lookup_fd;
+
+        assert(n_dont_close <= ELEMENTSOF(dont_close));
 
         return close_all_fds(dont_close, n_dont_close);
 }
