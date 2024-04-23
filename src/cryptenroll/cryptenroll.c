@@ -4,8 +4,8 @@
 #include <sys/mman.h>
 
 #include "ask-password-api.h"
-#include "build.h"
 #include "blockdev-util.h"
+#include "build.h"
 #include "cryptenroll-fido2.h"
 #include "cryptenroll-list.h"
 #include "cryptenroll-password.h"
