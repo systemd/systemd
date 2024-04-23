@@ -4854,9 +4854,7 @@ char* manager_taint_string(const Manager *m) {
         if (os_release_support_ended(NULL, /* quiet= */ true, NULL) > 0)
                 stage[n++] = "support-ended";
 
-        _cleanup_free_ char *destination = NULL;
-        if (readlink_malloc("/var/run", &destination) < 0 ||
-            !PATH_IN_SET(destination, "../run", "/run"))
+        if (inode_same("/run", "/var/run", AT_NO_AUTOMOUNT) <= 0)
                 stage[n++] = "var-run-bad";
 
         _cleanup_free_ char *overflowuid = NULL, *overflowgid = NULL;
