@@ -658,8 +658,6 @@ static char** sanitize_environment(char **l) {
 }
 
 int manager_default_environment(Manager *m) {
-        int r;
-
         assert(m);
 
         m->transient_environment = strv_free(m->transient_environment);
@@ -670,8 +668,11 @@ int manager_default_environment(Manager *m) {
                  *
                  * The initial passed environment is untouched to keep /proc/self/environ valid; it is used
                  * for tagging the init process inside containers. */
-                m->transient_environment = strv_new("PATH=" DEFAULT_PATH);
-                if (!m->transient_environment)
+                char *path = strjoin("PATH=", default_PATH());
+                if (!path)
+                        return log_oom();
+
+                if (strv_consume(&m->transient_environment, path) < 0)
                         return log_oom();
 
                 /* Import locale variables LC_*= from configuration */
@@ -684,8 +685,11 @@ int manager_default_environment(Manager *m) {
                 if (!m->transient_environment)
                         return log_oom();
 
-                r = strv_env_replace_strdup(&m->transient_environment, "PATH=" DEFAULT_USER_PATH);
-                if (r < 0)
+                char *path = strjoin("PATH=", default_user_PATH());
+                if (!path)
+                        return log_oom();
+
+                if (strv_env_replace_consume(&m->transient_environment, path) < 0)
                         return log_oom();
 
                 /* Envvars set for our 'manager' class session are private and should not be propagated
@@ -5038,11 +5042,10 @@ LogTarget manager_get_executor_log_target(Manager *m) {
         assert(m);
 
         /* If journald is not available tell sd-executor to go to kmsg, as it might be starting journald */
+        if (!MANAGER_IS_TEST_RUN(m) && !manager_journal_is_running(m))
+                return LOG_TARGET_KMSG;
 
-        if (manager_journal_is_running(m))
-                return log_get_target();
-
-        return LOG_TARGET_KMSG;
+        return log_get_target();
 }
 
 static const char* const manager_state_table[_MANAGER_STATE_MAX] = {

@@ -256,7 +256,7 @@ fail:
         return r;
 }
 
-static bool stderr_is_journal(void) {
+bool stderr_is_journal(void) {
         _cleanup_free_ char *w = NULL;
         const char *e;
         uint64_t dev, ino;
@@ -434,6 +434,8 @@ static int write_to_console(
                 const char *func,
                 const char *buffer) {
 
+        static int dumb = -1;
+
         char location[256],
              header_time[FORMAT_TIMESTAMP_MAX],
              prefix[1 + DECIMAL_STR_MAX(int) + 2],
@@ -444,6 +446,9 @@ static int write_to_console(
 
         if (console_fd < 0)
                 return 0;
+
+        if (dumb < 0)
+                dumb = getenv_terminal_is_dumb();
 
         if (LOG_PRI(level) > log_target_max_level[LOG_TARGET_CONSOLE])
                 return 0;
@@ -491,8 +496,9 @@ static int write_to_console(
         /* When writing to a TTY we output an extra '\r' (i.e. CR) first, to generate CRNL rather than just
          * NL. This is a robustness thing in case the TTY is currently in raw mode (specifically: has the
          * ONLCR flag off). We want that subsequent output definitely starts at the beginning of the line
-         * again, after all. If the TTY is not in raw mode the extra CR should not hurt. */
-        iovec[n++] = IOVEC_MAKE_STRING(check_console_fd_is_tty() ? "\r\n" : "\n");
+         * again, after all. If the TTY is not in raw mode the extra CR should not hurt. If we're writing to
+         * a dumb terminal, only write NL as CRNL might be interpreted as a double newline. */
+        iovec[n++] = IOVEC_MAKE_STRING(check_console_fd_is_tty() && !dumb ? "\r\n" : "\n");
 
         if (writev(console_fd, iovec, n) < 0) {
 

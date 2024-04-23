@@ -2400,17 +2400,31 @@ int make_run_host(const char *root) {
 }
 
 static int setup_credentials(const char *root) {
+        bool world_readable = false;
         const char *q;
         int r;
 
         if (arg_credentials.n_credentials == 0)
                 return 0;
 
+        /* If starting a single-process container as a non-root user, the uid will only be resolved after we
+         * are inside the inner child, when credential directories and files are already read-only, so they
+         * are unusable as the single process won't have access to them. We also don't have access to the
+         * uid that will actually be used from here, as we are setting credentials up from the outer child.
+         * In order to make them usable as requested by the configuration, make them world readable in that
+         * case, as by definition there are no other processes in that case besides the one being started,
+         * which is being configured to be able to access credentials, and any of its children which will
+         * inherit its privileges anyway. To ensure this, also enforce (and document) that
+         * --no-new-privileges is necessary for this combination to work. */
+        if (arg_no_new_privileges && !isempty(arg_user) && !STR_IN_SET(arg_user, "root", "0") &&
+            arg_start_mode == START_PID1)
+                world_readable = true;
+
         r = make_run_host(root);
         if (r < 0)
                 return r;
 
-        r = userns_mkdir(root, "/run/host/credentials", 0700, 0, 0);
+        r = userns_mkdir(root, "/run/host/credentials", world_readable ? 0777 : 0700, 0, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/host/credentials: %m");
 
@@ -2427,7 +2441,7 @@ static int setup_credentials(const char *root) {
                 if (!j)
                         return log_oom();
 
-                fd = open(j, O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC|O_NOFOLLOW, 0600);
+                fd = open(j, O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC|O_NOFOLLOW, world_readable ? 0666 : 0600);
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to create credential file %s: %m", j);
 
@@ -2435,7 +2449,7 @@ static int setup_credentials(const char *root) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to write credential to file %s: %m", j);
 
-                if (fchmod(fd, 0400) < 0)
+                if (fchmod(fd, world_readable ? 0444 : 0400) < 0)
                         return log_error_errno(errno, "Failed to adjust access mode of %s: %m", j);
 
                 if (arg_userns_mode != USER_NAMESPACE_NO) {
@@ -2444,7 +2458,7 @@ static int setup_credentials(const char *root) {
                 }
         }
 
-        if (chmod(q, 0500) < 0)
+        if (chmod(q, world_readable ? 0555 : 0500) < 0)
                 return log_error_errno(errno, "Failed to adjust access mode of %s: %m", q);
 
         r = userns_lchown(q, 0, 0);

@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-04 10:09+0100\n"
+"POT-Creation-Date: 2024-04-22 14:09+0100\n"
 "PO-Revision-Date: 2024-03-05 21:36+0000\n"
 "Last-Translator: Temuri Doghonadze <temuri.doghonadze@gmail.com>\n"
 "Language-Team: Georgian <https://translate.fedoraproject.org/projects/"
@@ -125,21 +125,10 @@ msgid ""
 msgstr "სახლის ტერიტორიის პაროლის შეცვლისთვის საჭიროა ავთენტიკაცია."
 
 #: src/home/org.freedesktop.home1.policy:73
-msgid "Inhibit automatic lock of a home area"
-msgstr "საწყისი ადგილის ავტომატური დაბლოკვის შეჩერება"
-
-#: src/home/org.freedesktop.home1.policy:74
-msgid ""
-"Authentication is required to inhibit automatic lock of a user's home area."
-msgstr ""
-"მომხმარებლის საწყისი ადგილის ავტომატური დაბლოკვის შესაჩერებლად აუცილებელია "
-"ავთენტიკაცია."
-
-#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr "საწყისი ადგილის აქტივაცია"
 
-#: src/home/org.freedesktop.home1.policy:84
+#: src/home/org.freedesktop.home1.policy:74
 msgid "Authentication is required to activate a user's home area."
 msgstr "მომხმარებლის საწყისი ადგილის აქტივაციისთვის აუცილებელია ავთენტიკაცია."
 
@@ -1010,6 +999,16 @@ msgstr "ქსელური ინტერფეისის თავიდ�
 #: src/network/org.freedesktop.network1.policy:177
 msgid "Authentication is required to reconfigure network interface."
 msgstr "ქსელური ინტერფეისის თავიდან მოსარგებად საჭიროა ავთენტიკაცია."
+
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available."
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"

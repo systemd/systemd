@@ -306,7 +306,29 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
         termios.c_cc[VMIN]   = 1;
 
         r = RET_NERRNO(tcsetattr(fd, TCSANOW, &termios));
+        if (r < 0) {
+                log_debug_errno(r, "Failed to set terminal parameters: %m");
+                goto finish;
+        }
 
+        if (!terminal_is_dumb()) {
+                r = fd_nonblock(fd, true);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
+                        goto finish;
+                }
+
+                 /* Enable line wrapping. */
+                (void) loop_write_full(fd, "\033[?7h", SIZE_MAX, 50 * USEC_PER_MSEC);
+
+                if (r > 0) {
+                        r = fd_nonblock(fd, false);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to set terminal back to blocking mode: %m");
+                                goto finish;
+                        }
+                }
+        }
 finish:
         /* Just in case, flush all crap out */
         (void) tcflush(fd, TCIOFLUSH);
@@ -1296,7 +1318,7 @@ static bool on_dev_null(void) {
         return cached_on_dev_null;
 }
 
-static bool getenv_terminal_is_dumb(void) {
+bool getenv_terminal_is_dumb(void) {
         const char *e;
 
         e = getenv("TERM");

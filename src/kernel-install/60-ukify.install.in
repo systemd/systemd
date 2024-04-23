@@ -150,7 +150,11 @@ def input_file_location(
 
 
 def uki_conf_location() -> Optional[Path]:
-    return input_file_location('uki.conf')
+    return input_file_location('uki.conf',
+                               '/etc/kernel',
+                               '/run/kernel',
+                               '/usr/local/lib/kernel',
+                               '/usr/lib/kernel')
 
 
 def devicetree_config_location() -> Optional[Path]:

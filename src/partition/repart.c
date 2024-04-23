@@ -4067,9 +4067,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Must provide all PCR values when using TPM2 device key.");
                 } else {
-                        r = tpm2_context_new(arg_tpm2_device, &tpm2_context);
+                        r = tpm2_context_new_or_warn(arg_tpm2_device, &tpm2_context);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to create TPM2 context: %m");
+                                return r;
 
                         if (!tpm2_pcr_values_has_all_values(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values)) {
                                 r = tpm2_pcr_read_missing_values(tpm2_context, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values);

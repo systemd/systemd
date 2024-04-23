@@ -3,6 +3,7 @@
 #include "architecture.h"
 #include "errno-util.h"
 #include "log.h"
+#include "path-util.h"
 #include "tests.h"
 #include "virt.h"
 
@@ -48,6 +49,18 @@ int main(int argc, char *argv[]) {
         ASSERT_EQ(architecture_from_string(p), a);
 
         log_info("primary library architecture=" LIB_ARCH_TUPLE);
+
+        for (Architecture i = 0; i < _ARCHITECTURE_MAX; i++) {
+                const char *n = ASSERT_PTR(architecture_to_string(i));
+
+                /* Let's validate that all architecture names we define are good for inclusion in .v/
+                 * filename patterns which use "." and "_" as field separators in the filenames. */
+                assert(filename_part_is_valid(n));
+                assert(!strchr(n, '_'));
+                assert(!strchr(n, '.'));
+
+                log_info("Good for inclusion in .v/ filenames: %s", n);
+        }
 
         return 0;
 }

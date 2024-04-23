@@ -65,9 +65,6 @@ Prefix *prefix_free(Prefix *prefix);
 RoutePrefix *route_prefix_free(RoutePrefix *prefix);
 pref64Prefix *pref64_prefix_free(pref64Prefix *prefix);
 
-void network_drop_invalid_prefixes(Network *network);
-void network_drop_invalid_route_prefixes(Network *network);
-void network_drop_invalid_pref64_prefixes(Network *network);
 void network_adjust_radv(Network *network);
 
 int link_request_radv_addresses(Link *link);
@@ -86,7 +83,7 @@ RADVPrefixDelegation radv_prefix_delegation_from_string(const char *s) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_router_prefix_delegation);
 CONFIG_PARSER_PROTOTYPE(config_parse_router_lifetime);
-CONFIG_PARSER_PROTOTYPE(config_parse_router_retransmit);
+CONFIG_PARSER_PROTOTYPE(config_parse_router_uint32_msec_usec);
 CONFIG_PARSER_PROTOTYPE(config_parse_router_preference);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix_boolean);

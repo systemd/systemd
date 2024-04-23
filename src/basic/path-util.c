@@ -525,6 +525,18 @@ int path_compare_filename(const char *a, const char *b) {
         return strcmp(fa, fb);
 }
 
+int path_equal_or_inode_same_full(const char *a, const char *b, int flags) {
+        /* Returns true if paths are of the same entry, false if not, <0 on error. */
+
+        if (path_equal(a, b))
+                return 1;
+
+        if (!a || !b)
+                return 0;
+
+        return inode_same(a, b, flags);
+}
+
 char* path_extend_internal(char **x, ...) {
         size_t sz, old_sz;
         char *q, *nx;
@@ -684,7 +696,7 @@ int find_executable_full(
                  * binary. */
                 p = getenv("PATH");
         if (!p)
-                p = DEFAULT_PATH;
+                p = default_PATH();
 
         if (exec_search_path) {
                 STRV_FOREACH(element, exec_search_path) {
@@ -1440,4 +1452,32 @@ int path_glob_can_match(const char *pattern, const char *prefix, char **ret) {
         if (ret)
                 *ret = NULL;
         return false;
+}
+
+const char* default_PATH(void) {
+#if HAVE_SPLIT_BIN
+        static int split = -1;
+        int r;
+
+        /* Check whether /usr/sbin is not a symlink and return the appropriate $PATH.
+         * On error fall back to the safe value with both directories as configured… */
+
+        if (split < 0)
+                STRV_FOREACH_PAIR(bin, sbin, STRV_MAKE("/usr/bin", "/usr/sbin",
+                                                       "/usr/local/bin", "/usr/local/sbin")) {
+                        r = inode_same(*bin, *sbin, AT_NO_AUTOMOUNT);
+                        if (r > 0 || r == -ENOENT)
+                                continue;
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to compare \"%s\" and \"%s\", using compat $PATH: %m",
+                                                *bin, *sbin);
+                        split = true;
+                        break;
+                }
+        if (split < 0)
+                split = false;
+        if (split)
+                return DEFAULT_PATH_WITH_SBIN;
+#endif
+        return DEFAULT_PATH_WITHOUT_SBIN;
 }

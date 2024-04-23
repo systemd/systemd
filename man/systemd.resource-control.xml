@@ -774,6 +774,9 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <para>The system default for this setting may be controlled with <varname>DefaultIPAccounting=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
+          <para>Note that this functionality is currently only available for system services, not for
+          per-user services.</para>
+
           <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
@@ -890,8 +893,10 @@ CPUWeight=20   DisableControllers=cpu              /          \
         <term><varname>SocketBindDeny=<replaceable>bind-rule</replaceable></varname></term>
 
         <listitem>
-          <para>Allow or deny binding a socket address to a socket by matching it with the <replaceable>bind-rule</replaceable> and
-          applying a corresponding action if there is a match.</para>
+          <para>Configures restrictions on the ability of unit processes to invoke <citerefentry
+          project='man-pages'><refentrytitle>bind</refentrytitle><manvolnum>2</manvolnum></citerefentry> on a
+          socket. Both allow and deny rules may defined that restrict which addresses a socket may be bound
+          to.</para>
 
           <para><replaceable>bind-rule</replaceable> describes socket properties such as <replaceable>address-family</replaceable>,
           <replaceable>transport-protocol</replaceable> and <replaceable>ip-ports</replaceable>.</para>
@@ -938,6 +943,13 @@ CPUWeight=20   DisableControllers=cpu              /          \
           </itemizedlist>
 
           <para>The feature is implemented with <constant>cgroup/bind4</constant> and <constant>cgroup/bind6</constant> cgroup-bpf hooks.</para>
+
+          <para>Note that these settings apply to any <citerefentry
+          project='man-pages'><refentrytitle>bind</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+          system call invocation by the unit processes, regardless in which network namespace they are
+          placed. Or in other words: changing the network namespace is not a suitable mechanism for escaping
+          these restrictions on <function>bind()</function>.</para>
+
           <para>Examples:<programlisting>…
 # Allow binding IPv6 socket addresses with a port greater than or equal to 10000.
 [Service]

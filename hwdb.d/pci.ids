@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2024.04.11
-#	Date:    2024-04-11 03:15:02
+#	Version: 2024.04.20
+#	Date:    2024-04-20 03:15:02
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -9200,6 +9200,7 @@
 	87d0  PEX PCI Express Switch DMA interface
 	9016  PLX 9016 8-port serial controller
 	9030  PCI9030 32-bit 33MHz PCI <-> IOBus Bridge
+		10b5 1205  Becker & Hickl MSA-1000
 		10b5 2695  Hilscher CIF50-PB/DPS Profibus
 		10b5 2862  Alpermann+Velte PCL PCI LV (3V/5V): Timecode Reader Board
 		10b5 2906  Alpermann+Velte PCI TS (3V/5V): Time Synchronisation Board
@@ -9235,7 +9236,13 @@
 		10b5 1067  IXXAT CAN i165
 		10b5 114e  Wasco WITIO PCI168extended
 		10b5 1169  Wasco OPTOIO32standard 32 digital in, 32 digital out
+		10b5 1171  Becker & Hickl PMS-400
 		10b5 1172  IK220 (Heidenhain)
+		10b5 1201  Becker & Hickl SPC-6x0
+		10b5 1202  Becker & Hickl SPC-7x0
+		10b5 1203  Becker & Hickl MSA-300
+		10b5 1206  Becker & Hickl DCC-100
+		10b5 120a  Becker & Hickl STP-340
 		10b5 2036  SatPak GPS
 		10b5 2221  Alpermann+Velte PCL PCI LV: Timecode Reader Board
 		10b5 2273  SH ARC-PCI SOHARD ARCNET card
@@ -9283,6 +9290,11 @@
 		d84d 4078  EX-4078 2S(16C552) RS-232+1P
 	9052  PCI9052 PCI <-> IOBus Bridge
 	9054  PCI9054 32-bit 33MHz PCI <-> IOBus Bridge
+		10b5 1171  Becker & Hickl PMS-400A
+		10b5 1208  Becker & Hickl SPC-830
+		10b5 120e  Becker & Hickl SPC-930
+		10b5 120f  Becker & Hickl SPC-150
+		10b5 1210  Becker & Hickl DPC-230
 		10b5 2455  Wessex Techology PHIL-PCI
 		10b5 2696  Innes Corp AM Radcap card
 		10b5 2717  Innes Corp Auricon card
@@ -13046,6 +13058,8 @@
 	25ac  GN20-P0-R-K2 [GeForce RTX 3050 6GB Laptop GPU]
 	25ad  GA107 [GeForce RTX 2050]
 	25af  GA107 [GeForce RTX 3050 Engineering Sample]
+	25b0  GA107GL [RTX A1000]
+	25b2  GA107GL [RTX A400]
 	25b5  GA107GLM [RTX A4 Mobile]
 # A16 - 25B6 10DE 14A9 / A2 - 25B6 10DE 157E
 	25b6  GA107GL [A2 / A16]
@@ -13111,7 +13125,7 @@
 	2882  AD107 [GeForce RTX 4060]
 	28a0  AD107M [GeForce RTX 4060 Max-Q / Mobile]
 	28a1  AD107M [GeForce RTX 4050 Max-Q / Mobile]
-	28b0  AD107GL [RTX 2000 Ada Generation]
+	28b0  AD107GL [RTX 2000 / 2000E Ada Generation]
 	28b8  AD107GLM [RTX 2000 Ada Generation Laptop GPU]
 	28b9  AD107GLM [RTX 1000 Ada Generation Laptop GPU]
 	28ba  AD107GLM [RTX 500 Ada Generation Laptop GPU]
@@ -16466,6 +16480,38 @@
 11e2  Samsung Information Systems America
 11e3  Quicklogic Corporation
 	0001  COM-ON-AIR Dosch&Amand DECT
+	0010  QL5032 (PQFP208) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+	0011  QL5032 (PBGA256) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+	0012  QL5232 (PQFP208) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+		11e3 1204  Becker & Hickl SPC-130
+		11e3 1207  Becker & Hickl DDG-200
+		11e3 1209  Becker & Hickl SHM-180
+		11e3 120c  Becker & Hickl PMM-428
+	0013  QL5232 (PBGA456) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+	0014  QL5030 (TQFP144) [QuickPCI] 33 MHz/32-bit PCI Target with Embedded Programmable Logic and Dual Port SRAM
+	0015  QL5130 (TQFP144) [QuickPCI] 33 MHz/32-bit PCI Target with Embedded Programmable Logic and Dual Port SRAM
+	0016  QL5130 (PQFP208) [QuickPCI] 33 MHz/32-bit PCI Target with Embedded Programmable Logic and Dual Port SRAM
+		11e3 120b  Becker & Hickl DEL-350
+	0017  QL5130 (PBGA256) [QuickPCI] 33 MHz/32-bit PCI Target with Embedded Programmable Logic and Dual Port SRAM
+	0019  QL5332 (PQFP208) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+	001a  QL5332 (PBGA256) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+	001b  QL5432 (PQFP208) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+		11e3 120d  Becker & Hickl SPC-140
+		11e3 1211  Becker & Hickl GVD-120
+		11e3 1212  Becker & Hickl DDG-210
+	001c  QL5432 (PBGA456) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+	001d  QL5632 (PQFP208) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+	001e  QL5632 (PBGA280) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+	001f  QL5632 (PBGA484) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+	0020  QL5632 (PBGA516) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+	0021  QL5732 (PQFP208) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+	0022  QL5732 (PBGA280) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+	0023  QL5732 (PBGA484) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+	0024  QL5732 (PBGA516) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+	002d  QL5022 (TQFP144) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+	002e  QL5022 (PQFP208) [QuickPCI] 33 MHz/32-bit PCI Master/Target with Embedded Programmable Logic and Dual Port SRAM
+	002f  QL5020 (TQFP144) [QuickPCI] 33 MHz/32-bit PCI Target with Embedded Programmable Logic and Dual Port SRAM
+	0030  QL5020 (PQFP208) [QuickPCI] 33 MHz/32-bit PCI Target with Embedded Programmable Logic and Dual Port SRAM
 	0560  QL5064 Companion Design Demo Board
 	5030  PC Watchdog
 	8417  QL5064 [QuickPCI] PCI v2.2 bridge for SMT417 Dual TMS320C6416T PMC Module
@@ -17075,6 +17121,7 @@
 	0820  SM820 Lynx3D
 	0910  SM910
 	2260  SM2260 NVMe SSD Controller
+	2261  SM2261XT x2 NVMe SSD Controller (DRAM-less)
 	2262  SM2262/SM2262EN SSD Controller
 	2263  SM2263EN/SM2263XT (DRAM-less) NVMe SSD Controllers
 	2269  SM2269XT (DRAM-less) NVMe SSD Controller
@@ -19608,14 +19655,14 @@
 	6002  T6225-SO-CR Unified Wire Ethernet Controller
 	6003  T6425-CR Unified Wire Ethernet Controller
 	6004  T6425-SO-CR Unified Wire Ethernet Controller
-	6005  T6225-OCP-SO Unified Wire Ethernet Controller
-	6006  T62100-OCP-SO Unified Wire Ethernet Controller
+	6005  T6225-SO-OCP3 Unified Wire Ethernet Controller
+	6006  T6225-OCP3 Unified Wire Ethernet Controller
 	6007  T62100-LP-CR Unified Wire Ethernet Controller
 	6008  T62100-SO-CR Unified Wire Ethernet Controller
 	6009  T6210-BT Unified Wire Ethernet Controller
 	600d  T62100-CR Unified Wire Ethernet Controller
 	6011  T6225-LL-CR Unified Wire Ethernet Controller
-	6014  T61100-OCP-SO Unified Wire Ethernet Controller
+	6014  T62100-SO-OCP3 Unified Wire Ethernet Controller
 	6015  T6201-BT Unified Wire Ethernet Controller
 	6080  T6225-6080 Unified Wire Ethernet Controller
 	6081  T62100-6081 Unified Wire Ethernet Controller
@@ -19634,14 +19681,14 @@
 	6402  T6225-SO-CR Unified Wire Ethernet Controller
 	6403  T6425-CR Unified Wire Ethernet Controller
 	6404  T6425-SO-CR Unified Wire Ethernet Controller
-	6405  T6225-OCP-SO Unified Wire Ethernet Controller
-	6406  T62100-OCP-SO Unified Wire Ethernet Controller
+	6405  T6225-SO-OCP3 Unified Wire Ethernet Controller
+	6406  T6225-OCP3 Unified Wire Ethernet Controller
 	6407  T62100-LP-CR Unified Wire Ethernet Controller
 	6408  T62100-SO-CR Unified Wire Ethernet Controller
 	6409  T6210-BT Unified Wire Ethernet Controller
 	640d  T62100-CR Unified Wire Ethernet Controller
 	6411  T6225-LL-CR Unified Wire Ethernet Controller
-	6414  T61100-OCP-SO Unified Wire Ethernet Controller
+	6414  T62100-SO-OCP3 Unified Wire Ethernet Controller
 	6415  T6201-BT Unified Wire Ethernet Controller
 	6480  T6225-6080 Unified Wire Ethernet Controller
 	6481  T62100-6081 Unified Wire Ethernet Controller
@@ -19660,14 +19707,14 @@
 	6502  T6225-SO-CR Unified Wire Storage Controller
 	6503  T6425-CR Unified Wire Storage Controller
 	6504  T6425-SO-CR Unified Wire Storage Controller
-	6505  T6225-OCP-SO Unified Wire Storage Controller
-	6506  T62100-OCP-SO Unified Wire Storage Controller
+	6505  T6225-SO-OCP3 Unified Wire Storage Controller
+	6506  T6225-OCP3 Unified Wire Storage Controller
 	6507  T62100-LP-CR Unified Wire Storage Controller
 	6508  T62100-SO-CR Unified Wire Storage Controller
 	6509  T6210-BT Unified Wire Storage Controller
 	650d  T62100-CR Unified Wire Storage Controller
 	6511  T6225-LL-CR Unified Wire Storage Controller
-	6514  T61100-OCP-SO Unified Wire Storage Controller
+	6514  T62100-SO-OCP3 Unified Wire Storage Controller
 	6515  T6201-BT Unified Wire Storage Controller
 	6580  T6225-6080 Unified Wire Storage Controller
 	6581  T62100-6081 Unified Wire Storage Controller
@@ -19685,14 +19732,14 @@
 	6602  T6225-SO-CR Unified Wire Storage Controller
 	6603  T6425-CR Unified Wire Storage Controller
 	6604  T6425-SO-CR Unified Wire Storage Controller
-	6605  T6225-OCP-SO Unified Wire Storage Controller
-	6606  T62100-OCP-SO Unified Wire Storage Controller
+	6605  T6225-SO-OCP3 Unified Wire Storage Controller
+	6606  T6225-OCP3 Unified Wire Storage Controller
 	6607  T62100-LP-CR Unified Wire Storage Controller
 	6608  T62100-SO-CR Unified Wire Storage Controller
 	6609  T6210-BT Unified Wire Storage Controller
 	660d  T62100-CR Unified Wire Storage Controller
 	6611  T6225-LL-CR Unified Wire Storage Controller
-	6614  T61100-OCP-SO Unified Wire Storage Controller
+	6614  T62100-SO-OCP3 Unified Wire Storage Controller
 	6615  T6201-BT Unified Wire Storage Controller
 	6680  T6225-6080 Unified Wire Storage Controller
 	6681  T62100-6081 Unified Wire Storage Controller
@@ -19710,14 +19757,14 @@
 	6802  T6225-SO-CR Unified Wire Ethernet Controller [VF]
 	6803  T6425-CR Unified Wire Ethernet Controller [VF]
 	6804  T6425-SO-CR Unified Wire Ethernet Controller [VF]
-	6805  T6225-OCP-SO Unified Wire Ethernet Controller [VF]
-	6806  T62100-OCP-SO Unified Wire Ethernet Controller [VF]
+	6805  T6225-SO-OCP3 Unified Wire Ethernet Controller [VF]
+	6806  T6225-OCP3 Unified Wire Ethernet Controller [VF]
 	6807  T62100-LP-CR Unified Wire Ethernet Controller [VF]
 	6808  T62100-SO-CR Unified Wire Ethernet Controller [VF]
 	6809  T6210-BT Unified Wire Ethernet Controller [VF]
 	680d  T62100-CR Unified Wire Ethernet Controller [VF]
 	6811  T6225-LL-CR Unified Wire Ethernet Controller [VF]
-	6814  T61100-OCP-SO Unified Wire Ethernet Controller [VF]
+	6814  T62100-SO-OCP3 Unified Wire Ethernet Controller [VF]
 	6815  T6201-BT Unified Wire Ethernet Controller [VF]
 	6880  T6225-6080 Unified Wire Ethernet Controller [VF]
 	6881  T62100-6081 Unified Wire Ethernet Controller [VF]
@@ -21873,6 +21920,9 @@
 	0285  Sagitta RMA
 	0286  LibraE Flash Recovery
 	0287  LibraE RMA
+# Flash recovery
+	0288  Arcus2
+	0289  Arcus2 RMA
 	1002  MT25400 Family [ConnectX-2 Virtual Function]
 	1003  MT27500 Family [ConnectX-3]
 		1014 04b5  PCIe3 40GbE RoCE Converged Host Bus Adapter for Power
@@ -21991,6 +22041,7 @@
 	2023  MT2910 Family [ConnectX-7 Emulated PCIe Bridge]
 	2024  MT43244 Family [BlueField-3 SoC Emulated PCIe Bridge]
 	2025  ConnectX/BlueField Family mlx5Gen Emulated PCIe Bridge [Emulated PCIe Bridge]
+	2100  CX8 Family [CX8 Data Direct Interface]
 	4117  MT27712A0-FDCF-AE
 		1bd4 0039  SN10XMP2P25
 		1bd4 003a  25G SFP28 SP EO251FM9 Adapter
@@ -22056,6 +22107,7 @@
 	a2df  BF4 Family integrated network controller [BlueField-4 integrated network controller]
 	b200  ArcusE
 	b201  LibraE
+	b202  Arcus2
 	c2d1  BlueField DPU Family Auxiliary Communication Channel [BlueField Family]
 	c2d2  MT416842 BlueField SoC management interfac
 	c2d3  MT42822 BlueField-2 SoC Management Interface
@@ -24199,8 +24251,11 @@
 196d  Club-3D BV
 196e  PNY
 1971  AGEIA Technologies, Inc.
-	1011  Physics Processing Unit [PhysX]
+	0000  Physics Processing Unit [PhysX] 100 Series PCI Express Card
+# The PCI and PCIe versions have a different PID
+	1011  Physics Processing Unit [PhysX] 100 Series PCI Card
 		1043 0001  PhysX P1
+	1021  Physics Processing Unit [PhysX] 200 Series PCI Express Card
 # nee Eberspaecher Electronics
 1974  Star Electronics GmbH & Co. KG
 	0009  FlexCard PMC-II
@@ -25279,6 +25334,7 @@
 	2429  PE6011 NVMe Solid State Drive
 	243b  PE6110 NVMe Solid State Drive
 		1c5c 0100  PE6110 NVMe Solid State Drive
+	2527  PE4010 NVMe Solid State Drive
 	2839  PE8000 Series NVMe Solid State Drive
 		1028 2143  DC NVMe SED PE8010 RI U.2 960GB
 		1028 2144  DC NVMe PE8010 RI U.2 960GB
@@ -25863,7 +25919,7 @@
 	2262  NVMe PCIe SSD 220S/MTE662T2
 	2263  NVMe PCIe SSD 110S/112S/120S/MTE300S/MTE400S/MTE652T2 (DRAM-less)
 	2264  NVMe PCIe SSD 250H
-	2267  NVMe PCIe SSD 240S/MTE710T
+	2267  NVMe PCIe SSD 220S/240S/MTE710T
 	5766  NVMe PCIe SSD 110Q (DRAM-less)
 1d7c  Aerotech, Inc.
 # Fiber-optic HyperWire motion control bus from Aerotech.
@@ -26340,6 +26396,7 @@
 		1df3 0001  ENA2100RN
 1df5  Shenzhen TIGO Semiconductor
 	1202  kimtigo NVMe SSD (DRAM-less)
+	2263  kimtigo MG931K NVMe SSD (DRAM-less)
 1df7  opencpi.org
 	0001  ml605
 	0002  alst4
@@ -26448,6 +26505,7 @@
 		1028 223c  Ent NVMe CM7 U.2 MU 6.4TB
 		1028 223d  Ent NVMe CM7 U.2 MU 3.2TB
 		1028 223e  Ent NVMe CM7 U.2 MU 1.6TB
+	002a  Exceria Plus G3 NVMe SSD (DRAM-less)
 	002c  NVMe SSD Controller CD8P EDSFF
 		1028 22bf  DC NVMe CD8P E3.S 15.36TB
 		1028 22c0  DC NVMe CD8P E3.S 7.68TB
@@ -26627,6 +26685,7 @@
 	1013  PC210 NVMe SSD
 	1031  PC300 NVMe SSD (DRAM-less)
 	1033  PC300 NVMe SSD (DRAM-less)
+	1071  PC411 NVMe SSD (DRAM-less)
 1e4b  MAXIO Technology (Hangzhou) Ltd.
 	1001  NVMe SSD Controller MAP1001
 	1002  NVMe SSD Controller MAP1002 (DRAM-less)
@@ -26772,6 +26831,10 @@
 1ed0  Hosin Global Electronics
 1ed2  FuriosaAI, Inc.
 	0000  Warboy
+	1111  RNGD
+		0000 1111  RNGD-S
+		0000 2222  RNGD VF
+		0000 3333  RNGD-S VF
 1ed3  Yeston
 1ed5  Moore Threads Technology Co.,Ltd
 	0100  MTT S10
@@ -26791,6 +26854,7 @@
 	0211  MTT X300
 	0221  G2S80
 	0222  MTT S3000
+		1ed5 0001  C3150
 	0223  G2S4
 	0251  G2N10
 	02ff  MTT HDMI/DP Audio
@@ -27098,9 +27162,12 @@
 2003  Smart Link Ltd.
 	8800  LM-I56N
 2004  Smart Link Ltd.
+202c  CAEN S.p.A.
+	5818  A5818
 2036  Netforward Microelectronics Co., Ltd.
 	1618  NF1618 PCI Express Ethernet Controller
-2046  Shenzhen Inovance Technology Co., Ltd.
+	1619  NF1618 Family Virtual Function
+2046  GXMICRO Technology (Shanghai) Co., Ltd.
 2048  Beijing SpaceControl Technology Co.Ltd
 20f4  TRENDnet
 2116  ZyDAS Technology Corp.
@@ -27141,6 +27208,7 @@
 	501d  NV2 NVMe SSD TC2200 (DRAM-less)
 	501f  FURY Renegade NVMe SSD with heatsink
 	5021  OM8SEP4 Design-In PCIe 4 NVMe SSD (QLC) (DRAM-less)
+	5022  OM8PGP4 Design-In PCIe 4 NVMe SSD (QLC) (DRAM-less)
 	5023  NV2 NVMe SSD SM2269XT (DRAM-less)
 	5024  DC2000B NVMe SSD E18DC
 270b  Xantel Corporation
@@ -29672,6 +29740,12 @@
 	12d2  Ethernet Controller E830-CC for QSFP
 	12d3  Ethernet Controller E830-CC for SFP
 	12d4  Ethernet Controller E830-CC for SFP-DD
+	12d5  Ethernet Controller E830-C for backplane
+	12d8  Ethernet Controller E830-C for QSFP
+	12da  Ethernet Controller E830-C for SFP
+	12dc  Ethernet Controller E830-XXV for backplane
+	12dd  Ethernet Controller E830-XXV for QSFP
+	12de  Ethernet Controller E830-XXV for SFP
 	1360  82806AA PCI64 Hub PCI Bridge
 	1361  82806AA PCI64 Hub Controller (HRes)
 		8086 1361  82806AA PCI64 Hub Controller (HRes)
@@ -35145,7 +35219,8 @@
 	579e  Ethernet Connection E825-C for SFP
 	57a4  Thunderbolt Bridge [Barlow Ridge Hub 40G 2023]
 	57a5  Thunderbolt USB Controller [Barlow Ridge Hub 40G 2023]
-	57b1  Ethernet Controller E610 1GBASE T
+	57b0  Ethernet Controller E610 10GBASE T
+	57b1  Ethernet Controller E610 2.5GBASE T
 		8086 0000  Ethernet Converged Network Adapter E610
 	5845  QEMU NVM Express Controller
 		1af4 1100  QEMU Virtual Machine
@@ -36739,6 +36814,7 @@
 	abc0  Omni-Path Fabric Switch Silicon 100 Series
 	ad0b  Volume Management Device NVMe RAID Controller Intel Corporation
 	ad1d  Arrow Lake NPU
+	b03e  Panther Lake NPU
 	b152  21152 PCI-to-PCI Bridge
 		8086 b152  21152 PCI-to-PCI Bridge
 # observed, and documented in Intel revision note; new mask of 1011:0026
@@ -36846,7 +36922,7 @@
 	011a  WX1860A1 Gigabit Ethernet Controller Virtual Function
 	011b  WX1860AL1 Gigabit Ethernet Controller Virtual Function
 	1000  Ethernet Controller RP1000 Virtual Function for 10GbE SFP+
-	1001  Ethernet Controller RP1000 for 10GbE SFP+
+	1001  Ethernet Controller SP1000A for 10GbE SFP+
 		1bd4 0084  Ethernet Controller SP1000A for 10GbE SFP+(lldp)
 		1bd4 0085  Ethernet Controller SP1000A for 10GBASE-T
 		4c52 1002  LRES1002PF Dual-port 10Gb Ethernet Server Adapter
@@ -36856,7 +36932,7 @@
 		8088 0300  Ethernet Network Adaptor RP1000-A03 for 10GbE SFP+
 		8088 0400  Ethernet Network Adaptor RP1000-A04 for 10GbE SFP+
 	2000  Ethernet Controller RP2000 Virtual Function for 10GbE SFP+
-	2001  Ethernet Controller RP2000 for 10GbE SFP+
+	2001  Ethernet Controller WX1820AL for 10GbE SFP+
 		8088 2000  Ethernet Network Adaptor RP2000 for 10GbE SFP+
 		8088 2300  Ethernet Network Adaptor RP2000-A03 for 10GbE SFP+
 		8088 2400  Ethernet Network Adaptor RP2000-A04 for 10GbE SFP+
@@ -37487,6 +37563,8 @@
 	2002  STAR2000C NVMe SSD
 	2003  STAR2000L NVMe SSD
 	2004  EAST 2000K SSD
+	2008  STAR2008 PCIE NVMe SSD Controller
+	2010  STAR2010 PCIE NVMe Secure SSD Controller
 	bb5b  Asgard AN3+ NVMe SSD
 	fc22  Asgard AN3+ NVMe SSD
 a000  Asix Electronics Corporation (Wrong ID)
@@ -37849,6 +37927,11 @@ edd8  ARK Logic Inc
 f043  ASUSTeK Computer Inc. (Wrong ID)
 f05b  Foxconn International, Inc. (Wrong ID)
 f111  Framework Computer Inc.
+f117  Cerio
+	1000  Emulated PCIe Switch
+	1010  Placeholder Device
+	1020  Pseudo-Device
+	1030  Test Device
 f15e  SiFive, Inc.
 	0000  FU740-C000 RISC-V SoC PCI Express x8 to AXI4 Bridge
 f1d0  AJA Video

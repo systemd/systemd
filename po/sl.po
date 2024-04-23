@@ -1,0 +1,1424 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Martin Srebotnjak <miles@filmsi.net>, 2024.
+msgid ""
+msgstr ""
+"Project-Id-Version: systemd\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-04-22 14:31+0100\n"
+"PO-Revision-Date: 2024-04-22 07:15+0000\n"
+"Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
+"Language-Team: Slovenian <https://translate.fedoraproject.org/projects/"
+"systemd/main/sl/>\n"
+"Language: sl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=n%100==1 ? 0 : n%100==2 ? 1 : n%100==3 || "
+"n%100==4 ? 2 : 3;\n"
+"X-Generator: Weblate 5.4\n"
+
+#: src/core/org.freedesktop.systemd1.policy.in:22
+msgid "Send passphrase back to system"
+msgstr "Pošlji geslo nazaj v sistem"
+
+#: src/core/org.freedesktop.systemd1.policy.in:23
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr ""
+"Preverjanje pristnosti je potrebno za pošiljanje vnesenega gesla nazaj v "
+"sistem."
+
+#: src/core/org.freedesktop.systemd1.policy.in:33
+msgid "Manage system services or other units"
+msgstr "Upravljajte sistemske storitve ali druge enote"
+
+#: src/core/org.freedesktop.systemd1.policy.in:34
+msgid "Authentication is required to manage system services or other units."
+msgstr ""
+"Preverjanje pristnosti je potrebno za upravljanje sistemskih storitev ali "
+"drugih enot."
+
+#: src/core/org.freedesktop.systemd1.policy.in:43
+msgid "Manage system service or unit files"
+msgstr "Upravljajte datoteke sistemske storitve ali enote"
+
+#: src/core/org.freedesktop.systemd1.policy.in:44
+msgid "Authentication is required to manage system service or unit files."
+msgstr ""
+"Preverjanje pristnosti je potrebno za upravljanje datotek sistemske storitve "
+"ali enote."
+
+#: src/core/org.freedesktop.systemd1.policy.in:54
+#, fuzzy
+msgid "Set or unset system and service manager environment variables"
+msgstr ""
+"Nastavljanje ali odstranjevanje spremenljivk okolja sistema in upravitelja "
+"storitev"
+
+#: src/core/org.freedesktop.systemd1.policy.in:55
+#, fuzzy
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"Preverjanje pristnosti je potrebno za nastavitev ali izklop spremenljivk "
+"okolja sistemskega in upravitelja storitev."
+
+#: src/core/org.freedesktop.systemd1.policy.in:64
+#, fuzzy
+msgid "Reload the systemd state"
+msgstr "Vnovično nalaganje sistemskega stanja"
+
+#: src/core/org.freedesktop.systemd1.policy.in:65
+#, fuzzy
+msgid "Authentication is required to reload the systemd state."
+msgstr ""
+"Preverjanje pristnosti je potrebno za ponovno nalaganje sistemskega stanja."
+
+#: src/core/org.freedesktop.systemd1.policy.in:74
+#, fuzzy
+msgid "Dump the systemd state without rate limits"
+msgstr "Odlaganje sistemskega stanja brez omejitev cen"
+
+#: src/core/org.freedesktop.systemd1.policy.in:75
+#, fuzzy
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
+msgstr ""
+"Preverjanje pristnosti je potrebno za odlaganje sistemskega stanja brez "
+"omejitev hitrosti."
+
+#: src/home/org.freedesktop.home1.policy:13
+#, fuzzy
+msgid "Create a home area"
+msgstr "Ustvarite domače območje"
+
+#: src/home/org.freedesktop.home1.policy:14
+#, fuzzy
+msgid "Authentication is required to create a user's home area."
+msgstr ""
+"Preverjanje pristnosti je potrebno za ustvarjanje uporabnikovega domačega "
+"območja."
+
+#: src/home/org.freedesktop.home1.policy:23
+#, fuzzy
+msgid "Remove a home area"
+msgstr "Odstranjevanje domačega območja"
+
+#: src/home/org.freedesktop.home1.policy:24
+#, fuzzy
+msgid "Authentication is required to remove a user's home area."
+msgstr ""
+"Preverjanje pristnosti je potrebno za odstranitev uporabnikovega domačega "
+"območja."
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr "Preverite poverilnice domačega območja"
+
+#: src/home/org.freedesktop.home1.policy:34
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr ""
+"Preverjanje pristnosti je potrebno za preverjanje poverilnic v uporabnikovem "
+"domačem območju."
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr "Posodobite domače območje"
+
+#: src/home/org.freedesktop.home1.policy:44
+msgid "Authentication is required to update a user's home area."
+msgstr ""
+"Preverjanje pristnosti je potrebno za posodobitev uporabnikovega domačega "
+"območja."
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Resize a home area"
+msgstr "Spreminite velikost domačega območja"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required to resize a user's home area."
+msgstr ""
+"Preverjanje pristnosti je potrebno za spreminjanje velikosti uporabnikovega "
+"domačega območja."
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Change password of a home area"
+msgstr "Spremenite geslo domačega območja"
+
+#: src/home/org.freedesktop.home1.policy:64
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr ""
+"Preverjanje pristnosti je potrebno za spremembo gesla uporabnikovega "
+"domačega območja."
+
+#: src/home/org.freedesktop.home1.policy:73
+#: src/home/org.freedesktop.home1.policy:83
+#, fuzzy
+msgid "Activate a home area"
+msgstr "Aktiviranje domačega območja"
+
+#: src/home/org.freedesktop.home1.policy:74
+#: src/home/org.freedesktop.home1.policy:84
+#, fuzzy
+msgid "Authentication is required to activate a user's home area."
+msgstr ""
+"Preverjanje pristnosti je potrebno za aktiviranje uporabnikovega domačega "
+"območja."
+
+#: src/home/pam_systemd_home.c:293
+#, fuzzy, c-format
+msgid ""
+"Home of user %s is currently absent, please plug in the necessary storage "
+"device or backing file system."
+msgstr ""
+"Dom uporabnika %s je trenutno odsoten, priključite potrebno napravo za "
+"shranjevanje ali rezervni datotečni sistem."
+
+#: src/home/pam_systemd_home.c:298
+#, fuzzy, c-format
+msgid "Too frequent login attempts for user %s, try again later."
+msgstr "Prepogosti poskusi prijave za %s uporabnika, poskusite znova pozneje."
+
+#: src/home/pam_systemd_home.c:310
+#, fuzzy
+msgid "Password: "
+msgstr "geslo "
+
+#: src/home/pam_systemd_home.c:312
+#, fuzzy, c-format
+msgid "Password incorrect or not sufficient for authentication of user %s."
+msgstr ""
+"Geslo ni pravilno ali ne zadostuje za preverjanje pristnosti uporabniških %s."
+
+#: src/home/pam_systemd_home.c:313
+#, fuzzy
+msgid "Sorry, try again: "
+msgstr "Žal poskusite znova: "
+
+#: src/home/pam_systemd_home.c:335
+#, fuzzy
+msgid "Recovery key: "
+msgstr "Obnovitveni ključ: "
+
+#: src/home/pam_systemd_home.c:337
+#, fuzzy, c-format
+msgid ""
+"Password/recovery key incorrect or not sufficient for authentication of user "
+"%s."
+msgstr ""
+"Geslo/obnovitveni ključ je nepravilno ali ne zadostuje za preverjanje "
+"pristnosti uporabniških %s."
+
+#: src/home/pam_systemd_home.c:338
+#, fuzzy
+msgid "Sorry, reenter recovery key: "
+msgstr "Žal znova vnesite obnovitveni ključ: "
+
+#: src/home/pam_systemd_home.c:358
+#, fuzzy, c-format
+msgid "Security token of user %s not inserted."
+msgstr "Varnostni žeton uporabnika %s ni vstavljen."
+
+#: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
+#, fuzzy
+msgid "Try again with password: "
+msgstr "Poskusite znova z geslom: "
+
+#: src/home/pam_systemd_home.c:361
+#, fuzzy, c-format
+msgid ""
+"Password incorrect or not sufficient, and configured security token of user "
+"%s not inserted."
+msgstr ""
+"Geslo ni pravilno ali zadostno in konfiguriran varnostni žeton uporabnika %s "
+"ni vstavljen."
+
+#: src/home/pam_systemd_home.c:381
+#, fuzzy
+msgid "Security token PIN: "
+msgstr "PIN varnostnega žetona: "
+
+#: src/home/pam_systemd_home.c:398
+#, fuzzy, c-format
+msgid "Please authenticate physically on security token of user %s."
+msgstr ""
+"Prosimo, fizično preverite pristnost na varnostnem žetonu uporabniških %s."
+
+#: src/home/pam_systemd_home.c:409
+#, fuzzy, c-format
+msgid "Please confirm presence on security token of user %s."
+msgstr "Prosimo, potrdite prisotnost na varnostnem žetonu uporabniških %s."
+
+#: src/home/pam_systemd_home.c:420
+#, fuzzy, c-format
+msgid "Please verify user on security token of user %s."
+msgstr "Preverite uporabnika na varnostnem žetonu uporabniških %s."
+
+#: src/home/pam_systemd_home.c:429
+#, fuzzy
+msgid ""
+"Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
+"insertion might suffice.)"
+msgstr ""
+"PIN varnostnega žetona je zaklenjen, najprej ga odklenite. (Namig: "
+"Odstranitev in vnovična vstavitev lahko zadostujeta.)"
+
+#: src/home/pam_systemd_home.c:437
+#, fuzzy, c-format
+msgid "Security token PIN incorrect for user %s."
+msgstr "PIN varnostnega žetona ni pravilen za %s uporabnika."
+
+#: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
+#: src/home/pam_systemd_home.c:476
+#, fuzzy
+msgid "Sorry, retry security token PIN: "
+msgstr "Žal znova poskusite poskusiti s kodo PIN varnostnega žetona: "
+
+#: src/home/pam_systemd_home.c:456
+#, fuzzy, c-format
+msgid "Security token PIN of user %s incorrect (only a few tries left!)"
+msgstr ""
+"PIN varnostnega žetona uporabnika %s napačen (ostalo je le še nekaj "
+"poskusov!)"
+
+#: src/home/pam_systemd_home.c:475
+#, fuzzy, c-format
+msgid "Security token PIN of user %s incorrect (only one try left!)"
+msgstr "PIN varnostnega žetona uporabnika %s napačen (le en poskus je ostalo!)"
+
+#: src/home/pam_systemd_home.c:643
+#, fuzzy, c-format
+msgid "Home of user %s is currently not active, please log in locally first."
+msgstr "Dom uporabnika %s trenutno ni aktiven, najprej se prijavite lokalno."
+
+#: src/home/pam_systemd_home.c:645
+#, fuzzy, c-format
+msgid "Home of user %s is currently locked, please unlock locally first."
+msgstr "Dom uporabnika %s je trenutno zaklenjen, najprej odklenite lokalno."
+
+#: src/home/pam_systemd_home.c:677
+#, fuzzy, c-format
+msgid "Too many unsuccessful login attempts for user %s, refusing."
+msgstr "Preveč neuspešnih poskusov prijave za uporabniški %s, zavračanje."
+
+#: src/home/pam_systemd_home.c:956
+#, fuzzy
+msgid "User record is blocked, prohibiting access."
+msgstr "Zapis uporabnika je blokiran, kar prepoveduje dostop."
+
+#: src/home/pam_systemd_home.c:960
+#, fuzzy
+msgid "User record is not valid yet, prohibiting access."
+msgstr "Zapis uporabnika še ni veljaven, kar prepoveduje dostop."
+
+#: src/home/pam_systemd_home.c:964
+#, fuzzy
+msgid "User record is not valid anymore, prohibiting access."
+msgstr "Zapis uporabnika ni več veljaven, kar prepoveduje dostop."
+
+#: src/home/pam_systemd_home.c:969 src/home/pam_systemd_home.c:1020
+#, fuzzy
+msgid "User record not valid, prohibiting access."
+msgstr "Zapis uporabnika ni veljaven, kar prepoveduje dostop."
+
+#: src/home/pam_systemd_home.c:981
+#, fuzzy, c-format
+msgid "Too many logins, try again in %s."
+msgstr "Preveč prijav, poskusite znova v %s."
+
+#: src/home/pam_systemd_home.c:992
+#, fuzzy
+msgid "Password change required."
+msgstr "Zahtevana je sprememba gesla"
+
+#: src/home/pam_systemd_home.c:996
+#, fuzzy
+msgid "Password expired, change required."
+msgstr "Geslo je poteklo, potrebna je sprememba."
+
+#: src/home/pam_systemd_home.c:1002
+#, fuzzy
+msgid "Password is expired, but can't change, refusing login."
+msgstr "Geslo je poteklo, vendar ga ni mogoče spremeniti in zavrne prijavo."
+
+#: src/home/pam_systemd_home.c:1006
+#, fuzzy
+msgid "Password will expire soon, please change."
+msgstr "Geslo bo kmalu poteklo, prosimo, spremenite."
+
+#: src/hostname/org.freedesktop.hostname1.policy:20
+#, fuzzy
+msgid "Set hostname"
+msgstr "Nastavitev imena gostitelja"
+
+#: src/hostname/org.freedesktop.hostname1.policy:21
+#, fuzzy
+msgid "Authentication is required to set the local hostname."
+msgstr ""
+"Za nastavitev lokalnega imena gostitelja je potrebno preverjanje pristnosti."
+
+#: src/hostname/org.freedesktop.hostname1.policy:30
+#, fuzzy
+msgid "Set static hostname"
+msgstr "Nastavitev statičnega imena gostitelja"
+
+#: src/hostname/org.freedesktop.hostname1.policy:31
+#, fuzzy
+msgid ""
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
+msgstr ""
+"Preverjanje pristnosti je potrebno za nastavitev statično konfiguriranega "
+"lokalnega imena gostitelja in lepega imena gostitelja."
+
+#: src/hostname/org.freedesktop.hostname1.policy:41
+#, fuzzy
+msgid "Set machine information"
+msgstr "Nastavitev informacij o napravi"
+
+#: src/hostname/org.freedesktop.hostname1.policy:42
+#, fuzzy
+msgid "Authentication is required to set local machine information."
+msgstr ""
+"Preverjanje pristnosti je potrebno za nastavitev informacij o lokalnem "
+"računalniku."
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+#, fuzzy
+msgid "Get product UUID"
+msgstr "Pridobite UUID izdelka"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+#, fuzzy
+msgid "Authentication is required to get product UUID."
+msgstr "Za pridobitev UUID izdelka je potrebno preverjanje pristnosti."
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+#, fuzzy
+msgid "Get hardware serial number"
+msgstr "Pridobite serijsko številko strojne opreme"
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+#, fuzzy
+msgid "Authentication is required to get hardware serial number."
+msgstr ""
+"Preverjanje pristnosti je potrebno za pridobitev serijske številke strojne "
+"opreme."
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+#, fuzzy
+msgid "Get system description"
+msgstr "Pridobite opis sistema"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+#, fuzzy
+msgid "Authentication is required to get system description."
+msgstr "Preverjanje pristnosti je potrebno za pridobitev opisa sistema."
+
+#: src/import/org.freedesktop.import1.policy:22
+#, fuzzy
+msgid "Import a disk image"
+msgstr "Uvoz posnetka diska"
+
+#: src/import/org.freedesktop.import1.policy:23
+#, fuzzy
+msgid "Authentication is required to import an image"
+msgstr "Za uvoz slike je potrebno preverjanje pristnosti"
+
+#: src/import/org.freedesktop.import1.policy:32
+#, fuzzy
+msgid "Export a disk image"
+msgstr "Izvoz posnetka diska"
+
+#: src/import/org.freedesktop.import1.policy:33
+#, fuzzy
+msgid "Authentication is required to export disk image"
+msgstr "Za izvoz slike diska je potrebno preverjanje pristnosti"
+
+#: src/import/org.freedesktop.import1.policy:42
+#, fuzzy
+msgid "Download a disk image"
+msgstr "Prenos slike diska"
+
+#: src/import/org.freedesktop.import1.policy:43
+#, fuzzy
+msgid "Authentication is required to download a disk image"
+msgstr "Za prenos posnetka diska je potrebno preverjanje pristnosti"
+
+#: src/import/org.freedesktop.import1.policy:52
+#, fuzzy
+msgid "Cancel transfer of a disk image"
+msgstr "Preklic prenosa posnetka diska"
+
+#: src/import/org.freedesktop.import1.policy:53
+#, fuzzy
+msgid ""
+"Authentication is required to cancel the ongoing transfer of a disk image"
+msgstr ""
+"Preverjanje pristnosti je potrebno za preklic tekočega prenosa posnetka diska"
+
+#: src/locale/org.freedesktop.locale1.policy:22
+#, fuzzy
+msgid "Set system locale"
+msgstr "Nastavitev področnih nastavitev sistema"
+
+#: src/locale/org.freedesktop.locale1.policy:23
+#, fuzzy
+msgid "Authentication is required to set the system locale."
+msgstr ""
+"Za nastavitev področnih nastavitev sistema je potrebno preverjanje "
+"pristnosti."
+
+#: src/locale/org.freedesktop.locale1.policy:33
+#, fuzzy
+msgid "Set system keyboard settings"
+msgstr "Nastavitev nastavitev sistemske tipkovnice"
+
+#: src/locale/org.freedesktop.locale1.policy:34
+#, fuzzy
+msgid "Authentication is required to set the system keyboard settings."
+msgstr ""
+"Za nastavitev nastavitev sistemske tipkovnice je potrebno preverjanje "
+"pristnosti."
+
+#: src/login/org.freedesktop.login1.policy:22
+#, fuzzy
+msgid "Allow applications to inhibit system shutdown"
+msgstr "Omogočanje aplikacijam, da zavirajo zaustavitev sistema"
+
+#: src/login/org.freedesktop.login1.policy:23
+#, fuzzy
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
+msgstr ""
+"Preverjanje pristnosti je potrebno, če aplikacija zavira zaustavitev sistema."
+
+#: src/login/org.freedesktop.login1.policy:33
+#, fuzzy
+msgid "Allow applications to delay system shutdown"
+msgstr "Omogočanje aplikacijam, da zakasnijo zaustavitev sistema"
+
+#: src/login/org.freedesktop.login1.policy:34
+#, fuzzy
+msgid "Authentication is required for an application to delay system shutdown."
+msgstr ""
+"Preverjanje pristnosti je potrebno, če aplikacija zakasni zaustavitev "
+"sistema."
+
+#: src/login/org.freedesktop.login1.policy:44
+#, fuzzy
+msgid "Allow applications to inhibit system sleep"
+msgstr "Omogočanje aplikacijam, da zavirajo stanje pripravljenosti sistema"
+
+#: src/login/org.freedesktop.login1.policy:45
+#, fuzzy
+msgid "Authentication is required for an application to inhibit system sleep."
+msgstr ""
+"Preverjanje pristnosti je potrebno, če aplikacija zavira stanje "
+"pripravljenosti sistema."
+
+#: src/login/org.freedesktop.login1.policy:55
+#, fuzzy
+msgid "Allow applications to delay system sleep"
+msgstr "Omogočanje aplikacijam, da upočasnijo stanje pripravljenosti sistema"
+
+#: src/login/org.freedesktop.login1.policy:56
+#, fuzzy
+msgid "Authentication is required for an application to delay system sleep."
+msgstr ""
+"Preverjanje pristnosti je potrebno, če aplikacija zakasni stanje "
+"pripravljenosti sistema."
+
+#: src/login/org.freedesktop.login1.policy:65
+#, fuzzy
+msgid "Allow applications to inhibit automatic system suspend"
+msgstr "Dovoli aplikacijam, da zavirajo samodejno prekinitev sistema"
+
+#: src/login/org.freedesktop.login1.policy:66
+#, fuzzy
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr ""
+"Preverjanje pristnosti je potrebno, če aplikacija zavira samodejno "
+"prekinitev sistema."
+
+#: src/login/org.freedesktop.login1.policy:75
+#, fuzzy
+msgid "Allow applications to inhibit system handling of the power key"
+msgstr ""
+"Dovolite, da programi ovirajo sistemsko ravnanje s tipko za vklop/izklop"
+
+#: src/login/org.freedesktop.login1.policy:76
+#, fuzzy
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr ""
+"Preverjanje pristnosti je potrebno za program, ki ovira sistemsko ravnanje s "
+"ključem za vklop/izklop."
+
+#: src/login/org.freedesktop.login1.policy:86
+#, fuzzy
+msgid "Allow applications to inhibit system handling of the suspend key"
+msgstr ""
+"Dovolite aplikacijam, da ovirajo sistemsko ravnanje s ključem začasne "
+"prekinitve"
+
+#: src/login/org.freedesktop.login1.policy:87
+#, fuzzy
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr ""
+"Preverjanje pristnosti je potrebno, če aplikacija ovira sistemsko ravnanje s "
+"ključem za začasno prekinitev."
+
+#: src/login/org.freedesktop.login1.policy:97
+#, fuzzy
+msgid "Allow applications to inhibit system handling of the hibernate key"
+msgstr ""
+"Dovolite, da programi ovirajo sistemsko ravnanje s ključem za mirovanje"
+
+#: src/login/org.freedesktop.login1.policy:98
+#, fuzzy
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr ""
+"Preverjanje pristnosti je potrebno, če aplikacija ovira sistemsko ravnanje s "
+"ključem za mirovanje."
+
+#: src/login/org.freedesktop.login1.policy:107
+#, fuzzy
+msgid "Allow applications to inhibit system handling of the lid switch"
+msgstr ""
+"Dovolite aplikacijam, da ovirajo upravljanje sistema s stikalom pokrova"
+
+#: src/login/org.freedesktop.login1.policy:108
+#, fuzzy
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr ""
+"Preverjanje pristnosti je potrebno za aplikacijo, ki zavira upravljanje "
+"sistema s stikalom pokrova."
+
+#: src/login/org.freedesktop.login1.policy:117
+#, fuzzy
+msgid "Allow applications to inhibit system handling of the reboot key"
+msgstr ""
+"Dovolite aplikacijam, da ovirajo sistemsko ravnanje s ključem za ponovni "
+"zagon"
+
+#: src/login/org.freedesktop.login1.policy:118
+#, fuzzy
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr ""
+"Preverjanje pristnosti je potrebno, da aplikacija zavira sistemsko ravnanje "
+"s ključem za ponovni zagon."
+
+#: src/login/org.freedesktop.login1.policy:128
+#, fuzzy
+msgid "Allow non-logged-in user to run programs"
+msgstr "Omogočanje zagona programov neprijavljenim uporabnikom"
+
+#: src/login/org.freedesktop.login1.policy:129
+#, fuzzy
+msgid "Explicit request is required to run programs as a non-logged-in user."
+msgstr ""
+"Za zagon programov kot neprijavljenega uporabnika je potrebna izrecna "
+"zahteva."
+
+#: src/login/org.freedesktop.login1.policy:138
+#, fuzzy
+msgid "Allow non-logged-in users to run programs"
+msgstr "Omogočanje zagona programov neprijavljenim uporabnikom"
+
+#: src/login/org.freedesktop.login1.policy:139
+#, fuzzy
+msgid "Authentication is required to run programs as a non-logged-in user."
+msgstr ""
+"Preverjanje pristnosti je potrebno za zagon programov kot neprijavljen "
+"uporabnik."
+
+#: src/login/org.freedesktop.login1.policy:148
+#, fuzzy
+msgid "Allow attaching devices to seats"
+msgstr "Dovoli pritrditev naprav na sedeže"
+
+#: src/login/org.freedesktop.login1.policy:149
+#, fuzzy
+msgid "Authentication is required to attach a device to a seat."
+msgstr "Preverjanje pristnosti je potrebno za pritrditev naprave na sedež."
+
+#: src/login/org.freedesktop.login1.policy:159
+#, fuzzy
+msgid "Flush device to seat attachments"
+msgstr "Naprava za splakovanje pritrdilnih elementov za sedež"
+
+#: src/login/org.freedesktop.login1.policy:160
+#, fuzzy
+msgid "Authentication is required to reset how devices are attached to seats."
+msgstr ""
+"Preverjanje pristnosti je potrebno za ponastavitev načina pritrditve naprav "
+"na sedeže."
+
+#: src/login/org.freedesktop.login1.policy:169
+#, fuzzy
+msgid "Power off the system"
+msgstr "Izklopite sistem"
+
+#: src/login/org.freedesktop.login1.policy:170
+#, fuzzy
+msgid "Authentication is required to power off the system."
+msgstr "Za izklop sistema je potrebno preverjanje pristnosti."
+
+#: src/login/org.freedesktop.login1.policy:180
+#, fuzzy
+msgid "Power off the system while other users are logged in"
+msgstr "Izklopite sistem, medtem ko so drugi uporabniki prijavljeni"
+
+#: src/login/org.freedesktop.login1.policy:181
+#, fuzzy
+msgid ""
+"Authentication is required to power off the system while other users are "
+"logged in."
+msgstr ""
+"Preverjanje pristnosti je potrebno za izklop sistema, medtem ko so drugi "
+"uporabniki prijavljeni."
+
+#: src/login/org.freedesktop.login1.policy:191
+#, fuzzy
+msgid "Power off the system while an application is inhibiting this"
+msgstr "Izklopite sistem, medtem ko aplikacija to zavira"
+
+#: src/login/org.freedesktop.login1.policy:192
+#, fuzzy
+msgid ""
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
+msgstr ""
+"Preverjanje pristnosti je potrebno za izklop sistema, medtem ko aplikacija "
+"to ovira."
+
+#: src/login/org.freedesktop.login1.policy:202
+#, fuzzy
+msgid "Reboot the system"
+msgstr "Znova zaženite sistem"
+
+#: src/login/org.freedesktop.login1.policy:203
+#, fuzzy
+msgid "Authentication is required to reboot the system."
+msgstr "Za ponovni zagon sistema je potrebno preverjanje pristnosti."
+
+#: src/login/org.freedesktop.login1.policy:213
+#, fuzzy
+msgid "Reboot the system while other users are logged in"
+msgstr "Znova zaženite sistem, ko so drugi uporabniki prijavljeni"
+
+#: src/login/org.freedesktop.login1.policy:214
+#, fuzzy
+msgid ""
+"Authentication is required to reboot the system while other users are logged "
+"in."
+msgstr ""
+"Preverjanje pristnosti je potrebno za ponovni zagon sistema, medtem ko so "
+"drugi uporabniki prijavljeni."
+
+#: src/login/org.freedesktop.login1.policy:224
+#, fuzzy
+msgid "Reboot the system while an application is inhibiting this"
+msgstr "Znova zaženite sistem, medtem ko aplikacija to zavira"
+
+#: src/login/org.freedesktop.login1.policy:225
+#, fuzzy
+msgid ""
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
+msgstr ""
+"Preverjanje pristnosti je potrebno za ponovni zagon sistema, medtem ko "
+"aplikacija to ovira."
+
+#: src/login/org.freedesktop.login1.policy:235
+#, fuzzy
+msgid "Halt the system"
+msgstr "Zaustavite sistem"
+
+#: src/login/org.freedesktop.login1.policy:236
+#, fuzzy
+msgid "Authentication is required to halt the system."
+msgstr "Za zaustavitev sistema je potrebno preverjanje pristnosti."
+
+#: src/login/org.freedesktop.login1.policy:246
+#, fuzzy
+msgid "Halt the system while other users are logged in"
+msgstr "Zaustavite sistem, medtem ko so drugi uporabniki prijavljeni"
+
+#: src/login/org.freedesktop.login1.policy:247
+#, fuzzy
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr ""
+"Preverjanje pristnosti je potrebno za zaustavitev sistema, medtem ko so "
+"drugi uporabniki prijavljeni."
+
+#: src/login/org.freedesktop.login1.policy:257
+#, fuzzy
+msgid "Halt the system while an application is inhibiting this"
+msgstr "Zaustavite sistem, medtem ko aplikacija to zavira"
+
+#: src/login/org.freedesktop.login1.policy:258
+#, fuzzy
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr ""
+"Preverjanje pristnosti je potrebno za zaustavitev sistema, medtem ko "
+"aplikacija to ovira."
+
+#: src/login/org.freedesktop.login1.policy:268
+#, fuzzy
+msgid "Suspend the system"
+msgstr "Prekinite sistem"
+
+#: src/login/org.freedesktop.login1.policy:269
+#, fuzzy
+msgid "Authentication is required to suspend the system."
+msgstr "Za prekinitev sistema je potrebno preverjanje pristnosti."
+
+#: src/login/org.freedesktop.login1.policy:278
+#, fuzzy
+msgid "Suspend the system while other users are logged in"
+msgstr "Začasno prekinite sistem, medtem ko so drugi uporabniki prijavljeni"
+
+#: src/login/org.freedesktop.login1.policy:279
+#, fuzzy
+msgid ""
+"Authentication is required to suspend the system while other users are "
+"logged in."
+msgstr ""
+"Preverjanje pristnosti je potrebno za začasno prekinitev sistema, medtem ko "
+"so drugi uporabniki prijavljeni."
+
+#: src/login/org.freedesktop.login1.policy:289
+#, fuzzy
+msgid "Suspend the system while an application is inhibiting this"
+msgstr "Prekinite sistem, medtem ko aplikacija to ovira"
+
+#: src/login/org.freedesktop.login1.policy:290
+#, fuzzy
+msgid ""
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
+msgstr ""
+"Preverjanje pristnosti je potrebno za prekinitev sistema, medtem ko "
+"aplikacija to ovira."
+
+#: src/login/org.freedesktop.login1.policy:300
+#, fuzzy
+msgid "Hibernate the system"
+msgstr "Stanje mirovanja sistema"
+
+#: src/login/org.freedesktop.login1.policy:301
+#, fuzzy
+msgid "Authentication is required to hibernate the system."
+msgstr "Za mirovanje sistema je potrebno preverjanje pristnosti."
+
+#: src/login/org.freedesktop.login1.policy:310
+#, fuzzy
+msgid "Hibernate the system while other users are logged in"
+msgstr "Prezimovanje sistema, medtem ko so drugi uporabniki prijavljeni"
+
+#: src/login/org.freedesktop.login1.policy:311
+#, fuzzy
+msgid ""
+"Authentication is required to hibernate the system while other users are "
+"logged in."
+msgstr ""
+"Preverjanje pristnosti je potrebno za mirovanje sistema, medtem ko so drugi "
+"uporabniki prijavljeni."
+
+#: src/login/org.freedesktop.login1.policy:321
+#, fuzzy
+msgid "Hibernate the system while an application is inhibiting this"
+msgstr "Stanje mirovanja sistema, medtem ko aplikacija to zavira"
+
+#: src/login/org.freedesktop.login1.policy:322
+#, fuzzy
+msgid ""
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
+msgstr ""
+"Preverjanje pristnosti je potrebno za mirovanje sistema, medtem ko "
+"aplikacija to ovira."
+
+#: src/login/org.freedesktop.login1.policy:332
+#, fuzzy
+msgid "Manage active sessions, users and seats"
+msgstr "Upravljanje aktivnih sej, uporabnikov in sedežev"
+
+#: src/login/org.freedesktop.login1.policy:333
+#, fuzzy
+msgid "Authentication is required to manage active sessions, users and seats."
+msgstr ""
+"Preverjanje pristnosti je potrebno za upravljanje aktivnih sej, uporabnikov "
+"in sedežev."
+
+#: src/login/org.freedesktop.login1.policy:342
+#, fuzzy
+msgid "Lock or unlock active sessions"
+msgstr "Zaklepanje ali odklepanje aktivnih sej"
+
+#: src/login/org.freedesktop.login1.policy:343
+#, fuzzy
+msgid "Authentication is required to lock or unlock active sessions."
+msgstr ""
+"Preverjanje pristnosti je potrebno za zaklepanje ali odklepanje aktivnih sej."
+
+#: src/login/org.freedesktop.login1.policy:352
+#, fuzzy
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr "Nastavite \"razlog\" za ponovni zagon v jedru"
+
+#: src/login/org.freedesktop.login1.policy:353
+#, fuzzy
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr ""
+"Preverjanje pristnosti je potrebno za nastavitev \"razloga\" za ponovni "
+"zagon v jedru."
+
+#: src/login/org.freedesktop.login1.policy:363
+#, fuzzy
+msgid "Indicate to the firmware to boot to setup interface"
+msgstr "Navedite vdelani programski opremi za zagon namestitvenega vmesnika"
+
+#: src/login/org.freedesktop.login1.policy:364
+#, fuzzy
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr ""
+"Preverjanje pristnosti je potrebno za označevanje vdelane programske opreme "
+"za zagon namestitvenega vmesnika."
+
+#: src/login/org.freedesktop.login1.policy:374
+#, fuzzy
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr ""
+"Navedite zagonskemu nalagalniku, da se zažene v meniju zagonskega nalagalnika"
+
+#: src/login/org.freedesktop.login1.policy:375
+#, fuzzy
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"Preverjanje pristnosti je potrebno, da zagonskemu nalagalniku sporočite "
+"zagon v meniju zagonskega nalagalnika."
+
+#: src/login/org.freedesktop.login1.policy:385
+#, fuzzy
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr "Navedite zagonskemu nalagalniku, da zaženete določen vnos"
+
+#: src/login/org.freedesktop.login1.policy:386
+#, fuzzy
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"Preverjanje pristnosti je potrebno za prikaz zagonskemu nalagalniku, da se "
+"zažene v določen vnos zagonskega nalagalnika."
+
+#: src/login/org.freedesktop.login1.policy:396
+#, fuzzy
+msgid "Set a wall message"
+msgstr "Nastavitev stenskega sporočila"
+
+#: src/login/org.freedesktop.login1.policy:397
+#, fuzzy
+msgid "Authentication is required to set a wall message"
+msgstr "Preverjanje pristnosti je potrebno za nastavitev stenskega sporočila"
+
+#: src/login/org.freedesktop.login1.policy:406
+#, fuzzy
+msgid "Change Session"
+msgstr "Spremeni sejo"
+
+#: src/login/org.freedesktop.login1.policy:407
+#, fuzzy
+msgid "Authentication is required to change the virtual terminal."
+msgstr "Za spremembo navideznega terminala je potrebno preverjanje pristnosti."
+
+#: src/machine/org.freedesktop.machine1.policy:22
+#, fuzzy
+msgid "Log into a local container"
+msgstr "Prijavite se v lokalni vsebnik"
+
+#: src/machine/org.freedesktop.machine1.policy:23
+#, fuzzy
+msgid "Authentication is required to log into a local container."
+msgstr "Preverjanje pristnosti je potrebno za prijavo v lokalni vsebnik."
+
+#: src/machine/org.freedesktop.machine1.policy:32
+#, fuzzy
+msgid "Log into the local host"
+msgstr "Prijavite se v lokalnega gostitelja"
+
+#: src/machine/org.freedesktop.machine1.policy:33
+#, fuzzy
+msgid "Authentication is required to log into the local host."
+msgstr "Za prijavo v lokalnega gostitelja je potrebno preverjanje pristnosti."
+
+#: src/machine/org.freedesktop.machine1.policy:42
+#, fuzzy
+msgid "Acquire a shell in a local container"
+msgstr "Pridobite lupino v lokalni posodi"
+
+#: src/machine/org.freedesktop.machine1.policy:43
+#, fuzzy
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr ""
+"Preverjanje pristnosti je potrebno za pridobitev lupine v lokalnem vsebniku."
+
+#: src/machine/org.freedesktop.machine1.policy:53
+#, fuzzy
+msgid "Acquire a shell on the local host"
+msgstr "Pridobite lupino na lokalnem gostitelju"
+
+#: src/machine/org.freedesktop.machine1.policy:54
+#, fuzzy
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr ""
+"Preverjanje pristnosti je potrebno za pridobitev lupine na lokalnem "
+"gostitelju."
+
+#: src/machine/org.freedesktop.machine1.policy:64
+#, fuzzy
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "Pridobite psevdo TTY v lokalnem zabojniku"
+
+#: src/machine/org.freedesktop.machine1.policy:65
+#, fuzzy
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr ""
+"Preverjanje pristnosti je potrebno za pridobitev psevdo TTY v lokalnem "
+"vsebniku."
+
+#: src/machine/org.freedesktop.machine1.policy:74
+#, fuzzy
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "Pridobite psevdo TTY na lokalnem gostitelju"
+
+#: src/machine/org.freedesktop.machine1.policy:75
+#, fuzzy
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr ""
+"Preverjanje pristnosti je potrebno za pridobitev psevdo TTY na lokalnem "
+"gostitelju."
+
+#: src/machine/org.freedesktop.machine1.policy:84
+#, fuzzy
+msgid "Manage local virtual machines and containers"
+msgstr "Upravljanje lokalnih navideznih strojev in vsebnikov"
+
+#: src/machine/org.freedesktop.machine1.policy:85
+#, fuzzy
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr ""
+"Preverjanje pristnosti je potrebno za upravljanje lokalnih navideznih "
+"strojev in vsebnikov."
+
+#: src/machine/org.freedesktop.machine1.policy:95
+#, fuzzy
+msgid "Manage local virtual machine and container images"
+msgstr "Upravljanje slik lokalnega navideznega stroja in vsebnika"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+#, fuzzy
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr ""
+"Preverjanje pristnosti je potrebno za upravljanje lokalnih navideznih "
+"računalnikov in slik vsebnikov."
+
+#: src/network/org.freedesktop.network1.policy:22
+#, fuzzy
+msgid "Set NTP servers"
+msgstr "Nastavitev strežnikov NTP"
+
+#: src/network/org.freedesktop.network1.policy:23
+#, fuzzy
+msgid "Authentication is required to set NTP servers."
+msgstr "Za nastavitev strežnikov NTP je potrebno preverjanje pristnosti."
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+#, fuzzy
+msgid "Set DNS servers"
+msgstr "Nastavitev strežnikov DNS"
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+#, fuzzy
+msgid "Authentication is required to set DNS servers."
+msgstr "Za nastavitev strežnikov DNS je potrebno preverjanje pristnosti."
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+#, fuzzy
+msgid "Set domains"
+msgstr "Nastavljanje domen"
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+#, fuzzy
+msgid "Authentication is required to set domains."
+msgstr "Za nastavitev domen je potrebno preverjanje pristnosti."
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+#, fuzzy
+msgid "Set default route"
+msgstr "Nastavljanje privzete poti"
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+#, fuzzy
+msgid "Authentication is required to set default route."
+msgstr "Za nastavitev privzete poti je potrebno preverjanje pristnosti."
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+#, fuzzy
+msgid "Enable/disable LLMNR"
+msgstr "Omogoči/onemogoči LLMNR"
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+#, fuzzy
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr ""
+"Preverjanje pristnosti je potrebno za omogočanje ali onemogočanje LLMNR."
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+#, fuzzy
+msgid "Enable/disable multicast DNS"
+msgstr "Omogočanje/onemogočanje DNS za večvrstno oddajanje"
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+#, fuzzy
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr ""
+"Preverjanje pristnosti je potrebno, če želite omogočiti ali onemogočiti DNS "
+"za večvrstno oddajanje (multicast DNS)."
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+#, fuzzy
+msgid "Enable/disable DNS over TLS"
+msgstr "Omogočanje/onemogočanje DNS prek TLS"
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+#, fuzzy
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr ""
+"Preverjanje pristnosti je potrebno, če želite omogočiti ali onemogočiti DNS "
+"prek TLS."
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+#, fuzzy
+msgid "Enable/disable DNSSEC"
+msgstr "Omogočanje/onemogočanje DNSSEC"
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+#, fuzzy
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr ""
+"Preverjanje pristnosti je potrebno, če želite omogočiti ali onemogočiti "
+"DNSSEC."
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+#, fuzzy
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr "Nastavitev negativnih sider zaupanja DNSSEC"
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+#, fuzzy
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr ""
+"Preverjanje pristnosti je potrebno za nastavitev negativnih sider zaupanja "
+"DNSSEC."
+
+#: src/network/org.freedesktop.network1.policy:121
+#, fuzzy
+msgid "Revert NTP settings"
+msgstr "Povrnitev nastavitev NTP"
+
+#: src/network/org.freedesktop.network1.policy:122
+#, fuzzy
+msgid "Authentication is required to reset NTP settings."
+msgstr "Za ponastavitev nastavitev NTP je potrebno preverjanje pristnosti."
+
+#: src/network/org.freedesktop.network1.policy:132
+#, fuzzy
+msgid "Revert DNS settings"
+msgstr "Povrnitev nastavitev DNS"
+
+#: src/network/org.freedesktop.network1.policy:133
+#, fuzzy
+msgid "Authentication is required to reset DNS settings."
+msgstr "Za ponastavitev nastavitev DNS je potrebno preverjanje pristnosti."
+
+#: src/network/org.freedesktop.network1.policy:143
+#, fuzzy
+msgid "DHCP server sends force renew message"
+msgstr "Strežnik DHCP pošlje sporočilo o prisilnem podaljšanju"
+
+#: src/network/org.freedesktop.network1.policy:144
+#, fuzzy
+msgid "Authentication is required to send force renew message."
+msgstr ""
+"Preverjanje pristnosti je potrebno za pošiljanje sporočila o prisilnem "
+"podaljšanju."
+
+#: src/network/org.freedesktop.network1.policy:154
+#, fuzzy
+msgid "Renew dynamic addresses"
+msgstr "Obnovitev dinamičnih naslovov"
+
+#: src/network/org.freedesktop.network1.policy:155
+#, fuzzy
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "Preverjanje pristnosti je potrebno za obnovitev dinamičnih naslovov."
+
+#: src/network/org.freedesktop.network1.policy:165
+#, fuzzy
+msgid "Reload network settings"
+msgstr "Vnovično nalaganje omrežnih nastavitev"
+
+#: src/network/org.freedesktop.network1.policy:166
+#, fuzzy
+msgid "Authentication is required to reload network settings."
+msgstr ""
+"Preverjanje pristnosti je potrebno za ponovno nalaganje omrežnih nastavitev."
+
+#: src/network/org.freedesktop.network1.policy:176
+msgid "Reconfigure network interface"
+msgstr "Ponovno prilagodi omrežni vmesnik"
+
+#: src/network/org.freedesktop.network1.policy:177
+#, fuzzy
+msgid "Authentication is required to reconfigure network interface."
+msgstr ""
+"Za vnovično konfiguracijo omrežnega vmesnika je potrebno preverjanje "
+"pristnosti."
+
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available."
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
+
+#: src/portable/org.freedesktop.portable1.policy:13
+#, fuzzy
+msgid "Inspect a portable service image"
+msgstr "Preglejte sliko prenosne storitve"
+
+#: src/portable/org.freedesktop.portable1.policy:14
+#, fuzzy
+msgid "Authentication is required to inspect a portable service image."
+msgstr "Preverjanje pristnosti je potrebno za pregled prenosne slike storitve."
+
+#: src/portable/org.freedesktop.portable1.policy:23
+#, fuzzy
+msgid "Attach or detach a portable service image"
+msgstr "Prilaganje ali odstranjevanje slike prenosne storitve"
+
+#: src/portable/org.freedesktop.portable1.policy:24
+#, fuzzy
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr ""
+"Preverjanje pristnosti je potrebno za prilaganje ali odstranjevanje slike "
+"prenosne storitve."
+
+#: src/portable/org.freedesktop.portable1.policy:34
+#, fuzzy
+msgid "Delete or modify portable service image"
+msgstr "Brisanje ali spreminjanje slike prenosne storitve"
+
+#: src/portable/org.freedesktop.portable1.policy:35
+#, fuzzy
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr ""
+"Preverjanje pristnosti je potrebno za brisanje ali spreminjanje prenosnega "
+"posnetka storitve."
+
+#: src/resolve/org.freedesktop.resolve1.policy:22
+msgid "Register a DNS-SD service"
+msgstr "Registrirajte storitev DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:23
+#, fuzzy
+msgid "Authentication is required to register a DNS-SD service"
+msgstr "Za registracijo storitve DNS-SD je potrebno preverjanje pristnosti"
+
+#: src/resolve/org.freedesktop.resolve1.policy:33
+#, fuzzy
+msgid "Unregister a DNS-SD service"
+msgstr "Preklic registracije storitve DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:34
+#, fuzzy
+msgid "Authentication is required to unregister a DNS-SD service"
+msgstr ""
+"Za preklic registracije storitve DNS-SD je potrebno preverjanje pristnosti"
+
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr "Povrnit nastavitve razločljivosti imena"
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+msgid "Authentication is required to reset name resolution settings."
+msgstr ""
+"Za ponastavitev nastavitev razločljivosti imena je potrebno preverjanje "
+"pristnosti."
+
+#: src/timedate/org.freedesktop.timedate1.policy:22
+msgid "Set system time"
+msgstr "Določi sistemski čas"
+
+#: src/timedate/org.freedesktop.timedate1.policy:23
+msgid "Authentication is required to set the system time."
+msgstr "Za nastavitev sistemskega časa je potrebno preverjanje pristnosti."
+
+#: src/timedate/org.freedesktop.timedate1.policy:33
+msgid "Set system timezone"
+msgstr "Določi časovni pas sistema"
+
+#: src/timedate/org.freedesktop.timedate1.policy:34
+msgid "Authentication is required to set the system timezone."
+msgstr ""
+"Za nastavitev sistemskega časovnega pasu je potrebno preverjanje pristnosti."
+
+#: src/timedate/org.freedesktop.timedate1.policy:43
+msgid "Set RTC to local timezone or UTC"
+msgstr "Nastavite RTC na krajevni časovni pas ali UTC"
+
+#: src/timedate/org.freedesktop.timedate1.policy:44
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr ""
+"Preverjanje pristnosti je potrebno za nadzor, ali RTC shranjuje krajevni čas "
+"ali čas UTC."
+
+#: src/timedate/org.freedesktop.timedate1.policy:53
+msgid "Turn network time synchronization on or off"
+msgstr "Vklopite ali izklopite omrežno sinhronizacijo časa"
+
+#: src/timedate/org.freedesktop.timedate1.policy:54
+#, fuzzy
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr ""
+"Preverjanje pristnosti je potrebno za nadzor, ali naj bo omogočena "
+"sinhronizacija časa v omrežju."
+
+#: src/core/dbus-unit.c:353
+#, fuzzy
+msgid "Authentication is required to start '$(unit)'."
+msgstr "Preverjanje pristnosti je potrebno za začetek »$(enota)«."
+
+#: src/core/dbus-unit.c:354
+#, fuzzy
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "Preverjanje pristnosti je potrebno, če želite ustaviti »$(enota)«."
+
+#: src/core/dbus-unit.c:355
+#, fuzzy
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "Preverjanje pristnosti je potrebno za ponovno nalaganje »$(enota)«."
+
+#: src/core/dbus-unit.c:356 src/core/dbus-unit.c:357
+#, fuzzy
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "Preverjanje pristnosti je potrebno za vnovični zagon »$(enota)«."
+
+#: src/core/dbus-unit.c:549
+#, fuzzy
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"'$(unit)'."
+msgstr ""
+"Preverjanje pristnosti je potrebno za pošiljanje signala UNIX procesom \"$ "
+"(enota)\"."
+
+#: src/core/dbus-unit.c:577
+#, fuzzy
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr ""
+"Preverjanje pristnosti je potrebno za ponastavitev stanja »ni uspelo« "
+"»$(enota)«."
+
+#: src/core/dbus-unit.c:607
+#, fuzzy
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr ""
+"Preverjanje pristnosti je potrebno, če želite lastnosti nastaviti na "
+"»$(enota)«."
+
+#: src/core/dbus-unit.c:704
+#, fuzzy
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
+msgstr ""
+"Preverjanje pristnosti je potrebno za brisanje datotek in imenikov, "
+"povezanih z »$(enota)«."
+
+#: src/core/dbus-unit.c:743
+#, fuzzy
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr ""
+"Preverjanje pristnosti je potrebno za zamrznitev ali odmrzovanje postopkov "
+"enote »$(enota)«."
+
+#: src/home/org.freedesktop.home1.policy:73
+#, fuzzy
+msgid "Inhibit automatic lock of a home area"
+msgstr "Zaviranje samodejnega zaklepanja domačega območja"
+
+#: src/home/org.freedesktop.home1.policy:74
+#, fuzzy
+msgid ""
+"Authentication is required to inhibit automatic lock of a user's home area."
+msgstr ""
+"Preverjanje pristnosti je potrebno za preprečevanje samodejnega zaklepanja "
+"uporabnikovega domačega območja."
