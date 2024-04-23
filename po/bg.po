@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-04 10:09+0100\n"
+"POT-Creation-Date: 2024-04-22 14:09+0100\n"
 "PO-Revision-Date: 2023-03-17 15:20+0000\n"
 "Last-Translator: Velislav Ivanov <velislav.bg@gmail.com>\n"
 "Language-Team: Bulgarian <https://translate.fedoraproject.org/projects/"
@@ -134,21 +134,11 @@ msgstr ""
 "За промяна на парола на място за потребител е необходима идентификация."
 
 #: src/home/org.freedesktop.home1.policy:73
-msgid "Inhibit automatic lock of a home area"
-msgstr ""
-
-#: src/home/org.freedesktop.home1.policy:74
-#, fuzzy
-msgid ""
-"Authentication is required to inhibit automatic lock of a user's home area."
-msgstr "За обновяване на място за потребител е необходима идентификация."
-
-#: src/home/org.freedesktop.home1.policy:83
 #, fuzzy
 msgid "Activate a home area"
 msgstr "Създаване на място за потребител"
 
-#: src/home/org.freedesktop.home1.policy:84
+#: src/home/org.freedesktop.home1.policy:74
 #, fuzzy
 msgid "Authentication is required to activate a user's home area."
 msgstr "За създаване на място за потребител е необходима идентификация."
@@ -1049,6 +1039,16 @@ msgstr "Настройване на мрежови интерфейси"
 #: src/network/org.freedesktop.network1.policy:177
 msgid "Authentication is required to reconfigure network interface."
 msgstr "За настройване на мрежови интерфейси е необходима идентификация."
+
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available."
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"

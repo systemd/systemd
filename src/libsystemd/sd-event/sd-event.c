@@ -2647,7 +2647,7 @@ _public_ int sd_event_source_get_io_fd(sd_event_source *s) {
 }
 
 _public_ int sd_event_source_set_io_fd(sd_event_source *s, int fd) {
-        int r;
+        int saved_fd, r;
 
         assert_return(s, -EINVAL);
         assert_return(fd >= 0, -EBADF);
@@ -2657,16 +2657,12 @@ _public_ int sd_event_source_set_io_fd(sd_event_source *s, int fd) {
         if (s->io.fd == fd)
                 return 0;
 
-        if (event_source_is_offline(s)) {
-                s->io.fd = fd;
-                s->io.registered = false;
-        } else {
-                int saved_fd;
+        saved_fd = s->io.fd;
+        s->io.fd = fd;
 
-                saved_fd = s->io.fd;
-                assert(s->io.registered);
+        assert(event_source_is_offline(s) == !s->io.registered);
 
-                s->io.fd = fd;
+        if (s->io.registered) {
                 s->io.registered = false;
 
                 r = source_io_register(s, s->enabled, s->io.events);
@@ -2678,6 +2674,9 @@ _public_ int sd_event_source_set_io_fd(sd_event_source *s, int fd) {
 
                 (void) epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, saved_fd, NULL);
         }
+
+        if (s->io.owned)
+                safe_close(saved_fd);
 
         return 0;
 }

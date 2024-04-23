@@ -247,6 +247,24 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         </listitem>
 
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.journald.max_level_store=</varname></term>
+        <term><varname>systemd.journald.max_level_syslog=</varname></term>
+        <term><varname>systemd.journald.max_level_kmsg=</varname></term>
+        <term><varname>systemd.journald.max_level_console=</varname></term>
+        <term><varname>systemd.journald.max_level_wall=</varname></term>
+        <term><varname>systemd.journald.max_level_socket=</varname></term>
+
+        <listitem><para>Controls the maximum log level of messages that are stored in the journal, forwarded
+        to syslog, kmsg, the console, the wall, or a socket. This kernel command line options override the
+        settings of the same names in the
+        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
 
     <para>Note that these kernel command line options are only honoured by the default namespace, see

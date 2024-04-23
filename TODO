@@ -130,6 +130,14 @@ Deprecations and removals:
 
 Features:
 
+* userdb: add concept for user "aliases", to cover for cases where you can log
+  in under the name lennart@somenetworkfsserver, and it would automatically
+  generate a local user, and from the one both names can be used to allow
+  logins into the same account.
+
+* systemd-tpm2-support: add a some logic that detects if system is in DA
+  lockout mode, and queries the user for TPM recovery PIN then.
+
 * systemd-repart should probably enable btrfs' "temp_fsid" feature for all file
   systems it creates, as we have no interest in RAID for repart, and it should
   make sure that we can mount them trivially everywhere.
@@ -524,12 +532,6 @@ Features:
   fd00:5353:5353:5353:5353:5353:5353:5353), and listen on port 53 on it for the
   local stubs, so that we can make the stub available via ipv6 too.
 
-* introduce a .microcode PE section for sd-stub which we'll pass as first initrd
-  to the kernel which will then upload it to the CPU. This should be distinct
-  from .initrd to guarantee right ordering. also, and maybe more importantly
-  support .microcode in PE add-ons, so that a microcode update can be shipped
-  independently of any kernel.
-
 * Maybe add SwitchRootEx() as new bus call that takes env vars to set for new
   PID 1 as argument. When adding SwitchRootEx() we should maybe also add a
   flags param that allows disabling and enabling whether serialization is
@@ -636,9 +638,6 @@ Features:
   partitions. I a partition is extended multiple times they should probably
   grow exponentially in size to ensure O(log(n)) time for finding them on
   access.
-
-* Use CLONE_INTO_CGROUP to spawn systemd-executor, once glibc supports it in
-  posix_spawn().
 
 * Make nspawn to a frontend for systemd-executor, so that we have to ways into
   the executor: via unit files/dbus/varlink through PID1 and via cmdline/OCI
@@ -912,11 +911,6 @@ Features:
   early. i.e. stuff ending in "/", "/." and "/.." definitely refers to a
   directory, and paths ending that way can be refused early in many contexts.
 
-* systemd-measure: allow operating with PEM certificates in addition to PEM
-  public keys when signing PCR values. SecureBoot and our Verity signatures
-  operate with certificates already, hence I guess we should also just deal for
-  convenience with certificates for the PCR stuff too.
-
 * systemd-measure: add --pcrpkey-auto as an alternative to --pcrpkey=, where it
   would just use the same public key specified with --public-key= (or the one
   automatically derived from --private-key=).
@@ -931,10 +925,6 @@ Features:
   and use it for validating DDIs and credentials. Maybe upload it to the kernel
   keyring, so that the kernel does this validation for us for verity and kernel
   modules
-
-* for systemd-confext: add a tool that can generate suitable DDIs with verity +
-  sig using squashfs-tools-ng's library. Maybe just systemd-repart called under
-  a new name with a built-in config?
 
 * lock down acceptable encrypted credentials at boot, via simple allowlist,
   maybe on kernel command line:
@@ -1213,8 +1203,6 @@ Features:
   images as OS payloads. i.e. have a generic OS image you can point to any
   payload you like, which is then downloaded, securely verified and run.
 
-* deprecate cgroupsv1 further (print log message at boot)
-
 * systemd-dissect: add --cat switch for dumping files such as /etc/os-release
 
 * per-service sandboxing option: ProtectIds=. If used, will overmount
@@ -1396,7 +1384,6 @@ Features:
   - pass creds via keyring?
   - pass creds via memfd?
   - acquire + decrypt creds from pkcs11?
-  - make systemd-cryptsetup acquire pw via creds logic
   - make PAMName= acquire pw via creds logic
   - make macsec code in networkd read key via creds logic (copy logic from
     wireguard)
@@ -1458,8 +1445,8 @@ Features:
   Apparently kernel performance is much better with fewer larger seccomp
   filters than with more smaller seccomp filters.
 
-* systemd-path: add ESP and XBOOTLDR path. Add "private" runtime/state/cache dir enum,
-  mapping to $RUNTIME_DIRECTORY, $STATE_DIRECTORY and such
+* systemd-path: Add "private" runtime/state/cache dir enum, mapping to
+  $RUNTIME_DIRECTORY, $STATE_DIRECTORY and such
 
 * seccomp: by default mask x32 ABI system wide on x86-64. it's on its way out
 
@@ -1885,8 +1872,6 @@ Features:
 * transient units:
   - add field to transient units that indicate whether systemd or somebody else saves/restores its settings, for integration with libvirt
 
-* when we detect low battery and no AC on boot, show pretty splash and refuse boot
-
 * libsystemd-journal, libsystemd-login, libudev: add calls to easily attach these objects to sd-event event loops
 
 * be more careful what we export on the bus as (usec_t) 0 and (usec_t) -1
@@ -1930,7 +1915,6 @@ Features:
     that are not supported...
     https://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
   - recreate systemd's D-Bus private socket file on SIGUSR2
-  - move PAM code into its own binary
   - when we automatically restart a service, ensure we restart its rdeps, too.
   - hide PAM options in fragment parser when compile time disabled
   - Support --test based on current system state
@@ -1974,8 +1958,6 @@ Features:
 * make repeated alt-ctrl-del presses printing a dump
 
 * currently x-systemd.timeout is lost in the initrd, since crypttab is copied into dracut, but fstab is not
-
-* add a pam module that passes the hdd passphrase into the PAM stack and then expires it, for usage by gdm auto-login.
 
 * add a pam module that on password changes updates any LUKS slot where the password matches
 
@@ -2477,12 +2459,6 @@ Features:
   - Reduce the number of sockets that are currently in use and just rely on one
     or two sockets.
   - Support running nspawn as an unprivileged user.
-
-* machined: add API to acquire UID range. add API to mount/dissect loopback
-  file. Both protected by PK. Then make nspawn use these APIs to run
-  unprivileged containers. i.e. push the truly privileged bits into machined,
-  so that the client side can remain entirely unprivileged, with SUID or
-  anything like that.
 
 * machined:
   - add an API so that libvirt-lxc can inform us about network interfaces being

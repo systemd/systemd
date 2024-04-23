@@ -1866,6 +1866,11 @@ void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix) {
                         "%sStart Timestamp: %s\n",
                         prefix, FORMAT_TIMESTAMP(s->start_timestamp.realtime));
 
+        if (dual_timestamp_is_set(&s->handover_timestamp))
+                fprintf(f,
+                        "%sHandover Timestamp: %s\n",
+                        prefix, FORMAT_TIMESTAMP(s->handover_timestamp.realtime));
+
         if (dual_timestamp_is_set(&s->exit_timestamp))
                 fprintf(f,
                         "%sExit Timestamp: %s\n"

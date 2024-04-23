@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-03-04 10:09+0100\n"
+"POT-Creation-Date: 2024-04-22 14:09+0100\n"
 "PO-Revision-Date: 2024-03-04 16:32+0000\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <https://translate.fedoraproject.org/projects/systemd/"
@@ -143,21 +143,10 @@ msgstr ""
 "użytkownika."
 
 #: src/home/org.freedesktop.home1.policy:73
-msgid "Inhibit automatic lock of a home area"
-msgstr "Wstrzymanie automatycznej blokady przestrzeni domowej"
-
-#: src/home/org.freedesktop.home1.policy:74
-msgid ""
-"Authentication is required to inhibit automatic lock of a user's home area."
-msgstr ""
-"Wymagane jest uwierzytelnienie, aby wstrzymać automatyczną blokadę "
-"przestrzeni domowej użytkownika."
-
-#: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
 msgstr "Aktywowanie przestrzeni domowej"
 
-#: src/home/org.freedesktop.home1.policy:84
+#: src/home/org.freedesktop.home1.policy:74
 msgid "Authentication is required to activate a user's home area."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby aktywować przestrzeń domową użytkownika."
@@ -1050,6 +1039,16 @@ msgid "Authentication is required to reconfigure network interface."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie skonfigurować interfejs "
 "sieciowy."
+
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available."
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"

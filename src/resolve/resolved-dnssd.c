@@ -3,10 +3,11 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
-#include "resolved-dnssd.h"
-#include "resolved-dns-rr.h"
-#include "resolved-manager.h"
+#include "path-util.h"
 #include "resolved-conf.h"
+#include "resolved-dns-rr.h"
+#include "resolved-dnssd.h"
+#include "resolved-manager.h"
 #include "specifier.h"
 #include "strv.h"
 
@@ -40,7 +41,7 @@ DnssdService *dnssd_service_free(DnssdService *service) {
                 return NULL;
 
         if (service->manager)
-                hashmap_remove(service->manager->dnssd_services, service->name);
+                hashmap_remove(service->manager->dnssd_services, service->id);
 
         dns_resource_record_unref(service->ptr_rr);
         dns_resource_record_unref(service->sub_ptr_rr);
@@ -48,8 +49,8 @@ DnssdService *dnssd_service_free(DnssdService *service) {
 
         dnssd_txtdata_free_all(service->txt_data_items);
 
-        free(service->filename);
-        free(service->name);
+        free(service->path);
+        free(service->id);
         free(service->type);
         free(service->subtype);
         free(service->name_template);
@@ -62,45 +63,59 @@ void dnssd_service_clear_on_reload(Hashmap *services) {
 
         HASHMAP_FOREACH(service, services)
                 if (service->config_source == RESOLVE_CONFIG_SOURCE_FILE) {
-                        hashmap_remove(services, service->name);
+                        hashmap_remove(services, service->id);
                         dnssd_service_free(service);
                 }
 }
 
-static int dnssd_service_load(Manager *manager, const char *filename) {
+static int dnssd_id_from_path(const char *path, char **ret_id) {
+        int r;
+
+        assert(path);
+        assert(ret_id);
+
+        _cleanup_free_ char *fn = NULL;
+        r = path_extract_filename(path, &fn);
+        if (r < 0)
+                return r;
+
+        char *d = endswith(fn, ".dnssd");
+        if (!d)
+                return -EINVAL;
+
+        *d = '\0';
+
+        *ret_id = TAKE_PTR(fn);
+        return 0;
+}
+
+static int dnssd_service_load(Manager *manager, const char *path) {
         _cleanup_(dnssd_service_freep) DnssdService *service = NULL;
         _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
-        char *d;
-        const char *dropin_dirname;
+        _cleanup_free_ char *dropin_dirname = NULL;
         int r;
 
         assert(manager);
-        assert(filename);
+        assert(path);
 
         service = new0(DnssdService, 1);
         if (!service)
                 return log_oom();
 
-        service->filename = strdup(filename);
-        if (!service->filename)
+        service->path = strdup(path);
+        if (!service->path)
                 return log_oom();
 
-        service->name = strdup(basename(filename));
-        if (!service->name)
+        r = dnssd_id_from_path(path, &service->id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract DNS-SD service id from filename: %m");
+
+        dropin_dirname = strjoin(service->id, ".dnssd.d");
+        if (!dropin_dirname)
                 return log_oom();
-
-        d = endswith(service->name, ".dnssd");
-        if (!d)
-                return -EINVAL;
-
-        assert(streq(d, ".dnssd"));
-
-        *d = '\0';
-
-        dropin_dirname = strjoina(service->name, ".dnssd.d");
 
         r = config_parse_many(
-                        STRV_MAKE_CONST(filename), DNSSD_SERVICE_DIRS, dropin_dirname, /* root = */ NULL,
+                        STRV_MAKE_CONST(path), DNSSD_SERVICE_DIRS, dropin_dirname, /* root = */ NULL,
                         "Service\0",
                         config_item_perf_lookup, resolved_dnssd_gperf_lookup,
                         CONFIG_PARSE_WARN,
@@ -113,12 +128,12 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
         if (!service->name_template)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s doesn't define service instance name",
-                                       service->name);
+                                       service->id);
 
         if (!service->type)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s doesn't define service type",
-                                       service->name);
+                                       service->id);
 
         if (!service->txt_data_items) {
                 txt_data = new0(DnssdTxtData, 1);
@@ -133,7 +148,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
                 TAKE_PTR(txt_data);
         }
 
-        r = hashmap_ensure_put(&manager->dnssd_services, &string_hash_ops, service->name, service);
+        r = hashmap_ensure_put(&manager->dnssd_services, &string_hash_ops, service->id, service);
         if (r < 0)
                 return r;
 
@@ -369,7 +384,7 @@ int dnssd_signal_conflict(Manager *manager, const char *name) {
 
                         s->withdrawn = true;
 
-                        r = sd_bus_path_encode("/org/freedesktop/resolve1/dnssd", s->name, &path);
+                        r = sd_bus_path_encode("/org/freedesktop/resolve1/dnssd", s->id, &path);
                         if (r < 0)
                                 return log_error_errno(r, "Can't get D-BUS object path: %m");
 
