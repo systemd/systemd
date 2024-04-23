@@ -62,6 +62,9 @@ struct Machine {
         int *netif;
         size_t n_netif;
 
+        char *ssh_address;
+        char *ssh_private_key_path;
+
         LIST_HEAD(Operation, operations);
 
         LIST_FIELDS(Machine, gc_queue);
@@ -77,6 +80,8 @@ int machine_finalize(Machine *m);
 int machine_save(Machine *m);
 int machine_load(Machine *m);
 int machine_kill(Machine *m, KillWho who, int signo);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Machine*, machine_free);
 
 void machine_release_unit(Machine *m);
 

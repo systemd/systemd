@@ -36,8 +36,6 @@
 #include "unit-name.h"
 #include "user-util.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Machine*, machine_free);
-
 int machine_new(Manager *manager, MachineClass class, const char *name, Machine **ret) {
         _cleanup_(machine_freep) Machine *m = NULL;
         int r;
@@ -117,6 +115,8 @@ Machine* machine_free(Machine *m) {
         free(m->service);
         free(m->root_directory);
         free(m->netif);
+        free(m->ssh_address);
+        free(m->ssh_private_key_path);
         return mfree(m);
 }
 
@@ -604,6 +604,7 @@ int machine_openpt(Machine *m, int flags, char **ret_slave) {
 
         switch (m->class) {
 
+        case MACHINE_VM:
         case MACHINE_HOST:
                 return openpt_allocate(flags, ret_slave);
 
@@ -623,6 +624,7 @@ int machine_open_terminal(Machine *m, const char *path, int mode) {
 
         switch (m->class) {
 
+        case MACHINE_VM:
         case MACHINE_HOST:
                 return open_terminal(path, mode);
 
