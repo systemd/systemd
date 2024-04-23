@@ -130,6 +130,9 @@ Deprecations and removals:
 
 Features:
 
+* Clean up "reboot argument" handling, i.e. set it through some IPC service
+  instead of directly via /run/, so that it can be sensible set remotely.
+
 * userdb: add concept for user "aliases", to cover for cases where you can log
   in under the name lennart@somenetworkfsserver, and it would automatically
   generate a local user, and from the one both names can be used to allow
