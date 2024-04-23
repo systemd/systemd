@@ -4755,7 +4755,7 @@ static void manager_vacuum(Manager *m) {
         exec_shared_runtime_vacuum(m);
 }
 
-int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+static int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         struct buffer {
                 uid_t uid;
                 gid_t gid;
