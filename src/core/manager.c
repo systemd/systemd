@@ -3781,6 +3781,11 @@ static void manager_notify_finished(Manager *m) {
                                        FORMAT_TIMESPAN(total_usec, USEC_PER_MSEC)));
         }
 
+        log_warning("sd: i=userspace, active_enter="USEC_FMT, m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic);
+        log_warning("sd: status changed: %s, t="USEC_FMT,
+                    (set_size(m->failed_units) > 0) ? "DEGRADED(startdone)": "RUNNING",
+                    m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic);
+
         bus_manager_send_finished(m, firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec);
 
         log_taint_string(m);
@@ -4548,6 +4553,10 @@ int manager_update_failed_units(Manager *m, Unit *u, bool failed) {
         size = set_size(m->failed_units);
 
         if (failed) {
+                log_warning("sd: status changed: %s, t="USEC_FMT,
+                            dual_timestamp_is_set(m->timestamps + MANAGER_TIMESTAMP_FINISH) ? "DEGRADED"
+                                                                                            : "STARTING(degraded)",
+                            u->inactive_enter_timestamp.monotonic);
                 r = set_ensure_put(&m->failed_units, NULL, u);
                 if (r < 0)
                         return log_oom();
