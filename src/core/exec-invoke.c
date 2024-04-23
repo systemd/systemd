@@ -3519,7 +3519,7 @@ static int close_remaining_fds(
                 const int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
-        int dont_close[n_fds + 15];
+        int dont_close[n_fds + 16];
 
         assert(params);
 
@@ -3554,6 +3554,9 @@ static int close_remaining_fds(
 
         if (params->user_lookup_fd >= 0)
                 dont_close[n_dont_close++] = params->user_lookup_fd;
+
+        if (params->handoff_timestamp_fd >= 0)
+                dont_close[n_dont_close++] = params->handoff_timestamp_fd;
 
         assert(n_dont_close <= ELEMENTSOF(dont_close));
 
@@ -3974,6 +3977,52 @@ static void exec_params_close(ExecParameters *p) {
         p->stderr_fd = safe_close(p->stderr_fd);
 }
 
+static int exec_fd_mark_hot(
+                const ExecContext *c,
+                ExecParameters *p,
+                bool hot,
+                int *reterr_exit_status) {
+
+        assert(c);
+        assert(p);
+
+        if (p->exec_fd < 0)
+                return 0;
+
+        uint8_t x = hot;
+
+        if (write(p->exec_fd, &x, sizeof(x)) < 0) {
+                if (reterr_exit_status)
+                        *reterr_exit_status = EXIT_EXEC;
+                return log_exec_error_errno(c, p, errno, "Failed to mark exec_fd as %s: %m", hot ? "hot" : "cold");
+        }
+
+        return 1;
+}
+
+static int send_handoff_timestamp(
+                const ExecContext *c,
+                ExecParameters *p,
+                int *reterr_exit_status) {
+
+        assert(c);
+        assert(p);
+
+        if (p->handoff_timestamp_fd < 0)
+                return 0;
+
+        struct dual_timestamp dt;
+        dual_timestamp_now(&dt);
+
+        if (send(p->handoff_timestamp_fd, (const usec_t[2]) { dt.realtime, dt.monotonic }, sizeof(usec_t) * 2, 0) < 0) {
+                if (reterr_exit_status)
+                        *reterr_exit_status = EXIT_EXEC;
+                return log_exec_error_errno(c, p, errno, "Failed to send handoff timestamp: %m");
+        }
+
+        return 1;
+}
+
 int exec_invoke(
                 const ExecCommand *command,
                 const ExecContext *context,
@@ -4105,11 +4154,17 @@ int exec_invoke(
                 return log_exec_error_errno(context, params, r, "Failed to get OpenFile= file descriptors: %m");
         }
 
-        int keep_fds[n_fds + 3];
+        int keep_fds[n_fds + 4];
         memcpy_safe(keep_fds, params->fds, n_fds * sizeof(int));
         n_keep_fds = n_fds;
 
         r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &params->exec_fd);
+        if (r < 0) {
+                *exit_status = EXIT_FDS;
+                return log_exec_error_errno(context, params, r, "Failed to collect shifted fd: %m");
+        }
+
+        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &params->handoff_timestamp_fd);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_exec_error_errno(context, params, r, "Failed to collect shifted fd: %m");
@@ -4849,8 +4904,9 @@ int exec_invoke(
 
         /* We repeat the fd closing here, to make sure that nothing is leaked from the PAM modules. Note that
          * we are more aggressive this time, since we don't need socket_fd and the netns and ipcns fds any
-         * more. We do keep exec_fd however, if we have it, since we need to keep it open until the final
-         * execve(). But first, close the remaining sockets in the context objects. */
+         * more. We do keep exec_fd and handoff_timestamp_fd however, if we have it, since we need to keep
+         * them open until the final execve(). But first, close the remaining sockets in the context
+         * objects. */
 
         exec_runtime_close(runtime);
         exec_params_close(params);
@@ -5266,33 +5322,29 @@ int exec_invoke(
 
         log_command_line(context, params, "Executing", executable, final_argv);
 
-        if (params->exec_fd >= 0) {
-                usec_t t = now(CLOCK_MONOTONIC);
+        /* We have finished with all our initializations. Let's now let the manager know that. From this
+         * point on, if the manager sees POLLHUP on the exec_fd, then execve() was successful. */
 
-                /* We have finished with all our initializations. Let's now let the manager know that. From this point
-                 * on, if the manager sees POLLHUP on the exec_fd, then execve() was successful. We send a
-                 * timestamp so that the service manager and users can track the precise moment we handed
-                 * over execution of the service to the kernel. */
+        r = exec_fd_mark_hot(context, params, /* hot= */ true, exit_status);
+        if (r < 0)
+                return r;
 
-                if (write(params->exec_fd, &t, sizeof(t)) < 0) {
-                        *exit_status = EXIT_EXEC;
-                        return log_exec_error_errno(context, params, errno, "Failed to enable exec_fd: %m");
-                }
+        /* As last thing before the execve(), let's send the handoff timestamp */
+        r = send_handoff_timestamp(context, params, exit_status);
+        if (r < 0) {
+                /* If this handoff timestamp failed, let's undo the marking as hot */
+                (void) exec_fd_mark_hot(context, params, /* hot= */ false, /* reterr_exit_status= */ NULL);
+                return r;
         }
+
+        /* NB: we leave executable_fd, exec_fd, handoff_timestamp_fd open here. This is safe, because they
+         * have O_CLOEXEC set, and the execve() below will thus automatically close them. In fact, for
+         * exec_fd this is pretty much the whole raison d'etre. */
 
         r = fexecve_or_execve(executable_fd, executable, final_argv, accum_env);
 
-        if (params->exec_fd >= 0) {
-                uint64_t hot = 0;
-
-                /* The execve() failed. This means the exec_fd is still open. Which means we need to tell the manager
-                 * that POLLHUP on it no longer means execve() succeeded. */
-
-                if (write(params->exec_fd, &hot, sizeof(hot)) < 0) {
-                        *exit_status = EXIT_EXEC;
-                        return log_exec_error_errno(context, params, errno, "Failed to disable exec_fd: %m");
-                }
-        }
+        /* The execve() failed, let's undo the marking as hot */
+        (void) exec_fd_mark_hot(context, params, /* hot= */ false, /* reterr_exit_status= */ NULL);
 
         *exit_status = EXIT_EXEC;
         return log_exec_error_errno(context, params, r, "Failed to execute %s: %m", executable);
