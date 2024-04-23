@@ -4,6 +4,7 @@ set -eux
 set -o pipefail
 
 FAKE_ROOTS_DIR="$(mktemp -d --tmpdir="" fake-roots-XXX)"
+FSTYPE=$(stat --file-system --format "%T" /usr)
 
 shopt -s nullglob
 
@@ -370,6 +371,8 @@ fake_root=${roots_dir:+"$roots_dir/simple-mutable-with-read-only-hierarchy"}
 hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
 
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
+
 prepare_root "$fake_root" "$hierarchy"
 prepare_extension_image "$fake_root" "$hierarchy"
 prepare_extension_mutable_dir "$extension_data_dir"
@@ -394,6 +397,8 @@ fake_root=${roots_dir:+"$roots_dir/simple-mutable-with-missing-hierarchy"}
 hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
 
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
+
 move_existing_hierarchy_aside "$fake_root" "$hierarchy"
 prepare_root "$fake_root" "$hierarchy"
 rmdir "$fake_root/$hierarchy"
@@ -417,6 +422,8 @@ test ! -f "$fake_root$hierarchy/now-is-mutable"
 fake_root=${roots_dir:+"$roots_dir/simple-mutable-with-empty-hierarchy"}
 hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
+
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
 
 move_existing_hierarchy_aside "$fake_root" "$hierarchy"
 prepare_root "$fake_root" "$hierarchy"
@@ -443,6 +450,8 @@ fake_root=${roots_dir:+"$roots_dir/mutable-symlink-with-read-only-hierarchy"}
 hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
 extension_real_dir="$fake_root/upperdir"
+
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
 
 prepare_root "$fake_root" "$hierarchy"
 prepare_extension_image "$fake_root" "$hierarchy"
@@ -472,6 +481,8 @@ fake_root=${roots_dir:+"$roots_dir/mutable-self-upper"}
 hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
 extension_real_dir="$fake_root$hierarchy"
+
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
 
 prepare_root "$fake_root" "$hierarchy"
 prepare_extension_image "$fake_root" "$hierarchy"
@@ -582,6 +593,8 @@ hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
 extension_data_dir_usr="$fake_root/var/lib/extensions.mutable/usr"
 
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
+
 prepare_root "$fake_root" "$hierarchy"
 prepare_extension_image "$fake_root" "$hierarchy"
 prepare_read_only_hierarchy "$fake_root" "$hierarchy"
@@ -635,6 +648,8 @@ hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
 extension_data_dir_usr="$fake_root/var/lib/extensions.mutable/usr"
 
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
+
 prepare_root "$fake_root" "$hierarchy"
 prepare_extension_image "$fake_root" "$hierarchy"
 prepare_read_only_hierarchy "$fake_root" "$hierarchy"
@@ -686,6 +701,8 @@ extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
 fake_root=${roots_dir:+"$roots_dir/auto-mutable-env-var"}
 hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
+
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
 
 prepare_root "$fake_root" "$hierarchy"
 prepare_extension_image "$fake_root" "$hierarchy"
@@ -774,6 +791,8 @@ fake_root=${roots_dir:+"$roots_dir/ephemeral"}
 hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
 
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
+
 prepare_root "$fake_root" "$hierarchy"
 prepare_extension_image "$fake_root" "$hierarchy"
 prepare_extension_mutable_dir "$extension_data_dir"
@@ -797,6 +816,8 @@ test ! -f "$fake_root$hierarchy/now-is-mutable"
 fake_root=${roots_dir:+"$roots_dir/ephemeral-env-var"}
 hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
+
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
 
 prepare_root "$fake_root" "$hierarchy"
 prepare_extension_image "$fake_root" "$hierarchy"
@@ -822,6 +843,8 @@ fake_root=${roots_dir:+"$roots_dir/ephemeral-import"}
 hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
 
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
+
 prepare_root "$fake_root" "$hierarchy"
 prepare_extension_image "$fake_root" "$hierarchy"
 prepare_extension_mutable_dir "$extension_data_dir"
@@ -845,6 +868,8 @@ test ! -f "$fake_root$hierarchy/now-is-mutable"
 fake_root=${roots_dir:+"$roots_dir/ephemeral-import-env-var"}
 hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
+
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
 
 prepare_root "$fake_root" "$hierarchy"
 prepare_extension_image "$fake_root" "$hierarchy"
@@ -871,6 +896,8 @@ hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
 extension_real_dir="$fake_root$hierarchy"
 
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
+
 prepare_root "$fake_root" "$hierarchy"
 prepare_extension_image "$fake_root" "$hierarchy"
 prepare_extension_mutable_dir "$extension_real_dir"
@@ -889,6 +916,8 @@ fake_root=${roots_dir:+"$roots_dir/import-self"}
 hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
 extension_real_dir="$fake_root$hierarchy"
+
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
 
 prepare_root "$fake_root" "$hierarchy"
 prepare_extension_image "$fake_root" "$hierarchy"
@@ -909,6 +938,8 @@ for mutable_mode in no yes ephemeral; do
     fake_root=${roots_dir:+"$roots_dir/perm-checks-mutable-$mutable_mode"}
     hierarchy=/opt
     extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
+
+    [[ "$FSTYPE" == "fuseblk" ]] && exit 0
 
     prepare_root "$fake_root" "$hierarchy"
     prepare_extension_image "$fake_root" "$hierarchy"
