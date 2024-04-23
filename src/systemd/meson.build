@@ -13,6 +13,7 @@ _systemd_headers = [
         'sd-journal.h',
         'sd-login.h',
         'sd-messages.h',
+        'sd-notify-inline.h',
         'sd-path.h',
 ]
 

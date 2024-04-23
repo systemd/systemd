@@ -154,6 +154,7 @@ simple_tests += files(
         'test-rlimit-util.c',
         'test-rm-rf.c',
         'test-sd-hwdb.c',
+        'test-sd-notify-inline.c',
         'test-sd-path.c',
         'test-secure-bits.c',
         'test-selinux.c',
