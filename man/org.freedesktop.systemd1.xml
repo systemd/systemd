@@ -1665,13 +1665,21 @@ node /org/freedesktop/systemd1 {
           </ulink>.</para>
 
           <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+        </varlistentry>
 
+        <varlistentry>
+          <term><literal>var-run-bad</literal></term>
+
+          <listitem><para><filename>/run/</filename> does not exist or <filename>/var/run</filename> is not a
+          symlink to <filename>/run/</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><literal>cgroupsv1</literal></term>
 
-          <listitem><para>The system is using the old cgroup hierarchy.</para>
+          <listitem><para>The system is using the deprecated cgroup v1 hierarchy.</para>
 
           <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
@@ -1706,15 +1714,6 @@ node /org/freedesktop/systemd1 {
         </varlistentry>
 
         <varlistentry>
-          <term><literal>var-run-bad</literal></term>
-
-          <listitem><para><filename>/run/</filename> does not exist or <filename>/var/run</filename> is not a
-          symlink to <filename>/run/</filename>.</para>
-
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><literal>overflowuid-not-65534</literal></term>
           <term><literal>overflowgid-not-65534</literal></term>
 
@@ -1732,8 +1731,6 @@ node /org/freedesktop/systemd1 {
 
           <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
-
-        <!-- mtab-not-symlink was removed in b492ce8a22d4527c1372b2d3fbd580627d70c917 -->
       </variablelist>
 
       <para><varname>FirmwareTimestamp</varname>, <varname>FirmwareTimestampMonotonic</varname>,
