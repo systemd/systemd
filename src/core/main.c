@@ -2032,6 +2032,14 @@ static int invoke_main_loop(
         assert(ret_switch_root_init);
         assert(ret_error_message);
 
+        log_warning("sd: i=userspace, inactive_exit="USEC_FMT, m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic);
+        log_warning("sd: i=security, inactive_exit="USEC_FMT, m->timestamps[MANAGER_TIMESTAMP_SECURITY_START].monotonic);
+        log_warning("sd: i=security, active_enter="USEC_FMT, m->timestamps[MANAGER_TIMESTAMP_SECURITY_FINISH].monotonic);
+        log_warning("sd: i=generators, inactive_exit="USEC_FMT, m->timestamps[MANAGER_TIMESTAMP_GENERATORS_START].monotonic);
+        log_warning("sd: i=generators, active_enter="USEC_FMT, m->timestamps[MANAGER_TIMESTAMP_GENERATORS_FINISH].monotonic);
+        log_warning("sd: i=units_load, inactive_exit="USEC_FMT, m->timestamps[MANAGER_TIMESTAMP_UNITS_LOAD_START].monotonic);
+        log_warning("sd: i=units_load, active_enter="USEC_FMT, m->timestamps[MANAGER_TIMESTAMP_UNITS_LOAD_FINISH].monotonic);
+
         for (;;) {
                 int objective = manager_loop(m);
                 if (objective < 0) {
@@ -3001,6 +3009,8 @@ int main(int argc, char *argv[]) {
                         /* clear the kernel timestamp, because we are in a container */
                         kernel_timestamp = DUAL_TIMESTAMP_NULL;
                 }
+
+                log_warning("sd: status changed: INITIALIZING, t="USEC_FMT, userspace_timestamp.monotonic);
 
                 initialize_coredump(skip_setup);
 
