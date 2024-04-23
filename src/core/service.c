@@ -214,6 +214,7 @@ static int service_set_main_pidref(Service *s, PidRef pidref_consume) {
 
         if (!pidref_equal(&s->main_pid, &pidref)) {
                 service_unwatch_main_pid(s);
+                s->main_handover_timestamp = DUAL_TIMESTAMP_NULL;
                 exec_status_start(&s->main_exec_status, pidref.pid);
         }
 
@@ -1007,6 +1008,11 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%sTimeoutAbortSec: %s\n",
                         prefix, FORMAT_TIMESPAN(s->timeout_abort_usec, USEC_PER_SEC));
+
+        if (dual_timestamp_is_set(&s->main_handover_timestamp))
+                fprintf(f,
+                        "%sHandover Timestamp: %s\n",
+                        prefix, FORMAT_TIMESTAMP(s->main_handover_timestamp.realtime));
 
         fprintf(f,
                 "%sRuntimeMaxSec: %s\n"
@@ -3010,7 +3016,6 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 (void) serialize_item_format(f, "main-exec-status-pid", PID_FMT, s->main_exec_status.pid);
                 (void) serialize_dual_timestamp(f, "main-exec-status-start", &s->main_exec_status.start_timestamp);
                 (void) serialize_dual_timestamp(f, "main-exec-status-exit", &s->main_exec_status.exit_timestamp);
-                (void) serialize_dual_timestamp(f, "main-exec-status-handover", &s->main_exec_status.handover_timestamp);
 
                 if (dual_timestamp_is_set(&s->main_exec_status.exit_timestamp)) {
                         (void) serialize_item_format(f, "main-exec-status-code", "%i", s->main_exec_status.code);
@@ -3022,6 +3027,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 (void) serialize_item(f, "notify-access-override", notify_access_to_string(s->notify_access_override));
 
         (void) serialize_dual_timestamp(f, "watchdog-timestamp", &s->watchdog_timestamp);
+        (void) serialize_dual_timestamp(f, "handover-timestamp", &s->main_handover_timestamp);
         (void) serialize_bool(f, "forbid-restart", s->forbid_restart);
 
         if (s->watchdog_override_enable)
@@ -3295,8 +3301,6 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 deserialize_dual_timestamp(value, &s->main_exec_status.start_timestamp);
         else if (streq(key, "main-exec-status-exit"))
                 deserialize_dual_timestamp(value, &s->main_exec_status.exit_timestamp);
-        else if (streq(key, "main-exec-status-handover"))
-                deserialize_dual_timestamp(value, &s->main_exec_status.handover_timestamp);
         else if (streq(key, "notify-access-override")) {
                 NotifyAccess notify_access;
 
@@ -3307,6 +3311,8 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         s->notify_access_override = notify_access;
         } else if (streq(key, "watchdog-timestamp"))
                 deserialize_dual_timestamp(value, &s->watchdog_timestamp);
+        else if (streq(key, "handover-timestamp"))
+                deserialize_dual_timestamp(value, &s->main_handover_timestamp);
         else if (streq(key, "forbid-restart")) {
                 int b;
 
@@ -3563,7 +3569,7 @@ static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t ev
 
                         s->exec_fd_hot = x;
                         if (s->state == SERVICE_START)
-                                s->main_exec_status.handover_timestamp = DUAL_TIMESTAMP_NULL;
+                                s->main_handover_timestamp = DUAL_TIMESTAMP_NULL;
 
                         continue;
                 }
@@ -3574,7 +3580,7 @@ static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t ev
 
                         s->exec_fd_hot = false;
                         if (s->state == SERVICE_START)
-                                s->main_exec_status.handover_timestamp = DUAL_TIMESTAMP_NULL;
+                                s->main_handover_timestamp = DUAL_TIMESTAMP_NULL;
                 } else {
                         /* A non-zero value was read, which means the exec fd logic is now enabled. Record
                          * the received timestamp so that users can track when control is handed over to the
@@ -3583,7 +3589,7 @@ static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t ev
                         s->exec_fd_hot = true;
                         if (s->state == SERVICE_START) {
                                 assert_cc(sizeof(uint64_t) == sizeof(usec_t));
-                                dual_timestamp_from_monotonic(&s->main_exec_status.handover_timestamp, (usec_t)x);
+                                dual_timestamp_from_monotonic(&s->main_handover_timestamp, (usec_t)x);
                         }
                 }
         }
