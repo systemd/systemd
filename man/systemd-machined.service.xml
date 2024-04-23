@@ -100,10 +100,12 @@
 
     <para>The daemon provides both a C library interface
     (which is shared with <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
-    as well as a D-Bus interface.
+    as well as a D-Bus interface and a Varlink interface.
     The library interface may be used to introspect and watch the state of virtual machines/containers.
     The bus interface provides the same but in addition may also be used to register or terminate
-    machines.
+    machines. The Varlink interface may be used to register machines with optional extensions, e.g. with an
+    SSH key / address; it can be queried with
+    <command>varlinkctl introspect /run/systemd/machine/io.systemd.Machine io.systemd.Machine</command>.
     For more information please consult
     <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and

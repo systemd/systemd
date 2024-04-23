@@ -172,6 +172,7 @@ shared_sources = files(
         'varlink-idl.c',
         'varlink-io.systemd.c',
         'varlink-io.systemd.Journal.c',
+        'varlink-io.systemd.Machine.c',
         'varlink-io.systemd.ManagedOOM.c',
         'varlink-io.systemd.Resolve.Monitor.c',
         'varlink-io.systemd.Resolve.c',
