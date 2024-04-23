@@ -4716,11 +4716,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <varname>ExecMainStartTimestamp</varname> timestamps record when the main child process is spawned by
       the service manager. <varname>ExecMainExitTimestamp</varname> timestamps record when the main child
       process exit has been detected by the service manager. <varname>ExecMainHandoverTimestamp</varname>
-      timestamps record when the service executable is executed by <command>systemd-executor</command>.
-      This is often the same runtime information that is stored in <varname>ExecStart=</varname>. However,
-      it deviates for <varname>Type=forking</varname> services where the main process of the service is not
-      forked off systemd directly. These fields either contain information of the last run of the process or
-      of the current running process.</para>
+      timestamps record when the service executable is executed by <command>systemd-executor</command> for
+      services of type <literal>exec</literal>, <literal>dbus</literal>, <literal>notify</literal>, and
+      <literal>notify-reload</literal>. This is often the same runtime information that is stored in
+      <varname>ExecStart=</varname>. However, it deviates for <varname>Type=forking</varname> services where
+      the main process of the service is not forked off systemd directly. These fields either contain
+      information of the last run of the process or of the current running process.</para>
 
       <para><varname>MainPID</varname> and <varname>ControlPID</varname> contain the main and control PID of
       the service. The main PID is the current main PID of the service and is 0 when the service currently
