@@ -4836,7 +4836,7 @@ static int short_uid_range(const char *path) {
 }
 
 char* manager_taint_string(const Manager *m) {
-        const char *stage[11] = {};
+        const char *stage[12] = {};
         size_t n = 0;
 
         /* Returns a "taint string", e.g. "local-hwclock:var-run-bad". Only things that are detected at
@@ -4845,13 +4845,17 @@ char* manager_taint_string(const Manager *m) {
 
         assert(m);
 
-        _cleanup_free_ char *usrbin = NULL;
-        if (readlink_malloc("/bin", &usrbin) < 0 || !PATH_IN_SET(usrbin, "usr/bin", "/usr/bin"))
+        _cleanup_free_ char *bin = NULL, *usr_sbin = NULL, *var_run = NULL;
+
+        if (readlink_malloc("/bin", &bin) < 0 || !PATH_IN_SET(bin, "usr/bin", "/usr/bin"))
                 stage[n++] = "unmerged-usr";
 
-        _cleanup_free_ char *destination = NULL;
-        if (readlink_malloc("/var/run", &destination) < 0 ||
-            !PATH_IN_SET(destination, "../run", "/run"))
+        /* Note that the check is different from default_PATH(), as we want to taint on uncanonical symlinks
+         * too. */
+        if (readlink_malloc("/usr/sbin", &usr_sbin) < 0 || !PATH_IN_SET(usr_sbin, "bin", "/usr/bin"))
+                stage[n++] = "unmerged-bin";
+
+        if (readlink_malloc("/var/run", &var_run) < 0 || !PATH_IN_SET(var_run, "../run", "/run"))
                 stage[n++] = "var-run-bad";
 
         if (cg_all_unified() == 0)

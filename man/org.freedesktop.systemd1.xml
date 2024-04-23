@@ -1668,6 +1668,15 @@ node /org/freedesktop/systemd1 {
         </varlistentry>
 
         <varlistentry>
+          <term><literal>unmerged-bin</literal></term>
+
+          <listitem><para><filename>/usr/sbin</filename> is not a symlink to <filename>/usr/bin/</filename>.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><literal>var-run-bad</literal></term>
 
           <listitem><para><filename>/run/</filename> does not exist or <filename>/var/run</filename> is not a

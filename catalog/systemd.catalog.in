@@ -560,6 +560,7 @@ Support: %SUPPORT_URL%
 The following "tags" are possible:
 - "unmerged-usr" - /bin, /sbin, /lib* are not symlinks to their counterparts
   under /usr/
+- "unmerged-bin" - /usr/sbin is not a symlink to /usr/bin/
 - "var-run-bad" — /var/run is not a symlink to /run/
 - "cgroupsv1" - the system is using the deprecated cgroup v1 hierarchy
 - "local-hwclock" - the local hardware clock (RTC) is configured to be in
