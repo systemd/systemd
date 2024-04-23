@@ -273,83 +273,6 @@ int link_reconfigure_radv_address(Address *address, Link *link) {
         return 0;
 }
 
-static int radv_set_prefix(Link *link, Prefix *prefix) {
-        _cleanup_(sd_radv_prefix_unrefp) sd_radv_prefix *p = NULL;
-        int r;
-
-        assert(link);
-        assert(link->radv);
-        assert(prefix);
-
-        r = sd_radv_prefix_new(&p);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_prefix_set_prefix(p, &prefix->prefix, prefix->prefixlen);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_prefix_set_preferred_lifetime(p, prefix->preferred_lifetime, USEC_INFINITY);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_prefix_set_valid_lifetime(p, prefix->valid_lifetime, USEC_INFINITY);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_prefix_set_onlink(p, FLAGS_SET(prefix->flags, ND_OPT_PI_FLAG_ONLINK));
-        if (r < 0)
-                return r;
-
-        r = sd_radv_prefix_set_address_autoconfiguration(p, FLAGS_SET(prefix->flags, ND_OPT_PI_FLAG_AUTO));
-        if (r < 0)
-                return r;
-
-        return sd_radv_add_prefix(link->radv, p);
-}
-
-static int radv_set_route_prefix(Link *link, RoutePrefix *prefix) {
-        _cleanup_(sd_radv_route_prefix_unrefp) sd_radv_route_prefix *p = NULL;
-        int r;
-
-        assert(link);
-        assert(link->radv);
-        assert(prefix);
-
-        r = sd_radv_route_prefix_new(&p);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_route_prefix_set_prefix(p, &prefix->prefix, prefix->prefixlen);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_route_prefix_set_lifetime(p, prefix->lifetime, USEC_INFINITY);
-        if (r < 0)
-                return r;
-
-        return sd_radv_add_route_prefix(link->radv, p);
-}
-
-static int radv_set_pref64_prefix(Link *link, pref64Prefix *prefix) {
-        _cleanup_(sd_radv_pref64_prefix_unrefp) sd_radv_pref64_prefix *p = NULL;
-        int r;
-
-        assert(link);
-        assert(link->radv);
-        assert(prefix);
-
-        r = sd_radv_pref64_prefix_new(&p);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_pref64_prefix_set_prefix(p, &prefix->prefix, prefix->prefixlen, prefix->lifetime);
-        if (r < 0)
-                return r;
-
-        return sd_radv_add_pref64_prefix(link->radv, p);
-}
-
 static int network_get_ipv6_dns(Network *network, struct in6_addr **ret_addresses, size_t *ret_size) {
         _cleanup_free_ struct in6_addr *addresses = NULL;
         size_t n_addresses = 0;
@@ -426,9 +349,12 @@ static int radv_set_dns(Link *link, Link *uplink) {
         return 0;
 
 set_dns:
-        return sd_radv_set_rdnss(link->radv,
-                                 link->network->router_dns_lifetime_usec,
-                                 dns, n_dns);
+        return sd_radv_add_rdnss(
+                        link->radv,
+                        n_dns,
+                        dns,
+                        link->network->router_dns_lifetime_usec,
+                        /* valid_until = */ USEC_INFINITY);
 }
 
 static int radv_set_domains(Link *link, Link *uplink) {
@@ -462,9 +388,11 @@ set_domains:
         if (!s)
                 return log_oom();
 
-        return sd_radv_set_dnssl(link->radv,
-                                 link->network->router_dns_lifetime_usec,
-                                 s);
+        return sd_radv_add_dnssl(
+                        link->radv,
+                        s,
+                        link->network->router_dns_lifetime_usec,
+                        /* valid_until = */ USEC_INFINITY);
 
 }
 
@@ -554,19 +482,38 @@ static int radv_configure(Link *link) {
                 return r;
 
         HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
-                r = radv_set_prefix(link, p);
+                r = sd_radv_add_prefix(
+                                link->radv,
+                                &p->prefix,
+                                p->prefixlen,
+                                p->flags,
+                                p->valid_lifetime,
+                                p->preferred_lifetime,
+                                /* valid_until = */ USEC_INFINITY,
+                                /* preferred_until = */ USEC_INFINITY);
                 if (r < 0 && r != -EEXIST)
                         return r;
         }
 
         HASHMAP_FOREACH(q, link->network->route_prefixes_by_section) {
-                r = radv_set_route_prefix(link, q);
+                r = sd_radv_add_route(
+                                link->radv,
+                                &q->prefix,
+                                q->prefixlen,
+                                SD_NDISC_PREFERENCE_MEDIUM,
+                                q->lifetime,
+                                /* valid_until = */ USEC_INFINITY);
                 if (r < 0 && r != -EEXIST)
                         return r;
         }
 
         HASHMAP_FOREACH(n, link->network->pref64_prefixes_by_section) {
-                r = radv_set_pref64_prefix(link, n);
+                r = sd_radv_add_prefix64(
+                                link->radv,
+                                &n->prefix,
+                                n->prefixlen,
+                                n->lifetime,
+                                /* valid_until = */ USEC_INFINITY);
                 if (r < 0 && r != -EEXIST)
                         return r;
         }
@@ -581,17 +528,15 @@ static int radv_configure(Link *link) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "Could not set RA Domains: %m");
 
-        r = sd_radv_set_home_agent_information(link->radv, link->network->router_home_agent_information);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_set_home_agent_preference(link->radv, link->network->router_home_agent_preference);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_set_home_agent_lifetime(link->radv, link->network->home_agent_lifetime_usec);
-        if (r < 0)
-                return r;
+        if (link->network->router_home_agent_information) {
+                r = sd_radv_set_home_agent(
+                                link->radv,
+                                link->network->router_home_agent_preference,
+                                link->network->home_agent_lifetime_usec,
+                                /* valid_until = */ USEC_INFINITY);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -735,31 +680,23 @@ int radv_add_prefix(
                 usec_t lifetime_preferred_usec,
                 usec_t lifetime_valid_usec) {
 
-        _cleanup_(sd_radv_prefix_unrefp) sd_radv_prefix *p = NULL;
         int r;
 
         assert(link);
+        assert(prefix);
 
         if (!link->radv)
                 return 0;
 
-        r = sd_radv_prefix_new(&p);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_prefix_set_prefix(p, prefix, prefix_len);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_prefix_set_preferred_lifetime(p, RADV_DEFAULT_PREFERRED_LIFETIME_USEC, lifetime_preferred_usec);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_prefix_set_valid_lifetime(p, RADV_DEFAULT_VALID_LIFETIME_USEC, lifetime_valid_usec);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_add_prefix(link->radv, p);
+        r = sd_radv_add_prefix(
+                        link->radv,
+                        prefix,
+                        prefix_len,
+                        ND_OPT_PI_FLAG_ONLINK | ND_OPT_PI_FLAG_AUTO,
+                        RADV_DEFAULT_VALID_LIFETIME_USEC,
+                        RADV_DEFAULT_PREFERRED_LIFETIME_USEC,
+                        lifetime_valid_usec,
+                        lifetime_preferred_usec);
         if (r == -EEXIST)
                 return 0;
         if (r < 0)
