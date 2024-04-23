@@ -457,6 +457,7 @@ struct ExecParameters {
 
         char **files_env;
         int user_lookup_fd;
+        int handoff_timestamp_fd;
 
         int bpf_restrict_fs_map_fd;
 
@@ -475,6 +476,7 @@ struct ExecParameters {
                 .exec_fd                = -EBADF, \
                 .bpf_restrict_fs_map_fd = -EBADF, \
                 .user_lookup_fd         = -EBADF, \
+                .handoff_timestamp_fd   = -EBADF, \
         }
 
 #include "unit.h"
