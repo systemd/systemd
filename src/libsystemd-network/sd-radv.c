@@ -672,19 +672,6 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                 log_radv(ra, "Added prefix %s", addr_p);
         }
 
-        if (!sd_radv_is_running(ra))
-                return 0;
-
-        if (ra->ra_sent == 0)
-                return 0;
-
-        /* If RAs have already been sent, send an RA immediately to announce the newly-added prefix */
-        r = radv_send_router(ra, NULL);
-        if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement for added prefix %s, ignoring: %m", addr_p);
-        else
-                log_radv(ra, "Sent Router Advertisement for added/updated prefix %s.", addr_p);
-
         return 0;
 }
 
@@ -768,20 +755,6 @@ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p) {
                 log_radv(ra, "Added route prefix %s", strna(addr_p));
         }
 
-        if (!sd_radv_is_running(ra))
-                return 0;
-
-        if (ra->ra_sent == 0)
-                return 0;
-
-        /* If RAs have already been sent, send an RA immediately to announce the newly-added route prefix */
-        r = radv_send_router(ra, NULL);
-        if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement for added route prefix %s, ignoring: %m",
-                               strna(addr_p));
-        else
-                log_radv(ra, "Sent Router Advertisement for added route prefix %s.", strna(addr_p));
-
         return 0;
 }
 
@@ -839,20 +812,6 @@ int sd_radv_add_pref64_prefix(sd_radv *ra, sd_radv_pref64_prefix *p) {
 
                 log_radv(ra, "Added PREF64 prefix %s", strna(addr_p));
         }
-
-        if (!sd_radv_is_running(ra))
-                return 0;
-
-        if (ra->ra_sent == 0)
-                return 0;
-
-        /* If RAs have already been sent, send an RA immediately to announce the newly-added route prefix */
-        r = radv_send_router(ra, NULL);
-        if (r < 0)
-                log_radv_errno(ra, r, "Unable to send Router Advertisement for added PREF64 prefix %s, ignoring: %m",
-                               strna(addr_p));
-        else
-                log_radv(ra, "Sent Router Advertisement for added PREF64 prefix %s.", strna(addr_p));
 
         return 0;
 }
