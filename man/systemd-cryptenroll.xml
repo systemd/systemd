@@ -61,8 +61,10 @@
     <para>The tool supports only LUKS2 volumes, as it stores token meta-information in the LUKS2 JSON token
     area, which is not available in other encryption formats.</para>
 
-    <para><command>systemd-cryptsetup</command> operates on the device backing <filename>/</filename> if no
-    device is specified explicitly and no wipe operation is requested</para>
+    <para><command>systemd-cryptsetup</command> operates on the device backing <filename>/var/</filename> if
+    no device is specified explicitly, and no wipe operation is requested. (Note that in the typical case
+    where <filename>/var/</filename> is on the same file system as the root file system, this hence enrolls a
+    key into the backing device of the root file system.)</para>
 
     <refsect2>
       <title>TPM2 PCRs and policies</title>
