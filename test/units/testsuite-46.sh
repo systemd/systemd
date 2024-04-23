@@ -9,6 +9,13 @@ if ! test -x /usr/bin/homectl ; then
         exit 77
 fi
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
+# Needed to create /usr/share/empty.sshd if it does not exist
+maybe_mount_usr_overlay
+trap 'maybe_umount_usr_overlay' EXIT
+
 inspect() {
     # As updating disk-size-related attributes can take some time on some
     # filesystems, let's drop these fields before comparing the outputs to
@@ -512,6 +519,8 @@ if command -v ssh &>/dev/null && command -v sshd &>/dev/null && ! [[ -v ASAN_OPT
         systemctl daemon-reload
         homectl remove homedsshtest
         mv /etc/pam.d/sshd.bak /etc/pam.d/sshd
+
+        maybe_umount_usr_overlay
     }
 
     trap at_exit EXIT
