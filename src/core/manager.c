@@ -2613,6 +2613,56 @@ static void manager_invoke_notify_message(
         }
 }
 
+static int manager_get_units_for_pidref(Manager *m, const PidRef *pidref, Unit ***ret_units) {
+        /* Determine array of every unit that is interested in the specified process */
+
+        assert(m);
+        assert(pidref);
+
+        Unit *u1, *u2, **array;
+        u1 = manager_get_unit_by_pidref_cgroup(m, pidref);
+        u2 = hashmap_get(m->watch_pids, pidref);
+        array = hashmap_get(m->watch_pids_more, pidref);
+
+        size_t n = 0;
+        if (array)
+                while (array[n])
+                        n++;
+        if (u1)
+                n++;
+        if (u2)
+                n++;
+
+        assert(n <= INT_MAX);
+
+        if (ret_units) {
+                _cleanup_free_ Unit **units = NULL;
+
+                if (n > 0) {
+                        units = new(Unit*, n + 1);
+                        if (!units)
+                                return -ENOMEM;
+
+                        size_t i = 0;
+                        if (array)
+                                while (array[i]) {
+                                        units[i] = array[i];
+                                        i++;
+                                }
+
+                        if (u1)
+                                units[i++] = u1;
+                        if (u2)
+                                units[i++] = u2;
+
+                        assert(i == n);
+                        *ret_units = TAKE_PTR(units);
+                }
+        }
+
+        return (int) n;
+}
+
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         _cleanup_fdset_free_ FDSet *fds = NULL;
@@ -2632,12 +2682,9 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
 
         struct cmsghdr *cmsg;
         struct ucred *ucred = NULL;
-        _cleanup_free_ Unit **array_copy = NULL;
         _cleanup_strv_free_ char **tags = NULL;
-        Unit *u1, *u2, **array;
         int r, *fd_array = NULL;
         size_t n_fds = 0;
-        bool found = false;
         ssize_t n;
 
         assert(m->notify_fd == fd);
@@ -2725,37 +2772,22 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         PidRef pidref = PIDREF_MAKE_FROM_PID(ucred->pid);
 
         /* Notify every unit that might be interested, which might be multiple. */
-        u1 = manager_get_unit_by_pidref_cgroup(m, &pidref);
-        u2 = hashmap_get(m->watch_pids, &pidref);
-        array = hashmap_get(m->watch_pids_more, &pidref);
-        if (array) {
-                size_t k = 0;
+        _cleanup_free_ Unit **array = NULL;
 
-                while (array[k])
-                        k++;
+        int n_array = manager_get_units_for_pidref(m, &pidref, &array);
+        if (n_array < 0) {
+                log_warning_errno(n_array, "Failed to determine units for PID " PID_FMT ", ignoring: %m", ucred->pid);
+                return 0;
+        }
 
-                array_copy = newdup(Unit*, array, k+1);
-                if (!array_copy)
-                        log_oom();
-        }
-        /* And now invoke the per-unit callbacks. Note that manager_invoke_notify_message() will handle
-         * duplicate units make sure we only invoke each unit's handler once. */
-        if (u1) {
-                manager_invoke_notify_message(m, u1, ucred, tags, fds);
-                found = true;
-        }
-        if (u2) {
-                manager_invoke_notify_message(m, u2, ucred, tags, fds);
-                found = true;
-        }
-        if (array_copy)
-                for (size_t i = 0; array_copy[i]; i++) {
-                        manager_invoke_notify_message(m, array_copy[i], ucred, tags, fds);
-                        found = true;
-                }
-
-        if (!found)
+        if (n_array == 0)
                 log_warning("Cannot find unit for notify message of PID "PID_FMT", ignoring.", ucred->pid);
+        else {
+                /* And now invoke the per-unit callbacks. Note that manager_invoke_notify_message() will handle
+                 * duplicate units make sure we only invoke each unit's handler once. */
+                FOREACH_ARRAY(u, array, n_array)
+                        manager_invoke_notify_message(m, *u, ucred, tags, fds);
+        }
 
         if (!fdset_isempty(fds))
                 log_warning("Got extra auxiliary fds with notification message, closing them.");
