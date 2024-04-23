@@ -4849,6 +4849,11 @@ char* manager_taint_string(const Manager *m) {
         if (readlink_malloc("/bin", &usrbin) < 0 || !PATH_IN_SET(usrbin, "usr/bin", "/usr/bin"))
                 stage[n++] = "unmerged-usr";
 
+        _cleanup_free_ char *destination = NULL;
+        if (readlink_malloc("/var/run", &destination) < 0 ||
+            !PATH_IN_SET(destination, "../run", "/run"))
+                stage[n++] = "var-run-bad";
+
         if (cg_all_unified() == 0)
                 stage[n++] = "cgroupsv1";
 
@@ -4858,10 +4863,10 @@ char* manager_taint_string(const Manager *m) {
         if (os_release_support_ended(NULL, /* quiet= */ true, NULL) > 0)
                 stage[n++] = "support-ended";
 
-        _cleanup_free_ char *destination = NULL;
-        if (readlink_malloc("/var/run", &destination) < 0 ||
-            !PATH_IN_SET(destination, "../run", "/run"))
-                stage[n++] = "var-run-bad";
+        struct utsname uts;
+        assert_se(uname(&uts) >= 0);
+        if (strverscmp_improved(uts.release, KERNEL_BASELINE_VERSION) < 0)
+                stage[n++] = "old-kernel";
 
         _cleanup_free_ char *overflowuid = NULL, *overflowgid = NULL;
         if (read_one_line_file("/proc/sys/kernel/overflowuid", &overflowuid) >= 0 &&
@@ -4870,11 +4875,6 @@ char* manager_taint_string(const Manager *m) {
         if (read_one_line_file("/proc/sys/kernel/overflowgid", &overflowgid) >= 0 &&
             !streq(overflowgid, "65534"))
                 stage[n++] = "overflowgid-not-65534";
-
-        struct utsname uts;
-        assert_se(uname(&uts) >= 0);
-        if (strverscmp_improved(uts.release, KERNEL_BASELINE_VERSION) < 0)
-                stage[n++] = "old-kernel";
 
         if (short_uid_range("/proc/self/uid_map") > 0)
                 stage[n++] = "short-uid-range";
