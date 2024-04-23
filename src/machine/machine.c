@@ -27,6 +27,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
+#include "socket-util.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -53,6 +54,7 @@ int machine_new(MachineClass class, const char *name, Machine **ret) {
 
         *m = (Machine) {
                 .leader = PIDREF_NULL,
+                .vsock_cid = VMADDR_CID_ANY,
         };
 
         if (name) {
@@ -129,6 +131,8 @@ Machine* machine_free(Machine *m) {
         free(m->service);
         free(m->root_directory);
         free(m->netif);
+        free(m->ssh_address);
+        free(m->ssh_private_key_path);
         return mfree(m);
 }
 
