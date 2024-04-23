@@ -100,6 +100,8 @@ RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 RecursiveErrors arg_recursive_errors = _RECURSIVE_ERRORS_INVALID;
 bool arg_man = true;
 bool arg_generators = false;
+double svg_timescale = 1.0;
+bool detailed_svg = false;
 char *arg_root = NULL;
 static char *arg_image = NULL;
 char *arg_security_policy = NULL;
@@ -274,6 +276,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                             security review of the unit(s)\n"
                "     --unit=UNIT             Evaluate conditions and asserts of unit\n"
                "     --table                 Output plot's raw time data as a table\n"
+               "  -s --scale=FACTOR          Stretch the x-axis of the plot by FACTOR (default: 1.0)\n"
+               "     --detailed              Add more details to SVG plot, e.g. show activation timestamps\n\n"
                "  -h --help                  Show this help\n"
                "     --version               Show package version\n"
                "  -q --quiet                 Do not emit hints\n"
@@ -322,6 +326,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TABLE,
                 ARG_NO_LEGEND,
                 ARG_TLDR,
+                ARG_DETAILED_SVG,
         };
 
         static const struct option options[] = {
@@ -356,6 +361,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "table",            optional_argument, NULL, ARG_TABLE            },
                 { "no-legend",        optional_argument, NULL, ARG_NO_LEGEND        },
                 { "tldr",             no_argument,       NULL, ARG_TLDR             },
+                { "scale",            required_argument, NULL, 's'                  },
+                { "detailed",         no_argument,       NULL, ARG_DETAILED_SVG     },
                 {}
         };
 
@@ -364,7 +371,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:U:q", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hH:M:U:q:s", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -547,6 +554,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TLDR:
                         arg_cat_flags = CAT_TLDR;
+                        break;
+
+                case 's':
+                        svg_timescale = strtod(optarg, NULL);
+                        break;
+
+                case ARG_DETAILED_SVG:
+                        detailed_svg = true;
                         break;
 
                 case '?':
