@@ -1676,8 +1676,7 @@ static int service_spawn_internal(
                 log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds);
         }
 
-        if (!FLAGS_SET(exec_params.flags, EXEC_IS_CONTROL) &&
-            IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD, SERVICE_EXEC, SERVICE_DBUS)) {
+        if (!FLAGS_SET(exec_params.flags, EXEC_IS_CONTROL) && s->type == SERVICE_EXEC) {
                 r = service_allocate_exec_fd(s, &exec_fd_source, &exec_params.exec_fd);
                 if (r < 0)
                         return r;
@@ -3519,28 +3518,27 @@ static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t ev
         log_unit_debug(UNIT(s), "got exec-fd event");
 
         /* If Type=exec is set, we'll consider a service started successfully the instant we invoked execve()
-         * successfully for it. We implement this through a pipe() towards the child, which the kernel automatically
-         * closes for us due to O_CLOEXEC on execve() in the child, which then triggers EOF on the pipe in the
-         * parent. We need to be careful however, as there are other reasons that we might cause the child's side of
-         * the pipe to be closed (for example, a simple exit()). To deal with that we'll ignore EOFs on the pipe unless
-         * the child signalled us first that it is about to call the execve(). It does so by sending us a simple
-         * non-zero byte via the pipe. We also provide the child with a way to inform us in case execve() failed: if it
-         * sends a zero byte we'll ignore POLLHUP on the fd again.
-         * For exec, dbus, notify and notify-reload types we also get a timestamp from sd-executor, taken immediately
-         * before the target executable is execve'd, so that we can accurately track when control is handed over to the
-         * payload. */
+         * successfully for it. We implement this through a pipe() towards the child, which the kernel
+         * automatically closes for us due to O_CLOEXEC on execve() in the child, which then triggers EOF on
+         * the pipe in the parent. We need to be careful however, as there are other reasons that we might
+         * cause the child's side of the pipe to be closed (for example, a simple exit()). To deal with that
+         * we'll ignore EOFs on the pipe unless the child signalled us first that it is about to call the
+         * execve(). It does so by sending us a simple non-zero byte via the pipe. We also provide the child
+         * with a way to inform us in case execve() failed: if it sends a zero byte we'll ignore POLLHUP on
+         * the fd again. */
 
         for (;;) {
-                uint64_t x = 0;
+                uint8_t x;
                 ssize_t n;
 
-                n = loop_read(fd, &x, sizeof(x), /* do_poll= */ false);
-                if (n == -EAGAIN) /* O_NONBLOCK in effect → everything queued has now been processed. */
-                        return 0;
-                if (n < 0)
-                        return log_unit_error_errno(UNIT(s), n, "Failed to read from exec_fd: %m");
-                if (n == 0) {
-                        /* EOF → the event we are waiting for in case of Type=exec */
+                n = read(fd, &x, sizeof(x));
+                if (n < 0) {
+                        if (errno == EAGAIN) /* O_NONBLOCK in effect → everything queued has now been processed. */
+                                return 0;
+
+                        return log_unit_error_errno(UNIT(s), errno, "Failed to read from exec_fd: %m");
+                }
+                if (n == 0) { /* EOF → the event we are waiting for in case of Type=exec */
                         s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
                         if (s->exec_fd_hot) { /* Did the child tell us to expect EOF now? */
@@ -3556,36 +3554,11 @@ static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t ev
 
                         return 0;
                 }
-                if (n == 1) {
-                        /* Backward compatibility block: a single byte was read, which means somehow an old
-                         * executor before this logic was introduced sent the notification, so there is no
-                         * timestamp (reset it). */
 
-                        s->exec_fd_hot = x;
-                        if (s->state == SERVICE_START)
-                                s->main_exec_status.handover_timestamp = DUAL_TIMESTAMP_NULL;
+                /* A byte was read → this turns on/off the exec fd logic */
+                assert(n == sizeof(x));
 
-                        continue;
-                }
-
-                if (x == 0) {
-                        /* If we get x=0 then the execve actually failed, which means the exec fd logic is
-                         * now off. Also reset the exec timestamp, given it has no meaning anymore. */
-
-                        s->exec_fd_hot = false;
-                        if (s->state == SERVICE_START)
-                                s->main_exec_status.handover_timestamp = DUAL_TIMESTAMP_NULL;
-                } else {
-                        /* A non-zero value was read, which means the exec fd logic is now enabled. Record
-                         * the received timestamp so that users can track when control is handed over to the
-                         * service payload. */
-
-                        s->exec_fd_hot = true;
-                        if (s->state == SERVICE_START) {
-                                assert_cc(sizeof(uint64_t) == sizeof(usec_t));
-                                dual_timestamp_from_monotonic(&s->main_exec_status.handover_timestamp, (usec_t)x);
-                        }
-                }
+                s->exec_fd_hot = x;
         }
 }
 
