@@ -278,6 +278,8 @@ static int systemctl_help(void) {
                "  -l --full              Don't ellipsize unit names on output\n"
                "  -r --recursive         Show unit list of host and local containers\n"
                "     --reverse           Show reverse dependencies with 'list-dependencies'\n"
+               "     --before            Show units ordered before with 'list-dependencies'\n"
+               "     --after             Show units ordered after with 'list-dependencies'\n"
                "     --with-dependencies Show unit dependencies with 'status', 'cat',\n"
                "                         'list-units', and 'list-unit-files'.\n"
                "     --job-mode=MODE     Specify how to deal with already queued jobs, when\n"
