@@ -4836,21 +4836,14 @@ static int short_uid_range(const char *path) {
 }
 
 char* manager_taint_string(const Manager *m) {
+        const char *stage[10] = {};
+        size_t n = 0;
+
         /* Returns a "taint string", e.g. "local-hwclock:var-run-bad". Only things that are detected at
          * runtime should be tagged here. For stuff that is known during compilation, emit a warning in the
          * configuration phase. */
 
         assert(m);
-
-        const char* stage[12] = {};
-        size_t n = 0;
-
-        _cleanup_free_ char *usrbin = NULL;
-        if (readlink_malloc("/bin", &usrbin) < 0 || !PATH_IN_SET(usrbin, "usr/bin", "/usr/bin"))
-                stage[n++] = "unmerged-usr";
-
-        if (access("/proc/cgroups", F_OK) < 0)
-                stage[n++] = "cgroups-missing";
 
         if (cg_all_unified() == 0)
                 stage[n++] = "cgroupsv1";
