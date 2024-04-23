@@ -494,10 +494,20 @@
     the guest might try to send malicious notifications to the host, driving it to make destructive decisions
     based on them.</para>
 
-    <para>Note that, while using this library should be preferred in order to avoid code duplication, it is
-    also possible to reimplement the simple readiness notification protocol without external dependencies,
-    as demonstrated in the following self-contained example:
-    <programlisting><xi:include href="notify-selfcontained-example.c" parse="text"/></programlisting></para>
+    <refsect2>
+      <title>Standalone Implementations</title>
+      <para>Note that, while using this library should be preferred in order to avoid code duplication, it is
+      also possible to reimplement the simple readiness notification protocol without external dependencies,
+      as demonstrated in the following self-contained examples from several languages:</para>
+      <refsect3>
+        <title>C</title>
+        <programlisting><xi:include href="notify-selfcontained-example.c" parse="text"/></programlisting>
+      </refsect3>
+      <refsect3>
+        <title>Python</title>
+        <programlisting><xi:include href="notify-selfcontained-example.py" parse="text"/></programlisting>
+      </refsect3>
+    </refsect2>
   </refsect1>
 
   <refsect1>
