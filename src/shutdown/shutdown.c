@@ -333,6 +333,26 @@ static void init_watchdog(void) {
         }
 }
 
+static void notify_supervisor(void) {
+        /* Notify VMM/container manager of the desired mode of reboot and the boot parameter */
+        _cleanup_free_ char *reboot_parameter = NULL;
+        int r;
+
+        r = read_reboot_parameter(&reboot_parameter);
+        if (r < 0 && r != -ENOENT)
+                log_debug_errno(r, "Failed to read reboot parameter, ignoring: %m");
+
+        if (reboot_parameter)
+                (void) sd_notifyf(/* unset_environment= */ false,
+                                  "X_SYSTEMD_SHUTDOWN=%s\n"
+                                  "X_SYSTEMD_REBOOT_PARAMETER=%s",
+                                  arg_verb, reboot_parameter);
+        else
+                (void) sd_notifyf(/* unset_environment= */ false,
+                                  "X_SYSTEMD_SHUTDOWN=%s",
+                                  arg_verb);
+}
+
 int main(int argc, char *argv[]) {
         static const char* const dirs[] = {
                 SYSTEM_SHUTDOWN_PATH,
@@ -588,6 +608,8 @@ int main(int argc, char *argv[]) {
          * will result. */
         if (!in_container)
                 sync_with_progress();
+
+        notify_supervisor();
 
         if (streq(arg_verb, "exit")) {
                 if (in_container) {

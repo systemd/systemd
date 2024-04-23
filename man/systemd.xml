@@ -1257,6 +1257,19 @@
       details.</para>
 
       <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+
+      <listitem><para>An <varname>X_SYSTEMD_SHUTDOWN=…</varname> message will be sent out very shortly before
+      the system shuts down. The value is one of the strings <literal>reboot</literal>,
+      <literal>halt</literal>, <literal>poweroff</literal>, <literal>kexec</literal> and indicates which kind
+      of shutdown is being executed.</para>
+
+      <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+
+      <listitem><para>An <varname>X_SYSTEMD_REBOOT_PARAMETER=…</varname> message will also be sent out very
+      shortly before the system shuts down. Its value is the reboot argument as configured with
+      <command>systemctl --reboot-argument=…</command>.</para>
+
+      <xi:include href="version-info.xml" xpointer="v256"/></listitem>
     </itemizedlist>
 
     <para>Note that these extension fields are sent in addition to the regular <literal>READY=1</literal> and
