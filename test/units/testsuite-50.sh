@@ -99,8 +99,11 @@ fi
 udevadm control --log-level=debug
 
 IMAGE_DIR="$(mktemp -d --tmpdir="" TEST-50-IMAGES.XXX)"
-cp -v /usr/share/minimal* "$IMAGE_DIR/"
-MINIMAL_IMAGE="$IMAGE_DIR/minimal_0"
+cp -v /usr/lib/systemd/tests/testdata/minimal* "$IMAGE_DIR/"
+MINIMAL_IMAGE="$IMAGE_DIR/minimal_0.root-x86-64"
+# veritysetup format "$MINIMAL_IMAGE.raw" "$MINIMAL_IMAGE.verity" | grep '^Root hash:' | cut -f2 | tr -d '\n' >"$MINIMAL_IMAGE.roothash"
+cp -v "$IMAGE_DIR/minimal_0.root-x86-64-verity.raw" "$MINIMAL_IMAGE.verity"
+sed -E 's/.*"rootHash":"([a-f0-9]+)".*/\1/' "$IMAGE_DIR/minimal_0.root-x86-64-verity-sig.raw" >"$MINIMAL_IMAGE.roothash"
 MINIMAL_IMAGE_ROOTHASH="$(<"$MINIMAL_IMAGE.roothash")"
 
 OS_RELEASE="$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)"
@@ -168,6 +171,8 @@ if [[ -n "${OPENSSL_CONFIG:-}" ]]; then
     mkdir -p /run/verity.d
     ln -s "$MINIMAL_IMAGE.crt" /run/verity.d/ok.crt
 fi
+
+cat "$MINIMAL_IMAGE.key"
 
 # Construct a UUID from hash
 # input:  11111111222233334444555566667777
