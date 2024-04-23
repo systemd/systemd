@@ -80,9 +80,11 @@ static int prefix_new_static(Network *network, const char *filename, unsigned se
                 .network = network,
                 .section = TAKE_PTR(n),
 
-                .flags = ND_OPT_PI_FLAG_ONLINK | ND_OPT_PI_FLAG_AUTO,
-                .preferred_lifetime = RADV_DEFAULT_PREFERRED_LIFETIME_USEC,
-                .valid_lifetime = RADV_DEFAULT_VALID_LIFETIME_USEC,
+                .prefix.flags = ND_OPT_PI_FLAG_ONLINK | ND_OPT_PI_FLAG_AUTO,
+                .prefix.valid_lifetime = RADV_DEFAULT_VALID_LIFETIME_USEC,
+                .prefix.preferred_lifetime = RADV_DEFAULT_PREFERRED_LIFETIME_USEC,
+                .prefix.valid_until = USEC_INFINITY,
+                .prefix.preferred_until = USEC_INFINITY,
         };
 
         r = hashmap_ensure_put(&network->prefixes_by_section, &config_section_hash_ops, prefix->section, prefix);
@@ -137,7 +139,8 @@ static int route_prefix_new_static(Network *network, const char *filename, unsig
                 .network = network,
                 .section = TAKE_PTR(n),
 
-                .lifetime = RADV_DEFAULT_VALID_LIFETIME_USEC,
+                .route.lifetime = RADV_DEFAULT_VALID_LIFETIME_USEC,
+                .route.valid_until = USEC_INFINITY,
         };
 
         r = hashmap_ensure_put(&network->route_prefixes_by_section, &config_section_hash_ops, prefix->section, prefix);
@@ -192,7 +195,8 @@ static int prefix64_new_static(Network *network, const char *filename, unsigned 
                 .network = network,
                 .section = TAKE_PTR(n),
 
-                .lifetime = RADV_PREF64_DEFAULT_LIFETIME_USEC,
+                .prefix64.lifetime = RADV_PREF64_DEFAULT_LIFETIME_USEC,
+                .prefix64.valid_until = USEC_INFINITY,
         };
 
         r = hashmap_ensure_put(&network->pref64_prefixes_by_section, &config_section_hash_ops, prefix->section, prefix);
@@ -217,11 +221,11 @@ int link_request_radv_addresses(Link *link) {
                         continue;
 
                 /* radv_generate_addresses() below requires the prefix length <= 64. */
-                if (p->prefixlen > 64)
+                if (p->prefix.prefixlen > 64)
                         continue;
 
                 _cleanup_hashmap_free_ Hashmap *tokens_by_address = NULL;
-                r = radv_generate_addresses(link, p->tokens, &p->prefix, p->prefixlen, &tokens_by_address);
+                r = radv_generate_addresses(link, p->tokens, &p->prefix.address, p->prefix.prefixlen, &tokens_by_address);
                 if (r < 0)
                         return r;
 
@@ -237,7 +241,7 @@ int link_request_radv_addresses(Link *link) {
                         address->source = NETWORK_CONFIG_SOURCE_STATIC;
                         address->family = AF_INET6;
                         address->in_addr.in6 = *a;
-                        address->prefixlen = p->prefixlen;
+                        address->prefixlen = p->prefix.prefixlen;
                         address->route_metric = p->route_metric;
                         address->token = ipv6_token_ref(token);
 
@@ -285,23 +289,23 @@ static int radv_set_prefix(Link *link, Prefix *prefix) {
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_prefix(p, &prefix->prefix, prefix->prefixlen);
+        r = sd_radv_prefix_set_prefix(p, &prefix->prefix.address, prefix->prefix.prefixlen);
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_preferred_lifetime(p, prefix->preferred_lifetime, USEC_INFINITY);
+        r = sd_radv_prefix_set_preferred_lifetime(p, prefix->prefix.preferred_lifetime, prefix->prefix.preferred_until);
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_valid_lifetime(p, prefix->valid_lifetime, USEC_INFINITY);
+        r = sd_radv_prefix_set_valid_lifetime(p, prefix->prefix.valid_lifetime, prefix->prefix.valid_until);
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_onlink(p, FLAGS_SET(prefix->flags, ND_OPT_PI_FLAG_ONLINK));
+        r = sd_radv_prefix_set_onlink(p, FLAGS_SET(prefix->prefix.flags, ND_OPT_PI_FLAG_ONLINK));
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_address_autoconfiguration(p, FLAGS_SET(prefix->flags, ND_OPT_PI_FLAG_AUTO));
+        r = sd_radv_prefix_set_address_autoconfiguration(p, FLAGS_SET(prefix->prefix.flags, ND_OPT_PI_FLAG_AUTO));
         if (r < 0)
                 return r;
 
@@ -320,11 +324,11 @@ static int radv_set_route_prefix(Link *link, RoutePrefix *prefix) {
         if (r < 0)
                 return r;
 
-        r = sd_radv_route_prefix_set_prefix(p, &prefix->prefix, prefix->prefixlen);
+        r = sd_radv_route_prefix_set_prefix(p, &prefix->route.address, prefix->route.prefixlen);
         if (r < 0)
                 return r;
 
-        r = sd_radv_route_prefix_set_lifetime(p, prefix->lifetime, USEC_INFINITY);
+        r = sd_radv_route_prefix_set_lifetime(p, prefix->route.lifetime, prefix->route.valid_until);
         if (r < 0)
                 return r;
 
@@ -343,7 +347,7 @@ static int radv_set_pref64_prefix(Link *link, Prefix64 *prefix) {
         if (r < 0)
                 return r;
 
-        r = sd_radv_pref64_prefix_set_prefix(p, &prefix->prefix, prefix->prefixlen, prefix->lifetime);
+        r = sd_radv_pref64_prefix_set_prefix(p, &prefix->prefix64.prefix, prefix->prefix64.prefixlen, prefix->prefix64.lifetime);
         if (r < 0)
                 return r;
 
@@ -781,36 +785,36 @@ static int prefix_section_verify(Prefix *p) {
         if (section_is_invalid(p->section))
                 return -EINVAL;
 
-        if (in6_addr_is_null(&p->prefix))
+        if (in6_addr_is_null(&p->prefix.address))
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: [IPv6Prefix] section without Prefix= field configured, "
                                          "or specified prefix is the null address. "
                                          "Ignoring [IPv6Prefix] section from line %u.",
                                          p->section->filename, p->section->line);
 
-        if (p->prefixlen < 3 || p->prefixlen > 128)
+        if (p->prefix.prefixlen < 3 || p->prefix.prefixlen > 128)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: Invalid prefix length %u is specified in [IPv6Prefix] section. "
                                          "Valid range is 3…128. Ignoring [IPv6Prefix] section from line %u.",
-                                         p->section->filename, p->prefixlen, p->section->line);
+                                         p->section->filename, p->prefix.prefixlen, p->section->line);
 
-        if (p->prefixlen > 64) {
+        if (p->prefix.prefixlen > 64) {
                 log_info("%s:%u: Unusual prefix length %u (> 64) is specified in [IPv6Prefix] section from line %s%s.",
                          p->section->filename, p->section->line,
-                         p->prefixlen,
+                         p->prefix.prefixlen,
                          p->assign ? ", refusing to assign an address in " : "",
-                         p->assign ? IN6_ADDR_PREFIX_TO_STRING(&p->prefix, p->prefixlen) : "");
+                         p->assign ? IN6_ADDR_PREFIX_TO_STRING(&p->prefix.address, p->prefix.prefixlen) : "");
 
                 p->assign = false;
         }
 
-        if (p->preferred_lifetime > p->valid_lifetime)
+        if (p->prefix.preferred_lifetime > p->prefix.valid_lifetime)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: The preferred lifetime %s is longer than the valid lifetime %s. "
                                          "Ignoring [IPv6Prefix] section from line %u.",
                                          p->section->filename,
-                                         FORMAT_TIMESPAN(p->preferred_lifetime, USEC_PER_SEC),
-                                         FORMAT_TIMESPAN(p->valid_lifetime, USEC_PER_SEC),
+                                         FORMAT_TIMESPAN(p->prefix.preferred_lifetime, USEC_PER_SEC),
+                                         FORMAT_TIMESPAN(p->prefix.valid_lifetime, USEC_PER_SEC),
                                          p->section->line);
 
         return 0;
@@ -820,11 +824,11 @@ static int route_prefix_section_verify(RoutePrefix *p) {
         if (section_is_invalid(p->section))
                 return -EINVAL;
 
-        if (p->prefixlen > 128)
+        if (p->route.prefixlen > 128)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: Invalid prefix length %u is specified in [IPv6RoutePrefix] section. "
                                          "Valid range is 0…128. Ignoring [IPv6RoutePrefix] section from line %u.",
-                                         p->section->filename, p->prefixlen, p->section->line);
+                                         p->section->filename, p->route.prefixlen, p->section->line);
 
         return 0;
 }
@@ -915,15 +919,15 @@ int config_parse_prefix(
         if (r < 0)
                 return log_oom();
 
-        r = in_addr_prefix_from_string(rvalue, AF_INET6, &a, &p->prefixlen);
+        r = in_addr_prefix_from_string(rvalue, AF_INET6, &a, &p->prefix.prefixlen);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Prefix is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        (void) in6_addr_mask(&a.in6, p->prefixlen);
-        p->prefix = a.in6;
+        (void) in6_addr_mask(&a.in6, p->prefix.prefixlen);
+        p->prefix.address = a.in6;
 
         TAKE_PTR(p);
         return 0;
@@ -962,7 +966,7 @@ int config_parse_prefix_boolean(
         }
 
         if (ltype != 0)
-                SET_FLAG(p->flags, ltype, r);
+                SET_FLAG(p->prefix.flags, ltype, r);
         else {
                 assert(streq(lvalue, "Assign"));
                 p->assign = r;
@@ -1012,9 +1016,9 @@ int config_parse_prefix_lifetime(
         }
 
         if (streq(lvalue, "PreferredLifetimeSec"))
-                p->preferred_lifetime = usec;
+                p->prefix.preferred_lifetime = usec;
         else if (streq(lvalue, "ValidLifetimeSec"))
-                p->valid_lifetime = usec;
+                p->prefix.valid_lifetime = usec;
         else
                 assert_not_reached();
 
@@ -1119,15 +1123,15 @@ int config_parse_route_prefix(
         if (r < 0)
                 return log_oom();
 
-        r = in_addr_prefix_from_string(rvalue, AF_INET6, &a, &p->prefixlen);
+        r = in_addr_prefix_from_string(rvalue, AF_INET6, &a, &p->route.prefixlen);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Route prefix is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        (void) in6_addr_mask(&a.in6, p->prefixlen);
-        p->prefix = a.in6;
+        (void) in6_addr_mask(&a.in6, p->route.prefixlen);
+        p->route.address = a.in6;
 
         TAKE_PTR(p);
         return 0;
@@ -1172,7 +1176,7 @@ int config_parse_route_prefix_lifetime(
                 return 0;
         }
 
-        p->lifetime = usec;
+        p->route.lifetime = usec;
 
         TAKE_PTR(p);
         return 0;
@@ -1219,8 +1223,8 @@ int config_parse_pref64_prefix(
        }
 
         (void) in6_addr_mask(&a.in6, prefixlen);
-        p->prefix = a.in6;
-        p->prefixlen = prefixlen;
+        p->prefix64.prefix = a.in6;
+        p->prefix64.prefixlen = prefixlen;
 
         TAKE_PTR(p);
         return 0;
@@ -1265,7 +1269,7 @@ int config_parse_pref64_prefix_lifetime(
                 return 0;
         }
 
-        p->lifetime = usec;
+        p->prefix64.lifetime = usec;
 
         TAKE_PTR(p);
         return 0;

@@ -12,6 +12,7 @@
 
 #include "in-addr-util.h"
 #include "conf-parser.h"
+#include "ndisc-option.h"
 #include "networkd-util.h"
 
 typedef struct Link Link;
@@ -30,11 +31,7 @@ typedef struct Prefix {
         Network *network;
         ConfigSection *section;
 
-        uint8_t flags;
-        uint8_t prefixlen;
-        struct in6_addr prefix;
-        usec_t preferred_lifetime;
-        usec_t valid_lifetime;
+        sd_ndisc_prefix prefix;
 
         bool assign;
         uint32_t route_metric;
@@ -45,18 +42,14 @@ typedef struct RoutePrefix {
         Network *network;
         ConfigSection *section;
 
-        struct in6_addr prefix;
-        uint8_t prefixlen;
-        usec_t lifetime;
+        sd_ndisc_route route;
 } RoutePrefix;
 
 typedef struct Prefix64 {
         Network *network;
         ConfigSection *section;
 
-        struct in6_addr prefix;
-        uint8_t prefixlen;
-        usec_t lifetime;
+        sd_ndisc_prefix64 prefix64;
 } Prefix64;
 
 Prefix* prefix_free(Prefix *prefix);
