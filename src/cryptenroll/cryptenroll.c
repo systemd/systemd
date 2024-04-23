@@ -155,7 +155,7 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] BLOCK-DEVICE\n\n"
+        printf("%1$s [OPTIONS...] [BLOCK-DEVICE]\n\n"
                "%5$sEnroll a security token or authentication credential to a LUKS volume.%6$s\n\n"
                "  -h --help            Show this help\n"
                "     --version         Show package version\n"
