@@ -5367,6 +5367,7 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         }
 
         p->user_lookup_fd = u->manager->user_lookup_fds[1];
+        p->handoff_timestamp_fd = u->manager->handoff_timestamp_fds[1];
 
         p->cgroup_id = crt ? crt->cgroup_id : 0;
         p->invocation_id = u->invocation_id;
