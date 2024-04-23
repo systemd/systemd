@@ -203,4 +203,4 @@ jobs:
           build/mkosi.output/*.rpm
           build/mkosi.output/*.deb
           build/mkosi.output/*.ddeb
-          build/mkosi.output/*.tar.pkg
+          build/mkosi.output/*.pkg.tar
