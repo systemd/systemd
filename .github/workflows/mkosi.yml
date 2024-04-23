@@ -204,3 +204,4 @@ jobs:
           build/mkosi.output/*.deb
           build/mkosi.output/*.ddeb
           build/mkosi.output/*.pkg.tar
+        retention-days: 4
