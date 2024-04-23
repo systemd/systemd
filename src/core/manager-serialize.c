@@ -439,10 +439,10 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
 
-                } else if (startswith(l, "env=")) {
-                        r = deserialize_environment(l + 4, &m->client_environment);
+                } else if ((val = startswith(l, "env="))) {
+                        r = deserialize_environment(val, &m->client_environment);
                         if (r < 0)
-                                log_notice_errno(r, "Failed to parse environment entry: \"%s\", ignoring: %m", l);
+                                log_notice_errno(r, "Failed to parse environment entry: \"%s\", ignoring: %m", val);
 
                 } else if ((val = startswith(l, "notify-fd="))) {
                         int fd;
