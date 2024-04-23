@@ -62,6 +62,10 @@ struct Machine {
         int *netif;
         size_t n_netif;
 
+        unsigned vsock_cid;
+        char *ssh_address;
+        char *ssh_private_key_path;
+
         LIST_HEAD(Operation, operations);
 
         LIST_FIELDS(Machine, gc_queue);
