@@ -1816,6 +1816,7 @@ static int service_spawn_internal(
         exec_params.stdin_fd = s->stdin_fd;
         exec_params.stdout_fd = s->stdout_fd;
         exec_params.stderr_fd = s->stderr_fd;
+        exec_params.handoff_timestamp_fd = UNIT(s)->manager->handoff_timestamp_fds[1];
 
         r = exec_spawn(UNIT(s),
                        c,
@@ -3009,8 +3010,8 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (s->main_exec_status.pid > 0) {
                 (void) serialize_item_format(f, "main-exec-status-pid", PID_FMT, s->main_exec_status.pid);
                 (void) serialize_dual_timestamp(f, "main-exec-status-start", &s->main_exec_status.start_timestamp);
+                (void) serialize_dual_timestamp(f, "main-exec-status-handoff", &s->main_exec_status.handoff_timestamp);
                 (void) serialize_dual_timestamp(f, "main-exec-status-exit", &s->main_exec_status.exit_timestamp);
-                (void) serialize_dual_timestamp(f, "main-exec-status-handover", &s->main_exec_status.handover_timestamp);
 
                 if (dual_timestamp_is_set(&s->main_exec_status.exit_timestamp)) {
                         (void) serialize_item_format(f, "main-exec-status-code", "%i", s->main_exec_status.code);
@@ -3295,8 +3296,8 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 deserialize_dual_timestamp(value, &s->main_exec_status.start_timestamp);
         else if (streq(key, "main-exec-status-exit"))
                 deserialize_dual_timestamp(value, &s->main_exec_status.exit_timestamp);
-        else if (streq(key, "main-exec-status-handover"))
-                deserialize_dual_timestamp(value, &s->main_exec_status.handover_timestamp);
+        else if (streq(key, "main-exec-status-handoff"))
+                deserialize_dual_timestamp(value, &s->main_exec_status.handoff_timestamp);
         else if (streq(key, "notify-access-override")) {
                 NotifyAccess notify_access;
 
@@ -4577,6 +4578,34 @@ static void service_notify_message(
                 unit_add_to_dbus_queue(u);
 }
 
+static void service_handoff_timestamp(
+                Unit *u,
+                const struct ucred *ucred,
+                const dual_timestamp *ts) {
+
+        Service *s = ASSERT_PTR(SERVICE(u));
+        bool notify_dbus = false;
+
+        assert(ucred);
+        assert(ts);
+
+        if (s->main_pid.pid == ucred->pid) {
+                if (s->main_command)
+                        exec_status_handoff(&s->main_command->exec_status, ucred, ts);
+
+                exec_status_handoff(&s->main_exec_status, ucred, ts);
+                notify_dbus = true;
+        }
+
+        if (s->control_pid.pid == ucred->pid && s->control_command) {
+                exec_status_handoff(&s->control_command->exec_status, ucred, ts);
+                notify_dbus = true;
+        }
+
+        if (notify_dbus)
+                unit_add_to_dbus_queue(u);
+}
+
 static int service_get_timeout(Unit *u, usec_t *timeout) {
         Service *s = ASSERT_PTR(SERVICE(u));
         uint64_t t;
@@ -5162,6 +5191,7 @@ const UnitVTable service_vtable = {
         .notify_cgroup_empty = service_notify_cgroup_empty_event,
         .notify_cgroup_oom = service_notify_cgroup_oom_event,
         .notify_message = service_notify_message,
+        .notify_handoff_timestamp = service_handoff_timestamp,
 
         .main_pid = service_main_pid,
         .control_pid = service_control_pid,

@@ -2768,8 +2768,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly t ExecMainStartTimestampMonotonic = ...;
       readonly t ExecMainExitTimestamp = ...;
       readonly t ExecMainExitTimestampMonotonic = ...;
-      readonly t ExecMainHandoverTimestamp = ...;
-      readonly t ExecMainHandoverTimestampMonotonic = ...;
+      readonly t ExecMainHandoffTimestamp = ...;
+      readonly t ExecMainHandoffTimestampMonotonic = ...;
       readonly u ExecMainPID = ...;
       readonly i ExecMainCode = ...;
       readonly i ExecMainStatus = ...;
@@ -4059,9 +4059,9 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecMainExitTimestampMonotonic"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="ExecMainHandoverTimestamp"/>
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecMainHandoffTimestamp"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="ExecMainHandoverTimestampMonotonic"/>
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecMainHandoffTimestampMonotonic"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecMainPID"/>
 
@@ -4712,12 +4712,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
       <para><varname>ExecMainStartTimestamp</varname>, <varname>ExecMainStartTimestampMonotonic</varname>,
       <varname>ExecMainExitTimestamp</varname>, <varname>ExecMainExitTimestampMonotonic</varname>,
-      <varname>ExecMainHandoverTimestamp</varname>, <varname>ExecMainHandoverTimestampMonotonic</varname>,
+      <varname>ExecMainHandoffTimestamp</varname>, <varname>ExecMainHandoffTimestampMonotonic</varname>,
       <varname>ExecMainPID</varname>, <varname>ExecMainCode</varname>, <varname>ExecMainStatus</varname>
       contain information about the main process of the service as far as it is known. The
       <varname>ExecMainStartTimestamp</varname> timestamps record when the main child process is spawned by
       the service manager. <varname>ExecMainExitTimestamp</varname> timestamps record when the main child
-      process exit has been detected by the service manager. <varname>ExecMainHandoverTimestamp</varname>
+      process exit has been detected by the service manager. <varname>ExecMainHandoffTimestamp</varname>
       timestamps record when the service executable is executed by <command>systemd-executor</command>.
       This is often the same runtime information that is stored in <varname>ExecStart=</varname>. However,
       it deviates for <varname>Type=forking</varname> services where the main process of the service is not
@@ -12068,8 +12068,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>,
       <varname>MemoryZSwapWriteback</varname>,
-      <varname>ExecMainHandoverTimestampMonotonic</varname>, and
-      <varname>ExecMainHandoverTimestamp</varname> were added in version 256.</para>
+      <varname>ExecMainHandoffTimestampMonotonic</varname>, and
+      <varname>ExecMainHandoffTimestamp</varname> were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
