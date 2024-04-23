@@ -1108,6 +1108,7 @@ static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParamete
 
 static void mount_enter_mounting(Mount *m) {
         MountParameters *p;
+        DIR* dp;
         bool source_is_dir = true;
         int r;
 
@@ -1167,6 +1168,16 @@ static void mount_enter_mounting(Mount *m) {
 
         m->control_command_id = MOUNT_EXEC_MOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_MOUNT;
+
+        dp = opendir(m->where);
+        if (!dp) {
+                //this is not a directory but rather file or link
+                remove(m->where);
+                mkdir_p(m->where, m->directory_mode);
+        }
+        else {
+                closedir(dp);
+        }
 
         /* Create the source directory for bind-mounts if needed */
         if (p && mount_is_bind(p)) {
