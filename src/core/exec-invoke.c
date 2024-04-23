@@ -3519,7 +3519,7 @@ static int close_remaining_fds(
                 const int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
-        int dont_close[n_fds + 14];
+        int dont_close[n_fds + 16];
 
         assert(params);
 
@@ -3554,6 +3554,11 @@ static int close_remaining_fds(
 
         if (params->user_lookup_fd >= 0)
                 dont_close[n_dont_close++] = params->user_lookup_fd;
+
+        if (params->handoff_timestamp_fd >= 0)
+                dont_close[n_dont_close++] = params->handoff_timestamp_fd;
+
+        assert(n_dont_close <= ELEMENTSOF(dont_close));
 
         return close_all_fds(dont_close, n_dont_close);
 }
@@ -4103,11 +4108,17 @@ int exec_invoke(
                 return log_exec_error_errno(context, params, r, "Failed to get OpenFile= file descriptors: %m");
         }
 
-        int keep_fds[n_fds + 3];
+        int keep_fds[n_fds + 4];
         memcpy_safe(keep_fds, params->fds, n_fds * sizeof(int));
         n_keep_fds = n_fds;
 
         r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &params->exec_fd);
+        if (r < 0) {
+                *exit_status = EXIT_FDS;
+                return log_exec_error_errno(context, params, r, "Failed to collect shifted fd: %m");
+        }
+
+        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &params->handoff_timestamp_fd);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_exec_error_errno(context, params, r, "Failed to collect shifted fd: %m");
@@ -4847,8 +4858,9 @@ int exec_invoke(
 
         /* We repeat the fd closing here, to make sure that nothing is leaked from the PAM modules. Note that
          * we are more aggressive this time, since we don't need socket_fd and the netns and ipcns fds any
-         * more. We do keep exec_fd however, if we have it, since we need to keep it open until the final
-         * execve(). But first, close the remaining sockets in the context objects. */
+         * more. We do keep exec_fd and handoff_timestamp_fd however, if we have it, since we need to keep
+         * them open until the final execve(). But first, close the remaining sockets in the context
+         * objects. */
 
         exec_runtime_close(runtime);
         exec_params_close(params);
@@ -5265,17 +5277,27 @@ int exec_invoke(
         log_command_line(context, params, "Executing", executable, final_argv);
 
         if (params->exec_fd >= 0) {
-                usec_t t = now(CLOCK_MONOTONIC);
+                uint8_t x = 1;
 
                 /* We have finished with all our initializations. Let's now let the manager know that. From this point
-                 * on, if the manager sees POLLHUP on the exec_fd, then execve() was successful. We send a
-                 * timestamp so that the service manager and users can track the precise moment we handed
-                 * over execution of the service to the kernel. */
+                 * on, if the manager sees POLLHUP on the exec_fd, then execve() was successful. */
 
-                if (write(params->exec_fd, &t, sizeof(t)) < 0) {
+                if (write(params->exec_fd, &x, sizeof(x)) < 0) {
                         *exit_status = EXIT_EXEC;
                         return log_exec_error_errno(context, params, errno, "Failed to enable exec_fd: %m");
                 }
+        }
+
+        if (params->handoff_timestamp_fd >= 0) {
+                /* Best effort: get a timestamp now and send it upstream */
+                struct dual_timestamp dt;
+                dual_timestamp_now(&dt);
+
+                (void) send(params->handoff_timestamp_fd,
+                            (const usec_t[2]) { dt.realtime, dt.monotonic }, sizeof(usec_t) * 2,
+                            MSG_DONTWAIT);
+
+                /* we don't bother with closing the handoff_timestamp_fd, because it's O_CLOEXEC */
         }
 
         r = fexecve_or_execve(executable_fd, executable, final_argv, accum_env);

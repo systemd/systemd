@@ -1842,6 +1842,20 @@ void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int 
                 (void) utmp_put_dead_process(context->utmp_id, pid, code, status);
 }
 
+void exec_status_handoff(ExecStatus *s, const struct ucred *ucred, const dual_timestamp *ts) {
+        assert(s);
+
+        assert(ucred);
+        assert(ts);
+
+        if (ucred->pid != s->pid)
+                *s = (ExecStatus) {
+                        .pid = ucred->pid,
+                };
+
+        s->handoff_timestamp = *ts;
+}
+
 void exec_status_reset(ExecStatus *s) {
         assert(s);
 
@@ -1866,10 +1880,10 @@ void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix) {
                         "%sStart Timestamp: %s\n",
                         prefix, FORMAT_TIMESTAMP(s->start_timestamp.realtime));
 
-        if (dual_timestamp_is_set(&s->handover_timestamp))
+        if (dual_timestamp_is_set(&s->handoff_timestamp))
                 fprintf(f,
-                        "%sHandover Timestamp: %s\n",
-                        prefix, FORMAT_TIMESTAMP(s->handover_timestamp.realtime));
+                        "%sHandoff Timestamp: %s\n",
+                        prefix, FORMAT_TIMESTAMP(s->handoff_timestamp.realtime));
 
         if (dual_timestamp_is_set(&s->exit_timestamp))
                 fprintf(f,
