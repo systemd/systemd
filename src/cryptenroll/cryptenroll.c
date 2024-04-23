@@ -103,6 +103,66 @@ static const char *const luks2_token_type_table[_ENROLL_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(luks2_token_type, EnrollType);
 
+static int determine_default_node(void) {
+        int r;
+
+        /* If no device is specified we'll default to the backing device of /var/.
+         *
+         * Why /var/ and not just / you ask?
+         *
+         * On most systems /var/ is going to be on the root fs, hence the outcome is usually the same.
+         *
+         * However, on systems where / and /var/ are separate it makes more sense to default to /var/ because
+         * that's where the persistent and variable data is placed (i.e. where LUKS should be used) while /
+         * doesn't really have to be variable and could as well be immutable or ephemeral. Hence /var/ should
+         * be a better default.
+         *
+         * Or to say this differently: it makes sense to support well systems with /var/ being on /. It also
+         * makes sense to support well systems with them being separate, and /var/ being variable and
+         * persistent. But any other kind of system appears much less interesting to support, and in that
+         * case people should just specify the device name explicitly. */
+
+        dev_t devno;
+        r = get_block_device("/var", &devno);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine block device backing /var/: %m");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
+                                       "File system /var/ is on not backed by a (single) whole block device.");
+
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        r = sd_device_new_from_devnum(&dev, 'b', devno);
+        if (r < 0)
+                return log_error_errno(r, "Unable to access backing block device for /var/: %m");
+
+        const char *dm_uuid;
+        r = sd_device_get_property_value(dev, "DM_UUID", &dm_uuid);
+        if (r == -ENOENT)
+                return log_error_errno(r, "Backing block device of /var/ is not a DM device: %m");
+        if (r < 0)
+                return log_error_errno(r, "Unable to query DM_UUID udev property of backing block device for /var/): %m");
+
+        if (!startswith(dm_uuid, "CRYPT-LUKS2-"))
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Block device backing /var/ is not a LUKS2 device: %m");
+
+        _cleanup_(sd_device_unrefp) sd_device *origin = NULL;
+        r = block_device_get_originating(dev, &origin);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get originating device of LUKS2 device backing /var/: %m");
+
+        const char *dp;
+        r = sd_device_get_devname(origin, &dp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get device path for LUKS2 device backing /var/: %m");
+
+        r = free_and_strdup_warn(&arg_node, dp);
+        if (r < 0)
+                return r;
+
+        log_info("No device specified, defaulting to '%s'.", arg_node);
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -544,24 +604,15 @@ static int parse_argv(int argc, char *argv[]) {
                 r = parse_path_argument(argv[optind], false, &arg_node);
                 if (r < 0)
                         return r;
-        } else if (!wipe_requested()) {
-                dev_t devno;
+        } else {
+                if (wipe_requested())
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Wiping requested and no block device node specified, refusing.");
 
-                r = blockdev_get_root(LOG_ERR, &devno);
+                r = determine_default_node();
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
-                                        "Root file system not backed by a (single) whole block device.");
-
-                r = device_path_make_canonical(S_IFBLK, devno, &arg_node);
-                if (r < 0)
-                        return log_error_errno(r,
-                                               "Failed to format canonical device path for devno '" DEVNUM_FORMAT_STR "': %m",
-                                               DEVNUM_FORMAT_VAL(devno));
-        } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No block device node specified, refusing.");
+        }
 
         if (arg_enroll_type == ENROLL_FIDO2) {
 
