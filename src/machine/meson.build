@@ -3,6 +3,7 @@
 libmachine_core_sources = files(
         'image-dbus.c',
         'machine-dbus.c',
+        'machine-varlink.c',
         'machine.c',
         'machined-core.c',
         'machined-dbus.c',
