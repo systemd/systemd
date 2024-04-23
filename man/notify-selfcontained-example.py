@@ -13,22 +13,21 @@ import errno
 import os
 import signal
 import socket
+import sys
 import time
 
 reloading = False
 terminating = False
 
-
 def notify(message):
-    if message is None or len(message) == 0:
-        raise OSError(errno.EINVAL, "notify() requires a message")
+    if not message:
+        raise ValueError("notify() requires a message")
 
-    # Do nothing if no socket is available.
-    if "NOTIFY_SOCKET" not in os.environ:
+    socket_path = os.environ.get("NOTIFY_SOCKET")
+    if not socket_path:
         return
 
-    socket_path = os.environ["NOTIFY_SOCKET"]
-    if socket_path[0] != "/" and socket_path[0] != "@":
+    if socket_path[0] in ("/", "@"):
         raise OSError(errno.EAFNOSUPPORT, "Unsupported socket type")
 
     # Handle abstract socket.
@@ -36,39 +35,33 @@ def notify(message):
         socket_path = "\0" + socket_path[1:]
 
     with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM | socket.SOCK_CLOEXEC) as sock:
-        sock.connect((socket_path))
+        sock.connect(socket_path)
         sock.sendall(message)
-
 
 def notify_ready():
     notify(b"READY=1")
-
 
 def notify_reloading():
     microsecs = time.clock_gettime_ns(time.CLOCK_MONOTONIC) // 1000
     notify(f"RELOADING=1\nMONOTONIC_USEC={microsecs}".encode())
 
-
 def notify_stopping():
     notify(b"STOPPING=1")
-
 
 def reload(signum, frame):
     global reloading
     reloading = True
 
-
 def terminate(signum, frame):
     global terminating
     terminating = True
 
-
 def main():
-    print("Doing initial setup", flush=True)
+    print("Doing initial setup")
     global reloading, terminating
 
     # Set up signal handlers.
-    print("Setting up signal handlers", flush=True)
+    print("Setting up signal handlers")
     signal.signal(signal.SIGHUP, reload)
     signal.signal(signal.SIGINT, terminate)
     signal.signal(signal.SIGTERM, terminate)
@@ -76,13 +69,13 @@ def main():
     # Do any other setup work here.
 
     # Once all setup is done, signal readiness.
-    print("Done setting up", flush=True)
+    print("Done setting up")
     notify_ready()
 
-    print("Starting loop", flush=True)
+    print("Starting loop")
     while not terminating:
         if reloading:
-            print("Reloading", flush=True)
+            print("Reloading")
             reloading = False
 
             # Support notifying the manager when reloading configuration.
@@ -91,22 +84,22 @@ def main():
             # specify an ExecReload= line in the unit file.
 
             notify_reloading()
-            print("Done reloading", flush=True)
 
             # Do some reconfiguration work here.
 
+            print("Done reloading")
             notify_ready()
 
         # Do the real work here ...
 
-        print("Sleeping for five seconds", flush=True)
+        print("Sleeping for five seconds")
         time.sleep(5)
 
-    print("Terminating", flush=True)
+    print("Terminating")
     notify_stopping()
 
-
 if __name__ == "__main__":
-    print("Starting app", flush=True)
+    sys.stdout.reconfigure(line_buffering=True)
+    print("Starting app")
     main()
-    print("Stopped app", flush=True)
+    print("Stopped app")
