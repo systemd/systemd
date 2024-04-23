@@ -155,14 +155,16 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        if (a == ACTION_REBOOT) {
-                if (arg_reboot_argument) {
-                        r = update_reboot_parameter_and_warn(arg_reboot_argument, false);
-                        if (r < 0)
-                                return r;
-                }
+        if (arg_reboot_argument && IN_SET(a, ACTION_HALT, ACTION_POWEROFF, ACTION_REBOOT, ACTION_KEXEC)) {
+                /* If we are going through an action that involves systemd-shutdown, let's set the reboot
+                 * parameter, even if it's not a regular reboot. After all we nowadays send the string to
+                 * our supervisor via sd_notify() too. */
+                r = update_reboot_parameter_and_warn(arg_reboot_argument, /* keep= */ false);
+                if (r < 0)
+                        return r;
+        }
 
-        } else if (a == ACTION_KEXEC) {
+        if (a == ACTION_KEXEC) {
                 r = load_kexec_kernel();
                 if (r < 0 && arg_force >= 1)
                         log_notice("Failed to load kexec kernel, continuing without.");
