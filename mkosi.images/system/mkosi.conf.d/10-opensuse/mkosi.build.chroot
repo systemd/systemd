@@ -40,7 +40,7 @@ SRCDEST="/usr/src/debug/systemd-$VERSION-${RELEASE}${DIST}.$ARCH"
 # EXTRA_CFLAGS="-O${OPTIMIZATION:-0} -Wp,-U_FORTIFY_SOURCE"
 EXTRA_CFLAGS=""
 if ((WITH_DEBUG)); then
-    EXTRA_CFLAGS="$EXTRA_CFLAGS -ffile-prefix-map=../src=$SRCDEST"
+    EXTRA_CFLAGS="$EXTRA_CFLAGS -fdebug-prefix-map=../src=$SRCDEST"
 fi
 
 build() {

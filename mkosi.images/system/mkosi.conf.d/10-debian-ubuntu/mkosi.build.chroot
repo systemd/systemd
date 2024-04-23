@@ -45,7 +45,7 @@ build() {
     DEB_BUILD_OPTIONS=$(awk '$1=$1' <<<"\
         $( ((WITH_TESTS)) || echo nocheck) \
         $( ((WITH_DOCS)) || echo nodoc) \
-        $( ((WITH_DEBUG)) || echo nostrip) \
+        $( ((WITH_DEBUG)) && echo debug || echo nostrip) \
         terse \
         optimize=-lto \
         hardening=-fortify \
@@ -100,5 +100,8 @@ if ! build; then
     build
 fi
 
-cp ../*.deb "$PACKAGEDIR"
-cp ../*.deb "$OUTPUTDIR"
+(
+    shopt -s nullglob
+    cp ../*.deb ../*.ddeb "$PACKAGEDIR"
+    cp ../*.deb ../*.ddeb "$OUTPUTDIR"
+)
