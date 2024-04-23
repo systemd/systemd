@@ -626,19 +626,16 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         const char *addr_p = IN6_ADDR_PREFIX_TO_STRING(&p->opt.in6_addr, p->opt.prefixlen);
 
         LIST_FOREACH(prefix, cur, ra->prefixes) {
-                r = in_addr_prefix_intersect(AF_INET6,
-                                             (const union in_addr_union*) &cur->opt.in6_addr,
-                                             cur->opt.prefixlen,
-                                             (const union in_addr_union*) &p->opt.in6_addr,
-                                             p->opt.prefixlen);
+                r = in6_addr_prefix_intersect(&cur->opt.in6_addr, cur->opt.prefixlen,
+                                              &p->opt.in6_addr, p->opt.prefixlen);
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        continue;
+                        continue; /* no intersection */
 
                 if (cur->opt.prefixlen == p->opt.prefixlen) {
                         found = cur;
-                        break;
+                        break; /* same prefix */
                 }
 
                 return log_radv_errno(ra, SYNTHETIC_ERRNO(EEXIST),
