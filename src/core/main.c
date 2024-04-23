@@ -1699,6 +1699,17 @@ static void cmdline_take_random_seed(void) {
                    "This functionality should not be used outside of testing environments.");
 }
 
+static void set_suid_dumpable(void) {
+        const char *sd_path = "/proc/sys/fs/suid_dumpable";
+        const char *value = "2";
+
+        /* Write suid_dumpable setting: */
+        int r = write_string_file(sd_path, value, 0);
+
+        if (r < 0)
+            log_emergency("Failed to write to /proc/sys/fs/suid_dumpable");
+}
+
 static void initialize_coredump(bool skip_setup) {
         if (getpid_cached() != 1)
                 return;
@@ -2031,6 +2042,14 @@ static int invoke_main_loop(
         assert(ret_switch_root_dir);
         assert(ret_switch_root_init);
         assert(ret_error_message);
+
+        log_warning("sd: i=userspace, inactive_exit="USEC_FMT, m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic);
+        log_warning("sd: i=security, inactive_exit="USEC_FMT, m->timestamps[MANAGER_TIMESTAMP_SECURITY_START].monotonic);
+        log_warning("sd: i=security, active_enter="USEC_FMT, m->timestamps[MANAGER_TIMESTAMP_SECURITY_FINISH].monotonic);
+        log_warning("sd: i=generators, inactive_exit="USEC_FMT, m->timestamps[MANAGER_TIMESTAMP_GENERATORS_START].monotonic);
+        log_warning("sd: i=generators, active_enter="USEC_FMT, m->timestamps[MANAGER_TIMESTAMP_GENERATORS_FINISH].monotonic);
+        log_warning("sd: i=units_load, inactive_exit="USEC_FMT, m->timestamps[MANAGER_TIMESTAMP_UNITS_LOAD_START].monotonic);
+        log_warning("sd: i=units_load, active_enter="USEC_FMT, m->timestamps[MANAGER_TIMESTAMP_UNITS_LOAD_FINISH].monotonic);
 
         for (;;) {
                 int objective = manager_loop(m);
@@ -3002,6 +3021,8 @@ int main(int argc, char *argv[]) {
                         kernel_timestamp = DUAL_TIMESTAMP_NULL;
                 }
 
+                log_warning("sd: status changed: INITIALIZING, t="USEC_FMT, userspace_timestamp.monotonic);
+
                 initialize_coredump(skip_setup);
 
                 r = fixup_environment();
@@ -3137,6 +3158,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 /* A core pattern might have been specified via the cmdline. */
+                set_suid_dumpable();
                 initialize_core_pattern(skip_setup);
 
                 /* Make /usr/ read-only */
