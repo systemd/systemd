@@ -1669,14 +1669,6 @@ node /org/freedesktop/systemd1 {
         </varlistentry>
 
         <varlistentry>
-          <term><literal>cgroups-missing</literal></term>
-
-          <listitem><para>Support for cgroups is unavailable.</para>
-
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><literal>cgroupsv1</literal></term>
 
           <listitem><para>The system is using the old cgroup hierarchy.</para>
