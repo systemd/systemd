@@ -104,8 +104,8 @@
     <para>If the <parameter>unset_environment</parameter> parameter is non-zero,
     <function>sd_notify()</function> will unset the <varname>$NOTIFY_SOCKET</varname> environment variable
     before returning (regardless of whether the function call itself succeeded or not). Further calls to
-    <function>sd_notify()</function> will then fail, and the variable is no longer inherited by child
-    processes.</para>
+    <function>sd_notify()</function> will then silently do nothing, and the variable is no longer inherited
+    by child processes.</para>
 
     <para>The <parameter>state</parameter> parameter should contain a newline-separated list of variable
     assignments, similar in style to an environment block. A trailing newline is implied if none is
