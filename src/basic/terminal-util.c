@@ -306,29 +306,9 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
         termios.c_cc[VMIN]   = 1;
 
         r = RET_NERRNO(tcsetattr(fd, TCSANOW, &termios));
-        if (r < 0) {
+        if (r < 0)
                 log_debug_errno(r, "Failed to set terminal parameters: %m");
-                goto finish;
-        }
 
-        if (!terminal_is_dumb()) {
-                r = fd_nonblock(fd, true);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
-                        goto finish;
-                }
-
-                 /* Enable line wrapping. */
-                (void) loop_write_full(fd, "\033[?7h", SIZE_MAX, 50 * USEC_PER_MSEC);
-
-                if (r > 0) {
-                        r = fd_nonblock(fd, false);
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to set terminal back to blocking mode: %m");
-                                goto finish;
-                        }
-                }
-        }
 finish:
         /* Just in case, flush all crap out */
         (void) tcflush(fd, TCIOFLUSH);
@@ -1563,6 +1543,32 @@ int set_terminal_cursor_position(int fd, unsigned int row, unsigned int column) 
                 return log_warning_errno(r, "Failed to set cursor position, ignoring: %m");
 
         return 0;
+}
+
+int terminal_enable_line_wrapping_fd(int fd) {
+        int r, k;
+
+        assert(fd >= 0);
+
+        if (terminal_is_dumb())
+                return 0;
+
+        r = fd_nonblock(fd, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
+
+        /* Enable line wrapping. */
+        k = loop_write_full(fd, "\033[?7h", SIZE_MAX, 50 * USEC_PER_MSEC);
+        if (k < 0)
+                log_debug_errno(k, "Failed to write to terminal: %m");
+
+        if (r > 0) {
+                r = fd_nonblock(fd, false);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to set terminal back to blocking mode: %m");
+        }
+
+        return k < 0 ? k : r;
 }
 
 void termios_disable_echo(struct termios *termios) {
