@@ -2622,15 +2622,31 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         if (!MANAGER_IS_RELOADING(m)) {
                 dual_timestamp_now(&u->state_change_timestamp);
 
-                if (UNIT_IS_INACTIVE_OR_FAILED(os) && !UNIT_IS_INACTIVE_OR_FAILED(ns))
+                if (UNIT_IS_INACTIVE_OR_FAILED(os) && !UNIT_IS_INACTIVE_OR_FAILED(ns)) {
                         u->inactive_exit_timestamp = u->state_change_timestamp;
-                else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && UNIT_IS_INACTIVE_OR_FAILED(ns))
+                        log_warning("sd: u=%s, inactive_exit="USEC_FMT,
+                                    u->id, u->inactive_exit_timestamp.monotonic);
+                }
+                else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && UNIT_IS_INACTIVE_OR_FAILED(ns)) {
                         u->inactive_enter_timestamp = u->state_change_timestamp;
+                        log_warning("sd: u=%s, inactive_enter="USEC_FMT,
+                                    u->id, u->inactive_enter_timestamp.monotonic);
+                }
 
-                if (!UNIT_IS_ACTIVE_OR_RELOADING(os) && UNIT_IS_ACTIVE_OR_RELOADING(ns))
+                if (!UNIT_IS_ACTIVE_OR_RELOADING(os) && UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
                         u->active_enter_timestamp = u->state_change_timestamp;
-                else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns))
+                        log_warning("sd: u=%s, active_enter="USEC_FMT,
+                                    u->id, u->active_enter_timestamp.monotonic);
+                        if (unit_has_name(u, SPECIAL_BASIC_TARGET)) {
+                                log_warning("sd: status changed: STARTING, t="USEC_FMT,
+                                            u->active_enter_timestamp.monotonic);
+                        }
+                }
+                else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
                         u->active_exit_timestamp = u->state_change_timestamp;
+                        log_warning("sd: u=%s, active_exit="USEC_FMT,
+                                    u->id, u->active_exit_timestamp.monotonic);
+                }
         }
 
         /* Keep track of failed units */
