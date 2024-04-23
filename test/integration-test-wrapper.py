@@ -64,6 +64,7 @@ def main():
             """
             [Unit]
             SuccessAction=exit
+            SuccessActionExitStatus=123
             FailureAction=exit
             """
         )
@@ -87,7 +88,9 @@ def main():
                 f"systemd.extra-unit.emergency-exit.service={shlex.quote(EMERGENCY_EXIT_SERVICE)}",
                 '--credential',
                 f"systemd.unit-dropin.emergency.target={shlex.quote(EMERGENCY_EXIT_DROPIN)}",
-                '--kernel-command-line-extra=systemd.mask=serial-getty@.service',
+                '--kernel-command-line-extra=systemd.mask=serial-getty@.service systemd.crash_shell=0 systemd.crash_reboot',
+                # Custom firmware variables allow bypassing the EFI auto-enrollment reboot so we only reboot on crash
+                '--qemu-firmware-variables=custom',
             ]
             if not sys.stderr.isatty()
             else []
@@ -103,12 +106,13 @@ def main():
         ]),
         *args.mkosi_args,
         'qemu',
+        *(['-no-reboot'] if not sys.stderr.isatty() else [])
     ]
 
-    try:
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError as e:
-        if e.returncode != 77 and journal_file:
+    result = subprocess.run(cmd)
+    # Return code 123 is the expected success code
+    if result.returncode != (0 if sys.stderr.isatty() else 123):
+        if result.returncode != 77 and journal_file:
             cmd = [
                 'journalctl',
                 '--no-hostname',
@@ -119,7 +123,7 @@ def main():
             ]
             print("Test failed, relevant logs can be viewed with: \n\n"
                   f"{shlex.join(str(a) for a in cmd)}\n", file=sys.stderr)
-        exit(e.returncode)
+        exit(result.returncode or 1)
 
     # Do not keep journal files for tests that don't fail.
     if journal_file:
