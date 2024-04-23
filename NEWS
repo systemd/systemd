@@ -663,6 +663,13 @@ CHANGES WITH 256-rc1:
 
         systemd-cryptsetup/systemd-cryptenroll:
 
+        * The device node argument to systemd-cryptenroll is now optional. If
+          omitted it will be derived automatically from the backing block
+          device of /var/ (which quite likely is the same as the root file
+          system, hence effectively means if you don't specify things otherwise
+          the tool will now default to enrolling a key into the root file
+          system's LUKS device).
+
         * systemd-cryptenroll can now enroll directly with a PKCS11 public key
           (instead of a certificate).
 
