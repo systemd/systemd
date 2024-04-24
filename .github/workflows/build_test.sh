@@ -111,6 +111,8 @@ else
     fatal "Unknown compiler: $COMPILER"
 fi
 
+# This is added by default, and it is often broken, but we don't need anything from it
+sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list
 # PPA with some newer build dependencies (like zstd)
 sudo add-apt-repository -y --no-update ppa:upstream-systemd-ci/systemd-ci
 sudo add-apt-repository -y --no-update --enable-source
