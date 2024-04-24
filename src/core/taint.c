@@ -15,20 +15,18 @@
 #include "taint.h"
 #include "uid-range.h"
 
-static int short_uid_range(const char *path) {
+static int short_uid_gid_range(UIDRangeUsernsMode mode) {
         _cleanup_(uid_range_freep) UIDRange *p = NULL;
         int r;
 
-        assert(path);
-
-        /* Taint systemd if we the UID range assigned to this environment doesn't at least cover 0…65534,
+        /* Taint systemd if we the UID/GID range assigned to this environment doesn't at least cover 0…65534,
          * i.e. from root to nobody. */
 
-        r = uid_range_load_userns(path, UID_RANGE_USERNS_INSIDE, &p);
+        r = uid_range_load_userns(/* path= */ NULL, mode, &p);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return false;
         if (r < 0)
-                return log_debug_errno(r, "Failed to load %s: %m", path);
+                return log_debug_errno(r, "Failed to load uid_map or gid_map: %m");
 
         return !uid_range_covers(p, 0, 65535);
 }
@@ -76,9 +74,9 @@ char* taint_string(void) {
             !streq(overflowgid, "65534"))
                 stage[n++] = "overflowgid-not-65534";
 
-        if (short_uid_range("/proc/self/uid_map") > 0)
+        if (short_uid_gid_range(UID_RANGE_USERNS_INSIDE) > 0)
                 stage[n++] = "short-uid-range";
-        if (short_uid_range("/proc/self/gid_map") > 0)
+        if (short_uid_gid_range(GID_RANGE_USERNS_INSIDE) > 0)
                 stage[n++] = "short-gid-range";
 
         assert(n < ELEMENTSOF(stage) - 1);  /* One extra for NULL terminator */
