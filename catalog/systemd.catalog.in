@@ -558,13 +558,25 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 The following "tags" are possible:
-- "cgroups-missing" — the kernel was compiled without cgroup support or access
-  to expected interface files is restricted
-- "var-run-bad" — /var/run is not a symlink to /run
+- "unmerged-usr" - /bin, /sbin, /lib* are not symlinks to their counterparts
+  under /usr/
+- "unmerged-bin" - /usr/sbin is not a symlink to /usr/bin/
+- "var-run-bad" — /var/run is not a symlink to /run/
+- "cgroupsv1" - the system is using the deprecated cgroup v1 hierarchy
+- "local-hwclock" - the local hardware clock (RTC) is configured to be in
+  local time rather than UTC
+- "support-ended" - the system is running past the end of support declared
+  by the vendor
+- "old-kernel" - the system is running a kernel version that is older than
+  the minimum supported by this version of systemd
 - "overflowuid-not-65534" — the kernel user ID used for "unknown" users (with
   NFS or user namespaces) is not 65534
 - "overflowgid-not-65534" — the kernel group ID used for "unknown" users (with
   NFS or user namespaces) is not 65534
+- "short-uid-range" - the UID range assigned to the running systemd instance
+  covers less than 0…65534
+- "short-gid-range" - the GID range assigned to the running systemd instance
+  covers less than 0…65534
 Current system is tagged as @TAINT@.
 
 -- fe6faa94e7774663a0da52717891d8ef
