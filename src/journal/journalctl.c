@@ -72,6 +72,7 @@ char **arg_syslog_identifier = NULL;
 char **arg_exclude_identifier = NULL;
 char **arg_system_units = NULL;
 char **arg_user_units = NULL;
+bool arg_current_invocation = false;
 const char *arg_field = NULL;
 bool arg_catalog = false;
 bool arg_reverse = false;
@@ -225,6 +226,7 @@ static int help(void) {
                "  -b --boot[=ID]             Show current boot or the specified boot\n"
                "  -u --unit=UNIT             Show logs from the specified unit\n"
                "     --user-unit=UNIT        Show logs from the specified user unit\n"
+               "     --current-invocation    Show logs from the unit of the current invocation\n"
                "  -t --identifier=STRING     Show entries with the specified syslog identifier\n"
                "  -T --exclude-identifier=STRING\n"
                "                             Hide entries with the specified syslog identifier\n"
@@ -318,6 +320,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CURSOR_FILE,
                 ARG_SHOW_CURSOR,
                 ARG_USER_UNIT,
+                ARG_CURRENT_INVOCATION,
                 ARG_LIST_CATALOG,
                 ARG_DUMP_CATALOG,
                 ARG_UPDATE_CATALOG,
@@ -387,6 +390,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "until",                required_argument, NULL, 'U'                      },
                 { "unit",                 required_argument, NULL, 'u'                      },
                 { "user-unit",            required_argument, NULL, ARG_USER_UNIT            },
+                { "current-invocation",   no_argument,       NULL, ARG_CURRENT_INVOCATION   },
                 { "field",                required_argument, NULL, 'F'                      },
                 { "fields",               no_argument,       NULL, 'N'                      },
                 { "catalog",              no_argument,       NULL, 'x'                      },
@@ -832,6 +836,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
                         break;
 
+                case ARG_CURRENT_INVOCATION:
+                        arg_current_invocation = true;
+                        break;
+
                 case 'F':
                         arg_action = ACTION_LIST_FIELDS;
                         arg_field = optarg;
@@ -937,6 +945,24 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_lines = 10;
 
         if (arg_follow && !arg_merge && !arg_boot) {
+                arg_boot = true;
+                arg_boot_id = SD_ID128_NULL;
+                arg_boot_offset = 0;
+        }
+
+        if (arg_current_invocation) {
+                if (strv_isempty(arg_system_units) && strv_isempty(arg_user_units))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Using --current-invocation without -u/--unit=/--user-unit= is not supported.");
+                if (arg_directory || arg_root || arg_image || arg_file_stdin || arg_file)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Using --current-invocation with -D/--directory=/--root=/--image=/-i/--file= is not supported.");
+
+                if (arg_boot && (!sd_id128_is_null(arg_boot_id) || arg_boot_offset != 0))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Using --current-invocation with a different boot is not supported.");
+
+                /* --current-invocation implies --boot 0. */
                 arg_boot = true;
                 arg_boot_id = SD_ID128_NULL;
                 arg_boot_offset = 0;
