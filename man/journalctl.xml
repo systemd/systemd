@@ -28,7 +28,12 @@
       <arg choice="opt" rep="repeat">MATCHES</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
+  <refsect1>
+    <title>Quickstart</title>
 
+    <para>To get the last day of logs from nginx.service</para>
+    <para>journalctl -u nginx.service --since today</para>
+  </refsect1>
   <refsect1>
     <title>Description</title>
 
