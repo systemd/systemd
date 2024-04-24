@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-04-22 14:09+0100\n"
-"PO-Revision-Date: 2024-03-05 21:36+0000\n"
+"PO-Revision-Date: 2024-04-24 05:36+0000\n"
 "Last-Translator: Temuri Doghonadze <temuri.doghonadze@gmail.com>\n"
 "Language-Team: Georgian <https://translate.fedoraproject.org/projects/"
 "systemd/main/ka/>\n"
@@ -1003,12 +1003,15 @@ msgstr "ქსელური ინტერფეისის თავიდ�
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available."
 msgstr ""
+"მიუთითეთ, ხელმისაწვდომია თუ არა არადროებითი საცავი systemd-networkd-სთვის."
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
+"მისათითებლად, ხელმისაწვდომია თუ არა არადროებითი საცავი systemd-networkd-"
+"სთვის, ავთენტიკაციაა საჭირო."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
