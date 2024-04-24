@@ -5,14 +5,14 @@
 # Andreas Henriksson <andreas@fatal.se>, 2016.
 # Josef Andersson <l10nl18nsweja@gmail.com>, 2015, 2017.
 # Göran Uddeborg <goeran@uddeborg.se>, 2020, 2021, 2024.
-# Luna Jernberg <bittin@reimu.nl>, 2020, 2023.
+# Luna Jernberg <bittin@reimu.nl>, 2020, 2023, 2024.
 # Anders Jonsson <anders.jonsson@norsjovallen.se>, 2022, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-04-22 14:09+0100\n"
-"PO-Revision-Date: 2024-03-05 21:36+0000\n"
-"Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
+"PO-Revision-Date: 2024-04-24 05:36+0000\n"
+"Last-Translator: Luna Jernberg <bittin@reimu.nl>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
 "Language: sv\n"
@@ -1010,13 +1010,15 @@ msgstr "Autentisering krävs för att konfigurera om nätverksgränssnitt."
 
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available."
-msgstr ""
+msgstr "Specificera om beständig lagring för systemd-networkd är tillgänglig."
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
+"Autentisering krävs för att specificera om beständig lagring för systemd-"
+"networkd är tillgänglig."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
