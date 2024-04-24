@@ -386,6 +386,10 @@ if [[ -x /usr/lib/systemd/system-generators/systemd-sysv-generator ]]; then
     # at runtime, so let's just support the two most common paths for now.
     [[ -d /etc/rc.d/init.d ]] && SYSVINIT_PATH="/etc/rc.d/init.d" || SYSVINIT_PATH="/etc/init.d"
 
+    # OpenSUSE leaves sysvinit-path enabled, which means systemd-sysv-generator is built
+    # but may not create the directory if there's no services that use it.
+    mkdir -p "$SYSVINIT_PATH"
+
     # invalid dependency
     cat >"${SYSVINIT_PATH:?}/issue-24990" <<\EOF
 #!/bin/bash
