@@ -560,8 +560,12 @@ static int swap_coldplug(Unit *u) {
 static void swap_dump(Unit *u, FILE *f, const char *prefix) {
         Swap *s = ASSERT_PTR(SWAP(u));
         SwapParameters *p;
+        const char *prefix2;
 
         assert(f);
+
+        prefix = strempty(prefix);
+        prefix2 = strjoina(prefix, "\t");
 
         if (s->from_proc_swaps)
                 p = &s->parameters_proc_swaps;
@@ -608,6 +612,17 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
         exec_context_dump(&s->exec_context, f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
         cgroup_context_dump(UNIT(s), f, prefix);
+
+        for (SwapExecCommand c = 0; c < _SWAP_EXEC_COMMAND_MAX; c++) {
+                if (!s->exec_command[c].argv)
+                        continue;
+
+                fprintf(f, "%s%s %s:\n",
+                        prefix, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), swap_exec_command_to_string(c));
+
+                exec_command_dump(s->exec_command + c, f, prefix2);
+        }
+
 }
 
 static int swap_spawn(Swap *s, ExecCommand *c, PidRef *ret_pid) {
