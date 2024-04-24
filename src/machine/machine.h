@@ -67,7 +67,8 @@ struct Machine {
         LIST_FIELDS(Machine, gc_queue);
 };
 
-int machine_new(Manager *manager, MachineClass class, const char *name, Machine **ret);
+int machine_new(MachineClass class, const char *name, Machine **ret);
+int machine_link(Manager *manager, Machine *machine);
 Machine* machine_free(Machine *m);
 bool machine_may_gc(Machine *m, bool drop_not_started);
 void machine_add_to_gc_queue(Machine *m);
