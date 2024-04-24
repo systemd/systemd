@@ -3064,9 +3064,14 @@ static int process_running(sd_bus *bus, sd_bus_message **ret) {
         if (r != 0)
                 goto null_message;
 
-        r = dispatch_wqueue(bus);
-        if (r != 0)
-                goto null_message;
+        /* Toggle which queue we process preferably in this iteration, the rq or the wq */
+        bus->queue_toggle = !bus->queue_toggle;
+
+        if (bus->queue_toggle) { /* wqueue preferably */
+                r = dispatch_wqueue(bus);
+                if (r != 0)
+                        goto null_message;
+        }
 
         r = dispatch_track(bus);
         if (r != 0)
@@ -3075,6 +3080,12 @@ static int process_running(sd_bus *bus, sd_bus_message **ret) {
         r = dispatch_rqueue(bus, &m);
         if (r < 0)
                 return r;
+        if (r == 0 && !bus->queue_toggle) {
+                /* Nothing happened on the rq, and we didn't check the wq in this iteration, hence do that now. */
+                r = dispatch_wqueue(bus);
+                goto null_message;
+        }
+
         if (!m)
                 goto null_message;
 
