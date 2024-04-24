@@ -206,6 +206,10 @@ static UserRecord* user_record_free(UserRecord *h) {
         for (size_t i = 0; i < h->n_recovery_key; i++)
                 recovery_key_done(h->recovery_key + i);
 
+        strv_free(h->self_modifiable_fields);
+        strv_free(h->self_modifiable_blobs);
+        strv_free(h->self_modifiable_privileged);
+
         json_variant_unref(h->json);
 
         return mfree(h);
@@ -1354,6 +1358,9 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "passwordChangeNow",          JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, password_change_now),           0         },
                 { "pkcs11TokenUri",             JSON_VARIANT_ARRAY,         dispatch_pkcs11_uri_array,            offsetof(UserRecord, pkcs11_token_uri),              0         },
                 { "fido2HmacCredential",        JSON_VARIANT_ARRAY,         dispatch_fido2_hmac_credential_array, 0,                                                   0         },
+                { "selfModifiableFields",       JSON_VARIANT_ARRAY,         json_dispatch_strv,                   offsetof(UserRecord, self_modifiable_fields),        JSON_SAFE },
+                { "selfModifiableBlobs",        JSON_VARIANT_ARRAY,         json_dispatch_strv,                   offsetof(UserRecord, self_modifiable_blobs),         JSON_SAFE },
+                { "selfModifiablePrivileged",   JSON_VARIANT_ARRAY,         json_dispatch_strv,                   offsetof(UserRecord, self_modifiable_privileged),    JSON_SAFE },
                 {},
         };
 
@@ -1700,6 +1707,9 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "pkcs11TokenUri",             JSON_VARIANT_ARRAY,         dispatch_pkcs11_uri_array,            offsetof(UserRecord, pkcs11_token_uri),              0         },
                 { "fido2HmacCredential",        JSON_VARIANT_ARRAY,         dispatch_fido2_hmac_credential_array, 0,                                                   0         },
                 { "recoveryKeyType",            JSON_VARIANT_ARRAY,         json_dispatch_strv,                   offsetof(UserRecord, recovery_key_type),             0         },
+                { "selfModifiableFields",       JSON_VARIANT_ARRAY,         json_dispatch_strv,                   offsetof(UserRecord, self_modifiable_fields),        JSON_SAFE },
+                { "selfModifiableBlobs",        JSON_VARIANT_ARRAY,         json_dispatch_strv,                   offsetof(UserRecord, self_modifiable_blobs),         JSON_SAFE },
+                { "selfModifiablePrivileged",   JSON_VARIANT_ARRAY,         json_dispatch_strv,                   offsetof(UserRecord, self_modifiable_privileged),    JSON_SAFE },
 
                 { "secret",                     JSON_VARIANT_OBJECT,        dispatch_secret,                      0,                                                   0         },
                 { "privileged",                 JSON_VARIANT_OBJECT,        dispatch_privileged,                  0,                                                   0         },
@@ -2208,6 +2218,76 @@ int user_record_languages(UserRecord *h, char ***ret) {
 
         *ret = TAKE_PTR(l);
         return 0;
+}
+
+const char **user_record_self_modifiable_fields(UserRecord *h) {
+        /* As a rule of thumb: a setting is safe if it cannot be used by a
+         * user to give themselves some unfair advantage over other users on
+         * a given system.
+         */
+        static const char *safe_fields[] = {
+                /* For display purposes */
+                "realName",
+                "emailAddress", /* Just the $EMAIL env var */
+                "iconName",
+                "location",
+
+                /* Basic account settings */
+                "shell",
+                "umask",
+                "environment",
+                "timeZone",
+                "preferredLanguage",
+                "additionalLanguages",
+                "preferredSessionLauncher",
+                "preferredSessionType",
+
+                /* Authentication methods */
+                "pkcs11TokenUri",
+                "fido2HmacCredential",
+                "recoveryKeyType",
+
+                "lastChangeUSec", /* Necessary to be able to change record at all */
+                "lastPasswordChangeUSec", /* Ditto, but for authentication methods */
+                NULL
+        };
+
+        assert(h);
+
+        return (const char**) h->self_modifiable_fields ?: safe_fields;
+}
+
+const char **user_record_self_modifiable_blobs(UserRecord *h) {
+        static const char *safe_blobs[] = {
+                /* For display purposes */
+                "avatar",
+                "login-background",
+                NULL
+        };
+
+        assert(h);
+
+        return (const char**) h->self_modifiable_blobs ?: safe_blobs;
+}
+
+const char **user_record_self_modifiable_privileged(UserRecord *h) {
+        static const char *safe_privileged[] = {
+                /* For display purposes */
+                "passwordHint",
+
+                /* Authentication methods */
+                "hashedPassword"
+                "pkcs11EncryptedKey",
+                "fido2HmacSalt",
+                "recoveryKey",
+
+                "sshAuthorizedKeys", /* Basically just ~/.ssh/authorized_keys */
+                NULL
+        };
+
+        assert(h);
+
+        return (const char**) h->self_modifiable_privileged ?: safe_privileged;
 }
 
 uint64_t user_record_ratelimit_next_try(UserRecord *h) {
