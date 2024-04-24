@@ -862,9 +862,13 @@ static void mount_catchup(Unit *u) {
 static void mount_dump(Unit *u, FILE *f, const char *prefix) {
         Mount *m = MOUNT(u);
         MountParameters *p;
+        const char *prefix2;
 
         assert(m);
         assert(f);
+
+        prefix = strempty(prefix);
+        prefix2 = strjoina(prefix, "\t");
 
         p = get_mount_parameters(m);
 
@@ -910,6 +914,16 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
         exec_context_dump(&m->exec_context, f, prefix);
         kill_context_dump(&m->kill_context, f, prefix);
         cgroup_context_dump(UNIT(m), f, prefix);
+
+        for (MountExecCommand c = 0; c < _MOUNT_EXEC_COMMAND_MAX; c++) {
+                if (!m->exec_command[c].argv)
+                        continue;
+
+                fprintf(f, "%s%s %s:\n",
+                        prefix, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), mount_exec_command_to_string(c));
+
+                exec_command_dump(m->exec_command + c, f, prefix2);
+        }
 }
 
 static int mount_spawn(Mount *m, ExecCommand *c, PidRef *ret_pid) {
