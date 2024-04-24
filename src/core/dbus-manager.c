@@ -40,6 +40,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
+#include "taint.h"
 #include "user-util.h"
 #include "version.h"
 #include "virt.h"
@@ -126,13 +127,10 @@ static int property_get_tainted(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_free_ char *s = NULL;
-        Manager *m = ASSERT_PTR(userdata);
-
         assert(bus);
         assert(reply);
 
-        s = manager_taint_string(m);
+        _cleanup_free_ char *s = taint_string();
         if (!s)
                 return log_oom();
 
