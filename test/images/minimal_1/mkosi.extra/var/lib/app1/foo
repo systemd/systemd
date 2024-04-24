@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# This file only exists so we can pass it to meson to track the /var/lib/app1 directory since meson can't
+# track directories.
