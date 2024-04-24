@@ -61,6 +61,7 @@ libcore_sources = files(
         'smack-setup.c',
         'socket.c',
         'swap.c',
+        'taint.c',
         'target.c',
         'timer.c',
         'transaction.c',
