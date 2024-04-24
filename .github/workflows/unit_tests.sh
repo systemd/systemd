@@ -52,6 +52,8 @@ for phase in "${PHASES[@]}"; do
     case $phase in
         SETUP)
             info "Setup phase"
+            # This is added by default, and it is often broken, but we don't need anything from it
+            rm -f /etc/apt/sources.list.d/microsoft-prod.list
             # PPA with some newer build dependencies
             add-apt-repository -y --no-update ppa:upstream-systemd-ci/systemd-ci
             add-apt-repository -y --no-update --enable-source
