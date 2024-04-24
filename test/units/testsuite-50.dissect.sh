@@ -324,31 +324,31 @@ systemctl is-active testservice-50d.service
 
 # ExtensionImages will set up an overlay
 systemd-run -P \
-            --property ExtensionImages=/usr/share/app0.raw \
+            --property ExtensionImages=/tmp/app0.raw \
             --property RootImage="$MINIMAL_IMAGE.raw" \
             cat /opt/script0.sh | grep -q -F "extension-release.app0"
 systemd-run -P \
-            --property ExtensionImages=/usr/share/app0.raw \
+            --property ExtensionImages=/tmp/app0.raw \
             --property RootImage="$MINIMAL_IMAGE.raw" \
             cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
 systemd-run -P \
-            --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" \
+            --property ExtensionImages="/tmp/app0.raw /tmp/app1.raw" \
             --property RootImage="$MINIMAL_IMAGE.raw" \
             cat /opt/script0.sh | grep -q -F "extension-release.app0"
 systemd-run -P \
-            --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" \
+            --property ExtensionImages="/tmp/app0.raw /tmp/app1.raw" \
             --property RootImage="$MINIMAL_IMAGE.raw" \
             cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
 systemd-run -P \
-            --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" \
+            --property ExtensionImages="/tmp/app0.raw /tmp/app1.raw" \
             --property RootImage="$MINIMAL_IMAGE.raw" \
             cat /opt/script1.sh | grep -q -F "extension-release.app2"
 systemd-run -P \
-            --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" \
+            --property ExtensionImages="/tmp/app0.raw /tmp/app1.raw" \
             --property RootImage="$MINIMAL_IMAGE.raw" \
             cat /usr/lib/systemd/system/other_file | grep -q -F "MARKER=1"
 systemd-run -P \
-            --property ExtensionImages=/usr/share/app-nodistro.raw \
+            --property ExtensionImages=/tmp/app-nodistro.raw \
             --property RootImage="$MINIMAL_IMAGE.raw" \
             cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
 systemd-run -P \
@@ -356,11 +356,11 @@ systemd-run -P \
             --property RootImage="$MINIMAL_IMAGE.raw" \
             cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
 # Check that using a symlink to NAME-VERSION.raw works as long as the symlink has the correct name NAME.raw
-mkdir -p /usr/share/symlink-test/
-cp /usr/share/app-nodistro.raw /usr/share/symlink-test/app-nodistro-v1.raw
-ln -fs /usr/share/symlink-test/app-nodistro-v1.raw /usr/share/symlink-test/app-nodistro.raw
+mkdir -p /tmp/symlink-test/
+cp /tmp/app-nodistro.raw /tmp/symlink-test/app-nodistro-v1.raw
+ln -fs /tmp/symlink-test/app-nodistro-v1.raw /tmp/symlink-test/app-nodistro.raw
 systemd-run -P \
-            --property ExtensionImages=/usr/share/symlink-test/app-nodistro.raw \
+            --property ExtensionImages=/tmp/symlink-test/app-nodistro.raw \
             --property RootImage="$MINIMAL_IMAGE.raw" \
             cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
 
@@ -374,12 +374,12 @@ systemd-run -P \
             cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
 # And again mixing sysext and confext
 systemd-run -P \
-    --property ExtensionImages=/usr/share/symlink-test/app-nodistro.raw \
+    --property ExtensionImages=/tmp/symlink-test/app-nodistro.raw \
     --property ExtensionImages=/etc/symlink-test/service-scoped-test.raw \
     --property RootImage="$MINIMAL_IMAGE.raw" \
     cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
 systemd-run -P \
-    --property ExtensionImages=/usr/share/symlink-test/app-nodistro.raw \
+    --property ExtensionImages=/tmp/symlink-test/app-nodistro.raw \
     --property ExtensionImages=/etc/symlink-test/service-scoped-test.raw \
     --property RootImage="$MINIMAL_IMAGE.raw" \
     cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
@@ -390,7 +390,7 @@ MountAPIVFS=yes
 TemporaryFileSystem=/run /var/lib
 StateDirectory=app0
 RootImage=$MINIMAL_IMAGE.raw
-ExtensionImages=/usr/share/app0.raw /usr/share/app1.raw:nosuid
+ExtensionImages=/tmp/app0.raw /tmp/app1.raw:nosuid
 # Relevant only for sanitizer runs
 UnsetEnvironment=LD_PRELOAD
 ExecStart=bash -c '/opt/script0.sh | grep ID'
@@ -406,8 +406,8 @@ VBASE="vtest$RANDOM"
 VDIR="/tmp/$VBASE.v"
 mkdir "$VDIR"
 
-ln -s /usr/share/app0.raw "$VDIR/${VBASE}_0.raw"
-ln -s /usr/share/app1.raw "$VDIR/${VBASE}_1.raw"
+ln -s /tmp/app0.raw "$VDIR/${VBASE}_0.raw"
+ln -s /tmp/app1.raw "$VDIR/${VBASE}_1.raw"
 
 systemd-run -P -p ExtensionImages="$VDIR" bash -c '/opt/script1.sh | grep ID'
 
@@ -423,9 +423,9 @@ mkdir -p "$IMAGE_DIR/app0" "$IMAGE_DIR/app1" "$IMAGE_DIR/app-nodistro" "$IMAGE_D
                --property ExtensionDirectories="$IMAGE_DIR/app0" \
                --property RootImage="$MINIMAL_IMAGE.raw" \
                cat /opt/script0.sh)
-systemd-dissect --mount /usr/share/app0.raw "$IMAGE_DIR/app0"
-systemd-dissect --mount /usr/share/app1.raw "$IMAGE_DIR/app1"
-systemd-dissect --mount /usr/share/app-nodistro.raw "$IMAGE_DIR/app-nodistro"
+systemd-dissect --mount /tmp/app0.raw "$IMAGE_DIR/app0"
+systemd-dissect --mount /tmp/app1.raw "$IMAGE_DIR/app1"
+systemd-dissect --mount /tmp/app-nodistro.raw "$IMAGE_DIR/app-nodistro"
 systemd-dissect --mount /etc/service-scoped-test.raw "$IMAGE_DIR/service-scoped-test"
 systemd-run -P \
             --property ExtensionDirectories="$IMAGE_DIR/app0" \
@@ -493,7 +493,7 @@ systemd-dissect --umount "$IMAGE_DIR/app1"
 
 # Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
 mkdir -p /var/lib/extensions/
-ln -s /usr/share/app-nodistro.raw /var/lib/extensions/app-nodistro.raw
+ln -s /tmp/app-nodistro.raw /var/lib/extensions/app-nodistro.raw
 systemd-sysext merge
 grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
 systemd-sysext unmerge
@@ -665,7 +665,7 @@ systemd-run -P -p RootImage="$MINIMAL_IMAGE.raw" cat /run/host/os-release | cmp 
 
 # Test that systemd-sysext reloads the daemon.
 mkdir -p /var/lib/extensions/
-ln -s /usr/share/app-reload.raw /var/lib/extensions/app-reload.raw
+ln -s /tmp/app-reload.raw /var/lib/extensions/app-reload.raw
 systemd-sysext merge --no-reload
 # the service should not be running
 (! systemctl --quiet is-active foo.service)
