@@ -1913,6 +1913,22 @@ static void mount_shutdown(Manager *m) {
         m->mount_monitor = NULL;
 }
 
+static void mount_handoff_timestamp(
+                Unit *u,
+                const struct ucred *ucred,
+                const dual_timestamp *ts) {
+
+        Mount *m = ASSERT_PTR(MOUNT(u));
+
+        assert(ucred);
+        assert(ts);
+
+        if (m->control_pid.pid == ucred->pid && m->control_command) {
+                exec_status_handoff(&m->control_command->exec_status, ucred, ts);
+                unit_add_to_dbus_queue(u);
+        }
+}
+
 static int mount_get_timeout(Unit *u, usec_t *timeout) {
         Mount *m = ASSERT_PTR(MOUNT(u));
         usec_t t;
@@ -2438,6 +2454,8 @@ const UnitVTable mount_vtable = {
         .sigchld_event = mount_sigchld_event,
 
         .reset_failed = mount_reset_failed,
+
+        .notify_handoff_timestamp = mount_handoff_timestamp,
 
         .control_pid = mount_control_pid,
 
