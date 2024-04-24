@@ -383,6 +383,10 @@ typedef struct UserRecord {
         char **capability_bounding_set;
         char **capability_ambient_set;
 
+        char **self_modifiable_fields; /* fields a user can change about themself w/o auth */
+        char **self_modifiable_blobs;
+        char **self_modifiable_privileged;
+
         JsonVariant *json;
 } UserRecord;
 
@@ -430,6 +434,10 @@ uint64_t user_record_rebalance_weight(UserRecord *h);
 uint64_t user_record_capability_bounding_set(UserRecord *h);
 uint64_t user_record_capability_ambient_set(UserRecord *h);
 int user_record_languages(UserRecord *h, char ***ret);
+
+const char **user_record_self_modifiable_fields(UserRecord *h);
+const char **user_record_self_modifiable_blobs(UserRecord *h);
+const char **user_record_self_modifiable_privileged(UserRecord *h);
 
 int user_record_build_image_path(UserStorage storage, const char *user_name_and_realm, char **ret);
 
