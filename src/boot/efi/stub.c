@@ -31,6 +31,14 @@ static EFI_STATUS combine_initrds(
                 const void * const initrds[], const size_t initrd_sizes[], size_t n_initrds,
                 Pages *ret_initr_pages, size_t *ret_initrd_size) {
 
+        log_error("Called initrd concat with %lu initrds", n_initrds);
+        log_error("Initrds:");
+        for (size_t i = 0; i < n_initrds; i++) {
+                log_error(" %lu: Base %p, Size %lu", i, initrds[i], initrd_sizes[i]);
+        }
+        log_error("Retvals: %p, %p", ret_initr_pages, ret_initrd_size);
+
+
         size_t n = 0;
 
         assert(ret_initr_pages);
@@ -365,12 +373,15 @@ static EFI_STATUS ucode_merge_and_measure_addons(
         void *global_addons_combined_base = NULL, *uki_addons_combined_base = NULL;
         size_t global_addons_combined_size = 0, uki_addons_combined_size = 0, all_ucode_combined_size = 0;
 
+        log_error("Merging ucode sections. # global addons: %lu, # uki addon size: %lu, embedded section: %lu", n_ucode_addons_global, n_ucode_addons_uki, ucode_section_size);
+
         /* Order of ucode merging:
          *  1. Global addons
          *  2. UKI addons
          *  3. UKI .ucode section
          */
 
+        log_error("Measuring global addons");
         /* Measure global addons */
         for (size_t i = 0; i < n_ucode_addons_global; i++) {
                 bool m = false;
@@ -394,6 +405,7 @@ static EFI_STATUS ucode_merge_and_measure_addons(
 
                 sections_measured = sections_measured < 0 ? m : (sections_measured && m);
         }
+        log_error("Merging global addons");
         /* Merge global addons */
         if (n_ucode_addons_global == 1) {
                 global_addons_combined_base = ucode_bases_addon_global[0];
@@ -406,6 +418,7 @@ static EFI_STATUS ucode_merge_and_measure_addons(
         }
 
 
+        log_error("Measuring uki addons");
         /* Measure UKI addons */
         for (size_t i = 0; i < n_ucode_addons_uki; i++) {
                 bool m = false;
@@ -429,6 +442,7 @@ static EFI_STATUS ucode_merge_and_measure_addons(
 
                 sections_measured = sections_measured < 0 ? m : (sections_measured && m);
         }
+        log_error("Merging uki addons");
         /* Merge UKI addons */
         if (n_ucode_addons_uki == 1) {
                 uki_addons_combined_base = ucode_bases_addon_uki[0];
@@ -440,6 +454,9 @@ static EFI_STATUS ucode_merge_and_measure_addons(
                 uki_addons_combined_base = PHYSICAL_ADDRESS_TO_POINTER(uki_addons_combined_pages.addr);
         }
 
+        log_error("Final global ucode merge");
+        log_error("Bases: globalA %p, ukiA %p, section %p", global_addons_combined_base, uki_addons_combined_base, ucode_section_base);
+        log_error("Sizes: globalA %lu, ukiA %lu, section %lu", global_addons_combined_size, uki_addons_combined_size, ucode_section_size);
         /* Merge the combined global addons, combined UKI addons, and ucode section from UKI */
         err = combine_initrds(
                 (const void*const[]) {
@@ -460,6 +477,7 @@ static EFI_STATUS ucode_merge_and_measure_addons(
                 return err;
         /* .ucode section from UKI is already measured */
 
+        log_error("Final global ucode pointer mangling");
         *ret_ucode_base = PHYSICAL_ADDRESS_TO_POINTER(all_ucode_combined_pages.addr);
         *ret_ucode_size = all_ucode_combined_size;
         all_ucode_combined_pages.n_pages = 0;
@@ -619,6 +637,7 @@ static EFI_STATUS load_addons(
                 }
 
                 if (ret_ucode_bases && szs[UNIFIED_SECTION_UCODE] > 0) {
+                        log_error("Found .ucode section, copying");
                         ucode_sizes = xrealloc(ucode_sizes,
                                             n_ucode * sizeof(size_t),
                                             (n_ucode + 1)  * sizeof(size_t));
@@ -631,6 +650,7 @@ static EFI_STATUS load_addons(
                                                  ucode_sizes[n_ucode]);
 
                         ++n_ucode;
+                        log_error("Done copying ucode section");
                 }
         }
 
@@ -644,6 +664,7 @@ static EFI_STATUS load_addons(
                 *ret_n_dt = n_dt;
         }
         if (ret_ucode_bases && n_ucode > 0) {
+                log_error("More than zero .ucode sections were copied, mangling pointers");
                 *ret_ucode_bases = TAKE_PTR(ucode_bases);
                 *ret_ucode_sizes = TAKE_PTR(ucode_sizes);
                 *ret_n_ucode = n_ucode;
