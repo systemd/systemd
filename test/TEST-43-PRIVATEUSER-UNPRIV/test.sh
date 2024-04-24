@@ -13,7 +13,6 @@ test_require_bin mksquashfs
 
 test_append_files() {
     inst_binary unsquashfs
-    install_verity_minimal
 }
 
 do_test "$@"
