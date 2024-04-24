@@ -15,14 +15,14 @@
 #include "taint.h"
 #include "uid-range.h"
 
-static int short_uid_range(const char *path) {
+static int short_uid_gid_range(bool uid) {
         _cleanup_(uid_range_freep) UIDRange *p = NULL;
         int r;
 
-        assert(path);
-
         /* Taint systemd if we the UID range assigned to this environment doesn't at least cover 0…65534,
          * i.e. from root to nobody. */
+
+        const char *path = uid ? "/proc/self/uid_map" : "/proc/self/gid_map";
 
         r = uid_range_load_userns(path, UID_RANGE_USERNS_INSIDE, &p);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
@@ -76,9 +76,9 @@ char* taint_string(void) {
             !streq(overflowgid, "65534"))
                 stage[n++] = "overflowgid-not-65534";
 
-        if (short_uid_range("/proc/self/uid_map") > 0)
+        if (short_uid_gid_range(/* uid= */ true) > 0)
                 stage[n++] = "short-uid-range";
-        if (short_uid_range("/proc/self/gid_map") > 0)
+        if (short_uid_gid_range(/* uid= */ false) > 0)
                 stage[n++] = "short-gid-range";
 
         assert(n < ELEMENTSOF(stage) - 1);  /* One extra for NULL terminator */
