@@ -194,6 +194,52 @@ int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_
         return -EAFNOSUPPORT;
 }
 
+bool in4_addr_prefix_intersect(
+                const struct in_addr *a,
+                unsigned aprefixlen,
+                const struct in_addr *b,
+                unsigned bprefixlen) {
+
+        assert(a);
+        assert(b);
+
+        unsigned m = MIN3(aprefixlen, bprefixlen, (unsigned) (sizeof(struct in_addr) * 8));
+        if (m == 0)
+                return true; /* Let's return earlier, to avoid shift by 32. */
+
+        uint32_t x = be32toh(a->s_addr ^ b->s_addr);
+        uint32_t n = 0xFFFFFFFFUL << (32 - m);
+        return (x & n) == 0;
+}
+
+bool in6_addr_prefix_intersect(
+                const struct in6_addr *a,
+                unsigned aprefixlen,
+                const struct in6_addr *b,
+                unsigned bprefixlen) {
+
+        assert(a);
+        assert(b);
+
+        unsigned m = MIN3(aprefixlen, bprefixlen, (unsigned) (sizeof(struct in6_addr) * 8));
+        if (m == 0)
+                return true;
+
+        for (size_t i = 0; i < sizeof(struct in6_addr); i++) {
+                uint8_t x = a->s6_addr[i] ^ b->s6_addr[i];
+                uint8_t n = m < 8 ? (0xFF << (8 - m)) : 0xFF;
+                if ((x & n) != 0)
+                        return false;
+
+                if (m <= 8)
+                        break;
+
+                m -= 8;
+        }
+
+        return true;
+}
+
 int in_addr_prefix_intersect(
                 int family,
                 const union in_addr_union *a,
@@ -201,51 +247,16 @@ int in_addr_prefix_intersect(
                 const union in_addr_union *b,
                 unsigned bprefixlen) {
 
-        unsigned m;
-
         assert(a);
         assert(b);
 
-        /* Checks whether there are any addresses that are in both networks */
+        /* Checks whether there are any addresses that are in both networks. */
 
-        m = MIN(aprefixlen, bprefixlen);
+        if (family == AF_INET)
+                return in4_addr_prefix_intersect(&a->in, aprefixlen, &b->in, bprefixlen);
 
-        if (family == AF_INET) {
-                uint32_t x, nm;
-
-                x = be32toh(a->in.s_addr ^ b->in.s_addr);
-                nm = m == 0 ? 0 : 0xFFFFFFFFUL << (32 - m);
-
-                return (x & nm) == 0;
-        }
-
-        if (family == AF_INET6) {
-                unsigned i;
-
-                if (m > 128)
-                        m = 128;
-
-                for (i = 0; i < 16; i++) {
-                        uint8_t x, nm;
-
-                        x = a->in6.s6_addr[i] ^ b->in6.s6_addr[i];
-
-                        if (m < 8)
-                                nm = 0xFF << (8 - m);
-                        else
-                                nm = 0xFF;
-
-                        if ((x & nm) != 0)
-                                return 0;
-
-                        if (m > 8)
-                                m -= 8;
-                        else
-                                m = 0;
-                }
-
-                return 1;
-        }
+        if (family == AF_INET6)
+                return in6_addr_prefix_intersect(&a->in6, aprefixlen, &b->in6, bprefixlen);
 
         return -EAFNOSUPPORT;
 }

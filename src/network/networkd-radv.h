@@ -30,13 +30,11 @@ typedef struct Prefix {
         Network *network;
         ConfigSection *section;
 
-        struct in6_addr prefix;
+        uint8_t flags;
         uint8_t prefixlen;
+        struct in6_addr prefix;
         usec_t preferred_lifetime;
         usec_t valid_lifetime;
-
-        bool onlink;
-        bool address_auto_configuration;
 
         bool assign;
         uint32_t route_metric;
