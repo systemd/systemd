@@ -7,7 +7,6 @@ set -e
 TEST_DESCRIPTION="test systemd-portabled"
 IMAGE_NAME="portabled"
 TEST_NO_NSPAWN=1
-TEST_INSTALL_VERITY_MINIMAL=1
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
@@ -19,7 +18,6 @@ test_append_files() {
     generate_module_dependencies
     inst_binary mksquashfs
     inst_binary unsquashfs
-    install_verity_minimal
 }
 
 do_test "$@"
