@@ -76,6 +76,7 @@ extern char **arg_syslog_identifier;
 extern char **arg_exclude_identifier;
 extern char **arg_system_units;
 extern char **arg_user_units;
+extern bool arg_current_invocation;
 extern const char *arg_field;
 extern bool arg_catalog;
 extern bool arg_reverse;
