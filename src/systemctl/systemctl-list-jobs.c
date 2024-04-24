@@ -102,9 +102,9 @@ static int output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned n
                         return table_log_add_error(r);
 
                 if (arg_jobs_after)
-                        output_waiting_jobs(bus, table, j->id, "GetJobAfter", "\twaiting for job");
+                        output_waiting_jobs(bus, table, j->id, "GetJobAfter", "\tblocking job");
                 if (arg_jobs_before)
-                        output_waiting_jobs(bus, table, j->id, "GetJobBefore", "\tblocking job");
+                        output_waiting_jobs(bus, table, j->id, "GetJobBefore", "\twaiting for job");
         }
 
         r = table_print(table, NULL);
