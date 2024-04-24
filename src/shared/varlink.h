@@ -60,6 +60,7 @@ int varlink_connect_address(Varlink **ret, const char *address);
 int varlink_connect_exec(Varlink **ret, const char *command, char **argv);
 int varlink_connect_url(Varlink **ret, const char *url);
 int varlink_connect_fd(Varlink **ret, int fd);
+int varlink_connect_fd_pair(Varlink **ret, int input_fd, int output_fd, const struct ucred *override_ucred);
 
 Varlink* varlink_ref(Varlink *link);
 Varlink* varlink_unref(Varlink *v);
