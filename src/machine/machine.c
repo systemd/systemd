@@ -36,11 +36,9 @@
 #include "unit-name.h"
 #include "user-util.h"
 
-int machine_new(Manager *manager, MachineClass class, const char *name, Machine **ret) {
+int machine_new(MachineClass class, const char *name, Machine **ret) {
         _cleanup_(machine_freep) Machine *m = NULL;
-        int r;
 
-        assert(manager);
         assert(class < _MACHINE_CLASS_MAX);
         assert(name);
         assert(ret);
@@ -61,21 +59,29 @@ int machine_new(Manager *manager, MachineClass class, const char *name, Machine 
         if (!m->name)
                 return -ENOMEM;
 
-        if (class != MACHINE_HOST) {
-                m->state_file = path_join("/run/systemd/machines", m->name);
-                if (!m->state_file)
+        m->class = class;
+
+        *ret = TAKE_PTR(m);
+        return 0;
+}
+
+int machine_link(Manager *manager, Machine *machine) {
+        int r;
+        assert(manager);
+        assert(machine);
+
+        if (machine->class != MACHINE_HOST) {
+                machine->state_file = path_join("/run/systemd/machines", machine->name);
+                if (!machine->state_file)
                         return -ENOMEM;
         }
 
-        m->class = class;
-
-        r = hashmap_put(manager->machines, m->name, m);
+        r = hashmap_put(manager->machines, machine->name, machine);
         if (r < 0)
                 return r;
 
-        m->manager = manager;
+        machine->manager = manager;
 
-        *ret = TAKE_PTR(m);
         return 0;
 }
 
@@ -91,11 +97,9 @@ Machine* machine_free(Machine *m) {
                 LIST_REMOVE(gc_queue, m->manager->machine_gc_queue, m);
         }
 
-        machine_release_unit(m);
-
-        free(m->scope_job);
-
         if (m->manager) {
+                machine_release_unit(m);
+
                 (void) hashmap_remove(m->manager->machines, m->name);
 
                 if (m->manager->host_machine == m)
@@ -111,6 +115,7 @@ Machine* machine_free(Machine *m) {
         sd_bus_message_unref(m->create_message);
 
         free(m->name);
+        free(m->scope_job);
         free(m->state_file);
         free(m->service);
         free(m->root_directory);
