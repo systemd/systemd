@@ -80,10 +80,9 @@ static int prefix_new_static(Network *network, const char *filename, unsigned se
                 .network = network,
                 .section = TAKE_PTR(n),
 
+                .flags = ND_OPT_PI_FLAG_ONLINK | ND_OPT_PI_FLAG_AUTO,
                 .preferred_lifetime = RADV_DEFAULT_PREFERRED_LIFETIME_USEC,
                 .valid_lifetime = RADV_DEFAULT_VALID_LIFETIME_USEC,
-                .onlink = true,
-                .address_auto_configuration = true,
         };
 
         r = hashmap_ensure_put(&network->prefixes_by_section, &config_section_hash_ops, prefix->section, prefix);
@@ -298,11 +297,11 @@ static int radv_set_prefix(Link *link, Prefix *prefix) {
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_onlink(p, prefix->onlink);
+        r = sd_radv_prefix_set_onlink(p, FLAGS_SET(prefix->flags, ND_OPT_PI_FLAG_ONLINK));
         if (r < 0)
                 return r;
 
-        r = sd_radv_prefix_set_address_autoconfiguration(p, prefix->address_auto_configuration);
+        r = sd_radv_prefix_set_address_autoconfiguration(p, FLAGS_SET(prefix->flags, ND_OPT_PI_FLAG_AUTO));
         if (r < 0)
                 return r;
 
@@ -761,8 +760,17 @@ int radv_add_prefix(
                 return r;
 
         r = sd_radv_add_prefix(link->radv, p);
-        if (r < 0 && r != -EEXIST)
+        if (r == -EEXIST)
+                return 0;
+        if (r < 0)
                 return r;
+
+        if (sd_radv_is_running(link->radv)) {
+                /* Announce updated prefixe now. */
+                r = sd_radv_send(link->radv);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -953,14 +961,12 @@ int config_parse_prefix_boolean(
                 return 0;
         }
 
-        if (streq(lvalue, "OnLink"))
-                p->onlink = r;
-        else if (streq(lvalue, "AddressAutoconfiguration"))
-                p->address_auto_configuration = r;
-        else if (streq(lvalue, "Assign"))
+        if (ltype != 0)
+                SET_FLAG(p->flags, ltype, r);
+        else {
+                assert(streq(lvalue, "Assign"));
                 p->assign = r;
-        else
-                assert_not_reached();
+        }
 
         TAKE_PTR(p);
         return 0;
