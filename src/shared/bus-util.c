@@ -914,16 +914,15 @@ int bus_message_read_id128(sd_bus_message *m, sd_id128_t *ret) {
         case 0:
                 if (ret)
                         *ret = SD_ID128_NULL;
-                break;
+                return 0;
 
         case sizeof(sd_id128_t):
                 if (ret)
                         memcpy(ret, a, sz);
-                break;
+                return !memeqzero(a, sz); /* This intends to sd_id128_is_null(), but ret may be NULL, so
+                                           * let'suse memeqzero() here. */
 
         default:
                 return -EINVAL;
         }
-
-        return 0;
 }
