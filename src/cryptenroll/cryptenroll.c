@@ -140,7 +140,7 @@ static int determine_default_node(void) {
         if (r == -ENOENT)
                 return log_error_errno(r, "Backing block device of /var/ is not a DM device: %m");
         if (r < 0)
-                return log_error_errno(r, "Unable to query DM_UUID udev property of backing block device for /var/): %m");
+                return log_error_errno(r, "Unable to query DM_UUID udev property of backing block device for /var/: %m");
 
         if (!startswith(dm_uuid, "CRYPT-LUKS2-"))
                 return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Block device backing /var/ is not a LUKS2 device: %m");
