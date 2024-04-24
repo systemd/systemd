@@ -38,6 +38,10 @@ ExecStart=false
 
 
 def main():
+    if not bool(int(os.getenv("SYSTEMD_INTEGRATION_TESTS", "0"))):
+        print("SYSTEMD_INTEGRATION_TESTS=1 not found in environment, skipping", file=sys.stderr)
+        exit(77)
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--meson-source-dir', required=True, type=Path)
     parser.add_argument('--meson-build-dir', required=True, type=Path)
