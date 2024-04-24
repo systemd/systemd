@@ -1498,9 +1498,13 @@ int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
 
         machine = hashmap_get(m->machines, name);
         if (!machine) {
-                r = machine_new(m, _MACHINE_CLASS_INVALID, name, &machine);
+                r = machine_new(_MACHINE_CLASS_INVALID, name, &machine);
                 if (r < 0)
                         return r;
+
+                r = machine_link(m, machine);
+                if (r < 0)
+                        return 0;
         }
 
         if (_machine)
