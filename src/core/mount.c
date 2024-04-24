@@ -810,8 +810,12 @@ static void mount_catchup(Unit *u) {
 static void mount_dump(Unit *u, FILE *f, const char *prefix) {
         Mount *m = ASSERT_PTR(MOUNT(u));
         MountParameters *p;
+        const char *prefix2;
 
         assert(f);
+
+        prefix = strempty(prefix);
+        prefix2 = strjoina(prefix, "\t");
 
         p = get_mount_parameters(m);
 
@@ -857,6 +861,16 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
         exec_context_dump(&m->exec_context, f, prefix);
         kill_context_dump(&m->kill_context, f, prefix);
         cgroup_context_dump(UNIT(m), f, prefix);
+
+        for (MountExecCommand c = 0; c < _MOUNT_EXEC_COMMAND_MAX; c++) {
+                if (!m->exec_command[c].argv)
+                        continue;
+
+                fprintf(f, "%s%s %s:\n",
+                        prefix, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), mount_exec_command_to_string(c));
+
+                exec_command_dump(m->exec_command + c, f, prefix2);
+        }
 }
 
 static int mount_spawn(Mount *m, ExecCommand *c, PidRef *ret_pid) {
@@ -1913,6 +1927,22 @@ static void mount_shutdown(Manager *m) {
         m->mount_monitor = NULL;
 }
 
+static void mount_handoff_timestamp(
+                Unit *u,
+                const struct ucred *ucred,
+                const dual_timestamp *ts) {
+
+        Mount *m = ASSERT_PTR(MOUNT(u));
+
+        assert(ucred);
+        assert(ts);
+
+        if (m->control_pid.pid == ucred->pid && m->control_command) {
+                exec_status_handoff(&m->control_command->exec_status, ucred, ts);
+                unit_add_to_dbus_queue(u);
+        }
+}
+
 static int mount_get_timeout(Unit *u, usec_t *timeout) {
         Mount *m = ASSERT_PTR(MOUNT(u));
         usec_t t;
@@ -2438,6 +2468,8 @@ const UnitVTable mount_vtable = {
         .sigchld_event = mount_sigchld_event,
 
         .reset_failed = mount_reset_failed,
+
+        .notify_handoff_timestamp = mount_handoff_timestamp,
 
         .control_pid = mount_control_pid,
 
