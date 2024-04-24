@@ -5,6 +5,40 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
+install_extension_images
+
+machine="$(uname -m)"
+if [[ "$machine" == "x86_64" ]]; then
+    ARCHITECTURE="x86-64"
+elif [[ "$machine" =~ ^(i386|i686|x86)$ ]]; then
+    ARCHITECTURE="x86"
+elif [[ "$machine" =~ ^(aarch64|aarch64_be|armv8b|armv8l)$ ]]; then
+    ARCHITECTURE="arm64"
+elif [[ "$machine" == "arm" ]]; then
+    ARCHITECTURE="arm"
+elif [[ "$machine" == "ia64" ]]; then
+    ARCHITECTURE="ia64"
+elif [[ "$machine" == "loongarch64" ]]; then
+    ARCHITECTURE="loongarch64"
+elif [[ "$machine" == "s390x" ]]; then
+    ARCHITECTURE="s390x"
+elif [[ "$machine" == "ppc64le" ]]; then
+    ARCHITECTURE="ppc64-le"
+elif [[ "$machine" == "riscv64" ]]; then
+    ARCHITECTURE="riscv64"
+elif [[ "$machine" == "riscv32" ]]; then
+    ARCHITECTURE="riscv32"
+else
+    echo "Unexpected uname -m: $machine in testsuite-29.sh, please fix me"
+    exit 1
+fi
+
+MINIMAL0="/usr/lib/systemd/tests/testdata/minimal_0.root-$ARCHITECTURE.raw"
+MINIMAL1="/usr/lib/systemd/tests/testdata/minimal_1.root-$ARCHITECTURE.raw"
+
 # Set longer timeout for slower machines, e.g. non-KVM vm.
 mkdir -p /run/systemd/system.conf.d
 cat >/run/systemd/system.conf.d/10-timeout.conf <<EOF
@@ -29,11 +63,11 @@ if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     STATE_DIRECTORY=/var/lib/
 fi
 
-systemd-dissect --no-pager /usr/share/minimal_0.raw | grep -q '✓ portable service'
-systemd-dissect --no-pager /usr/share/minimal_1.raw | grep -q '✓ portable service'
-systemd-dissect --no-pager /usr/share/app0.raw | grep -q '✓ sysext for portable service'
-systemd-dissect --no-pager /usr/share/app1.raw | grep -q '✓ sysext for portable service'
-systemd-dissect --no-pager /usr/share/conf0.raw | grep -q '✓ confext for portable service'
+systemd-dissect --no-pager "$MINIMAL0" | grep -q '✓ portable service'
+systemd-dissect --no-pager "$MINIMAL1" | grep -q '✓ portable service'
+systemd-dissect --no-pager /tmp/app0.raw | grep -q '✓ sysext for portable service'
+systemd-dissect --no-pager /tmp/app1.raw | grep -q '✓ sysext for portable service'
+systemd-dissect --no-pager /tmp/conf0.raw | grep -q '✓ confext for portable service'
 
 export SYSTEMD_LOG_LEVEL=debug
 mkdir -p /run/systemd/system/systemd-portabled.service.d/
@@ -42,18 +76,18 @@ cat <<EOF >/run/systemd/system/systemd-portabled.service.d/override.conf
 Environment=SYSTEMD_LOG_LEVEL=debug
 EOF
 
-portablectl "${ARGS[@]}" attach --now --runtime /usr/share/minimal_0.raw minimal-app0
+portablectl "${ARGS[@]}" attach --now --runtime "$MINIMAL0" minimal-app0
 
 portablectl is-attached minimal-app0
-portablectl inspect /usr/share/minimal_0.raw minimal-app0.service
+portablectl inspect "$MINIMAL0" minimal-app0.service
 systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-foo.service
 systemctl is-active minimal-app0-bar.service && exit 1
 
-portablectl "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw minimal-app0
+portablectl "${ARGS[@]}" reattach --now --runtime "$MINIMAL1" minimal-app0
 
 portablectl is-attached minimal-app0
-portablectl inspect /usr/share/minimal_0.raw minimal-app0.service
+portablectl inspect "$MINIMAL0" minimal-app0.service
 systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-bar.service
 systemctl is-active minimal-app0-foo.service && exit 1
@@ -61,25 +95,25 @@ systemctl is-active minimal-app0-foo.service && exit 1
 portablectl list | grep -q -F "minimal_1"
 busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1'
 
-portablectl detach --now --runtime /usr/share/minimal_1.raw minimal-app0
+portablectl detach --now --runtime "$MINIMAL1" minimal-app0
 
 portablectl list | grep -q -F "No images."
 busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1
 
 # Ensure we don't regress (again) when using --force
 
-portablectl "${ARGS[@]}" attach --force --now --runtime /usr/share/minimal_0.raw minimal-app0
+portablectl "${ARGS[@]}" attach --force --now --runtime "$MINIMAL0" minimal-app0
 
 portablectl is-attached --force minimal-app0
-portablectl inspect --force /usr/share/minimal_0.raw minimal-app0.service
+portablectl inspect --force "$MINIMAL0" minimal-app0.service
 systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-foo.service
 systemctl is-active minimal-app0-bar.service && exit 1
 
-portablectl "${ARGS[@]}" reattach --force --now --runtime /usr/share/minimal_1.raw minimal-app0
+portablectl "${ARGS[@]}" reattach --force --now --runtime "$MINIMAL1" minimal-app0
 
 portablectl is-attached --force minimal-app0
-portablectl inspect --force /usr/share/minimal_0.raw minimal-app0.service
+portablectl inspect --force "$MINIMAL0" minimal-app0.service
 systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-bar.service
 systemctl is-active minimal-app0-foo.service && exit 1
@@ -87,15 +121,15 @@ systemctl is-active minimal-app0-foo.service && exit 1
 portablectl list | grep -q -F "minimal_1"
 busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1'
 
-portablectl detach --force --now --runtime /usr/share/minimal_1.raw minimal-app0
+portablectl detach --force --now --runtime "$MINIMAL1" minimal-app0
 
 portablectl list | grep -q -F "No images."
 busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1
 
 # portablectl also works with directory paths rather than images
 
-unsquashfs -dest /tmp/minimal_0 /usr/share/minimal_0.raw
-unsquashfs -dest /tmp/minimal_1 /usr/share/minimal_1.raw
+unsquashfs -dest /tmp/minimal_0 "$MINIMAL0"
+unsquashfs -dest /tmp/minimal_1 "$MINIMAL1"
 
 portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime /tmp/minimal_0 minimal-app0
 
@@ -117,63 +151,63 @@ portablectl detach --now --enable --runtime /tmp/minimal_1 minimal-app0
 portablectl list | grep -q -F "No images."
 busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1
 
-portablectl "${ARGS[@]}" attach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app0
+portablectl "${ARGS[@]}" attach --now --runtime --extension /tmp/app0.raw "$MINIMAL0" app0
 
 systemctl is-active app0.service
 status="$(portablectl is-attached --extension app0 minimal_0)"
 [[ "${status}" == "running-runtime" ]]
 
-grep -q -F "LogExtraFields=PORTABLE_ROOT=minimal_0.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_ROOT=$(basename "$MINIMAL0")" /run/systemd/system.attached/app0.service.d/20-portable.conf
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app0.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app" /run/systemd/system.attached/app0.service.d/20-portable.conf
 
-portablectl "${ARGS[@]}" reattach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_1.raw app0
+portablectl "${ARGS[@]}" reattach --now --runtime --extension /tmp/app0.raw "$MINIMAL1" app0
 
 systemctl is-active app0.service
 status="$(portablectl is-attached --extension app0 minimal_1)"
 [[ "${status}" == "running-runtime" ]]
 
-grep -q -F "LogExtraFields=PORTABLE_ROOT=minimal_1.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_ROOT=$(basename "$MINIMAL1")" /run/systemd/system.attached/app0.service.d/20-portable.conf
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app0.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app" /run/systemd/system.attached/app0.service.d/20-portable.conf
 
-portablectl detach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_1.raw app0
+portablectl detach --now --runtime --extension /tmp/app0.raw "$MINIMAL1" app0
 
 # Ensure versioned images are accepted without needing to use --force to override the extension-release
 # matching
 
-cp /usr/share/app0.raw /tmp/app0_1.0.raw
-portablectl "${ARGS[@]}" attach --now --runtime --extension /tmp/app0_1.0.raw /usr/share/minimal_0.raw app0
+cp /tmp/app0.raw /tmp/app0_1.0.raw
+portablectl "${ARGS[@]}" attach --now --runtime --extension /tmp/app0_1.0.raw "$MINIMAL0" app0
 
 systemctl is-active app0.service
 status="$(portablectl is-attached --extension app0_1 minimal_0)"
 [[ "${status}" == "running-runtime" ]]
 
-portablectl detach --now --runtime --extension /tmp/app0_1.0.raw /usr/share/minimal_1.raw app0
+portablectl detach --now --runtime --extension /tmp/app0_1.0.raw "$MINIMAL1" app0
 rm -f /tmp/app0_1.0.raw
 
-portablectl "${ARGS[@]}" attach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_0.raw app1
+portablectl "${ARGS[@]}" attach --now --runtime --extension /tmp/app1.raw "$MINIMAL0" app1
 
 systemctl is-active app1.service
 status="$(portablectl is-attached --extension app1 minimal_0)"
 [[ "${status}" == "running-runtime" ]]
 
 # Ensure that adding or removing a version to the image doesn't break reattaching
-cp /usr/share/app1.raw /tmp/app1_2.raw
-portablectl "${ARGS[@]}" reattach --now --runtime --extension /tmp/app1_2.raw /usr/share/minimal_1.raw app1
+cp /tmp/app1.raw /tmp/app1_2.raw
+portablectl "${ARGS[@]}" reattach --now --runtime --extension /tmp/app1_2.raw "$MINIMAL1" app1
 
 systemctl is-active app1.service
 status="$(portablectl is-attached --extension app1_2 minimal_1)"
 [[ "${status}" == "running-runtime" ]]
 
-portablectl "${ARGS[@]}" reattach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
+portablectl "${ARGS[@]}" reattach --now --runtime --extension /tmp/app1.raw "$MINIMAL1" app1
 
 systemctl is-active app1.service
 status="$(portablectl is-attached --extension app1 minimal_1)"
 [[ "${status}" == "running-runtime" ]]
 
-portablectl detach --force --no-reload --runtime --extension /usr/share/app1.raw /usr/share/minimal_1.raw app1
-portablectl "${ARGS[@]}" attach --force --no-reload --runtime --extension /usr/share/app1.raw /usr/share/minimal_0.raw app1
+portablectl detach --force --no-reload --runtime --extension /tmp/app1.raw "$MINIMAL1" app1
+portablectl "${ARGS[@]}" attach --force --no-reload --runtime --extension /tmp/app1.raw "$MINIMAL0" app1
 systemctl daemon-reload
 systemctl restart app1.service
 
@@ -181,26 +215,26 @@ systemctl is-active app1.service
 status="$(portablectl is-attached --extension app1 minimal_0)"
 [[ "${status}" == "running-runtime" ]]
 
-portablectl detach --now --runtime --extension /usr/share/app1.raw /usr/share/minimal_0.raw app1
+portablectl detach --now --runtime --extension /tmp/app1.raw "$MINIMAL0" app1
 
 # Ensure vpick works, including reattaching to a new image
 mkdir -p /tmp/app1.v/
-cp /usr/share/app1.raw /tmp/app1.v/app1_1.0.raw
+cp /tmp/app1.raw /tmp/app1.v/app1_1.0.raw
 cp /tmp/app1_2.raw /tmp/app1.v/app1_2.0.raw
-portablectl "${ARGS[@]}" attach --now --runtime --extension /tmp/app1.v/ /usr/share/minimal_1.raw app1
+portablectl "${ARGS[@]}" attach --now --runtime --extension /tmp/app1.v/ "$MINIMAL1" app1
 
 systemctl is-active app1.service
 status="$(portablectl is-attached --extension app1_2.0.raw minimal_1)"
 [[ "${status}" == "running-runtime" ]]
 
 rm -f /tmp/app1.v/app1_2.0.raw
-portablectl "${ARGS[@]}" reattach --now --runtime --extension /tmp/app1.v/ /usr/share/minimal_1.raw app1
+portablectl "${ARGS[@]}" reattach --now --runtime --extension /tmp/app1.v/ "$MINIMAL1" app1
 
 systemctl is-active app1.service
 status="$(portablectl is-attached --extension app1_1.0.raw minimal_1)"
 [[ "${status}" == "running-runtime" ]]
 
-portablectl detach --now --runtime --extension /tmp/app1.v/ /usr/share/minimal_0.raw app1
+portablectl detach --now --runtime --extension /tmp/app1.v/ "$MINIMAL0" app1
 rm -f /tmp/app1.v/app1_1.0.raw
 
 # Ensure that the combination of read-only images, state directory and dynamic user works, and that
@@ -210,51 +244,51 @@ grep -q -F bar "${STATE_DIRECTORY}/app0/foo"
 grep -q -F baz "${STATE_DIRECTORY}/app1/foo"
 
 # Ensure that we can override the check on extension-release.NAME
-cp /usr/share/app0.raw /tmp/app10.raw
-portablectl "${ARGS[@]}" attach --force --now --runtime --extension /tmp/app10.raw /usr/share/minimal_0.raw app0
+cp /tmp/app0.raw /tmp/app10.raw
+portablectl "${ARGS[@]}" attach --force --now --runtime --extension /tmp/app10.raw "$MINIMAL0" app0
 
 systemctl is-active app0.service
-status="$(portablectl is-attached --extension /tmp/app10.raw /usr/share/minimal_0.raw)"
+status="$(portablectl is-attached --extension /tmp/app10.raw "$MINIMAL0")"
 [[ "${status}" == "running-runtime" ]]
 
-portablectl inspect --force --cat --extension /tmp/app10.raw /usr/share/minimal_0.raw app0 | grep -q -F "Extension Release: /tmp/app10.raw"
+portablectl inspect --force --cat --extension /tmp/app10.raw "$MINIMAL0" app0 | grep -q -F "Extension Release: /tmp/app10.raw"
 
 # Ensure that we can detach even when an image has been deleted already (stop the unit manually as
 # portablectl won't find it)
 rm -f /tmp/app10.raw
 systemctl stop app0.service
-portablectl detach --force --runtime --extension /tmp/app10.raw /usr/share/minimal_0.raw app0
+portablectl detach --force --runtime --extension /tmp/app10.raw "$MINIMAL0" app0
 
 # portablectl also accepts confexts
-portablectl "${ARGS[@]}" attach --now --runtime --extension /usr/share/app0.raw --extension /usr/share/conf0.raw /usr/share/minimal_0.raw app0
+portablectl "${ARGS[@]}" attach --now --runtime --extension /tmp/app0.raw --extension /tmp/conf0.raw "$MINIMAL0" app0
 
 systemctl is-active app0.service
-status="$(portablectl is-attached --extension /usr/share/app0.raw --extension /usr/share/conf0.raw /usr/share/minimal_0.raw)"
+status="$(portablectl is-attached --extension /tmp/app0.raw --extension /tmp/conf0.raw "$MINIMAL0")"
 [[ "${status}" == "running-runtime" ]]
 
-portablectl inspect --force --cat --extension /usr/share/app0.raw --extension /usr/share/conf0.raw /usr/share/minimal_0.raw app0 | grep -q -F "Extension Release: /usr/share/conf0.raw"
+portablectl inspect --force --cat --extension /tmp/app0.raw --extension /tmp/conf0.raw "$MINIMAL0" app0 | grep -q -F "Extension Release: /tmp/conf0.raw"
 
-portablectl detach --now --runtime --extension /usr/share/app0.raw --extension /usr/share/conf0.raw /usr/share/minimal_0.raw app0
+portablectl detach --now --runtime --extension /tmp/app0.raw --extension /tmp/conf0.raw "$MINIMAL0" app0
 
 # Ensure that mixed mode copies the images and units (client-owned) but symlinks the profile (OS owned)
-portablectl "${ARGS[@]}" attach --copy=mixed --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app0
+portablectl "${ARGS[@]}" attach --copy=mixed --runtime --extension /tmp/app0.raw "$MINIMAL0" app0
 test -f /run/portables/app0.raw
-test -f /run/portables/minimal_0.raw
+test -f /run/portables/"$(basename "$MINIMAL0")"
 test -f /run/systemd/system.attached/app0.service
 test -L /run/systemd/system.attached/app0.service.d/10-profile.conf
-portablectl detach --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app0
+portablectl detach --runtime --extension /tmp/app0.raw "$MINIMAL0" app0
 
 # Ensure that when two portables share the same base image, removing one doesn't remove the other too
 
-portablectl "${ARGS[@]}" attach --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app0
-portablectl "${ARGS[@]}" attach --runtime --extension /usr/share/app1.raw /usr/share/minimal_0.raw app1
+portablectl "${ARGS[@]}" attach --runtime --extension /tmp/app0.raw "$MINIMAL0" app0
+portablectl "${ARGS[@]}" attach --runtime --extension /tmp/app1.raw "$MINIMAL0" app1
 
 status="$(portablectl is-attached --extension app0 minimal_0)"
 [[ "${status}" == "attached-runtime" ]]
 status="$(portablectl is-attached --extension app1 minimal_0)"
 [[ "${status}" == "attached-runtime" ]]
 
-(! portablectl detach --runtime /usr/share/minimal_0.raw app)
+(! portablectl detach --runtime "$MINIMAL0" app)
 
 status="$(portablectl is-attached --extension app0 minimal_0)"
 [[ "${status}" == "attached-runtime" ]]
@@ -267,19 +301,19 @@ portablectl list | grep -F "minimal_0" | grep -q -F "attached-runtime"
 portablectl list | grep -F "app0" | grep -q -F "attached-runtime"
 portablectl list | grep -F "app1" | grep -q -F "attached-runtime"
 
-portablectl detach --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app
+portablectl detach --runtime --extension /tmp/app0.raw "$MINIMAL0" app
 
 status="$(portablectl is-attached --extension app1 minimal_0)"
 [[ "${status}" == "attached-runtime" ]]
 
-portablectl detach --runtime --extension /usr/share/app1.raw /usr/share/minimal_0.raw app
+portablectl detach --runtime --extension /tmp/app1.raw "$MINIMAL0" app
 
 # portablectl also works with directory paths rather than images
 
 mkdir /tmp/rootdir /tmp/app0 /tmp/app1 /tmp/overlay /tmp/os-release-fix /tmp/os-release-fix/etc
-mount /usr/share/app0.raw /tmp/app0
-mount /usr/share/app1.raw /tmp/app1
-mount /usr/share/minimal_0.raw /tmp/rootdir
+mount /tmp/app0.raw /tmp/app0
+mount /tmp/app1.raw /tmp/app1
+mount "$MINIMAL0" /tmp/rootdir
 
 # Fix up os-release to drop the valid PORTABLE_SERVICES field (because we are
 # bypassing the sysext logic in portabled here it will otherwise not see the
