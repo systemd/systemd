@@ -9,7 +9,6 @@ IGNORE_MISSING_COVERAGE=yes
 TEST_SKIP_SHUTDOWN=yes
 IMAGE_NAME="softreboot"
 TEST_NO_NSPAWN=1
-TEST_INSTALL_VERITY_MINIMAL=1
 
 # shellcheck source=test/test-functions
 . "$TEST_BASE_DIR/test-functions"
@@ -21,7 +20,6 @@ test_append_files() {
     instmods dm_verity =md
     install_dmevent
     generate_module_dependencies
-    install_verity_minimal
 }
 
 do_test "$@"
