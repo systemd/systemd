@@ -1610,7 +1610,7 @@ static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret)
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return 0;
+        return r; /* Return true when we get a non-null invocation ID. */
 }
 
 static void set_window_title(PTYForward *f) {
