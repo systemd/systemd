@@ -4836,21 +4836,27 @@ static int short_uid_range(const char *path) {
 }
 
 char* manager_taint_string(const Manager *m) {
+        const char *stage[12] = {};
+        size_t n = 0;
+
         /* Returns a "taint string", e.g. "local-hwclock:var-run-bad". Only things that are detected at
          * runtime should be tagged here. For stuff that is known during compilation, emit a warning in the
          * configuration phase. */
 
         assert(m);
 
-        const char* stage[12] = {};
-        size_t n = 0;
+        _cleanup_free_ char *bin = NULL, *usr_sbin = NULL, *var_run = NULL;
 
-        _cleanup_free_ char *usrbin = NULL;
-        if (readlink_malloc("/bin", &usrbin) < 0 || !PATH_IN_SET(usrbin, "usr/bin", "/usr/bin"))
+        if (readlink_malloc("/bin", &bin) < 0 || !PATH_IN_SET(bin, "usr/bin", "/usr/bin"))
                 stage[n++] = "unmerged-usr";
 
-        if (access("/proc/cgroups", F_OK) < 0)
-                stage[n++] = "cgroups-missing";
+        /* Note that the check is different from default_PATH(), as we want to taint on uncanonical symlinks
+         * too. */
+        if (readlink_malloc("/usr/sbin", &usr_sbin) < 0 || !PATH_IN_SET(usr_sbin, "bin", "/usr/bin"))
+                stage[n++] = "unmerged-bin";
+
+        if (readlink_malloc("/var/run", &var_run) < 0 || !PATH_IN_SET(var_run, "../run", "/run"))
+                stage[n++] = "var-run-bad";
 
         if (cg_all_unified() == 0)
                 stage[n++] = "cgroupsv1";
@@ -4861,10 +4867,10 @@ char* manager_taint_string(const Manager *m) {
         if (os_release_support_ended(NULL, /* quiet= */ true, NULL) > 0)
                 stage[n++] = "support-ended";
 
-        _cleanup_free_ char *destination = NULL;
-        if (readlink_malloc("/var/run", &destination) < 0 ||
-            !PATH_IN_SET(destination, "../run", "/run"))
-                stage[n++] = "var-run-bad";
+        struct utsname uts;
+        assert_se(uname(&uts) >= 0);
+        if (strverscmp_improved(uts.release, KERNEL_BASELINE_VERSION) < 0)
+                stage[n++] = "old-kernel";
 
         _cleanup_free_ char *overflowuid = NULL, *overflowgid = NULL;
         if (read_one_line_file("/proc/sys/kernel/overflowuid", &overflowuid) >= 0 &&
@@ -4873,11 +4879,6 @@ char* manager_taint_string(const Manager *m) {
         if (read_one_line_file("/proc/sys/kernel/overflowgid", &overflowgid) >= 0 &&
             !streq(overflowgid, "65534"))
                 stage[n++] = "overflowgid-not-65534";
-
-        struct utsname uts;
-        assert_se(uname(&uts) >= 0);
-        if (strverscmp_improved(uts.release, KERNEL_BASELINE_VERSION) < 0)
-                stage[n++] = "old-kernel";
 
         if (short_uid_range("/proc/self/uid_map") > 0)
                 stage[n++] = "short-uid-range";
