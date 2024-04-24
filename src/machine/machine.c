@@ -27,6 +27,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
+#include "socket-util.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -36,13 +37,9 @@
 #include "unit-name.h"
 #include "user-util.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Machine*, machine_free);
-
-int machine_new(Manager *manager, MachineClass class, const char *name, Machine **ret) {
+int machine_new(MachineClass class, const char *name, Machine **ret) {
         _cleanup_(machine_freep) Machine *m = NULL;
-        int r;
 
-        assert(manager);
         assert(class < _MACHINE_CLASS_MAX);
         assert(name);
         assert(ret);
@@ -57,27 +54,36 @@ int machine_new(Manager *manager, MachineClass class, const char *name, Machine 
 
         *m = (Machine) {
                 .leader = PIDREF_NULL,
+                .vsock_cid = VMADDR_CID_ANY,
         };
 
         m->name = strdup(name);
         if (!m->name)
                 return -ENOMEM;
 
-        if (class != MACHINE_HOST) {
-                m->state_file = path_join("/run/systemd/machines", m->name);
-                if (!m->state_file)
+        m->class = class;
+
+        *ret = TAKE_PTR(m);
+        return 0;
+}
+
+int machine_link(Manager *manager, Machine *machine) {
+        int r;
+        assert(manager);
+        assert(machine);
+
+        if (machine->class != MACHINE_HOST) {
+                machine->state_file = path_join("/run/systemd/machines", machine->name);
+                if (!machine->state_file)
                         return -ENOMEM;
         }
 
-        m->class = class;
-
-        r = hashmap_put(manager->machines, m->name, m);
+        r = hashmap_put(manager->machines, machine->name, machine);
         if (r < 0)
                 return r;
 
-        m->manager = manager;
+        machine->manager = manager;
 
-        *ret = TAKE_PTR(m);
         return 0;
 }
 
@@ -93,11 +99,9 @@ Machine* machine_free(Machine *m) {
                 LIST_REMOVE(gc_queue, m->manager->machine_gc_queue, m);
         }
 
-        machine_release_unit(m);
-
-        free(m->scope_job);
-
         if (m->manager) {
+                machine_release_unit(m);
+
                 (void) hashmap_remove(m->manager->machines, m->name);
 
                 if (m->manager->host_machine == m)
@@ -113,10 +117,13 @@ Machine* machine_free(Machine *m) {
         sd_bus_message_unref(m->create_message);
 
         free(m->name);
+        free(m->scope_job);
         free(m->state_file);
         free(m->service);
         free(m->root_directory);
         free(m->netif);
+        free(m->ssh_address);
+        free(m->ssh_private_key_path);
         return mfree(m);
 }
 
@@ -604,6 +611,7 @@ int machine_openpt(Machine *m, int flags, char **ret_slave) {
 
         switch (m->class) {
 
+        case MACHINE_VM:
         case MACHINE_HOST:
                 return openpt_allocate(flags, ret_slave);
 
@@ -623,6 +631,7 @@ int machine_open_terminal(Machine *m, const char *path, int mode) {
 
         switch (m->class) {
 
+        case MACHINE_VM:
         case MACHINE_HOST:
                 return open_terminal(path, mode);
 
