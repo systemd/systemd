@@ -1894,7 +1894,7 @@ void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix) {
                         prefix, s->status);
 }
 
-static void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
+void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
         _cleanup_free_ char *cmd = NULL;
         const char *prefix2;
 
