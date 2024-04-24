@@ -49,10 +49,10 @@ systemd-dissect --image-policy='root=unprotected:=absent+unused' --mtree /var/tm
 (! runas testuser systemd-dissect /var/tmp/unpriv.raw)
 (! runas testuser systemd-dissect --mtree /var/tmp/unpriv.raw)
 
-if SYSTEMD_LOG_TARGET=console varlinkctl call \
+if ( SYSTEMD_LOG_TARGET=console varlinkctl call \
         /run/systemd/userdb/io.systemd.NamespaceResource \
         io.systemd.NamespaceResource.AllocateUserRange \
-        '{"name":"test-supported","size":65536,"userNamespaceFileDescriptor":0}' |&
+        '{"name":"test-supported","size":65536,"userNamespaceFileDescriptor":0}' 2>&1 || true ) |
             grep -q "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"; then
     echo "User namespace interface not supported, skipping mountnfsd/nsresourced tests"
     exit 0

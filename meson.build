@@ -321,6 +321,7 @@ meson_build_sh = find_program('tools/meson-build.sh')
 want_tests = get_option('tests')
 slow_tests = want_tests != 'false' and get_option('slow-tests')
 fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
+integration_tests = want_tests != 'false' and get_option('integration-tests')
 install_tests = want_tests != 'false' and get_option('install-tests')
 
 if add_languages('cpp', native : false, required : fuzzer_build)
@@ -1993,6 +1994,8 @@ modules = [] # nss, pam, and other plugins
 executables = []
 executables_by_name = {}
 fuzzer_exes = []
+images = []
+images_by_name = {}
 
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
@@ -2574,6 +2577,80 @@ endif
 #####################################################################
 
 mkosi = find_program('mkosi', required : false)
+if integration_tests and not mkosi.found()
+        error('Could not find mkosi which is required to build the integration test images')
+endif
+
+mkosi_depends = public_programs
+mkosi_extras = []
+
+image_template = {
+        'install' : false,
+        'base_trees' : [],
+        'depends' : [],
+}
+
+foreach executable : ['systemd-journal-remote', 'systemd-measure']
+        if executable in executables_by_name
+                mkosi_depends += [executables_by_name[executable]]
+        endif
+endforeach
+
+subdir('test/images')
+
+foreach image : images
+        if not mkosi.found()
+                continue
+        endif
+
+        command = [
+                'mkosi',
+                '--output-dir', meson.current_build_dir(),
+                '--extra-search-path', project_build_root,
+                '--verity-key', project_source_root / 'mkosi.key',
+                '--verity-certificate', project_source_root / 'mkosi.crt',
+                '--force',
+        ]
+
+        foreach tree : image['base_trees']
+                command += ['--base-tree=@0@'.format(tree)]
+        endforeach
+
+        # Make sure all command line arguments are interpreted relative to build directory by
+        # specifying --directory last.
+        command += ['--directory', image['directory']]
+
+        depends = []
+        foreach i : image['depends']
+                depends += [images_by_name[i]]
+        endforeach
+
+        kwargs = {}
+        if 'install_dir' in image
+                kwargs += {'install_dir' : image['install_dir']}
+        endif
+
+        target = custom_target(image['name'],
+                output : image['output'],
+                console : true,
+                install : image['install'],
+                command : command,
+                depends: depends,
+                depend_files : image['depend_files'],
+                kwargs : kwargs,
+        )
+
+        images_by_name += {image['name'] : target}
+
+        if 'install_dir' in image and image['install_dir'] == testdata_dir
+                mkosi_depends += [target]
+
+                foreach output : target.to_list()
+                        mkosi_extras += ['--extra-tree=@0@:@1@'.format(output.full_path(), testdata_dir)]
+                endforeach
+        endif
+endforeach
+
 if mkosi.found()
         custom_target('mkosi',
                 build_always_stale : true,
@@ -2587,13 +2664,8 @@ if mkosi.found()
                         '--cache-dir', meson.current_build_dir() / 'mkosi.cache',
                         '--build-dir', meson.current_build_dir() / 'mkosi.builddir',
                         '--force',
-                        'build'
-                ],
-                depends : public_programs + [
-                        executables_by_name['systemd-journal-remote'],
-                        executables_by_name['systemd-measure'],
-                        ukify,
-                ],
+                ] + mkosi_extras,
+                depends : mkosi_depends,
         )
 endif
 
