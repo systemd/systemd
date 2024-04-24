@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2024-04-22 14:09+0100\n"
-"PO-Revision-Date: 2024-03-04 16:32+0000\n"
+"PO-Revision-Date: 2024-04-24 05:36+0000\n"
 "Last-Translator: Oğuz Ersen <oguz@ersen.moe>\n"
 "Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
 "main/tr/>\n"
@@ -1053,12 +1053,16 @@ msgstr "Ağ arayüzünü yeniden yapılandırmak için kimlik doğrulaması gere
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available."
 msgstr ""
+"systemd-networkd için kalıcı depolama alanının kullanılabilir olup "
+"olmadığını belirt."
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
+"systemd-networkd için kalıcı depolama alanının kullanılabilir olup "
+"olmadığını belirtmek için kimlik doğrulaması gereklidir."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
