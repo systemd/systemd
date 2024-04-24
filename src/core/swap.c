@@ -1407,6 +1407,22 @@ static void swap_reset_failed(Unit *u) {
         s->clean_result = SWAP_SUCCESS;
 }
 
+static void swap_handoff_timestamp(
+                Unit *u,
+                const struct ucred *ucred,
+                const dual_timestamp *ts) {
+
+        Swap *s = ASSERT_PTR(SWAP(u));
+
+        assert(ucred);
+        assert(ts);
+
+        if (s->control_pid.pid == ucred->pid && s->control_command) {
+                exec_status_handoff(&s->control_command->exec_status, ucred, ts);
+                unit_add_to_dbus_queue(u);
+        }
+}
+
 static int swap_get_timeout(Unit *u, usec_t *timeout) {
         Swap *s = ASSERT_PTR(SWAP(u));
         usec_t t;
@@ -1592,6 +1608,8 @@ const UnitVTable swap_vtable = {
         .sigchld_event = swap_sigchld_event,
 
         .reset_failed = swap_reset_failed,
+
+        .notify_handoff_timestamp = swap_handoff_timestamp,
 
         .control_pid = swap_control_pid,
 
