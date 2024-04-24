@@ -89,6 +89,9 @@ node /org/freedesktop/machine1 {
                   in  i signal);
       GetMachineAddresses(in  s name,
                           out a(iay) addresses);
+      GetMachineSSHInfo(in  s name,
+                        out s ssh_address,
+                        out s ssh_private_key_path);
       GetMachineOSRelease(in  s name,
                           out a{ss} fields);
       @org.freedesktop.systemd1.Privileged("true")
@@ -378,6 +381,10 @@ node /org/freedesktop/machine1 {
       <constant>AF_INET6</constant>) and a byte array containing the addresses. This is only supported for
       containers that make use of network namespacing.</para>
 
+      <para><function>GetMachineSSHInfo()</function> retrieves the SSH information of a machine. This method
+      returns two strings, the SSH address which can be used to tell SSH where to connect, and the path
+      to the SSH private key required for the connection to succeed.</para>
+
       <para><function>GetMachineOSRelease()</function> retrieves the OS release information of a
       container. This method returns an array of key value pairs read from the
       <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file in
@@ -459,6 +466,8 @@ node /org/freedesktop/machine1/machine/rawhide {
       Kill(in  s who,
            in  i signal);
       GetAddresses(out a(iay) addresses);
+      GetSSHInfo(out s ssh_address,
+                 out s ssh_private_key_path);
       GetOSRelease(out a{ss} fields);
       GetUIDShift(out u shift);
       OpenPTY(out h pty,
@@ -601,9 +610,9 @@ node /org/freedesktop/machine1/machine/rawhide {
       take the same arguments as <function>TerminateMachine()</function> and
       <function>KillMachine()</function> on the Manager interface, respectively.</para>
 
-      <para><function>GetAddresses()</function> and <function>GetOSRelease()</function> get the IP address and OS
-      release information from the machine. These methods take the same arguments as
-      <function>GetMachineAddresses()</function> and <function>GetMachineOSRelease()</function> of the
+      <para><function>GetAddresses()</function>, <function>GetSSHInfo</function> and <function>GetOSRelease()</function> get the IP address,
+      SSH connection and OS release information from the machine. These methods take the same arguments as
+      <function>GetMachineAddresses()</function>, <function>GetMachineSSHInfo()</function> and <function>GetMachineOSRelease()</function> of the
       Manager interface, respectively.</para>
     </refsect2>
 
@@ -635,6 +644,15 @@ node /org/freedesktop/machine1/machine/rawhide {
       <para><varname>NetworkInterfaces</varname> contains an array of network interface indices that point
       towards the container, the VM or the host. For details about this information see the description of
       <function>CreateMachineWithNetwork()</function> above.</para>
+
+      <para><varname>VsockCid</varname> is the VSOCK CID of the VM if it is known, or
+      <constant>VMADDR_CID_ANY</constant> otherwise.</para>
+
+      <para><varname>SshAddress</varname> is the address of the VM in a format <command>ssh</command> can understand
+      if it is known or the empty string.</para>
+
+      <para><varname>SshPrivateKeyPath</varname> is the path to the SSH private key of the VM if it is known
+      or the empty string.</para>
 
       <para><varname>State</varname> is the state of the machine and is one of <literal>opening</literal>,
       <literal>running</literal>, or <literal>closing</literal>. Note that the state machine is not considered
