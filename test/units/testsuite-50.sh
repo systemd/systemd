@@ -6,6 +6,9 @@ set -o pipefail
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 # Setup shared stuff & run all subtests
 
 at_exit() {
@@ -102,6 +105,8 @@ IMAGE_DIR="$(mktemp -d --tmpdir="" TEST-50-IMAGES.XXX)"
 cp -v /usr/share/minimal* "$IMAGE_DIR/"
 MINIMAL_IMAGE="$IMAGE_DIR/minimal_0"
 MINIMAL_IMAGE_ROOTHASH="$(<"$MINIMAL_IMAGE.roothash")"
+
+install_extension_images
 
 OS_RELEASE="$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)"
 
