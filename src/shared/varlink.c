@@ -652,23 +652,37 @@ int varlink_connect_url(Varlink **ret, const char *url) {
         return varlink_connect_address(ret, c ?: p);
 }
 
-int varlink_connect_fd(Varlink **ret, int fd) {
+int varlink_connect_fd_pair(Varlink **ret, int input_fd, int output_fd, const struct ucred *override_ucred) {
         Varlink *v;
         int r;
 
         assert_return(ret, -EINVAL);
-        assert_return(fd >= 0, -EBADF);
+        assert_return(input_fd >= 0, -EBADF);
+        assert_return(output_fd >= 0, -EBADF);
 
-        r = fd_nonblock(fd, true);
+        r = fd_nonblock(input_fd, true);
         if (r < 0)
-                return log_debug_errno(r, "Failed to make fd %d nonblocking: %m", fd);
+                return log_debug_errno(r, "Failed to make input fd %d nonblocking: %m", input_fd);
+
+        if (input_fd != output_fd) {
+                r = fd_nonblock(output_fd, true);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to make output fd %d nonblocking: %m", output_fd);
+        }
 
         r = varlink_new(&v);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        v->output_fd = v->input_fd = fd;
-        v->af = -1,
+        v->input_fd = input_fd;
+        v->output_fd = output_fd;
+        v->af = -1;
+
+        if (override_ucred) {
+                v->ucred = *override_ucred;
+                v->ucred_acquired = true;
+        }
+
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
         /* Note that if this function is called we assume the passed socket (if it is one) is already
@@ -680,6 +694,10 @@ int varlink_connect_fd(Varlink **ret, int fd) {
 
         *ret = v;
         return 0;
+}
+
+int varlink_connect_fd(Varlink **ret, int fd) {
+        return varlink_connect_fd_pair(ret, fd, fd, /* override_ucred= */ NULL);
 }
 
 static void varlink_detach_event_sources(Varlink *v) {
