@@ -197,7 +197,7 @@ EOF
     # Ensure that the unit doesn't get deactivated by dependencies on the source file. Given it's a verity
     # image that is already open, even if the tmpfs with the image goes away, the file will be pinned by the
     # kernel and will keep working.
-    cp /usr/share/minimal_0.* /tmp/
+    cp /usr/lib/systemd/tests/testdata/minimal_0.* /tmp/
 
     # Configure these transient units to survive the soft reboot - they will not conflict with shutdown.target
     # and it will be ignored on the isolate that happens in the next boot. The first will use argv[0][0] =
