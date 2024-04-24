@@ -6,6 +6,9 @@ set -o pipefail
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 # Setup shared stuff & run all subtests
 
 at_exit() {
@@ -99,9 +102,13 @@ fi
 udevadm control --log-level=debug
 
 IMAGE_DIR="$(mktemp -d --tmpdir="" TEST-50-IMAGES.XXX)"
-cp -v /usr/share/minimal* "$IMAGE_DIR/"
-MINIMAL_IMAGE="$IMAGE_DIR/minimal_0"
+cp -v /usr/lib/systemd/tests/testdata/minimal* "$IMAGE_DIR/"
+MINIMAL_IMAGE="$IMAGE_DIR/minimal_0.root-$ARCHITECTURE"
+cp -v "$IMAGE_DIR/minimal_0.root-$ARCHITECTURE-verity.raw" "$MINIMAL_IMAGE.verity"
+echo -n "$(jq -r .rootHash "$IMAGE_DIR/minimal_0.root-$ARCHITECTURE-verity-sig.raw")" >"$MINIMAL_IMAGE.roothash"
 MINIMAL_IMAGE_ROOTHASH="$(<"$MINIMAL_IMAGE.roothash")"
+
+install_extension_images
 
 OS_RELEASE="$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)"
 
@@ -134,8 +141,8 @@ fi
 # Make a GPT disk on the fly, with the squashfs as partition 1 and the verity hash tree as partition 2
 #
 # du rounds up to block size, which is more helpful for partitioning
-root_size="$(du -k "$MINIMAL_IMAGE.raw" | cut -f1)"
-verity_size="$(du -k "$MINIMAL_IMAGE.verity" | cut -f1)"
+root_size="$(du --apparent-size -k "$MINIMAL_IMAGE.raw" | cut -f1)"
+verity_size="$(du --apparent-size -k "$MINIMAL_IMAGE.verity" | cut -f1)"
 signature_size=4
 # 4MB seems to be the minimum size blkid will accept, below that probing fails
 dd if=/dev/zero of="$MINIMAL_IMAGE.gpt" bs=512 count=$((8192+root_size*2+verity_size*2+signature_size*2))
