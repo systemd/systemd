@@ -12,6 +12,7 @@
 #include "sd-journal.h"
 
 #include "alloc-util.h"
+#include "bus-unit-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "glyph-util.h"
@@ -1558,15 +1559,29 @@ int show_journal(
         return 0;
 }
 
-int add_matches_for_unit(sd_journal *j, const char *unit) {
+int add_matches_for_unit_full(sd_journal *j, sd_bus *bus, const char *unit, bool add_invocation) {
+        sd_id128_t id;
         int r;
 
         assert(j);
         assert(unit);
 
+        if (add_invocation) {
+                assert(bus);
+
+                r = unit_get_invocation_id(bus, unit, &id);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("No invocation ID found for %s.", unit);
+                        add_invocation = false;
+                }
+        }
+
         (void) (
             /* Look for messages from the service itself */
             (r = journal_add_match_pair(j, "_SYSTEMD_UNIT", unit)) ||
+            (r = add_invocation ? journal_add_match_pair(j, "_SYSTEMD_INVOCATION_ID", SD_ID128_TO_STRING(id)) : 0) ||
 
             /* Look for coredumps of the service */
             (r = sd_journal_add_disjunction(j)) ||
@@ -1578,6 +1593,7 @@ int add_matches_for_unit(sd_journal *j, const char *unit) {
             (r = sd_journal_add_disjunction(j)) ||
             (r = sd_journal_add_match(j, "_PID=1", SIZE_MAX)) ||
             (r = journal_add_match_pair(j, "UNIT", unit)) ||
+            (r = add_invocation ? journal_add_match_pair(j, "INVOCATION_ID", SD_ID128_TO_STRING(id)) : 0) ||
 
             /* Look for messages from authorized daemons about this service */
             (r = sd_journal_add_disjunction(j)) ||
@@ -1595,21 +1611,36 @@ int add_matches_for_unit(sd_journal *j, const char *unit) {
         return r;
 }
 
-int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
+int add_matches_for_user_unit_full(sd_journal *j, sd_bus *bus, const char *unit, uid_t uid, bool add_invocation) {
+        sd_id128_t id;
         int r;
 
         assert(j);
         assert(unit);
 
+        if (add_invocation) {
+                assert(bus);
+
+                r = unit_get_invocation_id(bus, unit, &id);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("No invocation ID found for %s.", unit);
+                        add_invocation = false;
+                }
+        }
+
         (void) (
                 /* Look for messages from the user service itself */
                 (r = journal_add_match_pair(j, "_SYSTEMD_USER_UNIT", unit)) ||
                 (r = journal_add_matchf(j, "_UID="UID_FMT, uid)) ||
+                (r = add_invocation ? journal_add_match_pair(j, "_SYSTEMD_INVOCATION_ID", SD_ID128_TO_STRING(id)) : 0) ||
 
                 /* Look for messages from systemd about this service */
                 (r = sd_journal_add_disjunction(j)) ||
                 (r = journal_add_match_pair(j, "USER_UNIT", unit)) ||
                 (r = journal_add_matchf(j, "_UID="UID_FMT, uid)) ||
+                (r = add_invocation ? journal_add_match_pair(j, "USER_INVOCATION_ID", SD_ID128_TO_STRING(id)) : 0) ||
 
                 /* Look for coredumps of the service */
                 (r = sd_journal_add_disjunction(j)) ||

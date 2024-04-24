@@ -351,6 +351,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--current-invocation</option></term>
+
+        <listitem><para>Show messages for the current or most recent invocation of specified systemd units.
+        This must be specified with at least one <option>-u/--unit=</option> or <option>--user-unit=</option>.
+        This implies <option>--boot 0</option>, and other boot offset or boot ID cannot be specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-t</option></term>
         <term><option>--identifier=<replaceable>SYSLOG_IDENTIFIER</replaceable></option></term>
 
