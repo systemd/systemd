@@ -7,7 +7,6 @@ set -e
 TEST_DESCRIPTION="test systemd-dissect"
 IMAGE_NAME="dissect"
 TEST_NO_NSPAWN=1
-TEST_INSTALL_VERITY_MINIMAL=1
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
@@ -30,13 +29,13 @@ test_append_files() {
     generate_module_dependencies
     inst_binary wc
     inst_binary sha256sum
+    inst_binary veritysetup
     inst_binary tar
     if command -v openssl >/dev/null 2>&1; then
         inst_binary openssl
     fi
     inst_binary mksquashfs
     inst_binary unsquashfs
-    install_verity_minimal
 }
 
 do_test "$@"
