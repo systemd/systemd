@@ -2,6 +2,7 @@
 
 #include "sd-device.h"
 
+#include "bus-util.h"
 #include "chase.h"
 #include "devnum-util.h"
 #include "fileio.h"
@@ -143,7 +144,50 @@ static int get_possible_units(
         "OBJECT_SYSTEMD_USER_UNIT\0" \
         "_SYSTEMD_USER_SLICE\0"
 
+static int acquire_bus(RuntimeScope runtime_scope, sd_bus **bus) {
+        BusTransport transport;
+        int r;
+
+        assert(bus);
+
+        if (*bus)
+                return 0;
+
+        transport = arg_machine ? BUS_TRANSPORT_MACHINE : BUS_TRANSPORT_LOCAL;
+        if (runtime_scope == RUNTIME_SCOPE_USER && transport != BUS_TRANSPORT_LOCAL)
+                r = bus_connect_transport(transport, arg_machine, runtime_scope, bus);
+        else
+                r = bus_connect_transport_systemd(transport, arg_machine, runtime_scope, bus);
+        if (r < 0)
+                return bus_log_connect_error(r, transport);
+
+        return 0;
+}
+
+static int add_unit_one(sd_journal *j, sd_bus **bus, const char *unit, bool system_unit) {
+        int r;
+
+        assert(j);
+        assert(bus);
+        assert(unit);
+
+        /* Currently, the DBus connection is required only for obtaining the current invocation ID. */
+        if (arg_current_invocation) {
+                r = acquire_bus(system_unit ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER, bus);
+                if (r < 0)
+                        return r;
+        }
+
+        if (system_unit)
+                r = add_matches_for_unit_full(j, *bus, unit, arg_current_invocation);
+        else
+                r = add_matches_for_user_unit_full(j, *bus, unit, getuid(), arg_current_invocation);
+
+        return sd_journal_add_disjunction(j);
+}
+
 static int add_units(sd_journal *j) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_strv_free_ char **patterns = NULL;
         bool added = false;
         int r;
@@ -165,10 +209,7 @@ static int add_units(sd_journal *j) {
                         if (r < 0)
                                 return r;
                 } else {
-                        r = add_matches_for_unit(j, u);
-                        if (r < 0)
-                                return r;
-                        r = sd_journal_add_disjunction(j);
+                        r = add_unit_one(j, &bus, u, /* system_unit = */ true);
                         if (r < 0)
                                 return r;
                         added = true;
@@ -184,16 +225,14 @@ static int add_units(sd_journal *j) {
                         return r;
 
                 SET_FOREACH(u, units) {
-                        r = add_matches_for_unit(j, u);
-                        if (r < 0)
-                                return r;
-                        r = sd_journal_add_disjunction(j);
+                        r = add_unit_one(j, &bus, u, /* system_unit = */ true);
                         if (r < 0)
                                 return r;
                         added = true;
                 }
         }
 
+        bus = sd_bus_flush_close_unref(bus);
         patterns = strv_free(patterns);
 
         STRV_FOREACH(i, arg_user_units) {
@@ -208,10 +247,7 @@ static int add_units(sd_journal *j) {
                         if (r < 0)
                                 return r;
                 } else {
-                        r = add_matches_for_user_unit(j, u, getuid());
-                        if (r < 0)
-                                return r;
-                        r = sd_journal_add_disjunction(j);
+                        r = add_unit_one(j, &bus, u, /* system_unit = */ false);
                         if (r < 0)
                                 return r;
                         added = true;
@@ -227,10 +263,7 @@ static int add_units(sd_journal *j) {
                         return r;
 
                 SET_FOREACH(u, units) {
-                        r = add_matches_for_user_unit(j, u, getuid());
-                        if (r < 0)
-                                return r;
-                        r = sd_journal_add_disjunction(j);
+                        r = add_unit_one(j, &bus, u, /* system_unit = */ false);
                         if (r < 0)
                                 return r;
                         added = true;

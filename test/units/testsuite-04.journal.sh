@@ -166,6 +166,11 @@ journalctl -b "$(readlink -f "$0")" | grep . >/dev/null
 journalctl -b "$(systemd-id128 boot-id)" | grep . >/dev/null
 journalctl --since yesterday --reverse | grep . >/dev/null
 journalctl --machine .host | grep . >/dev/null
+journalctl --unit systemd-networkd.service | grep . >/dev/null
+(! journalctl --current-invocation)
+journalctl --unit systemd-networkd.service --current-invocation | grep . >/dev/null
+journalctl --unit systemd-networkd.service --current-invocation -b 0 | grep . >/dev/null
+(! journalctl --unit systemd-networkd.service --current-invocation -b -1)
 # Log something that journald will forward to wall
 echo "Oh no!" | systemd-cat -t "emerg$RANDOM" -p emerg --stderr-priority emerg
 

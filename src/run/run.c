@@ -1580,39 +1580,6 @@ static int bus_call_with_hint(
         return r;
 }
 
-static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_free_ char *object = NULL;
-        int r;
-
-        assert(bus);
-        assert(ret);
-
-        if (unit) {
-                object = unit_dbus_path_from_name(unit);
-                if (!object)
-                        return log_oom();
-        }
-
-        r = sd_bus_get_property(bus,
-                                "org.freedesktop.systemd1",
-                                object ?: "/org/freedesktop/systemd1/unit/self",
-                                "org.freedesktop.systemd1.Unit",
-                                "InvocationID",
-                                &error,
-                                &reply,
-                                "ay");
-        if (r < 0)
-                return log_error_errno(r, "Failed to request invocation ID for unit: %s", bus_error_message(&error, r));
-
-        r = bus_message_read_id128(reply, ret);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        return 0;
-}
-
 static void set_window_title(PTYForward *f) {
         _cleanup_free_ char *hn = NULL, *cl = NULL, *dot = NULL;
         assert(f);
@@ -1772,7 +1739,7 @@ static int start_transient_service(sd_bus *bus) {
         if (!arg_quiet) {
                 sd_id128_t invocation_id;
 
-                r = acquire_invocation_id(bus, service, &invocation_id);
+                r = unit_get_invocation_id(bus, service, &invocation_id);
                 if (r < 0)
                         return r;
                 if (r == 0) /* No invocation UUID set */
@@ -2021,7 +1988,7 @@ static int start_transient_scope(sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        r = acquire_invocation_id(bus, NULL, &invocation_id);
+        r = unit_get_invocation_id(bus, NULL, &invocation_id);
         if (r < 0)
                 return r;
         if (r == 0)
