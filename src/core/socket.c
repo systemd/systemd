@@ -805,8 +805,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 if (!s->exec_command[c])
                         continue;
 
-                fprintf(f, "%s-> %s:\n",
-                        prefix, socket_exec_command_to_string(c));
+                fprintf(f, "%s%s %s:\n",
+                        prefix, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), socket_exec_command_to_string(c));
 
                 exec_command_dump_list(s->exec_command[c], f, prefix2);
         }
