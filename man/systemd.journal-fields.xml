@@ -546,8 +546,7 @@
       <varlistentry>
         <term><varname>OBJECT_PID=<replaceable>PID</replaceable></varname></term>
         <listitem>
-          <para>PID of the program that this message pertains to.
-          </para>
+          <para>PID of the program that this message pertains to.</para>
 
           <xi:include href="version-info.xml" xpointer="v205"/>
         </listitem>
@@ -567,9 +566,8 @@
         <term><varname>OBJECT_SYSTEMD_UNIT=</varname></term>
         <term><varname>OBJECT_SYSTEMD_USER_UNIT=</varname></term>
         <listitem>
-          <para>These are additional fields added automatically by
-          <command>systemd-journald</command>. Their meaning is the
-          same as
+          <para>These are additional fields added automatically by <command>systemd-journald</command>.
+          Their meaning is the same as
           <varname>_UID=</varname>,
           <varname>_GID=</varname>,
           <varname>_COMM=</varname>,
@@ -587,6 +585,17 @@
           process which logged the message.</para>
 
           <xi:include href="version-info.xml" xpointer="v205"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>OBJECT_SYSTEMD_INVOCATION_ID=</varname></term>
+        <listitem>
+          <para>An additional field added automatically by <command>systemd-journald</command>. The meaning
+          is mostly the same as <varname>_SYSTEMD_INVOCATION_ID=</varname>, with the difference described
+          above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
     </variablelist>
