@@ -2839,10 +2839,7 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
                 goto turn_off;
 
         if (IN_SET(si.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED)) {
-                _cleanup_free_ Unit **array_copy = NULL;
                 _cleanup_free_ char *name = NULL;
-                Unit *u1, *u2, **array;
-
                 (void) pid_get_comm(si.si_pid, &name);
 
                 log_debug("Child "PID_FMT" (%s) died (code=%s, status=%i/%s)",
@@ -2860,41 +2857,28 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
                  * pidfd here any more even if we wanted (since the process just exited). */
                 PidRef pidref = PIDREF_MAKE_FROM_PID(si.si_pid);
 
-                /* And now figure out the unit this belongs to, it might be multiple... */
-                u1 = manager_get_unit_by_pidref_cgroup(m, &pidref);
-                u2 = hashmap_get(m->watch_pids, &pidref);
-                array = hashmap_get(m->watch_pids_more, &pidref);
-                if (array) {
-                        size_t n = 0;
-
-                        /* Count how many entries the array has */
-                        while (array[n])
-                                n++;
-
-                        /* Make a copy of the array so that we don't trip up on the array changing beneath us */
-                        array_copy = newdup(Unit*, array, n+1);
-                        if (!array_copy)
-                                log_oom();
-                }
-
-                /* Finally, execute them all. Note that u1, u2 and the array might contain duplicates, but
-                 * that's fine, manager_invoke_sigchld_event() will ensure we only invoke the handlers once for
-                 * each iteration. */
-                if (u1) {
-                        /* We check for oom condition, in case we got SIGCHLD before the oom notification.
-                         * We only do this for the cgroup the PID belonged to. */
-                        (void) unit_check_oom(u1);
+                /* And now figure out the units this belongs to, they might be multiple... */
+                _cleanup_free_ Unit **array = NULL;
+                int n_array = manager_get_units_for_pidref(m, &pidref, &array);
+                if (n_array < 0)
+                        log_warning_errno(n_array, "Failed to get units for process " PID_FMT ", ignoring: %m", si.si_pid);
+                else if (n_array == 0)
+                        log_debug("Got SIGCHLD for process " PID_FMT " we weren't interested in, ignoring.", si.si_pid);
+                else {
+                        /* We check for an OOM condition, in case we got SIGCHLD before the OOM notification.
+                         * We only do this for the cgroup the PID belonged to, which is the f */
+                        (void) unit_check_oom(array[0]);
 
                         /* We check if systemd-oomd performed a kill so that we log and notify appropriately */
-                        (void) unit_check_oomd_kill(u1);
+                        (void) unit_check_oomd_kill(array[0]);
 
-                        manager_invoke_sigchld_event(m, u1, &si);
+                        /* Finally, execute them all. Note that the array might contain duplicates, but that's fine,
+                         * manager_invoke_sigchld_event() will ensure we only invoke the handlers once for each
+                         * iteration. */
+                        FOREACH_ARRAY(u, array, n_array)
+                                manager_invoke_sigchld_event(m, *u, &si);
                 }
-                if (u2)
-                        manager_invoke_sigchld_event(m, u2, &si);
-                if (array_copy)
-                        for (size_t i = 0; array_copy[i]; i++)
-                                manager_invoke_sigchld_event(m, array_copy[i], &si);
+
         }
 
         /* And now, we actually reap the zombie. */
