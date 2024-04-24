@@ -3,6 +3,11 @@
 set -eux
 set -o pipefail
 
+if ! command -v importctl >/dev/null; then
+    echo importctl is not available to be chain-loaded from machinectl, skipping | tee /skipped >&2
+    exit 77
+fi
+
 export SYSTEMD_PAGER=cat
 
 dd if=/dev/urandom of=/var/tmp/testimage.raw bs=$((1024*1024+7)) count=5
