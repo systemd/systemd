@@ -2,6 +2,7 @@
 #pragma once
 
 #include "sd-bus.h"
+#include "sd-id128.h"
 
 #include "install.h"
 #include "pidref.h"
@@ -50,3 +51,5 @@ int unit_freezer_thaw(UnitFreezer *f);
 int unit_freezer_new_freeze(const char *name, UnitFreezer *ret);
 
 void unit_freezer_done_thaw(UnitFreezer *f);
+
+int unit_get_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret);

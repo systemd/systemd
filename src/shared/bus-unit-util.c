@@ -3032,3 +3032,37 @@ void unit_freezer_done_thaw(UnitFreezer *f) {
         (void) unit_freezer_thaw(f);
         unit_freezer_done(f);
 }
+
+int unit_get_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *our_bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free_ char *object = NULL;
+        int r;
+
+        assert(bus);
+        assert(ret);
+
+        if (unit) {
+                object = unit_dbus_path_from_name(unit);
+                if (!object)
+                        return log_oom();
+        }
+
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.systemd1",
+                                object ?: "/org/freedesktop/systemd1/unit/self",
+                                "org.freedesktop.systemd1.Unit",
+                                "InvocationID",
+                                &error,
+                                &reply,
+                                "ay");
+        if (r < 0)
+                return log_error_errno(r, "Failed to request invocation ID for unit: %s", bus_error_message(&error, r));
+
+        r = bus_message_read_id128(reply, ret);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return r; /* Return true when we get a non-null invocation ID. */
+}
