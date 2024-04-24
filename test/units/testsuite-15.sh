@@ -8,6 +8,7 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+# Needed to write units to /usr/lib/systemd/system to test /etc and /run overrides.
 maybe_mount_usr_overlay
 trap 'maybe_umount_usr_overlay' EXIT
 
