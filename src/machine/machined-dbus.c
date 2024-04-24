@@ -462,6 +462,10 @@ static int method_get_machine_addresses(sd_bus_message *message, void *userdata,
         return redirect_method_to_machine(message, userdata, error, bus_machine_method_get_addresses);
 }
 
+static int method_get_machine_ssh_info(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_get_ssh_info);
+}
+
 static int method_get_machine_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return redirect_method_to_machine(message, userdata, error, bus_machine_method_get_os_release);
 }
@@ -1066,6 +1070,11 @@ const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_ARGS("s", name),
                                 SD_BUS_RESULT("a(iay)", addresses),
                                 method_get_machine_addresses,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("GetMachineSSHInfo",
+                                SD_BUS_ARGS("s", name),
+                                SD_BUS_RESULT("s", ssh_address, "s", ssh_private_key_path),
+                                method_get_machine_ssh_info,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("GetMachineOSRelease",
                                 SD_BUS_ARGS("s", name),
