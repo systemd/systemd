@@ -6,6 +6,8 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+install_extension_images
+
 if [[ "$(sysctl -ne kernel.apparmor_restrict_unprivileged_userns)" -eq 1 ]]; then
     echo "Cannot create unprivileged user namespaces" >/skipped
     exit 77
@@ -115,7 +117,7 @@ if sysctl kernel.dmesg_restrict=0; then
         dmesg)
 fi
 
-unsquashfs -no-xattrs -d /tmp/img /usr/share/minimal_0.raw
+systemd-dissect --copy-from /usr/lib/systemd/tests/testdata/minimal_0.raw / /tmp/img
 runas testuser systemd-run --wait --user --unit=test-root-dir \
     -p RootDirectory=/tmp/img \
     grep MARKER=1 /etc/os-release

@@ -2574,6 +2574,23 @@ endif
 #####################################################################
 
 mkosi = find_program('mkosi', required : false)
+images = []
+extras = []
+
+if get_option('integration-tests')
+        if not mkosi.found()
+                error('Could not find mkosi which is required to build the integration test images')
+        endif
+
+        subdir('test/images')
+
+        foreach image : images
+                foreach output : image.to_list()
+                        extras += ['--extra-tree=@0@:@1@'.format(output.full_path(), testdata_dir)]
+                endforeach
+        endforeach
+endif
+
 if mkosi.found()
         custom_target('mkosi',
                 build_always_stale : true,
@@ -2587,12 +2604,12 @@ if mkosi.found()
                         '--cache-dir', meson.current_build_dir() / 'mkosi.cache',
                         '--build-dir', meson.current_build_dir() / 'mkosi.builddir',
                         '--force',
-                        'build'
-                ],
+                ] + extras,
                 depends : public_programs + [
                         executables_by_name['systemd-journal-remote'],
                         executables_by_name['systemd-measure'],
                         ukify,
+                        images,
                 ],
         )
 endif
