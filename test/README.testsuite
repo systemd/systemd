@@ -31,7 +31,7 @@ $ sudo make -C test/TEST-01-BASIC clean setup run
 To run the meson-based integration test config
 enable integration tests and options for required commands with the following:
 
-$ meson configure build -Dintegration-tests=true -Dremote=enabled -Dopenssl=enabled -Dblkid=enabled -Dtpm2=enabled
+$ meson configure build -Dremote=enabled -Dopenssl=enabled -Dblkid=enabled -Dtpm2=enabled
 
 Once enabled, first build the integration test image:
 
@@ -39,18 +39,18 @@ $ meson compile -C build mkosi
 
 After the image has been built, the integration tests can be run with:
 
-$ meson test -C build/ --suite integration-tests --num-processes "$(($(nproc) / 2))"
+$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build/ --suite integration-tests --num-processes "$(($(nproc) / 2))"
 
 As usual, specific tests can be run in meson by appending the name of the test
 which is usually the name of the directory e.g.
 
-$ meson test -C build/ -v TEST-01-BASIC
+$ SYSTEMD_INTEGRATION_TESTS=1 meson test -C build/ -v TEST-01-BASIC
 
 Due to limitations in meson, the integration tests do not yet depend on the mkosi target, which means the
 mkosi target has to be manually rebuilt before running the integration tests. To rebuild the image and rerun
 a test, the following command can be used:
 
-$ meson compile -C build mkosi && meson test -C build -v TEST-01-BASIC
+$ meson compile -C build mkosi && SYSTEMD_INTEGRATION_TESTS=1 meson test -C build -v TEST-01-BASIC
 
 See `meson introspect build --tests` for a list of tests.
 

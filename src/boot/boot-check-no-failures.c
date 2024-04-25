@@ -79,8 +79,7 @@ static int run(int argc, char *argv[]) {
         uint32_t n;
         int r;
 
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

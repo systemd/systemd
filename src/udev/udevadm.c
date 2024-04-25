@@ -123,7 +123,7 @@ static int run(int argc, char *argv[]) {
         if (invoked_as(argv, "udevd"))
                 return run_udevd(argc, argv);
 
-        udev_parse_config();
+        (void) udev_parse_config();
         log_setup();
 
         r = parse_argv(argc, argv);
