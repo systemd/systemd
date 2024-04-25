@@ -19,6 +19,14 @@ typedef struct JournalId{
         usec_t last_usec;
 } JournalId;
 
+typedef enum JournalIdType {
+        JOURNAL_BOOT_ID,
+        JOURNAL_SYSTEM_UNIT_INVOCATION_ID,
+        JOURNAL_USER_UNIT_INVOCATION_ID,
+        _JOURNAL_ID_TYPE_MAX,
+        _JOURNAL_ID_TYPE_INVALID = -EINVAL,
+} JournalIdType;
+
 int show_journal_entry(
                 FILE *f,
                 sd_journal *j,
@@ -73,9 +81,19 @@ void json_escape(
                 size_t l,
                 OutputFlags flags);
 
-int journal_find_boot(sd_journal *j, sd_id128_t boot_id, int offset, sd_id128_t *ret);
-int journal_get_boots(
+int journal_find_id(
                 sd_journal *j,
+                JournalIdType type,
+                sd_id128_t boot_id,
+                const char *unit,
+                sd_id128_t id,
+                int offset,
+                sd_id128_t *ret);
+int journal_get_ids(
+                sd_journal *j,
+                JournalIdType type,
+                sd_id128_t boot_id,
+                const char *unit,
                 bool advance_older,
                 size_t max_ids,
                 JournalId **ret_ids,
