@@ -18,6 +18,8 @@
 #include "architecture.h"
 #include "bootspec.h"
 #include "build.h"
+#include "bus-internal.h"
+#include "bus-locator.h"
 #include "chase.h"
 #include "common-signal.h"
 #include "copy.h"
@@ -58,6 +60,7 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -694,6 +697,53 @@ static int setup_notify_parent(sd_event *event, int fd, int *exit_status, sd_eve
 
         (void) sd_event_source_set_description(*ret_notify_event_source, "vmspawn-notify-sock");
 
+        return 0;
+}
+
+static int bus_open_in_machine(sd_bus **ret, unsigned cid, unsigned port, const char *private_key_path) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *ssh_escaped = NULL, *bus_address = NULL;
+        char port_str[DECIMAL_STR_MAX(unsigned)], cid_str[DECIMAL_STR_MAX(unsigned)];
+        int r;
+
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return r;
+
+        const char *ssh = secure_getenv("SYSTEMD_SSH") ?: "ssh";
+        ssh_escaped = bus_address_escape(ssh);
+        if (!ssh_escaped)
+                return -ENOMEM;
+
+        xsprintf(port_str, "%u", port);
+        xsprintf(cid_str, "%u", cid);
+
+        bus_address = strjoin(
+                "unixexec:path=", ssh_escaped,
+                /* -x: Disable X11 forwarding
+                 * -T: Disable PTY allocation */
+                ",argv1=-xT",
+                ",argv2=-o,argv3=IdentitiesOnly yes",
+                ",argv4=-o,argv5=IdentityFile=", private_key_path,
+                ",argv6=-p,argv7=", port_str,
+                ",argv8=--",
+                ",argv9=root@vsock/", cid_str,
+                ",argv10=systemd-stdio-bridge"
+        );
+        if (!bus_address)
+                return -ENOMEM;
+
+        free_and_replace(bus->address, bus_address);
+        bus->bus_client = true;
+        bus->trusted = true;
+        bus->runtime_scope = RUNTIME_SCOPE_SYSTEM;
+        bus->is_local = false;
+
+        r = sd_bus_start(bus);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(bus);
         return 0;
 }
 
