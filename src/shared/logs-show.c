@@ -1620,7 +1620,8 @@ int add_matches_for_unit(sd_journal *j, const char *unit) {
         return r;
 }
 
-int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
+int add_matches_for_user_unit(sd_journal *j, const char *unit) {
+        uid_t uid = getuid();
         int r;
 
         assert(j);
@@ -1708,7 +1709,6 @@ int show_journal_by_unit(
                 unsigned n_columns,
                 usec_t not_before,
                 unsigned how_many,
-                uid_t uid,
                 OutputFlags flags,
                 int journal_open_flags,
                 bool system_unit,
@@ -1734,7 +1734,7 @@ int show_journal_by_unit(
         if (system_unit)
                 r = add_matches_for_unit(j, unit);
         else
-                r = add_matches_for_user_unit(j, unit, uid);
+                r = add_matches_for_user_unit(j, unit);
         if (r < 0)
                 return log_error_errno(r, "Failed to add unit matches: %m");
 

@@ -208,7 +208,7 @@ static int add_units(sd_journal *j) {
                         if (r < 0)
                                 return r;
                 } else {
-                        r = add_matches_for_user_unit(j, u, getuid());
+                        r = add_matches_for_user_unit(j, u);
                         if (r < 0)
                                 return r;
                         r = sd_journal_add_disjunction(j);
@@ -227,7 +227,7 @@ static int add_units(sd_journal *j) {
                         return r;
 
                 SET_FOREACH(u, units) {
-                        r = add_matches_for_user_unit(j, u, getuid());
+                        r = add_matches_for_user_unit(j, u);
                         if (r < 0)
                                 return r;
                         r = sd_journal_add_disjunction(j);
