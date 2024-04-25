@@ -14,11 +14,11 @@
 #include "set.h"
 #include "time-util.h"
 
-typedef struct BootId {
+typedef struct JournalId{
         sd_id128_t id;
         usec_t first_usec;
         usec_t last_usec;
-} BootId;
+} JournalId;
 
 int show_journal_entry(
                 FILE *f,
@@ -76,5 +76,5 @@ int journal_get_boots(
                 sd_journal *j,
                 bool advance_older,
                 size_t max_ids,
-                BootId **ret_boots,
-                size_t *ret_n_boots);
+                JournalId **ret_ids,
+                size_t *ret_n_ids);
