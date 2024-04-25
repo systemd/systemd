@@ -11,6 +11,7 @@
 #include "sd-id128.h"
 #include "sd-journal.h"
 #include "sd-json.h"
+#include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -1589,34 +1590,63 @@ int show_journal(
         return 0;
 }
 
-int add_matches_for_unit(sd_journal *j, const char *unit) {
+int add_matches_for_invocation_id(sd_journal *j, sd_id128_t id) {
+        int r;
+
+        assert(j);
+        assert(!sd_id128_is_null(id));
+
+        (void) (
+                /* Look for messages from the service itself. */
+                (r = journal_add_match_pair(j, "_SYSTEMD_INVOCATION_ID", SD_ID128_TO_STRING(id))) ||
+
+                /* Look for messages from authorized daemons about this service. */
+                (r = sd_journal_add_disjunction(j)) ||
+                (r = journal_add_match_pair(j, "OBJECT_SYSTEMD_INVOCATION_ID", SD_ID128_TO_STRING(id))) ||
+
+                /* Look for messages from system service manager (PID 1) about this service. */
+                (r = sd_journal_add_disjunction(j)) ||
+                (r = journal_add_match_pair(j, "INVOCATION_ID", SD_ID128_TO_STRING(id))) ||
+
+                /* Look for messages from user-session service manager about this service. */
+                (r = sd_journal_add_disjunction(j)) ||
+                (r = journal_add_match_pair(j, "USER_INVOCATION_ID", SD_ID128_TO_STRING(id)))
+        );
+
+        return r;
+}
+
+int add_matches_for_unit_full(sd_journal *j, bool all, const char *unit) {
         int r;
 
         assert(j);
         assert(unit);
 
         (void) (
-            /* Look for messages from the service itself */
-            (r = journal_add_match_pair(j, "_SYSTEMD_UNIT", unit)) ||
+                /* Look for messages from the service itself */
+                (r = journal_add_match_pair(j, "_SYSTEMD_UNIT", unit)) ||
 
-            /* Look for coredumps of the service */
-            (r = sd_journal_add_disjunction(j)) ||
-            (r = sd_journal_add_match(j, "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1", SIZE_MAX)) ||
-            (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX)) ||
-            (r = journal_add_match_pair(j, "COREDUMP_UNIT", unit)) ||
+                /* Look for messages from PID 1 about this service */
+                (r = sd_journal_add_disjunction(j)) ||
+                (r = sd_journal_add_match(j, "_PID=1", SIZE_MAX)) ||
+                (r = journal_add_match_pair(j, "UNIT", unit)) ||
 
-             /* Look for messages from PID 1 about this service */
-            (r = sd_journal_add_disjunction(j)) ||
-            (r = sd_journal_add_match(j, "_PID=1", SIZE_MAX)) ||
-            (r = journal_add_match_pair(j, "UNIT", unit)) ||
-
-            /* Look for messages from authorized daemons about this service */
-            (r = sd_journal_add_disjunction(j)) ||
-            (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX)) ||
-            (r = journal_add_match_pair(j, "OBJECT_SYSTEMD_UNIT", unit))
+                /* Look for messages from authorized daemons about this service */
+                (r = sd_journal_add_disjunction(j)) ||
+                (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX)) ||
+                (r = journal_add_match_pair(j, "OBJECT_SYSTEMD_UNIT", unit))
         );
 
-        if (r == 0 && endswith(unit, ".slice"))
+        if (r == 0 && all)
+                (void) (
+                        /* Look for coredumps of the service */
+                        (r = sd_journal_add_disjunction(j)) ||
+                        (r = sd_journal_add_match(j, "MESSAGE_ID=" SD_MESSAGE_COREDUMP_STR, SIZE_MAX)) ||
+                        (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX)) ||
+                        (r = journal_add_match_pair(j, "COREDUMP_UNIT", unit))
+                );
+
+        if (r == 0 && all && endswith(unit, ".slice"))
                 /* Show all messages belonging to a slice */
                 (void) (
                         (r = sd_journal_add_disjunction(j)) ||
@@ -1626,7 +1656,7 @@ int add_matches_for_unit(sd_journal *j, const char *unit) {
         return r;
 }
 
-int add_matches_for_user_unit(sd_journal *j, const char *unit) {
+int add_matches_for_user_unit_full(sd_journal *j, bool all, const char *unit) {
         uid_t uid = getuid();
         int r;
 
@@ -1643,12 +1673,6 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit) {
                 (r = journal_add_match_pair(j, "USER_UNIT", unit)) ||
                 (r = journal_add_matchf(j, "_UID="UID_FMT, uid)) ||
 
-                /* Look for coredumps of the service */
-                (r = sd_journal_add_disjunction(j)) ||
-                (r = journal_add_match_pair(j, "COREDUMP_USER_UNIT", unit)) ||
-                (r = journal_add_matchf(j, "_UID="UID_FMT, uid)) ||
-                (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX)) ||
-
                 /* Look for messages from authorized daemons about this service */
                 (r = sd_journal_add_disjunction(j)) ||
                 (r = journal_add_match_pair(j, "OBJECT_SYSTEMD_USER_UNIT", unit)) ||
@@ -1656,7 +1680,17 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit) {
                 (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX))
         );
 
-        if (r == 0 && endswith(unit, ".slice"))
+        if (r == 0 && all)
+                (void) (
+                        /* Look for coredumps of the service */
+                        (r = sd_journal_add_disjunction(j)) ||
+                        (r = journal_add_match_pair(j, "COREDUMP_USER_UNIT", unit)) ||
+                        (r = journal_add_matchf(j, "_UID="UID_FMT, uid)) ||
+                        (r = sd_journal_add_match(j, "_UID=0", SIZE_MAX))
+                );
+
+
+        if (r == 0 && all && endswith(unit, ".slice"))
                 /* Show all messages belonging to a slice */
                 (void) (
                         (r = sd_journal_add_disjunction(j)) ||
