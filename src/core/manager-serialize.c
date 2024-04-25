@@ -148,6 +148,12 @@ int manager_serialize(
                         return r;
         }
 
+        if (m->handoff_timestamp_fds[0] >= 0) {
+                r = serialize_fd_many(f, fds, "handoff-timestamp-fds", m->handoff_timestamp_fds, 2);
+                if (r < 0)
+                        return r;
+        }
+
         (void) serialize_ratelimit(f, "dump-ratelimit", &m->dump_ratelimit);
         (void) serialize_ratelimit(f, "reload-reexec-ratelimit", &m->reload_reexec_ratelimit);
 

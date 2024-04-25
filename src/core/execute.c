@@ -1842,6 +1842,19 @@ void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int 
                 (void) utmp_put_dead_process(context->utmp_id, pid, code, status);
 }
 
+void exec_status_handoff(ExecStatus *s, const struct ucred *ucred, const dual_timestamp *ts) {
+        assert(s);
+        assert(ucred);
+        assert(ts);
+
+        if (ucred->pid != s->pid)
+                *s = (ExecStatus) {
+                        .pid = ucred->pid,
+                };
+
+        s->handoff_timestamp = *ts;
+}
+
 void exec_status_reset(ExecStatus *s) {
         assert(s);
 
@@ -1864,21 +1877,42 @@ void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix) {
         if (dual_timestamp_is_set(&s->start_timestamp))
                 fprintf(f,
                         "%sStart Timestamp: %s\n",
-                        prefix, FORMAT_TIMESTAMP(s->start_timestamp.realtime));
+                        prefix, FORMAT_TIMESTAMP_STYLE(s->start_timestamp.realtime, TIMESTAMP_US));
 
-        if (dual_timestamp_is_set(&s->handover_timestamp))
+        if (dual_timestamp_is_set(&s->handoff_timestamp) && dual_timestamp_is_set(&s->start_timestamp) &&
+            s->handoff_timestamp.monotonic > s->start_timestamp.monotonic)
                 fprintf(f,
-                        "%sHandover Timestamp: %s\n",
-                        prefix, FORMAT_TIMESTAMP(s->handover_timestamp.realtime));
+                        "%sHandoff Timestamp: %s since start\n",
+                        prefix,
+                        FORMAT_TIMESPAN(usec_sub_unsigned(s->handoff_timestamp.monotonic, s->start_timestamp.monotonic), 1));
+        else
+                fprintf(f,
+                        "%sHandoff Timestamp: %s\n",
+                        prefix, FORMAT_TIMESTAMP_STYLE(s->handoff_timestamp.realtime, TIMESTAMP_US));
 
-        if (dual_timestamp_is_set(&s->exit_timestamp))
+        if (dual_timestamp_is_set(&s->exit_timestamp)) {
+
+                if (dual_timestamp_is_set(&s->handoff_timestamp) && s->exit_timestamp.monotonic > s->handoff_timestamp.monotonic)
+                        fprintf(f,
+                                "%sExit Timestamp: %s since handoff\n",
+                                prefix,
+                                FORMAT_TIMESPAN(usec_sub_unsigned(s->exit_timestamp.monotonic, s->handoff_timestamp.monotonic), 1));
+                else if (dual_timestamp_is_set(&s->start_timestamp) && s->exit_timestamp.monotonic > s->start_timestamp.monotonic)
+                        fprintf(f,
+                                "%sExit Timestamp: %s since start\n",
+                                prefix,
+                                FORMAT_TIMESPAN(usec_sub_unsigned(s->exit_timestamp.monotonic, s->start_timestamp.monotonic), 1));
+                else
+                        fprintf(f,
+                                "%sExit Timestamp: %s\n",
+                                prefix, FORMAT_TIMESTAMP_STYLE(s->exit_timestamp.realtime, TIMESTAMP_US));
+
                 fprintf(f,
-                        "%sExit Timestamp: %s\n"
                         "%sExit Code: %s\n"
                         "%sExit Status: %i\n",
-                        prefix, FORMAT_TIMESTAMP(s->exit_timestamp.realtime),
                         prefix, sigchld_code_to_string(s->code),
                         prefix, s->status);
+        }
 }
 
 void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
