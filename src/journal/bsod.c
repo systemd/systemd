@@ -305,8 +305,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_free_ char *message = NULL;
         int r;
 
-        log_open();
-        log_parse_environment();
+        log_setup();
 
         sigbus_install();
 
