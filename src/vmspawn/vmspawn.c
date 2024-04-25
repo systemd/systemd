@@ -18,6 +18,8 @@
 #include "architecture.h"
 #include "bootspec.h"
 #include "build.h"
+#include "bus-internal.h"
+#include "bus-locator.h"
 #include "chase.h"
 #include "common-signal.h"
 #include "copy.h"
@@ -58,6 +60,7 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -70,6 +73,12 @@
 #include "vmspawn-util.h"
 
 #define VM_TAP_HASH_KEY SD_ID128_MAKE(01,d0,c6,4c,2b,df,24,fb,c0,f8,b2,09,7d,59,b2,93)
+
+typedef struct SSHInfo {
+        unsigned cid;
+        char *private_key_path;
+        unsigned port;
+} SSHInfo;
 
 static bool arg_quiet = false;
 static PagerFlags arg_pager_flags = 0;
@@ -697,11 +706,56 @@ static int setup_notify_parent(sd_event *event, int fd, int *exit_status, sd_eve
         return 0;
 }
 
+static int bus_open_in_machine(sd_bus **ret, unsigned cid, unsigned port, const char *private_key_path) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *ssh_escaped = NULL, *bus_address = NULL;
+        char port_str[DECIMAL_STR_MAX(unsigned)], cid_str[DECIMAL_STR_MAX(unsigned)];
+        int r;
+
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return r;
+
+        const char *ssh = secure_getenv("SYSTEMD_SSH") ?: "ssh";
+        ssh_escaped = bus_address_escape(ssh);
+        if (!ssh_escaped)
+                return -ENOMEM;
+
+        xsprintf(port_str, "%u", port);
+        xsprintf(cid_str, "%u", cid);
+
+        bus_address = strjoin(
+                "unixexec:path=", ssh_escaped,
+                ",argv1=-xT",
+                ",argv2=-o,argv3=IdentitiesOnly yes",
+                ",argv4=-o,argv5=IdentityFile=", private_key_path,
+                ",argv6=-p,argv7=", port_str,
+                ",argv8=--",
+                ",argv9=root@vsock/", cid_str,
+                ",argv10=systemd-stdio-bridge"
+        );
+        if (!bus_address)
+                return -ENOMEM;
+
+        free_and_replace(bus->address, bus_address);
+        bus->bus_client = true;
+        bus->trusted = true;
+        bus->runtime_scope = RUNTIME_SCOPE_SYSTEM;
+        bus->is_local = false;
+
+        r = sd_bus_start(bus);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(bus);
+        return 0;
+}
+
 static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         PidRef *pidref = userdata;
         int r;
 
-        /* TODO: actually talk to qemu and ask the guest to shutdown here */
+        /* Backup method to shutdown the VM when D-BUS access over SSH is not available */
 
         if (pidref) {
                 r = pidref_kill(pidref, SIGKILL);
@@ -715,6 +769,56 @@ static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo
         }
 
         sd_event_exit(sd_event_source_get_event(s), 0);
+        return 0;
+}
+
+static int request_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        SSHInfo *ssh_info = ASSERT_PTR(userdata);
+        int r;
+
+        r = bus_open_in_machine(&bus, ssh_info->cid, ssh_info->port, ssh_info->private_key_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to VM to request reboot: %m");
+
+        r = bus_call_method(
+                        bus,
+                        bus_systemd_mgr,
+                        "PowerOff",
+                        &error,
+                        NULL,
+                        "");
+        if (r < 0)
+                return log_error_errno(r, "Failed to reboot machine: %s", bus_error_message(&error, r));
+
+        log_info("Reboot requested in VM");
+
+        return 0;
+}
+
+static int request_reboot(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        SSHInfo *ssh_info = ASSERT_PTR(userdata);
+        int r;
+
+        r = bus_open_in_machine(&bus, ssh_info->cid, ssh_info->port, ssh_info->private_key_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to VM to request reboot: %m");
+
+        r = bus_call_method(
+                        bus,
+                        bus_systemd_mgr,
+                        "Reboot",
+                        &error,
+                        NULL,
+                        "");
+        if (r < 0)
+                return log_error_errno(r, "Failed to reboot machine: %s", bus_error_message(&error, r));
+
+        log_info("Reboot requested in VM");
+
         return 0;
 }
 
@@ -1207,6 +1311,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_close_ int notify_sock_fd = -EBADF;
         _cleanup_strv_free_ char **cmdline = NULL;
         _cleanup_free_ int *pass_fds = NULL;
+        SSHInfo ssh_info;
         size_t n_pass_fds = 0;
         const char *accel, *shm;
         int r;
@@ -1221,12 +1326,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = start_transient_scope(bus, arg_machine, /* allow_pidfd= */ true, &trans_scope);
         if (r < 0)
                 return r;
-
-        if (arg_register) {
-                r = register_machine(bus, arg_machine, arg_uuid, trans_scope, arg_directory);
-                if (r < 0)
-                        return r;
-        }
 
         bool use_kvm = arg_kvm > 0;
         if (arg_kvm < 0) {
@@ -1867,6 +1966,17 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = unit_name_to_prefix(trans_scope, &scope_prefix);
                 if (r < 0)
                         return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
+
+                /* on distros that provide their own sshd@.service file we need to provide a dropin which
+                 * picks up our public key credential */
+                r = machine_credential_set(&arg_credentials,
+                                "systemd.unit-dropin.sshd-vsock@.service:"
+                                "[Service]\n"
+                                "ExecStart=\n"
+                                "ExecStart=/usr/sbin/sshd -i -o 'AuthorizedKeysFile=${CREDENTIALS_DIRECTORY}/ssh.ephemeral-authorized_keys-all .ssh/authorized_keys'\n"
+                                "ImportCredential=ssh.ephemeral-authorized_keys-all\n");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set credential systemd.unit-dropin.sshd-vsock@.service: %m");
         }
 
         if (ARCHITECTURE_SUPPORTS_SMBIOS)
@@ -1919,6 +2029,17 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_debug("Executing: %s", joined);
         }
 
+        if (arg_register) {
+                _cleanup_free_ char *vm_address = NULL;
+
+                if (child_cid != VMADDR_CID_ANY && asprintf(&vm_address, "vsock/%u", child_cid) < 0)
+                        return log_oom();
+
+                r = register_machine(arg_machine, arg_uuid, trans_scope, arg_directory, child_cid, vm_address, ssh_private_key_path);
+                if (r < 0)
+                        return r;
+        }
+
         assert_se(sigprocmask_many(SIG_BLOCK, /* old_sigset=*/ NULL, SIGCHLD, SIGWINCH) >= 0);
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
@@ -1962,9 +2083,21 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to setup event loop to handle VSOCK notify events: %m");
         }
 
-        /* shutdown qemu when we are shutdown */
-        (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, &child_pidref);
-        (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, &child_pidref);
+        /* handle signals from machined accordingly */
+        if (child_cid != VMADDR_CID_ANY && ssh_private_key_path) {
+                ssh_info = (SSHInfo) {
+                        .cid = child_cid,
+                        .private_key_path = ssh_private_key_path,
+                        .port = 22,
+                };
+
+                (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, request_reboot, &ssh_info);
+                (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, request_shutdown, &ssh_info);
+        } else {
+                /* if we don't know the SSH information fallback to signalling qemu */
+                (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, &child_pidref);
+                (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, &child_pidref);
+        }
 
         (void) sd_event_add_signal(event, NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
 
