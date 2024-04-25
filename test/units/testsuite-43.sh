@@ -6,6 +6,8 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+install_extension_images
+
 if [[ "$(sysctl -ne kernel.apparmor_restrict_unprivileged_userns)" -eq 1 ]]; then
     echo "Cannot create unprivileged user namespaces" >/skipped
     exit 77
@@ -130,7 +132,7 @@ umount /tmp/img_bind
 # Unprivileged overlayfs was added to Linux 5.11, so try to detect it first
 mkdir -p /tmp/a /tmp/b /tmp/c
 if unshare --mount --user --map-root-user mount -t overlay overlay /tmp/c -o lowerdir=/tmp/a:/tmp/b; then
-    unsquashfs -no-xattrs -d /tmp/app2 /usr/share/app1.raw
+    unsquashfs -no-xattrs -d /tmp/app2 /tmp/app1.raw
     runas testuser systemd-run --wait --user --unit=test-extension-dir \
         -p ExtensionDirectories=/tmp/app2 \
         -p TemporaryFileSystem=/run -p RootDirectory=/tmp/img \
