@@ -1815,7 +1815,7 @@ static int discover_next_boot(
                         goto try_again;
                 }
 
-                r = sd_journal_get_realtime_usec(j, &id.first_usec);
+                r = sd_journal_get_realtime_usec(j, advance_older ? &id.last_usec : &id.first_usec);
                 if (r < 0)
                         return r;
 
@@ -1837,7 +1837,7 @@ static int discover_next_boot(
                         goto try_again;
                 }
 
-                r = sd_journal_get_realtime_usec(j, &id.last_usec);
+                r = sd_journal_get_realtime_usec(j, advance_older ? &id.first_usec : &id.last_usec);
                 if (r < 0)
                         return r;
 
