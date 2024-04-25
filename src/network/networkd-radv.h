@@ -50,18 +50,18 @@ typedef struct RoutePrefix {
         usec_t lifetime;
 } RoutePrefix;
 
-typedef struct pref64Prefix {
+typedef struct Prefix64 {
         Network *network;
         ConfigSection *section;
 
         struct in6_addr prefix;
         uint8_t prefixlen;
         usec_t lifetime;
-} pref64Prefix;
+} Prefix64;
 
-Prefix *prefix_free(Prefix *prefix);
-RoutePrefix *route_prefix_free(RoutePrefix *prefix);
-pref64Prefix *pref64_prefix_free(pref64Prefix *prefix);
+Prefix* prefix_free(Prefix *prefix);
+RoutePrefix* route_prefix_free(RoutePrefix *prefix);
+Prefix64* prefix64_free(Prefix64 *prefix);
 
 void network_adjust_radv(Network *network);
 
