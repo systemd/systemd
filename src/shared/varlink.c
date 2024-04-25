@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
@@ -520,7 +521,18 @@ int varlink_connect_exec(Varlink **ret, const char *_command, char **_argv) {
         return 0;
 }
 
-static int varlink_connect_ssh(Varlink **ret, const char *where) {
+static int ssh_path(const char **ret) {
+        assert(ret);
+
+        const char *ssh = secure_getenv("SYSTEMD_SSH") ?: "ssh";
+        if (!path_is_valid(ssh))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "SSH path is not valid, refusing: %s", ssh);
+
+        *ret = ssh;
+        return 0;
+}
+
+static int varlink_connect_ssh_unix(Varlink **ret, const char *where) {
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         int r;
@@ -531,9 +543,10 @@ static int varlink_connect_ssh(Varlink **ret, const char *where) {
         /* Connects to an SSH server via OpenSSH 9.4's -W switch to connect to a remote AF_UNIX socket. For
          * now we do not expose this function directly, but only via varlink_connect_url(). */
 
-        const char *ssh = secure_getenv("SYSTEMD_SSH") ?: "ssh";
-        if (!path_is_valid(ssh))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "SSH path is not valid, refusing: %s", ssh);
+        const char *ssh;
+        r = ssh_path(&ssh);
+        if (r < 0)
+                return r;
 
         const char *e = strchr(where, ':');
         if (!e)
@@ -596,13 +609,107 @@ static int varlink_connect_ssh(Varlink **ret, const char *where) {
         return 0;
 }
 
+static int varlink_connect_ssh_exec(Varlink **ret, const char *where) {
+        _cleanup_close_pair_ int input_pipe[2] = EBADF_PAIR, output_pipe[2] = EBADF_PAIR;
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        int r;
+
+        assert_return(ret, -EINVAL);
+        assert_return(where, -EINVAL);
+
+        /* Connects to an SSH server to connect to a remote process' stdin/stdout. For now we do not expose
+         * this function directly, but only via varlink_connect_url(). */
+
+        const char *ssh;
+        r = ssh_path(&ssh);
+        if (r < 0)
+                return r;
+
+        const char *e = strchr(where, ':');
+        if (!e)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "SSH specification lacks a : separator between host and path, refusing: %s", where);
+
+        _cleanup_free_ char *h = strndup(where, e - where);
+        if (!h)
+                return log_oom_debug();
+
+        _cleanup_strv_free_ char **cmdline = NULL;
+        r = strv_split_full(&cmdline, e + 1, /* serparators= */ NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to split command line: %m");
+        if (strv_isempty(cmdline))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Remote command line is empty, refusing.");
+
+        _cleanup_strv_free_ char **full_cmdline = NULL;
+        full_cmdline = strv_new("ssh", "-e", "none", "-T", h, "env", "SYSTEMD_VARLINK_LISTEN=-");
+        if (!full_cmdline)
+                return log_oom_debug();
+        r = strv_extend_strv(&full_cmdline, cmdline, /* filter_duplicates= */ false);
+        if (r < 0)
+                return log_oom_debug();
+
+        _cleanup_free_ char *j = NULL;
+        j = quote_command_line(full_cmdline, SHELL_ESCAPE_EMPTY);
+        if (!j)
+                return log_oom_debug();
+
+        log_debug("Forking off SSH child process: %s", j);
+
+        if (pipe2(input_pipe, O_CLOEXEC) < 0)
+                return log_debug_errno(errno, "Failed to allocate input pipe: %m");
+        if (pipe2(output_pipe, O_CLOEXEC) < 0)
+                return log_debug_errno(errno, "Failed to allocate output pipe: %m");
+
+        r = safe_fork_full(
+                        "(sd-vlssh)",
+                        /* stdio_fds= */ (int[]) { input_pipe[0], output_pipe[1], STDERR_FILENO },
+                        /* except_fds= */ NULL,
+                        /* n_except_fds= */ 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
+                        &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to spawn process: %m");
+        if (r == 0) {
+                /* Child */
+                execvp(ssh, full_cmdline);
+                log_debug_errno(errno, "Failed to invoke %s: %m", j);
+                _exit(EXIT_FAILURE);
+        }
+
+        input_pipe[0] = safe_close(input_pipe[0]);
+        output_pipe[1] = safe_close(output_pipe[1]);
+
+        r = fd_nonblock(input_pipe[1], true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to make input pipe non-blocking: %m");
+
+        r = fd_nonblock(output_pipe[0], true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to make output pipe non-blocking: %m");
+
+        Varlink *v;
+        r = varlink_new(&v);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create varlink object: %m");
+
+        v->input_fd = TAKE_FD(output_pipe[0]);
+        v->output_fd = TAKE_FD(input_pipe[1]);
+        v->af = AF_UNSPEC;
+        v->exec_pid = TAKE_PID(pid);
+        varlink_set_state(v, VARLINK_IDLE_CLIENT);
+
+        *ret = v;
+        return 0;
+}
+
 int varlink_connect_url(Varlink **ret, const char *url) {
         _cleanup_free_ char *c = NULL;
         const char *p;
         enum {
                 SCHEME_UNIX,
                 SCHEME_EXEC,
-                SCHEME_SSH,
+                SCHEME_SSH_UNIX,
+                SCHEME_SSH_EXEC,
         } scheme;
         int r;
 
@@ -620,8 +727,10 @@ int varlink_connect_url(Varlink **ret, const char *url) {
                 scheme = SCHEME_UNIX;
         else if ((p = startswith(url, "exec:")))
                 scheme = SCHEME_EXEC;
-        else if ((p = startswith(url, "ssh:")))
-                scheme = SCHEME_SSH;
+        else if ((p = STARTSWITH_SET(url, "ssh:", "ssh-unix:")))
+                scheme = SCHEME_SSH_UNIX;
+        else if ((p = startswith(url, "ssh-exec:")))
+                scheme = SCHEME_SSH_EXEC;
         else
                 return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL scheme not supported.");
 
@@ -630,8 +739,10 @@ int varlink_connect_url(Varlink **ret, const char *url) {
         if (p[strcspn(p, ";?#")] != '\0')
                 return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL parameterization with ';', '?', '#' not supported.");
 
-        if (scheme == SCHEME_SSH)
-                return varlink_connect_ssh(ret, p);
+        if (scheme == SCHEME_SSH_UNIX)
+                return varlink_connect_ssh_unix(ret, p);
+        if (scheme == SCHEME_SSH_EXEC)
+                return varlink_connect_ssh_exec(ret, p);
 
         if (scheme == SCHEME_EXEC || p[0] != '@') { /* no path validity checks for abstract namespace sockets */
 
