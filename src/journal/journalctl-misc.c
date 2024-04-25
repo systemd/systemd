@@ -115,7 +115,8 @@ int action_list_boots(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine boots: %m");
         if (r == 0)
-                return 0;
+                return log_full_errno(arg_quiet ? LOG_DEBUG : LOG_ERR, SYNTHETIC_ERRNO(ENODATA),
+                                      "No boot ID found.");
 
         table = table_new("idx", "boot id", "first entry", "last entry");
         if (!table)
