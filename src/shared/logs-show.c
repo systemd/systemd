@@ -1918,6 +1918,8 @@ int journal_find_boot_by_offset(sd_journal *j, int offset, sd_id128_t *ret) {
         assert(j);
         assert(ret);
 
+        sd_journal_flush_matches(j);
+
         /* Adjust for the asymmetry that offset 0 is the last (and current) boot, while 1 is considered the
          * (chronological) first boot in the journal. */
         advance_older = offset <= 0;
@@ -1966,6 +1968,8 @@ int journal_get_boots(sd_journal *j, JournalId **ret_ids, size_t *ret_n_ids) {
         assert(j);
         assert(ret_ids);
         assert(ret_n_ids);
+
+        sd_journal_flush_matches(j);
 
         r = sd_journal_seek_head(j); /* seek to oldest */
         if (r < 0)
