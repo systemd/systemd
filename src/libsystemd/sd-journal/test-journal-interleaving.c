@@ -470,6 +470,7 @@ static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
         assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
         assert_se(journal_get_ids(j, JOURNAL_BOOT_ID,
                                   /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
+                                  /* advance_older = */ false, /* max_ids = */ SIZE_MAX,
                                   &ids, &n_ids) >= 0);
         assert_se(ids);
         assert_se(n_ids == n_ids_expected);

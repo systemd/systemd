@@ -94,5 +94,7 @@ int journal_get_ids(
                 JournalIdType type,
                 sd_id128_t boot_id,
                 const char *unit,
+                bool advance_older,
+                size_t max_ids,
                 JournalId **ret_ids,
                 size_t *ret_n_ids);

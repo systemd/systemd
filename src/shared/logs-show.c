@@ -2135,6 +2135,8 @@ int journal_get_ids(
                 JournalIdType type,
                 sd_id128_t boot_id,
                 const char *unit,
+                bool advance_older,
+                size_t max_ids,
                 JournalId **ret_ids,
                 size_t *ret_n_ids) {
 
@@ -2150,7 +2152,10 @@ int journal_get_ids(
 
         sd_journal_flush_matches(j);
 
-        r = sd_journal_seek_head(j); /* seek to oldest */
+        if (advance_older)
+                r = sd_journal_seek_tail(j); /* seek to newest */
+        else
+                r = sd_journal_seek_head(j); /* seek to oldest */
         if (r < 0)
                 return r;
 
@@ -2163,7 +2168,10 @@ int journal_get_ids(
         for (;;) {
                 JournalId id;
 
-                r = discover_next_id(j, type, boot_id, unit, previous_id, /* advance_older = */ false, &id);
+                if (n_ids >= max_ids)
+                        break;
+
+                r = discover_next_id(j, type, boot_id, unit, previous_id, advance_older, &id);
                 if (r < 0)
                         return r;
                 if (r == 0)

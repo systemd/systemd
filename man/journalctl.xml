@@ -851,10 +851,16 @@
       <varlistentry>
         <term><option>--list-boots</option></term>
 
-        <listitem><para>Show a tabular list of boot numbers (relative to the current boot), their IDs, and
-        the timestamps of the first and last message pertaining to the boot.</para>
+        <listitem>
+          <para>Show a tabular list of boot numbers (relative to the current boot), their IDs, and the
+          timestamps of the first and last message pertaining to the boot. When
+          <option>-n/--lines=<optional>+</optional><replaceable>N</replaceable></option> is specified, only
+          the first (when the number prefixed with <literal>+</literal>) or the last (without prefix)
+          <replaceable>N</replaceable> entries are shown. When <option>-r/--reverse</option> is specified,
+          the list is shown in the reverse order.</para>
 
-        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v209"/>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -865,7 +871,10 @@
           <option>--user-unit=</option>. Show a tabular list of invocation numbers (relative to the current
           or latest invocation), their IDs, and the timestamps of the first and last message pertaining to
           the invocation. When <option>-b/-boot</option> is specified, invocations in the boot will be shown.
-          </para>
+          When <option>-n/--lines=<optional>+</optional><replaceable>N</replaceable></option> is specified,
+          only the first (when the number prefixed with <literal>+</literal>) or the last (without prefix)
+          <replaceable>N</replaceable> entries are shown. When <option>-r/--reverse</option> is specified,
+          the list is shown in the reverse order.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
