@@ -468,8 +468,9 @@ static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
         setup();
 
         assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
-        assert_se(journal_get_boots(
-                                j,
+        assert_se(journal_get_ids(
+                                j, JOURNAL_BOOT_ID,
+                                /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
                                 /* advance_older = */ false, /* max_ids = */ SIZE_MAX,
                                 &ids, &n_ids) >= 0);
         assert_se(ids);
@@ -479,18 +480,18 @@ static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
                 sd_id128_t id;
 
                 /* positive offset */
-                assert_se(journal_find_boot(j, SD_ID128_NULL, (int) (i + 1), &id) == 1);
+                assert_se(journal_find_id(j, JOURNAL_BOOT_ID, SD_ID128_NULL, NULL, SD_ID128_NULL, (int) (i + 1), &id) == 1);
                 assert_se(sd_id128_equal(id, ids[i].id));
 
                 /* negative offset */
-                assert_se(journal_find_boot(j, SD_ID128_NULL, (int) (i + 1) - (int) n_ids, &id) == 1);
+                assert_se(journal_find_id(j, JOURNAL_BOOT_ID, SD_ID128_NULL, NULL, SD_ID128_NULL, (int) (i + 1) - (int) n_ids, &id) == 1);
                 assert_se(sd_id128_equal(id, ids[i].id));
 
                 for (size_t k = 0; k < n_ids; k++) {
                         int offset = (int) k - (int) i;
 
                         /* relative offset */
-                        assert_se(journal_find_boot(j, ids[i].id, offset, &id) == 1);
+                        assert_se(journal_find_id(j, JOURNAL_BOOT_ID, SD_ID128_NULL, NULL, ids[i].id, offset, &id) == 1);
                         assert_se(sd_id128_equal(id, ids[k].id));
                 }
         }
@@ -499,8 +500,9 @@ static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
                 _cleanup_free_ JournalId *ids_limited = NULL;
                 size_t n_ids_limited;
 
-                assert_se(journal_get_boots(
-                                        j,
+                assert_se(journal_get_ids(
+                                        j, JOURNAL_BOOT_ID,
+                                        /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
                                         /* advance_older = */ false, /* max_ids = */ i,
                                         &ids_limited, &n_ids_limited) >= 0);
                 assert_se(ids_limited || i == 0);
@@ -512,8 +514,9 @@ static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
                 _cleanup_free_ JournalId *ids_limited = NULL;
                 size_t n_ids_limited;
 
-                assert_se(journal_get_boots(
-                                        j,
+                assert_se(journal_get_ids(
+                                        j, JOURNAL_BOOT_ID,
+                                        /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
                                         /* advance_older = */ true, /* max_ids = */ i,
                                         &ids_limited, &n_ids_limited) >= 0);
                 assert_se(ids_limited || i == 0);
