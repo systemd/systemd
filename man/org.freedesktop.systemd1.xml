@@ -3333,6 +3333,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MountAPIVFS = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b BindJournalSockets = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KeyringMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectProc = '...';
@@ -3931,6 +3933,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property TemporaryFileSystem is not documented!-->
 
     <!--property MountAPIVFS is not documented!-->
+
+    <!--property BindJournalSockets is not documented!-->
 
     <!--property KeyringMode is not documented!-->
 
@@ -4641,6 +4645,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="TemporaryFileSystem"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MountAPIVFS"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BindJournalSockets"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KeyringMode"/>
 
@@ -5468,6 +5474,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MountAPIVFS = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b BindJournalSockets = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KeyringMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectProc = '...';
@@ -6078,6 +6086,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property TemporaryFileSystem is not documented!-->
 
     <!--property MountAPIVFS is not documented!-->
+
+    <!--property BindJournalSockets is not documented!-->
 
     <!--property KeyringMode is not documented!-->
 
@@ -6762,6 +6772,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="TemporaryFileSystem"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MountAPIVFS"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BindJournalSockets"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KeyringMode"/>
 
@@ -7453,6 +7465,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MountAPIVFS = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b BindJournalSockets = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KeyringMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectProc = '...';
@@ -7989,6 +8003,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property TemporaryFileSystem is not documented!-->
 
     <!--property MountAPIVFS is not documented!-->
+
+    <!--property BindJournalSockets is not documented!-->
 
     <!--property KeyringMode is not documented!-->
 
@@ -8585,6 +8601,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="TemporaryFileSystem"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MountAPIVFS"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BindJournalSockets"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KeyringMode"/>
 
@@ -9399,6 +9417,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b MountAPIVFS = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b BindJournalSockets = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KeyringMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s ProtectProc = '...';
@@ -9921,6 +9941,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property TemporaryFileSystem is not documented!-->
 
     <!--property MountAPIVFS is not documented!-->
+
+    <!--property BindJournalSockets is not documented!-->
 
     <!--property KeyringMode is not documented!-->
 
@@ -10503,6 +10525,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="TemporaryFileSystem"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MountAPIVFS"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BindJournalSockets"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KeyringMode"/>
 
@@ -12149,8 +12173,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>StatusBusError</varname>,
       <varname>StatusVarlinkError</varname>,
       <varname>LiveMountResult</varname>,
-      <varname>PrivateTmpEx</varname>, and
-      <varname>ImportCredentialEx</varname> were added in version 257.</para>
+      <varname>PrivateTmpEx</varname>,
+      <varname>ImportCredentialEx</varname>, and
+      <varname>BindJournalSockets</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12187,8 +12212,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveTasksMax</varname>,
       <varname>MemoryZSwapWriteback</varname>, and
       <varname>PassFileDescriptorsToExec</varname> were added in version 256.</para>
-      <para><varname>PrivateTmpEx</varname>, and
-      <varname>ImportCredentialEx</varname> were added in version 257.</para>
+      <para><varname>PrivateTmpEx</varname>,
+      <varname>ImportCredentialEx</varname>, and
+      <varname>BindJournalSockets</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12222,8 +12248,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
-      <para><varname>PrivateTmpEx</varname>, and
-      <varname>ImportCredentialEx</varname> were added in version 257.</para>
+      <para><varname>PrivateTmpEx</varname>,
+      <varname>ImportCredentialEx</varname>, and
+      <varname>BindJournalSockets</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12257,8 +12284,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>EffectiveMemoryMax</varname>,
       <varname>EffectiveTasksMax</varname>, and
       <varname>MemoryZSwapWriteback</varname> were added in version 256.</para>
-      <para><varname>PrivateTmpEx</varname>, and
-      <varname>ImportCredentialEx</varname> were added in version 257.</para>
+      <para><varname>PrivateTmpEx</varname>,
+      <varname>ImportCredentialEx</varname>, and
+      <varname>BindJournalSockets</varname> were added in version 257.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
