@@ -7157,6 +7157,24 @@ DC6000-DC6FFF     (base 16)		R&K
 				Cinisello Balsamo    20092
 				IT
 
+8C-1F-64   (hex)		Eskomar Ltd. 
+D2D000-D2DFFF     (base 16)		Eskomar Ltd. 
+				Maslak Mah. Taşyoncasi Sk. Maslak 1453 C7 Blok NO: 1 J İÇ KAPI NO: 45 Sariyer
+				Istanbul    34398
+				TR
+
+8C-1F-64   (hex)		Glasson Electronics Ltd
+C7D000-C7DFFF     (base 16)		Glasson Electronics Ltd
+				Glasson Electronics Ltd, Brock HouseNateby Technology Park
+				Garstang    PR3 0LU
+				GB
+
+8C-1F-64   (hex)		Benetel
+D11000-D11FFF     (base 16)		Benetel
+				Guinness Enterprise Centre, Taylors Lane
+				Dublin  Dublin  D08 C902
+				IE
+
 8C-1F-64   (hex)		SAKURA SEIKI Co., Ltd.
 580000-580FFF     (base 16)		SAKURA SEIKI Co., Ltd.
 				75-5 Imojiya
@@ -7168,6 +7186,12 @@ DC6000-DC6FFF     (base 16)		R&K
 				Irrseeblick 47
 				Zell am Moos    4893
 				AT
+
+8C-1F-64   (hex)		Abbott Diagnostics Technologies AS
+4F1000-4F1FFF     (base 16)		Abbott Diagnostics Technologies AS
+				P. O.  Box 6863 Rodeløkka
+				Oslo  Oslo  0504
+				NO
 
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
@@ -14324,6 +14348,12 @@ DBF000-DBFFFF     (base 16)		Rugged Controls
 				Seattle  WA  98199
 				US
 
+8C-1F-64   (hex)		secutech Co.,Ltd.
+A06000-A06FFF     (base 16)		secutech Co.,Ltd.
+				2nd Floor, 2013, Jungang-daero, Geumjeong-gu, Busan, Korea
+				Busan City,     46224
+				KR
+
 8C-1F-64   (hex)		Agrology, PBC
 A92000-A92FFF     (base 16)		Agrology, PBC
 				4700 Eisenhower Ave
@@ -14335,12 +14365,6 @@ A92000-A92FFF     (base 16)		Agrology, PBC
 				Dittesstr. 15
 				Chemnitz    09126
 				DE
-
-8C-1F-64   (hex)		secutech Co.,Ltd.
-A06000-A06FFF     (base 16)		secutech Co.,Ltd.
-				2nd Floor, 2013, Jungang-daero, Geumjeong-gu, Busan, Korea
-				Busan City,     46224
-				KR
 
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
@@ -21421,6 +21445,12 @@ AA0000-AA0FFF     (base 16)		Flextronics International Kft
 				No.68 building, 1850 ChangYiYuan, FangCun Road, LiWang District
 				GuangZhou  GuangDong  510370
 				CN
+
+8C-1F-64   (hex)		Bavaria Digital Technik GmbH
+17B000-17BFFF     (base 16)		Bavaria Digital Technik GmbH
+				Rehbichler Weg 26
+				Pfronten  Bayern  87459
+				DE
 
 8C-1F-64   (hex)		Sicon srl
 116000-116FFF     (base 16)		Sicon srl
@@ -28586,6 +28616,12 @@ D70000-D70FFF     (base 16)		Beyond Laser Systems LLC
 				Austin  TX  78702
 				US
 
+8C-1F-64   (hex)		Vaunix Technology Corporation
+B4F000-B4FFFF     (base 16)		Vaunix Technology Corporation
+				7 New Pasture Rd
+				Newburyport  MA  01950
+				US
+
 8C-1F-64   (hex)		Oriux
 3BD000-3BDFFF     (base 16)		Oriux
 				5825 N. Sam Houston Pkwy WSuite 220 Houston TX 77086 United S
@@ -35640,6 +35676,12 @@ BEF000-BEFFFF     (base 16)		Triumph SEC
 8AB000-8ABFFF     (base 16)		ASML US, LP
 				17082 Thornmint Ct
 				San Diego  CA  92127
+				US
+
+8C-1F-64   (hex)		American Energy Storage Innovations
+75C000-75CFFF     (base 16)		American Energy Storage Innovations
+				2 Cabot Rd.
+				Hudson  MA  01749
 				US
 
 8C-1F-64   (hex)		Panascais ehf.
