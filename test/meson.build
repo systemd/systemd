@@ -338,6 +338,9 @@ integration_test_wrapper = find_program('integration-test-wrapper.py')
 integration_tests = {
         '01': 'TEST-01-BASIC',
         '02': 'TEST-02-UNITTESTS',
+        '29': 'TEST-29-PORTABLE',
+        '43': 'TEST-43-PRIVATEUSER-UNPRIV',
+        '50': 'TEST-50-DISSECT',
 }
 foreach test_number, dirname : integration_tests
         test_params = {
