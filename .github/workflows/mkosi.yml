@@ -194,6 +194,7 @@ jobs:
         path: |
           build/test/journal/*.journal
           build/meson-logs/*
+        retention-days: 7
 
     - name: Archive packages
       uses: actions/upload-artifact@v4
