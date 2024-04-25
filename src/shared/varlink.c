@@ -2871,7 +2871,7 @@ int varlink_get_peer_pidref(Varlink *v, PidRef *ret) {
          * authentication. */
 
         r = varlink_acquire_pidfd(v);
-        if (r < 0)
+        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return r;
 
         if (v->peer_pidfd < 0) {
