@@ -188,16 +188,17 @@ jobs:
 
     - name: Archive failed test journals
       uses: actions/upload-artifact@v4
-      if: failure()
+      if: failure() && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
       with:
         name: ci-mkosi-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.distro }}-${{ matrix.release }}-failed-test-journals
         path: |
           build/test/journal/*.journal
           build/meson-logs/*
+        retention-days: 7
 
     - name: Archive packages
       uses: actions/upload-artifact@v4
-      if: success() || failure()
+      if: (success() || failure()) && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
       with:
         name: ci-mkosi-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.distro }}-${{ matrix.release }}-packages
         path: |
