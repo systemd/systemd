@@ -167,7 +167,8 @@ static inline bool ERRNO_IS_NEG_NOT_SUPPORTED(intmax_t r) {
                       -EAFNOSUPPORT,
                       -EPFNOSUPPORT,
                       -EPROTONOSUPPORT,
-                      -ESOCKTNOSUPPORT);
+                      -ESOCKTNOSUPPORT,
+                      -ENOPROTOOPT);
 }
 _DEFINE_ABS_WRAPPER(NOT_SUPPORTED);
 
