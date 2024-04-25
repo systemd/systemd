@@ -3804,12 +3804,17 @@ int varlink_server_listen_auto(VarlinkServer *s) {
                 n++;
         }
 
-        /* For debug purposes let's listen on an explicitly specified address */
+        /* Let's listen on an explicitly specified address */
         const char *e = secure_getenv("SYSTEMD_VARLINK_LISTEN");
         if (e) {
-                r = varlink_server_listen_address(s, e, FLAGS_SET(s->flags, VARLINK_SERVER_ROOT_ONLY) ? 0600 : 0666);
+                if (streq(e, "-"))
+                        r = varlink_server_add_connection_stdio(s, /* ret= */ NULL);
+                else
+                        r = varlink_server_listen_address(s, e, FLAGS_SET(s->flags, VARLINK_SERVER_ROOT_ONLY) ? 0600 : 0666);
                 if (r < 0)
                         return r;
+
+                n++;
         }
 
         return n;
@@ -4259,7 +4264,7 @@ int varlink_invocation(VarlinkInvocationFlags flags) {
 
         /* Returns true if this is a "pure" varlink server invocation, i.e. with one fd passed. */
 
-        const char *e = secure_getenv("SYSTEMD_VARLINK_LISTEN"); /* Permit a manual override for testing purposes */
+        const char *e = secure_getenv("SYSTEMD_VARLINK_LISTEN"); /* Permit an explicit override */
         if (e)
                 return true;
 
