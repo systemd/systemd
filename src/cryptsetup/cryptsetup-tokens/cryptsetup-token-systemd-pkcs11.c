@@ -33,7 +33,7 @@ _public_ int cryptsetup_token_open_pin(
         const char *json;
         int r;
 
-        assert(!pin || pin_size);
+        assert(pin || pin_size == 0);
         assert(token >= 0);
 
         /* This must not fail at this moment (internal error) */
