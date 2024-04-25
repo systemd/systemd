@@ -858,6 +858,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--list-invocations</option></term>
+
+        <listitem>
+          <para>List invocation IDs of the specified unit with <option>-u/--unit=</option> or
+          <option>--user-unit=</option>. Show a tabular list of invocation numbers (relative to the current
+          or latest invocation), their IDs, and the timestamps of the first and last message pertaining to
+          the invocation. When <option>-b/-boot</option> is specified, invocations in the boot will be shown.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--disk-usage</option></term>
 
         <listitem><para>Shows the current disk usage of all journal files. This shows the sum of the disk

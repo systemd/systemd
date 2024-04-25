@@ -116,3 +116,32 @@ int journal_acquire_boot(sd_journal *j) {
 
         return 1;
 }
+
+int acquire_unit(const char *option_name, const char **ret_unit, JournalIdType *ret_type) {
+        size_t n;
+
+        assert(option_name);
+        assert(ret_unit);
+        assert(ret_type);
+
+        n = strv_length(arg_system_units) + strv_length(arg_user_units);
+        if (n <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Using %s requires a unit. Please specify a unit name with -u/--unit=/--user-unit=.",
+                                       option_name);
+        if (n > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Using %s with multiple units is not supported.",
+                                       option_name);
+
+        if (!strv_isempty(arg_system_units)) {
+                *ret_type = JOURNAL_SYSTEM_UNIT_INVOCATION_ID;
+                *ret_unit = arg_system_units[0];
+        } else {
+                assert(!strv_isempty(arg_user_units));
+                *ret_type = JOURNAL_USER_UNIT_INVOCATION_ID;
+                *ret_unit = arg_user_units[0];
+        }
+
+        return 0;
+}

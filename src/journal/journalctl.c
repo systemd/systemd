@@ -265,6 +265,7 @@ static int help(void) {
                "  -N --fields                List all field names currently used\n"
                "  -F --field=FIELD           List all values that a specified field takes\n"
                "     --list-boots            Show terse information about recorded boots\n"
+               "     --list-invocations      Show invocation IDs of specified unit\n"
                "     --list-namespaces       Show list of journal namespaces\n"
                "     --disk-usage            Show total disk usage of all journal files\n"
                "     --vacuum-size=BYTES     Reduce disk usage below specified size\n"
@@ -302,6 +303,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NEW_ID128,
                 ARG_THIS_BOOT,
                 ARG_LIST_BOOTS,
+                ARG_LIST_INVOCATIONS,
                 ARG_USER,
                 ARG_SYSTEM,
                 ARG_ROOT,
@@ -359,6 +361,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "this-boot",            no_argument,       NULL, ARG_THIS_BOOT            }, /* deprecated */
                 { "boot",                 optional_argument, NULL, 'b'                      },
                 { "list-boots",           no_argument,       NULL, ARG_LIST_BOOTS           },
+                { "list-invocations",     no_argument,       NULL, ARG_LIST_INVOCATIONS     },
                 { "dmesg",                no_argument,       NULL, 'k'                      },
                 { "system",               no_argument,       NULL, ARG_SYSTEM               },
                 { "user",                 no_argument,       NULL, ARG_USER                 },
@@ -539,6 +542,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_LIST_BOOTS:
                         arg_action = ACTION_LIST_BOOTS;
+                        break;
+
+                case ARG_LIST_INVOCATIONS:
+                        arg_action = ACTION_LIST_INVOCATIONS;
                         break;
 
                 case 'k':
@@ -1074,6 +1081,9 @@ static int run(int argc, char *argv[]) {
 
         case ACTION_LIST_FIELD_NAMES:
                 return action_list_field_names();
+
+        case ACTION_LIST_INVOCATIONS:
+                return action_list_invocations();
 
         case ACTION_LIST_NAMESPACES:
                 return action_list_namespaces();

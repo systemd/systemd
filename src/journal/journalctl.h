@@ -26,6 +26,7 @@ typedef enum JournalctlAction {
         ACTION_LIST_BOOTS,
         ACTION_LIST_FIELDS,
         ACTION_LIST_FIELD_NAMES,
+        ACTION_LIST_INVOCATIONS,
         ACTION_LIST_NAMESPACES,
         ACTION_FLUSH,
         ACTION_RELINQUISH_VAR,
