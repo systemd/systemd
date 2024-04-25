@@ -49,8 +49,7 @@ int add_matches_for_unit(
 
 int add_matches_for_user_unit(
                 sd_journal *j,
-                const char *unit,
-                uid_t uid);
+                const char *unit);
 
 int show_journal_by_unit(
                 FILE *f,
@@ -60,7 +59,6 @@ int show_journal_by_unit(
                 unsigned n_columns,
                 usec_t not_before,
                 unsigned how_many,
-                uid_t uid,
                 OutputFlags flags,
                 int journal_open_flags,
                 bool system_unit,
