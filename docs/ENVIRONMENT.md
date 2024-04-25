@@ -686,7 +686,8 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 * `$SYSTEMD_VARLINK_LISTEN` – interpreted by some tools that provide a Varlink
   service. Takes a file system path: if specified the tool will listen on an
   `AF_UNIX` stream socket on the specified path in addition to whatever else it
-  would listen on.
+  would listen on. If set to "-" the tool will turn stdin/stdout into a Varlink
+  connection.
 
 `systemd-mountfsd`:
 
