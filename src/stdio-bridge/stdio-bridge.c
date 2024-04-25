@@ -105,9 +105,7 @@ static int run(int argc, char *argv[]) {
         bool is_unix;
         int r, in_fd, out_fd;
 
-        log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
