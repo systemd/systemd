@@ -16,6 +16,23 @@
 #include "path-util.h"
 #include "unit-name.h"
 
+static int add_invocation(sd_journal *j) {
+        int r;
+
+        assert(j);
+
+        if (!arg_invocation)
+                return 0;
+
+        assert(!sd_id128_is_null(arg_invocation_id));
+
+        r = add_matches_for_invocation_id(j, arg_invocation_id);
+        if (r < 0)
+                return r;
+
+        return sd_journal_add_conjunction(j);
+}
+
 static int add_boot(sd_journal *j) {
         int r;
 
@@ -429,8 +446,12 @@ int add_filters(sd_journal *j, char **matches) {
 
         assert(j);
 
-        /* First, search boot ID, as that may set and flush matches and seek journal. */
+        /* First, search boot or invocation ID, as that may set and flush matches and seek journal. */
         r = journal_acquire_boot(j);
+        if (r < 0)
+                return r;
+
+        r = journal_acquire_invocation(j);
         if (r < 0)
                 return r;
 
@@ -438,17 +459,24 @@ int add_filters(sd_journal *j, char **matches) {
         sd_journal_flush_matches(j);
 
         /* Then, add filters in the below. */
-        r = add_boot(j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add filter for boot: %m");
+        if (arg_invocation) {
+                /* If an invocation ID is found, then it is not necessary to add matches for boot and units. */
+                r = add_invocation(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add filter for invocation: %m");
+        } else {
+                r = add_boot(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add filter for boot: %m");
+
+                r = add_units(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add filter for units: %m");
+        }
 
         r = add_dmesg(j);
         if (r < 0)
                 return log_error_errno(r, "Failed to add filter for dmesg: %m");
-
-        r = add_units(j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add filter for units: %m");
 
         r = add_syslog_identifier(j);
         if (r < 0)
