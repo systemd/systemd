@@ -193,6 +193,7 @@ jobs:
         name: ci-mkosi-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.distro }}-${{ matrix.release }}-failed-test-journals
         path: |
           build/test/journal/*.journal
+          build/meson-logs/*
 
     - name: Archive packages
       uses: actions/upload-artifact@v4
