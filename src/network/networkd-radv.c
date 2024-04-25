@@ -35,7 +35,7 @@ bool link_radv_enabled(Link *link) {
         return link->network->router_prefix_delegation;
 }
 
-Prefix *prefix_free(Prefix *prefix) {
+Prefix* prefix_free(Prefix *prefix) {
         if (!prefix)
                 return NULL;
 
@@ -93,7 +93,7 @@ static int prefix_new_static(Network *network, const char *filename, unsigned se
         return 0;
 }
 
-RoutePrefix *route_prefix_free(RoutePrefix *prefix) {
+RoutePrefix* route_prefix_free(RoutePrefix *prefix) {
         if (!prefix)
                 return NULL;
 
@@ -148,7 +148,7 @@ static int route_prefix_new_static(Network *network, const char *filename, unsig
         return 0;
 }
 
-pref64Prefix *pref64_prefix_free(pref64Prefix *prefix) {
+Prefix64* prefix64_free(Prefix64 *prefix) {
         if (!prefix)
                 return NULL;
 
@@ -162,11 +162,11 @@ pref64Prefix *pref64_prefix_free(pref64Prefix *prefix) {
         return mfree(prefix);
 }
 
-DEFINE_SECTION_CLEANUP_FUNCTIONS(pref64Prefix, pref64_prefix_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(Prefix64, prefix64_free);
 
-static int pref64_prefix_new_static(Network *network, const char *filename, unsigned section_line, pref64Prefix **ret) {
+static int prefix64_new_static(Network *network, const char *filename, unsigned section_line, Prefix64 **ret) {
         _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(pref64_prefix_freep) pref64Prefix *prefix = NULL;
+        _cleanup_(prefix64_freep) Prefix64 *prefix = NULL;
         int r;
 
         assert(network);
@@ -184,11 +184,11 @@ static int pref64_prefix_new_static(Network *network, const char *filename, unsi
                 return 0;
         }
 
-        prefix = new(pref64Prefix, 1);
+        prefix = new(Prefix64, 1);
         if (!prefix)
                 return -ENOMEM;
 
-        *prefix = (pref64Prefix) {
+        *prefix = (Prefix64) {
                 .network = network,
                 .section = TAKE_PTR(n),
 
@@ -331,7 +331,7 @@ static int radv_set_route_prefix(Link *link, RoutePrefix *prefix) {
         return sd_radv_add_route_prefix(link->radv, p);
 }
 
-static int radv_set_pref64_prefix(Link *link, pref64Prefix *prefix) {
+static int radv_set_pref64_prefix(Link *link, Prefix64 *prefix) {
         _cleanup_(sd_radv_pref64_prefix_unrefp) sd_radv_pref64_prefix *p = NULL;
         int r;
 
@@ -496,9 +496,6 @@ static int radv_find_uplink(Link *link, Link **ret) {
 
 static int radv_configure(Link *link) {
         Link *uplink = NULL;
-        RoutePrefix *q;
-        pref64Prefix *n;
-        Prefix *p;
         int r;
 
         assert(link);
@@ -553,18 +550,21 @@ static int radv_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        Prefix *p;
         HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
                 r = radv_set_prefix(link, p);
                 if (r < 0 && r != -EEXIST)
                         return r;
         }
 
+        RoutePrefix *q;
         HASHMAP_FOREACH(q, link->network->route_prefixes_by_section) {
                 r = radv_set_route_prefix(link, q);
                 if (r < 0 && r != -EEXIST)
                         return r;
         }
 
+        Prefix64 *n;
         HASHMAP_FOREACH(n, link->network->pref64_prefixes_by_section) {
                 r = radv_set_pref64_prefix(link, n);
                 if (r < 0 && r != -EEXIST)
@@ -855,7 +855,7 @@ void network_adjust_radv(Network *network) {
         if (!FLAGS_SET(network->router_prefix_delegation, RADV_PREFIX_DELEGATION_STATIC)) {
                 network->prefixes_by_section = hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
                 network->route_prefixes_by_section = hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
-                network->pref64_prefixes_by_section = hashmap_free_with_destructor(network->pref64_prefixes_by_section, pref64_prefix_free);
+                network->pref64_prefixes_by_section = hashmap_free_with_destructor(network->pref64_prefixes_by_section, prefix64_free);
         }
 
         if (!network->router_prefix_delegation)
@@ -883,10 +883,10 @@ void network_adjust_radv(Network *network) {
                 if (route_prefix_section_verify(route) < 0)
                         route_prefix_free(route);
 
-        pref64Prefix *pref64;
+        Prefix64 *pref64;
         HASHMAP_FOREACH(pref64, network->pref64_prefixes_by_section)
                  if (section_is_invalid(pref64->section))
-                         pref64_prefix_free(pref64);
+                         prefix64_free(pref64);
 }
 
 int config_parse_prefix(
@@ -1190,7 +1190,7 @@ int config_parse_pref64_prefix(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(pref64_prefix_free_or_set_invalidp) pref64Prefix *p = NULL;
+        _cleanup_(prefix64_free_or_set_invalidp) Prefix64 *p = NULL;
         Network *network = ASSERT_PTR(userdata);
         union in_addr_union a;
         uint8_t prefixlen;
@@ -1201,7 +1201,7 @@ int config_parse_pref64_prefix(
         assert(lvalue);
         assert(rvalue);
 
-        r = pref64_prefix_new_static(network, filename, section_line, &p);
+        r = prefix64_new_static(network, filename, section_line, &p);
         if (r < 0)
                 return log_oom();
 
@@ -1238,7 +1238,7 @@ int config_parse_pref64_prefix_lifetime(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(pref64_prefix_free_or_set_invalidp) pref64Prefix *p = NULL;
+        _cleanup_(prefix64_free_or_set_invalidp) Prefix64 *p = NULL;
         Network *network = ASSERT_PTR(userdata);
         usec_t usec;
         int r;
@@ -1248,7 +1248,7 @@ int config_parse_pref64_prefix_lifetime(
         assert(lvalue);
         assert(rvalue);
 
-        r = pref64_prefix_new_static(network, filename, section_line, &p);
+        r = prefix64_new_static(network, filename, section_line, &p);
         if (r < 0)
                 return log_oom();
 
