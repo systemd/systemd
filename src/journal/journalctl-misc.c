@@ -162,8 +162,9 @@ int action_list_boots(void) {
         if (r < 0)
                 return r;
 
-        r = journal_get_boots(
-                        j,
+        r = journal_get_ids(
+                        j, JOURNAL_BOOT_ID,
+                        /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
                         /* advance_older = */ arg_lines_needs_seek_end(),
                         /* max_ids = */ arg_lines >= 0 ? (size_t) arg_lines : SIZE_MAX,
                         &ids, &n_ids);
