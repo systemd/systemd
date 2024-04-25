@@ -72,6 +72,9 @@ char **arg_syslog_identifier = NULL;
 char **arg_exclude_identifier = NULL;
 char **arg_system_units = NULL;
 char **arg_user_units = NULL;
+bool arg_invocation = false;
+sd_id128_t arg_invocation_id = SD_ID128_NULL;
+int arg_invocation_offset = 0;
 const char *arg_field = NULL;
 bool arg_catalog = false;
 bool arg_reverse = false;
@@ -227,6 +230,8 @@ static int help(void) {
                "  -b --boot[=ID]             Show current boot or the specified boot\n"
                "  -u --unit=UNIT             Show logs from the specified unit\n"
                "     --user-unit=UNIT        Show logs from the specified user unit\n"
+               "     --invocation=ID         Show logs from the matching invocation ID\n"
+               "  -I                         Show logs from the latest invocation of unit\n"
                "  -t --identifier=STRING     Show entries with the specified syslog identifier\n"
                "  -T --exclude-identifier=STRING\n"
                "                             Hide entries with the specified syslog identifier\n"
@@ -267,6 +272,7 @@ static int help(void) {
                "  -N --fields                List all field names currently used\n"
                "  -F --field=FIELD           List all values that a specified field takes\n"
                "     --list-boots            Show terse information about recorded boots\n"
+               "     --list-invocations      Show invocation IDs of specified unit\n"
                "     --list-namespaces       Show list of journal namespaces\n"
                "     --disk-usage            Show total disk usage of all journal files\n"
                "     --vacuum-size=BYTES     Reduce disk usage below specified size\n"
@@ -304,6 +310,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NEW_ID128,
                 ARG_THIS_BOOT,
                 ARG_LIST_BOOTS,
+                ARG_LIST_INVOCATIONS,
                 ARG_USER,
                 ARG_SYSTEM,
                 ARG_ROOT,
@@ -320,6 +327,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CURSOR_FILE,
                 ARG_SHOW_CURSOR,
                 ARG_USER_UNIT,
+                ARG_INVOCATION,
                 ARG_LIST_CATALOG,
                 ARG_DUMP_CATALOG,
                 ARG_UPDATE_CATALOG,
@@ -361,6 +369,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "this-boot",            no_argument,       NULL, ARG_THIS_BOOT            }, /* deprecated */
                 { "boot",                 optional_argument, NULL, 'b'                      },
                 { "list-boots",           no_argument,       NULL, ARG_LIST_BOOTS           },
+                { "list-invocations",     no_argument,       NULL, ARG_LIST_INVOCATIONS     },
                 { "dmesg",                no_argument,       NULL, 'k'                      },
                 { "system",               no_argument,       NULL, ARG_SYSTEM               },
                 { "user",                 no_argument,       NULL, ARG_USER                 },
@@ -389,6 +398,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "until",                required_argument, NULL, 'U'                      },
                 { "unit",                 required_argument, NULL, 'u'                      },
                 { "user-unit",            required_argument, NULL, ARG_USER_UNIT            },
+                { "invocation",           required_argument, NULL, ARG_INVOCATION           },
                 { "field",                required_argument, NULL, 'F'                      },
                 { "fields",               no_argument,       NULL, 'N'                      },
                 { "catalog",              no_argument,       NULL, 'x'                      },
@@ -418,7 +428,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:T:u:NF:xrM:i:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:T:u:INF:xrM:i:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -538,6 +548,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_LIST_BOOTS:
                         arg_action = ACTION_LIST_BOOTS;
+                        break;
+
+                case ARG_LIST_INVOCATIONS:
+                        arg_action = ACTION_LIST_INVOCATIONS;
                         break;
 
                 case 'k':
@@ -831,6 +845,20 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
                         break;
 
+                case ARG_INVOCATION:
+                        r = parse_id_descriptor(optarg, &arg_invocation_id, &arg_invocation_offset);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse invocation descriptor: %s", optarg);
+                        arg_invocation = r;
+                        break;
+
+                case 'I':
+                        /* Equivalent to --invocation=0 */
+                        arg_invocation = true;
+                        arg_invocation_id = SD_ID128_NULL;
+                        arg_invocation_offset = 0;
+                        break;
+
                 case 'F':
                         arg_action = ACTION_LIST_FIELDS;
                         arg_field = optarg;
@@ -1073,6 +1101,9 @@ static int run(int argc, char *argv[]) {
 
         case ACTION_LIST_FIELD_NAMES:
                 return action_list_field_names();
+
+        case ACTION_LIST_INVOCATIONS:
+                return action_list_invocations();
 
         case ACTION_LIST_NAMESPACES:
                 return action_list_namespaces();
