@@ -148,7 +148,7 @@ TEST(rearrange_stdio) {
                 assert_se(rearrange_stdio(-EBADF, -EBADF, -EBADF) >= 0);
                 /* Reconfigure logging after rearranging stdout/stderr, so we still log to somewhere if the
                  * following tests fail, making it slightly less annoying to debug */
-                log_set_target(LOG_TARGET_KMSG);
+                log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
                 log_open();
 
                 assert_se(fd_get_path(STDIN_FILENO, &path) >= 0);
