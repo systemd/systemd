@@ -504,6 +504,7 @@ void exec_context_init(ExecContext *c) {
                 .tty_rows = UINT_MAX,
                 .tty_cols = UINT_MAX,
                 .private_mounts = -1,
+                .mount_apivfs = -1,
                 .bind_journal_sockets = -1,
                 .memory_ksm = -1,
                 .set_login_environment = -1,
@@ -1443,8 +1444,8 @@ bool exec_context_get_effective_mount_apivfs(const ExecContext *c) {
         assert(c);
 
         /* Explicit setting wins */
-        if (c->mount_apivfs_set)
-                return c->mount_apivfs;
+        if (c->mount_apivfs >= 0)
+                return c->mount_apivfs > 0;
 
         /* Default to "yes" if root directory or image are specified */
         if (exec_context_with_rootfs(c))
