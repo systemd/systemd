@@ -98,31 +98,15 @@ int action_disk_usage(void) {
         return 0;
 }
 
-int action_list_boots(void) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+static int show_log_ids(const LogId *ids, size_t n_ids, const char *name) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_free_ LogId *ids = NULL;
-        size_t n_ids;
         int r;
 
-        assert(arg_action == ACTION_LIST_BOOTS);
+        assert(ids);
+        assert(n_ids > 0);
+        assert(name);
 
-        r = acquire_journal(&j);
-        if (r < 0)
-                return r;
-
-        r = journal_get_boots(
-                        j,
-                        /* advance_older = */ arg_lines_needs_seek_end(),
-                        /* max_ids = */ arg_lines >= 0 ? (size_t) arg_lines : SIZE_MAX,
-                        &ids, &n_ids);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine boots: %m");
-        if (r == 0)
-                return log_full_errno(arg_quiet ? LOG_DEBUG : LOG_ERR, SYNTHETIC_ERRNO(ENODATA),
-                                      "No boot found.");
-
-        table = table_new("idx", "boot id", "first entry", "last entry");
+        table = table_new("idx", name, "first entry", "last entry");
         if (!table)
                 return log_oom();
 
@@ -164,6 +148,32 @@ int action_list_boots(void) {
                 return table_log_print_error(r);
 
         return 0;
+}
+
+int action_list_boots(void) {
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_free_ LogId *ids = NULL;
+        size_t n_ids;
+        int r;
+
+        assert(arg_action == ACTION_LIST_BOOTS);
+
+        r = acquire_journal(&j);
+        if (r < 0)
+                return r;
+
+        r = journal_get_boots(
+                        j,
+                        /* advance_older = */ arg_lines_needs_seek_end(),
+                        /* max_ids = */ arg_lines >= 0 ? (size_t) arg_lines : SIZE_MAX,
+                        &ids, &n_ids);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine boots: %m");
+        if (r == 0)
+                return log_full_errno(arg_quiet ? LOG_DEBUG : LOG_ERR, SYNTHETIC_ERRNO(ENODATA),
+                                      "No boot found.");
+
+        return show_log_ids(ids, n_ids, "boot id");
 }
 
 int action_list_fields(void) {
