@@ -614,7 +614,6 @@ int sd_radv_set_home_agent_lifetime(sd_radv *ra, uint64_t lifetime_usec) {
 
 int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         sd_radv_prefix *found = NULL;
-        int r;
 
         assert_return(ra, -EINVAL);
         assert_return(p, -EINVAL);
@@ -626,11 +625,8 @@ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         const char *addr_p = IN6_ADDR_PREFIX_TO_STRING(&p->opt.in6_addr, p->opt.prefixlen);
 
         LIST_FOREACH(prefix, cur, ra->prefixes) {
-                r = in6_addr_prefix_intersect(&cur->opt.in6_addr, cur->opt.prefixlen,
-                                              &p->opt.in6_addr, p->opt.prefixlen);
-                if (r < 0)
-                        return r;
-                if (r == 0)
+                if (!in6_addr_prefix_intersect(&cur->opt.in6_addr, cur->opt.prefixlen,
+                                               &p->opt.in6_addr, p->opt.prefixlen))
                         continue; /* no intersection */
 
                 if (cur->opt.prefixlen == p->opt.prefixlen) {
