@@ -13,11 +13,11 @@
 #include "output-mode.h"
 #include "time-util.h"
 
-typedef struct BootId {
+typedef struct JournalId{
         sd_id128_t id;
         usec_t first_usec;
         usec_t last_usec;
-} BootId;
+} JournalId;
 
 int show_journal_entry(
                 FILE *f,
@@ -72,4 +72,4 @@ void json_escape(
 
 int journal_find_boot_by_id(sd_journal *j, sd_id128_t boot_id);
 int journal_find_boot_by_offset(sd_journal *j, int offset, sd_id128_t *ret);
-int journal_get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots);
+int journal_get_boots(sd_journal *j, JournalId **ret_ids, size_t *ret_n_ids);

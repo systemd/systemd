@@ -457,37 +457,37 @@ TEST(skip) {
         test_skip_one(setup_interleaved);
 }
 
-static void test_boot_id_one(void (*setup)(void), size_t n_boots_expected) {
+static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
         char t[] = "/var/tmp/journal-boot-id-XXXXXX";
         sd_journal *j;
-        _cleanup_free_ BootId *boots = NULL;
-        size_t n_boots;
+        _cleanup_free_ JournalId *ids = NULL;
+        size_t n_ids;
 
         mkdtemp_chdir_chattr(t);
 
         setup();
 
         assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
-        assert_se(journal_get_boots(j, &boots, &n_boots) >= 0);
-        assert_se(boots);
-        assert_se(n_boots == n_boots_expected);
+        assert_se(journal_get_boots(j, &ids, &n_ids) >= 0);
+        assert_se(ids);
+        assert_se(n_ids == n_ids_expected);
         sd_journal_close(j);
 
-        FOREACH_ARRAY(b, boots, n_boots) {
+        FOREACH_ARRAY(b, ids, n_ids) {
                 assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
                 assert_se(journal_find_boot_by_id(j, b->id) == 1);
                 sd_journal_close(j);
         }
 
-        for (int i = - (int) n_boots + 1; i <= (int) n_boots; i++) {
+        for (int i = - (int) n_ids + 1; i <= (int) n_ids; i++) {
                 sd_id128_t id;
 
                 assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
                 assert_se(journal_find_boot_by_offset(j, i, &id) == 1);
                 if (i <= 0)
-                        assert_se(sd_id128_equal(id, boots[n_boots + i - 1].id));
+                        assert_se(sd_id128_equal(id, ids[n_ids + i - 1].id));
                 else
-                        assert_se(sd_id128_equal(id, boots[i - 1].id));
+                        assert_se(sd_id128_equal(id, ids[i - 1].id));
                 sd_journal_close(j);
         }
 

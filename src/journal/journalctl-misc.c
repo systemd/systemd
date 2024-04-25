@@ -101,8 +101,8 @@ int action_disk_usage(void) {
 int action_list_boots(void) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_free_ BootId *boots = NULL;
-        size_t n_boots;
+        _cleanup_free_ JournalId *ids = NULL;
+        size_t n_ids;
         int r;
 
         assert(arg_action == ACTION_LIST_BOOTS);
@@ -111,7 +111,7 @@ int action_list_boots(void) {
         if (r < 0)
                 return r;
 
-        r = journal_get_boots(j, &boots, &n_boots);
+        r = journal_get_boots(j, &ids, &n_ids);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine boots: %m");
         if (r == 0)
@@ -131,9 +131,9 @@ int action_list_boots(void) {
         (void) table_set_sort(table, (size_t) 0);
         (void) table_set_reverse(table, 0, arg_reverse);
 
-        FOREACH_ARRAY(i, boots, n_boots) {
+        FOREACH_ARRAY(i, ids, n_ids) {
                 r = table_add_many(table,
-                                   TABLE_INT, (int)(i - boots) - (int) n_boots + 1,
+                                   TABLE_INT, (int) (i - ids) - (int) n_ids + 1,
                                    TABLE_SET_ALIGN_PERCENT, 100,
                                    TABLE_ID128, i->id,
                                    TABLE_TIMESTAMP, i->first_usec,

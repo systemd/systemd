@@ -1736,9 +1736,9 @@ int show_journal_by_unit(
 
 static int discover_next_boot(
                 sd_journal *j,
-                sd_id128_t previous_boot_id,
+                sd_id128_t previous_id,
                 bool advance_older,
-                BootId *ret) {
+                JournalId *ret) {
 
         _cleanup_set_free_ Set *broken_ids = NULL;
         int r;
@@ -1759,17 +1759,17 @@ static int discover_next_boot(
 
         for (;;) {
                 sd_id128_t *id_dup;
-                BootId boot;
+                JournalId id;
 
                 r = sd_journal_step_one(j, !advance_older);
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        *ret = (BootId) {};
+                        *ret = (JournalId) {};
                         return 0; /* End of journal, yay. */
                 }
 
-                r = sd_journal_get_monotonic_usec(j, NULL, &boot.id);
+                r = sd_journal_get_monotonic_usec(j, NULL, &id.id);
                 if (r < 0)
                         return r;
 
@@ -1781,16 +1781,16 @@ static int discover_next_boot(
                  * speed things up, but let's not trust that it is complete, and hence, manually advance as
                  * necessary. */
 
-                if (!sd_id128_is_null(previous_boot_id) && sd_id128_equal(boot.id, previous_boot_id))
+                if (!sd_id128_is_null(previous_id) && sd_id128_equal(id.id, previous_id))
                         continue;
 
-                if (set_contains(broken_ids, &boot.id))
+                if (set_contains(broken_ids, &id.id))
                         continue;
 
                 /* Yay, we found a new boot ID from the entry object. Let's check there exist corresponding
                  * entries matching with the _BOOT_ID= data. */
 
-                r = add_match_boot_id(j, boot.id);
+                r = add_match_boot_id(j, id.id);
                 if (r < 0)
                         return r;
 
@@ -1811,11 +1811,11 @@ static int discover_next_boot(
                 if (r == 0) {
                         log_debug("Whoopsie! We found a boot ID %s but can't read its first entry. "
                                   "The journal seems to be corrupted. Ignoring the boot ID.",
-                                  SD_ID128_TO_STRING(boot.id));
+                                  SD_ID128_TO_STRING(id.id));
                         goto try_again;
                 }
 
-                r = sd_journal_get_realtime_usec(j, &boot.first_usec);
+                r = sd_journal_get_realtime_usec(j, &id.first_usec);
                 if (r < 0)
                         return r;
 
@@ -1833,21 +1833,21 @@ static int discover_next_boot(
                 if (r == 0) {
                         log_debug("Whoopsie! We found a boot ID %s but can't read its last entry. "
                                   "The journal seems to be corrupted. Ignoring the boot ID.",
-                                  SD_ID128_TO_STRING(boot.id));
+                                  SD_ID128_TO_STRING(id.id));
                         goto try_again;
                 }
 
-                r = sd_journal_get_realtime_usec(j, &boot.last_usec);
+                r = sd_journal_get_realtime_usec(j, &id.last_usec);
                 if (r < 0)
                         return r;
 
                 sd_journal_flush_matches(j);
-                *ret = boot;
+                *ret = id;
                 return 1;
 
         try_again:
                 /* Save the bad boot ID. */
-                id_dup = newdup(sd_id128_t, &boot.id, 1);
+                id_dup = newdup(sd_id128_t, &id.id, 1);
                 if (!id_dup)
                         return -ENOMEM;
 
@@ -1858,8 +1858,8 @@ static int discover_next_boot(
                 /* Move to the previous position again. */
                 sd_journal_flush_matches(j);
 
-                if (!sd_id128_is_null(previous_boot_id)) {
-                        r = add_match_boot_id(j, previous_boot_id);
+                if (!sd_id128_is_null(previous_id)) {
+                        r = add_match_boot_id(j, previous_id);
                         if (r < 0)
                                 return r;
                 }
@@ -1877,7 +1877,7 @@ static int discover_next_boot(
                 if (r == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
                                                "Whoopsie! Cannot seek to the last entry of boot %s.",
-                                               SD_ID128_TO_STRING(previous_boot_id));
+                                               SD_ID128_TO_STRING(previous_id));
 
                 sd_journal_flush_matches(j);
         }
@@ -1935,11 +1935,11 @@ int journal_find_boot_by_offset(sd_journal *j, int offset, sd_id128_t *ret) {
          * journal. The next invocation of _previous()/_next() will hence position us at the newest/oldest
          * entry we have. */
 
-        sd_id128_t boot_id = SD_ID128_NULL;
+        sd_id128_t previous_id = SD_ID128_NULL;
         for (int off = !advance_older; ; off += advance_older ? -1 : 1) {
-                BootId boot;
+                JournalId id;
 
-                r = discover_next_boot(j, boot_id, advance_older, &boot);
+                r = discover_next_boot(j, previous_id, advance_older, &id);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -1947,25 +1947,25 @@ int journal_find_boot_by_offset(sd_journal *j, int offset, sd_id128_t *ret) {
                         return false;
                 }
 
-                boot_id = boot.id;
-                log_debug("Found boot ID %s by offset %i", SD_ID128_TO_STRING(boot_id), off);
+                previous_id = id.id;
+                log_debug("Found boot ID %s by offset %i", SD_ID128_TO_STRING(previous_id), off);
 
                 if (off == offset)
                         break;
         }
 
-        *ret = boot_id;
+        *ret = previous_id;
         return true;
 }
 
-int journal_get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots) {
-        _cleanup_free_ BootId *boots = NULL;
-        size_t n_boots = 0;
+int journal_get_boots(sd_journal *j, JournalId **ret_ids, size_t *ret_n_ids) {
+        _cleanup_free_ JournalId *ids = NULL;
+        size_t n_ids = 0;
         int r;
 
         assert(j);
-        assert(ret_boots);
-        assert(ret_n_boots);
+        assert(ret_ids);
+        assert(ret_n_ids);
 
         r = sd_journal_seek_head(j); /* seek to oldest */
         if (r < 0)
@@ -1976,32 +1976,32 @@ int journal_get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots) {
          * At this point the read pointer is positioned before the oldest entry in the whole journal. The
          * next invocation of _next() will hence position us at the oldest entry we have. */
 
-        sd_id128_t previous_boot_id = SD_ID128_NULL;
+        sd_id128_t previous_id = SD_ID128_NULL;
         for (;;) {
-                BootId boot;
+                JournalId id;
 
-                r = discover_next_boot(j, previous_boot_id, /* advance_older = */ false, &boot);
+                r = discover_next_boot(j, previous_id, /* advance_older = */ false, &id);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         break;
 
-                previous_boot_id = boot.id;
+                previous_id = id.id;
 
-                FOREACH_ARRAY(i, boots, n_boots)
-                        if (sd_id128_equal(i->id, boot.id))
+                FOREACH_ARRAY(i, ids, n_ids)
+                        if (sd_id128_equal(i->id, id.id))
                                 /* The boot id is already stored, something wrong with the journal files.
                                  * Exiting as otherwise this problem would cause an infinite loop. */
                                 goto finish;
 
-                if (!GREEDY_REALLOC(boots, n_boots + 1))
+                if (!GREEDY_REALLOC(ids, n_ids + 1))
                         return -ENOMEM;
 
-                boots[n_boots++] = boot;
+                ids[n_ids++] = id;
         }
 
  finish:
-        *ret_boots = TAKE_PTR(boots);
-        *ret_n_boots = n_boots;
-        return n_boots > 0;
+        *ret_ids = TAKE_PTR(ids);
+        *ret_n_ids = n_ids;
+        return n_ids > 0;
 }
