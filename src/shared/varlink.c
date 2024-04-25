@@ -3465,19 +3465,34 @@ static int count_connection(VarlinkServer *server, const struct ucred *ucred) {
         return 0;
 }
 
-int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) {
+int varlink_server_add_connection_pair(
+                VarlinkServer *server,
+                int input_fd,
+                int output_fd,
+                const struct ucred *override_ucred,
+                Varlink **ret) {
+
         _cleanup_(varlink_unrefp) Varlink *v = NULL;
         struct ucred ucred = UCRED_INVALID;
         bool ucred_acquired;
         int r;
 
         assert_return(server, -EINVAL);
-        assert_return(fd >= 0, -EBADF);
+        assert_return(input_fd >= 0, -EBADF);
+        assert_return(output_fd >= 0, -EBADF);
 
         if ((server->flags & (VARLINK_SERVER_ROOT_ONLY|VARLINK_SERVER_ACCOUNT_UID)) != 0) {
-                r = getpeercred(fd, &ucred);
-                if (r < 0)
-                        return varlink_server_log_errno(server, r, "Failed to acquire peer credentials of incoming socket, refusing: %m");
+
+                if (override_ucred)
+                        ucred = *override_ucred;
+                else {
+                        if (input_fd != output_fd)
+                                return varlink_server_log_errno(server, SYNTHETIC_ERRNO(EOPNOTSUPP), "Cannot determine peer identity of connection with separate input/output, refusing: %m");
+
+                        r = getpeercred(input_fd, &ucred);
+                        if (r < 0)
+                                return varlink_server_log_errno(server, r, "Failed to acquire peer credentials of incoming socket, refusing: %m");
+                }
 
                 ucred_acquired = true;
 
@@ -3497,7 +3512,8 @@ int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) 
         if (r < 0)
                 return r;
 
-        v->input_fd = v->output_fd = fd;
+        v->input_fd = input_fd;
+        v->output_fd = output_fd;
         if (server->flags & VARLINK_SERVER_INHERIT_USERDATA)
                 v->userdata = server->userdata;
 
@@ -3507,7 +3523,7 @@ int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) 
         }
 
         _cleanup_free_ char *desc = NULL;
-        if (asprintf(&desc, "%s-%i", varlink_server_description(server), fd) >= 0)
+        if (asprintf(&desc, "%s-%i-%i", varlink_server_description(server), input_fd, output_fd) >= 0)
                 v->description = TAKE_PTR(desc);
 
         /* Link up the server and the connection, and take reference in both directions. Note that the
@@ -3533,6 +3549,10 @@ int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) 
                 *ret = v;
 
         return 0;
+}
+
+int varlink_server_add_connection(VarlinkServer *server, int fd, Varlink **ret) {
+        return varlink_server_add_connection_pair(server, fd, fd, /* override_ucred= */ NULL, ret);
 }
 
 static VarlinkServerSocket *varlink_server_socket_free(VarlinkServerSocket *ss) {
