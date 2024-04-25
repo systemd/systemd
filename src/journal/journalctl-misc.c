@@ -101,8 +101,8 @@ int action_disk_usage(void) {
 int action_list_boots(void) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_free_ BootId *boots = NULL;
-        size_t n_boots;
+        _cleanup_free_ JournalId *ids = NULL;
+        size_t n_ids;
         int r;
 
         assert(arg_action == ACTION_LIST_BOOTS);
@@ -115,7 +115,7 @@ int action_list_boots(void) {
                         j,
                         /* advance_older = */ arg_lines_needs_seek_end(),
                         /* max_ids = */ arg_lines >= 0 ? (size_t) arg_lines : SIZE_MAX,
-                        &boots, &n_boots);
+                        &ids, &n_ids);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine boots: %m");
         if (r == 0)
@@ -136,18 +136,18 @@ int action_list_boots(void) {
         (void) table_set_sort(table, (size_t) 0);
         (void) table_set_reverse(table, 0, arg_reverse);
 
-        FOREACH_ARRAY(i, boots, n_boots) {
+        FOREACH_ARRAY(i, ids, n_ids) {
                 int index;
 
                 if (arg_lines_needs_seek_end())
                         /* With --lines=N, we only know the negative index, and the older ID is located earlier. */
-                        index = - (int) (i - boots);
+                        index = - (int) (i - ids);
                 else if (arg_lines >= 0)
                         /* With --lines=+N, we only know the positive index, and the newer ID is located earlier. */
-                        index = (int) (i - boots) + 1;
+                        index = (int) (i - ids) + 1;
                 else
                         /* Otherwise, show negative index. Note, in this case, newer ID is located earlier. */
-                        index = (int) (i - boots) + 1 - (int) n_boots;
+                        index = (int) (i - ids) + 1 - (int) n_ids;
 
                 r = table_add_many(table,
                                    TABLE_INT, index,
