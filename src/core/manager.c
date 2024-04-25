@@ -4776,13 +4776,12 @@ static int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint
                 char unit_name[UNIT_NAME_MAX+1];
         } _packed_ buffer;
 
-        Manager *m = userdata;
+        Manager *m = ASSERT_PTR(userdata);
         ssize_t l;
         size_t n;
         Unit *u;
 
-        assert_se(source);
-        assert_se(m);
+        assert(source);
 
         /* Invoked whenever a child process succeeded resolving its user/group to use and sent us the
          * resulting UID/GID in a datagram. We parse the datagram here and pass it off to the unit, so that
