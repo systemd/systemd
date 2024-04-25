@@ -44,13 +44,16 @@ int show_journal(
 int add_match_boot_id(sd_journal *j, sd_id128_t id);
 int add_match_this_boot(sd_journal *j, const char *machine);
 
-int add_matches_for_unit(
-                sd_journal *j,
-                const char *unit);
+int add_matches_for_invocation_id(sd_journal *j, sd_id128_t id);
 
-int add_matches_for_user_unit(
-                sd_journal *j,
-                const char *unit);
+int add_matches_for_unit_full(sd_journal *j, bool all, const char *unit);
+static inline int add_matches_for_unit(sd_journal *j, const char *unit) {
+        return add_matches_for_unit_full(j, true, unit);
+}
+int add_matches_for_user_unit_full(sd_journal *j, bool all, const char *unit);
+static inline int add_matches_for_user_unit(sd_journal *j, const char *unit) {
+        return add_matches_for_user_unit_full(j, true, unit);
+}
 
 int show_journal_by_unit(
                 FILE *f,
