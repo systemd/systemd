@@ -57,7 +57,7 @@ _public_ int cryptsetup_token_open_pin(
         int r;
 
         assert(token >= 0);
-        assert(!pin || pin_size > 0);
+        assert(pin || pin_size == 0);
         assert(ret_password);
         assert(ret_password_len);
 
