@@ -1832,6 +1832,14 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_item_tristate(f, "exec-context-mount-api-vfs", c->mount_apivfs);
+        if (r < 0)
+                return r;
+
+        r = serialize_item_tristate(f, "exec-context-bind-journal-sockets", c->bind_journal_sockets);
+        if (r < 0)
+                return r;
+
         r = serialize_item_tristate(f, "exec-context-memory-ksm", c->memory_ksm);
         if (r < 0)
                 return r;
@@ -1887,12 +1895,6 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         r = serialize_item(f, "exec-context-protect-system", protect_system_to_string(c->protect_system));
         if (r < 0)
                 return r;
-
-        if (c->mount_apivfs_set) {
-                r = serialize_bool(f, "exec-context-mount-api-vfs", c->mount_apivfs);
-                if (r < 0)
-                        return r;
-        }
 
         r = serialize_bool_elide(f, "exec-context-same-pgrp", c->same_pgrp);
         if (r < 0)
@@ -2713,6 +2715,14 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         r = safe_atoi(val, &c->private_mounts);
                         if (r < 0)
                                 return r;
+                } else if ((val = startswith(l, "exec-context-mount-api-vfs="))) {
+                        r = safe_atoi(val, &c->mount_apivfs);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-bind-journal-sockets="))) {
+                        r = safe_atoi(val, &c->bind_journal_sockets);
+                        if (r < 0)
+                                return r;
                 } else if ((val = startswith(l, "exec-context-memory-ksm="))) {
                         r = safe_atoi(val, &c->memory_ksm);
                         if (r < 0)
@@ -2780,12 +2790,6 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         c->protect_system = protect_system_from_string(val);
                         if (c->protect_system < 0)
                                 return -EINVAL;
-                } else if ((val = startswith(l, "exec-context-mount-api-vfs="))) {
-                        r = parse_boolean(val);
-                        if (r < 0)
-                                return r;
-                        c->mount_apivfs = r;
-                        c->mount_apivfs_set = true;
                 } else if ((val = startswith(l, "exec-context-same-pgrp="))) {
                         r = parse_boolean(val);
                         if (r < 0)
