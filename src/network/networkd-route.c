@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/icmpv6.h>
 #include <linux/ipv6_route.h>
 #include <linux/nexthop.h>
 
@@ -1810,11 +1809,11 @@ int config_parse_ipv6_route_preference(
         }
 
         if (streq(rvalue, "low"))
-                route->pref = ICMPV6_ROUTER_PREF_LOW;
+                route->pref = SD_NDISC_PREFERENCE_LOW;
         else if (streq(rvalue, "medium"))
-                route->pref = ICMPV6_ROUTER_PREF_MEDIUM;
+                route->pref = SD_NDISC_PREFERENCE_MEDIUM;
         else if (streq(rvalue, "high"))
-                route->pref = ICMPV6_ROUTER_PREF_HIGH;
+                route->pref = SD_NDISC_PREFERENCE_HIGH;
         else {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown route preference: %s", rvalue);
                 return 0;
