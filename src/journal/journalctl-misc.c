@@ -101,8 +101,8 @@ int action_disk_usage(void) {
 int action_list_boots(void) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_free_ BootId *boots = NULL;
-        size_t n_boots;
+        _cleanup_free_ LogId *ids = NULL;
+        size_t n_ids;
         int r;
 
         assert(arg_action == ACTION_LIST_BOOTS);
@@ -115,7 +115,7 @@ int action_list_boots(void) {
                         j,
                         /* advance_older = */ arg_lines_needs_seek_end(),
                         /* max_ids = */ arg_lines >= 0 ? (size_t) arg_lines : SIZE_MAX,
-                        &boots, &n_boots);
+                        &ids, &n_ids);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine boots: %m");
         if (r == 0)
@@ -136,7 +136,7 @@ int action_list_boots(void) {
         (void) table_set_sort(table, (size_t) 0);
         (void) table_set_reverse(table, 0, arg_reverse);
 
-        for (int i = 0; i < (int) n_boots; i++) {
+        for (int i = 0; i < (int) n_ids; i++) {
                 int index;
 
                 if (arg_lines_needs_seek_end())
@@ -147,14 +147,14 @@ int action_list_boots(void) {
                         index = i + 1;
                 else
                         /* Otherwise, show negative index. Note, in this case, newer ID is located earlier. */
-                        index = i + 1 - (int) n_boots;
+                        index = i + 1 - (int) n_ids;
 
                 r = table_add_many(table,
                                    TABLE_INT, index,
                                    TABLE_SET_ALIGN_PERCENT, 100,
-                                   TABLE_ID128, boots[i].id,
-                                   TABLE_TIMESTAMP, boots[i].first_usec,
-                                   TABLE_TIMESTAMP, boots[i].last_usec);
+                                   TABLE_ID128, ids[i].id,
+                                   TABLE_TIMESTAMP, ids[i].first_usec,
+                                   TABLE_TIMESTAMP, ids[i].last_usec);
                 if (r < 0)
                         return table_log_add_error(r);
         }
