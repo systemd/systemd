@@ -8,10 +8,10 @@ set -o pipefail
 systemd-run --service-type notify --property NotifyAccess=all --unit notify.service --wait sh -c 'systemd-notify --ready; exit 1' || :
 
 start=$(systemctl show --property=ExecMainStartTimestampMonotonic --value notify.service)
-handover=$(systemctl show --property=ExecMainHandoverTimestampMonotonic --value notify.service)
+handoff=$(systemctl show --property=ExecMainHandoffTimestampMonotonic --value notify.service)
 active=$(systemctl show --property=ActiveEnterTimestampMonotonic --value notify.service)
 exit=$(systemctl show --property=ExecMainExitTimestampMonotonic --value notify.service)
 
-[[ $start -le $handover ]]
-[[ $handover -le $active ]]
+[[ $start -le $handoff ]]
+[[ $handoff -le $active ]]
 [[ $active -le $exit ]]

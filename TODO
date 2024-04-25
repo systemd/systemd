@@ -130,6 +130,13 @@ Deprecations and removals:
 
 Features:
 
+* expose the handoff timestamp fully via the D-Bus properties that contain
+  ExecStatus information
+
+* properly serialize the ExecStatus data from all ExecCommand objects
+  associated with services, sockets, mounts and swaps. Currently, the data is
+  flushed out on reload, which is quite a limitation.
+
 * Clean up "reboot argument" handling, i.e. set it through some IPC service
   instead of directly via /run/, so that it can be sensible set remotely.
 

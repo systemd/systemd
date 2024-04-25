@@ -206,13 +206,12 @@ CHANGES WITH 256-rc1:
           sent at the same time and carries the string passed to "systemctl
           --reboot-argument=" if there was one.
 
-        * New D-Bus properties ExecMainHandoverTimestamp and
-          ExecMainHandoverTimestampMonotonic are now published by services of
-          type exec, dbus, notify, and notify-reload.
-          This timestamp is taken as the very last operation before executing
-          a service's binary, which allows users to accurately track when
-          execution control of the process is handed over from systemd to the
-          payload.
+        * New D-Bus properties ExecMainHandoffTimestamp and
+          ExecMainHandoffTimestampMonotonic are now published by services
+          units. This timestamp is taken as the very last operation before
+          handing off control to invoked binaries. This information is
+          available for other unit types that fork off processes (i.e. mount,
+          swap, socket units), but currently only via "systemd-analyze dump".
 
         * An additional timestamp is now taken by the service manager when a
           system shutdown operation is initiated. It can be queried via D-Bus
