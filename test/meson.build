@@ -345,6 +345,7 @@ integration_tests = {
 foreach test_number, dirname : integration_tests
         test_params = {
                 'mkosi_args' : [],
+                'mask_supporting_services' : true,
                 'timeout' : 600,
         }
 
@@ -360,8 +361,13 @@ foreach test_number, dirname : integration_tests
                 '--meson-build-dir', meson.project_build_root(),
                 '--test-name', dirname,
                 '--test-number', test_number,
-                '--',
-        ] + test_params['mkosi_args']
+        ]
+
+        if test_params['mask_supporting_services'] == false
+                args += ['--unmask-supporting-services']
+        endif
+
+        args += ['--'] + test_params['mkosi_args']
 
         # We don't explicitly depend on the "mkosi" target because that means the image is rebuilt
         # on every "ninja -C build". Instead, the mkosi target has to be rebuilt manually before

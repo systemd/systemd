@@ -37,6 +37,15 @@ ExecStart=false
 """
 
 
+SUPPORTING_UNITS = (
+    'systemd-hwdb-update.service'
+    'systemd-journal-catalog-update.service'
+    'systemd-networkd.service'
+    'systemd-networkd.socket'
+    'systemd-resolved.service'
+)
+
+
 def main():
     if not bool(int(os.getenv("SYSTEMD_INTEGRATION_TESTS", "0"))):
         print("SYSTEMD_INTEGRATION_TESTS=1 not found in environment, skipping", file=sys.stderr)
@@ -47,6 +56,7 @@ def main():
     parser.add_argument('--meson-build-dir', required=True, type=Path)
     parser.add_argument('--test-name', required=True)
     parser.add_argument('--test-number', required=True)
+    parser.add_argument('--unmask-supporting-services', dest='mask_supporting_services', default=True, action='store_false')
     parser.add_argument('mkosi_args', nargs="*")
     args = parser.parse_args()
 
@@ -103,6 +113,11 @@ def main():
         '--credential',
         f"systemd.unit-dropin.{test_unit}={shlex.quote(dropin)}",
         '--runtime-network=none',
+        *(
+            [f"--kernel-command-line-extra={' '.join(f'systemd.mask={v}' for v in SUPPORTING_UNITS)}"]
+            if args.mask_supporting_services
+            else []
+        ),
         '--append',
         '--kernel-command-line-extra',
         ' '.join([
