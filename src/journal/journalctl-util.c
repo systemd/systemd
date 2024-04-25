@@ -95,7 +95,7 @@ int journal_acquire_boot(sd_journal *j) {
                         return log_error_errno(r, "Failed to get boot ID%s%s: %m",
                                                isempty(arg_machine) ? "" : " of container ", arg_machine);
         } else if (sd_id128_is_null(arg_boot_id)) {
-                r = journal_find_boot_by_offset(j, arg_boot_offset, &arg_boot_id);
+                r = journal_find_id_by_offset(j, JOURNAL_BOOT_ID, SD_ID128_NULL, NULL, arg_boot_offset, &arg_boot_id);
                 if (r < 0)
                         return log_error_errno(r, "Failed to find journal entry from the specified boot offset (%+i): %m",
                                                arg_boot_offset);
@@ -104,7 +104,7 @@ int journal_acquire_boot(sd_journal *j) {
                                                "No journal boot entry found from the specified boot offset (%+i).",
                                                arg_boot_offset);
         } else {
-                r = journal_find_boot_by_id(j, arg_boot_id);
+                r = journal_find_id(j, JOURNAL_BOOT_ID, arg_boot_id);
                 if (r < 0)
                         return log_error_errno(r, "Failed to find journal entry from the specified boot ID (%s): %m",
                                                SD_ID128_TO_STRING(arg_boot_id));

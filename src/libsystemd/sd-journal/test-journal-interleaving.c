@@ -468,14 +468,16 @@ static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
         setup();
 
         assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
-        assert_se(journal_get_boots(j, &ids, &n_ids) >= 0);
+        assert_se(journal_get_ids(j, JOURNAL_BOOT_ID,
+                                  /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
+                                  &ids, &n_ids) >= 0);
         assert_se(ids);
         assert_se(n_ids == n_ids_expected);
         sd_journal_close(j);
 
         FOREACH_ARRAY(b, ids, n_ids) {
                 assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
-                assert_se(journal_find_boot_by_id(j, b->id) == 1);
+                assert_se(journal_find_id(j, JOURNAL_BOOT_ID, b->id) == 1);
                 sd_journal_close(j);
         }
 
@@ -483,7 +485,7 @@ static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
                 sd_id128_t id;
 
                 assert_ret(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
-                assert_se(journal_find_boot_by_offset(j, i, &id) == 1);
+                assert_se(journal_find_id_by_offset(j, JOURNAL_BOOT_ID, SD_ID128_NULL, NULL, i, &id) == 1);
                 if (i <= 0)
                         assert_se(sd_id128_equal(id, ids[n_ids + i - 1].id));
                 else

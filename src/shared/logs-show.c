@@ -1767,8 +1767,126 @@ int show_journal_by_unit(
         return show_journal(f, j, mode, n_columns, not_before, how_many, flags, ellipsized);
 }
 
-static int discover_next_boot(
+static int journal_get_id128(sd_journal *j, const char *field, sd_id128_t *ret) {
+        const char *data, *str;
+        size_t len, fl;
+        sd_id128_t v;
+        int r;
+
+        assert(j);
+        assert(field);
+
+        /* This returns 1 when non-null ID is found, 0 when null ID is found, -ENOENT when the field not
+         * found, -EINVAL when the field found but not a valid ID, -EBADMSG or -EADDRNOTAVAIL when journal
+         * corruption detected. On a critical issue, other negative errno may be returned. */
+
+        r = sd_journal_get_data(j, field, (const void**) &data, &len);
+        if (r < 0)
+                return r;
+
+        fl = strlen(field);
+        assert(len > fl);
+        assert(data[fl] == '=');
+
+        if (len > fl + 1 + SD_ID128_UUID_STRING_MAX)
+                return -EINVAL;
+
+        str = memdupa_suffix0(data + fl + 1, len - fl - 1);
+
+        r = sd_id128_from_string(str, ret ?: &v);
+        if (r < 0)
+                return r;
+
+        return !sd_id128_is_null(ret ? *ret : v);
+}
+
+static int journal_get_invocation_id(sd_journal *j, sd_id128_t *ret) {
+        int r;
+
+        assert(j);
+
+        /* By the systemd unit. */
+        r = journal_get_id128(j, "_SYSTEMD_INVOCATION_ID", ret);
+        if (!IN_SET(r, 0, -ENOENT, -EINVAL, -EBADMSG, -EADDRNOTAVAIL))
+                return r;
+
+        /* Added by journald. */
+        r = journal_get_id128(j, "OBJECT_SYSTEMD_INVOCATION_ID", ret);
+        if (!IN_SET(r, 0, -ENOENT, -EINVAL, -EBADMSG, -EADDRNOTAVAIL))
+                return r;
+
+        /* By the system service manager (PID 1). */
+        r = journal_get_id128(j, "INVOCATION_ID", ret);
+        if (!IN_SET(r, 0, -ENOENT, -EINVAL, -EBADMSG, -EADDRNOTAVAIL))
+                return r;
+
+        /* By the user session service manager. */
+        r = journal_get_id128(j, "USER_INVOCATION_ID", ret);
+        if (!IN_SET(r, 0, -ENOENT, -EINVAL, -EBADMSG, -EADDRNOTAVAIL))
+                return r;
+
+        if (ret)
+                *ret = SD_ID128_NULL;
+        return 0;
+}
+
+static const char* const journal_id_type_table[_JOURNAL_ID_TYPE_MAX] = {
+        [JOURNAL_BOOT_ID]                   = "boot ID",
+        [JOURNAL_SYSTEM_UNIT_INVOCATION_ID] = "system unit invocation ID",
+        [JOURNAL_USER_UNIT_INVOCATION_ID]   = "user unit invocation ID",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(journal_id_type, JournalIdType);
+
+static int add_matches_for_discover_id(
                 sd_journal *j,
+                JournalIdType type,
+                sd_id128_t boot_id,
+                const char *unit,
+                sd_id128_t id) {
+
+        int r;
+
+        assert(j);
+
+        sd_journal_flush_matches(j);
+
+        if (type == JOURNAL_BOOT_ID) {
+                if (sd_id128_is_null(id))
+                        return 0;
+
+                return add_match_boot_id(j, id);
+        }
+
+        if (!sd_id128_is_null(id))
+                return add_matches_for_invocation_id(j, id);
+
+        if (!sd_id128_is_null(boot_id)) {
+                r = add_match_boot_id(j, boot_id);
+                if (r < 0)
+                        return r;
+
+                r = sd_journal_add_conjunction(j);
+                if (r < 0)
+                        return r;
+        }
+
+        assert(unit);
+
+        if (type == JOURNAL_SYSTEM_UNIT_INVOCATION_ID)
+                return add_matches_for_unit_full(j, /* all = */ false, unit);
+
+        if (type == JOURNAL_USER_UNIT_INVOCATION_ID)
+                return add_matches_for_user_unit_full(j, /* all = */ false, unit);
+
+        return -EINVAL;
+}
+
+static int discover_next_id(
+                sd_journal *j,
+                JournalIdType type,
+                sd_id128_t boot_id,  /* optional, used when type == JOURNAL_{SYSTEM,USER}_UNIT_INVOCATION_ID */
+                const char *unit,    /* mandatory when type == JOURNAL_{SYSTEM,USER}_UNIT_INVOCATION_ID */
                 sd_id128_t previous_id,
                 bool advance_older,
                 JournalId *ret) {
@@ -1777,6 +1895,8 @@ static int discover_next_boot(
         int r;
 
         assert(j);
+        assert(type >= 0 && type < _JOURNAL_ID_TYPE_MAX);
+        assert(type == JOURNAL_BOOT_ID || unit);
         assert(ret);
 
         /* We expect the journal to be on the last position of a boot
@@ -1788,7 +1908,9 @@ static int discover_next_boot(
 
         /* Make sure we aren't restricted by any _BOOT_ID matches, so that
          * we can actually advance to a *different* boot. */
-        sd_journal_flush_matches(j);
+        r = add_matches_for_discover_id(j, type, boot_id, unit, SD_ID128_NULL);
+        if (r < 0)
+                return r;
 
         for (;;) {
                 sd_id128_t *id_dup;
@@ -1802,9 +1924,15 @@ static int discover_next_boot(
                         return 0; /* End of journal, yay. */
                 }
 
-                r = sd_journal_get_monotonic_usec(j, NULL, &id.id);
+                if (type == JOURNAL_BOOT_ID)
+                        r = sd_journal_get_monotonic_usec(j, NULL, &id.id);
+                else
+                        r = journal_get_invocation_id(j, &id.id);
                 if (r < 0)
                         return r;
+
+                if (sd_id128_is_null(id.id))
+                        continue;
 
                 /* We iterate through this in a loop, until the boot ID differs from the previous one. Note that
                  * normally, this will only require a single iteration, as we moved to the last entry of the previous
@@ -1823,7 +1951,7 @@ static int discover_next_boot(
                 /* Yay, we found a new boot ID from the entry object. Let's check there exist corresponding
                  * entries matching with the _BOOT_ID= data. */
 
-                r = add_match_boot_id(j, id.id);
+                r = add_matches_for_discover_id(j, type, boot_id, unit, id.id);
                 if (r < 0)
                         return r;
 
@@ -1842,9 +1970,11 @@ static int discover_next_boot(
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        log_debug("Whoopsie! We found a boot ID %s but can't read its first entry. "
-                                  "The journal seems to be corrupted. Ignoring the boot ID.",
-                                  SD_ID128_TO_STRING(id.id));
+                        log_debug("Whoopsie! We found a %s %s but can't read its first entry. "
+                                  "The journal seems to be corrupted. Ignoring the %s.",
+                                  journal_id_type_to_string(type),
+                                  SD_ID128_TO_STRING(id.id),
+                                  journal_id_type_to_string(type));
                         goto try_again;
                 }
 
@@ -1864,9 +1994,11 @@ static int discover_next_boot(
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        log_debug("Whoopsie! We found a boot ID %s but can't read its last entry. "
-                                  "The journal seems to be corrupted. Ignoring the boot ID.",
-                                  SD_ID128_TO_STRING(id.id));
+                        log_debug("Whoopsie! We found a %s %s but can't read its last entry. "
+                                  "The journal seems to be corrupted. Ignoring the %s.",
+                                  journal_id_type_to_string(type),
+                                  SD_ID128_TO_STRING(id.id),
+                                  journal_id_type_to_string(type));
                         goto try_again;
                 }
 
@@ -1889,13 +2021,9 @@ static int discover_next_boot(
                         return r;
 
                 /* Move to the previous position again. */
-                sd_journal_flush_matches(j);
-
-                if (!sd_id128_is_null(previous_id)) {
-                        r = add_match_boot_id(j, previous_id);
-                        if (r < 0)
-                                return r;
-                }
+                r = add_matches_for_discover_id(j, type, boot_id, unit, previous_id);
+                if (r < 0)
+                        return r;
 
                 if (advance_older)
                         r = sd_journal_seek_head(j);
@@ -1909,22 +2037,22 @@ static int discover_next_boot(
                         return r;
                 if (r == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
-                                               "Whoopsie! Cannot seek to the last entry of boot %s.",
+                                               "Whoopsie! Cannot seek to the last entry of %s %s.",
+                                               journal_id_type_to_string(type),
                                                SD_ID128_TO_STRING(previous_id));
 
                 sd_journal_flush_matches(j);
         }
 }
 
-int journal_find_boot_by_id(sd_journal *j, sd_id128_t boot_id) {
+int journal_find_id(sd_journal *j, JournalIdType type, sd_id128_t id) {
         int r;
 
         assert(j);
-        assert(!sd_id128_is_null(boot_id));
+        assert(type >= 0 && type < _JOURNAL_ID_TYPE_MAX);
+        assert(!sd_id128_is_null(id));
 
-        sd_journal_flush_matches(j);
-
-        r = add_match_boot_id(j, boot_id);
+        r = add_matches_for_discover_id(j, type, SD_ID128_NULL, NULL, id);
         if (r < 0)
                 return r;
 
@@ -1944,11 +2072,20 @@ int journal_find_boot_by_id(sd_journal *j, sd_id128_t boot_id) {
         return r > 0;
 }
 
-int journal_find_boot_by_offset(sd_journal *j, int offset, sd_id128_t *ret) {
+int journal_find_id_by_offset(
+                sd_journal *j,
+                JournalIdType type,
+                sd_id128_t boot_id,
+                const char *unit,
+                int offset,
+                sd_id128_t *ret) {
+
         bool advance_older;
         int r;
 
         assert(j);
+        assert(type >= 0 && type < _JOURNAL_ID_TYPE_MAX);
+        assert(type == JOURNAL_BOOT_ID || unit);
         assert(ret);
 
         sd_journal_flush_matches(j);
@@ -1974,7 +2111,7 @@ int journal_find_boot_by_offset(sd_journal *j, int offset, sd_id128_t *ret) {
         for (int off = !advance_older; ; off += advance_older ? -1 : 1) {
                 JournalId id;
 
-                r = discover_next_boot(j, previous_id, advance_older, &id);
+                r = discover_next_id(j, type, boot_id, unit, previous_id, advance_older, &id);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -1993,12 +2130,21 @@ int journal_find_boot_by_offset(sd_journal *j, int offset, sd_id128_t *ret) {
         return true;
 }
 
-int journal_get_boots(sd_journal *j, JournalId **ret_ids, size_t *ret_n_ids) {
+int journal_get_ids(
+                sd_journal *j,
+                JournalIdType type,
+                sd_id128_t boot_id,
+                const char *unit,
+                JournalId **ret_ids,
+                size_t *ret_n_ids) {
+
         _cleanup_free_ JournalId *ids = NULL;
         size_t n_ids = 0;
         int r;
 
         assert(j);
+        assert(type >= 0 && type < _JOURNAL_ID_TYPE_MAX);
+        assert(type == JOURNAL_BOOT_ID || unit);
         assert(ret_ids);
         assert(ret_n_ids);
 
@@ -2017,7 +2163,7 @@ int journal_get_boots(sd_journal *j, JournalId **ret_ids, size_t *ret_n_ids) {
         for (;;) {
                 JournalId id;
 
-                r = discover_next_boot(j, previous_id, /* advance_older = */ false, &id);
+                r = discover_next_id(j, type, boot_id, unit, previous_id, /* advance_older = */ false, &id);
                 if (r < 0)
                         return r;
                 if (r == 0)

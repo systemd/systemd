@@ -150,7 +150,9 @@ int action_list_boots(void) {
         if (r < 0)
                 return r;
 
-        r = journal_get_boots(j, &ids, &n_ids);
+        r = journal_get_ids(j, JOURNAL_BOOT_ID,
+                            /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
+                            &ids, &n_ids);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine boots: %m");
         if (r == 0)
