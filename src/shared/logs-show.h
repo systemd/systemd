@@ -20,6 +20,14 @@ typedef struct LogId {
         usec_t last_usec;
 } LogId;
 
+typedef enum LogIdType {
+        LOG_BOOT_ID,
+        LOG_SYSTEM_UNIT_INVOCATION_ID,
+        LOG_USER_UNIT_INVOCATION_ID,
+        _LOG_ID_TYPE_MAX,
+        _LOG_ID_TYPE_INVALID = -EINVAL,
+} LogIdType;
+
 int show_journal_entry(
                 FILE *f,
                 sd_journal *j,
@@ -74,10 +82,45 @@ void json_escape(
                 size_t l,
                 OutputFlags flags);
 
-int journal_find_boot(sd_journal *j, sd_id128_t boot_id, int offset, sd_id128_t *ret);
-int journal_get_boots(
+int journal_find_log_id(
                 sd_journal *j,
+                LogIdType type,
+                sd_id128_t boot_id,
+                const char *unit,
+                sd_id128_t id,
+                int offset,
+                sd_id128_t *ret);
+
+static inline int journal_find_boot(
+                sd_journal *j,
+                sd_id128_t id,
+                int offset,
+                sd_id128_t *ret) {
+
+        return journal_find_log_id(j, LOG_BOOT_ID,
+                                   /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
+                                   id, offset, ret);
+}
+
+int journal_get_log_ids(
+                sd_journal *j,
+                LogIdType type,
+                sd_id128_t boot_id,
+                const char *unit,
                 bool advance_older,
                 size_t max_ids,
                 LogId **ret_ids,
                 size_t *ret_n_ids);
+
+static inline int journal_get_boots(
+                sd_journal *j,
+                bool advance_older,
+                size_t max_ids,
+                LogId **ret_ids,
+                size_t *ret_n_ids) {
+
+        return journal_get_log_ids(j, LOG_BOOT_ID,
+                                   /* boot_id = */ SD_ID128_NULL, /* unit = */ NULL,
+                                   advance_older, max_ids,
+                                   ret_ids, ret_n_ids);
+}
