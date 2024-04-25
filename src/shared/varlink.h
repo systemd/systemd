@@ -222,6 +222,7 @@ int varlink_server_listen_fd(VarlinkServer *s, int fd);
 int varlink_server_listen_auto(VarlinkServer *s);
 int varlink_server_add_connection(VarlinkServer *s, int fd, Varlink **ret);
 int varlink_server_add_connection_pair(VarlinkServer *s, int input_fd, int output_fd, const struct ucred *ucred_override, Varlink **ret);
+int varlink_server_add_connection_stdio(VarlinkServer *s, Varlink **ret);
 
 /* Bind callbacks */
 int varlink_server_bind_method(VarlinkServer *s, const char *method, VarlinkMethod callback);

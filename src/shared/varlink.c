@@ -3703,6 +3703,66 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
         return 0;
 }
 
+int varlink_server_add_connection_stdio(VarlinkServer *s, Varlink **ret) {
+        _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
+        int r;
+
+        assert_return(s, -EINVAL);
+
+        input_fd = fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 3);
+        if (input_fd < 0)
+                return -errno;
+
+        output_fd = fcntl(STDOUT_FILENO, F_DUPFD_CLOEXEC, 3);
+        if (output_fd < 0)
+                return -errno;
+
+        r = rearrange_stdio(-EBADF, -EBADF, STDERR_FILENO);
+        if (r < 0)
+                return r;
+
+        r = fd_nonblock(input_fd, true);
+        if (r < 0)
+                return r;
+
+        r = fd_nonblock(output_fd, true);
+        if (r < 0)
+                return r;
+
+        struct stat input_st;
+        if (fstat(input_fd, &input_st) < 0)
+                return -errno;
+
+        struct stat output_st;
+        if (fstat(output_fd, &output_st) < 0)
+                return -errno;
+
+        /* If stdin/stdout are both pipes and have the same owning uid/gid then let's synthesize a "struct
+         * ucred" from the owning UID/GID, since we got them passed in with such ownership. We'll not fill in
+         * the PID however, since there's no way to know which process created a pipe. */
+        struct ucred ucred, *pucred;
+        if (S_ISFIFO(input_st.st_mode) &&
+            S_ISFIFO(output_st.st_mode) &&
+            input_st.st_uid == output_st.st_uid &&
+            input_st.st_gid == output_st.st_gid) {
+                ucred = (struct ucred) {
+                        .uid = input_st.st_uid,
+                        .gid = input_st.st_gid,
+                };
+                pucred = &ucred;
+        } else
+                pucred = NULL;
+
+        r = varlink_server_add_connection_pair(s, input_fd, output_fd, pucred, ret);
+        if (r < 0)
+                return r;
+
+        TAKE_FD(input_fd);
+        TAKE_FD(output_fd);
+
+        return 0;
+}
+
 int varlink_server_listen_auto(VarlinkServer *s) {
         _cleanup_strv_free_ char **names = NULL;
         int r, n = 0;
