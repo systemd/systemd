@@ -92,7 +92,7 @@ typedef struct MountEntry {
         const char *path_const;   /* Memory allocated on stack or static */
         MountMode mode;
         bool ignore:1;            /* Ignore if path does not exist? */
-        bool has_prefix:1;        /* Already is prefixed by the root dir? */
+        bool has_prefix:1;        /* Already prefixed by the root dir? */
         bool read_only:1;         /* Shall this mount point be read-only? */
         bool nosuid:1;            /* Shall set MS_NOSUID on the mount itself */
         bool noexec:1;            /* Shall set MS_NOEXEC on the mount itself */
@@ -115,6 +115,12 @@ typedef struct MountList {
         MountEntry *mounts;
         size_t n_mounts;
 } MountList;
+
+static const MountEntry bind_journal_sockets_table[] = {
+        { "/run/systemd/journal/socket",  MOUNT_BIND, .source_const = "/run/systemd/journal/socket",  .ignore = true },
+        { "/run/systemd/journal/stdout",  MOUNT_BIND, .source_const = "/run/systemd/journal/stdout",  .ignore = true },
+        { "/run/systemd/journal/dev-log", MOUNT_BIND, .source_const = "/run/systemd/journal/dev-log", .ignore = true },
+};
 
 /* If MountAPIVFS= is used, let's mount /sys, /proc, /dev and /run into the it, but only as a fallback if the user hasn't mounted
  * something there already. These mounts are hence overridden by any other explicitly configured mounts. */
@@ -2478,6 +2484,13 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                         .read_only = true,
                         .source_malloc = TAKE_PTR(q),
                 };
+
+        } else if (p->bind_journal_sockets) {
+                r = append_static_mounts(&ml,
+                                         bind_journal_sockets_table, ELEMENTSOF(bind_journal_sockets_table),
+                                         /* ignore_protect = */ false);
+                if (r < 0)
+                        return r;
         }
 
         /* Will be used to add bind mounts at runtime */
