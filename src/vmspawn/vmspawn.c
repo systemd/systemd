@@ -757,7 +757,7 @@ static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo
         PidRef *pidref = userdata;
         int r;
 
-        /* TODO: actually talk to qemu and ask the guest to shutdown here */
+        /* Backup method to shutdown the VM when D-BUS access over SSH is not available */
 
         if (pidref) {
                 r = pidref_kill(pidref, SIGKILL);
@@ -774,27 +774,56 @@ static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo
         return 0;
 }
 
-static int request_reboot(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+static int forward_signal_to_vm_pid1(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         SSHInfo *ssh_info = ASSERT_PTR(userdata);
+        const char *vm_pid1;
         int r;
+
+        assert(s);
+        assert(si);
 
         r = bus_open_in_machine(&bus, ssh_info->cid, ssh_info->port, ssh_info->private_key_path);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to VM to request reboot: %m");
+                return log_error_errno(r, "Failed to connect to VM to forward signal: %m");
+
+        r = bus_wait_for_jobs_new(bus, &w);
+        if (r < 0)
+                return log_error_errno(r, "Could not watch job: %m");
 
         r = bus_call_method(
                         bus,
                         bus_systemd_mgr,
-                        "Reboot",
+                        "GetUnitByPID",
                         &error,
                         NULL,
                         "");
         if (r < 0)
-                return log_error_errno(r, "Failed to reboot machine: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to get init process of VM: %s", bus_error_message(&error, r));
 
-        log_info("Reboot requested in VM");
+        r = sd_bus_message_read(reply, "o", &vm_pid1);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = bus_wait_for_jobs_one(w, vm_pid1, /* quiet */ false, NULL);
+        if (r < 0)
+                return r;
+
+        r = bus_call_method(
+                        bus,
+                        bus_systemd_mgr,
+                        "KillUnit",
+                        &error,
+                        NULL,
+                        "ssi",
+                        vm_pid1,
+                        "leader",
+                        si->ssi_signo);
+        if (r < 0)
+                return log_error_errno(r, "Failed to forward signal to PID 1 of the VM: %s", bus_error_message(&error, r));
+        log_info("Sent signal %d to the VM's PID 1.", si->ssi_signo);
 
         return 0;
 }
@@ -2068,12 +2097,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         .port = 22,
                 };
 
-                (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, request_reboot, &ssh_info);
-        } else
-                /* if we don't know the SSH information just shutdown on a reboot */
+                (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, forward_signal_to_vm_pid1, &ssh_info);
+                (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, forward_signal_to_vm_pid1, &ssh_info);
+        } else {
+                /* if we don't know the SSH information fallback to signalling qemu */
                 (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, &child_pidref);
+                (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, &child_pidref);
+        }
 
-        (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, &child_pidref);
         (void) sd_event_add_signal(event, NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
 
         /* Exit when the child exits */
