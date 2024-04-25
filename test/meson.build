@@ -334,45 +334,42 @@ endif
 
 ############################################################
 
-if get_option('integration-tests')
-        if not mkosi.found()
-                error('Could not find mkosi which is required to run the integration tests')
+integration_test_wrapper = find_program('integration-test-wrapper.py')
+integration_tests = {
+        '01': 'TEST-01-BASIC',
+        '02': 'TEST-02-UNITTESTS',
+        '29': 'TEST-29-PORTABLE',
+        '43': 'TEST-43-PRIVATEUSER-UNPRIV',
+        '50': 'TEST-50-DISSECT',
+}
+foreach test_number, dirname : integration_tests
+        test_params = {
+                'mkosi_args' : [],
+                'timeout' : 600,
+        }
+
+        # TODO: This fs.exists call isn't included in rebuild logic
+        # so if you add a new meson.build in a subdir
+        # you need to touch another build file to get it to reparse.
+        if fs.exists(dirname / 'meson.build')
+                subdir(dirname)
         endif
 
-        integration_test_wrapper = find_program('integration-test-wrapper.py')
-        integration_tests = {
-                '01': 'TEST-01-BASIC',
-                '02': 'TEST-02-UNITTESTS',
-        }
-        foreach test_number, dirname : integration_tests
-                test_params = {
-                        'mkosi_args' : [],
-                        'timeout' : 600,
-                }
+        args = [
+                '--meson-source-dir', meson.project_source_root(),
+                '--meson-build-dir', meson.project_build_root(),
+                '--test-name', dirname,
+                '--test-number', test_number,
+                '--',
+        ] + test_params['mkosi_args']
 
-                # TODO: This fs.exists call isn't included in rebuild logic
-                # so if you add a new meson.build in a subdir
-                # you need to touch another build file to get it to reparse.
-                if fs.exists(dirname / 'meson.build')
-                        subdir(dirname)
-                endif
-
-                args = [
-                        '--meson-source-dir', meson.project_source_root(),
-                        '--meson-build-dir', meson.project_build_root(),
-                        '--test-name', dirname,
-                        '--test-number', test_number,
-                        '--',
-                ] + test_params['mkosi_args']
-
-                # We don't explicitly depend on the "mkosi" target because that means the image is rebuilt
-                # on every "ninja -C build". Instead, the mkosi target has to be rebuilt manually before
-                # running the integration tests with mkosi.
-                test(dirname,
-                     integration_test_wrapper,
-                     env: test_env,
-                     args : args,
-                     timeout : test_params['timeout'],
-                     suite : 'integration-tests')
-        endforeach
-endif
+        # We don't explicitly depend on the "mkosi" target because that means the image is rebuilt
+        # on every "ninja -C build". Instead, the mkosi target has to be rebuilt manually before
+        # running the integration tests with mkosi.
+        test(dirname,
+                integration_test_wrapper,
+                env: test_env,
+                args : args,
+                timeout : test_params['timeout'],
+                suite : 'integration-tests')
+endforeach

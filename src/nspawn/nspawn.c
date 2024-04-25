@@ -5777,8 +5777,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(fw_ctx_freep) FirewallContext *fw_ctx = NULL;
         pid_t pid = 0;
 
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         arg_privileged = getuid() == 0;
 
