@@ -34,7 +34,7 @@ _public_ int cryptsetup_token_open_pin(
         const char *json;
         _cleanup_(erase_and_freep) char *pin_string = NULL;
 
-        assert(!pin || pin_size);
+        assert(pin || pin_size == 0);
         assert(token >= 0);
 
         /* This must not fail at this moment (internal error) */
