@@ -1,0 +1,11 @@
+#!/bin/sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -eux
+
+mkdir -p "$BUILDROOT/var/lib/app1"
+
+cat >>"$BUILDROOT/usr/lib/os-release" <<EOF
+MARKER=1
+PORTABLE_PREFIXES=app0 minimal minimal-app0
+EOF
+cp "$BUILDROOT/usr/lib/systemd/system/minimal-app0.service" "$BUILDROOT/usr/lib/systemd/system/minimal-app0-foo.service"
