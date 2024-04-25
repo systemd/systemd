@@ -634,8 +634,8 @@ bool exec_needs_ipc_namespace(const ExecContext *context);
                 const ExecContext *_c = (ec);                                     \
                 const ExecParameters *_p = (ep);                                  \
                 const int _l = (level);                                           \
-                bool _do_log = _c->log_level_max >= 0 &&                          \
-                               _c->log_level_max < LOG_PRI(_l);                   \
+                bool _do_log = _c->log_level_max < 0 ||                           \
+                               _c->log_level_max >= LOG_PRI(_l);                  \
                 LOG_CONTEXT_PUSH_IOV(_c->log_extra_fields,                        \
                                      _c->n_log_extra_fields);                     \
                 !_do_log ? -ERRNO_VALUE(error) :                                  \
@@ -672,8 +672,8 @@ bool exec_needs_ipc_namespace(const ExecContext *context);
                 const ExecContext *_c = (ec);                                     \
                 const ExecParameters *_p = (ep);                                  \
                 const int _l = (level);                                           \
-                bool _do_log = _c->log_level_max >= 0 &&                          \
-                               _c->log_level_max < LOG_PRI(_l);                   \
+                bool _do_log = _c->log_level_max < 0 ||                           \
+                               _c->log_level_max >= LOG_PRI(_l);                  \
                 LOG_CONTEXT_PUSH_IOV(_c->log_extra_fields,                        \
                                      _c->n_log_extra_fields);                     \
                 !_do_log ? -ERRNO_VALUE(error) :                                  \
