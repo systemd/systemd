@@ -241,3 +241,24 @@ maybe_umount_usr_overlay() {
         umount -l /usr
     fi
 }
+
+minimum_kernel_version() {
+    local kernel_version kernel_major kernel_minor major_required minor_required
+    kernel_version="$(uname -r)"
+    kernel_major="${kernel_version%%.*}"
+    kernel_minor="${kernel_version#"$kernel_major".}"
+    kernel_minor="${kernel_minor%%.*}"
+    major_required="${1:?}"
+    minor_required="${2:?}"
+
+    if [[ $# -lt 2 ]]; then
+        echo >&2 "Missing arguments"
+        exit 1
+    fi
+
+    if [[ "$kernel_major" -lt "$major_required" || ("$kernel_major" -eq "$major_required" && "$kernel_minor" -lt "$minor_required") ]]; then
+        return 1
+    fi
+
+    return 0
+}
