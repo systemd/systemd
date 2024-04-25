@@ -72,11 +72,12 @@ CHANGES WITH 256-rc1:
           embedded in the file name. The files are ordered by version and
           the newest one is selected.
 
-          systemd-nspawn --image=/--directory=, systemd-dissect, systemd-portabled,
-          and the RootDirectory=, RootImage=, ExtensionImages=, and
-          ExtensionDirectories= settings for units now support the vpick
-          protocol and allow the latest version to be selected automatically if
-          a "*.v/" directory is specified as the source.
+          systemd-nspawn --image=/--directory=, systemd-dissect,
+          systemd-portabled, and the RootDirectory=, RootImage=,
+          ExtensionImages=, and ExtensionDirectories= settings for units now
+          support the vpick protocol and allow the latest version to be
+          selected automatically if a "*.v/" directory is specified as the
+          source.
 
         * Encrypted service credentials can now be made accessible to
           unprivileged users. systemd-creds gained new options --user/--uid=
@@ -89,6 +90,9 @@ CHANGES WITH 256-rc1:
           was previously available in "machinectl", where it was used
           exclusively for machine images. The new "importctl" generalizes this
           for sysext, confext, and portable service images.
+
+        * The systemd sources may now be compiled cleanly with all OpenSSL 3.0
+          deprecations removed, including the OpenSSL engine logic turned off.
 
         Service Management:
 
@@ -196,7 +200,11 @@ CHANGES WITH 256-rc1:
           PID 1 has successfully completed installation of its various UNIX
           process signal handlers (i.e. the moment where SIGRTMIN+4 sent to
           PID 1 will start to have the effect of shutting down the system
-          cleanly).
+          cleanly). X_SYSTEMD_SHUTDOWN= is sent shortly before the system shuts
+          down, and carries a string identifying the type of shutdown,
+          i.e. "poweroff", "halt", "reboot". X_SYSTEMD_REBOOT_PARAMETER= is
+          sent at the same time and carries the string passed to "systemctl
+          --reboot-argument=" if there was one.
 
         * New D-Bus properties ExecMainHandoverTimestamp and
           ExecMainHandoverTimestampMonotonic are now published by services of
@@ -205,6 +213,23 @@ CHANGES WITH 256-rc1:
           a service's binary, which allows users to accurately track when
           execution control of the process is handed over from systemd to the
           payload.
+
+        * An additional timestamp is now taken by the service manager when a
+          system shutdown operation is initiated. It can be queried via D-Bus
+          during the shutdown phase. It's passed to the following service
+          manager invocation on soft reboots, which will then use it to log the
+          overall "grey-out" time of the soft reboot operation, i.e. the time
+          when the shutdown began until the system is fully up again.
+
+        * "systemctl status" will now display the invocation ID in its usual
+          output, i.e. the 128bit ID uniquely assigned to the current runtime
+          cycle of the unit. The ID has been supported for a long time, but is
+          now more prominently displayed, as it is a very useful handle to a
+          specific invocation of a service.
+
+        * systemd now generates a new "taint" string "unmerged-bin" for systems
+          that have /usr/bin/ and /usr/sbin/ separate. It's generally
+          recommended to make the latter a symlink to the former these days.
 
         Journal:
 
@@ -338,6 +363,17 @@ CHANGES WITH 256-rc1:
 
         * .link files now support a new ReceivePacketSteeringCPUMask= setting
           for configuring which CPUs to steer incoming packets to.
+
+        * The [Network] section in .network files gained a new setting
+          UseDomains=, which is a single generic knob for controlling the
+          settings of the same name in the [DHCPv4], [DHCPv6] and
+          [IPv6AcceptRA].
+
+        * The 99-default.link file we ship by default (that defines the policy
+          for all network devices to which no other .link file applies) now
+          lists "mac" among AlternativeNamesPolicy=. This means that network
+          interfaces will now by default gain an additional MAC-address based
+          alternative device name. (i.e. enx…)
 
         systemd-nspawn:
 
@@ -523,6 +559,10 @@ CHANGES WITH 256-rc1:
           generated recovery PIN is shown to the user. If "query" is selected
           then the PIN is queried from the user.
 
+        * sd-stub gained support for the new ".ucode" PE section in UKIs, that
+          may contain CPU microcode data. When control is handed over to the
+          Linux kernel this data is prepended to the set of initrds passed.
+
         systemd-run/run0:
 
         * systemd-run is now a multi-call binary. When invoked as 'run0', it
@@ -661,6 +701,10 @@ CHANGES WITH 256-rc1:
           sd_id128_get_invocation_app_specific() for acquiring an app-specific
           ID that is derived from the service invocation ID.
 
+        * The sd-event API gained a new API call
+          sd_event_source_get_inotify_path() that returns the file system path
+          an inotify event source was created for.
+
         systemd-cryptsetup/systemd-cryptenroll:
 
         * The device node argument to systemd-cryptenroll is now optional. If
@@ -701,8 +745,9 @@ CHANGES WITH 256-rc1:
 
           https://systemd.io/VM_INTERFACE
 
-        * The sd_notify() man page has gained an example with C code that shows
-          how to implement the interface in C without involving libsystemd.
+        * The sd_notify() man page has gained examples with C and Python code
+          that shows how to implement the interface in those languages without
+          involving libsystemd.
 
         systemd-homed, systemd-logind, systemd-userdbd:
 
@@ -880,6 +925,10 @@ CHANGES WITH 256-rc1:
         * A new kernel command-line option systemd.default_debug_tty= can be
           used to specify the TTY for the debug shell, independently of
           enabling or disabling it.
+
+        * portablectl gained a new --clean switch that clears a portable
+          service's data (cache, logs, state, runtime, fdstore) when detaching
+          it.
 
         Contributions from: A S Alam, AKHIL KUMAR,
         Abraham Samuel Adekunle, Adrian Vovk, Adrian Wannenmacher,
