@@ -10,7 +10,9 @@ if [[ ! -f /usr/lib/systemd/system/systemd-mountfsd.socket ]] || \
    [[ ! -f /usr/lib/systemd/system/systemd-nsresourced.socket ]] || \
    ! command -v mksquashfs || \
    ! grep -q bpf /sys/kernel/security/lsm ||
-   ! find /usr/lib* -name libbpf.so.1 2>/dev/null | grep .; then
+   ! find /usr/lib* -name libbpf.so.1 2>/dev/null | grep . || \
+   ! minimum_kernel_version 6 5 || \
+   systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" lt 124; then
     echo "Skipping mountnfsd/nsresourced tests"
     exit 0
 fi
