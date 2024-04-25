@@ -3861,7 +3861,7 @@ static bool exec_context_need_unprivileged_private_users(
                context->private_ipc ||
                context->ipc_namespace_path ||
                context->private_mounts > 0 ||
-               context->mount_apivfs ||
+               context->mount_apivfs > 0 ||
                context->n_bind_mounts > 0 ||
                context->n_temporary_filesystems > 0 ||
                context->root_directory ||
