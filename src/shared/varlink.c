@@ -3170,6 +3170,16 @@ int varlink_take_fd(Varlink *v, size_t i) {
 static int verify_unix_socket(Varlink *v) {
         assert(v);
 
+        /* Returns:
+         *    • 0 if this is an AF_UNIX socket
+         *    • -ENOTSOCK if this is not a socket at all
+         *    • -ENOMEDIUM if this is a socket, but not an AF_UNIX socket
+         *
+         * Reminder:
+         *    • v->af is < 0 if we haven't checked what kind of address family the thing is yet.
+         *    • v->af == AF_UNSPEC if we checked but it's not a socket
+         *    • otherwise: v->af contains the address family we determined */
+
         if (v->af < 0) {
                 struct stat st;
 
@@ -3185,7 +3195,8 @@ static int verify_unix_socket(Varlink *v) {
                         return v->af;
         }
 
-        return v->af == AF_UNIX ? 0 : -ENOMEDIUM;
+        return v->af == AF_UNIX ? 0 :
+                v->af == AF_UNSPEC ? -ENOTSOCK : -ENOMEDIUM;
 }
 
 int varlink_set_allow_fd_passing_input(Varlink *v, bool b) {
