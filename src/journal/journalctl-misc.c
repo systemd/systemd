@@ -236,6 +236,43 @@ int action_list_field_names(void) {
         return 0;
 }
 
+int action_list_invocations(void) {
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_free_ LogId *ids = NULL;
+        size_t n_ids;
+        LogIdType type;
+        const char *unit;
+        int r;
+
+        assert(arg_action == ACTION_LIST_INVOCATIONS);
+
+        r = acquire_unit("--list-invocations", &unit, &type);
+        if (r < 0)
+                return r;
+
+        r = acquire_journal(&j);
+        if (r < 0)
+                return r;
+
+        r = journal_acquire_boot(j);
+        if (r < 0)
+                return r;
+
+        r = journal_get_log_ids(
+                        j, type,
+                        /* boot_id = */ arg_boot_id, /* unit = */ unit,
+                        /* advance_older = */ arg_lines_needs_seek_end(),
+                        /* max_ids = */ arg_lines >= 0 ? (size_t) arg_lines : SIZE_MAX,
+                        &ids, &n_ids);
+        if (r < 0)
+                return log_error_errno(r, "Failed to list invocation id for %s: %m", unit);
+        if (r == 0)
+                return log_full_errno(arg_quiet ? LOG_DEBUG : LOG_ERR, SYNTHETIC_ERRNO(ENODATA),
+                                      "No invocation ID for %s found.", unit);
+
+        return show_log_ids(ids, n_ids, "invocation id");
+}
+
 int action_list_namespaces(void) {
         _cleanup_(table_unrefp) Table *table = NULL;
         sd_id128_t machine;
