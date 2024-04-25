@@ -11,3 +11,4 @@ int acquire_journal(sd_journal **ret);
 bool journal_boot_has_effect(sd_journal *j);
 int journal_acquire_boot(sd_journal *j);
 int acquire_unit(const char *option_name, const char **ret_unit, JournalIdType *ret_type);
+int journal_acquire_invocation(sd_journal *j);

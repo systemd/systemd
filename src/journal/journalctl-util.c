@@ -145,3 +145,51 @@ int acquire_unit(const char *option_name, const char **ret_unit, JournalIdType *
 
         return 0;
 }
+
+int journal_acquire_invocation(sd_journal *j) {
+        int r;
+
+        assert(j);
+
+        if (!arg_invocation) {
+                /* Clear relevant field for safety. */
+                arg_invocation_id = SD_ID128_NULL;
+                arg_invocation_offset = 0;
+                return 0;
+        }
+
+        if (sd_id128_is_null(arg_invocation_id)) {
+                const char *unit;
+                JournalIdType type;
+
+                r = acquire_unit("-I/--invocation=N", &unit, &type);
+                if (r < 0)
+                        return r;
+
+                r = journal_acquire_boot(j);
+                if (r < 0)
+                        return r;
+
+                r = journal_find_id_by_offset(j, type, arg_boot_id, unit, arg_invocation_offset, &arg_invocation_id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find journal entry from the specified invocation offset (%+i): %m",
+                                               arg_invocation_offset);
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
+                                               "No journal entry found from the specified invocation offset (%+i).",
+                                               arg_invocation_offset);
+        } else {
+                /* When an invocation ID is explicitly specified, we do not care the ID is about system unit
+                 * or user unit. */
+                r = journal_find_id(j, JOURNAL_SYSTEM_UNIT_INVOCATION_ID, arg_invocation_id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find journal entry from the specified invocation ID (%s): %m",
+                                               SD_ID128_TO_STRING(arg_invocation_id));
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
+                                               "No journal entry found from the specified invocation ID (%s).",
+                                               SD_ID128_TO_STRING(arg_invocation_id));
+        }
+
+        return 1;
+}

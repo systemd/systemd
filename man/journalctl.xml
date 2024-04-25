@@ -351,6 +351,35 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-I</option></term>
+        <term><option>--invocation<optional>=<replaceable>ID</replaceable>|<replaceable>±offset</replaceable></option></term>
+
+        <listitem>
+          <para>Show messages from a specific invocation of unit. This will add a match for
+          <literal>_SYSTEMD_INVOCATION_ID=</literal>, <literal>OBJECT_SYSTEMD_INVOCATION_ID=</literal>,
+          <literal>INVOCATION_ID=</literal>, <literal>USER_INVOCATION_ID=</literal>.</para>
+
+          <para>A positive <replaceable>offset</replaceable> will look up the invocations of the systemd unit
+          specified with <option>-u/--unit=</option> or <option>--user-unit=</option> from the beginning of
+          the journal, and zero or a negative offset will look up invocations starting from the end of the
+          journal. Thus, <constant>1</constant> means the first invocation found in the journal in
+          chronological order, <constant>2</constant> the second and so on; while <constant>0</constant> is
+          the latest invocation, <constant>-1</constant> the invocation before the latest, and so on.</para>
+
+          <para>If the 32-character <replaceable>ID</replaceable> is specified, the logs for the invocation
+          given by <replaceable>ID</replaceable> will be shown.</para>
+
+          <para><option>-I</option> is equivalent to <option>--invocation=0</option>, and logs for the latest
+          invocation will be shown.</para>
+
+          <para>When <option>-I/--invocation=<replaceable>offset</replaceable></option> is specified with
+          <option>-b/-boot=</option>, then invocations are searched within the specified boot.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-t</option></term>
         <term><option>--identifier=<replaceable>SYSLOG_IDENTIFIER</replaceable></option></term>
 
