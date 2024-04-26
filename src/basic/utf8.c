@@ -179,7 +179,7 @@ char *utf8_escape_invalid(const char *str) {
         return str_realloc(p);
 }
 
-static int utf8_char_console_width(const char *str) {
+int utf8_char_console_width(const char *str) {
         char32_t c;
         int r;
 
