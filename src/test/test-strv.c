@@ -1055,4 +1055,62 @@ TEST(strv_extend_many) {
         assert_se(strv_equal(l, STRV_MAKE("foo", "bar", "waldo", "quux", "1", "2", "3", "4", "yes", "no")));
 }
 
+TEST(strv_rebreak_lines) {
+        _cleanup_strv_free_ char **l = NULL;
+
+        assert_se(strv_rebreak_lines(NULL, SIZE_MAX, &l) >= 0);
+        assert_se(strv_equal(l, NULL));
+        l = strv_free(l);
+
+        assert_se(strv_rebreak_lines(STRV_MAKE(""), SIZE_MAX, &l) >= 0);
+        assert_se(strv_equal(l, STRV_MAKE("")));
+        l = strv_free(l);
+
+        assert_se(strv_rebreak_lines(STRV_MAKE("", ""), SIZE_MAX, &l) >= 0);
+        assert_se(strv_equal(l, STRV_MAKE("", "")));
+        l = strv_free(l);
+
+        assert_se(strv_rebreak_lines(STRV_MAKE("foo"), SIZE_MAX, &l) >= 0);
+        assert_se(strv_equal(l, STRV_MAKE("foo")));
+        l = strv_free(l);
+
+        assert_se(strv_rebreak_lines(STRV_MAKE("foo", "bar"), SIZE_MAX, &l) >= 0);
+        assert_se(strv_equal(l, STRV_MAKE("foo", "bar")));
+        l = strv_free(l);
+
+        assert_se(strv_rebreak_lines(STRV_MAKE("Foo fOo foO FOo", "bar Bar bAr baR BAr"), 10, &l) >= 0);
+        assert_se(strv_equal(l, STRV_MAKE("Foo fOo", "foO FOo", "bar Bar", "bAr baR", "BAr")));
+        l = strv_free(l);
+
+        assert_se(strv_rebreak_lines(STRV_MAKE("           foo               ",
+                                               "             foo bar               waldo quux         "),
+                                     10, &l) >= 0);
+        assert_se(strv_equal(l, STRV_MAKE("           foo",
+                                          "             foo",
+                                          "bar",
+                                          "waldo quux")));
+        l = strv_free(l);
+
+        assert_se(strv_rebreak_lines(STRV_MAKE("            ",
+                                               "\tfoo bar\t",
+                                               "FOO\tBAR"),
+                                     10, &l) >= 0);
+        assert_se(strv_equal(l, STRV_MAKE("",
+                                          "\tfoo",
+                                          "bar",
+                                          "FOO",
+                                          "BAR")));
+        l = strv_free(l);
+
+        /* Now make sure that breaking the lines a 2nd time does not modify the output anymore */
+        for (size_t i = 1; i < 100; i++) {
+                _cleanup_strv_free_ char **a = NULL, **b = NULL;
+
+                assert_se(strv_rebreak_lines(STRV_MAKE("foobar waldo waldo quux piep\tschnurz    pimm"), i, &a) >= 0);
+                assert_se(strv_rebreak_lines(a, i, &b) >= 0);
+
+                assert_se(strv_equal(a, b));
+        }
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
