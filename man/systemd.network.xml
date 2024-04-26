@@ -444,13 +444,12 @@
       <varlistentry>
         <term><varname>LinkLocalAddressing=</varname></term>
         <listitem>
-          <para>Enables link-local address autoconfiguration. Accepts <option>yes</option>,
-          <option>no</option>, <option>ipv4</option>, and <option>ipv6</option>. An IPv6 link-local
-          address is configured when <option>yes</option> or <option>ipv6</option>. An IPv4 link-local
-          address is configured when <option>yes</option> or <option>ipv4</option> and when DHCPv4
-          autoconfiguration has been unsuccessful for some time. (IPv4 link-local address
-          autoconfiguration will usually happen in parallel with repeated attempts to acquire a DHCPv4
-          lease).</para>
+          <para>Enables link-local address autoconfiguration. Accepts a boolean, <option>ipv4</option>,
+          and <option>ipv6</option>. An IPv6 link-local address is configured when <option>yes</option>
+          or <option>ipv6</option>. An IPv4 link-local address is configured when <option>yes</option>
+          or <option>ipv4</option> and when DHCPv4 autoconfiguration has been unsuccessful for some time.
+          (IPv4 link-local address autoconfiguration will usually happen in parallel with repeated attempts
+          to acquire a DHCPv4 lease).</para>
 
           <para>Defaults to <option>no</option> when <varname>KeepMaster=</varname> or
           <varname>Bridge=</varname> is set or when the specified
