@@ -20,6 +20,8 @@ typedef enum VarlinkSymbolType {
         VARLINK_STRUCT_TYPE,
         VARLINK_METHOD,
         VARLINK_ERROR,
+        _VARLINK_INTERFACE_COMMENT,     /* Not really a symbol, just a comment about the interface */
+        _VARLINK_SYMBOL_COMMENT,        /* Not really a symbol, just a comment about a symbol */
         _VARLINK_SYMBOL_TYPE_MAX,
         _VARLINK_SYMBOL_TYPE_INVALID = -EINVAL,
 } VarlinkSymbolType;
@@ -35,6 +37,7 @@ typedef enum VarlinkFieldType {
         VARLINK_STRING,
         VARLINK_OBJECT,
         VARLINK_ENUM_VALUE,
+        _VARLINK_FIELD_COMMENT,        /* Not really a field, just a comment about a field*/
         _VARLINK_FIELD_TYPE_MAX,
         _VARLINK_FIELD_TYPE_INVALID = -EINVAL,
 } VarlinkFieldType;
@@ -103,6 +106,9 @@ struct VarlinkInterface {
 #define VARLINK_DEFINE_ENUM_VALUE(_name) \
         { .name = #_name, .field_type = VARLINK_ENUM_VALUE }
 
+#define VARLINK_FIELD_COMMENT(text)                                     \
+        { .name = "" text, .field_type = _VARLINK_FIELD_COMMENT }
+
 #define VARLINK_DEFINE_METHOD(_name, ...)                               \
         const VarlinkSymbol vl_method_ ## _name = {                     \
                 .name = #_name,                                         \
@@ -137,8 +143,24 @@ struct VarlinkInterface {
                 .symbols = { __VA_ARGS__ __VA_OPT__(,) NULL},           \
         }
 
-int varlink_idl_dump(FILE *f, int use_colors, const VarlinkInterface *interface);
-int varlink_idl_format(const VarlinkInterface *interface, char **ret);
+#define VARLINK_SYMBOL_COMMENT(text)                                    \
+        &(const VarlinkSymbol) {                                        \
+                .name = "" text,                                        \
+                .symbol_type = _VARLINK_SYMBOL_COMMENT,                 \
+        }
+
+#define VARLINK_INTERFACE_COMMENT(text)                                 \
+        &(const VarlinkSymbol) {                                        \
+                .name = "" text,                                        \
+                .symbol_type = _VARLINK_INTERFACE_COMMENT,              \
+        }
+
+int varlink_idl_dump(FILE *f, int use_colors, size_t cols, const VarlinkInterface *interface);
+int varlink_idl_format_full(const VarlinkInterface *interface, size_t cols, char **ret);
+
+static inline int varlink_idl_format(const VarlinkInterface *interface, char **ret) {
+        return varlink_idl_format_full(interface, SIZE_MAX, ret);
+}
 
 int varlink_idl_parse(const char *text, unsigned *ret_line, unsigned *ret_column, VarlinkInterface **ret);
 VarlinkInterface* varlink_interface_free(VarlinkInterface *interface);
