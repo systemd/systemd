@@ -1496,43 +1496,6 @@ int config_parse_exec_cpu_sched_policy(const char *unit,
         return 0;
 }
 
-int config_parse_exec_mount_apivfs(const char *unit,
-                                   const char *filename,
-                                   unsigned line,
-                                   const char *section,
-                                   unsigned section_line,
-                                   const char *lvalue,
-                                   int ltype,
-                                   const char *rvalue,
-                                   void *data,
-                                   void *userdata) {
-
-        ExecContext *c = ASSERT_PTR(data);
-        int k;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (isempty(rvalue)) {
-                c->mount_apivfs_set = false;
-                c->mount_apivfs = false;
-                return 0;
-        }
-
-        k = parse_boolean(rvalue);
-        if (k < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, k,
-                           "Failed to parse boolean value, ignoring: %s",
-                           rvalue);
-                return 0;
-        }
-
-        c->mount_apivfs_set = true;
-        c->mount_apivfs = k;
-        return 0;
-}
-
 int config_parse_numa_mask(const char *unit,
                            const char *filename,
                            unsigned line,
@@ -5213,7 +5176,7 @@ int config_parse_bind_paths(
                 void *userdata) {
 
         ExecContext *c = ASSERT_PTR(data);
-        const Unit *u = userdata;
+        const Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
