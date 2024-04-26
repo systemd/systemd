@@ -1961,7 +1961,13 @@ int journal_find_boot(sd_journal *j, sd_id128_t boot_id, int offset, sd_id128_t 
         }
 }
 
-int journal_get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots) {
+int journal_get_boots(
+                sd_journal *j,
+                bool advance_older,
+                size_t max_ids,
+                BootId **ret_boots,
+                size_t *ret_n_boots) {
+
         _cleanup_free_ BootId *boots = NULL;
         size_t n_boots = 0;
         int r;
@@ -1972,7 +1978,10 @@ int journal_get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots) {
 
         sd_journal_flush_matches(j);
 
-        r = sd_journal_seek_head(j); /* seek to oldest */
+        if (advance_older)
+                r = sd_journal_seek_tail(j); /* seek to newest */
+        else
+                r = sd_journal_seek_head(j); /* seek to oldest */
         if (r < 0)
                 return r;
 
@@ -1985,7 +1994,10 @@ int journal_get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots) {
         for (;;) {
                 BootId boot;
 
-                r = discover_next_boot(j, previous_boot_id, /* advance_older = */ false, &boot);
+                if (n_boots >= max_ids)
+                        break;
+
+                r = discover_next_boot(j, previous_boot_id, advance_older, &boot);
                 if (r < 0)
                         return r;
                 if (r == 0)
