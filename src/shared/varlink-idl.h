@@ -85,25 +85,25 @@ struct VarlinkInterface {
         const VarlinkSymbol *symbols[];
 };
 
-#define VARLINK_DEFINE_FIELD(_name, _field_type, _field_flags)        \
+#define VARLINK_DEFINE_FIELD(_name, _field_type, _field_flags)          \
         { .name = #_name, .field_type = (_field_type), .field_flags = (_field_flags) }
 
-#define VARLINK_DEFINE_FIELD_BY_TYPE(_name, _named_type, _field_flags) \
+#define VARLINK_DEFINE_FIELD_BY_TYPE(_name, _named_type, _field_flags)  \
         { .name = #_name, .field_type = VARLINK_NAMED_TYPE, .named_type = #_named_type, .symbol = &vl_type_ ## _named_type, .field_flags = (_field_flags) }
 
-#define VARLINK_DEFINE_INPUT(_name, _field_type, _field_flags)        \
+#define VARLINK_DEFINE_INPUT(_name, _field_type, _field_flags)          \
         { .name = #_name, .field_type = (_field_type), .field_flags = (_field_flags), .field_direction = VARLINK_INPUT }
 
-#define VARLINK_DEFINE_INPUT_BY_TYPE(_name, _named_type, _field_flags) \
+#define VARLINK_DEFINE_INPUT_BY_TYPE(_name, _named_type, _field_flags)  \
         { .name = #_name, .field_type = VARLINK_NAMED_TYPE, .named_type = #_named_type, .symbol = &vl_type_ ## _named_type, .field_flags = (_field_flags), .field_direction = VARLINK_INPUT }
 
-#define VARLINK_DEFINE_OUTPUT(_name, _field_type, _field_flags)        \
+#define VARLINK_DEFINE_OUTPUT(_name, _field_type, _field_flags)         \
         { .name = #_name, .field_type = (_field_type), .field_flags = (_field_flags), .field_direction = VARLINK_OUTPUT }
 
 #define VARLINK_DEFINE_OUTPUT_BY_TYPE(_name, _named_type, _field_flags) \
         { .name = #_name, .field_type = VARLINK_NAMED_TYPE, .named_type = #_named_type, .symbol = &vl_type_ ## _named_type, .field_flags = (_field_flags), .field_direction = VARLINK_OUTPUT }
 
-#define VARLINK_DEFINE_ENUM_VALUE(_name) \
+#define VARLINK_DEFINE_ENUM_VALUE(_name)                                \
         { .name = #_name, .field_type = VARLINK_ENUM_VALUE }
 
 #define VARLINK_FIELD_COMMENT(text)                                     \
