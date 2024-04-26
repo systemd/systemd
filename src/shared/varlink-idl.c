@@ -1249,7 +1249,7 @@ static int varlink_idl_field_consistent(
                         const VarlinkSymbol *found;
 
                         if (!field->symbol->name || !field->named_type || !streq(field->symbol->name, field->named_type))
-                                return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Resolved symbol name and named type of field '%s' in symbol '%s' do do not match, refusing.", field->name, symbol_name);
+                                return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Resolved symbol name and named type of field '%s' in symbol '%s' do not match, refusing.", field->name, symbol_name);
 
                         /* If this is a named type, then check if it's properly part of the interface */
                         found = varlink_idl_find_symbol(interface, _VARLINK_SYMBOL_TYPE_INVALID, field->symbol->name);

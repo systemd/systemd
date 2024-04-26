@@ -560,7 +560,7 @@ static int acquire_home(
          * LUKS image in case the image was used in a different system where the password was changed. In
          * that case it will happen that the LUKS password and the host password are different, and we handle
          * that by collecting and passing multiple passwords in that case. Hence we treat bad passwords as a
-         * request to collect one more password and pass the new all all previously used passwords again. */
+         * request to collect one more password and pass the new and all previously used passwords again. */
 
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         r = pam_acquire_bus_connection(handle, "pam-systemd-home", &bus, bus_data);

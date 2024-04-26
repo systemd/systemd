@@ -164,7 +164,7 @@ CHANGES WITH 256-rc1:
           switch from one to the other via a simple reboot. Distributions
           apparently have lost interest in this, and the functionality has not
           been supported on the primary distribution this was still intended
-          for for a long time, and hence has been removed now.
+          for a long time, and hence has been removed now.
 
         * A new concept called "capsules" has been introduced. "Capsules" wrap
           additional per-user service managers, whose users are transient and
@@ -394,7 +394,7 @@ CHANGES WITH 256-rc1:
 
         * systemd-nspawn now provides a /run/systemd/nspawn/unix-export/
           directory where the container payload can expose AF_UNIX sockets to
-          allow them them to be accessed from outside.
+          allow them to be accessed from outside.
 
         * systemd-nspawn will tint the terminal background for containers in a
           blueish color. This can be controller with the new --background=
@@ -1563,7 +1563,7 @@ CHANGES WITH 255:
           sd_device_enumerator_add_match_property_required() which allows
           configuring matches on properties that are strictly required. This is
           different from the existing sd_device_enumerator_add_match_property()
-          matches of which one one needs to apply.
+          matches of which one needs to apply.
 
         * The MAC address the veth side of an nspawn container shall get
           assigned may now be controlled via the $SYSTEMD_NSPAWN_NETWORK_MAC

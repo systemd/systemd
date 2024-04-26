@@ -2007,7 +2007,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 assert(restart_state >= 0 && restart_state < _SERVICE_STATE_MAX);
 
                 /* We make two state changes here: one that maps to the high-level UNIT_INACTIVE/UNIT_FAILED
-                 * state (i.e. a state indicating deactivation), and then one that that maps to the
+                 * state (i.e. a state indicating deactivation), and then one that maps to the
                  * high-level UNIT_STARTING state (i.e. a state indicating activation). We do this so that
                  * external software can watch the state changes and see all service failures, even if they
                  * are only transitionary and followed by an automatic restart. We have fine-grained
