@@ -45,7 +45,7 @@ SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs \
 systemd-dissect --rmdir --umount /tmp/unpriv/mount
 
 systemd-dissect --image-policy='root=unprotected:=absent+unused' /var/tmp/unpriv.raw
-systemd-dissect --image-policy='root=unprotected:=absent+unused' --mtree /var/tmp/unpriv.raw | tee /tmp/unpriv.raw.mtree
+systemd-dissect --image-policy='root=unprotected:=absent+unused' --mtree /var/tmp/unpriv.raw >/tmp/unpriv.raw.mtree
 
 # Run unpriv, should fail due to lack of privs
 (! runas testuser systemd-dissect /var/tmp/unpriv.raw)
@@ -65,7 +65,7 @@ cp /tmp/test-50-unpriv-cert.crt /run/verity.d
 
 # Now run unpriv again, should be OK now.
 runas testuser systemd-dissect /var/tmp/unpriv.raw
-runas testuser systemd-dissect --mtree /var/tmp/unpriv.raw | tee /tmp/unpriv2.raw.mtree
+runas testuser systemd-dissect --mtree /var/tmp/unpriv.raw >/tmp/unpriv2.raw.mtree
 
 # Check that unpriv and priv run yielded same results
 cmp /tmp/unpriv.raw.mtree /tmp/unpriv2.raw.mtree

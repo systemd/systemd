@@ -513,16 +513,6 @@ static int pid_notify_with_fds_internal(
         }
 
         if (address.sockaddr.sa.sa_family == AF_VSOCK) {
-                /* If we shut down a virtual machine the kernel might not flush the buffers of the vsock
-                 * socket before shutting down. Set SO_LINGER so that we wait until the buffers are flushed
-                 * when the socket is closed. */
-                struct linger l = {
-                        .l_onoff = true,
-                        .l_linger = 10,
-                };
-                if (setsockopt(fd, SOL_SOCKET, SO_LINGER, &l, sizeof(l)) < 0)
-                        log_debug_errno(errno, "Failed to set SO_LINGER on vsock notify socket, ignoring: %m");
-
                 r = vsock_bind_privileged_port(fd);
                 if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
                         return log_debug_errno(r, "Failed to bind socket to privileged port: %m");
@@ -603,6 +593,19 @@ static int pid_notify_with_fds_internal(
                         msghdr.msg_controllen = 0;
                 }
         } while (!iovec_increment(msghdr.msg_iov, msghdr.msg_iovlen, n));
+
+        if (address.sockaddr.sa.sa_family == AF_VSOCK && IN_SET(type, SOCK_STREAM, SOCK_SEQPACKET)) {
+                /* For AF_VSOCK, we need to close the socket to signal the end of the message. */
+                if (shutdown(fd, SHUT_WR) < 0)
+                        return log_error_errno(errno, "Failed to shutdown notify socket: %m");
+
+                char buf[1];
+                n = recv(fd, buf, sizeof(buf), MSG_NOSIGNAL);
+                if (n > 0)
+                        return log_error_errno(errno, "Unexpectedly received data on notify socket: %m");
+                if (n < 0)
+                        return log_error_errno(errno, "Failed to wait for EOF on notify socket: %m");
+        }
 
         return 1;
 }
