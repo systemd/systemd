@@ -504,6 +504,8 @@ void exec_context_init(ExecContext *c) {
                 .tty_rows = UINT_MAX,
                 .tty_cols = UINT_MAX,
                 .private_mounts = -1,
+                .mount_apivfs = -1,
+                .bind_journal_sockets = -1,
                 .memory_ksm = -1,
                 .set_login_environment = -1,
         };
@@ -943,6 +945,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sProtectHome: %s\n"
                 "%sProtectSystem: %s\n"
                 "%sMountAPIVFS: %s\n"
+                "%sBindJournalSockets: %s\n"
                 "%sIgnoreSIGPIPE: %s\n"
                 "%sMemoryDenyWriteExecute: %s\n"
                 "%sRestrictRealtime: %s\n"
@@ -968,6 +971,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, protect_home_to_string(c->protect_home),
                 prefix, protect_system_to_string(c->protect_system),
                 prefix, yes_no(exec_context_get_effective_mount_apivfs(c)),
+                prefix, yes_no(exec_context_get_effective_bind_journal_sockets(c)),
                 prefix, yes_no(c->ignore_sigpipe),
                 prefix, yes_no(c->memory_deny_write_execute),
                 prefix, yes_no(c->restrict_realtime),
@@ -1440,14 +1444,30 @@ bool exec_context_get_effective_mount_apivfs(const ExecContext *c) {
         assert(c);
 
         /* Explicit setting wins */
-        if (c->mount_apivfs_set)
-                return c->mount_apivfs;
+        if (c->mount_apivfs >= 0)
+                return c->mount_apivfs > 0;
 
         /* Default to "yes" if root directory or image are specified */
         if (exec_context_with_rootfs(c))
                 return true;
 
         return false;
+}
+
+bool exec_context_get_effective_bind_journal_sockets(const ExecContext *c) {
+        assert(c);
+
+        /* If log namespace is specified, "/run/systemd/journal.namespace/" would be bind mounted to
+         * "/run/systemd/journal/", which effectively means BindJournalSockets=yes */
+        if (c->log_namespace)
+                return true;
+
+        if (c->bind_journal_sockets >= 0)
+                return c->bind_journal_sockets > 0;
+
+        return exec_context_get_effective_mount_apivfs(c) ||
+                (exec_context_with_rootfs(c) && c->private_devices); /* When PrivateDevices=yes, /dev/log gets
+                                                                        symlinked to /run/systemd/journal/dev-log */
 }
 
 void exec_context_free_log_extra_fields(ExecContext *c) {
