@@ -1474,6 +1474,8 @@ static int follow_symlink(
         _cleanup_free_ char *target = NULL;
         int r;
 
+        assert(m);
+
         /* Let's chase symlinks, but only one step at a time. That's because depending where the symlink points we
          * might need to change the order in which we mount stuff. Hence: let's normalize piecemeal, and do one step at
          * a time by specifying CHASE_STEP. This function returns 0 if we resolved one step, and > 0 if we reached the
@@ -1614,13 +1616,13 @@ static int apply_one_mount(
                                 host_os_release_id,
                                 host_os_release_version_id,
                                 host_os_release_level,
-                                /* host_extension_scope */ NULL, /* Leave empty, we need to accept both system and portable */
+                                /* host_extension_scope = */ NULL, /* Leave empty, we need to accept both system and portable */
                                 extension_release,
                                 class);
-                if (r == 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Directory %s extension-release metadata does not match the root's", extension_name);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to compare directory %s extension-release metadata with the root's os-release: %m", extension_name);
+                if (r == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Directory %s extension-release metadata does not match the root's", extension_name);
 
                 _fallthrough_;
         }

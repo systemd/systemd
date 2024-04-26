@@ -2292,10 +2292,10 @@ static int setup_exec_directory(
                         gid = 0;
         }
 
-        for (size_t i = 0; i < context->directories[type].n_items; i++) {
+        FOREACH_ARRAY(i, context->directories[type].items, context->directories[type].n_items) {
                 _cleanup_free_ char *p = NULL, *pp = NULL;
 
-                p = path_join(params->prefix[type], context->directories[type].items[i].path);
+                p = path_join(params->prefix[type], i->path);
                 if (!p) {
                         r = -ENOMEM;
                         goto fail;
@@ -2332,9 +2332,9 @@ static int setup_exec_directory(
                                  * under the configuration hierarchy. */
 
                                 if (type == EXEC_DIRECTORY_STATE)
-                                        q = path_join(params->prefix[EXEC_DIRECTORY_CONFIGURATION], context->directories[type].items[i].path);
+                                        q = path_join(params->prefix[EXEC_DIRECTORY_CONFIGURATION], i->path);
                                 else if (type == EXEC_DIRECTORY_LOGS)
-                                        q = path_join(params->prefix[EXEC_DIRECTORY_CONFIGURATION], "log", context->directories[type].items[i].path);
+                                        q = path_join(params->prefix[EXEC_DIRECTORY_CONFIGURATION], "log", i->path);
                                 else
                                         assert_not_reached();
                                 if (!q) {
@@ -2397,7 +2397,7 @@ static int setup_exec_directory(
                         if (r < 0)
                                 goto fail;
 
-                        if (!path_extend(&pp, context->directories[type].items[i].path)) {
+                        if (!path_extend(&pp, i->path)) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
@@ -2431,7 +2431,7 @@ static int setup_exec_directory(
                                         goto fail;
                         }
 
-                        if (!context->directories[type].items[i].only_create) {
+                        if (!i->only_create) {
                                 /* And link it up from the original place.
                                  * Notes
                                  * 1) If a mount namespace is going to be used, then this symlink remains on
@@ -2468,7 +2468,7 @@ static int setup_exec_directory(
                                 if (r < 0)
                                         goto fail;
 
-                                q = path_join(params->prefix[type], "private", context->directories[type].items[i].path);
+                                q = path_join(params->prefix[type], "private", i->path);
                                 if (!q) {
                                         r = -ENOMEM;
                                         goto fail;
@@ -2522,7 +2522,7 @@ static int setup_exec_directory(
                                                                  params,
                                                                  "%s \'%s\' already exists but the mode is different. "
                                                                  "(File system: %o %sMode: %o)",
-                                                                 exec_directory_type_to_string(type), context->directories[type].items[i].path,
+                                                                 exec_directory_type_to_string(type), i->path,
                                                                  st.st_mode & 07777, exec_directory_type_to_string(type), context->directories[type].mode & 07777);
 
                                         continue;
@@ -2553,10 +2553,8 @@ static int setup_exec_directory(
         /* If we are not going to run in a namespace, set up the symlinks - otherwise
          * they are set up later, to allow configuring empty var/run/etc. */
         if (!needs_mount_namespace)
-                for (size_t i = 0; i < context->directories[type].n_items; i++) {
-                        r = create_many_symlinks(params->prefix[type],
-                                                 context->directories[type].items[i].path,
-                                                 context->directories[type].items[i].symlinks);
+                FOREACH_ARRAY(i, context->directories[type].items, context->directories[type].n_items) {
+                        r = create_many_symlinks(params->prefix[type], i->path, i->symlinks);
                         if (r < 0)
                                 goto fail;
                 }
@@ -2623,8 +2621,8 @@ static int compile_bind_mounts(
                 if (!params->prefix[t])
                         continue;
 
-                for (size_t i = 0; i < context->directories[t].n_items; i++)
-                        n += !context->directories[t].items[i].only_create;
+                FOREACH_ARRAY(i, context->directories[t].items, context->directories[t].n_items)
+                        n += !i->only_create;
         }
 
         if (n <= 0) {
@@ -2638,8 +2636,7 @@ static int compile_bind_mounts(
         if (!bind_mounts)
                 return -ENOMEM;
 
-        for (size_t i = 0; i < context->n_bind_mounts; i++) {
-                BindMount *item = context->bind_mounts + i;
+        FOREACH_ARRAY(item, context->bind_mounts, context->n_bind_mounts) {
                 _cleanup_free_ char *s = NULL, *d = NULL;
 
                 s = strdup(item->source);
@@ -2683,18 +2680,18 @@ static int compile_bind_mounts(
                                 return r;
                 }
 
-                for (size_t i = 0; i < context->directories[t].n_items; i++) {
+                FOREACH_ARRAY(i, context->directories[t].items, context->directories[t].n_items) {
                         _cleanup_free_ char *s = NULL, *d = NULL;
 
                         /* When one of the parent directories is in the list, we cannot create the symlink
                          * for the child directory. See also the comments in setup_exec_directory(). */
-                        if (context->directories[t].items[i].only_create)
+                        if (i->only_create)
                                 continue;
 
                         if (exec_directory_is_private(context, t))
-                                s = path_join(params->prefix[t], "private", context->directories[t].items[i].path);
+                                s = path_join(params->prefix[t], "private", i->path);
                         else
-                                s = path_join(params->prefix[t], context->directories[t].items[i].path);
+                                s = path_join(params->prefix[t], i->path);
                         if (!s)
                                 return -ENOMEM;
 
@@ -2703,7 +2700,7 @@ static int compile_bind_mounts(
                                 /* When RootDirectory= or RootImage= are set, then the symbolic link to the private
                                  * directory is not created on the root directory. So, let's bind-mount the directory
                                  * on the 'non-private' place. */
-                                d = path_join(params->prefix[t], context->directories[t].items[i].path);
+                                d = path_join(params->prefix[t], i->path);
                         else
                                 d = strdup(s);
                         if (!d)
@@ -2712,10 +2709,8 @@ static int compile_bind_mounts(
                         bind_mounts[h++] = (BindMount) {
                                 .source = TAKE_PTR(s),
                                 .destination = TAKE_PTR(d),
-                                .read_only = false,
                                 .nosuid = context->dynamic_user, /* don't allow suid/sgid when DynamicUser= is on */
                                 .recursive = true,
-                                .ignore_enoent = false,
                         };
                 }
         }
@@ -2745,14 +2740,14 @@ static int compile_symlinks(
         assert(params);
         assert(ret_symlinks);
 
-        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
-                for (size_t i = 0; i < context->directories[dt].n_items; i++) {
+        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
+                FOREACH_ARRAY(i, context->directories[dt].items, context->directories[dt].n_items) {
                         _cleanup_free_ char *private_path = NULL, *path = NULL;
 
-                        STRV_FOREACH(symlink, context->directories[dt].items[i].symlinks) {
+                        STRV_FOREACH(symlink, i->symlinks) {
                                 _cleanup_free_ char *src_abs = NULL, *dst_abs = NULL;
 
-                                src_abs = path_join(params->prefix[dt], context->directories[dt].items[i].path);
+                                src_abs = path_join(params->prefix[dt], i->path);
                                 dst_abs = path_join(params->prefix[dt], *symlink);
                                 if (!src_abs || !dst_abs)
                                         return -ENOMEM;
@@ -2764,14 +2759,14 @@ static int compile_symlinks(
 
                         if (!exec_directory_is_private(context, dt) ||
                             exec_context_with_rootfs(context) ||
-                            context->directories[dt].items[i].only_create)
+                            i->only_create)
                                 continue;
 
-                        private_path = path_join(params->prefix[dt], "private", context->directories[dt].items[i].path);
+                        private_path = path_join(params->prefix[dt], "private", i->path);
                         if (!private_path)
                                 return -ENOMEM;
 
-                        path = path_join(params->prefix[dt], context->directories[dt].items[i].path);
+                        path = path_join(params->prefix[dt], i->path);
                         if (!path)
                                 return -ENOMEM;
 
@@ -2779,7 +2774,6 @@ static int compile_symlinks(
                         if (r < 0)
                                 return r;
                 }
-        }
 
         /* We make the host's os-release available via a symlink, so that we can copy it atomically
          * and readers will never get a half-written version. Note that, while the paths specified here are
@@ -2830,8 +2824,8 @@ static bool insist_on_sandboxing(
 
         /* If there are any bind mounts set that don't map back onto themselves, fs namespacing becomes
          * essential. */
-        for (size_t i = 0; i < n_bind_mounts; i++)
-                if (!path_equal(bind_mounts[i].source, bind_mounts[i].destination))
+        FOREACH_ARRAY(i, bind_mounts, n_bind_mounts)
+                if (!path_equal(i->source, i->destination))
                         return true;
 
         if (context->log_namespace)
