@@ -92,7 +92,7 @@ typedef struct MountEntry {
         const char *path_const;   /* Memory allocated on stack or static */
         MountMode mode;
         bool ignore:1;            /* Ignore if path does not exist? */
-        bool has_prefix:1;        /* Already is prefixed by the root dir? */
+        bool has_prefix:1;        /* Already prefixed by the root dir? */
         bool read_only:1;         /* Shall this mount point be read-only? */
         bool nosuid:1;            /* Shall set MS_NOSUID on the mount itself */
         bool noexec:1;            /* Shall set MS_NOEXEC on the mount itself */
@@ -115,6 +115,12 @@ typedef struct MountList {
         MountEntry *mounts;
         size_t n_mounts;
 } MountList;
+
+static const BindMount bind_journal_sockets_table[] = {
+        { (char*) "/run/systemd/journal/socket",  (char*) "/run/systemd/journal/socket",  .ignore_enoent = true },
+        { (char*) "/run/systemd/journal/stdout",  (char*) "/run/systemd/journal/stdout",  .ignore_enoent = true },
+        { (char*) "/run/systemd/journal/dev-log", (char*) "/run/systemd/journal/dev-log", .ignore_enoent = true },
+};
 
 /* If MountAPIVFS= is used, let's mount /sys, /proc, /dev and /run into the it, but only as a fallback if the user hasn't mounted
  * something there already. These mounts are hence overridden by any other explicitly configured mounts. */
@@ -1009,7 +1015,7 @@ static int create_temporary_mount_point(RuntimeScope scope, char **ret) {
         return 0;
 }
 
-static int mount_private_dev(MountEntry *m, RuntimeScope scope) {
+static int mount_private_dev(const MountEntry *m, const NamespaceParameters *p, bool root_dir) {
         static const char devnodes[] =
                 "/dev/null\0"
                 "/dev/zero\0"
@@ -1025,7 +1031,7 @@ static int mount_private_dev(MountEntry *m, RuntimeScope scope) {
 
         assert(m);
 
-        r = create_temporary_mount_point(scope, &temporary_mount);
+        r = create_temporary_mount_point(p->runtime_scope, &temporary_mount);
         if (r < 0)
                 return r;
 
@@ -1081,9 +1087,13 @@ static int mount_private_dev(MountEntry *m, RuntimeScope scope) {
         (void) mkdir(devhugepages, 0755);
         (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/hugepages", devhugepages, NULL, MS_BIND, NULL);
 
-        devlog = strjoina(temporary_mount, "/dev/log");
-        if (symlink("/run/systemd/journal/dev-log", devlog) < 0)
-                log_debug_errno(errno, "Failed to create a symlink '%s' to /run/systemd/journal/dev-log, ignoring: %m", devlog);
+        if (!root_dir || p->bind_journal_sockets) {
+                devlog = strjoina(temporary_mount, "/dev/log");
+                if (symlink("/run/systemd/journal/dev-log", devlog) < 0)
+                        log_debug_errno(errno,
+                                        "Failed to create a symlink '%s' to /run/systemd/journal/dev-log, ignoring: %m",
+                                        devlog);
+        }
 
         NULSTR_FOREACH(d, devnodes) {
                 r = clone_device_node(d, temporary_mount, &can_mknod);
@@ -1474,6 +1484,8 @@ static int follow_symlink(
         _cleanup_free_ char *target = NULL;
         int r;
 
+        assert(m);
+
         /* Let's chase symlinks, but only one step at a time. That's because depending where the symlink points we
          * might need to change the order in which we mount stuff. Hence: let's normalize piecemeal, and do one step at
          * a time by specifying CHASE_STEP. This function returns 0 if we resolved one step, and > 0 if we reached the
@@ -1614,13 +1626,13 @@ static int apply_one_mount(
                                 host_os_release_id,
                                 host_os_release_version_id,
                                 host_os_release_level,
-                                /* host_extension_scope */ NULL, /* Leave empty, we need to accept both system and portable */
+                                /* host_extension_scope = */ NULL, /* Leave empty, we need to accept both system and portable */
                                 extension_release,
                                 class);
-                if (r == 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Directory %s extension-release metadata does not match the root's", extension_name);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to compare directory %s extension-release metadata with the root's os-release: %m", extension_name);
+                if (r == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Directory %s extension-release metadata does not match the root's", extension_name);
 
                 _fallthrough_;
         }
@@ -1665,7 +1677,7 @@ static int apply_one_mount(
                 break;
 
         case MOUNT_PRIVATE_DEV:
-                return mount_private_dev(m, p->runtime_scope);
+                return mount_private_dev(m, p, root_directory);
 
         case MOUNT_BIND_DEV:
                 return mount_bind_dev(m);
@@ -2478,6 +2490,11 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                         .read_only = true,
                         .source_malloc = TAKE_PTR(q),
                 };
+
+        } else if (p->bind_journal_sockets) {
+                r = append_bind_mounts(&ml, bind_journal_sockets_table, ELEMENTSOF(bind_journal_sockets_table)),
+                if (r < 0)
+                        return r;
         }
 
         /* Will be used to add bind mounts at runtime */
