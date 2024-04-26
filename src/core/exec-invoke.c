@@ -3251,6 +3251,7 @@ static int apply_mount_namespace(
                 .private_ipc = needs_sandboxing && exec_needs_ipc_namespace(context),
 
                 .mount_apivfs = needs_sandboxing && exec_context_get_effective_mount_apivfs(context),
+                .bind_journal_sockets = needs_sandboxing && exec_context_get_effective_bind_journal_sockets(context),
 
                 /* If NNP is on, we can turn on MS_NOSUID, since it won't have any effect anymore. */
                 .mount_nosuid = needs_sandboxing && context->no_new_privileges && !mac_selinux_use(),
@@ -3867,7 +3868,8 @@ static bool exec_context_need_unprivileged_private_users(
                context->private_ipc ||
                context->ipc_namespace_path ||
                context->private_mounts > 0 ||
-               context->mount_apivfs ||
+               context->mount_apivfs > 0 ||
+               context->bind_journal_sockets > 0 ||
                context->n_bind_mounts > 0 ||
                context->n_temporary_filesystems > 0 ||
                context->root_directory ||
