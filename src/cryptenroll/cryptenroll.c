@@ -46,6 +46,7 @@ static Tpm2PCRValue *arg_tpm2_hash_pcr_values = NULL;
 static size_t arg_tpm2_n_hash_pcr_values = 0;
 static bool arg_tpm2_pin = false;
 static char *arg_tpm2_public_key = NULL;
+static bool arg_tpm2_load_public_key = true;
 static uint32_t arg_tpm2_public_key_pcr_mask = 0;
 static char *arg_tpm2_signature = NULL;
 static char *arg_tpm2_pcrlock = NULL;
@@ -498,9 +499,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM2_PUBLIC_KEY:
+                        /* an empty argument disables loading a public key */
+                        if (isempty(optarg)) {
+                                arg_tpm2_load_public_key = false;
+                                arg_tpm2_public_key = mfree(arg_tpm2_public_key);
+                                break;
+                        }
+
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_public_key);
                         if (r < 0)
                                 return r;
+                        arg_tpm2_load_public_key = true;
 
                         break;
 
@@ -834,7 +843,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, &slot_to_wipe);
+                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_load_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, &slot_to_wipe);
 
                 if (slot >= 0 && slot_to_wipe >= 0) {
                         /* Updating PIN on an existing enrollment */

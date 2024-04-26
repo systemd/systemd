@@ -250,6 +250,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 Tpm2PCRValue *hash_pcr_values,
                 size_t n_hash_pcr_values,
                 const char *pubkey_path,
+                bool load_pubkey,
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
                 bool use_pin,
@@ -306,25 +307,27 @@ int enroll_tpm2(struct crypt_device *cd,
         }
 
         TPM2B_PUBLIC public = {};
-        r = tpm2_load_pcr_public_key(pubkey_path, &pubkey.iov_base, &pubkey.iov_len);
-        if (r < 0) {
-                if (pubkey_path || signature_path || r != -ENOENT)
-                        return log_error_errno(r, "Failed to read TPM PCR public key: %m");
+        if (load_pubkey) {
+                r = tpm2_load_pcr_public_key(pubkey_path, &pubkey.iov_base, &pubkey.iov_len);
+                if (r < 0) {
+                        if (pubkey_path || signature_path || r != -ENOENT)
+                                return log_error_errno(r, "Failed to read TPM PCR public key: %m");
 
-                log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
-                pubkey_pcr_mask = 0;
-        } else {
-                r = tpm2_tpm2b_public_from_pem(pubkey.iov_base, pubkey.iov_len, &public);
-                if (r < 0)
-                        return log_error_errno(r, "Could not convert public key to TPM2B_PUBLIC: %m");
-
-                if (signature_path) {
-                        /* Also try to load the signature JSON object, to verify that our enrollment will work.
-                         * This is optional however, skip it if it's not explicitly provided. */
-
-                        r = tpm2_load_pcr_signature(signature_path, &signature_json);
+                        log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
+                        pubkey_pcr_mask = 0;
+                } else {
+                        r = tpm2_tpm2b_public_from_pem(pubkey.iov_base, pubkey.iov_len, &public);
                         if (r < 0)
-                                return log_debug_errno(r, "Failed to read TPM PCR signature: %m");
+                                return log_error_errno(r, "Could not convert public key to TPM2B_PUBLIC: %m");
+
+                        if (signature_path) {
+                                /* Also try to load the signature JSON object, to verify that our enrollment will work.
+                                 * This is optional however, skip it if it's not explicitly provided. */
+
+                                r = tpm2_load_pcr_signature(signature_path, &signature_json);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to read TPM PCR signature: %m");
+                        }
                 }
         }
 
