@@ -94,24 +94,26 @@ int journal_acquire_boot(sd_journal *j) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to get boot ID%s%s: %m",
                                                isempty(arg_machine) ? "" : " of container ", strempty(arg_machine));
-        } else if (sd_id128_is_null(arg_boot_id)) {
-                r = journal_find_boot_by_offset(j, arg_boot_offset, &arg_boot_id);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to find journal entry from the specified boot offset (%+i): %m",
-                                               arg_boot_offset);
-                if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
-                                               "No journal boot entry found from the specified boot offset (%+i).",
-                                               arg_boot_offset);
         } else {
-                r = journal_find_boot_by_id(j, arg_boot_id);
+                sd_id128_t boot_id;
+
+                r = journal_find_boot(j, arg_boot_id, arg_boot_offset, &boot_id);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to find journal entry from the specified boot ID (%s): %m",
-                                               SD_ID128_TO_STRING(arg_boot_id));
+                        return log_error_errno(r, "Failed to find journal entry from the specified boot (%s%+i): %m",
+                                               sd_id128_is_null(arg_boot_id) ? "" : SD_ID128_TO_STRING(arg_boot_id),
+                                               arg_boot_offset);
                 if (r == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
-                                               "No journal boot entry found from the specified boot ID (%s).",
-                                               SD_ID128_TO_STRING(arg_boot_id));
+                                               "No journal boot entry found from the specified boot (%s%+i).",
+                                               sd_id128_is_null(arg_boot_id) ? "" : SD_ID128_TO_STRING(arg_boot_id),
+                                               arg_boot_offset);
+
+                log_debug("Found boot %s for %s%+i",
+                          SD_ID128_TO_STRING(boot_id),
+                          sd_id128_is_null(arg_boot_id) ? "" : SD_ID128_TO_STRING(arg_boot_id),
+                          arg_boot_offset);
+
+                arg_boot_id = boot_id;
         }
 
         return 1;
