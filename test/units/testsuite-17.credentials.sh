@@ -4,6 +4,11 @@
 set -eux
 set -o pipefail
 
+if [[ $(systemctl is-enabled systemd-udev-load-credentials.service) == not-found ]]; then
+    echo "Missing systemd-udev-load-credentials.service" >>/skipped
+    exit 0
+fi
+
 at_exit() {
     rm -f /run/credstore/udev.*
     rm -f /run/udev/udev.conf.d/*
