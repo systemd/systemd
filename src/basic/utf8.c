@@ -597,11 +597,14 @@ size_t utf8_n_codepoints(const char *str) {
 }
 
 size_t utf8_console_width(const char *str) {
-        size_t n = 0;
+
+        if (isempty(str))
+                return 0;
 
         /* Returns the approximate width a string will take on screen when printed on a character cell
          * terminal/console. */
 
+        size_t n = 0;
         while (*str) {
                 int w;
 
