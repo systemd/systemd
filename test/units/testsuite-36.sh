@@ -29,7 +29,7 @@ testUnitFile="/run/systemd/system/$testUnit"
 testUnitNUMAConf="$testUnitFile.d/numa.conf"
 
 # Sleep constants (we should probably figure out something better but nothing comes to mind)
-sleepAfterStart=1
+sleepAfterStart=3
 
 # Journal cursor for easier navigation
 journalCursorFile="jounalCursorFile"
