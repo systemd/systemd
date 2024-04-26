@@ -13,7 +13,7 @@ if [[ ! -f /usr/lib/systemd/system/systemd-mountfsd.socket ]] || \
    ! find /usr/lib* -name libbpf.so.1 2>/dev/null | grep . || \
    systemd-analyze compare-versions "$(uname -r)" lt 6.5 || \
    systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" lt 124; then
-    echo "Skipping mountnfsd/nsresourced tests"
+    echo "Skipping mountfsd/nsresourced tests"
     exit 0
 fi
 
@@ -56,7 +56,7 @@ if (SYSTEMD_LOG_TARGET=console varlinkctl call \
         io.systemd.NamespaceResource.AllocateUserRange \
         '{"name":"test-supported","size":65536,"userNamespaceFileDescriptor":0}' 2>&1 || true) |
             grep -q "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"; then
-    echo "User namespace interface not supported, skipping mountnfsd/nsresourced tests"
+    echo "User namespace interface not supported, skipping mountfsd/nsresourced tests"
     exit 0
 fi
 
