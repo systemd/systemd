@@ -96,7 +96,7 @@ TEST(mkdir_p_root) {
         assert_se(mkdtemp_malloc("/tmp/test-mkdir-XXXXXX", &tmp) >= 0);
 
         assert_se(p = path_join(tmp, "run/aaa/bbb"));
-        assert_se(mkdir_p_root(tmp, "/run/aaa/bbb", UID_INVALID, GID_INVALID, 0755, NULL) >= 0);
+        assert_se(mkdir_p_root(tmp, "/run/aaa/bbb", UID_INVALID, GID_INVALID, 0755) >= 0);
         assert_se(is_dir(p, false) > 0);
         assert_se(is_dir(p, true) > 0);
 
@@ -109,18 +109,18 @@ TEST(mkdir_p_root) {
 
         p = mfree(p);
         assert_se(p = path_join(tmp, "var/run/hoge/foo/baz"));
-        assert_se(mkdir_p_root(tmp, "/var/run/hoge/foo/baz", UID_INVALID, GID_INVALID, 0755, NULL) >= 0);
+        assert_se(mkdir_p_root(tmp, "/var/run/hoge/foo/baz", UID_INVALID, GID_INVALID, 0755) >= 0);
         assert_se(is_dir(p, false) > 0);
         assert_se(is_dir(p, true) > 0);
 
         p = mfree(p);
         assert_se(p = path_join(tmp, "not-exists"));
-        assert_se(mkdir_p_root(p, "/aaa", UID_INVALID, GID_INVALID, 0755, NULL) == -ENOENT);
+        assert_se(mkdir_p_root(p, "/aaa", UID_INVALID, GID_INVALID, 0755) == -ENOENT);
 
         p = mfree(p);
         assert_se(p = path_join(tmp, "regular-file"));
         assert_se(touch(p) >= 0);
-        assert_se(mkdir_p_root(p, "/aaa", UID_INVALID, GID_INVALID, 0755, NULL) == -ENOTDIR);
+        assert_se(mkdir_p_root(p, "/aaa", UID_INVALID, GID_INVALID, 0755) == -ENOTDIR);
 
         /* FIXME: The tests below do not work.
         p = mfree(p);
@@ -136,6 +136,32 @@ TEST(mkdir_p_root) {
         assert_se(is_dir(p, false) > 0);
         assert_se(is_dir(p, true) > 0);
         */
+}
+
+TEST(mkdir_p_root_full) {
+        _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
+        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ struct stat st;
+
+        assert_se(mkdtemp_malloc("/tmp/test-mkdir-XXXXXX", &tmp) >= 0);
+
+        assert_se(p = path_join(tmp, "foo"));
+        assert_se(mkdir_p_root_full(tmp, "/foo", UID_INVALID, GID_INVALID, 0755, NULL, 1234) >= 0);
+        assert_se(is_dir(p, false) > 0);
+        assert_se(is_dir(p, true) > 0);
+        assert_se(stat(p, &st) >= 0);
+        assert_se(st.st_mtim.tv_nsec == 1234);
+        assert_se(st.st_atim.tv_nsec == 1234);
+
+        p = mfree(p);
+        assert_se(p = path_join(tmp, "dir-not-exists/foo"));
+        assert_se(mkdir_p_root_full(tmp, "/dir-not-exists/foo", UID_INVALID, GID_INVALID, 0755, NULL, 5678) >= 0);
+        assert_se(is_dir(p, false) > 0);
+        assert_se(is_dir(p, true) > 0);
+        assert_se(p = path_join(tmp, "dir-not-exists"));
+        assert_se(stat(p, &st) >= 0);
+        assert_se(st.st_mtim.tv_nsec == 5678);
+        assert_se(st.st_atim.tv_nsec == 5678);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
