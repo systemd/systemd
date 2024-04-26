@@ -1884,37 +1884,9 @@ static int discover_next_boot(
         }
 }
 
-int journal_find_boot_by_id(sd_journal *j, sd_id128_t boot_id) {
-        int r;
-
-        assert(j);
-        assert(!sd_id128_is_null(boot_id));
-
-        sd_journal_flush_matches(j);
-
-        r = add_match_boot_id(j, boot_id);
-        if (r < 0)
-                return r;
-
-        r = sd_journal_seek_head(j); /* seek to oldest */
-        if (r < 0)
-                return r;
-
-        r = sd_journal_next(j);      /* read the oldest entry */
-        if (r < 0)
-                return r;
-
-        /* At this point the read pointer is positioned at the oldest occurrence of the reference boot ID.
-         * After flushing the matches, one more invocation of _previous() will hence place us at the
-         * following entry, which must then have an older boot ID */
-
-        sd_journal_flush_matches(j);
-        return r > 0;
-}
-
-int journal_find_boot_by_offset(sd_journal *j, int offset, sd_id128_t *ret) {
+int journal_find_boot(sd_journal *j, sd_id128_t boot_id, int offset, sd_id128_t *ret) {
         bool advance_older;
-        int r;
+        int r, offset_start;
 
         assert(j);
         assert(ret);
@@ -1925,21 +1897,50 @@ int journal_find_boot_by_offset(sd_journal *j, int offset, sd_id128_t *ret) {
 
         sd_journal_flush_matches(j);
 
-        if (advance_older)
-                r = sd_journal_seek_tail(j); /* seek to newest */
-        else
-                r = sd_journal_seek_head(j); /* seek to oldest */
-        if (r < 0)
-                return r;
+        if (!sd_id128_is_null(boot_id)) {
+                r = add_match_boot_id(j, boot_id);
+                if (r < 0)
+                        return r;
 
-        /* No sd_journal_next()/_previous() here.
-         *
-         * At this point the read pointer is positioned after the newest/before the oldest entry in the whole
-         * journal. The next invocation of _previous()/_next() will hence position us at the newest/oldest
-         * entry we have. */
+                if (advance_older)
+                        r = sd_journal_seek_head(j); /* seek to oldest */
+                else
+                        r = sd_journal_seek_tail(j); /* seek to newest */
+                if (r < 0)
+                        return r;
 
-        sd_id128_t boot_id = SD_ID128_NULL;
-        for (int off = !advance_older; ; off += advance_older ? -1 : 1) {
+                r = sd_journal_step_one(j, advance_older);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        sd_journal_flush_matches(j);
+                        *ret = SD_ID128_NULL;
+                        return false;
+                }
+                if (offset == 0) {
+                        /* If boot ID is specified without offset, then let's short cut the loop below. */
+                        sd_journal_flush_matches(j);
+                        *ret = boot_id;
+                        return true;
+                }
+
+                offset_start = advance_older ? -1 : 1;
+        } else {
+                if (advance_older)
+                        r = sd_journal_seek_tail(j); /* seek to newest */
+                else
+                        r = sd_journal_seek_head(j); /* seek to oldest */
+                if (r < 0)
+                        return r;
+
+                offset_start = advance_older ? 0 : 1;
+        }
+
+        /* At this point the cursor is positioned at the newest/oldest entry of the reference boot ID if
+         * specified, or whole journal otherwise. The next invocation of _previous()/_next() will hence
+         * position us at the newest/oldest entry we have. */
+
+        for (int off = offset_start; ; off += advance_older ? -1 : 1) {
                 BootId boot;
 
                 r = discover_next_boot(j, boot_id, advance_older, &boot);
@@ -1953,12 +1954,11 @@ int journal_find_boot_by_offset(sd_journal *j, int offset, sd_id128_t *ret) {
                 boot_id = boot.id;
                 log_debug("Found boot ID %s by offset %i", SD_ID128_TO_STRING(boot_id), off);
 
-                if (off == offset)
-                        break;
+                if (off == offset) {
+                        *ret = boot_id;
+                        return true;
+                }
         }
-
-        *ret = boot_id;
-        return true;
 }
 
 int journal_get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots) {
