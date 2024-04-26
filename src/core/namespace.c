@@ -116,10 +116,10 @@ typedef struct MountList {
         size_t n_mounts;
 } MountList;
 
-static const MountEntry bind_journal_sockets_table[] = {
-        { "/run/systemd/journal/socket",  MOUNT_BIND, .source_const = "/run/systemd/journal/socket",  .ignore = true },
-        { "/run/systemd/journal/stdout",  MOUNT_BIND, .source_const = "/run/systemd/journal/stdout",  .ignore = true },
-        { "/run/systemd/journal/dev-log", MOUNT_BIND, .source_const = "/run/systemd/journal/dev-log", .ignore = true },
+static const BindMount bind_journal_sockets_table[] = {
+        { (char*) "/run/systemd/journal/socket",  (char*) "/run/systemd/journal/socket",  .ignore_enoent = true },
+        { (char*) "/run/systemd/journal/stdout",  (char*) "/run/systemd/journal/stdout",  .ignore_enoent = true },
+        { (char*) "/run/systemd/journal/dev-log", (char*) "/run/systemd/journal/dev-log", .ignore_enoent = true },
 };
 
 /* If MountAPIVFS= is used, let's mount /sys, /proc, /dev and /run into the it, but only as a fallback if the user hasn't mounted
@@ -2492,9 +2492,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                 };
 
         } else if (p->bind_journal_sockets) {
-                r = append_static_mounts(&ml,
-                                         bind_journal_sockets_table, ELEMENTSOF(bind_journal_sockets_table),
-                                         /* ignore_protect = */ false);
+                r = append_bind_mounts(&ml, bind_journal_sockets_table, ELEMENTSOF(bind_journal_sockets_table));
                 if (r < 0)
                         return r;
         }
