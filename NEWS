@@ -15,6 +15,22 @@ CHANGES WITH 256-rc1:
           only cgroup v2 ('unified' hierarchy) can be selected as build-time
           default.
 
+        * Support for System V service scripts is deprecated and will be
+          removed in a future release. Please make sure to update your software
+          *now* to include a native systemd unit file instead of a legacy
+          System V script to retain compatibility with future systemd releases.
+
+        * Support for the SystemdOptions EFI variable is deprecated.
+          'bootctl systemd-efi-options' will emit a warning when used. It seems
+          that this feature is little-used and it is better to use alternative
+          approaches like credentials and confexts. The plan is to drop support
+          altogether at a later point, but this might be revisited based on
+          user feedback.
+
+        * systemd-run's switch --expand-environment= which currently is disabled
+          by default when combined with --scope, will be changed in a future
+          release to be enabled by default.
+
         * Previously, systemd-networkd did not explicitly remove any bridge
           VLAN IDs assigned on bridge master and ports. Since version 256, if a
           .network file for an interface has at least one valid setting in the
