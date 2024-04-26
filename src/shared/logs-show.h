@@ -71,4 +71,9 @@ void json_escape(
                 OutputFlags flags);
 
 int journal_find_boot(sd_journal *j, sd_id128_t boot_id, int offset, sd_id128_t *ret);
-int journal_get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots);
+int journal_get_boots(
+                sd_journal *j,
+                bool advance_older,
+                size_t max_ids,
+                BootId **ret_boots,
+                size_t *ret_n_boots);
