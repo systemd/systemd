@@ -125,9 +125,10 @@
 
         <listitem><para>Takes a directory path relative to the host's root directory (i.e. the root of the system
         running the service manager). Sets the root directory for executed processes, with the <citerefentry
-        project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system
-        call. If this is used, it must be ensured that the process binary and all its auxiliary files are available in
-        the <function>chroot()</function> jail. Note that setting this parameter might result in additional
+        project='man-pages'><refentrytitle>pivot_root</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        or <citerefentry project='man-pages'><refentrytitle>chroot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        system call. If this is used, it must be ensured that the process binary and all its auxiliary files
+        are available in the new root. Note that setting this parameter might result in additional
         dependencies to be added to the unit (see above).</para>
 
         <para>The <varname>MountAPIVFS=</varname> and <varname>PrivateUsers=</varname> settings are particularly useful
