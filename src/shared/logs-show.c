@@ -1765,6 +1765,7 @@ static int discover_next_boot(
                 if (r < 0)
                         return r;
                 if (r == 0) {
+                        sd_journal_flush_matches(j);
                         *ret = (BootId) {};
                         return 0; /* End of journal, yay. */
                 }
@@ -1922,6 +1923,8 @@ int journal_find_boot_by_offset(sd_journal *j, int offset, sd_id128_t *ret) {
          * (chronological) first boot in the journal. */
         advance_older = offset <= 0;
 
+        sd_journal_flush_matches(j);
+
         if (advance_older)
                 r = sd_journal_seek_tail(j); /* seek to newest */
         else
@@ -1966,6 +1969,8 @@ int journal_get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots) {
         assert(j);
         assert(ret_boots);
         assert(ret_n_boots);
+
+        sd_journal_flush_matches(j);
 
         r = sd_journal_seek_head(j); /* seek to oldest */
         if (r < 0)
