@@ -359,7 +359,7 @@ integration_tests = {
         '26': 'TEST-26-SYSTEMCTL',
         '29': 'TEST-29-PORTABLE',
         '30': 'TEST-30-ONCLOCKCHANGE',
-        # '31': 'TEST-31-DEVICE-ENUMERATION',
+        '31': 'TEST-31-DEVICE-ENUMERATION',
         '32': 'TEST-32-OOMPOLICY',
         '34': 'TEST-34-DYNAMICUSERMIGRATE',
         '35': 'TEST-35-LOGIN',
