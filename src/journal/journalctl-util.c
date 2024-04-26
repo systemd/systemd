@@ -89,7 +89,7 @@ int journal_acquire_boot(sd_journal *j) {
          * We can do this only when we logs are coming from the current machine,
          * so take the slow path if log location is specified. */
         if (arg_boot_offset == 0 && sd_id128_is_null(arg_boot_id) &&
-            !arg_directory && !arg_file && !arg_root) {
+            !arg_directory && !arg_file && !arg_file_stdin && !arg_root) {
                 r = id128_get_boot_for_machine(arg_machine, &arg_boot_id);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get boot ID%s%s: %m",
