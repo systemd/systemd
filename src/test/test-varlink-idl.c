@@ -117,7 +117,7 @@ static void test_parse_format_one(const VarlinkInterface *iface) {
 
         assert_se(iface);
 
-        assert_se(varlink_idl_dump(stdout, /* use_colors=*/ true, iface) >= 0);
+        assert_se(varlink_idl_dump(stdout, /* use_colors=*/ true, /* cols= */ SIZE_MAX, iface) >= 0);
         assert_se(varlink_idl_consistent(iface, LOG_ERR) >= 0);
         assert_se(varlink_idl_format(iface, &text) >= 0);
         assert_se(varlink_idl_parse(text, NULL, NULL, &parsed) >= 0);
