@@ -737,7 +737,9 @@ install_verity_minimal() {
             cat
             echo
             grep
+            ls
             mount
+            mountpoint
             sleep
             touch
         )
