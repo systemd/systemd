@@ -19,8 +19,6 @@ executables += [
                 'name' : 'systemd-mountwork',
                 'conditions' : ['ENABLE_MOUNTFSD'],
                 'sources' : systemd_mountwork_sources,
-                'link_with' : common_libs,
-                'dependencies' : common_deps,
         },
 ]
 
