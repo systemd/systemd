@@ -187,6 +187,9 @@ static int utf8_char_console_width(const char *str) {
         if (r < 0)
                 return r;
 
+        if (c == '\t')
+                return 8; /* Assume a tab width of 8 */
+
         /* TODO: we should detect combining characters */
 
         return unichar_iswide(c) ? 2 : 1;
