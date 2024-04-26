@@ -958,7 +958,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Please specify either --reverse or --follow, not both.");
 
-        if (arg_lines >= 0 && arg_lines_oldest && (arg_reverse || arg_follow))
+        if (arg_action == ACTION_SHOW && arg_lines >= 0 && arg_lines_oldest && (arg_reverse || arg_follow))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--lines=+N is unsupported when --reverse or --follow is specified.");
 
