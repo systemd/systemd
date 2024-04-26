@@ -1998,10 +1998,8 @@ int journal_get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots) {
                                  * Exiting as otherwise this problem would cause an infinite loop. */
                                 goto finish;
 
-                if (!GREEDY_REALLOC(boots, n_boots + 1))
+                if (!GREEDY_REALLOC_APPEND(boots, n_boots, &boot, 1))
                         return -ENOMEM;
-
-                boots[n_boots++] = boot;
         }
 
  finish:
