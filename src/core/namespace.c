@@ -2644,9 +2644,9 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
 void bind_mount_free_many(BindMount *b, size_t n) {
         assert(b || n == 0);
 
-        for (size_t i = 0; i < n; i++) {
-                free(b[i].source);
-                free(b[i].destination);
+        FOREACH_ARRAY(i, b, n) {
+                free(i->source);
+                free(i->destination);
         }
 
         free(b);
